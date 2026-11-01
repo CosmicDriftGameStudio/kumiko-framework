@@ -37,6 +37,8 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { isValidIanaTimeZone } from "../time/iana.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_CONFIG_EVENTS_JOBS_RULES } from "./boot-validator/definition-config-events-jobs-rules.ts";
 import { reasonProblem } from "./escape-hatch-reason.ts";
 import { createEventDef } from "./event-def.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
@@ -51,25 +53,28 @@ function assertScheduleTrigger(
   trigger: JobDefinition["trigger"],
 ): void {
   if ("maintenance" in trigger && trigger.maintenance !== true) {
-    throw new Error(
-      `[Feature ${featureName}] r.job("${jobName}") declares trigger { maintenance: ${JSON.stringify(trigger.maintenance)} } — ` +
+    throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobMaintenanceTriggerInvalid, {
+      message:
+        `[Feature ${featureName}] r.job("${jobName}") declares trigger { maintenance: ${JSON.stringify(trigger.maintenance)} } — ` +
         "the only valid value is true; the run time comes from KUMIKO_MAINTENANCE_WINDOW.",
-    );
+    });
   }
   if ("wakesSleepingApp" in trigger && trigger.wakesSleepingApp !== undefined) {
     const isScheduled = "cron" in trigger || "maintenance" in trigger;
     if (!isScheduled || trigger.wakesSleepingApp !== false) {
-      throw new Error(
-        `[Feature ${featureName}] r.job("${jobName}") declares trigger { wakesSleepingApp: ${JSON.stringify(trigger.wakesSleepingApp)} } — ` +
+      throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobWakesSleepingAppInvalid, {
+        message:
+          `[Feature ${featureName}] r.job("${jobName}") declares trigger { wakesSleepingApp: ${JSON.stringify(trigger.wakesSleepingApp)} } — ` +
           "only false is valid, and only on a cron or maintenance trigger; leave it out to wake the app.",
-      );
+      });
     }
   }
   if ("cron" in trigger && trigger.tz !== undefined && !isValidIanaTimeZone(trigger.tz)) {
-    throw new Error(
-      `[Feature ${featureName}] r.job("${jobName}") declares trigger { cron, tz: ${JSON.stringify(trigger.tz)} } — ` +
+    throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobCronTimezoneInvalid, {
+      message:
+        `[Feature ${featureName}] r.job("${jobName}") declares trigger { cron, tz: ${JSON.stringify(trigger.tz)} } — ` +
         'tz must be an IANA time zone name such as "Europe/Berlin".',
-    );
+    });
   }
 }
 
@@ -106,7 +111,9 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     // to optional to satisfy both call shapes.
     const definition = typeof arg1 === "string" && arg2 ? { keys: { [arg1]: arg2 } } : arg1;
     if (typeof definition === "string") {
-      throw new Error("config(): single-key form requires a definition as the second argument");
+      throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.configSingleKeyNeedsDefinition, {
+        message: "config(): single-key form requires a definition as the second argument",
+      });
     }
     // Qualify eagerly (same as defineEvent) so the handle name matches what
     // the registry stores — lazy qualification would break compile-time
@@ -149,22 +156,23 @@ export function buildConfigEventsJobsMethods<TName extends string>(
     transform: EventUpcastFn | DeclarativeEventMigration,
   ): void {
     if (toVersion !== fromVersion + 1) {
-      throw new Error(
-        `[Feature ${name}] defineEvent("${eventName}") migrations: only single-step migrations are allowed — toVersion must be fromVersion + 1 (got ${fromVersion} -> ${toVersion}). ` +
+      throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.eventMigrationStepSize, {
+        message:
+          `[Feature ${name}] defineEvent("${eventName}") migrations: only single-step migrations are allowed — toVersion must be fromVersion + 1 (got ${fromVersion} -> ${toVersion}). ` +
           `Chain larger jumps by declaring each step separately.`,
-      );
+      });
     }
     if (!Number.isInteger(fromVersion) || fromVersion < 1) {
-      throw new Error(
-        `[Feature ${name}] defineEvent("${eventName}") migrations: fromVersion must be >= 1, got ${String(fromVersion)}`,
-      );
+      throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.eventMigrationFromVersionInvalid, {
+        message: `[Feature ${name}] defineEvent("${eventName}") migrations: fromVersion must be >= 1, got ${String(fromVersion)}`,
+      });
     }
     const qualified = qn(toKebab(name), "event", toKebab(eventName));
     const list = state.eventMigrations[eventName] ?? [];
     if (list.some((m) => m.fromVersion === fromVersion)) {
-      throw new Error(
-        `[Feature ${name}] defineEvent("${eventName}") migrations: a migration from v${fromVersion} is already declared. Each step may only be declared once.`,
-      );
+      throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.eventMigrationDuplicateStep, {
+        message: `[Feature ${name}] defineEvent("${eventName}") migrations: a migration from v${fromVersion} is already declared. Each step may only be declared once.`,
+      });
     }
     const transformFn =
       typeof transform === "function" ? transform : compileEventMigration(transform);
@@ -195,16 +203,16 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           ? reasonProblem(jobOptions.escapeHatch.reason)
           : undefined;
       if (jobReasonProblem !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobReasonProblem}`,
-        );
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobEscapeHatchInvalid, {
+          message: `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobReasonProblem}`,
+        });
       }
       const jobGrantsProblem =
         jobOptions.escapeHatch && escapeHatchGrantsProblem(jobOptions.escapeHatch);
       if (jobGrantsProblem) {
-        throw new Error(
-          `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobGrantsProblem}`,
-        );
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.jobEscapeHatchInvalid, {
+          message: `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobGrantsProblem}`,
+        });
       }
       assertScheduleTrigger(name, jobName, jobOptions.trigger);
       // Resolve NameOrRef(s) in trigger.on. For the multi-trigger form, arrays
@@ -344,18 +352,19 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           ? [shortNameOrDefinition, requireArgument(options, name, "metric", "options")]
           : splitNamedDefinition(shortNameOrDefinition);
       if (state.metrics[shortName]) {
-        throw new Error(
-          `[Feature ${name}] Metric "${shortName}" already registered. ` +
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.metricDuplicate, {
+          message:
+            `[Feature ${name}] Metric "${shortName}" already registered. ` +
             `Metric names must be unique per feature.`,
-        );
+        });
       }
       state.metrics[shortName] = { shortName, ...metricOptions };
     },
     envSchema(schema: z.ZodObject<z.ZodRawShape>): void {
       if (state.envSchema !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.envSchema() called twice — declare one composed Zod-object per feature.`,
-        );
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.envSchemaTwice, {
+          message: `[Feature ${name}] r.envSchema() called twice — declare one composed Zod-object per feature.`,
+        });
       }
       state.envSchema = schema;
     },
@@ -368,16 +377,18 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           ? [shortNameOrDefinition, requireArgument(options, name, "secret", "options")]
           : splitNamedDefinition(shortNameOrDefinition);
       if (state.secretKeys[shortName]) {
-        throw new Error(
-          `[Feature ${name}] Secret "${shortName}" already registered. ` +
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.secretDuplicate, {
+          message:
+            `[Feature ${name}] Secret "${shortName}" already registered. ` +
             `Secret key names must be unique per feature.`,
-        );
+        });
       }
       if (secretOptions.writeRoles !== undefined && secretOptions.writeRoles.length === 0) {
-        throw new Error(
-          `[Feature ${name}] Secret "${shortName}" declares an empty writeRoles list, ` +
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.secretWriteRolesEmpty, {
+          message:
+            `[Feature ${name}] Secret "${shortName}" declares an empty writeRoles list, ` +
             `which nobody could ever satisfy. Omit writeRoles to fall back to the secrets handler access.`,
-        );
+        });
       }
       // Qualified name follows the framework's "<feature>:<type>:<name>"
       // QN convention — same pattern config / jobs / events use. toKebab
@@ -401,16 +412,18 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           ? [shortNameOrDefinition, requireArgument(options, name, "secretNamespace", "options")]
           : splitNamedDefinition(shortNameOrDefinition);
       if (state.secretNamespaces[shortName]) {
-        throw new Error(
-          `[Feature ${name}] Secret namespace "${shortName}" already registered. ` +
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.secretNamespaceDuplicate, {
+          message:
+            `[Feature ${name}] Secret namespace "${shortName}" already registered. ` +
             `Secret namespace names must be unique per feature.`,
-        );
+        });
       }
       if (namespaceOptions.writeRoles !== undefined && namespaceOptions.writeRoles.length === 0) {
-        throw new Error(
-          `[Feature ${name}] Secret namespace "${shortName}" declares an empty writeRoles list, ` +
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.secretWriteRolesEmpty, {
+          message:
+            `[Feature ${name}] Secret namespace "${shortName}" declares an empty writeRoles list, ` +
             `which nobody could ever satisfy. Omit writeRoles to fall back to the secrets handler access.`,
-        );
+        });
       }
       const qualifiedPrefix = `${toKebab(name)}:${toKebab(shortName)}.`;
       state.secretNamespaces[shortName] = { shortName, qualifiedPrefix, ...namespaceOptions };
@@ -429,10 +442,11 @@ export function buildConfigEventsJobsMethods<TName extends string>(
           ? requireArgument(options, name, "claimKey", "options").type
           : shortNameOrDefinition.type;
       if (state.claimKeys[shortName]) {
-        throw new Error(
-          `[Feature ${name}] Claim key "${shortName}" already declared. ` +
+        throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.claimKeyDuplicate, {
+          message:
+            `[Feature ${name}] Claim key "${shortName}" already declared. ` +
             "Claim short-names must be unique per feature.",
-        );
+        });
       }
       // Claim keys are NOT full QNs — the JWT shape is 2-segment
       // "<featureName>:<shortName>" (same as Translation keys), not
@@ -465,9 +479,9 @@ function compileEventMigration(spec: DeclarativeEventMigration): EventUpcastFn {
   for (const [from, to] of Object.entries(spec.rename ?? {})) {
     const existing = renameTargets.get(to);
     if (existing !== undefined) {
-      throw new Error(
-        `Declarative event migration: rename collision — both "${existing}" and "${from}" rename to "${to}". Only one source may map to a given target.`,
-      );
+      throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.eventMigrationRenameCollision, {
+        message: `Declarative event migration: rename collision — both "${existing}" and "${from}" rename to "${to}". Only one source may map to a given target.`,
+      });
     }
     renameTargets.set(to, from);
   }

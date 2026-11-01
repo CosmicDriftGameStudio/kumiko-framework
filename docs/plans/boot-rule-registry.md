@@ -1,8 +1,8 @@
 ---
 status: in-progress
-verified: 2026-10-31
+verified: 2026-11-01
 issue: kumiko-framework#4124
-next: S1 bis S8 sind gemergt, alle Boot-Throws tragen eine Regel-ID, der Ratchet-Guard ist gelöscht; offen sind S-Studio (validate --json im Designer) und die Folgerunde (Schicht 0, 1, 3, Warnungen als Regeln)
+next: S1 bis S8, S-Studio und Schicht 0 (Definitionsschicht sammelt in validate) sind umgesetzt; offen aus der Folgerunde sind Schicht 1 (createApp), Schicht 3 (Registry), Warnungen als Regeln und Grenzen pro Regel in den Dateien aus S5 bis S8
 ---
 
 # Boot-Regel-Registry: alle Boot-Fehler in einem Lauf, mit stabiler Regel-ID
@@ -411,9 +411,22 @@ Nav, Rest (ca. 75).
 
 Nicht in dieser Runde: Schicht 0 (Definition, ca. 119), Schicht 1 (createApp, 9) und
 Schicht 3 (Registry, ca. 80). Schicht 0 ist der größte Rest: ein Fehler in `r.nav` beendet
-schon den Import von `kumiko/schema.ts`. Sammeln hieße, dass der Registrar Verstöße am
-FeatureDefinition ablegt statt zu werfen und validateBoot sie in P1 meldet. Das ist eine eigene
-Runde (Abschnitt 6, Folgerunde).
+schon den Import von `kumiko/schema.ts`. Das ist eine eigene Runde (Abschnitt 6, Folgerunde).
+
+Umgesetzt für Schicht 0 (2026-11-01): 126 Throw-Stellen der Definitionsschicht tragen
+114 Regel-IDs (`boot-validator/definition-*-rules.ts`). 107 davon liegen in `r.*`-Methoden und
+ihren Helfern, 19 in Konstruktoren, die auch auf Modulebene laufen (`createTextField` und
+andere Field-Factories, `from()`, Rollen-Zuweisung, `defineWriteHandler`). Nicht klassifiziert,
+weil auch zur Laufzeit erreichbar: `qualified-name.ts`, `escape-hatch-reason.ts`,
+`define-step.ts` und der Replay-Throw der deklarativen Event-Migration. Gesammelt wird nur in `kumiko-schema validate`: ein prozessweiter Sammelmodus
+während des Imports von `schema.ts` fängt Verstöße an jeder `r.*`-Methode und an jedem
+`setup()`, Folge-Crashes werden verworfen, `validateBoot` läuft dann nicht. Überall sonst
+(createApp, Prod, Dev-Server, Tests) wirft die Definitionsschicht weiter beim ersten Fehler.
+Die ursprüngliche Idee, Verstöße immer am FeatureDefinition abzulegen und in P1 zu melden,
+wurde verworfen: Pfade ohne vollen `validateBoot` (Nav-Subset im Test-Stack, direkte
+`createRegistry`-Aufrufe) hätten ungültige Definitionen still angenommen, und Consumer-Tests,
+die einen Throw aus `defineFeature` erwarten, wären gebrochen. Ein Throw auf Modulebene bricht
+den Import weiter ab und erscheint mit seiner Regel-ID neben den bis dahin gesammelten.
 
 ## 6. Schnitt
 

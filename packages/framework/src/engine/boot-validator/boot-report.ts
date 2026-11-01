@@ -7,7 +7,7 @@ import {
 
 // A runtime crash is a bug in a validator (or in the input it assumed), not a
 // rule violation: it must surface as itself instead of masquerading as a finding.
-function isRuntimeCrash(thrown: unknown): boolean {
+export function isRuntimeCrash(thrown: unknown): boolean {
   return (
     !(thrown instanceof Error) ||
     thrown instanceof TypeError ||
@@ -19,7 +19,7 @@ function isRuntimeCrash(thrown: unknown): boolean {
   );
 }
 
-function violationsOf(
+export function violationsOf(
   failure: Error,
   checkName: string,
   feature: string | undefined,

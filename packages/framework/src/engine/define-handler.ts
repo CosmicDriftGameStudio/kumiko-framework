@@ -10,6 +10,8 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import type { ContainsSecret } from "../secrets/types.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-rules.ts";
 import { runPipeline } from "./run-pipeline.ts";
 import type {
   QueryHandlerDefinition,
@@ -95,12 +97,13 @@ export function defineWriteHandler<
   // a name-and-explanation error message instead.
   const handlerName = def.name;
   if (hasHandlerAndPerform(def)) {
-    throw new Error(
-      `defineWriteHandler("${handlerName}"): both \`handler\` and \`perform\` are set. ` +
+    throw bootRuleError(DEFINITION_HANDLER_RULES.handlerAndPerformBoth, {
+      message:
+        `defineWriteHandler("${handlerName}"): both \`handler\` and \`perform\` are set. ` +
         `Pick one — \`handler\` for the free-form async function, ` +
         `\`perform: stepsPipeline(...)\` for the step-pipeline form. ` +
         `(See step-vocabulary.md for which form fits.)`,
-    );
+    });
   }
 
   // Conditional spreads (`...(def.access && { access: def.access })`)

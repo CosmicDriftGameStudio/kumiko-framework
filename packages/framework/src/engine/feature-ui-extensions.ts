@@ -32,6 +32,8 @@ import {
 import type { EntityTableMeta } from "../db/entity-table-meta.ts";
 import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_UI_EXTENSION_RULES } from "./boot-validator/definition-ui-extensions-rules.ts";
 import type { LifecycleHookType } from "./constants.ts";
 import { LifecycleHookTypes } from "./constants.ts";
 import { reasonProblem } from "./escape-hatch-reason.ts";
@@ -60,10 +62,11 @@ function assertSelectorPanelIds(
   const seen = new Set<string>();
   for (const { id } of panels) {
     if (id === "" || id === RESERVED_SELECTION_PANEL_ID || seen.has(id)) {
-      throw new Error(
-        `[Feature ${featureName}] extensionSelector("${extensionName}") panel id "${id}" must be unique, ` +
+      throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.extensionSelectorPanelIdInvalid, {
+        message:
+          `[Feature ${featureName}] extensionSelector("${extensionName}") panel id "${id}" must be unique, ` +
           `non-empty and not "${RESERVED_SELECTION_PANEL_ID}" (reserved for the selector panel).`,
-      );
+      });
     }
     seen.add(id);
   }
@@ -78,10 +81,11 @@ function qualifySelectorPanel(
   if (panel.kind === "custom") return panel;
   if (panel.kind === "screen") {
     if ("label" in panel) {
-      throw new Error(
-        `[Feature ${featureName}] extensionSelector screen panel "${panel.id}" must not set a label — ` +
+      throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.extensionSelectorScreenPanelLabel, {
+        message:
+          `[Feature ${featureName}] extensionSelector screen panel "${panel.id}" must not set a label — ` +
           `the settings dashboard has no i18n namespace for it; the embedded screen carries its own title.`,
-      );
+      });
     }
     const qualify = (ref: string): string =>
       ref === "" || isValidQn(ref) ? ref : qualifyEntityName(featureName, "screen", ref);
@@ -90,10 +94,11 @@ function qualifySelectorPanel(
     if (screen === panel.screen && fallback === panel.fallback) return panel;
     return { ...panel, screen, ...(fallback !== undefined && { fallback }) };
   }
-  throw new Error(
-    `[Feature ${featureName}] extensionSelector panel ${JSON.stringify(panel)} has an unsupported kind — ` +
+  throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.extensionSelectorPanelKindUnsupported, {
+    message:
+      `[Feature ${featureName}] extensionSelector panel ${JSON.stringify(panel)} has an unsupported kind — ` +
       `only "custom" and "screen" panels are allowed.`,
-  );
+  });
 }
 
 type EntityWideHookType = "postSave" | "preDelete" | "postDelete" | "postQuery";
@@ -160,18 +165,20 @@ export function buildUiExtensionsMethods<TName extends string>(
   // instead of only the standalone r.nav() one.
   function registerNav(navDefinition: NavDefinition): void {
     if (!isKebabSegment(navDefinition.id)) {
-      throw new Error(
-        `[Feature ${name}] Nav id "${navDefinition.id}" must be kebab-case ` +
+      throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.navIdNotKebab, {
+        message:
+          `[Feature ${name}] Nav id "${navDefinition.id}" must be kebab-case ` +
           `(lowercase letters, digits, dashes; start with a letter). ` +
           `Got "${navDefinition.id}" — try "${toKebab(navDefinition.id).replace(/_/g, "-")}".`,
-      );
+      });
     }
     if (state.navs[navDefinition.id]) {
-      throw new Error(
-        `[Feature ${name}] Nav entry "${navDefinition.id}" already registered. ` +
+      throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.navIdDuplicate, {
+        message:
+          `[Feature ${name}] Nav entry "${navDefinition.id}" already registered. ` +
           `Nav ids must be unique per feature — remove the standalone ` +
           `r.nav("${navDefinition.id}", ...) call or the screen's inline nav.`,
-      );
+      });
     }
     // Explicit `undefined` values (e.g. `icon: cond ? "x" : undefined`) would trip
     // buildAppSchema's JSON-safety check, so strip them for every nav path.
@@ -191,25 +198,26 @@ export function buildUiExtensionsMethods<TName extends string>(
       };
       if (type === "validation") {
         if (options?.escapeHatch !== undefined) {
-          throw new Error(
-            `[Feature ${name}] r.hook({ type: "validation", … }) does not accept escapeHatch — ` +
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.hookValidationEscapeHatch, {
+            message:
+              `[Feature ${name}] r.hook({ type: "validation", … }) does not accept escapeHatch — ` +
               "validation hooks receive no context to switch identity with.",
-          );
+          });
         }
       } else if (options?.escapeHatch !== undefined) {
         const hookReasonProblem = reasonProblem(options.escapeHatch.reason);
         if (hookReasonProblem !== undefined) {
-          throw new Error(
-            `[Feature ${name}] r.hook({ type: "${type}", … }) declares an invalid escapeHatch — ${hookReasonProblem}`,
-          );
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.hookEscapeHatchInvalid, {
+            message: `[Feature ${name}] r.hook({ type: "${type}", … }) declares an invalid escapeHatch — ${hookReasonProblem}`,
+          });
         }
       }
       const hookGrantsProblem =
         options?.escapeHatch && escapeHatchGrantsProblem(options.escapeHatch);
       if (hookGrantsProblem) {
-        throw new Error(
-          `[Feature ${name}] r.hook({ type: "${type}", … }) declares an invalid escapeHatch — ${hookGrantsProblem}`,
-        );
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.hookEscapeHatchInvalid, {
+          message: `[Feature ${name}] r.hook({ type: "${type}", … }) declares an invalid escapeHatch — ${hookGrantsProblem}`,
+        });
       }
 
       // Wrapped once for both branches below; validation hooks stay unwrapped (no context).
@@ -228,10 +236,11 @@ export function buildUiExtensionsMethods<TName extends string>(
         "allOf" in target
       ) {
         if (!isEntityWideHookType(type)) {
-          throw new Error(
-            `[Feature ${name}] r.hook({ type: "${type}", target: { allOf }, … }) only supports ` +
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.hookAllOfUnsupportedType, {
+            message:
+              `[Feature ${name}] r.hook({ type: "${type}", target: { allOf }, … }) only supports ` +
               `postSave/preDelete/postDelete/postQuery, not "${type}".`,
-          );
+          });
         }
         registerEntityWideHook(
           state,
@@ -272,10 +281,11 @@ export function buildUiExtensionsMethods<TName extends string>(
       }
 
       if (!(type in state.phasedLifecycleHooks)) {
-        throw new Error(
-          `[Feature ${name}] r.hook({ type: "${type}", … }) is not a known hook type ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.hookTypeUnknown, {
+          message:
+            `[Feature ${name}] r.hook({ type: "${type}", … }) is not a known hook type ` +
             "(preQuery hooks were never invoked and have been removed).",
-        );
+        });
       }
 
       // Phased storage. preDelete has no phase option (always inTransaction);
@@ -332,22 +342,23 @@ export function buildUiExtensionsMethods<TName extends string>(
         const escapeHatchObject = isPlainObject(escapeHatch) ? escapeHatch : undefined;
         const reason = escapeHatchObject?.["reason"];
         if (escapeHatchObject === undefined || typeof reason !== "string") {
-          throw new Error(
-            `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
+            message:
+              `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
               `must be { reason: "<explanation>" } explaining why this usage needs unfiltered db access.`,
-          );
+          });
         }
         const extReasonProblem = reasonProblem(reason);
         if (extReasonProblem !== undefined) {
-          throw new Error(
-            `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extReasonProblem}`,
-          );
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
+            message: `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extReasonProblem}`,
+          });
         }
         const extGrantsProblem = escapeHatchGrantsProblem(escapeHatchObject);
         if (extGrantsProblem) {
-          throw new Error(
-            `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extGrantsProblem}`,
-          );
+          throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.useExtensionEscapeHatchInvalid, {
+            message: `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extGrantsProblem}`,
+          });
         }
       }
       state.extensionUsages.push({
@@ -362,10 +373,11 @@ export function buildUiExtensionsMethods<TName extends string>(
       options?: { readonly panels?: readonly ExtensionSelectorPanel[] },
     ): void {
       if (state.extensionSelectors.some((s) => s.extensionName === extensionName)) {
-        throw new Error(
-          `[Feature ${name}] extensionSelector("${extensionName}") declared twice — ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.extensionSelectorDuplicate, {
+          message:
+            `[Feature ${name}] extensionSelector("${extensionName}") declared twice — ` +
             `one selector key per extension point.`,
-        );
+        });
       }
       const qualifiedKey = typeof key === "string" ? key : key.name;
       const panels = options?.panels?.map((panel) => qualifySelectorPanel(name, panel));
@@ -395,9 +407,9 @@ export function buildUiExtensionsMethods<TName extends string>(
      */
     exposesApi(apiName: string): void {
       if (state.exposedApis.has(apiName)) {
-        throw new Error(
-          `[Feature ${name}] r.exposesApi("${apiName}") called twice — API names must be unique within a feature.`,
-        );
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.exposesApiTwice, {
+          message: `[Feature ${name}] r.exposesApi("${apiName}") called twice — API names must be unique within a feature.`,
+        });
       }
       state.exposedApis.add(apiName);
     },
@@ -417,17 +429,19 @@ export function buildUiExtensionsMethods<TName extends string>(
       // Catch it at the registration site so the stack trace points at the
       // feature file, not at framework internals.
       if (!isKebabSegment(definition.name)) {
-        throw new Error(
-          `[Feature ${name}] Projection name "${definition.name}" must be kebab-case ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.projectionNameNotKebab, {
+          message:
+            `[Feature ${name}] Projection name "${definition.name}" must be kebab-case ` +
             `(lowercase letters, digits, dashes; start with a letter). ` +
             `Got "${definition.name}" — try "${toKebab(definition.name).replace(/_/g, "-")}".`,
-        );
+        });
       }
       if (state.projections[definition.name]) {
-        throw new Error(
-          `[Feature ${name}] Projection "${definition.name}" already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.projectionNameDuplicate, {
+          message:
+            `[Feature ${name}] Projection "${definition.name}" already registered. ` +
             `Projection names must be unique per feature.`,
-        );
+        });
       }
       if (typeof definition.table === "object" && definition.table !== null) {
         markExecutorManagedTable(definition.table);
@@ -436,32 +450,36 @@ export function buildUiExtensionsMethods<TName extends string>(
     },
     multiStreamProjection(definition: MultiStreamProjectionDefinition): void {
       if (!isKebabSegment(definition.name)) {
-        throw new Error(
-          `[Feature ${name}] MultiStreamProjection name "${definition.name}" must be kebab-case ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.multiStreamProjectionNameNotKebab, {
+          message:
+            `[Feature ${name}] MultiStreamProjection name "${definition.name}" must be kebab-case ` +
             `(lowercase letters, digits, dashes; start with a letter). ` +
             `Got "${definition.name}" — try "${toKebab(definition.name).replace(/_/g, "-")}".`,
-        );
+        });
       }
       if (state.multiStreamProjections[definition.name] || state.projections[definition.name]) {
-        throw new Error(
-          `[Feature ${name}] Projection name "${definition.name}" already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.multiStreamProjectionNameDuplicate, {
+          message:
+            `[Feature ${name}] Projection name "${definition.name}" already registered. ` +
             `r.projection and r.multiStreamProjection share a namespace — pick a unique short name.`,
-        );
+        });
       }
       if (Object.keys(definition.apply).length === 0) {
-        throw new Error(
-          `[Feature ${name}] MultiStreamProjection "${definition.name}" has no apply handlers. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.multiStreamProjectionWithoutApply, {
+          message:
+            `[Feature ${name}] MultiStreamProjection "${definition.name}" has no apply handlers. ` +
             `Declare at least one event type it reacts to, otherwise the dispatcher has nothing to route.`,
-        );
+        });
       }
       state.multiStreamProjections[definition.name] = definition;
     },
     extendEntityProjection(entityName: string, extension: EntityProjectionExtension): void {
       if (Object.keys(extension.apply).length === 0) {
-        throw new Error(
-          `[Feature ${name}] extendEntityProjection("${entityName}") has no apply handlers. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.extendEntityProjectionWithoutApply, {
+          message:
+            `[Feature ${name}] extendEntityProjection("${entityName}") has no apply handlers. ` +
             `Declare at least one event type, otherwise the rebuild replay has nothing to do.`,
-        );
+        });
       }
       // Entity existence + apply-key collisions are validated at registry
       // build — r.entity may legally be called after this in the same feature.
@@ -503,17 +521,19 @@ export function buildUiExtensionsMethods<TName extends string>(
       // the feature file, not at registry-boot. Same guard pattern as
       // r.projection / r.multiStreamProjection.
       if (!isKebabSegment(definition.id)) {
-        throw new Error(
-          `[Feature ${name}] Screen id "${definition.id}" must be kebab-case ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.screenIdNotKebab, {
+          message:
+            `[Feature ${name}] Screen id "${definition.id}" must be kebab-case ` +
             `(lowercase letters, digits, dashes; start with a letter). ` +
             `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
-        );
+        });
       }
       if (state.screens[definition.id]) {
-        throw new Error(
-          `[Feature ${name}] Screen "${definition.id}" already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.screenIdDuplicate, {
+          message:
+            `[Feature ${name}] Screen "${definition.id}" already registered. ` +
             `Screen ids must be unique per feature.`,
-        );
+        });
       }
       state.screens[definition.id] = definition;
       if (definition.nav) {
@@ -535,10 +555,11 @@ export function buildUiExtensionsMethods<TName extends string>(
     },
     contentCollection(definition: ContentCollectionDefinition): string {
       if (state.contentCollections[definition.id]) {
-        throw new Error(
-          `[Feature ${name}] Content collection "${definition.id}" already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.contentCollectionIdDuplicate, {
+          message:
+            `[Feature ${name}] Content collection "${definition.id}" already registered. ` +
             `Collection ids must be unique per feature.`,
-        );
+        });
       }
       // registerNav owns the kebab + collision checks, including collisions
       // with a plain r.nav() of the same id.
@@ -566,17 +587,19 @@ export function buildUiExtensionsMethods<TName extends string>(
       // Same kebab guard as r.screen / r.nav so authoring-time mistakes
       // surface at the feature file, not deep in registry boot.
       if (!isKebabSegment(definition.id)) {
-        throw new Error(
-          `[Feature ${name}] Workspace id "${definition.id}" must be kebab-case ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.workspaceIdNotKebab, {
+          message:
+            `[Feature ${name}] Workspace id "${definition.id}" must be kebab-case ` +
             `(lowercase letters, digits, dashes; start with a letter). ` +
             `Got "${definition.id}" — try "${toKebab(definition.id).replace(/_/g, "-")}".`,
-        );
+        });
       }
       if (state.workspaces[definition.id]) {
-        throw new Error(
-          `[Feature ${name}] Workspace "${definition.id}" already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.workspaceIdDuplicate, {
+          message:
+            `[Feature ${name}] Workspace "${definition.id}" already registered. ` +
             `Workspace ids must be unique per feature.`,
-        );
+        });
       }
       state.workspaces[definition.id] = definition;
     },
@@ -585,23 +608,26 @@ export function buildUiExtensionsMethods<TName extends string>(
       // dispatcher. An HTTP route occupying /api/foo could bypass the auth
       // middleware without the author explicitly intending it, so block it.
       if (!definition.path.startsWith("/")) {
-        throw new Error(
-          `[Feature ${name}] httpRoute path "${definition.path}" must start with "/". ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.httpRoutePathNotAbsolute, {
+          message:
+            `[Feature ${name}] httpRoute path "${definition.path}" must start with "/". ` +
             `Got "${definition.path}".`,
-        );
+        });
       }
       if (definition.path === "/api" || definition.path.startsWith("/api/")) {
-        throw new Error(
-          `[Feature ${name}] httpRoute path "${definition.path}" is in the /api/* namespace ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.httpRoutePathReserved, {
+          message:
+            `[Feature ${name}] httpRoute path "${definition.path}" is in the /api/* namespace ` +
             `which is reserved for the dispatcher (write/query/batch/auth/sse). ` +
             `Pick a different path or use r.queryHandler / r.writeHandler.`,
-        );
+        });
       }
       if (typeof definition.anonymous !== "boolean") {
-        throw new Error(
-          `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" must declare ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.httpRouteAnonymousMissing, {
+          message:
+            `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" must declare ` +
             `anonymous: true | false — true mounts it public, false behind the session auth chain.`,
-        );
+        });
       }
       const routeLimit = definition.rateLimit;
       if (
@@ -611,33 +637,37 @@ export function buildUiExtensionsMethods<TName extends string>(
           !Number.isInteger(routeLimit.windowSeconds) ||
           routeLimit.windowSeconds < 1)
       ) {
-        throw new Error(
-          `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" rateLimit needs ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.httpRouteRateLimitInvalid, {
+          message:
+            `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" rateLimit needs ` +
             `positive integer limit and windowSeconds.`,
-        );
+        });
       }
       const key = `${definition.method} ${definition.path}`;
       if (state.httpRoutes[key]) {
-        throw new Error(
-          `[Feature ${name}] HTTP-Route "${key}" already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.httpRouteDuplicate, {
+          message:
+            `[Feature ${name}] HTTP-Route "${key}" already registered. ` +
             `method + path must be unique per feature.`,
-        );
+        });
       }
       state.httpRoutes[key] = definition;
     },
     webSocketRoute(definition: WebSocketRouteDefinition): void {
       if (!definition.path.startsWith(WEBSOCKET_ROUTE_PATH_PREFIX)) {
-        throw new Error(
-          `[Feature ${name}] webSocketRoute path "${definition.path}" must start with ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.webSocketRoutePathPrefix, {
+          message:
+            `[Feature ${name}] webSocketRoute path "${definition.path}" must start with ` +
             `"${WEBSOCKET_ROUTE_PATH_PREFIX}" — only that namespace rides the /api/* auth chain ` +
             "the upgrade relies on.",
-        );
+        });
       }
       if (definition.path.includes("*")) {
-        throw new Error(
-          `[Feature ${name}] webSocketRoute path "${definition.path}" must not contain "*" — ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.webSocketRoutePathWildcard, {
+          message:
+            `[Feature ${name}] webSocketRoute path "${definition.path}" must not contain "*" — ` +
             "wildcards would let one route swallow unrelated /api/ws/* paths.",
-        );
+        });
       }
       const { maxMessageBytes } = definition;
       if (
@@ -646,10 +676,11 @@ export function buildUiExtensionsMethods<TName extends string>(
           maxMessageBytes < 1 ||
           maxMessageBytes > WEBSOCKET_MAX_PAYLOAD_BYTES)
       ) {
-        throw new Error(
-          `[Feature ${name}] webSocketRoute "${definition.path}" maxMessageBytes must be an ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.webSocketRouteMaxMessageBytesInvalid, {
+          message:
+            `[Feature ${name}] webSocketRoute "${definition.path}" maxMessageBytes must be an ` +
             `integer between 1 and ${WEBSOCKET_MAX_PAYLOAD_BYTES}, got ${maxMessageBytes}.`,
-        );
+        });
       }
       const { maxConnectionsPerUser } = definition;
       if (
@@ -658,16 +689,18 @@ export function buildUiExtensionsMethods<TName extends string>(
           maxConnectionsPerUser < 1 ||
           maxConnectionsPerUser > WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT)
       ) {
-        throw new Error(
-          `[Feature ${name}] webSocketRoute "${definition.path}" maxConnectionsPerUser must be an ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.webSocketRouteMaxConnectionsInvalid, {
+          message:
+            `[Feature ${name}] webSocketRoute "${definition.path}" maxConnectionsPerUser must be an ` +
             `integer between 1 and ${WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT}, got ${maxConnectionsPerUser}.`,
-        );
+        });
       }
       if (state.webSocketRoutes[definition.path]) {
-        throw new Error(
-          `[Feature ${name}] WebSocket route "${definition.path}" already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.webSocketRouteDuplicate, {
+          message:
+            `[Feature ${name}] WebSocket route "${definition.path}" already registered. ` +
             "path must be unique per feature.",
-        );
+        });
       }
       state.webSocketRoutes[definition.path] = definition;
     },
@@ -678,49 +711,54 @@ export function buildUiExtensionsMethods<TName extends string>(
       if (!isKebabSegment(tableName.replace(/_/g, "-"))) {
         // EntityTableMeta uses snake_case for tableName (matches Postgres
         // convention); we just guard against truly broken input.
-        throw new Error(
-          `[Feature ${name}] Store-table name "${tableName}" must be a ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.storeTableNameInvalid, {
+          message:
+            `[Feature ${name}] Store-table name "${tableName}" must be a ` +
             `valid identifier (lowercase letters, digits, underscores; start with a letter).`,
-        );
+        });
       }
       if (state.storeTables[tableName]) {
-        throw new Error(
-          `[Feature ${name}] r.storeTable("${tableName}") already registered. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.storeTableDuplicate, {
+          message:
+            `[Feature ${name}] r.storeTable("${tableName}") already registered. ` +
             `Store-table names must be unique per feature.`,
-        );
+        });
       }
       // `read_` is reserved for r.entity()/r.projection() (managed,
       // event-sourced, rebuildable). storeTable is the unmanaged
       // direct-write escape hatch — the prefix must say so.
       if (tableName.startsWith("read_")) {
-        throw new Error(
-          `[Feature ${name}] r.storeTable("${tableName}"): the "read_" prefix is reserved ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.storeTableReadPrefixReserved, {
+          message:
+            `[Feature ${name}] r.storeTable("${tableName}"): the "read_" prefix is reserved ` +
             `for managed r.entity()/r.projection() tables. Pick an unprefixed name or a ` +
             `distinct prefix (e.g. "store_${tableName.slice("read_".length)}").`,
-        );
+        });
       }
       // meta.source must agree with the r.storeTable() escape hatch, or the
       // migrate-generator treats schema drift on this table as safe to
       // DROP+rebuild-from-events — wiping direct-write data with no events
       // to replay it from.
       if (meta.source !== "unmanaged") {
-        throw new Error(
-          `[Feature ${name}] r.storeTable("${tableName}") was given an EntityTableMeta with ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.storeTableMetaNotUnmanaged, {
+          message:
+            `[Feature ${name}] r.storeTable("${tableName}") was given an EntityTableMeta with ` +
             `source: "${meta.source}". r.storeTable() requires source: "unmanaged" (via ` +
             `defineUnmanagedTable(), or deriveEntityTableMeta(..., { source: "unmanaged" })) — ` +
             `otherwise the migration generator will treat schema drift on this table as safe ` +
             `to DROP+rebuild, wiping any direct-write data.`,
-        );
+        });
       }
       // The `reason` is the marker that justifies the bypass — empty
       // strings would defeat the audit trail. Reject early so the
       // failure points at the feature file.
       if (typeof options.reason !== "string" || options.reason.trim().length === 0) {
-        throw new Error(
-          `[Feature ${name}] r.storeTable("${tableName}"): options.reason must be a ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.storeTableReasonMissing, {
+          message:
+            `[Feature ${name}] r.storeTable("${tableName}"): options.reason must be a ` +
             `non-empty string. The reason justifies the audit-trail bypass — ` +
             `if you can't write one, declare data via r.entity() instead.`,
-        );
+        });
       }
       state.storeTables[tableName] = {
         name: tableName,
@@ -735,10 +773,11 @@ export function buildUiExtensionsMethods<TName extends string>(
       // Only-once guard: a second call is an authoring error that should surface in
       // the feature file (matching the behavior of r.toggleable).
       if (state.treeActions !== undefined) {
-        throw new Error(
-          `[Feature ${name}] r.treeActions() already called. ` +
+        throw bootRuleError(DEFINITION_UI_EXTENSION_RULES.treeActionsTwice, {
+          message:
+            `[Feature ${name}] r.treeActions() already called. ` +
             `Each feature may declare a single tree-actions schema.`,
-        );
+        });
       }
       state.treeActions = actions;
       // Return a typed handle for the setup export. Freeze it so callers cannot

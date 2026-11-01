@@ -1,3 +1,5 @@
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { FEATURE_DEFINITION_RULES } from "./boot-validator/definition-feature-rules.ts";
 // Shared helpers for registrar methods that take a single object argument
 // (`r.entity({ name: "item", ... })`).
 
@@ -17,7 +19,9 @@ export function requireArgument<T>(
   argument: string,
 ): T {
   if (value === undefined) {
-    throw new Error(`[Feature ${featureName}] r.${method}() needs its ${argument} argument`);
+    throw bootRuleError(FEATURE_DEFINITION_RULES.argumentMissing, {
+      message: `[Feature ${featureName}] r.${method}() needs its ${argument} argument`,
+    });
   }
   return value;
 }
@@ -44,5 +48,7 @@ export function isObjectArgument(value: unknown): boolean {
 // Untyped JS callers bypass the types; without this check a positional call would
 // register a definition built from undefined fields instead of failing.
 export function throwObjectArgumentRequired(featureName: string, method: string): never {
-  throw new Error(`[Feature ${featureName}] r.${method}() takes one options object`);
+  throw bootRuleError(FEATURE_DEFINITION_RULES.optionsObjectRequired, {
+    message: `[Feature ${featureName}] r.${method}() takes one options object`,
+  });
 }

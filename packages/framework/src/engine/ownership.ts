@@ -20,6 +20,8 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { toSnakeCase } from "../db/table-builder.ts";
 import { columnSqlNameOf, schemaTableName } from "../db/table-introspection.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_OWNERSHIP_FROM_RULES } from "./boot-validator/definition-ownership-from-rules.ts";
 import type { SessionUser } from "./types/index.ts";
 import { assertQualifiedWhereFragment, tableColumnSqlNames } from "./where-rule-lint.ts";
 
@@ -52,9 +54,9 @@ import type {
 export function from(ref: OwnershipRef, column?: string): FromRule {
   const firstColon = ref.indexOf(":");
   if (firstColon < 0) {
-    throw new Error(
-      `from("${ref}"): expected "user:<field>" or "claim:<featureName>:<key>" — no colon found.`,
-    );
+    throw bootRuleError(DEFINITION_OWNERSHIP_FROM_RULES.refWithoutColon, {
+      message: `from("${ref}"): expected "user:<field>" or "claim:<featureName>:<key>" — no colon found.`,
+    });
   }
   const prefix = ref.slice(0, firstColon);
   const rest = ref.slice(firstColon + 1);
@@ -64,14 +66,14 @@ export function from(ref: OwnershipRef, column?: string): FromRule {
     // column on the row must be given explicitly (a user.id is rarely
     // named `id` on a child table — usually `ownerId`, `assigneeId`, ...).
     if (!column) {
-      throw new Error(
-        `from("${ref}"): user-refs require an explicit column name — e.g. from("user:id", "assigneeId").`,
-      );
+      throw bootRuleError(DEFINITION_OWNERSHIP_FROM_RULES.userColumnMissing, {
+        message: `from("${ref}"): user-refs require an explicit column name — e.g. from("user:id", "assigneeId").`,
+      });
     }
     if (rest !== "id" && rest !== "tenantId") {
-      throw new Error(
-        `from("${ref}"): user-ref supports only "user:id" or "user:tenantId" (got "user:${rest}").`,
-      );
+      throw bootRuleError(DEFINITION_OWNERSHIP_FROM_RULES.userRefUnsupported, {
+        message: `from("${ref}"): user-ref supports only "user:id" or "user:tenantId" (got "user:${rest}").`,
+      });
     }
     return { kind: "from", refKind: "user", refPath: rest, column };
   }
@@ -79,9 +81,9 @@ export function from(ref: OwnershipRef, column?: string): FromRule {
   if (prefix === "claim") {
     // "claim:<feature>:<key>" — rest is the 2-segment claim QN.
     if (!rest.includes(":")) {
-      throw new Error(
-        `from("${ref}"): claim-ref must be "claim:<featureName>:<shortName>" (got "claim:${rest}").`,
-      );
+      throw bootRuleError(DEFINITION_OWNERSHIP_FROM_RULES.claimRefInvalid, {
+        message: `from("${ref}"): claim-ref must be "claim:<featureName>:<shortName>" (got "claim:${rest}").`,
+      });
     }
     // Default column = claim shortName (second segment).
     const defaultColumn = rest.slice(rest.indexOf(":") + 1);
@@ -93,9 +95,9 @@ export function from(ref: OwnershipRef, column?: string): FromRule {
     };
   }
 
-  throw new Error(
-    `from("${ref}"): unsupported ref prefix "${prefix}". Supported: "user", "claim".`,
-  );
+  throw bootRuleError(DEFINITION_OWNERSHIP_FROM_RULES.prefixUnsupported, {
+    message: `from("${ref}"): unsupported ref prefix "${prefix}". Supported: "user", "claim".`,
+  });
 }
 
 // Evaluate an ownership rule against a concrete row (plain data, no Drizzle).

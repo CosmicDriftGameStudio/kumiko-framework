@@ -3,13 +3,15 @@ import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-met
 import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { loadSnapshotJson, type renderTablesDdl } from "../db/index.ts";
 import { assertUniqueTableNames } from "../db/migrate-generator.ts";
-
 import {
   DEFAULT_ROW_LEVEL_SECURITY_MODE,
   ROW_LEVEL_SECURITY_MODES,
   type RowLevelSecurityMode,
 } from "../db/render-rls-ddl.ts";
 import { isEntityTableMeta } from "../db/table-introspection.ts";
+import { isRuntimeCrash, violationsOf } from "../engine/boot-validator/boot-report.ts";
+import type { BootViolation } from "../engine/boot-validator/boot-rule.ts";
+import { collectDefinitionViolations } from "../engine/definition-violations.ts";
 import type { FeatureDefinition } from "../engine/types/feature.ts";
 
 export type SchemaCliOut = {
@@ -128,12 +130,54 @@ export function loadPreviousSnapshot(snapshotPath: string) {
   return existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
 }
 
+function reportMissingSchemaFile({ out, schemaFile }: SchemaCliContext): void {
+  out.err(`  ${schemaFile} is missing.`);
+  out.err("  App convention: kumiko/schema.ts with");
+  out.err("    export const ENTITY_METAS: EntityTableMeta[] = [...]");
+}
+
+export type CollectedSchemaLoad =
+  | { readonly kind: "loaded"; readonly schemaMod: SchemaMod }
+  | { readonly kind: "violations"; readonly violations: readonly BootViolation[] }
+  | { readonly kind: "failed" };
+
+// Loads kumiko/schema.ts in collect mode: definition-layer violations of all features come back
+// together instead of the first one aborting the import.
+export async function loadSchemaModCollectingDefinitionViolations(
+  ctx: SchemaCliContext,
+): Promise<CollectedSchemaLoad> {
+  const { out, schemaFile } = ctx;
+  if (!existsSync(schemaFile)) {
+    reportMissingSchemaFile(ctx);
+    return { kind: "failed" };
+  }
+  const { violations, outcome } = await collectDefinitionViolations(() =>
+    loadSchemaModFromApp(schemaFile),
+  );
+  if (outcome.loaded) {
+    return violations.length === 0
+      ? { kind: "loaded", schemaMod: outcome.value }
+      : { kind: "violations", violations };
+  }
+  const { thrown } = outcome;
+  if (isRuntimeCrash(thrown)) {
+    if (violations.length > 0) return { kind: "violations", violations };
+    out.err(`  ${describeThrown(thrown)}`);
+    return { kind: "failed" };
+  }
+  if (thrown instanceof Error) {
+    return {
+      kind: "violations",
+      violations: [...violations, ...violationsOf(thrown, "loadSchemaMod", undefined)],
+    };
+  }
+  return { kind: "violations", violations };
+}
+
 export async function loadSchemaModOrReport(ctx: SchemaCliContext): Promise<SchemaMod | undefined> {
   const { out, schemaFile } = ctx;
   if (!existsSync(schemaFile)) {
-    out.err(`  ${schemaFile} is missing.`);
-    out.err("  App convention: kumiko/schema.ts with");
-    out.err("    export const ENTITY_METAS: EntityTableMeta[] = [...]");
+    reportMissingSchemaFile(ctx);
     return undefined;
   }
   try {

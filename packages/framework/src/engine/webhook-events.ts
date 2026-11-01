@@ -1,5 +1,7 @@
 import type { WebhookEventContract, WebhookEventHandle } from "@cosmicdrift/kumiko-types/feature";
 import { ZodObject } from "zod";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { DEFINITION_WEBHOOK_EVENT_RULES } from "./boot-validator/definition-webhook-events-rules.ts";
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, toKebab } from "./qualified-name.ts";
@@ -65,27 +67,39 @@ export function buildWebhookEventMethods(state: FeatureBuilderState, featureName
       const { name, description, payload, version } = definition;
       const where = `[Feature ${featureName}] defineWebhookEvent`;
       if (typeof name !== "string" || !isKebabSegment(name)) {
-        throw new Error(`${where}: name must be kebab-case, got ${JSON.stringify(name)}`);
+        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.nameNotKebab, {
+          message: `${where}: name must be kebab-case, got ${JSON.stringify(name)}`,
+        });
       }
       if (typeof description !== "string" || description.trim() === "") {
-        throw new Error(`${where}("${name}"): description must be a non-empty sentence`);
+        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.descriptionEmpty, {
+          message: `${where}("${name}"): description must be a non-empty sentence`,
+        });
       }
       if (!(payload instanceof ZodObject)) {
-        throw new Error(`${where}("${name}"): payload must be a zod object schema`);
+        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.payloadNotZodObject, {
+          message: `${where}("${name}"): payload must be a zod object schema`,
+        });
       }
       if (!Number.isInteger(version) || version < 1) {
-        throw new Error(`${where}("${name}"): version must be a positive integer`);
+        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.versionInvalid, {
+          message: `${where}("${name}"): version must be a positive integer`,
+        });
       }
       if (
         definition.wireName !== undefined &&
         (typeof definition.wireName !== "string" || definition.wireName.trim() === "")
       ) {
-        throw new Error(`${where}("${name}"): wireName must be a non-empty string`);
+        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.wireNameEmpty, {
+          message: `${where}("${name}"): wireName must be a non-empty string`,
+        });
       }
       const wireName = definition.wireName?.trim() ?? name;
       const qn = `${toKebab(featureName)}:${name}`;
       if (state.webhookEvents[qn] !== undefined) {
-        throw new Error(`${where}("${name}"): already registered in this feature`);
+        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.duplicate, {
+          message: `${where}("${name}"): already registered in this feature`,
+        });
       }
       state.webhookEvents[qn] = {
         qn,

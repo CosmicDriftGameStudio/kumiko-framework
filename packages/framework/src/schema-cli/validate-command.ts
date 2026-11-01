@@ -17,7 +17,7 @@ import { validateBoot } from "../engine/boot-validator.ts";
 import {
   describeThrown,
   loadPreviousSnapshot,
-  loadSchemaModOrReport,
+  loadSchemaModCollectingDefinitionViolations,
   nextSequenceNumber,
   type SchemaCliContext,
   type SchemaCliOut,
@@ -248,8 +248,13 @@ export async function runValidateCommand(ctx: SchemaCliContext): Promise<number>
   // stdout carries exactly one JSON document in --json mode.
   const out: SchemaCliOut = jsonMode ? { log: ctx.out.err, err: ctx.out.err } : ctx.out;
   const humanCtx: SchemaCliContext = { ...ctx, out };
-  const schemaMod = await loadSchemaModOrReport(humanCtx);
-  if (schemaMod === undefined) {
+  const loaded = await loadSchemaModCollectingDefinitionViolations(humanCtx);
+  if (loaded.kind === "violations") {
+    reportBootViolations(out, loaded.violations);
+    if (jsonMode) printBootJson(ctx, { ok: false, violations: loaded.violations });
+    return 1;
+  }
+  if (loaded.kind === "failed") {
     if (jsonMode) {
       const message = "kumiko/schema.ts could not be loaded";
       printBootJson(ctx, {
@@ -259,6 +264,7 @@ export async function runValidateCommand(ctx: SchemaCliContext): Promise<number>
     }
     return 1;
   }
+  const { schemaMod } = loaded;
   const prevSnapshot = loadPreviousSnapshot(join(ctx.migrationsDir, SNAPSHOT_FILENAME));
   const schemaOk = checkSchemaDrift(humanCtx, schemaMod, prevSnapshot);
   const boot = checkBootValidity(out, schemaMod);

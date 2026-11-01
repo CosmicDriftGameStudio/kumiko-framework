@@ -11,7 +11,7 @@ describe("framework boot rule tables", () => {
       0,
     );
     expect(FRAMEWORK_BOOT_RULES).toHaveLength(tableSize);
-    expect(tableSize).toBeGreaterThanOrEqual(39);
+    expect(tableSize).toBeGreaterThanOrEqual(153);
   });
 
   test("rule ids are unique", () => {
