@@ -61,6 +61,6 @@ Widerrufe einen Token in Einstellungen › API-Tokens, sobald du ihn nicht mehr 
 
 ## Sicherheit
 
-- Behandle einen Token wie ein Passwort. Bewahre ihn in einem Secret Store auf, nicht im Code oder in einem Repository.
+- Behandle einen Token wie ein Passwort. Bewahre ihn in einem Secret Store auf, nie im Code, in einem Repository, in einer App oder Webseite oder in einem Log.
 - Gib jedem Skript einen eigenen Token mit nur den Scopes, die es braucht.
-- Widerrufe Tokens, die du nicht mehr nutzt.
+- Widerrufe Tokens, die du nicht mehr nutzt. Widerrufe einen Token sofort, wenn er in fremde Hände gelangt sein könnte.

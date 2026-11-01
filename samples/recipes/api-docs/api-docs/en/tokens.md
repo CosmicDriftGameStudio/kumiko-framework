@@ -61,6 +61,6 @@ Revoke a token in Settings › API tokens as soon as you stop using it. Changing
 
 ## Security
 
-- Treat a token like a password. Keep it in a secret store, not in code or in a repository.
+- Treat a token like a password. Keep it in a secret store, never in code, a repository, an app or web page, or a log.
 - Give each script its own token with only the scopes it needs.
-- Revoke tokens you no longer use.
+- Revoke tokens you no longer use. Revoke a token at once if it may have leaked.

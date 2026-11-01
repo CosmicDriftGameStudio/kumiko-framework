@@ -75,9 +75,10 @@ export const esApiDocsTexts = {
       "Revoca un token en {menuPath} en cuanto dejes de usarlo. Al cambiar tu contraseña se revocan todos tus tokens. Un token actúa siempre con tus roles actuales. Si abandonas la cuenta o se elimina tu usuario, deja de funcionar.",
     "tokens.security.heading": "Seguridad",
     "tokens.security.item1":
-      "Trata un token como una contraseña. Guárdalo en un almacén de secretos, no en el código ni en un repositorio.",
+      "Trata un token como una contraseña. Guárdalo en un almacén de secretos, nunca en el código, en un repositorio, en una app o página web ni en un log.",
     "tokens.security.item2": "Da a cada script su propio token, solo con los scopes que necesita.",
-    "tokens.security.item3": "Revoca los tokens que ya no uses.",
+    "tokens.security.item3":
+      "Revoca los tokens que ya no uses. Revoca un token de inmediato si puede haberse filtrado.",
     "reference.description":
       "Referencia de la API para {scopeLabel}: cada handler con sus campos y un ejemplo.",
     "reference.requiredScope": "Scope necesario",

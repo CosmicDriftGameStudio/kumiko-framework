@@ -75,9 +75,10 @@ export const enApiDocsTexts = {
       "Revoke a token in {menuPath} as soon as you stop using it. Changing your password revokes all your tokens. A token always acts with your current roles. If you leave the account or your user is deleted, it stops working.",
     "tokens.security.heading": "Security",
     "tokens.security.item1":
-      "Treat a token like a password. Keep it in a secret store, not in code or in a repository.",
+      "Treat a token like a password. Keep it in a secret store, never in code, a repository, an app or web page, or a log.",
     "tokens.security.item2": "Give each script its own token with only the scopes it needs.",
-    "tokens.security.item3": "Revoke tokens you no longer use.",
+    "tokens.security.item3":
+      "Revoke tokens you no longer use. Revoke a token at once if it may have leaked.",
     "reference.description":
       "API reference for {scopeLabel}: every handler with its fields and an example.",
     "reference.requiredScope": "Required scope",
