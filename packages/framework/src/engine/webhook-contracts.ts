@@ -125,6 +125,7 @@ function entityContract(
 ): WebhookEventContract {
   return {
     qn: `${entityName}.${verb}`,
+    wireName: `${entityName}.${verb}`,
     description: `A ${entityName} ${VERB_DESCRIPTION[verb]}.`,
     payload: payloadFor(verb, releasableFields(entity, excludedFields)),
     version: CONTRACT_VERSION,
@@ -190,7 +191,7 @@ export function createWebhookContractResolver(
         const entity = target === undefined ? undefined : entities.get(target.entity);
         derived.set(
           qualifiedName,
-          target === undefined || entity === undefined
+          target === undefined || entity === undefined || entity.webhookEvents !== true
             ? undefined
             : entityContract(
                 target.entity,
@@ -206,4 +207,27 @@ export function createWebhookContractResolver(
       return [...declared.values()].sort((a, b) => (a.qn < b.qn ? -1 : a.qn > b.qn ? 1 : 0));
     },
   };
+}
+
+/** Receivers tell events apart by wire name, so two contracts must never share one. */
+export function assertUniqueWebhookWireNames(features: readonly FeatureDefinition[]): void {
+  const qnByWireName = new Map<string, string>();
+  const claim = (wireName: string, qn: string): void => {
+    const existing = qnByWireName.get(wireName);
+    if (existing !== undefined && existing !== qn) {
+      throw new Error(
+        `Webhook wire name "${wireName}" is used by both "${existing}" and "${qn}"; give one of them another wireName.`,
+      );
+    }
+    qnByWireName.set(wireName, qn);
+  };
+  for (const feature of features) {
+    for (const def of Object.values(feature.webhookEvents ?? {})) claim(def.wireName, def.qn);
+  }
+  for (const feature of features) {
+    for (const [name, entity] of Object.entries(feature.entities ?? {})) {
+      if (entity.webhookEvents !== true) continue;
+      for (const verb of ENTITY_VERBS) claim(`${name}.${verb}`, `${name}.${verb}`);
+    }
+  }
 }

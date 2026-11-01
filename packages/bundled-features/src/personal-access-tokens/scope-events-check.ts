@@ -5,6 +5,11 @@ import {
 import { PAT_FEATURE } from "./web/constants.ts";
 import type { PatScopeConfig } from "./web/scopes.ts";
 
+function entityNameOf(qualifiedName: string): string {
+  const dot = qualifiedName.lastIndexOf(".");
+  return dot > 0 ? qualifiedName.slice(0, dot) : qualifiedName;
+}
+
 export function validateScopeEventContracts(
   scopes: PatScopeConfig,
   features: readonly FeatureDefinition[],
@@ -15,7 +20,8 @@ export function validateScopeEventContracts(
       if (resolver.get(qn)) continue;
       throw new Error(
         `[${PAT_FEATURE}] scope "${domain}" lists event "${qn}" without a public contract. ` +
-          "Declare it with r.defineWebhookEvent(...) or list an entity event (<entity>.created/.updated/.deleted); internal r.defineEvent events are never released.",
+          "Declare it with r.defineWebhookEvent(...), or set webhookEvents: true on the entity to release its <entity>.created/.updated/.deleted events " +
+          `(entity "${entityNameOf(qn)}" has no such opt-in); internal r.defineEvent events are never released.`,
       );
     }
   }

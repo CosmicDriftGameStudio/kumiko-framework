@@ -15,7 +15,7 @@ Adding an optional field keeps the version. A breaking change, such as removing 
 
 ## Events
 
-### helpdesk:ticket-closed
+### ticket.closed
 
 A ticket was closed and its resolution recorded.
 

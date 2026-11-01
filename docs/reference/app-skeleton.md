@@ -103,7 +103,11 @@ an app that needs `auth-foundation` for the token feature lists it in `features`
 A scope's `events` list its public webhook events (exact names, read level suffices): a
 contract from `r.defineWebhookEvent({ name, description, payload, version })` or an entity
 event such as `ticket.created`, whose contract is derived from the entity without personal
-fields and without the CRUD `excludedFields`. Internal `r.defineEvent` events are never
+fields and without the CRUD `excludedFields`. Entity events exist only for entities that set
+`webhookEvents: true`; without it the entity releases nothing and boot fails for its events.
+`defineWebhookEvent` takes an optional `wireName`, the name receivers see in the delivered
+webhook (default: `name`); the generated docs use it. Handlers with `access.roles: ["system"]`
+are left out of the docs even when a scope pattern matches them. Internal `r.defineEvent` events are never
 listed; boot fails for them. `events.md` and the `webhooks` section of `openapi.json` appear
 only when an event is public. Record example payloads with `recordWebhookExample` from the
 same testing entry; it validates through `parseWebhookPayload` and writes

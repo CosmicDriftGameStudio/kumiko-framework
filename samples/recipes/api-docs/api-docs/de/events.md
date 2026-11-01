@@ -15,7 +15,7 @@ Ein neues optionales Feld behält die Version. Eine inkompatible Änderung, etwa
 
 ## Ereignisse
 
-### helpdesk:ticket-closed
+### ticket.closed
 
 Ein Ticket wurde geschlossen und seine Lösung festgehalten.
 

@@ -86,6 +86,14 @@ describe("generateApiDocs", () => {
     expect(page).toContain('"isSuccess": true');
   });
 
+  test("a system-only handler the scope pattern matches is not documented and not reported as a UI write", () => {
+    for (const [path, content] of files) {
+      expect(content, path).not.toContain("ticket:sync");
+    }
+    const { problems } = generateApiDocs(fixtureInput());
+    expect(JSON.stringify(problems)).not.toContain("ticket:sync");
+  });
+
   test("handlers outside the scopes appear neither in markdown nor in openapi", () => {
     for (const [path, content] of files) {
       expect(content, path).not.toContain("internal:purge");

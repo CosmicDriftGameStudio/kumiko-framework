@@ -4,7 +4,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { apiTokenEntity } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import { createWebhookContractResolver, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createWebhookContractResolver,
+  defineFeature,
+  type FeatureDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import config from "../../kumiko.config";
 
 const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
@@ -67,12 +71,35 @@ function releasedFields(resolver: ReturnType<typeof createWebhookContractResolve
   return contract ? Object.keys(contract.payload.shape) : undefined;
 }
 
+// No bundle entity opts in, so the field filter is exercised with the flag set on every entity.
+const featuresWithOptIn: readonly FeatureDefinition[] = config.features.map((feature) => ({
+  ...feature,
+  entities: Object.fromEntries(
+    Object.entries(feature.entities ?? {}).map(([name, entity]) => [
+      name,
+      { ...entity, webhookEvents: true },
+    ]),
+  ),
+}));
+
 describe("derived entity webhook contracts", () => {
-  const resolver = createWebhookContractResolver(config.features);
+  const resolver = createWebhookContractResolver(featuresWithOptIn);
+
+  test("no bundled entity releases entity events without the opt-in", () => {
+    const withoutOptIn = createWebhookContractResolver(config.features);
+    for (const feature of config.features) {
+      for (const [name, entity] of Object.entries(feature.entities ?? {})) {
+        expect(entity.webhookEvents).toBeUndefined();
+        for (const verb of ["created", "updated", "deleted"]) {
+          expect(withoutOptIn.get(`${name}.${verb}`)).toBeUndefined();
+        }
+      }
+    }
+  });
 
   test("releasable field names per bundled entity are pinned", () => {
     const actual: Record<string, string> = {};
-    for (const feature of config.features) {
+    for (const feature of featuresWithOptIn) {
       for (const name of Object.keys(feature.entities ?? {})) {
         const fields = releasedFields(resolver, name);
         if (fields) actual[`${feature.name}/${name}`] = fields.join(" ");
@@ -82,7 +109,7 @@ describe("derived entity webhook contracts", () => {
   });
 
   test("credential fields are never released", () => {
-    for (const feature of config.features) {
+    for (const feature of featuresWithOptIn) {
       for (const name of Object.keys(feature.entities ?? {})) {
         const fields = releasedFields(resolver, name) ?? [];
         for (const forbidden of NEVER_RELEASED) expect(fields).not.toContain(forbidden);
@@ -92,7 +119,7 @@ describe("derived entity webhook contracts", () => {
 
   test("the real api-token entity would not release tokenHash", () => {
     const feature = defineFeature("pat-probe", (r) => {
-      r.entity({ name: "api-token", ...apiTokenEntity });
+      r.entity({ name: "api-token", ...apiTokenEntity, webhookEvents: true });
     });
     const fields = releasedFields(createWebhookContractResolver([feature]), "api-token");
     expect(fields).toBeDefined();

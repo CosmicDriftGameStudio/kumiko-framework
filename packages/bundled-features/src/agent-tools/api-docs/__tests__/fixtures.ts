@@ -21,6 +21,7 @@ const OPEN_ACCESS = {
 } as const;
 
 const ticketEntity = createEntity({
+  webhookEvents: true,
   fields: {
     title: createTextField({ required: true, personal: false, reason: "technical_reference" }),
   },
@@ -48,6 +49,20 @@ export function buildHelpdeskFeature(): FeatureDefinition {
       handler: async () => ({ isSuccess: true as const, data: {} }),
       access: OPEN_ACCESS,
       description: "Escalates a ticket.",
+    });
+    r.writeHandler({
+      name: "ticket:sync",
+      schema: z.object({ id: z.uuid() }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["system"] },
+      description: "Syncs a ticket from the job runner.",
+    });
+    r.screen({
+      id: "sync-ticket",
+      type: "actionForm",
+      handler: "helpdesk:write:ticket:sync",
+      fields: {},
+      layout: { sections: [] },
     });
     r.writeHandler({
       name: "internal:purge",
@@ -109,6 +124,7 @@ export function buildWebhookFixtureFeatures(): FeatureDefinition[] {
         description: "A customer opened a ticket.",
         payload: z.object({ id: z.uuid(), subject: z.string().describe("Short summary") }),
         version: 2,
+        wireName: "ticket.opened",
       });
       r.translations({
         keys: {
@@ -150,6 +166,7 @@ export function buildFixtureFeatures(
           read: ["helpdesk:query:*"],
           write: [
             "helpdesk:write:ticket:close",
+            "helpdesk:write:ticket:sync",
             "helpdesk:write:ticket:create",
             "helpdesk:write:ticket:update",
           ],

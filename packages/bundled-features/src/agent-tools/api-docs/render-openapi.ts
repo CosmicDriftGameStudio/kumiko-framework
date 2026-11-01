@@ -107,10 +107,11 @@ function webhooks(events: readonly ApiDocsEvent[], locale: string): Json {
   const texts = apiDocsTextsFor(isApiDocsLocale(locale) ? locale : "en");
   return Object.fromEntries(
     events.map((event) => [
-      event.qn,
+      event.wireName,
       {
         post: {
-          summary: event.qn,
+          summary: event.wireName,
+          "x-kumiko-qn": event.qn,
           description: describeEvent(event, locale, texts),
           requestBody: {
             required: true,

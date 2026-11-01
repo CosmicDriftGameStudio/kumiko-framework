@@ -31,7 +31,7 @@ export type HandlerAnchor = {
   readonly anchor: string;
 };
 
-/** Events are headed by their exact QN. Declared (`feature:name`) and entity (`entity.verb`) QNs can
+/** Events are headed by their wire name. Declared (`feature:name`) and entity (`entity.verb`) names can
  *  slug alike once punctuation is dropped, so repeats get GitHub's `-1`, `-2` suffix in QN order. */
 export function eventAnchors(qns: readonly string[]): readonly HandlerAnchor[] {
   const used = new Set<string>();

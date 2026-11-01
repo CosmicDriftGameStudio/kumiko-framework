@@ -54,7 +54,7 @@ export function renderEventsPage(input: EventsInput): RenderedPage {
   page.section(ids.versions, text["events.versions.heading"]);
   page.add(text["events.versions.body"]);
   page.section(ids.list, text["events.list.heading"]);
-  const anchors = eventAnchors(input.events.map((event) => event.qn));
+  const anchors = eventAnchors(input.events.map((event) => event.wireName));
   input.events.forEach((event, index) => {
     const anchor = anchors[index];
     // skip: eventAnchors returns one entry per event, so a gap only means an empty list

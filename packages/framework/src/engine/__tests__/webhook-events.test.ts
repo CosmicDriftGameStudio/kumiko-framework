@@ -13,6 +13,7 @@ const ID = "0b9c6c3a-5c1e-4a6e-9a39-2f1d6c1f7a10";
 
 const carEntity = createEntity({
   table: "webhook_cars",
+  webhookEvents: true,
   fields: {
     vin: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     model: createTextField({ personal: false, reason: "test_fixture" }),
@@ -48,6 +49,59 @@ describe("defineWebhookEvent", () => {
       origin: "declared",
       description: "A car was sold.",
     });
+  });
+
+  test("wireName defaults to the unqualified name, derived entity events keep entity.verb", () => {
+    expect(registry.getWebhookEventContract("garage:car-sold")?.wireName).toBe("car-sold");
+    expect(registry.getWebhookEventContract("car.created")?.wireName).toBe("car.created");
+    const renamed = defineFeature("shop", (r) => {
+      r.defineWebhookEvent({
+        name: "order-paid",
+        wireName: "order.paid",
+        description: "An order was paid.",
+        payload: z.object({ id: z.uuid() }),
+        version: 1,
+      });
+    });
+    expect(createRegistry([renamed]).getWebhookEventContract("shop:order-paid")?.wireName).toBe(
+      "order.paid",
+    );
+  });
+
+  test("two contracts with the same wire name fail the registry and name both QNs", () => {
+    const declare = (feature: string, name: string, wireName: string) =>
+      defineFeature(feature, (r) => {
+        r.defineWebhookEvent({
+          name,
+          wireName,
+          description: "Something happened.",
+          payload: z.object({ id: z.uuid() }),
+          version: 1,
+        });
+      });
+    expect(() =>
+      createRegistry([
+        declare("shop", "paid", "order.paid"),
+        declare("billing", "ok", "order.paid"),
+      ]),
+    ).toThrow(/"order\.paid" is used by both "shop:paid" and "billing:ok"/);
+    expect(() => createRegistry([garage, declare("fleet", "made", "car.created")])).toThrow(
+      /"car\.created" is used by both "fleet:made" and "car\.created"|"car\.created" is used by both "car\.created" and "fleet:made"/,
+    );
+  });
+
+  test("rejects an empty wireName", () => {
+    expect(() =>
+      defineFeature("shop", (r) => {
+        r.defineWebhookEvent({
+          name: "order-paid",
+          wireName: " ",
+          description: "An order was paid.",
+          payload: z.object({ id: z.uuid() }),
+          version: 1,
+        });
+      }),
+    ).toThrow(/wireName must be a non-empty string/);
   });
 
   test("returns a handle carrying the qualified name", () => {
