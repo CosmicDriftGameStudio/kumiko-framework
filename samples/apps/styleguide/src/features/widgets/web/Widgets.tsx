@@ -42,7 +42,7 @@ import { Wallet } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { euro, percent } from "../lib/format";
 import { InboxReaderExamples } from "./InboxReaderExamples";
-import { VariantsDemo } from "./VariantsDemo";
+import { VariantsDemo, VariantsRoundTwoDemo } from "./VariantsDemo";
 
 const RESPONSE_TIMES = Array.from({ length: 48 }, (_, i) => ({
   atMs: i * 30 * 60 * 1000,
@@ -331,6 +331,7 @@ export function Widgets(): ReactNode {
       <AiTextDemo />
       <PlanCatalogDemo />
       <VariantsDemo />
+      <VariantsRoundTwoDemo />
     </div>
   );
 }

@@ -105,6 +105,19 @@ describe("wizard step rail: per-step texts", () => {
     );
   });
 
+  test("the active step shows no subtitle in the rail", () => {
+    renderWizard(
+      wizardScreen([
+        { title: "Basics", subtitle: "Active line", columns: 1, fields: [{ field: "title" }] },
+        { title: "Details", subtitle: "Other line", columns: 1, fields: [{ field: "count" }] },
+      ]),
+    );
+    expect(screen.queryByTestId("render-edit-wizard-steps-subtitle-0")).toBeNull();
+    expect(screen.getByTestId("render-edit-wizard-steps-subtitle-1").textContent).toBe(
+      "Other line",
+    );
+  });
+
   test("a completed step shows the summaryField value under its label", () => {
     renderWizard(
       wizardScreen([
@@ -141,6 +154,42 @@ describe("wizard step rail: up-next card", () => {
     expect(upNext.textContent).toContain("Details");
     expect(upNext.textContent).toContain("Short line");
     expect(upNext.textContent).not.toContain("Long intro");
+  });
+
+  test("upNextHint wins over subtitle in the card while the rail row keeps the subtitle", () => {
+    renderWizard(
+      wizardScreen(
+        [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          {
+            title: "Details",
+            subtitle: "Short line",
+            upNextHint: "Hint line",
+            columns: 1,
+            fields: [{ field: "count" }],
+          },
+        ],
+        { aside: { upNext: true } },
+      ),
+    );
+    const upNext = screen.getByTestId("render-edit-wizard-steps-up-next");
+    expect(upNext.textContent).toContain("Hint line");
+    expect(upNext.textContent).not.toContain("Short line");
+    expect(screen.getByTestId("render-edit-wizard-steps-subtitle-1").textContent).toBe(
+      "Short line",
+    );
+  });
+
+  test("step row label and subtitle wrap instead of truncating", () => {
+    renderWizard(
+      wizardScreen([
+        { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+        { title: "Details", subtitle: "Short line", columns: 1, fields: [{ field: "count" }] },
+      ]),
+    );
+    const subtitle = screen.getByTestId("render-edit-wizard-steps-subtitle-1");
+    expect(subtitle.className.split(" ")).not.toContain("truncate");
+    expect(subtitle.previousElementSibling?.className.split(" ")).not.toContain("truncate");
   });
 
   test("on the last step it announces the finish action with its description", () => {
@@ -264,11 +313,9 @@ describe("wizard step rail: extension steps", () => {
     );
   }
 
-  test("subtitle and description of an extension step reach the rail", () => {
+  test("the active extension step shows its description but no row subtitle", () => {
     renderWithExtensionFirst("title");
-    expect(screen.getByTestId("render-edit-wizard-steps-subtitle-0").textContent).toBe(
-      "Custom line",
-    );
+    expect(screen.queryByTestId("render-edit-wizard-steps-subtitle-0")).toBeNull();
     expect(screen.getAllByText("Custom intro").length).toBeGreaterThan(0);
   });
 

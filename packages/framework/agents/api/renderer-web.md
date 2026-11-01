@@ -18,11 +18,11 @@ function Avatar(props: AvatarProps): ReactNode;
 function BareFormProvider(props: { children: ReactNode; }): ReactNode;
 function BooleanField(props: BooleanFieldProps): ReactNode; // Checkbox/Switch = Field(layout:"inline") + Input(kind:"boolean").
 function Card(props: CardProps): ReactNode;
-function ChoiceCards<T extends string>(props: { value: T | null; options: { value: T; title: string; description?: string; aside?: string; disabled?: boolean; }[]; onChange: (value: T) => void; ariaLabel?: string; testId?: string; }): ReactNode; // Card-styled radio group for mutually exclusive choices that need a description or price line.
+function ChoiceCards<T extends string>(props: { value: T | null; options: { value: T; title: string; description?: string; aside?: string; disabled?: boolean; }[]; onChange: (value: T) => void; ariaLabel?: string; label?: string; columns?: 1 | 2 | 3 | 4; variant?: "check" | "radio"; testId?: string; }): ReactNode; // Card-styled radio group for mutually exclusive choices that need a description or price line.
 function ClampedText(props: { children: ReactNode; lines?: number; moreLabelKey?: string; maxHeightPx?: number; testId?: string; }): ReactNode; // Clamps content to `lines`; the toggle shows only while the content actually overflows.
 function CollapsibleSection(props: { title: string; defaultOpen?: boolean; children: ReactNode; testId?: string; }): ReactNode; // Collapsible section using native <details> with React-controlled state; otherwise the open attribute resets to its initial value on every parent re-render.
 function ComparisonTable<Col>(props: { columns: Col[]; columnHeader: (col: Col, index: number) => string; columnKey: (col: Col, index: number) => string; metrics: ComparisonMetric<Col>[]; metricLabel: string; testId?: string; className?: string; card?: boolean; }): ReactNode; // Transposed comparison table: row = metric, column = variant, with the best column optionally highlighted for each metric.
-function Composer(props: ComposerProps): ReactNode; // Chat input: a label-less textarea with the send button inside the field frame, bottom right.
+function Composer(props: ComposerProps): ReactNode; // Chat input: a label-less textarea with a text send button inside the field frame, bottom right.
 function DateField(props: DateFieldProps): ReactNode; // Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd.
 function DefaultAppShell(props: DefaultAppShellProps): ReactNode;
 function DetailList(props: { valueWeight?: "medium" | "normal"; layout?: "default" | "sidebar"; rows: { id?: string; label: string; value: ReactNode; emphasize?: boolean; }[]; testId?: string; }): ReactNode; // Read-only key-value list for detail views (dimmed label on the left, value on the right).
@@ -54,7 +54,7 @@ function MessageReader(props: MessageReaderProps): ReactNode; // Mail thread wit
 function MessageThread(props: MessageThreadProps): ReactNode; // Mail conversation, oldest first: older messages fold to one line, the last one is open on a sheet.
 function MiniStat(props: { label: string; value: string; tone?: StatTone; emphasize?: boolean; testId?: string; labelTestId?: string; valueTestId?: string; }): ReactNode; // Compact metric tile (without an icon) — for dense KPI grids.
 function MobileTopBar(props: MobileTopBarProps): ReactNode; // Phone-only bar for focused screens: the shell header is hidden there, so the screen brings its own.
-function ModeSwitch<T extends string>(props: { value: T | null; options: { value: T; label: string; count?: number; disabled?: boolean; tone?: "warning"; }[]; onChange: (value: T) => void; ariaLabel?: string; variant?: ModeSwitchVariant; className?: string; testId?: string; }): ReactNode; // Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>.
+function ModeSwitch<T extends string>(props: { value: T | null; options: { value: T; label: string; count?: number; disabled?: boolean; tone?: "warning"; }[]; onChange: (value: T) => void; ariaLabel?: string; variant?: ModeSwitchVariant; segmentWidth?: "auto" | "wide"; className?: string; testId?: string; }): ReactNode; // Segmented control for mutually exclusive modes—the prominent alternative to the buried <select>.
 function NavProvider(props: NavProviderProps): ReactNode;
 function NavTree(props: NavTreeProps): ReactNode;
 function NumberField(props: NumberFieldProps): ReactNode; // Number field = Field + Input(kind:"number"); avoids repeating the id/name/value/onChange wiring at each screen.
@@ -85,7 +85,7 @@ function SectionNavLayout(props: SectionNavLayoutProps): ReactNode; // Content c
 function SelectField(props: SelectFieldProps): ReactNode; // Select field = Field + Input(kind:"select").
 function SenderFrame(props: { children: ReactNode; label?: string; testId?: string; }): ReactNode; // Sand frame with one white sheet inside, for content that mimics a letter or mail.
 function SenderSheet(props: { children: ReactNode; testId?: string; compact?: boolean; }): ReactNode; // The white sheet alone, for a frame that holds several sheets (PDF pages, thumbnails).
-function SideBySideTable(props: { caption: string; rowHeaderLabel: string; columns: SideBySideTableColumn[]; rows: SideBySideTableRow[]; rowHeaderWidth?: number; testId?: string; }): ReactNode; // Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs.
+function SideBySideTable(props: { caption: string; rowHeaderLabel: string; columns: SideBySideTableColumn[]; rows: SideBySideTableRow[]; rowHeaderWidth?: number; rowHeaderTone?: "muted" | "foreground"; testId?: string; }): ReactNode; // Small read-only grid with real table semantics (`th scope`) whose cells are arbitrary React nodes — for side-by-side comparisons like "from the document" vs.
 function Sidebar(props: SidebarProps): ReactNode;
 function SidebarBrand(props: SidebarBrandProps): ReactNode;
 function SidebarMenu(props: React.ComponentProps<"ul">): React.JSX.Element;
@@ -238,6 +238,7 @@ type BannerProps = { // Banner for an inline message or page state (for example,
   parts?: { text: string; strong?: boolean; }[]; // Structured text after `children`; `strong` parts render emphasized.
   icon?: NavIconKey; // Leading icon, for example `"alert-triangle"` on a warning.
   actions?: ReactNode; // Optional—additional buttons or elements to the right of the text (for example, "Neu laden").
+  actionsPlacement?: "end" | "below"; // Where `actions` sit: `end` (default) right of the text, `below` under it.
   padded?: boolean; // Adds outer spacing around the banner for page states where it renders alone in the main area (KumikoScreen "not-found", "loading", etc.).
   testId?: string;
   id?: string; // Set when a `<Field>` wraps this Banner as its control (no actual input exists for the label to target — see render-field.tsx's unsupported-field-type fallback).
@@ -302,7 +303,8 @@ type ComposerProps = {
   onSubmit: () => void;
   placeholder?: string;
   disabled?: boolean;
-  submitLabel: string; // Accessible name of the send button (icon-only).
+  submitLabel: string; // Text of the send button.
+  docked?: boolean; // Sticks to the bottom of a full-height flex-column parent so it stays visible while the thread scrolls; it also covers the bottom padding of the screen scroll.
   rows?: number;
   testId?: string;
 };

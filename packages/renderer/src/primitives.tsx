@@ -204,6 +204,8 @@ export type BannerProps = {
   /** Optional—additional buttons or elements to the right of the text (for
    *  example, "Neu laden"). Inline, not a separate block. */
   readonly actions?: ReactNode;
+  /** Where `actions` sit: `end` (default) right of the text, `below` under it. */
+  readonly actionsPlacement?: "end" | "below";
   /** Adds outer spacing around the banner for page states where it renders
    *  alone in the main area (KumikoScreen "not-found", "loading", etc.). The
    *  web implementation adds p-6 as margin around the banner. */

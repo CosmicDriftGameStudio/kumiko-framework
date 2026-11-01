@@ -11,6 +11,7 @@ export function ModeSwitch<T extends string>({
   onChange,
   ariaLabel,
   variant = "outline",
+  segmentWidth = "auto",
   className,
   testId,
 }: {
@@ -23,7 +24,7 @@ export function ModeSwitch<T extends string>({
     readonly count?: number;
     /** Not selectable: aria-disabled, muted, no click. */
     readonly disabled?: boolean;
-    /** `warning` frames the option to flag an open question. */
+    /** `warning` frames the whole switch to flag an open question. */
     readonly tone?: "warning";
   }[];
   readonly onChange: (value: T) => void;
@@ -31,10 +32,13 @@ export function ModeSwitch<T extends string>({
   /** `outline` (default): bordered segments, active tinted. `pill`: grey
    *  track with a raised active segment. */
   readonly variant?: ModeSwitchVariant;
+  /** `wide` gives every segment a minimum width of 80px. */
+  readonly segmentWidth?: "auto" | "wide";
   readonly className?: string;
   readonly testId?: string;
 }): ReactNode {
   const pill = variant === "pill";
+  const warning = options.some((o) => o.tone === "warning");
   return (
     // biome-ignore lint/a11y/useSemanticElements: fieldset brings browser-default chrome (border/legend) that is wrong for a button segmented control
     <div
@@ -46,6 +50,7 @@ export function ModeSwitch<T extends string>({
         pill
           ? "gap-0.5 rounded-lg bg-muted p-0.5"
           : "overflow-hidden rounded-md border border-input bg-background",
+        warning && "ring-1 ring-inset ring-status-warn",
         className,
       )}
     >
@@ -65,7 +70,7 @@ export function ModeSwitch<T extends string>({
               "grow px-3 text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               disabled && "cursor-not-allowed opacity-50",
-              o.tone === "warning" && "ring-1 ring-inset ring-status-warn",
+              segmentWidth === "wide" && "min-w-20",
               pill
                 ? [
                     "rounded-md",

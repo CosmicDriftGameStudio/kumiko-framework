@@ -23,7 +23,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `ClampedText` | Clamps content to `lines`; the toggle shows only while the content actually overflows. |
 | `CollapsibleSection` | Collapsible section using native <details> with React-controlled state; otherwise the open attribute resets to its initial value on every parent re-render. |
 | `ComparisonTable` | Transposed comparison table: row = metric, column = variant, with the best column optionally highlighted for each metric. |
-| `Composer` | Chat input: a label-less textarea with the send button inside the field frame, bottom right. |
+| `Composer` | Chat input: a label-less textarea with a text send button inside the field frame, bottom right. |
 | `DateField` | Date field = Field + Input(kind:"date"), ISO yyyy-mm-dd. |
 | `DefaultAppShell` |  |
 | `DetailList` | Read-only key-value list for detail views (dimmed label on the left, value on the right). |

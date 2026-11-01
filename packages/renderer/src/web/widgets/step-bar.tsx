@@ -54,11 +54,11 @@ function StepRailRow({
       </span>
       {isDone && <span className="sr-only">{doneLabel}</span>}
       <span className="flex min-w-0 flex-col">
-        <span className="truncate">{label}</span>
+        <span>{label}</span>
         {subtitle !== undefined && (
           <span
             data-testid={subtitleTestId}
-            className="truncate text-xs font-normal text-foreground-secondary"
+            className="text-xs font-normal text-foreground-secondary"
           >
             {subtitle}
           </span>

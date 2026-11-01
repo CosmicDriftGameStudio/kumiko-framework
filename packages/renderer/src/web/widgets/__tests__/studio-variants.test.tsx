@@ -42,7 +42,7 @@ describe("Heading group and Banner parts", () => {
 });
 
 describe("DetailList options", () => {
-  test("normal value weight drops font-medium; sidebar right-aligns the value", () => {
+  test("normal value weight drops font-medium; sidebar keeps the value left-aligned", () => {
     render(
       <DetailList
         rows={[{ label: "Plan", value: "Team" }]}
@@ -52,7 +52,7 @@ describe("DetailList options", () => {
     );
     const value = screen.getByText("Team").className.split(" ");
     expect(value).not.toContain("font-medium");
-    expect(value).toContain("text-right");
+    expect(value).not.toContain("text-right");
   });
 
   test("defaults keep the emphasized value", () => {
@@ -76,7 +76,6 @@ describe("ModeSwitch disabled and tone", () => {
     );
     const disabled = screen.getByText("B");
     expect(disabled.getAttribute("aria-disabled")).toBe("true");
-    expect(disabled.className.split(" ")).toContain("ring-status-warn");
     fireEvent.click(disabled);
     expect(onChange).not.toHaveBeenCalled();
   });

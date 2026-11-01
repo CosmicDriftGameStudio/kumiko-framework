@@ -7,6 +7,33 @@ import { fieldLabelId } from "./field.tsx";
 
 // ---- Banner (shadcn: Alert) ----
 
+function bannerToneClassName(variant: NonNullable<BannerProps["variant"]>): string {
+  switch (variant) {
+    case "error":
+      return "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive";
+    case "warning":
+      return "border-status-warn/30 bg-status-warn/10 text-status-warn";
+    case "primary":
+      return "border-l-4 border-l-primary bg-card text-card-foreground";
+    case "hint":
+      return "border-transparent bg-muted text-foreground";
+    default:
+      return "bg-card text-card-foreground";
+  }
+}
+
+function BannerParts({ parts }: { readonly parts: BannerProps["parts"] }): ReactNode {
+  return parts?.map((part) =>
+    part.strong === true ? (
+      <strong key={`strong:${part.text}`} className="font-semibold">
+        {part.text}
+      </strong>
+    ) : (
+      <span key={`plain:${part.text}`}>{part.text}</span>
+    ),
+  );
+}
+
 export function DefaultBanner({
   variant = "info",
   title,
@@ -15,18 +42,19 @@ export function DefaultBanner({
   parts,
   icon,
   actions,
+  actionsPlacement = "end",
   padded,
   testId,
   id,
 }: BannerProps): ReactNode {
   const isError = variant === "error";
-  const isWarning = variant === "warning";
   const isPrimary = variant === "primary";
   // `id` is set when a <Field> wraps this Banner as its control (see
   // BannerProps.id). A <div> isn't labelable, so a <label htmlFor> pointing
   // at it is inert for screen readers — role="group" + aria-labelledby is
   // the actual mechanism, pointed at the label id Field emits (fieldLabelId).
   const bannerRole = id !== undefined ? "group" : isError ? "alert" : undefined;
+  const actionsBelow = actionsPlacement === "below";
   const banner = (
     <div
       role={bannerRole}
@@ -36,16 +64,9 @@ export function DefaultBanner({
       className={cn(
         "relative w-full rounded-lg border px-4 py-3 text-sm flex items-center gap-3",
         // Viewport breakpoint like the form footer bar; actions drop below the text on phones.
-        isPrimary && "flex-col items-start sm:flex-row sm:items-center",
-        isError
-          ? "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive"
-          : isWarning
-            ? "border-status-warn/30 bg-status-warn/10 text-status-warn"
-            : isPrimary
-              ? "border-l-4 border-l-primary bg-card text-card-foreground"
-              : variant === "hint"
-                ? "border-transparent bg-muted text-foreground"
-                : "bg-card text-card-foreground",
+        isPrimary && !actionsBelow && "flex-col items-start sm:flex-row sm:items-center",
+        actionsBelow && "items-start",
+        bannerToneClassName(variant),
       )}
     >
       {icon !== undefined && <Icon name={icon} className="size-4 shrink-0" />}
@@ -56,17 +77,14 @@ export function DefaultBanner({
           </div>
         )}
         {children}
-        {parts?.map((part) =>
-          part.strong === true ? (
-            <strong key={`strong:${part.text}`} className="font-semibold">
-              {part.text}
-            </strong>
-          ) : (
-            <span key={`plain:${part.text}`}>{part.text}</span>
-          ),
+        <BannerParts parts={parts} />
+        {actionsBelow && actions !== undefined && (
+          <div data-slot="actions" className="mt-3">
+            {actions}
+          </div>
         )}
       </div>
-      {actions !== undefined && <div data-slot="actions">{actions}</div>}
+      {!actionsBelow && actions !== undefined && <div data-slot="actions">{actions}</div>}
     </div>
   );
   // Page state: the banner sits alone in main (which no longer has padding).

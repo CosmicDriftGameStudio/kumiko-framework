@@ -909,13 +909,11 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await expect(step2).toHaveCSS("height", "36px");
   });
 
-  test("the rail shows a step's subtitle and, once a step is done, its summaryField value", async ({
+  test("the rail shows the other steps' subtitles and, once a step is done, its summaryField value", async ({
     page,
   }) => {
     await gotoWizard(page);
-    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-0")).toHaveText(
-      "Title and category",
-    );
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-0")).toHaveCount(0);
     await expect(page.getByTestId("render-edit-wizard-steps-subtitle-1")).toHaveText(
       "Price and condition",
     );
@@ -927,6 +925,7 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     await expect(page.getByTestId("render-edit-wizard-steps-subtitle-0")).toHaveText(
       "Vintage desk lamp",
     );
+    await expect(page.getByTestId("render-edit-wizard-steps-subtitle-1")).toHaveCount(0);
   });
 
   test("the up-next card names the next step and, on the last step, the finish action", async ({

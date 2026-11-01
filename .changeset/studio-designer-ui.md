@@ -31,14 +31,14 @@ detail: `Heading variant="group"` renders a 16px semibold sub-title in the foreg
 feature: renderer
 type: improvement
 title: DetailList valueWeight and sidebar layout
-detail: `DetailList valueWeight="normal"` drops the value emphasis (default `"medium"`). `layout="sidebar"` puts a narrow label column and the right-aligned value on one row for side columns (default `"default"`).
+detail: `DetailList valueWeight="normal"` drops the value emphasis (default `"medium"`). `layout="sidebar"` puts a narrow label column and the value on one row for side columns (default `"default"`).
 -->
 
 <!-- kumiko-changes
 feature: renderer
 type: improvement
 title: TextareaField placeholder, Composer widget
-detail: `TextareaField` takes a `placeholder`. New `Composer` chat input: label-less textarea with the send button inside the field frame, bottom right, docked to the bottom of its column. Props `value`, `onChange`, `onSubmit`, `placeholder`, `disabled`, `submitLabel` (aria label of the send button), `rows`.
+detail: `TextareaField` takes a `placeholder`. New `Composer` chat input: label-less textarea with the send button inside the field frame, bottom right. Props `value`, `onChange`, `onSubmit`, `placeholder`, `disabled`, `submitLabel` (text of the send button), `docked`, `rows`.
 -->
 
 <!-- kumiko-changes
@@ -87,7 +87,7 @@ detail: `SectionNavLayout` wraps custom or extension sections in a column with t
 feature: framework
 type: improvement
 title: Wizard step rail texts and up-next card
-detail: Wizard steps in the rail show the section `subtitle` (opt-in, no fallback to `description`); a completed step shows the value of the new optional `summaryField`. `wizard.aside.finishDescription` adds a finish card with description on the last step. The up-next card shows the next step's `subtitle` only. Extension sections accept `subtitle`, `description` and `summaryField` too; on an `actionForm`, `summaryField` and `wizard.submitDisabledWhen` may name a field of its `fields` (such a summary shows the raw value unformatted, meant for text and number fields), and `wizard.saveAndCloseOnCreate` also shows "Save and close" on the last step next to the submit.
+detail: Wizard steps in the rail show the section `subtitle` (opt-in, no fallback to `description`); a completed step shows the value of the new optional `summaryField`. `wizard.aside.finishDescription` adds a finish card with description on the last step. The up-next card shows the next step's `upNextHint`, else `subtitle`, only. Extension sections accept `subtitle`, `description` and `summaryField` too; on an `actionForm`, `summaryField` and `wizard.submitDisabledWhen` may name a field of its `fields` (such a summary shows the raw value unformatted, meant for text and number fields), and `wizard.saveAndCloseOnCreate` also shows "Save and close" on the last step next to the submit.
 -->
 
 <!-- kumiko-changes
@@ -102,6 +102,34 @@ feature: framework
 type: improvement
 title: Wizard footer options
 detail: `layout.wizard.saveAndCloseOnCreate` shows "Save and close" in create mode. `layout.wizard.submitDisabledWhen` is a field condition that disables the submit buttons and blocks the submit. After a create, extension sections are saved with the id of the new entity. The boot validator rejects these options outside wizard mode and unknown fields. `submitDisabledWhen` is UI-only; enforce the rule in a validation hook.
+-->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: Studio visual round: ChoiceCards, ModeSwitch, SideBySideTable, Banner, FormSectionNav options
+detail: Opt-in only, defaults unchanged. `ChoiceCards` takes `columns` (1 to 4), `variant="radio"` and `label`. `ModeSwitch` takes `segmentWidth="wide"`. `SideBySideTable` takes `rowHeaderTone="foreground"`. `Banner` takes `actionsPlacement="below"`. `FormSectionNav` takes `activeTone="foreground"`.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: improvement
+title: Wizard step upNextHint
+detail: Fields and extension sections in a wizard accept `upNextHint`; the up-next card shows it under the next step's title, falling back to `subtitle`.
+-->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: Wizard step rail wraps text and hides the active subtitle
+detail: Step rail rows wrap long labels and subtitles instead of truncating them. The active step shows no subtitle in the rail (below `lg`, where the rail is hidden, the section header shows the text). Applies to every wizard with a step rail.
+-->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: Composer text button and docked option, ModeSwitch frame, DetailList sidebar, SectionNavLayout marker
+detail: `Composer` renders a text send button (`submitLabel` is its text), the textarea on the normal background without a surrounding strip, and takes `docked`: sticky at the bottom of a scroll container that carries the screen padding, pushed down with `mt-auto` in a full-height flex column. `ModeSwitch` `tone: "warning"` frames the whole switch. `DetailList layout="sidebar"` left-aligns the value. `SectionNavLayout` marks the active entry bold in the text colour. These widgets are new in this release.
 -->
 
 <!-- kumiko-changes

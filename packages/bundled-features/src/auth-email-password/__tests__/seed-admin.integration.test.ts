@@ -209,6 +209,6 @@ describe("seedAdmin without a password", () => {
     await seedAdmin(stack.db, { email: "keep@example.com", displayName: "Keep", memberships });
 
     const [user] = await selectMany(stack.db, userTable, { email: "keep@example.com" });
-    expect(await verifyPassword(user?.["passwordHash"] as string, "keep-this-pw-1234")).toBe(true);
+    expect(await verifyPassword(user?.["passwordHash"] as string, "secret-pw")).toBe(true);
   });
 });

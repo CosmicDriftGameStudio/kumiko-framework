@@ -204,7 +204,10 @@ test("wizard-light", async ({ page }) => {
   for (let step = 1; step < 4; step++) {
     await page.getByTestId("render-edit-wizard-next").click();
   }
-  await expect(page.getByText("Lass leer, was du noch nicht weißt")).toBeVisible();
+  // The step text sits in the rail (from lg) and in the section header (below lg); only one is visible.
+  await expect(
+    page.getByText("Lass leer, was du noch nicht weißt").locator("visible=true"),
+  ).toBeVisible();
   await shot(page, "wizard-light");
 });
 

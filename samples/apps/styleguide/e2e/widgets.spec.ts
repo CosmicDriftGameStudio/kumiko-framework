@@ -224,3 +224,32 @@ test("SectionNavLayout lists the sections beside the content on a wide viewport"
     await demo.screenshot({ path: `${shotDir}/section-nav-layout.png` });
   }
 });
+
+test("round-two studio variants render on the widgets page", async ({ page }) => {
+  const shotDir = process.env["SCREENSHOT_DIR"];
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/widgets");
+  const blocks = [
+    "variants-choice",
+    "variants-mode-wide",
+    "variants-compare",
+    "variants-docked",
+    "variants-banner-below",
+    "variants-rail",
+    "variants-detail-sidebar",
+    "variants-composer-host",
+    "variants-section-nav",
+  ];
+  for (const block of blocks) {
+    const demo = page.getByTestId(block);
+    await demo.scrollIntoViewIfNeeded();
+    await expect(demo).toBeVisible();
+    if (shotDir) {
+      // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+      await demo.screenshot({ path: `${shotDir}/${block}.png` });
+    }
+  }
+  await expect(page.getByTestId("variants-docked-composer")).toBeVisible();
+  await expect(page.getByTestId("variants-rail-steps-subtitle-0")).toHaveCount(0);
+  await expect(page.getByTestId("variants-rail-steps-subtitle-1")).toBeVisible();
+});

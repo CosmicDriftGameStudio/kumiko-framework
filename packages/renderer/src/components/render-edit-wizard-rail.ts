@@ -57,7 +57,7 @@ export function deriveWizardRail<TValues extends FormValues, TCtx>(
 
   const subtitles = filteredSections.map((section, index) => {
     const texts = railTextSection(section);
-    if (texts === undefined) return undefined;
+    if (texts === undefined || index === currentStep) return undefined;
     if (isDone(index)) {
       const summary = summaryValue(texts);
       if (summary !== undefined) return summary;
@@ -71,7 +71,7 @@ export function deriveWizardRail<TValues extends FormValues, TCtx>(
   let upNext: WizardRail["upNext"];
   if (wizard?.aside?.upNext !== true) upNext = undefined;
   else if (nextSection !== undefined) {
-    const subtitle = nextTexts?.subtitle;
+    const subtitle = nextTexts?.upNextHint ?? nextTexts?.subtitle;
     upNext = {
       heading,
       title: nextSection.title ?? "",

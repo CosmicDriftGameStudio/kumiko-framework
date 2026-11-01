@@ -410,6 +410,8 @@ export type EditFieldsSectionViewModel = {
   readonly description?: string;
   /** Translated `EditFieldsSection.subtitle` (wizard step rail / up-next box). */
   readonly subtitle?: string;
+  /** Translated `EditFieldsSection.upNextHint`. */
+  readonly upNextHint?: string;
   /** From `EditFieldsSection.summaryField` (wizard step rail). */
   readonly summaryField?: string;
   readonly columns: number;
@@ -439,6 +441,8 @@ export type EditExtensionSectionViewModel = {
   readonly description?: string;
   /** Translated `EditExtensionSection.subtitle`. */
   readonly subtitle?: string;
+  /** Translated `EditExtensionSection.upNextHint`. */
+  readonly upNextHint?: string;
   /** From `EditExtensionSection.summaryField`. */
   readonly summaryField?: string;
   readonly component: PlatformComponent;

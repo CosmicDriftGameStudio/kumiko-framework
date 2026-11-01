@@ -341,4 +341,81 @@ export const WIDGETS_I18N = {
     de: ". Das Löschen ist endgültig.",
     en: ". Deleting is permanent.",
   },
+  "widgets:catalog:variants-round2-title": {
+    de: "Studio-Varianten, zweite Runde",
+    en: "Studio variants, round two",
+  },
+  "widgets:catalog:variants-choice": {
+    de: "Auswahlkarten, drei Spalten, Radio",
+    en: "Choice cards, three columns, radio",
+  },
+  "widgets:catalog:variants-choice-label": { de: "Womit beginnen?", en: "Where to start?" },
+  "widgets:catalog:variants-choice-empty": { de: "Leer beginnen", en: "Start empty" },
+  "widgets:catalog:variants-choice-empty-desc": {
+    de: "Nur Anmeldung und Benutzer",
+    en: "Sign-in and users only",
+  },
+  "widgets:catalog:variants-choice-service": {
+    de: "Wartung und Prüfung",
+    en: "Service and checks",
+  },
+  "widgets:catalog:variants-choice-service-desc": {
+    de: "Vorlage: Anlagen, Intervalle, Prüfprotokolle",
+    en: "Template: assets, intervals, inspection reports",
+  },
+  "widgets:catalog:variants-choice-guests": { de: "Gästeliste", en: "Guest list" },
+  "widgets:catalog:variants-choice-guests-desc": {
+    de: "Vorlage: Veranstaltung, Zusage per Link",
+    en: "Template: event, RSVP by link",
+  },
+  "widgets:catalog:variants-mode-wide": {
+    de: "Modus mit breiten Segmenten, Warnrahmen um den ganzen Schalter",
+    en: "Mode switch with wide segments, warning frame around the whole switch",
+  },
+  "widgets:catalog:variants-compare": {
+    de: "Vergleichstabelle, Zeilenköpfe in Textfarbe",
+    en: "Comparison table, row headers in text colour",
+  },
+  "widgets:catalog:variants-compare-field": { de: "Angabe", en: "Item" },
+  "widgets:catalog:variants-compare-left": { de: "Aus dem Dokument", en: "From the document" },
+  "widgets:catalog:variants-compare-right": { de: "Im Bestand", en: "In stock" },
+  "widgets:catalog:variants-compare-name": { de: "Name", en: "Name" },
+  "widgets:catalog:variants-compare-city": { de: "Ort", en: "City" },
+  "widgets:catalog:variants-docked": {
+    de: "Angedockte Chat-Eingabe",
+    en: "Docked chat composer",
+  },
+  "widgets:catalog:variants-docked-message": {
+    de: "Der Verlauf scrollt, die Eingabe bleibt unten sichtbar.",
+    en: "The thread scrolls, the composer stays visible at the bottom.",
+  },
+  "widgets:catalog:variants-banner-below": {
+    de: "Hinweis mit Aktion unter dem Text",
+    en: "Banner with the action below the text",
+  },
+  "widgets:catalog:variants-banner-below-title": {
+    de: "Veröffentlichen gescheitert",
+    en: "Publishing failed",
+  },
+  "widgets:catalog:variants-banner-below-body": {
+    de: "Die Prüfung ist fehlgeschlagen. Bitte erneut versuchen.",
+    en: "The check failed. Please try again.",
+  },
+  "widgets:catalog:variants-banner-below-action": { de: "Erneut versuchen", en: "Try again" },
+  "widgets:catalog:variants-rail": {
+    de: "Wizard-Leiste: Schritt ohne Untertitel, Hinweis im Kasten",
+    en: "Wizard rail: active step without subtitle, hint in the box",
+  },
+  "widgets:catalog:variants-rail-heading": { de: "Schritt 1 von 2", en: "Step 1 of 2" },
+  "widgets:catalog:variants-rail-step-one": { de: "Beschreiben", en: "Describe" },
+  "widgets:catalog:variants-rail-step-two": { de: "Steckbrief", en: "Profile" },
+  "widgets:catalog:variants-rail-subtitle": {
+    de: "Rollen, Funktionen, Personendaten und noch ein langer Zusatz, der umbricht",
+    en: "Roles, features, personal data and a long addition that wraps",
+  },
+  "widgets:catalog:variants-rail-up-next": { de: "Als Nächstes", en: "Up next" },
+  "widgets:catalog:variants-rail-hint": {
+    de: "Die KI fragt nur nach, was offen ist",
+    en: "The AI only asks about what is open",
+  },
 } as const;

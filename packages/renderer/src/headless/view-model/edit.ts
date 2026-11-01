@@ -132,13 +132,15 @@ function translateSectionTexts(
     readonly title?: string | undefined;
     readonly description?: string | undefined;
     readonly subtitle?: string | undefined;
+    readonly upNextHint?: string | undefined;
   },
   translate: Translate,
-): { title?: string; description?: string; subtitle?: string } {
+): { title?: string; description?: string; subtitle?: string; upNextHint?: string } {
   return {
     ...(section.title !== undefined && { title: translate(section.title) }),
     ...(section.description !== undefined && { description: translate(section.description) }),
     ...(section.subtitle !== undefined && { subtitle: translate(section.subtitle) }),
+    ...(section.upNextHint !== undefined && { upNextHint: translate(section.upNextHint) }),
   };
 }
 
@@ -592,6 +594,7 @@ function buildExtensionSectionViewModel(
       description: translate(sectionSpec.description),
     }),
     ...(sectionSpec.subtitle !== undefined && { subtitle: translate(sectionSpec.subtitle) }),
+    ...(sectionSpec.upNextHint !== undefined && { upNextHint: translate(sectionSpec.upNextHint) }),
     ...(sectionSpec.summaryField !== undefined && { summaryField: sectionSpec.summaryField }),
     component: sectionSpec.component,
     contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,

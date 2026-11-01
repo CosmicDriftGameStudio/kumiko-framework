@@ -38,3 +38,49 @@ describe("layout.hideRequiredMarker", () => {
     expect(screen.getByTestId("field-title").textContent).not.toContain("*");
   });
 });
+
+describe("layout.hideRequiredMarker and width on the wizard path", () => {
+  function renderWizardOrder(extra: { hideRequiredMarker?: boolean; width?: "3xl" }): void {
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        ...extra,
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Details", columns: 1, fields: [{ field: "count" }] },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={screenDef}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 1 } as TestValues}
+          writeCommand="order:create"
+          fillScreenHeight
+        />
+      </DispatcherProvider>,
+    );
+  }
+
+  test("the asterisk is shown by default", () => {
+    renderWizardOrder({});
+    expect(screen.getByTestId("field-title").textContent).toContain("*");
+  });
+
+  test("the asterisk is hidden with the opt-out", () => {
+    renderWizardOrder({ hideRequiredMarker: true });
+    expect(screen.getByTestId("field-title").textContent).not.toContain("*");
+  });
+
+  test("layout.width reaches the wizard form column", () => {
+    renderWizardOrder({ width: "3xl" });
+    const column = screen.getByTestId("field-title").closest(".max-w-3xl");
+    expect(column).not.toBeNull();
+  });
+});

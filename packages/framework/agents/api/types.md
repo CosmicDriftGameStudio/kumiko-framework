@@ -4795,6 +4795,7 @@ type EditFieldsSectionBase = {
   icon?: IconKey; // Rendered left of the section title, `text-muted-foreground` — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   countField?: string; // Record field rendered as a count badge in the tab label when the enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
   subtitle?: string; // Short line (i18n key) under this step's title in the wizard step rail and in the "up next" box.
+  upNextHint?: string; // Wizard layouts only: text under this step's title in the "up next" box while the step before it is active; falls back to `subtitle`.
   summaryField?: string; // Wizard layouts only: field of this section whose formatted value shows under the step label in the step rail once the step is done.
   actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
 };

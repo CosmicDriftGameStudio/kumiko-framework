@@ -28,7 +28,7 @@ export function SectionNavLayout({
       >
         {children}
       </div>
-      {items.length > 0 && <FormSectionNav items={items} />}
+      {items.length > 0 && <FormSectionNav items={items} activeTone="foreground" />}
     </div>
   );
 }

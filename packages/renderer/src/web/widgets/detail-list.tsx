@@ -5,7 +5,7 @@ import { cn } from "../lib/cn.ts";
  * Read-only key-value list for detail views (dimmed label on the left, value on the right). The
  * value is a ReactNode, so badges and chips are supported. `emphasize` highlights a row, such as
  * the final result in a calculator. `valueWeight="normal"` drops the value emphasis;
- * `layout="sidebar"` keeps label (narrow column) and right-aligned value on one row, for narrow
+ * `layout="sidebar"` keeps label (narrow column) and left-aligned value on one row, for narrow
  * side columns.
  */
 export function DetailList({
@@ -49,7 +49,6 @@ export function DetailList({
             className={cn(
               "text-sm",
               valueWeight === "medium" && "font-medium",
-              layout === "sidebar" && "text-right",
               row.emphasize === true && "font-semibold",
             )}
           >

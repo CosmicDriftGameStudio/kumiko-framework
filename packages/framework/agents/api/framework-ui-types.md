@@ -324,6 +324,7 @@ type EditExtensionSection = {
   title: string;
   description?: string; // Wizard layouts only: intro text above the step, same slot as `EditFieldsSection.description`.
   subtitle?: string; // Wizard layouts only: short line under this step's title in the step rail and the "up next" box.
+  upNextHint?: string; // Wizard layouts only: text under this step's title in the "up next" box while the step before it is active; falls back to `subtitle`.
   summaryField?: string; // Wizard layouts only: field whose formatted value shows under the step label once the step is done.
   component: PlatformComponent;
   contributesToFormSubmit?: boolean; // When true, the extension registers via `useExtensionFormSubmit` and the surrounding form's Save button should activate for its dirty state.

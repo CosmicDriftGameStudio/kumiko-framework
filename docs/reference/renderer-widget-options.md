@@ -65,14 +65,27 @@ The x axis is time, not index: five minutes of data in a 30-day window draws a n
 ## Heading group, `DetailList`, `Banner`, `ModeSwitch` and `Composer`
 
 - `Heading variant="group"` renders a 16px semibold section heading, smaller than the page heading.
-- `DetailList` takes `valueWeight="normal"` to drop the value emphasis and `layout="sidebar"` to keep a narrow label column and a right-aligned value on one row, for side columns.
+- `DetailList` takes `valueWeight="normal"` to drop the value emphasis and `layout="sidebar"` to keep a narrow label column and a left-aligned value on one row, for side columns.
 - `Banner` takes an optional leading `icon` (a nav icon key such as `"alert-triangle"`) and `parts: [{ text, strong? }]` rendered after `children`; `children` is optional.
-- A `ModeSwitch` option can be `disabled` and carry `tone: "warning"` to flag an open question.
-- `TextareaField` takes a `placeholder`. `Composer` is a label-less chat textarea with the send button inside the frame: `value`, `onChange`, `onSubmit`, `placeholder`, `disabled`, `submitLabel`, `rows`.
+- A `ModeSwitch` option can be `disabled` and carry `tone: "warning"`, which frames the whole switch to flag an open question.
+- `TextareaField` takes a `placeholder`. `Composer` is a label-less chat textarea on the normal background with a text send button inside the frame: `value`, `onChange`, `onSubmit`, `placeholder`, `disabled`, `submitLabel` (the button text), `rows`. `docked` adds `sticky bottom-0 mt-auto`: in a full-height flex-column parent the composer sits at the bottom and stays visible while the thread scrolls (the parent must have a height).
+
+## `ChoiceCards`, `SideBySideTable` and `Banner` options
+
+All opt-in; the default look is unchanged.
+
+- `ChoiceCards` takes `columns` (1 to 4, from `sm`; default 2), `variant="radio"` (radio indicator before the title instead of the check at the top right) and `label` (visible group label in the field-label style; names the radio group).
+- `ModeSwitch` takes `segmentWidth="wide"` (minimum 80px per segment; default `"auto"`).
+- `SideBySideTable` takes `rowHeaderTone="foreground"` (row headers in the text colour; default `"muted"`).
+- `Banner` takes `actionsPlacement="below"` (actions under the text; default `"end"`, to the right).
+
+## Wizard width and required marker
+
+A wizard form column follows the screen's `layout.width` (`"3xl"`, `"4xl"`, `"full"`); without it the column is 640px wide. `layout.hideRequiredMarker` also applies to wizard steps. The step rail wraps long labels and subtitles instead of truncating them and shows no subtitle for the active step.
 
 ## `SectionNavLayout`: "On this page" layout for custom sections
 
-`SectionNavLayout` is the layout block for custom or extension sections that need the same table of contents as a long form. `items` is `[{ id, title }]`; each section in `children` carries the matching `id`. With no items it renders only the column. `width` takes the form column widths (default `"4xl"`), `testId` sets the test id.
+`SectionNavLayout` is the layout block for custom or extension sections that need the same table of contents as a long form. `items` is `[{ id, title }]`; each section in `children` carries the matching `id`. With no items it renders only the column. `width` takes the form column widths (default `"4xl"`), `testId` sets the test id. The active entry is bold in the text colour with a dark marker (forms keep the primary colour; `FormSectionNav` takes `activeTone="foreground"` for the same look).
 
 ```tsx
 <SectionNavLayout
@@ -101,7 +114,8 @@ With `layout.mode: "tabs"`, a header action takes `showOnTabs: ["<tab id>"]` and
 | Key | Effect |
 |---|---|
 | section `summaryField` | A completed step shows the value of this field of the section as its subtitle in the step rail. Without it the step shows its `subtitle` (a `description` is never used as a row line). |
-| `wizard.aside.upNext` | The "Als Nächstes" card shows the next step's title with its `subtitle` (no fallback to `description`). |
+| `wizard.aside.upNext` | The "Als Nächstes" card shows the next step's title with its `upNextHint`, else its `subtitle` (no fallback to `description`). |
+| section / extension `upNextHint` | Text under the step title in the "Als Nächstes" card while the step before it is active; falls back to `subtitle`. |
 | `wizard.aside.finishDescription` | On the last step the card shows the finish action with this text. |
 | `wizard.saveAndCloseOnCreate` | Shows "Save and close" in create mode too, and on the last step next to the submit. Default off. |
 | extension section `subtitle`, `description`, `summaryField` | Same rail texts as on a fields section. On an `actionForm`, `summaryField` and `wizard.submitDisabledWhen` may name any field of the screen's `fields`, which is how a wizard made only of extension steps reads its values. A `summaryField` that no fields section lists shows the raw form value without formatting, so point it at text or number fields only (a reference would show its id). |
