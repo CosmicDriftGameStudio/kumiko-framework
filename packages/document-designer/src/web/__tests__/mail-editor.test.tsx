@@ -3,6 +3,7 @@ import { ConfigQueries } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { textBlocksClient } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
   AppFeaturesProvider,
+  ContentPreviewsProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
   type FeatureSchema,
@@ -256,9 +257,11 @@ function renderEditor(
       <DispatcherProvider dispatcher={dispatcher}>
         <UserRolesProvider roles={["TenantAdmin"]}>
           <PrimitivesProvider value={defaultPrimitives}>
-            <NavProvider value={navApi}>
-              {wrapper === undefined ? editor : wrapper(editor)}
-            </NavProvider>
+            <ContentPreviewsProvider value={documentDesignerClient().contentPreviews ?? {}}>
+              <NavProvider value={navApi}>
+                {wrapper === undefined ? editor : wrapper(editor)}
+              </NavProvider>
+            </ContentPreviewsProvider>
           </PrimitivesProvider>
         </UserRolesProvider>
       </DispatcherProvider>

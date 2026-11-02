@@ -6,6 +6,7 @@ import {
   type TreeAction,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TEMPLATE_RESOLVER_BOOT_RULES } from "./boot-rules.ts";
+import { bodyPreviewQuery } from "./handlers/body-preview.query.ts";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantQuery } from "./handlers/by-tenant.query.ts";
 import { makeCollectionItemQuery } from "./handlers/collection-item.query.ts";
@@ -202,6 +203,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       diffToSystem: r.queryHandler(diffToSystemQuery),
       validate: r.queryHandler(validateQuery),
       preview: r.queryHandler(previewQuery),
+      bodyPreview: r.queryHandler(bodyPreviewQuery),
       documentBlocks: r.queryHandler(documentBlocksQuery),
       exportBundle: r.queryHandler(exportBundleQuery),
       sendTestStatus: r.queryHandler(makeSendTestStatusQuery(policy)),

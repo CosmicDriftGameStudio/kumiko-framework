@@ -71,6 +71,7 @@ export {
   TextField,
   type TextFieldProps,
 } from "./form-fields.tsx";
+export { HtmlMailFrame } from "./html-mail-frame.tsx";
 export {
   InfinityList,
   type InfinityListProps,

@@ -63,6 +63,10 @@ export function isCollectionRefusedKind(
   return isOneOf(COLLECTION_REFUSED_KINDS, kind);
 }
 
+// Kinds an editor opens: `notification` is retired (only replay reads it) and `image-snapshot`
+// gets finished html in its request, so neither has a mask to preview in.
+export type EditableTemplateKind = Exclude<TemplateKind, "notification" | "image-snapshot">;
+
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 export const SLUG_MAX_LENGTH = 80;
 

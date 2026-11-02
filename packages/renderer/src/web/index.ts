@@ -111,6 +111,31 @@ export { KumikoLink, useBrowserNavApi } from "./app/nav.tsx";
 export { PlainContentEditor } from "./app/plain-content-editor.tsx";
 export { useResolvers } from "./app/resolvers-context.tsx";
 export { clearRememberedListState } from "./app/session-list-state-store.ts";
+export type {
+  EditorActionTestIds,
+  EditorHeaderTestIds,
+  EditorMode,
+  EditorSaveActions,
+  EditorWorkbenchProps,
+  FooterTone,
+  InfoBarTone,
+  WorkbenchSave,
+} from "./editor/index.ts";
+export {
+  EditorBody,
+  EditorFooter,
+  EditorFrame,
+  EditorHeader,
+  EditorInfoBar,
+  EditorLocaleSwitch,
+  EditorModeSwitch,
+  EditorWorkbench,
+  formatRelativeWhen,
+  RailField,
+  RailHint,
+  RailRow,
+  RailSection,
+} from "./editor/index.ts";
 export type { NavIconKey } from "./icons.tsx";
 export { Icon } from "./icons.tsx";
 export type { AppLayoutProps } from "./layout/app-layout.tsx";
@@ -310,6 +335,7 @@ export {
   FeedList,
   FileField,
   FloatingPanel,
+  HtmlMailFrame,
   InfinityList,
   LoadingState,
   MessageReader,

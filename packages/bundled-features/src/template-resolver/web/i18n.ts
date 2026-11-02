@@ -195,5 +195,17 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.collection.slugExists":
       "An entry with the slug “{detail}” already exists. Pick another one.",
     "template-resolver.editor.readOnly": "Read-only. Your role does not allow changes here.",
+    "template-resolver.editor.infoEdit":
+      "Edit the title and the content. The preview shows it with example values for the placeholders.",
+    "template-resolver.editor.infoPreview":
+      "This is how the text looks with the example values, including changes you have not saved yet.",
+    "template-resolver.editor.localeLabel": "Language",
+    "template-resolver.editor.railDetails": "Entry",
+    "template-resolver.editor.railExamples": "Example values",
+    "template-resolver.editor.infoPreviewPlain":
+      "Preview of the unsaved state, as the page shows it. The site's header and footer are not included.",
+    "template-resolver.preview.frameTitle": "Text preview",
+    "template-resolver.editor.railPlaceholders": "Placeholders",
+    "template-resolver.editor.railPlaceholdersHint": "These names can be used in the text.",
   },
 };

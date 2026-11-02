@@ -3,7 +3,9 @@ import { createCollectionEntryCreateForm } from "./collection-entry-create-form.
 import { makeTreeProvider } from "./content-tree-provider.ts";
 import { DocumentContentEditor } from "./document-editor.tsx";
 import { defaultTranslations } from "./i18n.ts";
+import { SnippetPreviewRenderer } from "./snippet-preview-renderer.tsx";
 import { TextBlockEditor } from "./text-block-editor.tsx";
+import { WebPreviewRenderer } from "./web-preview-renderer.tsx";
 
 // `navId` = the QN of the r.nav({ provider: true }) node the app registers for
 // the content tree (e.g. "publicstatus:nav:content"). The app owns the node's
@@ -27,6 +29,7 @@ export function textBlocksClient(opts?: {
   const tenantId = opts?.tenantId;
   return {
     name: "template-resolver",
+    contentPreviews: { web: WebPreviewRenderer, text: SnippetPreviewRenderer },
     ...(navId !== undefined && {
       navProviders: { [navId]: makeTreeProvider(tenantId) },
       // SSE refresh: every template-resource event re-fires the provider.

@@ -45,9 +45,17 @@ export const MANAGED_PAGES_I18N: Readonly<Record<string, LocalizedString>> = {
   "managed-pages:entity:__config-edit__:field:logoFile": { en: "Logo file" },
   "managed-pages:entity:__config-edit__:field:layoutPreset": { en: "Layout" },
 
-  // Section-Header
-  "managed-pages:section.meta": { en: "Metadata" },
-  "managed-pages:section.body": { en: "Content" },
+  // Page workbench
+  "managed-pages:editor.noValue": { en: "Not set" },
+  "managed-pages:editor.infoEdit": {
+    en: "Edit the page on the left; the right side holds its address and settings.",
+  },
+  "managed-pages:editor.infoPreview": {
+    en: "Preview of the unsaved draft, as visitors will see it.",
+  },
+  "managed-pages:editor.railPage": { en: "Page" },
+  "managed-pages:editor.create": { en: "Create page" },
+  "managed-pages:editor.loadFailed": { en: "The page could not be loaded." },
   "managed-pages:branding.section.identity": { en: "Identity" },
 
   // Document body: write-time rejection and the Markdown conversion warning

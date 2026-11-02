@@ -29,14 +29,14 @@ test("SystemAdmin creates a snippet entry, finds it in the tree and is refused a
   await openCreateForm();
   await fillSlugAndTitle();
   await page.locator('[contenteditable="true"]').first().fill(ENTRY_CONTENT);
-  await page.getByRole("button", { name: "Create" }).click();
+  await page.getByTestId("editor-save").last().click();
 
   await expect(page.getByRole("button", { name: ENTRY_TITLE })).toBeVisible();
   await expect(page.getByLabel("Title")).toHaveValue(ENTRY_TITLE);
 
   await openCreateForm();
   await fillSlugAndTitle();
-  await page.getByRole("button", { name: "Create" }).click();
+  await page.getByTestId("editor-save").last().click();
   await expect(
     page.getByText(`An entry with the slug “${ENTRY_SLUG}” already exists`),
   ).toBeVisible();

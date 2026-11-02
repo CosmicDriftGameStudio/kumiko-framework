@@ -191,7 +191,7 @@ const collectionEditorLongContent = () => async (page: Page) => {
     element.scrollTop = (element.scrollHeight - element.clientHeight) / 2;
   });
   const footerBottom = await page
-    .getByTestId("text-block-editor-actions")
+    .getByTestId("text-block-editor-footer")
     .evaluate((element) => element.getBoundingClientRect().bottom);
   const viewportHeight = page.viewportSize()?.height ?? 0;
   if (footerBottom > viewportHeight) throw new Error("save bar is pushed below the viewport");
@@ -204,7 +204,7 @@ const managedPageEditFlow = () => async (page: Page) => {
   await page.goto("/tenant-admin/page-list");
   await page.getByRole("row").filter({ hasText: "About Acme" }).click();
   await page.waitForURL(/\/page-edit/);
-  await page.getByTestId("render-edit-form").waitFor();
+  await page.getByTestId("page-workbench").waitFor();
 };
 
 // template-resolver collections — the "New entry" form opened from the collection's nav "+",

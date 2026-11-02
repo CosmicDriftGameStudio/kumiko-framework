@@ -1,8 +1,6 @@
-import type {
-  EntityEditScreenDefinition,
-  EntityListScreenDefinition,
-} from "@cosmicdrift/kumiko-framework/engine";
-import { PAGE_BODY_EXTENSION_NAME } from "../web/constants.ts";
+import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { CustomScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { PAGE_EDIT_SCREEN_ID, PAGE_LIST_SCREEN_ID } from "../web/constants.ts";
 
 // Admin authoring screens for the `page` entity. These are JSON-safe data only —
 // the generic DataTable/form renderer mounts them, so no React component is
@@ -16,7 +14,7 @@ import { PAGE_BODY_EXTENSION_NAME } from "../web/constants.ts";
 const ADMIN_ROLES = ["TenantAdmin", "SystemAdmin"] as const;
 
 export const pageListScreen: EntityListScreenDefinition = {
-  id: "page-list",
+  id: PAGE_LIST_SCREEN_ID,
   type: "entityList",
   entity: "page",
   columns: [
@@ -34,13 +32,16 @@ export const pageListScreen: EntityListScreenDefinition = {
   ],
   defaultSort: { field: "slug", dir: "asc" },
   searchable: true,
+  createScreen: PAGE_EDIT_SCREEN_ID,
   rowActions: [
     {
       kind: "navigate",
       id: "edit",
       label: "managed-pages:actions.edit",
-      screen: "page-edit",
+      screen: PAGE_EDIT_SCREEN_ID,
       entityId: "id",
+      // The generated list opened the entityEdit form on a row click; the custom mask has to say so.
+      rowClick: true,
     },
     {
       kind: "writeHandler",
@@ -58,36 +59,15 @@ export const pageListScreen: EntityListScreenDefinition = {
   dormant: true,
 };
 
-export const pageEditScreen: EntityEditScreenDefinition = {
-  id: "page-edit",
-  type: "entityEdit",
-  entity: "page",
-  layout: {
-    sections: [
-      {
-        title: "managed-pages:section.meta",
-        columns: 2,
-        fields: [
-          { field: "slug", span: 1 },
-          { field: "lang", span: 1 },
-          { field: "title", span: 2 },
-          { field: "description", span: 2 },
-          { field: "ogImage", span: 2 },
-          // Publish/Unpublish: the `published` toggle here IS the publishing
-          // mechanism (there is no separate one-click list action —
-          // rowAction-payload cannot inject constants).
-          { field: "published", span: 1 },
-        ],
-      },
-      // Not a plain field: the body is edited as a document and a Markdown
-      // body is converted on open, so the section also patches `bodyFormat`.
-      {
-        kind: "extension",
-        title: "managed-pages:section.body",
-        component: { react: { __component: PAGE_BODY_EXTENSION_NAME } },
-        entityName: "page",
-      },
-    ],
-  },
+// The page mask sits on the shared editor workbench (settings rail beside an edit/preview body),
+// which no generated form screen offers; the client plugin mounts it under this id.
+export const pageEditScreen: CustomScreenDefinition = {
+  id: PAGE_EDIT_SCREEN_ID,
+  type: "custom",
+  renderer: { react: { __component: PAGE_EDIT_SCREEN_ID } },
+  description:
+    "Edit or create one managed page: body with live preview as visitors see it (desktop and mobile width) beside the page settings, saved in one step.",
+  listScreenId: PAGE_LIST_SCREEN_ID,
   access: { roles: ADMIN_ROLES },
+  dormant: true,
 };

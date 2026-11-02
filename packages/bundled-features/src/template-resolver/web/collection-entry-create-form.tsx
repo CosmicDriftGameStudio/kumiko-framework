@@ -1,8 +1,8 @@
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
-import { FormScreenLayout, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { ContentField } from "./content-field.tsx";
+import { ContentWorkbench } from "./content-workbench.tsx";
 import { useCollectionEntryCreate } from "./use-collection-entry-create.ts";
 
 const SLUG_INVALID_ISSUE: FieldIssue = {
@@ -26,12 +26,10 @@ export function createCollectionEntryCreateForm(
 type CreateState = ReturnType<typeof useCollectionEntryCreate>;
 
 function CreateFields({ state }: { readonly state: CreateState }): ReactNode {
-  const { Field, Input, Banner } = usePrimitives();
+  const { Field, Input } = usePrimitives();
   const t = useTranslation();
-  const { canWrite } = state.editorContext;
   return (
     <>
-      {!canWrite && <Banner variant="info">{t("template-resolver.editor.readOnly")}</Banner>}
       <Field
         id="create-entry-slug"
         label={t("template-resolver.editor.slugLabel")}
@@ -59,13 +57,6 @@ function CreateFields({ state }: { readonly state: CreateState }): ReactNode {
           required
         />
       </Field>
-      <ContentField
-        editorContext={state.editorContext}
-        value={state.content}
-        onChange={state.setContent}
-        disabled={state.disabled}
-      />
-      {state.error !== null && <Banner variant="error">{state.error}</Banner>}
     </>
   );
 }
@@ -78,29 +69,38 @@ export function CollectionEntryCreateForm({
   readonly onClose: () => void;
   readonly tenantId?: string | undefined;
 }): ReactNode {
-  const { Button, PageHeader, Section } = usePrimitives();
+  const { Banner } = usePrimitives();
   const t = useTranslation();
   const state = useCollectionEntryCreate(target, tenantId);
   return (
-    <>
-      {PageHeader !== undefined && <PageHeader title={state.headerTitle} />}
-      <FormScreenLayout
-        onSubmit={() => {
-          void state.create();
-        }}
-        testId="collection-entry-create"
-        actions={
-          state.editorContext.canWrite ? (
-            <Button type="submit" loading={state.submitting} disabled={state.createDisabled}>
-              {t("template-resolver.editor.create")}
-            </Button>
-          ) : undefined
-        }
-      >
-        <Section>
-          <CreateFields state={state} />
-        </Section>
-      </FormScreenLayout>
-    </>
+    <ContentWorkbench
+      testId="collection-entry-create"
+      title={state.headerTitle}
+      editorContext={state.editorContext}
+      content={state.content}
+      onContentChange={state.setContent}
+      disabled={state.disabled}
+      fields={<CreateFields state={state} />}
+      details={[
+        {
+          label: t("template-resolver.editor.slugLabel"),
+          value: state.slug === "" ? "–" : state.slug,
+        },
+      ]}
+      banners={
+        !state.editorContext.canWrite && (
+          <Banner variant="info">{t("template-resolver.editor.readOnly")}</Banner>
+        )
+      }
+      save={{
+        busy: state.submitting,
+        canSave: !state.createDisabled,
+        dirty: state.slug !== "" || state.title !== "" || state.content !== "",
+        onSave: () => void state.create(),
+        onDiscard: state.reset,
+        saveError: state.error,
+        saveLabel: t("template-resolver.editor.create"),
+      }}
+    />
   );
 }
