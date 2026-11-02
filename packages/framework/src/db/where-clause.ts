@@ -168,7 +168,9 @@ function emitNotEqual(target: WhereColumn, operator: WhereOperator): string | un
 
 function emitIn(target: WhereColumn, operator: WhereOperator): string | undefined {
   const operand = operator.in;
-  if (!Array.isArray(operand)) return undefined;
+  if (operand === undefined) return undefined;
+  if (!Array.isArray(operand))
+    throw new Error(`where: in on column "${target.column}" needs an array`);
   if (target.pgType === "jsonb") return jsonbContainsAny(target, operand);
   if (operand.length === 0) return "FALSE";
   return `${target.ref(target.column)} IN (${valueList(target, operand)})`;
@@ -176,7 +178,10 @@ function emitIn(target: WhereColumn, operator: WhereOperator): string | undefine
 
 function emitNotIn(target: WhereColumn, operator: WhereOperator): string | undefined {
   const operand = operator.notIn;
-  if (!Array.isArray(operand)) return undefined;
+  if (operand === undefined) return undefined;
+  if (!Array.isArray(operand)) {
+    throw new Error(`where: notIn on column "${target.column}" needs an array`);
+  }
   if (target.pgType === "jsonb") {
     throw new Error(`where: notIn is not supported on jsonb column "${target.column}"`);
   }
@@ -203,6 +208,10 @@ function operatorConditions(target: WhereColumn, operator: WhereOperator): strin
   for (const emit of Object.values(OPERATOR_EMITTERS)) {
     const condition = emit(target, operator);
     if (condition !== undefined) conditions.push(condition);
+  }
+  // An empty result would drop the WHERE and turn deleteMany/selectMany into whole-table operations.
+  if (conditions.length === 0) {
+    throw new Error(`where: operator on column "${target.column}" has no defined operand`);
   }
   return conditions;
 }

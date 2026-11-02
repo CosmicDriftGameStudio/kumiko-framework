@@ -4,7 +4,7 @@
 //   bunx kumiko ops seed:status      → operation_type = "seed-migration"
 //   bunx kumiko ops projection:status → operation_type = "projection-rebuild"
 
-import type { DbRunner } from "../db/connection.ts";
+import { type DbRunner, openUnboundedSiblingPool } from "../db/connection.ts";
 import { index, integer, table as pgTable, sql, text, timestamp } from "../db/dialect.ts";
 // sql now comes from native dialect
 import { type DbConnection, tableExists } from "../db/index.ts";
@@ -46,19 +46,29 @@ export const esOperationsTable = pgTable(
 
 const ES_OPERATIONS_DDL_LOCK_KEY = "kumiko_es_operations:ddl";
 
+const SIBLING_POOL_CLOSE_TIMEOUT_SECONDS = 5;
+
 // Replicas boot concurrently and CREATE TABLE IF NOT EXISTS is not race-safe: the loser trips
-// pg_type_typname_nsp_index. The lock transaction only carries the lock; the DDL runs on `db`.
+// pg_type_typname_nsp_index. The lock transaction pins one pool connection, so the re-check and
+// DDL run on a sibling pool; asking the same pool again deadlocks at DATABASE_POOL_MAX=1 or when
+// every connection is held by a waiting lock transaction.
 export async function createEsOperationsTable(db: DbConnection): Promise<void> {
   // skip: the table exists, no lock needed on the common boot path.
   if (await tableExists(db, "public.kumiko_es_operations")) return;
-  await db.begin(async (lockTx: DbRunner) => {
-    await acquireNamespacedAdvisoryLock(
-      lockTx,
-      ES_OPS_ADVISORY_LOCK_KEY,
-      ES_OPERATIONS_DDL_LOCK_KEY,
-    );
-    if (!(await tableExists(db, "public.kumiko_es_operations"))) {
-      await unsafePushTables(db, { kumikoEsOperations: esOperationsTable });
-    }
-  });
+  const sibling = openUnboundedSiblingPool(db);
+  const ddlDb = sibling?.client ?? db;
+  try {
+    await db.begin(async (lockTx: DbRunner) => {
+      await acquireNamespacedAdvisoryLock(
+        lockTx,
+        ES_OPS_ADVISORY_LOCK_KEY,
+        ES_OPERATIONS_DDL_LOCK_KEY,
+      );
+      if (!(await tableExists(ddlDb, "public.kumiko_es_operations"))) {
+        await unsafePushTables(ddlDb, { kumikoEsOperations: esOperationsTable });
+      }
+    });
+  } finally {
+    await sibling?.close(SIBLING_POOL_CLOSE_TIMEOUT_SECONDS);
+  }
 }

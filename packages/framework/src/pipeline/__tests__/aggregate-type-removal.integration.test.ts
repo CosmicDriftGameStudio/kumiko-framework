@@ -10,6 +10,7 @@ import { rebuildProjectionOrMultiStream } from "../../migrations/index.ts";
 import { generateId } from "../../utils/index.ts";
 import { removeAggregateTypes } from "../aggregate-type-removal.ts";
 import {
+  camelCaseMixedFeature,
   count as countIn,
   createFixtureTables,
   FILE,
@@ -125,6 +126,14 @@ describe("removeAggregateTypes — apply", () => {
     await expect(
       removeAggregateTypes(stack.db, registry, { types: ["msp-a"], apply: true }),
     ).rejects.toThrow(/Refusing.*msp-both/);
+    expect(await count("kumiko_events")).toBe(6);
+  });
+
+  test("matches a kebab-case event type against a camelCase projection source", async () => {
+    const registry = createRegistry([feature, camelCaseMixedFeature]);
+    await expect(
+      removeAggregateTypes(stack.db, registry, { types: ["camel-a"], apply: true }),
+    ).rejects.toThrow(/Refusing.*camel-both/);
     expect(await count("kumiko_events")).toBe(6);
   });
 });

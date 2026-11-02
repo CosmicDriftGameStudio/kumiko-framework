@@ -1,6 +1,7 @@
 import type { DbTx } from "@cosmicdrift/kumiko-types/db-connection";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { WritableTable } from "@cosmicdrift/kumiko-types/executor-brand";
+import { toKebab } from "@cosmicdrift/kumiko-types/kebab-case";
 import type { DbConnection } from "../db/connection.ts";
 import { lockEventConsumersShareMode } from "../db/queries/event-consumer.ts";
 import { aggregateWhere, deleteMany, transaction } from "../db/query.ts";
@@ -107,10 +108,14 @@ type FeedClass = "untouched" | "wipe" | "mixed";
 // that also reads other types would keep rows from the removed ones until a rebuild; guessing
 // which rows belong to which type is not possible (row ids are projection-specific), so the
 // whole run refuses instead of leaving ghost rows that the next rebuild aborts on.
+// Executors write events under the kebab-case form of a camelCase entity name, so both sides are
+// compared kebab-normalised.
 function classifyFeed(involved: ReadonlySet<string>, removed: ReadonlySet<string>): FeedClass {
-  const touched = [...involved].filter((type) => removed.has(type));
+  const normalizedInvolved = new Set([...involved].map(toKebab));
+  const normalizedRemoved = new Set([...removed].map(toKebab));
+  const touched = [...normalizedInvolved].filter((type) => normalizedRemoved.has(type));
   if (touched.length === 0) return "untouched";
-  return touched.length === involved.size ? "wipe" : "mixed";
+  return touched.length === normalizedInvolved.size ? "wipe" : "mixed";
 }
 
 function tableMetaOrThrow(table: unknown, owner: string): EntityTableMeta {
@@ -161,12 +166,20 @@ function planProjections(
   return wiped;
 }
 
+function isRegisteredAggregateType(registry: Registry, aggregateType: string): boolean {
+  const wanted = toKebab(aggregateType);
+  for (const entityName of registry.getAllEntities().keys()) {
+    if (entityName === aggregateType || toKebab(entityName) === wanted) return true;
+  }
+  return false;
+}
+
 async function assertTypesKnown(
   registry: Registry,
   stats: readonly AggregateTypeStats[],
 ): Promise<void> {
   const unknown = stats
-    .filter((s) => s.events === 0 && !registry.getAllEntities().has(s.aggregateType))
+    .filter((s) => s.events === 0 && !isRegisteredAggregateType(registry, s.aggregateType))
     .map((s) => s.aggregateType);
   if (unknown.length > 0) {
     throw new AggregateTypeRemovalError(
