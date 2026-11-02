@@ -123,7 +123,11 @@ export async function sendMailFromAccount(
     const sent = await plugin.send(providerCtx, account, message.data, resolved.attachments);
     return {
       isSuccess: true,
-      data: { messageIdHeader: sent.messageIdHeader, attachmentFileIds: resolved.fileIds },
+      data: {
+        messageIdHeader: sent.messageIdHeader,
+        attachmentFileIds: resolved.fileIds,
+        ...(sent.rejectedRecipients && { rejectedRecipients: sent.rejectedRecipients }),
+      },
     };
   } catch (err) {
     const failure = sendFailureOf(err);

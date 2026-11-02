@@ -48,6 +48,8 @@ export type OutboundAttachment = {
 export type ProviderSentMail = {
   /** Message-ID header of the sent mail, without angle brackets. */
   readonly messageIdHeader: string;
+  /** Recipients the outgoing server refused while accepting the others; absent when all were accepted. */
+  readonly rejectedRecipients?: readonly string[];
 };
 
 export type OutboundMailSent = ProviderSentMail & {

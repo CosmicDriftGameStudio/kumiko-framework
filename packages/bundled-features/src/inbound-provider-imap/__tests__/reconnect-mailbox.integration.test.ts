@@ -254,7 +254,7 @@ describe("reconnect mailbox form", () => {
   );
 
   greenmailWithSmtpsTest(
-    "the sender-check id is set by the form and an empty field clears it again",
+    "the sender-check id is set by the form and an empty string clears it again",
     async () => {
       const admin = freshAdmin();
       const accountId = await connectAuthErrorAccount(admin);
@@ -268,9 +268,32 @@ describe("reconnect mailbox form", () => {
         expect.objectContaining({ id: accountId, trustedAuthservId: "mx.example.test" }),
       ]);
 
-      await stack.http.writeOk(ImapHandlers.reconnectMailbox, form(accountId, PASSWORD), admin);
+      await stack.http.writeOk(
+        ImapHandlers.reconnectMailbox,
+        { ...form(accountId, PASSWORD), trustedAuthservId: "" },
+        admin,
+      );
       expect(await statusesOf(admin)).toEqual([
         expect.objectContaining({ id: accountId, trustedAuthservId: null }),
+      ]);
+    },
+  );
+
+  greenmailWithSmtpsTest(
+    "a payload without the sender-check field keeps the stored id, as the owner form sends it",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectAuthErrorAccount(admin);
+      await stack.http.writeOk(
+        ImapHandlers.reconnectMailbox,
+        { ...form(accountId, PASSWORD), trustedAuthservId: "mx.example.test" },
+        admin,
+      );
+
+      await stack.http.writeOk(ImapHandlers.reconnectMailbox, form(accountId, PASSWORD), admin);
+
+      expect(await statusesOf(admin)).toEqual([
+        expect.objectContaining({ id: accountId, trustedAuthservId: "mx.example.test" }),
       ]);
     },
   );

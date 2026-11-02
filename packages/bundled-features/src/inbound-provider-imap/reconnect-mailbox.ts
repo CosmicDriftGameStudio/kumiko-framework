@@ -86,14 +86,15 @@ export const createReconnectMailboxHandler = ({ memberRoles, adminRoles }: Inbou
         },
       );
       if (!reactivated.isSuccess) return reactivated;
-      // The sender-check policy is tenant-wide: only admins set it, the owner's form does not carry it.
-      if (isMailAdmin(event.user, adminRoles)) {
+      // The sender-check policy is tenant-wide: only admins set it, and only when the form carries
+      // the field. The owner's form omits it, and an admin using that form must not clear the policy.
+      if (isMailAdmin(event.user, adminRoles) && event.payload.trustedAuthservId !== undefined) {
         // The admin form shows the stored id, so an empty field means the admin cleared it.
         const trusted = await ctx.dispatch.write(
           InboundMailFoundationHandlers.setTrustedAuthservId,
           {
             accountId,
-            trustedAuthservId: event.payload.trustedAuthservId ?? null,
+            trustedAuthservId: event.payload.trustedAuthservId,
           },
         );
         if (!trusted.isSuccess) return trusted;

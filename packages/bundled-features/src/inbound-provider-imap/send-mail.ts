@@ -67,16 +67,20 @@ export async function sendFromImapAccount(
   }).compile();
   const raw = await mime.build();
 
+  let rejectedRecipients: readonly string[];
   try {
-    await sendRawViaSmtp(
+    ({ rejectedRecipients } = await sendRawViaSmtp(
       { host: doc.smtpHost, port: doc.smtpPort, user: doc.user, password: doc.password },
       { from: account.address, to: [...message.to, ...(message.cc ?? [])] },
       raw,
-    );
+    ));
   } catch (err) {
     throw err instanceof SmtpFailureError ? toFoundationSendError(err) : err;
   }
 
   await appendToSentFolder(doc, raw, account.id);
-  return { messageIdHeader: stripAngles(mime.messageId()) };
+  return {
+    messageIdHeader: stripAngles(mime.messageId()),
+    ...(rejectedRecipients.length > 0 && { rejectedRecipients }),
+  };
 }
