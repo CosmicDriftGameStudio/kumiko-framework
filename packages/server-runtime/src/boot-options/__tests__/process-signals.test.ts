@@ -3,8 +3,10 @@ import { EventEmitter } from "node:events";
 import {
   DEFAULT_DRAIN_TIMEOUT_MS,
   installShutdownSignals,
+  jobDrainBudgetMs,
   readShutdownDrainTimeoutMs,
   resolveDrainTimeoutMs,
+  SHUTDOWN_TAIL_RESERVE_MS,
   type SignalProcess,
 } from "../process-signals.ts";
 
@@ -159,5 +161,15 @@ describe("shutdown drain timeout", () => {
     expect(resolveDrainTimeoutMs(1_000, 290_000)).toBe(1_000);
     expect(resolveDrainTimeoutMs(undefined, 290_000)).toBe(290_000);
     expect(resolveDrainTimeoutMs(undefined, undefined)).toBe(DEFAULT_DRAIN_TIMEOUT_MS);
+  });
+});
+
+describe("jobDrainBudgetMs", () => {
+  test("leaves the tail reserve of the signal budget for the steps after the job drain", () => {
+    expect(jobDrainBudgetMs(290_000)).toBe(290_000 - SHUTDOWN_TAIL_RESERVE_MS);
+  });
+
+  test("never drops below one second", () => {
+    expect(jobDrainBudgetMs(2_000)).toBe(1_000);
   });
 });

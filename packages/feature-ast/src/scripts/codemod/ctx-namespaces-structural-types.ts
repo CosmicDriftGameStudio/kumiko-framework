@@ -11,7 +11,14 @@ import { appContextReference, type Counters } from "./ctx-namespaces-annotations
 import { contextReceiver } from "./ctx-namespaces-contracts.ts";
 import { isContextNamedReceiver, isKumikoTypesFile, receiverOf } from "./ctx-namespaces-detect.ts";
 import type { EditPlan } from "./ctx-namespaces-edits.ts";
-import { describePath, isMovedMemberName, moveOf } from "./ctx-namespaces-mapping.ts";
+import {
+  type ContextKind,
+  describePath,
+  isMovedMemberName,
+  moveOf,
+  type NamespacePath,
+  samePath,
+} from "./ctx-namespaces-mapping.ts";
 
 type MemberOwner = TypeLiteralNode | InterfaceDeclaration;
 type MovedSignature = PropertySignature | MethodSignature;
@@ -73,6 +80,24 @@ function movedSignatures(owner: MemberOwner): MovedSignature[] {
     );
 }
 
+// A member that moves for one receiving kind but not (or elsewhere) for another cannot be rewritten
+// for both; it is reported instead.
+function pathAcrossKinds(
+  kinds: readonly ContextKind[],
+  memberName: string,
+): { readonly path: NamespacePath | undefined; readonly agrees: boolean } {
+  const [first, ...rest] = kinds;
+  const path = first === undefined ? undefined : moveOf(first, memberName);
+  return { path, agrees: rest.every((kind) => samePath(moveOf(kind, memberName), path)) };
+}
+
+function movedSignaturesFor(owner: MemberOwner, kinds: readonly ContextKind[]): MovedSignature[] {
+  return movedSignatures(owner).filter((member) => {
+    const { path, agrees } = pathAcrossKinds(kinds, member.getName());
+    return !agrees || path !== undefined;
+  });
+}
+
 function referenceTarget(parameter: ParameterDeclaration): Node | undefined {
   const fn = parameter.getParent();
   if (Node.isFunctionDeclaration(fn) || Node.isMethodDeclaration(fn)) return fn.getNameNode();
@@ -89,35 +114,41 @@ function callOf(reference: Node): CallExpression | undefined {
 
 // Only a parameter a Kumiko context is passed to is a context; a ctx-named parameter of a foreign
 // structural type (an MSP apply context) must stay as it is. A context handed on through another
-// structural parameter counts too.
-function receivesContext(
+// structural parameter counts too. The kinds say which context shape the parameter really receives.
+function receivingKinds(
   counters: Counters,
   parameter: ParameterDeclaration,
   seen: Set<Node>,
-): boolean {
-  if (seen.has(parameter)) return false;
+): Set<ContextKind> {
+  const kinds = new Set<ContextKind>();
+  if (seen.has(parameter)) return kinds;
   seen.add(parameter);
   const target = referenceTarget(parameter);
-  if (target === undefined || !Node.isReferenceFindable(target)) return false;
+  if (target === undefined || !Node.isReferenceFindable(target)) return kinds;
   const fn = parameter.getParent();
   const index = Node.isParametered(fn) ? fn.getParameters().indexOf(parameter) : -1;
-  if (index < 0) return false;
-  return target.findReferencesAsNodes().some((reference) => {
+  if (index < 0) return kinds;
+  for (const reference of target.findReferencesAsNodes()) {
     const argument = callOf(reference)?.getArguments()[index];
-    return (
-      argument !== undefined &&
-      (contextReceiver(counters, argument).kind === "context" ||
-        passesOnContext(counters, argument, seen))
-    );
-  });
+    if (argument === undefined) continue;
+    const receiver = contextReceiver(counters, argument);
+    if (receiver.kind === "context") {
+      for (const kind of receiver.contexts) kinds.add(kind);
+    } else {
+      for (const kind of passedOnKinds(counters, argument, seen)) kinds.add(kind);
+    }
+  }
+  return kinds;
 }
 
-function passesOnContext(counters: Counters, argument: Node, seen: Set<Node>): boolean {
-  if (!Node.isIdentifier(argument)) return false;
-  return (argument.getSymbol()?.getDeclarations() ?? []).some(
-    (declaration) =>
-      Node.isParameterDeclaration(declaration) && receivesContext(counters, declaration, seen),
-  );
+function passedOnKinds(counters: Counters, argument: Node, seen: Set<Node>): Set<ContextKind> {
+  const kinds = new Set<ContextKind>();
+  if (!Node.isIdentifier(argument)) return kinds;
+  for (const declaration of argument.getSymbol()?.getDeclarations() ?? []) {
+    if (!Node.isParameterDeclaration(declaration)) continue;
+    for (const kind of receivingKinds(counters, declaration, seen)) kinds.add(kind);
+  }
+  return kinds;
 }
 
 function entryText(plan: EditPlan, member: MovedSignature, leaf: string): string {
@@ -142,6 +173,7 @@ function planNamespaceGroup(
   owner: MemberOwner,
   namespace: string,
   members: readonly MovedSignature[],
+  kind: ContextKind,
 ): void {
   const [first, ...rest] = members;
   // skip: a group is never empty, this narrows the destructured head
@@ -152,7 +184,7 @@ function planNamespaceGroup(
     return;
   }
   const entries = members.map((member) =>
-    entryText(plan, member, moveOf("handler", member.getName())?.leaf ?? member.getName()),
+    entryText(plan, member, moveOf(kind, member.getName())?.leaf ?? member.getName()),
   );
   const separator = /[;,]$/.exec(first.getText())?.[0] ?? "";
   const modifier = members.every(isReadonlySignature) ? "readonly " : "";
@@ -161,22 +193,39 @@ function planNamespaceGroup(
     plan.add({ start: member.getFullStart(), end: member.getEnd(), text: "" });
   }
   for (const member of members) {
-    const path = moveOf("handler", member.getName());
+    const path = moveOf(kind, member.getName());
     if (path !== undefined) {
       plan.recordRewrite(member, `${member.getName()} -> ${describePath(path)} (structural type)`);
     }
   }
 }
 
-function planOwner(plan: EditPlan, counters: Counters, owner: MemberOwner): void {
+function planOwner(
+  plan: EditPlan,
+  counters: Counters,
+  owner: MemberOwner,
+  kinds: readonly ContextKind[],
+): void {
+  const [kind] = kinds;
+  // skip: a receiving parameter always has at least one kind
+  if (kind === undefined) return;
   const groups = new Map<string, MovedSignature[]>();
-  for (const member of movedSignatures(owner)) {
+  for (const member of movedSignaturesFor(owner, kinds)) {
     if (counters.rewrittenMembers.has(member)) continue;
     counters.rewrittenMembers.add(member);
-    const namespace = moveOf("handler", member.getName())?.namespace ?? "";
+    if (!pathAcrossKinds(kinds, member.getName()).agrees) {
+      plan.flagManual(
+        member,
+        `${member.getName()}: moves differently for ${kinds.join(" and ")} contexts, which both reach this type`,
+      );
+      continue;
+    }
+    const namespace = moveOf(kind, member.getName())?.namespace ?? "";
     groups.set(namespace, [...(groups.get(namespace) ?? []), member]);
   }
-  for (const [namespace, members] of groups) planNamespaceGroup(plan, owner, namespace, members);
+  for (const [namespace, members] of groups) {
+    planNamespaceGroup(plan, owner, namespace, members, kind);
+  }
 }
 
 function foreignMovedNames(declarations: readonly Node[]): string[] {
@@ -195,6 +244,8 @@ interface StructuralContextParameter {
   readonly annotation: Node;
   readonly collected: Collected;
   readonly foreign: string[];
+  readonly kinds: readonly ContextKind[];
+  readonly conflicts: boolean;
 }
 
 function structuralContextParameter(
@@ -211,17 +262,19 @@ function structuralContextParameter(
   const collected: Collected = { owners: [], foreignDeclarations: [] };
   collect(annotation, new Set(), collected);
   const foreign = foreignMovedNames(collected.foreignDeclarations);
-  const hasLocal = collected.owners.some((owner) => movedSignatures(owner).length > 0);
-  if ((!hasLocal && foreign.length === 0) || !receivesContext(counters, parameter, new Set())) {
-    return undefined;
-  }
-  return { annotation, collected, foreign };
+  const kinds = [...receivingKinds(counters, parameter, new Set())];
+  const hasLocal = collected.owners.some((owner) => movedSignaturesFor(owner, kinds).length > 0);
+  if ((!hasLocal && foreign.length === 0) || kinds.length === 0) return undefined;
+  const conflicts = collected.owners.some((owner) =>
+    movedSignatures(owner).some((member) => !pathAcrossKinds(kinds, member.getName()).agrees),
+  );
+  return { annotation, collected, foreign, kinds, conflicts };
 }
 
 // The structural-params report would repeat what the rewrite of this parameter already fixes.
 export function isRewrittenStructuralParameter(counters: Counters, parameter: Node): boolean {
   const found = structuralContextParameter(counters, parameter);
-  return found !== undefined && found.foreign.length === 0;
+  return found !== undefined && found.foreign.length === 0 && !found.conflicts;
 }
 
 // A hand-written structural type (alias, interface, intersection or inline literal) that declares
@@ -233,7 +286,7 @@ export function planStructuralContextParameter(
 ): boolean {
   const found = structuralContextParameter(counters, parameter);
   if (found === undefined) return false;
-  const { annotation, collected, foreign } = found;
+  const { annotation, collected, foreign, kinds, conflicts } = found;
   if (foreign.length > 0) {
     plan.flagManual(
       annotation,
@@ -241,7 +294,10 @@ export function planStructuralContextParameter(
     );
     return false;
   }
-  for (const owner of collected.owners) planOwner(plan, counters, owner);
-  counters.pinnedParameters.add(parameter);
+  for (const owner of collected.owners) planOwner(plan, counters, owner, kinds);
+  // A conflicting member stays flat and reported, so the body must not be rewritten either.
+  if (conflicts) return false;
+  const [kind] = kinds;
+  if (kind !== undefined) counters.pinnedParameters.set(parameter, kind);
   return true;
 }

@@ -1,6 +1,9 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { EntityEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  consoleCallsFromNamespace,
+  consoleCallsMentioning,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   buildInitialValues,
   literalCurrencyOverrides,
@@ -351,7 +354,7 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
       };
       const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1e999" });
       expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
-      expect(consoleCallsMentioning(warnSpy, 'money field "price"')).toHaveLength(0);
+      expect(consoleCallsFromNamespace(warnSpy, "kumiko")).toHaveLength(0);
     } finally {
       warnSpy.mockRestore();
     }

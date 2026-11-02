@@ -32,6 +32,15 @@ export function resolveDrainTimeoutMs(
   return explicit ?? fromEnv ?? DEFAULT_DRAIN_TIMEOUT_MS;
 }
 
+// HTTP shutdown, escape-hatch audit flush and DB/Redis close run after the job drain and must fit
+// into the same signal budget, so the job drain gets the budget minus this reserve.
+export const SHUTDOWN_TAIL_RESERVE_MS = 5_000;
+const MIN_JOB_DRAIN_MS = 1_000;
+
+export function jobDrainBudgetMs(totalBudgetMs: number): number {
+  return Math.max(MIN_JOB_DRAIN_MS, totalBudgetMs - SHUTDOWN_TAIL_RESERVE_MS);
+}
+
 export type SignalProcess = {
   on(signal: ShutdownSignal, listener: () => void): unknown;
   off(signal: ShutdownSignal, listener: () => void): unknown;

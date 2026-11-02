@@ -2,7 +2,11 @@ import type { KumikoServeEnv } from "@cosmicdrift/kumiko-framework/api";
 import { assertNoActiveRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/db";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import { flushEscapeHatchAudits } from "@cosmicdrift/kumiko-framework/pipeline";
-import { installShutdownSignals, resolveDrainTimeoutMs } from "./boot-options/process-signals.ts";
+import {
+  installShutdownSignals,
+  jobDrainBudgetMs,
+  resolveDrainTimeoutMs,
+} from "./boot-options/process-signals.ts";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.ts";
 import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
 import { uninstallProcessLogger } from "./process-logger.ts";
@@ -116,8 +120,13 @@ export function createProdAppHandle(input: ProdAppHandleInput): ProdAppHandle {
     explicitDrainTimeoutMs,
     config.shutdownDrainTimeoutMs,
   );
-  // Without a configured budget the lifecycle keeps its own default for programmatic stop().
-  const jobDrainTimeoutMs = explicitDrainTimeoutMs ?? config.shutdownDrainTimeoutMs;
+  // With signals off and no configured budget nothing bounds stop(), so the lifecycle keeps its own default.
+  const jobDrainTimeoutMs =
+    options.signals === false &&
+    explicitDrainTimeoutMs === undefined &&
+    config.shutdownDrainTimeoutMs === undefined
+      ? undefined
+      : jobDrainBudgetMs(drainTimeoutMs);
   let uninstallShutdownSignals: (() => void) | undefined;
   let uninstallFatalHandlers: (() => void) | undefined;
   const handle: ProdAppHandle = {

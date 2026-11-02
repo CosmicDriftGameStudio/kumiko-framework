@@ -2,7 +2,10 @@
 // attacker-triggerable rate_limited case. HTTP-layer only, stub dispatcher.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  consoleCallsFromNamespace,
+  consoleCallsMentioning,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import { Hono } from "hono";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
 import { createAuthRoutes } from "../auth-routes.ts";
@@ -73,7 +76,7 @@ describe("POST /auth/request-password-reset failure logging", () => {
   test("rate_limited stays silent and the response is still uniform success", async () => {
     const res = await requestReset(buildApp(dispatcherFailingWith("rate_limited")));
     expect(res.status).toBe(200);
-    expect(consoleCallsMentioning(errorSpy, "token request handler")).toHaveLength(0);
+    expect(consoleCallsFromNamespace(errorSpy, "kumiko")).toHaveLength(0);
   });
 
   test("an unexpected failure code is logged", async () => {

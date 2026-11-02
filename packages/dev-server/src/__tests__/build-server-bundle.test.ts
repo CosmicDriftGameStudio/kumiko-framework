@@ -287,6 +287,10 @@ describe("buildServerBundle meilisearch runtime dependency", () => {
     ["a static import", `import { MeiliSearch } from "meilisearch";\nconsole.log(MeiliSearch);\n`],
     ["a dynamic import", `const search = await import("meilisearch");\nconsole.log(search);\n`],
     ["a require call", `const search = require("meilisearch");\nconsole.log(search);\n`],
+    [
+      "a subpath import",
+      `import { generateTenantToken } from "meilisearch/token";\nconsole.log(generateTenantToken);\n`,
+    ],
   ])(
     "installs meilisearch with the framework version when the bundle has %s",
     async (_label, source) => {
