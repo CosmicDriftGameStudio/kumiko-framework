@@ -38,6 +38,7 @@ import {
   validateExtensionSelectors,
   validateExtensionUsageTargets,
   validateFieldAccessHandlersAreEntityMapped,
+  validateIncludeSystemTenantJobs,
   validateJobBackoff,
   validateLifecycleHookTargets,
   validateLiveEntities,
@@ -97,6 +98,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateEntityHookTargets(state, features);
   resolveJobTriggers(state);
   validateBootGates(state);
+  validateIncludeSystemTenantJobs(state);
   validateLiveEntities(state);
   validateJobBackoff(state);
   validateMaxDefers(state);

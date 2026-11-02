@@ -80,6 +80,7 @@ export function createFilesFeature(options: FilesFeatureOptions = {}): FeatureDe
       name: "sweep-orphaned-uploads",
       trigger: { maintenance: true },
       perTenant: true,
+      includeSystemTenant: true,
       concurrency: "skip",
       handler: async (_payload, ctx) => {
         await sweepOrphanedUploads({

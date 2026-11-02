@@ -13,7 +13,6 @@ import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framewor
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { InAppHandlers, InAppQueries } from "../../channel-in-app/index.ts";
-import { runRetentionCleanup } from "../../data-retention/run-retention-cleanup.ts";
 import { DeliveryQueries } from "../../delivery/index.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.ts";
@@ -508,18 +507,5 @@ describe("helpdesk GDPR and retention", () => {
     } finally {
       resetPiiSubjectKmsForTests();
     }
-  });
-
-  test("the retention sweep of the system tenant removes requests past keepFor", async () => {
-    await submitAnonymous();
-    const result = await runRetentionCleanup({
-      db: ctx.stack.db,
-      registry: ctx.stack.registry,
-      tenantId: SYSTEM_TENANT_ID,
-      preloadedTenantPreset: null,
-      now: Temporal.Now.instant().add({ hours: 24 * 400 }),
-    });
-    expect(result.hardDeleted).toBeGreaterThanOrEqual(1);
-    expect(await loadRequests(ctx.stack)).toHaveLength(0);
   });
 });

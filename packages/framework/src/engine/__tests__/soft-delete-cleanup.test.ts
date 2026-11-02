@@ -31,6 +31,7 @@ describe("registry soft-delete auto-wiring", () => {
     const job = registry.getJob(SOFT_DELETE_CLEANUP_JOB);
     expect(job?.trigger).toEqual({ maintenance: true });
     expect(job?.perTenant).toBe(true);
+    expect(job?.includeSystemTenant).toBe(true);
     const key = registry.getConfigKey(SOFT_DELETE_GRACE_DAYS_KEY);
     expect(key?.type).toBe("number");
     expect(key?.default).toBe(DEFAULT_GRACE_DAYS);
@@ -44,6 +45,7 @@ describe("registry soft-delete auto-wiring", () => {
     expect(registry.getAllJobs().has(SOFT_DELETE_CLEANUP_SYSTEM_JOB)).toBe(true);
     const job = registry.getJob(SOFT_DELETE_CLEANUP_SYSTEM_JOB);
     expect(job?.perTenant).toBeUndefined();
+    expect(job?.includeSystemTenant).toBeUndefined();
   });
 
   test("does NOT inject when no entity uses softDelete", () => {

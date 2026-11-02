@@ -1,6 +1,7 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
 
+import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { type JobRun, prepareJobRun } from "./job-runner-context.ts";
 import {
   attemptNumberOf,
@@ -67,7 +68,11 @@ async function enqueuePerTenantChildren(
   if (!actualDef) {
     throw new Error(`Unknown job: ${actualName}`);
   }
-  const tenantIds = await getActiveTenantIds();
+  const activeTenantIds = await getActiveTenantIds();
+  const tenantIds =
+    actualDef.includeSystemTenant === true && !activeTenantIds.includes(SYSTEM_TENANT_ID)
+      ? [...activeTenantIds, SYSTEM_TENANT_ID]
+      : activeTenantIds;
   const targetQueue = scope.queues[laneForJob(actualDef)];
   // wrapperJobId is only absent for a Job BullMQ somehow never assigned
   // an id to (not observed in practice) — falling back to a constant

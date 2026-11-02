@@ -183,6 +183,18 @@ const testFeature = defineFeature("test", (r) => {
     jobLog.push({ name: "test:job:per-tenant-fanout", payload, timestamp: Date.now() });
   });
 
+  r.job(
+    "perTenantWithSystem",
+    { trigger: { manual: true }, perTenant: true, includeSystemTenant: true },
+    async (payload, ctx) => {
+      jobLog.push({
+        name: "test:job:per-tenant-with-system",
+        payload: { ...payload, ranFor: String(ctx.systemUser.tenantId) },
+        timestamp: Date.now(),
+      });
+    },
+  );
+
   // Correlation propagation probe — records the requestContext it sees at
   // handler-time so tests can assert the scheduling request's correlationId
   // made it through BullMQ into the worker process.
@@ -999,6 +1011,62 @@ describe("error handling", () => {
       { getActiveTenantIds: async () => tenants },
     );
   });
+
+  test("includeSystemTenant adds one run for the system tenant after the active tenants", async () => {
+    clearLog();
+    // @cast-boundary test fixture: TenantId is a branded string.
+    const tenants = ["with-system-a", "with-system-b"] as TenantId[];
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:per-tenant-with-system", {});
+        await waitFor(() => {
+          const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-with-system");
+          expect(runs.map((e) => e.payload["ranFor"]).sort()).toEqual(
+            ["with-system-a", "with-system-b", SYSTEM_TENANT_ID].sort(),
+          );
+        });
+      },
+      { getActiveTenantIds: async () => tenants },
+    );
+  });
+
+  test("includeSystemTenant does not duplicate a system tenant the app already supplies", async () => {
+    clearLog();
+    // @cast-boundary test fixture: TenantId is a branded string.
+    const tenants = ["with-system-c", SYSTEM_TENANT_ID] as TenantId[];
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:per-tenant-with-system", {});
+        await waitFor(() => {
+          const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-with-system");
+          expect(runs).toHaveLength(2);
+        });
+        await sleep(300);
+        const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-with-system");
+        expect(runs.map((e) => e.payload["ranFor"]).sort()).toEqual(
+          ["with-system-c", SYSTEM_TENANT_ID].sort(),
+        );
+      },
+      { getActiveTenantIds: async () => tenants },
+    );
+  });
+
+  test("a perTenant job without includeSystemTenant gets no system-tenant run", async () => {
+    clearLog();
+    // @cast-boundary test fixture: TenantId is a branded string.
+    const tenants = ["no-system-a"] as TenantId[];
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:per-tenant-fanout", {});
+        await waitFor(() => {
+          expect(jobLog.filter((e) => e.name === "test:job:per-tenant-fanout")).toHaveLength(1);
+        });
+        await sleep(300);
+        expect(jobLog.filter((e) => e.name === "test:job:per-tenant-fanout")).toHaveLength(1);
+      },
+      { getActiveTenantIds: async () => tenants },
+    );
+  });
 });
 
 // --- Multiple runner instances against the same Redis (prod runs N replicas
@@ -1614,6 +1682,15 @@ describe("boot gates", () => {
       await second.stop();
       await purge(prefix);
     }
+  });
+
+  test("includeSystemTenant without perTenant is rejected at boot", () => {
+    const flagOnly = defineFeature("sysflag", (r) => {
+      r.job("sweep", { trigger: { manual: true }, includeSystemTenant: true }, async () => {});
+    });
+    expect(() => createRegistry([flagOnly])).toThrow(
+      'Job "sysflag:job:sweep" sets includeSystemTenant without perTenant',
+    );
   });
 
   test("bootGate is rejected for perTenant and sequential jobs", () => {
