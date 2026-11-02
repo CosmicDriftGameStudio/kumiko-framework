@@ -102,3 +102,14 @@ describe("WCAG contrast of the design tokens", () => {
     });
   }
 });
+
+describe("interactive cursor base rule", () => {
+  test("buttons, tabs and menu items get the hand cursor unless disabled", () => {
+    const baseBlock = css.slice(css.indexOf("button:not(:disabled)"));
+    const rule = baseBlock.slice(0, baseBlock.indexOf("}"));
+    expect(rule).toContain('[role="tab"]');
+    expect(rule).toContain('[role="menuitem"]');
+    expect(rule).toContain('[role="button"]');
+    expect(rule).toContain("cursor: pointer");
+  });
+});
