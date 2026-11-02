@@ -99,10 +99,15 @@ describe("a hanging mailbox", () => {
     const hang = hangFetchesOf(hungAccountId);
     const supervisor = createMailSupervisor(env.stack, { accountPollDeadlineMs: 150 });
 
+    // A skipped tick would leave the previous (already aborted) signal in place.
+    const signals = new Set<AbortSignal>();
     for (let tick = 1; tick <= 3; tick++) {
       await supervisor.pollOnce();
-      expect(lastFetchSignalOf(hungAccountId)?.aborted).toBe(true);
+      const signal = lastFetchSignalOf(hungAccountId);
+      expect(signal?.aborted).toBe(true);
+      if (signal) signals.add(signal);
     }
+    expect(signals.size).toBe(3);
 
     expect(await importedCount(healthyAccountId)).toBe(1);
     const degraded = await accountRow(hungAccountId);
@@ -110,16 +115,23 @@ describe("a hanging mailbox", () => {
     expect(degraded?.["lastError"]).toBe(InboundMailLastErrors.connectionFailed);
 
     hang.release();
-    // The abandoned fetches finish late; their result must not be stored.
+    // The abandoned fetches finish late; their result must not be stored. The pause is only a
+    // window for a wrong write to land in, never what a passing assertion waits for.
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(await selectMany(env.stack.db, syncCursorTable, { accountId: hungAccountId })).toEqual(
       [],
     );
     expect(await importedCount(hungAccountId)).toBe(0);
 
-    await supervisor.pollOnce();
+    // The recovery sync does real DB, ingest and PII work; under CI load it can pass the 150ms
+    // deadline that only exists to abandon the hung fetches above. A fresh supervisor with the
+    // default deadline keeps the recovery from being abandoned by that artificial limit.
+    await createMailSupervisor(env.stack).pollOnce();
 
     expect(await importedCount(hungAccountId)).toBe(1);
     expect((await accountRow(hungAccountId))?.["status"]).toBe(InboundMailAccountStatuses.active);
+    expect(
+      await selectMany(env.stack.db, syncCursorTable, { accountId: hungAccountId }),
+    ).toHaveLength(1);
   });
 });
