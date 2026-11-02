@@ -4,7 +4,7 @@ import type {
   ParentVisibilityOption,
 } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import { collectEntityDetailAccess, collectEntityReadAccess } from "../api/entity-read-access.ts";
+import { collectEntityDetailAccess, collectEntityQueryAccess } from "../api/entity-read-access.ts";
 import type { SchemaTable } from "../db/dialect.ts";
 import type { EagerLoadEntityResolver, EagerLoadViewer } from "../db/eagerload.ts";
 import { resolveTableName } from "../db/entity-table-meta.ts";
@@ -32,7 +32,7 @@ function memoizePerRegistry<T extends object>(
 }
 
 const detailAccessOf = memoizePerRegistry(collectEntityDetailAccess);
-const readAccessOf = memoizePerRegistry(collectEntityReadAccess);
+const queryAccessOf = memoizePerRegistry(collectEntityQueryAccess);
 
 // An entity with a backingTable is read from that table; the implicit projection holds it.
 function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefinition) {
@@ -95,7 +95,7 @@ export function entityListRuntime(
   const parentVisibility = parentVisibilityFor(ctx, user);
   const resolveEntity = (name: string) => ctx.registry.getEntity(name);
   const resolveTable = readTableResolver(ctx, "entityListRuntime");
-  const readRules = readAccessOf(ctx.registry);
+  const readRules = queryAccessOf(ctx.registry);
   return {
     runtimeOptions: {
       ...(ctx.services.searchAdapter !== undefined && {

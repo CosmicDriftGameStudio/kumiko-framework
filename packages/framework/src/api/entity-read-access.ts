@@ -88,6 +88,26 @@ export function collectEntityReadAccess(
   return rulesByEntity;
 }
 
+// Access rules of the query handlers that belong to an entity. Unlike collectEntityReadAccess,
+// a handler that merely names the entity in liveEntities does not count: it returns signals,
+// not the entity's rows, so it must not open derived values over the entity.
+export function collectEntityQueryAccess(
+  registry: Registry,
+): ReadonlyMap<string, readonly AccessRule[]> {
+  assertNoAggregateTypeKeyCollisions(registry);
+  const rulesByEntity = new Map<string, AccessRule[]>();
+  for (const [handlerName, handler] of registry.getAllQueryHandlers()) {
+    const entityName = registry.getHandlerEntity(handlerName);
+    if (entityName === undefined) continue;
+    for (const key of new Set([entityName, toKebab(entityName)])) {
+      const rules = rulesByEntity.get(key) ?? [];
+      rules.push(handler.access);
+      rulesByEntity.set(key, rules);
+    }
+  }
+  return rulesByEntity;
+}
+
 // Entities whose own access.read narrows rows per role (e.g. Driver sees only assigned rows).
 // A signal for such an entity must not name ids to a role that does not read every row.
 export function collectEntityRowReadMaps(registry: Registry): ReadonlyMap<string, OwnershipMap> {
