@@ -61,8 +61,10 @@ function isRequiredValueMissing(
   );
 }
 
-function hasEntityDefault(field: FieldDefinition): boolean {
-  return "default" in field && field.default !== undefined;
+// Only select fields map "" and null to their default on insert (selectFieldToZod);
+// other types apply `.default()` to undefined only, so a user-cleared "" still fails there.
+function isSelectWithDefault(field: FieldDefinition): boolean {
+  return field.type === "select" && field.default !== undefined;
 }
 
 type FormRefinementCtx = z.core.$RefinementCtx;
@@ -186,9 +188,9 @@ export function buildFormSchema(
           continue;
         }
         selectFieldsToCheck[spec.field] = field;
-        // The server fills a missing or empty value from the entity default on insert
-        // (schema-builder), so a presence error would block a value the user may omit.
-        if (verb === "create" && hasEntityDefault(field)) continue;
+        // On insert the server turns an empty select into its default, so a presence
+        // error would block a value the user may leave empty.
+        if (verb === "create" && isSelectWithDefault(field)) continue;
         if (!isRequiredValueMissing(spec, field, record, unchangedFrom)) continue;
         ctx.addIssue({
           code: "custom",

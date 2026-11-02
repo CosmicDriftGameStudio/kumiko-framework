@@ -372,6 +372,48 @@ describe("buildFormSchema", () => {
     });
   });
 
+  describe("required field with an entity default", () => {
+    const screen = screenWith(["basis"]);
+    const selectEntity = entityWith({
+      basis: { type: "select", options: ["accrual", "cash"], required: true, default: "accrual" },
+    });
+    const textEntity = entityWith({
+      basis: {
+        type: "text",
+        allowPlaintext: "test fixture value, not personal data",
+        required: true,
+        default: "accrual",
+      },
+    });
+    const selectWithoutDefault = entityWith({
+      basis: { type: "select", options: ["accrual", "cash"], required: true },
+    });
+
+    test("create: an empty select is not flagged, the server applies the default", () => {
+      expect(buildFormSchema(selectEntity, screen, "create").safeParse({ basis: "" }).success).toBe(
+        true,
+      );
+    });
+
+    test("update: an empty select is still flagged", () => {
+      expect(buildFormSchema(selectEntity, screen, "update").safeParse({ basis: "" }).success).toBe(
+        false,
+      );
+    });
+
+    test("create: a cleared text field stays flagged, the server rejects an empty string", () => {
+      expect(buildFormSchema(textEntity, screen, "create").safeParse({ basis: "" }).success).toBe(
+        false,
+      );
+    });
+
+    test("create: a required select without default stays flagged", () => {
+      expect(
+        buildFormSchema(selectWithoutDefault, screen, "create").safeParse({ basis: "" }).success,
+      ).toBe(false);
+    });
+  });
+
   describe("select conditionalOptions", () => {
     const entity = entityWith({
       kind: { type: "select", options: ["http", "heartbeat"] },
