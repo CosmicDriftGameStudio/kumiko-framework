@@ -79,7 +79,7 @@ export type RuntimeCellLinkItems = (
 /** How a list cell shows a FileRef value (id or id array). */
 export type ListColumnFileDisplay =
   | { readonly kind: "image"; readonly variant?: string }
-  | { readonly kind: "file" };
+  | { readonly kind: "file"; readonly viewInDrawer?: true };
 
 export type ListColumnViewModel = {
   readonly field: string;

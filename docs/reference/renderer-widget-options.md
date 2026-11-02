@@ -307,3 +307,13 @@ fields: [
 ```
 
 The preview mounts only for PDFs; other file types keep the closed toggle. Without the option the toggle starts closed, as before.
+
+## File renderer: `viewInDrawer`
+
+In a list column, `{ format: "file", viewInDrawer: true }` adds a View action next to the file name for PDFs. It opens the PDF viewer in a drawer; other file types keep only the link. The MIME type comes from `useFileMeta`, so all rows of a page share one `GET /api/files/meta` request. The documents list and the documents tab of record screens use it. `FileViewAction` is the same cell for custom columns:
+
+```ts illustration
+columns: [
+  { field: "file", renderer: { format: "file", viewInDrawer: true } },
+],
+```

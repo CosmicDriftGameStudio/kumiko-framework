@@ -42,6 +42,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `ErrorState` | Error state based on the Banner primitive, with a retry button. |
 | `FeedList` | Non-tabular compact list (e.g. "upcoming appointments") — primary text plus an optional right-aligned trailing value for each row. |
 | `FileField` | File upload = Field + Input(kind:"file"\|"image"), based on FileRef. |
+| `FileViewAction` | "View" action for a stored file: renders only for PDFs and opens the viewer in a drawer. |
 | `FloatingPanel` | Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered. |
 | `FormScreenShell` |  |
 | `HeaderActionGroup` |  |
@@ -132,6 +133,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `useDispatcher` |  |
 | `useDispatcherStatus` |  |
 | `useDraft` | Form state for calculator screens: a draft object plus `patch` for partial updates, and `field(name)` that provides `{ id, name, value, onChange }` props ready for field widgets (NumberField/MoneyField/PercentField). |
+| `useFileMeta` |  |
 | `useForm` |  |
 | `useIsNarrowViewport` |  |
 | `useIsViewportBelow` |  |

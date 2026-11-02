@@ -564,6 +564,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.field.file-list.download": "Download",
   "kumiko.field.file-list.hidePreview": "Hide preview",
   "kumiko.field.file-list.preview": "Preview",
+  "kumiko.field.file-list.view": "View",
   "kumiko.validation.number.min": "Must be at least {minimum}.",
   "kumiko.validation.number.max": "Must be {maximum} or less.",
   "errors.validation.too_small": "Too small or too short (minimum: {minimum}).",

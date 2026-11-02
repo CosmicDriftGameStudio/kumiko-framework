@@ -16,7 +16,7 @@ export function documentsTab(entityType: string): EditRelatedListSection {
       { field: "title", sortable: true },
       { field: "category", sortable: true },
       { field: "validUntil", sortable: true },
-      { field: "file" },
+      { field: "file", renderer: { format: "file", viewInDrawer: true } },
     ],
     searchable: true,
     count: true,

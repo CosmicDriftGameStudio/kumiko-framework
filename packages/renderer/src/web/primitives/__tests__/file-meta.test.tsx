@@ -40,11 +40,11 @@ afterEach(() => {
 describe("useFileMeta", () => {
   test("cells with different ids in one render share a single meta request", async () => {
     render(
-      <>
+      <div>
         {ids.map((id) => (
           <MetaCell key={id} fileId={id} />
         ))}
-      </>,
+      </div>,
     );
 
     await waitFor(() =>

@@ -118,8 +118,9 @@ export interface FieldFormatRegistry {
   /** FileRef id (or id array) as a download link with the file name. On a
    *  read-only detail field it renders a file list with download links and an
    *  inline preview for PDFs; elsewhere the raw value is shown.
-   *  `previewOpenByDefault` opens the newest (last) file's PDF preview initially. */
-  file: { readonly previewOpenByDefault?: boolean };
+   *  `previewOpenByDefault` opens the newest (last) file's PDF preview initially.
+   *  `viewInDrawer` adds a "View" action to list cells for PDFs that opens the PDF viewer in a drawer. */
+  file: { readonly previewOpenByDefault?: boolean; readonly viewInDrawer?: boolean };
 }
 
 // Discriminated union derived from the registry — one variant per key.

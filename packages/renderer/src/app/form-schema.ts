@@ -13,6 +13,7 @@ import {
   NO_WIDGET_FIELD_TYPES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import * as z from "zod";
+import { asCustomIssue } from "../headless/form/zod-bridge.ts";
 import { type EditFormMode, I18N_KEY_PARAM } from "../headless/index.ts";
 import { layoutEditFields } from "./layout-fields.ts";
 
@@ -209,7 +210,7 @@ export function allOfSchemas(first: z.ZodType, second: z.ZodType): z.ZodType {
     for (const schema of [first, second]) {
       const parsed = schema.safeParse(values);
       if (parsed.success) continue;
-      for (const issue of parsed.error.issues) ctx.addIssue(issue);
+      for (const issue of parsed.error.issues) ctx.addIssue(asCustomIssue(issue));
     }
   });
 }

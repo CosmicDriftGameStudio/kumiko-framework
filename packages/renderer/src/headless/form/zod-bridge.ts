@@ -102,6 +102,21 @@ function extractIssueParams(issue: ZodIssue): Readonly<Record<string, unknown>> 
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
+// Re-raises an issue from another schema as a custom issue that still resolves
+// to the same i18n key and params, so schemas can be merged without zod's raw-issue typing.
+export function asCustomIssue(issue: ZodIssue): {
+  readonly code: "custom";
+  readonly path: PropertyKey[];
+  readonly message: string;
+  readonly params: Record<string, unknown>;
+} {
+  return {
+    code: "custom",
+    path: issue.path,
+    message: issue.message,
+    params: { ...extractIssueParams(issue), [I18N_KEY_PARAM]: resolveI18nKey(issue) },
+  };
+}
 
 // Groups a flat FieldIssue list into the `errors` map carried by a
 // FormSnapshot. A field with multiple issues (e.g. both "required" and

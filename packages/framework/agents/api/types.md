@@ -2202,6 +2202,7 @@ type ListColumnFileDisplay = // How a list cell shows a FileRef value (id or id 
   }
   | {
     kind: "file";
+    viewInDrawer?: true;
   }
 ;
 type ListColumnViewModel = {

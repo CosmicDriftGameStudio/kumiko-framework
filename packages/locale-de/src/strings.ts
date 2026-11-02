@@ -590,6 +590,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.file-list.download": "Herunterladen",
   "kumiko.field.file-list.hidePreview": "Vorschau ausblenden",
   "kumiko.field.file-list.preview": "Vorschau",
+  "kumiko.field.file-list.view": "Ansehen",
   "kumiko.validation.number.min": "Muss mindestens {minimum} sein.",
   "kumiko.validation.number.max": "Darf höchstens {maximum} sein.",
   "errors.validation.too_small": "Zu klein oder zu kurz. Mindestens erforderlich: {minimum}.",

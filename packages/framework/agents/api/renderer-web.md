@@ -38,6 +38,7 @@ function EmptyState(props: { icon?: ReactNode; title: string; description?: stri
 function ErrorState(props: { error: DispatcherError; onRetry?: () => void; testId?: string; }): ReactNode; // Error state based on the Banner primitive, with a retry button.
 function FeedList(props: { rows: FeedRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Non-tabular compact list (e.g. "upcoming appointments") — primary text plus an optional right-aligned trailing value for each row.
 function FileField(props: FileFieldProps): ReactNode; // File upload = Field + Input(kind:"file"|"image"), based on FileRef.
+function FileViewAction(props: { fileId: string; }): ReactNode; // "View" action for a stored file: renders only for PDFs and opens the viewer in a drawer.
 function FloatingPanel(props: FloatingPanelProps): ReactNode; // Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered.
 function FormScreenShell(props: { children: ReactNode; className?: string; testId?: string; maxWidth?: FormScreenShellWidth; fillHeight?: boolean; }): ReactNode;
 function HeaderActionGroup(props: HeaderActionGroupProps): ReactNode;
@@ -152,6 +153,7 @@ function useDispatchTarget(): (target: TargetRef) => void; // Recommended produc
 function useDispatcher(): Dispatcher;
 function useDispatcherStatus(): DispatcherStatus;
 function useDraft<T extends object>(defaults: T, options?: { idPrefix?: string; }): { draft: T; patch: (changes: Partial<T>) => void; reset: () => void; field: <K extends keyof T>(name: K) => { id: string; name: string; value: T[K]; onChange: (v: T[K]) => void; }; }; // Form state for calculator screens: a draft object plus `patch` for partial updates, and `field(name)` that provides `{ id, name, value, onChange }` props ready for field widgets (NumberField/MoneyField/PercentField).
+function useFileMeta(fileId: string): FileMeta | null;
 function useForm<TValues extends FormValues, TCtx = unknown>(options: UseFormOptions<TValues, TCtx>): UseFormResult<TValues>;
 function useIsNarrowViewport(): boolean;
 function useIsViewportBelow(breakpointPx: number): boolean;
@@ -536,6 +538,10 @@ interface FileFieldProps extends FieldBase {
   entityType?: string; // Binds the upload to a specific entity field; the `/api/files` endpoint then validates `accept`/`maxSize` server-side against that field's definition.
   fieldName?: string;
 }
+type FileMeta = {
+  fileName: string;
+  mimeType: string | undefined;
+};
 type FileRefTarget = Pick<FileUploadFormDataInput, "entityType" | "entityId" | "fieldName" | "subField" | "actionForm">;
 type FloatingPanelGeometry = {
   x: number;
