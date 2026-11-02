@@ -97,4 +97,21 @@ describe("deleteMany count", () => {
       );
     });
   });
+
+  test("an operator object without a defined operand throws instead of deleting every row", async () => {
+    await withTenantTable(async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { tenantId: tenantA, score: 1 },
+        { tenantId: tenantA, score: 2 },
+      ]);
+
+      await expect(deleteMany(db, meta, { score: { in: undefined } })).rejects.toThrow(
+        /no defined operand/,
+      );
+      await expect(deleteMany(db, meta, { score: { gt: undefined } })).rejects.toThrow(
+        /no defined operand/,
+      );
+      expect(await countWhere(db, meta)).toBe(2);
+    });
+  });
 });

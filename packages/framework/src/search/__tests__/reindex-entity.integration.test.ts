@@ -355,6 +355,41 @@ describe("reindexEntity", () => {
     const hits = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
     expect(hits.some((h) => String(h.entityId) === String(created.data.id))).toBe(false);
   });
+
+  test("a subject erased between the batch read and the write leaves nothing in the index", async () => {
+    const plain = "RaceErasedPiiLabel1611";
+    const executor = createEventStoreExecutor(contactTable, contactEntity, {
+      entityName: "contact",
+    });
+    const created = await executor.create(
+      { label: plain },
+      admin,
+      createTenantDb({
+        db: stack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        reason: "test reindex reads entity rows across tenants",
+      }),
+    );
+    if (!created.isSuccess) throw new Error("seed failed");
+
+    const result = await reindexEntity(
+      stack.db,
+      stack.registry,
+      stack.search,
+      "contact",
+      admin.tenantId,
+      {
+        afterBatchRead: async () => {
+          await kms.eraseKey({ kind: "user", userId: String(created.data.id) });
+        },
+      },
+    );
+    expect(result.failures).toHaveLength(0);
+
+    const hits = await stack.search.search(admin.tenantId, plain, { filterType: "contact" });
+    expect(hits.some((h) => String(h.entityId) === String(created.data.id))).toBe(false);
+  });
 });
 
 describe("reindexEntity connection lifecycle", () => {

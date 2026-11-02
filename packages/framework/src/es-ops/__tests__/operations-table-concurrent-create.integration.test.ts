@@ -30,3 +30,25 @@ describe("createEsOperationsTable — concurrent boot", () => {
     expect(await tableExists(testDb.db, "public.kumiko_es_operations")).toBe(true);
   });
 });
+
+describe("createEsOperationsTable — small pools", () => {
+  test.each([
+    { poolMax: 1, callers: 1 },
+    { poolMax: 2, callers: 4 },
+  ])(
+    "finishes with poolMax $poolMax and $callers concurrent callers",
+    async ({ poolMax, callers }) => {
+      const smallPoolDb = await createTestDb({ poolMax });
+      try {
+        await asRawClient(smallPoolDb.db).unsafe(`DROP TABLE IF EXISTS "kumiko_es_operations"`);
+        const results = await Promise.allSettled(
+          Array.from({ length: callers }, () => createEsOperationsTable(smallPoolDb.db)),
+        );
+        expect(results.filter((r) => r.status === "rejected")).toEqual([]);
+        expect(await tableExists(smallPoolDb.db, "public.kumiko_es_operations")).toBe(true);
+      } finally {
+        await smallPoolDb.cleanup();
+      }
+    },
+  );
+});

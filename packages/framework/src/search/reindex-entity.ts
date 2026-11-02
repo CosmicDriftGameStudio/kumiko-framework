@@ -124,6 +124,24 @@ async function buildBatchDocs(
   return docs;
 }
 
+// A crypto-shred changes no read-table column, so an unchanged version proves nothing about erasure.
+async function rowHasErasedSubjectField(
+  batch: BatchContext,
+  row: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const state = await decryptSearchableSubjectFields(
+      batch.entityName,
+      rowToState(row, batch.fieldNames),
+      batch.registry,
+    );
+    return hasErasedSearchableSubjectField(batch.entityName, state, batch.registry);
+  } catch {
+    // skip: a row that cannot be decrypted was already reported by buildBatchDocs
+    return false;
+  }
+}
+
 async function writeBatchDocs(
   searchAdapter: SearchAdapter,
   tenantId: TenantId,
@@ -183,9 +201,17 @@ async function reconcileWrittenBatch(
   const rewritten = await buildBatchDocs(batch, changed, failures);
   const rewrittenIds = new Set(rewritten.map((w) => w.entityId));
   const changedIds = new Set(changed.map((row) => String(row["id"])));
+  const erasedIds = new Set<string>();
+  for (const row of live) {
+    const id = String(row["id"]);
+    if (!changedIds.has(id) && (await rowHasErasedSubjectField(batch, row))) erasedIds.add(id);
+  }
 
   const toRemove = ids
-    .filter((id) => !liveIds.has(id) || (changedIds.has(id) && !rewrittenIds.has(id)))
+    .filter(
+      (id) =>
+        !liveIds.has(id) || erasedIds.has(id) || (changedIds.has(id) && !rewrittenIds.has(id)),
+    )
     .map((entityId) => ({ entityType: batch.entityName, entityId }));
   if (toRemove.length > 0) {
     if (searchAdapter.removeBatch) await searchAdapter.removeBatch(tenantId, toRemove);

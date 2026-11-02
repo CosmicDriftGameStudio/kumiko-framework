@@ -93,7 +93,18 @@ export function validateOwnershipRules(
   allClaimKeys: ReadonlyMap<string, ClaimKeyDefinition> | undefined,
   knownRoles: ReadonlySet<string> | undefined,
 ): void {
-  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+  // A read model's access.read is the file-owner gate (readGate.fileOwner), so it gets the same
+  // role/column/where-lint pass as a registered entity.
+  const readModelEntities = Object.values(feature.projections ?? {}).flatMap((projection) =>
+    !projection.isImplicit &&
+    projection.entity !== undefined &&
+    typeof projection.source === "string" &&
+    feature.entities?.[projection.source] === undefined
+      ? [[projection.source, projection.entity] as const]
+      : [],
+  );
+  const entries = [...Object.entries(feature.entities ?? {}), ...readModelEntities];
+  for (const [entityName, entity] of entries) {
     const columnNames = new Set<string>(Object.keys(entity.fields));
     // Framework-managed columns that rules are allowed to reference too.
     // These are the base columns buildEntityTable adds unconditionally.

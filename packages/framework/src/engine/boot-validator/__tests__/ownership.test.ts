@@ -145,3 +145,38 @@ describe("validateOwnershipRules — where-rules on access.read", () => {
     expect(() => validate(feature)).toThrow(/memo\.detail\.note\.access\.read/);
   });
 });
+
+describe("validateOwnershipRules — read-model entities", () => {
+  const readModelEntity = (read: OwnershipMap) =>
+    createEntity({
+      table: "fw_readmodel_owners",
+      fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+      access: { read },
+    });
+
+  const readModelFeature = (read: OwnershipMap) =>
+    defineFeature("readmodels", (r) => {
+      const entity = readModelEntity(read);
+      r.projection({
+        name: "owner-view",
+        source: "owner-view",
+        table: buildEntityTable("owner-view", entity),
+        entity,
+        apply: {},
+      });
+    });
+
+  const knownRoles: ReadonlySet<string> = new Set(["Member"]);
+
+  test("an unknown role in a read model's access.read fails the boot", () => {
+    expect(() =>
+      validateOwnershipRules(readModelFeature({ Typo: "all" }), NO_CLAIMS, knownRoles),
+    ).toThrow(/Typo/);
+  });
+
+  test("a known role in a read model's access.read boots", () => {
+    expect(() =>
+      validateOwnershipRules(readModelFeature({ Member: "all" }), NO_CLAIMS, knownRoles),
+    ).not.toThrow();
+  });
+});

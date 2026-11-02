@@ -58,6 +58,18 @@ export const mixedFeature = defineFeature("evprunemixed", (r) => {
   });
 });
 
+// camelCase entity names are written to the event store under their kebab-case form.
+export const camelCaseMixedFeature = defineFeature("evprunecamel", (r) => {
+  r.entity({ name: "camelA", ...keptEntity, table: "read_evprune_camel_a" });
+  r.entity({ name: "camelB", ...keptEntity, table: "read_evprune_camel_b" });
+  r.projection({
+    name: "camel-both",
+    source: ["camelA", "camelB"],
+    table: buildEntityTable("camelA", keptEntity),
+    apply: {},
+  });
+});
+
 // Dotted key = removed type "mixed-a"; the qualified key has no derivable aggregate type.
 export const mixedStreamFeature = defineFeature("evprunemsp", (r) => {
   r.entity({ name: "msp-a", ...keptEntity, table: "read_evprune_msp_a" });
