@@ -1327,6 +1327,9 @@ export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
+  /** Set only by defineEntityWriteHandler, which wires the parent-ref visibility gate.
+   *  The boot-validator requires it on a `parentRef` entity's update/delete/restore handler. */
+  readonly [ENTITY_CONVENTION_WRITE_BRAND]?: true;
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
@@ -1381,6 +1384,9 @@ export type WriteHandlerDef = {
 // workspace can evaluate a module twice, and two Symbol() calls would not
 // compare equal across those instances.
 export const ENTITY_CONVENTION_QUERY_BRAND = "__kumikoEntityConventionQuery";
+
+// Same brand for the update/delete/restore handlers built by defineEntityWriteHandler.
+export const ENTITY_CONVENTION_WRITE_BRAND = "__kumikoEntityConventionWrite";
 
 export type QueryHandlerDef = {
   readonly name: string;

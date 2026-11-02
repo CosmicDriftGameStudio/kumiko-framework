@@ -10,7 +10,10 @@ import type {
   QueryHandlerDef,
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-types/handlers";
-import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import {
+  ENTITY_CONVENTION_QUERY_BRAND,
+  ENTITY_CONVENTION_WRITE_BRAND,
+} from "@cosmicdrift/kumiko-types/handlers";
 import {
   type ListAggregatePayload,
   listAggregatePayloadSchema,
@@ -522,6 +525,7 @@ export function defineEntityWriteHandler(
     name,
     schema,
     handler,
+    [ENTITY_CONVENTION_WRITE_BRAND]: true,
     access: options.access,
     ...(options.description !== undefined && { description: options.description }),
     ...(agentHints !== undefined && { agent: agentHints }),

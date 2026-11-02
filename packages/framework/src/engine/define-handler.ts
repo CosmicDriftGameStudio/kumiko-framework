@@ -5,7 +5,10 @@ import type {
   WriteEvent,
   WriteResult,
 } from "@cosmicdrift/kumiko-types/handlers";
-import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import {
+  ENTITY_CONVENTION_QUERY_BRAND,
+  ENTITY_CONVENTION_WRITE_BRAND,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type * as z from "zod";
 import type { ZodType } from "zod";
@@ -184,6 +187,10 @@ export function isPagedQueryHandler(def: object): boolean {
 
 export function isEntityConventionQueryHandler(def: object): boolean {
   return propertyOf(def, ENTITY_CONVENTION_QUERY_BRAND) === true;
+}
+
+export function isEntityConventionWriteHandler(def: object): boolean {
+  return propertyOf(def, ENTITY_CONVENTION_WRITE_BRAND) === true;
 }
 
 export type PagedQueryHandlerDefinition<

@@ -1,5 +1,8 @@
-import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
-import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import type { QueryHandlerDef, WriteHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
+import {
+  ENTITY_CONVENTION_QUERY_BRAND,
+  ENTITY_CONVENTION_WRITE_BRAND,
+} from "@cosmicdrift/kumiko-types/handlers";
 import { findEntity } from "../find-entity.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -21,6 +24,17 @@ function findQueryHandler(
 ): QueryHandlerDef | undefined {
   for (const f of featureMap.values()) {
     const handler = f.queryHandlers[handlerName];
+    if (handler) return handler;
+  }
+  return undefined;
+}
+
+function findWriteHandler(
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+  handlerName: string,
+): WriteHandlerDef | undefined {
+  for (const f of featureMap.values()) {
+    const handler = f.writeHandlers[handlerName];
     if (handler) return handler;
   }
   return undefined;
@@ -87,6 +101,24 @@ export function validateParentRefs(
             `via defineEntityListHandler/defineEntityDetailHandler (or defineEntityQueryHandler), ` +
             `or pass { parentVisibility: { entities: ctx.registry.getAllEntities() } } to ` +
             `executor.${verb} yourself.`,
+        });
+      }
+    }
+
+    for (const verb of ["update", "delete", "restore"] as const) {
+      const handlerName = `${entityName}:${verb}`;
+      const handler = findWriteHandler(featureMap, handlerName);
+      // skip: no handler registered for this verb — nothing to brand-check
+      if (handler === undefined) continue;
+      if (handler[ENTITY_CONVENTION_WRITE_BRAND] !== true) {
+        throw bootRuleError(ENTITY_DECLARATION_RULES.parentRefHandWrittenWrite, {
+          message:
+            `[Kumiko ParentRef] write handler "${handlerName}" does not carry ` +
+            `ENTITY_CONVENTION_WRITE_BRAND, but entity "${entityName}" declares a parentRef ` +
+            `(feature: "${feature.name}"). A hand-written handler bypasses the parent visibility ` +
+            `gate unless it explicitly wires parentVisibility. Fix: register "${handlerName}" ` +
+            `via defineEntityWriteHandler, or pass parentVisibility: ` +
+            `parentVisibilityFor(ctx, event.user) to executor.${verb} yourself.`,
         });
       }
     }

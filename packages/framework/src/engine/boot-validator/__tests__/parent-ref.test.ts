@@ -7,7 +7,11 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../define-feature.ts";
-import { defineEntityDetailHandler, defineEntityListHandler } from "../../entity-handlers.ts";
+import {
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityWriteHandler,
+} from "../../entity-handlers.ts";
 import { createEntity, createTextField } from "../../factories.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
 import { validateParentRefs } from "../parent-ref.ts";
@@ -155,6 +159,44 @@ describe("validateParentRefs", () => {
   test("registering no list/detail handler at all is allowed", () => {
     const feature = defineFeature("joins", (r) => {
       r.entity({ name: "join", ...joinEntity(validRef) });
+    });
+    expect(() => validate(feature)).not.toThrow();
+  });
+
+  for (const verb of ["update", "delete", "restore"] as const) {
+    test(`rejects a hand-written ${verb} handler, which would bypass the parent visibility gate`, () => {
+      const feature = defineFeature("joins", (r) => {
+        r.entity({ name: "join", ...joinEntity(validRef) });
+        r.writeHandler({
+          name: `join:${verb}`,
+          schema: z.object({ id: z.uuid() }),
+          handler: async () => ({ isSuccess: true as const, data: {} }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+      });
+      expect(() => validate(feature)).toThrow(new RegExp(`join:${verb}.*parentVisibilityFor`));
+    });
+  }
+
+  test("accepts update/delete/restore registered through defineEntityWriteHandler", () => {
+    const entity = createEntity({
+      table: "read_joins_soft",
+      softDelete: true,
+      fields: {
+        entityType: textField(),
+        entityId: textField(),
+      },
+      parentRef: validRef,
+    });
+    const feature = defineFeature("joins", (r) => {
+      r.entity({ name: "join", ...entity });
+      for (const verb of ["update", "delete", "restore"] as const) {
+        r.writeHandler(
+          defineEntityWriteHandler(`join:${verb}`, entity, {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          }),
+        );
+      }
     });
     expect(() => validate(feature)).not.toThrow();
   });
