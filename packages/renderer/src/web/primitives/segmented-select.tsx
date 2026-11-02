@@ -82,8 +82,10 @@ export function SegmentedControl({
       className={cn(
         // Few segments share one row at equal width so labels wrap inside
         // their segment instead of leaving one tall and its siblings short.
+        // minmax(0,1fr) + the segment's min-w-0: plain `fr` keeps the longest
+        // word as minimum width, so segments spill into each other in narrow columns.
         options.length <= EQUAL_WIDTH_MAX_SEGMENTS
-          ? "inline-grid max-w-full grid-flow-col auto-cols-fr"
+          ? "inline-grid max-w-full grid-flow-col auto-cols-[minmax(0,1fr)]"
           : "inline-flex w-fit flex-wrap",
         size === "touch" ? "min-h-11" : "min-h-9",
         "overflow-hidden rounded-md border",
@@ -128,7 +130,7 @@ export function SegmentedControl({
               // and the next row's top border cut a notch into the row above.
               // Harmless on a single-row layout: there's no leftover space to
               // grow into, so `w-fit` on the container still holds.
-              "-ml-px -mt-px grow border-l border-t px-3 py-1.5 text-center text-sm transition-colors",
+              "-ml-px -mt-px min-w-0 grow border-l border-t px-3 py-1.5 text-center text-sm [overflow-wrap:anywhere] transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-50",
               hasError === true ? "border-destructive/50" : "border-border",

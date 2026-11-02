@@ -234,7 +234,7 @@ describe("DefaultInput select → segmented control borders survive wrapping", (
   test("few options render as equal-width columns", () => {
     renderSelect(["Draft", "Review", "Published"]);
     const radiogroup = screen.getByRole("radiogroup");
-    expect(radiogroup.className).toContain("auto-cols-fr");
+    expect(radiogroup.className).toContain("auto-cols-[minmax(0,1fr)]");
   });
 
   test("many options keep the wrapping layout and grow to fill their row", () => {
@@ -322,6 +322,17 @@ describe("SegmentedControl tones and touch size", () => {
     renderToned("ok", "touch");
     for (const radio of screen.getAllByRole("radio")) {
       expect(radio.className).toContain("min-h-11");
+    }
+  });
+});
+
+describe("segmented control in narrow columns", () => {
+  test("segments may shrink and wrap their label instead of overlapping neighbours", () => {
+    renderSelect(["Leistungsprinzip", "Abflussprinzip"]);
+    expect(screen.getByRole("radiogroup").className).toContain("auto-cols-[minmax(0,1fr)]");
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio.className).toContain("min-w-0");
+      expect(radio.className).toContain("[overflow-wrap:anywhere]");
     }
   });
 });
