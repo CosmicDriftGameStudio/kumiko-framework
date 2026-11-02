@@ -342,6 +342,44 @@ describe("RenderEdit — submit path", () => {
     expect(document.querySelector('[data-testid^="field-issue-"]')).not.toBeNull();
   });
 
+  describe.each([
+    ["with an entity default", true, false],
+    ["without an entity default", false, true],
+  ])("create mode, empty required field %s", (_label, withDefault, expectBlocked) => {
+    test(
+      expectBlocked ? "blocks the submit" : "submits so the server applies the default",
+      async () => {
+        const base = buildEntity(true);
+        const nameField = base.fields["name"];
+        const entity: EntityDefinition =
+          withDefault && nameField?.type === "text"
+            ? { ...base, fields: { name: { ...nameField, default: "accrual" } } }
+            : base;
+        let submitted: SubmitResult<unknown> | undefined;
+        renderEdit(
+          oneFieldScreen,
+          {
+            initial: { name: "seed" },
+            customSubmit: async () => ({ validationBlocked: false, isSuccess: true, data: {} }),
+            onSubmit: (result) => {
+              submitted = result;
+            },
+          },
+          entity,
+        );
+        fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "" } });
+        await waitFor(() =>
+          expect((rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(
+            false,
+          ),
+        );
+        fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+        await waitFor(() => expect(submitted).toBeDefined());
+        expect(submitted?.validationBlocked).toBe(expectBlocked);
+      },
+    );
+  });
+
   test("failed writeCommand with field issues suppresses the form-error banner", async () => {
     const writeFailure: DispatcherError = {
       code: "validation_failed",

@@ -61,6 +61,10 @@ function isRequiredValueMissing(
   );
 }
 
+function hasEntityDefault(field: FieldDefinition): boolean {
+  return "default" in field && field.default !== undefined;
+}
+
 type FormRefinementCtx = z.core.$RefinementCtx;
 
 // Embedded sub-field `requiredWhen` (e.g. checkpoints.0.finding) — the top-level
@@ -182,6 +186,9 @@ export function buildFormSchema(
           continue;
         }
         selectFieldsToCheck[spec.field] = field;
+        // The server fills a missing or empty value from the entity default on insert
+        // (schema-builder), so a presence error would block a value the user may omit.
+        if (verb === "create" && hasEntityDefault(field)) continue;
         if (!isRequiredValueMissing(spec, field, record, unchangedFrom)) continue;
         ctx.addIssue({
           code: "custom",
