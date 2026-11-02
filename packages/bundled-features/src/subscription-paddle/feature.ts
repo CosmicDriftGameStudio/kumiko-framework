@@ -223,6 +223,7 @@ export function createSubscriptionPaddleFeature(
       displayName: "Paddle",
       verifyAndParseWebhook: verifyAndParsePaddleWebhook(runtimes.webhook, {
         priceToTier,
+        oneOffPriceIds: options.oneOffPriceIds ?? [],
         ...(options.nowSeconds && { nowSeconds: options.nowSeconds }),
       }),
       createCheckoutSession: createPaddleCheckoutSession(runtimes.ctx),

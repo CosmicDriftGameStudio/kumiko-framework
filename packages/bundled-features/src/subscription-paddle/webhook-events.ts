@@ -59,6 +59,8 @@ const paddleTransactionSchema = z.object({
 
 export type PaddleWebhookOptions = {
   readonly priceToTier: Readonly<Record<string, string>>;
+  /** Prices a one-off payment may credit; Paddle.js lets a browser open checkouts with any customData. */
+  readonly oneOffPriceIds: readonly string[];
   /** Test seam: Unix seconds. Defaults to the wall clock. */
   readonly nowSeconds?: () => number;
 };
@@ -71,6 +73,7 @@ function parsePaymentEvent(
   providerEventId: string,
   data: unknown,
   bindingKey: string,
+  oneOffPriceIds: readonly string[],
 ): PaymentEvent | null {
   const parsed = paddleTransactionSchema.safeParse(data);
   if (!parsed.success) return null;
@@ -81,6 +84,13 @@ function parsePaymentEvent(
   const quantity = transaction.items[0]?.quantity ?? 1;
   const bound = boundTenantOf(transaction.custom_data, bindingKey);
   if (!bound || !priceId || !transaction.customer_id) return null;
+  if (!oneOffPriceIds.includes(priceId)) {
+    createFallbackLogger("subscription-paddle").warn(
+      "paddle one-off transaction dropped: price is not an allowed one-off price",
+      { providerEventId, priceId },
+    );
+    return null;
+  }
   return {
     kind: BillingEventKinds.payment,
     providerEventId,
@@ -160,7 +170,9 @@ export function verifyAndParsePaddleWebhook(
     if (!envelope.success) return null;
 
     const { event_id: providerEventId, event_type: type, occurred_at, data } = envelope.data;
-    if (type === TRANSACTION_COMPLETED) return parsePaymentEvent(providerEventId, data, bindingKey);
+    if (type === TRANSACTION_COMPLETED) {
+      return parsePaymentEvent(providerEventId, data, bindingKey, options.oneOffPriceIds);
+    }
     if (!Object.hasOwn(PADDLE_SUBSCRIPTION_EVENT_TYPES, type)) return null;
     const normalizedType = PADDLE_SUBSCRIPTION_EVENT_TYPES[type];
     if (!normalizedType) return null;

@@ -18,6 +18,7 @@ import {
 } from "./paddle-test-kit.ts";
 
 const PRICE_TO_TIER = { pri_pro: "pro", pri_team: "team" };
+const ONE_OFF_PRICE_IDS = ["pri_topup"];
 const TIMESTAMP = String(NOW_SECONDS);
 
 function parser() {
@@ -26,7 +27,11 @@ function parser() {
       resolveWebhookSecret: async () => TEST_WEBHOOK_SECRET,
       resolveTenantBindingKey: async () => TEST_BINDING_KEY,
     },
-    { priceToTier: PRICE_TO_TIER, nowSeconds: () => NOW_SECONDS },
+    {
+      priceToTier: PRICE_TO_TIER,
+      oneOffPriceIds: ONE_OFF_PRICE_IDS,
+      nowSeconds: () => NOW_SECONDS,
+    },
   );
 }
 
@@ -244,6 +249,17 @@ describe("transaction.completed", () => {
     expect(bought).toMatchObject({ kind: BillingEventKinds.payment, quantity: 3 });
   });
 
+  test("a bound transaction for a price outside oneOffPriceIds is dropped", async () => {
+    expect(
+      await parse(
+        envelope(
+          "transaction.completed",
+          transaction({ items: [{ price: { id: "pri_browser_chosen" }, quantity: 500 }] }),
+        ),
+      ),
+    ).toBeNull();
+  });
+
   test("a subscription's own transaction is covered by its subscription events", async () => {
     expect(
       await parse(envelope("transaction.completed", transaction({ subscription_id: "sub_1" }))),
@@ -282,7 +298,11 @@ describe("rejection", () => {
           return TEST_BINDING_KEY;
         },
       },
-      { priceToTier: PRICE_TO_TIER, nowSeconds: () => NOW_SECONDS },
+      {
+        priceToTier: PRICE_TO_TIER,
+        oneOffPriceIds: ONE_OFF_PRICE_IDS,
+        nowSeconds: () => NOW_SECONDS,
+      },
     );
     const body = envelope("subscription.created", subscriptionData());
     await expect(
@@ -305,7 +325,7 @@ describe("rejection", () => {
         },
         resolveTenantBindingKey: async () => TEST_BINDING_KEY,
       },
-      { priceToTier: PRICE_TO_TIER },
+      { priceToTier: PRICE_TO_TIER, oneOffPriceIds: ONE_OFF_PRICE_IDS },
     );
     const body = envelope("subscription.created", subscriptionData());
     await expect(
