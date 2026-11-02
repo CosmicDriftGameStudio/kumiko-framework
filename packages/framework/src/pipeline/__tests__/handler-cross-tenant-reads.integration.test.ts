@@ -76,6 +76,16 @@ async function readAcrossTenants(
   };
 }
 
+const systemProbeFeature = defineFeature("handler-xtr-system", (r) => {
+  r.systemScope();
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    handler: async () => ({ ran: true }),
+  });
+});
+
 const probeFeature = defineFeature(FEATURE, (r) => {
   r.entity({ name: "note", ...noteEntity });
 
@@ -116,6 +126,17 @@ const probeFeature = defineFeature(FEATURE, (r) => {
   });
 
   r.queryHandler({
+    name: "raw-sql",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: GRANT_REASON, grants: ["unsafeRaw"] },
+    handler: async (_query, ctx) => {
+      ctx.db.unsafeRaw();
+      return { reachedRaw: true };
+    },
+  });
+
+  r.queryHandler({
     name: "delegating",
     schema: z.object({ foreignTenantId: z.string() }),
     access: { roles: ["Admin"] },
@@ -140,7 +161,7 @@ const recordingProvider: ObservabilityProvider = {
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [probeFeature],
+    features: [probeFeature, systemProbeFeature],
     observability: recordingProvider,
     extraContext: {
       _escapeHatchAuditSink: async (event: EscapeHatchUseEvent) => {
@@ -237,5 +258,31 @@ describe("ctx.crossTenantReads on handlers", () => {
     );
 
     expect(result).toMatchObject({ hasReads: true, count: 2 });
+  });
+
+  test("an agent tool call on a handler with an unsafeRaw grant is denied unsafeRaw", async () => {
+    const outsideAgent = await stack.dispatcher.query(`${FEATURE}:query:raw-sql`, {}, ownAdmin);
+    expect(outsideAgent).toEqual({ reachedRaw: true });
+
+    await expect(
+      runAsAgentToolCallEntry(() =>
+        stack.dispatcher.query(`${FEATURE}:query:raw-sql`, {}, ownAdmin),
+      ),
+    ).rejects.toMatchObject({ code: "access_denied" });
+  });
+
+  test("an agent tool call cannot run a system-scope handler, other callers can", async () => {
+    const outsideAgent = await stack.dispatcher.query(
+      "handler-xtr-system:query:ping",
+      {},
+      ownAdmin,
+    );
+    expect(outsideAgent).toEqual({ ran: true });
+
+    await expect(
+      runAsAgentToolCallEntry(() =>
+        stack.dispatcher.query("handler-xtr-system:query:ping", {}, ownAdmin),
+      ),
+    ).rejects.toMatchObject({ code: "access_denied" });
   });
 });

@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext } from "../api/request-context.ts";
 import type { RequestContextData } from "../api/request-context-internals.ts";
+import { isAgentToolCallScope } from "../api/request-context-scopes.ts";
 
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import type {
@@ -14,6 +15,8 @@ import type {
   Registry,
   SessionUser,
 } from "../engine/types/index.ts";
+import { AccessDeniedError } from "../errors/index.ts";
+import { AgentReasons } from "../errors/reasons.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
 import type { ContextServiceOverrides } from "./context-services.ts";
@@ -62,6 +65,14 @@ export function resolveHandlerContextScope(input: {
   const { ctx, type, user, origin, tx, transactionScope } = input;
   const { registry, appContext: context } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
+  // A system-scope handler reads and writes across tenants; an agent tool call carries the user's
+  // session into the LLM context, so it must never reach one.
+  if (isSystem && isAgentToolCallScope()) {
+    throw new AccessDeniedError({
+      message: `"${type}" is a system-scope handler and cannot run inside an agent tool call`,
+      details: { reason: AgentReasons.toolNotAllowed, handler: type },
+    });
+  }
   // The outer dispatcher receives a DbConnection from the server/stack;
   // AppContext's `db` union also allows TenantDb (for downstream hook calls),
   // but at this point we're the root of the pipeline — cast is safe.
