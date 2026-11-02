@@ -11,10 +11,10 @@ export function useRenderEditControlledSync<TValues extends FormValues, TCtx>({
   draft,
 }: RenderEditCore<TValues, TCtx>): void {
   const { controller, snapshot } = form;
-  const { extensionDirty } = state;
+  const { extensionDirty, pendingUploads } = state;
   const onDirtyChangeRef = useRef(props.onDirtyChange);
   onDirtyChangeRef.current = props.onDirtyChange;
-  const hasUnsavedInput = snapshot.isDirty || extensionDirty;
+  const hasUnsavedInput = snapshot.isDirty || extensionDirty || pendingUploads > 0;
   useEffect(() => {
     onDirtyChangeRef.current?.(hasUnsavedInput);
   }, [hasUnsavedInput]);
@@ -22,7 +22,11 @@ export function useRenderEditControlledSync<TValues extends FormValues, TCtx>({
   // Draft wizards keep their input server-side, so leaving loses nothing.
   const persistsDraft = state.isWizard && props.screen.layout.draft === true;
   useUnsavedInputSource(
-    () => !persistsDraft && (controller.getSnapshot().isDirty || state.extensionDirtyRef.current),
+    () =>
+      !persistsDraft &&
+      (controller.getSnapshot().isDirty ||
+        state.extensionDirtyRef.current ||
+        state.pendingUploadsRef.current > 0),
   );
 
   useWizardFormDraftRestore<TValues>({

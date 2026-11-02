@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ExtensionFormRegistryProvider } from "../app/extension-form-submit.tsx";
 import type { FormValues } from "../headless/index.ts";
+import { FormUploadTrackerProvider } from "./form-pending-uploads.tsx";
 import {
   renderActionErrorBanner,
   renderAllRequiredHint,
@@ -135,33 +136,35 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
   const { Form } = state.primitives;
   return (
     <ExtensionFormRegistryProvider value={state.extensionFormRegistry}>
-      {state.menuActionConfirmDialog}
-      {renderPageHeader(model, header)}
-      <Form
-        onSubmit={() => void handleSubmit()}
-        {...(state.focusFirstErrorKey > 0 && { focusFirstErrorKey: state.focusFirstErrorKey })}
-        {...buildFormHeadingProps(model)}
-        {...buildFormActionProps(model, header)}
-        testId="render-edit-form"
-        stickyActions={state.isWizard || props.fillScreenHeight === true}
-        {...buildFormChromeProps(model, header)}
-      >
-        <AllFieldsRequiredProvider
-          value={sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true}
+      <FormUploadTrackerProvider value={state.trackUpload}>
+        {state.menuActionConfirmDialog}
+        {renderPageHeader(model, header)}
+        <Form
+          onSubmit={() => void handleSubmit()}
+          {...(state.focusFirstErrorKey > 0 && { focusFirstErrorKey: state.focusFirstErrorKey })}
+          {...buildFormHeadingProps(model)}
+          {...buildFormActionProps(model, header)}
+          testId="render-edit-form"
+          stickyActions={state.isWizard || props.fillScreenHeight === true}
+          {...buildFormChromeProps(model, header)}
         >
-          {props.leadContent}
-          {sections.showsAllRequiredHint && !state.insideDrawer && renderAllRequiredHint(model)}
-          {renderDraftPicker(model)}
-          {renderWizardProgress(model)}
-          {state.isTabs && state.isStepped && renderTabStrip(model)}
-          {renderEditSections(model)}
-          {renderFormErrorBanner(model)}
-          {renderRootIssueBanners(model)}
-          {renderExtensionErrorBanner(model)}
-          {renderActionErrorBanner(model)}
-          {renderDeleteDialog(model)}
-        </AllFieldsRequiredProvider>
-      </Form>
+          <AllFieldsRequiredProvider
+            value={sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true}
+          >
+            {props.leadContent}
+            {sections.showsAllRequiredHint && !state.insideDrawer && renderAllRequiredHint(model)}
+            {renderDraftPicker(model)}
+            {renderWizardProgress(model)}
+            {state.isTabs && state.isStepped && renderTabStrip(model)}
+            {renderEditSections(model)}
+            {renderFormErrorBanner(model)}
+            {renderRootIssueBanners(model)}
+            {renderExtensionErrorBanner(model)}
+            {renderActionErrorBanner(model)}
+            {renderDeleteDialog(model)}
+          </AllFieldsRequiredProvider>
+        </Form>
+      </FormUploadTrackerProvider>
     </ExtensionFormRegistryProvider>
   );
 }

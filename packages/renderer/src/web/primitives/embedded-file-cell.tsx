@@ -6,7 +6,7 @@ import { Loader2, Plus, X } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { fileIdsOf } from "../../file-ids-of.ts";
 import type { EmbeddedListColumn, EmbeddedListInputProps } from "../../index.ts";
-import { useSessionEndedSignal, useTranslation } from "../../index.ts";
+import { useSessionEndedSignal, useTrackFormUpload, useTranslation } from "../../index.ts";
 import { toAcceptAttr } from "../lib/accept-attr.ts";
 import { cn } from "../lib/cn.ts";
 import { resizeImageBeforeUpload } from "../lib/resize-image.ts";
@@ -33,6 +33,7 @@ export function EmbeddedFileCell({
 }): ReactNode {
   const t = useTranslation();
   const sessionEnded = useSessionEndedSignal();
+  const trackFormUpload = useTrackFormUpload();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +51,11 @@ export function EmbeddedFileCell({
     setUploading(true);
     setError(null);
     try {
-      const uploadFile = await resizeImageBeforeUpload(file);
-      const id = await uploadFileRef(uploadFile, { ...uploadTarget, subField: column.field });
-      onChange([...ids, id]);
+      await trackFormUpload(async () => {
+        const uploadFile = await resizeImageBeforeUpload(file);
+        const id = await uploadFileRef(uploadFile, { ...uploadTarget, subField: column.field });
+        onChange([...ids, id]);
+      });
     } catch (cause) {
       if (isSessionEndedUploadError(cause)) sessionEnded?.notify();
       setError(t(uploadErrorKey(cause)));
