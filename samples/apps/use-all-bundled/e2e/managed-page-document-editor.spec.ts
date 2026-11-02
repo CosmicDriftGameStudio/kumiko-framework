@@ -15,7 +15,7 @@ test("TenantAdmin edits the Markdown about page and the public page serves the n
   await page.goto("/tenant-admin/page-list");
   await page.getByRole("row").filter({ hasText: "About Acme" }).click();
   await page.waitForURL(/\/page-edit/);
-  const form = page.getByTestId("render-edit-form");
+  const form = page.getByTestId("page-workbench");
   await expect(form).toBeVisible();
 
   // The seeded body only uses a relative link, which the conversion keeps, so no lossy warning shows.
@@ -32,7 +32,7 @@ test("TenantAdmin edits the Markdown about page and the public page serves the n
   const saved = page.waitForResponse(
     (response) => response.url().includes("/api/write") && response.request().method() === "POST",
   );
-  await page.getByTestId("render-edit-submit").click();
+  await page.getByTestId("editor-save").last().click();
   expect((await saved).ok()).toBe(true);
 
   const publicPage = await page.request.get("/p/about");

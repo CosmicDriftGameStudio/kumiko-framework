@@ -1,18 +1,13 @@
-import { PdfPreview } from "@cosmicdrift/kumiko-renderer/web";
-import { type ReactNode, useEffect } from "react";
+import { PreviewPane } from "@cosmicdrift/kumiko-renderer";
+import type { ReactNode } from "react";
 import { PlaceholderSection, SystemPlaceholderSection } from "./mail-left-rail.tsx";
 import { PageCanvas } from "./page-canvas.tsx";
 import type { PdfRenderContext } from "./pdf-editor-context.ts";
 import { PdfResourceSection } from "./pdf-left-rail.tsx";
+import { serializePdfMeta } from "./pdf-meta.ts";
+import { type PdfPreviewController, PdfPreviewControllerContext } from "./pdf-preview-renderer.tsx";
 import { SettingsPanel } from "./settings-panel.tsx";
-
-// Opening the preview prints the page without a click; a failed print is not retried for the same draft.
-function RunOnMount({ run }: { readonly run: () => void }): null {
-  useEffect(() => {
-    run();
-  }, [run]);
-  return null;
-}
+import { DOCUMENT_PDF_KIND } from "./types.ts";
 
 export function renderPdfLeftRail(c: PdfRenderContext): ReactNode {
   const { s, view, detail, actions } = c;
@@ -70,44 +65,33 @@ export function renderPdfEditCanvas(c: PdfRenderContext): ReactNode {
   );
 }
 
-function renderStalePreview(c: PdfRenderContext): ReactNode {
-  const { t, Button, s, view, actions } = c;
-  const { busy } = s.ui;
-  return (
-    <div
-      className="flex flex-col items-start gap-3 p-6"
-      data-testid="document-designer-preview-stale"
-    >
-      {view.pdfAvailable && busy === null && <RunOnMount run={actions.printOnce} />}
-      <p className="text-sm text-muted-foreground">
-        {busy === "pdf"
-          ? t("documentDesigner.preview.loading")
-          : t("documentDesigner.preview.stale")}
-      </p>
-      <Button
-        variant="secondary"
-        disabled={!view.pdfAvailable || busy !== null}
-        onClick={() => void actions.generatePdf()}
-      >
-        {t("documentDesigner.actions.generatePdf")}
-      </Button>
-    </div>
-  );
-}
-
 export function renderPdfPreviewPane(c: PdfRenderContext): ReactNode {
-  const { generated } = c.s.ui;
+  const { s, view, actions, current, slug } = c;
+  const { busy, generated } = s.ui;
+  const controller: PdfPreviewController = {
+    fresh: generated !== null && view.generatedFresh ? generated.result : null,
+    printing: busy === "pdf",
+    available: view.pdfAvailable && busy === null,
+    generate: () => void actions.generatePdf(),
+    printOnce: actions.printOnce,
+  };
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      {generated !== null && c.view.generatedFresh ? (
-        <PdfPreview
-          source={{ base64: generated.result.pdfBase64 }}
-          testId="document-designer-pdf-preview"
-        />
-      ) : (
-        renderStalePreview(c)
-      )}
-    </div>
+    <PdfPreviewControllerContext.Provider value={controller}>
+      <PreviewPane
+        target="pdf"
+        content={current.draft.content}
+        editFormat="document"
+        variables={{}}
+        subject={{
+          kind: "template",
+          templateKind: DOCUMENT_PDF_KIND,
+          slug,
+          locale: s.doc.locale,
+          meta: serializePdfMeta(current.draft.meta),
+          variableSchema: s.server.variableSchema,
+        }}
+      />
+    </PdfPreviewControllerContext.Provider>
   );
 }
 

@@ -5,6 +5,7 @@
 // DOM deps.
 
 export { textBlocksClient } from "./client-plugin.tsx";
+export type { EditableTemplateKind } from "./constants.ts";
 export { DocumentContentEditor } from "./document-editor.tsx";
 export {
   type DocumentEditorChrome,
@@ -34,8 +35,10 @@ export {
   PlaceholderLineEditor,
   type PlaceholderLineEditorProps,
 } from "./placeholder-line-editor-lazy.tsx";
+export { previewTargetOfKind } from "./preview-targets.ts";
 export {
   TemplateResolverErrors,
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "./qualified-names.ts";
+export { WebPreviewRenderer } from "./web-preview-renderer.tsx";

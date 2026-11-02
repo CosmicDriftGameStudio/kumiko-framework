@@ -13,6 +13,8 @@ opt-in, tier-gated **custom CSS** — the framework generalization of the
   branding applied as scoped `:root` vars, custom CSS allowlist-sanitized and
   contained in a `<style data-tenant-css>` block
 - 6 integration tests proving end-to-end behavior
+- A custom preview renderer for the admin editor: `src/web/branded-preview.tsx` registers its own
+  `contentPreviews.web` next to `managedPagesClient()`, tested in `branded-preview.test.tsx`
 
 ## Layout
 
@@ -22,8 +24,10 @@ samples/recipes/managed-pages/
 ├── README.md                   # this file
 └── src/
     ├── feature.ts              # the composed features re-exported for tests
+    ├── web/branded-preview.tsx # custom `contentPreviews` renderer (client feature)
     └── __tests__/
-        └── feature.integration.test.ts  # 6 tests: render + branding + CSS
+        ├── feature.integration.test.ts  # 6 tests: render + branding + CSS
+        └── branded-preview.test.tsx     # custom preview renderer in the editor workbench
 ```
 
 ## Run tests

@@ -15,6 +15,7 @@ import type {
   ClientActionHandler,
   ColumnRendererComponent,
   ContentEditorComponent,
+  ContentPreviewsMap,
   ExtensionSectionComponent,
   QualifiedContentCollection,
   TranslationsByLocale,
@@ -98,6 +99,12 @@ export type ClientFeatureDefinition = {
    *  format. Same last-wins semantics as columnRenderers. Public component
    *  contract: `{ value, onChange, variables, readOnly }`. */
   readonly contentEditors?: Partial<Record<ContentEditorFormat, ContentEditorComponent>>;
+
+  /** Preview renderers for the editor workbench's preview mode, keyed by target
+   *  ("pdf" | "mail" | "web" | "text"). Each renderer calls its own server path with its own
+   *  access rule. A target without a renderer falls back to "text". Same last-wins
+   *  semantics as contentEditors. */
+  readonly contentPreviews?: ContentPreviewsMap;
 
   /** Editor resolver components keyed by featureId:action. When a TreeNode
    * with a target is clicked, EditorPanel looks up and renders the component

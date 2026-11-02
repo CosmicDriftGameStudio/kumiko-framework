@@ -74,8 +74,15 @@ export function useCollectionEntryCreate(target: TargetRef, tenantId: string | u
     });
   };
 
+  const reset = (): void => {
+    setSlug("");
+    setTitle("");
+    setContent("");
+  };
+
   return {
     editorContext,
+    reset,
     headerTitle,
     slug,
     setSlug,

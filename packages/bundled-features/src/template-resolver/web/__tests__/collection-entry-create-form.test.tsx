@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { useShellUser } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
 import {
   createStaticLocaleResolver,
+  kumikoDefaultTranslations,
   LocaleProvider,
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
@@ -62,16 +63,30 @@ const TARGET = {
   args: { collectionId: "prompts" },
 } as const;
 
+// Header and footer both carry the save action; the footer one is the last in DOM order.
+function createButton(): HTMLButtonElement {
+  return screen.getAllByTestId("editor-save").at(-1) as HTMLButtonElement;
+}
+
 const primitivesWithVisibleHeader = {
   ...defaultPrimitives,
-  PageHeader: ({ title }: { readonly title?: string }) => <h1 data-testid="header">{title}</h1>,
+  PageHeader: ({ title, actions }: { readonly title?: string; readonly actions?: ReactNode }) => (
+    <>
+      <h1 data-testid="header">{title}</h1>
+      {actions}
+    </>
+  ),
 };
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en" })}
-      fallbackBundles={[defaultTranslations, { en: { "mail:nav.signature": "Signature" } }]}
+      fallbackBundles={[
+        kumikoDefaultTranslations,
+        defaultTranslations,
+        { en: { "mail:nav.signature": "Signature" } },
+      ]}
     >
       <PrimitivesProvider value={primitivesWithVisibleHeader}>{children}</PrimitivesProvider>
     </LocaleProvider>
@@ -114,10 +129,27 @@ describe("collection entry create form", () => {
     expect(screen.getByTestId("header").textContent).toBe("New entry");
   });
 
-  test("the save footer is pinned below the scroll surface", () => {
+  test("the save footer sits outside the edit pane, so it stays put while the content scrolls", () => {
     renderForm(mock());
-    const scroll = screen.getByTestId("collection-entry-create-scroll");
-    expect(scroll.contains(screen.getByTestId("collection-entry-create-actions"))).toBe(false);
+    const pane = screen.getByTestId("collection-entry-create-edit");
+    expect(pane.contains(screen.getByTestId("collection-entry-create-footer"))).toBe(false);
+  });
+
+  test("the preview mode shows the draft content with the example values in the rail", () => {
+    renderForm(mock());
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.queryByLabelText(/slug/i)).toBeNull();
+    expect(screen.getByTestId("collection-entry-create-preview")).toBeDefined();
+  });
+
+  test("a text without placeholders previews with the plain info text, no example values and no placeholder rail", () => {
+    renderForm(mock());
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    expect(screen.getByTestId("collection-entry-create-info").textContent).toContain(
+      "Preview of the unsaved state, as the page shows it.",
+    );
+    expect(screen.queryByText("Example values")).toBeNull();
+    expect(screen.queryByText("Placeholders")).toBeNull();
   });
 
   test("an invalid slug blocks submit and shows the slug message", () => {
@@ -125,9 +157,7 @@ describe("collection entry create form", () => {
     fill(/slug/i, "Not Valid!");
     fill(/title/i, "Titel");
     expect(screen.getAllByText(/lowercase letters, digits and dashes/).length).toBeGreaterThan(0);
-    expect((screen.getByRole("button", { name: /create/i }) as HTMLButtonElement).disabled).toBe(
-      true,
-    );
+    expect((createButton() as HTMLButtonElement).disabled).toBe(true);
   });
 
   test("a valid entry is written create-only and opens the edit target", async () => {
@@ -139,7 +169,7 @@ describe("collection entry create form", () => {
     fill(/slug/i, "triage");
     fill(/title/i, "Triage");
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /create/i }));
+      fireEvent.click(createButton());
       await Promise.resolve();
     });
     expect(write).toHaveBeenCalledTimes(1);
@@ -181,7 +211,7 @@ describe("collection entry create form", () => {
     fill(/slug/i, "triage");
     fill(/title/i, "Triage");
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /create/i }));
+      fireEvent.click(createButton());
       await Promise.resolve();
     });
     expect(screen.getByText(/triage/i, { selector: "[role=alert], [role=alert] *" })).toBeTruthy();
@@ -207,7 +237,7 @@ describe("collection entry create form", () => {
       fill(/slug/i, "triage");
       fill(/title/i, "Triage");
       await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: /create/i }));
+        fireEvent.click(createButton());
         await Promise.resolve();
         await Promise.resolve();
       });
