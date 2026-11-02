@@ -49,6 +49,15 @@ function parsePage(result: unknown, queryType: string): Page {
   };
 }
 
+// Rows without a string id cannot be told apart, so they always count as unseen.
+function claimRowId(row: ExportRow, seenRowIds: Set<string>): boolean {
+  const id = row["id"];
+  if (typeof id !== "string") return true;
+  if (seenRowIds.has(id)) return false;
+  seenRowIds.add(id);
+  return true;
+}
+
 /** Reads the whole filtered list page by page; gives up as soon as more than `maxRows` exist. */
 export async function readExportRows(
   dispatcher: Pick<Dispatcher, "query">,
@@ -59,6 +68,7 @@ export async function readExportRows(
   const base = sanitizeExportPayload(clientPayload, plan);
   const rows: ExportRow[] = [];
   const seenCursors = new Set<string>();
+  const seenRowIds = new Set<string>();
   let cursor: string | undefined;
   for (;;) {
     const limit = Math.min(MAX_LIST_LIMIT, plan.maxRows + 1 - rows.length);
@@ -72,11 +82,13 @@ export async function readExportRows(
       await dispatcher.query(plan.queryType, pagingPayload, user),
       plan.queryType,
     );
-    rows.push(...page.rows);
+    const freshRows = page.rows.filter((row) => claimRowId(row, seenRowIds));
+    rows.push(...freshRows);
     if (rows.length > plan.maxRows) return { tooMany: true };
-    // Only an empty page ends the list: a query may cap `limit` itself, so a short page proves
-    // nothing. A repeated cursor would loop forever.
-    if (page.rows.length === 0) return { tooMany: false, rows };
+    // A short page proves nothing (a query may cap `limit` itself), so only an empty page ends the
+    // list. A page without any unseen row means the query ignores offset/cursor and would repeat
+    // itself until maxRows. A repeated cursor would loop forever.
+    if (page.rows.length === 0 || freshRows.length === 0) return { tooMany: false, rows };
     if (cursor !== undefined && page.nextCursor === undefined) return { tooMany: false, rows };
     if (page.nextCursor !== undefined) {
       if (seenCursors.has(page.nextCursor)) return { tooMany: false, rows };

@@ -165,8 +165,6 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   // into one query per event. A refresh already running schedules
   // exactly one trailing pass after it settles.
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const liveInFlightRef = useRef(false);
-  const liveTrailingRef = useRef(false);
 
   // Live-mode: on an SSE event for the query's entity, refetch only the
   // first page and merge it in — rows the fresh page still contains move
@@ -175,54 +173,57 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   // A full reload would collapse already-accumulated pages and jump the
   // scroll position.
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
-  const refreshFirstPage = useCallback(async (): Promise<void> => {
-    // Read, don't bump at the start: a concurrent load() (e.g. the mount
-    // fetch still in flight) must not be discarded by a refresh that then
-    // fails or is superseded. Only a refresh that actually delivers fresh
-    // rows bumps (below), because those are newer than the running load's.
-    const seqAtStart = requestSeq.current;
-    const res = await dispatcher.query<TData>(query, { ...payload, limit: pageSize });
-    if (seqAtStart !== requestSeq.current) {
-      // A load-more bumps the sequence without covering page 1, so the signal that
-      // triggered this refresh would otherwise be lost.
-      liveTrailingRef.current = true;
-      return;
-    }
-    // skip: background live refresh failed, keep showing the current rows
-    if (!res.isSuccess) return;
-    const freshRows = rowsRef.current(res.data);
-    const freshIds = new Set(freshRows.map((row, index) => rowIdRef.current(row, index)));
-    if (stateKindRef.current === "loading") {
-      // The initial load was issued before the change that triggered this
-      // refresh (the live stream reports its first open as a resync), so
-      // its page 1 may be stale: adopt the fresh page and drop the older load.
-      requestSeq.current += 1;
-      firstPageIdsRef.current = freshIds;
-      setState({ kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) });
-      return;
-    }
-    // A row absent from freshIds is stale for one of two reasons: it was
-    // dropped from page 1 (deleted, or filtered out elsewhere) and must be
-    // pruned, or it belongs to an already-accumulated later page and must
-    // survive. previousFirstPageIds — captured before it's overwritten below
-    // — is what tells those two cases apart.
-    const previousFirstPageIds = firstPageIdsRef.current;
-    firstPageIdsRef.current = freshIds;
-    setState((prev) => {
-      if (prev.kind === "loading") return prev;
-      if (prev.kind !== "ready") {
-        // prev.kind === "error": this refresh succeeded — promote straight
-        // to "ready" instead of leaving the list stuck on the earlier
-        // failure forever (a live event should be able to recover it).
-        return { kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) };
+  const refreshFirstPage = useCallback(
+    async (onSuperseded: () => void): Promise<void> => {
+      // Read, don't bump at the start: a concurrent load() (e.g. the mount
+      // fetch still in flight) must not be discarded by a refresh that then
+      // fails or is superseded. Only a refresh that actually delivers fresh
+      // rows bumps (below), because those are newer than the running load's.
+      const seqAtStart = requestSeq.current;
+      const res = await dispatcher.query<TData>(query, { ...payload, limit: pageSize });
+      if (seqAtStart !== requestSeq.current) {
+        // A load-more bumps the sequence without covering page 1, so the signal that
+        // triggered this refresh would otherwise be lost.
+        onSuperseded();
+        return;
       }
-      const staleRows = prev.rows.filter((row, index) => {
-        const id = rowIdRef.current(row, index);
-        return !freshIds.has(id) && !previousFirstPageIds.has(id);
+      // skip: background live refresh failed, keep showing the current rows
+      if (!res.isSuccess) return;
+      const freshRows = rowsRef.current(res.data);
+      const freshIds = new Set(freshRows.map((row, index) => rowIdRef.current(row, index)));
+      if (stateKindRef.current === "loading") {
+        // The initial load was issued before the change that triggered this
+        // refresh (the live stream reports its first open as a resync), so
+        // its page 1 may be stale: adopt the fresh page and drop the older load.
+        requestSeq.current += 1;
+        firstPageIdsRef.current = freshIds;
+        setState({ kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) });
+        return;
+      }
+      // A row absent from freshIds is stale for one of two reasons: it was
+      // dropped from page 1 (deleted, or filtered out elsewhere) and must be
+      // pruned, or it belongs to an already-accumulated later page and must
+      // survive. previousFirstPageIds — captured before it's overwritten below
+      // — is what tells those two cases apart.
+      const previousFirstPageIds = firstPageIdsRef.current;
+      firstPageIdsRef.current = freshIds;
+      setState((prev) => {
+        if (prev.kind === "loading") return prev;
+        if (prev.kind !== "ready") {
+          // prev.kind === "error": this refresh succeeded — promote straight
+          // to "ready" instead of leaving the list stuck on the earlier
+          // failure forever (a live event should be able to recover it).
+          return { kind: "ready", rows: freshRows, cursor: nextCursorRef.current(res.data) };
+        }
+        const staleRows = prev.rows.filter((row, index) => {
+          const id = rowIdRef.current(row, index);
+          return !freshIds.has(id) && !previousFirstPageIds.has(id);
+        });
+        return { kind: "ready", rows: [...freshRows, ...staleRows], cursor: prev.cursor };
       });
-      return { kind: "ready", rows: [...freshRows, ...staleRows], cursor: prev.cursor };
-    });
-  }, [dispatcher, query, pageSize, payloadKey]);
+    },
+    [dispatcher, query, pageSize, payloadKey],
+  );
 
   useEffect(() => {
     // skip: live mode off, no SSE subscription needed
@@ -230,15 +231,20 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     // skip: no entity to listen on, nothing to subscribe to
     if (liveEntities.length === 0) return;
 
-    // A trailing pass must not run through this effect's stale refreshFirstPage
-    // (old payload) once a payload change or unmount has torn the effect down.
+    // In-flight and trailing flags belong to this effect: a payload change starts a fresh pair, so
+    // an event for the new payload is never parked behind the old payload's refresh, and a torn-down
+    // effect never runs a pass through its stale refreshFirstPage.
     let disposed = false;
+    let inFlight = false;
+    let trailing = false;
     const runRefresh = (): void => {
-      liveInFlightRef.current = true;
-      void refreshFirstPage().finally(() => {
-        liveInFlightRef.current = false;
-        if (!disposed && liveTrailingRef.current) {
-          liveTrailingRef.current = false;
+      inFlight = true;
+      void refreshFirstPage(() => {
+        trailing = true;
+      }).finally(() => {
+        inFlight = false;
+        if (!disposed && trailing) {
+          trailing = false;
           runRefresh();
         }
       });
@@ -248,8 +254,8 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
       if (liveTimerRef.current !== null) clearTimeout(liveTimerRef.current);
       liveTimerRef.current = setTimeout(() => {
         liveTimerRef.current = null;
-        if (liveInFlightRef.current) {
-          liveTrailingRef.current = true;
+        if (inFlight) {
+          trailing = true;
           return;
         }
         runRefresh();
@@ -259,7 +265,6 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     const unsubscribe = subscribeToEntities(subscribeLive, liveEntities, scheduleRefresh);
     return () => {
       disposed = true;
-      liveTrailingRef.current = false;
       unsubscribe();
       if (liveTimerRef.current !== null) {
         clearTimeout(liveTimerRef.current);

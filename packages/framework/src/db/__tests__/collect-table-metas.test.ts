@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/factories.ts";
+import { createRegistry } from "../../engine/registry.ts";
 import { collectTableMetas } from "../collect-table-metas.ts";
 import { integer, jsonb, type SchemaTable, table, text, uniqueIndex, uuid } from "../dialect.ts";
 import { defineUnmanagedTable } from "../entity-table-meta.ts";
 import { asEntityTableMeta } from "../query.ts";
 import { buildBaseColumns, buildEntityTable } from "../table-builder.ts";
+import { tableToMeta } from "../table-push.ts";
 
 function exampleEntity(tableName = "read_units") {
   return createEntity({
@@ -202,5 +204,36 @@ describe("collectTableMetas — r.entity backing table", () => {
     expect(() => collectTableMetas([featureA, featureB])).toThrow(
       /table "shared_cache" is registered by storeTable "shared_cache" \(beta\) and storeTable "shared_cache" \(alpha\)/,
     );
+  });
+});
+
+describe("reference-data entities and systemRowsReadable", () => {
+  test("the implicit projection table (push path) and collectTableMetas (boot check) agree without an explicit flag", () => {
+    const feature = defineFeature("refdata", (r) => {
+      r.entity({ name: "unit", ...exampleEntity() });
+      r.referenceData("unit", [{ name: "seed" }]);
+    });
+    const registry = createRegistry([feature]);
+
+    const pushed = [...registry.getAllProjections().values()]
+      .filter((proj) => proj.isImplicit)
+      .map((proj) => tableToMeta(proj.table));
+    expect(pushed.map((meta) => meta.tableName)).toEqual(["read_units"]);
+    expect(pushed.every((meta) => meta.systemRowsReadable === true)).toBe(true);
+
+    const [collected] = collectTableMetas([feature]);
+    expect(collected?.systemRowsReadable).toBe(true);
+  });
+
+  test("an entity without reference data stays unmarked on both paths", () => {
+    const feature = defineFeature("plain", (r) => {
+      r.entity({ name: "unit", ...exampleEntity() });
+    });
+    const registry = createRegistry([feature]);
+    const [pushed] = [...registry.getAllProjections().values()].map((proj) =>
+      tableToMeta(proj.table),
+    );
+    expect(pushed?.systemRowsReadable).toBeUndefined();
+    expect(collectTableMetas([feature])[0]?.systemRowsReadable).toBeUndefined();
   });
 });

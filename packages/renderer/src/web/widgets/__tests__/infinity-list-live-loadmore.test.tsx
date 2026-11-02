@@ -176,4 +176,68 @@ describe("InfinityList: live refresh racing a load-more", () => {
     expect(screen.queryByText("Old filter row")).toBeNull();
     expect(screen.getByText("New filter row")).toBeTruthy();
   });
+
+  test("a live event of the new payload that arrives while the old payload's refresh is running is refreshed right away instead of parked behind it", async () => {
+    const calls: Array<{ resolve: (res: unknown) => void; search: unknown }> = [];
+    const dispatcher = createMockDispatcher({
+      query: ((_type: string, payload: { readonly search: string }) =>
+        new Promise((resolve) => {
+          calls.push({ resolve, search: payload.search });
+        })) as unknown as Dispatcher["query"],
+    });
+    let emit: ((event: LiveEvent) => void) | undefined;
+    const liveEvents: LiveEventSubscriber = (_entity, listener) => {
+      emit = listener;
+      return () => {};
+    };
+    const listFor = (search: string) => (
+      <DispatcherProvider dispatcher={dispatcher}>
+        <LiveEventsProvider value={liveEvents}>
+          <InfinityList<Page, Row>
+            query={QUERY}
+            payload={{ search }}
+            rows={(data) => data.rows}
+            nextCursor={(data) => data.nextCursor}
+            rowId={(row) => row.id}
+            renderRow={(row) => <span>{row.subject}</span>}
+            testId="inbox"
+            live={true}
+          />
+        </LiveEventsProvider>
+      </DispatcherProvider>
+    );
+    const messageEvent: LiveEvent = {
+      type: "message",
+      data: { aggregateType: "message", eventType: "updated", createdAt: "2026-02-03T04:05:06Z" },
+    };
+    const view = render(listFor("old"));
+    await flushPromises();
+    calls[0]?.resolve(success([{ id: "m1", subject: "Old filter row" }], null));
+    await flushPromises();
+
+    act(() => emit?.(messageEvent));
+    act(() => {
+      jest.advanceTimersByTime(LIVE_DEBOUNCE_MS);
+    });
+    await flushPromises();
+    view.rerender(listFor("new"));
+    await flushPromises();
+    calls[2]?.resolve(success([{ id: "m1", subject: "New filter row" }], null));
+    await flushPromises();
+    expect(calls.map((call) => call.search)).toEqual(["old", "old", "new"]);
+
+    act(() => emit?.(messageEvent));
+    act(() => {
+      jest.advanceTimersByTime(LIVE_DEBOUNCE_MS);
+    });
+    await flushPromises();
+    expect(calls.map((call) => call.search)).toEqual(["old", "old", "new", "new"]);
+    calls[1]?.resolve(success([{ id: "m1", subject: "Old filter row" }], null));
+    await flushPromises();
+
+    expect(screen.queryByText("Old filter row")).toBeNull();
+    calls[3]?.resolve(success([{ id: "m1", subject: "New filter row (live)" }], null));
+    await flushPromises();
+    expect(screen.getByText("New filter row (live)")).toBeTruthy();
+  });
 });

@@ -7,7 +7,13 @@ import {
 import { PII_ERASED_SENTINEL } from "../../crypto/pii-field-encryption.ts";
 import { asRawClient } from "../../db/query.ts";
 import { defineFeature } from "../../engine/define-feature.ts";
-import { createEntity, createNumberField, createTextField } from "../../engine/factories.ts";
+import {
+  createDateField,
+  createEntity,
+  createNumberField,
+  createReferenceField,
+  createTextField,
+} from "../../engine/factories.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { scrubEventPayloadFields } from "../event-payload-scrub.ts";
 
@@ -17,10 +23,21 @@ const contactEntity = createEntity({
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     note: createTextField({ personal: false, reason: "test_fixture" }),
     score: createNumberField({ personal: false, reason: "test_fixture" }),
+    birthday: createDateField({ personal: false, reason: "test_fixture" }),
+    manager: createReferenceField({ entity: "contact", personal: false, reason: "test_fixture" }),
   },
 });
 
+const appointmentEntity = createEntity({
+  table: "scrub_appointments",
+  fields: { day: createDateField({ required: true, personal: false, reason: "test_fixture" }) },
+});
+
 const contactFeature = defineFeature("scrub", (r) => {
+  r.crud("appointment", appointmentEntity, {
+    write: { access: { roles: ["User"] } },
+    read: { access: { roles: ["User"] } },
+  });
   r.crud("contact", contactEntity, {
     write: { access: { roles: ["User"] } },
     read: { access: { roles: ["User"] } },
@@ -145,6 +162,38 @@ describe("scrubEventPayloadFields", () => {
     expect(result.scrubbedEvents).toBe(1);
     expect(result.rebuild?.failed).toEqual([]);
     expect((await storedPayloads(res.data.id))[0]?.["score"]).toBeNull();
+  });
+
+  test("date and reference values are nulled, not given the text placeholder, so the typed columns still rebuild", async () => {
+    const manager = await create("Mia", "n");
+    const res = await stack.http.writeOk<{ data: { id: string } }>(
+      CREATE,
+      { name: "Fay", birthday: "1990-05-17", manager: manager.id },
+      TestUsers.user,
+    );
+
+    const result = await scrubEventPayloadFields(stack.db, stack.registry, {
+      eventType: "contact.created",
+      fields: ["birthday", "manager"],
+      reason: REASON,
+      shouldScrub: (_value, candidate) => candidate.aggregateId === res.data.id,
+    });
+
+    expect(result.scrubbedFields).toBe(2);
+    expect(result.rebuild?.failed).toEqual([]);
+    const created = (await storedPayloads(res.data.id))[0];
+    expect(created?.["birthday"]).toBeNull();
+    expect(created?.["manager"]).toBeNull();
+  });
+
+  test("a required non-text field is refused before any event is touched", async () => {
+    expect(() =>
+      scrubEventPayloadFields(stack.db, stack.registry, {
+        eventType: "appointment.created",
+        fields: ["day"],
+        reason: REASON,
+      }),
+    ).toThrow(/required date field/);
   });
 
   test("a placeholder reason is refused before anything is read", async () => {

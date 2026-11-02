@@ -16,18 +16,20 @@ export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): 
   const [confirmed, setConfirmed] = useState(false);
   // A ref, not `pending`: two onComplete calls in one tick both see the stale render closure.
   const inFlight = useRef(false);
-  const [rejected, setRejected] = useState(false);
+  const [failure, setFailure] = useState<"rejected" | "error" | null>(null);
 
   const confirm = async (submittedCode: string): Promise<void> => {
     if (inFlight.current) return;
     inFlight.current = true;
     setPending(true);
-    setRejected(false);
+    setFailure(null);
     let accepted = false;
+    let technicalError = false;
     try {
       accepted = await onConfirm(submittedCode);
     } catch {
       // A network or server error must not leave the step stuck with a full field.
+      technicalError = true;
     } finally {
       inFlight.current = false;
       setPending(false);
@@ -36,7 +38,7 @@ export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): 
       setConfirmed(true);
       return;
     }
-    setRejected(true);
+    setFailure(technicalError ? "error" : "rejected");
     setCode("");
     // The input was disabled while pending and lost focus; remounting restores autoFocus.
     setAttempt((n) => n + 1);
@@ -55,10 +57,15 @@ export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): 
         onChange={setCode}
         onComplete={(next) => void confirm(next)}
         disabled={pending || confirmed}
-        hasError={rejected}
+        hasError={failure !== null}
         autoFocus
       />
-      {rejected ? <Banner variant="error">That code is not valid. Try again.</Banner> : null}
+      {failure === "rejected" ? (
+        <Banner variant="error">That code is not valid. Try again.</Banner>
+      ) : null}
+      {failure === "error" ? (
+        <Banner variant="error">Could not verify the code. Try again in a moment.</Banner>
+      ) : null}
     </>
   );
 }

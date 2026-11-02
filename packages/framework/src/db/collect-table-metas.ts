@@ -9,6 +9,7 @@ import {
   assertBackingTableSuperset,
   deriveEntityTableMeta,
   type EntityTableMeta,
+  entityReadsSystemRows,
 } from "./entity-table-meta.ts";
 import { enumerateFeatureTableSources } from "./feature-table-sources.ts";
 import { asEntityTableMeta } from "./query.ts";
@@ -70,11 +71,7 @@ export function collectTableMetas(
         assertBackingTableSuperset(name, fieldMeta, tableMeta);
         meta = tableMeta;
       }
-      // Reference data rows live on the system tenant by definition, so tenant reads need them.
-      const readsSystemRows =
-        ent.systemRowsReadable === true ||
-        (feature.referenceData ?? []).some((def) => def.entityName === name);
-      if (readsSystemRows && meta.systemRowsReadable !== true) {
+      if (entityReadsSystemRows(feature, name, ent) && meta.systemRowsReadable !== true) {
         meta = { ...meta, systemRowsReadable: true };
       }
       registerPass1Meta(metas, byName, meta, `entity "${name}" (${feature.name})`);

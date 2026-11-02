@@ -144,6 +144,19 @@ async function assertWorkerSchemaCurrent(
   }
 }
 
+// The broker is opened before the entrypoint; a throwing entrypoint would otherwise leak its connection.
+async function createWorkerEntrypointOrCloseBroker(
+  ownedBroker: { close(): Promise<void> } | undefined,
+  args: Parameters<typeof createWorkerEntrypoint>[0],
+): Promise<WorkerEntrypoint> {
+  try {
+    return createWorkerEntrypoint(args);
+  } catch (error) {
+    await ownedBroker?.close();
+    throw error;
+  }
+}
+
 export async function bootWorkerProcess(
   options: WorkerBootCoreOptions,
   envSource: Record<string, string | undefined>,
@@ -303,39 +316,33 @@ export async function bootWorkerProcess(
 
   const jobLogger = jobRunLoggerCallbacks(registry, db);
   const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
-  let entrypoint: WorkerEntrypoint;
-  try {
-    entrypoint = createWorkerEntrypoint({
-      sseBroker,
-      registry,
-      rowLevelSecurity,
-      context: { db, redis, entityCache, registry, ...extraContext },
-      jwtSecret: jwtSecretOrKeyring,
-      dispatcherOptions: {
-        idempotency,
-        cacheSync,
-        outsideTransactionDb,
-        ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
-      },
-      eventDedup,
-      ...(options.observability && { observability: options.observability }),
-      redisUrl,
-      redisNamespace,
-      maintenanceWindow,
-      ...jobLogger,
-      ...(options.jobs?.queueNamePrefix !== undefined && {
-        queueNamePrefix: options.jobs.queueNamePrefix,
-      }),
-      ...(options.jobs?.getActiveTenantIds !== undefined && {
-        getActiveTenantIds: options.jobs.getActiveTenantIds,
-      }),
-      ...(options.eventDispatcher && { eventDispatcher: options.eventDispatcher }),
-      instanceId: readEnv(INSTANCE_ID_ENV, envSource),
-    });
-  } catch (error) {
-    await ownedRedisSseBroker?.close();
-    throw error;
-  }
+  const entrypoint = await createWorkerEntrypointOrCloseBroker(ownedRedisSseBroker, {
+    sseBroker,
+    registry,
+    rowLevelSecurity,
+    context: { db, redis, entityCache, registry, ...extraContext },
+    jwtSecret: jwtSecretOrKeyring,
+    dispatcherOptions: {
+      idempotency,
+      cacheSync,
+      outsideTransactionDb,
+      ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
+    },
+    eventDedup,
+    ...(options.observability && { observability: options.observability }),
+    redisUrl,
+    redisNamespace,
+    maintenanceWindow,
+    ...jobLogger,
+    ...(options.jobs?.queueNamePrefix !== undefined && {
+      queueNamePrefix: options.jobs.queueNamePrefix,
+    }),
+    ...(options.jobs?.getActiveTenantIds !== undefined && {
+      getActiveTenantIds: options.jobs.getActiveTenantIds,
+    }),
+    ...(options.eventDispatcher && { eventDispatcher: options.eventDispatcher }),
+    instanceId: readEnv(INSTANCE_ID_ENV, envSource),
+  });
 
   entrypoint.lifecycle.registerShutdownHook("workerCacheSync", async () => {
     await cacheSync.close();

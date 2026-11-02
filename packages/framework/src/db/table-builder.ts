@@ -596,6 +596,18 @@ export function declareGlobalTenancy<T extends SchemaTable>(table: T): T & Tenan
   return table as T & TenancyBrand<"global">;
 }
 
+/** Stamps `systemRowsReadable` onto an entity table's meta in place (no-op if already set). */
+export function declareSystemRowsReadable(table: object): void {
+  const meta = (table as unknown as Record<symbol, EntityTableMeta | undefined>)[
+    KUMIKO_META_SYMBOL
+  ];
+  if (!meta || meta.systemRowsReadable === true) return;
+  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
+    ...meta,
+    systemRowsReadable: true,
+  };
+}
+
 // The featureName prefix is inserted between read_ and the base name so all
 // read models consistently start with `read_`, whether or not featureName is set:
 //   featureName="shop", base="read_orders"  →  "read_shop_orders"

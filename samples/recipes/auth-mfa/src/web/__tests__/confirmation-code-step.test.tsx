@@ -43,19 +43,22 @@ describe("ConfirmationCodeStep", () => {
     renderStep(onConfirm);
     type("123456");
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toContain("That code is not valid");
     const input = screen.getByTestId("confirmation-code");
     expect(input).toHaveProperty("value", "");
     await waitFor(() => expect(document.activeElement).toBe(input));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  test("a failing onConfirm shows the error, clears the field and refocuses", async () => {
+  test("a failing onConfirm shows a technical error instead of an invalid-code message, clears the field and refocuses", async () => {
     const onConfirm = mock(async (_code: string): Promise<boolean> => {
       throw new Error("network");
     });
     renderStep(onConfirm);
     type("123456");
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    expect(screen.getByRole("alert").textContent).toContain("Could not verify the code");
+    expect(screen.queryByText(/not valid/)).toBeNull();
     const input = screen.getByTestId("confirmation-code");
     expect(input).toHaveProperty("value", "");
     await waitFor(() => expect(document.activeElement).toBe(input));
