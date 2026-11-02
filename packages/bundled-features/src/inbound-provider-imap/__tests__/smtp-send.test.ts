@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { credentialDocumentOf, deriveSmtpHost } from "../connect-mailbox.ts";
 import { pickSentMailboxPath } from "../sent-folder.ts";
-import { classifySmtpError, smtpTransportOptions } from "../smtp-client.ts";
+import { classifySmtpError, rejectedRecipientsOf, smtpTransportOptions } from "../smtp-client.ts";
 
 function smtpError(fields: Record<string, unknown>): Error {
   return Object.assign(new Error("smtp"), fields);
@@ -106,5 +106,15 @@ describe("pickSentMailboxPath", () => {
     expect(pickSentMailboxPath([{ path: "INBOX" }, { path: "gesendet" }])).toBe("gesendet");
     expect(pickSentMailboxPath([{ path: "INBOX" }, { path: "INBOX.Sent" }])).toBe("INBOX.Sent");
     expect(pickSentMailboxPath([{ path: "INBOX" }])).toBeUndefined();
+  });
+});
+
+describe("rejectedRecipientsOf", () => {
+  test("names the refused recipients of a partially accepted mail, whatever shape nodemailer reports", () => {
+    expect(rejectedRecipientsOf(["a@example.org", { address: "b@example.org" }])).toEqual([
+      "a@example.org",
+      "b@example.org",
+    ]);
+    expect(rejectedRecipientsOf(undefined)).toEqual([]);
   });
 });

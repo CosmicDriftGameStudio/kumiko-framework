@@ -119,14 +119,26 @@ export async function verifySmtpLogin(login: SmtpLogin): Promise<void> {
   }
 }
 
+// nodemailer throws only when every recipient is refused; a partial refusal resolves and lists
+// the refused addresses here (as strings or address objects).
+export function rejectedRecipientsOf(
+  rejected: ReadonlyArray<string | { readonly address: string }> | undefined,
+): string[] {
+  return (rejected ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
+}
+
 export async function sendRawViaSmtp(
   login: SmtpLogin,
   envelope: { readonly from: string; readonly to: readonly string[] },
   raw: Buffer,
-): Promise<void> {
+): Promise<{ readonly rejectedRecipients: readonly string[] }> {
   const transport = await openSmtpTransport(login);
   try {
-    await transport.sendMail({ envelope: { from: envelope.from, to: [...envelope.to] }, raw });
+    const info = await transport.sendMail({
+      envelope: { from: envelope.from, to: [...envelope.to] },
+      raw,
+    });
+    return { rejectedRecipients: rejectedRecipientsOf(info.rejected) };
   } catch (err) {
     throw smtpFailureOf(err, login.host);
   } finally {
