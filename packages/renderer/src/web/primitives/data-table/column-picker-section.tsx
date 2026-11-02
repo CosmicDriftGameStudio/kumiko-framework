@@ -34,9 +34,14 @@ function PickerRow({ columns, index, label, isLastVisible, onChange }: PickerRow
   const column = columns[index];
   // Positions are relative to the order at pointer-down, so every move is idempotent.
   const drag = usePointerDrag({
-    onStart: () => ({ snapshot: columns, from: index }),
-    onMove: (start, { dy }) =>
-      onChange(moveColumn(start.snapshot, start.from, start.from + Math.round(dy / ROW_HEIGHT_PX))),
+    onStart: () => ({ snapshot: columns, from: index, lastTarget: index }),
+    onMove: (start, { dy }) => {
+      const target = start.from + Math.round(dy / ROW_HEIGHT_PX);
+      // Each onChange is a storage write plus a table re-render; skip pointer moves that stay on the same row.
+      if (target === start.lastTarget) return;
+      start.lastTarget = target;
+      onChange(moveColumn(start.snapshot, start.from, target));
+    },
   });
   if (column === undefined) return null;
   const checkboxId = `list-view-column-${column.field}`;

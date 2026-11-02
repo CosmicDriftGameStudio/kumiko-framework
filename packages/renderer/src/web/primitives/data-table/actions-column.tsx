@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../../lib/cn.ts";
 import { TableCell, TableHead } from "../../ui/table.tsx";
+import { COLUMN_ROLE_ATTRIBUTE } from "./column-role.ts";
 import { ROW_FOCUS_RING_CELL_CLASS } from "./use-row-keyboard-navigation.ts";
 
 export const ACTIONS_CONTENT_ATTRIBUTE = "data-actions-content";
@@ -22,6 +23,7 @@ export function ActionsHeaderCell({
   return (
     <TableHead
       data-testid="column-actions"
+      {...{ [COLUMN_ROLE_ATTRIBUTE]: "actions" }}
       // From md: sticky right-0 + bg-muted (= header tone) so the
       // action column stays at the right edge during horizontal
       // scroll on wider screens. Below md, actions scroll in

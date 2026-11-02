@@ -374,6 +374,24 @@ describe("primary toolbar action in the header", () => {
     expect(await screen.findByText("menu boom")).toBeTruthy();
   });
 
+  test("a pending overflow-menu action blocks a second select and then surfaces its error", async () => {
+    setViewportWidth(PHONE);
+    let rejectPending: (e: Error) => void = () => {};
+    const onTrigger = mock(
+      () =>
+        new Promise<void>((_, reject) => {
+          rejectPending = reject;
+        }),
+    );
+    renderList({ toolbarActions: [action({ onTrigger })], onCreate: () => {} });
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    fireEvent.click(screen.getByTestId("render-list-toolbar-action-new"));
+    fireEvent.click(screen.getByTestId("render-list-toolbar-action-new"));
+    expect(onTrigger).toHaveBeenCalledTimes(1);
+    rejectPending(new Error("late boom"));
+    expect(await screen.findByText("late boom")).toBeTruthy();
+  });
+
   test("a failing promoted action surfaces its error instead of an unhandled rejection", async () => {
     setViewportWidth(PHONE);
     renderList({

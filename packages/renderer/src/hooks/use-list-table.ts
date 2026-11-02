@@ -43,14 +43,6 @@ export type ListTableState = {
   readonly groupField: string | undefined;
 };
 
-const PAGING_PAYLOAD_KEYS = ["limit", "offset", "cursor", "totalCount", "filter"] as const;
-
-function withoutPaging(payload: Readonly<Record<string, unknown>>): Record<string, unknown> {
-  const kept: Record<string, unknown> = { ...payload };
-  for (const key of PAGING_PAYLOAD_KEYS) delete kept[key];
-  return kept;
-}
-
 /** Props for the DataTable's `view` / `resetAll` from a screen's `table` block. */
 export function useListTable({
   storeKey,
@@ -137,7 +129,7 @@ export function useListTable({
     const ordered =
       viewColumns?.filter((column) => column.visible).map((column) => column.field) ??
       schemaColumns.map((column) => column.field);
-    return { ...exportSource, payload: withoutPaging(exportSource.payload), columns: ordered };
+    return { ...exportSource, columns: ordered };
   }, [exportEnabled, exportSource, viewColumns, schemaColumns]);
 
   const props = useMemo<ListTableProps>(

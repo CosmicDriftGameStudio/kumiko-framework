@@ -1,5 +1,6 @@
 import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import { ACTIONS_CONTENT_ATTRIBUTE } from "./actions-column.tsx";
+import { COLUMN_ROLE_ATTRIBUTE } from "./column-role.ts";
 
 export const COLUMN_FIELD_ATTRIBUTE = "data-column-field";
 export const EXPAND_COLUMN_WIDTH_PX = 40;
@@ -50,11 +51,11 @@ function measureHeaderRow(headerRow: HTMLElement): MeasuredColumnWidths {
   let actions = 0;
   for (const cell of headerRow.children) {
     const field = cell.getAttribute(COLUMN_FIELD_ATTRIBUTE);
-    const testId = cell.getAttribute("data-testid");
+    const role = cell.getAttribute(COLUMN_ROLE_ATTRIBUTE);
     if (field !== null) fields[field] = widthOfElement(cell);
-    else if (testId === "column-select") select = widthOfElement(cell);
-    else if (testId === "column-expand") expand = widthOfElement(cell);
-    else if (testId === "column-actions") actions = naturalActionsWidth(headerRow, cell);
+    else if (role === "select") select = widthOfElement(cell);
+    else if (role === "expand") expand = widthOfElement(cell);
+    else if (role === "actions") actions = naturalActionsWidth(headerRow, cell);
   }
   return { fields, select, expand, actions };
 }

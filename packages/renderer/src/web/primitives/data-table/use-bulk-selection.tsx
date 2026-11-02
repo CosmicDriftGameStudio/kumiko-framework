@@ -8,6 +8,7 @@ import { Checkbox } from "../../ui/checkbox.tsx";
 import { TableCell, TableHead } from "../../ui/table.tsx";
 import { cellTitle } from "../data-table-cell.tsx";
 import { BulkSelectionBar } from "./bulk-selection-bar.tsx";
+import { COLUMN_ROLE_ATTRIBUTE } from "./column-role.ts";
 import { EXPAND_TOGGLE_CELL_CLASS } from "./table-chrome.tsx";
 import type { PinnedCellProps } from "./use-column-pins.ts";
 import { useRowSelection } from "./use-row-selection.ts";
@@ -113,6 +114,7 @@ export function useBulkSelection({
     headerCell: (pin) => (
       <TableHead
         data-testid="column-select"
+        {...{ [COLUMN_ROLE_ATTRIBUTE]: "select" }}
         className={cn(EXPAND_TOGGLE_CELL_CLASS, "text-center", pin.className)}
         style={pin.style}
       >

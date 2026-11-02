@@ -16,7 +16,11 @@ export function CodeInput(props: CodeInputProps): ReactNode {
   const hasSeparator = length >= MIN_LENGTH_FOR_SEPARATOR && length % 2 === 0;
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
-    const next = e.target.value.replace(/\D/g, "").slice(0, length);
+    const digits = e.target.value.replace(/\D/g, "");
+    // The caret is hidden and the active cell is always the end, so an insertion into a full code
+    // would shift digits the user never typed and auto-submit them.
+    if (value.length === length && digits.length > length) return;
+    const next = digits.slice(0, length);
     props.onChange(next);
     if (next.length === length && next !== value) props.onComplete?.(next);
   };

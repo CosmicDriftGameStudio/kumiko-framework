@@ -190,7 +190,9 @@ export function RenderList(props: RenderListProps): ReactNode {
           split.promotedInOverflowMenu,
           promotedMenuItems,
         )}
-      {menuActionError !== null && renderMenuActionError(Banner, menuActionError)}
+      {split.promotedInOverflowMenu &&
+        menuActionError !== null &&
+        renderMenuActionError(Banner, menuActionError)}
       {renderReferenceLookupBridges(referenceRequests, handleLookupMap)}
       <DataTable
         columns={enrichedVm.columns}
