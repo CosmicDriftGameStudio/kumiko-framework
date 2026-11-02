@@ -13,10 +13,7 @@ import type {
   StreamHandlerFn,
   WriteHandlerFn,
 } from "@cosmicdrift/kumiko-types/handlers";
-import {
-  ENTITY_CONVENTION_QUERY_BRAND,
-  ENTITY_CONVENTION_WRITE_BRAND,
-} from "@cosmicdrift/kumiko-types/handlers";
+import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
 import type * as z from "zod";
 import type { ZodType } from "zod";
@@ -26,7 +23,6 @@ import { DEFINITION_HANDLER_RULES } from "./boot-validator/definition-handlers-r
 import { HANDLER_ACCESS_RULES } from "./boot-validator/entity-handler-access-rules.ts";
 import {
   isEntityConventionQueryHandler,
-  isEntityConventionWriteHandler,
   isPagedQueryHandler,
   PAGED_QUERY_HANDLER_BRAND,
   type QueryHandlerDefinition,
@@ -197,12 +193,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         handler: def.handler as WriteHandlerFn,
         access: def.access,
         ...agentSlots(def),
-        ...(isEntityConventionWriteHandler(def) && {
-          [ENTITY_CONVENTION_WRITE_BRAND]: true as const,
-          // Hand-written handlers must not claim excluded fields: the manifest would promise
-          // a validation their schema never performs.
-          ...(def.excludedFields && { excludedFields: def.excludedFields }),
-        }),
+        ...(def.excludedFields && { excludedFields: def.excludedFields }),
         ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
         ...(def.rateLimit && { rateLimit: def.rateLimit }),
         ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
