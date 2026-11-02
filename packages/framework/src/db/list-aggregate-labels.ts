@@ -47,6 +47,14 @@ export async function labelListAggregateGroups(
   return { ...result, groups };
 }
 
+// Brand by identity: only results built by answerListAggregate skip the row-shaped read pipeline,
+// a handler that merely returns `{ groups: [...] }` does not.
+const answeredAggregates = new WeakSet<object>();
+
+export function isAnsweredListAggregate(value: unknown): value is ListAggregateResult {
+  return typeof value === "object" && value !== null && answeredAggregates.has(value);
+}
+
 type AggregateRequest = Parameters<EventStoreExecutor["aggregate"]>[0];
 
 export async function answerListAggregate(
@@ -58,5 +66,7 @@ export async function answerListAggregate(
   labelDeps: LabelDeps,
 ): Promise<ListAggregateResult> {
   const result = await executor.aggregate(request, user, db, runtimeOptions);
-  return labelListAggregateGroups(result, request.aggregate.groupBy, labelDeps, db);
+  const labelled = await labelListAggregateGroups(result, request.aggregate.groupBy, labelDeps, db);
+  answeredAggregates.add(labelled);
+  return labelled;
 }
