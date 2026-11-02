@@ -1,7 +1,8 @@
 ---
-status: in-progress
-verified: 2026-10-27
-next: PR #4090 auf main mergen (fw-next-Lane, ohne Release); danach Consumer lokal bumpen (solon reply-composer, managed-pages in publicstatus, money-horse, show-pony), Release erst wenn alle Apps grün sind.
+status: shipped
+verified: 2026-11-02
+evidence: "Released in @cosmicdrift/kumiko-bundled-features 0.395.0 (#4090); follow-ups in #4140 (merged 2026-10-29). Consumers run on FW 0.413.0."
+track: framework
 ---
 
 # Editor-Runde: nur noch `plain` und `document`, managed-pages im Document-Editor
