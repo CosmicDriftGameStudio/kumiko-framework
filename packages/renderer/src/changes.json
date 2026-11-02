@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.413.1",
+    "type": "fix",
+    "title": "Edit forms wait for running file uploads before submitting",
+    "detail": "The submit button of an edit form stays disabled while a file upload (dropzone, single file or image, embedded list cell) is running, and `handleSubmit` returns early in that window, so Enter, save-and-close and draft save cannot send the form without the attachment either. Custom upload widgets can join the lock with `useTrackFormUpload()` from the renderer; outside a form it just runs the upload."
+  },
+  {
     "version": "0.413.0",
     "type": "fix",
     "title": "Consecutive top-level nav entries without a section share one list",

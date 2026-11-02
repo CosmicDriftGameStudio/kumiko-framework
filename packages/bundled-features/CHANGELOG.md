@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.413.1
+
+### Patch Changes
+
+- b2d9939: The use-all-bundled sample app serves a public contact page that uses the real helpdesk browser client, with end-to-end tests for the real submit and the honeypot.
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: improvement
+  title: helpdesk sample: complete same-origin contact page
+  detail: `samples/apps/use-all-bundled/public/helpdesk-contact.html` (with `.js` and `.css`) loads `/helpdesk/client.js`, builds the form from `load()` (kinds, optional phone), submits with proof of work and a hidden honeypot field and shows the sent, rate-limited and failed states. Two Playwright specs cover a real submit that reaches the SystemAdmin inbox and a honeypot submit that stores nothing.
+  -->
+- d2db585: The helpdesk recipe shows the browser client as a same-origin script and lists `notes-history` among the required features.
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: fix
+  title: helpdesk recipe: client script same-origin, notes-history listed as required
+  detail: The recipe comment embedded `/helpdesk/client.js` from another origin, but the client posts to the relative paths `/api/query` and `/api/write` without cookies, so the page has to share the app's origin or forward `/api` to the app on its own origin. The recipe and its README now say so and list `notes-history` with `config`, `delivery`, `user-data-rights` and `files` as required features.
+  -->
+- cd65eb5: The nightly retention cleanup now also runs for data in the system tenant. Per-tenant jobs only fanned out over active tenant rows, and the system tenant has none, so helpdesk requests and replies were never deleted after their 365 days and their attachments stayed in storage. The orphaned-upload sweep and the soft-delete cleanup had the same gap for system-tenant files.
+  
+  <!-- kumiko-changes
+  feature: data-retention
+  type: fix
+  title: Retention cleanup, upload sweep and soft-delete cleanup reach the system tenant
+  detail: Jobs with `perTenant: true` can set `includeSystemTenant: true` to get one more run with `SYSTEM_TENANT_ID` after the active tenants (no duplicate if the app's `getActiveTenantIds` already returns it). `data-retention:job:retention-cleanup`, `files:job:sweep-orphaned-uploads` and `soft-delete:job:cleanup` set it, so helpdesk requests, replies and their attachments are deleted after `keepFor`. The retention run applies to every entity with a `retention` rule whose rows sit in the system tenant (for example download attempts or custom-field values written in a SystemAdmin session); they now expire after their declared `keepFor` like in any other tenant. Other per-tenant jobs (tenant inactivity, billing, workflows, reindex, inbound-mail retention) keep running for active tenants only. The soft-delete cleanup computes its grace cutoff from the job clock instead of the wall clock. Setting `includeSystemTenant` without `perTenant` fails at boot.
+  -->
+- Updated dependencies [495ebf3]
+- Updated dependencies [cd65eb5]
+  - @cosmicdrift/kumiko-renderer@0.413.1
+  - @cosmicdrift/kumiko-types@0.413.1
+  - @cosmicdrift/kumiko-framework@0.413.1
+  - @cosmicdrift/kumiko-testing@0.413.1
+
 ## 0.413.0
 
 ### Minor Changes

@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-samples
 
+## 0.413.1
+
+### Patch Changes
+
+- b2d9939: The use-all-bundled sample app serves a public contact page that uses the real helpdesk browser client, with end-to-end tests for the real submit and the honeypot.
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: improvement
+  title: helpdesk sample: complete same-origin contact page
+  detail: `samples/apps/use-all-bundled/public/helpdesk-contact.html` (with `.js` and `.css`) loads `/helpdesk/client.js`, builds the form from `load()` (kinds, optional phone), submits with proof of work and a hidden honeypot field and shows the sent, rate-limited and failed states. Two Playwright specs cover a real submit that reaches the SystemAdmin inbox and a honeypot submit that stores nothing.
+  -->
+- d2db585: The helpdesk recipe shows the browser client as a same-origin script and lists `notes-history` among the required features.
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: fix
+  title: helpdesk recipe: client script same-origin, notes-history listed as required
+  detail: The recipe comment embedded `/helpdesk/client.js` from another origin, but the client posts to the relative paths `/api/query` and `/api/write` without cookies, so the page has to share the app's origin or forward `/api` to the app on its own origin. The recipe and its README now say so and list `notes-history` with `config`, `delivery`, `user-data-rights` and `files` as required features.
+  -->
+
 ## 0.413.0
 
 No changes in this release.
