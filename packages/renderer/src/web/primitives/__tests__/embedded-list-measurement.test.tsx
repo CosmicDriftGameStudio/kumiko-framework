@@ -212,6 +212,27 @@ describe("EmbeddedListInput — measurement phone cards", () => {
     });
   });
 
+  test("an attached result hidden in the row is not rendered next to its visible anchor", () => {
+    withMobile(() => {
+      const columns = COLUMNS.map((column) =>
+        column.field === "result"
+          ? {
+              ...column,
+              isHiddenInRow: (row: Readonly<Record<string, unknown>>) =>
+                !isMeasurement(row) || row["measured"] === undefined,
+            }
+          : column,
+      );
+      renderWithLocale(
+        <EmbeddedListInput
+          {...props([{ ...MEASUREMENT_ROW, measured: undefined }], { columns })}
+        />,
+      );
+      expect(document.querySelector('[data-cell-id="cp-0-measured"]')).not.toBeNull();
+      expect(document.querySelector('[data-cell-id="cp-0-result"]')).toBeNull();
+    });
+  });
+
   test("editable limits stay labelled rows and show no hint", () => {
     withMobile(() => {
       const editableLimits: readonly EmbeddedListColumn[] = [

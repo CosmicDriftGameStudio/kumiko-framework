@@ -104,6 +104,19 @@ function mergeSavedColumns(
   return merged;
 }
 
+// Only what differs from the schema defaults is stored, so a later schema change to
+// an untouched pin or width still reaches users who merely changed something else.
+function widthsDifferingFrom(
+  widths: DataTableColumnWidths,
+  defaults: DataTableColumnWidths,
+): DataTableColumnWidths {
+  return Object.fromEntries(Object.entries(widths).filter(([field, w]) => defaults[field] !== w));
+}
+
+function hasEntries(record: Readonly<Record<string, unknown>>): boolean {
+  return Object.keys(record).length > 0;
+}
+
 function sameColumns(a: readonly DataTableViewColumn[], b: readonly DataTableViewColumn[]) {
   return (
     a.length === b.length &&
@@ -201,13 +214,25 @@ export function useListViewState(args: ViewStateArgs): ListViewState {
         view: {
           ...(columnPicker && { columns: next.columns }),
           ...(userChoosesDensity && { density: next.density }),
-          ...(pinning && { pins: next.pins }),
-          ...(resizing && { widths: next.widths }),
+          ...(pinning && !sameRecord(next.pins, defaults.pins) && { pins: next.pins }),
+          ...(resizing &&
+            hasEntries(widthsDifferingFrom(next.widths, defaults.widths)) && {
+              widths: widthsDifferingFrom(next.widths, defaults.widths),
+            }),
           ...(userChoosesGroupBy && { groupBy: next.groupBy }),
         },
       });
     },
-    [store, storeKey, columnPicker, userChoosesDensity, pinning, resizing, userChoosesGroupBy],
+    [
+      store,
+      storeKey,
+      defaults,
+      columnPicker,
+      userChoosesDensity,
+      pinning,
+      resizing,
+      userChoosesGroupBy,
+    ],
   );
 
   const setColumns = useCallback(

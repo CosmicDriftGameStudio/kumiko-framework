@@ -347,6 +347,16 @@ describe("primary toolbar action in the header", () => {
     expect(onTrigger).toHaveBeenCalledTimes(1);
   });
 
+  test("on phones two icon-less actions without create go into the overflow menu, not two identical plus buttons", () => {
+    setViewportWidth(PHONE);
+    renderList({ toolbarActions: [action(), action({ id: "upload", label: "Upload" })] });
+    expect(inHeader()).toBeNull();
+    expect(document.querySelector(".lucide-plus")).toBeNull();
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    expect(screen.getByTestId("render-list-toolbar-action-new")).toBeTruthy();
+    expect(screen.getByTestId("render-list-toolbar-action-upload")).toBeTruthy();
+  });
+
   test("a failing overflow-menu action surfaces its error", async () => {
     setViewportWidth(PHONE);
     renderList({

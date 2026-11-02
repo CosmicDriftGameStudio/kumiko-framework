@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import { defaultPrimitives } from "../../primitives/index.tsx";
-import { UNIFORM_BAR_CONTROLS_CLASSES } from "../uniform-bar-controls.ts";
+import {
+  SHELL_HEADER_CONTROLS_CLASSES,
+  UNIFORM_BAR_CONTROLS_CLASSES,
+} from "../uniform-bar-controls.ts";
 
 const { DataTable, Button, PageHeader } = defaultPrimitives;
 
@@ -33,5 +36,12 @@ describe("header and toolbar controls share one height", () => {
     );
 
     expect(hasUniformControlClasses(screen.getByTestId("tbl-toolbar"))).toBe(true);
+  });
+
+  test("phones keep the 44 px touch height for inputs and text buttons", () => {
+    for (const classes of [UNIFORM_BAR_CONTROLS_CLASSES, SHELL_HEADER_CONTROLS_CLASSES]) {
+      expect(classes).toContain("max-md:[&_[data-slot=input]]:h-11");
+      expect(classes).toContain("max-md:[&_[data-slot=button]:not([data-size^=icon])]:h-11");
+    }
   });
 });

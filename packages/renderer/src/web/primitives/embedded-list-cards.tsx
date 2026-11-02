@@ -132,10 +132,10 @@ export function EmbeddedListCards(props: EmbeddedListCardsProps): ReactNode {
       {rows.map((row, rowIndex) => {
         const isLastRow = rowIndex === rows.length - 1;
         const rowIssuesForRow = rowIssues?.[rowIndex];
+        const isShownInRow = (column: EmbeddedListColumn): boolean =>
+          column.hiddenInCard !== true && column.isHiddenInRow?.(row) !== true;
         const isVisible = (column: EmbeddedListColumn): boolean =>
-          column !== titleColumn &&
-          column.hiddenInCard !== true &&
-          column.isHiddenInRow?.(row) !== true;
+          column !== titleColumn && isShownInRow(column);
         const renderControl = (column: EmbeddedListColumn): ReactNode =>
           renderCellControl({
             cellId: cellId(rowIndex, column.field),
@@ -160,7 +160,7 @@ export function EmbeddedListCards(props: EmbeddedListCardsProps): ReactNode {
           columns.find(
             (other) =>
               other.cardAttachedTo === anchor.field &&
-              other.hiddenInCard !== true &&
+              isShownInRow(other) &&
               other.field !== anchor.field,
           );
         return (

@@ -182,7 +182,7 @@ export function RenderList(props: RenderListProps): ReactNode {
 
   return (
     <>
-      {headerActions !== undefined &&
+      {(headerActions !== undefined || split.promotedInOverflowMenu) &&
         PageHeader !== undefined &&
         renderPageHeader(
           PageHeader,

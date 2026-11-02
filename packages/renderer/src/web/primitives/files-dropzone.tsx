@@ -65,12 +65,10 @@ export function FilesDropzoneInput({
     }
     uploadsRunning.current += 1;
     try {
-      return await trackFormUpload(async () => {
-        const fileId = await uploadFileRef(file, target);
-        latestIds.current = [...latestIds.current, fileId];
-        onChange(latestIds.current);
-        return fileId;
-      });
+      const fileId = await uploadFileRef(file, target);
+      latestIds.current = [...latestIds.current, fileId];
+      onChange(latestIds.current);
+      return fileId;
     } catch (cause) {
       if (isSessionEndedUploadError(cause)) sessionEnded?.notify();
       throw cause;
@@ -100,6 +98,7 @@ export function FilesDropzoneInput({
       {...(accept !== undefined && { accept })}
       {...(disabled !== undefined && { disabled })}
       doneValues={value}
+      trackUpload={trackFormUpload}
       onUpload={uploadOne}
       onRemove={removeOne}
       describeError={(cause) => t(uploadErrorKey(cause), { count: maxCount })}
