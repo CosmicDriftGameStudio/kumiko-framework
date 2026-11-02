@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
+import type { StatusBadgeOptionTone, StatusTone } from "../../status-tone.ts";
 import { cn } from "../lib/cn.ts";
 
 // Semantic status tones share one color family across component status,
 // incident status, severity, and job states. Colors come from the
 // --color-status-* theme tokens in styles.css, which apps can override centrally.
-export type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
+export type { StatusTone };
 
 export const STATUS_TONE_TEXT: Record<StatusTone, string> = {
   ok: "text-status-ok",
@@ -14,9 +15,8 @@ export const STATUS_TONE_TEXT: Record<StatusTone, string> = {
   muted: "text-muted-foreground",
 };
 
-/** `accent` is a brand-colored call-out (e.g. "3 suggestions"), not a status —
- *  hence not part of `StatusTone`, which toasts and select options share. */
-export type StatusBadgeTone = StatusTone | "accent";
+/** `accent` is a brand tone select options can request; toasts only use `StatusTone`. */
+export type StatusBadgeTone = StatusBadgeOptionTone;
 
 // `muted` maps to the neutral tokens, not a status-* palette.
 export const TONE_PILL: Record<StatusBadgeTone, string> = {

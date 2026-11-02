@@ -81,9 +81,15 @@ export function DashboardReferenceListTable({
     [viewColumns, referenceColumns, referenceLookups, resolveReferenceLink, featureName, translate],
   );
   const tableColumns = columns.map((column): DashboardListColumn => {
-    const renderer = enriched.find((c) => c.field === column.field)?.renderer;
+    const enrichedColumn = enriched.find((c) => c.field === column.field);
+    const renderer = enrichedColumn?.renderer;
     const { reference: _reference, ...base } = column;
-    return typeof renderer === "function" ? { ...base, renderValue: renderer } : base;
+    if (typeof renderer !== "function") return base;
+    return {
+      ...base,
+      renderValue: renderer,
+      ...(enrichedColumn?.linkFor !== undefined && { linkFor: enrichedColumn.linkFor }),
+    };
   });
   return (
     <>

@@ -577,7 +577,9 @@ export function navigateAfterDrawerSubmit(options: {
   const target = resolveRedirectTarget(redirect, resultData, schema, appFeatures);
   const hostScreenId = nav.route === undefined ? undefined : lastSegment(nav.route.screenId);
   const isHostScreen =
-    target.screenId === hostScreenId && target.entityId === undefined && target.tab === undefined;
+    target.screenId === hostScreenId &&
+    (target.entityId === undefined || target.entityId === nav.route?.entityId) &&
+    target.tab === undefined;
   if (!isHostScreen) navigateToRedirectTarget(nav, target);
 }
 

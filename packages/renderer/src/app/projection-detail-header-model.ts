@@ -60,8 +60,16 @@ export function resolveHeaderStatusText(
   // skip: a header without status has no badge text
   if (statusField === undefined) return "";
   const raw = record[statusField];
-  const rawText = String(raw ?? "");
   const format = screen.header?.statusFormat ?? layoutStatusFormat(screen, statusField);
+  return formatOrRaw(format, raw, translate);
+}
+
+export function formatOrRaw(
+  format: FormatSpec | undefined,
+  raw: unknown,
+  translate: Translate,
+): string {
+  const rawText = String(raw ?? "");
   if (format === undefined) return rawText;
   const formatted = applyFormatSpec(format, raw, translate);
   return formatted === "" ? rawText : formatted;
@@ -101,15 +109,4 @@ export function buildDetailTabItems(
       ...(count !== undefined && { count }),
     };
   });
-}
-
-export function resolveMetricText(
-  metric: { readonly format?: FormatSpec },
-  raw: unknown,
-  translate: Translate,
-): string {
-  const rawText = String(raw ?? "");
-  if (metric.format === undefined) return rawText;
-  const formatted = applyFormatSpec(metric.format, raw, translate);
-  return formatted === "" ? rawText : formatted;
 }

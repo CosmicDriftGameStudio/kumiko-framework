@@ -10,7 +10,10 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
 import type { Dispatcher, EditFieldViewModel, FieldIssue } from "../../headless/index.ts";
-import { REFERENCE_COMBOBOX_LIMIT } from "../../hooks/reference-limits.ts";
+import {
+  REFERENCE_COMBOBOX_LIMIT,
+  REFERENCE_LIST_LOOKUP_LIMIT,
+} from "../../hooks/reference-limits.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.ts";
 import {
@@ -85,6 +88,13 @@ function stubDispatcher(productRows: readonly ProductRow[] = []): Dispatcher {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
     query: (async (type: string, payload: unknown) => {
       if (type === "invoices:query:product:list") {
+        // The real list handler validates `limit` with `.max(MAX_LIST_LIMIT)`.
+        if ((payload as { limit: number }).limit > REFERENCE_LIST_LOOKUP_LIMIT) {
+          return {
+            isSuccess: false,
+            error: { code: "validation_failed", httpStatus: 422, i18nKey: "x", message: "limit" },
+          };
+        }
         return { isSuccess: true, data: { rows: productPage(productRows, payload) } };
       }
       return { isSuccess: true, data: { rows: [] } };
@@ -722,7 +732,88 @@ describe("EmbeddedListField — labelled footer totals", () => {
   });
 });
 
+describe("EmbeddedListField — measurement card placement", () => {
+  const measuredCells = (limitsReadOnly: boolean): EditFieldViewModel["embeddedListCells"] => [
+    { field: "measured", label: "Measured", type: "number", required: true },
+    {
+      field: "min",
+      label: "Min",
+      type: "number",
+      required: false,
+      ...(limitsReadOnly && { readOnly: true }),
+    },
+    {
+      field: "max",
+      label: "Max",
+      type: "number",
+      required: false,
+      ...(limitsReadOnly && { readOnly: true }),
+    },
+    { field: "ok", label: "OK", type: "text", required: false },
+  ];
+  const inRange = {
+    ok: { op: "inRange", from: ["measured", "min", "max"] },
+  } as unknown as EditFieldViewModel["embeddedListDerived"];
+
+  test("read-only limits fold into the value's hint and are hidden as own rows", async () => {
+    const field = invoiceLinesField({
+      value: [{ measured: 5, min: 1, max: 9 }],
+      embeddedListCells: measuredCells(true),
+      embeddedListDerived: inRange,
+      embeddedListTotals: undefined,
+    });
+    await renderEmbeddedListField(field, () => {});
+    const column = (name: string) => captured?.columns.find((c) => c.field === name);
+    expect(column("measured")?.cardLimits).toEqual({ min: "min", max: "max" });
+    expect(column("min")?.hiddenInCard).toBe(true);
+    expect(column("max")?.hiddenInCard).toBe(true);
+    expect(column("ok")?.cardAttachedTo).toBe("measured");
+  });
+
+  test("editable limits stay their own rows so phone users can still fill them", async () => {
+    const field = invoiceLinesField({
+      value: [{ measured: 5, min: 1, max: 9 }],
+      embeddedListCells: measuredCells(false),
+      embeddedListDerived: inRange,
+      embeddedListTotals: undefined,
+    });
+    await renderEmbeddedListField(field, () => {});
+    const column = (name: string) => captured?.columns.find((c) => c.field === name);
+    expect(column("measured")?.cardLimits).toBeUndefined();
+    expect(column("min")?.hiddenInCard).toBeUndefined();
+    expect(column("max")?.hiddenInCard).toBeUndefined();
+    expect(column("ok")?.cardAttachedTo).toBe("measured");
+  });
+});
+
 describe("EmbeddedListField — reference cells", () => {
+  test("more distinct stored references than the list handler's limit still resolve the first chunk", async () => {
+    const productRows = Array.from({ length: REFERENCE_LIST_LOOKUP_LIMIT + 1 }, (_, index) => ({
+      id: `p-${String(index + 1).padStart(3, "0")}`,
+      name: `Product ${index + 1}`,
+    }));
+    const rows = productRows.map((product) => ({
+      product: product.id,
+      unit: "pcs",
+      quantity: 1,
+      unitPrice: 100,
+    }));
+    await renderEmbeddedListField(
+      invoiceLinesField({ value: rows, embeddedListMaxItems: 500 }),
+      () => {},
+      {},
+      productRows,
+    );
+
+    await waitFor(() => {
+      const productColumn = captured?.columns.find((column) => column.field === "product");
+      expect(productColumn?.referenceOptions).toContainEqual({
+        value: "p-150",
+        label: "Product 150",
+      });
+    });
+  });
+
   test("a stored reference beyond the first options page keeps its label", async () => {
     const productRows = Array.from({ length: REFERENCE_COMBOBOX_LIMIT + 10 }, (_, index) => ({
       id: `p-${index + 1}`,

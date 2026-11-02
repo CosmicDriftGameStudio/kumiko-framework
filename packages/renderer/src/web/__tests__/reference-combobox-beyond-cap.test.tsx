@@ -40,13 +40,14 @@ function answerWidgetOptions(payload: unknown): Record<string, unknown> {
   };
 }
 
-function widgetDispatcher() {
+function widgetDispatcher(optionsPayloads: unknown[] = []) {
   return createMockDispatcher({
     query: (async (type: string, payload: unknown) => {
       if (type === "catalog:query:widget:list") {
         return { isSuccess: true, data: answerWidgetList(payload) };
       }
       if (type === WIDGET_OPTIONS_QUERY) {
+        optionsPayloads.push(payload);
         return { isSuccess: true, data: answerWidgetOptions(payload) };
       }
       return { isSuccess: true, data: { rows: [] } };
@@ -80,9 +81,16 @@ const taskEditScreen: EntityEditScreenDefinition = {
   layout: { sections: [{ title: "Basics", fields: ["assignee"] }] },
 };
 
-function renderTaskEdit(entity: EntityDefinition): void {
+// Hand-written option handlers know `{ limit, search? }` and `ids`; a strict schema would reject
+// the list `filters` the entity list handler takes.
+function expectNoListFilters(payloads: readonly unknown[]): void {
+  expect(payloads.length).toBeGreaterThan(0);
+  for (const payload of payloads) expect(payload).not.toHaveProperty("filters");
+}
+
+function renderTaskEdit(entity: EntityDefinition, optionsPayloads: unknown[] = []): void {
   render(
-    <DispatcherProvider dispatcher={widgetDispatcher()}>
+    <DispatcherProvider dispatcher={widgetDispatcher(optionsPayloads)}>
       <RenderEdit
         screen={taskEditScreen}
         entity={entity}
@@ -116,7 +124,48 @@ describe("reference combobox", () => {
   });
 });
 
+describe("reference combobox with an author options query: payload contract", () => {
+  test("the picker page is asked with limit only; stored rows come by ids, never with list filters", async () => {
+    const payloads: unknown[] = [];
+    renderTaskEdit(optionsQueryTaskEntity, payloads);
+    await waitFor(() => {
+      expect(screen.getByTestId("combobox-kumiko-edit-assignee").textContent).toContain(
+        `Widget ${WIDGET_COUNT}`,
+      );
+    });
+    expectNoListFilters(payloads);
+    expect(payloads).toContainEqual({ limit: REFERENCE_COMBOBOX_LIMIT });
+  });
+});
+
 describe("read-only reference value", () => {
+  test("an author options query never receives list filters", async () => {
+    const payloads: unknown[] = [];
+    const field: EditFieldViewModel = {
+      field: "assignee",
+      label: "Assignee",
+      type: "reference",
+      value: `widget-${WIDGET_COUNT}`,
+      visible: true,
+      readOnly: true,
+      required: false,
+      refEntity: "widget",
+      refFeature: "catalog",
+      refLabelField: "name",
+      refOptionsQuery: WIDGET_OPTIONS_QUERY,
+    };
+    render(
+      <DispatcherProvider dispatcher={widgetDispatcher(payloads)}>
+        <ReadOnlyReferenceValue field={field} featureName="tasks" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("field-value-assignee").textContent).toBe(`Widget ${WIDGET_COUNT}`);
+    });
+    expectNoListFilters(payloads);
+    expect(payloads).toContainEqual({ limit: REFERENCE_COMBOBOX_LIMIT });
+  });
+
   test("an author options query resolves a stored value beyond its first page", async () => {
     const field: EditFieldViewModel = {
       field: "assignee",
