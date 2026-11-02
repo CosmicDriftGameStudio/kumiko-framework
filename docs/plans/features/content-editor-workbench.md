@@ -98,15 +98,21 @@ contentPreviews?: Partial<Record<PreviewTarget, PreviewRenderer>>;
 - document-designer registriert `mail` und `pdf` (`query:preview`, `previewPdf`, Layout-
   Compose bleibt im Client).
 - template-resolver registriert `web` und besitzt die eine Body-Preview-Query
-  (`query:body-preview`, TenantAdmin/SystemAdmin, ohne Cache) für den ungespeicherten Stand.
-  Sie rendert wie managed-pages und legal-pages mit `renderSafeMarkdown` bzw. dem
-  Document-Sanitizer. managed-pages hat weder eine eigene Query noch einen eigenen Renderer;
-  `managedPagesClient` mountet denselben Renderer mit, weil eine App die Seiten-Maske ohne
-  `textBlocksClient` betreiben kann. Grund: solon und offlot-app mounten legal-pages ohne
-  managed-pages, die Rechtstext-Vorschau darf nicht daran hängen.
-- Ein Collection-Eintrag im Format `document` zeigt im Vorschau-Modus das gerenderte Ergebnis
-  mit eingesetzten Beispielwerten (template-resolver registriert dafür `text`); andere Formate
-  bleiben beim Text-Fallback.
+  (`query:body-preview`, ohne Cache) für den ungespeicherten Stand. Zugriff ist die Vereinigung
+  aller, die einen Body schreiben dürfen: die Rollen aus `templateEditAccess(tenantEditable)`
+  (SystemAdmin plus die konfigurierten Rollen, wie beim Text-Block-Schreiben) und `TenantAdmin`
+  (wie beim Schreiben einer Seite). Die Query rendert wie managed-pages und legal-pages mit
+  `renderSafeMarkdown` bzw. dem Document-Sanitizer.
+- managed-pages hat weder eine eigene Query noch einen eigenen Renderer.
+  `textBlocksClient` und `managedPagesClient` registrieren denselben `WebPreviewRenderer`, weil
+  eine App die Seiten-Maske ohne `textBlocksClient` betreiben kann (money-horse, show-pony).
+  Grund für die eine Query: solon und offlot-app mounten legal-pages ohne managed-pages, die
+  Rechtstext-Vorschau darf nicht daran hängen.
+- Collection-Einträge im Format `document` (`text`-Ziel) rufen den Server nicht auf, weil
+  Collections auch für TenantMember offen sind und die Query es nicht ist. Der Client setzt die
+  Beispielwerte ein (`fillDocumentVariables`, Werte als Textknoten, also escaped) und zeigt das
+  HTML im sandboxed `HtmlMailFrame` (script-frei, CSP `default-src 'none'`) im Papierrahmen ohne
+  Geräte-Umschalter. Andere Formate bleiben beim Text-Fallback.
 
 Verworfen:
 
@@ -132,10 +138,11 @@ bekommt fertiges HTML im Request (`renderer-puppeteer-client/src/feature.ts`).
 | `mail-layout` | `mail` | Compose im Client, dann `query:preview` |
 | `pdf-layout` | `pdf` | Compose im Client, dann `previewPdf` |
 | `text-block` | `web` | `query:body-preview` (`renderSafeMarkdown` wie legal-pages), nur Body, ohne `wrapInLayout` |
-| `snippet` (alle Collection-Einträge), `ai-prompt` | `text` | keiner, Ersetzung im Client |
+| `snippet` (alle Collection-Einträge), `ai-prompt` | `text` | keiner, Ersetzung im Client, `document` im sandboxed iframe |
 
 managed-pages ist keine Template-Art und läuft nicht über die Map: die Seiten-Maske gibt
-der Shell das Ziel `web` direkt mit (Renderer und Query gehören template-resolver). Collections haben eine opake eigene `kind`, ihre
+der Shell das Ziel `web` direkt mit (Renderer und Query gehören template-resolver).
+Collections haben eine opake eigene `kind`, ihre
 Einträge liegen aber alle unter der Art `snippet` und landen damit bei `text`.
 
 `text-block` bekommt nur `web`, weil sein einziger Consumer legal-pages ist. Ein Feld
@@ -176,8 +183,9 @@ Nach der Workspace-Entscheidung 2026-10-02 ersetzt die neue Maske die alte kompl
 3. document-designer: registriert `mail` und `pdf`, Mail-, PDF- und Layout-Editor
    holen ihre Vorschau über die Registry. Sichtbar ändert sich nichts.
 4. template-resolver und managed-pages: eine Body-Preview-Query und der `web`-Renderer mit
-   Desktop/Mobil 375 px in template-resolver (Zugriff TenantAdmin/SystemAdmin), Seiten-Maske
-   in managed-pages auf der Shell, alte Formular-Maske raus.
+   Desktop/Mobil 375 px in template-resolver (Zugriff: Schreibrollen der Text-Blöcke plus
+   TenantAdmin), `textBlocksClient` und `managedPagesClient` registrieren denselben Renderer,
+   Seiten-Maske in managed-pages auf der Shell, alte Formular-Maske raus.
 5. Text-Blöcke und Collections: Maske auf der Shell, `web` für Text-Blöcke, `text` für
    Snippets und KI-Prompts, Umschalter unter dem Feld raus.
 6. Abnahme: Screenshots jeder Maske gegen die Boards im Entwurf (Seite bearbeiten,
@@ -187,6 +195,13 @@ Nach der Workspace-Entscheidung 2026-10-02 ersetzt die neue Maske die alte kompl
 Marcs Vorgabe (2026-11-02): möglichst wenig Runden und PRs, damit es zügig fertig ist.
 Deshalb ist das eine Runde mit einem FW-PR, der alle Abschnitte enthält, keine S-Issues.
 Danach ein FW-Release und pro betroffener App ein Bump-Push.
+
+## Abweichungen vom Board
+
+- Kein de/en-Umschalter in der Infoleiste: pro Locale liegt eine eigene Zeile.
+- Desktop/Mobil steht in der Vorschau statt in der Infoleiste.
+- „Verwendet auf“ fehlt in der rechten Spalte.
+- Die Snippet-Vorschau zeigt den Text im Papierrahmen der Seiten-Vorschau, ohne Geräte-Umschalter.
 
 ## Betroffene Consumer
 
