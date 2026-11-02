@@ -1,13 +1,19 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
-import { isListAggregateResult } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { DbRow, DbTx } from "../db/connection.ts";
+import { isAnsweredListAggregate } from "../db/list-aggregate-labels.ts";
 import { hasAccess } from "../engine/access.ts";
 import { tenantOverrideDenied } from "../engine/cross-tenant.ts";
 import { filterReadFields } from "../engine/field-access.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 
-import { NotFoundError, ValidationError, validationErrorFromZod } from "../errors/index.ts";
+import {
+  AccessDeniedError,
+  FrameworkReasons,
+  NotFoundError,
+  ValidationError,
+  validationErrorFromZod,
+} from "../errors/index.ts";
 import { assertNoSecretLeak } from "../secrets/leak-guard.ts";
 
 import { runInDispatchScope } from "./dispatch-scope.ts";
@@ -156,7 +162,14 @@ async function runQueryHandler(
   const entityHooks = entityName ? registry.getEntityPostQueryHooks(entityName) : [];
   const postQueryHooks = [...handlerHooks, ...entityHooks];
   // Aggregate groups are not rows: their values are already read-gated and the hooks are row-shaped.
-  const isAggregate = isListAggregateResult(result);
+  const isAggregate = isAnsweredListAggregate(result);
+  if (isAggregate && postQueryHooks.length > 0) {
+    // Hooks may hide rows; counts over the unfiltered set would leak them, and hooks cannot run on groups.
+    throw new AccessDeniedError({
+      message: `aggregate on "${type}" is refused: postQuery hooks filter rows and cannot be applied to aggregate groups`,
+      details: { reason: FrameworkReasons.fieldAccessDenied, handler: type },
+    });
+  }
   if (!isAggregate && postQueryHooks.length > 0 && result && typeof result === "object") {
     if (Array.isArray(result)) {
       let rows = result as Record<string, unknown>[]; // @cast-boundary engine-payload
