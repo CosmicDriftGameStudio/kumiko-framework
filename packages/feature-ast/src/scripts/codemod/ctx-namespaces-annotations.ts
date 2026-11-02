@@ -15,7 +15,7 @@ export class Counters {
   readonly droppedImports = new Set<string>();
   // Hook parameters annotated AppContext whose annotation is rewritten in this run: their body is
   // already read as a handler context.
-  readonly pinnedParameters = new Set<Node>();
+  readonly pinnedParameters = new Map<Node, ContextKind>();
   // Structural context type members moved in this run, so a type shared by several parameters is
   // rewritten once.
   readonly rewrittenMembers = new Set<Node>();
@@ -23,9 +23,11 @@ export class Counters {
   pinnedKindOf(expression: Node): ContextKind | undefined {
     if (!Node.isIdentifier(expression)) return undefined;
     const declarations = expression.getSymbol()?.getDeclarations() ?? [];
-    return declarations.some((declaration) => this.pinnedParameters.has(declaration))
-      ? "handler"
-      : undefined;
+    for (const declaration of declarations) {
+      const kind = this.pinnedParameters.get(declaration);
+      if (kind !== undefined) return kind;
+    }
+    return undefined;
   }
 }
 
@@ -143,7 +145,7 @@ export function planHookAnnotation(plan: EditPlan, counters: Counters, parameter
   }
   counters.imports.push({ ...imported, name: "HandlerContext" });
   counters.droppedImports.add("AppContext");
-  counters.pinnedParameters.add(parameter);
+  counters.pinnedParameters.set(parameter, "handler");
   plan.replaceNode(reference.getTypeName(), "HandlerContext");
   plan.recordRewrite(reference, "AppContext -> HandlerContext (hook parameter)");
   return true;

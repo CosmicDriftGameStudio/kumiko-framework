@@ -357,7 +357,7 @@ export function readExtraRuntimeExternals(cwd: string): readonly string[] {
 function importsBarePackage(code: string, pkg: string): boolean {
   const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(
-    `(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\w*[rR]equire\\w*\\s*\\(\\s*)["'\`]${escaped}["'\`]`,
+    `(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\w*[rR]equire\\w*\\s*\\(\\s*)["'\`]${escaped}(?:/[^"'\`]*)?["'\`]`,
   ).test(code);
 }
 

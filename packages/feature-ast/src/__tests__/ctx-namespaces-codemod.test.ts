@@ -331,4 +331,46 @@ describe("ctx-namespaces CLI", () => {
 
     expect(exitCode).toBe(2);
   });
+
+  describe("structural context parameters by receiving context kind", () => {
+    const header =
+      'import type { HandlerContext, JobContext } from "@cosmicdrift/kumiko-types/handlers";\n';
+
+    it("leaves a member the job context keeps flat when only a job reaches the type", () => {
+      const source = `${header}type Traced = { readonly tracer?: unknown; readonly log: (line: string) => void };
+export function run(ctx: Traced) {
+  ctx.log("x");
+  return ctx.tracer;
+}
+export function job(job: JobContext) {
+  return run(job);
+}
+`;
+      const { output } = runOn("old", "structural-job-only", source);
+
+      expect(output).toContain("readonly tracer?: unknown;");
+      expect(output).toContain("return ctx.tracer;");
+      expect(output).toContain("readonly obs: { readonly log:");
+      expect(output).toContain("ctx.obs.log(");
+    });
+
+    it("reports a member that moves for the handler but not the job instead of rewriting it", () => {
+      const source = `${header}type Traced = { readonly tracer?: unknown };
+export function run(ctx: Traced) {
+  return ctx.tracer;
+}
+export function handler(handlerCtx: HandlerContext, jobCtx: JobContext) {
+  run(handlerCtx);
+  return run(jobCtx);
+}
+`;
+      const result = runOn("old", "structural-mixed", source);
+
+      expect(result.output).toContain("{ readonly tracer?: unknown }");
+      expect(result.output).toContain("return ctx.tracer;");
+      expect(result.manual.map((site) => site.description)).toContain(
+        "tracer: moves differently for handler and job contexts, which both reach this type",
+      );
+    });
+  });
 });

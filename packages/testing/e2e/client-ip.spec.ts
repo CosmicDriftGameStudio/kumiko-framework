@@ -32,6 +32,21 @@ test("a page-level x-forwarded-for wins over the per-test context header", async
   expect(echoed.forwardedFor).toBe("203.0.113.9");
 });
 
+test("an x-forwarded-for set on a single fetch is overridden by the per-test context header", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+
+  const echoed: EchoedHeaders = await page.evaluate(async () => {
+    const response = await fetch("/api/echo-headers", {
+      headers: { "x-forwarded-for": "203.0.113.77" },
+    });
+    return response.json();
+  });
+
+  expect(echoed.forwardedFor).toBe(syntheticClientIpFor(perTestClientIpKey(testInfo)));
+});
+
 // Chromium disables its HTTP cache for a context with any route, which re-downloads
 // every asset and GET /api/schema on each page.goto. A max-age resource loaded twice
 // must reach the server once.
