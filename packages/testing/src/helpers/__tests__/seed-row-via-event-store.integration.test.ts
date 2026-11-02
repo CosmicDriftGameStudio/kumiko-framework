@@ -70,6 +70,12 @@ describe("seedRowViaEventStore", () => {
     ).rejects.toThrow(/id must be a string/);
   });
 
+  test("throws for a system column instead of writing it into the created event", async () => {
+    await expect(
+      seedRowViaEventStore(stack.db, gadgetTable, { id: GADGET_ID, label: "x", isDeleted: true }),
+    ).rejects.toThrow(/isDeleted not entity fields/);
+  });
+
   test("throws when the executor rejects the row", async () => {
     await seedRowViaEventStore(stack.db, gadgetTable, { id: GADGET_ID, label: "first" });
 

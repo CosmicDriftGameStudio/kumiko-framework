@@ -271,13 +271,18 @@ function assertIsolatedSpecsUsable(appProjects: readonly E2eProject[]): void {
 
 function buildE2eProjects(input: ProjectsInput): Project[] {
   const { chromiumUse, appProjects, isolated, baseIgnore, realRun } = input;
-  const baseProjects: Project[] = [{ name: "chromium", use: chromiumUse }, ...appProjects];
+  // A project-level testIgnore replaces the top-level one instead of merging with it.
+  const mergedAppProjects = appProjects.map((project) =>
+    project.testIgnore === undefined
+      ? project
+      : { ...project, testIgnore: [...baseIgnore, ...patternList(project.testIgnore)] },
+  );
+  const baseProjects: Project[] = [{ name: "chromium", use: chromiumUse }, ...mergedAppProjects];
   if (isolated.length === 0) return baseProjects;
   assertIsolatedSpecsUsable(appProjects);
-  // A project-level testIgnore replaces the top-level one instead of merging with it.
   const parallelProjects = baseProjects.map((project) => ({
     ...project,
-    testIgnore: [...baseIgnore, ...patternList(project.testIgnore), ...isolated],
+    testIgnore: [...new Set([...baseIgnore, ...patternList(project.testIgnore), ...isolated])],
   }));
   return [
     ...parallelProjects,

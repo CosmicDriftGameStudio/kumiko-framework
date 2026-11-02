@@ -44,6 +44,7 @@ import { seedTenant, seedTenantMembership } from "../../tenant/seeding.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
+import { softDeleteUserViaEventStore } from "../../user/testing.ts";
 import { createAuthEmailPasswordFeature } from "../feature.ts";
 import { AuthHandlers } from "../web/constants.ts";
 import { authMailRendererFeatures, seedAuthMailTemplates } from "./auth-mail-stack.ts";
@@ -363,8 +364,8 @@ describe("invite-accept-with-login: soft-deleted email predecessor", () => {
       emailVerified: true,
       roles: "[]",
       status: USER_STATUS.Active,
-      isDeleted: true,
     });
+    await softDeleteUserViaEventStore(stack.db, deletedUserId);
 
     await seedRowViaEventStore(stack.db, userTable, {
       id: liveUserId,

@@ -540,6 +540,15 @@ describe("isolatedSpecs", () => {
     }
   });
 
+  test("an app project with its own ignore keeps the default-run ignore without isolatedSpecs", () => {
+    const config = defineAppE2eConfig({
+      port: 1,
+      projects: [{ name: "mobile", testIgnore: "**/desktop-only.spec.ts" }],
+    });
+    const mobile = config.projects?.find((project) => project.name === "mobile");
+    expect(mobile?.testIgnore).toEqual([...defaultRunIgnore(), "**/desktop-only.spec.ts"]);
+  });
+
   test("chromium ignores the isolated specs and a separate serial project runs them", () => {
     const config = defineAppE2eConfig({ port: 1, isolatedSpecs: isolatedSpec });
     const [chromium, isolated] = config.projects ?? [];
