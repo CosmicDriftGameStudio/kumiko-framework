@@ -27,6 +27,11 @@ import { createSendReplyMailHandler } from "./handlers/send-reply-mail.write.ts"
 import { createSendTestHandler } from "./handlers/send-test.write.ts";
 import { createSubmitHandler } from "./handlers/submit.write.ts";
 import { createHelpdeskI18n } from "./i18n.ts";
+import {
+  LEGACY_CONTACT_REQUEST_ENTITY,
+  legacyContactDeleteHook,
+  legacyContactExportHook,
+} from "./legacy-contact-user-data.ts";
 import { TELEGRAM_FEATURE } from "./lib.ts";
 import {
   HELPDESK_ACKNOWLEDGEMENT_VARIABLES,
@@ -168,6 +173,11 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     r.useExtension(EXT_USER_DATA, "helpdesk-request", {
       export: helpdeskExportHook,
       delete: helpdeskDeleteHook,
+    });
+    // Requests stored before the rename to helpdesk sit inert under the former aggregate and tables.
+    r.useExtension(EXT_USER_DATA, LEGACY_CONTACT_REQUEST_ENTITY, {
+      export: legacyContactExportHook,
+      delete: legacyContactDeleteHook,
     });
     // Replies are exported nested under their request and erased with it (helpdeskDeleteHook).
     r.useExtension(EXT_USER_DATA, "helpdesk-reply", {
