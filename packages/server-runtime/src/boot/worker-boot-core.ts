@@ -21,7 +21,6 @@ import {
   createRegistry,
   type FeatureDefinition,
   type Registry,
-  validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createWorkerEntrypoint,
@@ -45,7 +44,6 @@ import {
   redisNamespaceFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Redis } from "ioredis";
 import type { FeatureTogglesWiring } from "../boot-options/feature-toggles-option.ts";
@@ -65,6 +63,7 @@ import { INSTANCE_ID_ENV } from "./record-app-started-on-boot.ts";
 import {
   buildEffectiveFeaturesResolver,
   openDatabasePools,
+  validateBootAndWarnTz,
   waitForKmsHealthy,
 } from "./shared-boot-steps.ts";
 import { WAIT_FOR_DATABASE_DEADLINE_MS, waitForDatabase } from "./wait-for-database.ts";
@@ -173,12 +172,11 @@ export async function bootWorkerProcess(
     ...(options.bundledLists && { bundledLists: options.bundledLists }),
   });
   const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
-  validateBoot(features, {
+  validateBootAndWarnTz(features, {
     env: envSource,
     ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
     ...options.validateBootOptions,
   });
-  warnIfNonUtcServerTimeZone();
   assertWorkerMetricsOptions(options.metrics, options.observability, processName);
   assertPiiBootInvariants(features, {
     kms: options.kms,
@@ -305,33 +303,39 @@ export async function bootWorkerProcess(
 
   const jobLogger = jobRunLoggerCallbacks(registry, db);
   const { sseBroker, ownedRedisSseBroker } = createDefaultSseBroker(envSource);
-  const entrypoint = createWorkerEntrypoint({
-    sseBroker,
-    registry,
-    rowLevelSecurity,
-    context: { db, redis, entityCache, registry, ...extraContext },
-    jwtSecret: jwtSecretOrKeyring,
-    dispatcherOptions: {
-      idempotency,
-      cacheSync,
-      outsideTransactionDb,
-      ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
-    },
-    eventDedup,
-    ...(options.observability && { observability: options.observability }),
-    redisUrl,
-    redisNamespace,
-    maintenanceWindow,
-    ...jobLogger,
-    ...(options.jobs?.queueNamePrefix !== undefined && {
-      queueNamePrefix: options.jobs.queueNamePrefix,
-    }),
-    ...(options.jobs?.getActiveTenantIds !== undefined && {
-      getActiveTenantIds: options.jobs.getActiveTenantIds,
-    }),
-    ...(options.eventDispatcher && { eventDispatcher: options.eventDispatcher }),
-    instanceId: readEnv(INSTANCE_ID_ENV, envSource),
-  });
+  let entrypoint: WorkerEntrypoint;
+  try {
+    entrypoint = createWorkerEntrypoint({
+      sseBroker,
+      registry,
+      rowLevelSecurity,
+      context: { db, redis, entityCache, registry, ...extraContext },
+      jwtSecret: jwtSecretOrKeyring,
+      dispatcherOptions: {
+        idempotency,
+        cacheSync,
+        outsideTransactionDb,
+        ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
+      },
+      eventDedup,
+      ...(options.observability && { observability: options.observability }),
+      redisUrl,
+      redisNamespace,
+      maintenanceWindow,
+      ...jobLogger,
+      ...(options.jobs?.queueNamePrefix !== undefined && {
+        queueNamePrefix: options.jobs.queueNamePrefix,
+      }),
+      ...(options.jobs?.getActiveTenantIds !== undefined && {
+        getActiveTenantIds: options.jobs.getActiveTenantIds,
+      }),
+      ...(options.eventDispatcher && { eventDispatcher: options.eventDispatcher }),
+      instanceId: readEnv(INSTANCE_ID_ENV, envSource),
+    });
+  } catch (error) {
+    await ownedRedisSseBroker?.close();
+    throw error;
+  }
 
   entrypoint.lifecycle.registerShutdownHook("workerCacheSync", async () => {
     await cacheSync.close();

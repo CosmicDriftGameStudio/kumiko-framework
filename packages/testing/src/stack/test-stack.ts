@@ -270,21 +270,20 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   const enabledHooks = options.systemHooks ?? ["sse", "search"];
   await validateStackFeatures(options, jwtSecret);
   const { testDb, testRedis } = await provisionStackStorage(options);
-  const cacheSync = createStackCacheSync(options, testRedis);
-  const services = await buildStackServices(options, testDb, testRedis, cacheSync);
-  // Fed to the job runner's onJobComplete/onJobFailed so drainJobs()
-  // can tell a job's final outcome apart from an attempt that will retry —
-  // built regardless of whether a runner ends up existing, so the returned
-  // drainJobs() closure always has one to read.
-  const jobFailureTracker = createJobFailureTracker();
-  const jobRunner = createStackJobRunner(options, services, testDb, testRedis, jobFailureTracker);
-
-  // From here on, any throw must stop a jobRunner that was already created
-  // above (createJobRunner() itself opens live BullMQ Queue/lock Redis
-  // connections, .start() adds a live worker) — otherwise a failing
-  // buildServer()/search-config/etc. leaks that connection and the test
-  // process hangs on exit.
+  // Declared before the try so the catch only cleans up what already exists:
+  // the extraContext/runLogger factories are caller code and can throw, and
+  // createJobRunner() opens live BullMQ Redis connections.
+  let cacheSync: ClosableCacheSyncBus | undefined;
+  let jobRunner: JobRunner | undefined;
   try {
+    cacheSync = createStackCacheSync(options, testRedis);
+    const services = await buildStackServices(options, testDb, testRedis, cacheSync);
+    // Fed to the job runner's onJobComplete/onJobFailed so drainJobs()
+    // can tell a job's final outcome apart from an attempt that will retry —
+    // built regardless of whether a runner ends up existing, so the returned
+    // drainJobs() closure always has one to read.
+    const jobFailureTracker = createJobFailureTracker();
+    jobRunner = createStackJobRunner(options, services, testDb, testRedis, jobFailureTracker);
     return await startStackServer({
       options,
       jwtSecret,
@@ -299,16 +298,18 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   } catch (error) {
     // Best-effort — a broken jobRunner.stop()/cleanup() must never mask the
     // real setup failure below. testDb/testRedis are created before this
-    // try even starts, so a throw anywhere in setup (buildServer,
-    // search-config, ...) would otherwise leak their open pg/ioredis
-    // sockets — the caller never gets the stack object back to call
+    // try even starts, so a throw anywhere in setup (extraContext,
+    // buildServer, search-config, ...) would otherwise leak their open
+    // pg/ioredis sockets — the caller never gets the stack object back to call
     // cleanup() itself, which is the same "hangs on exit" failure class
     // this function exists to prevent.
     await runCleanupsIgnoringErrors([
       async () => {
         if (jobRunner) await jobRunner.stop();
       },
-      () => cacheSync.close(),
+      async () => {
+        if (cacheSync) await cacheSync.close();
+      },
       () => testDb.cleanup(),
       () => testRedis.cleanup(),
     ]);

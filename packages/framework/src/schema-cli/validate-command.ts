@@ -63,7 +63,7 @@ function checkSchemaDrift(
     `    pending — new: ${drift.diff.newTables.length}, changed: ${drift.diff.changedTables.length}, dropped: ${drift.diff.droppedTables.length}, row level security: ${drift.rowLevelSecurityChanges.length}`,
   );
   out.err(`    tables: ${pendingTables.join(", ")}`);
-  out.err("    Fix: `kumiko-schema generate <name>`, then commit the migration.");
+  out.err("    Fix: `bun kumiko-schema generate <name>`, then commit the migration.");
   return false;
 }
 
@@ -183,7 +183,7 @@ function reportMigrationContentMismatches(out: SchemaCliOut, mismatches: ReplayM
       "    Fix (unexpected-table): build a meta via `defineUnmanagedTable()` " +
         "from `@cosmicdrift/kumiko-framework/db`, then `r.storeTable(meta, { reason: ... })` " +
         "inside a feature — this adds it to ENTITY_METAS immediately; the .snapshot.json " +
-        "only picks it up on the NEXT `kumiko-schema generate` run, which you still need " +
+        "only picks it up on the NEXT `bun kumiko-schema generate` run, which you still need " +
         "to run and commit. `table()` returns a query handle, not a storeTable()-compatible " +
         "meta — don't pass its result to storeTable(). See the bundled `jobs` feature's " +
         "job-run-log store table for the pattern.",

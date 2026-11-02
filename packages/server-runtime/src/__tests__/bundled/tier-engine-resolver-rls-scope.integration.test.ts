@@ -52,6 +52,7 @@ const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEn
 const preloadedTenant = "00000000-0000-4000-8000-0000000000d1" as TenantId;
 const reloadedTenant = "00000000-0000-4000-8000-0000000000d2" as TenantId;
 const trialTenant = "00000000-0000-4000-8000-0000000000d3" as TenantId;
+const resyncedTenant = "00000000-0000-4000-8000-0000000000d4" as TenantId;
 const sysUser = createTestUser({
   id: "sys-rls",
   tenantId: preloadedTenant,
@@ -128,6 +129,30 @@ describe("tier resolver under row-level security", () => {
     stack.cacheSync.publish(CACHE_SYNC_TOPICS.tierAssignment, { tenantId: reloadedTenant });
 
     await waitFor(async () => reloadingResolver(reloadedTenant).has(PRO_FEATURE));
+  });
+
+  test("a resync after a reconnect keeps the assigned tiers and picks up missed assignments", async () => {
+    const resyncListeners: Array<() => void> = [];
+    // Bus messages are cut off so only the resync can bring in the assignment written below.
+    const resyncOnlyBus: typeof stack.cacheSync = {
+      ...stack.cacheSync,
+      subscribe: () => () => undefined,
+      onResync: (listener) => {
+        resyncListeners.push(listener);
+        return () => undefined;
+      },
+    };
+    const resolver = await pluginOf([
+      createTierEngineFeature({ tierMap: TIER_MAP, defaultTier: "free" }),
+    ]).build({ db: stack.unscopedDb, registry: stack.registry, cacheSync: resyncOnlyBus });
+    expect(resolver(preloadedTenant).has(PRO_FEATURE)).toBe(true);
+
+    await setTier(resyncedTenant, "pro");
+    expect(resolver(resyncedTenant).has(PRO_FEATURE)).toBe(false);
+    for (const fireResync of resyncListeners) fireResync();
+
+    await waitFor(async () => resolver(resyncedTenant).has(PRO_FEATURE));
+    expect(resolver(preloadedTenant).has(PRO_FEATURE)).toBe(true);
   });
 
   test("the trial gate reads the tenant creation time", async () => {

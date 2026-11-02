@@ -1,6 +1,7 @@
 // runProdApp moves legacy tenant and membership streams onto their new tenant before the boot
-// seeds. The first boot does the work and writes the markers; the second boot short-circuits on
-// the markers, which a stream planted between the boots proves (it stays where it is).
+// seeds. There is no completion marker: every boot scans again and moves late legacy streams (a
+// stream planted between the boots is moved too); a pending row exists only during an unfinished
+// run, so a clean boot writes nothing.
 // Real Postgres + Redis; legacy streams come from the real executor over a tenant entity copy
 // without systemStream/tenancy.
 
@@ -161,7 +162,7 @@ afterAll(async () => {
 });
 
 describe("runProdApp stream tenant backfill", () => {
-  test("the first boot moves the legacy streams and writes the markers, later boots move late legacy streams and otherwise do nothing", async () => {
+  test("the first boot moves the legacy streams, later boots move late legacy streams, and a clean boot writes nothing", async () => {
     await legacyCreateTenant(TENANT_ALPHA, "alpha", "Alpha Freight");
     const membershipTdb = createTenantDb({
       db: testDb,

@@ -12,7 +12,7 @@
 //      would otherwise surface only as a runtime-500 on the first write.
 //
 // Contract (unchanged from the legacy gate): boot VALIDATES only, never
-// applies. Apply is the deploy-step `kumiko schema apply` (runMigrationsFromDir).
+// applies. Apply is the deploy-step `bun /app/kumiko.js schema apply` (runMigrationsFromDir).
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -67,7 +67,7 @@ export async function detectKumikoDrift(
     return { ok: true, pending: [], checksumMismatches: [], missingTables: [], missingColumns: [] };
   }
   const local = loadMigrationsFromDir(migrationsDir);
-  // A fresh database may not have the tracking table because `kumiko schema apply`
+  // A fresh database may not have the tracking table because `bun /app/kumiko.js schema apply`
   // has never run. Treat that as no applied migrations, so all local migrations are
   // pending rather than reporting an error.
   const trackingExists = await tableExists(db, "_kumiko_migrations");
@@ -150,7 +150,7 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
       lines.push(`    - ${m.table}: ${m.columns.join(", ")}`);
     }
   }
-  // Remediation depends on the cause: `kumiko schema apply` handles only pending
+  // Remediation depends on the cause: `bun kumiko-schema apply` handles only pending
   // migrations. A checksum mismatch causes MigrationChecksumMismatchError during
   // apply, and baseline's ON CONFLICT DO NOTHING leaves it in alreadyTracked.
   // A missing table with no pending migration was deleted after apply and cannot be

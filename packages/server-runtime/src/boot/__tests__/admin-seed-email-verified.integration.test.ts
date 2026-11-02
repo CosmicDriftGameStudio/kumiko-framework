@@ -3,9 +3,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
+  AuthErrors,
   AuthHandlers,
   createAuthEmailPasswordFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { seedAdminGuarded } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import {
   createChannelEmailFeature,
   createInMemoryTransport,
@@ -118,5 +120,68 @@ describe("auth.admin seed under emailVerificationMode strict", () => {
     const res = await stack.http.raw("POST", "/api/auth/login", { email, password });
     expect(res.status).toBe(200);
     expect(typeof (await res.json()).token).toBe("string");
+  });
+
+  describe("demoAdminFromEnv on an account seeded earlier", () => {
+    const DEMO_TENANT = { id: TENANT_ID, key: "demo", name: "Demo" };
+
+    async function seedUnverifiedDemoAdmin(email: string, password: string) {
+      await seedAdminGuarded(stack.db, {
+        email,
+        password,
+        displayName: "Admin",
+        emailVerified: false,
+        memberships: [
+          { tenantId: TENANT_ID, tenantKey: "demo", tenantName: "Demo", roles: ["Admin"] },
+        ],
+      });
+    }
+
+    async function bootDemoAdmin(
+      email: string,
+      password: string,
+      demoAdminFromEnv: boolean | { readonly emailVerified: boolean },
+    ) {
+      const shortcutSeeds = resolveSeedShortcuts(
+        { demoTenant: DEMO_TENANT, demoAdminFromEnv },
+        {
+          envSource: { DEMO_ADMIN_EMAIL: email, DEMO_ADMIN_PASSWORD: password },
+          hasAuth: true,
+          hasAuthAdmin: false,
+        },
+      );
+      await applyStandardBootSeeds({
+        db: stack.db,
+        registry: stack.registry,
+        admin: undefined,
+        shortcutSeeds,
+        cipher: undefined,
+        processName: "test",
+      });
+    }
+
+    test("an unverified account becomes verified on the next boot", async () => {
+      const email = "earlier-unverified@example.com";
+      const password = ADMIN_PASSWORD;
+      await seedUnverifiedDemoAdmin(email, password);
+      const before = await stack.http.raw("POST", "/api/auth/login", { email, password });
+      expect(before.status).toBe(422);
+
+      await bootDemoAdmin(email, password, true);
+
+      const res = await stack.http.raw("POST", "/api/auth/login", { email, password });
+      expect(res.status).toBe(200);
+    });
+
+    test("emailVerified: false keeps the account locked under strict verification", async () => {
+      const email = "explicit-unverified@example.com";
+      const password = ADMIN_PASSWORD;
+
+      await bootDemoAdmin(email, password, { emailVerified: false });
+
+      const res = await stack.http.raw("POST", "/api/auth/login", { email, password });
+      expect(res.status).toBe(422);
+      expect((await res.json()).error?.details?.reason).toBe(AuthErrors.emailNotVerified);
+    });
   });
 });
