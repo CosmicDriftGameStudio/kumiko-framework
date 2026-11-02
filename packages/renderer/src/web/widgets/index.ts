@@ -96,7 +96,6 @@ export {
   type PdfPreviewSource,
 } from "./pdf-preview.tsx";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots.tsx";
-export { type PreviewDevice, PreviewWidthFrame } from "./preview-width-frame.tsx";
 export {
   PlanCard,
   type PlanCardActionSlot,
@@ -106,6 +105,7 @@ export {
   PlanGrid,
   type PlanGridProps,
 } from "./plan-card.tsx";
+export { type PreviewDevice, PreviewWidthFrame } from "./preview-width-frame.tsx";
 export { ProgressBar } from "./progress-bar.tsx";
 export { ProgressList, type ProgressListRow } from "./progress-list.tsx";
 export { PublicShell, type PublicShellProps, type PublicShellVariant } from "./public-shell.tsx";
