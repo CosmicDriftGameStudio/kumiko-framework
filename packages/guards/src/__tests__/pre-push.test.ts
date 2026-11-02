@@ -70,6 +70,14 @@ function runGit(args: string[], cwd: string, ceilingDir: string): void {
   }
 }
 
+function gitCommonDirOf(cwd: string, ceilingDir: string): string {
+  const result = Bun.spawnSync(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], {
+    cwd,
+    env: fixtureEnv(ceilingDir),
+  });
+  return result.stdout.toString().trim();
+}
+
 let fixtureRoot = "";
 let templateRepoDir = "";
 let writeExecutable: (path: string, content: string) => void = () => {
@@ -429,8 +437,11 @@ describe("kumiko-pre-push", () => {
     }
 
     describe("pre-flight steps run once per push", () => {
-      function setupWorktreeWithPreflight(): { worktreeDir: string; stubPath: string } {
-        const worktreeDir = setupWorktree(wrappingCheckWt(false));
+      function setupWorktreeWithPreflight(checkWt = wrappingCheckWt(false)): {
+        worktreeDir: string;
+        stubPath: string;
+      } {
+        const worktreeDir = setupWorktree(checkWt);
         writeTracked(worktreeDir, "scripts/pre-push-extra.sh", extraScript(), tmp);
         runGit(["update-ref", "refs/remotes/origin/main", "HEAD"], worktreeDir, tmp);
         const stubDir = join(tmp, "stub-bin");
@@ -464,6 +475,63 @@ describe("kumiko-pre-push", () => {
         expect(readFileSync(join(worktreeDir, "marker-test.txt"), "utf-8")).toContain(
           "MARKER_TEST",
         );
+      });
+
+      test.each([
+        { label: "no nonce", nonce: undefined },
+        { label: "a wrong nonce", nonce: "0123456789abcdef" },
+      ])(
+        "an exported owner pid of a live ancestor with $label does not skip extra and the secret scan",
+        ({ nonce }) => {
+          const { worktreeDir, stubPath } = setupWorktreeWithPreflight(checkWtScript());
+
+          const { output, exitCode } = runHook(
+            worktreeDir,
+            tmp,
+            {
+              PATH: stubPath,
+              KUMIKO_CHECK_WT_OWNER: String(process.pid),
+              ...(nonce !== undefined && { KUMIKO_CHECK_WT_NONCE: nonce }),
+            },
+            `refs/heads/x ${"a".repeat(40)} refs/heads/x ${"0".repeat(40)}\n`,
+          );
+
+          expect(exitCode).toBe(0);
+          expect(output).not.toContain("re-entered from scripts/check-wt.sh");
+          const log = readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8");
+          expect(log.match(/EXTRA_RAN/g)).toHaveLength(1);
+          expect(log.match(/CHECKWT_RAN/g)).toHaveLength(1);
+          expect(existsSync(join(worktreeDir, "gitleaks.log"))).toBe(true);
+        },
+      );
+
+      test("a nonce file matching the env nonce does not make a non-check-wt ancestor an owner", () => {
+        const { worktreeDir, stubPath } = setupWorktreeWithPreflight(checkWtScript());
+        const nonce = "abcdef0123456789";
+        const nonceFile = join(gitCommonDirOf(worktreeDir, tmp), `kumiko-prepush-${process.pid}`);
+        writeFileSync(nonceFile, `${nonce}\n`);
+
+        const { output } = runHook(worktreeDir, tmp, {
+          PATH: stubPath,
+          KUMIKO_CHECK_WT_OWNER: String(process.pid),
+          KUMIKO_CHECK_WT_NONCE: nonce,
+        });
+
+        expect(output).not.toContain("re-entered from scripts/check-wt.sh");
+        expect(
+          readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8").match(/EXTRA_RAN/g),
+        ).toHaveLength(1);
+      });
+
+      test("a finished run's nonce file is swept by the next outer run", () => {
+        const { worktreeDir, stubPath } = setupWorktreeWithPreflight(checkWtScript());
+        const commonDir = gitCommonDirOf(worktreeDir, tmp);
+        const stale = join(commonDir, "kumiko-prepush-999999999");
+        writeFileSync(stale, "deadbeef\n");
+
+        runHook(worktreeDir, tmp, { PATH: stubPath });
+
+        expect(existsSync(stale)).toBe(false);
       });
 
       test("check-wt.sh run by hand still runs extra and the secret scan once", () => {

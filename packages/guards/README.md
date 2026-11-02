@@ -81,10 +81,14 @@ worktree's own `package.json` scripts `typecheck`, `lint`, `test`, and
 as in `kumiko check`), `checks`, `comment-lang` and `public-exports-changelog`.
 The repo that ships this package runs its checked-out `packages/guards/src/cli.ts`
 for these. There is no bypass switch. A `check-wt.sh` that wraps this hook (via
-`exec` or as a child process) is recognised by process ancestry, so the hook
-does not call it again and skips the pre-flight steps (`pre-push-extra.sh`,
-upgrade-state guard, gitleaks) the outer run already did; an exported variable
-cannot skip either.
+`exec` or as a child process) is recognised, so the hook does not call it again
+and skips the pre-flight steps (`pre-push-extra.sh`, upgrade-state guard,
+gitleaks) the outer run already did. Recognition needs the recorded owner PID
+(`KUMIKO_CHECK_WT_OWNER`) to be this process or an ancestor running
+`scripts/check-wt.sh`, and a random `KUMIKO_CHECK_WT_NONCE` that matches the
+0600 file `kumiko-prepush-<pid>` in the git common dir. Setting the variables by
+hand (`KUMIKO_CHECK_WT_OWNER=$$ git push`) therefore skips nothing; the files of
+finished runs are swept by the next push.
 
 Extension point: a tracked, executable `scripts/pre-push-extra.sh` runs
 before the main check in every branch (worktree, parent-scoped, and

@@ -90,18 +90,52 @@ has_ui_roots() {
   ' "$REPO_ROOT/kumiko.json") >/dev/null 2>&1
 }
 
-# Re-entry from the wrapping check-wt.sh is detected by process ancestry: the
-# hook records its own PID in KUMIKO_CHECK_WT_OWNER before delegating, so a
-# freely exported variable can neither skip the tracked check-wt.sh nor the
-# pre-flight steps below.
+# Re-entry from the wrapping check-wt.sh needs three proofs, so a freely
+# exported variable can neither skip the tracked check-wt.sh nor the pre-flight
+# steps below: the hook records its PID in KUMIKO_CHECK_WT_OWNER and a random
+# nonce in KUMIKO_CHECK_WT_NONCE plus a 0600 file in the git common dir; the
+# owner must be an ancestor (or this very process, when check-wt.sh exec'd the
+# hook) and an ancestor must be running check-wt.sh.
+prepush_nonce_file() {
+  printf '%s/kumiko-prepush-%s' "$GIT_COMMON_DIR" "$1"
+}
+
 is_reentry_from_check_wt() {
   reentry_pid=$$
   case "${KUMIKO_CHECK_WT_OWNER:-}" in '' | *[!0-9]*) return 1 ;; esac
+  case "${KUMIKO_CHECK_WT_NONCE:-}" in '' | *[!0-9a-f]*) return 1 ;; esac
+  stored_nonce=""
+  IFS= read -r stored_nonce < "$(prepush_nonce_file "$KUMIKO_CHECK_WT_OWNER")" 2>/dev/null || return 1
+  [ "$stored_nonce" = "$KUMIKO_CHECK_WT_NONCE" ] || return 1
   while [ -n "$reentry_pid" ] && [ "$reentry_pid" -gt 1 ]; do
-    [ "$reentry_pid" = "$KUMIKO_CHECK_WT_OWNER" ] && return 0
+    if [ "$reentry_pid" = "$KUMIKO_CHECK_WT_OWNER" ]; then
+      # An exec'd check-wt.sh has become this hook, so its command line no longer names the script.
+      [ "$reentry_pid" = "$$" ] && return 0
+      owner_command=$(ps -o command= -p "$reentry_pid" 2>/dev/null)
+      case "$owner_command" in *scripts/check-wt.sh*) return 0 ;; esac
+      return 1
+    fi
     reentry_pid=$(ps -o ppid= -p "$reentry_pid" 2>/dev/null | tr -d ' ')
   done
   return 1
+}
+
+# Nonce files of finished runs are not removed by the exec'd check-wt.sh, so
+# each outer run sweeps the ones whose PID is gone.
+sweep_stale_prepush_nonces() {
+  for stale_file in "$GIT_COMMON_DIR"/kumiko-prepush-*; do
+    [ -e "$stale_file" ] || continue
+    stale_pid=${stale_file##*-}
+    case "$stale_pid" in '' | *[!0-9]*) continue ;; esac
+    kill -0 "$stale_pid" 2>/dev/null || rm -f "$stale_file"
+  done
+}
+
+write_prepush_nonce() {
+  new_nonce=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+  case "$new_nonce" in '' | *[!0-9a-f]*) return 1 ;; esac
+  (umask 077 && printf '%s\n' "$new_nonce" > "$(prepush_nonce_file "$$")") || return 1
+  printf '%s' "$new_nonce"
 }
 
 CHECK_WT_REENTRY=0
@@ -192,7 +226,13 @@ if [ "$CHECK_WT_REENTRY" = 0 ] \
    && git -C "$REPO_ROOT" ls-files --error-unmatch scripts/check-wt.sh >/dev/null 2>&1 \
    && [ -x "$REPO_ROOT/scripts/check-wt.sh" ]; then
   echo "[pre-push] worktree detected — worktree check (see scripts/check-wt.sh)…"
-  cd "$REPO_ROOT" && KUMIKO_CHECK_WT_OWNER=$$ exec "$REPO_ROOT/scripts/check-wt.sh"
+  sweep_stale_prepush_nonces
+  # Without a recorded nonce the delegated run could not be recognised as re-entry and would loop.
+  if ! CHECK_WT_NONCE=$(write_prepush_nonce); then
+    echo "[pre-push] FATAL: could not write the re-entry nonce file in '$GIT_COMMON_DIR' — refusing push" >&2
+    exit 1
+  fi
+  cd "$REPO_ROOT" && KUMIKO_CHECK_WT_OWNER=$$ KUMIKO_CHECK_WT_NONCE=$CHECK_WT_NONCE exec "$REPO_ROOT/scripts/check-wt.sh"
 fi
 
 # The repo that ships kumiko-guards runs its checked-out cli.ts, so a push checks
