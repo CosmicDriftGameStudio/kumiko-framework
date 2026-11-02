@@ -147,7 +147,7 @@ One entry per feature a package ships: purpose, import of its factory, required 
 - `subscription-mollie`: Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case.
   `import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie"`; requires `billing-foundation`
 - `subscription-paddle`: Paddle Billing provider plugin for `billing-foundation`.
-  `import { createSubscriptionPaddleFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle"`; requires `billing-foundation`, `config`, `secrets`; config without default `api-key`, `client-token`, `tenant-binding-key`, `webhook-secret`
+  `import { createSubscriptionPaddleFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle"`; requires `billing-foundation`, `config`, `secrets`; config without default `api-key`, `client-token`, `webhook-secret`
 - `subscription-stripe`: Stripe payment provider plugin for `billing-foundation`.
   `import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe"`; requires `billing-foundation`, `config`, `secrets`; config without default `api-key`, `webhook-secret`
 - `tags`: Generic, host-agnostic tagging for any entity.

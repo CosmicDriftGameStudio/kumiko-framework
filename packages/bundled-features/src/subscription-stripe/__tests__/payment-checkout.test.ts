@@ -70,7 +70,6 @@ function buildExpandedSession(overrides: {
   tenantId?: string;
   priceId?: string;
   customerId?: string;
-  consentId?: string;
 }) {
   return {
     id: overrides.sessionId ?? "cs_test_001",
@@ -79,7 +78,6 @@ function buildExpandedSession(overrides: {
       id: "pi_test_001",
       metadata: {
         tenantId: overrides.tenantId ?? "tenant-test-1",
-        ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
       },
       customer: overrides.customerId ?? "cus_test_checkout",
     },
@@ -147,24 +145,6 @@ describe("verifyAndParseStripeWebhook — one-off payment (checkout.session.*)",
     expect(event.priceId).toBe("price_topup_test");
     expect(event.providerCustomerId).toBe("cus_test_checkout");
     expect(event.providerCheckoutId).toBe("cs_test_001");
-  });
-
-  test("PaymentIntent metadata.consentId → PaymentEvent.consentId; invalid → omitted", async () => {
-    async function paymentEventFor(consentId: string) {
-      const verify = verifyAndParseStripeWebhook(
-        webhookRuntimeWithRetrieve(async () => buildExpandedSession({ consentId })),
-        { priceToTier: {} },
-      );
-      const payload = JSON.stringify(
-        buildCheckoutSessionEvent({ mode: "payment", paymentStatus: "paid" }),
-      );
-      return verify(payload, { "stripe-signature": await signEvent(payload) });
-    }
-    expect(await paymentEventFor("consent-abc_123")).toMatchObject({
-      consentId: "consent-abc_123",
-    });
-    expect(await paymentEventFor("not valid!")).not.toHaveProperty("consentId");
-    expect(await paymentEventFor("")).not.toHaveProperty("consentId");
   });
 
   test("checkout.session.completed, mode: payment, paid, missing tenantId metadata → null", async () => {

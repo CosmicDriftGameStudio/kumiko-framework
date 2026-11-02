@@ -53,7 +53,10 @@ const adminOnlyProviderFeature = defineFeature("test-mock-admin-only-provider", 
     retrievePrices: async (_ctx, priceIds) => PRICES.filter((p) => priceIds.includes(p.priceId)),
     createCheckoutSession: async (_ctx, options) => {
       checkoutCalls.push({ priceId: options.priceId });
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
   };
   r.useExtension("subscriptionProvider", "mock-admin-only-provider", plugin);

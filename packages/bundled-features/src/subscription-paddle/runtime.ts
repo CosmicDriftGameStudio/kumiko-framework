@@ -35,14 +35,12 @@ export type PaddlePluginMethod<TName extends keyof SubscriptionProviderPlugin> =
 export type PaddleFallbacks = {
   readonly apiKey?: string;
   readonly webhookSecret?: string;
-  readonly tenantBindingKey?: string;
   readonly clientToken?: string;
 };
 
 export type PaddleRuntimeDeps = {
   readonly apiKeyHandle: ConfigKeyHandle<"text">;
   readonly webhookSecretHandle: ConfigKeyHandle<"text">;
-  readonly tenantBindingKeyHandle: ConfigKeyHandle<"text">;
   readonly clientTokenHandle: ConfigKeyHandle<"text">;
   readonly billingLiveHandle: ConfigKeyHandle<"boolean">;
   readonly environmentHandle: ConfigKeyHandle<"select">;
@@ -54,16 +52,19 @@ function hintFor(shortName: string): string {
   return `Set it via config:write:set on \`${SUBSCRIPTION_PADDLE_FEATURE}:config:${shortName}\` (or seed it from the matching PADDLE_* variable during the env bridge).`;
 }
 
+// The slice of HandlerContext and JobContext the Paddle calls need, so the
+// backfill job reaches Paddle through the same key and environment resolution.
+export type PaddleCallSource = Pick<HandlerContext, "config" | "services" | "user">;
+
 export type PaddleCtxRuntime = {
-  readonly call: (ctx: HandlerContext, request: PaddleRequest) => Promise<unknown>;
+  readonly call: (ctx: PaddleCallSource, request: PaddleRequest) => Promise<unknown>;
+  readonly hasApiKey: (ctx: PaddleCallSource) => Promise<boolean>;
   readonly assertBillingLive: (ctx: HandlerContext, handlerName?: string) => Promise<void>;
   readonly isBillingEnabled: (ctx: HandlerContext) => Promise<boolean>;
-  readonly tenantBindingKey: (ctx: HandlerContext) => Promise<string>;
 };
 
 export type PaddleWebhookRuntime = {
   readonly resolveWebhookSecret: (systemSecrets?: SecretsContext) => Promise<string>;
-  readonly resolveTenantBindingKey: (systemSecrets?: SecretsContext) => Promise<string>;
 };
 
 export type PaddleCheckoutConfig = {
@@ -87,7 +88,7 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
   const http = createPaddleHttp(deps.send);
 
   async function ctxSecret(
-    ctx: HandlerContext,
+    ctx: PaddleCallSource,
     handle: ConfigKeyHandle<"text">,
     fallback: string | undefined,
     shortName: string,
@@ -129,7 +130,7 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
   }
 
   async function hasSecret(
-    ctx: HandlerContext,
+    ctx: PaddleCallSource,
     handle: ConfigKeyHandle<"text">,
     fallback: string | undefined,
   ): Promise<boolean> {
@@ -140,7 +141,7 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
       : false;
   }
 
-  async function baseUrlFor(ctx: HandlerContext): Promise<string> {
+  async function baseUrlFor(ctx: PaddleCallSource): Promise<string> {
     const environment = ctx.config ? await ctx.config(deps.environmentHandle) : undefined;
     return PADDLE_BASE_URLS[environmentOf(environment)];
   }
@@ -155,29 +156,18 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
           },
           request,
         ),
+      hasApiKey: (ctx) => hasSecret(ctx, deps.apiKeyHandle, deps.fallback.apiKey),
       assertBillingLive: (ctx, handlerName = "create-checkout-session") =>
         assertBillingLive(ctx, deps.billingLiveHandle, SUBSCRIPTION_PADDLE_FEATURE, handlerName),
       isBillingEnabled: async (ctx) => {
         const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
         if (live !== true) return false;
-        return (
-          (await hasSecret(ctx, deps.apiKeyHandle, deps.fallback.apiKey)) &&
-          (await hasSecret(ctx, deps.tenantBindingKeyHandle, deps.fallback.tenantBindingKey))
-        );
+        return hasSecret(ctx, deps.apiKeyHandle, deps.fallback.apiKey);
       },
-      tenantBindingKey: (ctx) =>
-        ctxSecret(
-          ctx,
-          deps.tenantBindingKeyHandle,
-          deps.fallback.tenantBindingKey,
-          "tenant-binding-key",
-        ),
     },
     webhook: {
       resolveWebhookSecret: (systemSecrets) =>
         webhookSecret(systemSecrets, deps.webhookSecretHandle, deps.fallback.webhookSecret),
-      resolveTenantBindingKey: (systemSecrets) =>
-        webhookSecret(systemSecrets, deps.tenantBindingKeyHandle, deps.fallback.tenantBindingKey),
     },
     readCheckoutConfig: async (ctx) => {
       const stored = ctx.config ? await ctx.config(deps.clientTokenHandle) : undefined;

@@ -3,7 +3,7 @@
 // subscription-paddle — Paddle Billing (merchant of record) plugin for the
 // billing-foundation plugin API. Credentials, the billing-live master switch and
 // the API environment (sandbox | live) are config keys resolved at call time, like
-// subscription-stripe. The `apiKey` / `webhookSecret` / `tenantBindingKey` /
+// subscription-stripe. The `apiKey` / `webhookSecret` /
 // `clientToken` options are env→config bridge fallbacks.
 
 import {
@@ -21,6 +21,7 @@ import { egress } from "@cosmicdrift/kumiko-framework/http";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { priceEnvSchema } from "../shared/index.ts";
+import { runBackfillCheckoutLedger } from "./backfill-checkout-ledger.ts";
 import { makeCheckoutConfigQuery } from "./checkout-config.query.ts";
 import {
   createPaddleCancelSubscription,
@@ -36,17 +37,22 @@ import {
   PADDLE_CLIENT_TOKEN_CONFIG,
   PADDLE_ENVIRONMENT_CONFIG,
   PADDLE_PROVIDER_NAME,
-  PADDLE_TENANT_BINDING_KEY_CONFIG,
   PADDLE_WEBHOOK_SECRET_CONFIG,
   PaddleEnvironments,
   SUBSCRIPTION_PADDLE_FEATURE,
 } from "./constants.ts";
+import {
+  LEDGER_BACKFILL_EVENT_SHORT,
+  ledgerBackfillMarkerHandler,
+  ledgerBackfillPayloadSchema,
+} from "./ledger-backfill-marker.ts";
 import {
   createPaddleApplyPlanSwitch,
   createPaddlePreviewPlanSwitch,
   createPaddleRetrieveSubscription,
 } from "./plan-switch-methods.ts";
 import { createPaddlePriceCache, createPaddleRetrievePrices } from "./price-methods.ts";
+import { shouldRedeliverLegacyCheckout } from "./redeliver-legacy-checkout.ts";
 import { createPaddleRuntimes } from "./runtime.ts";
 import { verifyAndParsePaddleWebhook } from "./webhook-events.ts";
 
@@ -62,14 +68,6 @@ export const subscriptionPaddleEnvSchema = z.object({
     .string()
     .min(1)
     .describe("Paddle notification secret (`pdl_ntfset_...`). Bridge-fallback — prefer the secret.")
-    .meta({ kumiko: { pulumi: { secret: true } } })
-    .optional(),
-  PADDLE_TENANT_BINDING_KEY: z
-    .string()
-    .min(1)
-    .describe(
-      "Server-only HMAC key binding a Paddle checkout to its tenant. Bridge-fallback — prefer the secret.",
-    )
     .meta({ kumiko: { pulumi: { secret: true } } })
     .optional(),
   PADDLE_CLIENT_TOKEN: z
@@ -101,8 +99,6 @@ export type SubscriptionPaddleOptions = {
   readonly apiKey?: string;
   /** Bridge-fallback webhook secret; the `webhook-secret` config key wins when set. */
   readonly webhookSecret?: string;
-  /** Bridge-fallback tenant binding key; the `tenant-binding-key` config key wins when set. */
-  readonly tenantBindingKey?: string;
   /** Bridge-fallback Paddle.js client token; the `client-token` config key wins when set. */
   readonly clientToken?: string;
   /** Paddle price id → app tier name. Prices absent here drop the event. */
@@ -124,7 +120,7 @@ export function createSubscriptionPaddleFeature(
   const now = options.now ?? (() => Temporal.Now.instant().epochMilliseconds);
   const feature: FeatureDefinition = defineFeature(SUBSCRIPTION_PADDLE_FEATURE, (r) => {
     r.describe(
-      'Paddle Billing provider plugin for `billing-foundation`. Paddle acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key, webhook secret and tenant binding key from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant), the public Paddle.js `client-token`, a `billingLive` master switch and an `environment` key (sandbox | live). `environment` is its own key because Paddle serves sandbox and live from different API hosts and a live key must never hit the sandbox host or the other way round; `billingLive` only decides whether checkouts are offered at all. All of them are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionPaddleFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret`/`tenantBindingKey`/`clientToken` options are env to config bridge fallbacks (`PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_TENANT_BINDING_KEY`, `PADDLE_CLIENT_TOKEN`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, and billing counts as enabled only with API key and binding key present. Webhooks arrive at `/webhooks/subscription/paddle` when mounted through the server-runtime `billing.paddle` boot option, or at `/api/subscription/webhook/paddle` when `createSubscriptionWebhookRoute` is mounted by hand and are verified with the `Paddle-Signature` header (HMAC-SHA256 over `ts:rawBody` keyed with the raw secret, any `h1` may match, 5 minute tolerance). Paddle.js can open checkouts with arbitrary `customData` from the browser, so `custom_data.tenantId` is only trusted together with `tenantBinding`, an HMAC of the tenant id under the binding key; events without a valid binding, for prices outside `priceToTier` or without a tenant are dropped. Rotating the binding key makes the webhooks of existing subscriptions fail that check until they are re-bound. Paddle has no hosted checkout page, so the feature serves the Default Payment Link itself at `/billing/paddle-checkout` (the Default Payment Link in the Paddle dashboard must point to `<APP_BASE_URL>/billing/paddle-checkout`; it is the only source, because checkouts are created without a `checkout.url`). Create subscription prices in the Paddle catalog with quantity minimum and maximum 1; for one-off packs set the quantity limits on purpose, because the payment event carries `quantity` and the app has to multiply its credits by it: an anonymous page with its own CSP that loads Paddle.js from cdn.paddle.com, the one external script this framework allows, and opens the overlay for the transaction. Implements checkout, customer portal, cancel and resume, `retrievePrices` (batched, 10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `subscription.updated` webhook to move the tier.',
+      'Paddle Billing provider plugin for `billing-foundation`. Paddle acts as merchant of record: it sells to the customer and issues invoice and VAT, so the consumer-protection texts for this provider come from `consumerProtection.providerTexts`. Reads its API key and webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant), the public Paddle.js `client-token`, a `billingLive` master switch and an `environment` key (sandbox | live). `environment` is its own key because Paddle serves sandbox and live from different API hosts and a live key must never hit the sandbox host or the other way round; `billingLive` only decides whether checkouts are offered at all. All of them are runtime config, so keys rotate and prod goes live without a redeploy, and the `mask` on each derives the sysadmin settings screen and nav. Mount via `createSubscriptionPaddleFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret`/`clientToken` options are env to config bridge fallbacks (`PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_CLIENT_TOKEN`). The plugin always mounts; `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, and billing counts as enabled only with the API key present. Webhooks arrive at `/webhooks/subscription/paddle` when mounted through the server-runtime `billing.paddle` boot option, or at `/api/subscription/webhook/paddle` when `createSubscriptionWebhookRoute` is mounted by hand and are verified with the `Paddle-Signature` header (HMAC-SHA256 over `ts:rawBody` keyed with the raw secret, any `h1` may match, 5 minute tolerance). Paddle.js can open checkouts with arbitrary `customData` from the browser, so `custom_data.tenantId` only locates the tenant stream: billing-foundation keeps a checkout ledger and accepts a webhook only for a transaction the server opened itself (a `subscription.created` must name it in `transaction_id`), so events for prices outside `priceToTier`, without a tenant or for foreign transactions are dropped. The `backfill-checkout-ledger` job ledgers Paddle checkouts that were open when the ledger was introduced, then goes quiet. Paddle has no hosted checkout page, so the feature serves the Default Payment Link itself at `/billing/paddle-checkout` (the Default Payment Link in the Paddle dashboard must point to `<APP_BASE_URL>/billing/paddle-checkout`; it is the only source, because checkouts are created without a `checkout.url`). Create subscription prices in the Paddle catalog with quantity minimum and maximum 1; for one-off packs set the quantity limits on purpose, because the payment event carries `quantity` and the app has to multiply its credits by it: an anonymous page with its own CSP that loads Paddle.js from cdn.paddle.com, the one external script this framework allows, and opens the overlay for the transaction. Implements checkout, customer portal, cancel and resume, `retrievePrices` (batched, 10-minute TTL cache), `retrieveSubscription` for the sync job, and an in-app plan switch: `previewPlanSwitch` shows the proration before the customer confirms, `applyPlanSwitch` changes the plan without a hosted page and waits for the `subscription.updated` webhook to move the tier.',
     );
     r.uiHints({
       displayLabel: "Billing · Paddle",
@@ -149,12 +145,6 @@ export function createSubscriptionPaddleFeature(
           write: access.systemAdmin,
           read: access.admin,
           mask: { title: "subscription-paddle.webhook-secret", icon: "shield", order: 2 },
-        }),
-        [PADDLE_TENANT_BINDING_KEY_CONFIG]: createSystemConfig("text", {
-          backing: "secrets",
-          write: access.systemAdmin,
-          read: access.admin,
-          mask: { title: "subscription-paddle.tenant-binding-key", icon: "lock", order: 3 },
         }),
         [PADDLE_CLIENT_TOKEN_CONFIG]: createSystemConfig("text", {
           write: access.systemAdmin,
@@ -181,7 +171,6 @@ export function createSubscriptionPaddleFeature(
       keys: {
         "subscription-paddle.api-key": { en: "Paddle API key" },
         "subscription-paddle.webhook-secret": { en: "Paddle webhook secret" },
-        "subscription-paddle.tenant-binding-key": { en: "Paddle tenant binding key" },
         "subscription-paddle.client-token": { en: "Paddle client-side token" },
         "subscription-paddle.environment": { en: "Paddle environment" },
         "subscription-paddle.billing-live": { en: "Live billing" },
@@ -194,7 +183,6 @@ export function createSubscriptionPaddleFeature(
     const runtimes = createPaddleRuntimes({
       apiKeyHandle: configKeys[PADDLE_API_KEY_CONFIG],
       webhookSecretHandle: configKeys[PADDLE_WEBHOOK_SECRET_CONFIG],
-      tenantBindingKeyHandle: configKeys[PADDLE_TENANT_BINDING_KEY_CONFIG],
       clientTokenHandle: configKeys[PADDLE_CLIENT_TOKEN_CONFIG],
       billingLiveHandle: configKeys[PADDLE_BILLING_LIVE_CONFIG],
       environmentHandle: configKeys[PADDLE_ENVIRONMENT_CONFIG],
@@ -202,14 +190,25 @@ export function createSubscriptionPaddleFeature(
       fallback: {
         ...(options.apiKey !== undefined && { apiKey: options.apiKey }),
         ...(options.webhookSecret !== undefined && { webhookSecret: options.webhookSecret }),
-        ...(options.tenantBindingKey !== undefined && {
-          tenantBindingKey: options.tenantBindingKey,
-        }),
         ...(options.clientToken !== undefined && { clientToken: options.clientToken }),
       },
     });
 
     r.queryHandler(makeCheckoutConfigQuery(runtimes.readCheckoutConfig));
+    r.defineEvent(LEDGER_BACKFILL_EVENT_SHORT, ledgerBackfillPayloadSchema, { piiFields: "none" });
+    r.writeHandler(ledgerBackfillMarkerHandler);
+    r.job({
+      name: "backfill-checkout-ledger",
+      trigger: { cron: "*/5 * * * *" },
+      concurrency: "skip",
+      // writeAs: ledgers each checkout in the stream of the tenant that opened it.
+      escapeHatch: {
+        reason: "ledgers open legacy Paddle checkouts in each tenant's stream via writeAs",
+        grants: ["systemIdentity"],
+      },
+      handler: (_payload, ctx) =>
+        runBackfillCheckoutLedger(ctx, { runtime: runtimes.ctx, priceToTier }),
+    });
     r.httpRoute({
       method: "GET",
       // Literal for the feature-AST extractor; must equal PADDLE_CHECKOUT_PATH (integration test).
@@ -226,6 +225,8 @@ export function createSubscriptionPaddleFeature(
         oneOffPriceIds: options.oneOffPriceIds ?? [],
         ...(options.nowSeconds && { nowSeconds: options.nowSeconds }),
       }),
+      shouldRedeliverIgnoredEvent: ({ event, reason, deps }) =>
+        shouldRedeliverLegacyCheckout({ event, reason, deps }),
       createCheckoutSession: createPaddleCheckoutSession(runtimes.ctx),
       createPortalSession: createPaddlePortalSession(runtimes.ctx),
       cancelSubscription: createPaddleCancelSubscription(runtimes.ctx),

@@ -65,7 +65,7 @@ function escapeText(value: string): string {
 type WebhookEvent = {
   readonly tenantId: string;
   readonly tier: string;
-  readonly consentId?: string;
+  readonly providerCheckoutId?: string;
   readonly provider?: string;
 };
 
@@ -102,7 +102,9 @@ async function postSubscriptionCreated(
     {
       type: "subscription.created",
       tenantId: event.tenantId,
-      ...(event.consentId !== undefined && { consentId: event.consentId }),
+      ...(event.providerCheckoutId !== undefined && {
+        providerCheckoutId: event.providerCheckoutId,
+      }),
       ...posted,
       status: "active",
       tier: event.tier,
@@ -195,13 +197,13 @@ test("flows 1-3: checkout with consent, confirmation mail, account cancellation"
   await shot(page, "01-03-consent-dialog-checked");
 
   await page.getByTestId("checkout-consent-order").click();
-  await page.waitForURL(/consentId=/);
-  const consentId = new URL(page.url()).searchParams.get("consentId");
-  expect(consentId).not.toBeNull();
+  await page.waitForURL(/providerCheckoutId=/);
+  const providerCheckoutId = new URL(page.url()).searchParams.get("providerCheckoutId");
+  expect(providerCheckoutId).not.toBeNull();
   const subscription = await postSubscriptionCreated(request, {
     tenantId: tenant.id,
     tier: "starter",
-    ...(consentId !== null && { consentId }),
+    ...(providerCheckoutId !== null && { providerCheckoutId }),
   });
   await openPlans(page);
   await expect(page.getByTestId("billing-plans-cancel-contract")).toBeVisible();

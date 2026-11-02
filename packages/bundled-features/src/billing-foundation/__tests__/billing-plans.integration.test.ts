@@ -37,6 +37,7 @@ import { createBillingFoundationFeature } from "../feature.ts";
 import { subscriptionsProjectionTable } from "../projection.ts";
 import type { BillingPlanCatalog, ProviderPrice, SubscriptionProviderPlugin } from "../types.ts";
 import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../web/constants.ts";
+import { openSubscriptionCheckout, priceIdForTier } from "./ledgered-subscription.ts";
 
 type PlanTier = "starter" | "pro";
 
@@ -108,7 +109,10 @@ const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => 
         ...(options.providerCustomerId && { providerCustomerId: options.providerCustomerId }),
         ...(options.mode && { mode: options.mode }),
       });
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
     createPortalSession: async (_ctx, options) => {
       portalCalls.push({
@@ -133,12 +137,17 @@ const mockPlanProviderFeature = defineFeature("test-mock-plan-provider", (r) => 
 
 // Second registered provider — exists only so a subscription can be created
 // on a DIFFERENT provider than the catalog resolves, exercising switch-plan's
-// providerMismatch conflict. Deliberately minimal: no priceToTier, so it
-// never becomes the catalog's ambiguous default.
+// providerMismatch conflict. Its prices only admit the ledgered checkout of the
+// seeded subscription; the catalog names its provider explicitly.
+const OTHER_PRICE_TO_TIER: Readonly<Record<string, string>> = {
+  price_other_starter: "starter",
+  price_other_pro: "pro",
+};
 const mockOtherProviderFeature = defineFeature("test-mock-other-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
+    priceToTier: OTHER_PRICE_TO_TIER,
   };
   r.useExtension("subscriptionProvider", "mock-other-provider", plugin);
 });
@@ -234,16 +243,31 @@ async function createSubscription(
   onStack: TestStack = stack,
 ) {
   const admin = createTestUser({ id: 0, tenantId, roles: ["TenantAdmin", "SystemAdmin"] });
+  const providerName = overrides.providerName ?? "mock-plan-provider";
+  const providerSubscriptionId = overrides.providerSubscriptionId ?? `sub_${tenantId}`;
+  const tier = overrides.tier ?? "starter";
+  const providerCheckoutId = await openSubscriptionCheckout(
+    (handler, payload) => onStack.http.writeOk(handler, payload, admin),
+    {
+      providerName,
+      providerSubscriptionId,
+      priceId: priceIdForTier(
+        providerName === "mock-other-provider" ? OTHER_PRICE_TO_TIER : PRICE_TO_TIER,
+        tier,
+      ),
+    },
+  );
   return onStack.http.writeOk(
     SubscriptionFoundationHandlers.processEvent,
     {
       providerEventId: overrides.providerEventId ?? `evt_${tenantId}_create`,
-      providerName: overrides.providerName ?? "mock-plan-provider",
+      providerName,
       type: "subscription.created",
+      providerCheckoutId,
       providerCustomerId: overrides.providerCustomerId ?? `cus_${tenantId}`,
-      providerSubscriptionId: overrides.providerSubscriptionId ?? `sub_${tenantId}`,
+      providerSubscriptionId,
       status: overrides.status ?? SubscriptionStatuses.active,
-      tier: overrides.tier ?? "starter",
+      tier,
       currentPeriodEndIso: "2026-06-01T00:00:00Z",
       ...(overrides.cancelAtIso !== undefined && { cancelAtIso: overrides.cancelAtIso }),
     },

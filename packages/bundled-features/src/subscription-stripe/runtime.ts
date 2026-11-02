@@ -44,14 +44,16 @@ const API_KEY_HINT =
 /** Memoize Stripe clients by api-key string — a fresh client is built only
  *  when the key actually changes (rotation), so steady-state calls reuse one
  *  connection-pooled instance per key. */
-export function createStripeClientCache(): (apiKey: string) => Stripe {
+export function createStripeClientCache(
+  clientConfig?: Stripe.StripeConfig,
+): (apiKey: string) => Stripe {
   const cache = new Map<string, Stripe>();
   return (apiKey) => {
     const cached = cache.get(apiKey);
     if (cached) return cached;
     // No apiVersion pin — a string literal breaks consumers' typecheck on newer
     // stripe SDKs; the SDK's own default keeps wire-version and types aligned.
-    const client = new Stripe(apiKey);
+    const client = new Stripe(apiKey, clientConfig);
     cache.set(apiKey, client);
     return client;
   };
@@ -62,6 +64,7 @@ export type StripeRuntimeDeps = {
   readonly webhookSecretHandle: ConfigKeyHandle<"text">;
   readonly billingLiveHandle: ConfigKeyHandle<"boolean">;
   readonly fallback: { readonly apiKey?: string; readonly webhookSecret?: string };
+  readonly clientConfig?: Stripe.StripeConfig;
 };
 
 /** Post-tenant runtime: used by checkout/portal/cancel which carry a full
@@ -95,7 +98,7 @@ export type StripeRuntimes = {
 };
 
 export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
-  const clientFor = createStripeClientCache();
+  const clientFor = createStripeClientCache(deps.clientConfig);
 
   async function ctxApiKey(ctx: HandlerContext): Promise<string> {
     let key: string | undefined;

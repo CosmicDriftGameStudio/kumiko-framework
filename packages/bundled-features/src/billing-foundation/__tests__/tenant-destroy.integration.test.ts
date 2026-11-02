@@ -47,12 +47,16 @@ import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.ts";
 import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../web/constants.ts";
+import { ledgerWriteAs, openSubscriptionCheckout } from "./ledgered-subscription.ts";
+
+const DESTROY_PROVIDER = "mock-destroy-provider";
 
 const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  r.useExtension("subscriptionProvider", "mock-destroy-provider", {
+  r.useExtension("subscriptionProvider", DESTROY_PROVIDER, {
     verifyAndParseWebhook: async () => null,
     oneOffPriceIds: ["price_topup"],
+    priceToTier: { price_pro: "pro" },
     retrievePrices: async () => [
       {
         priceId: "price_topup",
@@ -64,7 +68,10 @@ const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
         metadata: {},
       },
     ],
-    createCheckoutSession: async () => ({ url: "https://mock.example/checkout" }),
+    createCheckoutSession: async () => ({
+      url: "https://mock.example/checkout",
+      providerCheckoutId: "cs_destroy",
+    }),
   });
 });
 
@@ -153,11 +160,17 @@ async function seedTenant(user: typeof tenantA, profileKey = "eu-dsgvo"): Promis
 }
 
 async function seedSubscription(user: typeof tenantA, eventIdSuffix: string): Promise<void> {
+  const providerCheckoutId = await openSubscriptionCheckout(ledgerWriteAs(stack, user.tenantId), {
+    providerName: DESTROY_PROVIDER,
+    providerSubscriptionId: `sub_${eventIdSuffix}`,
+    priceId: "price_pro",
+  });
   await stack.http.writeOk(
     SubscriptionFoundationHandlers.processEvent,
     {
       providerEventId: `evt_${eventIdSuffix}`,
-      providerName: "stripe",
+      providerName: DESTROY_PROVIDER,
+      providerCheckoutId,
       type: SubscriptionEventTypes.created,
       status: "active",
       tier: "pro",
@@ -170,11 +183,18 @@ async function seedSubscription(user: typeof tenantA, eventIdSuffix: string): Pr
 }
 
 async function seedPayment(user: typeof tenantA, eventIdSuffix: string): Promise<void> {
+  const providerCheckoutId = await openSubscriptionCheckout(ledgerWriteAs(stack, user.tenantId), {
+    providerName: DESTROY_PROVIDER,
+    providerSubscriptionId: `pay_${eventIdSuffix}`,
+    priceId: "price_one_off",
+    mode: "payment",
+  });
   await stack.http.writeOk(
     SubscriptionFoundationHandlers.processPaymentEvent,
     {
       providerEventId: `evt_pay_${eventIdSuffix}`,
-      providerName: "stripe",
+      providerName: DESTROY_PROVIDER,
+      providerCheckoutId,
       providerCustomerId: `cus_pay_${eventIdSuffix}`,
       priceId: "price_one_off",
     },

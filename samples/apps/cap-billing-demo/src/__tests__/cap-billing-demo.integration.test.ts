@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
+  type SubscriptionProviderPlugin,
   SubscriptionStatuses,
   subscriptionsProjectionTable,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -31,7 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
+import { createEntityExecutor, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
@@ -60,6 +61,24 @@ let resolver: ConfigResolver;
 let providerRef: MutableMasterKeyProvider;
 
 const testEncryptionKey = randomBytes(32).toString("base64");
+const PRO_PRICE_ID = "price_pro";
+
+// The demo mounts no real provider; process-event admits a `created` event only for a ledgered
+// checkout whose price the provider plugin maps to the event's tier.
+function webhookProvidersFeature() {
+  return defineFeature("test-webhook-providers", (r) => {
+    r.requires({ features: ["billing-foundation"] });
+    const plugin: SubscriptionProviderPlugin = {
+      verifyAndParseWebhook: async () => {
+        throw new Error("webhook verification is not exercised in this test");
+      },
+      priceToTier: { [PRO_PRICE_ID]: "pro" },
+    };
+    r.useExtension("subscriptionProvider", "stripe", plugin);
+    r.useExtension("subscriptionProvider", "mollie", plugin);
+  });
+}
+
 const { table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 
 beforeAll(async () => {
@@ -78,7 +97,12 @@ beforeAll(async () => {
   // list, because composeFeatures normally adds them
   // automatically in the runDevApp path — here we do it manually.
   stack = await setupTestStack({
-    features: [createConfigFeature(), createTenantFeature(), ...APP_FEATURES],
+    features: [
+      createConfigFeature(),
+      createTenantFeature(),
+      ...APP_FEATURES,
+      webhookProvidersFeature(),
+    ],
     masterKeyProvider: providerRef,
     extraContext: ({ db, registry }) => ({
       configResolver: resolver,
@@ -390,14 +414,29 @@ async function processSubscriptionEvent(
     providerSubscriptionId?: string;
   },
 ) {
+  const providerSubscriptionId = payload.providerSubscriptionId ?? `sub_${payload.providerEventId}`;
+  const providerCheckoutId = `cs_${payload.providerName}_${providerSubscriptionId}`;
+  if (payload.type === SubscriptionEventTypes.created) {
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.recordCheckoutOpened,
+      {
+        providerName: payload.providerName,
+        providerCheckoutId,
+        priceId: PRO_PRICE_ID,
+        mode: "subscription",
+      },
+      admin,
+    );
+  }
   return stack.http.writeOk(
     SubscriptionFoundationHandlers.processEvent,
     {
       providerEventId: payload.providerEventId,
+      ...(payload.type === SubscriptionEventTypes.created && { providerCheckoutId }),
       providerName: payload.providerName,
       type: payload.type,
       providerCustomerId: payload.providerCustomerId ?? `cus_${payload.providerEventId}`,
-      providerSubscriptionId: payload.providerSubscriptionId ?? `sub_${payload.providerEventId}`,
+      providerSubscriptionId,
       status: payload.status,
       tier: payload.tier,
       currentPeriodEndIso: "2026-12-31T00:00:00Z",

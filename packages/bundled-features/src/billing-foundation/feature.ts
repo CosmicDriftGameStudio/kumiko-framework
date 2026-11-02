@@ -58,6 +58,8 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { registerConsumerProtection } from "./consumer-protection/register-consent.ts";
 import { paymentEntity, subscriptionEntity } from "./entities.ts";
 import {
+  CHECKOUT_OPENED_EVENT_SHORT,
+  checkoutOpenedPayloadSchema,
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
   INVOICE_PAYMENT_FAILED_EVENT_QN,
@@ -82,6 +84,7 @@ import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query.ts";
 import { createPlanSwitchPreviewQuery } from "./handlers/plan-switch-preview.query.ts";
 import { createProcessEventHandler } from "./handlers/process-event.write.ts";
 import { processPaymentEventHandler } from "./handlers/process-payment-event.write.ts";
+import { recordCheckoutOpenedHandler } from "./handlers/record-checkout-opened.write.ts";
 import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write.ts";
 import { createSwitchPlanHandler } from "./handlers/switch-plan.write.ts";
 import { syncSubscriptionHandler } from "./handlers/sync-subscription.write.ts";
@@ -170,6 +173,10 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       // state transition. piiFields: "none" for the same reason as the 5 above:
       // providerCustomerId is tenantOwned ciphertext, not plaintext personal data.
       r.defineEvent(PAYMENT_RECEIVED_EVENT_SHORT, paymentEventPayloadSchema, { piiFields: "none" });
+      // Checkout ledger: registered unconditionally, webhook acceptance depends on it.
+      r.defineEvent(CHECKOUT_OPENED_EVENT_SHORT, checkoutOpenedPayloadSchema, {
+        piiFields: "none",
+      });
 
       // Inline projection: materialized current state in `read_subscriptions`.
       // Apply runs in the same TX as ctx.events.unsafeAppend — read-your-own-
@@ -214,6 +221,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       //   - process-payment-event: programmatic entry-point from the webhook-
       //     handler for one-off-payments; appends onto the payment-aggregate
       r.writeHandler(processPaymentEventHandler);
+      r.writeHandler(recordCheckoutOpenedHandler);
       //   - sync-subscription: backfill entry-point for the sync-subscriptions
       //     job below; pulls the live provider state and appends drift as a
       //     subscription.updated event. Registered unconditionally (not

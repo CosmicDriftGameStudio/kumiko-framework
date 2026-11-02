@@ -182,7 +182,6 @@ describe("subscriptionPaddleEnvSchema", () => {
     const env = parseEnv(subscriptionPaddleEnvSchema, {
       PADDLE_API_KEY: "paddle_key",
       PADDLE_WEBHOOK_SECRET: "pdl_ntfset_abc",
-      PADDLE_TENANT_BINDING_KEY: "binding",
       PADDLE_CLIENT_TOKEN: "test_abc123",
     });
     expect(env.PADDLE_API_KEY).toBe("paddle_key");
@@ -195,12 +194,11 @@ describe("subscriptionPaddleEnvSchema", () => {
       parseEnv(subscriptionPaddleEnvSchema, {
         PADDLE_API_KEY: "",
         PADDLE_WEBHOOK_SECRET: "",
-        PADDLE_TENANT_BINDING_KEY: "",
         PADDLE_CLIENT_TOKEN: "abc",
       });
       throw new Error("should have thrown");
     } catch (err) {
-      expect(asBootError(err).errors.length).toBe(4);
+      expect(asBootError(err).errors.length).toBe(3);
     }
   });
 

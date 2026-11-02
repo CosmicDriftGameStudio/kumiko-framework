@@ -64,8 +64,8 @@ export function createSwitchPlanHandler(
   };
 }
 
-// Consent is recorded before the provider call: the apply carries the consentId
-// as provider metadata, and a failing apply rolls the whole handler back.
+// Consent is recorded before the provider call, and a failing apply rolls the whole handler
+// back. The webhook later picks the consent up again through pendingSwitchConsentId.
 async function applyInApp(
   prepared: PreparedPlanSwitch,
   payload: { readonly tier: string; readonly consent?: ConsentPayload },
@@ -93,7 +93,6 @@ async function applyInApp(
     providerSubscriptionId: prepared.subscription.providerSubscriptionId,
     targetPriceId: prepared.target.priceId,
     tenantId: ctx.user.tenantId,
-    ...(consent && { consentId: consent.consentId }),
   });
   return { isSuccess: true as const, data: { applied: true as const } };
 }

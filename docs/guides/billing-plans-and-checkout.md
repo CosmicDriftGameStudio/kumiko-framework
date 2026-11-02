@@ -27,13 +27,13 @@ await runProdApp({
 
 | Setting | Where |
 |---|---|
-| API key, webhook secret, tenant binding key, client token | system config keys backed by the secrets store; `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_TENANT_BINDING_KEY` and `PADDLE_CLIENT_TOKEN` are bridge fallbacks |
+| API key, webhook secret, client token | system config keys backed by the secrets store; `PADDLE_API_KEY`, `PADDLE_WEBHOOK_SECRET` and `PADDLE_CLIENT_TOKEN` are bridge fallbacks |
 | `environment` | `sandbox` or `live`; Paddle serves them from different API hosts |
 | `billingLive` | master switch; without it a checkout fails with `feature_disabled` |
 | Webhook URL | `/webhooks/subscription/paddle` |
 | Default Payment Link (Paddle dashboard) | `<APP_BASE_URL>/billing/paddle-checkout`; the feature serves this page itself |
 
-All of them are runtime config, so keys rotate and production goes live without a redeploy. Paddle.js can send any `customData` from the browser, so a webhook counts only with a valid `tenantBinding` (an HMAC of the tenant id under the binding key). Rotating the binding key breaks the webhooks of existing subscriptions until they are bound again.
+All of them are runtime config, so keys rotate and production goes live without a redeploy. Paddle.js can send any `customData` from the browser, so a webhook counts only for a checkout the server opened itself: billing-foundation records every checkout in a ledger and ignores payments and new subscriptions for transactions it does not list.
 
 Coming from Dodo: replace `createSubscriptionDodoFeature` with `createSubscriptionPaddleFeature` (or `billing.dodo` with `billing.paddle`), the `DODO_PAYMENTS_*` env vars with the Paddle ones, and create the prices again in the Paddle catalog. Subscription prices need quantity minimum and maximum 1. Existing Dodo subscriptions are not migrated; a subscription stays with the provider stored on it.
 

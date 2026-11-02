@@ -143,19 +143,15 @@ describe("verifyAndParseMollieWebhook — payment-event happy path", () => {
     expect(event?.status).toBe(SubscriptionStatuses.active);
   });
 
-  test("subscription metadata.consentId → event.consentId; invalid → omitted", async () => {
-    const withConsent = buildClient({
-      subResolve: buildMockSubscription({
-        metadata: { tenantId: "tenant-test", priceId: "plan_pro", consentId: "consent-1" },
+  test("first payment carries its id as providerCheckoutId; recurring payments carry none", async () => {
+    const first = await verify(buildClient())("id=tr_test_001", {});
+    expect(first).toMatchObject({ providerCheckoutId: "tr_test_001" });
+    const recurring = await verify(
+      buildClient({
+        paymentResolve: buildMockPayment({ sequenceType: "recurring", status: "paid" }),
       }),
-    });
-    expect((await verify(withConsent)("id=tr_test_001", {}))?.consentId).toBe("consent-1");
-    const invalid = buildClient({
-      subResolve: buildMockSubscription({
-        metadata: { tenantId: "tenant-test", priceId: "plan_pro", consentId: "bad id!" },
-      }),
-    });
-    expect(await verify(invalid)("id=tr_test_001", {})).not.toHaveProperty("consentId");
+    )("id=tr_renewal_001", {});
+    expect(recurring).not.toHaveProperty("providerCheckoutId");
   });
 
   test("recurring-payment paid → invoicePaid", async () => {
@@ -221,28 +217,22 @@ describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-pa
     });
   });
 
-  test("consentId from the first payment is copied onto the created subscription's metadata", async () => {
+  test("the created subscription's event carries the first payment as providerCheckoutId", async () => {
     const client = buildClient({
       paymentResolve: buildMockPayment({
         subscriptionId: null,
         sequenceType: "first",
         status: "paid",
-        metadata: { tenantId: "tenant-test", priceId: "plan_pro", consentId: "consent-1" },
+        metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
       }),
       listResolve: [],
       createResolve: buildMockSubscription({
         id: "sub_just_created",
-        metadata: { tenantId: "tenant-test", priceId: "plan_pro", consentId: "consent-1" },
+        metadata: { tenantId: "tenant-test", priceId: "plan_pro" },
       }),
     });
     const event = await verify(client)("id=tr_first_paid_001", {});
-    expect(event?.consentId).toBe("consent-1");
-    expect(client.customerSubscriptions.create).toHaveBeenCalledWith(
-      "cst_test_001",
-      expect.objectContaining({
-        metadata: { tenantId: "tenant-test", priceId: "plan_pro", consentId: "consent-1" },
-      }),
-    );
+    expect(event).toMatchObject({ providerCheckoutId: "tr_test_001" });
   });
 
   test("Replay (Mollie sends webhook again) → list finds existing active sub for priceId → no second create", async () => {

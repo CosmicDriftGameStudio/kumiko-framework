@@ -18,6 +18,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   paymentAggregateId,
   subscriptionAggregateId,
@@ -48,16 +49,14 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { PADDLE_INIT_SCRIPT } from "../checkout-page.ts";
 import { PADDLE_CHECKOUT_PATH } from "../constants.ts";
 import { createSubscriptionPaddleFeature } from "../feature.ts";
-import { signTenantBinding } from "../tenant-binding.ts";
 import {
-  boundCustomData,
   createSendMock,
   envelope,
   type RecordedCall,
   subscriptionData,
   TEST_API_KEY,
-  TEST_BINDING_KEY,
   TEST_WEBHOOK_SECRET,
+  tenantCustomData,
   webhookHeaders,
 } from "./paddle-test-kit.ts";
 
@@ -66,6 +65,8 @@ const CLIENT_TOKEN_CONFIG_QN = "subscription-paddle:config:client-token";
 const PRICE_TO_TIER = { pri_starter: "starter", pri_pro: "pro" };
 const ONE_OFF_PRICE = "pri_topup";
 const CLIENT_TOKEN = "test_integration_client_token";
+
+let transactionCounter = 0;
 
 function respondLikePaddle(call: RecordedCall) {
   if (call.method === "GET" && call.url.includes("/prices")) {
@@ -83,12 +84,14 @@ function respondLikePaddle(call: RecordedCall) {
       },
     };
   }
-  if (call.url.endsWith("/transactions")) {
+  if (call.method === "POST" && call.url.endsWith("/transactions")) {
+    transactionCounter += 1;
+    const id = `txn_${transactionCounter}`;
     return {
       body: {
         data: {
-          id: "txn_1",
-          checkout: { url: "https://app.example.com/billing/paddle-checkout?_ptxn=txn_1" },
+          id,
+          checkout: { url: `https://app.example.com/billing/paddle-checkout?_ptxn=${id}` },
         },
       },
     };
@@ -149,7 +152,6 @@ beforeAll(async () => {
       createSubscriptionPaddleFeature({
         apiKey: TEST_API_KEY,
         webhookSecret: TEST_WEBHOOK_SECRET,
-        tenantBindingKey: TEST_BINDING_KEY,
         priceToTier: PRICE_TO_TIER,
         oneOffPriceIds: [ONE_OFF_PRICE],
         send: paddle.send,
@@ -220,15 +222,56 @@ async function subscriptionsOf(tenantNumber: number) {
   )) as SubscriptionRows;
 }
 
+function transactionIdOf(checkout: { readonly url: string }): string {
+  return new URL(checkout.url).searchParams.get("_ptxn") ?? "";
+}
+
+async function openPlanCheckout(tenantNumber: number, tier: string): Promise<string> {
+  const result = (await stack.http.writeOk(
+    SubscriptionFoundationHandlers.startPlanCheckout,
+    { tier },
+    adminFor(tenantNumber),
+  )) as { url: string };
+  return transactionIdOf(result);
+}
+
+async function openOneOffCheckout(tenantNumber: number): Promise<string> {
+  const result = (await stack.http.writeOk(
+    SubscriptionFoundationHandlers.createCheckoutSession,
+    {
+      providerName: "paddle",
+      priceId: ONE_OFF_PRICE,
+      successUrl: "https://app.example.com/billing/success",
+      cancelUrl: "https://app.example.com/billing/cancel",
+      mode: "payment",
+    },
+    adminFor(tenantNumber),
+  )) as { url: string };
+  return transactionIdOf(result);
+}
+
+function oneOffTransaction(tenantNumber: number, transactionId: string, quantity?: number) {
+  return {
+    id: transactionId,
+    subscription_id: null,
+    customer_id: `ctm_${tenantNumber}`,
+    custom_data: tenantCustomData(testTenantId(tenantNumber)),
+    items: [{ price: { id: ONE_OFF_PRICE }, ...(quantity !== undefined && { quantity }) }],
+  };
+}
+
 async function activateSubscription(tenantNumber: number, priceId = "pri_starter") {
+  const tier = priceId === "pri_pro" ? "pro" : "starter";
+  const transactionId = await openPlanCheckout(tenantNumber, tier);
   const response = await postPaddleWebhook(
     `evt_${tenantNumber}_created`,
     "subscription.created",
     subscriptionData({
       id: `sub_${tenantNumber}`,
+      transaction_id: transactionId,
       customer_id: `ctm_${tenantNumber}`,
       items: [{ price: { id: priceId } }],
-      custom_data: boundCustomData(testTenantId(tenantNumber)),
+      custom_data: tenantCustomData(testTenantId(tenantNumber)),
     }),
   );
   expect(response.status).toBe(200);
@@ -303,7 +346,7 @@ describe("checkout page", () => {
 });
 
 describe("webhook", () => {
-  test("a signed subscription.created with a valid binding writes the subscription", async () => {
+  test("a signed subscription.created for a checkout the server opened writes the subscription", async () => {
     await activateSubscription(8101);
     const { rows } = await subscriptionsOf(8101);
     expect(rows).toHaveLength(1);
@@ -320,32 +363,33 @@ describe("webhook", () => {
     const response = await postPaddleWebhook(
       "evt_8102",
       "subscription.created",
-      subscriptionData({ custom_data: boundCustomData(testTenantId(8102)) }),
+      subscriptionData({ custom_data: tenantCustomData(testTenantId(8102)) }),
       { secret: "not-the-secret" },
     );
     expect(response.status).toBe(401);
     expect((await subscriptionsOf(8102)).rows).toHaveLength(0);
   });
 
-  test("an event naming a foreign tenant without that tenant's binding is ignored", async () => {
+  test("an event naming a foreign tenant's tenantId without a checkout of that tenant is ignored", async () => {
     const victim = 8103;
     const attacker = 8104;
     await activateSubscription(victim, "pri_starter");
     const before = (await subscriptionsOf(victim)).rows[0];
 
     // Valid Paddle signature, as if Paddle.js opened a checkout with forged customData.
-    const forgedBinding = signTenantBinding(TEST_BINDING_KEY, testTenantId(attacker));
-    for (const [suffix, custom_data] of [
-      ["unbound", { tenantId: testTenantId(victim) }],
-      ["borrowed", { tenantId: testTenantId(victim), tenantBinding: forgedBinding }],
+    const attackerTransaction = await openPlanCheckout(attacker, "pro");
+    for (const [suffix, type, transaction_id] of [
+      ["updated", "subscription.updated", attackerTransaction],
+      ["created", "subscription.created", attackerTransaction],
     ] as const) {
       const response = await postPaddleWebhook(
         `evt_${victim}_${suffix}`,
-        "subscription.updated",
+        type,
         subscriptionData({
           id: `sub_forged_${suffix}`,
+          transaction_id,
           items: [{ price: { id: "pri_pro" } }],
-          custom_data,
+          custom_data: tenantCustomData(testTenantId(victim)),
         }),
       );
       expect(response.status).toBe(200);
@@ -357,16 +401,15 @@ describe("webhook", () => {
     expect((await subscriptionsOf(attacker)).rows).toHaveLength(0);
   });
 
-  test("a one-off transaction.completed with a valid binding writes a payment row", async () => {
+  test("a transaction.completed for a one-off checkout the server opened writes a payment row", async () => {
     const tenantNumber = 8105;
     const tenantId = testTenantId(tenantNumber);
-    const response = await postPaddleWebhook("evt_8105_txn", "transaction.completed", {
-      id: "txn_8105",
-      subscription_id: null,
-      customer_id: "ctm_8105",
-      custom_data: boundCustomData(tenantId),
-      items: [{ price: { id: ONE_OFF_PRICE } }],
-    });
+    const transactionId = await openOneOffCheckout(tenantNumber);
+    const response = await postPaddleWebhook(
+      "evt_8105_txn",
+      "transaction.completed",
+      oneOffTransaction(tenantNumber, transactionId),
+    );
     expect(response.status).toBe(200);
     const rows = await selectMany(stack.db, paymentsProjectionTable, { tenantId });
     expect(rows).toHaveLength(1);
@@ -374,30 +417,32 @@ describe("webhook", () => {
   });
 
   test("the bought quantity reaches the stored payment event, and defaults to 1", async () => {
-    const packs = testTenantId(8106);
-    const single = testTenantId(8107);
-    for (const [tenantId, id, items] of [
-      [packs, "txn_8106", [{ price: { id: ONE_OFF_PRICE }, quantity: 3 }]],
-      [single, "txn_8107", [{ price: { id: ONE_OFF_PRICE } }]],
+    const packs = 8106;
+    const single = 8107;
+    for (const [tenantNumber, quantity] of [
+      [packs, 3],
+      [single, undefined],
     ] as const) {
-      const response = await postPaddleWebhook(`evt_${id}`, "transaction.completed", {
-        id,
-        subscription_id: null,
-        customer_id: `ctm_${id}`,
-        custom_data: boundCustomData(tenantId),
-        items,
-      });
+      const transactionId = await openOneOffCheckout(tenantNumber);
+      const response = await postPaddleWebhook(
+        `evt_txn_${tenantNumber}`,
+        "transaction.completed",
+        oneOffTransaction(tenantNumber, transactionId, quantity),
+      );
       expect(response.status).toBe(200);
     }
-    const quantityOf = async (tenantId: typeof packs) =>
-      (await loadAggregate(stack.db, paymentAggregateId(tenantId), tenantId))[0]?.payload;
-    expect(await quantityOf(packs)).toMatchObject({ priceId: ONE_OFF_PRICE, quantity: 3 });
-    expect(await quantityOf(single)).toMatchObject({ priceId: ONE_OFF_PRICE, quantity: 1 });
+    const paymentOf = async (tenantNumber: number) => {
+      const tenantId = testTenantId(tenantNumber);
+      const events = await loadAggregate(stack.db, paymentAggregateId(tenantId), tenantId);
+      return events.find((event) => event.type.endsWith("payment-received"))?.payload;
+    };
+    expect(await paymentOf(packs)).toMatchObject({ priceId: ONE_OFF_PRICE, quantity: 3 });
+    expect(await paymentOf(single)).toMatchObject({ priceId: ONE_OFF_PRICE, quantity: 1 });
   });
 });
 
 describe("checkout", () => {
-  test("start-plan-checkout creates a bound transaction and returns the page url with relative targets", async () => {
+  test("start-plan-checkout creates a transaction and returns the page url with relative targets", async () => {
     const admin = adminFor(8110);
     const result = (await stack.http.writeOk(
       SubscriptionFoundationHandlers.startPlanCheckout,
@@ -409,15 +454,12 @@ describe("checkout", () => {
     expect(transaction?.authorization).toBe(`Bearer ${TEST_API_KEY}`);
     expect(transaction?.body).toMatchObject({
       items: [{ price_id: "pri_pro", quantity: 1 }],
-      custom_data: {
-        tenantId: admin.tenantId,
-        tenantBinding: signTenantBinding(TEST_BINDING_KEY, admin.tenantId),
-      },
+      custom_data: { tenantId: admin.tenantId },
     });
     expect(transaction?.body).not.toHaveProperty("checkout");
     const url = new URL(result.url);
     expect(url.pathname).toBe(PADDLE_CHECKOUT_PATH);
-    expect(url.searchParams.get("_ptxn")).toBe("txn_1");
+    expect(url.searchParams.get("_ptxn")).toBe(`txn_${transactionCounter}`);
     expect(url.searchParams.get("success")).toBe("/billing/success");
     expect(url.searchParams.get("cancel")).toBe("/billing/cancel");
   });
@@ -432,5 +474,59 @@ describe("checkout", () => {
     const response = await stack.app.request(`${url.pathname}${url.search}`);
     expect(response.status).toBe(200);
     expect(await response.text()).toContain('data-success-url="/billing/success"');
+  });
+});
+
+describe("checkout ledger: webhooks for checkouts the server never opened", () => {
+  async function openLegitCheckoutAndCaptureCustomData(tenantNumber: number) {
+    paddle.calls.length = 0;
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      { tier: "pro" },
+      adminFor(tenantNumber),
+    );
+    const transaction = paddle.calls.find((call) => call.url.endsWith("/transactions"));
+    const customData = propertyOf(transaction?.body, "custom_data");
+    if (!isPlainObject(customData)) throw new Error("checkout transaction carried no custom_data");
+    return customData;
+  }
+
+  test("a transaction.completed for a foreign transaction id with replayed custom_data writes no payment", async () => {
+    const tenantNumber = 8120;
+    const tenantId = testTenantId(tenantNumber);
+    const customData = await openLegitCheckoutAndCaptureCustomData(tenantNumber);
+
+    const response = await postPaddleWebhook("evt_8120_forged_txn", "transaction.completed", {
+      id: "txn_forged_8120",
+      subscription_id: null,
+      customer_id: "ctm_8120",
+      custom_data: { ...customData, consentId: "forged-consent" },
+      items: [{ price: { id: ONE_OFF_PRICE } }],
+    });
+    expect(response.status).toBe(200);
+    expect(await selectMany(stack.db, paymentsProjectionTable, { tenantId })).toHaveLength(0);
+    expect(
+      await loadAggregate(stack.db, paymentAggregateId(tenantId), tenantId),
+    ).not.toContainEqual(
+      expect.objectContaining({ type: expect.stringContaining("payment-received") }),
+    );
+  });
+
+  test("a subscription.created naming an unknown transaction with replayed custom_data writes no subscription", async () => {
+    const tenantNumber = 8121;
+    const customData = await openLegitCheckoutAndCaptureCustomData(tenantNumber);
+
+    const response = await postPaddleWebhook(
+      "evt_8121_forged_sub",
+      "subscription.created",
+      subscriptionData({
+        id: "sub_forged_8121",
+        transaction_id: "txn_forged_8121",
+        items: [{ price: { id: "pri_pro" } }],
+        custom_data: customData,
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect((await subscriptionsOf(tenantNumber)).rows).toHaveLength(0);
   });
 });

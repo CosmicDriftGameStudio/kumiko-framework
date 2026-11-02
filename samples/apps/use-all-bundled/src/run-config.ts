@@ -222,7 +222,6 @@ export const APP_FEATURES = [
   createSubscriptionPaddleFeature({
     apiKey: "paddle_smoke",
     webhookSecret: "pdl_ntfset_smoke",
-    tenantBindingKey: "paddle_smoke_binding_key",
     clientToken: "test_smoke_client_token",
     priceToTier: { pri_smoke: "free" },
   }),

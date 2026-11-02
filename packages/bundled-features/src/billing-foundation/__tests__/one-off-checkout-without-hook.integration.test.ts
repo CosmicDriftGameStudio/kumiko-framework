@@ -29,6 +29,7 @@ const providerFeature = defineFeature("test-no-hook-provider", (r) => {
     oneOffPriceIds: [ONE_OFF_PRICE],
     createCheckoutSession: async (_ctx, options) => ({
       url: `https://mock.example/checkout/${options.priceId}`,
+      providerCheckoutId: `cs_${options.priceId}`,
     }),
   };
   r.useExtension("subscriptionProvider", "mock", plugin);

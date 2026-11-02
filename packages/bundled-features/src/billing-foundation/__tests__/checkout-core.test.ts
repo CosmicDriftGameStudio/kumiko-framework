@@ -192,7 +192,10 @@ describe("assertCheckoutAllowed — caller-supplied gate results", () => {
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: async () => null,
       priceToTier: { price_pro: "pro" },
-      createCheckoutSession: async () => ({ url: "https://pay.test/s" }),
+      createCheckoutSession: async () => ({
+        url: "https://pay.test/s",
+        providerCheckoutId: "cs_test",
+      }),
       isBillingEnabled: async () => {
         calls.billingEnabled += 1;
         return billingEnabled;

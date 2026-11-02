@@ -40,7 +40,10 @@ export function createMollieCheckoutSession(
   priceToConfig: Readonly<Record<string, MolliePriceConfig>>,
   appWebhookUrl: string,
 ) {
-  return async (_ctx: HandlerContext, options: MollieCheckoutOptions): Promise<{ url: string }> => {
+  return async (
+    _ctx: HandlerContext,
+    options: MollieCheckoutOptions,
+  ): Promise<{ url: string; providerCheckoutId: string }> => {
     const priceCfg = priceToConfig[options.priceId];
     if (!priceCfg) {
       throw new Error(`subscription-mollie: priceId "${options.priceId}" not in priceToConfig-Map`);
@@ -81,7 +84,6 @@ export function createMollieCheckoutSession(
       metadata: {
         tenantId: options.tenantId,
         priceId: options.priceId,
-        ...(options.consentId && { consentId: options.consentId }),
       },
     }) as Promise<Payment>)) satisfies Payment; // @cast-boundary engine-bridge
 
@@ -93,6 +95,6 @@ export function createMollieCheckoutSession(
         `subscription-mollie: payment.getCheckoutUrl() returned null (sequenceType=${sequenceType})${mandateHint}`,
       );
     }
-    return { url: checkoutHref };
+    return { url: checkoutHref, providerCheckoutId: payment.id };
   };
 }

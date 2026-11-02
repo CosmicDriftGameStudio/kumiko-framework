@@ -42,6 +42,11 @@ import { createBillingFoundationFeature } from "../feature.ts";
 import { createSubscriptionTierSync } from "../subscription-tier-sync.ts";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.ts";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../web/constants.ts";
+import {
+  ledgerWriteAs,
+  openSubscriptionCheckout,
+  priceIdForTier,
+} from "./ledgered-subscription.ts";
 
 type TestTier = "free" | "pro" | "enterprise";
 const isTierName = (v: string): v is TestTier => v === "free" || v === "pro" || v === "enterprise";
@@ -51,11 +56,18 @@ const TEST_TIER_MAP: TierMap<{ readonly maxItems: number }> = {
   enterprise: { features: [], caps: { maxItems: 1000 } },
 };
 
+const PRICE_TO_TIER: Readonly<Record<string, string>> = {
+  price_free: "free",
+  price_pro: "pro",
+  price_enterprise: "enterprise",
+};
+
 function mockProviderFeature() {
   return defineFeature("test-mock-tier-sync-provider", (r) => {
     r.requires({ features: ["billing-foundation"] });
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent,
+      priceToTier: PRICE_TO_TIER,
     };
     r.useExtension("subscriptionProvider", "mock", plugin);
   });
@@ -102,9 +114,20 @@ function buildEvent(
 }
 
 async function postWebhook(stack: TestStack, path: string, event: SubscriptionEvent) {
+  const providerCheckoutId =
+    event.type === SubscriptionEventTypes.created
+      ? await openSubscriptionCheckout(ledgerWriteAs(stack, event.tenantId), {
+          providerName: event.providerName,
+          providerSubscriptionId: event.providerSubscriptionId,
+          priceId: priceIdForTier(PRICE_TO_TIER, event.tier),
+        })
+      : undefined;
   return stack.app.request(path.replace(":providerName", "mock"), {
     method: "POST",
-    body: JSON.stringify(event),
+    body: JSON.stringify({
+      ...event,
+      ...(providerCheckoutId !== undefined && { providerCheckoutId }),
+    }),
   });
 }
 

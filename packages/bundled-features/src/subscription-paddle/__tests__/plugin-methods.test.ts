@@ -13,7 +13,6 @@ import {
   createPaddleRetrieveSubscription,
 } from "../plan-switch-methods.ts";
 import { createPaddlePriceCache, createPaddleRetrievePrices } from "../price-methods.ts";
-import { isValidTenantBinding } from "../tenant-binding.ts";
 import {
   createSendMock,
   type MockReply,
@@ -22,7 +21,6 @@ import {
   stubCtx,
   subscriptionData,
   TEST_API_KEY,
-  TEST_BINDING_KEY,
 } from "./paddle-test-kit.ts";
 
 const SANDBOX_BASE = "https://sandbox-api.paddle.com";
@@ -58,7 +56,7 @@ describe("createCheckoutSession", () => {
     },
   });
 
-  test("creates the transaction with bound custom data, bearer auth and the sandbox host", async () => {
+  test("creates the transaction with tenant custom data, bearer auth and the sandbox host", async () => {
     const { runtime, calls } = setup(reply);
     const result = await createPaddleCheckoutSession(runtime)(stubCtx(), options);
     expect(calls).toHaveLength(1);
@@ -72,14 +70,12 @@ describe("createCheckoutSession", () => {
     expect(call?.headers["content-type"]).toBe("application/json");
     const body = call?.body as {
       items: unknown;
-      custom_data: { tenantId: string; tenantBinding: string };
+      custom_data: Record<string, unknown>;
     };
     expect(body.items).toEqual([{ price_id: "pri_pro", quantity: 1 }]);
     expect(body).not.toHaveProperty("checkout");
-    expect(body.custom_data.tenantId).toBe("tenant-paddle");
-    expect(
-      isValidTenantBinding(TEST_BINDING_KEY, "tenant-paddle", body.custom_data.tenantBinding),
-    ).toBe(true);
+    expect(body.custom_data).toEqual({ tenantId: "tenant-paddle" });
+    expect(result.providerCheckoutId).toBe("txn_1");
     expect(result.url).toBe(
       "https://app.example.com/billing/paddle-checkout?_ptxn=txn_1&success=%2Fbilling%2Fsuccess%3Fplan%3Dpro&cancel=%2Fbilling%2Fcancel",
     );
@@ -91,17 +87,16 @@ describe("createCheckoutSession", () => {
     expect(calls[0]?.url).toBe(`${LIVE_BASE}/transactions`);
   });
 
-  test("forwards customer, consentId and the locale", async () => {
+  test("forwards the customer and the locale", async () => {
     const { runtime, calls } = setup(reply);
     const result = await createPaddleCheckoutSession(runtime)(stubCtx(), {
       ...options,
       providerCustomerId: "ctm_1",
-      consentId: "consent-1",
       locale: "de",
     });
     expect(calls[0]?.body).toMatchObject({
       customer_id: "ctm_1",
-      custom_data: { tenantId: "tenant-paddle", consentId: "consent-1" },
+      custom_data: { tenantId: "tenant-paddle" },
     });
     expect(new URL(result.url).searchParams.get("locale")).toBe("de");
   });
@@ -116,19 +111,10 @@ describe("createCheckoutSession", () => {
 
   test("throws when no api key is configured anywhere", async () => {
     const mock = createSendMock(reply);
-    const runtime = makeRuntimes(mock.send, { tenantBindingKey: TEST_BINDING_KEY }).ctx;
+    const runtime = makeRuntimes(mock.send, {}).ctx;
     await expect(createPaddleCheckoutSession(runtime)(stubCtx(), options)).rejects.toBeInstanceOf(
       UnconfiguredError,
     );
-  });
-
-  test("throws when no tenant binding key is configured and makes no request", async () => {
-    const mock = createSendMock(reply);
-    const runtime = makeRuntimes(mock.send, { apiKey: TEST_API_KEY }).ctx;
-    await expect(createPaddleCheckoutSession(runtime)(stubCtx(), options)).rejects.toBeInstanceOf(
-      UnconfiguredError,
-    );
-    expect(mock.calls).toHaveLength(0);
   });
 
   test("a transaction without a checkout url is an error", async () => {
@@ -384,13 +370,12 @@ describe("in-app plan switch", () => {
     expect(preview).toMatchObject({ amountDueNow: 0, tax: null, currency: "eur", credit: 333 });
   });
 
-  test("apply re-sends the bound custom data and keeps the old plan on a failed charge", async () => {
+  test("apply re-sends the tenant custom data and keeps the old plan on a failed charge", async () => {
     const { runtime, calls } = setup();
     await createPaddleApplyPlanSwitch(runtime)(stubCtx(), {
       providerSubscriptionId: "sub_1",
       targetPriceId: "pri_pro",
       tenantId: "tenant-paddle",
-      consentId: "consent-1",
     });
     expect(calls[0]).toMatchObject({
       method: "PATCH",
@@ -399,23 +384,10 @@ describe("in-app plan switch", () => {
         items: [{ price_id: "pri_pro", quantity: 1 }],
         proration_billing_mode: "prorated_immediately",
         on_payment_failure: "prevent_change",
-        custom_data: { tenantId: "tenant-paddle", consentId: "consent-1" },
+        custom_data: { tenantId: "tenant-paddle" },
       },
     });
-    const sent = customDataOf(calls[0]);
-    expect(
-      isValidTenantBinding(TEST_BINDING_KEY, "tenant-paddle", String(sent["tenantBinding"])),
-    ).toBe(true);
-  });
-
-  test("apply without a consent leaves consentId out", async () => {
-    const { runtime, calls } = setup();
-    await createPaddleApplyPlanSwitch(runtime)(stubCtx(), {
-      providerSubscriptionId: "sub_1",
-      targetPriceId: "pri_pro",
-      tenantId: "tenant-paddle",
-    });
-    expect("consentId" in customDataOf(calls[0])).toBe(false);
+    expect(customDataOf(calls[0])).toEqual({ tenantId: "tenant-paddle" });
   });
 });
 
@@ -473,14 +445,12 @@ describe("retrieveSubscription", () => {
 });
 
 describe("isBillingEnabled", () => {
-  test("needs billingLive, an api key and a tenant binding key", async () => {
+  test("needs billingLive and an api key", async () => {
     const mock = createSendMock();
     const complete = makeRuntimes(mock.send).ctx;
     expect(await complete.isBillingEnabled(stubCtx({ billingLive: true }))).toBe(true);
     expect(await complete.isBillingEnabled(stubCtx({ billingLive: false }))).toBe(false);
-    const noKey = makeRuntimes(mock.send, { tenantBindingKey: TEST_BINDING_KEY }).ctx;
+    const noKey = makeRuntimes(mock.send, {}).ctx;
     expect(await noKey.isBillingEnabled(stubCtx({ billingLive: true }))).toBe(false);
-    const noBinding = makeRuntimes(mock.send, { apiKey: TEST_API_KEY }).ctx;
-    expect(await noBinding.isBillingEnabled(stubCtx({ billingLive: true }))).toBe(false);
   });
 });

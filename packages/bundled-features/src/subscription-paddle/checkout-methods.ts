@@ -4,7 +4,6 @@
 import { SubscriptionCancelTimings } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import * as z from "zod";
 import type { PaddleCtxRuntime, PaddlePluginMethod } from "./runtime.ts";
-import { signTenantBinding } from "./tenant-binding.ts";
 
 export function paddleSubscriptionPath(providerSubscriptionId: string): string {
   return `/subscriptions/${encodeURIComponent(providerSubscriptionId)}`;
@@ -28,7 +27,6 @@ export function createPaddleCheckoutSession(
   return async (ctx, options) => {
     // No Paddle transaction may be created while billing is not live.
     await runtime.assertBillingLive(ctx);
-    const bindingKey = await runtime.tenantBindingKey(ctx);
     // No `checkout.url` in the body: Paddle rejects unapproved domains and otherwise
     // answers with the dashboard's Default Payment Link plus `?_ptxn=`.
     const { data } = checkoutResponseSchema.parse(
@@ -38,11 +36,7 @@ export function createPaddleCheckoutSession(
         body: {
           items: [{ price_id: options.priceId, quantity: 1 }],
           ...(options.providerCustomerId && { customer_id: options.providerCustomerId }),
-          custom_data: {
-            tenantId: options.tenantId,
-            tenantBinding: signTenantBinding(bindingKey, options.tenantId),
-            ...(options.consentId && { consentId: options.consentId }),
-          },
+          custom_data: { tenantId: options.tenantId },
         },
       }),
     );
@@ -53,7 +47,7 @@ export function createPaddleCheckoutSession(
     url.searchParams.set("success", relativeTarget(options.successUrl));
     url.searchParams.set("cancel", relativeTarget(options.cancelUrl));
     if (options.locale) url.searchParams.set("locale", options.locale);
-    return { url: url.href };
+    return { url: url.href, providerCheckoutId: data.id };
   };
 }
 

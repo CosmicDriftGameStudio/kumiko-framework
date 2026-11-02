@@ -31,6 +31,12 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import Stripe from "stripe";
+import {
+  checkoutIdFor,
+  ledgerWriteAs,
+  openSubscriptionCheckout,
+} from "../../billing-foundation/__tests__/ledgered-subscription.ts";
+import { CHECKOUT_OPENED_EVENT_QN } from "../../billing-foundation/events.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigAccessorFactory } from "../../config/feature.ts";
 import { configValuesTable, createConfigFeature } from "../../config/index.ts";
@@ -65,6 +71,23 @@ let db: DbConnection;
 
 const stripeForFixtures = new Stripe(TEST_API_KEY);
 
+// customer.subscription.created resolves its checkout session at Stripe; this local API answers
+// that list call with the checkout id the test seeded into the ledger.
+const fixtureApi = Bun.serve({
+  port: 0,
+  fetch: (request) => {
+    const url = new URL(request.url);
+    if (url.pathname !== "/v1/checkout/sessions") return new Response("{}", { status: 404 });
+    const subscription = url.searchParams.get("subscription") ?? "";
+    return Response.json({
+      object: "list",
+      data: [{ id: checkoutIdFor("stripe", subscription), object: "checkout.session" }],
+      has_more: false,
+      url: url.pathname,
+    });
+  },
+});
+
 beforeAll(async () => {
   // subscription-stripe now requires config and secrets. Scenarios 1–4 use
   // the factory fallback (no system secret is seeded and no systemSecrets are
@@ -73,6 +96,12 @@ beforeAll(async () => {
     webhookSecret: TEST_SECRET,
     apiKey: TEST_API_KEY,
     priceToTier: PRICE_TO_TIER,
+    clientConfig: {
+      host: "127.0.0.1",
+      port: fixtureApi.port,
+      protocol: "http",
+      maxNetworkRetries: 0,
+    },
   });
 
   const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
@@ -119,6 +148,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  await fixtureApi.stop(true);
 });
 
 // =============================================================================
@@ -133,7 +163,6 @@ function buildStripeSubscriptionEvent(overrides: {
   customerId?: string;
   subscriptionId?: string;
   eventType?: string;
-  consentId?: string;
   created?: number;
 }) {
   const eventId = overrides.eventId ?? "evt_integration_001";
@@ -154,7 +183,6 @@ function buildStripeSubscriptionEvent(overrides: {
         status: overrides.status ?? "active",
         metadata: {
           tenantId: overrides.tenantId ?? "tenant-int-1",
-          ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
         },
         items: {
           object: "list",
@@ -180,7 +208,37 @@ async function signEvent(payload: string, secret = TEST_SECRET): Promise<string>
   });
 }
 
+async function stateEventsOf(tenantId: string) {
+  const events = await loadAggregate(db, subscriptionAggregateId(tenantId), tenantId);
+  return events.filter((event) => event.type !== CHECKOUT_OPENED_EVENT_QN);
+}
+
+// A created subscription is only admitted for a checkout the server opened, so the ledger entry
+// is recorded before the webhook arrives (idempotent across retries).
+async function openLedgerForCreated(payload: string): Promise<void> {
+  const event = JSON.parse(payload) as {
+    type: string;
+    data: {
+      object: {
+        id: string;
+        metadata: { tenantId: string };
+        items: { data: Array<{ price: { id: string } }> };
+      };
+    };
+  };
+  if (event.type !== "customer.subscription.created") return;
+  const subscription = event.data.object;
+  const priceId = subscription.items.data[0]?.price.id;
+  if (priceId === undefined) return;
+  await openSubscriptionCheckout(ledgerWriteAs(stack, subscription.metadata.tenantId), {
+    providerName: "stripe",
+    providerSubscriptionId: subscription.id,
+    priceId,
+  });
+}
+
 async function postStripeWebhook(payload: string, sig: string) {
+  await openLedgerForCreated(payload);
   return stack.app.request("/api/subscription/webhook/stripe", {
     method: "POST",
     body: payload,
@@ -230,11 +288,7 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
     // plugin (foundation side) and the expected UUID.
     expect(subs.rows[0]?.["id"]).toBe(subscriptionAggregateId(tenantStringId));
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(tenantStringId),
-      tenantStringId,
-    );
+    const esEvents = await stateEventsOf(tenantStringId);
     expect(esEvents).toHaveLength(1);
     expect(esEvents[0]?.type).toBe("billing-foundation:event:subscription-created");
     expect(esEvents[0]?.metadata.headers?.["providerName"]).toBe("stripe");
@@ -277,11 +331,7 @@ describe("scenario 1a: provider PII never reaches the event store", () => {
     const res = await postStripeWebhook(payload, await signEvent(payload));
     expect(res.status).toBe(200);
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(tenantStringId),
-      tenantStringId,
-    );
+    const esEvents = await stateEventsOf(tenantStringId);
     expect(esEvents).toHaveLength(1);
     expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_4150_pii");
     expect(esEvents[0]?.metadata.headers).not.toHaveProperty("rawPayload");
@@ -300,32 +350,6 @@ describe("scenario 1a: provider PII never reaches the event store", () => {
     ]) {
       expect(stored).not.toContain(secret);
     }
-  });
-});
-
-describe("scenario 1b: consentId from webhook metadata is persisted", () => {
-  test("metadata.consentId lands in the appended subscription event payload", async () => {
-    const tenantStringId = testTenantId(4101);
-    const payload = JSON.stringify(
-      buildStripeSubscriptionEvent({
-        eventId: "evt_4101_consent",
-        tenantId: tenantStringId,
-        subscriptionId: "sub_4101",
-        customerId: "cus_4101",
-        consentId: "consent-4101",
-      }),
-    );
-
-    const res = await postStripeWebhook(payload, await signEvent(payload));
-    expect(res.status).toBe(200);
-
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(tenantStringId),
-      tenantStringId,
-    );
-    expect(esEvents).toHaveLength(1);
-    expect(esEvents[0]?.payload).toMatchObject({ consentId: "consent-4101" });
   });
 });
 
@@ -388,11 +412,7 @@ describe("scenario 3: idempotency via Stripe-retry", () => {
     expect(body2.duplicate).toBe(true);
 
     // Drift pin: only one event exists in the subscription stream
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(tenantStringId),
-      tenantStringId,
-    );
+    const esEvents = await stateEventsOf(tenantStringId);
     expect(esEvents).toHaveLength(1);
   });
 });
@@ -517,11 +537,7 @@ describe("scenario 4b: customer.subscription.updated with a new price re-syncs t
     expect(subs.rows).toHaveLength(1);
     expect(subs.rows[0]?.["tier"]).toBe("business");
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(tenantStringId),
-      tenantStringId,
-    );
+    const esEvents = await stateEventsOf(tenantStringId);
     expect(esEvents).toHaveLength(2);
     expect(esEvents[1]?.type).toBe("billing-foundation:event:subscription-updated");
   });

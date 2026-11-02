@@ -37,7 +37,6 @@ import type {
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
   BillingEventKinds,
-  parseProviderConsentId,
   type SubscriptionEventType,
   SubscriptionEventTypes,
   type SubscriptionStatus,
@@ -165,19 +164,41 @@ export function verifyAndParseStripeWebhook(
       return null;
     }
 
-    const consentId = parseProviderConsentId(sub.metadata?.["consentId"]);
+    // Only the checkout ledger can vouch for a new subscription, so `created` must name its session.
+    const providerCheckoutId =
+      normalizedType === SubscriptionEventTypes.created
+        ? await findCheckoutSessionId(stripe, sub.id)
+        : undefined;
     return {
       providerEventId: event.id,
       providerName: STRIPE_PROVIDER_NAME,
       type: normalizedType,
       tenantId,
-      ...(consentId !== undefined && { consentId }),
+      ...(providerCheckoutId !== undefined && { providerCheckoutId }),
       providerCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
       providerSubscriptionId: sub.id,
       providerEventAt: Temporal.Instant.fromEpochMilliseconds(event.created * 1000).toString(),
       ...state,
     };
   };
+}
+
+// Only a failing Stripe API call is answered with 503 so Stripe redelivers. A successful empty
+// list means the subscription has no checkout session: the created event then carries no
+// checkout id and the foundation ignores it as not in the ledger.
+async function findCheckoutSessionId(
+  stripe: Stripe,
+  subscriptionId: string,
+): Promise<string | undefined> {
+  try {
+    const sessions = await stripe.checkout.sessions.list({
+      subscription: subscriptionId,
+      limit: 1,
+    });
+    return sessions.data[0]?.id;
+  } catch (error) {
+    throw transientProviderRejection(error);
+  }
 }
 
 // =============================================================================
@@ -423,13 +444,11 @@ async function parsePaymentEvent(
     return dropPaidSession(event, session, "missing_customer");
   }
 
-  const consentId = parseProviderConsentId(paymentIntent.metadata?.["consentId"]);
   return {
     kind: BillingEventKinds.payment,
     providerEventId: event.id,
     providerName: STRIPE_PROVIDER_NAME,
     tenantId,
-    ...(consentId !== undefined && { consentId }),
     providerCheckoutId: session.id,
     providerCustomerId,
     priceId,

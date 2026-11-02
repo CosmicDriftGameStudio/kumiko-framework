@@ -15,17 +15,14 @@ import {
   PADDLE_BILLING_LIVE_CONFIG,
   PADDLE_CLIENT_TOKEN_CONFIG,
   PADDLE_ENVIRONMENT_CONFIG,
-  PADDLE_TENANT_BINDING_KEY_CONFIG,
   PADDLE_WEBHOOK_SECRET_CONFIG,
   type PaddleEnvironment,
   SUBSCRIPTION_PADDLE_FEATURE,
 } from "../constants.ts";
 import { createPaddleRuntimes, type PaddleFallbacks } from "../runtime.ts";
-import { signTenantBinding } from "../tenant-binding.ts";
 
 export const TEST_WEBHOOK_SECRET = "pdl_ntfset_test_secret";
 export const TEST_API_KEY = "pdl_test_api_key_value";
-export const TEST_BINDING_KEY = "test-tenant-binding-key";
 export const TEST_CLIENT_TOKEN = "test_client_token_value";
 export const NOW_SECONDS = 1_770_000_000;
 
@@ -99,10 +96,6 @@ export const WEBHOOK_SECRET_HANDLE: ConfigKeyHandle<"text"> = {
   name: handleName(PADDLE_WEBHOOK_SECRET_CONFIG),
   type: "text",
 };
-export const TENANT_BINDING_KEY_HANDLE: ConfigKeyHandle<"text"> = {
-  name: handleName(PADDLE_TENANT_BINDING_KEY_CONFIG),
-  type: "text",
-};
 export const CLIENT_TOKEN_HANDLE: ConfigKeyHandle<"text"> = {
   name: handleName(PADDLE_CLIENT_TOKEN_CONFIG),
   type: "text",
@@ -134,7 +127,6 @@ export function stubCtx(
 export const DEFAULT_FALLBACK: PaddleFallbacks = {
   apiKey: TEST_API_KEY,
   webhookSecret: TEST_WEBHOOK_SECRET,
-  tenantBindingKey: TEST_BINDING_KEY,
   clientToken: TEST_CLIENT_TOKEN,
 };
 
@@ -142,7 +134,6 @@ export function makeRuntimes(send: PaddleSend, fallback: PaddleFallbacks = DEFAU
   return createPaddleRuntimes({
     apiKeyHandle: API_KEY_HANDLE,
     webhookSecretHandle: WEBHOOK_SECRET_HANDLE,
-    tenantBindingKeyHandle: TENANT_BINDING_KEY_HANDLE,
     clientTokenHandle: CLIENT_TOKEN_HANDLE,
     billingLiveHandle: BILLING_LIVE_HANDLE,
     environmentHandle: ENVIRONMENT_HANDLE,
@@ -151,17 +142,18 @@ export function makeRuntimes(send: PaddleSend, fallback: PaddleFallbacks = DEFAU
   });
 }
 
-export function boundCustomData(tenantId: string, extra: Record<string, unknown> = {}) {
-  return { tenantId, tenantBinding: signTenantBinding(TEST_BINDING_KEY, tenantId), ...extra };
+export function tenantCustomData(tenantId: string, extra: Record<string, unknown> = {}) {
+  return { tenantId, ...extra };
 }
 
 export function subscriptionData(overrides: Record<string, unknown> = {}) {
   return {
     id: "sub_paddle_1",
+    transaction_id: "txn_paddle_1",
     status: "active",
     customer_id: "ctm_paddle_1",
     items: [{ price: { id: "pri_pro" } }],
-    custom_data: boundCustomData("tenant-paddle", { consentId: "consent-1" }),
+    custom_data: tenantCustomData("tenant-paddle"),
     current_billing_period: { ends_at: "2026-12-01T10:00:00Z" },
     next_billed_at: "2026-12-01T10:00:00Z",
     scheduled_change: null,

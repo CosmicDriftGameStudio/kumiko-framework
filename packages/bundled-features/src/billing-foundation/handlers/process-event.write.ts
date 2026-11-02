@@ -7,9 +7,12 @@
 //      already-seen `metadata.providerEventId`. A provider replay
 //      (Stripe retry storm) has the same event ID → duplicate=true,
 //      with no second append.
-//   2. Type mapping: SubscriptionEvent.type (= normalized by the plugin)
+//   2. Admission (handler only, not the shared append): `created` needs a
+//      checkout from the server's ledger; every other type needs the tenant's
+//      current subscription or a ledgered checkout. Else the event is ignored.
+//   3. Type mapping: SubscriptionEvent.type (= normalized by the plugin)
 //      → one of the 5 ES event types.
-//   3. ctx.events.unsafeAppend — the inline projection materializes the
+//   4. ctx.events.unsafeAppend — the inline projection materializes the
 //      `read_subscriptions` row in the same TX.
 
 import {
@@ -21,8 +24,13 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
+import { findProviderPlugin } from "../checkout-core.ts";
+import { findCheckoutOpened } from "../checkout-ledger.ts";
 import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities.ts";
 import {
+  CHECKOUT_CONSENT_RECORDED_EVENT_QN,
+  type CheckoutOpenedPayload,
+  checkoutConsentRecordedPayloadSchema,
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAYMENT_FAILED_EVENT_QN,
   SUBSCRIPTION_AGGREGATE_TYPE,
@@ -75,7 +83,7 @@ export const processEventSchema = z.object({
   currentPeriodEndIso: z.string().min(1),
   cancelAtIso: z.string().min(1).nullable().optional(),
   providerEventAtIso: z.iso.datetime().optional(),
-  consentId: z.string().min(1).max(100).optional(),
+  providerCheckoutId: z.string().min(1).max(200).optional(),
 });
 export type ProcessEventPayload = z.infer<typeof processEventSchema>;
 
@@ -87,6 +95,12 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
   [SubscriptionEventTypes.invoicePaid]: INVOICE_PAID_EVENT_QN,
   [SubscriptionEventTypes.invoicePaymentFailed]: INVOICE_PAYMENT_FAILED_EVENT_QN,
 } satisfies Readonly<Record<string, string>>;
+
+const STATE_EVENT_QNS: ReadonlySet<string> = new Set([
+  SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+  SUBSCRIPTION_CANCELED_EVENT_QN,
+]);
 
 const STATE_EVENT_TYPES: ReadonlySet<string> = new Set([
   SubscriptionEventTypes.created,
@@ -152,6 +166,7 @@ export async function appendSubscriptionEvent(
   tenantId: string,
   rawPayload: ProcessEventPayload,
   now: Temporal.Instant = Temporal.Now.instant(),
+  consentId?: string,
 ): Promise<{
   readonly duplicate: boolean;
   readonly stale?: true;
@@ -245,7 +260,7 @@ export async function appendSubscriptionEvent(
     tier: payload.tier,
     currentPeriodEndIso: payload.currentPeriodEndIso,
     ...(payload.cancelAtIso !== undefined && { cancelAtIso: payload.cancelAtIso }),
-    ...(payload.consentId !== undefined && { consentId: payload.consentId }),
+    ...(consentId !== undefined && { consentId }),
     ...(payload.providerEventAtIso !== undefined && {
       providerEventAtIso: payload.providerEventAtIso,
     }),
@@ -294,6 +309,87 @@ function isStaleSubscriptionEvent(
   return !supersedesCurrent;
 }
 
+type Admission =
+  | { readonly admitted: true; readonly consentId?: string }
+  | { readonly admitted: false; readonly reason: string; readonly retry?: true };
+
+function isBoundToLedgerEntry(
+  ctx: HandlerContext,
+  entry: CheckoutOpenedPayload,
+  payload: ProcessEventPayload,
+): boolean {
+  const plugin = findProviderPlugin(ctx, payload.providerName)?.plugin;
+  return plugin?.priceToTier?.[entry.priceId] === payload.tier;
+}
+
+// A plan switch has no checkout of its own: its consent is the newest one recorded for the target
+// tier since the last stored state event, as long as no stored subscription event carries it yet.
+function pendingSwitchConsentId(
+  storedEvents: readonly { readonly type: string; readonly payload: unknown }[],
+  payload: ProcessEventPayload,
+): string | undefined {
+  let lastStateIndex = -1;
+  const carried = new Set<string>();
+  storedEvents.forEach((stored, index) => {
+    // skip: only subscription state events can carry a consent
+    if (!STATE_EVENT_QNS.has(stored.type)) return;
+    lastStateIndex = index;
+    const consentId = propertyOf(stored.payload, "consentId");
+    if (typeof consentId === "string") carried.add(consentId);
+  });
+  for (let index = storedEvents.length - 1; index > lastStateIndex; index--) {
+    const stored = storedEvents[index];
+    if (stored?.type !== CHECKOUT_CONSENT_RECORDED_EVENT_QN) continue;
+    const parsed = checkoutConsentRecordedPayloadSchema.safeParse(stored.payload);
+    if (!parsed.success) continue;
+    const consent = parsed.data;
+    if (
+      consent.mode === "subscription" &&
+      consent.tier === payload.tier &&
+      (consent.providerName === undefined || consent.providerName === payload.providerName) &&
+      !carried.has(consent.consentId)
+    ) {
+      return consent.consentId;
+    }
+  }
+  return undefined;
+}
+
+function admitProviderEvent(
+  ctx: HandlerContext,
+  storedEvents: readonly { readonly type: string; readonly payload: unknown }[],
+  current: SubscriptionView | null,
+  payload: ProcessEventPayload,
+): Admission {
+  const entry =
+    payload.providerCheckoutId === undefined
+      ? undefined
+      : findCheckoutOpened(storedEvents, {
+          providerName: payload.providerName,
+          providerCheckoutId: payload.providerCheckoutId,
+          mode: "subscription",
+        });
+  if (entry !== undefined && isBoundToLedgerEntry(ctx, entry, payload)) {
+    return { admitted: true, ...(entry.consentId !== undefined && { consentId: entry.consentId }) };
+  }
+  if (payload.type === SubscriptionEventTypes.created) {
+    return { admitted: false, reason: "checkout_not_in_ledger" };
+  }
+  // The provider does not guarantee order: an update that beats the `created` of its
+  // subscription must be redelivered, not dropped.
+  if (current === null)
+    return { admitted: false, reason: "subscription_not_yet_created", retry: true };
+  const isCurrentSubscription =
+    current.providerName === payload.providerName &&
+    current.providerSubscriptionId === payload.providerSubscriptionId;
+  if (!isCurrentSubscription) return { admitted: false, reason: "foreign_subscription" };
+  const switchConsentId =
+    payload.type === SubscriptionEventTypes.updated && current.tier !== payload.tier
+      ? pendingSwitchConsentId(storedEvents, payload)
+      : undefined;
+  return { admitted: true, ...(switchConsentId !== undefined && { consentId: switchConsentId }) };
+}
+
 export function createProcessEventHandler(now: () => Temporal.Instant): WriteHandlerDef {
   return {
     name: "process-event",
@@ -303,21 +399,39 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as ProcessEventPayload;
+      const aggId = subscriptionAggregateId(event.user.tenantId);
       const current = await getSubscriptionForTenant(ctx, event.user.tenantId);
+      const admission = admitProviderEvent(ctx, await ctx.events.load(aggId), current, payload);
+      if (!admission.admitted) {
+        ctx.obs.log?.warn(
+          `[billing-foundation:process-event] ignored ${payload.type} ${payload.providerEventId} (${admission.reason}): provider ${payload.providerName}`,
+        );
+        return {
+          isSuccess: true as const,
+          data: {
+            ignored: true as const,
+            reason: admission.reason,
+            ...(admission.retry === true && { retry: true as const }),
+            subscriptionAggregateId: aggId,
+          },
+        };
+      }
       if (isStaleSubscriptionEvent(current, payload, now())) {
         ctx.obs.log?.warn(
           `[billing-foundation:process-event] dropped stale ${payload.type} ${payload.providerEventId}: tenant already tracks another subscription`,
         );
         return {
           isSuccess: true as const,
-          data: {
-            duplicate: false,
-            stale: true,
-            subscriptionAggregateId: subscriptionAggregateId(event.user.tenantId),
-          },
+          data: { duplicate: false, stale: true, subscriptionAggregateId: aggId },
         };
       }
-      const result = await appendSubscriptionEvent(ctx, event.user.tenantId, payload, now());
+      const result = await appendSubscriptionEvent(
+        ctx,
+        event.user.tenantId,
+        payload,
+        now(),
+        admission.consentId,
+      );
       return { isSuccess: true as const, data: result };
     },
   };

@@ -52,6 +52,7 @@ import {
   SubscriptionStatuses,
 } from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
+import { ledgerWriteAs, openSubscriptionCheckout } from "./ledgered-subscription.ts";
 
 const PROVIDER = "mock-recipient-limit-provider";
 const TERMS_SLUG = "billing-terms";
@@ -219,10 +220,19 @@ async function seedMatchingContract(email: string): Promise<void> {
       createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
     ),
   );
+  const providerCheckoutId = await openSubscriptionCheckout(
+    ledgerWriteAs(stack, testTenantId(8301)),
+    {
+      providerName: PROVIDER,
+      providerSubscriptionId: "sub_recipient_limit",
+      priceId: "price_pro",
+    },
+  );
   const event: SubscriptionEvent = {
     providerEventId: "evt_recipient_limit",
     providerName: PROVIDER,
     type: SubscriptionEventTypes.created,
+    providerCheckoutId,
     tenantId: testTenantId(8301),
     providerCustomerId: "cus_recipient_limit",
     providerSubscriptionId: "sub_recipient_limit",
