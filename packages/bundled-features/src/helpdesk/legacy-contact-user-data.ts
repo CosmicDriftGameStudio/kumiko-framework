@@ -106,6 +106,7 @@ export const legacyContactExportHook: UserDataExportHook = async (ctx) => {
 };
 
 export const legacyContactDeleteHook: UserDataDeleteHook = async (ctx) => {
+  // skip: user has no pre-rename contact data to erase
   if (!(await hasLegacyContactData(ctx))) return;
   const kms = configuredPiiSubjectKms();
   const failures: string[] = [];

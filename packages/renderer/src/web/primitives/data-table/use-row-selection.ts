@@ -34,6 +34,7 @@ export function useRowSelection(rows: readonly ListRowViewModel[]): RowSelection
   const loadedIds = useMemo(() => new Set(rows.map((row) => row.id)), [rows]);
 
   useEffect(() => {
+    // skip: the pending reload may pass through an empty list; keep the retained rows
     if (rows.length === 0 && awaitingReload.current) return;
     awaitingReload.current = false;
     setSelectedIds((previous) => retained(previous, (id) => loadedIds.has(id)));

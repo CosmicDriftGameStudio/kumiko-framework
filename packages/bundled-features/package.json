@@ -147,6 +147,7 @@
     "./feature-toggles": "./src/feature-toggles/index.ts",
     "./feature-toggles/web": "./src/feature-toggles/web/index.ts",
     "./template-resolver": "./src/template-resolver/index.ts",
+    "./template-resolver/document-link-policy": "./src/template-resolver/web/document-link-policy.ts",
     "./template-resolver/document-schema": "./src/template-resolver/web/document-schema.ts",
     "./template-resolver/seeding": "./src/template-resolver/seeding.ts",
     "./template-resolver/testing": "./src/template-resolver/testing.ts",
@@ -707,6 +708,10 @@
       "./template-resolver": {
         "types": "./dist/template-resolver/index.d.ts",
         "default": "./dist/template-resolver/index.js"
+      },
+      "./template-resolver/document-link-policy": {
+        "types": "./dist/template-resolver/web/document-link-policy.d.ts",
+        "default": "./dist/template-resolver/web/document-link-policy.js"
       },
       "./template-resolver/document-schema": {
         "types": "./dist/template-resolver/web/document-schema.d.ts",

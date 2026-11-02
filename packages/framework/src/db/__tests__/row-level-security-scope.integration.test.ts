@@ -1,7 +1,7 @@
 // Ambient row-level-security scope against real Postgres, connected as a non-bypass application role.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
+import { applicationRoleUrlOf, createTestDb, type TestDb } from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID, type TenantId } from "../../engine/types/index.ts";
 import { AccessDeniedError } from "../../errors/index.ts";
 import { testTenantId } from "../../seeding/seed-users.ts";
@@ -11,7 +11,10 @@ import { hasExecutorManagedWriteCapability } from "../executor-managed-tables.ts
 import { applyTableRowLevelSecurity } from "../queries/ddl.ts";
 import { readRowLevelSecurityState } from "../queries/rls-catalog.ts";
 import { asRawClient, runInSavepoint, transaction } from "../query.ts";
-import { rowLevelSecurityModeOf } from "../row-level-security-connection.ts";
+import {
+  enforceRowLevelSecurity,
+  rowLevelSecurityModeOf,
+} from "../row-level-security-connection.ts";
 import {
   runInRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
@@ -56,7 +59,14 @@ const globalTable = defineUnmanagedTable({
 
 const tenantA = testTenantId(311);
 const tenantB = testTenantId(312);
+const SESSION_SCOPE = `SELECT coalesce(current_setting('kumiko.scope', true), '') AS scope`;
 const SELECT_LABELS = `SELECT label FROM "store_rls_scope_items" ORDER BY label`;
+
+function testDatabaseUrl(): string {
+  const url = process.env["TEST_DATABASE_URL"];
+  if (url === undefined) throw new Error("TEST_DATABASE_URL is not set");
+  return url;
+}
 
 let testDb: TestDb;
 let plainDb: TestDb;
@@ -205,14 +215,23 @@ describe("transactions", () => {
           [tenantA],
         ),
       );
-      await transaction(single.db, async (tx) => {
-        await asTenant(tenantA, () =>
-          asRawClient(tx).unsafe(`SELECT set_config('kumiko.scope', 'system', false)`),
-        );
-      });
-      await transaction(single.db, async (tx) => {
-        expect(await labelsOf(tx)).toEqual([]);
-      });
+      // A startup parameter is a session-level default, the leak a pooled connection could carry over.
+      const planted = enforceRowLevelSecurity(
+        new Bun.SQL(applicationRoleUrlOf(testDatabaseUrl(), single.dbName), {
+          max: 1,
+          connection: { "kumiko.scope": "system" },
+        }),
+      );
+      try {
+        expect(await asRawClient(planted).unsafe<{ scope: string }>(SESSION_SCOPE)).toEqual([
+          { scope: "system" },
+        ]);
+        await transaction(planted, async (tx) => {
+          expect(await labelsOf(tx)).toEqual([]);
+        });
+      } finally {
+        await planted.close();
+      }
     } finally {
       await single.cleanup();
     }
