@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contact us</title>
+    <link rel="stylesheet" href="/helpdesk-contact.css" />
+    <script src="/helpdesk/client.js" defer></script>
+    <script src="/helpdesk-contact.js" defer></script>
+  </head>
+  <body>
+    <main class="page">
+      <h1>Contact us</h1>
+      <p class="intro">Ask a question, request a quote or report a problem. We answer by email.</p>
+
+      <form id="contact-form" class="form">
+        <label class="field">
+          <span class="label">Topic</span>
+          <select id="kind" name="kind" required disabled></select>
+        </label>
+        <label class="field">
+          <span class="label">Name</span>
+          <input id="name" name="name" type="text" autocomplete="name" maxlength="120" required />
+        </label>
+        <label class="field">
+          <span class="label">Email</span>
+          <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required />
+        </label>
+        <label class="field" id="phone-field" hidden>
+          <span class="label">Phone</span>
+          <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="40" />
+        </label>
+        <label class="field">
+          <span class="label">Message</span>
+          <textarea id="message" name="message" rows="6" maxlength="5000" required></textarea>
+        </label>
+        <div class="trap" aria-hidden="true">
+          <label>
+            Website
+            <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" />
+          </label>
+        </div>
+        <button id="submit" class="button" type="submit" disabled>Send message</button>
+        <p class="privacy">
+          We use your details only to answer your message. See our
+          <a href="/legal/privacy">privacy policy</a>.
+        </p>
+      </form>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+  </body>
+</html>

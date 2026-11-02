@@ -18,7 +18,8 @@ SystemAdmins reply from the admin. Phone is off and Telegram is not mounted unle
 turns them on (`fields.phone`, `telegram: true`).
 
 **What the recipe demonstrates:**
-- Mounting `createHelpdeskFeature` with its companions (delivery, user-data-rights, files)
+- Mounting `createHelpdeskFeature` with its companions (config, delivery, user-data-rights,
+  files, notes-history)
 - The anonymous flow: `helpdesk:query:challenge` hands out a proof-of-work challenge,
   `helpdesk:write:submit` verifies it; spam gets the same 200 body and stores nothing
 - The browser client at `GET /helpdesk/client.js` (`window.KumikoHelpdesk.load()` / `submit()`)
@@ -48,12 +49,15 @@ bun test --config=bunfig.integration.toml samples/recipes/helpdesk
 ## Integration into a real app
 
 1. Mount `createHelpdeskFeature({ appName })` plus delivery, a mail channel, `user-data-rights`,
-   `files` with a file provider and `config`.
+   `files` with a file provider, `notes-history` and `config`.
 2. Run `kumiko schema generate` (new tables, plus the delivery `idempotency_key` column).
 3. SystemAdmins set `helpdesk:config:reply-to` in the admin.
-4. Embed `/helpdesk/client.js` on the website; the form is yours. A website served by another
-   server can serve the same script from `HELPDESK_CLIENT_SOURCE` and type its calls with
-   `HelpdeskWebsiteClient`, both from `@cosmicdrift/kumiko-bundled-features/helpdesk/client`.
+4. Embed `/helpdesk/client.js` on the website; the form is yours. The client posts to the
+   relative paths `/api/query` and `/api/write` without cookies, so the page has to share the
+   app's origin. A website served by another server forwards `/api` to the app on its own
+   origin; it can then serve the same script from `HELPDESK_CLIENT_SOURCE` and type its calls
+   with `HelpdeskWebsiteClient`, both from `@cosmicdrift/kumiko-bundled-features/helpdesk/client`.
+   `samples/apps/use-all-bundled/public/helpdesk-contact.html` (with `helpdesk-contact.js`) is a complete same-origin page.
 
 Telegram is optional and off by default: notifications go by mail to SystemAdmins only. An app
 that turns it on (`telegram: true`) also mounts `channel-telegram` and `secrets` for the bot
@@ -150,8 +154,10 @@ describe("helpdesk sample", () => {
 // captcha: honeypot field, single-use proof-of-work challenge, minimum submit time, per-IP
 // and per-email rate limits. Rejected submits answer 200 with the normal body.
 //
-// The website embeds the anonymous client the feature serves itself:
-//   <script src="https://api.example.com/helpdesk/client.js"></script>
+// The website embeds the anonymous client the feature serves itself. The client posts to the
+// relative paths /api/query and /api/write, so the page must share its origin with the app
+// (or forward /api to it on its own origin):
+//   <script src="/helpdesk/client.js"></script>
 //   const { kinds, phone } = await window.KumikoHelpdesk.load();
 //   const result = await window.KumikoHelpdesk.submit({ kind, name, email, message, locale });
 //   // result.kind: "sent" | "rate-limited" (retryAfterSeconds) | "failed"
@@ -159,7 +165,8 @@ describe("helpdesk sample", () => {
 // Prerequisites the app wires itself:
 //  - `anonymousAccess` (defaultTenantId = SYSTEM_TENANT_ID) so the form needs no login
 //  - delivery with a mail channel (channel-telegram only with `telegram: true`, off by default)
-//  - a file provider, because the entities carry file fields
+//  - config, user-data-rights and notes-history (required features)
+//  - files with a file provider, because the entities carry file fields
 //  - `kumiko schema generate` for the new tables
 
 import { createHelpdeskFeature } from "@cosmicdrift/kumiko-bundled-features/helpdesk";
