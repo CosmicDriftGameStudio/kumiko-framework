@@ -1847,6 +1847,7 @@ type WriteHandlerDef = {
   name: string;
   schema: ZodType;
   handler: WriteHandlerFn;
+  [ENTITY_CONVENTION_WRITE_BRAND]?: true; // Set only by defineEntityWriteHandler, which wires the parent-ref visibility gate.
   access: AccessRule;
   description?: string;
   agent?: AgentHandlerHints;

@@ -812,6 +812,7 @@
 | <a id="parent-ref-entity-id-field-unknown"></a>`parent-ref/entity-id-field-unknown` | parentRef.entityIdField names a declared field of the entity. | Point entityIdField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-entity-type-field-unknown"></a>`parent-ref/entity-type-field-unknown` | parentRef.entityTypeField names a declared field of the entity. | Point entityTypeField at a real field on the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="parent-ref-hand-written-query-handler"></a>`parent-ref/hand-written-query-handler` | Query handlers on an entity with parentRef carry the entity-convention brand, so the parent-ref read-gate applies. | Register the handler via defineEntityListHandler/defineEntityDetailHandler, or pass parentVisibility to the executor. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="parent-ref-hand-written-write-handler"></a>`parent-ref/hand-written-write-handler` | Update/delete/restore handlers on an entity with parentRef carry the entity-convention brand, so the parent visibility gate applies. | Register the handler via defineEntityWriteHandler, or pass parentVisibility: parentVisibilityFor(ctx, event.user) to the executor. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 
 ## personal-access-tokens
 

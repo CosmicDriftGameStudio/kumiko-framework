@@ -11,7 +11,10 @@ import type {
   PayloadRateLimitOption,
   RateLimitDeclaration,
 } from "@cosmicdrift/kumiko-types/handlers";
-import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
+import {
+  ENTITY_CONVENTION_QUERY_BRAND,
+  ENTITY_CONVENTION_WRITE_BRAND,
+} from "@cosmicdrift/kumiko-types/handlers";
 import type { CallExpression, Node, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type {
@@ -83,6 +86,7 @@ const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> 
   name: "modeled",
   schema: "modeled",
   handler: "modeled",
+  [ENTITY_CONVENTION_WRITE_BRAND]: "opaque",
   access: "modeled",
   description: "modeled",
   agent: "modeled",

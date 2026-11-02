@@ -27,6 +27,12 @@ export const ENTITY_DECLARATION_RULES = {
       "Query handlers on an entity with parentRef carry the entity-convention brand, so the parent-ref read-gate applies.",
     fix: "Register the handler via defineEntityListHandler/defineEntityDetailHandler, or pass parentVisibility to the executor.",
   },
+  parentRefHandWrittenWrite: {
+    id: "parent-ref/hand-written-write-handler",
+    summary:
+      "Update/delete/restore handlers on an entity with parentRef carry the entity-convention brand, so the parent visibility gate applies.",
+    fix: "Register the handler via defineEntityWriteHandler, or pass parentVisibility: parentVisibilityFor(ctx, event.user) to the executor.",
+  },
   readGateWithParentRef: {
     id: "read-gate/with-parent-ref",
     summary: "An entity with readGate does not also declare parentRef.",
