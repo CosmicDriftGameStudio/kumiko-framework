@@ -75,3 +75,7 @@ export const DESTRUCTION_STAGE_MIN_SLICE_MS = 2_000;
 // Sized for a queued app teardown (pod drain up to 330 s, database drop up to 180 s,
 // two teardowns in parallel) with headroom for several apps per tenant.
 export const DESTRUCTION_STAGE_MAX_PENDING_MS = 60 * 60_000;
+
+// The pending window only counts time the sweep was actually ticking: a gap between two pending
+// ticks longer than this (the app slept, the sweep does not wake it) adds just this much.
+export const DESTRUCTION_STAGE_MAX_PENDING_TICK_GAP_MS = 10 * 60_000;

@@ -166,6 +166,20 @@ describe("tenant-lifecycle :: pending destroy hook", () => {
     expect(await externalStageEvents(TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_QN)).toHaveLength(1);
   });
 
+  test("time the app slept between two pending ticks does not use up the window", async () => {
+    answerHook = (call) =>
+      call <= 2 ? { done: false, processed: 0, pending: true } : { done: true };
+    const start = afterGracePeriod();
+    const ticks = [0, 1, 2].map((day) => start.add({ hours: day * 24 }));
+
+    const status = await sweepUntilSettled(
+      (tick) => ticks[Math.min(tick, ticks.length - 1)] ?? start,
+    );
+
+    expect(status).toBe("destroyed");
+    expect(await externalStageEvents(TENANT_DESTRUCTION_STAGE_FAILED_EVENT_QN)).toHaveLength(0);
+  });
+
   test("a hook that stays pending past the window fails each attempt and is abandoned", async () => {
     answerHook = () => ({ done: false, processed: 0, pending: true });
     const start = afterGracePeriod();

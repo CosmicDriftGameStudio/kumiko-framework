@@ -29,6 +29,7 @@ import type { TenantDestructionHoldProvider } from "../shared/index.ts";
 import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../tenant/index.ts";
 import {
   DESTRUCTION_STAGE_MAX_PENDING_MS,
+  DESTRUCTION_STAGE_MAX_PENDING_TICK_GAP_MS,
   DESTRUCTION_STAGE_MIN_SLICE_MS,
   DESTRUCTION_STAGE_TICK_BUDGET_MS,
   TENANT_AGGREGATE_TYPE,
@@ -126,16 +127,46 @@ function currentAttemptStartedAt(
   return typeof startedAt === "string" ? getTemporal().Instant.from(startedAt) : started.createdAt;
 }
 
+function pendingTickInstants(
+  events: readonly StoredEvent[],
+  stageName: string,
+): Temporal.Instant[] {
+  const startIndex = events.findLastIndex(
+    (event) =>
+      event.type === qualified(TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT) &&
+      event.payload["stage"] === stageName,
+  );
+  const startedAt = currentAttemptStartedAt(events, stageName);
+  if (startIndex < 0 || startedAt === undefined) return [];
+  const instants = [startedAt];
+  for (const event of events.slice(startIndex + 1)) {
+    const tickAt = event.payload["tickAt"];
+    const isPendingTick =
+      event.type === qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT) &&
+      event.payload["stage"] === stageName &&
+      typeof tickAt === "string";
+    if (isPendingTick) instants.push(getTemporal().Instant.from(tickAt));
+  }
+  return instants;
+}
+
 function isPendingWindowOpen(
   events: readonly StoredEvent[],
   stageName: string,
   now: Temporal.Instant,
 ): boolean {
-  const startedAt = currentAttemptStartedAt(events, stageName);
-  return (
-    startedAt !== undefined &&
-    now.epochMilliseconds - startedAt.epochMilliseconds <= DESTRUCTION_STAGE_MAX_PENDING_MS
-  );
+  const instants = pendingTickInstants(events, stageName);
+  if (instants.length === 0) return false;
+  let tickingMs = 0;
+  let previous = instants[0];
+  for (const instant of [...instants.slice(1), now]) {
+    if (previous !== undefined) {
+      const gapMs = instant.epochMilliseconds - previous.epochMilliseconds;
+      tickingMs += Math.min(gapMs, DESTRUCTION_STAGE_MAX_PENDING_TICK_GAP_MS);
+    }
+    previous = instant;
+  }
+  return tickingMs <= DESTRUCTION_STAGE_MAX_PENDING_MS;
 }
 
 function lastEventVersion(events: ReadonlyArray<{ version: number }>): number {
@@ -354,7 +385,13 @@ async function recordIdleStageTick(args: {
       args.db,
       args.tenantId,
       qualified(TENANT_DESTRUCTION_STAGE_PROGRESSED_EVENT_SHORT),
-      { stage: args.stage.name, attempts: args.attempt, processed: 0, pending: true },
+      {
+        stage: args.stage.name,
+        attempts: args.attempt,
+        processed: 0,
+        pending: true,
+        tickAt: args.now.toString(),
+      },
       lastEventVersion(args.events),
     );
     return { done: false, pending: true };

@@ -1,5 +1,5 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { type SessionUser, withResponseData } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { documentLinkAggregateId } from "./aggregate-id.ts";
 import type { DocumentExecutors } from "./executor.ts";
@@ -28,8 +28,7 @@ export async function ensureDocumentLink(
     user,
     db,
   );
-  if (created.isSuccess || created.error.code === "version_conflict") {
-    return { isSuccess: true as const, data: { id } };
-  }
+  if (created.isSuccess) return withResponseData(created, { id });
+  if (created.error.code === "version_conflict") return { isSuccess: true as const, data: { id } };
   return created;
 }

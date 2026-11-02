@@ -717,23 +717,26 @@ export async function runRetentionCleanup(
         // A tenant held in destroyHeld has its expired blockDelete rows removed for good;
         // anonymizing them would keep the account's data stored for nothing.
         if (policy.strategy === "blockDelete" && args.purgeExpiredBlockDelete === true) {
-          hardDeleted += await hardDeleteMatchingRows({
-            db,
-            table: proj.table,
-            where,
-            batchLimit,
-            tenantId,
-            entityName,
-            entity,
-            files: args.files,
-            systemUser,
-            tdb,
-            kms,
-            registry,
-            fileHolders,
-            deleteWithoutFileStorage: true,
-            skipped,
-          });
+          // A row whose reference was never set has no running keepFor, so it would block the release forever.
+          for (const expired of [where, { ...where, [referenceField]: null }]) {
+            hardDeleted += await hardDeleteMatchingRows({
+              db,
+              table: proj.table,
+              where: expired,
+              batchLimit,
+              tenantId,
+              entityName,
+              entity,
+              files: args.files,
+              systemUser,
+              tdb,
+              kms,
+              registry,
+              fileHolders,
+              deleteWithoutFileStorage: true,
+              skipped,
+            });
+          }
           break;
         }
         const targets = await resolveAnonymizeTargets(entity.fields);

@@ -1,5 +1,6 @@
 // Writing side of documents: link rights, capture, import, deletion and the expiry counts.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
   documentsOf,
@@ -16,11 +17,23 @@ import {
 const LINKS = "documents:query:filed-document-link:list";
 const FIRST_VERSION = 1;
 
+const savedLinkIds: string[] = [];
+const linkProbe = defineFeature("doc-link-probe", (r) => {
+  r.requires({ features: ["documents"] });
+  r.hook({
+    type: "postSave",
+    target: { allOf: "filed-document-link" },
+    handler: async (result) => {
+      savedLinkIds.push(String(result.id));
+    },
+  });
+});
+
 let stack: TestStack;
 let propertyId: string;
 
 beforeAll(async () => {
-  stack = await setupDocumentStack();
+  stack = await setupDocumentStack(undefined, [linkProbe]);
   propertyId = await seedProperty(stack, "Main street 1");
 });
 afterAll(() => stack.cleanup());
@@ -97,6 +110,18 @@ describe("update and delete", () => {
 });
 
 describe("link and unlink", () => {
+  test("a newly created link runs postSave hooks on the link entity", async () => {
+    const doc = await fileDirectlyUploadedDocument("Hooked");
+    const ownProperty = await seedProperty(stack, "Hook street 2");
+    savedLinkIds.length = 0;
+    await stack.http.writeOk(
+      "documents:write:link",
+      { documentId: doc.id, entityType: "property", entityId: ownProperty },
+      users.admin,
+    );
+    expect(savedLinkIds).toHaveLength(1);
+  });
+
   test("need write access to the target; a foreign file id cannot be set", async () => {
     const doc = await fileDirectlyUploadedDocument("Permit");
     const link = { documentId: doc.id, entityType: "property", entityId: propertyId };

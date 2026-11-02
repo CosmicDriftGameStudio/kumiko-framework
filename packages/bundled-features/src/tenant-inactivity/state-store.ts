@@ -56,8 +56,17 @@ export async function saveInactivityState(
   if (previous === null) {
     await db.insertOne(tenantInactivityStateTable, { tenantId: db.tenantId, ...next });
   } else {
-    await db.updateMany(tenantInactivityStateTable, next, { tenantId: db.tenantId });
+    // A redeemed keep link rotates cycleId while the run is busy; then this run lost and the next re-evaluates.
+    await db.updateMany(tenantInactivityStateTable, next, {
+      tenantId: db.tenantId,
+      cycleId: previous.cycleId,
+    });
   }
+}
+
+export async function isInactivityCycleCurrent(db: TenantDb, cycleId: string): Promise<boolean> {
+  const row = await db.fetchOne<StateRow>(tenantInactivityStateTable, { tenantId: db.tenantId });
+  return !row || row.cycleId === cycleId;
 }
 
 // The sessions table keeps the activity marker; reading it here avoids a write per request.
