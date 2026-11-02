@@ -12,14 +12,25 @@ const PREVIEW = TemplateResolverQueries.bodyPreview;
 const adminA = createTestUser({ id: 30, roles: ["TenantAdmin"], tenantId: TENANT_A });
 const memberA = createTestUser({ id: 31, roles: ["User"], tenantId: TENANT_A });
 
+const editorA = createTestUser({ id: 32, roles: ["Editor"], tenantId: TENANT_A });
+
 let stack: TestStack;
+let stackWithEditors: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createTemplateResolverFeature()] });
+  stackWithEditors = await setupTestStack({
+    features: [
+      createTemplateResolverFeature({
+        tenantEditable: [{ kind: "mail", slug: "status-update", access: { roles: ["Editor"] } }],
+      }),
+    ],
+  });
 });
 
 afterAll(async () => {
   await stack.cleanup();
+  await stackWithEditors.cleanup();
 });
 
 describe("template-resolver :: body preview of an unsaved body", () => {
@@ -91,5 +102,22 @@ describe("template-resolver :: body preview of an unsaved body", () => {
     });
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(response.status).toBeLessThan(500);
+  });
+
+  test("a role the app unlocked through tenantEditable may preview, one it did not may not", async () => {
+    const { html } = await stackWithEditors.http.queryOk<{ html: string }>(
+      PREVIEW,
+      { body: "**ok**" },
+      editorA,
+    );
+    expect(html).toContain("<strong>ok</strong>");
+    expectErrorIncludes(
+      await stackWithEditors.http.queryErr(PREVIEW, { body: "**no**" }, memberA),
+      "access_denied",
+    );
+    expectErrorIncludes(
+      await stack.http.queryErr(PREVIEW, { body: "**no**" }, editorA),
+      "access_denied",
+    );
   });
 });
