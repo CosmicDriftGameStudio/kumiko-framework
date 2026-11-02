@@ -96,6 +96,16 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
           "appliesTo": [
             "all-tiers",
           ],
+          "name": "Scaleway SAS",
+          "optInOnly": false,
+          "region": "EU (France)",
+          "sccRequired": false,
+          "status": "active",
+        },
+        {
+          "appliesTo": [
+            "all-tiers",
+          ],
           "name": "ALL-INKL.COM – Neue Medien Münnich",
           "optInOnly": false,
           "region": "EU (Germany)",
@@ -150,8 +160,9 @@ describe("getActiveSubProcessors / getPlannedSubProcessors", () => {
     const active = getActiveSubProcessors().filter((sp) => sp.name === "Scaleway SAS");
     const planned = getPlannedSubProcessors().filter((sp) => sp.name === "Scaleway SAS");
     expect(active.map((sp) => sp.purpose)).toEqual([
+      "Platform key custody (Key Manager)",
       "Offsite Backup Mirror (Object Storage)",
-      "Platform key custody (Key Manager) and Transactional Email Delivery",
+      "Transactional Email Delivery (TEM)",
     ]);
     expect(planned).toHaveLength(0);
   });

@@ -3,7 +3,7 @@
 // which queues behind a pending ACCESS EXCLUSIVE; this read never touches the table itself.
 
 import { type AnyDb, asRawClient } from "../query.ts";
-import type { RowLevelSecurityPolicy } from "../render-rls-ddl.ts";
+import { type RowLevelSecurityPolicy, TENANT_ISOLATION_POLICY } from "../render-rls-ddl.ts";
 
 export type RowLevelSecurityShape = {
   readonly enabled: boolean;
@@ -64,4 +64,16 @@ export async function readRowLevelSecurityShape(
     ] as const;
   });
   return { enabled: first.relrowsecurity, forced: first.relforcerowsecurity, policies };
+}
+
+// Shared by the rebuild guard and the boot check, so both judge a hand-edited policy alike.
+export function isFrameworkIsolationIntact(shape: RowLevelSecurityShape): boolean {
+  const isolation = shape.policies.find((policy) => policy.name === TENANT_ISOLATION_POLICY);
+  return (
+    isolation !== undefined &&
+    isolation.kind === "PERMISSIVE" &&
+    isolation.command === "ALL" &&
+    isolation.appliesToPublic &&
+    !shape.policies.some((policy) => policy.kind === "RESTRICTIVE")
+  );
 }

@@ -155,7 +155,9 @@ async function alignScope(
 }
 
 function newTransactionState(): TransactionScopeState {
-  return { applied: rowLevelSecurityScopeKey(undefined), tail: Promise.resolve() };
+  // Not "none": a pooled connection may carry a session-level scope GUC set by raw SQL, so even a
+  // scope-free transaction has to reset both settings itself.
+  return { applied: UNKNOWN_SCOPE_KEY, tail: Promise.resolve() };
 }
 
 const templateOf = (strings: TemplateStringsArray): TemplateStringsArray => strings;

@@ -73,6 +73,18 @@ describe("assertRowLevelSecurityBootState", () => {
     );
   });
 
+  test('"on" with an isolation policy narrowed to SELECT throws', async () => {
+    const { db } = await openAppDbWithTable();
+    const raw = asRawClient(db);
+    await raw.unsafe(`DROP POLICY "kumiko_tenant_isolation" ON "store_boot_check_items"`);
+    await raw.unsafe(
+      `CREATE POLICY "kumiko_tenant_isolation" ON "store_boot_check_items" FOR SELECT USING (true)`,
+    );
+    await expect(assertRowLevelSecurityBootState(db, "on", knowsEverything)).rejects.toThrow(
+      /store_boot_check_items \(policy kumiko_tenant_isolation altered/,
+    );
+  });
+
   test('"on" over the application role with every policy applied passes', async () => {
     const { db } = await openAppDbWithTable();
     await expect(
@@ -120,6 +132,7 @@ describe("assertRowLevelSecurityBootState", () => {
     );
     expect(String(error)).toMatch(/no feature declares anymore: store_boot_check_items/);
     expect(String(error)).toContain("bun kumiko-schema status");
+    expect(String(error)).toContain("bun /app/kumiko.js schema");
     expect(String(error)).not.toContain("tables of this app");
   });
 

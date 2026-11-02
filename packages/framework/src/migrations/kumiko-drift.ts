@@ -20,6 +20,7 @@ import type { DbConnection } from "../db/connection.ts";
 import type { EntityTableMeta } from "../db/entity-table-meta.ts";
 import { loadSnapshotJson } from "../db/migrate-generator.ts";
 import { fetchAppliedMigrations, loadMigrationsFromDir } from "../db/migrate-runner.ts";
+import { PRODUCTION_SCHEMA_COMMAND_HINT } from "../db/production-schema-command-hint.ts";
 import { columnNamesOf, tableExists } from "../db/schema-inspection.ts";
 
 const SNAPSHOT_FILENAME = ".snapshot.json";
@@ -173,6 +174,9 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
     lines.push(
       "produce an ALTER-TABLE migration for the new column(s), then 'bun kumiko-schema apply'.",
     );
+  }
+  if (report.pending.length > 0 || report.missingColumns.length > 0) {
+    lines.push(PRODUCTION_SCHEMA_COMMAND_HINT);
   }
   return lines.join("\n");
 }

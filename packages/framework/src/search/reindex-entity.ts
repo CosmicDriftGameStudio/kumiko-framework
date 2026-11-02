@@ -40,6 +40,9 @@ export type ReindexEntityOptions = {
   // Runs after a batch was read and its documents built, before they are written. Lets a test
   // place a concurrent delete/update at exactly the point the reconcile pass exists for.
   readonly afterBatchRead?: () => Promise<void>;
+  // Checked between batches and before each write, so a caller that gave up on the run (timeout)
+  // does not leave it reading and writing in the background.
+  readonly signal?: AbortSignal;
 };
 
 function quoteIdent(name: string): string {
@@ -278,6 +281,7 @@ export async function reindexEntity(
       let uncheckedSchema = true;
 
       for (;;) {
+        options.signal?.throwIfAborted();
         // Keyset, not OFFSET: rows deleted or changed while the loop runs must not shift the window.
         const afterLastId = lastId === undefined ? "" : `AND ${quoteIdent("id")} > $3`;
         const rows = await readBatchWithoutStatementTimeout(
@@ -306,6 +310,7 @@ export async function reindexEntity(
         const docs = await buildBatchDocs(batch, rows, result.failures);
         result.scannedRows += rows.length;
         await options.afterBatchRead?.();
+        options.signal?.throwIfAborted();
 
         if (options.dryRun) {
           result.wouldIndexRows += docs.length;

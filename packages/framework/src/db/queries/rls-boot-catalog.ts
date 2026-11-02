@@ -1,6 +1,7 @@
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
 import { SYSTEM_TENANT_READ_POLICY, TENANT_ISOLATION_POLICY } from "../render-rls-ddl.ts";
+import { isFrameworkIsolationIntact, readRowLevelSecurityShape } from "./rls-shape.ts";
 
 export type ConnectedRoleAttributes = {
   readonly roleName: string;
@@ -13,6 +14,8 @@ export type TenantTableRowLevelSecurity = {
   readonly enabled: boolean;
   readonly forced: boolean;
   readonly hasIsolationPolicy: boolean;
+  // Named policy present but altered: not PERMISSIVE ALL for PUBLIC, or a RESTRICTIVE one beside it.
+  readonly isolationAltered: boolean;
   readonly hasSystemReadPolicy: boolean;
 };
 
@@ -56,14 +59,19 @@ export async function readTenantTablesRowLevelSecurity(
      ORDER BY c.relname COLLATE "C"`,
     [TENANT_ISOLATION_POLICY, SYSTEM_TENANT_READ_POLICY],
   );
-  return rows.map(
-    // guard:dup-ok catalog row to snapshot field mapping; only the object-literal shape matches other mappers
-    (row) => ({
-      tableName: row.relname,
-      enabled: row.relrowsecurity,
-      forced: row.relforcerowsecurity,
-      hasIsolationPolicy: row.has_isolation,
-      hasSystemReadPolicy: row.has_system_read,
+  return Promise.all(
+    rows.map(async (row) => {
+      const shape = row.has_isolation
+        ? await readRowLevelSecurityShape(db, row.relname)
+        : undefined;
+      return {
+        tableName: row.relname,
+        enabled: row.relrowsecurity,
+        forced: row.relforcerowsecurity,
+        hasIsolationPolicy: row.has_isolation,
+        isolationAltered: shape !== undefined && !isFrameworkIsolationIntact(shape),
+        hasSystemReadPolicy: row.has_system_read,
+      };
     }),
   );
 }

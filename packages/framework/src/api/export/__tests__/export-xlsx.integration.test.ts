@@ -263,6 +263,19 @@ describe("POST /api/export/xlsx", () => {
     expect(err.error.details?.fields?.[0]?.code).toBe(reason);
   });
 
+  test("parallel exports of one user: one runs, the others get 429", async () => {
+    await createItem({ title: "alpha" });
+    const responses = await Promise.all(
+      Array.from({ length: 6 }, () => exportRequest({ screen: LIST_SCREEN, columns: ["title"] })),
+    );
+    const statuses = responses.map((res) => res.status);
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(429);
+    expect(statuses.every((status) => status === 200 || status === 429)).toBe(true);
+    const sequential = await exportRequest({ screen: LIST_SCREEN, columns: ["title"] });
+    expect(sequential.status).toBe(200);
+  });
+
   test("a user without screen access gets 403", async () => {
     const res = await exportRequest({ screen: ADMIN_SCREEN, columns: ["title"] }, TestUsers.user);
     await expectRejected(res, 403, "access_denied");

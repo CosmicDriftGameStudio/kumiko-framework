@@ -179,7 +179,13 @@ export type EventStoreExecutor<Row extends Record<string, unknown> = Record<stri
     payload: { id: EntityId },
     user: SessionUser,
     db: TenantDb,
-    options?: StreamTenantOption & LockGuardOption & ParentVisibilityGateOption,
+    options?: StreamTenantOption &
+      LockGuardOption &
+      ParentVisibilityGateOption & {
+        // Same precondition as update's `expect`: fail with PreconditionFailedError when the
+        // row no longer holds these plain-column values, checked atomically with the stream version.
+        expect?: Readonly<Record<string, string | number | boolean | null>>;
+      },
   ) => Promise<WriteResult<DeleteContext>>;
 
   // Hard-purge (Art. 17 erasure). Like delete, but emits `<entity>.forgotten`

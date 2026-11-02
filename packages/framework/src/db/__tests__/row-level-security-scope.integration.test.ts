@@ -193,6 +193,29 @@ describe("transactions", () => {
       expect(await labelsOf(tx)).toEqual([]);
     });
   });
+
+  test("a session-level system scope planted by an earlier transaction does not leak into the next one", async () => {
+    const single = await createTestDb({ applicationRole: true, poolMax: 1 });
+    try {
+      await unsafePushTables(single.db, { items: itemsTable });
+      await runInSystemRowLevelSecurityScope("test seeds a row", () =>
+        asRawClient(single.db).unsafe(
+          `INSERT INTO "store_rls_scope_items" (tenant_id, label) VALUES ($1::uuid, 'seed')`,
+          [tenantA],
+        ),
+      );
+      await transaction(single.db, async (tx) => {
+        await asTenant(tenantA, () =>
+          asRawClient(tx).unsafe(`SELECT set_config('kumiko.scope', 'system', false)`),
+        );
+      });
+      await transaction(single.db, async (tx) => {
+        expect(await labelsOf(tx)).toEqual([]);
+      });
+    } finally {
+      await single.cleanup();
+    }
+  });
 });
 
 describe("TenantDb", () => {

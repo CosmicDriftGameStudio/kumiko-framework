@@ -45,7 +45,7 @@ export type ScrubEventPayloadOptions = {
   readonly fields: readonly string[];
   // Why these values have to go; refused when it is a placeholder.
   readonly reason: string;
-  // Narrows the scrub to matching values; without it every non-empty value of the fields goes.
+  // Narrows the scrub to matching values; without it every non-empty value of the fields goes (non-strings become null).
   readonly shouldScrub?: (
     value: unknown,
     candidate: EventScrubCandidate,
@@ -103,7 +103,9 @@ async function scrubPayload(
         payload: row.payload,
       };
       if (options.shouldScrub && !(await options.shouldScrub(value, candidate))) continue;
-      section[field] = PII_ERASED_SENTINEL;
+      // The sentinel is text; written into a typed projection column (integer, timestamptz, jsonb)
+      // it would fail every later rebuild of the table, and the event can no longer be repaired.
+      section[field] = typeof value === "string" ? PII_ERASED_SENTINEL : null;
       scrubbed++;
     }
   }
