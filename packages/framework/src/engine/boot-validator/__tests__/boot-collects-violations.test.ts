@@ -76,6 +76,27 @@ describe("validateBoot collects violations", () => {
     expect(message).toContain("FILE_STORAGE_PROVIDER");
   });
 
+  test("a preSave wiring violation is reported once, not again by the registry build", () => {
+    const ext = defineFeature("cap-ext", (r) => {
+      r.extendsRegistrar("credit-cap", { hooks: { preSave: async (changes) => changes } });
+    });
+    const consumer = defineFeature("money-horse", (r) => {
+      r.requires({ features: ["cap-ext"] });
+      r.entity({
+        name: "credit",
+        ...createEntity({
+          table: "Credits",
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      });
+      r.useExtension("credit-cap", "credit");
+    });
+    const violations = violationsOf(() => validateBoot([ext, consumer]));
+    expect(
+      violations.filter((v) => /no write handler is entity-mapped/i.test(v.message)),
+    ).toHaveLength(1);
+  });
+
   test("a single violation still carries the header", () => {
     const message = messageOf(() => validateBoot([danglingNav("alpha")]));
     expect(message).toStartWith("Boot validation failed: 1 violation\n- [nav/screen-unregistered]");

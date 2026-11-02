@@ -191,8 +191,8 @@ export function createUserConfig<T extends ConfigKeyType>(
 
 // Scope-agnostic seed. The scope is derived from the matching keyDef in
 // define-feature.ts (via `seed.scope ?? keyDef.scope`). NOT usable for
-// user-scope keys — those need an explicit tenantId+userId, use
-// `createUserSeed` instead.
+// user-scope keys — those need an explicit tenantId+userId, so write the
+// literal `{ value, scope: "user", tenantId, userId }`.
 export function createSeed(opts: CreateSeedOptions): ConfigSeedDef {
   return { value: opts.value, key: "" };
 }

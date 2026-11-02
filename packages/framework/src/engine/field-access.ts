@@ -6,6 +6,7 @@ import {
   userCanReadFieldRow,
   userCanWriteFieldRow,
 } from "./ownership.ts";
+import { isUnchangedValue } from "./screen-helpers.ts";
 import type { SessionUser } from "./types/index.ts";
 
 function writeOnlyFieldNames(entity: EntityDefinition): readonly string[] {
@@ -180,12 +181,15 @@ export function checkWriteFieldOwnership(
   user: SessionUser,
   oldRow?: Readonly<Record<string, unknown>>,
   rowContext: Readonly<Record<string, unknown>> = submittedChanges,
+  // Off for the nested-write parent check: it asserts ownership of an existing row, nothing is
+  // being written to its embedded sub-fields.
+  checkEmbeddedSubFields = true,
 ): string | null {
   for (const key of Object.keys(submittedChanges)) {
     const field = entity.fields[key];
     if (!field) continue;
 
-    if (field.type === "embedded") {
+    if (field.type === "embedded" && checkEmbeddedSubFields) {
       const deniedSubField = deniedEmbeddedSubField(
         field,
         submittedChanges[key],
@@ -232,13 +236,6 @@ function embeddedRows(value: unknown): readonly (Readonly<Record<string, unknown
   return isRecord(value) ? [value] : [];
 }
 
-function stableJson(value: unknown): string {
-  return JSON.stringify(value, (_key, nested: unknown) => {
-    if (!nested || typeof nested !== "object" || Array.isArray(nested)) return nested;
-    return Object.fromEntries(Object.entries(nested).sort(([a], [b]) => a.localeCompare(b)));
-  });
-}
-
 // Sub-field write rules of an embedded field, enforced on save. Rows are paired by index;
 // a sub-field counts as written when its value differs between old and new row (an added or
 // removed row that carries a value counts too). The rule is evaluated against the embedded
@@ -257,7 +254,7 @@ function deniedEmbeddedSubField(
     for (let i = 0; i < Math.max(newRows.length, oldRows.length); i++) {
       const newRow = newRows[i];
       const oldRow = oldRows[i];
-      if (stableJson(newRow?.[subKey]) === stableJson(oldRow?.[subKey])) continue;
+      if (isUnchangedValue(newRow?.[subKey], oldRow?.[subKey])) continue;
       const rowAfter = newRow ?? oldRow ?? {};
       if (!userCanWriteFieldRow(user, accessMap, oldRow ?? rowAfter, rowAfter)) return subKey;
     }

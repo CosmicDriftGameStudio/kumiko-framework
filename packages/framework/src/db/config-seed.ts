@@ -71,7 +71,7 @@ export async function seedConfigValues<E extends EntityDefinition>(
     // sentinel — a SYSTEM-rooted user row would be unreachable.
     if (scope === "user" && (!seed.tenantId || !seed.userId)) {
       throw new Error(
-        `seedConfigValues: user-scope seed "${seed.key}" requires both tenantId and userId — use createUserSeed({value}, {tenantId, userId}).`,
+        `seedConfigValues: user-scope seed "${seed.key}" requires both tenantId and userId — set { value, scope: "user", tenantId, userId }.`,
       );
     }
 

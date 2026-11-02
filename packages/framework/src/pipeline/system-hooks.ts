@@ -175,6 +175,13 @@ type TenantSearchBucket = {
 
 type SearchOperationsByTenant = Map<TenantId, TenantSearchBucket>;
 
+type ResolvedSearchOperations = {
+  readonly perTenant: SearchOperationsByTenant;
+  // Events whose op could not be resolved, per owning tenant; they are held, not thrown, so one
+  // tenant's failing read cannot push the whole turn into the per-event path that has no hold.
+  readonly unresolved: Map<TenantId, HeldTenantOperations>;
+};
+
 // Resolves every event's op sequentially (the named-event path does DB
 // reads, so resolving in parallel would fan out uncapped concurrent
 // queries for one turn) and collapses to the last op per
@@ -184,10 +191,21 @@ async function resolveSearchOperationsByTenant(
   events: readonly StoredEvent[],
   ctx: AppContext,
   registry: Registry,
-): Promise<SearchOperationsByTenant> {
+): Promise<ResolvedSearchOperations> {
   const byKey = new Map<string, SourcedSearchOperation>();
+  const unresolved = new Map<TenantId, HeldTenantOperations>();
   for (const event of events) {
-    const op = await resolveSearchOperation(event, ctx, registry);
+    let op: SearchOperation | undefined;
+    try {
+      op = await resolveSearchOperation(event, ctx, registry);
+    } catch (error) {
+      const previous = unresolved.get(event.tenantId);
+      unresolved.set(event.tenantId, {
+        eventIds: [...(previous?.eventIds ?? []), event.id],
+        error: previous?.error ?? error,
+      });
+      continue;
+    }
     if (!op) continue;
     const key = searchOperationKey(op);
     // Re-insert so the map order follows the winning event: per-tenant ops stay in event order.
@@ -207,7 +225,7 @@ async function resolveSearchOperationsByTenant(
     if (op.kind === "index") bucket.toIndex.push(op.doc);
     else bucket.toRemove.push({ entityType: op.entityType, entityId: op.entityId });
   }
-  return perTenant;
+  return { perTenant, unresolved };
 }
 
 // Flushes one tenant's collapsed ops — indexBatch/removeBatch when the
@@ -331,17 +349,36 @@ export function createSearchEventConsumer(
     // One tenant's failing index must not stall the others: its failing ops are held for a later
     // turn, and while it backs off all of its ops wait, so per-entity order survives.
     batchHandler: async (events, ctx, turn) => {
-      const perTenant = await resolveSearchOperationsByTenant(events, ctx, registry);
-      for (const [tenantId, bucket] of perTenant) {
+      const { perTenant, unresolved } = await resolveSearchOperationsByTenant(
+        events,
+        ctx,
+        registry,
+      );
+      const tenantIds = new Set<TenantId>([...perTenant.keys(), ...unresolved.keys()]);
+      for (const tenantId of tenantIds) {
+        const bucket = perTenant.get(tenantId);
+        const unresolvedOps = unresolved.get(tenantId);
         const retry = tenantRetries.get(tenantId);
         if (retry && retry.retryAtMs > now()) {
           turn.holdForRetry(
-            bucket.sourcedOps.map((s) => s.sourceEventId),
+            [
+              ...(bucket?.sourcedOps.map((s) => s.sourceEventId) ?? []),
+              ...(unresolvedOps?.eventIds ?? []),
+            ],
             retry.reason,
           );
           continue;
         }
-        const held = await flushTenantHoldingFailedOperations(searchAdapter, tenantId, bucket);
+        const flushFailure = bucket
+          ? await flushTenantHoldingFailedOperations(searchAdapter, tenantId, bucket)
+          : null;
+        const held: HeldTenantOperations | null =
+          flushFailure && unresolvedOps
+            ? {
+                eventIds: [...unresolvedOps.eventIds, ...flushFailure.eventIds],
+                error: unresolvedOps.error,
+              }
+            : (flushFailure ?? unresolvedOps ?? null);
         if (held) {
           turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held));
           continue;

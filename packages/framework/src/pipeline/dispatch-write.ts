@@ -381,7 +381,14 @@ async function rejectUnverifiedParent(
     user,
     tx,
   );
-  const deniedField = checkWriteFieldOwnership(parentEntity, ownershipRow, user);
+  const deniedField = checkWriteFieldOwnership(
+    parentEntity,
+    ownershipRow,
+    user,
+    undefined,
+    ownershipRow,
+    false,
+  );
   if (!deniedField) return undefined;
   return writeFailure(
     new AccessDeniedError({

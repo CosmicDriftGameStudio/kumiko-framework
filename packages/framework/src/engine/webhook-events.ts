@@ -5,6 +5,7 @@ import { DEFINITION_WEBHOOK_EVENT_RULES } from "./boot-validator/definition-webh
 import type { FeatureBuilderState } from "./feature-builder-state.ts";
 import { isObjectArgument, throwObjectArgumentRequired } from "./object-form.ts";
 import { isKebabSegment, toKebab } from "./qualified-name.ts";
+import { findOpenPayloadShape } from "./webhook-payload-strictness.ts";
 
 export type WebhookPayloadIssue = {
   readonly path: string;
@@ -79,6 +80,12 @@ export function buildWebhookEventMethods(state: FeatureBuilderState, featureName
       if (!(payload instanceof ZodObject)) {
         throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.payloadNotZodObject, {
           message: `${where}("${name}"): payload must be a zod object schema`,
+        });
+      }
+      const openShape = findOpenPayloadShape(payload);
+      if (openShape !== undefined) {
+        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.payloadOpenShape, {
+          message: `${where}("${name}"): payload lets undeclared keys through at ${openShape}; use closed objects (no looseObject, passthrough or catchall)`,
         });
       }
       if (!Number.isInteger(version) || version < 1) {

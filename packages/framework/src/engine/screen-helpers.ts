@@ -212,8 +212,16 @@ export function availableSelectOptions(
   );
 }
 
+// Key-order-stable: stored jsonb and schema-parsed rows order object keys differently.
+export function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, nested: unknown) => {
+    if (!nested || typeof nested !== "object" || Array.isArray(nested)) return nested;
+    return Object.fromEntries(Object.entries(nested).sort(([a], [b]) => a.localeCompare(b)));
+  });
+}
+
 export function isUnchangedValue(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  return stableJson(a) === stableJson(b);
 }
 
 /** Select values that violate a `conditionalOptions` rule. With `previous`, a field is only
