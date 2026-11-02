@@ -193,6 +193,8 @@ export {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./primitives/dropdown-menu.tsx";
+export type { FileMeta } from "./primitives/file-thumbnail.tsx";
+export { useFileMeta } from "./primitives/file-thumbnail.tsx";
 export {
   BareFormProvider,
   DefaultCard as Card,

@@ -87,7 +87,7 @@ export function FileThumbnail({
   );
 }
 
-type FileMeta = { readonly fileName: string; readonly mimeType: string | undefined };
+export type FileMeta = { readonly fileName: string; readonly mimeType: string | undefined };
 
 function parseFileMeta(value: unknown): FileMeta | null {
   if (typeof value !== "object" || value === null || !("fileName" in value)) return null;
