@@ -94,7 +94,10 @@ const mockProviderFeature = defineFeature("test-mock-documents-provider", (r) =>
         })),
     createCheckoutSession: async (_ctx, options) => {
       checkoutCount += 1;
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
   };
   r.useExtension("subscriptionProvider", "mock-documents-provider", plugin);

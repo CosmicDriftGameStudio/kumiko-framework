@@ -17,6 +17,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,
@@ -42,7 +43,11 @@ import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
 import { consentTextVersion } from "../consumer-protection/consent-text.ts";
-import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.ts";
+import {
+  CHECKOUT_CONSENT_RECORDED_EVENT_QN,
+  CHECKOUT_OPENED_EVENT_QN,
+  SUBSCRIPTION_UPDATED_EVENT_QN,
+} from "../events.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import { subscriptionsProjectionTable } from "../projection.ts";
 import type {
@@ -124,13 +129,14 @@ function price(priceId: string, unitAmount: number): ProviderPrice {
 }
 
 type Calls = {
-  checkouts: Array<{ provider: string; priceId: string; consentId?: string }>;
+  checkouts: Array<{ provider: string; priceId: string }>;
   hostedSwitches: string[];
-  applies: Array<{ targetPriceId: string; consentId?: string; tenantId: string }>;
+  applies: Array<{ targetPriceId: string; tenantId: string }>;
 };
 const calls: Calls = { checkouts: [], hostedSwitches: [], applies: [] };
 const enabled = { [HOSTED]: true, [IN_APP]: true };
-let lastConsentId: string | undefined;
+let checkoutSequence = 0;
+let lastCheckoutId: string | undefined;
 
 function plugin(
   name: typeof HOSTED | typeof IN_APP,
@@ -147,13 +153,13 @@ function plugin(
     isBillingEnabled: async () => enabled[name],
     retrievePrices: async (_ctx, priceIds) => prices.filter((p) => priceIds.includes(p.priceId)),
     createCheckoutSession: async (_ctx, options) => {
-      lastConsentId = options.consentId;
-      calls.checkouts.push({
-        provider: name,
-        priceId: options.priceId,
-        ...(options.consentId && { consentId: options.consentId }),
-      });
-      return { url: `https://${name}.example/checkout/${options.priceId}` };
+      calls.checkouts.push({ provider: name, priceId: options.priceId });
+      checkoutSequence += 1;
+      lastCheckoutId = `cs_${name}_${checkoutSequence}`;
+      return {
+        url: `https://${name}.example/checkout/${options.priceId}`,
+        providerCheckoutId: lastCheckoutId,
+      };
     },
     ...extra,
   };
@@ -204,7 +210,6 @@ const inAppFeature = defineFeature("test-mock-multi-in-app", (r) => {
           calls.applies.push({
             targetPriceId: options.targetPriceId,
             tenantId: options.tenantId,
-            ...(options.consentId && { consentId: options.consentId }),
           });
         },
       },
@@ -267,7 +272,7 @@ beforeEach(async () => {
   calls.applies.length = 0;
   enabled[HOSTED] = true;
   enabled[IN_APP] = true;
-  lastConsentId = undefined;
+  lastCheckoutId = undefined;
   emailTransport.sent.length = 0;
   await stack.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
   await resetTestTables(stack.db, [userTable, templateResourcesTable]);
@@ -318,9 +323,21 @@ async function createSubscription(
   tier: "starter" | "pro" = "starter",
 ) {
   const admin = createTestUser({ id: 0, tenantId, roles: ["TenantAdmin", "SystemAdmin"] });
+  const providerCheckoutId = `cs_seed_${tenantId}`;
+  await stack.http.writeOk(
+    SubscriptionFoundationHandlers.recordCheckoutOpened,
+    {
+      providerName,
+      providerCheckoutId,
+      priceId: `${providerName === HOSTED ? "hosted" : "inapp"}_${tier}`,
+      mode: "subscription",
+    },
+    admin,
+  );
   await stack.http.writeOk(
     SubscriptionFoundationHandlers.processEvent,
     {
+      providerCheckoutId,
       providerEventId: `evt_${tenantId}_create`,
       providerName,
       type: "subscription.created",
@@ -383,9 +400,7 @@ describe("start-plan-checkout with two providers", () => {
       admin,
     )) as { url: string };
     expect(reply.url).toBe(`https://${IN_APP}.example/checkout/inapp_pro`);
-    expect(calls.checkouts).toEqual([
-      { provider: IN_APP, priceId: "inapp_pro", consentId: lastConsentId },
-    ]);
+    expect(calls.checkouts).toEqual([{ provider: IN_APP, priceId: "inapp_pro" }]);
     const events = await loadAggregate(
       stack.db,
       subscriptionAggregateId(admin.tenantId),
@@ -396,6 +411,14 @@ describe("start-plan-checkout with two providers", () => {
     );
     const consentEvent = events.find((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN);
     expect(consentEvent?.payload).toMatchObject({ providerName: IN_APP });
+    const ledgerEntry = events.find((e) => e.type === CHECKOUT_OPENED_EVENT_QN);
+    expect(ledgerEntry?.payload).toMatchObject({
+      providerName: IN_APP,
+      providerCheckoutId: lastCheckoutId,
+      priceId: "inapp_pro",
+      mode: "subscription",
+      consentId: propertyOf(consentEvent?.payload, "consentId"),
+    });
   });
 
   test("omitting providerName with two offered providers is rejected, opening no checkout", async () => {
@@ -487,7 +510,7 @@ describe("switching plans follows the subscription's provider", () => {
     expect(calls.applies).toHaveLength(0);
   });
 
-  test("the in-app switch with a consent records it and applies with the consentId", async () => {
+  test("the in-app switch with a consent records it, and the provider's update webhook carries it", async () => {
     const admin = adminFor(8324);
     await createSubscription(admin.tenantId, IN_APP);
     const reply = await stack.http.writeOk(
@@ -496,9 +519,7 @@ describe("switching plans follows the subscription's provider", () => {
       admin,
     );
     expect(reply).toEqual({ applied: true });
-    expect(calls.applies).toEqual([
-      { targetPriceId: "inapp_pro", tenantId: admin.tenantId, consentId: expect.any(String) },
-    ]);
+    expect(calls.applies).toEqual([{ targetPriceId: "inapp_pro", tenantId: admin.tenantId }]);
     const events = await loadAggregate(
       stack.db,
       subscriptionAggregateId(admin.tenantId),
@@ -508,11 +529,34 @@ describe("switching plans follows the subscription's provider", () => {
       },
     );
     const consentEvent = events.find((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN);
-    expect(consentEvent?.payload).toMatchObject({
-      tier: "pro",
+    const consentId = propertyOf(consentEvent?.payload, "consentId");
+    expect(consentEvent?.payload).toMatchObject({ tier: "pro", providerName: IN_APP });
+
+    const update: SubscriptionEvent = {
+      providerEventId: "evt_8324_switch",
       providerName: IN_APP,
-      consentId: calls.applies[0]?.consentId,
+      type: SubscriptionEventTypes.updated,
+      tenantId: admin.tenantId,
+      providerCustomerId: `cus_${admin.tenantId}`,
+      providerSubscriptionId: `sub_${admin.tenantId}`,
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+      currentPeriodEnd: "2026-06-01T00:00:00Z",
+    };
+    const res = await stack.app.request(`/api/subscription/webhook/${IN_APP}`, {
+      method: "POST",
+      body: JSON.stringify(update),
+      headers: { "stripe-signature": "test_sig" },
     });
+    expect(res.status).toBe(200);
+    const stored = await loadAggregate(
+      stack.db,
+      subscriptionAggregateId(admin.tenantId),
+      admin.tenantId as never,
+      { includeArchived: true },
+    );
+    const updated = stored.filter((e) => e.type === SUBSCRIPTION_UPDATED_EVENT_QN);
+    expect(updated.at(-1)?.payload).toMatchObject({ tier: "pro", consentId });
   });
 });
 
@@ -547,7 +591,7 @@ describe("confirmation mail names the provider's own VAT note", () => {
       status: SubscriptionStatuses.active,
       tier: "pro",
       currentPeriodEnd: "2026-11-02T00:00:00Z",
-      ...(lastConsentId !== undefined && { consentId: lastConsentId }),
+      ...(lastCheckoutId !== undefined && { providerCheckoutId: lastCheckoutId }),
     };
     const res = await stack.app.request(`/api/subscription/webhook/${providerName}`, {
       method: "POST",

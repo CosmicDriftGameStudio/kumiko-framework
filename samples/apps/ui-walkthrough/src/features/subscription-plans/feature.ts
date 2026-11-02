@@ -39,7 +39,10 @@ const mockProvider: SubscriptionProviderPlugin = {
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody),
   priceToTier: { [PRICE_IDS.starter]: "starter", [PRICE_IDS.pro]: "pro" },
   retrievePrices: async (_ctx, priceIds) => PRICES.filter((p) => priceIds.includes(p.priceId)),
-  createCheckoutSession: async (_ctx, options) => ({ url: options.successUrl }),
+  createCheckoutSession: async (_ctx, options) => ({
+    url: options.successUrl,
+    providerCheckoutId: `cs_sample_${options.tenantId}`,
+  }),
   cancelSubscription: async () => {},
 };
 

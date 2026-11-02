@@ -8,10 +8,9 @@ export const PADDLE_PROVIDER_NAME = "paddle" as const;
 export const PADDLE_CHECKOUT_PATH = "/billing/paddle-checkout" as const;
 
 // Config-key short-names, qualified to `subscription-paddle:config:<name>` at
-// registry-build. api-key, webhook-secret and tenant-binding-key are backing:"secrets".
+// registry-build. api-key and webhook-secret are backing:"secrets".
 export const PADDLE_API_KEY_CONFIG = "api-key" as const;
 export const PADDLE_WEBHOOK_SECRET_CONFIG = "webhook-secret" as const;
-export const PADDLE_TENANT_BINDING_KEY_CONFIG = "tenant-binding-key" as const;
 export const PADDLE_CLIENT_TOKEN_CONFIG = "client-token" as const;
 export const PADDLE_ENVIRONMENT_CONFIG = "environment" as const;
 export const PADDLE_BILLING_LIVE_CONFIG = "billingLive" as const;

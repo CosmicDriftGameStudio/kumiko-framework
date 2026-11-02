@@ -25,6 +25,7 @@ export const paddleSubscriptionSchema = z.object({
   id: z.string().min(1),
   status: z.string(),
   customer_id: z.string().min(1),
+  transaction_id: z.string().min(1).nullish(),
   items: z.array(
     z.object({
       price: z.object({ id: z.string().min(1) }),

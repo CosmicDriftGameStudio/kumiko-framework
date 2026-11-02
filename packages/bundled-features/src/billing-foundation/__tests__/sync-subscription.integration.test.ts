@@ -34,6 +34,7 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
+import { CHECKOUT_OPENED_EVENT_QN } from "../events.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import type { ProviderSubscriptionSnapshot, SubscriptionProviderPlugin } from "../types.ts";
 import {
@@ -41,6 +42,7 @@ import {
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
 } from "../web/constants.ts";
+import { openSubscriptionCheckout, priceIdForTier } from "./ledgered-subscription.ts";
 
 let retrieveSnapshot: ProviderSubscriptionSnapshot | null = null;
 // Keyed by providerSubscriptionId — the job-path test fans the same
@@ -50,10 +52,13 @@ let retrieveSnapshot: ProviderSubscriptionSnapshot | null = null;
 const retrieveSnapshotsById = new Map<string, ProviderSubscriptionSnapshot>();
 const retrieveCalls: string[] = [];
 
+const PRICE_TO_TIER: Readonly<Record<string, string>> = { price_sync_pro: "pro" };
+
 const mockSyncProviderFeature = defineFeature("test-mock-sync-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
+    priceToTier: PRICE_TO_TIER,
     retrieveSubscription: async (_ctx, providerSubscriptionId) => {
       retrieveCalls.push(providerSubscriptionId);
       return retrieveSnapshotsById.get(providerSubscriptionId) ?? retrieveSnapshot;
@@ -65,7 +70,10 @@ const mockSyncProviderFeature = defineFeature("test-mock-sync-provider", (r) => 
 // No `retrieveSubscription` — exercises the "provider_cannot_retrieve" branch.
 const mockNoRetrieveProviderFeature = defineFeature("test-mock-no-retrieve-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
-  const plugin: SubscriptionProviderPlugin = { verifyAndParseWebhook: async () => null };
+  const plugin: SubscriptionProviderPlugin = {
+    verifyAndParseWebhook: async () => null,
+    priceToTier: PRICE_TO_TIER,
+  };
   r.useExtension("subscriptionProvider", "mock-no-retrieve-provider", plugin);
 });
 
@@ -128,14 +136,25 @@ async function createSubscription(
   }> = {},
 ) {
   const admin = createTestUser({ id: 0, tenantId, roles: ["TenantAdmin", "SystemAdmin"] });
+  const providerName = overrides.providerName ?? "mock-sync-provider";
+  const providerSubscriptionId = overrides.providerSubscriptionId ?? `sub_${tenantId}`;
+  const providerCheckoutId = await openSubscriptionCheckout(
+    (handler, payload) => stack.http.writeOk(handler, payload, admin),
+    {
+      providerName,
+      providerSubscriptionId,
+      priceId: priceIdForTier(PRICE_TO_TIER, overrides.tier ?? "pro"),
+    },
+  );
   return stack.http.writeOk(
     SubscriptionFoundationHandlers.processEvent,
     {
       providerEventId: overrides.providerEventId ?? `evt_${tenantId}_create`,
-      providerName: overrides.providerName ?? "mock-sync-provider",
+      providerName,
       type: "subscription.created",
+      providerCheckoutId,
       providerCustomerId: overrides.providerCustomerId ?? `cus_${tenantId}`,
-      providerSubscriptionId: overrides.providerSubscriptionId ?? `sub_${tenantId}`,
+      providerSubscriptionId,
       status: overrides.status ?? SubscriptionStatuses.active,
       tier: overrides.tier ?? "pro",
       currentPeriodEndIso: overrides.currentPeriodEndIso ?? "2026-06-01T00:00:00Z",
@@ -143,6 +162,11 @@ async function createSubscription(
     },
     admin,
   );
+}
+
+async function stateEvents(tenantId: string) {
+  const events = await loadAggregate(db, subscriptionAggregateId(tenantId), tenantId);
+  return events.filter((event) => event.type !== CHECKOUT_OPENED_EVENT_QN);
 }
 
 describe("sync-subscription", () => {
@@ -191,11 +215,7 @@ describe("sync-subscription", () => {
       Temporal.Instant.from("2026-05-01T00:00:00Z").toString(),
     );
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await stateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(2); // create + sync-update
     expect(esEvents[1]?.type).toBe("billing-foundation:event:subscription-updated");
     expect(esEvents[1]?.metadata.headers?.["providerEventId"]).toMatch(/^sync:/);
@@ -211,11 +231,7 @@ describe("sync-subscription", () => {
     )) as { synced: boolean; reason?: string };
     expect(secondResult).toEqual({ synced: false, reason: "unchanged" });
 
-    const esEventsAfterSecondSync = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEventsAfterSecondSync = await stateEvents(admin.tenantId);
     expect(esEventsAfterSecondSync).toHaveLength(2);
   });
 
@@ -354,11 +370,7 @@ describe("sync-subscription", () => {
     )) as { synced: boolean };
     expect(thirdResult).toEqual({ synced: true });
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await stateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(4); // create + 3 syncs, none skipped as a hash-duplicate
   });
 
@@ -449,11 +461,7 @@ describe("sync-subscription", () => {
     )) as { synced: boolean };
     expect(result).toEqual({ synced: true });
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await stateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(2); // create + sync-cancel
     expect(esEvents[1]?.type).toBe("billing-foundation:event:subscription-canceled");
 

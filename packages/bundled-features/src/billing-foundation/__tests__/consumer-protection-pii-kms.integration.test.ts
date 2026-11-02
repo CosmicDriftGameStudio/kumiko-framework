@@ -93,7 +93,7 @@ const catalog: BillingPlanCatalog = {
 
 const emailTransport = createInMemoryTransport();
 const configResolver = createConfigResolver();
-let lastConsentId: string | undefined;
+let lastCheckoutId: string | undefined;
 
 const mockProviderFeature = defineFeature("test-mock-pii-kms-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
@@ -114,8 +114,11 @@ const mockProviderFeature = defineFeature("test-mock-pii-kms-provider", (r) => {
         },
       ].filter((price) => priceIds.includes(price.priceId)),
     createCheckoutSession: async (_ctx, options) => {
-      lastConsentId = options.consentId;
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      lastCheckoutId = `cs_${options.priceId}`;
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: lastCheckoutId,
+      };
     },
     cancelSubscription: async () => {},
   };
@@ -172,7 +175,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   emailTransport.sent.length = 0;
-  lastConsentId = undefined;
+  lastCheckoutId = undefined;
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
   );
@@ -206,10 +209,28 @@ async function createBuyer(tenantNumber: number) {
   });
 }
 
+async function startProCheckout(buyer: ReturnType<typeof createTestUser>): Promise<string> {
+  await stack.http.writeOk(
+    SubscriptionFoundationHandlers.startPlanCheckout,
+    {
+      tier: "pro",
+      consent: {
+        earlyPerformanceRequested: true,
+        withdrawalLossAcknowledged: true,
+        consentTextVersion: consentTextVersion("de"),
+        locale: "de",
+      },
+    },
+    buyer,
+  );
+  if (lastCheckoutId === undefined) throw new Error("provider did not open a checkout");
+  return lastCheckoutId;
+}
+
 async function postSubscriptionCreated(
   tenantId: string,
   providerEventId: string,
-  consentId?: string,
+  providerCheckoutId: string,
 ): Promise<void> {
   const event: SubscriptionEvent = {
     providerEventId,
@@ -221,7 +242,7 @@ async function postSubscriptionCreated(
     status: SubscriptionStatuses.active,
     tier: "pro",
     currentPeriodEnd: "2026-11-02T00:00:00Z",
-    ...(consentId !== undefined && { consentId }),
+    providerCheckoutId,
   };
   const res = await stack.app.request(`/api/subscription/webhook/${PROVIDER}`, {
     method: "POST",
@@ -242,22 +263,9 @@ describe("consumer protection mails with an active PII KMS", () => {
 
   test("the contract confirmation goes to the plaintext address of the buyer", async () => {
     const buyer = await createBuyer(8302);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.startPlanCheckout,
-      {
-        tier: "pro",
-        consent: {
-          earlyPerformanceRequested: true,
-          withdrawalLossAcknowledged: true,
-          consentTextVersion: consentTextVersion("de"),
-          locale: "de",
-        },
-      },
-      buyer,
-    );
-    if (lastConsentId === undefined) throw new Error("provider did not receive a consentId");
+    const providerCheckoutId = await startProCheckout(buyer);
 
-    await postSubscriptionCreated(buyer.tenantId, "evt_kms_1", lastConsentId);
+    await postSubscriptionCreated(buyer.tenantId, "evt_kms_1", providerCheckoutId);
     await stack.drainJobs();
 
     expect(emailTransport.sent).toHaveLength(1);
@@ -267,7 +275,9 @@ describe("consumer protection mails with an active PII KMS", () => {
 
   test("the termination receipt goes to the plaintext address and never leaks ciphertext into the mail", async () => {
     const buyer = await createBuyer(8303);
-    await postSubscriptionCreated(buyer.tenantId, "evt_kms_2");
+    await postSubscriptionCreated(buyer.tenantId, "evt_kms_2", await startProCheckout(buyer));
+    await stack.drainJobs();
+    emailTransport.sent.length = 0;
 
     await stack.http.writeOk(
       SubscriptionFoundationHandlers.terminateContract,
@@ -284,26 +294,13 @@ describe("consumer protection mails with an active PII KMS", () => {
 
   test("an erased subject gets no confirmation mail", async () => {
     const buyer = await createBuyer(8304);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.startPlanCheckout,
-      {
-        tier: "pro",
-        consent: {
-          earlyPerformanceRequested: true,
-          withdrawalLossAcknowledged: true,
-          consentTextVersion: consentTextVersion("de"),
-          locale: "de",
-        },
-      },
-      buyer,
-    );
-    if (lastConsentId === undefined) throw new Error("provider did not receive a consentId");
+    const providerCheckoutId = await startProCheckout(buyer);
 
     await configuredPiiSubjectKms()?.eraseKey(
       { kind: "user", userId: buyer.id },
       { requestId: "consumer-protection-pii-kms", userId: buyer.id, eraseReason: "test" },
     );
-    await postSubscriptionCreated(buyer.tenantId, "evt_kms_3", lastConsentId);
+    await postSubscriptionCreated(buyer.tenantId, "evt_kms_3", providerCheckoutId);
     await stack.drainJobs();
 
     expect(emailTransport.sent).toHaveLength(0);
@@ -311,7 +308,7 @@ describe("consumer protection mails with an active PII KMS", () => {
 
   test("an erased subject cannot terminate by mail and gets no receipt", async () => {
     const buyer = await createBuyer(8305);
-    await postSubscriptionCreated(buyer.tenantId, "evt_kms_4");
+    await postSubscriptionCreated(buyer.tenantId, "evt_kms_4", await startProCheckout(buyer));
 
     await configuredPiiSubjectKms()?.eraseKey(
       { kind: "user", userId: buyer.id },

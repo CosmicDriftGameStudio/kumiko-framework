@@ -68,6 +68,9 @@ export const SubscriptionFoundationHandlers = {
   /** Tenant-Admin terminates or withdraws from the contract of their own
    *  tenant (consumerProtection only). */
   terminateContract: "billing-foundation:write:terminate-contract",
+  /** System-only: puts a checkout the server opened earlier into the checkout
+   *  ledger (idempotent). Used by provider migration jobs. */
+  recordCheckoutOpened: "billing-foundation:write:record-checkout-opened",
   /** Tenant-Admin/purchase-role picks a plan tier from the catalog with no
    *  existing non-terminal subscription — starts a hosted checkout for the
    *  matching price. Only registered when `createBillingFoundationFeature`
@@ -148,8 +151,8 @@ export const SubscriptionCancelTimings = {
 export type SubscriptionCancelTiming =
   (typeof SubscriptionCancelTimings)[keyof typeof SubscriptionCancelTimings];
 
-// consentId is echoed back by the provider (checkout metadata), so it is
-// untrusted input: bounded length, id-ish charset only.
+// Only the legacy-checkout migration reads a consentId back from provider
+// metadata; that value is untrusted: bounded length, id-ish charset only.
 const CONSENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
 
 export function parseProviderConsentId(raw: unknown): string | undefined {

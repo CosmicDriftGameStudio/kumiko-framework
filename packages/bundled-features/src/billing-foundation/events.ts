@@ -118,6 +118,30 @@ export type PaymentEventHeaders = {
 };
 
 // =============================================================================
+// checkout-opened — the server's checkout ledger
+// =============================================================================
+//
+// Appended onto the subscription- or payment-stream (by checkout mode) right
+// after the provider handed out a checkout. Webhooks are only accepted for
+// checkouts listed here, so a checkout opened client-side (public provider
+// tokens) cannot mint payments or subscriptions. No projection applies it.
+
+export const CHECKOUT_OPENED_EVENT_SHORT = "checkout-opened" as const;
+export const CHECKOUT_OPENED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${CHECKOUT_OPENED_EVENT_SHORT}` as const;
+
+export const CHECKOUT_MODES = ["subscription", "payment"] as const;
+
+export const checkoutOpenedPayloadSchema = z.object({
+  providerName: z.string().min(1).max(50),
+  providerCheckoutId: z.string().min(1).max(200),
+  priceId: z.string().min(1).max(200),
+  mode: z.enum(CHECKOUT_MODES),
+  consentId: z.string().min(1).max(100).optional(),
+});
+export type CheckoutOpenedPayload = z.infer<typeof checkoutOpenedPayloadSchema>;
+
+// =============================================================================
 // checkout-consent-recorded — consumer-protection consent
 // =============================================================================
 //

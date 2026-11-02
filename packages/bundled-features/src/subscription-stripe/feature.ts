@@ -43,6 +43,7 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
+import type Stripe from "stripe";
 import * as z from "zod";
 import { priceEnvSchema } from "../shared/index.ts";
 import {
@@ -137,6 +138,9 @@ export type SubscriptionStripeOptions = {
    *  explicit allowlist every one-off checkout is closed, the same
    *  fail-closed default `priceToTier` has for mode:"subscription". */
   readonly oneOffPriceIds?: readonly string[];
+  /** Stripe SDK client config (host, protocol, retries) — lets tests point the
+   *  client at a local fixture API. */
+  readonly clientConfig?: Stripe.StripeConfig;
 };
 
 /**
@@ -222,6 +226,7 @@ export function createSubscriptionStripeFeature(
         ...(options.apiKey !== undefined && { apiKey: options.apiKey }),
         ...(options.webhookSecret !== undefined && { webhookSecret: options.webhookSecret }),
       },
+      ...(options.clientConfig !== undefined && { clientConfig: options.clientConfig }),
     });
 
     const priceCache = createStripePriceCache();

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHmac, randomBytes } from "node:crypto";
+import { SubscriptionFoundationHandlers } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import {
   createConfigAccessorFactory,
@@ -10,6 +11,7 @@ import {
   createSecretsContext,
   createSecretsFeature,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
+import { createSubscriptionStripeFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { createTenantFeature, tenantEntity } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createTenantLifecycleFeature } from "@cosmicdrift/kumiko-bundled-features/tenant-lifecycle";
 import {
@@ -17,11 +19,13 @@ import {
   tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resolveBillingOption } from "@cosmicdrift/kumiko-server-runtime/boot-options/billing";
 import {
   createTestEnvelopeCipher,
+  expectSuccess,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -33,6 +37,25 @@ import { composeSaasStack } from "../compose-stacks.ts";
 
 const WEBHOOK_SECRET = `whsec_${randomBytes(16).toString("hex")}`;
 const PRO_PRICE_ID = "price_pro_monthly";
+
+const SUBSCRIPTION_ID = "sub_saas_stack_1";
+const CHECKOUT_ID = "cs_saas_stack_1";
+
+// customer.subscription.created resolves its checkout session at Stripe; this local API answers
+// that list call with the checkout the test ledgered.
+const fixtureApi = Bun.serve({
+  port: 0,
+  fetch: (request) => {
+    const url = new URL(request.url);
+    if (url.pathname !== "/v1/checkout/sessions") return new Response("{}", { status: 404 });
+    return Response.json({
+      object: "list",
+      data: [{ id: CHECKOUT_ID, object: "checkout.session" }],
+      has_more: false,
+      url: url.pathname,
+    });
+  },
+});
 
 let stack: TestStack;
 let webhookPath: string;
@@ -58,7 +81,7 @@ function subscriptionCreatedEvent(tenantId: string): string {
     request: { id: null, idempotency_key: null },
     data: {
       object: {
-        id: "sub_saas_stack_1",
+        id: SUBSCRIPTION_ID,
         object: "subscription",
         customer: "cus_saas_stack_1",
         status: "active",
@@ -110,7 +133,17 @@ beforeAll(async () => {
           tierMap: { free: { features: [], caps: {} }, pro: { features: [], caps: {} } },
         },
       }),
-      ...billing.features,
+      createSubscriptionStripeFeature({
+        priceToTier: { [PRO_PRICE_ID]: "pro" },
+        apiKey: "test-stripe-api-key",
+        webhookSecret: WEBHOOK_SECRET,
+        clientConfig: {
+          host: "127.0.0.1",
+          port: fixtureApi.port,
+          protocol: "http",
+          maxNetworkRetries: 0,
+        },
+      }),
     ],
     masterKeyProvider,
     extraContext: ({ db, registry }) => ({
@@ -128,6 +161,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+  await fixtureApi.stop(true);
   resetPiiSubjectKmsForTests();
 });
 
@@ -135,6 +169,18 @@ describe("composeSaasStack with the Stripe billing option", () => {
   test("a signed subscription webhook assigns the mapped tier", async () => {
     const tenantId = testTenantId(7301);
     const payload = subscriptionCreatedEvent(tenantId);
+    expectSuccess(
+      await stack.dispatcher.write(
+        SubscriptionFoundationHandlers.recordCheckoutOpened,
+        {
+          providerName: "stripe",
+          providerCheckoutId: CHECKOUT_ID,
+          priceId: PRO_PRICE_ID,
+          mode: "subscription",
+        },
+        createSystemUser(tenantId, ["SystemAdmin"]),
+      ),
+    );
     const response = await stack.app.request(webhookPath, {
       method: "POST",
       body: payload,

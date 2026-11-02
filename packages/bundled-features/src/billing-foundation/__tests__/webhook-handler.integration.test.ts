@@ -31,13 +31,32 @@ import {
   SubscriptionStatuses,
 } from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
+import {
+  ledgerWriteAs,
+  openSubscriptionCheckout,
+  priceIdForTier,
+} from "./ledgered-subscription.ts";
+
+const PRICE_TO_TIER: Readonly<Record<string, string>> = { price_pro: "pro" };
 
 const stripeLikePlugin: SubscriptionProviderPlugin = {
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,
+  priceToTier: PRICE_TO_TIER,
 };
 const paypalLikePlugin: SubscriptionProviderPlugin = {
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,
+  priceToTier: PRICE_TO_TIER,
 };
+
+// Asks for redelivery of every ignored event whose id starts with "redeliver".
+const redeliveringPlugin: SubscriptionProviderPlugin = {
+  verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,
+  priceToTier: PRICE_TO_TIER,
+  shouldRedeliverIgnoredEvent: async ({ event }) => event.providerEventId.startsWith("redeliver"),
+};
+
+const AFTER_DISPATCH_PATH = "/api/test/after-dispatch/:providerName";
+const afterDispatchCalls: string[] = [];
 
 // Test-mock-provider whose `verifyAndParseWebhook` is swapped per test via
 // `resolvedPlugin` — lets each scenario control verify()'s throw/return
@@ -46,6 +65,7 @@ const mockProviderFeature = defineFeature("test-mock-webhook-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
   r.useExtension("subscriptionProvider", "stripe", stripeLikePlugin);
   r.useExtension("subscriptionProvider", "paypal", paypalLikePlugin);
+  r.useExtension("subscriptionProvider", "redelivering", redeliveringPlugin);
 });
 
 let stack: TestStack;
@@ -60,7 +80,16 @@ beforeAll(async () => {
       createBillingFoundationFeature(),
       mockProviderFeature,
     ],
-    extraRoutes: [createSubscriptionWebhookRoute()],
+    extraRoutes: [
+      createSubscriptionWebhookRoute(),
+      createSubscriptionWebhookRoute({
+        path: AFTER_DISPATCH_PATH,
+        afterDispatch: async (dispatched, _tenantId, _deps, event) => {
+          afterDispatchCalls.push(event.providerEventId);
+          return dispatched;
+        },
+      }),
+    ],
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
@@ -85,8 +114,21 @@ function buildEvent(overrides: Partial<SubscriptionEvent> = {}): SubscriptionEve
   };
 }
 
-async function postWebhook(providerName: string, body: unknown) {
-  return stack.app.request(`/api/subscription/webhook/${providerName}`, {
+async function withLedgeredCheckout(event: SubscriptionEvent): Promise<SubscriptionEvent> {
+  const providerCheckoutId = await openSubscriptionCheckout(ledgerWriteAs(stack, event.tenantId), {
+    providerName: event.providerName,
+    providerSubscriptionId: event.providerSubscriptionId,
+    priceId: priceIdForTier(PRICE_TO_TIER, event.tier),
+  });
+  return { ...event, providerCheckoutId };
+}
+
+async function postWebhook(providerName: string, body: unknown, path?: string) {
+  const url = (path ?? "/api/subscription/webhook/:providerName").replace(
+    ":providerName",
+    providerName,
+  );
+  return stack.app.request(url, {
     method: "POST",
     body: JSON.stringify(body),
     headers: { "stripe-signature": "test_sig" },
@@ -95,7 +137,10 @@ async function postWebhook(providerName: string, body: unknown) {
 
 describe("webhook-handler — happy path", () => {
   test("verifyAndParseWebhook → SubscriptionEvent → process-event write → 200 processed", async () => {
-    const res = await postWebhook("stripe", buildEvent({ tenantId: testTenantId(5002) }));
+    const res = await postWebhook(
+      "stripe",
+      await withLedgeredCheckout(buildEvent({ tenantId: testTenantId(5002) })),
+    );
     expect(res.status).toBe(200);
     const body = (await res.json()) as { processed: boolean; duplicate: boolean };
     expect(body.processed).toBe(true);
@@ -142,10 +187,12 @@ describe("webhook-handler — error paths", () => {
       "stripe",
       // @cast-boundary test-only invalid input — deliberately outside the
       // SubscriptionStatus enum to trip processEventSchema validation.
-      buildEvent({
-        tenantId: testTenantId(5003),
-        status: "not-a-real-status" as SubscriptionStatus,
-      }),
+      await withLedgeredCheckout(
+        buildEvent({
+          tenantId: testTenantId(5003),
+          status: "not-a-real-status" as SubscriptionStatus,
+        }),
+      ),
     );
     expect(res.status).toBe(500);
     const body = (await res.json()) as {
@@ -159,15 +206,19 @@ describe("webhook-handler — multi-provider mounting", () => {
   test("two different path-segments resolve to two different plugins", async () => {
     const stripeRes = await postWebhook(
       "stripe",
-      buildEvent({ tenantId: testTenantId(5004), providerEventId: "evt_multi_stripe" }),
+      await withLedgeredCheckout(
+        buildEvent({ tenantId: testTenantId(5004), providerEventId: "evt_multi_stripe" }),
+      ),
     );
     const paypalRes = await postWebhook(
       "paypal",
-      buildEvent({
-        tenantId: testTenantId(5005),
-        providerEventId: "evt_multi_paypal",
-        providerName: "paypal",
-      }),
+      await withLedgeredCheckout(
+        buildEvent({
+          tenantId: testTenantId(5005),
+          providerEventId: "evt_multi_paypal",
+          providerName: "paypal",
+        }),
+      ),
     );
 
     expect(stripeRes.status).toBe(200);
@@ -186,7 +237,8 @@ describe("webhook-handler — late events of a superseded subscription", () => {
   }
 
   async function post(overrides: Partial<SubscriptionEvent>) {
-    const res = await postWebhook("stripe", buildEvent({ tenantId, ...overrides }));
+    const event = await withLedgeredCheckout(buildEvent({ tenantId, ...overrides }));
+    const res = await postWebhook("stripe", event);
     expect(res.status).toBe(200);
     return (await res.json()) as { processed: boolean; duplicate: boolean; stale?: boolean };
   }
@@ -268,5 +320,131 @@ describe("webhook-handler — late events of a superseded subscription", () => {
 
     expect(next.stale).toBeUndefined();
     expect(await currentRow()).toMatchObject({ providerSubscriptionId: "sub_fourth" });
+  });
+});
+
+describe("webhook-handler — checkout ledger admission", () => {
+  const tenantId = testTenantId(5200);
+
+  async function rowCount() {
+    const rows = await selectMany(stack.db, subscriptionsProjectionTable, {
+      id: subscriptionAggregateId(tenantId),
+    });
+    return rows.length;
+  }
+
+  test("a created event for a checkout the server never opened answers 200 ignored and stores nothing", async () => {
+    const res = await postWebhook(
+      "stripe",
+      buildEvent({ tenantId, providerEventId: "evt_unledgered", providerCheckoutId: "cs_forged" }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ignored: true });
+    expect(await rowCount()).toBe(0);
+  });
+
+  test("afterDispatch runs for a processed event and is skipped for an ignored one", async () => {
+    afterDispatchCalls.length = 0;
+    const ignored = await postWebhook(
+      "stripe",
+      buildEvent({
+        tenantId,
+        providerEventId: "evt_after_ignored",
+        providerCheckoutId: "cs_forged",
+      }),
+      AFTER_DISPATCH_PATH,
+    );
+    expect(ignored.status).toBe(200);
+    expect(await ignored.json()).toMatchObject({ ignored: true });
+    expect(afterDispatchCalls).toEqual([]);
+
+    const processed = await postWebhook(
+      "stripe",
+      await withLedgeredCheckout(buildEvent({ tenantId, providerEventId: "evt_after_processed" })),
+      AFTER_DISPATCH_PATH,
+    );
+    expect(processed.status).toBe(200);
+    expect(await processed.json()).toMatchObject({ processed: true });
+    expect(afterDispatchCalls).toEqual(["evt_after_processed"]);
+  });
+});
+
+describe("webhook-handler — delivery order and redelivery", () => {
+  const tenantId = testTenantId(5300);
+
+  test("an updated event before its created answers a retryable 503, and is applied once redelivered after created", async () => {
+    const updated = buildEvent({
+      tenantId,
+      providerEventId: "evt_order_updated",
+      type: SubscriptionEventTypes.updated,
+      providerSubscriptionId: "sub_order",
+      status: SubscriptionStatuses.pastDue,
+    });
+    const early = await postWebhook("stripe", updated);
+    expect(early.status).toBe(503);
+    expect(early.headers.get("retry-after")).not.toBeNull();
+    expect(await early.json()).toMatchObject({
+      error: { code: "subscription_event_redeliver", reason: "subscription_not_yet_created" },
+    });
+
+    const created = await postWebhook(
+      "stripe",
+      await withLedgeredCheckout(
+        buildEvent({
+          tenantId,
+          providerEventId: "evt_order_created",
+          providerSubscriptionId: "sub_order",
+        }),
+      ),
+    );
+    expect(created.status).toBe(200);
+
+    const redelivered = await postWebhook("stripe", updated);
+    expect(redelivered.status).toBe(200);
+    expect(await redelivered.json()).toMatchObject({ processed: true });
+    const rows = await selectMany(stack.db, subscriptionsProjectionTable, {
+      id: subscriptionAggregateId(tenantId),
+    });
+    expect(rows[0]).toMatchObject({ status: SubscriptionStatuses.pastDue });
+  });
+
+  test("an updated event of another subscription than the held one stays a 200 ignore", async () => {
+    const res = await postWebhook(
+      "stripe",
+      buildEvent({
+        tenantId,
+        providerEventId: "evt_order_foreign",
+        type: SubscriptionEventTypes.updated,
+        providerSubscriptionId: "sub_someone_else",
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ignored: true });
+  });
+
+  test("a provider plugin can ask for redelivery of an event that is not in the ledger", async () => {
+    const asked = await postWebhook(
+      "redelivering",
+      buildEvent({
+        tenantId: testTenantId(5301),
+        providerName: "redelivering",
+        providerEventId: "redeliver_1",
+        providerCheckoutId: "cs_not_yet_ledgered",
+      }),
+    );
+    expect(asked.status).toBe(503);
+
+    const declined = await postWebhook(
+      "redelivering",
+      buildEvent({
+        tenantId: testTenantId(5301),
+        providerName: "redelivering",
+        providerEventId: "other_1",
+        providerCheckoutId: "cs_not_yet_ledgered",
+      }),
+    );
+    expect(declined.status).toBe(200);
+    expect(await declined.json()).toMatchObject({ ignored: true });
   });
 });

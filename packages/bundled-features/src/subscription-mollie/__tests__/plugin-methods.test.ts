@@ -31,7 +31,10 @@ function buildClient() {
       create: async () => ({ id: "cus_mock" }),
     },
     payments: {
-      create: async () => ({ getCheckoutUrl: () => "https://www.mollie.com/checkout/mock" }),
+      create: async () => ({
+        id: "tr_mock",
+        getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
+      }),
     },
   };
 }
@@ -40,6 +43,7 @@ describe("createMollieCheckoutSession", () => {
   test("mode omitted defaults to sequenceType 'first' (mandate-setup, regression safeguard for existing callers)", async () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
+      id: "tr_first",
       getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
     });
 
@@ -56,13 +60,17 @@ describe("createMollieCheckoutSession", () => {
       providerCustomerId: "cus_existing",
     });
 
-    expect(result).toEqual({ url: "https://www.mollie.com/checkout/mock" });
+    expect(result).toEqual({
+      url: "https://www.mollie.com/checkout/mock",
+      providerCheckoutId: "tr_first",
+    });
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ sequenceType: "first" }));
   });
 
-  test("consentId is sent in the payment metadata next to tenantId/priceId", async () => {
+  test("only tenantId and priceId ride in the payment metadata", async () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
+      id: "tr_meta",
       getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
     });
     const checkout = createMollieCheckoutSession(
@@ -76,11 +84,10 @@ describe("createMollieCheckoutSession", () => {
       successUrl: "https://example.com/success",
       cancelUrl: "https://example.com/cancel",
       providerCustomerId: "cus_existing",
-      consentId: "consent-1",
     });
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        metadata: { tenantId: "tenant-001", priceId: "plan_pro", consentId: "consent-1" },
+        metadata: { tenantId: "tenant-001", priceId: "plan_pro" },
       }),
     );
   });
@@ -88,6 +95,7 @@ describe("createMollieCheckoutSession", () => {
   test("mode='payment': sequenceType becomes 'oneoff' (one-off top-up, no Mandate-setup)", async () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({
+      id: "tr_topup",
       getCheckoutUrl: () => "https://www.mollie.com/checkout/topup",
     });
 
@@ -105,7 +113,10 @@ describe("createMollieCheckoutSession", () => {
       mode: "payment",
     });
 
-    expect(result).toEqual({ url: "https://www.mollie.com/checkout/topup" });
+    expect(result).toEqual({
+      url: "https://www.mollie.com/checkout/topup",
+      providerCheckoutId: "tr_topup",
+    });
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ sequenceType: "oneoff" }));
   });
 
@@ -142,7 +153,10 @@ describe("createMollieCheckoutSession", () => {
     );
 
     const result = await checkout(stubCtx, { ...topupOptions, mode: "payment" });
-    expect(result).toEqual({ url: "https://www.mollie.com/checkout/mock" });
+    expect(result).toEqual({
+      url: "https://www.mollie.com/checkout/mock",
+      providerCheckoutId: "tr_mock",
+    });
   });
 
   test("null checkout url: mandate hint only for first payments", async () => {

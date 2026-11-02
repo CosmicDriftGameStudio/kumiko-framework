@@ -26,6 +26,7 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
 } from "../web/constants.ts";
+import { ledgerWriteAs, openSubscriptionCheckout } from "./ledgered-subscription.ts";
 
 const ONE_OFF_PRICE = "price_pack_test";
 const customersSeen: Array<string | undefined> = [];
@@ -35,9 +36,13 @@ const providerFeature = defineFeature("test-prefill-provider", (r) => {
   const plugin: SubscriptionProviderPlugin = {
     verifyAndParseWebhook: async () => null,
     oneOffPriceIds: [ONE_OFF_PRICE],
+    priceToTier: { price_pro_test: "pro" },
     createCheckoutSession: async (_ctx, options) => {
       customersSeen.push(options.providerCustomerId);
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
   };
   r.useExtension("subscriptionProvider", "mock", plugin);
@@ -91,12 +96,17 @@ async function buyPack(admin: ReturnType<typeof adminFor>): Promise<void> {
 describe("one-off checkout customer prefill", () => {
   test("a tenant with a subscription at the same provider passes its customer id", async () => {
     const admin = adminFor(4301);
+    const providerCheckoutId = await openSubscriptionCheckout(
+      ledgerWriteAs(stack, admin.tenantId),
+      { providerName: "mock", providerSubscriptionId: "sub_4301", priceId: "price_pro_test" },
+    );
     await stack.http.writeOk(
       SubscriptionFoundationHandlers.processEvent,
       {
         providerEventId: "evt_4301",
         providerName: "mock",
         type: SubscriptionEventTypes.created,
+        providerCheckoutId,
         providerCustomerId: "cus_4301",
         providerSubscriptionId: "sub_4301",
         status: SubscriptionStatuses.active,

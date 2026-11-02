@@ -36,6 +36,9 @@ import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
+import { ledgerWriteAs } from "../../billing-foundation/__tests__/ledgered-subscription.ts";
+import { CHECKOUT_OPENED_EVENT_QN } from "../../billing-foundation/events.ts";
+import { SubscriptionFoundationHandlers } from "../../billing-foundation/web/constants.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
@@ -192,6 +195,22 @@ function buildMockSubscription(
   } as MollieSubscription;
 }
 
+async function stateEventsOf(tenantId: string) {
+  const events = await loadAggregate(db, subscriptionAggregateId(tenantId), tenantId);
+  return events.filter((event) => event.type !== CHECKOUT_OPENED_EVENT_QN);
+}
+
+// The first payment is the checkout the server opened at createCheckoutSession, so its id is
+// what the webhook's created event must match in the ledger.
+async function openFirstPaymentCheckout(tenantId: string, paymentId: string, priceId: string) {
+  await ledgerWriteAs(stack, tenantId)(SubscriptionFoundationHandlers.recordCheckoutOpened, {
+    providerName: "mollie",
+    providerCheckoutId: paymentId,
+    priceId,
+    mode: "subscription",
+  });
+}
+
 async function postMollieWebhook(id: string) {
   return stack.app.request("/api/subscription/webhook/mollie", {
     method: "POST",
@@ -222,6 +241,7 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
         metadata: { tenantId: tenantStringId, priceId: "plan_pro" },
       }),
     );
+    await openFirstPaymentCheckout(tenantStringId, "tr_5001_first", "plan_pro");
     await postMollieWebhook("tr_5001_first");
 
     // 2. The existing subscription is now in the mock state. A recurring charge arrives:
@@ -259,11 +279,7 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
     expect(subs.rows[0]?.["status"]).toBe("active");
     expect(subs.rows[0]?.["id"]).toBe(subscriptionAggregateId(tenantStringId));
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(tenantStringId),
-      tenantStringId,
-    );
+    const esEvents = await stateEventsOf(tenantStringId);
     // create + renewal beide im stream
     expect(esEvents).toHaveLength(2);
     expect(esEvents[0]?.type).toBe("billing-foundation:event:subscription-created");
@@ -288,6 +304,7 @@ describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing su
       }),
     );
 
+    await openFirstPaymentCheckout(tenantStringId, "tr_5002_first", "plan_business");
     const res = await postMollieWebhook("tr_5002_first");
     expect(res.status).toBe(200);
 
@@ -330,6 +347,7 @@ describe("scenario 3: idempotency via Mollie-retry", () => {
       }),
     );
 
+    await openFirstPaymentCheckout(tenantStringId, "tr_5003_retry", "plan_pro");
     const res1 = await postMollieWebhook("tr_5003_retry");
     expect(res1.status).toBe(200);
     const body1 = (await res1.json()) as { processed?: boolean; duplicate?: boolean };
@@ -343,11 +361,7 @@ describe("scenario 3: idempotency via Mollie-retry", () => {
     // Drift-pin: ensureSubscriptionForMandate fand die existing sub via list.
     expect(mockState.createCallCount).toBe(1);
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(tenantStringId),
-      tenantStringId,
-    );
+    const esEvents = await stateEventsOf(tenantStringId);
     expect(esEvents).toHaveLength(1);
   });
 });

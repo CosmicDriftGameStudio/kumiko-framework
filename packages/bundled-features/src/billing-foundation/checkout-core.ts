@@ -11,6 +11,7 @@ import {
   UnconfiguredError,
   UnprocessableError,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { appendCheckoutOpened } from "./checkout-ledger.ts";
 import { getSubscriptionForTenant } from "./get-subscription-for-tenant.ts";
 import { assertOneOffAuthorized, assertOneOffPriceAllowed } from "./one-off-checkout-gate.ts";
 import type {
@@ -398,9 +399,15 @@ export async function startProviderCheckout(
     // pre-hardening wire-contract for callers that never sent `mode`
     // (create-checkout-session's own regression pin).
     ...(input.mode && { mode: input.mode }),
-    ...(input.consentId && { consentId: input.consentId }),
     ...(input.locale && { locale: input.locale }),
     ...(input.submitMessage && { submitMessage: input.submitMessage }),
+  });
+  await appendCheckoutOpened(ctx, ctx.user.tenantId, {
+    providerName: input.providerName,
+    providerCheckoutId: result.providerCheckoutId,
+    priceId: input.priceId,
+    mode: input.mode ?? "subscription",
+    ...(input.consentId && { consentId: input.consentId }),
   });
   return { url: result.url, providerName: input.providerName };
 }

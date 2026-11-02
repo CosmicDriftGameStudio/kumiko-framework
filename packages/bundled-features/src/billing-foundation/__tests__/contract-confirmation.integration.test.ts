@@ -22,6 +22,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import {
   createComplianceProfilesFeature,
@@ -47,6 +48,7 @@ import { createUserFeature } from "../../user/feature.ts";
 import { UserHandlers } from "../../user/index.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
+import { findCheckoutOpened } from "../checkout-ledger.ts";
 import { CONSENT_TEXTS, consentTextVersion } from "../consumer-protection/consent-text.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,
@@ -107,7 +109,7 @@ const catalog: BillingPlanCatalog = {
 
 const emailTransport = createInMemoryTransport();
 const configResolver = createConfigResolver();
-let lastConsentId: string | undefined;
+let lastCheckoutId: string | undefined;
 
 const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
@@ -153,8 +155,11 @@ const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
         },
       ].filter((p) => priceIds.includes(p.priceId)),
     createCheckoutSession: async (_ctx, options) => {
-      lastConsentId = options.consentId;
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      lastCheckoutId = `cs_${options.priceId}`;
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: lastCheckoutId,
+      };
     },
     previewPlanSwitch: async () => ({
       amountDueNow: 667,
@@ -163,9 +168,7 @@ const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
       credit: 333,
       effectiveAt: "2026-11-01T10:00:00Z",
     }),
-    applyPlanSwitch: async (_ctx, options) => {
-      lastConsentId = options.consentId;
-    },
+    applyPlanSwitch: async () => {},
   };
   r.useExtension("subscriptionProvider", PROVIDER, plugin);
 });
@@ -218,7 +221,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   emailTransport.sent.length = 0;
-  lastConsentId = undefined;
+  lastCheckoutId = undefined;
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
   );
@@ -271,17 +274,54 @@ function consentFor(locale: "de" | "en") {
   };
 }
 
+type OpenedCheckout = { readonly consentId: string; readonly providerCheckoutId: string };
+
+async function ledgerEntryOf(
+  tenantId: string,
+  mode: "subscription" | "payment",
+): Promise<OpenedCheckout> {
+  const providerCheckoutId = lastCheckoutId;
+  if (!providerCheckoutId) throw new Error("provider did not open a checkout");
+  const events = await loadAggregate(
+    stack.db,
+    mode === "subscription" ? subscriptionAggregateId(tenantId) : paymentAggregateId(tenantId),
+    tenantId as never,
+    { includeArchived: true },
+  );
+  const entry = findCheckoutOpened(events, { providerName: PROVIDER, providerCheckoutId, mode });
+  if (!entry?.consentId) throw new Error("checkout ledger entry carries no consentId");
+  return { consentId: entry.consentId, providerCheckoutId };
+}
+
 async function recordSubscriptionConsent(
   buyer: ReturnType<typeof createTestUser>,
   locale: "de" | "en",
-): Promise<string> {
+  tier = "pro",
+): Promise<OpenedCheckout> {
   await stack.http.writeOk(
     SubscriptionFoundationHandlers.startPlanCheckout,
-    { tier: "pro", consent: consentFor(locale) },
+    { tier, consent: consentFor(locale) },
     buyer,
   );
-  if (!lastConsentId) throw new Error("provider did not receive a consentId");
-  return lastConsentId;
+  return ledgerEntryOf(buyer.tenantId, "subscription");
+}
+
+async function openTopupCheckout(
+  buyer: ReturnType<typeof createTestUser>,
+): Promise<OpenedCheckout> {
+  await stack.http.writeOk(
+    SubscriptionFoundationHandlers.createCheckoutSession,
+    {
+      providerName: PROVIDER,
+      priceId: "price_topup",
+      successUrl: "https://app.example.com/billing/success",
+      cancelUrl: "https://app.example.com/billing/cancel",
+      mode: "payment",
+      consent: consentFor("en"),
+    },
+    buyer,
+  );
+  return ledgerEntryOf(buyer.tenantId, "payment");
 }
 
 function subscriptionEvent(
@@ -290,7 +330,7 @@ function subscriptionEvent(
     providerEventId: string;
     type?: SubscriptionEvent["type"];
     status?: SubscriptionStatus;
-    consentId?: string;
+    providerCheckoutId?: string;
     tier?: string;
   },
 ): SubscriptionEvent {
@@ -304,7 +344,9 @@ function subscriptionEvent(
     status: overrides.status ?? SubscriptionStatuses.active,
     tier: overrides.tier ?? "pro",
     currentPeriodEnd: "2026-11-02T00:00:00Z",
-    ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
+    ...(overrides.providerCheckoutId !== undefined && {
+      providerCheckoutId: overrides.providerCheckoutId,
+    }),
   };
 }
 
@@ -335,9 +377,11 @@ function isIssueReason(data: unknown, reason: string): boolean {
 describe("contract confirmation mail on a subscription", () => {
   test("active webhook after a recorded consent sends one German mail with plan, price, VAT note, consent texts and the full terms", async () => {
     const buyer = await createBuyer(8201);
-    const consentId = await recordSubscriptionConsent(buyer, "de");
+    const { consentId, providerCheckoutId } = await recordSubscriptionConsent(buyer, "de");
 
-    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", consentId }));
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", providerCheckoutId }),
+    );
     await stack.drainJobs();
 
     expect(emailTransport.sent).toHaveLength(1);
@@ -358,13 +402,18 @@ describe("contract confirmation mail on a subscription", () => {
     expect(issued[0]?.payload).toMatchObject({ consentId, locale: "de", termsTemplateVersion: 1 });
   });
 
-  test("an in-app plan switch records its consent and the plan_changed webhook carrying it sends the confirmation mail once", async () => {
+  test("an in-app plan switch records its consent and the plan_changed webhook picks it up and sends the confirmation mail once", async () => {
     const buyer = await createBuyer(8205);
+    const starter = await recordSubscriptionConsent(buyer, "de", "starter");
     await postWebhook(
-      subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", tier: "starter" }),
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_1",
+        tier: "starter",
+        providerCheckoutId: starter.providerCheckoutId,
+      }),
     );
     await stack.drainJobs();
-    expect(emailTransport.sent).toHaveLength(0);
+    emailTransport.sent.length = 0;
 
     const result = await stack.http.writeOk(
       SubscriptionFoundationHandlers.switchPlan,
@@ -372,13 +421,10 @@ describe("contract confirmation mail on a subscription", () => {
       buyer,
     );
     expect(result).toEqual({ applied: true });
-    const consentId = lastConsentId;
-    if (!consentId) throw new Error("apply did not receive a consentId");
 
     const changed = subscriptionEvent(buyer.tenantId, {
       providerEventId: "evt_2",
       type: SubscriptionEventTypes.updated,
-      consentId,
     });
     await postWebhook(changed);
     await postWebhook(changed);
@@ -389,15 +435,19 @@ describe("contract confirmation mail on a subscription", () => {
     expect(html).toContain("Tarif: Pro plan");
     expect(html).toContain(CONSENT_TEXTS.de.earlyPerformance);
     const issued = await issuedEvents(subscriptionAggregateId(buyer.tenantId), buyer.tenantId);
-    expect(issued).toHaveLength(1);
-    expect(issued[0]?.payload).toMatchObject({ consentId });
+    const switchIssued = issued.filter(
+      (e) => propertyOf(e.payload, "consentId") !== starter.consentId,
+    );
+    expect(switchIssued).toHaveLength(1);
   });
 
   test("an English consent produces the English mail with the English terms", async () => {
     const buyer = await createBuyer(8202);
-    const consentId = await recordSubscriptionConsent(buyer, "en");
+    const { providerCheckoutId } = await recordSubscriptionConsent(buyer, "en");
 
-    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", consentId }));
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", providerCheckoutId }),
+    );
     await stack.drainJobs();
 
     expect(emailTransport.sent).toHaveLength(1);
@@ -425,9 +475,11 @@ describe("contract confirmation mail on a subscription", () => {
       ].join("\n"),
     );
     const buyer = await createBuyer(8204);
-    const consentId = await recordSubscriptionConsent(buyer, "en");
+    const { providerCheckoutId } = await recordSubscriptionConsent(buyer, "en");
 
-    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", consentId }));
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", providerCheckoutId }),
+    );
     await stack.drainJobs();
 
     expect(emailTransport.sent).toHaveLength(1);
@@ -445,8 +497,11 @@ describe("contract confirmation mail on a subscription", () => {
 
   test("a webhook replay and a later invoice-paid with the same consentId do not send a second mail", async () => {
     const buyer = await createBuyer(8203);
-    const consentId = await recordSubscriptionConsent(buyer, "de");
-    const created = subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1", consentId });
+    const { providerCheckoutId } = await recordSubscriptionConsent(buyer, "de");
+    const created = subscriptionEvent(buyer.tenantId, {
+      providerEventId: "evt_1",
+      providerCheckoutId,
+    });
 
     await postWebhook(created);
     await postWebhook(created);
@@ -455,7 +510,7 @@ describe("contract confirmation mail on a subscription", () => {
       subscriptionEvent(buyer.tenantId, {
         providerEventId: "evt_2",
         type: SubscriptionEventTypes.invoicePaid,
-        consentId,
+        providerCheckoutId,
       }),
     );
     await stack.drainJobs();
@@ -466,16 +521,16 @@ describe("contract confirmation mail on a subscription", () => {
     ).toHaveLength(1);
   });
 
-  test("an event without consentId or with status incomplete sends no mail", async () => {
+  test("an event without a ledger checkout or with status incomplete sends no mail", async () => {
     const buyer = await createBuyer(8204);
-    const consentId = await recordSubscriptionConsent(buyer, "de");
+    const { providerCheckoutId } = await recordSubscriptionConsent(buyer, "de");
 
     await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_1" }));
     await postWebhook(
       subscriptionEvent(buyer.tenantId, {
         providerEventId: "evt_2",
         status: SubscriptionStatuses.incomplete,
-        consentId,
+        providerCheckoutId,
       }),
     );
     await stack.drainJobs();
@@ -488,7 +543,7 @@ describe("contract confirmation mail on a subscription", () => {
 
   test("two concurrent issue-contract-confirmation calls issue once and mail once", async () => {
     const buyer = await createBuyer(8205);
-    const consentId = await recordSubscriptionConsent(buyer, "de");
+    const { consentId } = await recordSubscriptionConsent(buyer, "de");
     const system = createSystemUser(buyer.tenantId);
     const payload = {
       consentId,
@@ -551,8 +606,10 @@ describe("contract confirmation mail on a subscription", () => {
 
 describe("contract confirmation mail time zone", () => {
   async function mailFor(buyer: ReturnType<typeof createTestUser>): Promise<string> {
-    const consentId = await recordSubscriptionConsent(buyer, "en");
-    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_tz", consentId }));
+    const { providerCheckoutId } = await recordSubscriptionConsent(buyer, "en");
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, { providerEventId: "evt_tz", providerCheckoutId }),
+    );
     await stack.drainJobs();
     expect(emailTransport.sent).toHaveLength(1);
     return emailTransport.sent[0]?.html ?? "";
@@ -600,7 +657,7 @@ describe("contract confirmation terms source", () => {
       },
       buyer,
     );
-    const consentId = await recordSubscriptionConsent(buyer, "en");
+    const { providerCheckoutId } = await recordSubscriptionConsent(buyer, "en");
     const events = await loadAggregate(
       stack.db,
       subscriptionAggregateId(buyer.tenantId),
@@ -612,7 +669,9 @@ describe("contract confirmation terms source", () => {
       termsHash: createHash("sha256").update(TERMS_EN).digest("hex"),
     });
 
-    await postWebhook(subscriptionEvent(buyer.tenantId, { providerEventId: "evt_t", consentId }));
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, { providerEventId: "evt_t", providerCheckoutId }),
+    );
     await stack.drainJobs();
     const html = emailTransport.sent[0]?.html ?? "";
     expect(html).toContain(TERMS_EN);
@@ -623,20 +682,7 @@ describe("contract confirmation terms source", () => {
 describe("contract confirmation mail on a one-off payment", () => {
   test("the oneOffItemLabel option labels the consent and the mail", async () => {
     const buyer = await createBuyer(8214);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.createCheckoutSession,
-      {
-        providerName: PROVIDER,
-        priceId: "price_topup",
-        successUrl: "https://app.example.com/billing/success",
-        cancelUrl: "https://app.example.com/billing/cancel",
-        mode: "payment",
-        consent: consentFor("en"),
-      },
-      buyer,
-    );
-    const consentId = lastConsentId;
-    if (!consentId) throw new Error("provider did not receive a consentId");
+    const { providerCheckoutId } = await openTopupCheckout(buyer);
     const events = await loadAggregate(
       stack.db,
       paymentAggregateId(buyer.tenantId),
@@ -657,28 +703,15 @@ describe("contract confirmation mail on a one-off payment", () => {
       tenantId: buyer.tenantId,
       providerCustomerId: "cus_confirm",
       priceId: "price_topup",
-      consentId,
+      providerCheckoutId,
     } satisfies PaymentEvent);
     await stack.drainJobs();
     expect(emailTransport.sent[0]?.html ?? "").toContain("Item: 500 credits");
   });
 
-  test("payment-received with the consentId sends one mail", async () => {
+  test("payment-received for a ledger checkout sends one mail with the ledger's consent", async () => {
     const buyer = await createBuyer(8208);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.createCheckoutSession,
-      {
-        providerName: PROVIDER,
-        priceId: "price_topup",
-        successUrl: "https://app.example.com/billing/success",
-        cancelUrl: "https://app.example.com/billing/cancel",
-        mode: "payment",
-        consent: consentFor("en"),
-      },
-      buyer,
-    );
-    const consentId = lastConsentId;
-    if (!consentId) throw new Error("provider did not receive a consentId");
+    const { providerCheckoutId } = await openTopupCheckout(buyer);
 
     const payment: PaymentEvent = {
       kind: BillingEventKinds.payment,
@@ -687,7 +720,7 @@ describe("contract confirmation mail on a one-off payment", () => {
       tenantId: buyer.tenantId,
       providerCustomerId: "cus_confirm",
       priceId: "price_topup",
-      consentId,
+      providerCheckoutId,
     };
     await postWebhook(payment);
     await stack.drainJobs();

@@ -19,7 +19,7 @@ import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
  *  (`tier-engine`). Needs `billing-foundation`, `tier-engine`, `config` and
  *  `secrets` in `features`. The env keys (`STRIPE_API_KEY` /
  *  `STRIPE_WEBHOOK_SECRET`, `PADDLE_API_KEY` / `PADDLE_WEBHOOK_SECRET` /
- *  `PADDLE_TENANT_BINDING_KEY` / `PADDLE_CLIENT_TOKEN`) are only the bridge fallback; the keys
+ *  `PADDLE_CLIENT_TOKEN`) are only the bridge fallback; the keys
  *  normally live in the secrets store.
  *
  *  @example
@@ -97,7 +97,6 @@ function providerFeatures(
     );
   }
   if (paddle) {
-    const tenantBindingKey = envSource["PADDLE_TENANT_BINDING_KEY"];
     const clientToken = envSource["PADDLE_CLIENT_TOKEN"];
     warnOnEmptyPriceMap("paddle", paddle.priceToTier);
     features.push(
@@ -105,7 +104,6 @@ function providerFeatures(
         priceToTier: paddle.priceToTier,
         ...(paddle.oneOffPriceIds && { oneOffPriceIds: paddle.oneOffPriceIds }),
         ...bridgeCredentials(envSource, "PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET"),
-        ...(tenantBindingKey && { tenantBindingKey }),
         ...(clientToken && { clientToken }),
       }),
     );

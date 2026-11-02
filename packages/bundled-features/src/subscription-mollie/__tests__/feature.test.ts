@@ -162,6 +162,7 @@ function buildMollieContractFixture() {
     customers: { create: async () => ({ id: "cus_contract" }) },
     payments: {
       create: async () => ({
+        id: "tr_contract_checkout",
         getCheckoutUrl: () => "https://www.mollie.com/checkout/contract-test",
       }),
     },

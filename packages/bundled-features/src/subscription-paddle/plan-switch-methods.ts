@@ -11,7 +11,6 @@ import { PaddleHttpError } from "./client.ts";
 import { paddleAmountSchema } from "./price-methods.ts";
 import type { PaddleCtxRuntime, PaddlePluginMethod } from "./runtime.ts";
 import { mapPaddleSubscriptionState, paddleSubscriptionSchema } from "./subscription-state.ts";
-import { signTenantBinding } from "./tenant-binding.ts";
 
 const NOT_FOUND = 404;
 
@@ -84,23 +83,18 @@ export function createPaddlePreviewPlanSwitch(
 
 // The switch itself arrives later as a subscription.updated webhook;
 // prevent_change keeps the old plan if the immediate charge fails. PATCH
-// replaces custom_data as a whole, so the tenant binding is sent again.
+// replaces custom_data as a whole, so the tenant id (the webhook's stream locator) is sent again.
 export function createPaddleApplyPlanSwitch(
   runtime: PaddleCtxRuntime,
 ): PaddlePluginMethod<"applyPlanSwitch"> {
   return async (ctx, options) => {
-    const bindingKey = await runtime.tenantBindingKey(ctx);
     await runtime.call(ctx, {
       method: "PATCH",
       path: paddleSubscriptionPath(options.providerSubscriptionId),
       body: {
         ...changePlanBody(options.targetPriceId),
         on_payment_failure: "prevent_change",
-        custom_data: {
-          tenantId: options.tenantId,
-          tenantBinding: signTenantBinding(bindingKey, options.tenantId),
-          ...(options.consentId && { consentId: options.consentId }),
-        },
+        custom_data: { tenantId: options.tenantId },
       },
     });
   };

@@ -25,6 +25,7 @@
 // proration, multi-currency, coupons, etc. remain provider-specific and
 // are available through the Customer Portal link.
 
+import type { SignatureExtraRouteDeps } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
@@ -66,9 +67,11 @@ export type SubscriptionEvent = {
   /** Platform tenant ID (provider-customer metadata or lookup via
    *  providerCustomerId). The plugin performs the resolution. */
   readonly tenantId: string;
-  /** Consent id echoed back from checkout metadata; omitted when absent or
-   *  malformed. */
-  readonly consentId?: string;
+  /** Checkout that created this subscription (Paddle transaction id, Stripe
+   *  session id, Mollie first-payment id). `created` events are only accepted
+   *  when the checkout is in the server's checkout ledger; later events of the
+   *  same subscription do not need it. */
+  readonly providerCheckoutId?: string;
   /** Provider-owned customer ID for later lookup when events lack
    *  metadata. */
   readonly providerCustomerId: string;
@@ -119,12 +122,10 @@ export type PaymentEvent = {
    *  create time) — never from a freely-choosable payload field, or an
    *  attacker could attribute payments to someone else's tenant. */
   readonly tenantId: string;
-  /** Consent id echoed back from checkout metadata; omitted when absent or
-   *  malformed. */
-  readonly consentId?: string;
-  /** Provider's checkout/payment object id (Stripe checkout session id) —
-   *  lets consumers key their own grants without the raw provider payload. */
-  readonly providerCheckoutId?: string;
+  /** Provider's checkout/payment object id (Stripe checkout session id,
+   *  Paddle transaction id). Must name a checkout the server opened itself,
+   *  otherwise the payment is ignored. */
+  readonly providerCheckoutId: string;
   /** Provider's own customer-id. */
   readonly providerCustomerId: string;
   /** Provider's own price/plan-ID of the purchased item. */
@@ -208,15 +209,12 @@ export type SubscriptionProviderPlugin = {
        *  credit top-ups). Optional with default `"subscription"` — existing
        *  callers are unaffected. */
       readonly mode?: "subscription" | "payment";
-      /** Id of the consumer-protection consent recorded for this checkout.
-       *  Travels as provider metadata and comes back on the webhook event. */
-      readonly consentId?: string;
       /** App locale (BCP-47-ish, e.g. "de", "de-DE") for the hosted page. */
       readonly locale?: string;
       /** Text shown next to the submit button on the hosted page. */
       readonly submitMessage?: string;
     },
-  ) => Promise<{ readonly url: string }>;
+  ) => Promise<{ readonly url: string; readonly providerCheckoutId: string }>;
 
   /**
    * **Post-tenant-resolution** — called from a write handler with a
@@ -340,7 +338,6 @@ export type SubscriptionProviderPlugin = {
       readonly providerSubscriptionId: string;
       readonly targetPriceId: string;
       readonly tenantId: string;
-      readonly consentId?: string;
     },
   ) => Promise<void>;
 
@@ -355,6 +352,18 @@ export type SubscriptionProviderPlugin = {
    * app's config (e.g. Stripe's price-to-tier — same silent-drop the
    * webhook path already applies to an unmapped price).
    */
+  /**
+   * Asked when billing-foundation ignored a verified event because its checkout is not in
+   * the ledger. Answering true makes the webhook route reply with a retryable 503 instead
+   * of 200, for providers that can still ledger the checkout shortly after (migration
+   * sweeps). Absent = never redeliver.
+   */
+  readonly shouldRedeliverIgnoredEvent?: (args: {
+    readonly event: SubscriptionEvent | PaymentEvent;
+    readonly reason: string;
+    readonly deps: SignatureExtraRouteDeps;
+  }) => Promise<boolean>;
+
   readonly retrieveSubscription?: (
     ctx: HandlerContext,
     providerSubscriptionId: string,

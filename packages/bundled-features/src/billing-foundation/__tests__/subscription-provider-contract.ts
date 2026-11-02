@@ -66,6 +66,7 @@ export function describeSubscriptionProviderContract(
       const result = await plugin.createCheckoutSession(ctx, checkout);
       expect(typeof result.url).toBe("string");
       expect(result.url.length).toBeGreaterThan(0);
+      expect(result.providerCheckoutId.length).toBeGreaterThan(0);
     });
 
     (options.hasPortal ? test : test.skip)(

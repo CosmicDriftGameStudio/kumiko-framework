@@ -19,6 +19,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -36,7 +37,7 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
 import { consentTextVersion } from "../consumer-protection/consent-text.ts";
-import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.ts";
+import { CHECKOUT_CONSENT_RECORDED_EVENT_QN, CHECKOUT_OPENED_EVENT_QN } from "../events.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import type {
   BillingPlanCatalog,
@@ -81,7 +82,6 @@ const catalog: BillingPlanCatalog = {
 type CheckoutCall = {
   priceId: string;
   mode?: string;
-  consentId?: string;
   locale?: string;
   submitMessage?: string;
 };
@@ -140,11 +140,13 @@ const mockProviderFeature = defineFeature("test-mock-consent-provider", (r) => {
       checkoutCalls.push({
         priceId: options.priceId,
         ...(options.mode && { mode: options.mode }),
-        ...(options.consentId && { consentId: options.consentId }),
         ...(options.locale && { locale: options.locale }),
         ...(options.submitMessage && { submitMessage: options.submitMessage }),
       });
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
   };
   r.useExtension("subscriptionProvider", "mock-consent-provider", plugin);
@@ -158,7 +160,10 @@ const mockProviderWithoutPricesFeature = defineFeature("test-mock-consent-no-pri
     oneOffPriceIds: ["price_topup"],
     createCheckoutSession: async (_ctx, options) => {
       checkoutCalls.push({ priceId: options.priceId });
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
   };
   r.useExtension("subscriptionProvider", "mock-consent-no-prices", plugin);
@@ -245,6 +250,15 @@ function consentFor(locale: string, version = consentTextVersion("de")) {
   };
 }
 
+async function ledgerConsentId(aggregateId: string, tenantId: string): Promise<unknown> {
+  const events = await loadAggregate(stack.db, aggregateId, tenantId as never, {
+    includeArchived: true,
+  });
+  const entries = events.filter((e) => e.type === CHECKOUT_OPENED_EVENT_QN);
+  expect(entries).toHaveLength(1);
+  return propertyOf(entries[0]?.payload, "consentId");
+}
+
 async function consentEvents(aggregateId: string, tenantId: string) {
   const events = await loadAggregate(stack.db, aggregateId, tenantId as never, {
     includeArchived: true,
@@ -283,7 +297,7 @@ describe("consumerProtection on — start-plan-checkout", () => {
     );
   });
 
-  test("records exactly one consent on the subscription stream and hands the same consentId to the provider", async () => {
+  test("records exactly one consent on the subscription stream and ties the same consentId to the checkout ledger entry", async () => {
     const admin = adminFor(8102);
     const version = consentTextVersion("de");
     await stack.http.writeOk(
@@ -300,7 +314,7 @@ describe("consumerProtection on — start-plan-checkout", () => {
     const events = await consentEvents(subscriptionAggregateId(admin.tenantId), admin.tenantId);
     expect(events).toHaveLength(1);
     expect(events[0]?.payload).toEqual({
-      consentId: call?.consentId,
+      consentId: await ledgerConsentId(subscriptionAggregateId(admin.tenantId), admin.tenantId),
       mode: "subscription",
       tier: "pro",
       priceId: "price_pro",
@@ -377,7 +391,7 @@ describe("consumerProtection on — create-checkout-session", () => {
     const events = await consentEvents(paymentAggregateId(admin.tenantId), admin.tenantId);
     expect(events).toHaveLength(1);
     expect(events[0]?.payload).toMatchObject({
-      consentId: checkoutCalls[0]?.consentId,
+      consentId: await ledgerConsentId(paymentAggregateId(admin.tenantId), admin.tenantId),
       mode: "payment",
       tier: null,
       priceId: "price_topup",
@@ -436,6 +450,7 @@ describe("consumerProtection on — create-checkout-session gate order", () => {
         providerEventId: "evt_existing_8111",
         providerName: "mock-consent-provider",
         type: "subscription.created",
+        providerCheckoutId: "cs_price_pro",
         providerCustomerId: "cus_existing",
         providerSubscriptionId: "sub_existing",
         status: SubscriptionStatuses.active,

@@ -70,6 +70,7 @@ import {
   type TerminationScope,
 } from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
+import { ledgerWriteAs, openSubscriptionCheckout } from "./ledgered-subscription.ts";
 
 const PROVIDER = "mock-termination-provider";
 const TERMS_SLUG = "billing-terms";
@@ -272,11 +273,18 @@ async function seedSubscription(
   providerSubscriptionId: string,
   target: TestStack = stack,
 ) {
+  const tenantId = testTenantId(tenantNumber);
+  const providerCheckoutId = await openSubscriptionCheckout(ledgerWriteAs(target, tenantId), {
+    providerName: PROVIDER,
+    providerSubscriptionId,
+    priceId: "price_pro",
+  });
   const event: SubscriptionEvent = {
     providerEventId: `evt_${providerSubscriptionId}`,
     providerName: PROVIDER,
     type: SubscriptionEventTypes.created,
-    tenantId: testTenantId(tenantNumber),
+    providerCheckoutId,
+    tenantId,
     providerCustomerId: `cus_${providerSubscriptionId}`,
     providerSubscriptionId,
     status: SubscriptionStatuses.active,

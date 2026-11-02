@@ -40,6 +40,7 @@ import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.ts";
+import { CHECKOUT_OPENED_EVENT_QN } from "../events.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.ts";
 import type { PaymentEvent, SubscriptionProviderPlugin } from "../types.ts";
@@ -85,7 +86,10 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
         ...(options.providerCustomerId && { providerCustomerId: options.providerCustomerId }),
         ...(options.mode && { mode: options.mode }),
       });
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
     createPortalSession: async (_ctx, options) => {
       mockPortalCalls.push({
@@ -96,6 +100,24 @@ const mockProviderFeature = defineFeature("test-mock-provider", (r) => {
     },
   };
   r.useExtension("subscriptionProvider", "mock", plugin);
+});
+
+const PRICE_FOR_TIER: Readonly<Record<string, string>> = {
+  pro: "price_pro_test",
+  business: "price_business_test",
+};
+
+// "stripe" and "paypal" carry the tier prices too: ledger admission resolves the
+// checkout's price to a tier through the named provider's plugin.
+const tierProviderPlugin: SubscriptionProviderPlugin = {
+  verifyAndParseWebhook: async () => null,
+  priceToTier: { price_pro_test: "pro", price_business_test: "business" },
+};
+
+const tierProvidersFeature = defineFeature("test-tier-providers", (r) => {
+  r.requires({ features: ["billing-foundation"] });
+  r.useExtension("subscriptionProvider", "stripe", tierProviderPlugin);
+  r.useExtension("subscriptionProvider", "paypal", tierProviderPlugin);
 });
 
 // Second mock provider — parses its rawBody straight into a PaymentEvent
@@ -111,6 +133,7 @@ const mockPaymentProviderFeature = defineFeature("test-mock-payment-provider", (
         providerEventId: parsed["providerEventId"] ?? "evt_mock_payment",
         providerName: "mock-payment",
         tenantId: parsed["tenantId"] ?? "tenant-mock",
+        providerCheckoutId: parsed["providerCheckoutId"] ?? "cs_mock",
         providerCustomerId: parsed["providerCustomerId"] ?? "cus_mock",
         priceId: parsed["priceId"] ?? "price_mock",
       };
@@ -135,6 +158,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       createBillingFoundationFeature({ baseUrl: "https://example.com" }),
       mockProviderFeature,
+      tierProvidersFeature,
       mockPaymentProviderFeature,
     ],
     // Scenario 11 exercises the real payment-branch of the webhook route
@@ -165,6 +189,38 @@ function adminFor(tenantNumber: number) {
     tenantId: testTenantId(tenantNumber),
     roles: ["TenantAdmin", "SystemAdmin"],
   });
+}
+
+async function loadSubscriptionStateEvents(tenantId: ReturnType<typeof testTenantId>) {
+  const events = await loadAggregate(db, subscriptionAggregateId(tenantId), tenantId);
+  return events.filter((event) => event.type !== CHECKOUT_OPENED_EVENT_QN);
+}
+
+async function loadPaymentStateEvents(tenantId: ReturnType<typeof testTenantId>) {
+  const events = await loadAggregate(db, paymentAggregateId(tenantId), tenantId);
+  return events.filter((event) => event.type !== CHECKOUT_OPENED_EVENT_QN);
+}
+
+// A created event needs the checkout it belongs to in the ledger; every event names its checkout.
+async function writeSubscriptionEvent(
+  payload: ReturnType<typeof buildEvent>,
+  admin: ReturnType<typeof adminFor>,
+) {
+  const providerCheckoutId = `cs_${payload.providerSubscriptionId}_${payload.tier}`;
+  const priceId = PRICE_FOR_TIER[payload.tier];
+  if (payload.type === SubscriptionEventTypes.created) {
+    if (priceId === undefined) throw new Error(`no test price for tier ${payload.tier}`);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.recordCheckoutOpened,
+      { providerName: payload.providerName, providerCheckoutId, priceId, mode: "subscription" },
+      admin,
+    );
+  }
+  return stack.http.writeOk(
+    SubscriptionFoundationHandlers.processEvent,
+    { ...payload, providerCheckoutId },
+    admin,
+  );
 }
 
 function buildEvent(
@@ -204,8 +260,7 @@ function buildEvent(
 describe("scenario 1: webhook-event creates subscription + audit-row", () => {
   test("first event for tenant → subscription-row + subscription-event-row erzeugt", async () => {
     const admin = adminFor(3001);
-    const result = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    const result = (await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3001_create",
         providerCustomerId: "cus_3001",
@@ -229,11 +284,7 @@ describe("scenario 1: webhook-event creates subscription + audit-row", () => {
 
     // The event-store retains the audit history; no separate
     // subscription-event table is used.
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await loadSubscriptionStateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(1);
     expect(esEvents[0]?.type).toBe("billing-foundation:event:subscription-created");
     expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_3001_create");
@@ -245,8 +296,7 @@ describe("scenario 2: webhook-update upserts subscription, archiviert weiteren e
     const admin = adminFor(3002);
 
     // create
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3002_create",
         providerCustomerId: "cus_3002",
@@ -257,8 +307,7 @@ describe("scenario 2: webhook-update upserts subscription, archiviert weiteren e
     );
 
     // update — same subscription, neuer tier
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3002_update",
         type: SubscriptionEventTypes.updated,
@@ -277,11 +326,7 @@ describe("scenario 2: webhook-update upserts subscription, archiviert weiteren e
     expect(subs.rows).toHaveLength(1); // Still one row because the existing row is updated.
     expect(subs.rows[0]?.["tier"]).toBe("business");
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await loadSubscriptionStateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(2); // create + update beide im stream
   });
 });
@@ -290,8 +335,7 @@ describe("idempotency — webhook retry with same providerEventId", () => {
   test("second call with same providerEventId → duplicate=true, no second event row", async () => {
     const admin = adminFor(3003);
 
-    const first = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    const first = (await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3003_retry",
         providerCustomerId: "cus_3003",
@@ -301,8 +345,7 @@ describe("idempotency — webhook retry with same providerEventId", () => {
     )) as Record<string, unknown>;
     expect(first["duplicate"]).toBe(false);
 
-    const second = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    const second = (await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3003_retry",
         providerCustomerId: "cus_3003",
@@ -323,11 +366,7 @@ describe("idempotency — webhook retry with same providerEventId", () => {
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows[0]?.["tier"]).toBe("pro");
 
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await loadSubscriptionStateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(1); // dedup'd
   });
 });
@@ -337,8 +376,7 @@ describe("scenario 4: tenant-isolation", () => {
     const adminA = adminFor(3004);
     const adminB = adminFor(3005);
 
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_A",
         providerCustomerId: "cus_A",
@@ -347,8 +385,7 @@ describe("scenario 4: tenant-isolation", () => {
       }),
       adminA,
     );
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_B",
         providerCustomerId: "cus_B",
@@ -385,8 +422,7 @@ describe("scenario 4: tenant-isolation", () => {
     const adminB = adminFor(3007);
     const SHARED_EVT = "evt_shared_id";
 
-    const a = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    const a = (await writeSubscriptionEvent(
       buildEvent({
         providerEventId: SHARED_EVT,
         providerCustomerId: "cus_a_shared",
@@ -394,8 +430,7 @@ describe("scenario 4: tenant-isolation", () => {
       }),
       adminA,
     )) as Record<string, unknown>;
-    const b = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    const b = (await writeSubscriptionEvent(
       buildEvent({
         providerEventId: SHARED_EVT,
         providerCustomerId: "cus_b_shared",
@@ -419,8 +454,7 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
     const admin = adminFor(3009);
 
     // Stripe-Sub erzeugt
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_stripe_create",
         providerCustomerId: "cus_stripe",
@@ -449,7 +483,7 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
       }),
       providerName: "paypal",
     };
-    await stack.http.writeOk(SubscriptionFoundationHandlers.processEvent, paypalEvent, admin);
+    await writeSubscriptionEvent(paypalEvent, admin);
 
     // The tenant retains one subscription row, so the provider switch replaces
     // the current provider data while the event history remains in the
@@ -463,11 +497,7 @@ describe("scenario 5: Provider-Wechsel mid-period (Disney+-Pattern)", () => {
     expect(subs.rows[0]?.["providerSubscriptionId"]).toBe("I-PAYPAL-NEW");
 
     // History: beide events im subscription-stream archiviert
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await loadSubscriptionStateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(2);
     const providerNames = esEvents
       .map((e) => e.metadata.headers?.["providerName"] as string | undefined)
@@ -541,8 +571,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
 
     // The provider customer-id must belong to the caller's own subscription
     // (even if canceled) — otherwise the foreign_provider_customer guard fires.
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       {
         ...buildEvent({
           providerEventId: "evt_3018_create",
@@ -572,8 +601,7 @@ describe("scenario 6: create-checkout-session — Plugin-routing", () => {
   test("foreign providerCustomerId is rejected (foreign_provider_customer)", async () => {
     mockCheckoutCalls.length = 0;
     const other = adminFor(3019);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       {
         ...buildEvent({
           providerEventId: "evt_3019_create",
@@ -665,8 +693,7 @@ describe("scenario 7: create-portal-session — Plugin-routing", () => {
 
     // Create the subscription through process-event with providerName "mock"
     // so the foundation handler can find the plugin.
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       {
         ...buildEvent({
           providerEventId: "evt_3013_create",
@@ -714,8 +741,7 @@ describe("cancel event sets status to canceled, keeps subscription row", () => {
   test("subscription.canceled event flips status, subscription row remains", async () => {
     const admin = adminFor(3008);
 
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3008_create",
         providerCustomerId: "cus_3008",
@@ -726,8 +752,7 @@ describe("cancel event sets status to canceled, keeps subscription row", () => {
       admin,
     );
 
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3008_cancel",
         type: SubscriptionEventTypes.canceled,
@@ -755,8 +780,7 @@ describe("scenario 8b: cancelAt — set / leave-unchanged / clear across events"
     const admin = adminFor(3009);
 
     // 1. create with cancelAt set — a Stripe cancel_at_period_end webhook.
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3009_create",
         providerCustomerId: "cus_3009",
@@ -774,8 +798,7 @@ describe("scenario 8b: cancelAt — set / leave-unchanged / clear across events"
 
     // 2. an unrelated update event that never mentions cancelAtIso (e.g. a
     // price/tier change) must NOT wipe the previously recorded cancelAt.
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3009_update",
         type: SubscriptionEventTypes.updated,
@@ -793,8 +816,7 @@ describe("scenario 8b: cancelAt — set / leave-unchanged / clear across events"
 
     // 3. reactivation — an update event with cancelAtIso explicitly null
     // clears it.
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3009_reactivate",
         type: SubscriptionEventTypes.updated,
@@ -819,8 +841,7 @@ describe("scenario 8b: cancelAt — set / leave-unchanged / clear across events"
 describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", () => {
   test("raw event-log payload and raw projection row both hold ciphertext, not the plaintext provider id", async () => {
     const admin = adminFor(3011);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3011_create",
         providerCustomerId: "cus_3011",
@@ -832,11 +853,7 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
     // Raw event-log row (kumiko_events) — archiveStream only stops REPLAY,
     // it never deletes rows, so if this were plaintext it would sit here
     // forever regardless of what a later tenant-destroy hook does.
-    const esEvents = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEvents = await loadSubscriptionStateEvents(admin.tenantId);
     const createdPayload = esEvents[0]?.payload as
       | { providerCustomerId?: string; providerSubscriptionId?: string }
       | undefined;
@@ -863,8 +880,7 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
 
   test("crypto-shredding: erasing the tenant's subject key makes the event-log payload permanently unreadable", async () => {
     const admin = adminFor(3012);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processEvent,
+    await writeSubscriptionEvent(
       buildEvent({
         providerEventId: "evt_3012_create",
         providerCustomerId: "cus_3012",
@@ -872,11 +888,7 @@ describe("scenario 10: PII is encrypted at rest, not just erasable on destroy", 
       }),
       admin,
     );
-    const esEventsBefore = await loadAggregate(
-      db,
-      subscriptionAggregateId(admin.tenantId),
-      admin.tenantId,
-    );
+    const esEventsBefore = await loadSubscriptionStateEvents(admin.tenantId);
     const ciphertextBefore = (esEventsBefore[0]!.payload as { providerCustomerId?: string })
       .providerCustomerId as string;
 
@@ -945,11 +957,35 @@ function buildPaymentEventPayload(
   };
 }
 
+// The payment's checkout has to be in the ledger first; the default checkout id follows the
+// price, so a retry with another price names a checkout of its own.
+async function writePaymentEvent(
+  payload: ReturnType<typeof buildPaymentEventPayload>,
+  admin: ReturnType<typeof adminFor>,
+) {
+  const providerCheckoutId =
+    payload.providerCheckoutId ?? `cs_${payload.providerEventId}_${payload.priceId}`;
+  await stack.http.writeOk(
+    SubscriptionFoundationHandlers.recordCheckoutOpened,
+    {
+      providerName: payload.providerName,
+      providerCheckoutId,
+      priceId: payload.priceId,
+      mode: "payment",
+    },
+    admin,
+  );
+  return stack.http.writeOk(
+    SubscriptionFoundationHandlers.processPaymentEvent,
+    { ...payload, providerCheckoutId },
+    admin,
+  );
+}
+
 describe("scenario 11: one-off payment — own aggregate, own read_payments-row", () => {
   test("first payment for tenant → read_payments-row created, duplicate=false", async () => {
     const admin = adminFor(4001);
-    const result = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processPaymentEvent,
+    const result = (await writePaymentEvent(
       buildPaymentEventPayload({
         providerEventId: "evt_4001_payment",
         providerCustomerId: "cus_4001",
@@ -971,15 +1007,14 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(rows[0]?.priceId).toBe("price_topup_test");
     expect(rows[0]?.providerName).toBe("stripe");
 
-    const esEvents = await loadAggregate(db, paymentAggregateId(admin.tenantId), admin.tenantId);
+    const esEvents = await loadPaymentStateEvents(admin.tenantId);
     expect(esEvents[0]?.metadata.headers?.["providerCheckoutId"]).toBe("cs_test_4001");
   });
 
   test("idempotency: second call with same providerEventId → duplicate=true, no second row", async () => {
     const admin = adminFor(4002);
 
-    const first = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processPaymentEvent,
+    const first = (await writePaymentEvent(
       buildPaymentEventPayload({
         providerEventId: "evt_4002_retry",
         providerCustomerId: "cus_4002",
@@ -988,8 +1023,7 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     )) as Record<string, unknown>;
     expect(first["duplicate"]).toBe(false);
 
-    const second = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processPaymentEvent,
+    const second = (await writePaymentEvent(
       buildPaymentEventPayload({
         providerEventId: "evt_4002_retry",
         providerCustomerId: "cus_4002",
@@ -1002,22 +1036,20 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     const rows = await selectMany(db, paymentsProjectionTable, { tenantId: admin.tenantId });
     expect(rows).toHaveLength(1); // dedup'd — no second row
 
-    const esEvents = await loadAggregate(db, paymentAggregateId(admin.tenantId), admin.tenantId);
+    const esEvents = await loadPaymentStateEvents(admin.tenantId);
     expect(esEvents).toHaveLength(1);
   });
 
   test("second payment for the same tenant → second row (payments are facts, not state — no upsert)", async () => {
     const admin = adminFor(4003);
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processPaymentEvent,
+    await writePaymentEvent(
       buildPaymentEventPayload({
         providerEventId: "evt_4003_first",
         providerCustomerId: "cus_4003",
       }),
       admin,
     );
-    await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processPaymentEvent,
+    await writePaymentEvent(
       buildPaymentEventPayload({
         providerEventId: "evt_4003_second",
         providerCustomerId: "cus_4003",
@@ -1039,13 +1071,11 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     const adminB = adminFor(4006);
     const SHARED_EVT = "evt_shared_payment_id";
 
-    const a = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processPaymentEvent,
+    const a = (await writePaymentEvent(
       buildPaymentEventPayload({ providerEventId: SHARED_EVT, providerCustomerId: "cus_a_shared" }),
       adminA,
     )) as Record<string, unknown>;
-    const b = (await stack.http.writeOk(
-      SubscriptionFoundationHandlers.processPaymentEvent,
+    const b = (await writePaymentEvent(
       buildPaymentEventPayload({ providerEventId: SHARED_EVT, providerCustomerId: "cus_b_shared" }),
       adminB,
     )) as Record<string, unknown>;
@@ -1061,8 +1091,19 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
 
   test("webhook-route payment-branch (createSubscriptionWebhookRoute): POST → row, retry POST → duplicate:true, still one row", async () => {
     const tenantId = testTenantId(4004);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.recordCheckoutOpened,
+      {
+        providerName: "mock-payment",
+        providerCheckoutId: "cs_webhook_4004",
+        priceId: "price_webhook_test",
+        mode: "payment",
+      },
+      adminFor(4004),
+    );
     const body = JSON.stringify({
       providerEventId: "evt_webhook_payment_001",
+      providerCheckoutId: "cs_webhook_4004",
       tenantId,
       providerCustomerId: "cus_webhook_4004",
       priceId: "price_webhook_test",
@@ -1137,5 +1178,160 @@ describe("consumerProtection off — checkout needs no consent and records none"
     expect(payment["url"]).toBe("https://mock.example/checkout/price_topup_test");
     expect(mockCheckoutCalls).toHaveLength(2);
     expect(await recordedConsentEvents(admin.tenantId)).toEqual([]);
+  });
+});
+
+// =============================================================================
+// Checkout ledger — a webhook counts only for a checkout the server opened
+// =============================================================================
+
+describe("checkout ledger admission", () => {
+  async function postRawSubscriptionEvent(
+    admin: ReturnType<typeof adminFor>,
+    payload: ReturnType<typeof buildEvent> & { providerCheckoutId?: string },
+  ) {
+    return (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      payload,
+      admin,
+    )) as Record<string, unknown>;
+  }
+
+  test("a created event without a ledger entry is ignored and writes nothing", async () => {
+    const admin = adminFor(3101);
+    const result = await postRawSubscriptionEvent(admin, {
+      ...buildEvent({ providerEventId: "evt_3101", providerSubscriptionId: "sub_3101" }),
+      providerCheckoutId: "cs_never_opened",
+    });
+    expect(result).toMatchObject({ ignored: true, reason: "checkout_not_in_ledger" });
+    expect(
+      await loadAggregate(db, subscriptionAggregateId(admin.tenantId), admin.tenantId),
+    ).toHaveLength(0);
+  });
+
+  test("a created event naming a checkout of a price with another tier is ignored", async () => {
+    const admin = adminFor(3102);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.recordCheckoutOpened,
+      {
+        providerName: "stripe",
+        providerCheckoutId: "cs_3102",
+        priceId: "price_pro_test",
+        mode: "subscription",
+      },
+      admin,
+    );
+    const result = await postRawSubscriptionEvent(admin, {
+      ...buildEvent({
+        providerEventId: "evt_3102",
+        providerSubscriptionId: "sub_3102",
+        tier: "business",
+      }),
+      providerCheckoutId: "cs_3102",
+    });
+    expect(result).toMatchObject({ ignored: true, reason: "checkout_not_in_ledger" });
+    expect(await loadSubscriptionStateEvents(admin.tenantId)).toHaveLength(0);
+  });
+
+  test("an updated event of a subscription the tenant does not hold is ignored", async () => {
+    const admin = adminFor(3103);
+    await writeSubscriptionEvent(
+      buildEvent({ providerEventId: "evt_3103_create", providerSubscriptionId: "sub_3103" }),
+      admin,
+    );
+    const result = await postRawSubscriptionEvent(
+      admin,
+      buildEvent({
+        providerEventId: "evt_3103_foreign",
+        type: SubscriptionEventTypes.updated,
+        providerSubscriptionId: "sub_someone_else",
+        tier: "business",
+      }),
+    );
+    expect(result).toMatchObject({ ignored: true, reason: "foreign_subscription" });
+    const subs = (await stack.http.queryOk(
+      "billing-foundation:query:subscription:list",
+      {},
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(subs.rows[0]).toMatchObject({ tier: "pro", providerSubscriptionId: "sub_3103" });
+  });
+
+  test("a later updated event of the held subscription is accepted", async () => {
+    const admin = adminFor(3104);
+    await writeSubscriptionEvent(
+      buildEvent({ providerEventId: "evt_3104_create", providerSubscriptionId: "sub_3104" }),
+      admin,
+    );
+    await writeSubscriptionEvent(
+      buildEvent({
+        providerEventId: "evt_3104_update",
+        type: SubscriptionEventTypes.updated,
+        providerSubscriptionId: "sub_3104",
+        tier: "business",
+      }),
+      admin,
+    );
+    expect(await loadSubscriptionStateEvents(admin.tenantId)).toHaveLength(2);
+  });
+
+  test("a payment without a ledger entry is ignored and writes no payment", async () => {
+    const admin = adminFor(4101);
+    const result = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      {
+        ...buildPaymentEventPayload({ providerEventId: "evt_4101" }),
+        providerCheckoutId: "cs_never_opened",
+      },
+      admin,
+    )) as Record<string, unknown>;
+    expect(result).toMatchObject({ ignored: true });
+    expect(
+      await selectMany(db, paymentsProjectionTable, { tenantId: admin.tenantId }),
+    ).toHaveLength(0);
+    expect(await loadPaymentStateEvents(admin.tenantId)).toHaveLength(0);
+  });
+
+  test("a payment naming a ledgered checkout of another price is ignored", async () => {
+    const admin = adminFor(4102);
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.recordCheckoutOpened,
+      {
+        providerName: "stripe",
+        providerCheckoutId: "cs_4102",
+        priceId: "price_topup_test",
+        mode: "payment",
+      },
+      admin,
+    );
+    const result = (await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processPaymentEvent,
+      {
+        ...buildPaymentEventPayload({ providerEventId: "evt_4102", priceId: "price_expensive" }),
+        providerCheckoutId: "cs_4102",
+      },
+      admin,
+    )) as Record<string, unknown>;
+    expect(result).toMatchObject({ ignored: true });
+    expect(
+      await selectMany(db, paymentsProjectionTable, { tenantId: admin.tenantId }),
+    ).toHaveLength(0);
+  });
+
+  test("the webhook route answers ignored for an unledgered payment", async () => {
+    const tenantId = testTenantId(4103);
+    const response = await stack.app.request("/api/subscription/webhook/mock-payment", {
+      method: "POST",
+      body: JSON.stringify({
+        providerEventId: "evt_webhook_unledgered",
+        providerCheckoutId: "cs_never_opened_4103",
+        tenantId,
+        providerCustomerId: "cus_4103",
+        priceId: "price_webhook_test",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ignored: true });
+    expect(await selectMany(db, paymentsProjectionTable, { tenantId })).toHaveLength(0);
   });
 });

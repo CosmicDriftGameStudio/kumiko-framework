@@ -116,7 +116,10 @@ export function createStripeCheckoutSession(
   runtime: StripeCtxRuntime,
   { paymentInvoiceCreation = true }: StripeCheckoutSessionRuntimeOptions = {},
 ) {
-  return async (ctx: HandlerContext, options: StripeCheckoutOptions): Promise<{ url: string }> => {
+  return async (
+    ctx: HandlerContext,
+    options: StripeCheckoutOptions,
+  ): Promise<{ url: string; providerCheckoutId: string }> => {
     // Invariant: without billing-live, no Stripe session may be created
     // (sk_test_-keys in production would otherwise create a test-mode checkout).
     // Throw before every Stripe call. The guard used to be provided by the
@@ -125,10 +128,7 @@ export function createStripeCheckoutSession(
     await runtime.assertBillingLive(ctx);
     const stripe = await runtime.clientForCtx(ctx);
     const mode = options.mode ?? "subscription";
-    const metadata = {
-      tenantId: options.tenantId,
-      ...(options.consentId && { consentId: options.consentId }),
-    };
+    const metadata = { tenantId: options.tenantId };
 
     const sessionParams = (
       providerCustomerId: string | undefined,
@@ -182,7 +182,7 @@ export function createStripeCheckoutSession(
       // guards against future API drift.
       throw new Error("subscription-stripe: checkout.sessions.create returned no url");
     }
-    return { url: session.url };
+    return { url: session.url, providerCheckoutId: session.id };
   };
 }
 

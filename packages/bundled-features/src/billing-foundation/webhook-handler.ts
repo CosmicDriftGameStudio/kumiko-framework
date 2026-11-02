@@ -5,6 +5,7 @@
 // webhook signature in verify() IS the auth, so no c.get("user") here.
 
 import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types.ts";
 import {
@@ -31,6 +32,7 @@ export type SubscriptionWebhookRouteOptions = {
   ) => Promise<import("@cosmicdrift/kumiko-framework/engine").WriteResult>;
 };
 
+const IGNORED_CHECKOUT_NOT_IN_LEDGER = "checkout_not_in_ledger";
 const DEFAULT_WEBHOOK_PATH = "/api/subscription/webhook/:providerName";
 
 function resolveProvider(
@@ -106,20 +108,13 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
             providerCustomerId: parsed.providerCustomerId,
             priceId: parsed.priceId,
             ...(parsed.quantity !== undefined && { quantity: parsed.quantity }),
-            ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
-            ...(parsed.providerCheckoutId !== undefined && {
-              providerCheckoutId: parsed.providerCheckoutId,
-            }),
+            providerCheckoutId: parsed.providerCheckoutId,
           },
         });
-        return respondFromDispatch(
-          c,
-          dispatched.isSuccess && options.afterDispatch
-            ? await options.afterDispatch(dispatched, tenantId, deps, parsed)
-            : dispatched,
+        return answerWebhook(c, { dispatched, parsed, deps, options }, [
           "subscription_payment_webhook_processing_failed",
           "Internal error processing payment event",
-        );
+        ]);
       }
       const dispatched = await deps.dispatchSystemWrite({
         handlerQn: SubscriptionFoundationHandlers.processEvent,
@@ -137,19 +132,71 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
           ...(parsed.providerEventAt !== undefined && {
             providerEventAtIso: parsed.providerEventAt,
           }),
-          ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
+          ...(parsed.providerCheckoutId !== undefined && {
+            providerCheckoutId: parsed.providerCheckoutId,
+          }),
         },
       });
-      return respondFromDispatch(
-        c,
-        dispatched.isSuccess && options.afterDispatch
-          ? await options.afterDispatch(dispatched, tenantId, deps, parsed)
-          : dispatched,
+      return answerWebhook(c, { dispatched, parsed, deps, options }, [
         "subscription_webhook_processing_failed",
         "Internal error processing subscription event",
-      );
+      ]);
     },
   });
+}
+
+type WebhookOutcome = {
+  readonly dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult;
+  readonly parsed: SubscriptionEvent | PaymentEvent;
+  readonly deps: import("@cosmicdrift/kumiko-framework/api").SignatureExtraRouteDeps;
+  readonly options: SubscriptionWebhookRouteOptions;
+};
+
+/** Redelivery (503) when the event may still become admissible, otherwise the afterDispatch
+ *  side-effect for a processed event and the shared 200/500 mapping. */
+async function answerWebhook(
+  c: Context,
+  { dispatched, parsed, deps, options }: WebhookOutcome,
+  [errorCode, errorMessage]: readonly [string, string],
+): Promise<Response> {
+  const redeliver = await redeliveryReason(dispatched, parsed, deps);
+  if (redeliver !== undefined) return retryLater(c, redeliver);
+  const settled =
+    dispatched.isSuccess && !wasIgnored(dispatched) && options.afterDispatch
+      ? await options.afterDispatch(dispatched, parsed.tenantId, deps, parsed)
+      : dispatched;
+  return respondFromDispatch(c, settled, errorCode, errorMessage);
+}
+
+/** Why the provider should send this ignored event again, or undefined when 200 is right: the
+ *  handler asked for it (the event beat its subscription's `created`), or the provider plugin
+ *  expects to ledger the checkout shortly (migration sweep). */
+async function redeliveryReason(
+  dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
+  event: SubscriptionEvent | PaymentEvent,
+  deps: import("@cosmicdrift/kumiko-framework/api").SignatureExtraRouteDeps,
+): Promise<string | undefined> {
+  if (!dispatched.isSuccess || !wasIgnored(dispatched)) return undefined;
+  const reason = propertyOf(dispatched.data, "reason");
+  if (typeof reason !== "string") return undefined;
+  if (propertyOf(dispatched.data, "retry") === true) return reason;
+  if (reason !== IGNORED_CHECKOUT_NOT_IN_LEDGER) return undefined;
+  const plugin = resolveProvider(deps.registry, event.providerName);
+  const redeliver = await plugin?.shouldRedeliverIgnoredEvent?.({ event, reason, deps });
+  return redeliver === true ? reason : undefined;
+}
+
+function retryLater(c: Context, reason: string): Response {
+  c.header("Retry-After", "60");
+  return c.json({ error: { code: "subscription_event_redeliver", reason } }, 503);
+}
+
+/** The handler refused the event (not in the checkout ledger, foreign subscription):
+ *  nothing was stored, so no side-effect (credits, tier sync) may follow. */
+function wasIgnored(
+  dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
+): boolean {
+  return dispatched.isSuccess && propertyOf(dispatched.data, "ignored") === true;
 }
 
 /** Shared 500/200-mapping for both dispatch branches above. Internal error →
@@ -166,5 +213,6 @@ function respondFromDispatch(
       500,
     );
   }
+  if (wasIgnored(dispatched)) return c.json({ ignored: true }, 200);
   return c.json({ processed: true, ...((dispatched.data as object) ?? {}) }, 200); // @cast-boundary engine-bridge
 }

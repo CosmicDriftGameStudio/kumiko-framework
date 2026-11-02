@@ -4,6 +4,7 @@
 // provider (the only fake — real handlers, real dispatcher), the catalog and
 // the nav entry that makes billing-foundation's dormant plans screen reachable.
 
+import { randomUUID } from "node:crypto";
 import {
   createBillingFoundationFeature,
   type ProviderPrice,
@@ -145,8 +146,8 @@ export function createGalleryEmailFeature(): FeatureDefinition {
   });
 }
 
-// The page URL carries the consent id so the spec can echo it on the webhook,
-// exactly as a real provider echoes the checkout metadata.
+// The page URL carries the checkout id so the spec can echo it on the webhook, exactly as a real
+// provider names its checkout in the created event.
 const galleryProviderPlugin: SubscriptionProviderPlugin = {
   displayName: "Stripe",
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody),
@@ -156,17 +157,17 @@ const galleryProviderPlugin: SubscriptionProviderPlugin = {
   },
   retrievePrices: async (_ctx, priceIds) => PRICES.filter((p) => priceIds.includes(p.priceId)),
   createCheckoutSession: async (_ctx, options) => {
+    const providerCheckoutId = `cs_gallery_${randomUUID()}`;
     const url = new URL(options.successUrl);
-    if (options.consentId !== undefined) url.searchParams.set("consentId", options.consentId);
-    return { url: url.toString() };
+    url.searchParams.set("providerCheckoutId", providerCheckoutId);
+    return { url: url.toString(), providerCheckoutId };
   },
   cancelSubscription: async () => {},
 };
 
 // Merchant-of-record stand-in: switches plans in the app with fixed figures
-// (Starter to Pro: 6.67 EUR due now, 1.06 EUR of it VAT). Applying without a
-// consent id fails, so a successful switch in the spec proves the consent went
-// through.
+// (Starter to Pro: 6.67 EUR due now, 1.06 EUR of it VAT). The consent of the switch
+// is recorded by billing-foundation before this mock runs.
 const galleryMorProviderPlugin: SubscriptionProviderPlugin = {
   displayName: "Paddle",
   isBillingEnabled: async (ctx) => morEnabledTenants.has(ctx.user.tenantId),
@@ -179,8 +180,9 @@ const galleryMorProviderPlugin: SubscriptionProviderPlugin = {
   createCheckoutSession: async (_ctx, options) => {
     const url = new URL(options.successUrl);
     url.searchParams.set("provider", "mor");
-    if (options.consentId !== undefined) url.searchParams.set("consentId", options.consentId);
-    return { url: url.toString() };
+    const providerCheckoutId = `txn_gallery_${randomUUID()}`;
+    url.searchParams.set("providerCheckoutId", providerCheckoutId);
+    return { url: url.toString(), providerCheckoutId };
   },
   cancelSubscription: async () => {},
   previewPlanSwitch: async () => ({
@@ -191,11 +193,7 @@ const galleryMorProviderPlugin: SubscriptionProviderPlugin = {
     ...(isDocsVariant && { recurringAmount: 2368, recurringTax: 378 }),
     effectiveAt: "2027-01-15T00:00:00Z",
   }),
-  applyPlanSwitch: async (_ctx, options) => {
-    if (options.consentId === undefined) {
-      throw new Error("gallery MoR mock: plan switch applied without a consent id");
-    }
-  },
+  applyPlanSwitch: async () => {},
 };
 
 export const galleryProviderFeature: FeatureDefinition = defineFeature(

@@ -6,7 +6,7 @@
 // the plugin reads. Real Stripe events have more than 100 fields; full-
 // fidelity fixtures would add maintenance effort without test value.
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SubscriptionEvent } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
   BillingEventKinds,
@@ -29,7 +29,38 @@ const TEST_API_KEY = "sk_test_dummy_apikey";
 // Test-helpers
 // =============================================================================
 
-const stripeForFixtures = new Stripe(TEST_API_KEY);
+// `customer.subscription.created` looks up its checkout session at Stripe; this local API answers
+// that one list call so the client stays a real SDK round trip.
+let sessionLookup: "found" | "empty" | "unavailable" = "found";
+const fixtureApi = Bun.serve({
+  port: 0,
+  fetch: (request) => {
+    const url = new URL(request.url);
+    if (url.pathname !== "/v1/checkout/sessions") return new Response("{}", { status: 404 });
+    if (sessionLookup === "unavailable") {
+      return Response.json({ error: { message: "unavailable" } }, { status: 503 });
+    }
+    const subscription = url.searchParams.get("subscription") ?? "";
+    const data =
+      sessionLookup === "found" ? [{ id: `cs_${subscription}`, object: "checkout.session" }] : [];
+    return Response.json({ object: "list", data, has_more: false, url: url.pathname });
+  },
+});
+// maxNetworkRetries 0 is client config: the SDK would otherwise back off and retry a 503.
+const stripeForFixtures = new Stripe(TEST_API_KEY, {
+  host: "127.0.0.1",
+  port: fixtureApi.port,
+  protocol: "http",
+  maxNetworkRetries: 0,
+});
+
+beforeEach(() => {
+  sessionLookup = "found";
+});
+
+afterAll(async () => {
+  await fixtureApi.stop(true);
+});
 
 /** Test runtime: provides the fixture client and TEST_SECRET instead of
  *  resolving them from system secrets — that resolution is tested in
@@ -64,7 +95,6 @@ function buildSubscriptionEvent(overrides: {
   currentPeriodEndUnix?: number;
   cancelAtUnix?: number | null;
   cancelAtPeriodEnd?: boolean;
-  consentId?: string;
 }) {
   const eventId = overrides.eventId ?? "evt_test_001";
   const eventType = overrides.eventType ?? "customer.subscription.created";
@@ -91,7 +121,6 @@ function buildSubscriptionEvent(overrides: {
         cancel_at_period_end: overrides.cancelAtPeriodEnd ?? false,
         metadata: {
           tenantId: overrides.tenantId ?? "tenant-test-1",
-          ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
         },
         items: {
           object: "list",
@@ -284,30 +313,53 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
   });
 });
 
-describe("verifyAndParseStripeWebhook — consentId", () => {
+describe("verifyAndParseStripeWebhook — checkout session of a created subscription", () => {
   const verify = asSubscriptionVerifier(
     verifyAndParseStripeWebhook(webhookRuntime(), {
       priceToTier: { price_pro_monthly: "pro" },
     }),
   );
 
-  async function consentIdFor(consentId: string | undefined) {
-    const payload = JSON.stringify(buildSubscriptionEvent({ consentId }));
-    const event = await verify(payload, { "stripe-signature": await signEvent(payload) });
-    expect(event).not.toBeNull();
-    return event;
+  async function parse(eventType: string) {
+    const payload = JSON.stringify(buildSubscriptionEvent({ eventType }));
+    return verify(payload, { "stripe-signature": await signEvent(payload) });
   }
 
-  test("metadata.consentId → event.consentId", async () => {
-    expect((await consentIdFor("3f2b8c1e-aaaa-4bbb-8ccc-123456789abc"))?.consentId).toBe(
-      "3f2b8c1e-aaaa-4bbb-8ccc-123456789abc",
+  async function rejectionOf(eventType: string) {
+    const payload = JSON.stringify(buildSubscriptionEvent({ eventType }));
+    const sig = await signEvent(payload);
+    return verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro" },
+    })(payload, { "stripe-signature": sig }).catch((e: unknown) => e);
+  }
+
+  test("created → providerCheckoutId is the session that holds the subscription", async () => {
+    expect((await parse("customer.subscription.created"))?.providerCheckoutId).toBe(
+      "cs_sub_test_001",
     );
   });
 
-  test("missing, empty, oversized or odd-charset consentId → omitted, event still delivered", async () => {
-    for (const bad of [undefined, "", "a".repeat(101), "bad id<script>"]) {
-      expect(await consentIdFor(bad)).not.toHaveProperty("consentId");
-    }
+  test("updated carries no providerCheckoutId and asks Stripe for nothing", async () => {
+    sessionLookup = "unavailable";
+    const event = await parse("customer.subscription.updated");
+    expect(event).not.toBeNull();
+    expect(event).not.toHaveProperty("providerCheckoutId");
+  });
+
+  test("created with the session lookup unavailable → 503 subscription_provider_transient so Stripe redelivers", async () => {
+    sessionLookup = "unavailable";
+    const rejection = await rejectionOf("customer.subscription.created");
+    expect(rejection).toBeInstanceOf(ExtraRouteRejection);
+    const { status, body } = rejection as ExtraRouteRejection;
+    expect(status).toBe(503);
+    expect(body).toEqual({ error: { code: "subscription_provider_transient" } });
+  });
+
+  test("created with an empty session list → event without providerCheckoutId, no rejection", async () => {
+    sessionLookup = "empty";
+    const event = await parse("customer.subscription.created");
+    expect(event).not.toBeNull();
+    expect(event).not.toHaveProperty("providerCheckoutId");
   });
 });
 

@@ -5,15 +5,13 @@ import {
   SubscriptionStatuses,
 } from "../../billing-foundation/index.ts";
 import { mapPaddleSubscriptionState } from "../subscription-state.ts";
-import { signTenantBinding } from "../tenant-binding.ts";
 import { verifyAndParsePaddleWebhook } from "../webhook-events.ts";
 import {
-  boundCustomData,
   envelope,
   NOW_SECONDS,
   subscriptionData,
-  TEST_BINDING_KEY,
   TEST_WEBHOOK_SECRET,
+  tenantCustomData,
   webhookHeaders,
 } from "./paddle-test-kit.ts";
 
@@ -23,10 +21,7 @@ const TIMESTAMP = String(NOW_SECONDS);
 
 function parser() {
   return verifyAndParsePaddleWebhook(
-    {
-      resolveWebhookSecret: async () => TEST_WEBHOOK_SECRET,
-      resolveTenantBindingKey: async () => TEST_BINDING_KEY,
-    },
+    { resolveWebhookSecret: async () => TEST_WEBHOOK_SECRET },
     {
       priceToTier: PRICE_TO_TIER,
       oneOffPriceIds: ONE_OFF_PRICE_IDS,
@@ -47,7 +42,7 @@ describe("subscription events", () => {
       providerName: "paddle",
       type: SubscriptionEventTypes.created,
       tenantId: "tenant-paddle",
-      consentId: "consent-1",
+      providerCheckoutId: "txn_paddle_1",
       providerCustomerId: "ctm_paddle_1",
       providerSubscriptionId: "sub_paddle_1",
       providerEventAt: "2026-11-01T10:00:00Z",
@@ -171,47 +166,34 @@ describe("subscription events", () => {
   });
 });
 
-describe("tenant binding", () => {
-  test("a missing tenant or binding drops the event", async () => {
-    for (const custom_data of [
-      null,
-      {},
-      { tenantId: "tenant-paddle" },
-      { tenantBinding: signTenantBinding(TEST_BINDING_KEY, "tenant-paddle") },
-    ]) {
+describe("tenant resolution", () => {
+  test("a missing tenantId drops the event", async () => {
+    for (const custom_data of [null, {}, { tenantBinding: "legacy-binding-only" }]) {
       expect(
         await parse(envelope("subscription.created", subscriptionData({ custom_data }))),
       ).toBeNull();
     }
   });
 
-  test("a binding made for another tenant or with another key drops the event", async () => {
-    const forVictim = {
-      tenantId: "victim-tenant",
-      tenantBinding: signTenantBinding(TEST_BINDING_KEY, "attacker-tenant"),
-    };
-    const wrongKey = {
-      tenantId: "tenant-paddle",
-      tenantBinding: signTenantBinding("some-other-key", "tenant-paddle"),
-    };
-    for (const custom_data of [forVictim, wrongKey]) {
-      expect(
-        await parse(envelope("subscription.created", subscriptionData({ custom_data }))),
-      ).toBeNull();
-    }
-  });
-
-  test("a malformed consentId is omitted, not forwarded", async () => {
+  test("the event carries no consent claim from custom_data", async () => {
     const event = await parse(
       envelope(
         "subscription.created",
         subscriptionData({
-          custom_data: boundCustomData("tenant-paddle", { consentId: "bad id!" }),
+          custom_data: tenantCustomData("tenant-paddle", { consentId: "claimed" }),
         }),
       ),
     );
     expect(event).not.toBeNull();
     expect(event && "consentId" in event).toBe(false);
+  });
+
+  test("a subscription without transaction_id carries no providerCheckoutId", async () => {
+    const event = await parse(
+      envelope("subscription.updated", subscriptionData({ transaction_id: null })),
+    );
+    expect(event).not.toBeNull();
+    expect(event && "providerCheckoutId" in event).toBe(false);
   });
 });
 
@@ -220,7 +202,7 @@ describe("transaction.completed", () => {
     id: "txn_1",
     subscription_id: null,
     customer_id: "ctm_paddle_1",
-    custom_data: boundCustomData("tenant-paddle"),
+    custom_data: tenantCustomData("tenant-paddle"),
     items: [{ price: { id: "pri_topup" } }],
     ...overrides,
   });
@@ -266,11 +248,9 @@ describe("transaction.completed", () => {
     ).toBeNull();
   });
 
-  test("an unbound transaction is ignored", async () => {
+  test("a transaction without a tenantId is ignored", async () => {
     expect(
-      await parse(
-        envelope("transaction.completed", transaction({ custom_data: { tenantId: "victim" } })),
-      ),
+      await parse(envelope("transaction.completed", transaction({ custom_data: {} }))),
     ).toBeNull();
   });
 });
@@ -288,29 +268,6 @@ describe("subscription item quantity", () => {
 });
 
 describe("rejection", () => {
-  test("an unauthenticated request does not read the tenant binding key", async () => {
-    let bindingReads = 0;
-    const guarded = verifyAndParsePaddleWebhook(
-      {
-        resolveWebhookSecret: async () => TEST_WEBHOOK_SECRET,
-        resolveTenantBindingKey: async () => {
-          bindingReads += 1;
-          return TEST_BINDING_KEY;
-        },
-      },
-      {
-        priceToTier: PRICE_TO_TIER,
-        oneOffPriceIds: ONE_OFF_PRICE_IDS,
-        nowSeconds: () => NOW_SECONDS,
-      },
-    );
-    const body = envelope("subscription.created", subscriptionData());
-    await expect(
-      guarded(body, { "paddle-signature": `ts=${TIMESTAMP};h1=${"0".repeat(64)}` }),
-    ).rejects.toThrow();
-    expect(bindingReads).toBe(0);
-  });
-
   test("throws on a wrong signature before parsing anything", async () => {
     const body = envelope("subscription.created", subscriptionData());
     const headers = webhookHeaders({ timestamp: TIMESTAMP, body: `${body} ` });
@@ -323,7 +280,6 @@ describe("rejection", () => {
         resolveWebhookSecret: async () => {
           throw new Error("subscription-paddle: 'webhook-secret' unresolved");
         },
-        resolveTenantBindingKey: async () => TEST_BINDING_KEY,
       },
       { priceToTier: PRICE_TO_TIER, oneOffPriceIds: ONE_OFF_PRICE_IDS },
     );

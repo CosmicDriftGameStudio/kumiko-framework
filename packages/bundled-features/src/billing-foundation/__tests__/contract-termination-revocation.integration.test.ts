@@ -63,6 +63,7 @@ import {
   SubscriptionStatuses,
 } from "../web/constants.ts";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.ts";
+import { ledgerWriteAs, openSubscriptionCheckout } from "./ledgered-subscription.ts";
 
 const PROVIDER = "mock-revocation-provider";
 const PROVIDER_WITHOUT_RESUME = "mock-revocation-provider-no-resume";
@@ -222,10 +223,15 @@ async function seedMatchedAdmin(
       createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
     ),
   );
+  const providerCheckoutId = await openSubscriptionCheckout(
+    ledgerWriteAs(stack, testTenantId(tenantNumber)),
+    { providerName, providerSubscriptionId: `sub_${tenantNumber}`, priceId: "price_pro" },
+  );
   const event: SubscriptionEvent = {
     providerEventId: `evt_sub_${tenantNumber}`,
     providerName,
     type: SubscriptionEventTypes.created,
+    providerCheckoutId,
     tenantId: testTenantId(tenantNumber),
     providerCustomerId: `cus_${tenantNumber}`,
     providerSubscriptionId: `sub_${tenantNumber}`,

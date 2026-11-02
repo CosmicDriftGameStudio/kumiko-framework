@@ -1280,7 +1280,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "subscription-paddle.client-token": "Paddle client-side token",
   "subscription-paddle.environment": "Paddle environment",
   "subscription-paddle.settings": "Paddle",
-  "subscription-paddle.tenant-binding-key": "Paddle tenant binding key",
   "subscription-paddle.webhook-secret": "Paddle webhook secret",
   "subscription-stripe.api-key": "Stripe API key",
   "subscription-stripe.billing-live": "Live billing",

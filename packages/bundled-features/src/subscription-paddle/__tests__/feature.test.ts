@@ -15,7 +15,6 @@ import {
   NOW_SECONDS,
   stubCtx,
   subscriptionData,
-  TEST_BINDING_KEY,
   TEST_WEBHOOK_SECRET,
   webhookHeaders,
 } from "./paddle-test-kit.ts";
@@ -80,7 +79,6 @@ describe("paddleEnvSchema", () => {
       expect.arrayContaining([
         "PADDLE_API_KEY",
         "PADDLE_WEBHOOK_SECRET",
-        "PADDLE_TENANT_BINDING_KEY",
         "PADDLE_CLIENT_TOKEN",
         "PADDLE_PRICE_PRO",
         "PADDLE_PRICE_TEAM",
@@ -118,10 +116,7 @@ async function buildPaddleContractFixture() {
   return {
     plugin: {
       verifyAndParseWebhook: verifyAndParsePaddleWebhook(
-        {
-          resolveWebhookSecret: async () => TEST_WEBHOOK_SECRET,
-          resolveTenantBindingKey: async () => TEST_BINDING_KEY,
-        },
+        { resolveWebhookSecret: async () => TEST_WEBHOOK_SECRET },
         { priceToTier: OPTIONS.priceToTier, oneOffPriceIds: [], nowSeconds: () => NOW_SECONDS },
       ),
       createCheckoutSession: createPaddleCheckoutSession(runtimes.ctx),

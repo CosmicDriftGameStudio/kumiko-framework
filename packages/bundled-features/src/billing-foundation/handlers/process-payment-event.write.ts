@@ -6,7 +6,9 @@
 //   1. Idempotency-check: loads the payment-stream and scans for an
 //      already-seen `metadata.providerEventId`. A provider-replay with
 //      the same event-id → duplicate=true, no second append.
-//   2. ctx.events.unsafeAppend — inline-projection materializes a new
+//   2. Ledger check: the payment must name a checkout the server opened itself
+//      (same provider, same price); anything else is ignored.
+//   3. ctx.events.unsafeAppend — inline-projection materializes a new
 //      `read_payments`-row (INSERT-once, not UPSERT — every payment is
 //      its own fact, not a state-update).
 
@@ -17,6 +19,7 @@ import {
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { paymentAggregateId } from "../aggregate-id.ts";
+import { findCheckoutOpened } from "../checkout-ledger.ts";
 import { PAYMENT_PII_FIELDS, paymentEntity } from "../entities.ts";
 import {
   PAYMENT_AGGREGATE_TYPE,
@@ -29,11 +32,10 @@ import { hasSeenProviderEvent } from "../provider-event-seen.ts";
 export const processPaymentEventSchema = z.object({
   providerEventId: z.string().min(1).max(200),
   providerName: z.string().min(1).max(50),
-  providerCheckoutId: z.string().min(1).max(200).optional(),
+  providerCheckoutId: z.string().min(1).max(200),
   providerCustomerId: z.string().min(1).max(200),
   priceId: z.string().min(1).max(200),
   quantity: z.number().int().positive().optional(),
-  consentId: z.string().min(1).max(100).optional(),
 });
 type ProcessPaymentEventPayload = z.infer<typeof processPaymentEventSchema>;
 
@@ -66,7 +68,31 @@ export const processPaymentEventHandler: WriteHandlerDef = {
     }
 
     // ---------------------------------------------------------------
-    // 2. Encrypt the provider-subject PII field before it touches storage
+    // 2. Ledger: only checkouts this server opened may produce a payment.
+    // ---------------------------------------------------------------
+    const entry = findCheckoutOpened(existingEvents, {
+      providerName: payload.providerName,
+      providerCheckoutId: payload.providerCheckoutId,
+      mode: "payment",
+    });
+    const rejection =
+      entry === undefined
+        ? "checkout_not_in_ledger"
+        : entry.priceId !== payload.priceId
+          ? "price_mismatch"
+          : undefined;
+    if (rejection !== undefined) {
+      ctx.obs.log?.warn(
+        `[billing-foundation:process-payment-event] ignored ${payload.providerEventId} (${rejection}): checkout ${payload.providerCheckoutId} of provider ${payload.providerName}`,
+      );
+      return {
+        isSuccess: true as const,
+        data: { ignored: true as const, reason: rejection, paymentAggregateId: aggId },
+      };
+    }
+
+    // ---------------------------------------------------------------
+    // 3. Encrypt the provider-subject PII field before it touches storage
     //    — same rationale as process-event.write.ts's step 3.
     // ---------------------------------------------------------------
     const piiKms = configuredPiiSubjectKms();
@@ -85,7 +111,7 @@ export const processPaymentEventHandler: WriteHandlerDef = {
       : { providerCustomerId: payload.providerCustomerId };
 
     // ---------------------------------------------------------------
-    // 3. Append event on the payment-stream. Inline-projection
+    // 4. Append event on the payment-stream. Inline-projection
     //    materializes a new read_payments-row in the same TX.
     // ---------------------------------------------------------------
     const eventPayload: PaymentEventPayload = {
@@ -93,14 +119,12 @@ export const processPaymentEventHandler: WriteHandlerDef = {
       providerCustomerId: encryptedFields.providerCustomerId,
       priceId: payload.priceId,
       ...(payload.quantity !== undefined && { quantity: payload.quantity }),
-      ...(payload.consentId !== undefined && { consentId: payload.consentId }),
+      ...(entry?.consentId !== undefined && { consentId: entry.consentId }),
     };
     const headers: PaymentEventHeaders = {
       providerEventId: payload.providerEventId,
       providerName: payload.providerName,
-      ...(payload.providerCheckoutId !== undefined && {
-        providerCheckoutId: payload.providerCheckoutId,
-      }),
+      providerCheckoutId: payload.providerCheckoutId,
     };
     await ctx.events.unsafeAppend({
       aggregateId: aggId,

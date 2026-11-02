@@ -1310,7 +1310,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "subscription-paddle.client-token": "Token de cliente de Paddle",
   "subscription-paddle.environment": "Entorno de Paddle",
   "subscription-paddle.settings": "Paddle",
-  "subscription-paddle.tenant-binding-key": "Clave de vinculación de inquilino de Paddle",
   "subscription-paddle.webhook-secret": "Secreto del webhook de Paddle",
   "subscription-stripe.api-key": "Clave API de Stripe",
   "subscription-stripe.billing-live": "Stripe Billing en vivo",

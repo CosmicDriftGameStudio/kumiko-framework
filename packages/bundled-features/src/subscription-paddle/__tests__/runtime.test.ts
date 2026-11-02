@@ -20,9 +20,6 @@ describe("PaddleWebhookRuntime", () => {
     expect(
       await runtimes.webhook.resolveWebhookSecret(rawSecrets(JSON.stringify("pdl_ntfset_stored"))),
     ).toBe("pdl_ntfset_stored");
-    expect(
-      await runtimes.webhook.resolveTenantBindingKey(rawSecrets(JSON.stringify("stored-binding"))),
-    ).toBe("stored-binding");
   });
 
   test("a non-JSON stored secret throws without repeating the value", async () => {
@@ -46,7 +43,6 @@ describe("PaddleWebhookRuntime", () => {
     expect(await withFallback.webhook.resolveWebhookSecret()).toBe("fallback");
     const without = makeRuntimes(async () => new Response("{}"), {});
     await expect(without.webhook.resolveWebhookSecret()).rejects.toThrow(/unresolved/);
-    await expect(without.webhook.resolveTenantBindingKey()).rejects.toThrow(/unresolved/);
   });
 });
 

@@ -40,7 +40,10 @@ const providerFeature = defineFeature("test-one-off-provider", (r) => {
     },
     createCheckoutSession: async (_ctx, options) => {
       providerCalls.push("createCheckoutSession");
-      return { url: `https://mock.example/checkout/${options.priceId}` };
+      return {
+        url: `https://mock.example/checkout/${options.priceId}`,
+        providerCheckoutId: `cs_${options.priceId}`,
+      };
     },
   };
   r.useExtension("subscriptionProvider", "mock", plugin);

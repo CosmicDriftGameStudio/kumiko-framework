@@ -60,9 +60,10 @@ const stubCtx = { obs: { log: { warn() {} } } } as unknown as HandlerContext;
 describe("createStripeCheckoutSession", () => {
   test("calls stripe.checkout.sessions.create with mode=subscription + tenant metadata", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/test" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue({
+      id: "cs_test_sub",
+      url: "https://checkout.stripe.com/c/pay/test",
+    } as unknown as Stripe.Response<Stripe.Checkout.Session>);
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     const result = await checkout(stubCtx, {
@@ -72,7 +73,10 @@ describe("createStripeCheckoutSession", () => {
       cancelUrl: "https://example.com/cancel",
     });
 
-    expect(result).toEqual({ url: "https://checkout.stripe.com/c/pay/test" });
+    expect(result).toEqual({
+      url: "https://checkout.stripe.com/c/pay/test",
+      providerCheckoutId: "cs_test_sub",
+    });
     expect(createMock).toHaveBeenCalledTimes(1);
     expect(createMock).toHaveBeenCalledWith({
       mode: "subscription",
@@ -124,19 +128,13 @@ describe("createStripeCheckoutSession", () => {
     expect(await createdParams({})).not.toHaveProperty("custom_text");
   });
 
-  test("consentId rides next to tenantId on subscription_data (subscription) / payment_intent_data (payment)", async () => {
-    const subscription = await createdParams({ consentId: "consent-1" });
+  test("only tenantId rides on subscription_data (subscription) / payment_intent_data (payment)", async () => {
+    const subscription = await createdParams({});
     expect(subscription.submit_type).toBe("pay");
-    expect(subscription.subscription_data?.metadata).toEqual({
-      tenantId: "tenant-1",
-      consentId: "consent-1",
-    });
-    const payment = await createdParams({ consentId: "consent-1", mode: "payment" });
+    expect(subscription.subscription_data?.metadata).toEqual({ tenantId: "tenant-1" });
+    const payment = await createdParams({ mode: "payment" });
     expect(payment.submit_type).toBe("pay");
-    expect(payment.payment_intent_data?.metadata).toEqual({
-      tenantId: "tenant-1",
-      consentId: "consent-1",
-    });
+    expect(payment.payment_intent_data?.metadata).toEqual({ tenantId: "tenant-1" });
     expect(payment).not.toHaveProperty("subscription_data");
   });
 
@@ -181,9 +179,10 @@ describe("createStripeCheckoutSession", () => {
 
   test("mode='payment': calls stripe.checkout.sessions.create with mode=payment + payment_intent_data.metadata (NO subscription_data)", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/topup" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue({
+      id: "cs_test_topup",
+      url: "https://checkout.stripe.com/c/pay/topup",
+    } as unknown as Stripe.Response<Stripe.Checkout.Session>);
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     const result = await checkout(stubCtx, {
@@ -194,7 +193,10 @@ describe("createStripeCheckoutSession", () => {
       mode: "payment",
     });
 
-    expect(result).toEqual({ url: "https://checkout.stripe.com/c/pay/topup" });
+    expect(result).toEqual({
+      url: "https://checkout.stripe.com/c/pay/topup",
+      providerCheckoutId: "cs_test_topup",
+    });
     expect(createMock).toHaveBeenCalledWith({
       mode: "payment",
       line_items: [{ price: "price_credits_topup", quantity: 1 }],
@@ -313,15 +315,20 @@ describe("createStripeCheckoutSession", () => {
       const stripe = buildStripe();
       const createMock = spyOn(stripe.checkout.sessions, "create")
         .mockRejectedValueOnce(unknownCustomerError("customer"))
-        // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-        .mockResolvedValueOnce({ url: "https://checkout.stripe.com/c/pay/fresh" } as any);
+        .mockResolvedValueOnce({
+          id: "cs_test_fresh",
+          url: "https://checkout.stripe.com/c/pay/fresh",
+        } as unknown as Stripe.Response<Stripe.Checkout.Session>);
 
       const result = await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
         ...baseOptions,
         providerCustomerId: "cus_stale",
       });
 
-      expect(result).toEqual({ url: "https://checkout.stripe.com/c/pay/fresh" });
+      expect(result).toEqual({
+        url: "https://checkout.stripe.com/c/pay/fresh",
+        providerCheckoutId: "cs_test_fresh",
+      });
       expect(createMock).toHaveBeenCalledTimes(2);
       expect(createMock.mock.calls[0]?.[0]).toHaveProperty("customer", "cus_stale");
       expect(createMock.mock.calls[1]?.[0]).not.toHaveProperty("customer");

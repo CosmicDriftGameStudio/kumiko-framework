@@ -161,6 +161,7 @@ function contractCtxRuntime(stripe: Stripe): StripeCtxRuntime {
 async function buildStripeContractFixture() {
   const stripe = new Stripe(CONTRACT_API_KEY);
   spyOn(stripe.checkout.sessions, "create").mockResolvedValue({
+    id: "cs_contract_test",
     url: "https://checkout.stripe.com/c/pay/contract-test",
     // Only `.url` is read by createStripeCheckoutSession. mockResolvedValue
     // wants Stripe.Response<Session> (adds lastResponse metadata) — the SDK
@@ -184,6 +185,9 @@ async function buildStripeContractFixture() {
   const runtime = contractCtxRuntime(stripe);
 
   const stripeForWebhookFixture = new Stripe(CONTRACT_API_KEY);
+  spyOn(stripeForWebhookFixture.checkout.sessions, "list").mockResolvedValue({
+    data: [{ id: "cs_contract_sub" }],
+  } as unknown as Stripe.Response<Stripe.ApiList<Stripe.Checkout.Session>>);
   const webhookEvent = {
     id: "evt_contract_001",
     object: "event",
