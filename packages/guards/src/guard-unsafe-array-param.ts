@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Warns when a `.unsafe(sql, [...])` parameter list holds a JS array (or a spread).
+ * Warns when a `.unsafe(sql, [...])` parameter list holds a JS array literal.
  *
  * Bun.SQL binds a JS array parameter as "a,b" on Linux, so `ANY($n)` fails with a
  * malformed array literal in CI while the same call passes on macOS. Pass
  * `toPostgresArrayLiteral(values)` (from `@cosmicdrift/kumiko-framework/db`) and cast the
  * placeholder (`$1::text[]`).
  *
- * Heuristic without type info: only array literals and spreads directly inside the
+ * Heuristic without type info: only array literals directly inside the
  * parameter-list literal are reported; array-typed variables pass unnoticed. Warning only.
  */
 
@@ -62,11 +62,6 @@ export function findUnsafeArrayParams(sf: SourceFile): UnsafeArrayParamFinding[]
         findings.push({
           line: element.getStartLineNumber(),
           message: `array literal as an unsafe() parameter binds as "a,b" on Linux; ${FIX_HINT}`,
-        });
-      } else if (Node.isSpreadElement(element)) {
-        findings.push({
-          line: element.getStartLineNumber(),
-          message: `spread in the unsafe() parameter list; if it feeds ANY($n), ${FIX_HINT}`,
         });
       }
     }

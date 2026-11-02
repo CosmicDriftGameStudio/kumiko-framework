@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   lstatSync,
   mkdirSync,
   readFileSync,
@@ -164,16 +165,13 @@ function assertPrivateOwnDirectory(dir: string): void {
   // skip: no uid to compare against on this platform.
   if (uid === undefined) return;
   const stats = lstatSync(dir);
-  if (
-    stats.isSymbolicLink() ||
-    !stats.isDirectory() ||
-    stats.uid !== uid ||
-    (stats.mode & 0o077) !== 0
-  ) {
+  if (stats.isSymbolicLink() || !stats.isDirectory() || stats.uid !== uid) {
     throw Object.assign(new Error(`${dir} is not a private directory owned by the current user`), {
       code: "EUNSAFE",
     });
   }
+  // mkdir's mode is ignored for an existing dir; older versions created it 0755 under umask 022.
+  if ((stats.mode & 0o077) !== 0) chmodSync(dir, 0o700);
 }
 
 export function acquireGuardRunSlot(options: GuardRunSlotOptions = {}): () => void {

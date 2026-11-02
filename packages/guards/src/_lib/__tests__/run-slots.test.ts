@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -156,20 +157,14 @@ describe("acquireGuardRunSlot", () => {
   });
 
   test.skipIf(process.getuid === undefined)(
-    "a group/world-accessible slots dir fails open without waiting or claiming",
+    "a group/world-accessible slots dir of the current user is tightened and still claims a slot",
     () => {
-      chmodSync(slotsDir, 0o777);
+      chmodSync(slotsDir, 0o755);
       const logged: string[] = [];
-      const release = acquireGuardRunSlot(
-        options({
-          log: (line) => logged.push(line),
-          sleep: () => {
-            throw new Error("must not wait");
-          },
-        }),
-      );
-      expect(logged).toEqual(["→ guard slots unavailable (EUNSAFE), running without limit"]);
-      expect(readdirSync(slotsDir)).toEqual([]);
+      const release = acquireGuardRunSlot(options({ log: (line) => logged.push(line) }));
+      expect(logged).toEqual([]);
+      expect(statSync(slotsDir).mode & 0o777).toBe(0o700);
+      expect(readdirSync(slotsDir)).toHaveLength(1);
       release();
     },
   );

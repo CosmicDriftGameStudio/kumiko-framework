@@ -24,10 +24,9 @@ describe("findUnsafeArrayParams", () => {
     expect(findingsOf(`await tx.unsafe(sql, [[...ids]]);`)).toHaveLength(1);
   });
 
-  test("flags a spread in the parameter list", () => {
-    const findings = findingsOf(`await tx.unsafe(sql, [tenantId, ...ids]);`);
-    expect(findings).toHaveLength(1);
-    expect(findings[0]?.message).toContain("spread");
+  test("stays silent for spreads, which bind as scalar parameters", () => {
+    expect(findingsOf(`await tx.unsafe(sql, [tenantId, ...ids]);`)).toEqual([]);
+    expect(findingsOf(`await tx.unsafe(SET_SCOPE_SQL, [...scopeSettings(scope)]);`)).toEqual([]);
   });
 
   test("stays silent for toPostgresArrayLiteral(...) and scalar parameters", () => {

@@ -6,7 +6,6 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   type DbConnection,
-  fetchOne,
   selectMany,
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -44,9 +43,15 @@ async function loadTarget(
   where: WhereObject,
   verb: string,
 ): Promise<{ id: EntityId; version: number }> {
-  const row = await fetchOne<Record<string, unknown>>(db, target.table, where);
+  const rows = await selectMany<Record<string, unknown>>(db, target.table, where);
+  const [row] = rows;
   if (!row) {
     throw new Error(`${verb} ${target.entityName}: no row matches ${JSON.stringify(where)}`);
+  }
+  if (rows.length > 1) {
+    throw new Error(
+      `${verb} ${target.entityName}: ${rows.length} rows match ${JSON.stringify(where)}, expected exactly 1`,
+    );
   }
   const { id, version } = row;
   if (!isEntityId(id)) throw new Error(`${verb} ${target.entityName}: row has no id`);

@@ -3,7 +3,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { renderAgentDocs } from "../_lib/agent-docs";
-import { API_ENTRY_FIXTURE_FILES } from "./agent-docs-entry-fixture";
+import {
+  API_ENTRY_FIXTURE_FILES,
+  ENGINE_FIXTURE_SOURCE,
+  FRAMEWORK_ENGINE_FIXTURE_PATH,
+} from "./agent-docs-entry-fixture";
 
 function manifestFeature(name: string, description: string, requires: readonly string[]) {
   return {
@@ -89,6 +93,18 @@ describe("agent docs API reference", () => {
       expect(renderedFile(root, "api/framework-engine.md")).toContain(
         "type ListColumnSpec = { // One list column.",
       );
+    });
+  });
+
+  test("lists an unexported const that an exported type reaches through typeof", () => {
+    const source = [
+      ENGINE_FIXTURE_SOURCE,
+      "const TONE_KEYS = ['calm', 'loud'] as const;",
+      "export type ToneKey = (typeof TONE_KEYS)[number];",
+      "",
+    ].join("\n");
+    withRepo({ [FRAMEWORK_ENGINE_FIXTURE_PATH]: source }, (root) => {
+      expect(renderedFile(root, "api/types.md")).toContain("TONE_KEYS");
     });
   });
 

@@ -485,6 +485,7 @@ type GenerateMigrationOutput = {
   retiredDrops: RetiredFrameworkTable[];
   rowLevelSecurityChanges: RowLevelSecurityChange[];
 };
+const SNAPSHOT_VERSION: 1;
 type SchemaDiff = {
   newTables: EntityTableMeta[];
   droppedTables: string[];
@@ -699,6 +700,8 @@ type RenderDdlOptions = {
 ## packages/framework/src/db/render-rls-ddl.ts
 
 ```ts
+const POLICY_COMMANDS: ["ALL", "SELECT", "INSERT", "UPDATE", "DELETE"];
+const POLICY_KINDS: ["PERMISSIVE", "RESTRICTIVE"];
 type RowLevelSecurityPolicy = {
   name: string;
   command: (typeof POLICY_COMMANDS)[number];
@@ -996,6 +999,7 @@ type UserId = string;
 ## packages/framework/src/engine/feature-changelog.ts
 
 ```ts
+const CHANGELOG_TYPES: ["breaking", "improvement", "fix"];
 type ChangelogType = (typeof CHANGELOG_TYPES)[number];
 type FeatureChangelog = {
   feature: string;
@@ -1059,6 +1063,7 @@ type QnType = string;
 ## packages/framework/src/engine/role-assignment.ts
 
 ```ts
+const ASSIGNABLE_FROM_ROLE_LIST: ["User", "Member", "Editor", "Admin", "TenantAdmin", "SystemAdmin"];
 type AssignableFromRole = (typeof ASSIGNABLE_FROM_ROLE_LIST)[number];
 ```
 
@@ -1665,6 +1670,12 @@ type ScreenTarget = {
   screenId: string;
   entityId?: string;
 };
+```
+
+## packages/renderer/src/components/form-pending-uploads.tsx
+
+```ts
+type TrackFormUpload = <T>(upload: () => Promise<T>) => Promise<T>;
 ```
 
 ## packages/renderer/src/components/list-empty-state.tsx
@@ -2667,6 +2678,7 @@ type PageSectionProps = {
   testId?: string;
   maxWidth?: ScreenWidth;
 };
+const STACK_GAP: { sm: "gap-2"; md: "gap-4"; lg: "gap-6"; };
 type ScreenWidth = FormWidth;
 type StackGap = keyof typeof STACK_GAP;
 type StackProps = {
@@ -2675,6 +2687,7 @@ type StackProps = {
   children?: ReactNode;
   testId?: string;
 };
+const screenFormColumnWidthClassName: Record<ScreenWidth, string>;
 ```
 
 ## packages/renderer/src/web/primitives/toast.tsx
@@ -2691,6 +2704,12 @@ type ToastApi = {
 type LiveEventTimers = {
   set: (callback: () => void, delayMs: number) => () => void; // Schedules the callback and returns a function that cancels it.
 };
+```
+
+## packages/renderer/src/web/ui/sidebar.tsx
+
+```ts
+const sidebarMenuButtonVariants;
 ```
 
 ## packages/renderer/src/web/widgets/ai-text-field.tsx
@@ -3860,6 +3879,7 @@ type ResolvedPiiStance =
     subjectRef: true;
   }
 ;
+const SELECT_OPTION_TONES: ["ok", "warn", "bad", "critical", "accent", "neutral"];
 type SelectConditionalOptions<TOption extends string = string> = { // Options of a select field that are only available while `when` holds for the row values.
   options: TOption[];
   when: Exclude<FieldCondition, boolean>;
@@ -4095,6 +4115,7 @@ type DispatchWriteRef = {
   queryAs: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<unknown>;
   createMemberReader: (tenantId: TenantId) => MemberReader;
 };
+const ESCAPE_HATCH_GRANTS: ["systemIdentity", "globalWrites", "unsafeRaw", "crossTenantReads"];
 type EntityRef = {
   name: string;
   table: string;
@@ -4184,6 +4205,7 @@ type PreparedOrSkipped<TPrepared, TWhenNested> = [ TWhenNested ] extends [ Befor
 type PreparedWriteEvent<TPayload = unknown, TPrepared = unknown> = WriteEvent<TPayload> & ([ TPrepared ] extends [ undefined ] ? { prepared?: undefined; } : { prepared: TPrepared; }); // What a handler sees when its `beforeTransaction` phase ran: the phase's `data` as `prepared`; absent for handlers without the phase.
 type QualifiedEventName<TFeature extends string, TInner extends string> = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`; // Builds the qualified event-name from feature + inner-name in the same shape the runtime emits via `qn(toKebab(feature), "event", toKebab(inner))`.
 type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (query: QueryEvent<TPayload>, context: HandlerContext) => Promise<TResult>;
+const RATE_LIMIT_PERS: ["user", "tenant", "ip", "user+handler", "tenant+handler", "ip+handler"];
 type RateLimitDeclaration = RateLimitOption | RateLimitOptions | RateLimitDisabled;
 type RateLimitDisabled = {
   disabled: true;
@@ -4381,6 +4403,7 @@ type SubjectId =
 ## packages/types/src/list-aggregate-types.ts
 
 ```ts
+const LIST_AGGREGATE_MEASURE_KINDS: ["sum", "avg", "count", "min", "max"];
 type ListAggregateCurrencyAmount = {
   currency: string;
   value: number;
@@ -4455,6 +4478,12 @@ type NamedListFilterScope = {
   user: SessionUser;
   now: Temporal.Instant;
 };
+```
+
+## packages/types/src/nav-icon.ts
+
+```ts
+const NAV_ICON_KEYS;
 ```
 
 ## packages/types/src/nav.ts
@@ -4803,6 +4832,7 @@ type SecretsEditSection = {
 ## packages/types/src/screen-dashboard.ts
 
 ```ts
+const DASHBOARD_STAT_TONES: ["default", "positive", "ok", "warn", "negative"];
 type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
 type DashboardChartRangeOption = { // One option of a stacked-area range switch.
   value: string;
@@ -4917,6 +4947,8 @@ type ExpandableRowGrouping = Omit<ListTableGrouping, "field" | "userChoice" | "f
 ## packages/types/src/screen-list-table.ts
 
 ```ts
+const LIST_COLUMN_PINS: ["left", "right"];
+const LIST_TABLE_DENSITIES: ["comfortable", "compact"];
 type ListColumnPin = (typeof LIST_COLUMN_PINS)[number];
 type ListTableDensity = (typeof LIST_TABLE_DENSITIES)[number];
 type ListTableExportOptions = {

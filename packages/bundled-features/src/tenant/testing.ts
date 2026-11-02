@@ -77,7 +77,7 @@ export function updateInvitationViaEventStore(
       entity: tenantInvitationEntity,
       entityName: "tenant-invitation",
     },
-    { email },
+    { email, tenantId },
     changes,
     { tenantId },
   );

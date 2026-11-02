@@ -19,7 +19,14 @@ export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): 
     if (pending) return;
     setPending(true);
     setRejected(false);
-    const accepted = await onConfirm(submittedCode).finally(() => setPending(false));
+    let accepted = false;
+    try {
+      accepted = await onConfirm(submittedCode);
+    } catch {
+      // A network or server error must not leave the step stuck with a full field.
+    } finally {
+      setPending(false);
+    }
     if (accepted) return;
     setRejected(true);
     setCode("");
