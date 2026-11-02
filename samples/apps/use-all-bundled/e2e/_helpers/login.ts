@@ -50,17 +50,22 @@ async function signInOnce(page: Page): Promise<readonly Cookie[]> {
     if (shared === undefined) throw new Error("shared admin session vanished");
     return shared;
   }
-  const res = await page.request.post("/api/auth/login", {
-    data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    headers: { [CLIENT_IP_HEADER]: ADMIN_CLIENT_IP },
-  });
-  if (!res.ok()) {
+  try {
+    const res = await page.request.post("/api/auth/login", {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+      headers: { [CLIENT_IP_HEADER]: ADMIN_CLIENT_IP },
+    });
+    if (!res.ok()) {
+      throw new Error(`loginAsAdmin: POST /api/auth/login → ${res.status()} ${await res.text()}`);
+    }
+    const cookies = await page.context().cookies();
+    writeFileSync(SHARED_SESSION_FILE, JSON.stringify(cookies));
+    return cookies;
+  } catch (error) {
+    // An empty claim file would make every other worker poll until its timeout.
     rmSync(SHARED_SESSION_FILE, { force: true });
-    throw new Error(`loginAsAdmin: POST /api/auth/login → ${res.status()} ${await res.text()}`);
+    throw error;
   }
-  const cookies = await page.context().cookies();
-  writeFileSync(SHARED_SESSION_FILE, JSON.stringify(cookies));
-  return cookies;
 }
 
 export async function loginAsAdmin(page: Page): Promise<void> {

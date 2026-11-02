@@ -84,11 +84,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
         if (!ctx.registry) {
           throw new Error("retention-cleanup: ctx.registry required (JobContext incomplete)");
         }
-        const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
-        if (tenantId === undefined) {
-          // skip: cron fired without a perTenant fan-out tenant — nothing scoped
-          return;
-        }
+        const tenantId = ctx.systemUser.tenantId;
         const cleanupDb =
           ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const tenantPreset = await resolveTenantRetentionPreset({

@@ -14,6 +14,7 @@ import {
   boundaryGuardedTest as test,
 } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
+import * as z from "zod";
 import { DEV_TENANT_ID } from "../src/app/auth-constants";
 import { INBOUND_MAIL_E2E_ROUTE, type InboundMailScript } from "./_helpers/inbound-mail-script";
 import { loginAsAdmin } from "./_helpers/login";
@@ -45,14 +46,14 @@ async function connectMailbox(
   mailbox: { name: string; address: string },
   provider: "inmemory" | "imap",
 ): Promise<string> {
-  const data = (await writeHandler(page, "inbound-mail-foundation:write:connect-account", {
+  const data = await writeHandler(page, "inbound-mail-foundation:write:connect-account", {
     provider,
     authMethod: "password",
     displayName: mailbox.name,
     address: mailbox.address,
     scope: "shared",
-  })) as { accountId: string };
-  return data.accountId;
+  });
+  return z.object({ accountId: z.uuid() }).parse(data).accountId;
 }
 
 async function scriptMailProvider(page: Page, script: InboundMailScript): Promise<void> {

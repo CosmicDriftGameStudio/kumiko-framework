@@ -7,9 +7,12 @@ set -uo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 version_subject="chore: version packages"
+# The commit holding the version bump: the PR tip for a merge commit, HEAD itself when squashed.
+pr_tip="HEAD"
 
 is_version_merge() {
   if git rev-parse -q --verify HEAD^2 >/dev/null; then
+    pr_tip="HEAD^2"
     case "$(git log -1 --format=%s HEAD^2)" in "$version_subject"*) return 0 ;; esac
     case "$(git log -1 --format=%s)" in *changeset-release/main*) return 0 ;; esac
     return 1
@@ -23,7 +26,7 @@ if ! is_version_merge; then
   exit 0
 fi
 
-if ! reason="$(bash "$script_dir/verify-version-pr-fresh.sh" HEAD HEAD^1)"; then
+if ! reason="$(bash "$script_dir/verify-version-pr-fresh.sh" "$pr_tip" HEAD^1)"; then
   echo "::error::Stale Version PR merged: ${reason}"
   # Exiting here also skips changesets/action, so no fresh Version PR is opened
   # until the next push to main runs this job again.

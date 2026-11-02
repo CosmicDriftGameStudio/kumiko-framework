@@ -11,7 +11,7 @@ export function isOpenToAllGranted(rule: AccessRule): boolean {
   return openToAll.reason.trim().length > 0;
 }
 
-const ANONYMOUS_ACCESS_ROLE = "anonymous";
+export const ANONYMOUS_ROLE = "anonymous" as const;
 
 // UI-visibility predicate — DEFAULT-VISIBLE, the opposite stance from
 // `hasAccess` and the default-deny doc on AccessRule (handlers.ts): an unset `access`
@@ -28,7 +28,7 @@ export function isUiAccessGranted(
   if ("openToAll" in access) return isOpenToAllGranted(access);
   if (userRoles === undefined) return false;
   if (!("roles" in access)) return false;
-  if (isAnySignedInGranted(access) && !userRoles.includes(ANONYMOUS_ACCESS_ROLE)) return true;
+  if (isAnySignedInGranted(access) && !userRoles.includes(ANONYMOUS_ROLE)) return true;
   return access.roles.some((role) => userRoles.includes(role));
 }
 
@@ -37,7 +37,5 @@ export function isUiAccessGranted(
 export function isAnySignedInGranted(rule: AccessRule): boolean {
   if (!("roles" in rule) || !("anySignedIn" in rule)) return false;
   const anySignedIn: unknown = rule.anySignedIn;
-  return (
-    anySignedIn === true && Array.isArray(rule.roles) && rule.roles.includes(ANONYMOUS_ACCESS_ROLE)
-  );
+  return anySignedIn === true && Array.isArray(rule.roles) && rule.roles.includes(ANONYMOUS_ROLE);
 }

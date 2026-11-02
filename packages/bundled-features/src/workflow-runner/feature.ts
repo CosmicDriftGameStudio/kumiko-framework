@@ -64,11 +64,7 @@ export function createWorkflowRunnerFeature() {
           if (!ctx.systemDb) {
             throw new Error("resume-due-runs: ctx.systemDb required (r.systemScope() feature)");
           }
-          const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
-          if (tenantId === undefined) {
-            // skip: cron fired without a perTenant fan-out tenant — nothing scoped
-            return;
-          }
+          const tenantId = ctx.systemUser.tenantId;
 
           const dueRows = await selectDueWorkflowRunPending(
             ctx.systemDb.assertTenantMatch(tenantId),

@@ -266,7 +266,6 @@ async function runResumeDueRunsJob(): Promise<void> {
     systemUser,
     obs: { log: noopLogger },
     triggeredBy: null,
-    _tenantId: admin.tenantId,
     dispatch: { write: (name, payload) => stack.dispatcher.write(name, payload, systemUser) },
   } as JobContext;
   await job.handler({}, ctx);

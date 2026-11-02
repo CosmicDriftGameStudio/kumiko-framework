@@ -74,10 +74,27 @@ describe("refuse-stale-version-merge.sh", () => {
     expect(runGuard(repo).exitCode).toBe(0);
   });
 
-  test("refuses a Version PR merge commit that left a newer changeset unconsumed", () => {
+  test("refuses a Version PR merge commit whose tip was built before main moved on", () => {
     const repo = buildRepoWithReleaseBranch();
     writeFile(repo, ".changeset/y.md", CHANGESET);
     commitAll(repo, "changeset y landed after the version commit");
+    mergeReleaseBranch(repo);
+
+    const result = runGuard(repo);
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("not based on the current main HEAD");
+  });
+
+  test("refuses a Version PR merge commit whose fresh tip left a changeset unconsumed", () => {
+    const repo = buildRepoWithReleaseBranch();
+    git(repo, ["checkout", "-q", "changeset-release/main"]);
+    git(repo, ["merge", "-q", "main"]);
+    git(repo, ["checkout", "-q", "main"]);
+    writeFile(repo, ".changeset/y.md", CHANGESET);
+    commitAll(repo, "changeset y");
+    git(repo, ["checkout", "-q", "changeset-release/main"]);
+    git(repo, ["merge", "-q", "main"]);
+    git(repo, ["checkout", "-q", "main"]);
     mergeReleaseBranch(repo);
 
     const result = runGuard(repo);

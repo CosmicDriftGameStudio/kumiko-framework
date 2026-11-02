@@ -34,7 +34,13 @@ const inboundMailScriptRoute = signatureRoute<z.infer<typeof inboundMailScriptSc
   entry: "signature",
   verify: async (request) => {
     if (!isSeedModeEnabled()) throw new ExtraRouteRejection(404, { error: "Not Found" });
-    const parsed = inboundMailScriptSchema.safeParse(JSON.parse(request.rawBody));
+    let body: unknown;
+    try {
+      body = JSON.parse(request.rawBody);
+    } catch {
+      throw new ExtraRouteRejection(400, { error: "invalid JSON" });
+    }
+    const parsed = inboundMailScriptSchema.safeParse(body);
     if (!parsed.success) throw new ExtraRouteRejection(400, { error: parsed.error.message });
     return parsed.data;
   },

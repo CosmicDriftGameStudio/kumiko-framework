@@ -61,4 +61,13 @@ describe("ConfirmationCodeStep", () => {
     await waitFor(() => expect(document.activeElement).toBe(input));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  test("an accepted code disables the field so the used code cannot be edited", async () => {
+    const onConfirm = mock(async (_code: string) => true);
+    renderStep(onConfirm);
+    type("123456");
+    const input = screen.getByTestId("confirmation-code");
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(input).toHaveProperty("disabled", true));
+  });
 });
