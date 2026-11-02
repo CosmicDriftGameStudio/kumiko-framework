@@ -71,7 +71,9 @@ export function HtmlPaperFrame({
       ) : (
         <PreviewWidthFrame device={device} testId="web-preview-frame">
           <Card>
+            {/* HtmlMailFrame sizes itself on load; remounting per device re-measures at the new width. */}
             <HtmlMailFrame
+              key={device}
               html={html}
               title={t("template-resolver.preview.frameTitle")}
               allowRemoteImages
