@@ -65,8 +65,8 @@ export function createDataRetentionFeature(): FeatureDefinition {
     r.exposesApi("retention.policyFor");
     r.queryHandler(policyForQuery);
 
-    // Autonomous retention cleanup. perTenant fan-out (one run per
-    // active tenant, like soft-delete-cleanup): runRetentionCleanup's raw
+    // Autonomous retention cleanup. perTenant fan-out (one run per active
+    // tenant plus the system tenant, like soft-delete-cleanup): runRetentionCleanup's raw
     // query helpers need the unfiltered runner, so the handler declares
     // escapeHatch and reaches for ctx.db.unsafeRaw(). Without this cron,
     // retention rules are configured but never enforced.
@@ -74,6 +74,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
       name: "retention-cleanup",
       trigger: { maintenance: true },
       perTenant: true,
+      includeSystemTenant: true,
       concurrency: "skip",
       escapeHatch: {
         reason:

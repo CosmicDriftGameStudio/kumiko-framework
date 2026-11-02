@@ -927,6 +927,14 @@ export function validateLiveEntities(state: RegistryState): void {
   }
 }
 
+export function validateIncludeSystemTenantJobs(state: RegistryState): void {
+  for (const [jobName, jobDef] of state.jobMap) {
+    if (jobDef.includeSystemTenant && !jobDef.perTenant) {
+      throw new Error(`Job "${jobName}" sets includeSystemTenant without perTenant`);
+    }
+  }
+}
+
 export function validateBootGates(state: RegistryState): void {
   // Boot gates run inline in JobRunner.start(), which has neither the
   // per-tenant fan-out (that re-enqueues) nor the sequential lock's

@@ -89,7 +89,7 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
   if (!db || !registry) {
     throw new Error("soft-delete cleanup: ctx.db + ctx.registry required (JobContext incomplete)");
   }
-  // perTenant fan-out → one run per active tenant, systemUser scoped to it.
+  // perTenant fan-out → one run per active tenant plus the system tenant, systemUser scoped to it.
   // The job's db is a tenant-filtered TenantDb, but every delete is still
   // explicitly tenant-filtered below as defense-in-depth — otherwise a
   // tenant with a short grace would purge another tenant's still-within-grace
@@ -101,7 +101,7 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
   }
 
   const graceDays = await resolveGraceDays(ctx, tenantId, db);
-  const cutoff = Temporal.Now.instant().subtract({ hours: graceDays * 24 });
+  const cutoff = ctx.tz.now().subtract({ hours: graceDays * 24 });
 
   for (const proj of registry.getAllProjections().values()) {
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
@@ -210,7 +210,7 @@ export const softDeleteCleanupSystemJob: JobHandlerFn = async (_payload, ctx) =>
       "soft-delete system cleanup: ctx.db + ctx.registry required (JobContext incomplete)",
     );
   }
-  const cutoff = Temporal.Now.instant().subtract({ hours: DEFAULT_GRACE_DAYS * 24 });
+  const cutoff = ctx.tz.now().subtract({ hours: DEFAULT_GRACE_DAYS * 24 });
   for (const proj of registry.getAllProjections().values()) {
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
     const entity = registry.getEntity(proj.source);
@@ -241,6 +241,7 @@ export function buildSoftDeleteCleanupJob(): JobDefinition {
     handler: softDeleteCleanupJob,
     trigger: { maintenance: true },
     perTenant: true,
+    includeSystemTenant: true,
     concurrency: "skip",
     runIn: "worker",
   };

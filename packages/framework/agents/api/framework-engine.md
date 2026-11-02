@@ -974,6 +974,7 @@ type JobDefinition = {
   runOnBoot?: boolean | undefined;
   bootGate?: boolean | undefined;
   perTenant?: boolean | undefined;
+  includeSystemTenant?: boolean | undefined;
   runIn?: JobRunIn | undefined;
   escapeHatch?: EscapeHatchDeclaration | undefined;
   tenantVisibleFailure?: { messageKey: string; subjectFields?: string[] | undefined; } | undefined;

@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { type ManualClock, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -92,6 +92,8 @@ export async function createHelpdeskTestStack(
     readonly tierEngine?: boolean;
     readonly dbName?: string;
     readonly persistentDb?: boolean;
+    readonly clock?: ManualClock;
+    readonly jobConsumer?: boolean;
   } = {},
 ): Promise<HelpdeskTestStack> {
   const telegram = startProviderStub();
@@ -148,6 +150,7 @@ export async function createHelpdeskTestStack(
     masterKeyProvider,
     ...(stackOptions.dbName !== undefined && { dbName: stackOptions.dbName }),
     ...(stackOptions.persistentDb !== undefined && { persistentDb: stackOptions.persistentDb }),
+    ...(stackOptions.jobConsumer && { jobs: { consumerLane: "worker" as const } }),
     extraContext: (deps) => {
       const secrets = createSecretsContext({
         db: deps.db,
@@ -160,6 +163,7 @@ export async function createHelpdeskTestStack(
         configResolver: resolver,
         configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
         secrets,
+        ...(stackOptions.clock !== undefined && { clock: stackOptions.clock }),
       };
     },
     authConfig: {

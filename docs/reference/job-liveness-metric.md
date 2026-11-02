@@ -32,6 +32,10 @@ langlebigen App-Pod laufen und kein CronJob-Objekt erzeugen.
   erfolgreich“: scheitert Tenant A dauerhaft und Tenant B läuft durch, bleibt
   sie frisch. Gibt es keine aktiven Tenants, entsteht nie eine Serie. Einzelne
   Tenants überwacht die Failure-Metrik oder der `tenantVisibleFailure`-Record.
+  Der Fan-out läuft nur über aktive Tenant-Zeilen; der System-Tenant hat keine.
+  Wartungsjobs für Daten im System-Tenant setzen daher zusätzlich
+  `includeSystemTenant: true` (nur zusammen mit `perTenant`) und bekommen einen
+  weiteren Lauf mit `SYSTEM_TENANT_ID`.
 
 ## Alerting: das `for:` muss den Neustart überleben
 

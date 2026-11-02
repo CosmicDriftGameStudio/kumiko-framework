@@ -481,6 +481,8 @@ export type JobDefinition = {
   // starts no runner for that lane runs no gate.
   readonly bootGate?: boolean | undefined;
   readonly perTenant?: boolean | undefined;
+  // perTenant fan-out only covers active tenant rows and SYSTEM_TENANT_ID has none; maintenance jobs for system-tenant data need the extra run.
+  readonly includeSystemTenant?: boolean | undefined;
   // Which deploy-lane runs this job. Default "worker". Set "api" only for
   // short CPU-light handlers (token cleanup, in-process cache warmup) that
   // don't justify a separate worker container — long/CPU-heavy jobs on the
