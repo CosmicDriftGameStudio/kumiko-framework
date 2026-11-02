@@ -28,6 +28,9 @@ export function buildTenantScopedDb(
   denyWrites = false,
 ): TenantDb {
   const { user, context, registry, origin, isSystem, writeEscapeHatch, handlerEscapeHatch } = scope;
+  // An agent tool call feeds the LLM context with the user's session: raw SQL and global writes
+  // would bypass the tenant and read filtering the tool result relies on.
+  const grantsEscapeHatches = foreignTenantId === undefined && !isAgentToolCallScope();
   const options = {
     db: source,
     tenantId: foreignTenantId ?? user.tenantId,
@@ -35,7 +38,7 @@ export function buildTenantScopedDb(
     meter: context.meter,
     signal,
     grants: {
-      ...(foreignTenantId === undefined && {
+      ...(grantsEscapeHatches && {
         globalWrites: escapeHatchFor(writeEscapeHatch, "globalWrites"),
         unsafeRaw: escapeHatchFor(handlerEscapeHatch, "unsafeRaw"),
       }),
