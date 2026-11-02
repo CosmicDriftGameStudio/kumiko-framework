@@ -141,6 +141,7 @@ export function deriveEntityTableMeta(
     source,
     ...(piiSubjectFields.length > 0 && { piiSubjectFields }),
     ...(entity.tenancy === "global" && { tenancy: "global" as const }),
+    ...(entity.systemRowsReadable === true && { systemRowsReadable: true as const }),
   };
   return source === "unmanaged" ? brandWritable(meta) : meta;
 }
@@ -379,6 +380,7 @@ export function defineUnmanagedTable<const T extends EntityTenancy = "tenant">(
     }),
     source: "unmanaged",
     ...(input.tenancy === "global" && { tenancy: "global" as const }),
+    ...(input.systemRowsReadable === true && { systemRowsReadable: true as const }),
     // @cast-boundary phantom-brand — TenancyBrand<T> is a phantom marker with no runtime representation.
   } as EntityTableMeta & TenancyBrand<T>);
 }

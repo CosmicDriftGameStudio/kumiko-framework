@@ -3,10 +3,10 @@
 
 import type { MemberReader } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbConnection, DbTx } from "../db/connection.ts";
+import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { buildSessionRoles } from "../engine/membership-roles.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import type { SessionUser } from "../engine/types/index.ts";
-
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors/index.ts";
 import {
@@ -55,7 +55,11 @@ async function resolveMember(
   // resolveDbSource(ctx, undefined) never returns a tx, only AppContext.db.
   const db = dbSource as DbConnection; // @cast-boundary db-operator
 
-  const profile = await principalPlugin.resolveProfile(userId, { db });
+  // The user row lives on the system tenant, which a tenant scope no longer reads.
+  const profile = await runInSystemRowLevelSecurityScope(
+    "member resolution reads the stored user profile, a system tenant row",
+    () => principalPlugin.resolveProfile(userId, { db }),
+  );
   if (!profile) throw memberResolutionDenied();
 
   // buildSessionRoles runs stripForbiddenMembershipRoles on the membership half (rebuild-resurrected roles).

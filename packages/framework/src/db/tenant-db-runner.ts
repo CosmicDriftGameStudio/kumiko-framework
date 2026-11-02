@@ -4,10 +4,12 @@ import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { DbRunner } from "./connection.ts";
 import {
+  SYSTEM_ROW_LEVEL_SECURITY_SCOPE,
   type TenantDbModeOptions,
   tenantDbRowLevelSecurityScope,
   withRowLevelSecurityScope,
 } from "./row-level-security-scope.ts";
+import { asEntityTableMeta } from "./table-introspection.ts";
 
 const tenantDbRunners = new WeakMap<object, DbRunner>();
 
@@ -45,6 +47,15 @@ export function tenantDbRunner(tenantDb: TenantDb): DbRunner {
   return runner;
 }
 
+// Raw statements against one entity table: a global table holds system tenant rows, so its reads run
+// in the system scope like the TenantDb's own statements on it (tenantDbRowLevelSecurityScope).
+export function tenantDbRunnerForTable(tenantDb: TenantDb, table: unknown): DbRunner {
+  const runner = tenantDbRunner(tenantDb);
+  return asEntityTableMeta(table)?.tenancy === "global"
+    ? withRowLevelSecurityScope(runner, SYSTEM_ROW_LEVEL_SECURITY_SCOPE)
+    : runner;
+}
+
 const writesDeniedReasons = new WeakMap<TenantDb, string>();
 
 export function denyTenantDbWrites(tenantDb: TenantDb, reason: string): void {
@@ -67,4 +78,14 @@ export function tenantDbWriteRunner(tenantDb: TenantDb, operation: string): DbRu
   const reason = writesDeniedReasons.get(tenantDb);
   if (reason !== undefined) throw tenantDbWritesDeniedError(operation, reason);
   return tenantDbRunner(tenantDb);
+}
+
+export function tenantDbWriteRunnerForTable(
+  tenantDb: TenantDb,
+  operation: string,
+  table: unknown,
+): DbRunner {
+  const reason = writesDeniedReasons.get(tenantDb);
+  if (reason !== undefined) throw tenantDbWritesDeniedError(operation, reason);
+  return tenantDbRunnerForTable(tenantDb, table);
 }

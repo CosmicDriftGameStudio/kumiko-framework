@@ -172,7 +172,7 @@ describe("enforcement", () => {
     );
   });
 
-  test("every framework table with a tenant_id column is enabled, forced and carries both policies", async () => {
+  test("every framework table with a tenant_id column is enabled, forced and carries only the isolation policy", async () => {
     const tables = await runInSystemRowLevelSecurityScope(
       "test lists tenant-id columns via information_schema",
       () =>
@@ -194,10 +194,7 @@ describe("enforcement", () => {
         enabled: true,
         forced: true,
       });
-      expect(state?.policies.map((policy) => policy.name)).toEqual([
-        "kumiko_system_tenant_read",
-        "kumiko_tenant_isolation",
-      ]);
+      expect(state?.policies.map((policy) => policy.name)).toEqual(["kumiko_tenant_isolation"]);
     }
   });
 });

@@ -18,6 +18,7 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 // provides handlers (`reset.write.ts` etc.) with a typed Drizzle table ref.
 export const configValueEntity = createEntity({
   table: "read_config_values",
+  systemRowsReadable: true,
   fields: {
     key: createTextField({ required: true, personal: false, reason: "system_metadata" }),
     // value is JSON-encoded primitive (or encrypted blob). Nullable so a

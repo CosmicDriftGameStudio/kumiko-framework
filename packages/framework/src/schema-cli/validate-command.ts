@@ -120,7 +120,15 @@ function checkBootValidity(out: SchemaCliOut, schemaMod: SchemaMod): BootOutcome
 
 function declaredTablesOf(schemaMod: SchemaMod): KnownTables {
   const names = new Set(schemaMod.entityMetas.map((meta) => meta.tableName));
-  return { has: (tableName) => names.has(tableName) || isLiveFrameworkTable(tableName) };
+  const systemReadable = new Set(
+    schemaMod.entityMetas
+      .filter((meta) => meta.systemRowsReadable === true)
+      .map((meta) => meta.tableName),
+  );
+  return {
+    has: (tableName) => names.has(tableName) || isLiveFrameworkTable(tableName),
+    readsSystemRows: (tableName) => systemReadable.has(tableName),
+  };
 }
 
 // 4. Live row-level security table state — the table half of the boot check. Only with a DATABASE_URL;

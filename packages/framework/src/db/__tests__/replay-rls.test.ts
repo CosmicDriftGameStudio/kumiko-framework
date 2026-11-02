@@ -122,7 +122,7 @@ ALTER TABLE "t" RENAME TO "u";`,
 describe("row-level-security-drift against the snapshot", () => {
   function generateInitial() {
     return generateMigration({
-      metas: [tenantTable("store_items")],
+      metas: [{ ...tenantTable("store_items"), systemRowsReadable: true }],
       prevSnapshot: null,
       name: "init",
       sequenceNumber: 1,

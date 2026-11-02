@@ -37,7 +37,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { selectTenantSecretEnvelope } from "./db/queries/read.ts";
+import { readingSecretsOf, selectTenantSecretEnvelope } from "./db/queries/read.ts";
 import {
   type StoredEnvelope,
   type StoredMetadata,
@@ -115,7 +115,9 @@ function buildSecretsContext(
   };
 
   async function lookup(tenantId: string, key: string): Promise<SecretLookupRow | undefined> {
-    return fetchOne<SecretLookupRow>(db, tenantSecretsTable, { tenantId, key });
+    return readingSecretsOf(tenantId, () =>
+      fetchOne<SecretLookupRow>(db, tenantSecretsTable, { tenantId, key }),
+    );
   }
 
   return {

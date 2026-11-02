@@ -2,7 +2,12 @@ import type { DbConnection } from "../connection.ts";
 import type { EntityTableMeta } from "../entity-table-meta.ts";
 import type { AnyDb } from "../query.ts";
 import { asRawClient, transaction } from "../query.ts";
-import { renderTableRowLevelSecurityDdl, tenantRowLevelSecurityFor } from "../render-rls-ddl.ts";
+import {
+  renderDropPolicy,
+  renderTableRowLevelSecurityDdl,
+  SYSTEM_TENANT_READ_POLICY,
+  tenantRowLevelSecurityFor,
+} from "../render-rls-ddl.ts";
 import { quoteIdent } from "../sql-identifier.ts";
 import { type RowLevelSecurityShape, readRowLevelSecurityShape } from "./rls-shape.ts";
 import { quoteTableIdent } from "./table-ops.ts";
@@ -49,6 +54,14 @@ export async function createIndexIfNotExists(
   );
 }
 
+function expectsSystemReadPolicy(meta: EntityTableMeta): boolean {
+  return (
+    tenantRowLevelSecurityFor(meta)?.policies.some(
+      (policy) => policy.name === SYSTEM_TENANT_READ_POLICY,
+    ) === true
+  );
+}
+
 // Policy texts are not compared: a hand-edited kumiko policy is the operator's to keep, and the
 // catalog check of the boot path reports it. Foreign policies are ignored.
 function hasKumikoRowLevelSecurity(
@@ -57,6 +70,12 @@ function hasKumikoRowLevelSecurity(
 ): boolean {
   const spec = tenantRowLevelSecurityFor(meta);
   if (state === undefined || spec === undefined || !state.enabled || !state.forced) return false;
+  if (
+    !expectsSystemReadPolicy(meta) &&
+    state.policies.some((actual) => actual.name === SYSTEM_TENANT_READ_POLICY)
+  ) {
+    return false;
+  }
   return spec.policies.every((expected) =>
     state.policies.some(
       (actual) =>
@@ -85,6 +104,10 @@ export async function applyTableRowLevelSecurity(
     if (hasKumikoRowLevelSecurity(await readRowLevelSecurityShape(tx, meta.tableName), meta)) {
       return;
     }
-    for (const statement of statements) await tx.unsafe(statement);
+    // A policy the table no longer qualifies for (marker removed) would survive the re-create below.
+    const staleSystemRead = expectsSystemReadPolicy(meta)
+      ? []
+      : [renderDropPolicy(quoteIdent(meta.tableName), SYSTEM_TENANT_READ_POLICY)];
+    for (const statement of [...staleSystemRead, ...statements]) await tx.unsafe(statement);
   });
 }

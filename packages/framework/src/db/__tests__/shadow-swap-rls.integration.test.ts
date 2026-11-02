@@ -21,6 +21,7 @@ import { createProbeRole } from "./rls-probe.ts";
 function tenantTable(tableName: string) {
   return defineUnmanagedTable({
     tableName,
+    systemRowsReadable: true,
     columns: [
       {
         name: "id",

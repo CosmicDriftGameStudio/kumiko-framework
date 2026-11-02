@@ -10,7 +10,11 @@ import {
 import type { AnyDb } from "./query.ts";
 import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
 
-function missingPartsOf(table: TenantTableRowLevelSecurity): readonly string[] {
+function missingPartsOf(
+  table: TenantTableRowLevelSecurity,
+  knownTables: KnownTables,
+): readonly string[] {
+  const expectsSystemRead = knownTables.readsSystemRows(table.tableName);
   return [
     ...(table.enabled ? [] : ["ENABLE ROW LEVEL SECURITY"]),
     ...(table.forced ? [] : ["FORCE ROW LEVEL SECURITY"]),
@@ -20,7 +24,13 @@ function missingPartsOf(table: TenantTableRowLevelSecurity): readonly string[] {
           "policy kumiko_tenant_isolation altered (must be PERMISSIVE ALL for PUBLIC, no RESTRICTIVE policy)",
         ]
       : []),
-    ...(table.hasSystemReadPolicy ? [] : ["policy kumiko_system_tenant_read"]),
+    ...(table.hasSystemReadPolicy === expectsSystemRead
+      ? []
+      : [
+          expectsSystemRead
+            ? "policy kumiko_system_tenant_read"
+            : "policy kumiko_system_tenant_read on a table not marked systemRowsReadable (must be dropped)",
+        ]),
   ];
 }
 
@@ -56,7 +66,7 @@ async function assertAllTenantTablesProtected(
 ): Promise<void> {
   const incomplete = (await readTenantTablesRowLevelSecurity(db))
     .filter((table) => scope === "database" || knownTables.has(table.tableName))
-    .map((table) => ({ table: table.tableName, missing: missingPartsOf(table) }))
+    .map((table) => ({ table: table.tableName, missing: missingPartsOf(table, knownTables) }))
     .filter((entry) => entry.missing.length > 0);
   // skip: every tenant table is protected
   if (incomplete.length === 0) return;

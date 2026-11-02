@@ -27,7 +27,7 @@ import {
 import { buildListWhere } from "./event-store-executor-read-where.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { schemaTableName } from "./table-introspection.ts";
-import { tenantDbRunner } from "./tenant-db-runner.ts";
+import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
 // The read verbs (list/aggregate/detail) of the event-store-executor. Split out
 // of event-store-executor.ts — behavior-preserving relocation, not a redesign:
@@ -59,7 +59,7 @@ export function createReadVerbs(
     // list + detail are unchanged from crud-executor — projections are the
     // read-model and serve these queries directly.
     async list(payload, user, db, runtimeOptions) {
-      const runner = tenantDbRunner(db);
+      const runner = tenantDbRunnerForTable(db, table);
       const { limit, offset } = resolveListPagination(payload);
       const totalCount = payload.totalCount === true;
       const tableName = String(schemaTableName(table));
@@ -209,7 +209,7 @@ export function createReadVerbs(
             streamVersion = probe.streamVersion;
           } else {
             streamVersion = await getStreamVersion(
-              tenantDbRunner(db),
+              tenantDbRunnerForTable(db, table),
               String(payload.id),
               streamTenantFor(user),
             );

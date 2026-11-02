@@ -12,9 +12,14 @@ import {
   tenantRowLevelSecurityFor,
 } from "../render-rls-ddl.ts";
 
-function tenantMeta(tableName: string, tenantType: "uuid" | "text" = "uuid"): EntityTableMeta {
+function tenantMeta(
+  tableName: string,
+  tenantType: "uuid" | "text" = "uuid",
+  systemRowsReadable = false,
+): EntityTableMeta {
   return {
     tableName,
+    ...(systemRowsReadable && { systemRowsReadable: true as const }),
     source: "unmanaged",
     indexes: [],
     columns: [
@@ -38,8 +43,17 @@ function isolation(sqlType: string): string {
 }
 
 describe("renderTableRowLevelSecurityDdl", () => {
-  test("renders policies before ENABLE and FORCE for a uuid tenant_id", () => {
+  test("an unmarked table gets the isolation policy and no system read policy", () => {
     expect(renderTableRowLevelSecurityDdl(tenantMeta("store_items"))).toEqual([
+      `DROP POLICY IF EXISTS "kumiko_tenant_isolation" ON "store_items";`,
+      `CREATE POLICY "kumiko_tenant_isolation" ON "store_items" AS PERMISSIVE FOR ALL TO PUBLIC USING (${isolation("uuid")}) WITH CHECK (${isolation("uuid")});`,
+      `ALTER TABLE "store_items" ENABLE ROW LEVEL SECURITY;`,
+      `ALTER TABLE "store_items" FORCE ROW LEVEL SECURITY;`,
+    ]);
+  });
+
+  test("renders policies before ENABLE and FORCE for a marked uuid tenant_id", () => {
+    expect(renderTableRowLevelSecurityDdl(tenantMeta("store_items", "uuid", true))).toEqual([
       `DROP POLICY IF EXISTS "kumiko_tenant_isolation" ON "store_items";`,
       `CREATE POLICY "kumiko_tenant_isolation" ON "store_items" AS PERMISSIVE FOR ALL TO PUBLIC USING (${isolation("uuid")}) WITH CHECK (${isolation("uuid")});`,
       `DROP POLICY IF EXISTS "kumiko_system_tenant_read" ON "store_items";`,
@@ -50,7 +64,7 @@ describe("renderTableRowLevelSecurityDdl", () => {
   });
 
   test("casts to text for a text tenant_id", () => {
-    const statements = renderTableRowLevelSecurityDdl(tenantMeta("store_text", "text"));
+    const statements = renderTableRowLevelSecurityDdl(tenantMeta("store_text", "text", true));
     expect(statements[1]).toContain(`::text OR current_setting`);
     expect(statements[3]).toContain(`'${SYSTEM}'::text AND`);
     expect(statements.join("\n")).not.toContain("::uuid");
@@ -88,8 +102,13 @@ describe("renderTableDdl with rowLevelSecurity", () => {
   });
 
   test("renderTablesDdl passes the mode to every table", () => {
-    const statements = renderTablesDdl([meta, globalMeta], { rowLevelSecurity: "on" });
-    expect(statements.filter((s) => s.startsWith("CREATE POLICY"))).toHaveLength(2);
+    const statements = renderTablesDdl(
+      [meta, globalMeta, tenantMeta("store_shared", "uuid", true)],
+      {
+        rowLevelSecurity: "on",
+      },
+    );
+    expect(statements.filter((s) => s.startsWith("CREATE POLICY"))).toHaveLength(3);
   });
 });
 

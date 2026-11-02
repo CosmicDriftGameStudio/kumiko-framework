@@ -85,6 +85,9 @@ export type EntityTableMeta = {
   // Only present for "global" tables — absent means "tenant" so existing
   // schema snapshots don't drift. See EntityDefinition.tenancy.
   readonly tenancy?: "global";
+  // Positive classification: only a marked table gets the row-level-security policy that lets
+  // tenant sessions read SYSTEM_TENANT_ID rows. Absent means no such policy.
+  readonly systemRowsReadable?: true;
 };
 
 export type BuildEntityTableMetaOptions = {
@@ -99,4 +102,5 @@ export type UnmanagedTableInput = {
   readonly indexes?: readonly IndexMeta[];
   readonly compositePrimaryKey?: CompositePrimaryKeyMeta;
   readonly tenancy?: EntityTenancy;
+  readonly systemRowsReadable?: true;
 };

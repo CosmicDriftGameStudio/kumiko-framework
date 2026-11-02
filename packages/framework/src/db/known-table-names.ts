@@ -1,5 +1,6 @@
 import type { FeatureDefinition } from "../engine/types/index.ts";
 import { collectTableMetas } from "./collect-table-metas.ts";
+import type { EntityTableMeta } from "./entity-table-meta.ts";
 import { isRetiredFrameworkTable } from "./retired-framework-tables.ts";
 
 // The prefix only picks which boot-check message a table gets; both groups still throw, and a second
@@ -14,16 +15,20 @@ export function isLiveFrameworkTable(tableName: string): boolean {
 
 export type KnownTables = {
   readonly has: (tableName: string) => boolean;
+  // Tables classified `systemRowsReadable`: exactly these carry the system-tenant read policy.
+  readonly readsSystemRows: (tableName: string) => boolean;
 };
 
 // Same source as `kumiko schema generate`: a tenant table that is not listed here has no owner left.
 export function knownTablesOf(features: readonly FeatureDefinition[]): KnownTables {
   // Lazy: a healthy boot finds no unprotected table and never asks, so it skips collecting metas.
-  let names: Set<string> | undefined;
+  let metas: ReadonlyMap<string, EntityTableMeta> | undefined;
+  const metaOf = (tableName: string) => {
+    metas ??= new Map(collectTableMetas(features).map((meta) => [meta.tableName, meta]));
+    return metas.get(tableName);
+  };
   return {
-    has: (tableName) => {
-      names ??= new Set(collectTableMetas(features).map((meta) => meta.tableName));
-      return names.has(tableName) || isLiveFrameworkTable(tableName);
-    },
+    has: (tableName) => metaOf(tableName) !== undefined || isLiveFrameworkTable(tableName),
+    readsSystemRows: (tableName) => metaOf(tableName)?.systemRowsReadable === true,
   };
 }

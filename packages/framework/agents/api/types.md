@@ -3316,6 +3316,7 @@ type UnmanagedTableInput = {
   indexes?: IndexMeta[];
   compositePrimaryKey?: CompositePrimaryKeyMeta;
   tenancy?: EntityTenancy;
+  systemRowsReadable?: true;
 };
 ```
 

@@ -24,6 +24,7 @@ import { INSUFFICIENT_PRIVILEGE, pgCodeOf } from "./rls-probe.ts";
 
 const itemsTable = defineUnmanagedTable({
   tableName: "store_rls_scope_items",
+  systemRowsReadable: true,
   columns: [
     {
       name: "id",

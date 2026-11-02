@@ -65,7 +65,7 @@ The tenant filter of TenantDb is the first isolation layer. Row level security i
 
 | `rowLevelSecurity` | Effect |
 |---|---|
-| `"on"` (default) | every table with `tenant_id` gets ENABLE and FORCE ROW LEVEL SECURITY and the policies `kumiko_tenant_isolation` and `kumiko_system_tenant_read`; every transaction sets `kumiko.tenant_id` or `kumiko.scope = 'system'` |
+| `"on"` (default) | every table with `tenant_id` gets ENABLE and FORCE ROW LEVEL SECURITY and the policy `kumiko_tenant_isolation`, and tables marked `systemRowsReadable` also `kumiko_system_tenant_read`; every transaction sets `kumiko.tenant_id` or `kumiko.scope = 'system'` |
 | `"off"` | no policies; boot fails while a table still has row level security enabled, and runProdApp and runWorkerApp log a warning |
 
 `setupTestStack` and the dev server connect as the role `kumiko_app` (NOSUPERUSER NOBYPASSRLS), which owns the database. `"off"` in their options restores the superuser setup without policies.
@@ -94,7 +94,7 @@ The setting is transaction-local, so a pooled connection never carries tenant A 
 
 - A statement without a scope sees no tenant rows. Nothing fails; the result is empty.
 - An insert or update for another tenant fails with SQLSTATE 42501 (`new row violates row-level security policy`).
-- Rows of the system tenant stay readable from every tenant scope.
+- Rows of the system tenant are readable from a tenant scope only on tables marked `systemRowsReadable` (implicit for `r.referenceData` entities; bundled: config values, template resources, custom-field definitions, pages). Every other table, credentials and PII included, hides them. Code that has to read system rows of such a table uses `systemTenantReadDb(db)`, a read-only TenantDb pinned to the system tenant: RLS then passes exactly the system rows, never another tenant's.
 - A system scope sees and writes every row.
 
 ### Who sets the scope
@@ -120,7 +120,7 @@ Each declared escape hatch also decides the Postgres scope:
 
 | Declaration | Scope in Postgres | Reads | Writes |
 |---|---|---|---|
-| none (`ctx.db`) | tenant of the call | own tenant plus system tenant | own tenant only |
+| none (`ctx.db`) | tenant of the call | own tenant; system tenant rows only on `systemRowsReadable` tables | own tenant only |
 | `escapeHatch: { reason, grants: ["crossTenantReads"] }` → `ctx.crossTenantReads` | system, with the reason | every tenant, through `selectMany`, `fetchOne` and `count` | none |
 | `escapeHatch: { reason, grants: ["unsafeRaw"] }` → `ctx.db.unsafeRaw()` | system, with the reason | every tenant | every tenant |
 | `r.systemScope()` → `ctx.systemDb` | system | every tenant | every tenant |

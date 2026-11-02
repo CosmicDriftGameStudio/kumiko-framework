@@ -21,6 +21,7 @@ import {
 function tenantTable(tableName: string) {
   return defineUnmanagedTable({
     tableName,
+    systemRowsReadable: true,
     columns: [
       { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
       { name: "tenant_id", pgType: "uuid", notNull: true },

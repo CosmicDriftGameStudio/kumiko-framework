@@ -1,12 +1,13 @@
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { isUuid, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { isUuid, SYSTEM_TENANT_ID, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTenantFileContext,
   type FileContext,
   type FileProviderResolver,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
+import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 
 export type FileRefContent = {
   readonly content: Uint8Array;
@@ -75,16 +76,28 @@ export async function readFileRefContent(args: {
   readonly maxBytes?: number;
 }): Promise<FileRefContent | null> {
   if (!isUuid(args.fileRefId)) return null;
-  const [row] = await selectMany<FileRefRow>(args.db, fileRefsTable, {
-    id: args.fileRefId,
-    tenantId: { in: args.allowedTenantIds },
-    isDeleted: false,
-    ...(args.unclaimedUploadOf !== undefined && {
-      insertedById: args.unclaimedUploadOf,
-      entityType: null,
-      entityId: null,
-    }),
-  });
+  const findRow = async (db: DbRunner | TenantDb, tenantIds: readonly string[]) => {
+    const [found] = await selectMany<FileRefRow>(db, fileRefsTable, {
+      id: args.fileRefId,
+      tenantId: { in: tenantIds },
+      isDeleted: false,
+      ...(args.unclaimedUploadOf !== undefined && {
+        insertedById: args.unclaimedUploadOf,
+        entityType: null,
+        entityId: null,
+      }),
+    });
+    return found;
+  };
+  const ownTenantIds = args.allowedTenantIds.filter((id) => id !== SYSTEM_TENANT_ID);
+  const ownRow = ownTenantIds.length > 0 ? await findRow(args.db, ownTenantIds) : undefined;
+  // System rows of file_refs are invisible to a tenant session; read them through the narrow
+  // system-tenant path instead of widening the caller's scope.
+  const row =
+    ownRow ??
+    (args.allowedTenantIds.includes(SYSTEM_TENANT_ID)
+      ? await findRow(systemTenantReadDb(args.db), [SYSTEM_TENANT_ID])
+      : undefined);
   if (row === undefined) return null;
   const size = Number(row.size);
   // A size that is not a number counts as too large, so the limit cannot be skipped.

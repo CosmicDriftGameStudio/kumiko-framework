@@ -70,6 +70,13 @@ export function collectTableMetas(
         assertBackingTableSuperset(name, fieldMeta, tableMeta);
         meta = tableMeta;
       }
+      // Reference data rows live on the system tenant by definition, so tenant reads need them.
+      const readsSystemRows =
+        ent.systemRowsReadable === true ||
+        (feature.referenceData ?? []).some((def) => def.entityName === name);
+      if (readsSystemRows && meta.systemRowsReadable !== true) {
+        meta = { ...meta, systemRowsReadable: true };
+      }
       registerPass1Meta(metas, byName, meta, `entity "${name}" (${feature.name})`);
     }
     for (const entry of Object.values(feature.storeTables)) {
