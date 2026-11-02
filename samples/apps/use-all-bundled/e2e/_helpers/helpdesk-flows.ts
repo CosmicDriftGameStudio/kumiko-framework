@@ -70,10 +70,15 @@ const WEBSITE_VISITORS = [
   readonly outcome: "open" | "answered" | "done";
 }[];
 
+const PUBLIC_FORM_CLIENT_IP = "203.0.113.162";
+
 const QUOTE_REPLY =
   "Hi Michael, 40 components with your own domain fit the Business plan. I have sent the order form and the DNS steps to this address.";
 
-type HelpdeskRequestRow = { readonly id: string; readonly name: string };
+export type HelpdeskRequestRow = {
+  readonly id: string;
+  readonly name: string;
+};
 
 async function csrfHeader(page: Page): Promise<Record<string, string>> {
   const csrf = (await page.context().cookies()).find((c) => c.name === CSRF_COOKIE_NAME)?.value;
@@ -89,7 +94,7 @@ async function writeAsPage(page: Page, type: string, payload: unknown): Promise<
   if (!res.ok()) throw new Error(`${type} → ${res.status()} ${await res.text()}`);
 }
 
-async function requestRowsAsPage(page: Page): Promise<readonly HelpdeskRequestRow[]> {
+export async function requestRowsAsPage(page: Page): Promise<readonly HelpdeskRequestRow[]> {
   const res = await page.request.post("/api/query", {
     headers: await csrfHeader(page),
     data: { type: "helpdesk:query:helpdesk-request:list", payload: { limit: 100 } },
@@ -236,5 +241,22 @@ export const helpdeskReportFlow = () => async (page: Page) => {
     .getByLabel("What happened?")
     .fill(
       "Since we moved the status page to status.acme-cloud.example, the incident emails still link to the old acme-cloud.publicstatus.eu address. Subscribers end up on a page without the current incident.",
+    );
+};
+
+// The public same-origin contact page, filled but not sent: the shot shows what a visitor sees.
+export const helpdeskPublicFormFlow = () => async (page: Page) => {
+  // The challenge query is limited per IP and the screenshot matrix runs this flow once per theme and viewport.
+  await page.setExtraHTTPHeaders({ [CLIENT_IP_HEADER]: PUBLIC_FORM_CLIENT_IP });
+  await page.goto("/helpdesk-contact.html");
+  await expect(page.getByRole("button", { name: "Send message" })).toBeEnabled();
+  await page.getByLabel("Topic").selectOption("question");
+  await page.getByLabel("Name").fill("Sophie Turner");
+  await page.getByLabel("Email").fill("sophie@turner-consulting.example");
+  await page.getByLabel("Phone").fill("+44 20 7946 0958");
+  await page
+    .getByLabel("Message")
+    .fill(
+      "Can we run the status page under status.turner-consulting.com while our DNS stays with another provider?",
     );
 };

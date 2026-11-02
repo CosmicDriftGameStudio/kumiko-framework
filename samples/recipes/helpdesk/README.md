@@ -49,6 +49,7 @@ bun test --config=bunfig.integration.toml samples/recipes/helpdesk
    app's origin. A website served by another server forwards `/api` to the app on its own
    origin; it can then serve the same script from `HELPDESK_CLIENT_SOURCE` and type its calls
    with `HelpdeskWebsiteClient`, both from `@cosmicdrift/kumiko-bundled-features/helpdesk/client`.
+   `samples/apps/use-all-bundled/public/helpdesk-contact.html` (with `helpdesk-contact.js`) is a complete same-origin page.
 
 Telegram is optional and off by default: notifications go by mail to SystemAdmins only. An app
 that turns it on (`telegram: true`) also mounts `channel-telegram` and `secrets` for the bot

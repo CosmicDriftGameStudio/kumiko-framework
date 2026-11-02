@@ -1,0 +1,161 @@
+:root {
+  --page-bg: #f6f7f9;
+  --card-bg: #ffffff;
+  --text: #1b2330;
+  --text-muted: #566174;
+  --border: #c9d0db;
+  --accent: #2457d6;
+  --accent-text: #ffffff;
+  --ok: #17663a;
+  --warn: #8a5a00;
+  --error: #b3261e;
+  --focus: #2457d6;
+}
+
+:root.dark {
+  --page-bg: #11151c;
+  --card-bg: #1a202b;
+  --text: #e8ecf3;
+  --text-muted: #9aa5b8;
+  --border: #38425a;
+  --accent: #6c93f5;
+  --accent-text: #0b1020;
+  --ok: #5fd08a;
+  --warn: #e3b04b;
+  --error: #ff8a80;
+  --focus: #6c93f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page-bg);
+  color: var(--text);
+  font:
+    16px / 1.5 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.page {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.intro {
+  margin: 0 0 1.5rem;
+  color: var(--text-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field[hidden] {
+  display: none;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.button {
+  padding: 0.7rem 1rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  border: 0;
+  border-radius: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.privacy {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+a {
+  color: var(--accent);
+}
+
+.status {
+  min-height: 1.5rem;
+  margin: 1rem 0 0;
+  font-weight: 600;
+}
+
+.status[data-state="sent"] {
+  color: var(--ok);
+}
+
+.status[data-state="rate-limited"] {
+  color: var(--warn);
+}
+
+.status[data-state="failed"] {
+  color: var(--error);
+}

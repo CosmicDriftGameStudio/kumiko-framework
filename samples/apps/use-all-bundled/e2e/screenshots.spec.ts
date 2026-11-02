@@ -32,6 +32,7 @@ import {
   helpdeskDetailFlow,
   helpdeskForwardingFlow,
   helpdeskInboxFlow,
+  helpdeskPublicFormFlow,
   helpdeskReportFlow,
 } from "./_helpers/helpdesk-flows";
 import { loginAsAdmin } from "./_helpers/login";
@@ -467,11 +468,13 @@ const SCENARIOS: readonly Scenario[] = [
   { name: "pdf-template-editor-preview", flow: pdfEditorFlow("preview"), fullPage: true },
   { name: "pdf-template-editor-overrides", flow: pdfEditorFlow("overrides") },
   // helpdesk — the SystemAdmin inbox (all filter: open, answered, done), one request with its
-  // reply and an internal note, the forwarding settings and the in-app report form.
+  // reply and an internal note, the forwarding settings, the in-app report form and the public
+  // same-origin contact page.
   { name: "helpdesk", flow: helpdeskInboxFlow() },
   { name: "helpdesk-detail", flow: helpdeskDetailFlow() },
   { name: "helpdesk-settings", flow: helpdeskForwardingFlow() },
   { name: "helpdesk-report", flow: helpdeskReportFlow() },
+  { name: "helpdesk-public-form", flow: helpdeskPublicFormFlow() },
 ];
 
 runMatrix(SCENARIOS, { themes: THEMES, applyTheme, locales: ["en"] });
