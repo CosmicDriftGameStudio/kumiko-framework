@@ -46,10 +46,14 @@ export function useRelatedListTabCounts(args: {
   }, [sections, parentId]);
 
   useEffect(() => {
+    // Counts of the previous record or section set must not linger while the new ones load.
+    setCounts((previous) => (Object.keys(previous).length === 0 ? previous : {}));
     // skip: nothing to count, or no dispatcher mounted
     if (requests.length === 0 || dispatcher === undefined) return;
     const ctrl = new AbortController();
+    let latestLoad = 0;
     const load = async (): Promise<void> => {
+      const thisLoad = ++latestLoad;
       const results = await Promise.all(
         requests.map((request) =>
           dispatcher.query<{ readonly total?: number }>(request.query, request.payload, {
@@ -58,7 +62,7 @@ export function useRelatedListTabCounts(args: {
         ),
       );
       // skip: unmounted or superseded while the queries were in flight
-      if (ctrl.signal.aborted) return;
+      if (ctrl.signal.aborted || thisLoad !== latestLoad) return;
       const next: Record<string, number> = {};
       results.forEach((result, index) => {
         const total = result.isSuccess ? result.data?.total : undefined;

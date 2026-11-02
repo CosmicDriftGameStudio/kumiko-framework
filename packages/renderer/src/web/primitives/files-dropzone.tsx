@@ -4,12 +4,9 @@
 
 import { type ReactNode, useEffect, useRef } from "react";
 import { useSessionEndedSignal, useTrackFormUpload, useTranslation } from "../../index.ts";
+import { isSessionEndedCause } from "../../session/session-ended.tsx";
 import { FileCountLimitError, uploadErrorKey } from "../lib/upload-error-key.ts";
-import {
-  type FileRefTarget,
-  isSessionEndedUploadError,
-  uploadFileRef,
-} from "../lib/upload-file-ref.ts";
+import { type FileRefTarget, uploadFileRef } from "../lib/upload-file-ref.ts";
 import { UploadZone } from "../widgets/upload-zone.tsx";
 
 export type FilesDropzoneInputProps = {
@@ -70,7 +67,7 @@ export function FilesDropzoneInput({
       onChange(latestIds.current);
       return fileId;
     } catch (cause) {
-      if (isSessionEndedUploadError(cause)) sessionEnded?.notify();
+      if (isSessionEndedCause(cause)) sessionEnded?.notify();
       throw cause;
     } finally {
       uploadsRunning.current -= 1;

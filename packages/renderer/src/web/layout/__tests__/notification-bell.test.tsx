@@ -191,6 +191,40 @@ describe("NotificationBell", () => {
     expect(navigated).toEqual([]);
   });
 
+  test("a delivered signal during loadMore drops the late older page instead of appending it", async () => {
+    const live = makeLive();
+    let olderRequested = false;
+    let resolveOlder: (result: InAppInboxResult) => void = () => {};
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string, payload: { cursor?: string }) => {
+        if (type === "channel-in-app:query:unread-count") {
+          return { isSuccess: true, data: { count: 1 } };
+        }
+        if (payload.cursor !== undefined) {
+          const older = await new Promise<InAppInboxResult>((resolve) => {
+            olderRequested = true;
+            resolveOlder = resolve;
+          });
+          return { isSuccess: true, data: older };
+        }
+        return { isSuccess: true, data: { ...inboxRows, nextCursor: "page-2" } };
+      }) as unknown as Dispatcher["query"],
+    });
+    mount("channel-in-app", dispatcher, live.subscriber);
+    fireEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(olderRequested).toBe(true));
+
+    act(() => live.emit("channel-in-app:event:delivered"));
+    const olderRow = { ...inboxRows.rows[1], id: 99, title: "Stale older row" };
+    await act(async () => {
+      resolveOlder({ total: 3, nextCursor: null, rows: [olderRow] } as InAppInboxResult);
+    });
+
+    expect(screen.queryByText("Stale older row")).toBeNull();
+    expect(screen.getByRole("button", { name: "Load more" })).toBeTruthy();
+  });
+
   test("a delivered signal refetches the count", async () => {
     const calls: Calls = { queries: [], writes: [] };
     const unread = { count: 1 };

@@ -17,7 +17,7 @@ export function isSessionEndedError(error: Pick<DispatcherError, "code" | "httpS
   );
 }
 
-function isSessionEndedThrow(thrown: unknown): boolean {
+export function isSessionEndedCause(thrown: unknown): boolean {
   if (typeof thrown !== "object" || thrown === null) return false;
   if (!("code" in thrown) || !("httpStatus" in thrown)) return false;
   const { code, httpStatus } = thrown;
@@ -74,7 +74,7 @@ export function withSessionEndedDetection(
       try {
         yield* dispatcher.stream<TChunk>(type, payload, opts);
       } catch (thrown) {
-        if (isSessionEndedThrow(thrown)) signal.notify();
+        if (isSessionEndedCause(thrown)) signal.notify();
         throw thrown;
       }
     },

@@ -103,7 +103,7 @@ describe("PresenceAvatars", () => {
 
 type Write = { readonly type: string; readonly payload: unknown };
 
-function setup(answer: (type: string) => WriteResult) {
+function setup(answer: (type: string) => WriteResult | Promise<WriteResult>) {
   const writes: Write[] = [];
   const listeners = new Set<(event: LiveEvent) => void>();
   const subscriber: LiveEventSubscriber = (key, listener) => {
@@ -218,6 +218,29 @@ describe("usePresence", () => {
     emit({ userId: "me", entity: "doc", id: "d1" });
     await flush();
     expect(heartbeats(writes)).toHaveLength(2);
+  });
+
+  test("an older heartbeat answer arriving late does not overwrite the newer roster", async () => {
+    const pending: Array<(result: WriteResult) => void> = [];
+    const { mount, emit } = setup((type) =>
+      type === PRESENCE_WRITES.heartbeat
+        ? new Promise<WriteResult>((resolve) => pending.push(resolve))
+        : { isSuccess: true, data: {} },
+    );
+    mount(<Probe activity="viewing" />);
+    await flush();
+    emit({ userId: "me", entity: "doc", id: "d1" });
+    await flush();
+    expect(pending).toHaveLength(2);
+
+    const [older, newer] = pending;
+    await act(async () => {
+      newer?.({ isSuccess: true, data: { others: [entry("Bob")] } });
+    });
+    await act(async () => {
+      older?.({ isSuccess: true, data: { others: [entry("Ada")] } });
+    });
+    expect(screen.getByRole("status").textContent).toBe("Bob");
   });
 
   test("a 404 (feature not mounted or row off limits) goes quiet: no more beats, no leave", async () => {

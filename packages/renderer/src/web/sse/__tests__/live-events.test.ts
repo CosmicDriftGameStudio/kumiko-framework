@@ -538,6 +538,18 @@ describe("createEventSourceLiveEvents — stall watchdog", () => {
     expect(events.map((e) => e.data.eventType)).toEqual([LIVE_RESYNC_EVENT_TYPE]);
   });
 
+  test("a handshake held longer than the stall timeout (cold start) is not aborted", () => {
+    const { reconnect, advance } = setup();
+    const source = FakeEventSource.instances.at(-1);
+    advance(SSE_STALL_TIMEOUT_MS * 3);
+    expect(source?.closed).toBe(false);
+    expect(reconnect.scheduled).toHaveLength(0);
+
+    source?.open();
+    advance(SSE_STALL_TIMEOUT_MS);
+    expect(source?.closed).toBe(true);
+  });
+
   test("a ping every 15 s keeps the stream open", () => {
     const { reconnect, advance } = setup();
     const source = FakeEventSource.instances.at(-1);

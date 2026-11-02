@@ -5,7 +5,7 @@ import {
   type InAppInboxResult,
   type InAppInboxRow,
 } from "@cosmicdrift/kumiko-types/in-app-notification-types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatcher } from "../../context/dispatcher-context.tsx";
 import { useMutation } from "../../hooks/use-mutation.ts";
 import { useQuery } from "../../hooks/use-query.ts";
@@ -42,7 +42,10 @@ export function useInAppInbox(open: boolean): InAppInbox {
 
   const refetchCount = count.refetch;
   const refetchFirstPage = firstPage.refetch;
+  // Bumped by every refetch so a loadMore started before it cannot append stale rows afterwards.
+  const generation = useRef(0);
   const refetchAll = useCallback(async (): Promise<void> => {
+    generation.current += 1;
     setOlderRows([]);
     setOlderCursor(undefined);
     await Promise.all([refetchCount(), open ? refetchFirstPage() : Promise.resolve()]);
@@ -59,12 +62,15 @@ export function useInAppInbox(open: boolean): InAppInbox {
   const loadMore = useCallback(async (): Promise<void> => {
     // skip: no older page left
     if (nextCursor === null) return;
+    const startedAt = generation.current;
     const result = await dispatcher.query<InAppInboxResult>(IN_APP_NOTIFICATION_QUERIES.inbox, {
       limit: IN_APP_INBOX_PAGE_SIZE,
       cursor: nextCursor,
     });
     // skip: keep the loaded rows, the next click retries
     if (!result.isSuccess) return;
+    // skip: a refetch reset the list while this page was in flight
+    if (generation.current !== startedAt) return;
     setOlderRows((previous) => [...previous, ...result.data.rows]);
     setOlderCursor(result.data.nextCursor);
   }, [dispatcher, nextCursor]);

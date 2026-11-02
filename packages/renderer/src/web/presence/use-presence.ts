@@ -52,6 +52,7 @@ export function usePresence({
     if (!enabled) return;
     let stopped = false;
     let timer: ReturnType<typeof setInterval> | undefined;
+    let latestRequest = 0;
 
     const stop = (): void => {
       stopped = true;
@@ -63,6 +64,7 @@ export function usePresence({
       if (stopped) return;
       const current = latest.current;
       lastSentKey.current = stateKey(current.activity, current.focus);
+      const request = ++latestRequest;
       const result = await dispatcher.write<PresenceHeartbeatResult>(PRESENCE_WRITES.heartbeat, {
         entity,
         id,
@@ -71,8 +73,10 @@ export function usePresence({
       });
       // skip: the answer belongs to a record that is no longer open
       if (stopped) return;
-      if (result.isSuccess) setOthers(result.data.others);
-      else if (isPermanentPresenceFailure(result.error)) stop();
+      // An older answer arriving after a newer one would show a stale roster until the next beat.
+      if (result.isSuccess) {
+        if (request === latestRequest) setOthers(result.data.others);
+      } else if (isPermanentPresenceFailure(result.error)) stop();
     };
     beat.current = send;
 
