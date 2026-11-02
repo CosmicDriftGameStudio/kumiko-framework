@@ -314,7 +314,7 @@ type AppContext = SharedContextFields & {
   systemUser?: SessionUser;
   log?: Logger;
   triggeredBy?: { id: string; tenantId: TenantId; } | null;
-  triggerName?: string; // For job-handler calls triggered by an event (`r.job` with `trigger: { on: ...
+  triggerName?: string; // For job-handler calls triggered by an `on` entry (`r.job` with `trigger: { on: ...
   geoTzProvider?: GeoTzProvider; // Optional Geo→zone adapter.
   clock?: Clock; // Overrides the system clock behind ctx.tz in handlers and jobs; tests inject a fixed time.
   _tenantId?: TenantId; // Tenant of the current pipeline call.
@@ -951,7 +951,6 @@ type JobContext = {
   dispatch: JobDispatch;
   triggerName?: string;
   triggerEvent?: JobTriggerEvent;
-  _tenantId?: TenantId;
   config?: ConfigAccessor;
   notify?: NotifyFn;
   services: ContextServices;

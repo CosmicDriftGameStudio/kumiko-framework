@@ -458,6 +458,15 @@ describe("ConfirmationCodeStep", () => {
     await waitFor(() => expect(document.activeElement).toBe(input));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  test("an accepted code disables the field so the used code cannot be edited", async () => {
+    const onConfirm = mock(async (_code: string) => true);
+    renderStep(onConfirm);
+    type("123456");
+    const input = screen.getByTestId("confirmation-code");
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(input).toHaveProperty("disabled", true));
+  });
 });
 ```
 
@@ -465,7 +474,7 @@ describe("ConfirmationCodeStep", () => {
 
 ```tsx
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 const CONFIRMATION_CODE_LENGTH = 6;
 
@@ -479,10 +488,14 @@ export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): 
   const [code, setCode] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [pending, setPending] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  // A ref, not `pending`: two onComplete calls in one tick both see the stale render closure.
+  const inFlight = useRef(false);
   const [rejected, setRejected] = useState(false);
 
   const confirm = async (submittedCode: string): Promise<void> => {
-    if (pending) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setPending(true);
     setRejected(false);
     let accepted = false;
@@ -491,9 +504,13 @@ export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): 
     } catch {
       // A network or server error must not leave the step stuck with a full field.
     } finally {
+      inFlight.current = false;
       setPending(false);
     }
-    if (accepted) return;
+    if (accepted) {
+      setConfirmed(true);
+      return;
+    }
     setRejected(true);
     setCode("");
     // The input was disabled while pending and lost focus; remounting restores autoFocus.
@@ -512,7 +529,7 @@ export function ConfirmationCodeStep({ onConfirm }: ConfirmationCodeStepProps): 
         value={code}
         onChange={setCode}
         onComplete={(next) => void confirm(next)}
-        disabled={pending}
+        disabled={pending || confirmed}
         hasError={rejected}
         autoFocus
       />

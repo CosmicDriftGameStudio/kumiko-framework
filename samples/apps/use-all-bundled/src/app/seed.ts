@@ -126,7 +126,7 @@ async function seedTagsAndNotes(
     db,
     tenantId,
     mode: "system",
-    reason: "demo seed writes tier assignments for the tenant being provisioned",
+    reason: "demo seed writes tags and notes for the tenant being provisioned",
   });
 
   const created = async (

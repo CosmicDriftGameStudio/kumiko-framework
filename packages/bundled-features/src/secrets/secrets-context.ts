@@ -212,7 +212,7 @@ function buildSecretsContext(
         db,
         tenantId,
         mode: "system",
-        reason: "secrets API writes for a caller-named tenant, outside a request scope",
+        reason: "secrets API writes the row of a caller-named tenant",
       });
 
       const existing = await lookup(tenantId, key);
@@ -282,7 +282,7 @@ function buildSecretsContext(
         db,
         tenantId,
         mode: "system",
-        reason: "secrets API writes for a caller-named tenant, outside a request scope",
+        reason: "secrets API writes the row of a caller-named tenant",
       });
       const result = await executor.delete({ id: existing.id }, actor, tdb);
       return result.isSuccess;

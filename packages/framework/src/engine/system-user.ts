@@ -1,7 +1,8 @@
+import { ANONYMOUS_ROLE } from "./types/handlers.ts";
 import { SYSTEM_USER_ID, type TenantId } from "./types/identifiers.ts";
 import type { SessionUser } from "./types/index.ts";
 
-export { SYSTEM_USER_ID };
+export { ANONYMOUS_ROLE, SYSTEM_USER_ID };
 
 export const SYSTEM_ROLE = "system" as const;
 
@@ -27,7 +28,6 @@ export function createSystemUser(
 // like SYSTEM_ROLE: the boot-validator rejects apps that declare these as
 // custom roles.
 export const ANONYMOUS_USER_ID = "anonymous";
-export const ANONYMOUS_ROLE = "anonymous" as const;
 
 export function isAnonymousSessionUser(user: Pick<SessionUser, "roles">): boolean {
   return user.roles.includes(ANONYMOUS_ROLE);

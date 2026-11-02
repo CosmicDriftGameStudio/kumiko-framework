@@ -1,7 +1,7 @@
 // @runtime test
 // English docs screenshots of the billing plans screen. Boots the gallery server with the docs
 // variant switched on (net prices with a note, gross recurring price in the plan switch); the
-// German review gallery has its own config. Gated by SCREENSHOT_DIR, see the `billing-docs` script.
+// German review gallery has its own config. Gated by SCREENSHOT_DIR, see the `docs-guides` script.
 import { defineAppE2eConfig, PLAYWRIGHT_DEMO_ENV } from "@cosmicdrift/kumiko-testing/e2e";
 import { E2E_PORTS } from "../../e2e/e2e-ports";
 import { GALLERY_DOCS_VARIANT_ENV } from "./e2e-billing-gallery/gallery-constants";

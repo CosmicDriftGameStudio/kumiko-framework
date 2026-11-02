@@ -154,6 +154,7 @@ export function escapeHatchGrantsProblem(declaration: {
 }
 
 export {
+  ANONYMOUS_ROLE,
   isAnySignedInGranted,
   isOpenToAllGranted,
   isUiAccessGranted,
@@ -636,9 +637,10 @@ export type AppContext = SharedContextFields & {
   readonly systemUser?: SessionUser;
   readonly log?: Logger;
   readonly triggeredBy?: { readonly id: string; readonly tenantId: TenantId } | null;
-  /** For job-handler calls triggered by an event
-   *  (`r.job` with `trigger: { on: ... }`): the qualified name of the event
-   *  that fired the trigger, e.g. `inbound-mail-foundation:event:inbound-message-received`.
+  /** For job-handler calls triggered by an `on` entry
+   *  (`r.job` with `trigger: { on: ... }`): the qualified name the entry matched,
+   *  either a write/query-handler QN (e.g. `multi:write:order:open`) or an
+   *  `r.defineEvent` QN (e.g. `inbound-mail-foundation:event:inbound-message-received`).
    *  For multi-trigger jobs (`on: [...]`), this is the only way for the
    *  handler to know which trigger fired. Cron and manual jobs leave the
    *  field undefined. */
@@ -769,9 +771,8 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
 // write/writeAs/queryAs throw until JobRunner.attachDispatcher() has run — a
 // call this early is a framework boot bug, not a job-author mistake.
 //
-// `write` runs as the job's own systemUser, tenant-scoped via the job's
-// _tenantId (falls back to SYSTEM_TENANT_ID for jobs with no tenant context,
-// e.g. plain cron jobs). A job that writes without fanning out per-tenant
+// `write` runs as the job's own systemUser, tenant-scoped via its tenantId
+// (SYSTEM_TENANT_ID for jobs with no tenant context, e.g. plain cron jobs). A job that writes without fanning out per-tenant
 // (`_perTenant:` trigger) silently writes into the system tenant instead of
 // each tenant it may have meant to reach — no guard against this, only this
 // warning.
@@ -828,9 +829,6 @@ export type JobContext = {
   // Set only via the at-least-once job-trigger event consumer (not cron/manual or the sync handler-QN path);
   // delivery can repeat, so use triggerEvent.id (or a header) as idempotency key.
   readonly triggerEvent?: JobTriggerEvent;
-  // Fallback tenant when systemUser doesn't carry it (tenant-less cron
-  // jobs). Mirrors AppContext._tenantId — see the tenant-scoping footgun above.
-  readonly _tenantId?: TenantId;
   readonly config?: ConfigAccessor;
   readonly notify?: NotifyFn;
   readonly services: ContextServices;

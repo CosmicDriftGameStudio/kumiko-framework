@@ -26,11 +26,7 @@ export function registerInboundMailRetentionJob(r: FeatureRegistrar<"inbound-mai
       if (!ctx.registry) {
         throw new Error("inbound-mail-retention: ctx.registry required (JobContext incomplete)");
       }
-      const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
-      if (tenantId === undefined) {
-        // skip: cron fired without a perTenant fan-out tenant — nothing scoped
-        return;
-      }
+      const tenantId = ctx.systemUser.tenantId;
       const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
       const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
 

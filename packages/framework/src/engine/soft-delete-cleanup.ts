@@ -94,11 +94,7 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
   // explicitly tenant-filtered below as defense-in-depth — otherwise a
   // tenant with a short grace would purge another tenant's still-within-grace
   // rows.
-  const tenantId = ctx.systemUser?.tenantId ?? ctx._tenantId;
-  if (tenantId === undefined) {
-    // skip: cron fired without a perTenant fan-out tenant — nothing scoped to purge
-    return;
-  }
+  const tenantId = ctx.systemUser.tenantId;
 
   const graceDays = await resolveGraceDays(ctx, tenantId, db);
   const cutoff = ctx.tz.now().subtract({ hours: graceDays * 24 });

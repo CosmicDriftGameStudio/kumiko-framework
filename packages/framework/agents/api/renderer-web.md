@@ -1492,7 +1492,7 @@ type StatDelta = {
   tone?: StatTone;
 };
 type StatTone = DashboardStatTone;
-type StatusBadgeTone = StatusTone | "accent"; // `accent` is a brand-colored call-out (e.g. "3 suggestions"), not a status — hence not part of `StatusTone`, which toasts and select options share.
+type StatusBadgeTone = StatusBadgeOptionTone; // `accent` is a brand tone select options can request; toasts only use `StatusTone`.
 type StatusBarEntry = {
   key: string; // Stable key (z.B.
   level: number; // Bar height from 0 to 1 (e.g. operational=1, degraded=0.75, outage=0.25).

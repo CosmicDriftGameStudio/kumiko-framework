@@ -242,9 +242,7 @@ export async function checkTenantInactivity(
   ctx: JobContext,
   options: TenantInactivityOptions,
 ): Promise<void> {
-  const tenantId = ctx.systemUser.tenantId ?? ctx._tenantId;
-  // skip: a job without a tenant scope has nothing to evaluate
-  if (tenantId === undefined) return;
+  const tenantId = ctx.systemUser.tenantId;
   const now = ctx.tz.now();
   const tenant = await fetchOne<{ status: TenantLifecycleStatus }>(
     ctx.db.unsafeRaw(),

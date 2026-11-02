@@ -2599,7 +2599,6 @@ type WizardStepGroupProps = { // Wraps a single wizard step so it stays mounted 
 
 ```ts
 type StatusBadgeOptionTone = StatusTone | "accent"; // Tones a select option can request: the status tones plus the brand `accent`.
-type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 ```
 
 ## packages/renderer/src/web/app/client-plugin.tsx
@@ -3181,7 +3180,6 @@ type PgListenSubscription = {
 type RawDbClient = {
   unsafe: (sql: string, params?: unknown[]) => PromiseLike<unknown[]>;
   begin: <T>(fn: (tx: DbTx) => Promise<T>) => Promise<T>;
-  end?: (options?: { timeout?: number; }) => Promise<void>;
 };
 ```
 
