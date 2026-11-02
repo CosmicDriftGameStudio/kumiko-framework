@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.413.1",
+    "type": "improvement",
+    "title": "helpdesk sample: complete same-origin contact page",
+    "detail": "`samples/apps/use-all-bundled/public/helpdesk-contact.html` (with `.js` and `.css`) loads `/helpdesk/client.js`, builds the form from `load()` (kinds, optional phone), submits with proof of work and a hidden honeypot field and shows the sent, rate-limited and failed states. Two Playwright specs cover a real submit that reaches the SystemAdmin inbox and a honeypot submit that stores nothing."
+  },
+  {
+    "version": "0.413.1",
+    "type": "fix",
+    "title": "helpdesk recipe: client script same-origin, notes-history listed as required",
+    "detail": "The recipe comment embedded `/helpdesk/client.js` from another origin, but the client posts to the relative paths `/api/query` and `/api/write` without cookies, so the page has to share the app's origin or forward `/api` to the app on its own origin. The recipe and its README now say so and list `notes-history` with `config`, `delivery`, `user-data-rights` and `files` as required features."
+  },
+  {
     "version": "0.413.0",
     "type": "breaking",
     "title": "contact feature renamed to helpdesk",
