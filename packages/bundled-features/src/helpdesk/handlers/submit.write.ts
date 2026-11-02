@@ -16,6 +16,7 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { PayloadRateLimitOption } from "@cosmicdrift/kumiko-types/handlers";
 import { consumeChallenge } from "../challenge.ts";
 import {
+  forwardHelpdeskRequest,
   helpdeskDb,
   normalizeEmail,
   phoneProblem,
@@ -38,7 +39,6 @@ import {
   HELPDESK_NOTIFICATION_TYPES,
   HELPDESK_SOURCE,
   HELPDESK_STATUS,
-  HelpdeskHandlers,
   helpdeskIdempotencyKeys,
 } from "../web/constants.ts";
 import { SUBMIT_ROLES } from "./access.ts";
@@ -166,14 +166,7 @@ export function createSubmitHandler(opts: HelpdeskOptions, settings: HelpdeskSet
       );
       if (!created.isSuccess) return created;
 
-      await sendBestEffort(ctx, "forward request", async () => {
-        const forwarded = await ctx.dispatch.writeAs(
-          platformActor(),
-          HelpdeskHandlers.forwardRequest,
-          { requestId },
-        );
-        if (!forwarded.isSuccess) throw new Error(forwarded.error.message);
-      });
+      await sendBestEffort(ctx, "forward request", () => forwardHelpdeskRequest(ctx, requestId));
 
       await sendBestEffort(ctx, "confirmation mail", (notify) =>
         notify(HELPDESK_NOTIFICATION_TYPES.acknowledgement, {

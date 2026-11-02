@@ -12,6 +12,7 @@ export {
   principalStatusPlugin,
 } from "./principal-status.ts";
 export { resolveUserDisplayNames } from "./resolve-display-names.ts";
+export { resolveVerifiedUserEmail } from "./resolve-verified-user-email.ts";
 export type { UserStatus } from "./schema/user.ts";
 export {
   USER_ANONYMIZED_DISPLAY_NAME,

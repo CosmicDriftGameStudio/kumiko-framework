@@ -360,6 +360,7 @@ export function buildConfigEventsJobsMethods<TName extends string>(
       }
       state.metrics[shortName] = { shortName, ...metricOptions };
     },
+    // guard:dup-ok builder setter shape, sharing would add a parameter per line
     envSchema(schema: z.ZodObject<z.ZodRawShape>): void {
       if (state.envSchema !== undefined) {
         throw bootRuleError(DEFINITION_CONFIG_EVENTS_JOBS_RULES.envSchemaTwice, {

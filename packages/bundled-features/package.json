@@ -121,6 +121,7 @@
     "./shared/stream-tenant-backfill": "./src/shared/stream-tenant-backfill.ts",
     "./shared/row-bound-grant": "./src/shared/row-bound-grant.ts",
     "./shared/mail-template-body": "./src/shared/mail-template-body.ts",
+    "./shared/acknowledged-system-db": "./src/shared/acknowledged-system-db.ts",
     "./delivery": "./src/delivery/index.ts",
     "./documents": "./src/documents/index.ts",
     "./delivery/web": "./src/delivery/web/index.ts",
@@ -602,6 +603,10 @@
       "./shared/mail-template-body": {
         "types": "./dist/shared/mail-template-body.d.ts",
         "default": "./dist/shared/mail-template-body.js"
+      },
+      "./shared/acknowledged-system-db": {
+        "types": "./dist/shared/acknowledged-system-db.d.ts",
+        "default": "./dist/shared/acknowledged-system-db.js"
       },
       "./delivery": {
         "types": "./dist/delivery/index.d.ts",

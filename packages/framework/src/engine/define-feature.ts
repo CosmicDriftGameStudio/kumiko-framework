@@ -121,6 +121,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     adoptsBundledLists(): void {
       state.adoptsBundledLists = true;
     },
+    // guard:dup-ok builder setter shape, sharing would add a parameter per line
     uiHints(hints: UiHints): void {
       if (state.uiHints !== undefined) {
         throw bootRuleError(FEATURE_DEFINITION_RULES.uiHintsTwice, {

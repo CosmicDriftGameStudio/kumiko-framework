@@ -4,6 +4,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { chunk } from "@cosmicdrift/kumiko-framework/utils";
 import { IN_APP_NOTIFICATION_QUERIES } from "@cosmicdrift/kumiko-types/in-app-notification-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
@@ -30,23 +31,15 @@ const readStateResultSchema = z.object({
 
 export type HelpdeskAttempt = z.infer<typeof attemptSchema>;
 
-function chunked(keys: readonly string[]): readonly (readonly string[])[] {
-  const chunks: string[][] = [];
-  for (let start = 0; start < keys.length; start += MAX_KEYS_PER_QUERY) {
-    chunks.push(keys.slice(start, start + MAX_KEYS_PER_QUERY));
-  }
-  return chunks;
-}
-
 export async function loadAttemptsByKey(
   ctx: Pick<HandlerContext, "dispatch">,
   user: SessionUser,
   keys: readonly string[],
 ): Promise<readonly HelpdeskAttempt[]> {
   const rows: HelpdeskAttempt[] = [];
-  for (const chunk of chunked(keys)) {
+  for (const keyChunk of chunk(keys, MAX_KEYS_PER_QUERY)) {
     const result = await ctx.dispatch.queryAs(user, DeliveryQueries.attemptsByKeys, {
-      keys: chunk,
+      keys: keyChunk,
     });
     rows.push(...attemptsResultSchema.parse(result).rows);
   }
@@ -65,9 +58,9 @@ export async function loadReadAtByKey(
     return readAtByKey;
   }
   const user = createSystemUser(reporterTenantId, [SYSTEM_ADMIN_ROLE]);
-  for (const chunk of chunked(keys)) {
+  for (const keyChunk of chunk(keys, MAX_KEYS_PER_QUERY)) {
     const result = await ctx.dispatch.queryAs(user, IN_APP_NOTIFICATION_QUERIES.readStateByKeys, {
-      keys: chunk,
+      keys: keyChunk,
     });
     for (const row of readStateResultSchema.parse(result).rows)
       readAtByKey.set(row.key, row.readAt);
