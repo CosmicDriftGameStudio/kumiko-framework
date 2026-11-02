@@ -49,7 +49,12 @@ export function resolveDevDbMode(processEnv: Record<string, string | undefined>)
     : `kumiko-dev-${crypto.randomUUID()}`;
   // Pub/Sub ignores the DB index, so the SSE channels need the same per-boot
   // isolation as the queues; an explicit env value wins so a worker can be pointed at it.
-  const sseChannelPrefix = processEnv["KUMIKO_REDIS_CHANNEL_PREFIX"]?.trim() || jobQueueNamePrefix;
+  // KUMIKO_REDIS_PREFIX (per-app ACL namespace) is next: redisNamespaceFromEnv throws when a channel
+  // prefix differs from it, so the per-boot default would stop every dev boot in such an env.
+  const sseChannelPrefix =
+    processEnv["KUMIKO_REDIS_CHANNEL_PREFIX"]?.trim() ||
+    processEnv["KUMIKO_REDIS_PREFIX"]?.trim() ||
+    jobQueueNamePrefix;
   return { devDbName, persistentDb, jobQueueNamePrefix, sseChannelPrefix };
 }
 

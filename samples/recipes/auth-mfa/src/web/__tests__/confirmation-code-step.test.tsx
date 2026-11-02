@@ -48,4 +48,17 @@ describe("ConfirmationCodeStep", () => {
     await waitFor(() => expect(document.activeElement).toBe(input));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  test("a failing onConfirm shows the error, clears the field and refocuses", async () => {
+    const onConfirm = mock(async (_code: string): Promise<boolean> => {
+      throw new Error("network");
+    });
+    renderStep(onConfirm);
+    type("123456");
+    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    const input = screen.getByTestId("confirmation-code");
+    expect(input).toHaveProperty("value", "");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
 });

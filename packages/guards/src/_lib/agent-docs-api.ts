@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { join, relative, sep } from "node:path";
-import { Node, type Project, type SourceFile } from "ts-morph";
+import { Node, type Project, type SourceFile, type VariableDeclaration } from "ts-morph";
 import {
   type ApiTypeDeclaration,
   isApiTypeDeclaration,
@@ -131,23 +131,27 @@ function isInsideInternalMember(node: Node): boolean {
     .some((ancestor) => !isApiTypeDeclaration(ancestor) && isInternalApi(ancestor));
 }
 
+type ReferencedDeclaration = ApiTypeDeclaration | VariableDeclaration;
+
 function referencedDeclarations(
   node: Node,
   isRepoSource: (file: SourceFile) => boolean,
-): ApiTypeDeclaration[] {
-  const found: ApiTypeDeclaration[] = [];
+): ReferencedDeclaration[] {
+  const found: ReferencedDeclaration[] = [];
   for (const reference of referencedTypeNodes(node)) {
     if (isInsideInternalMember(reference)) continue;
     const nameNode = Node.isTypeReference(reference)
       ? reference.getTypeName()
       : Node.isExpressionWithTypeArguments(reference)
         ? reference.getExpression()
-        : undefined;
+        : Node.isTypeQuery(reference)
+          ? reference.getExprName()
+          : undefined;
     const symbol = nameNode?.getSymbol();
     const target = symbol?.getAliasedSymbol() ?? symbol;
     for (const declaration of target?.getDeclarations() ?? []) {
       if (
-        isApiTypeDeclaration(declaration) &&
+        (isApiTypeDeclaration(declaration) || Node.isVariableDeclaration(declaration)) &&
         !isInternalApi(declaration) &&
         isRepoSource(declaration.getSourceFile())
       ) {
@@ -158,7 +162,7 @@ function referencedDeclarations(
   return found;
 }
 
-function declarationName(node: ApiTypeDeclaration): string {
+function declarationName(node: ReferencedDeclaration): string {
   return node.getName() ?? "default";
 }
 
@@ -211,7 +215,7 @@ export function renderApiDocs(repoRoot: string, project: Project): ReadonlyMap<s
     files.set(entry.file, finishFile(entry.sourceRel, body));
   });
 
-  const referenced = new Set<ApiTypeDeclaration>();
+  const referenced = new Set<ReferencedDeclaration>();
   while (pending.length > 0) {
     const node = pending.pop();
     if (node === undefined) break;
@@ -234,10 +238,10 @@ export function renderApiDocs(repoRoot: string, project: Project): ReadonlyMap<s
 
 function renderReferencedTypes(
   repoRoot: string,
-  referenced: ReadonlySet<ApiTypeDeclaration>,
+  referenced: ReadonlySet<ReferencedDeclaration>,
 ): string {
   const root = realpathSync(repoRoot);
-  const byModule = new Map<string, ApiTypeDeclaration[]>();
+  const byModule = new Map<string, ReferencedDeclaration[]>();
   for (const declaration of referenced) {
     const moduleRel = relative(root, realFilePath(declaration.getSourceFile()))
       .split(sep)

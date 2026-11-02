@@ -1701,6 +1701,7 @@ type UploadZoneProps = {
   describeError?: (cause: unknown) => string; // Turns a failed upload into the row's error text.
   onRemove?: (value: string) => void; // Controlled use, for a form field: a string returned by `onUpload` becomes the row's value and done rows get a remove button that calls this with it.
   doneValues?: string[]; // The values the owner currently holds.
+  trackUpload?: TrackFormUpload; // Wraps the whole per-file work, image resize included, so a surrounding form can hold back submit while the file is still being prepared.
 };
 type UseFormOptions<TValues extends FormValues, TCtx = unknown> = FormControllerOptions<TValues, TCtx>;
 type UseFormResult<TValues extends FormValues> = {

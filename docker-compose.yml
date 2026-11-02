@@ -48,6 +48,7 @@ services:
       retries: 10
 
   meilisearch:
+    # Meilisearch refuses a data dir from another engine version; the index is rebuildable, so the volume name carries the version.
     image: getmeili/meilisearch:v1.56
     environment:
       MEILI_MASTER_KEY: kumiko-dev-key
@@ -55,7 +56,7 @@ services:
     ports:
       - "${KUMIKO_MEILI_PORT:-17700}:7700"
     volumes:
-      - meili_data:/meili_data
+      - meili_data_v1_56:/meili_data
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:7700/health"]
       interval: 5s
@@ -172,7 +173,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  meili_data:
+  meili_data_v1_56:
   rustfs_data:
   ollama_data:
   whisper_cache:
