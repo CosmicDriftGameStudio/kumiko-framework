@@ -8,6 +8,11 @@ import {
 import { EditSlotMount } from "./edit-mounts.tsx";
 import { isSubmitBlockedByLayoutCondition, resolveExtensionEntityId } from "./render-edit-logic.ts";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
+import type { RenderEditState } from "./use-render-edit-state.ts";
+
+function isSubmitHeldBack(state: RenderEditState): boolean {
+  return state.isSubmitting || state.pendingUploads > 0;
+}
 
 function renderWizardBackButton<TValues extends FormValues, TCtx>({
   engine: { state, nav },
@@ -69,7 +74,7 @@ function renderSaveAndCloseButton<TValues extends FormValues, TCtx>({
       <Button
         type="button"
         variant="ghost"
-        disabled={state.isSubmitting || props.disabled}
+        disabled={isSubmitHeldBack(state) || props.disabled}
         onClick={() => void handleSubmit({ saveNow: true })}
         testId="render-edit-wizard-save-close"
         {...{ [STICKY_PRIMARY_ACTION_PROP]: true }}
@@ -119,7 +124,7 @@ function renderFooterActionButtons<TValues extends FormValues, TCtx>({
         type="button"
         variant={action.variant ?? "secondary"}
         {...(action.icon !== undefined && { icon: action.icon })}
-        disabled={state.isSubmitting || props.disabled}
+        disabled={isSubmitHeldBack(state) || props.disabled}
         onClick={() => {
           form.controller.setValues(action.patch as Partial<TValues>); // @cast-boundary form-values
           void handleSubmit();
@@ -169,8 +174,7 @@ function isSubmitDisabled<TValues extends FormValues, TCtx>({
     props.submitWithoutChanges !== true;
   return (
     isPristine ||
-    state.isSubmitting ||
-    state.pendingUploads > 0 ||
+    isSubmitHeldBack(state) ||
     props.disabled ||
     props.submitBlocked ||
     isSubmitBlockedByLayoutCondition(props.screen.layout, form.snapshot.values)

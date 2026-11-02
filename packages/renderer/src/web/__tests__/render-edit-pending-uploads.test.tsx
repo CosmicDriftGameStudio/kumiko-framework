@@ -140,6 +140,42 @@ describe("RenderEdit holds back submit while an upload runs", () => {
   });
 });
 
+const wizardScreen: EntityEditScreenDefinition = {
+  id: "claims:screen:claim-wizard",
+  type: "entityEdit",
+  entity: "claim",
+  layout: {
+    mode: "wizard",
+    wizard: { saveAndCloseOnCreate: true },
+    sections: [
+      { title: "Files", fields: ["belege"] },
+      { title: "Name", fields: ["name"] },
+    ],
+  },
+};
+
+describe("RenderEdit save-and-close during an upload", () => {
+  test("the wizard save-and-close button is disabled while an upload runs", async () => {
+    render(
+      <RenderEdit
+        screen={wizardScreen}
+        entity={entity}
+        featureName="claims"
+        initial={{ name: "", belege: [], scan: null }}
+        customSubmit={async () => ({ isSuccess: true, validationBlocked: false, data: undefined })}
+      />,
+    );
+    const saveClose = screen.getByTestId("render-edit-wizard-save-close") as HTMLButtonElement;
+    expect(saveClose.disabled).toBe(false);
+
+    pickFile("field-belege");
+    await waitFor(() => expect(saveClose.disabled).toBe(true));
+
+    pendingUploads[0]?.resolve("file-3");
+    await waitFor(() => expect(saveClose.disabled).toBe(false));
+  });
+});
+
 function submittedValue(field: string): unknown {
   return submitted[0]?.[field];
 }

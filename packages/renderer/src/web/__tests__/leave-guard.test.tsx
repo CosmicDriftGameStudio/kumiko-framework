@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -637,5 +637,65 @@ describe("leave guard on setSearchParams-based navigation", () => {
     fireEvent.click(screen.getByTestId("go-with-return"));
     expect(window.location.pathname).toBe("/list");
     expect(new URLSearchParams(window.location.search).get("flag")).toBe("1");
+  });
+});
+
+describe("leave guard during an upload", () => {
+  test("a running file upload counts as unsaved input", async () => {
+    const entity = {
+      fields: { title: { type: "text" }, belege: { type: "files", display: "dropzone" } },
+    } as unknown as EntityDefinition;
+    const screenWithFile: EntityEditScreenDefinition = {
+      id: "tasks:screen:task-files",
+      type: "entityEdit",
+      entity: "task",
+      layout: { sections: [{ fields: ["title", "belege"] }] },
+    };
+    let resolveUpload: (id: string) => void = () => {};
+    let uploadStarted = false;
+    const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+      (() =>
+        new Promise<Response>((resolve) => {
+          uploadStarted = true;
+          resolveUpload = (id) => resolve(new Response(JSON.stringify({ id }), { status: 201 }));
+        })) as unknown as typeof fetch,
+    );
+    try {
+      render(
+        <BrowserNav>
+          <GoToListButton />
+          <RenderEdit
+            screen={screenWithFile}
+            entity={entity}
+            featureName="tasks"
+            initial={{ title: "", belege: [] }}
+            customSubmit={async () => ({
+              isSuccess: true,
+              validationBlocked: false,
+              data: undefined,
+            })}
+          />
+          <LeaveGuardDialog />
+        </BrowserNav>,
+      );
+      const fileInput = screen
+        .getByTestId("field-belege")
+        .querySelector('input[type="file"]') as HTMLInputElement;
+      Object.defineProperty(fileInput, "files", {
+        value: [new File(["%PDF"], "a.pdf", { type: "application/pdf" })],
+        configurable: true,
+      });
+      fireEvent.change(fileInput);
+      await waitFor(() => expect(uploadStarted).toBe(true));
+
+      fireEvent.click(screen.getByTestId("go-list"));
+      await waitFor(() => expect(screen.getByTestId("leave-guard-dialog")).toBeTruthy());
+      expect(window.location.pathname).toBe("/tasks");
+
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+      resolveUpload("file-1");
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });
