@@ -16,6 +16,7 @@ import { BODY_FORMATS, type BodyFormat, DEFAULT_BODY_FORMAT } from "./constants.
 // host via resolveApexTenant during rendering.
 export const pageEntity = createEntity({
   table: "read_pages",
+  systemRowsReadable: true,
   description:
     "One tenant-editable public web page, unique per slug and language, holding a markdown or document (HTML) body plus the title, SEO description and OG image, with a published flag that decides whether anonymous visitors are served it or get a 404.",
   fields: {

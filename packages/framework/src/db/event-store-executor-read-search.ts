@@ -22,7 +22,7 @@ import { resolveReadOwnership } from "./read-ownership.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb, TenantDbMode } from "./tenant-db.ts";
-import { tenantDbRunner } from "./tenant-db-runner.ts";
+import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
 // Above this many target-row matches, drop the reference clause
 // entirely instead of truncating: an arbitrary 200-row slice of "which
@@ -159,7 +159,11 @@ async function resolveReferenceMatchesViaIlike(
   const sql =
     `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause}${ownershipClause}${deletedClause} ` +
     `LIMIT ${MAX_REFERENCE_SEARCH_IDS + 1}`;
-  const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, subParams);
+  const rows = await executeRawQueryRead<{ id: string }>(
+    tenantDbRunnerForTable(db, targetTable),
+    sql,
+    subParams,
+  );
   if (rows.length === 0 || rows.length > MAX_REFERENCE_SEARCH_IDS) {
     // skip: no match, or over the cap — drop the clause rather than
     // truncate to an arbitrary slice of matching targets
@@ -228,7 +232,11 @@ async function resolveReferenceMatchesViaSearchIndex(
   const sql =
     `SELECT "id" FROM "${targetTableName}" WHERE "id" IN (${idPlaceholders.join(", ")})` +
     `${tenantClause}${ownershipClause}`;
-  const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, params);
+  const rows = await executeRawQueryRead<{ id: string }>(
+    tenantDbRunnerForTable(db, targetTable),
+    sql,
+    params,
+  );
   if (rows.length === 0) return undefined;
   return { ownColumn: descriptor.ownColumn, ids: rows.map((r) => r.id) };
 }

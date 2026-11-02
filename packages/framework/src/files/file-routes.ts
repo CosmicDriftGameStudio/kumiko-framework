@@ -21,6 +21,7 @@ import {
   runInRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
 } from "../db/row-level-security-scope.ts";
+import { systemTenantReadDb } from "../db/system-tenant-read-db.ts";
 import { createProjectingTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import { createDerivativesContext, resolveRenderer } from "../derivatives/derivatives-context.ts";
 import { resolveFieldVariant } from "../derivatives/index.ts";
@@ -647,7 +648,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Same 22P02-avoidance as loadFileForTenant — detail() doesn't validate
     // id shape before it hits the UUID column.
     if (!isUuid(id)) return null;
-    const row = await executor.detail({ id }, user, tenantDbFor(user.tenantId));
+    // file_refs has no system read policy: the system tenant's rows are read in the system tenant's own scope.
+    const row =
+      (await executor.detail({ id }, user, tenantDbFor(user.tenantId))) ??
+      (canReadSystemTenantFile(user, SYSTEM_TENANT_ID)
+        ? await executor.detail({ id }, user, tenantDbFor(SYSTEM_TENANT_ID))
+        : null);
     if (!row) return null;
     const fileRef = row as FileRef; // @cast-boundary db-row (decrypted via executor.detail)
     // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM),
@@ -682,10 +688,14 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   async function loadReadableFileRef(id: string, user: SessionUser): Promise<FileRef | null> {
     const own = await loadFileForTenant(id, user.tenantId);
     if (own || !canReadSystemTenantFile(user, SYSTEM_TENANT_ID)) return own;
-    return loadFileForTenant(id, SYSTEM_TENANT_ID);
+    return loadFileForTenant(id, SYSTEM_TENANT_ID, systemTenantReadDb(db));
   }
 
-  async function loadFileForTenant(id: string, tenantId: TenantId): Promise<FileRef | null> {
+  async function loadFileForTenant(
+    id: string,
+    tenantId: TenantId,
+    readDb: DbConnection | TenantDb = db,
+  ): Promise<FileRef | null> {
     // fileRefsTable.id is a UUID column — a malformed id must fail here, not
     // at Postgres (22P02 poisons the pooled connection). 404, not
     // 400: an authenticated caller sending a bad id must see the same
@@ -693,7 +703,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     if (!isUuid(id)) return null;
     // isDeleted:false — soft-deleted (trashed) rows stay recoverable but must
     // never surface to reads/guards.
-    const [row] = await selectMany(db, fileRefsTable, { id, tenantId, isDeleted: false });
+    const [row] = await selectMany(readDb, fileRefsTable, { id, tenantId, isDeleted: false });
     return (row as FileRef | undefined) ?? null; // @cast-boundary db-row
   }
 

@@ -10,7 +10,7 @@ import { bindShiftedClause, type ListWhere } from "./event-store-executor-read-f
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
-import { tenantDbRunner } from "./tenant-db-runner.ts";
+import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
 // Above the ~180 ISO 4217 codes, so the cap only bounds malformed data.
 const MAX_AGGREGATE_CURRENCIES = 200;
@@ -47,7 +47,7 @@ export async function loadMeasureCurrencies(
     if (m.clause.kind === "sql") conditions.push(`(${bindShiftedClause(params, m.clause)})`);
     const currencySql = where.colSql(currencyColumnOf(m.field));
     const rows = await executeRawQueryRead<{ readonly cur: unknown }>(
-      tenantDbRunner(db),
+      tenantDbRunnerForTable(db, ctx.table),
       `SELECT DISTINCT ${currencySql} AS cur FROM "${tableName}" WHERE ${conditions.join(" AND ")} AND ${currencySql} IS NOT NULL ORDER BY 1 LIMIT ${MAX_AGGREGATE_CURRENCIES}`,
       params,
     );

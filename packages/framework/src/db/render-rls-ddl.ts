@@ -1,5 +1,6 @@
 // Pure renderer for Postgres row level security: EntityTableMeta → policy DDL.
-// Every table with a `tenant_id` column gets two policies; tables without one are untouched.
+// Every table with a `tenant_id` column gets the isolation policy; only tables marked `systemRowsReadable`
+// also get the system-tenant read policy. Tables without `tenant_id` are untouched.
 
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
@@ -45,16 +46,19 @@ export function tenantRowLevelSecurityFor(
   // NULLIF: after a transaction-local set_config, current_setting returns '' instead of NULL.
   const sessionTenant = `NULLIF(current_setting('${TENANT_ID_SETTING}', true), '')`;
   const isolation = `${column} = ${sessionTenant}::${sqlType} OR current_setting('${SCOPE_SETTING}', true) = '${SYSTEM_SCOPE}'`;
+  const isolationPolicy: RowLevelSecurityPolicy = {
+    name: TENANT_ISOLATION_POLICY,
+    command: "ALL",
+    kind: "PERMISSIVE",
+    rolesSql: "PUBLIC",
+    using: isolation,
+    withCheck: isolation,
+  };
+  // Positive classification: a table without the marker never lets a tenant session read system rows.
+  if (meta.systemRowsReadable !== true) return { policies: [isolationPolicy] };
   return {
     policies: [
-      {
-        name: TENANT_ISOLATION_POLICY,
-        command: "ALL",
-        kind: "PERMISSIVE",
-        rolesSql: "PUBLIC",
-        using: isolation,
-        withCheck: isolation,
-      },
+      isolationPolicy,
       {
         name: SYSTEM_TENANT_READ_POLICY,
         command: "SELECT",
@@ -83,7 +87,7 @@ export function renderCreatePolicy(tableSql: string, policy: RowLevelSecurityPol
   return `CREATE POLICY ${quoteIdent(policy.name)} ON ${tableSql} AS ${policy.kind} FOR ${policy.command} TO ${policy.rolesSql}${using}${withCheck};`;
 }
 
-function renderDropPolicy(tableSql: string, policyName: string): string {
+export function renderDropPolicy(tableSql: string, policyName: string): string {
   return `DROP POLICY IF EXISTS ${quoteIdent(policyName)} ON ${tableSql};`;
 }
 

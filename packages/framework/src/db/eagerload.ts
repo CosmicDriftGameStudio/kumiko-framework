@@ -45,7 +45,7 @@ import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import type { TenantDb } from "./tenant-db.ts";
-import { tenantDbRunner } from "./tenant-db-runner.ts";
+import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
 const log = createFallbackLogger("eagerload");
 
@@ -162,7 +162,7 @@ async function resolveRefAccessScope(
   const shifted = shiftParams({ sqlText: access.sqlText, params: access.params }, params.length);
   params.push(...shifted.params);
   const rows = await executeRawQueryRead<{ id: string }>(
-    tenantDbRunner(db),
+    tenantDbRunnerForTable(db, refTable),
     `SELECT "id" FROM "${refTableName}" WHERE "id" = ANY($1::uuid[])${tenantClause} AND ${shifted.sqlText}`,
     params,
   );

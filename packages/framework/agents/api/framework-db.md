@@ -202,11 +202,12 @@ type EntityTableMeta = {
   source: "managed" | "unmanaged";
   piiSubjectFields?: string[];
   tenancy?: "global";
+  systemRowsReadable?: true;
 };
 type EventStoreExecutor<Row extends Record<string, unknown> = Record<string, unknown>> = {
   create: (payload: Record<string, unknown>, user: SessionUser, db: TenantDb, options?: StreamTenantOption & { preSave?: PreSaveRunner; }) => Promise<WriteResult<SaveContext>>;
   update: (payload: { id: EntityId; version?: number | undefined; changes: Record<string, unknown>; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & LockGuardOption & ParentVisibilityGateOption & { skipOptimisticLock?: boolean; ski…;
-  delete: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & LockGuardOption & ParentVisibilityGateOption) => Promise<WriteResult<DeleteContext>>;
+  delete: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & LockGuardOption & ParentVisibilityGateOption & { expect?: Readonly<Record<string, string | number | boolean | null>>; }) => Promise<WriteResult<De…;
   forget: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & ParentVisibilityGateOption) => Promise<WriteResult<DeleteContext>>;
   restore: (payload: { id: EntityId; }, user: SessionUser, db: TenantDb, options?: StreamTenantOption & ParentVisibilityGateOption) => Promise<WriteResult<SaveContext>>;
   list: (payload: { cursor?: string | undefined; limit?: number | undefined; search?: string | undefined; sort?: string | undefined; sortDirection?: "asc" | "desc" | undefined; offset?: number | undefined; totalCount?: boolean | undefined; filter?…;
@@ -221,6 +222,7 @@ type JsonTextMatch = {
 };
 type KnownTables = {
   has: (tableName: string) => boolean;
+  readsSystemRows: (tableName: string) => boolean;
 };
 type MoneyRead = { // Shape of a single rehydrated money field — {amount major, currency, amountScaled exact integer value in MINOR_UNIT_SCALE units}.
   amount: number;

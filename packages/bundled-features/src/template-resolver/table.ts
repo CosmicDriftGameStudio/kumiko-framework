@@ -34,6 +34,7 @@ const renameMailHtmlKind: EntityEventMigration = {
 // jsonbField). The application layer parses the JSON and persists it as a string.
 export const templateResourceEntity = createEntity({
   table: "read_template_resources",
+  systemRowsReadable: true,
   fields: {
     slug: createTextField({ required: true, personal: false, reason: "technical_reference" }),
     kind: createSelectField({ required: true, options: [...TEMPLATE_KINDS] }),

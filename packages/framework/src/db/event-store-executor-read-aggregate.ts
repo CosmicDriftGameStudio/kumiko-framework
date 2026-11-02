@@ -45,7 +45,7 @@ import {
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
-import { tenantDbRunner } from "./tenant-db-runner.ts";
+import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
 // One group more than the cap is fetched to tell "exactly 200" from "more".
 const MAX_AGGREGATE_GROUPS = 200;
@@ -217,7 +217,7 @@ export async function aggregateList(
   const groupText = grouped ? groupedKeyOrderLimitSql(MAX_AGGREGATE_GROUPS + 1) : "";
   const tableName = String(schemaTableName(ctx.table));
   const rows = await executeRawQueryRead<Record<string, unknown>>(
-    tenantDbRunner(db),
+    tenantDbRunnerForTable(db, ctx.table),
     `SELECT ${selectList} FROM "${tableName}"${whereText}${groupText}`,
     where.params,
   );

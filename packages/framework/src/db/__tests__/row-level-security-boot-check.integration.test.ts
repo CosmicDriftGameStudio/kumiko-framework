@@ -23,8 +23,8 @@ const tenantTable = defineUnmanagedTable({
   ],
 });
 
-const knowsEverything: KnownTables = { has: () => true };
-const knowsNothing: KnownTables = { has: () => false };
+const knowsEverything: KnownTables = { has: () => true, readsSystemRows: () => false };
+const knowsNothing: KnownTables = { has: () => false, readsSystemRows: () => false };
 
 const openDbs: TestDb[] = [];
 
@@ -63,13 +63,31 @@ describe("assertRowLevelSecurityBootState", () => {
     );
   });
 
-  test('"on" with a dropped policy throws, naming the table and the policy', async () => {
+  test('"on" with a dropped isolation policy throws, naming the table and the policy', async () => {
     const { db } = await openAppDbWithTable();
     await asRawClient(db).unsafe(
-      `DROP POLICY "kumiko_system_tenant_read" ON "store_boot_check_items"`,
+      `DROP POLICY "kumiko_tenant_isolation" ON "store_boot_check_items"`,
     );
     await expect(assertRowLevelSecurityBootState(db, "on", knowsEverything)).rejects.toThrow(
+      /store_boot_check_items \(policy kumiko_tenant_isolation\)/,
+    );
+  });
+
+  test('"on" with a marked table lacking the system read policy throws', async () => {
+    const { db } = await openAppDbWithTable();
+    const marksItems: KnownTables = { has: () => true, readsSystemRows: () => true };
+    await expect(assertRowLevelSecurityBootState(db, "on", marksItems)).rejects.toThrow(
       /store_boot_check_items \(policy kumiko_system_tenant_read\)/,
+    );
+  });
+
+  test('"on" with a system read policy on a table that is not marked throws', async () => {
+    const { db } = await openAppDbWithTable();
+    await asRawClient(db).unsafe(
+      `CREATE POLICY "kumiko_system_tenant_read" ON "store_boot_check_items" AS PERMISSIVE FOR SELECT TO PUBLIC USING (true)`,
+    );
+    await expect(assertRowLevelSecurityBootState(db, "on", knowsEverything)).rejects.toThrow(
+      /store_boot_check_items \(policy kumiko_system_tenant_read on a table not marked systemRowsReadable/,
     );
   });
 
@@ -142,7 +160,10 @@ describe("assertRowLevelSecurityBootState", () => {
     const raw = asRawClient(db);
     await raw.unsafe(`ALTER TABLE "read_orphan_items" NO FORCE ROW LEVEL SECURITY`);
     await raw.unsafe(`ALTER TABLE "read_orphan_items" DISABLE ROW LEVEL SECURITY`);
-    const onlyBootCheckItems: KnownTables = { has: (name) => name === "store_boot_check_items" };
+    const onlyBootCheckItems: KnownTables = {
+      has: (name) => name === "store_boot_check_items",
+      readsSystemRows: () => false,
+    };
     const message = String(
       await assertRowLevelSecurityBootState(db, "on", onlyBootCheckItems).catch((e: Error) => e),
     );

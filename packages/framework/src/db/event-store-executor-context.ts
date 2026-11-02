@@ -51,7 +51,7 @@ import { resolveReadOwnership } from "./read-ownership.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { columnHandleName, schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
-import { tenantDbRunner } from "./tenant-db-runner.ts";
+import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
 // Shared context-building for the event-store-executor CRUD verbs (create/
 // update/delete/forget/restore/list/detail — see event-store-executor-write.ts
@@ -533,7 +533,7 @@ export function buildExecutorContext(
     id: EntityId,
     tenantId: TenantId,
   ): Promise<void> {
-    if (await isStreamArchived(tenantDbRunner(db), tenantId, String(id))) {
+    if (await isStreamArchived(tenantDbRunnerForTable(db, table), tenantId, String(id))) {
       throw new ArchivedStreamError(tenantId, String(id));
     }
   }
@@ -593,7 +593,7 @@ export function buildExecutorContext(
       `SELECT 1 AS "__owned", ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
       `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
     const rows = await executeRawQueryRead<Record<string, unknown>>(
-      tenantDbRunner(db),
+      tenantDbRunnerForTable(db, table),
       sqlText,
       params,
     );
@@ -626,7 +626,7 @@ export function buildExecutorContext(
     const tableName = String(schemaTableName(table));
     const { whereParts, params } = buildRawIdWhere(db, { id }, ownership);
     const rows = await executeRawQueryRead<Record<string, unknown>>(
-      tenantDbRunner(db),
+      tenantDbRunnerForTable(db, table),
       `SELECT 1 AS "__readable" FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`,
       params,
     );
@@ -654,7 +654,7 @@ export function buildExecutorContext(
       `SELECT *, ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
       `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
     const rows = await executeRawQueryRead<Record<string, unknown>>(
-      tenantDbRunner(db),
+      tenantDbRunnerForTable(db, table),
       sqlText,
       params,
     );
@@ -714,7 +714,7 @@ export function buildExecutorContext(
       `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
 
     const rows = await executeRawQueryRead<Record<string, unknown>>(
-      tenantDbRunner(db),
+      tenantDbRunnerForTable(db, table),
       sqlText,
       params,
     );

@@ -37,6 +37,7 @@ import {
 //     columns and events.
 export const fieldDefinitionEntity = createEntity({
   table: "read_custom_field_definitions",
+  systemRowsReadable: true,
   description:
     "One custom-field definition: the host entity it extends, the field key, its type and required/searchable flags, a display order, and the serialized field builder that carries the type options, default value and labels. Rows owned by the system tenant apply to every tenant; all others belong to the tenant that defined them.",
   // softDelete is required, NOT cosmetic: the aggregate-id is deterministic

@@ -66,9 +66,9 @@ import {
 import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
 import { runInSavepointIfSupported } from "./query.ts";
 import { assertPersonalDataWrite, tableNameOf, withExecutorManagedWrites } from "./tenant-db.ts";
-import { tenantDbWriteRunner } from "./tenant-db-runner.ts";
+import { tenantDbWriteRunnerForTable } from "./tenant-db-runner.ts";
 
-type WriteRunner = ReturnType<typeof tenantDbWriteRunner>;
+type WriteRunner = ReturnType<typeof tenantDbWriteRunnerForTable>;
 type AppendedEvent = Awaited<ReturnType<typeof append>>;
 type UpdateOptions = Parameters<EventStoreExecutor["update"]>[3];
 
@@ -212,7 +212,7 @@ export function createWriteVerbs(
   // Fallback for conflicts that carry no current version: the version read before the
   // append is stale after a lost race. -1 when the lookup itself fails.
   async function versionAfterConflict(
-    runner: ReturnType<typeof tenantDbWriteRunner>,
+    runner: ReturnType<typeof tenantDbWriteRunnerForTable>,
     aggregateId: string,
     tenantId: TenantId,
   ): Promise<number> {
@@ -684,7 +684,7 @@ export function createWriteVerbs(
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantCreateFailure(db, payload, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
-      const runner = tenantDbWriteRunner(db, "ctx.db executor create");
+      const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor create", table);
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
       // event payload so defaults + downstream consumers don't see a redundant id field.
@@ -759,7 +759,7 @@ export function createWriteVerbs(
     },
 
     async update(payload, user, db, updateOptions) {
-      const runner = tenantDbWriteRunner(db, "ctx.db executor update");
+      const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor update", table);
       assertTenantAllowedOnGlobalEntity(
         "update",
         "payload.changes.tenantId",
@@ -874,7 +874,7 @@ export function createWriteVerbs(
       if (isIrreversibleEntityVerb("delete", entity)) {
         assertIrreversibleOperationAllowed(`${entityName}.delete (entity has no softDelete)`);
       }
-      const runner = tenantDbWriteRunner(db, "ctx.db executor delete");
+      const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor delete", table);
       const existing = await loadById(payload.id, db);
       if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
       const unreadable = await unreadableRowFailure(
@@ -992,7 +992,7 @@ export function createWriteVerbs(
     // without the isDeleted filter so trashed (soft-deleted) rows are erased too.
     async forget(payload, user, db, options) {
       assertIrreversibleOperationAllowed(`${entityName}.forget`);
-      const runner = tenantDbWriteRunner(db, "ctx.db executor forget");
+      const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor forget", table);
       const raw = await db.fetchOne<Record<string, unknown>>(table, { id: payload.id });
       if (!raw) return writeFailure(new NotFoundError(entityName, payload.id));
       const unreadable = await unreadableRowFailure(
@@ -1097,7 +1097,7 @@ export function createWriteVerbs(
           }),
         );
       }
-      const runner = tenantDbWriteRunner(db, "ctx.db executor restore");
+      const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor restore", table);
       const streamTenantId = options?.streamTenantId;
       // Before loadSoftDeletedRow: its not_deleted answer would confirm that an unreadable
       // live row exists.

@@ -161,7 +161,6 @@ describe("rebuildProjection keeps row level security", () => {
     expect(catalog.flags).toEqual({ relrowsecurity: true, relforcerowsecurity: true });
     expect(catalog.policyNames).toEqual([
       "handwritten_permissive",
-      "kumiko_system_tenant_read",
       "kumiko_tenant_isolation",
       "mixed_role_insert",
     ]);
@@ -179,7 +178,7 @@ describe("rebuildProjection keeps row level security", () => {
     const visible = await asProbe(testDb.db, { tenantId: admin.tenantId }, (probe) =>
       visibleTenants(probe, LIVE_TABLE),
     );
-    expect(visible.sort()).toEqual([admin.tenantId, SYSTEM_TENANT_ID].sort());
+    expect(visible).toEqual([admin.tenantId]);
     expect(await asProbe(testDb.db, {}, (probe) => visibleTenants(probe, LIVE_TABLE))).toEqual([]);
   });
 

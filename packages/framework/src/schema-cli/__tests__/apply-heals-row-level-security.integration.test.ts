@@ -19,7 +19,7 @@ const TENANT_FRAMEWORK_TABLES = [
   "kumiko_archived_streams",
   "kumiko_snapshots",
 ] as const;
-const ALL_KNOWN = { has: () => true };
+const ALL_KNOWN = { has: () => true, readsSystemRows: () => false };
 
 let testDb: TestDb;
 let workDir: string;

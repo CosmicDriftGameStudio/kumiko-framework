@@ -566,6 +566,7 @@ function stampEntityTableMeta<E extends EntityDefinition>(table: EntityTable<E>,
     ...meta,
     source: "managed",
     ...(entity.tenancy === "global" && { tenancy: "global" as const }),
+    ...(entity.systemRowsReadable === true && { systemRowsReadable: true as const }),
   };
 }
 

@@ -1,4 +1,9 @@
-import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  defineQueryHandler,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import * as z from "zod";
 import { resolveSecretTarget, secretScopeSchema } from "../secret-scope.ts";
 import { tenantSecretsTable } from "../table.ts";
@@ -17,7 +22,8 @@ export function createListHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
     handler: async (event, ctx) => {
       const target = resolveSecretTarget(event.user, event.payload.scope);
       if (!target.ok) throw target.error;
-      const rows = await ctx.db.selectMany<{
+      const readDb = target.tenantId === SYSTEM_TENANT_ID ? systemTenantReadDb(ctx.db) : ctx.db;
+      const rows = await readDb.selectMany<{
         key: string;
         kekVersion: number;
         metadata: { redactedPreview?: string; hint?: string };

@@ -21,6 +21,7 @@ import {
 function tenantTable(tableName: string, tenantType: "uuid" | "text"): EntityTableMeta {
   return defineUnmanagedTable({
     tableName,
+    systemRowsReadable: true,
     columns: [
       {
         name: "id",

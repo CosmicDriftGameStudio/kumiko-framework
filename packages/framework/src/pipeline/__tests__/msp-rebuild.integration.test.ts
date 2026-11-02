@@ -528,7 +528,6 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
       const before = await readRowLevelSecurityState(stack.db, "public", "read_mspreb_balance");
       expect(before).toMatchObject({ enabled: true, forced: true });
       expect(before?.policies.map((p) => p.name)).toEqual([
-        "kumiko_system_tenant_read",
         "kumiko_tenant_isolation",
         "mspreb_probe",
       ]);

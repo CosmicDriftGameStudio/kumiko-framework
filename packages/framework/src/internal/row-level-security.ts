@@ -8,3 +8,4 @@ export {
   systemScopedRunner,
   tenantRowLevelSecurityScope,
 } from "../db/row-level-security-scope.ts";
+export { systemTenantReadDb } from "../db/system-tenant-read-db.ts";
