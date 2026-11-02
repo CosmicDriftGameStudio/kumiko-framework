@@ -26,3 +26,17 @@ export function dispatcherErrorText(
   if (translated !== error.i18nKey) return translated;
   return error.message !== "" ? error.message : error.code;
 }
+
+// A validation_error alone says nothing; the server names the offending field and reason per
+// issue, so the user gets those as text.
+export function dispatcherErrorTextWithFieldIssues(
+  error: DispatcherError,
+  translate: (key: string, params?: Readonly<Record<string, unknown>>) => string,
+): string {
+  const headline = dispatcherErrorText(error, translate);
+  const issues = (error.details?.fields ?? []).map((issue) => {
+    const text = translate(issue.i18nKey, issue.params);
+    return text === issue.i18nKey ? `${issue.path}: ${issue.code}` : text;
+  });
+  return issues.length === 0 ? headline : `${headline} ${issues.join(" ")}`;
+}

@@ -27,6 +27,7 @@ export const TemplateResolverQueries = {
   list: "template-resolver:query:list",
   usage: "template-resolver:query:usage",
   overview: "template-resolver:query:overview",
+  bodyPreview: "template-resolver:query:body-preview",
   layoutSource: "template-resolver:query:layout-source",
   tenantOverrides: "template-resolver:query:tenant-overrides",
   tenantOverrideCounts: "template-resolver:query:tenant-override-counts",

@@ -494,7 +494,9 @@ describe("textBlocksClient — a save refreshes the collection tree", () => {
         </LocaleProvider>
       ),
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    // Save stays disabled until something changed.
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: "My signature" } });
+    fireEvent.click(screen.getByTestId("editor-save"));
 
     await waitFor(() => treeLabels.length > 0);
     unsubscribe?.();
@@ -571,7 +573,8 @@ describe("textBlocksClient — plain contentFormat editor wiring", () => {
 
     // A typo in the registry key or a field rename on contentCollections
     // silently falls back to variables={[]} — no chip renders, no red test.
-    expect(screen.getByText("{{customerName}}")).toBeTruthy();
+    // The rail lists the same variable, so pin the chip in the editor's insert-variable bar.
+    expect(screen.getByText("{{customerName}}", { selector: "button" })).toBeTruthy();
   });
 });
 

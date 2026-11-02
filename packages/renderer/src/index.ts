@@ -51,6 +51,20 @@ export {
 } from "./app/content-editors.tsx";
 export type { ContentPreviewProps } from "./app/content-preview.tsx";
 export { ContentPreview, substituteVariables } from "./app/content-preview.tsx";
+export type {
+  ContentPreviewsMap,
+  PreviewRenderer,
+  PreviewRendererProps,
+  PreviewSubject,
+  PreviewTarget,
+} from "./app/content-previews.tsx";
+export {
+  ContentPreviewsProvider,
+  PREVIEW_TARGETS,
+  PreviewPane,
+  TextPreviewRenderer,
+  useContentPreview,
+} from "./app/content-previews.tsx";
 export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens.tsx";
 export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens.tsx";
 export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body.tsx";
@@ -134,7 +148,11 @@ export { useRecordActions } from "./app/use-record-actions.ts";
 export type { VariableChipsProps } from "./app/variable-chips.tsx";
 export { VariableChips } from "./app/variable-chips.tsx";
 export { evalVisibleWhen, type VisibleWhenVerdict } from "./app/visible-when.ts";
-export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error.ts";
+export {
+  dispatcherErrorText,
+  dispatcherErrorTextWithFieldIssues,
+  WriteFailedError,
+} from "./app/write-failed-error.ts";
 export type {
   ErrorBoundaryFallbackProps,
   ErrorBoundaryProps,
@@ -193,6 +211,7 @@ export type {
   UseCompletionResult,
 } from "./hooks/use-ai-text.ts";
 export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text.ts";
+export { useDebouncedValue } from "./hooks/use-debounced-value.ts";
 export type { UseDisclosureResult } from "./hooks/use-disclosure.ts";
 export { useDisclosure } from "./hooks/use-disclosure.ts";
 export type { UseFormOptions, UseFormResult } from "./hooks/use-form.ts";

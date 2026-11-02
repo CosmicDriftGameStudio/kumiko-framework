@@ -37,19 +37,17 @@ function cacheKeyOf(page: RenderablePageBody): string {
   );
 }
 
+export type UncachedPageBody = Pick<RenderablePageBody, "slug" | "body" | "bodyFormat">;
+
 // Writes store the rebuilt, sanitized HTML, but rows can predate that validation
-// or arrive through other writers, so a render still sanitizes — once per page
-// version instead of once per request. A rejected document renders as an empty
-// body (never the raw HTML), is logged on the miss, and the empty result is cached.
-export function createPageBodyRenderer(
+// or arrive through other writers, so a render still sanitizes. A rejected document
+// renders as an empty body (never the raw HTML) and is logged.
+export function createUncachedPageBodyRenderer(
   deps: PageBodyRendererDeps = {},
-): (page: RenderablePageBody, log?: WarnLogger) => string {
+): (page: UncachedPageBody, log?: WarnLogger) => string {
   const sanitizeDocument = deps.sanitizeDocument ?? sanitizeDocumentHtml;
   const renderMarkdown = deps.renderMarkdown ?? renderSafeMarkdown;
-  const maxEntries = deps.maxEntries ?? MAX_CACHED_BODIES;
-  const cache = createLruCache<string, string>({ maxEntries });
-
-  function renderUncached(page: RenderablePageBody, log: WarnLogger): string {
+  return (page, log = defaultLog) => {
     if (page.bodyFormat === "markdown") return renderMarkdown(page.body);
     const result = sanitizeDocument(page.body);
     if (result.ok) return result.html;
@@ -58,7 +56,17 @@ export function createPageBodyRenderer(
       violations: result.violations.map((violation) => violation.code),
     });
     return "";
-  }
+  };
+}
+
+// Sanitizes once per page version instead of once per request; the empty result of a
+// rejected document is cached too.
+export function createPageBodyRenderer(
+  deps: PageBodyRendererDeps = {},
+): (page: RenderablePageBody, log?: WarnLogger) => string {
+  const renderUncached = createUncachedPageBodyRenderer(deps);
+  const maxEntries = deps.maxEntries ?? MAX_CACHED_BODIES;
+  const cache = createLruCache<string, string>({ maxEntries });
 
   return (page, log = defaultLog) => {
     const key = cacheKeyOf(page);

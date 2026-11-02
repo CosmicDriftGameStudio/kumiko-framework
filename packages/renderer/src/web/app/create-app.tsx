@@ -29,6 +29,8 @@ import {
   ColumnRenderersProvider,
   type ContentEditorComponent,
   ContentEditorsProvider,
+  type ContentPreviewsMap,
+  ContentPreviewsProvider,
   CustomScreensProvider,
   createSessionEndedSignal,
   DashboardBodyProvider,
@@ -365,7 +367,8 @@ function mergeByKey<T>(
     const entries = pick(f);
     if (entries === undefined) continue;
     for (const [key, value] of Object.entries(entries)) {
-      if (merged[key] !== undefined) {
+      // The same value registered by two plugins (a shared preview renderer) is no override.
+      if (merged[key] !== undefined && merged[key] !== value) {
         rendererWarn(
           `[kumiko] ${label} "${key}" defined by multiple clientFeatures — last definition (from "${f.name}") wins.`,
         );
@@ -383,6 +386,14 @@ export function mergeContentEditors(
   clientFeatures: readonly ClientFeatureDefinition[],
 ): Record<string, ContentEditorComponent> {
   return mergeByKey(clientFeatures, (f) => f.contentEditors, "contentEditor");
+}
+
+// Merges the preview-renderer map; a target without an entry renders through the "text"
+// fallback of useContentPreview.
+export function mergeContentPreviews(
+  clientFeatures: readonly ClientFeatureDefinition[],
+): ContentPreviewsMap {
+  return mergeByKey(clientFeatures, (f) => f.contentPreviews, "contentPreview");
 }
 
 // Fail loud at boot instead of per-URL: a mounted server feature can
@@ -428,6 +439,7 @@ type KumikoAppRootProps = {
   readonly extensionSectionComponents: Readonly<Record<string, ExtensionSectionComponent>>;
   readonly clientActions: Readonly<Record<string, ClientActionHandler>>;
   readonly contentEditors: Readonly<Record<string, ContentEditorComponent>>;
+  readonly contentPreviews: ContentPreviewsMap;
   readonly resolvers: ReadonlyMap<string, ResolverComponent>;
   readonly dispatcher: Dispatcher;
   readonly sessionEndedSignal: SessionEndedSignal;
@@ -526,31 +538,35 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                       <CustomScreensProvider value={props.customScreens}>
                         <ColumnRenderersProvider value={props.columnRenderers}>
                           <ContentEditorsProvider value={props.contentEditors}>
-                            <ExtensionSectionsProvider value={props.extensionSectionComponents}>
-                              <ClientActionsProvider value={props.clientActions}>
-                                <NavProvidersProvider value={navProviders} entities={navEntities}>
-                                  <ResolversProvider resolvers={props.resolvers}>
-                                    <ToastProvider>
-                                      <ToastActionNotifier>
-                                        <UpdateChecker />
-                                        <LeaveGuardDialog />
-                                        <SessionEndedSignalProvider
-                                          signal={props.sessionEndedSignal}
-                                        >
-                                          {stackWrappers(
-                                            props.providers,
-                                            stackWrappers(
-                                              props.gates,
-                                              <ListStateStoreBoot>{screenNode}</ListStateStoreBoot>,
-                                            ),
-                                          )}
-                                        </SessionEndedSignalProvider>
-                                      </ToastActionNotifier>
-                                    </ToastProvider>
-                                  </ResolversProvider>
-                                </NavProvidersProvider>
-                              </ClientActionsProvider>
-                            </ExtensionSectionsProvider>
+                            <ContentPreviewsProvider value={props.contentPreviews}>
+                              <ExtensionSectionsProvider value={props.extensionSectionComponents}>
+                                <ClientActionsProvider value={props.clientActions}>
+                                  <NavProvidersProvider value={navProviders} entities={navEntities}>
+                                    <ResolversProvider resolvers={props.resolvers}>
+                                      <ToastProvider>
+                                        <ToastActionNotifier>
+                                          <UpdateChecker />
+                                          <LeaveGuardDialog />
+                                          <SessionEndedSignalProvider
+                                            signal={props.sessionEndedSignal}
+                                          >
+                                            {stackWrappers(
+                                              props.providers,
+                                              stackWrappers(
+                                                props.gates,
+                                                <ListStateStoreBoot>
+                                                  {screenNode}
+                                                </ListStateStoreBoot>,
+                                              ),
+                                            )}
+                                          </SessionEndedSignalProvider>
+                                        </ToastActionNotifier>
+                                      </ToastProvider>
+                                    </ResolversProvider>
+                                  </NavProvidersProvider>
+                                </ClientActionsProvider>
+                              </ExtensionSectionsProvider>
+                            </ContentPreviewsProvider>
                           </ContentEditorsProvider>
                         </ColumnRenderersProvider>
                       </CustomScreensProvider>
@@ -725,6 +741,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   const clientActions = mergeByKey(clientFeatures, (f) => f.clientActions, "clientAction");
 
   const contentEditors = mergeContentEditors(clientFeatures);
+  const contentPreviews = mergeContentPreviews(clientFeatures);
 
   // Aggregate editor resolvers — keyed by "featureId:action". Same
   // last-wins semantics as columnRenderers. Warns on collision.
@@ -778,6 +795,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
             extensionSectionComponents={extensionSectionComponents}
             clientActions={clientActions}
             contentEditors={contentEditors}
+            contentPreviews={contentPreviews}
             resolvers={resolvers}
             dispatcher={dispatcher}
             sessionEndedSignal={sessionEndedSignal}

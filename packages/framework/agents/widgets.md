@@ -37,7 +37,15 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `DropdownMenuPortal` |  |
 | `DropdownMenuSeparator` |  |
 | `DropdownMenuTrigger` |  |
+| `EditorBody` |  |
+| `EditorFooter` |  |
+| `EditorFrame` |  |
+| `EditorHeader` |  |
+| `EditorInfoBar` |  |
+| `EditorLocaleSwitch` |  |
+| `EditorModeSwitch` |  |
 | `EditorPanel` |  |
+| `EditorWorkbench` |  |
 | `EmptyState` | Empty state with an optional icon and CTA, using the dashed-box style of entityList empty states as a standalone widget for custom screens. |
 | `ErrorState` | Error state based on the Banner primitive, with a retry button. |
 | `FeedList` | Non-tabular compact list (e.g. "upcoming appointments") — primary text plus an optional right-aligned trailing value for each row. |
@@ -46,6 +54,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `FloatingPanel` | Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered. |
 | `FormScreenShell` |  |
 | `HeaderActionGroup` |  |
+| `HtmlMailFrame` | Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content. |
 | `Icon` |  |
 | `InfinityList` | Cursor-paginated scroll list (mail inbox, activity feeds) — loads the next page when the end sentinel becomes visible (IntersectionObserver), instead of a pager bar like QueryTable/entityList. |
 | `KumikoLink` |  |
@@ -73,12 +82,17 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `PlanGrid` |  |
 | `PresenceAvatars` | Small round avatars of the people on a row, with "+n" for the rest; for list rows. |
 | `PresenceNotice` | One quiet line above a record: who else is on it and for how long. |
+| `PreviewWidthFrame` |  |
 | `PrimitivesProvider` |  |
 | `ProfileMenu` |  |
 | `ProgressBar` | Progress bar, `value` 0..1 (clamped). |
 | `ProgressList` | Label/value header and progress bar for each entry (for example, loan repayment progress). |
 | `PublicShell` | One header and footer for anonymous pages; `focus` narrows to a task column, `card` centers a single card (sign-in). |
 | `QueryTable` |  |
+| `RailField` |  |
+| `RailHint` |  |
+| `RailRow` |  |
+| `RailSection` |  |
 | `RangeField` | Slider = Field + Input(kind:"range"). |
 | `RenderEdit` |  |
 | `RenderField` |  |
@@ -177,6 +191,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `filterByAccess` |  |
 | `formatMoney` |  |
 | `formatPath` |  |
+| `formatRelativeWhen` |  |
 | `parsePath` |  |
 | `parseTargetFromSearchParams` | Parses the current search parameters back into a TargetRef. |
 | `postWithDownload` |  |

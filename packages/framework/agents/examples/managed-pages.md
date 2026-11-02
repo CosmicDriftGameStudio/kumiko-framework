@@ -21,6 +21,8 @@ opt-in, tier-gated **custom CSS** — the framework generalization of the
   branding applied as scoped `:root` vars, custom CSS allowlist-sanitized and
   contained in a `<style data-tenant-css>` block
 - 6 integration tests proving end-to-end behavior
+- A custom preview renderer for the admin editor: `src/web/branded-preview.tsx` registers its own
+  `contentPreviews.web` next to `managedPagesClient()`, tested in `branded-preview.test.tsx`
 
 ## Layout
 
@@ -30,8 +32,10 @@ samples/recipes/managed-pages/
 ├── README.md                   # this file
 └── src/
     ├── feature.ts              # the composed features re-exported for tests
+    ├── web/branded-preview.tsx # custom `contentPreviews` renderer (client feature)
     └── __tests__/
-        └── feature.integration.test.ts  # 6 tests: render + branding + CSS
+        ├── feature.integration.test.ts  # 6 tests: render + branding + CSS
+        └── branded-preview.test.tsx     # custom preview renderer in the editor workbench
 ```
 
 ## Run tests
@@ -167,6 +171,65 @@ tier-gated.
 - [samples/recipes/legal-pages](../legal-pages) — the simpler, static sibling
 
 ## Source files
+
+### src/__tests__/branded-preview.test.tsx
+
+```tsx
+import { afterEach, describe, expect, test } from "bun:test";
+import { managedPagesClient } from "@cosmicdrift/kumiko-bundled-features/managed-pages/web";
+import {
+  ContentPreviewsProvider,
+  PreviewPane,
+  PrimitivesProvider,
+} from "@cosmicdrift/kumiko-renderer";
+import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
+import { cleanup, render, screen } from "@testing-library/react";
+import { brandedPreviewClient } from "../web/branded-preview.tsx";
+
+afterEach(cleanup);
+
+describe("custom preview renderer", () => {
+  test("the app's renderer replaces the managed-pages web preview for the same target", () => {
+    expect(managedPagesClient().contentPreviews?.web).toBeDefined();
+    expect(brandedPreviewClient().contentPreviews?.web).not.toBe(
+      managedPagesClient().contentPreviews?.web,
+    );
+  });
+
+  test("the workbench shows the draft body in the app's own frame", () => {
+    render(
+      <ContentPreviewsProvider value={brandedPreviewClient().contentPreviews ?? {}}>
+        <PreviewPane
+          target="web"
+          content="Opening hours: 8 to 18"
+          editFormat="plain"
+          variables={{}}
+          subject={{ kind: "body" }}
+        />
+      </ContentPreviewsProvider>,
+    );
+    expect(screen.getByTestId("branded-preview-body").textContent).toBe("Opening hours: 8 to 18");
+  });
+
+  test("a target the app registered no renderer for still previews as text", () => {
+    render(
+      <PrimitivesProvider value={defaultPrimitives}>
+        <ContentPreviewsProvider value={brandedPreviewClient().contentPreviews ?? {}}>
+          <PreviewPane
+            target="mail"
+            content="Mail words"
+            editFormat="plain"
+            variables={{}}
+            subject={{ kind: "body" }}
+          />
+        </ContentPreviewsProvider>
+      </PrimitivesProvider>,
+    );
+    expect(screen.queryByTestId("branded-preview")).toBeNull();
+    expect(screen.getByDisplayValue("Mail words")).toBeDefined();
+  });
+});
+```
 
 ### src/__tests__/feature.integration.test.ts
 
@@ -351,4 +414,30 @@ export const managedPagesFeature = createManagedPagesFeature({
 // `ctx.hasFeature` fails open and CSS stays on (the render-time sanitizer is the
 // safety boundary regardless).
 export const managedPagesCssFeature = createManagedPagesCssFeature();
+```
+
+### src/web/branded-preview.tsx
+
+```tsx
+import type { PreviewRenderer, PreviewRendererProps } from "@cosmicdrift/kumiko-renderer";
+import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
+import type { ReactNode } from "react";
+
+// A custom renderer for one preview target. The editor workbench hands it the draft content, the
+// example variables and what is being edited; it decides how that looks. This one shows the body
+// inside the shop's own page chrome instead of the framework's plain web frame.
+const BrandedWebPreview: PreviewRenderer = ({ content }: PreviewRendererProps): ReactNode => (
+  <article data-testid="branded-preview" className="mx-auto max-w-[680px] border p-8">
+    <header className="mb-4 font-semibold tracking-wide">Acme Hardware</header>
+    <div data-testid="branded-preview-body" className="whitespace-pre-wrap">
+      {content}
+    </div>
+  </article>
+);
+
+// Registered next to managedPagesClient(): the later client feature wins the "web" target, and
+// createKumikoApp logs the replacement once at boot.
+export function brandedPreviewClient(): ClientFeatureDefinition {
+  return { name: "acme-branded-preview", contentPreviews: { web: BrandedWebPreview } };
+}
 ```

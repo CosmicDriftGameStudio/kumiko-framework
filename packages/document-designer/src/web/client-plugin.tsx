@@ -27,6 +27,8 @@ import {
 } from "./constants.ts";
 import { documentDesignerTranslations } from "./default-translations.ts";
 import { DOCUMENT_DESIGNER_I18N } from "./i18n.ts";
+import { MailPreviewRenderer } from "./mail-preview-renderer.tsx";
+import { PdfPreviewRenderer } from "./pdf-preview-renderer.tsx";
 
 // The editors pull tiptap, MJML preview and the page canvas; load them on first mount.
 const LazyLayoutEditor = lazy(() =>
@@ -108,6 +110,7 @@ export function documentDesignerClient(
       [DocumentDesignerCells.modifiedAt]: ModifiedCell,
       [DocumentDesignerCells.overriddenBy]: OverriddenByCell,
     },
+    contentPreviews: { mail: MailPreviewRenderer, pdf: PdfPreviewRenderer },
     components: {
       [LAYOUT_EDITOR_SCREEN_ID]: LayoutEditorScreen,
       [PLATFORM_LAYOUT_EDITOR_SCREEN_ID]: PlatformLayoutEditorScreen,

@@ -69,21 +69,30 @@ export function useTextBlockEditor(target: TargetRef) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
+  // What is stored, to tell unsaved edits from the loaded state and to discard back to it.
+  // Separate strings: the sync effect re-runs for a fresh `loaded` object and equal strings bail out of the update.
+  const [baselineTitle, setBaselineTitle] = useState("");
+  const [baselineContent, setBaselineContent] = useState("");
 
   // Sync loaded data into the form state. loaded === null means the block does
   // not exist yet — empty form for the create flow.
+  // Keyed on the loaded primitives, not the result object: a refetch that returns identical
+  // values must not wipe what the user is typing.
+  const loadedTitle = loaded?.title ?? "";
+  const loadedContent = loaded?.content ?? "";
   // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
   useEffect(() => {
     // skip: keep the form untouched until the query settles
     if (loading) return;
-    const loadedContent = loaded?.content ?? "";
-    setTitle(loaded?.title ?? "");
-    setContent(
-      contentFormat === "document" ? convertLegacyVariableText(loadedContent) : loadedContent,
-    );
+    const shownContent =
+      contentFormat === "document" ? convertLegacyVariableText(loadedContent) : loadedContent;
+    setTitle(loadedTitle);
+    setContent(shownContent);
+    setBaselineTitle(loadedTitle);
+    setBaselineContent(shownContent);
     clearError();
     setSavedMsg(null);
-  }, [loading, loaded, contentFormat, clearError]);
+  }, [loading, loadedTitle, loadedContent, contentFormat, clearError]);
 
   const save = async (): Promise<void> => {
     setSavedMsg(null);
@@ -101,14 +110,27 @@ export function useTextBlockEditor(target: TargetRef) {
     // skip: useContentWrite already set the failure text
     if (response === null) return;
     refreshTree(collectionId ?? TEXT_BLOCK_TREE_KEY);
+    setBaselineTitle(title);
+    setBaselineContent(content);
     setSavedMsg(
       response.isNew ? t("template-resolver.editor.created") : t("template-resolver.editor.saved"),
     );
   };
 
+  const dirty = title !== baselineTitle || content !== baselineContent;
+  const discard = (): void => {
+    setTitle(baselineTitle);
+    setContent(baselineContent);
+    clearError();
+    setSavedMsg(null);
+  };
+
   return {
     slug,
     locale,
+    dirty,
+    discard,
+    modifiedAt: loaded?.modifiedAt ?? null,
     editorContext,
     canWrite,
     loading,
