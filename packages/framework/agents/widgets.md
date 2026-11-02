@@ -82,6 +82,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `PlanGrid` |  |
 | `PresenceAvatars` | Small round avatars of the people on a row, with "+n" for the rest; for list rows. |
 | `PresenceNotice` | One quiet line above a record: who else is on it and for how long. |
+| `PreviewWidthFrame` |  |
 | `PrimitivesProvider` |  |
 | `ProfileMenu` |  |
 | `ProgressBar` | Progress bar, `value` 0..1 (clamped). |
