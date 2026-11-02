@@ -8,12 +8,14 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { cn, HtmlMailFrame, LoadingState, ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
+import { HtmlMailFrame, LoadingState, ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import { TemplateResolverQueries } from "./qualified-names.ts";
 
 const PREVIEW_DEBOUNCE_MS = 300;
+const DESKTOP_WIDTH_PX = 760;
+const MOBILE_WIDTH_PX = 375;
 
 type Device = "desktop" | "mobile";
 
@@ -43,6 +45,7 @@ export function HtmlPaperFrame({
   readonly notice?: ReactNode;
 }): ReactNode {
   const t = useTranslation();
+  const { Card } = usePrimitives();
   const [device, setDevice] = useState<Device>("desktop");
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-8 py-6">
@@ -65,19 +68,19 @@ export function HtmlPaperFrame({
         notice === undefined && <LoadingState />
       ) : (
         <div
-          className={cn(
-            "mx-auto w-full border bg-card px-8 py-6 shadow-md",
-            device === "mobile" ? "max-w-[375px] px-5" : "max-w-[760px]",
-          )}
+          className="mx-auto w-full"
+          style={{ maxWidth: device === "mobile" ? MOBILE_WIDTH_PX : DESKTOP_WIDTH_PX }}
           data-testid="web-preview-frame"
           data-device={device}
         >
-          <HtmlMailFrame
-            html={html}
-            title={t("template-resolver.preview.frameTitle")}
-            allowRemoteImages
-            testId="web-preview-iframe"
-          />
+          <Card>
+            <HtmlMailFrame
+              html={html}
+              title={t("template-resolver.preview.frameTitle")}
+              allowRemoteImages
+              testId="web-preview-iframe"
+            />
+          </Card>
         </div>
       )}
     </div>

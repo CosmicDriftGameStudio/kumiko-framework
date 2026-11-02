@@ -1593,6 +1593,39 @@ type ContentEditorProps = {
 };
 ```
 
+## packages/renderer/src/app/content-previews.tsx
+
+```ts
+type ContentPreviewsMap = Partial<Record<PreviewTarget, PreviewRenderer>>;
+type PreviewRenderer = ComponentType<PreviewRendererProps>;
+type PreviewRendererProps = {
+  content: string;
+  editFormat: ContentEditorFormat;
+  variables: Readonly<Record<string, unknown>>;
+  subject: PreviewSubject;
+  onResult?: (result: unknown) => void; // The renderer hands the answer of its server call to a host that shows it elsewhere (the mail editor's side rail).
+};
+type PreviewSubject =
+  | {
+    kind: "template";
+    templateKind: string;
+    slug: string;
+    locale: string;
+    meta: unknown;
+    variableSchema?: unknown; // Placeholder schema of the template; the server derives sample values from it.
+  }
+  | {
+    kind: "layout";
+    templateKind: string;
+    html: string;
+  }
+  | {
+    kind: "body";
+  }
+;
+type PreviewTarget = (typeof PREVIEW_TARGETS)[number];
+```
+
 ## packages/renderer/src/app/extension-sections.tsx
 
 ```ts
