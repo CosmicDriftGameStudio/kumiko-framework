@@ -19,14 +19,12 @@ export function useRenderEditControlledSync<TValues extends FormValues, TCtx>({
     onDirtyChangeRef.current?.(hasUnsavedInput);
   }, [hasUnsavedInput]);
 
-  // Draft wizards keep their input server-side, so leaving loses nothing.
+  // Draft wizards keep their input server-side, but a running upload is not in the form value yet.
   const persistsDraft = state.isWizard && props.screen.layout.draft === true;
   useUnsavedInputSource(
     () =>
-      !persistsDraft &&
-      (controller.getSnapshot().isDirty ||
-        state.extensionDirtyRef.current ||
-        state.pendingUploadsRef.current > 0),
+      state.pendingUploadsRef.current > 0 ||
+      (!persistsDraft && (controller.getSnapshot().isDirty || state.extensionDirtyRef.current)),
   );
 
   useWizardFormDraftRestore<TValues>({

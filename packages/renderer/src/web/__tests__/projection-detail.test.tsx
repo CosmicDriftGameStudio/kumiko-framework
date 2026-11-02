@@ -12,7 +12,7 @@ import type {
   SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
-import { type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { ExtensionSectionProps, FeatureSchema, NavApi, NavTarget } from "../../index.ts";
 import {
@@ -1262,6 +1262,76 @@ describe("KumikoScreen / projectionDetail extension section", () => {
     );
     expect(noteCountPayloads[0]).toEqual({ id: "sess-1", limit: 1, totalCount: true });
     expect(screen.queryByTestId("kumiko-screen-projection-detail-tabs-overview-count")).toBeNull();
+  });
+
+  test("relatedList count badge of the previous record disappears when navigating to another record", async () => {
+    const countScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Overview", fields: ["userId"] },
+          {
+            id: "notes",
+            kind: "relatedList",
+            title: "Notes",
+            query: "sessions:query:note:list",
+            columns: ["id"],
+            count: true,
+          },
+        ],
+      },
+    };
+    const countSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [countScreen],
+    };
+    let resolveSecondRecord: () => void = () => {};
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string, payload: { id?: string }) => {
+        if (qn === "sessions:query:note:list") {
+          if (payload.id === "sess-2") {
+            await new Promise<void>((resolve) => {
+              resolveSecondRecord = resolve;
+            });
+            return { isSuccess: true, data: { rows: [], nextCursor: null, total: 2 } };
+          }
+          return { isSuccess: true, data: { rows: [], nextCursor: null, total: 5 } };
+        }
+        return { isSuccess: true, data: { userId: "user-42" } };
+      }) as unknown as Dispatcher["query"],
+    });
+    const nav: NavApi = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+    const tree = (entityId: string): ReactElement => (
+      <NavProvider value={nav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={countSchema}
+            qn="sessions:screen:session-detail"
+            entityId={entityId}
+          />
+        </DispatcherProvider>
+      </NavProvider>
+    );
+    const badgeId = "kumiko-screen-projection-detail-tabs-notes-count";
+
+    const view = render(tree("sess-1"));
+    await waitFor(() => expect(screen.getByTestId(badgeId).textContent).toBe("5"));
+
+    view.rerender(tree("sess-2"));
+    await waitFor(() => expect(screen.queryByTestId(badgeId)).toBeNull());
+    await act(async () => {
+      resolveSecondRecord();
+    });
+    await waitFor(() => expect(screen.getByTestId(badgeId).textContent).toBe("2"));
   });
 
   test("layout with no sections left (all relatedList tabs stripped) renders without crashing", async () => {

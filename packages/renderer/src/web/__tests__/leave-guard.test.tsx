@@ -641,16 +641,34 @@ describe("leave guard on setSearchParams-based navigation", () => {
 });
 
 describe("leave guard during an upload", () => {
+  const uploadEntity = {
+    fields: { title: { type: "text" }, belege: { type: "files", display: "dropzone" } },
+  } as unknown as EntityDefinition;
+  const plainLayoutScreen: EntityEditScreenDefinition = {
+    id: "tasks:screen:task-files",
+    type: "entityEdit",
+    entity: "task",
+    layout: { sections: [{ fields: ["title", "belege"] }] },
+  };
+  const draftWizardScreen: EntityEditScreenDefinition = {
+    id: "tasks:screen:task-files-wizard",
+    type: "entityEdit",
+    entity: "task",
+    layout: { mode: "wizard", draft: true, sections: [{ fields: ["title", "belege"] }] },
+  };
+
   test("a running file upload counts as unsaved input", async () => {
-    const entity = {
-      fields: { title: { type: "text" }, belege: { type: "files", display: "dropzone" } },
-    } as unknown as EntityDefinition;
-    const screenWithFile: EntityEditScreenDefinition = {
-      id: "tasks:screen:task-files",
-      type: "entityEdit",
-      entity: "task",
-      layout: { sections: [{ fields: ["title", "belege"] }] },
-    };
+    await expectUploadAsksBeforeLeaving(plainLayoutScreen);
+  });
+
+  test("a running file upload counts as unsaved input in a draft wizard too", async () => {
+    await expectUploadAsksBeforeLeaving(draftWizardScreen);
+  });
+
+  async function expectUploadAsksBeforeLeaving(
+    screenWithFile: EntityEditScreenDefinition,
+  ): Promise<void> {
+    const entity = uploadEntity;
     let resolveUpload: (id: string) => void = () => {};
     let uploadStarted = false;
     const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
@@ -697,5 +715,5 @@ describe("leave guard during an upload", () => {
     } finally {
       fetchSpy.mockRestore();
     }
-  });
+  }
 });

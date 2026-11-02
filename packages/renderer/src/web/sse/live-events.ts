@@ -220,7 +220,8 @@ export function createEventSourceLiveEvents(
       sessionEndedSignalled = true;
       onSessionEnded?.();
     };
-    armStallWatchdog(connection);
+    // Armed on `open`, not here: a scale-from-zero cold start can hold the handshake longer
+    // than the stall timeout, and aborting it would restart the cold start on every retry.
     connection.addEventListener("ping", () => armStallWatchdog(connection));
     connection.addEventListener("open", () => {
       armStallWatchdog(connection);

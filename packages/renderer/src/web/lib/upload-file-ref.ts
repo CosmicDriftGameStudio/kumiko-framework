@@ -1,6 +1,5 @@
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { CSRF_HEADER_NAME, readCsrfToken } from "../../live/index.ts";
-import { isSessionEndedError } from "../../session/session-ended.tsx";
 import { buildFileUploadFormData, type FileUploadFormDataInput } from "./file-upload-form-data.ts";
 
 export type FileRefTarget = Pick<
@@ -18,15 +17,6 @@ export class FileUploadFailedError extends Error {
   ) {
     super(message);
   }
-}
-
-export function isSessionEndedUploadError(cause: unknown): boolean {
-  return (
-    cause instanceof FileUploadFailedError &&
-    cause.code !== undefined &&
-    cause.httpStatus !== undefined &&
-    isSessionEndedError({ code: cause.code, httpStatus: cause.httpStatus })
-  );
 }
 
 /** Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id. */

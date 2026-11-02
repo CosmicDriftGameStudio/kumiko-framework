@@ -7,11 +7,12 @@ import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
 import { fileIdsOf } from "../../file-ids-of.ts";
 import type { EmbeddedListColumn, EmbeddedListInputProps } from "../../index.ts";
 import { useSessionEndedSignal, useTrackFormUpload, useTranslation } from "../../index.ts";
+import { isSessionEndedCause } from "../../session/session-ended.tsx";
 import { toAcceptAttr } from "../lib/accept-attr.ts";
 import { cn } from "../lib/cn.ts";
 import { resizeImageBeforeUpload } from "../lib/resize-image.ts";
 import { uploadErrorKey } from "../lib/upload-error-key.ts";
-import { isSessionEndedUploadError, uploadFileRef } from "../lib/upload-file-ref.ts";
+import { uploadFileRef } from "../lib/upload-file-ref.ts";
 import { FileNameLink, FileThumbnail } from "./file-thumbnail.tsx";
 
 export function EmbeddedFileCell({
@@ -57,7 +58,7 @@ export function EmbeddedFileCell({
         onChange([...ids, id]);
       });
     } catch (cause) {
-      if (isSessionEndedUploadError(cause)) sessionEnded?.notify();
+      if (isSessionEndedCause(cause)) sessionEnded?.notify();
       setError(t(uploadErrorKey(cause)));
     } finally {
       setUploading(false);
