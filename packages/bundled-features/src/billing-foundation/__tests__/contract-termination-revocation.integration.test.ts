@@ -233,7 +233,10 @@ async function seedMatchedAdmin(
     providerSubscriptionId: `sub_${tenantNumber}`,
     status: SubscriptionStatuses.active,
     tier: "pro",
-    currentPeriodEnd: "2026-11-02T00:00:00Z",
+    // Relative to now: a revocation only resumes while the period-end cancellation is still ahead.
+    currentPeriodEnd: Temporal.Now.instant()
+      .add({ hours: 30 * 24 })
+      .toString(),
   };
   const res = await stack.app.request(`/api/subscription/webhook/${providerName}`, {
     method: "POST",
