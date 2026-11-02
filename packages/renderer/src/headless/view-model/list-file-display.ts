@@ -12,7 +12,9 @@ function fromFormatSpec(
   if (typeof renderer !== "object" || renderer === null || !("format" in renderer)) {
     return undefined;
   }
-  if (renderer.format === "file") return { kind: "file" };
+  if (renderer.format === "file") {
+    return renderer.viewInDrawer === true ? { kind: "file", viewInDrawer: true } : { kind: "file" };
+  }
   if (renderer.format !== "image") return undefined;
   return renderer.variant === undefined
     ? { kind: "image" }

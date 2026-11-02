@@ -5,6 +5,7 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Check } from "lucide-react";
 import { Fragment, type MouseEvent, type ReactNode } from "react";
 import { rendererWarn } from "../../dev-console.ts";
+import { fileIdsOf } from "../../file-ids-of.ts";
 import type {
   CellLink,
   CellLinkItem,
@@ -24,6 +25,7 @@ import {
 import { Badge } from "../ui/badge.tsx";
 import { StatusBadge } from "../widgets/status-badge.tsx";
 import { FileDisplayCell } from "./file-thumbnail.tsx";
+import { FileViewAction } from "./file-view-action.tsx";
 import { currencyDecimals, formatMoney } from "./money-input.tsx";
 import "../react-css-custom-properties.ts";
 import { isPlainPrimaryClick } from "./layout-elements.tsx";
@@ -492,13 +494,19 @@ export function DataTableCell({
     );
   }
   if (fileDisplay !== undefined) {
+    const [firstFileId] = fileIdsOf(value);
     return (
-      <FileDisplayCell
-        value={value}
-        display={fileDisplay}
-        compact={compactFile}
-        fallbackLabel={translate?.("kumiko.field.file-upload.attached") ?? "File attached"}
-      />
+      <span className="inline-flex items-center gap-3">
+        <FileDisplayCell
+          value={value}
+          display={fileDisplay}
+          compact={compactFile}
+          fallbackLabel={translate?.("kumiko.field.file-upload.attached") ?? "File attached"}
+        />
+        {fileDisplay.kind === "file" &&
+          fileDisplay.viewInDrawer === true &&
+          firstFileId !== undefined && <FileViewAction fileId={firstFileId} />}
+      </span>
     );
   }
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {

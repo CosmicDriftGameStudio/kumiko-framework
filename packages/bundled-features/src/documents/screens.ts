@@ -45,7 +45,7 @@ export function createDocumentListScreen(
         field: "file",
         label: `${FIELD_PREFIX}file`,
         sortable: false,
-        renderer: { format: "file" },
+        renderer: { format: "file", viewInDrawer: true },
       },
     ],
     pagination: "pages",

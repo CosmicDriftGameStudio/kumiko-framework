@@ -111,6 +111,10 @@ function useExtensionComposition() {
   };
 }
 
+export function isCreateModeEntityId(entityId: string | null | undefined): boolean {
+  return entityId === undefined || entityId === null || entityId === "";
+}
+
 export function useRenderEditState({
   screen,
   entityId,
@@ -137,7 +141,7 @@ export function useRenderEditState({
   // step-transition path below stays wizard-only.
   const isTabs = screen.layout.mode === "tabs";
   const draftEnabled = isWizard && screen.layout.draft === true && dispatcher !== undefined;
-  const isCreateMode = entityId === undefined || entityId === null || entityId === "";
+  const isCreateMode = isCreateModeEntityId(entityId);
   const draftStorage = useDraftStorage();
   const feedback = useSubmitFeedbackState();
   const stepState = useStepState();

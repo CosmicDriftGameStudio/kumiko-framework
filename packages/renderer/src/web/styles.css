@@ -287,6 +287,15 @@
     --card-radius: var(--radius-xl);
     --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   }
+
+  /* Tailwind v4 preflight sets `button { cursor: default }`; restore the hand
+     for interactive controls (the documented v4 way), never for disabled ones. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
 
 :root {

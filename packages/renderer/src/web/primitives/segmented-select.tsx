@@ -4,8 +4,6 @@ import { statusToneForOptionTone } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { TONE_PILL } from "../widgets/status-badge.tsx";
 
-const EQUAL_WIDTH_MAX_SEGMENTS = 4;
-
 // WAI-ARIA radiogroup pattern (role="radiogroup" + role="radio" children):
 // arrow keys move focus AND selection in the same step, only the checked
 // segment (or the first when none is checked) sits in the tab order.
@@ -80,11 +78,10 @@ export function SegmentedControl({
       aria-invalid={hasError === true ? true : undefined}
       data-testid={`segmented-${id}`}
       className={cn(
-        // Few segments share one row at equal width so labels wrap inside
-        // their segment instead of leaving one tall and its siblings short.
-        options.length <= EQUAL_WIDTH_MAX_SEGMENTS
-          ? "inline-grid max-w-full grid-flow-col auto-cols-fr"
-          : "inline-flex w-fit flex-wrap",
+        // Labels stay whole (nowrap on the segment, whose min-content is then the full
+        // label); when the column is too narrow the segment moves to the next row
+        // instead of breaking a word or spilling into its neighbour.
+        "inline-flex w-fit max-w-full flex-wrap",
         size === "touch" ? "min-h-11" : "min-h-9",
         "overflow-hidden rounded-md border",
         hasError === true ? "border-destructive" : "border-input",
@@ -128,7 +125,7 @@ export function SegmentedControl({
               // and the next row's top border cut a notch into the row above.
               // Harmless on a single-row layout: there's no leftover space to
               // grow into, so `w-fit` on the container still holds.
-              "-ml-px -mt-px grow border-l border-t px-3 py-1.5 text-center text-sm transition-colors",
+              "-ml-px -mt-px grow basis-0 whitespace-nowrap border-l border-t px-3 py-1.5 text-center text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-50",
               hasError === true ? "border-destructive/50" : "border-border",

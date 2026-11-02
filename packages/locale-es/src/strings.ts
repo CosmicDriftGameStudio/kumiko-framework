@@ -586,6 +586,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.file-list.download": "Descargar",
   "kumiko.field.file-list.hidePreview": "Ocultar vista previa",
   "kumiko.field.file-list.preview": "Vista previa",
+  "kumiko.field.file-list.view": "Ver",
   "kumiko.validation.number.min": "Debe ser al menos {minimum}.",
   "kumiko.validation.number.max": "Debe ser como máximo {maximum}.",
   "errors.validation.too_small": "Demasiado pequeño o demasiado corto (mínimo: {minimum}).",

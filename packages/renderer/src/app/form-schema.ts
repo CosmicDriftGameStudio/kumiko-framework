@@ -13,6 +13,7 @@ import {
   NO_WIDGET_FIELD_TYPES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import * as z from "zod";
+import { asCustomIssue } from "../headless/form/zod-bridge.ts";
 import { type EditFormMode, I18N_KEY_PARAM } from "../headless/index.ts";
 import { layoutEditFields } from "./layout-fields.ts";
 
@@ -58,6 +59,12 @@ function isRequiredValueMissing(
   return !(
     unchangedFrom !== undefined && isUnchangedValue(record[spec.field], unchangedFrom[spec.field])
   );
+}
+
+// Only select fields map "" and null to their default on insert (selectFieldToZod);
+// other types apply `.default()` to undefined only, so a user-cleared "" still fails there.
+function isSelectWithDefault(field: FieldDefinition): boolean {
+  return field.type === "select" && field.default !== undefined;
 }
 
 type FormRefinementCtx = z.core.$RefinementCtx;
@@ -181,6 +188,9 @@ export function buildFormSchema(
           continue;
         }
         selectFieldsToCheck[spec.field] = field;
+        // On insert the server turns an empty select into its default, so a presence
+        // error would block a value the user may leave empty.
+        if (verb === "create" && isSelectWithDefault(field)) continue;
         if (!isRequiredValueMissing(spec, field, record, unchangedFrom)) continue;
         ctx.addIssue({
           code: "custom",
@@ -199,4 +209,17 @@ export function buildFormSchema(
         selectFieldsToCheck,
       );
     });
+}
+
+// Both schemas run on the same values and their issues are merged, so a
+// caller-supplied schema adds rules instead of replacing the field-derived ones.
+// Not z.intersection: that would fail when the two parsed outputs cannot merge.
+export function allOfSchemas(first: z.ZodType, second: z.ZodType): z.ZodType {
+  return z.unknown().superRefine((values, ctx) => {
+    for (const schema of [first, second]) {
+      const parsed = schema.safeParse(values);
+      if (parsed.success) continue;
+      for (const issue of parsed.error.issues) ctx.addIssue(asCustomIssue(issue));
+    }
+  });
 }

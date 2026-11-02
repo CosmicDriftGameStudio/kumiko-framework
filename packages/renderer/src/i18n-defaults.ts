@@ -50,6 +50,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.file-list.download": "Download",
     "kumiko.field.file-list.hidePreview": "Hide preview",
     "kumiko.field.file-list.preview": "Preview",
+    "kumiko.field.file-list.view": "View",
     "kumiko.field.fillAction.failed": "Could not fetch a suggestion.",
     "kumiko.field.writeOnly.remove": "Remove stored value",
     "kumiko.field.writeOnly.set": "Set",

@@ -874,6 +874,7 @@ interface FieldFormatRegistry {
   }; // List cell: FileRef id (or id array) as a thumbnail.
   file: {
     previewOpenByDefault?: boolean;
+    viewInDrawer?: boolean;
   }; // FileRef id (or id array) as a download link with the file name.
 }
 type HandlerAuth = {

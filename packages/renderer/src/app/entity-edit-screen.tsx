@@ -33,7 +33,6 @@ import {
   versionOf,
 } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
-import { buildFormSchema } from "./form-schema.ts";
 import { layoutEditFields, layoutFieldNames } from "./layout-fields.ts";
 import { useInitialValuesHandoff, useNav } from "./nav.tsx";
 import { lastSegment, toKebab } from "./qn.ts";
@@ -190,7 +189,6 @@ function EntityEditCreateBody({
       fallbackTimeZone,
     ],
   );
-  const formSchema = useMemo(() => buildFormSchema(entity, screen, "create"), [entity, screen]);
   const writeCommand = entityWriteCommand(schema.featureName, screen.entity, "create");
   const navigateToList = useNavigateToListAfter(schema, screen.entity);
   const handleCancel = useCallback(
@@ -255,7 +253,6 @@ function EntityEditCreateBody({
       entity={entity}
       featureName={schema.featureName}
       initial={initial}
-      schema={formSchema}
       writeCommand={writeCommand}
       onSubmit={handleSubmitted}
       onControlsReady={handleControlsReady}
@@ -435,11 +432,6 @@ function EntityEditUpdateForm({
     }
     return out;
   }, [entity.fields, entityDefaultCurrency, moneyCurrencyOverrides, record]);
-
-  const formSchema = useMemo(
-    () => buildFormSchema(entity, screen, "update", initial),
-    [entity, screen, initial],
-  );
 
   // Hand extension values (e.g. customFields jsonb) to the extension sections
   // so they show the existing data on edit instead of being write-only.
@@ -640,7 +632,6 @@ function EntityEditUpdateForm({
         // Stored customFields for the extension section, so editing shows the
         // persisted values instead of behaving write-only.
         extensionInitialValues={extensionInitialValues}
-        schema={formSchema}
         writeCommand={writeCommand}
         payloadMode="changes"
         buildPayload={buildPayload}

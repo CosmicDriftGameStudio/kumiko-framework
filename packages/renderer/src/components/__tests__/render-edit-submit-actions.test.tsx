@@ -5,6 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import * as z from "zod";
 import { stubDispatcher } from "../../__tests__/stub-dispatcher.ts";
 import { buildFormSchema } from "../../app/form-schema.ts";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
@@ -239,8 +240,7 @@ describe("RenderEdit — submit path", () => {
     let submitted: SubmitResult<unknown> | undefined;
     let customCalls = 0;
     const entity = buildEntity(true);
-    // RenderEdit only validates when a schema is passed (kumiko-screen builds it
-    // via buildFormSchema). Without it, entity.required is display-only here.
+    // An explicit field-derived schema still works; RenderEdit adds the same check itself.
     render(
       <LocaleProvider
         resolver={createStaticLocaleResolver({ locale: "en-US" })}
@@ -278,6 +278,106 @@ describe("RenderEdit — submit path", () => {
     expect(submitted).toEqual({ validationBlocked: true, isSuccess: false });
     expect(customCalls).toBe(0);
   });
+  describe.each([
+    ["without a caller schema", undefined],
+    ["with a caller schema that does not mention the field", z.object({}).passthrough()],
+  ])("required field %s", (_label, callerSchema) => {
+    test("blocks customSubmit and marks the empty required field", async () => {
+      let submitted: SubmitResult<unknown> | undefined;
+      let customCalls = 0;
+      renderEdit(
+        oneFieldScreen,
+        {
+          initial: { name: "seed" },
+          ...(callerSchema !== undefined && { schema: callerSchema }),
+          customSubmit: async () => {
+            customCalls += 1;
+            return { validationBlocked: false, isSuccess: true, data: {} };
+          },
+          onSubmit: (result) => {
+            submitted = result;
+          },
+        },
+        buildEntity(true),
+      );
+
+      fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "" } });
+      await waitFor(() =>
+        expect((rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(
+          false,
+        ),
+      );
+      fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+      await waitFor(() => expect(submitted).toBeDefined());
+      expect(submitted).toEqual({ validationBlocked: true, isSuccess: false });
+      expect(customCalls).toBe(0);
+      expect(document.querySelector('[data-testid^="field-issue-"]')).not.toBeNull();
+    });
+  });
+
+  test("a caller schema failure and the required check both apply", async () => {
+    let submitted: SubmitResult<unknown> | undefined;
+    renderEdit(
+      oneFieldScreen,
+      {
+        initial: { name: "seed" },
+        schema: z.object({ items: z.array(z.unknown()).min(1) }),
+        customSubmit: async () => ({ validationBlocked: false, isSuccess: true, data: {} }),
+        onSubmit: (result) => {
+          submitted = result;
+        },
+      },
+      buildEntity(true),
+    );
+    fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "" } });
+    await waitFor(() =>
+      expect((rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(submitted).toBeDefined());
+    expect(submitted?.validationBlocked).toBe(true);
+    expect(document.querySelector('[data-testid^="field-issue-"]')).not.toBeNull();
+  });
+
+  describe.each([
+    ["with an entity default", true],
+    ["without an entity default", false],
+  ])("create mode, user-cleared required text field %s", (_label, withDefault) => {
+    // A text default only replaces undefined server-side, never a cleared "".
+    test("blocks the submit", async () => {
+      const base = buildEntity(true);
+      const nameField = base.fields["name"];
+      const entity: EntityDefinition =
+        withDefault && nameField?.type === "text"
+          ? { ...base, fields: { name: { ...nameField, default: "accrual" } } }
+          : base;
+      let submitted: SubmitResult<unknown> | undefined;
+      renderEdit(
+        oneFieldScreen,
+        {
+          initial: { name: "seed" },
+          customSubmit: async () => ({ validationBlocked: false, isSuccess: true, data: {} }),
+          onSubmit: (result) => {
+            submitted = result;
+          },
+        },
+        entity,
+      );
+      fireEvent.change(rtlScreen.getByLabelText(/name/i), { target: { value: "" } });
+      await waitFor(() =>
+        expect((rtlScreen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(
+          false,
+        ),
+      );
+      fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+      await waitFor(() => expect(submitted).toBeDefined());
+      expect(submitted?.validationBlocked).toBe(true);
+    });
+  });
+
   test("failed writeCommand with field issues suppresses the form-error banner", async () => {
     const writeFailure: DispatcherError = {
       code: "validation_failed",
