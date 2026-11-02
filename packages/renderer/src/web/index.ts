@@ -347,6 +347,8 @@ export {
   PhotoSlots,
   PlanCard,
   PlanGrid,
+  type PreviewDevice,
+  PreviewWidthFrame,
   ProgressBar,
   ProgressList,
   PublicShell,

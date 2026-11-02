@@ -96,6 +96,7 @@ export {
   type PdfPreviewSource,
 } from "./pdf-preview.tsx";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots.tsx";
+export { type PreviewDevice, PreviewWidthFrame } from "./preview-width-frame.tsx";
 export {
   PlanCard,
   type PlanCardActionSlot,

@@ -8,20 +8,18 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { HtmlMailFrame, LoadingState, ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
+import {
+  HtmlMailFrame,
+  LoadingState,
+  ModeSwitch,
+  type PreviewDevice,
+  PreviewWidthFrame,
+} from "@cosmicdrift/kumiko-renderer/web";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
 import { TemplateResolverQueries } from "./qualified-names.ts";
 
 const PREVIEW_DEBOUNCE_MS = 300;
-
-// Width classes must already be emitted from renderer/src (Tailwind scan surface).
-const FRAME_WIDTH_CLASS: Readonly<Record<Device, string>> = {
-  desktop: "mx-auto w-full max-w-3xl",
-  mobile: "mx-auto w-full max-w-sm",
-};
-
-type Device = "desktop" | "mobile";
 
 function htmlOf(value: unknown): string | null {
   return isPlainObject(value) && typeof value["html"] === "string" ? value["html"] : null;
@@ -50,12 +48,12 @@ export function HtmlPaperFrame({
 }): ReactNode {
   const t = useTranslation();
   const { Card } = usePrimitives();
-  const [device, setDevice] = useState<Device>("desktop");
+  const [device, setDevice] = useState<PreviewDevice>("desktop");
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-8 py-6">
       {devices && (
         <div className="flex justify-end">
-          <ModeSwitch<Device>
+          <ModeSwitch<PreviewDevice>
             value={device}
             onChange={setDevice}
             ariaLabel={t("kumiko.editor.deviceSwitch")}
@@ -71,11 +69,7 @@ export function HtmlPaperFrame({
       {html === null ? (
         notice === undefined && <LoadingState />
       ) : (
-        <div
-          className={FRAME_WIDTH_CLASS[device]}
-          data-testid="web-preview-frame"
-          data-device={device}
-        >
+        <PreviewWidthFrame device={device} testId="web-preview-frame">
           <Card>
             <HtmlMailFrame
               html={html}
@@ -84,7 +78,7 @@ export function HtmlPaperFrame({
               testId="web-preview-iframe"
             />
           </Card>
-        </div>
+        </PreviewWidthFrame>
       )}
     </div>
   );

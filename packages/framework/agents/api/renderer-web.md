@@ -75,6 +75,7 @@ function PlanCard(props: PlanCardProps): ReactNode;
 function PlanGrid(props: PlanGridProps): ReactNode;
 function PresenceAvatars(props: PresenceAvatarsProps): ReactNode; // Small round avatars of the people on a row, with "+n" for the rest; for list rows.
 function PresenceNotice(props: PresenceNoticeProps): ReactNode; // One quiet line above a record: who else is on it and for how long.
+function PreviewWidthFrame(props: { device: PreviewDevice; children: ReactNode; testId?: string; }): ReactNode;
 function PrimitivesProvider(props: PrimitivesProviderProps): ReactNode;
 function ProfileMenu(props: ProfileMenuProps): ReactNode;
 function ProgressBar(props: { value: number; tone?: ProgressTone; size?: "default" | "thin"; ariaLabel?: string; className?: string; testId?: string; }): ReactNode; // Progress bar, `value` 0..1 (clamped).
@@ -1209,6 +1210,7 @@ type PresenceNoticeProps = {
   nowMs?: number; // Fixed "now" in epoch ms; without it the notice follows the clock once a minute.
   testId?: string;
 };
+type PreviewDevice = "desktop" | "mobile";
 type PrimitivesProviderProps = {
   children: ReactNode;
   value: PrimitivesRegistry;
