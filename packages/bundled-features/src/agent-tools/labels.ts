@@ -20,8 +20,10 @@ export function pickLabel(
   const firstLocale = Object.keys(labels)
     .sort(compareIds)
     .find((key) => nonEmpty(labels[key]));
+  const baseLanguage = locale.split("-")[0]?.toLowerCase();
   return (
     nonEmpty(labels[locale]) ??
+    (baseLanguage !== undefined ? nonEmpty(labels[baseLanguage]) : undefined) ??
     nonEmpty(labels[FALLBACK_LOCALE]) ??
     (firstLocale !== undefined ? labels[firstLocale] : undefined)
   );
