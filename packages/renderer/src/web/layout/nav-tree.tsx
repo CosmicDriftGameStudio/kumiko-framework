@@ -7,8 +7,8 @@
 // entries use only muted foreground. Indentation reflects the tree depth.
 //
 // Parent nodes with children are collapsible; the right chevron toggles them.
-// State is local to NavTree (useState) and everything is expanded by default;
-// a caller can layer localStorage persistence on top later.
+// Everything is expanded by default; the explicitly collapsed set survives
+// remounts via sessionStorage (see nav-collapse-state.ts).
 
 import type {
   AccessRule,
@@ -34,7 +34,6 @@ import { resolveNavigation } from "../../headless/index.ts";
 import { createLiveRefetchScheduler } from "../../hooks/live-refetch-scheduler.ts";
 import type { AppSchema, FeatureSchema } from "../../index.ts";
 import { lastSegment, toAppSchema, useLiveEvents, useNav, useTranslation } from "../../index.ts";
-import { toggleSetMember } from "../../toggle-set-member.ts";
 import { KumikoLink } from "../app/nav.tsx";
 import { useNavEntities, useNavProviders } from "../app/nav-providers-context.tsx";
 import { NAV_ICONS } from "../icons.tsx";
@@ -53,6 +52,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "../ui/sidebar.tsx";
+import { usePersistedNavCollapse } from "./nav-collapse-state.ts";
 import { resolveParentScreenId } from "./shell-breadcrumb.ts";
 import { useDispatchTarget } from "./target-resolver-stub.tsx";
 import { parseTargetFromSearchParams } from "./target-url.ts";
@@ -109,6 +109,19 @@ export function treeContainsScreen(nodes: readonly NavNode[], screenId: string):
   );
 }
 
+// Qualified names of the containers on the way to the node showing `screenId`.
+function containerPathToScreen(
+  nodes: readonly NavNode[],
+  screenId: string,
+): readonly string[] | undefined {
+  for (const node of nodes) {
+    if (node.screen !== undefined && lastSegment(node.screen) === screenId) return [];
+    const inner = containerPathToScreen(node.children, screenId);
+    if (inner !== undefined) return [node.qualifiedName, ...inner];
+  }
+  return undefined;
+}
+
 // A node survives filtering when it or a descendant matches.
 // Provider children are already materialized during filtering (provider nodes
 // are default-expanded → eagerly loaded), so static children recursion is
@@ -158,10 +171,17 @@ export function NavTree({
   // The collapsed set contains only explicitly collapsed qualified names.
   // Everything is therefore expanded by default, so new features appear open
   // without requiring the user to click first.
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
-  const onToggle = useCallback((qn: string) => {
-    setCollapsed((prev) => toggleSetMember(prev, qn));
-  }, []);
+  const { collapsed, toggle: onToggle, revealOnScreenChange } = usePersistedNavCollapse();
+  // Keyed on the active screen only, so a container the user collapses while
+  // staying on the screen is not reopened; other collapsed containers are left alone.
+  const revealScreenId = activeMarker?.screenId;
+  const treeRef = useRef(tree);
+  treeRef.current = tree;
+  useEffect(() => {
+    if (revealScreenId === undefined) return;
+    const path = containerPathToScreen(treeRef.current, revealScreenId);
+    if (path !== undefined) revealOnScreenChange(revealScreenId, path);
+  }, [revealScreenId, revealOnScreenChange]);
 
   const t = useTranslation();
   const { state: sidebarState } = useSidebar();

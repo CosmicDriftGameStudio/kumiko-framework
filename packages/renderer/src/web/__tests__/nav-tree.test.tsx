@@ -33,6 +33,10 @@ import { NavTree } from "../layout/nav-tree.tsx";
 import { setDispatchListener } from "../layout/target-resolver-stub.tsx";
 import { fireEvent, renderWithSidebar as render, screen } from "./test-utils.tsx";
 
+beforeEach(() => {
+  window.sessionStorage.clear();
+});
+
 function makeSchema(): FeatureSchema {
   return {
     featureName: "showcase",
@@ -515,6 +519,109 @@ function navWithRoute(screenId: string): NavApi {
     setSearchParams: () => {},
   };
 }
+
+function twoContainerSchema(): FeatureSchema {
+  return {
+    featureName: "showcase",
+    entities: {},
+    screens: [
+      { id: "a-list", type: "entityList", entity: "x", columns: [] },
+      { id: "a-child", type: "entityList", entity: "x", columns: [] },
+      { id: "a-child-two", type: "entityList", entity: "x", columns: [] },
+      { id: "b-list", type: "entityList", entity: "x", columns: [] },
+      { id: "b-child", type: "entityList", entity: "x", columns: [] },
+    ],
+    navs: [
+      { id: "a-list", label: "AList", screen: "a-list", order: 10 },
+      { id: "a-child", label: "AChild", parent: "a-list", screen: "a-child", order: 10 },
+      {
+        id: "a-child-two",
+        label: "AChildTwo",
+        parent: "a-list",
+        screen: "a-child-two",
+        order: 20,
+      },
+      { id: "b-list", label: "BList", screen: "b-list", order: 20 },
+      { id: "b-child", label: "BChild", parent: "b-list", screen: "b-child", order: 10 },
+    ],
+  } satisfies FeatureSchema;
+}
+
+function collapseButton(label: string): HTMLButtonElement {
+  const item = screen.getByText(label).closest("li");
+  const button = item?.querySelector<HTMLButtonElement>("button[aria-expanded]");
+  if (button === null || button === undefined) throw new Error(`no chevron for ${label}`);
+  return button;
+}
+
+describe("NavTree collapse state survives remount and navigation", () => {
+  test("a container the user collapsed stays collapsed after the tree remounts", () => {
+    const first = render(<NavTree schema={twoContainerSchema()} />);
+    fireEvent.click(collapseButton("AList"));
+    expect(screen.queryByText("AChild")).toBeNull();
+    first.unmount();
+
+    render(<NavTree schema={twoContainerSchema()} />);
+    expect(screen.queryByText("AChild")).toBeNull();
+    expect(screen.getByText("BChild")).toBeTruthy();
+  });
+
+  test("navigating into a collapsed container opens only that container", () => {
+    const schema = twoContainerSchema();
+    const view = render(
+      <NavProvider value={navWithRoute("b-list")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+    fireEvent.click(collapseButton("AList"));
+    fireEvent.click(collapseButton("BList"));
+    expect(screen.queryByText("AChild")).toBeNull();
+    expect(screen.queryByText("BChild")).toBeNull();
+
+    view.rerender(
+      <NavProvider value={navWithRoute("a-child")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+    expect(screen.getByText("AChild")).toBeTruthy();
+    expect(screen.queryByText("BChild")).toBeNull();
+  });
+
+  test("remounting on the same active screen does not reopen its collapsed container, a screen change does", () => {
+    const schema = twoContainerSchema();
+    const onAChild = (
+      <NavProvider value={navWithRoute("a-child")}>
+        <NavTree schema={schema} />
+      </NavProvider>
+    );
+    const first = render(onAChild);
+    fireEvent.click(collapseButton("AList"));
+    expect(screen.queryByText("AChild")).toBeNull();
+    first.unmount();
+
+    const second = render(onAChild);
+    expect(screen.queryByText("AChild")).toBeNull();
+
+    second.rerender(
+      <NavProvider value={navWithRoute("a-child-two")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+    expect(screen.getByText("AChild")).toBeTruthy();
+    expect(screen.getByText("AChildTwo")).toBeTruthy();
+  });
+
+  test("the search filter opens everything temporarily and clearing it restores the stored state", () => {
+    render(<NavTree schema={twoContainerSchema()} />);
+    fireEvent.click(collapseButton("AList"));
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "AChild" } });
+    expect(screen.getByText("AChild")).toBeTruthy();
+    fireEvent.change(input, { target: { value: "" } });
+    expect(screen.queryByText("AChild")).toBeNull();
+    expect(screen.getByText("BChild")).toBeTruthy();
+  });
+});
 
 describe("NavTree active-marker parent fallback", () => {
   test("screen without its own nav entry highlights the resolved parent, without aria-current", () => {
