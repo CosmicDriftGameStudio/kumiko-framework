@@ -1558,6 +1558,7 @@ type SaveContext = {
   isNew: boolean;
   entityName?: string | undefined;
   event: StoredEvent;
+  claimedFileRefIds?: string[] | undefined;
 };
 type ScreenDefinition = EntityListScreenDefinition | ProjectionListScreenDefinition | ProjectionDetailScreenDefinition | DashboardScreenDefinition | EntityEditScreenDefinition | ActionFormScreenDefinition | ConfigEditScreenDefinition | SecretsEditScreenDefinition | SecretMintScreenDefinition | CustomScreenDefinition;
 type SecretKeyDefinition = {

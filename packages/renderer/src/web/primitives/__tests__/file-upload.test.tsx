@@ -189,6 +189,31 @@ describe("FileUploadInput — upload POST body", () => {
     expect(body.has("entityId")).toBe(false);
     expect(body.get("entityType")).toBe("order");
   });
+
+  test("lifts the claim handle instead of the id when the server issued one", async () => {
+    const handle = `${FILE_ID}.${"A".repeat(43)}`;
+    fetchSpy = spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ id: FILE_ID, handle }), { status: 201 }),
+    );
+    const uploaded: (string | null)[] = [];
+    const { container } = render(
+      <FileUploadInput
+        kind="image"
+        id="doc"
+        value={null}
+        onChange={(id) => uploaded.push(id)}
+        entityType="order"
+        fieldName="doc"
+      />,
+    );
+    const input = container.querySelector('input[type="file"]');
+    if (input === null) throw new Error("file input missing");
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "a.png", { type: "image/png" })] },
+    });
+    await waitFor(() => expect(uploaded).toEqual([handle]));
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("FileUploadInput — upload failure", () => {

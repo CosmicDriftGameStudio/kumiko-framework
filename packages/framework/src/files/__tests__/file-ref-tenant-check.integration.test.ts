@@ -192,13 +192,13 @@ describe("file references are tenant-checked on write", () => {
     expect(JSON.stringify(foreignErr)).not.toContain(foreign);
   });
 
-  test("a system user writing for the tenant may reference the tenant's own file", async () => {
+  test("a system user cannot reference a user's pending upload without owning it", async () => {
     const own = await upload(userA);
     const result = await stack.dispatcher.write(
       CREATE,
       { title: "By job", attachment: own },
       createSystemUser(userA.tenantId, ["SystemAdmin"]),
     );
-    expect(result.isSuccess).toBe(true);
+    expect(result.isSuccess).toBe(false);
   });
 });

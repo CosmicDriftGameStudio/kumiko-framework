@@ -1,4 +1,4 @@
-import { SYSTEM_USER_ID } from "../engine/system-user.ts";
+import { isAnonymousSessionUser, SYSTEM_USER_ID } from "../engine/system-user.ts";
 import type { FileAccessGuard } from "./file-routes.ts";
 import type { RecordReadCheck } from "./record-read-check.ts";
 
@@ -17,6 +17,8 @@ export function createDefaultGuard(
   recordOnlyEntityTypes: ReadonlySet<string>,
 ): FileAccessGuard {
   return async ({ fileRef, user, operation }) => {
+    // Every anonymous visitor shares one user id, so insertedById proves no ownership for them.
+    if (isAnonymousSessionUser(user)) return "deny";
     if (fileRef.insertedById === user.id) return "allow";
     const isRecordOnly =
       fileRef.entityType !== null && recordOnlyEntityTypes.has(fileRef.entityType);

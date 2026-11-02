@@ -122,8 +122,8 @@ export function registryHasAnonymousUploadField(registry: Registry | undefined):
   return found;
 }
 
-// Anonymous visitors share one user id and cannot bind, so only an opted-in field's
-// pending upload (no record, no action form) is allowed.
+// Anonymous uploads stay pending (no record, no action form) and only into an opted-in field;
+// the upload response hands the visitor the claim handle that later binds the file.
 export function isAnonymousPendingUploadAllowed(
   registry: Registry | undefined,
   target: UploadTarget,

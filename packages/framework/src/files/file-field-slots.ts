@@ -41,6 +41,33 @@ export function fileRefIdsInField(def: FieldDefinition | undefined, value: unkno
   );
 }
 
+/** The field value with every string in a file slot replaced by `map(entry)`; other values pass through. */
+export function mapFileRefSlots(
+  def: FieldDefinition | undefined,
+  value: unknown,
+  map: (entry: string) => string,
+): unknown {
+  const mapSlot = (slot: unknown): unknown => {
+    if (typeof slot === "string") return map(slot);
+    return Array.isArray(slot)
+      ? slot.map((entry) => (typeof entry === "string" ? map(entry) : entry))
+      : slot;
+  };
+  if (def === undefined) return value;
+  if (isFileField(def)) return mapSlot(value);
+  if (def.type !== "embedded") return value;
+  const subNames = fileSubFieldNames(def);
+  const mapRow = (row: unknown): unknown => {
+    if (!isPlainObject(row)) return row;
+    const mapped: Record<string, unknown> = { ...row };
+    for (const name of subNames) {
+      if (name in mapped) mapped[name] = mapSlot(mapped[name]);
+    }
+    return mapped;
+  };
+  return Array.isArray(value) ? value.map(mapRow) : mapRow(value);
+}
+
 /** FileRef ids per file sub-field of an embedded field value, pooled over all rows. */
 export function fileRefIdsBySubField(
   def: FieldDefinition | undefined,

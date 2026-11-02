@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-02T22:50:18.798Z",
+  "generatedAt": "2026-11-03T00:26:40.322Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -93,6 +93,11 @@
         },
         {
           "name": "field_name",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "claim_hash",
           "pgType": "text",
           "notNull": false
         }

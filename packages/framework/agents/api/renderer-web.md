@@ -161,7 +161,7 @@ function saveBlobAsFile(fileName: string, blob: Blob, options?: { bom?: boolean;
 function smoothPath(pts: ReadonlyArray<{ x: number; y: number; }>): string; // Quadratic midpoint technique: smooths the zigzag line without overshoot (~5 lines instead of a Catmull-Rom/Bezier fit).
 function synthesizeActionFormEntity(fields: Readonly<Record<string, FieldDefinition>>): EntityDefinition; // Builds a minimal EntityDefinition from the inline fields of an ActionForm or SecretMint screen.
 function synthesizeActionFormScreen(screen: ActionFormScreenDefinition | SecretMintScreenDefinition): EntityEditScreenDefinition; // Converts an ActionFormScreenDefinition or SecretMintScreenDefinition to the EntityEditScreen shape expected by RenderEdit.
-function uploadFileRef(file: Blob, target?: FileRefTarget): Promise<string>; // Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id.
+function uploadFileRef(file: Blob, target?: FileRefTarget): Promise<string>; // Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id, or the claim handle when the server issued one (anonymous uploads), which a save must submit.
 function useBrowserNavApi(options?: { hasWorkspaces?: boolean; basePath?: string; features?: FeatureSchema[]; }): NavApi; // React hook that builds a NavApi from browser history.
 function useBrowserTokensApi(): TokensApi; // Builds a TokensApi for the browser.
 function useDispatchTarget(): (target: TargetRef) => void; // Recommended production dispatch.

@@ -3,6 +3,7 @@ import type {
   EntityDefinition,
   FieldDefinition,
 } from "@cosmicdrift/kumiko-types/fields";
+import { isFileHandle } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
 import { moneyPayloadToMinorUnits } from "../db/money.ts";
 import { isValidIanaTimeZone } from "../time/index.ts";
@@ -291,11 +292,13 @@ function locatedTimestampToZod(): z.ZodTypeAny {
   ]);
 }
 
+// A fileRef UUID (the type of fileRefsTable.id) or the handle of a pending anonymous upload,
+// which the executor resolves to the bare UUID before anything is stored.
+const fileRefReferenceToZod = (): z.ZodTypeAny =>
+  z.union([z.uuid(), z.string().refine(isFileHandle, { message: "invalid file handle" })]);
+
 function fileListFieldToZod(field: { readonly maxCount?: number }): z.ZodTypeAny {
-  // Multi file: array of fileRef UUIDs. Same story as the singular
-  // variant — the element type has to match the UUID column on
-  // fileRefsTable.id.
-  const ids = z.array(z.uuid());
+  const ids = z.array(fileRefReferenceToZod());
   return field.maxCount === undefined ? ids : ids.max(field.maxCount);
 }
 
@@ -359,12 +362,7 @@ export function fieldToZod(
       return locatedTimestampToZod();
     case "file":
     case "image":
-      // Single file: stores a fileRef UUID — must match fileRefsTable.id
-      // (uuid column). Pre-fix this was z.number() from an era when the
-      // column was (wrongly) integer; the table-builder fix to uuid needs
-      // a matching validation-layer fix here or the CRUD pipeline rejects
-      // every valid UUID with "expected number".
-      return z.uuid();
+      return fileRefReferenceToZod();
     case "files":
     case "images":
       return fileListFieldToZod(field);

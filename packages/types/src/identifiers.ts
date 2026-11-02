@@ -27,6 +27,30 @@ export function isUuid(value: unknown): value is string {
   return typeof value === "string" && TENANT_ID_REGEX.test(value);
 }
 
+// Opaque reference to a pending anonymous upload: `<fileRef uuid>.<claim>`. The claim is 32 random
+// bytes, base64url; the server stores only its hash. Field values accept this form and persist
+// the bare uuid.
+const FILE_HANDLE_CLAIM_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+
+export type FileHandleParts = { readonly id: string; readonly claim: string };
+
+export function parseFileHandle(value: unknown): FileHandleParts | null {
+  if (typeof value !== "string") return null;
+  const separator = value.indexOf(".");
+  if (separator === -1) return null;
+  const id = value.slice(0, separator);
+  const claim = value.slice(separator + 1);
+  return isUuid(id) && FILE_HANDLE_CLAIM_PATTERN.test(claim) ? { id, claim } : null;
+}
+
+export function isFileHandle(value: unknown): value is string {
+  return parseFileHandle(value) !== null;
+}
+
+export function formatFileHandle(parts: FileHandleParts): string {
+  return `${parts.id}.${parts.claim}`;
+}
+
 // Validates a candidate string against the tenantId format and returns it
 // as a TenantId, or `null` when it doesn't match. Use at every system
 // boundary that admits untrusted input (HTTP headers, cookies, query

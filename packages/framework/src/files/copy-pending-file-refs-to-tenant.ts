@@ -1,4 +1,5 @@
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import { parseFileHandle } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "../db/tenant-db.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
 import {
@@ -80,10 +81,10 @@ export async function copyPendingFileRefsToTenant(args: {
     });
     if (pending === undefined) return fileNotPending(fileRefId);
     // Read through the executor so an encrypted file name arrives as plain text.
-    const detail = await executor.detail({ id: fileRefId }, source.user, source.db);
+    const detail = await executor.detail({ id: pending.id }, source.user, source.db);
     if (detail === null) return fileNotPending(fileRefId);
     uploads.push({
-      id: fileRefId,
+      id: pending.id,
       storageKey: pending.storageKey,
       mimeType: pending.mimeType,
       fileName: detail.fileName,
@@ -136,5 +137,8 @@ async function bindInPlace(
     });
     if (outcome !== "bound") return fileNotPending(fileRefId);
   }
-  return { isSuccess: true, data: fileIds };
+  return {
+    isSuccess: true,
+    data: fileIds.map((fileRefId) => parseFileHandle(fileRefId)?.id ?? fileRefId),
+  };
 }
