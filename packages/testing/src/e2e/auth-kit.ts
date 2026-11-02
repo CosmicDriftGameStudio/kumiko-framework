@@ -272,7 +272,14 @@ export async function loginViaUi(page: Page, credentials: LoginCredentials): Pro
   }
   // The form disappears before the app navigates to its landing page; a goto issued in
   // between is interrupted by that navigation.
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  await page
+    .waitForURL((url) => !url.pathname.startsWith("/login"))
+    .catch((error: unknown) => {
+      throw new Error(
+        "loginViaUi: the app stayed on /login after the login went through; configure auth.postAuthLanding or redirect authenticated users away from /login",
+        { cause: error },
+      );
+    });
 }
 
 async function completeMfaStep(page: Page, mfaTotpSecret: string): Promise<void> {
@@ -282,12 +289,16 @@ async function completeMfaStep(page: Page, mfaTotpSecret: string): Promise<void>
   await expect(codeField).toBeVisible();
   const code = await unburnedTotpCode(mfaTotpSecret);
   // The sixth digit submits on its own and disables the field; an Enter press would race that.
-  await Promise.all([
+  const [verifyResponse] = await Promise.all([
     page.waitForResponse(
-      (response) => response.url().includes("/api/auth/mfa/verify") && response.ok(),
+      (response) =>
+        response.url().includes("/api/auth/mfa/verify") && response.request().method() === "POST",
     ),
     codeField.fill(code),
   ]);
+  if (!verifyResponse.ok()) {
+    throw new Error(`MFA verify failed: ${verifyResponse.status()} ${await verifyResponse.text()}`);
+  }
   await expect(codeField).toHaveCount(0);
 }
 

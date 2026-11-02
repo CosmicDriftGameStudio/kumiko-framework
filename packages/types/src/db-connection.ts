@@ -5,7 +5,6 @@ import type { SQL, TransactionSQL } from "bun";
 export type RawDbClient = {
   unsafe: (sql: string, params?: readonly unknown[]) => PromiseLike<readonly unknown[]>;
   begin: <T>(fn: (tx: DbTx) => Promise<T>) => Promise<T>;
-  end?: (options?: { timeout?: number }) => Promise<void>;
 };
 
 // Raw SQL client (Bun.SQL instance or structurally compatible). Distinct from the

@@ -51,7 +51,7 @@ test("an x-forwarded-for set on a single fetch is overridden by the per-test con
 // every asset and GET /api/schema on each page.goto. A max-age resource loaded twice
 // must reach the server once.
 test("the fixture keeps the HTTP cache on", async ({ page, request }, testInfo) => {
-  const key = testInfo.testId;
+  const key = `${testInfo.testId}:${testInfo.repeatEachIndex}:${testInfo.retry}`;
   await page.goto("/");
 
   const loadCacheable = () =>

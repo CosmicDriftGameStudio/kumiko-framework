@@ -101,6 +101,14 @@ export async function seedRowViaEventStore(
   }
   const { entity, entityName } = source;
   const { tenantId, ...payload } = values;
+  const unknownKeys = Object.keys(payload).filter(
+    (key) => key !== "id" && entity.fields[key] === undefined,
+  );
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `seed ${entityName}: ${unknownKeys.join(", ")} not entity fields; system columns come from events, use deleteRowViaEventStore or the real command`,
+    );
+  }
   if (payload["id"] !== undefined && typeof payload["id"] !== "string") {
     throw new Error(
       `seed ${entityName}: id must be a string, the event store would mint a new one`,

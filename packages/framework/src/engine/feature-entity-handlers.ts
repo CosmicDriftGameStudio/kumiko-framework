@@ -199,8 +199,10 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...agentSlots(def),
         ...(isEntityConventionWriteHandler(def) && {
           [ENTITY_CONVENTION_WRITE_BRAND]: true as const,
+          // Hand-written handlers must not claim excluded fields: the manifest would promise
+          // a validation their schema never performs.
+          ...(def.excludedFields && { excludedFields: def.excludedFields }),
         }),
-        ...(def.excludedFields && { excludedFields: def.excludedFields }),
         ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
         ...(def.rateLimit && { rateLimit: def.rateLimit }),
         ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
