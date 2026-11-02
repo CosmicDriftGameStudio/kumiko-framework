@@ -10,9 +10,12 @@ export const EXAMPLE_REQUEST_ID = "11111111-1111-4111-8111-111111111111";
 export const EXAMPLE_CURSOR = "CURSOR";
 export const EXAMPLE_TOKEN = "kpat_EXAMPLE";
 export const EXAMPLE_SECRET = "REDACTED";
+export const EXAMPLE_JWT = "eyJEXAMPLE.EXAMPLE.EXAMPLE";
 
 // Recordings are committed and published, so credentials sent in a payload never reach the file.
-const SECRET_KEY = /password|secret|mfaCode/i;
+// Only string values are replaced, so counters such as `tokenCount` stay readable.
+const SECRET_KEY = /password|secret|mfa|token|apikey|api_key|authorization|credential/i;
+const JWT = /eyJ[\w-]+\.[\w-]+\.[\w-]+/g;
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const ISO_TIMESTAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})/g;
@@ -31,6 +34,7 @@ function createExampleWalker(): (value: unknown) => unknown {
   const uuids = new Map<string, string>();
   const normalizeString = (text: string): string =>
     text
+      .replace(JWT, EXAMPLE_JWT)
       .replace(PAT_TOKEN, EXAMPLE_TOKEN)
       .replace(UUID, (found) => {
         const key = found.toLowerCase();
