@@ -1424,6 +1424,10 @@
         },
         {
           "extensionName": "userData",
+          "entityName": "contact-request"
+        },
+        {
+          "extensionName": "userData",
           "entityName": "helpdesk-reply"
         }
       ],
