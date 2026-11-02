@@ -12,7 +12,10 @@ import {
   withDerivedCells,
 } from "../headless/index.ts";
 import { pluralKey } from "../headless/plural-key.ts";
-import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.ts";
+import {
+  REFERENCE_COMBOBOX_LIMIT,
+  REFERENCE_LIST_LOOKUP_LIMIT,
+} from "../hooks/reference-limits.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import {
   referenceOptionSource,
@@ -23,6 +26,7 @@ import { useTranslation } from "../i18n.tsx";
 import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { coerceCellValue } from "./embedded-list-paste.ts";
+import { referenceIdChunks } from "./render-list-reference-columns.ts";
 
 export type EmbeddedListFieldProps = {
   readonly field: EditFieldViewModel;
@@ -81,12 +85,15 @@ function cardPlacementByField(
     if (def.op !== "inRange") continue;
     const [value, min, max] = def.from;
     if (value === undefined || min === undefined || max === undefined) continue;
+    const merge = (field: string, next: CardPlacement): void => {
+      placement.set(field, { ...placement.get(field), ...next });
+    };
     if (isNotEditable(min) && isNotEditable(max)) {
-      placement.set(value, { cardLimits: { min, max } });
-      placement.set(min, { hiddenInCard: true });
-      placement.set(max, { hiddenInCard: true });
+      merge(value, { cardLimits: { min, max } });
+      merge(min, { hiddenInCard: true });
+      merge(max, { hiddenInCard: true });
     }
-    placement.set(target, { cardAttachedTo: value });
+    merge(target, { cardAttachedTo: value });
   }
   return placement;
 }
@@ -104,13 +111,11 @@ function cardColumnProps(
   };
 }
 
+// Hooks cannot be called per chunk (fixed count per mount), so only the first chunk that fits the
+// list handler's limit is resolved; stored references beyond it keep their raw id.
 function storedCellIds(rows: readonly EmbeddedRow[], cellField: string): string[] {
-  const ids = new Set<string>();
-  for (const row of rows) {
-    const value = row[cellField];
-    if (typeof value === "string" && value !== "") ids.add(value);
-  }
-  return [...ids].sort();
+  const [firstChunk = []] = referenceIdChunks(rows, cellField, REFERENCE_LIST_LOOKUP_LIMIT);
+  return [...firstChunk].sort();
 }
 
 function withRecomputedDerived(

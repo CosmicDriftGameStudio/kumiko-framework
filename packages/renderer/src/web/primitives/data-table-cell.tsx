@@ -417,7 +417,7 @@ export const TABULAR_COLUMN_TYPES: ReadonlySet<string> = new Set([
 
 // A plain <a>, not DefaultLink: the click must not reach the row's own click
 // handler, which opens the same record's row action.
-function CellTextLink({
+export function CellTextLink({
   link,
   children,
 }: {

@@ -124,6 +124,23 @@ describe("select optionsQuery default row in an actionForm", () => {
     await waitFor(() => expect(writes).toEqual([{ provider: "anthropic", model: "model-a" }]));
   });
 
+  test("an empty field gets the new default after a payload change, as a real change", async () => {
+    const { writes, user } = renderForm({});
+    await user.click(screen.getByTestId("segmented-kumiko-edit-provider-openai"));
+    await waitFor(() => expect(modelCombobox().textContent).toContain("Model Y"));
+    expect(hasUnsavedInput()).toBe(true);
+    await submit(user);
+    await waitFor(() => expect(writes).toEqual([{ provider: "openai", model: "model-y" }]));
+  });
+
+  test("an empty field stays empty after a payload change to options without a default", async () => {
+    const { user } = renderForm({});
+    await user.click(screen.getByTestId("segmented-kumiko-edit-provider-plain"));
+    await waitFor(() => expect(modelCombobox().hasAttribute("disabled")).toBe(false));
+    expect(modelCombobox().textContent).not.toContain("Model P");
+    expect(modelCombobox().textContent).not.toContain("Model Q");
+  });
+
   test("a value dropped by a payload change is replaced by the new default and submitted", async () => {
     const { writes, user } = renderForm({ provider: "anthropic", model: "model-a" });
     await waitFor(() => expect(modelCombobox().textContent).toContain("Model A"));

@@ -8,9 +8,9 @@ import type { FeatureSchema } from "./feature-schema.ts";
 import { HeaderActionsBar } from "./header-actions-bar.tsx";
 import type { NavApi } from "./nav.tsx";
 import {
+  formatOrRaw,
   headerStatusTone,
   resolveHeaderStatusText,
-  resolveMetricText,
   resolveSubtitleHref,
 } from "./projection-detail-header-model.ts";
 import {
@@ -182,7 +182,7 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const field = metric.field;
     const label = effectiveTranslate(metric.label);
     const rawValue = record[field];
-    const value = resolveMetricText(metric, rawValue, effectiveTranslate);
+    const value = formatOrRaw(metric.format, rawValue, effectiveTranslate);
     const tiles = screen.metricsStyle === "tiles";
     // Same rule as the dashboard stat panels: a fixed tone must not paint an all-clear 0.
     const tone = rawValue === 0 ? undefined : metric.tone;

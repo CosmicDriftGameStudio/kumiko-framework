@@ -101,6 +101,10 @@ function isCurrencyOnlyMoney(value: unknown): boolean {
   );
 }
 
+function isMoneyObject(value: unknown): boolean {
+  return typeof value === "object" && value !== null && "currency" in value;
+}
+
 function stripUntouchedEmptyStrings<TValues extends FormValues>(
   values: TValues,
   initial: TValues,
@@ -113,7 +117,11 @@ function stripUntouchedEmptyStrings<TValues extends FormValues>(
     // Value-based seed strip, except keys previously submitted as "" after a
     // real clear — those must survive post-rebase submits.
     const untouchedEmptyString = !forceIncludeEmpty.has(key) && v[key] === "" && ini[key] === "";
-    if (untouchedEmptyString || isCurrencyOnlyMoney(v[key])) {
+    if (isCurrencyOnlyMoney(v[key]) && isMoneyObject(ini[key]) && !isCurrencyOnlyMoney(ini[key])) {
+      // The user cleared the amount of a saved value: tell the server instead of dropping the key.
+      out ??= { ...v };
+      out[key] = null;
+    } else if (untouchedEmptyString || isCurrencyOnlyMoney(v[key])) {
       out ??= { ...v };
       delete out[key];
     }

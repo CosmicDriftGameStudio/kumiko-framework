@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
+import { EMPTY_VALUE_PLACEHOLDER, type RuntimeCellLink } from "../../headless/index.ts";
+import { CellTextLink } from "../primitives/data-table-cell.tsx";
 import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
 
 export type DashboardListColumn = {
@@ -10,6 +11,8 @@ export type DashboardListColumn = {
   readonly badgeToneField?: string;
   /** Resolves the raw cell value to display text, e.g. a reference id to its label. */
   readonly renderValue?: (value: unknown, row: Readonly<Record<string, unknown>>) => string;
+  /** Links the rendered text to its target, e.g. a reference cell to the record's detail. */
+  readonly linkFor?: RuntimeCellLink;
 };
 
 const BADGE_TONE: Readonly<Record<string, StatusBadgeTone>> = {
@@ -79,7 +82,11 @@ function Cell({
     if (!Number.isFinite(atMs)) return EMPTY_VALUE_PLACEHOLDER;
     return <span className="tabular-nums">{formatDateTime(atMs)}</span>;
   }
-  if (column.renderValue !== undefined) return column.renderValue(raw, row);
+  if (column.renderValue !== undefined) {
+    const text = column.renderValue(raw, row);
+    const link = column.linkFor?.(raw, row);
+    return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+  }
   if (typeof raw === "number") return <span className="tabular-nums">{formatNumber(raw)}</span>;
   if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
   const text = String(raw);

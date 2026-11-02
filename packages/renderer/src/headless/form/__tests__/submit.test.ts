@@ -324,6 +324,37 @@ describe("createFormController — submit()", () => {
     );
   });
 
+  test("payloadMode: 'values' — drops an untouched currency-only money seed", async () => {
+    const disp = makeDispatcher();
+    const form = createFormController({
+      initial: { title: "hello", price: { currency: "EUR" } },
+      submit: { dispatcher: disp, type: "app:write:task:create" },
+    });
+
+    await form.submit();
+
+    const call = disp.writeSpy.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect("price" in call).toBe(false);
+  });
+
+  test("payloadMode: 'values' — a cleared amount of a saved money value is sent as null, not dropped", async () => {
+    const disp = makeDispatcher();
+    const saved: { amount?: number; currency: string } = { amount: 500, currency: "EUR" };
+    const form = createFormController({
+      initial: { price: saved },
+      submit: { dispatcher: disp, type: "app:write:task:update" },
+    });
+    form.setField("price", { currency: "EUR" });
+
+    await form.submit();
+
+    expect(disp.writeSpy).toHaveBeenCalledWith(
+      "app:write:task:update",
+      { price: null },
+      expect.anything(),
+    );
+  });
+
   test("payloadMode: 'values' with stripEmptySeeds: false — keeps an untouched empty-string field", async () => {
     // Same setup as the strip test above, but the caller opts out — the
     // untouched "" seed must survive unchanged in the payload.

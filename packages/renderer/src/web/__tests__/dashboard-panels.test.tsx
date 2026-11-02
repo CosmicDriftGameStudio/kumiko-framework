@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
+  AppFeaturesProvider,
   createStaticLocaleResolver,
   DashboardBodyProvider,
   DispatcherProvider,
@@ -32,8 +33,14 @@ type Handler = (payload: Readonly<Record<string, unknown>>) => unknown | Promise
 
 const FEATURE = "demo";
 
-function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
-  const nav = useBrowserNavApi({ hasWorkspaces: false });
+function BrowserNav({
+  children,
+  features,
+}: {
+  readonly children: ReactNode;
+  readonly features?: readonly FeatureSchema[] | undefined;
+}): ReactNode {
+  const nav = useBrowserNavApi({ hasWorkspaces: false, ...(features && { features }) });
   return <NavProvider value={nav}>{children}</NavProvider>;
 }
 
@@ -42,6 +49,7 @@ function renderDashboard(
   handlers: Readonly<Record<string, Handler>>,
   options: {
     readonly locale?: string;
+    readonly appFeatures?: readonly FeatureSchema[];
     readonly translations?: TranslationsByLocale;
     readonly extensionSections?: Readonly<
       Record<string, (props: ExtensionSectionProps) => ReactNode>
@@ -60,15 +68,17 @@ function renderDashboard(
   });
   const schema: FeatureSchema = { featureName: FEATURE, entities: {}, screens: [dashboard] };
   const screenNode = (
-    <BrowserNav>
-      <DispatcherProvider dispatcher={dispatcher}>
-        <ExtensionSectionsProvider value={options.extensionSections ?? {}}>
-          <DashboardBodyProvider value={WebDashboardBody}>
-            <KumikoScreen schema={schema} qn={`${FEATURE}:screen:${dashboard.id}`} />
-          </DashboardBodyProvider>
-        </ExtensionSectionsProvider>
-      </DispatcherProvider>
-    </BrowserNav>
+    <AppFeaturesProvider features={options.appFeatures ?? []}>
+      <BrowserNav features={options.appFeatures}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <ExtensionSectionsProvider value={options.extensionSections ?? {}}>
+            <DashboardBodyProvider value={WebDashboardBody}>
+              <KumikoScreen schema={schema} qn={`${FEATURE}:screen:${dashboard.id}`} />
+            </DashboardBodyProvider>
+          </ExtensionSectionsProvider>
+        </DispatcherProvider>
+      </BrowserNav>
+    </AppFeaturesProvider>
   );
   render(
     options.locale === undefined ? (
@@ -707,6 +717,46 @@ describe("dashboard list columns", () => {
     );
     await waitFor(() => expect(screen.getByText("Boiler house")).toBeTruthy());
     expect(screen.queryByText("p-123")).toBeNull();
+  });
+
+  test("a reference column links the label to the target's detail screen", async () => {
+    const plantDetail = {
+      featureName: FEATURE,
+      entities: {},
+      screens: [{ id: "plant-detail", type: "projectionDetail", detailFor: "plant" }],
+    } as unknown as FeatureSchema;
+    renderDashboard(
+      {
+        id: "lists",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "list",
+            id: "deadlines",
+            label: "demo:deadlines",
+            query: "demo:query:deadlines:list",
+            columns: [
+              { field: "title", label: "demo:col-title" },
+              {
+                field: "plantId",
+                label: "demo:col-plant",
+                refEntity: "plant",
+                refLabelField: "name",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        "demo:query:deadlines:list": () =>
+          ok({ rows: [{ id: "d1", title: "Inspection", plantId: "p-123" }], nextCursor: null }),
+        "demo:query:plant:list": () =>
+          ok({ rows: [{ id: "p-123", name: "Boiler house" }], nextCursor: null }),
+      },
+      { appFeatures: [plantDetail] },
+    );
+    const link = await screen.findByRole("link", { name: "Boiler house" });
+    expect(link.getAttribute("href")).toBe("/plant-detail/p-123");
   });
 
   test("text cells translate i18n keys and leave other strings untouched", async () => {
