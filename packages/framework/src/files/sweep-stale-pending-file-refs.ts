@@ -56,7 +56,11 @@ export async function sweepStalePendingFileRefs(args: {
     if (lastRow === undefined) return swept;
     cursor = lastRow.id;
     for (const row of rows.filter(isStalePendingUpload)) {
-      const removed = await executor.delete({ id: row.id }, user, db);
+      // A form save may bind the upload after the page was read; the delete then fails instead of
+      // soft-deleting a file a record now references.
+      const removed = await executor.delete({ id: row.id }, user, db, {
+        expect: { entityId: null, isDeleted: false },
+      });
       if (removed.isSuccess) {
         swept++;
         continue;

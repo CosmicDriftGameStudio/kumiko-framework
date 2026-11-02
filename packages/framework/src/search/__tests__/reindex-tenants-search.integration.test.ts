@@ -7,6 +7,7 @@ import {
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemorySearchAdapter,
+  reindexEntity,
   reindexTenantsSearch,
   type SearchAdapter,
 } from "@cosmicdrift/kumiko-framework/search";
@@ -142,5 +143,22 @@ describe("reindexTenantsSearch", () => {
     });
     expect(result.failedReindexes).toBeGreaterThanOrEqual(1);
     expect(result.indexedRows).toBe(0);
+  });
+
+  test("an aborted reindex stops before it writes the next batch", async () => {
+    const controller = new AbortController();
+    let indexBatchCalls = 0;
+    const adapter: SearchAdapter = {
+      ...createInMemorySearchAdapter(),
+      indexBatch: async () => {
+        indexBatchCalls += 1;
+      },
+    };
+    const run = reindexEntity(stack.db, stack.registry, adapter, "note", admin.tenantId, {
+      signal: controller.signal,
+      afterBatchRead: async () => controller.abort(),
+    });
+    await expect(run).rejects.toThrow();
+    expect(indexBatchCalls).toBe(0);
   });
 });

@@ -1,5 +1,6 @@
 import { InternalError } from "../errors/index.ts";
 import { isLiveFrameworkTable, type KnownTables } from "./known-table-names.ts";
+import { PRODUCTION_SCHEMA_COMMAND_HINT } from "./production-schema-command-hint.ts";
 import {
   readConnectedRoleAttributes,
   readTablesWithRowLevelSecurityEnabled,
@@ -14,6 +15,11 @@ function missingPartsOf(table: TenantTableRowLevelSecurity): readonly string[] {
     ...(table.enabled ? [] : ["ENABLE ROW LEVEL SECURITY"]),
     ...(table.forced ? [] : ["FORCE ROW LEVEL SECURITY"]),
     ...(table.hasIsolationPolicy ? [] : ["policy kumiko_tenant_isolation"]),
+    ...(table.isolationAltered
+      ? [
+          "policy kumiko_tenant_isolation altered (must be PERMISSIVE ALL for PUBLIC, no RESTRICTIVE policy)",
+        ]
+      : []),
     ...(table.hasSystemReadPolicy ? [] : ["policy kumiko_system_tenant_read"]),
   ];
 }
@@ -77,7 +83,7 @@ async function assertAllTenantTablesProtected(
       : []),
   ];
   throw new InternalError({
-    message: `rowLevelSecurity is "on" but tenant tables lack row-level security. ${sections.join(" ")}`,
+    message: `rowLevelSecurity is "on" but tenant tables lack row-level security. ${sections.join(" ")} ${PRODUCTION_SCHEMA_COMMAND_HINT}`,
   });
 }
 
@@ -92,7 +98,7 @@ async function assertNoLiveRowLevelSecurity(
   // skip: no live row-level security to disable
   if (tables.length === 0) return;
   throw new InternalError({
-    message: `rowLevelSecurity is "off" but row-level security is still enabled on: ${tables.join(", ")}. Without a tenant scope every statement would see zero rows. Run \`bun kumiko-schema generate\` with rowLevelSecurity off to produce the DISABLE ROW LEVEL SECURITY migration and apply it.`,
+    message: `rowLevelSecurity is "off" but row-level security is still enabled on: ${tables.join(", ")}. Without a tenant scope every statement would see zero rows. Run \`bun kumiko-schema generate\` with rowLevelSecurity off to produce the DISABLE ROW LEVEL SECURITY migration and apply it. ${PRODUCTION_SCHEMA_COMMAND_HINT}`,
   });
 }
 

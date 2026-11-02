@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import * as z from "zod";
 import type { Registry } from "../../engine/types/index.ts";
+import { RateLimitError } from "../../errors/classes.ts";
 import { toKumikoError } from "../../errors/to-kumiko-error.ts";
 
 import { createI18n } from "../../i18n/index.ts";
@@ -19,6 +20,10 @@ import { writeExportWorkbook } from "./export-xlsx-writer.ts";
 
 const XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const MAX_ID_LENGTH = 200;
+// One export fans out into up to maxRows / MAX_LIST_LIMIT queries and buffers the whole
+// workbook; the per-request IP limiter counts it as a single request.
+const EXPORT_BUCKET = "export-xlsx-in-flight";
+const EXPORT_RETRY_AFTER_SECONDS = 5;
 
 const exportBodySchema = z.object({
   screen: z.string().max(MAX_ID_LENGTH),
@@ -40,12 +45,29 @@ function downloadFileName(screenShortId: string, now: Date): string {
   return `${safeId}-${now.toISOString().slice(0, 10)}.xlsx`;
 }
 
+function exportAlreadyRunning(): RateLimitError {
+  return new RateLimitError({
+    bucket: EXPORT_BUCKET,
+    limit: 1,
+    windowSeconds: EXPORT_RETRY_AFTER_SECONDS,
+    remaining: 0,
+    retryAfterSeconds: EXPORT_RETRY_AFTER_SECONDS,
+    resetAt: new Date(Date.now() + EXPORT_RETRY_AFTER_SECONDS * 1000).toISOString(),
+  });
+}
+
 export function createExportRoutes(dispatcher: Dispatcher, registry: Registry) {
   const api = new Hono();
   const i18n = createI18n(registry, { defaultLocale: DEFAULT_LOCALE });
+  const exportsInFlight = new Set<string>();
 
   api.post(Routes.exportXlsx, async (c) => {
     const user = getUser(c);
+    const inFlightKey = `${user.tenantId}:${user.id}`;
+    if (exportsInFlight.has(inFlightKey)) {
+      return queryErrorResponse(c, exportAlreadyRunning(), Routes.exportXlsx);
+    }
+    exportsInFlight.add(inFlightKey);
     try {
       const parsed = exportBodySchema.safeParse(await c.req.json().catch(() => undefined));
       if (!parsed.success) throw exportRejection("export_invalid_request", "body");
@@ -84,6 +106,8 @@ export function createExportRoutes(dispatcher: Dispatcher, registry: Registry) {
       });
     } catch (e) {
       return queryErrorResponse(c, toKumikoError(e), Routes.exportXlsx);
+    } finally {
+      exportsInFlight.delete(inFlightKey);
     }
   });
 

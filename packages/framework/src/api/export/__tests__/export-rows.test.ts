@@ -67,7 +67,7 @@ describe("sanitizeExportPayload", () => {
 });
 
 describe("readExportRows", () => {
-  test("follows nextCursor in pages of 200 and stops on a short page", async () => {
+  test("follows nextCursor in pages of 200 until a page has none", async () => {
     const d = fakeDispatcher((_p, call) =>
       call === 0
         ? { rows: rowsOf(200), nextCursor: "c1" }
@@ -88,7 +88,27 @@ describe("readExportRows", () => {
     }));
     const result = await readExportRows(d, plan(1000), {}, user);
     expect(result.tooMany ? 0 : result.rows).toHaveLength(450);
-    expect(d.calls.map((c) => c["offset"])).toEqual([undefined, 200, 400]);
+    expect(d.calls.map((c) => c["offset"])).toEqual([undefined, 200, 400, 450]);
+  });
+
+  test("keeps reading when the query caps the page size below the requested limit", async () => {
+    const all = rowsOf(120);
+    const d = fakeDispatcher((p) => {
+      const offset = Number(p["offset"] ?? 0);
+      return { rows: all.slice(offset, offset + 50) };
+    });
+    const result = await readExportRows(d, plan(1000), {}, user);
+    expect(result.tooMany ? 0 : result.rows).toHaveLength(120);
+  });
+
+  test("follows nextCursor across pages shorter than the limit", async () => {
+    const d = fakeDispatcher((_p, call) =>
+      call < 2
+        ? { rows: rowsOf(50, call * 50), nextCursor: `c${call}` }
+        : { rows: rowsOf(20, 100) },
+    );
+    const result = await readExportRows(d, plan(1000), {}, user);
+    expect(result.tooMany ? 0 : result.rows).toHaveLength(120);
   });
 
   test("reports too many rows as soon as maxRows + 1 are read", async () => {

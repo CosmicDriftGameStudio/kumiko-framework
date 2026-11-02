@@ -61,7 +61,7 @@ The limits are keyed on the client IP. Behind an ingress or load balancer set `t
 
 ## Row level security
 
-The tenant filter of TenantDb is the first isolation layer. Row level security in Postgres is the second: it also stops raw SQL and a forgotten filter from reading or writing another tenant's rows. One value in `kumiko.config.ts` sets it for every tool and runner:
+The tenant filter of TenantDb is the first isolation layer. Row level security in Postgres is the second: it also stops a forgotten filter, and raw SQL that does not touch the scope settings, from reading or writing another tenant's rows. Deliberate raw SQL can still set `kumiko.scope` itself, so RLS is not a sandbox for hostile SQL. One value in `kumiko.config.ts` sets it for every tool and runner:
 
 | `rowLevelSecurity` | Effect |
 |---|---|

@@ -89,18 +89,16 @@ export async function reindexTenantsSearch(
     entities += 1;
     const targetTenantIds = entity.systemStream === true ? [SYSTEM_TENANT_ID] : configured;
     for (const tenantId of targetTenantIds) {
+      const abortOnTimeout = new AbortController();
       const outcome = await runWithTimeout(
         () =>
-          reindexEntity(
-            db,
-            registry,
-            searchAdapter,
-            entityName,
-            tenantId,
-            dryRun ? { dryRun } : {},
-          ),
+          reindexEntity(db, registry, searchAdapter, entityName, tenantId, {
+            signal: abortOnTimeout.signal,
+            ...(dryRun && { dryRun }),
+          }),
         reindexTimeoutMs,
       );
+      if (!outcome.ok) abortOnTimeout.abort();
       if (!outcome.ok) {
         failedReindexes += 1;
         warn(

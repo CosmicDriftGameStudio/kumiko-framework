@@ -915,11 +915,14 @@ export function createWriteVerbs(
       await assertStreamWritable(db, payload.id, streamTenantFor(user, streamTenantId));
 
       // Stream-version authoritative (see update() for rationale).
-      const currentVersion = await getStreamVersion(
+      const currentVersion = await currentStreamVersion(
+        db,
         runner,
-        String(payload.id),
+        payload.id,
         streamTenantFor(user, streamTenantId),
+        options?.expect,
       );
+      if (typeof currentVersion !== "number") return currentVersion;
 
       // Deletes carry the full pre-delete row as `previous`. That's what
       // projections and downstream consumers need to reverse any aggregates —

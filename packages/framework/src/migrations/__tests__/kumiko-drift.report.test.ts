@@ -30,6 +30,7 @@ describe("formatKumikoDriftReport", () => {
     expect(out).toContain("2 unapplied migration(s)");
     expect(out).toContain("0001_init");
     expect(out).toContain("Run 'bun kumiko-schema apply'");
+    expect(out).toContain("bun /app/kumiko.js schema");
     expect(out).not.toContain("checksum");
     expect(out).not.toContain("dropped after apply");
   });

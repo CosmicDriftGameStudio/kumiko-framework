@@ -7,7 +7,7 @@ import {
 import { PII_ERASED_SENTINEL } from "../../crypto/pii-field-encryption.ts";
 import { asRawClient } from "../../db/query.ts";
 import { defineFeature } from "../../engine/define-feature.ts";
-import { createEntity, createTextField } from "../../engine/factories.ts";
+import { createEntity, createNumberField, createTextField } from "../../engine/factories.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { scrubEventPayloadFields } from "../event-payload-scrub.ts";
 
@@ -16,6 +16,7 @@ const contactEntity = createEntity({
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     note: createTextField({ personal: false, reason: "test_fixture" }),
+    score: createNumberField({ personal: false, reason: "test_fixture" }),
   },
 });
 
@@ -125,6 +126,25 @@ describe("scrubEventPayloadFields", () => {
     expect(result.rebuild).toBeNull();
     expect((await storedPayloads(contact.id))[0]?.["note"]).toBe("leak: dan@example.com");
     expect(await listedNote(contact.id)).toBe("leak: dan@example.com");
+  });
+
+  test("a non-text field is nulled so the typed column still rebuilds", async () => {
+    const res = await stack.http.writeOk<{ data: { id: string } }>(
+      CREATE,
+      { name: "Eve", note: "n", score: 42 },
+      TestUsers.user,
+    );
+
+    const result = await scrubEventPayloadFields(stack.db, stack.registry, {
+      eventType: "contact.created",
+      fields: ["score"],
+      reason: REASON,
+      shouldScrub: (value) => value === 42,
+    });
+
+    expect(result.scrubbedEvents).toBe(1);
+    expect(result.rebuild?.failed).toEqual([]);
+    expect((await storedPayloads(res.data.id))[0]?.["score"]).toBeNull();
   });
 
   test("a placeholder reason is refused before anything is read", async () => {

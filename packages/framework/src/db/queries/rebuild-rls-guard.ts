@@ -4,7 +4,7 @@
 
 import { type AnyDb, asRawClient } from "../query.ts";
 import { TENANT_ISOLATION_POLICY } from "../render-rls-ddl.ts";
-import { readRowLevelSecurityShape } from "./rls-shape.ts";
+import { isFrameworkIsolationIntact, readRowLevelSecurityShape } from "./rls-shape.ts";
 import { quoteTableIdent } from "./table-ops.ts";
 
 export async function assertRebuildableRowLevelSecurity(
@@ -18,15 +18,8 @@ export async function assertRebuildableRowLevelSecurity(
   const state = await readRowLevelSecurityShape(tx, tableName);
   // skip: table has no row-level security, nothing to verify
   if (state === undefined || !state.enabled) return;
-  const isolation = state.policies.find((policy) => policy.name === TENANT_ISOLATION_POLICY);
-  const hasRestrictive = state.policies.some((policy) => policy.kind === "RESTRICTIVE");
-  const isolationIntact =
-    isolation !== undefined &&
-    isolation.kind === "PERMISSIVE" &&
-    isolation.command === "ALL" &&
-    isolation.appliesToPublic;
   // skip: framework policy intact, rebuild reads are safe
-  if (isolationIntact && !hasRestrictive) return;
+  if (isFrameworkIsolationIntact(state)) return;
   const listed = state.policies
     .map((policy) => `${policy.name} (${policy.kind} ${policy.command})`)
     .join(", ");

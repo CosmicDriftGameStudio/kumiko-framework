@@ -74,8 +74,10 @@ export async function readExportRows(
     );
     rows.push(...page.rows);
     if (rows.length > plan.maxRows) return { tooMany: true };
-    // A short or empty page is the end of the list; a repeated cursor would loop forever.
-    if (page.rows.length < limit || page.rows.length === 0) return { tooMany: false, rows };
+    // Only an empty page ends the list: a query may cap `limit` itself, so a short page proves
+    // nothing. A repeated cursor would loop forever.
+    if (page.rows.length === 0) return { tooMany: false, rows };
+    if (cursor !== undefined && page.nextCursor === undefined) return { tooMany: false, rows };
     if (page.nextCursor !== undefined) {
       if (seenCursors.has(page.nextCursor)) return { tooMany: false, rows };
       seenCursors.add(page.nextCursor);

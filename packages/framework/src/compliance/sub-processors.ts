@@ -117,6 +117,15 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
     status: "active",
   },
   {
+    name: "Scaleway SAS",
+    purpose: "Platform key custody (Key Manager)",
+    region: "EU (France)",
+    dpa: "https://www.scaleway.com/en/contracts/",
+    addedAt: "2026-07-04",
+    appliesTo: ["all-tiers"],
+    status: "active",
+  },
+  {
     name: "ALL-INKL.COM – Neue Medien Münnich",
     purpose: "Mailbox Hosting (support and contact mailboxes)",
     region: "EU (Germany)",
@@ -136,7 +145,7 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
   },
   {
     name: "Scaleway SAS",
-    purpose: "Platform key custody (Key Manager) and Transactional Email Delivery",
+    purpose: "Transactional Email Delivery (TEM)",
     region: "EU (France)",
     dpa: "https://www.scaleway.com/en/contracts/",
     addedAt: "2026-11-01",

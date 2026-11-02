@@ -13,6 +13,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { selectMany } from "../../db/query.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createFileField,
@@ -20,6 +21,7 @@ import {
   defineFeature,
 } from "../../engine/index.ts";
 import { createTestUser, testTenantId } from "../../seeding/seed-users.ts";
+import { getFileRefExecutor } from "../create-file-ref.ts";
 import { createFilesFeature } from "../feature.ts";
 import { fileRefsTable } from "../file-ref-table.ts";
 import { createInMemoryFileProvider } from "../in-memory-provider.ts";
@@ -128,6 +130,33 @@ describe("pendingUploadGraceHours set", () => {
     expect(await isDeleted(stack, pending)).toBe(true);
     expect(await isDeleted(stack, bound)).toBe(false);
     expect(await isDeleted(stack, unclaimed)).toBe(false);
+  });
+});
+
+describe("sweep delete precondition", () => {
+  test("a pending upload that a record bound after the page was read is not deleted", async () => {
+    clock.set(Temporal.Now.instant());
+    const stack = await bootStack(GRACE_HOURS);
+    try {
+      const fileId = await upload(stack, { entityType: "dossier", fieldName: "scan" });
+      await stack.http.writeOk(
+        "pending-sweep:write:dossier:create",
+        { title: "D", scan: fileId },
+        admin,
+      );
+
+      const result = await getFileRefExecutor().delete(
+        { id: fileId },
+        admin,
+        createTenantDb({ db: stack.db, tenantId: tenant }),
+        { expect: { entityId: null, isDeleted: false } },
+      );
+
+      expect(result.isSuccess).toBe(false);
+      expect(await isDeleted(stack, fileId)).toBe(false);
+    } finally {
+      await stack.cleanup();
+    }
   });
 });
 
