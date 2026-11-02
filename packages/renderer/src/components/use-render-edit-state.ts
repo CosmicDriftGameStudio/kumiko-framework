@@ -9,6 +9,7 @@ import { useLocale, useTranslation } from "../i18n.tsx";
 import { useInsideDrawer } from "../inside-drawer.ts";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
+import { useFormPendingUploadsHost } from "./form-pending-uploads.tsx";
 import type { FormErrorSource } from "./render-edit-helpers.tsx";
 import { useActionMenuItems } from "./use-action-menu-items.tsx";
 import { useWizardFormDraftState } from "./use-wizard-form-draft.ts";
@@ -147,6 +148,7 @@ export function useRenderEditState({
     draftStorage,
   });
   const extensions = useExtensionComposition();
+  const uploads = useFormPendingUploadsHost();
   const primitives = usePrimitives();
   const { toMenuItem: menuActionToItem, confirmDialog: menuActionConfirmDialog } =
     useActionMenuItems({ Dialog: primitives.Dialog, onError: feedback.setActionError });
@@ -175,6 +177,9 @@ export function useRenderEditState({
     ...stepState,
     draftState,
     ...extensions,
+    pendingUploads: uploads.pendingUploads,
+    pendingUploadsRef: uploads.pendingUploadsRef,
+    trackUpload: uploads.trackUpload,
     primitives,
     menuActionToItem,
     menuActionConfirmDialog,

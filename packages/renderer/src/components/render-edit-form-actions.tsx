@@ -170,6 +170,7 @@ function isSubmitDisabled<TValues extends FormValues, TCtx>({
   return (
     isPristine ||
     state.isSubmitting ||
+    state.pendingUploads > 0 ||
     props.disabled ||
     props.submitBlocked ||
     isSubmitBlockedByLayoutCondition(props.screen.layout, form.snapshot.values)

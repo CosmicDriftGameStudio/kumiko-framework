@@ -6,7 +6,7 @@
 
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
-import { useSessionEndedSignal, useTranslation } from "../../index.ts";
+import { useSessionEndedSignal, useTrackFormUpload, useTranslation } from "../../index.ts";
 import { toAcceptAttr } from "../lib/accept-attr.ts";
 import { resizeImageBeforeUpload } from "../lib/resize-image.ts";
 import { uploadErrorKey } from "../lib/upload-error-key.ts";
@@ -60,6 +60,7 @@ export function FileUploadInput({
 }: FileUploadInputProps): ReactNode {
   const t = useTranslation();
   const sessionEnded = useSessionEndedSignal();
+  const trackFormUpload = useTrackFormUpload();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,16 +76,18 @@ export function FileUploadInput({
     setUploading(true);
     setError(null);
     try {
-      const uploadFile = await resizeImageBeforeUpload(file);
-      onChange(
-        await uploadFileRef(uploadFile, {
-          entityType,
-          entityId,
-          fieldName,
-          subField,
-          actionForm: uploadActionForm,
-        }),
-      );
+      await trackFormUpload(async () => {
+        const uploadFile = await resizeImageBeforeUpload(file);
+        onChange(
+          await uploadFileRef(uploadFile, {
+            entityType,
+            entityId,
+            fieldName,
+            subField,
+            actionForm: uploadActionForm,
+          }),
+        );
+      });
     } catch (cause) {
       if (isSessionEndedUploadError(cause)) sessionEnded?.notify();
       setError(t(uploadErrorKey(cause)));

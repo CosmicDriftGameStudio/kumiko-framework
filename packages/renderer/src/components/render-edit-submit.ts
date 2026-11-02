@@ -90,7 +90,8 @@ export function createHandleSubmit<TValues extends FormValues, TCtx>(
       props.disabled === true ||
       props.submitBlocked === true ||
       isSubmitBlockedByLayoutCondition(props.screen.layout, controller.getSnapshot().values) ||
-      isSubmittingRef.current
+      isSubmittingRef.current ||
+      state.pendingUploadsRef.current > 0
     );
   }
 

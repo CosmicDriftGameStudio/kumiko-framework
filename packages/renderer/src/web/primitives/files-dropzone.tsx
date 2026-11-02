@@ -3,7 +3,7 @@
 // out of the value; removing a row removes its id.
 
 import { type ReactNode, useEffect, useRef } from "react";
-import { useSessionEndedSignal, useTranslation } from "../../index.ts";
+import { useSessionEndedSignal, useTrackFormUpload, useTranslation } from "../../index.ts";
 import { FileCountLimitError, uploadErrorKey } from "../lib/upload-error-key.ts";
 import {
   type FileRefTarget,
@@ -43,6 +43,7 @@ export function FilesDropzoneInput({
 }: FilesDropzoneInputProps): ReactNode {
   const t = useTranslation();
   const sessionEnded = useSessionEndedSignal();
+  const trackFormUpload = useTrackFormUpload();
   // Uploads of one batch finish independently; building each next value from the render's
   // `value` would drop the ids of the others. Re-synced whenever the owner changes the value.
   const latestIds = useRef(value);
@@ -64,10 +65,12 @@ export function FilesDropzoneInput({
     }
     uploadsRunning.current += 1;
     try {
-      const fileId = await uploadFileRef(file, target);
-      latestIds.current = [...latestIds.current, fileId];
-      onChange(latestIds.current);
-      return fileId;
+      return await trackFormUpload(async () => {
+        const fileId = await uploadFileRef(file, target);
+        latestIds.current = [...latestIds.current, fileId];
+        onChange(latestIds.current);
+        return fileId;
+      });
     } catch (cause) {
       if (isSessionEndedUploadError(cause)) sessionEnded?.notify();
       throw cause;
