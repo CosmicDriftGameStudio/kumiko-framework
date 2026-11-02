@@ -122,7 +122,7 @@ async function buildPaddleContractFixture() {
           resolveWebhookSecret: async () => TEST_WEBHOOK_SECRET,
           resolveTenantBindingKey: async () => TEST_BINDING_KEY,
         },
-        { priceToTier: OPTIONS.priceToTier, nowSeconds: () => NOW_SECONDS },
+        { priceToTier: OPTIONS.priceToTier, oneOffPriceIds: [], nowSeconds: () => NOW_SECONDS },
       ),
       createCheckoutSession: createPaddleCheckoutSession(runtimes.ctx),
       createPortalSession: createPaddlePortalSession(runtimes.ctx),
