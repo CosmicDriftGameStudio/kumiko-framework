@@ -148,7 +148,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  `controller.validate()` call) that ignores issues on hidden fields and
    *  outside the `fields` scope, like submit() does, so it does not paint field errors into
    *  the UI and can diverge from the currently rendered `snapshot.errors` —
-   *  always `true` without `schema`. A caller that patches a fresh object
+   *  covers the required fields of the screen plus `schema`. A caller that patches a fresh object
    *  reference on every call must not do so unconditionally: `setValues` is
    *  a no-op when the merged value is reference-equal to the current one,
    *  so only a converging patch settles instead of looping. Without this

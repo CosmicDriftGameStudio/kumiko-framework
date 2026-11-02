@@ -17,6 +17,7 @@ import { createWizardNavigation } from "./render-edit-wizard-navigation.ts";
 import { useRenderEditControlledSync } from "./use-render-edit-controlled-sync.ts";
 import { useRenderEditDraftSave } from "./use-render-edit-draft-save.ts";
 import { useRenderEditForm } from "./use-render-edit-form.ts";
+import { useEffectiveFormSchema } from "./use-render-edit-schema.ts";
 import { useRenderEditSections } from "./use-render-edit-sections.ts";
 import { useRenderEditState } from "./use-render-edit-state.ts";
 import { useRenderEditSteps } from "./use-render-edit-steps.ts";
@@ -37,7 +38,8 @@ function footerSlotName(screen: EntityEditScreenDefinition): string | undefined 
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   rawProps: RenderEditProps<TValues, TCtx>,
 ): ReactNode {
-  const props = resolveRenderEditProps(rawProps);
+  const effectiveSchema = useEffectiveFormSchema(rawProps);
+  const props = { ...resolveRenderEditProps(rawProps), schema: effectiveSchema };
   const state = useRenderEditState({
     screen: props.screen,
     entityId: props.entityId,

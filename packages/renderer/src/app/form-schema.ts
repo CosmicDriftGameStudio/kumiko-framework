@@ -200,3 +200,16 @@ export function buildFormSchema(
       );
     });
 }
+
+// Both schemas run on the same values and their issues are merged, so a
+// caller-supplied schema adds rules instead of replacing the field-derived ones.
+// Not z.intersection: that would fail when the two parsed outputs cannot merge.
+export function allOfSchemas(first: z.ZodType, second: z.ZodType): z.ZodType {
+  return z.unknown().superRefine((values, ctx) => {
+    for (const schema of [first, second]) {
+      const parsed = schema.safeParse(values);
+      if (parsed.success) continue;
+      for (const issue of parsed.error.issues) ctx.addIssue(issue);
+    }
+  });
+}

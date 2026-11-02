@@ -30,6 +30,10 @@ const correctFromParamsForm: ActionFormScreenDefinition = {
   ...correctForm,
   id: "correct-from-params",
   load: undefined,
+  fields: {
+    ...correctForm.fields,
+    total: { type: "money", currency: { kind: "literal", code: "EUR" } },
+  },
   // buildAppSchema derives this from the params.map of the actions that open the form.
   urlPrefillFields: ["id", "note"],
 };
@@ -130,14 +134,14 @@ describe("actionForm money 0", () => {
     expect((writes[0] as Record<string, unknown>)["fee"]).toBeUndefined();
   });
 
-  test("an untouched required money field is left out so the handler schema rejects it, never sent as 0", async () => {
+  test("an untouched required money field blocks the submit on the client, never sent as 0", async () => {
     const writes = renderForm({ id: "i1", note: "n", total: null });
     await waitFor(() => expect(input("note").value).toBe("n"));
     const user = userEvent.setup();
     await user.type(input("note"), "x");
     await user.click(screen.getByTestId("render-edit-submit"));
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect((writes[0] as Record<string, unknown>)["total"]).toBeUndefined();
+    await waitFor(() => expect(input("total").getAttribute("aria-invalid")).toBe("true"));
+    expect(writes).toHaveLength(0);
   });
 
   test("a form prefilled only through URL params leaves untouched amounts out", async () => {

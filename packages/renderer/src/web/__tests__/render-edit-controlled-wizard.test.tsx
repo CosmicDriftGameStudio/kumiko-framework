@@ -70,7 +70,8 @@ describe("RenderEdit — controlled mode", () => {
 
     // Fires once on mount with the pristine snapshot.
     expect(seen).toHaveLength(1);
-    expect(seen[0]).toMatchObject({ changes: {}, dirty: false, valid: true });
+    // The required title is still empty, so the field-derived dry-run is already invalid.
+    expect(seen[0]).toMatchObject({ changes: {}, dirty: false, valid: false });
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Acme" } });
@@ -81,6 +82,7 @@ describe("RenderEdit — controlled mode", () => {
     // semantics) — only the touched field appears, nothing else.
     expect(last?.changes).toEqual({ title: "Acme" });
     expect(last?.dirty).toBe(true);
+    expect(last?.valid).toBe(true);
   });
 
   test("onChange's valid reflects a schema dry-run and never paints field errors (banner or per-field)", () => {
