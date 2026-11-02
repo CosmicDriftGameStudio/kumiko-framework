@@ -16,7 +16,6 @@ export type FormFooterModel = {
   readonly unsavedCount: number | undefined;
   readonly railed: boolean;
   readonly pinned: boolean;
-  readonly secondaryActions: ReactNode;
   readonly renderedSecondary: ReactNode;
   readonly renderedActions: ReactNode;
   readonly hasNonPrimaryOverflow: boolean;

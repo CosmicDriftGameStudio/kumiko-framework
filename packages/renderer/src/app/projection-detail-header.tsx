@@ -35,7 +35,15 @@ export type DetailHeaderModel = {
   readonly setActionError: Dispatch<SetStateAction<ErrorNotice | null>>;
 };
 
-export function renderHeaderActionsContent(model: DetailHeaderModel): ReactNode {
+export type PageHeaderActionsOptions = {
+  readonly compact: boolean;
+  readonly PageHeader: ReturnType<typeof usePrimitives>["PageHeader"];
+};
+
+export function renderHeaderActionsContent(
+  model: DetailHeaderModel,
+  pageHeaderOptions?: PageHeaderActionsOptions,
+): ReactNode {
   const { screen, primitives, headerActionsList, setActionError } = model;
   const { Grid, Button, Dialog, ActionOverflowMenu } = primitives;
   return (
@@ -46,6 +54,11 @@ export function renderHeaderActionsContent(model: DetailHeaderModel): ReactNode 
         Dialog={Dialog}
         ActionOverflowMenu={ActionOverflowMenu}
         onError={setActionError}
+        {...(pageHeaderOptions !== undefined && {
+          collapseAfterPrimary: true,
+          compact: pageHeaderOptions.compact,
+          PageHeader: pageHeaderOptions.PageHeader,
+        })}
         {...(screen.primaryAction !== undefined && { preferredPrimaryId: screen.primaryAction })}
         {...(screen.inlineActions !== undefined && { inlineActionIds: screen.inlineActions })}
       />

@@ -1,4 +1,3 @@
-import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useState } from "react";
 import { RenderEdit } from "../components/render-edit.tsx";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
@@ -20,6 +19,7 @@ import {
   renderDetailHeaderContent,
 } from "./projection-detail-header-region.tsx";
 import {
+  type ProjectionDetailScreenWithTarget,
   renderDetailQueryError,
   renderMissingIdBanner,
   renderRecordNotFound,
@@ -53,7 +53,7 @@ export function ProjectionDetailBody({
   // detailFor sits on the ScreenDefinition intersection, not on the
   // projectionDetail variant itself (screen.ts:832) — widen the prop type
   // to keep reading it here instead of re-deriving it from schema.screens.
-  readonly screen: ProjectionDetailScreenDefinition & { readonly detailFor?: string };
+  readonly screen: ProjectionDetailScreenWithTarget;
   readonly translate?: Translate;
   readonly entityId?: string;
 }): ReactNode {

@@ -1,5 +1,5 @@
 import { MAX_BULK_SELECTION } from "@cosmicdrift/kumiko-framework/ui-types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ListRowViewModel } from "../../../headless/index.ts";
 
 export type SelectAllState = "all" | "some" | "none";
@@ -29,12 +29,15 @@ function retained(
 export function useRowSelection(rows: readonly ListRowViewModel[]): RowSelection {
   const [selectedIds, setSelectedIds] = useState(NOTHING_SELECTED);
 
+  // Set by retainOnly: the reload that follows may pass through an empty list that must not drop the retained rows.
+  const awaitingReload = useRef(false);
+  const loadedIds = useMemo(() => new Set(rows.map((row) => row.id)), [rows]);
+
   useEffect(() => {
-    // skip: an empty list is the reload gap between two fetches; pruning then would drop the failed rows a run keeps selected
-    if (rows.length === 0) return;
-    const loaded = new Set(rows.map((row) => row.id));
-    setSelectedIds((previous) => retained(previous, (id) => loaded.has(id)));
-  }, [rows]);
+    if (rows.length === 0 && awaitingReload.current) return;
+    awaitingReload.current = false;
+    setSelectedIds((previous) => retained(previous, (id) => loadedIds.has(id)));
+  }, [rows, loadedIds]);
 
   const selectedRows = useMemo(
     () => rows.filter((row) => selectedIds.has(row.id)),
@@ -44,16 +47,22 @@ export function useRowSelection(rows: readonly ListRowViewModel[]): RowSelection
   const allState: SelectAllState =
     selectedRows.length === 0 ? "none" : selectedRows.length >= selectableCount ? "all" : "some";
 
-  const toggle = useCallback((rowId: string) => {
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(rowId)) next.delete(rowId);
-      else if (next.size < MAX_BULK_SELECTION) next.add(rowId);
-      return next;
-    });
-  }, []);
+  const toggle = useCallback(
+    (rowId: string) => {
+      awaitingReload.current = false;
+      setSelectedIds((previous) => {
+        const next = new Set(previous);
+        if (next.has(rowId)) next.delete(rowId);
+        else if (retained(previous, (id) => loadedIds.has(id)).size < MAX_BULK_SELECTION)
+          next.add(rowId);
+        return next;
+      });
+    },
+    [loadedIds],
+  );
 
   const toggleAll = useCallback(() => {
+    awaitingReload.current = false;
     setSelectedIds(
       allState === "all"
         ? NOTHING_SELECTED
@@ -61,17 +70,19 @@ export function useRowSelection(rows: readonly ListRowViewModel[]): RowSelection
     );
   }, [allState, rows]);
 
-  const retainOnly = useCallback(
-    (rowIds: ReadonlySet<string>) =>
-      setSelectedIds((previous) => retained(previous, (id) => rowIds.has(id))),
-    [],
-  );
-  const clear = useCallback(() => setSelectedIds(NOTHING_SELECTED), []);
+  const retainOnly = useCallback((rowIds: ReadonlySet<string>) => {
+    awaitingReload.current = rowIds.size > 0;
+    setSelectedIds((previous) => retained(previous, (id) => rowIds.has(id)));
+  }, []);
+  const clear = useCallback(() => {
+    awaitingReload.current = false;
+    setSelectedIds(NOTHING_SELECTED);
+  }, []);
 
   return {
     selectedRows,
     isSelected: (rowId) => selectedIds.has(rowId),
-    isFull: selectedIds.size >= MAX_BULK_SELECTION,
+    isFull: selectedRows.length >= MAX_BULK_SELECTION,
     allState,
     toggle,
     toggleAll,

@@ -83,15 +83,13 @@ export function useRenderEditDraftSave<TValues extends FormValues, TCtx>(
     },
     [controller],
   );
-  // `saveDraft` (defined below) is a fresh closure every render, over that
-  // render's `draftKey`/`draftId` — the ref lets the debounce timer below
-  // always call the CURRENT one even though the timer was scheduled by an
-  // earlier render's patch() call. `currentStepRef` gives it the current
-  // wizard step without depending on `currentStep` (computed further down,
-  // from `filteredSections`) at the point patchAndScheduleDraftSave itself
-  // is defined — kept fresh where `currentStep` is computed below.
+  // `saveDraft` (built in RenderEdit, render-edit.tsx) is a fresh closure every
+  // render, over that render's `draftKey`/`draftId` — the ref lets the debounce
+  // timer below always call the CURRENT one even though the timer was scheduled
+  // by an earlier render's patch() call. `currentStepRef` gives it the current
+  // wizard step; it is set in useRenderEditSteps, which runs after this hook.
   const saveDraftRef = useRef<(stepIndex: number) => void>(() => {});
-  // `handleSubmit` (defined below) is a fresh closure over this render's
+  // `handleSubmit` (built in RenderEdit, render-edit.tsx) is a fresh closure over this render's
   // snapshot/extensionDirty, while the onControlsReady effect fires once per
   // mount — the ref lets controls.submit() always reach the current one.
   const handleSubmitRef = useRef<(options?: { readonly saveNow?: boolean }) => Promise<void>>(
@@ -123,7 +121,7 @@ export function useRenderEditDraftSave<TValues extends FormValues, TCtx>(
   // patch() (controlled mode, extension sections) applies immediately —
   // only the resulting draft save is debounced, so a patch() burst
   // (VIN-decode filling several fields, or onChange fanning a keystroke out
-  // through patch(), see the VIN-decode test above) collapses into one save.
+  // through patch(), see the VIN-decode test in render-edit-controlled-wizard.test.tsx) collapses into one save.
   const patchAndScheduleDraftSave = useCallback(
     (partial: Partial<TValues>) => {
       controller.setValues(partial);

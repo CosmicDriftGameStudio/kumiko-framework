@@ -1,6 +1,38 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 
+export type ChartSwatchKind = "area" | "line" | "dashed-line";
+
+export function ChartSwatch({
+  color,
+  swatch,
+  className,
+}: {
+  readonly color: string;
+  readonly swatch: ChartSwatchKind;
+  readonly className?: string;
+}): ReactNode {
+  if (swatch === "area") {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn("size-2 rounded-[2px]", className)}
+        style={{ backgroundColor: color }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={cn("w-3 border-t-2", className)}
+      style={{
+        borderColor: color,
+        borderTopStyle: swatch === "dashed-line" ? "dashed" : "solid",
+      }}
+    />
+  );
+}
+
 export function ChartLegend({
   items,
   formatValue,
@@ -13,7 +45,7 @@ export function ChartLegend({
     readonly color: string;
     /** Omitted: no sum next to the label. */
     readonly total?: number;
-    readonly swatch?: "area" | "line" | "dashed-line";
+    readonly swatch?: ChartSwatchKind;
   }[];
   readonly formatValue: (value: number) => string;
 }): ReactNode {
@@ -25,22 +57,7 @@ export function ChartLegend({
           data-testid={`chart-legend-${item.testIdKey ?? item.key}`}
           className="flex items-center gap-1.5"
         >
-          {item.swatch === undefined || item.swatch === "area" ? (
-            <span
-              aria-hidden="true"
-              className="size-2 rounded-[2px]"
-              style={{ backgroundColor: item.color }}
-            />
-          ) : (
-            <span
-              aria-hidden="true"
-              className="w-3 border-t-2"
-              style={{
-                borderColor: item.color,
-                borderTopStyle: item.swatch === "dashed-line" ? "dashed" : "solid",
-              }}
-            />
-          )}
+          <ChartSwatch color={item.color} swatch={item.swatch ?? "area"} />
           <span>{item.label}</span>
           {item.total !== undefined && (
             <span className="tabular-nums text-foreground">{formatValue(item.total)}</span>

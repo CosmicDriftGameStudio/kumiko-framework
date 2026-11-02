@@ -9,11 +9,14 @@ import { QueryErrorBanner } from "./query-state-banners.tsx";
 import { navigateToReturnOr, type useReturnTarget } from "./return-to.tsx";
 import { findEntityListScreen, RecordNotFoundState } from "./screen-shared.tsx";
 
-type DetailScreen = ProjectionDetailScreenDefinition & { readonly detailFor?: string };
+// detailFor sits on the ScreenDefinition intersection, not on the projectionDetail variant itself.
+export type ProjectionDetailScreenWithTarget = ProjectionDetailScreenDefinition & {
+  readonly detailFor?: string;
+};
 
 export function renderMissingIdBanner(
   primitives: Pick<ReturnType<typeof usePrimitives>, "Banner" | "Text">,
-  screen: DetailScreen,
+  screen: ProjectionDetailScreenWithTarget,
 ): ReactNode {
   const { Banner, Text } = primitives;
   return (
@@ -34,7 +37,7 @@ export function renderDetailQueryError(
 
 type NotFoundModel = {
   readonly schema: FeatureSchema;
-  readonly screen: DetailScreen;
+  readonly screen: ProjectionDetailScreenWithTarget;
   readonly nav: NavApi;
   readonly returnTarget: ReturnType<typeof useReturnTarget> | undefined;
   readonly effectiveTranslate: Translate;
