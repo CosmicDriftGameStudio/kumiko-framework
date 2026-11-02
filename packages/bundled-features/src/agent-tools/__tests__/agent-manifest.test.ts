@@ -575,6 +575,10 @@ describe("buildAgentManifest labels and empty fields", () => {
     expect(fieldLabel("de", "status")).toBe("Estado");
   });
 
+  test("a regional locale resolves to its base language before the English fallback", () => {
+    expect(manifestFor("de-DE").entities.find((e) => e.name === "gadget")?.label).toBe("Gerät");
+  });
+
   test("untranslated labels and empty optional fields are left out", () => {
     const manifest = manifestFor("en");
     const gadget = manifest.entities.find((e) => e.name === "gadget");

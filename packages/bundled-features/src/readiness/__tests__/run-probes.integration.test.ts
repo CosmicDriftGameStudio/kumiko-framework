@@ -254,6 +254,14 @@ describe("readiness run-probes", () => {
     expect(second.runId).not.toBe(first.runId);
   });
 
+  test("runs beyond the hourly limit are rejected", async () => {
+    const { tenantAdmin } = usersOfFreshTenant();
+    for (let run = 0; run < 10; run += 1) await runChecks(tenantAdmin);
+
+    const res = await stack.http.write(ReadinessWrites.runProbes, {}, tenantAdmin);
+    expect(res.status).toBe(429);
+  });
+
   test("Member is denied", async () => {
     const member = createTestUser({ id: 9001, tenantId: testTenantId(9001), roles: ["Member"] });
     const res = await stack.http.write(ReadinessWrites.runProbes, {}, member);
