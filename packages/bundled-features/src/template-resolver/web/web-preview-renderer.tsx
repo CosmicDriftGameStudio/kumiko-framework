@@ -14,8 +14,12 @@ import { type ReactNode, useState } from "react";
 import { TemplateResolverQueries } from "./qualified-names.ts";
 
 const PREVIEW_DEBOUNCE_MS = 300;
-const DESKTOP_WIDTH_PX = 760;
-const MOBILE_WIDTH_PX = 375;
+
+// Width classes must already be emitted from renderer/src (Tailwind scan surface).
+const FRAME_WIDTH_CLASS: Readonly<Record<Device, string>> = {
+  desktop: "mx-auto w-full max-w-3xl",
+  mobile: "mx-auto w-full max-w-sm",
+};
 
 type Device = "desktop" | "mobile";
 
@@ -68,8 +72,7 @@ export function HtmlPaperFrame({
         notice === undefined && <LoadingState />
       ) : (
         <div
-          className="mx-auto w-full"
-          style={{ maxWidth: device === "mobile" ? MOBILE_WIDTH_PX : DESKTOP_WIDTH_PX }}
+          className={FRAME_WIDTH_CLASS[device]}
           data-testid="web-preview-frame"
           data-device={device}
         >
