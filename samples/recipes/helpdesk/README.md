@@ -10,7 +10,8 @@ SystemAdmins reply from the admin. Phone is off and Telegram is not mounted unle
 turns them on (`fields.phone`, `telegram: true`).
 
 **What the recipe demonstrates:**
-- Mounting `createHelpdeskFeature` with its companions (delivery, user-data-rights, files)
+- Mounting `createHelpdeskFeature` with its companions (config, delivery, user-data-rights,
+  files, notes-history)
 - The anonymous flow: `helpdesk:query:challenge` hands out a proof-of-work challenge,
   `helpdesk:write:submit` verifies it; spam gets the same 200 body and stores nothing
 - The browser client at `GET /helpdesk/client.js` (`window.KumikoHelpdesk.load()` / `submit()`)
@@ -40,12 +41,14 @@ bun test --config=bunfig.integration.toml samples/recipes/helpdesk
 ## Integration into a real app
 
 1. Mount `createHelpdeskFeature({ appName })` plus delivery, a mail channel, `user-data-rights`,
-   `files` with a file provider and `config`.
+   `files` with a file provider, `notes-history` and `config`.
 2. Run `kumiko schema generate` (new tables, plus the delivery `idempotency_key` column).
 3. SystemAdmins set `helpdesk:config:reply-to` in the admin.
-4. Embed `/helpdesk/client.js` on the website; the form is yours. A website served by another
-   server can serve the same script from `HELPDESK_CLIENT_SOURCE` and type its calls with
-   `HelpdeskWebsiteClient`, both from `@cosmicdrift/kumiko-bundled-features/helpdesk/client`.
+4. Embed `/helpdesk/client.js` on the website; the form is yours. The client posts to the
+   relative paths `/api/query` and `/api/write` without cookies, so the page has to share the
+   app's origin. A website served by another server forwards `/api` to the app on its own
+   origin; it can then serve the same script from `HELPDESK_CLIENT_SOURCE` and type its calls
+   with `HelpdeskWebsiteClient`, both from `@cosmicdrift/kumiko-bundled-features/helpdesk/client`.
 
 Telegram is optional and off by default: notifications go by mail to SystemAdmins only. An app
 that turns it on (`telegram: true`) also mounts `channel-telegram` and `secrets` for the bot
