@@ -176,9 +176,14 @@ describe("unclaimedUploadReaders", () => {
     expect(await request(stack, uploader, fileRefId)).toBe(200);
   });
 
-  test("a reference from another record does not rebind an unclaimed upload", async () => {
+  test("a reference from another user's record is rejected and leaves the unclaimed upload alone", async () => {
     const fileRefId = await upload(stack, uploader);
-    await stack.http.writeOk(NOTE_CREATE, { title: "Clerk note", attachment: fileRefId }, clerk);
+    const err = await stack.http.writeErr(
+      NOTE_CREATE,
+      { title: "Clerk note", attachment: fileRefId },
+      clerk,
+    );
+    expect(err.code).toBe("validation_error");
 
     const [row] = await selectMany(stack.db, fileRefsTable, { id: fileRefId });
     expect(row?.["entityId"]).toBeNull();

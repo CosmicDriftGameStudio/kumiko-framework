@@ -27,6 +27,9 @@ export type SaveContext = {
   // The event that produced this save; the pipeline drives projections from it
   // inside the same transaction, and hooks read the caller from event.createdBy.
   readonly event: StoredEvent;
+  // Pending file uploads the writer proved to own by presenting their claim handle; the
+  // executor sets it, the pipeline binds them without an ownership match on the uploader.
+  readonly claimedFileRefIds?: readonly string[] | undefined;
 };
 
 export type DeleteContext = {

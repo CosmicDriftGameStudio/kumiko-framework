@@ -1,6 +1,6 @@
 import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
-import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
+import { isUuid, parseFileHandle } from "@cosmicdrift/kumiko-types/identifiers";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
@@ -13,8 +13,10 @@ import {
   type WriteErrorInfo,
 } from "../errors/index.ts";
 import { getFileRefExecutor } from "./create-file-ref.ts";
+import { fileClaimMatches } from "./file-claim.ts";
 import { fileRefIdsInField, holdsFileRefs } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
+import { invalidFileRefError } from "./invalid-file-ref-error.ts";
 import { type FileRefRows, loadFileRefRows } from "./load-save-file-refs.ts";
 import { validateFile } from "./types.ts";
 import { resolveAttachedField } from "./upload-field-resolution.ts";
@@ -25,16 +27,16 @@ function isPendingUploadFor(
   row: Readonly<Record<string, unknown>>,
   entityName: string,
   fieldName: string,
-  user: SessionUser,
 ): boolean {
-  // Every anonymous visitor shares one user id, so insertedById cannot tell their uploads apart.
-  if (isAnonymousSessionUser(user)) return false;
   return (
-    row["entityId"] === null &&
-    row["entityType"] === entityName &&
-    row["fieldName"] === fieldName &&
-    row["insertedById"] === user.id
+    row["entityId"] === null && row["entityType"] === entityName && row["fieldName"] === fieldName
   );
+}
+
+// Every anonymous visitor shares one user id, so insertedById cannot tell their uploads apart:
+// an anonymous upload is owned by whoever holds its claim, never by user id.
+export function isOwnUpload(row: Readonly<Record<string, unknown>>, user: SessionUser): boolean {
+  return !isAnonymousSessionUser(user) && row["insertedById"] === user.id;
 }
 
 type FileRefRow = Readonly<Record<string, unknown>>;
@@ -57,17 +59,21 @@ async function bindPendingRow(args: {
   readonly bindTo?: PendingFileRefBindTarget | undefined;
   readonly user: SessionUser;
   readonly db: TenantDb;
+  /** The writer presented the claim of this upload's handle. */
+  readonly claimed: boolean;
 }): Promise<BindOutcome> {
-  const { row, fileRefId, entityName, fieldName, entityId, bindTo, user, db } = args;
-  if (!isPendingUploadFor(row, entityName, fieldName, user)) return { kind: "not-pending" };
+  const { row, fileRefId, entityName, fieldName, entityId, bindTo, user, db, claimed } = args;
+  if (!isPendingUploadFor(row, entityName, fieldName)) return { kind: "not-pending" };
+  if (!claimed && !isOwnUpload(row, user)) return { kind: "not-pending" };
   const bound = await getFileRefExecutor().update(
     {
       id: fileRefId,
       version: streamVersionOf(row),
-      changes:
-        bindTo === undefined
-          ? { entityId }
-          : { entityId, entityType: bindTo.entityName, fieldName: bindTo.fieldName },
+      changes: {
+        entityId,
+        ...(bindTo !== undefined && { entityType: bindTo.entityName, fieldName: bindTo.fieldName }),
+        ...(claimed && { claimHash: null }),
+      },
     },
     user,
     db,
@@ -93,6 +99,7 @@ export async function bindPendingFileRefs(args: {
   // skip: saves of unnamed aggregates declare no file fields
   if (result.entityName === undefined) return;
   const entityName = result.entityName;
+  const claimedFileRefIds = new Set(result.claimedFileRefIds);
   const entity = registry.getEntity(entityName);
   // skip: saves of unregistered aggregates (custom executors) declare no file fields
   if (entity === undefined) return;
@@ -106,6 +113,7 @@ export async function bindPendingFileRefs(args: {
     for (const fileRefId of fileRefIdsInField(fieldDef, result.changes[fieldName])) {
       const row = fileRefRows.get(fileRefId);
       if (row === undefined) continue;
+      const claimed = claimedFileRefIds.has(fileRefId);
       const outcome = await bindPendingRow({
         row,
         fileRefId,
@@ -114,7 +122,11 @@ export async function bindPendingFileRefs(args: {
         entityId: String(result.id),
         user,
         db,
+        claimed,
       });
+      // A proven claim must end in a bind; staying silent would store the id of a file that
+      // remains pending with a live claim.
+      if (claimed && outcome.kind === "not-pending") throw invalidFileRefError(fieldName);
       if (outcome.kind === "failed") throw reraiseAsKumikoError(outcome.error);
     }
   }
@@ -136,13 +148,26 @@ type PendingFileRefLookup = {
   readonly db: TenantDb;
 };
 
-async function loadPendingRow(lookup: PendingFileRefLookup): Promise<FileRefRow | undefined> {
+type LoadedPendingRow = {
+  readonly id: string;
+  readonly row: FileRefRow;
+  readonly claimed: boolean;
+};
+
+// `fileRefId` is a bare id (the caller must own the upload) or a handle (the claim must match).
+async function loadPendingRow(lookup: PendingFileRefLookup): Promise<LoadedPendingRow | undefined> {
   const { fileRefId, entityName, fieldName, user, db } = lookup;
-  if (!isUuid(fileRefId)) return undefined;
-  const row = (await loadFileRefRows(db, [fileRefId], user.tenantId)).get(fileRefId);
-  return row !== undefined && isPendingUploadFor(row, entityName, fieldName, user)
-    ? row
-    : undefined;
+  const handle = parseFileHandle(fileRefId);
+  const id = handle?.id ?? fileRefId;
+  if (!isUuid(id)) return undefined;
+  const row = (await loadFileRefRows(db, [id], user.tenantId)).get(id);
+  if (row === undefined || !isPendingUploadFor(row, entityName, fieldName)) return undefined;
+  if (handle !== null) {
+    return fileClaimMatches(row["claimHash"], handle.claim)
+      ? { id, row, claimed: true }
+      : undefined;
+  }
+  return isOwnUpload(row, user) ? { id, row, claimed: false } : undefined;
 }
 
 // fileName is left out on purpose: it is personal data and may be encrypted; read it through
@@ -150,8 +175,9 @@ async function loadPendingRow(lookup: PendingFileRefLookup): Promise<FileRefRow 
 export async function loadPendingFileRef(
   lookup: PendingFileRefLookup,
 ): Promise<PendingFileRef | undefined> {
-  const row = await loadPendingRow(lookup);
-  if (row === undefined) return undefined;
+  const pending = await loadPendingRow(lookup);
+  if (pending === undefined) return undefined;
+  const { row } = pending;
   const { storageKey, mimeType, size } = row;
   const version = streamVersionOf(row);
   if (
@@ -162,7 +188,7 @@ export async function loadPendingFileRef(
   ) {
     return undefined;
   }
-  return { id: lookup.fileRefId, storageKey, mimeType, size, version };
+  return { id: pending.id, storageKey, mimeType, size, version };
 }
 
 export type PendingFileRefBindTarget = {
@@ -215,7 +241,8 @@ const CONCURRENT_BIND_ERROR_CODES: readonly string[] = ["version_conflict", "uni
 
 /**
  * Binds one of the caller's own pending uploads to a record from a custom handler, with the
- * same ownership predicate as the save pipeline. Anonymous callers never own an upload.
+ * same ownership predicate as the save pipeline. Anonymous callers never own an upload by user
+ * id: they pass the handle from the upload response as `fileRefId`.
  *
  * The helper checks the upload, not the target: the caller must already be authorized to write
  * `entityId` itself (for example a record the handler just wrote); `canWriteRecord` is not checked.
@@ -236,11 +263,16 @@ export async function bindPendingFileRef(
     readonly registry?: Registry;
   },
 ): Promise<BindPendingFileRefOutcome> {
-  const row = await loadPendingRow(args);
+  const pending = await loadPendingRow(args);
   // Without a stream version the update would run unversioned and could overwrite a concurrent bind.
-  if (row === undefined || streamVersionOf(row) === undefined) return "not-pending";
-  if (args.bindTo !== undefined) assertRowFitsBindTarget(args.registry, args.bindTo, row);
-  const outcome = await bindPendingRow({ ...args, row });
+  if (pending === undefined || streamVersionOf(pending.row) === undefined) return "not-pending";
+  if (args.bindTo !== undefined) assertRowFitsBindTarget(args.registry, args.bindTo, pending.row);
+  const outcome = await bindPendingRow({
+    ...args,
+    fileRefId: pending.id,
+    row: pending.row,
+    claimed: pending.claimed,
+  });
   switch (outcome.kind) {
     case "bound":
       return "bound";

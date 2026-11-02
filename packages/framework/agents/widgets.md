@@ -203,7 +203,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `smoothPath` | Quadratic midpoint technique: smooths the zigzag line without overshoot (~5 lines instead of a Catmull-Rom/Bezier fit). |
 | `synthesizeActionFormEntity` | Builds a minimal EntityDefinition from the inline fields of an ActionForm or SecretMint screen. |
 | `synthesizeActionFormScreen` | Converts an ActionFormScreenDefinition or SecretMintScreenDefinition to the EntityEditScreen shape expected by RenderEdit. |
-| `uploadFileRef` | Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id. |
+| `uploadFileRef` | Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id, or the claim handle when the server issued one (anonymous uploads), which a save must submit. |
 
 ## Constants
 

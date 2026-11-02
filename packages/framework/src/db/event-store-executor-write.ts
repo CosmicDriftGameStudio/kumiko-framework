@@ -34,6 +34,7 @@ import {
   getStreamVersion,
 } from "../event-store/index.ts";
 
+import { resolveFileHandles } from "../files/resolve-file-handles.ts";
 import {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
@@ -690,7 +691,10 @@ export function createWriteVerbs(
       // event payload so defaults + downstream consumers don't see a redundant id field.
       const explicitId = typeof payload["id"] === "string" ? (payload["id"] as string) : undefined; // @cast-boundary engine-payload
       const aggregateId = explicitId ?? generateId();
-      const { id: _id, ...payloadWithoutId } = payload;
+      const { id: _id, ...payloadWithHandles } = payload;
+      const handles = await resolveFileHandles(entity, entityName, payloadWithHandles, db, user);
+      if ("failure" in handles) return handles.failure;
+      const payloadWithoutId = handles.values;
       const preSaveResult = await runPreSave(
         options?.preSave,
         applyDefaults(payloadWithoutId),
@@ -754,6 +758,7 @@ export function createWriteVerbs(
           // Persisted event carries ciphertext by design — the caller-facing
           // echo must be plaintext like every other response field.
           event: echoEvent,
+          claimedFileRefIds: handles.claimedFileRefIds,
         },
       };
     },
@@ -779,9 +784,12 @@ export function createWriteVerbs(
       const streamTenantId = updateOptions?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
+      const handles = await resolveFileHandles(entity, entityName, payload.changes, db, user);
+      if ("failure" in handles) return handles.failure;
+      const submittedChanges: DbRow = { ...handles.values };
       const preSaveResult = await runPreSave(
         updateOptions?.preSave,
-        payload.changes,
+        submittedChanges,
         previous,
         false,
         entityName,
@@ -799,7 +807,7 @@ export function createWriteVerbs(
           user,
           streamTenantId,
           payload.id,
-          payload.changes,
+          submittedChanges,
           previous,
           changes,
           mergedNew,
@@ -855,6 +863,7 @@ export function createWriteVerbs(
             isNew: false,
             entityName,
             event: echoEvent,
+            claimedFileRefIds: handles.claimedFileRefIds,
           },
         };
       } catch (e) {

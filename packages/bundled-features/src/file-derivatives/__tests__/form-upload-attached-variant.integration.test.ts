@@ -327,10 +327,17 @@ describe("form uploads attached to their record, then a qr-overlay variant", () 
     expectQrResolvedAgainst(gadgetId);
   });
 
-  test("a create naming another user's pending upload leaves that upload unbound", async () => {
+  test("a create naming another user's pending upload is rejected and leaves that upload unbound", async () => {
     const foreignFileRefId = await uploadLikeTheForm(photoHints("create"), otherAdmin);
 
-    await createGadget({ photo: foreignFileRefId });
+    const err = await stack.http.writeErr(
+      "form-upload-gadget:write:field-gadget:create",
+      { title: "Gadget", photo: foreignFileRefId },
+      user,
+    );
+    expect(JSON.stringify(err.details)).toContain("invalid_element");
+    expect(await readFileAs(foreignFileRefId, technician)).toBe(404);
+    expect(await readFileAs(foreignFileRefId, otherAdmin)).toBe(200);
     const result = await renderCard(foreignFileRefId);
 
     expect(result).toEqual({ rendered: false, failedWithInternalError: true });
@@ -425,13 +432,19 @@ describe("pending uploads are private to their uploader until bound", () => {
     expectQrResolvedAgainst(gadgetId);
   });
 
-  test("an update naming another user's pending upload leaves it unbound", async () => {
+  test("an update naming another user's pending upload is rejected and leaves it unbound", async () => {
     const gadgetId = await createGadget();
     const foreignId = await uploadLikeTheForm(photoHints("create"), otherAdmin);
 
-    await updateGadgetPhoto(gadgetId, foreignId);
+    const err = await stack.http.writeErr(
+      "form-upload-gadget:write:field-gadget:update",
+      { id: gadgetId, version: 1, changes: { photo: foreignId } },
+      user,
+    );
 
+    expect(JSON.stringify(err.details)).toContain("invalid_element");
     expect(await readFileAs(foreignId, technician)).toBe(404);
+    expect(await readFileAs(foreignId, otherAdmin)).toBe(200);
   });
 
   test("a server handler that stores bytes for a field and then updates the record binds the file", async () => {

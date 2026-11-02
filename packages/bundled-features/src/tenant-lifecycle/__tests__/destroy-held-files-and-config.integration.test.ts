@@ -206,7 +206,7 @@ async function seedFile(name: string): Promise<{ id: string; storageKey: string 
   await provider.write(storageKey, new Uint8Array([1, 2, 3]), "image/jpeg");
   const result = await fileRefCrud.create(
     { storageKey, fileName: `${name}.jpg`, mimeType: "image/jpeg", size: 3 },
-    createSystemUser(tenantId),
+    tenantAdmin,
     systemTdb(),
   );
   if (!result.isSuccess) throw new Error(`seed fileRef failed: ${result.error.message}`);

@@ -1,10 +1,12 @@
+import { formatFileHandle } from "@cosmicdrift/kumiko-types/identifiers";
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import type { TenantDb } from "../db/tenant-db.ts";
 import { runInOwnTransaction } from "../db/tenant-db-scoped-rebind.ts";
+import { isAnonymousSessionUser } from "../engine/system-user.ts";
 import type { Registry, SessionUser } from "../engine/types/index.ts";
-
 import { InternalError, type WriteFailure } from "../errors/index.ts";
 import { generateId } from "../utils/index.ts";
+import { generateFileClaim } from "./file-claim.ts";
 import { FILE_REF_ENTITY_NAME, fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
 import { resolveContentType } from "./resolve-content-type.ts";
@@ -96,7 +98,12 @@ export type UploadBytesOutcome =
   | { readonly kind: "rejected"; readonly error: string };
 
 export type StoreFileOutcome =
-  | { readonly kind: "created"; readonly fileRef: CreatedFileRef }
+  | {
+      readonly kind: "created";
+      readonly fileRef: CreatedFileRef;
+      /** `<id>.<claim>`, only for anonymous uploads: the one proof of owning the pending file. */
+      readonly handle?: string;
+    }
   | { readonly kind: "rejected"; readonly error: string }
   | { readonly kind: "target-locked" }
   | { readonly kind: "failed"; readonly failure: WriteFailure };
@@ -235,6 +242,7 @@ export async function writeAcceptedFileBytes(
 export async function createFileRefRow(
   deps: Pick<StoreFileDeps, "user" | "tenantDb">,
   uploaded: UploadedFileBytes,
+  claimHash?: string,
 ): Promise<{ readonly fileRef: CreatedFileRef } | { readonly failure: WriteFailure }> {
   const fileRefId = generateId();
   const result = await getFileRefExecutor().create(
@@ -247,6 +255,7 @@ export async function createFileRefRow(
       entityType: uploaded.entityType ?? null,
       entityId: uploaded.entityId ?? null,
       fieldName: uploaded.fieldName ?? null,
+      ...(claimHash !== undefined && { claimHash }),
     },
     deps.user,
     deps.tenantDb,
@@ -290,9 +299,14 @@ export async function storeFileAsFileRef(
       // skip: the create failure is the error worth reporting; the leftover bytes stay in storage.
     }
   };
+  const claim = isAnonymousSessionUser(deps.user) ? generateFileClaim() : undefined;
   const createRow = async (rowDb: TenantDb) => {
     if (await deps.isAttachTargetLocked?.(rowDb)) throw new AttachTargetLockedError();
-    return createFileRefRow({ user: deps.user, tenantDb: rowDb }, upload.uploaded);
+    return createFileRefRow(
+      { user: deps.user, tenantDb: rowDb },
+      upload.uploaded,
+      claim?.claimHash,
+    );
   };
   let row: Awaited<ReturnType<typeof createFileRefRow>>;
   try {
@@ -308,5 +322,11 @@ export async function storeFileAsFileRef(
     await deleteUploadedBytes();
     return { kind: "failed", failure: row.failure };
   }
-  return { kind: "created", fileRef: row.fileRef };
+  return {
+    kind: "created",
+    fileRef: row.fileRef,
+    ...(claim !== undefined && {
+      handle: formatFileHandle({ id: row.fileRef.id, claim: claim.claim }),
+    }),
+  };
 }

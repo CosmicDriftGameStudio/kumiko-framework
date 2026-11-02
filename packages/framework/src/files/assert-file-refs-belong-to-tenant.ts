@@ -1,9 +1,8 @@
 import type { FieldDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
-import type { Registry } from "../engine/types/index.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
 
-import { ValidationError } from "../errors/index.ts";
-import { assertRowFitsFileField } from "./bind-pending-file-refs.ts";
+import { assertRowFitsFileField, isOwnUpload } from "./bind-pending-file-refs.ts";
 import {
   fileRefIdsBySubField,
   fileRefIdsInField,
@@ -11,6 +10,7 @@ import {
   resolveFileSubField,
 } from "./file-field-slots.ts";
 import { FILE_REF_ENTITY_NAME } from "./file-ref-entity.ts";
+import { invalidFileRefError } from "./invalid-file-ref-error.ts";
 import type { FileRefRows } from "./load-save-file-refs.ts";
 
 // A file field only stores an id, and the file routes authorize by tenant at
@@ -59,12 +59,25 @@ function assertNewIdsFitSubFields(
   }
 }
 
+// A pending upload (no record yet) is usable by the uploader or by whoever proved the claim of
+// its handle; a visitor-owned upload is nobody's by user id, so a bare id never suffices.
+function mayUseRow(
+  row: Readonly<Record<string, unknown>>,
+  user: SessionUser,
+  claimedFileRefIds: ReadonlySet<string>,
+): boolean {
+  const isPending = row["entityId"] === null || row["entityId"] === undefined;
+  return !isPending || isOwnUpload(row, user) || claimedFileRefIds.has(String(row["id"]));
+}
+
 export function assertFileRefsBelongToTenant(args: {
   readonly registry: Registry;
   readonly result: SaveContext;
+  readonly user: SessionUser;
   readonly fileRefRows: FileRefRows;
 }): void {
-  const { registry, result, fileRefRows } = args;
+  const { registry, result, user, fileRefRows } = args;
+  const claimedFileRefIds = new Set(result.claimedFileRefIds);
   // skip: saves of unregistered aggregates (custom executors) declare no file fields
   if (result.entityName === undefined) return;
   const entity = registry.getEntity(result.entityName);
@@ -89,16 +102,14 @@ export function assertFileRefsBelongToTenant(args: {
       // (forget purged the file), and sending the unchanged field back must still save.
       if (alreadyHeld.has(fileRefId)) continue;
       const row = fileRefRows.get(fileRefId);
-      if (row !== undefined && !isBoundToOtherRecord(row, result.entityName, recordId)) continue;
-      throw new ValidationError({
-        fields: [
-          {
-            path: fieldName,
-            code: "invalid_element",
-            i18nKey: "errors.validation.invalid_element",
-          },
-        ],
-      });
+      if (
+        row !== undefined &&
+        !isBoundToOtherRecord(row, result.entityName, recordId) &&
+        mayUseRow(row, user, claimedFileRefIds)
+      ) {
+        continue;
+      }
+      throw invalidFileRefError(fieldName);
     }
     assertNewIdsFitSubFields(
       fieldDef,

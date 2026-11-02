@@ -4,6 +4,7 @@ import {
   fileRefIdsInField,
   holdsFileRefs,
   isFileSubField,
+  mapFileRefSlots,
   resolveFileSubField,
 } from "../file-field-slots.ts";
 
@@ -20,6 +21,24 @@ const list: FieldDefinition = {
   },
 };
 const single: FieldDefinition = { type: "embedded", schema: { photos: { type: "images" } } };
+
+describe("mapFileRefSlots", () => {
+  const upper = (entry: string) => entry.toUpperCase();
+
+  test("maps a single file slot, a list and the file sub-fields of embedded rows", () => {
+    expect(mapFileRefSlots({ type: "image" }, "a", upper)).toBe("A");
+    expect(mapFileRefSlots({ type: "images" }, ["a", 1, "b"], upper)).toEqual(["A", 1, "B"]);
+    expect(
+      mapFileRefSlots(list, [{ label: "keep", photos: ["a"], docs: ["b"] }, "junk"], upper),
+    ).toEqual([{ label: "keep", photos: ["A"], docs: ["B"] }, "junk"]);
+    expect(mapFileRefSlots(single, { photos: ["a"] }, upper)).toEqual({ photos: ["A"] });
+  });
+
+  test("leaves fields without file slots untouched", () => {
+    expect(mapFileRefSlots({ type: "text" }, "a", upper)).toBe("a");
+    expect(mapFileRefSlots(undefined, "a", upper)).toBe("a");
+  });
+});
 
 describe("file-field-slots", () => {
   test("holdsFileRefs: file fields and embedded with file sub-fields", () => {

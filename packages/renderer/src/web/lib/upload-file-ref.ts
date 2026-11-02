@@ -19,7 +19,8 @@ export class FileUploadFailedError extends Error {
   }
 }
 
-/** Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id. */
+/** Posts one file to the stack's file endpoint (double-submit CSRF) and returns the new FileRef id,
+ *  or the claim handle when the server issued one (anonymous uploads), which a save must submit. */
 export async function uploadFileRef(file: Blob, target?: FileRefTarget): Promise<string> {
   const csrf = readCsrfToken();
   const res = await fetch("/api/files", {
@@ -29,6 +30,7 @@ export async function uploadFileRef(file: Blob, target?: FileRefTarget): Promise
   });
   const json: unknown = await res.json().catch(() => ({}));
   const id = propertyOf(json, "id");
+  const handle = propertyOf(json, "handle");
   if (!res.ok || typeof id !== "string") {
     const message = propertyOf(json, "error");
     const code = propertyOf(json, "code");
@@ -41,5 +43,5 @@ export async function uploadFileRef(file: Blob, target?: FileRefTarget): Promise
         )
       : new FileUploadFailedError(`upload failed (${res.status})`, false, res.status);
   }
-  return id;
+  return typeof handle === "string" ? handle : id;
 }

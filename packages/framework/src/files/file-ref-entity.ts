@@ -31,5 +31,7 @@ export const fileRefEntity = createEntity({
     entityType: createTextField({ personal: false, reason: "technical_reference" }),
     entityId: createTextField({ personal: false, reason: "technical_reference" }),
     fieldName: createTextField({ personal: false, reason: "technical_reference" }),
+    // sha256 of the claim that proves ownership of an anonymous pending upload; never the claim.
+    claimHash: createTextField({ personal: false, reason: "technical_reference" }),
   },
 });

@@ -26,3 +26,15 @@ describe("default file guard: record-only entity types", () => {
     expect(await guard(request("mail", { id: "reader", roles: [] }))).toBe("allow");
   });
 });
+
+describe("default file guard: anonymous visitors", () => {
+  test("share one user id, so insertedById never grants them their own upload back", async () => {
+    const args = {
+      fileRef: { entityType: null, entityId: null, insertedById: "anonymous" },
+      user: { id: "anonymous", roles: ["anonymous"] },
+      operation: "read",
+    } as unknown as GuardArgs;
+    expect(await guard(args)).toBe("deny");
+    expect(await guard({ ...args, operation: "delete" })).toBe("deny");
+  });
+});

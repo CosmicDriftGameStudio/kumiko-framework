@@ -1,5 +1,5 @@
-// Every anonymous visitor shares one user id, so a save by one visitor must never bind a pending
-// upload that another visitor stored.
+// Every anonymous visitor shares one user id, so a save naming another visitor's pending upload
+// by its bare id must be rejected; only the claim handle (anonymous-upload-claim test) binds it.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
@@ -63,7 +63,7 @@ beforeAll(async () => {
 afterAll(() => stack.cleanup());
 
 describe("a save by an anonymous visitor naming a pending upload", () => {
-  test("leaves another visitor's pending upload unbound", async () => {
+  test("rejects another visitor's pending upload named by its bare id", async () => {
     const stashRes = await stack.http.raw("POST", "/api/write", {
       type: "open-form:write:stash",
       payload: {},
@@ -77,8 +77,8 @@ describe("a save by an anonymous visitor naming a pending upload", () => {
       type: "open-form:write:submit",
       payload: { fileRefId },
     });
-    expect(submitRes.status).toBe(200);
-    expect(await selectMany(stack.db, submissionTable)).toHaveLength(1);
+    expect(await submitRes.text()).toContain("invalid_element");
+    expect(await selectMany(stack.db, submissionTable)).toHaveLength(0);
 
     const [fileRef] = await selectMany(stack.db, fileRefsTable, { id: fileRefId });
     expect(fileRef?.["entityId"]).toBeNull();

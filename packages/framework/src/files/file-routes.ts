@@ -237,7 +237,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     ? options.resolveProvider
     : withUploadLedger(options.resolveProvider, db);
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
-  const guard: FileAccessGuard =
+  const configuredGuard: FileAccessGuard =
     options.accessGuard ??
     createDefaultGuard(
       privilegedRoles,
@@ -245,6 +245,10 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       options.unclaimedUploadReaders ?? [],
       options.registry ? collectRecordOnlyFileEntityTypes(options.registry) : new Set<string>(),
     );
+  // Anonymous visitors share one user id and own no file by it; the check precedes an app's
+  // accessGuard so a custom guard cannot reopen reads or deletes between visitors.
+  const guard: FileAccessGuard = (args) =>
+    isAnonymousSessionUser(args.user) ? "deny" : configuredGuard(args);
   const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
@@ -425,7 +429,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       return c.json({ error: "record_locked: the record is locked" }, 409);
     }
     if (outcome.kind === "failed") return c.json({ error: "upload_failed" }, 500);
-    return c.json(outcome.fileRef, 201);
+    return c.json(
+      outcome.handle === undefined
+        ? outcome.fileRef
+        : { ...outcome.fileRef, handle: outcome.handle },
+      201,
+    );
   });
 
   // GET /files/meta?ids=a,b,c — meta of many files in one request (list/card
@@ -434,6 +443,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // Registered before /files/:id so "meta" is never taken for an id.
   api.get("/files/meta", async (c) => {
     const user = getUser(c);
+    if (isAnonymousSessionUser(user)) return c.json({ error: "not_found" }, 404);
     const ids = [...new Set((c.req.query("ids") ?? "").split(",").filter((id) => isUuid(id)))];
     if (ids.length > MAX_BATCH_META_IDS) return c.json({ error: "too_many_ids" }, 400);
     if (metaBatchRateLimitResolver && ids.length > 0) {
