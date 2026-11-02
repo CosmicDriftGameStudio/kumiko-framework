@@ -34,7 +34,7 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { userEntity, userTable } from "../../user/schema/user.ts";
 import { seedUser } from "../../user/seeding.ts";
-import { seedAdmin, seedAdminGuarded } from "../seeding.ts";
+import { seedAdmin, seedAdminGuarded, seedUserWithPassword } from "../seeding.ts";
 
 const BLIND_INDEX_KEY_B64 = Buffer.alloc(32, 14).toString("base64");
 const TENANT_114: TenantId = "00000000-0000-4000-8000-0000000001d4" as TenantId;
@@ -240,5 +240,46 @@ describe("seedAdminGuarded", () => {
 
     expect(second.id).toBe(first.id);
     expect(await userIds()).toEqual([first.id]);
+  });
+});
+
+describe.each([
+  { mode: "KMS", withKms: true },
+  { mode: "plaintext", withKms: false },
+])("seedAdminGuarded ownership proof ($mode)", ({ withKms }) => {
+  beforeEach(() => {
+    if (!withKms) {
+      resetPiiSubjectKmsForTests();
+      resetBlindIndexKeyForTests();
+    }
+  });
+
+  async function verifiedFlagOf(id: string): Promise<unknown> {
+    return (await fetchOne(stack.db, userTable, { id }))?.["emailVerified"];
+  }
+
+  test("a self-registered unverified account with the seed email gets no membership and is not verified", async () => {
+    const squatter = await seedUserWithPassword(stack.db, {
+      email: SYSADMIN_EMAIL,
+      password: "attacker-chosen-password",
+      displayName: "Squatter",
+    });
+
+    const seeded = await seedAdminGuarded(stack.db, { ...seedOptions, emailVerified: true });
+
+    expect(seeded.id).toBe(squatter.id);
+    expect(await membershipUserIds()).toEqual([]);
+    expect(await verifiedFlagOf(squatter.id)).toBe(false);
+  });
+
+  test("an earlier seed account (unverified, same password) is verified and granted its memberships", async () => {
+    const earlier = await seedAdmin(stack.db, seedOptions);
+    expect(await verifiedFlagOf(earlier.id)).toBe(false);
+
+    const seeded = await seedAdminGuarded(stack.db, { ...seedOptions, emailVerified: true });
+
+    expect(seeded.id).toBe(earlier.id);
+    expect(await verifiedFlagOf(earlier.id)).toBe(true);
+    expect(await membershipUserIds()).toEqual([earlier.id]);
   });
 });
