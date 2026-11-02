@@ -90,6 +90,61 @@ describe("defineWebhookEvent", () => {
     );
   });
 
+  test("rejects payload schemas that would let undeclared keys through", () => {
+    const open: Record<string, z.ZodObject> = {
+      looseObject: z.looseObject({ id: z.uuid() }),
+      passthrough: z.object({ id: z.uuid() }).passthrough(),
+      catchall: z.object({ id: z.uuid() }).catchall(z.string()),
+      nestedLoose: z.object({ items: z.array(z.looseObject({ id: z.uuid() })).optional() }),
+    };
+    for (const [label, payload] of Object.entries(open)) {
+      expect(
+        () =>
+          defineFeature("shop", (r) => {
+            r.defineWebhookEvent({
+              name: "order-paid",
+              description: "An order was paid.",
+              payload,
+              version: 1,
+            });
+          }),
+        label,
+      ).toThrow(/undeclared keys/);
+    }
+  });
+
+  test("accepts explicitly declared record and unknown fields", () => {
+    expect(() =>
+      defineFeature("shop", (r) => {
+        r.defineWebhookEvent({
+          name: "order-paid",
+          description: "An order was paid.",
+          payload: z.object({
+            customFields: z.record(z.string(), z.unknown()),
+            meta: z.unknown(),
+          }),
+          version: 1,
+        });
+      }),
+    ).not.toThrow();
+  });
+
+  test("accepts strict nested payloads", () => {
+    expect(() =>
+      defineFeature("shop", (r) => {
+        r.defineWebhookEvent({
+          name: "order-paid",
+          description: "An order was paid.",
+          payload: z.object({
+            id: z.uuid(),
+            lines: z.array(z.object({ sku: z.string() })).nullable(),
+          }),
+          version: 1,
+        });
+      }),
+    ).not.toThrow();
+  });
+
   test("rejects an empty wireName", () => {
     expect(() =>
       defineFeature("shop", (r) => {

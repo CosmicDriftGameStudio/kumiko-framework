@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
-import { checkWriteFieldRoles, filterReadFields } from "../field-access.ts";
+import {
+  checkWriteFieldOwnership,
+  checkWriteFieldRoles,
+  filterReadFields,
+} from "../field-access.ts";
 
 const entity: EntityDefinition = {
   fields: {
@@ -69,5 +73,34 @@ describe("checkWriteFieldRoles", () => {
 
   test("returns null when all changed fields are allowed", () => {
     expect(checkWriteFieldRoles(entity, { title: "x" }, editor)).toBeNull();
+  });
+});
+
+describe("checkWriteFieldOwnership embedded sub-fields", () => {
+  const checkpoints: EntityDefinition = {
+    fields: {
+      checkpoints: {
+        type: "embedded",
+        multiple: true,
+        schema: {
+          label: { type: "text" },
+          approvedBy: { type: "text", access: { write: { admin: "all" } } },
+        },
+      },
+    },
+  };
+  const row = { checkpoints: [{ label: "a", approvedBy: "boss" }] };
+
+  test("denies a role-restricted sub-field that is written", () => {
+    expect(checkWriteFieldOwnership(checkpoints, row, editor)).toBe("checkpoints.approvedBy");
+  });
+
+  test("skips the sub-field diff when told the row is only checked for ownership", () => {
+    expect(checkWriteFieldOwnership(checkpoints, row, editor, undefined, row, false)).toBeNull();
+  });
+
+  test("an unchanged sub-field in another key order is not a write", () => {
+    const old = { checkpoints: [{ approvedBy: "boss", label: "a" }] };
+    expect(checkWriteFieldOwnership(checkpoints, row, editor, old)).toBeNull();
   });
 });

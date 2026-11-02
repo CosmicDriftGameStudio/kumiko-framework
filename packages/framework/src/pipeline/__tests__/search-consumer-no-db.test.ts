@@ -53,4 +53,48 @@ describe("search consumer without a db on its context", () => {
     ).rejects.toThrow("no db on the consumer context");
     expect(removed).toEqual([]);
   });
+
+  test("a batch holds the tenant whose event cannot be resolved and still serves the others", async () => {
+    const removed: string[] = [];
+    const adapter = {
+      remove: async (_tenantId: TenantId, _entityType: string, entityId: string) => {
+        removed.push(entityId);
+      },
+    } as unknown as SearchAdapter; // @cast-boundary test stub — only remove() is reachable on this path
+    const registry = createRegistry([
+      defineFeature("nodb", (r) => {
+        r.entity({ name: "note", ...noteEntity });
+      }),
+    ]);
+    const consumer = createSearchEventConsumer(adapter, registry);
+    const tenantWithFailingRead = "00000000-0000-4000-8000-000000000001" as TenantId;
+    const healthyTenant = "00000000-0000-4000-8000-000000000002" as TenantId;
+    const healthyNoteId = crypto.randomUUID();
+    const eventOf = (id: string, type: string, tenantId: TenantId, aggregateId: string) =>
+      ({
+        id,
+        aggregateId,
+        aggregateType: "note",
+        tenantId,
+        version: 2,
+        type,
+        eventVersion: 1,
+        payload: {},
+      }) as unknown as StoredEvent; // @cast-boundary test stub — only the fields the consumer reads
+    const held: { eventIds: readonly string[]; reason: string }[] = [];
+
+    await consumer.batchHandler?.(
+      [
+        eventOf("1", "nodb:event:note:relabeled", tenantWithFailingRead, crypto.randomUUID()),
+        eventOf("2", "note.deleted", healthyTenant, healthyNoteId),
+      ],
+      {} as Parameters<typeof consumer.handler>[1],
+      { holdForRetry: (eventIds, reason) => held.push({ eventIds, reason }) },
+    );
+
+    expect(removed).toEqual([healthyNoteId]);
+    expect(held.map((h) => h.eventIds)).toEqual([["1"]]);
+    expect(held[0]?.reason).toContain(tenantWithFailingRead);
+    expect(held[0]?.reason).toContain("no db on the consumer context");
+  });
 });

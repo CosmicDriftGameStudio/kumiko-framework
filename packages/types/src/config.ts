@@ -710,7 +710,7 @@ export type ReferenceDataDef = {
 //
 // `scope` is optional on the factory-output: createSeed leaves it unset
 // (define-feature derives it from keyDef.scope). createSystemSeed /
-// createTenantSeed / createUserSeed always set it explicitly.
+// createTenantSeed always set it explicitly.
 //
 // `tenantId` / `userId` semantics:
 //   - system scope: both stay undefined (row stored under SYSTEM_TENANT_ID).

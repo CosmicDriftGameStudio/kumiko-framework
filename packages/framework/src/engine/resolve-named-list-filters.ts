@@ -1,4 +1,5 @@
 import type { NamedListFilterCondition } from "@cosmicdrift/kumiko-types/named-list-filters";
+import { rowMetaFieldNames } from "../db/table-builder.ts";
 import { AccessDeniedError, ValidationError } from "../errors/index.ts";
 import { hasAccess } from "./access.ts";
 import type { HandlerContext, SessionUser } from "./types/index.ts";
@@ -27,10 +28,12 @@ export async function resolveNamedListFilters(
     throw new AccessDeniedError();
   }
   const conditions = await def.filters({ ctx, user, now: ctx.tz.now() });
-  const entityFields = ctx.registry.getEntity(entityName)?.fields ?? {};
+  const entity = ctx.registry.getEntity(entityName);
+  const entityFields = entity?.fields ?? {};
+  const rowMeta = rowMetaFieldNames(entity?.softDelete === true);
   for (const condition of conditions) {
     // Fail closed: a condition on a non-column is dropped by the list filter and would widen the queue.
-    if (condition.field !== "id" && !Object.hasOwn(entityFields, condition.field)) {
+    if (!Object.hasOwn(entityFields, condition.field) && !rowMeta.has(condition.field)) {
       throw new Error(
         `Named filter "${name}" of entity "${entityName}" filters on unknown field "${condition.field}".`,
       );

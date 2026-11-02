@@ -91,6 +91,12 @@ describe("findMissingConditionalRequirements", () => {
     ).toEqual([]);
   });
 
+  test("a list with the same content in another key order counts as unchanged", () => {
+    const previous = { result: "not_ok", rows: [{ result: "not_ok", extra: 1 }] };
+    const submitted = { result: "not_ok", rows: [{ extra: 1, result: "not_ok" }] };
+    expect(findMissingConditionalRequirements(fields, submitted, previous)).toEqual([]);
+  });
+
   test("with previous, unchanged values stay editable", () => {
     const previous = { result: "not_ok", rows: [{ result: "not_ok" }] };
     expect(findMissingConditionalRequirements(fields, { ...previous, other: 1 }, previous)).toEqual(

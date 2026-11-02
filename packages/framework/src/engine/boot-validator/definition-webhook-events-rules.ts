@@ -16,6 +16,11 @@ export const DEFINITION_WEBHOOK_EVENT_RULES = {
     summary: "Webhook event payloads are Zod object schemas.",
     fix: "Pass z.object({ ... }) as payload.",
   },
+  payloadOpenShape: {
+    id: "webhook-event/payload-open-shape",
+    summary: "Webhook event payload objects are closed; undeclared keys must be stripped.",
+    fix: "Replace looseObject/passthrough/catchall with z.object({ ... }) and declare every field.",
+  },
   versionInvalid: {
     id: "webhook-event/version-invalid",
     summary: "Webhook event version is a positive integer.",

@@ -28,6 +28,8 @@ const ticketEntity = createEntity({
     pinned: {
       filters: async () => [{ field: "id", op: "in", value: pinnedIds }],
     },
+    mine: { filters: ({ user }) => [{ field: "insertedById", op: "eq", value: user.id }] },
+    someoneElses: { filters: () => [{ field: "insertedById", op: "eq", value: "nobody" }] },
     typo: { filters: () => [{ field: "statuss", op: "eq", value: "open" }] },
     adminOnly: {
       access: { roles: ["Admin"] },
@@ -150,6 +152,21 @@ describe("named list filters", () => {
     );
     expect(titles(r)).toEqual(["C"]);
     expect(r.total).toBe(1);
+  });
+
+  test("a condition on a row-meta column filters instead of failing closed", async () => {
+    const mine = await stack.http.queryOk<ListResult>(
+      LIST,
+      { namedFilter: "mine", totalCount: true, limit: 50 },
+      TestUsers.admin,
+    );
+    expect(titles(mine)).toEqual(["A", "B", "C"]);
+    const other = await stack.http.queryOk<ListResult>(
+      LIST,
+      { namedFilter: "someoneElses", totalCount: true, limit: 50 },
+      TestUsers.admin,
+    );
+    expect(other.rows).toHaveLength(0);
   });
 
   test("a condition on an unknown field fails closed instead of listing every row", async () => {

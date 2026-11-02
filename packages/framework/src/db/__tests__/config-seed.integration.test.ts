@@ -214,7 +214,7 @@ describe("seedConfigValues", () => {
 
     await expect(
       seedConfigValues(seeds, configTable, configEntity, mockRegistry, testDb.db),
-    ).rejects.toThrow(/user-scope seed.*requires both tenantId and userId/);
+    ).rejects.toThrow(/user-scope seed.*requires both tenantId and userId.*scope: "user"/);
   });
 
   test("encrypted seed without EncryptionProvider throws — fail loud at boot", async () => {
