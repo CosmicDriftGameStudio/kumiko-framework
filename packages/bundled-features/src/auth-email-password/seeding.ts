@@ -28,7 +28,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { hashPassword } from "../shared/index.ts";
+import { hashPassword, verifyPassword } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import bootstrap admin seed checks whether the tenant already has members
 import { tenantMembershipsTable } from "../tenant/membership-table.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
@@ -350,14 +350,39 @@ async function findExistingUserIdForEmail(
   return matches.length === 0 ? undefined : pickCanonicalUserId(matches);
 }
 
+// A self-registered, unverified account may squat the seed email before the
+// first boot. Granting roles to it (or marking it verified) would hand the
+// attacker the admin. An explicit caller guard (bootstrap seed: passwordless
+// own account) replaces the built-in proof because it cannot satisfy it.
+async function mayGrantToExistingAccount(
+  row: Record<string, unknown>,
+  options: SeedAdminOptions,
+  callerGuard: ((row: Record<string, unknown>) => boolean) | undefined,
+): Promise<boolean> {
+  if (callerGuard) return callerGuard(row);
+  if (row["emailVerified"] === true) return true;
+  const storedHash = row["passwordHash"];
+  if (options.password === undefined || typeof storedHash !== "string" || storedHash === "") {
+    return false;
+  }
+  return verifyPassword(storedHash, options.password);
+}
+
+function warnSeedSkippedForUnprovenAccount(): void {
+  log.warn(
+    "seedAdminGuarded: an existing unverified account holds the seed email and does not match the seed password, grants skipped",
+  );
+}
+
 async function seedAdminPlaintext(
   db: DbConnection,
   options: SeedAdminOptions,
   mayGrantToExisting: ((row: Record<string, unknown>) => boolean) | undefined,
 ): Promise<{ id: string }> {
-  if (mayGrantToExisting) {
-    const row = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
-    if (row && !mayGrantToExisting(row)) return { id: String(row["id"]) };
+  const row = await fetchOne(db, userTable, { email: options.email, isDeleted: false });
+  if (row && !(await mayGrantToExistingAccount(row, options, mayGrantToExisting))) {
+    if (!mayGrantToExisting) warnSeedSkippedForUnprovenAccount();
+    return { id: String(row["id"]) };
   }
   return seedAdmin(db, options);
 }
@@ -403,7 +428,10 @@ export async function seedAdminGuarded(
     // stays unfindable for login and every boot re-scans the whole table.
     await rewriteSeededUserEmail(db, existingRow, options.email, by);
     const refreshed = (await fetchOne(db, userTable, { id: existingId })) ?? existingRow;
-    if (mayGrantToExisting && !mayGrantToExisting(refreshed)) return { id: existingId };
+    if (!(await mayGrantToExistingAccount(refreshed, options, mayGrantToExisting))) {
+      if (!mayGrantToExisting) warnSeedSkippedForUnprovenAccount();
+      return { id: existingId };
+    }
     if (options.emailVerified === true) {
       await reconcileSeededUserEmailVerified(db, refreshed, by);
     }
