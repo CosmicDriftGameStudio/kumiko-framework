@@ -1,5 +1,5 @@
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
-import { MAX_COLUMN_WIDTH_PX } from "../../../hooks/list-column-layout.ts";
+import { clampWidth, MAX_COLUMN_WIDTH_PX } from "../../../hooks/list-column-layout.ts";
 import { useOptionalTranslation } from "../../../index.ts";
 import { arrowKeyDelta, usePointerDrag } from "../../widgets/use-pointer-drag.ts";
 import type { ColumnSizing } from "./use-column-sizing.ts";
@@ -49,12 +49,10 @@ export function ColumnResizeHandle({
   const width = sizing.widthOf(field);
   const minWidth = sizing.minWidthOf(field);
   const draggedWidth = useRef<number | null>(null);
-  const clampToBounds = (value: number): number =>
-    Math.min(MAX_COLUMN_WIDTH_PX, Math.max(minWidth, value));
   const drag = usePointerDrag({
     onStart: () => width,
     onMove: (startWidth, { dx }) => {
-      const next = clampToBounds(startWidth + dx);
+      const next = clampWidth(startWidth + dx, minWidth);
       draggedWidth.current = next;
       sizing.setLiveWidth(field, next);
     },
@@ -70,7 +68,7 @@ export function ColumnResizeHandle({
     const delta = arrowKeyDelta(event);
     if (delta === undefined || delta.dx === 0) return;
     event.preventDefault();
-    sizing.commit(field, clampToBounds(width + delta.dx));
+    sizing.commit(field, clampWidth(width + delta.dx, minWidth));
   };
 
   return (

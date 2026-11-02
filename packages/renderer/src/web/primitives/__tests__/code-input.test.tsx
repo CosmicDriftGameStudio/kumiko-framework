@@ -84,6 +84,16 @@ describe("DefaultInput kind=code", () => {
     expect(onComplete).toHaveBeenLastCalledWith("654321");
   });
 
+  test("an insertion into a full code is discarded and does not complete a shifted code", () => {
+    const onComplete = mock((_code: string) => {});
+    render(<ControlledCodeInput onComplete={onComplete} />);
+    type("123456");
+    onComplete.mockClear();
+    type("1293456");
+    expect(screen.getByTestId("code")).toHaveProperty("value", "123456");
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
   test("autoFocus focuses the input, its absence does not", () => {
     const { unmount } = render(<ControlledCodeInput onComplete={() => {}} autoFocus />);
     expect(document.activeElement).toBe(screen.getByTestId("code"));

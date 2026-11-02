@@ -263,7 +263,8 @@ export function RelatedListSection({
 
   // Local state, not URL state: a section `id` is optional, so there is no
   // stable URL key to namespace against — the section's sort is local for the
-  // same reason. Consequence: search/filters reset on reload.
+  // same reason. With `table.rememberState` the state is seeded from and written back to
+  // the list-state store instead, so it survives a reload.
   const { search, filters, sort, setSearch, setFilters, setSort, listTable, groupField } =
     useRelatedListState(section, nav.route?.screenId);
 

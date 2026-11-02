@@ -5,6 +5,7 @@ import { TableHead, TableHeader, TableRow } from "../../ui/table.tsx";
 import { NUMERIC_COLUMN_TYPES } from "../data-table-cell.tsx";
 import { ActionsHeaderCell } from "./actions-column.tsx";
 import { ColumnResizeHandle } from "./column-resize-handle.tsx";
+import { COLUMN_ROLE_ATTRIBUTE } from "./column-role.ts";
 import { SortableHeader } from "./sortable-header.tsx";
 import { EXPAND_TOGGLE_CELL_CLASS } from "./table-chrome.tsx";
 import { EXPAND_COLUMN_KEY, SELECT_COLUMN_KEY } from "./use-column-pins.ts";
@@ -40,6 +41,7 @@ function renderExpandHeaderCell(m: DataTableModel): ReactNode {
   return (
     <TableHead
       data-testid="column-expand"
+      {...{ [COLUMN_ROLE_ATTRIBUTE]: "expand" }}
       className={cn(EXPAND_TOGGLE_CELL_CLASS, expandHeaderPin.className)}
       style={expandHeaderPin.style}
     />

@@ -470,7 +470,7 @@ describe("CollapsibleSection", () => {
         <span>Inhalt</span>
       </CollapsibleSection>,
     );
-    expect(container.querySelector("summary")?.className.split(" ")).toContain("h-9");
+    expect(container.querySelector("summary")?.className.split(" ")).toContain("min-h-9");
   });
 });
 
