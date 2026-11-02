@@ -15,6 +15,7 @@ describe("logout forgets remembered list state", () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
+    window.sessionStorage.clear();
     setCsrfCookie("logout-test-token");
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url = typeof input === "string" ? input : input.toString();

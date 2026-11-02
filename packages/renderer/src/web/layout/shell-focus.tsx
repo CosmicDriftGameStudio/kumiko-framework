@@ -1,5 +1,6 @@
-// Per-screen focused shell: while a screen holds focus mode, DefaultAppShell shows the
-// collapsed icon rail and ShellHeader reduces itself to the screen's own PageHeader content.
+// Per-screen focused shell: while a screen holds focus mode, ShellHeader reduces itself to the
+// screen's own PageHeader content and a collapsed sidebar shows the focus rail. The sidebar's
+// expanded state is never changed by focus mode; only the user's own clicks change it.
 //
 // Why register/unregister instead of a prop: the shell sits above every screen and cannot
 // know which one wants the focused chrome; the screen opts in by mounting the hook.
@@ -17,26 +18,21 @@ export const ShellFocusProvider = ShellFocusContext.Provider;
 
 export type ShellFocusHost = {
   readonly focused: boolean;
-  /** Rail expansion while focused; kept apart from the user's own sidebar state so leaving restores it. */
-  readonly railOpen: boolean;
-  readonly setRailOpen: (open: boolean) => void;
   readonly value: ShellFocusContextValue;
 };
 
-/** Shell side: holds the focus counter and the temporary rail state. */
+/** Shell side: holds the focus counter. */
 export function useShellFocusHost(): ShellFocusHost {
   const [holders, setHolders] = useState(0);
-  const [railOpen, setRailOpen] = useState(false);
 
   const register = useCallback(() => {
-    setRailOpen(false);
     setHolders((count) => count + 1);
     return () => setHolders((count) => count - 1);
   }, []);
 
   const focused = holders > 0;
   const value = useMemo(() => ({ focused, register }), [focused, register]);
-  return { focused, railOpen, setRailOpen, value };
+  return { focused, value };
 }
 
 /** True while any mounted screen holds focus mode (always false outside DefaultAppShell). */

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import type { FeatureSchema } from "../../../index.ts";
@@ -41,14 +41,15 @@ function Harness({ initiallyFocused = true }: { readonly initiallyFocused?: bool
   );
 }
 
-function sidebarCookie(): string {
-  return document.cookie
-    .split("; ")
-    .filter((entry) => entry.startsWith("sidebar_state="))
-    .join("");
+function collapseSidebarLikeTheUser(): void {
+  window.localStorage.setItem("kumiko.sidebar.open", "false");
 }
 
 describe("shell focus mode", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   test("without a focused screen the shell keeps full nav, toggle and header actions", () => {
     render(<Harness initiallyFocused={false} />);
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
@@ -57,7 +58,27 @@ describe("shell focus mode", () => {
     expect(screen.getAllByRole("button", { name: "Toggle sidebar" }).length).toBeGreaterThan(0);
   });
 
+  test("a focused screen leaves an expanded sidebar expanded", () => {
+    render(<Harness />);
+    expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
+    expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
+  });
+
+  test("a sidebar the user collapsed stays collapsed across focused and unfocused screens", () => {
+    render(<Harness initiallyFocused={false} />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Toggle sidebar" })[0] as HTMLElement);
+    expect(window.localStorage.getItem("kumiko.sidebar.open")).toBe("false");
+    fireEvent.click(screen.getByText("toggle focus"));
+    expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).not.toBeNull();
+    fireEvent.click(screen.getByText("toggle focus"));
+    expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
+    expect(document.querySelector('[data-sidebar="sidebar"]')).not.toBeNull();
+    expect(document.querySelector('[data-state="collapsed"]')).not.toBeNull();
+    expect(window.localStorage.getItem("kumiko.sidebar.open")).toBe("false");
+  });
+
   test("a focused screen shows one icon per top-level node, no search and no header chrome", () => {
+    collapseSidebarLikeTheUser();
     render(<Harness />);
     const rail = document.querySelector('[data-kumiko-layout="focus-rail"]');
     expect(rail).not.toBeNull();
@@ -71,20 +92,20 @@ describe("shell focus mode", () => {
     expect(header.querySelector('button[data-sidebar="trigger"]')).toBeNull();
   });
 
-  test("clicking a section icon expands the sidebar without touching the sidebar cookie", () => {
+  test("clicking a section icon expands the sidebar", () => {
+    collapseSidebarLikeTheUser();
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "Bestand" }));
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
     expect(screen.getByText("Einheiten")).toBeTruthy();
-    expect(sidebarCookie()).toBe("");
   });
 
-  test("leaving the screen restores the user's own sidebar", () => {
+  test("leaving the screen restores the full header", () => {
+    collapseSidebarLikeTheUser();
     render(<Harness />);
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).not.toBeNull();
     fireEvent.click(screen.getByText("toggle focus"));
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
-    expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
     expect(screen.getByText("Global action")).toBeTruthy();
   });
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type { ReactNode } from "react";
 import type { FeatureSchema } from "../../../index.ts";
 import { fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
@@ -39,7 +39,13 @@ function Harness({ focused }: { readonly focused: boolean }): ReactNode {
 }
 
 describe("WorkspaceShell focus mode", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem("kumiko.sidebar.open", "false");
+  });
+
   test("without a focused screen the full navigation and footer are shown", () => {
+    window.localStorage.clear();
     render(<Harness focused={false} />);
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
     expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();

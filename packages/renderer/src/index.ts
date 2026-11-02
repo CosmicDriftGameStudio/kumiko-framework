@@ -166,6 +166,12 @@ export {
 export type { DraftStorage, DraftStorageProviderProps } from "./context/draft-storage-context.tsx";
 export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-context.tsx";
 export { EmbeddedScreenProvider, useIsEmbeddedScreen } from "./context/embedded-screen-context.tsx";
+export type { ScreenFocus } from "./context/screen-focus-context.tsx";
+export {
+  ScreenFocusProvider,
+  useScreenFocus,
+  useSetScreenFocus,
+} from "./context/screen-focus-context.tsx";
 export type { UserRolesProviderProps } from "./context/user-roles-context.tsx";
 export { UserRolesProvider, useUserRoles } from "./context/user-roles-context.tsx";
 export type { CurrentUser } from "./current-user.tsx";

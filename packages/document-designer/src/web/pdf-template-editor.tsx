@@ -1,7 +1,14 @@
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import { useDispatcher, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  type ScreenFocus,
+  useDispatcher,
+  usePrimitives,
+  useSetScreenFocus,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
+import { TEMPLATE_RESOURCE_ENTITY } from "./constants.ts";
 import { EditorBody, EditorFrame } from "./editor-shell.tsx";
 import { describeError } from "./errors.ts";
 import { buildPdfActions } from "./pdf-editor-actions.ts";
@@ -19,6 +26,7 @@ import {
   renderPdfSettings,
 } from "./pdf-editor-panes.tsx";
 import { buildPdfView } from "./pdf-editor-view.ts";
+import { parsePdfMeta } from "./pdf-meta.ts";
 import { DOCUMENT_PDF_KIND } from "./types.ts";
 import { usePdfEditorState } from "./use-pdf-editor-state.ts";
 
@@ -39,6 +47,20 @@ export function PdfTemplateEditor({
   const { Button, Banner, Dialog } = usePrimitives();
   const s = usePdfEditorState({ slug, requestedLocale }, t);
   const { rowsQuery, row, current, detail, detailQuery } = s.doc;
+  // Persisted values only: unsaved draft content never reaches the focus.
+  const focus = useMemo<ScreenFocus | null>(
+    () =>
+      row === undefined
+        ? null
+        : {
+            entityName: TEMPLATE_RESOURCE_ENTITY,
+            recordId: row.id,
+            label: (detail !== null ? parsePdfMeta(detail.meta).title : "") || slug,
+            facts: { slug: row.slug, kind: row.kind, locale: row.locale },
+          },
+    [row, detail, slug],
+  );
+  useSetScreenFocus(focus);
   if (rowsQuery.loading && rowsQuery.data === null) return <LoadingState />;
   if (rowsQuery.error !== null) return <ErrorState error={rowsQuery.error} />;
   if (row === undefined)

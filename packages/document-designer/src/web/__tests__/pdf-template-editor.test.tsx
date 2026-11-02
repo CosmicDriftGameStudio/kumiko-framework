@@ -11,7 +11,9 @@ import {
   LocaleProvider,
   mergeTranslations,
   PrimitivesProvider,
+  ScreenFocusProvider,
   UserRolesProvider,
+  useScreenFocus,
 } from "@cosmicdrift/kumiko-renderer";
 import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
@@ -367,5 +369,44 @@ describe("PdfTemplateEditor", () => {
     fireEvent.click(await screen.findByText("Show tenant customisations"));
     const drawer = await screen.findByTestId("document-designer-overrides-drawer");
     await waitFor(() => expect(drawer.textContent).toContain("1 tenant has its own version"));
+  });
+});
+
+function FocusProbe() {
+  const focus = useScreenFocus();
+  return (
+    <output data-testid="screen-focus">{focus === null ? "none" : JSON.stringify(focus)}</output>
+  );
+}
+
+describe("PdfTemplateEditor screen focus", () => {
+  test("reports the open template as the screen focus without draft content", async () => {
+    const fake = createFakeDispatcher({ puppeteer: "available" });
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en" })}
+        fallbackBundles={[translations]}
+      >
+        <DispatcherProvider dispatcher={fake.dispatcher}>
+          <UserRolesProvider roles={["TenantAdmin"]}>
+            <PrimitivesProvider value={defaultPrimitives}>
+              <ScreenFocusProvider>
+                <PdfTemplateEditor slug={SLUG} locale="de" />
+                <FocusProbe />
+              </ScreenFocusProvider>
+            </PrimitivesProvider>
+          </UserRolesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId("screen-focus").textContent ?? "null")).toEqual({
+        entityName: "template-resource",
+        recordId: "row-de",
+        label: SLUG,
+        facts: { slug: SLUG, kind: "document-pdf", locale: "de" },
+      }),
+    );
+    expect(screen.getByTestId("screen-focus").textContent).not.toContain("Hello");
   });
 });
