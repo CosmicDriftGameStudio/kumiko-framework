@@ -230,11 +230,14 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     // skip: no entity to listen on, nothing to subscribe to
     if (liveEntities.length === 0) return;
 
+    // A trailing pass must not run through this effect's stale refreshFirstPage
+    // (old payload) once a payload change or unmount has torn the effect down.
+    let disposed = false;
     const runRefresh = (): void => {
       liveInFlightRef.current = true;
       void refreshFirstPage().finally(() => {
         liveInFlightRef.current = false;
-        if (liveTrailingRef.current) {
+        if (!disposed && liveTrailingRef.current) {
           liveTrailingRef.current = false;
           runRefresh();
         }
@@ -255,6 +258,8 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
 
     const unsubscribe = subscribeToEntities(subscribeLive, liveEntities, scheduleRefresh);
     return () => {
+      disposed = true;
+      liveTrailingRef.current = false;
       unsubscribe();
       if (liveTimerRef.current !== null) {
         clearTimeout(liveTimerRef.current);

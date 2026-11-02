@@ -82,7 +82,13 @@ describe("useListViewState pinning and resizing", () => {
     expect(render(first.store).result.current.widths?.["age"]).toBe(MAX_COLUMN_WIDTH_PX);
   });
 
-  test("a density change keeps pins and widths", () => {
+  test("a density change stores neither the schema pins nor the schema widths", () => {
+    const { result, store } = render();
+    act(() => result.current.setDensity("compact"));
+    expect(store.read("orders")?.view).toEqual({ density: "compact" });
+  });
+
+  test("a density change keeps pins and widths the user changed", () => {
     const { result, store } = render();
     act(() => result.current.setPins({ city: "right" }));
     act(() => result.current.setWidth("city", 300));
@@ -91,8 +97,28 @@ describe("useListViewState pinning and resizing", () => {
     expect(store.read("orders")?.view).toEqual({
       density: "compact",
       pins: { city: "right" },
-      widths: { name: 240, city: 300, age: 64 },
+      widths: { city: 300 },
     });
+  });
+
+  test("a schema width changed later reaches a user who only changed density", () => {
+    const first = render();
+    act(() => first.result.current.setDensity("compact"));
+    first.unmount();
+    const changedSchema: readonly ListViewSchemaColumn[] = [
+      { field: "name", pinned: "left", width: 320, minWidth: 120 },
+      { field: "city" },
+      { field: "age", width: 40 },
+    ];
+    const args = {
+      storeKey: "orders",
+      store: first.store,
+      table: TABLE,
+      schemaColumns: changedSchema,
+    };
+    const second = renderHook(() => useListViewState(args));
+    expect(second.result.current.widths?.["name"]).toBe(320);
+    expect(second.result.current.density).toBe("compact");
   });
 
   test("resetView restores the defaults", () => {

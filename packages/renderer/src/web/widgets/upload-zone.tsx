@@ -1,5 +1,6 @@
 import { CheckCircle2, FileUp, Loader2, TriangleAlert, Upload, X } from "lucide-react";
 import { type DragEvent, type ReactNode, useEffect, useId, useRef, useState } from "react";
+import type { TrackFormUpload } from "../../components/form-pending-uploads.tsx";
 import { useTranslation } from "../../index.ts";
 import { toAcceptAttr } from "../lib/accept-attr.ts";
 import { cn } from "../lib/cn.ts";
@@ -53,6 +54,9 @@ export type UploadZoneProps = {
   /** The values the owner currently holds. Done rows whose value left the list disappear, and
    *  going from some to none (an external reset) clears every row, error rows included. */
   readonly doneValues?: readonly string[];
+  /** Wraps the whole per-file work, image resize included, so a surrounding form can hold
+   *  back submit while the file is still being prepared. */
+  readonly trackUpload?: TrackFormUpload;
 };
 
 // `accept` on the native <input> only filters the file-picker dialog — a
@@ -98,6 +102,7 @@ export function UploadZone({
   describeError,
   onRemove,
   doneValues,
+  trackUpload,
 }: UploadZoneProps): ReactNode {
   const t = useTranslation();
   const inputId = useId();
@@ -117,7 +122,13 @@ export function UploadZone({
     previousDoneCount.current = doneCount;
   }, [doneCount]);
 
-  async function uploadOne(file: File): Promise<void> {
+  function uploadOne(file: File): Promise<void> {
+    return trackUpload === undefined
+      ? uploadUntracked(file)
+      : trackUpload(() => uploadUntracked(file));
+  }
+
+  async function uploadUntracked(file: File): Promise<void> {
     const rowId = String(nextRowId.current++);
     const uploadFile = await resizeImageBeforeUpload(file);
     setRows((prev) => [...prev, { id: rowId, fileName: uploadFile.name, status: "uploading" }]);

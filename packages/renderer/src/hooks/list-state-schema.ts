@@ -54,7 +54,15 @@ export type KnownListFields = {
   readonly filterFields: readonly string[];
 };
 
-const PLAIN_PARAM_SUFFIXES: ReadonlySet<string> = new Set(["sort", "dir", "q", "page", "size"]);
+export const NAMED_FILTER_PARAM_SUFFIX = "filter";
+const PLAIN_PARAM_SUFFIXES: ReadonlySet<string> = new Set([
+  "sort",
+  "dir",
+  "q",
+  "page",
+  "size",
+  NAMED_FILTER_PARAM_SUFFIX,
+]);
 const FILTER_PREFIX = "f.";
 const RANGE_BOUND_SUFFIXES = [".from", ".to", ".min", ".max"] as const;
 

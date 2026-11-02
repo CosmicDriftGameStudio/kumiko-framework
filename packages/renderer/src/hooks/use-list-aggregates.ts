@@ -38,6 +38,8 @@ export type ListGroupPagesProps = {
   readonly requests: readonly ListGroupPageRequest[];
   readonly onResult: (pageKey: string, result: ListGroupPageResult) => void;
   readonly refreshNonce: number;
+  /** Bridges remount when it changes: useQuery keeps the previous payload's data. */
+  readonly resetKey: string;
 };
 
 export type ListAggregates = {
@@ -180,7 +182,7 @@ export function useListAggregates({
     ...(serverGroups !== undefined && { serverGroups }),
     ...(totals !== undefined && { totals }),
     ...(notice !== undefined && { notice }),
-    groupPages: { queryType, requests, onResult, refreshNonce },
+    groupPages: { queryType, requests, onResult, refreshNonce, resetKey: state.resetKey },
     refresh,
     loading: grouped && groupsAnswer === undefined && groupsError === null,
     error: groupsError,

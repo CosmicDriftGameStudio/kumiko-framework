@@ -39,14 +39,17 @@ export function splitToolbarActions(input: ToolbarModelInput): ToolbarActionSpli
   // Every primary toolbar action takes the page-header slot, left of the create
   // button (which stays the rightmost primary action): labelled on desktop, so
   // projection lists look like entity lists. On phones an icon button, or, next to
-  // the create button, an entry in the header's overflow menu: the header has no
-  // room for a labelled action beside it.
+  // the create button or beside another promoted action, an entry in the header's overflow
+  // menu: the header has no room for labelled actions.
   const promotedToolbarActions =
     pageHeaderAvailable && pageHeaderSlotAvailable
       ? (toolbarActions?.filter(isHeaderPromotableToolbarAction) ?? [])
       : [];
+  // Several icon-less actions would otherwise all show the same fallback "plus" icon.
   const promotedInOverflowMenu =
-    pageHeaderCompact && createInPageHeader && promotedToolbarActions.length > 0;
+    pageHeaderCompact &&
+    promotedToolbarActions.length > 0 &&
+    (createInPageHeader || promotedToolbarActions.length > 1);
   const toolbarActionsInToolbar =
     toolbarActions?.filter((a) => !promotedToolbarActions.includes(a)) ?? [];
   const hasToolbarActionsInToolbar = toolbarActionsInToolbar.length > 0;

@@ -50,12 +50,13 @@ export function ListGroupPageBridges({
   requests,
   onResult,
   refreshNonce,
+  resetKey,
 }: ListGroupPagesProps): ReactNode {
   return (
     <>
       {requests.map((request) => (
         <GroupPageBridge
-          key={request.pageKey}
+          key={`${resetKey}|${request.pageKey}`}
           pageKey={request.pageKey}
           queryType={queryType}
           payload={request.payload}

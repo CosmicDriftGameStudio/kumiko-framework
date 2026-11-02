@@ -20,6 +20,7 @@
 import { useCallback, useMemo } from "react";
 import { useNav } from "../app/nav.tsx";
 import type { DataTableSort, DataTableSortDir } from "../primitives.tsx";
+import { NAMED_FILTER_PARAM_SUFFIX } from "./list-state-schema.ts";
 
 // A facet with a `defaultFilters` entry falls back to that default whenever
 // its URL key is absent. Clearing it therefore has to leave a marker, or the
@@ -99,7 +100,7 @@ export function listFilterUrlKey(screenId: string, field: string): string {
 
 /** URL key of the named list filter id. Distinct from the `f.` facet prefix. */
 export function listNamedFilterUrlKey(screenId: string): string {
-  return key(screenId, "filter");
+  return key(screenId, NAMED_FILTER_PARAM_SUFFIX);
 }
 
 function parseDir(value: string | undefined): ListSortDir | undefined {

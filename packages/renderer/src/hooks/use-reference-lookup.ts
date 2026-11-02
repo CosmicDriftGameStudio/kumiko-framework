@@ -56,6 +56,12 @@ export function referenceOptionSource(
   return referenceLookupSource(refFeature, refEntity, field.refLabelField ?? "id");
 }
 
+// The server rejects a list `limit` above its hard maximum, which would blank every
+// label of a field holding more ids than that; the first page still resolves.
+function byIdsLimit(ids: readonly string[], capLimit: number): number {
+  return Math.min(Math.max(ids.length, capLimit), REFERENCE_LIST_LOOKUP_LIMIT);
+}
+
 // Asks a label source for exactly these rows, so a stored id cannot fall beyond a
 // lookup cap: `ids` is the by-id input of directory sources, `filters` that of entity
 // list handlers. Both only narrow the caller's own read scope. A hand-written handler
@@ -65,7 +71,7 @@ export function referenceRowsByIdsPayload(
   capLimit: number,
 ): Record<string, unknown> {
   return {
-    limit: Math.max(ids.length, capLimit),
+    limit: byIdsLimit(ids, capLimit),
     ids,
     filters: [{ field: "id", op: "in", value: ids }],
   };
@@ -93,7 +99,7 @@ export function storedReferenceRowsPayload(
 ): Record<string, unknown> {
   return field.refOptionsQuery === undefined
     ? referenceRowsByIdsPayload(ids, capLimit)
-    : { limit: Math.max(ids.length, capLimit), ids };
+    : { limit: byIdsLimit(ids, capLimit), ids };
 }
 
 // A page with a continuation cursor is only a prefix of the referenced rows,

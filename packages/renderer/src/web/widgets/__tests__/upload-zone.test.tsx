@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import type { TrackFormUpload } from "../../../components/form-pending-uploads.tsx";
 import { fireEvent, render, screen, waitFor } from "../../__tests__/test-utils.tsx";
 import { UploadZone } from "../upload-zone.tsx";
 
@@ -6,6 +7,40 @@ function pick(input: HTMLElement, files: readonly File[]): void {
   Object.defineProperty(input, "files", { value: files, configurable: true });
   fireEvent.change(input);
 }
+
+describe("UploadZone trackUpload", () => {
+  test("tracking starts before the image resize finishes", async () => {
+    const originalBitmap = globalThis.createImageBitmap;
+    const originalCanvas = globalThis.OffscreenCanvas;
+    globalThis.OffscreenCanvas = class {} as unknown as typeof OffscreenCanvas;
+    globalThis.createImageBitmap = (() => new Promise(() => {})) as typeof createImageBitmap;
+    try {
+      const trackedCalls = mock(() => {});
+      const tracked: TrackFormUpload = (upload) => {
+        trackedCalls();
+        return upload();
+      };
+      const onUpload = mock(async () => {});
+      render(
+        <UploadZone
+          title="Datei hochladen"
+          onUpload={onUpload}
+          trackUpload={tracked}
+          testId="zone"
+        />,
+      );
+      pick(screen.getByTestId("zone-input"), [
+        new File(["x"], "photo.jpg", { type: "image/jpeg" }),
+      ]);
+
+      await waitFor(() => expect(trackedCalls).toHaveBeenCalledTimes(1));
+      expect(onUpload).not.toHaveBeenCalled();
+    } finally {
+      globalThis.createImageBitmap = originalBitmap;
+      globalThis.OffscreenCanvas = originalCanvas;
+    }
+  });
+});
 
 describe("UploadZone", () => {
   test("uploads a file and displays the done status", async () => {

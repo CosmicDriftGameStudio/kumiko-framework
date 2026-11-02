@@ -30,6 +30,14 @@ describe("stored list state", () => {
     expect(parseStoredListStateJson(JSON.stringify({ view: { density: "huge" } }))).toBeUndefined();
   });
 
+  test("the named filter param survives, unknown suffixes still drop", () => {
+    const sanitized = sanitizeStoredListState(
+      { params: { filter: "overdue", q: "x", unknown: "1" } },
+      known,
+    );
+    expect(sanitized?.params).toEqual({ filter: "overdue", q: "x" });
+  });
+
   test("keys and columns the screen no longer has are dropped", () => {
     const sanitized = sanitizeStoredListState(
       {
