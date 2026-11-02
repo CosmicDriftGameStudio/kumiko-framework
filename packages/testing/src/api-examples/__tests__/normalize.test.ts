@@ -18,7 +18,7 @@ describe("normalizeApiExample", () => {
           id: A,
           other: B,
           createdAt: "2025-03-04T05:06:07.123456Z",
-          token: "kpat_sample_value",
+          label: "kpat_sample_value",
         },
         timestamp: "2025-03-04T05:06:07Z",
         nextCursor: "opaque",
@@ -43,7 +43,7 @@ describe("normalizeApiExample", () => {
     expect(normalized.response.body).toMatchObject({
       timestamp: "2026-01-15T09:30:00.000Z",
       nextCursor: "CURSOR",
-      data: { createdAt: "2026-01-15T09:30:00.000Z", token: "kpat_EXAMPLE" },
+      data: { createdAt: "2026-01-15T09:30:00.000Z", label: "kpat_EXAMPLE" },
     });
   });
 
@@ -72,5 +72,59 @@ describe("normalizeApiExample", () => {
       mfaCode: "REDACTED",
     });
     expect(result.response.body).toEqual({ isSuccess: true, data: { clientSecret: "REDACTED" } });
+  });
+});
+
+describe("normalizeApiExample credential coverage", () => {
+  const JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl";
+
+  test("token-like keys are redacted, harmless counters are not", () => {
+    const result = normalizeApiExample({
+      request: { endpoint: "/api/write", body: { type: "a:write:b:c", payload: {} } },
+      response: {
+        status: 200,
+        body: {
+          isSuccess: true,
+          data: {
+            accessToken: "opaque-a",
+            refreshToken: "opaque-b",
+            apiKey: "k-1",
+            api_key: "k-2",
+            authorization: "Bearer abc",
+            token: "opaque-c",
+            credentials: "user:pass",
+            tokenCount: 3,
+            note: "visible",
+          },
+        },
+      },
+    });
+    expect(result.response.body).toEqual({
+      isSuccess: true,
+      data: {
+        accessToken: "REDACTED",
+        refreshToken: "REDACTED",
+        apiKey: "REDACTED",
+        api_key: "REDACTED",
+        authorization: "REDACTED",
+        token: "REDACTED",
+        credentials: "REDACTED",
+        tokenCount: 3,
+        note: "visible",
+      },
+    });
+  });
+
+  test("a JWT in an arbitrary string field is replaced", () => {
+    const result = normalizeApiExample({
+      request: { endpoint: "/api/write", body: { type: "a:write:b:c", payload: {} } },
+      response: {
+        status: 200,
+        body: { isSuccess: true, data: { session: JWT, hint: `Bearer ${JWT}` } },
+      },
+    });
+    const serialized = JSON.stringify(result.response.body);
+    expect(serialized).not.toContain("c2lnbmF0dXJl");
+    expect(serialized).toContain("eyJEXAMPLE.EXAMPLE.EXAMPLE");
   });
 });
