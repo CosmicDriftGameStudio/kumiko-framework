@@ -1,9 +1,11 @@
 import { PreviewPane, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import {
   EditorWorkbench,
+  PageSection,
   RailHint,
   RailRow,
   RailSection,
+  Stack,
   type WorkbenchSave,
 } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
@@ -77,21 +79,23 @@ export function ContentWorkbench({
       }}
       banners={banners}
       edit={
-        <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6" data-testid={`${testId}-scroll`}>
-          <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-            {fields}
-            <Field id={editorId} label={t("template-resolver.editor.contentLabel")}>
-              <DocumentBlocksContext.Provider value={documentBlocks}>
-                <ContentEditor
-                  id={editorId}
-                  value={content}
-                  onChange={onContentChange}
-                  variables={variables}
-                  readOnly={disabled}
-                />
-              </DocumentBlocksContext.Provider>
-            </Field>
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto" data-testid={`${testId}-scroll`}>
+          <PageSection maxWidth="3xl">
+            <Stack>
+              {fields}
+              <Field id={editorId} label={t("template-resolver.editor.contentLabel")}>
+                <DocumentBlocksContext.Provider value={documentBlocks}>
+                  <ContentEditor
+                    id={editorId}
+                    value={content}
+                    onChange={onContentChange}
+                    variables={variables}
+                    readOnly={disabled}
+                  />
+                </DocumentBlocksContext.Provider>
+              </Field>
+            </Stack>
+          </PageSection>
         </div>
       }
       preview={

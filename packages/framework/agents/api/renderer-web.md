@@ -33,7 +33,15 @@ function DropdownMenuContent(props: ComponentPropsWithoutRef<typeof Primitive.Co
 function DropdownMenuItem(props: ComponentPropsWithoutRef<typeof Primitive.Item>): ReactNode;
 function DropdownMenuLabel(props: ComponentPropsWithoutRef<typeof Primitive.Label>): ReactNode;
 function DropdownMenuSeparator(props: ComponentPropsWithoutRef<typeof Primitive.Separator>): ReactNode;
+function EditorBody(props: { left?: ReactNode; center: ReactNode; right: ReactNode; testId?: string; }): ReactNode;
+function EditorFooter(props: { testIdPrefix: string; actionTestIds?: EditorActionTestIds; message: { tone: FooterTone; text: string; } | null; pendingMessage?: string; saveError: string | null; modifiedAt: string | null; dirty: boolean; busy: boolean; canSave: boolean; canPublish?: boolean; onDiscard: () => void; onSave: () => void; saveLabel?: string; onPublish?: () => void; }): ReactNode;
+function EditorFrame(props: { testId: string; children: ReactNode; }): ReactNode;
+function EditorHeader(props: { title: string; status?: ReactNode; actions: EditorSaveActions; testIds?: EditorHeaderTestIds; children: ReactNode; }): ReactNode;
+function EditorInfoBar(props: { tone: InfoBarTone; testId: string; origin?: ReactNode; controls?: ReactNode; links?: ReactNode; overlays?: ReactNode; children: ReactNode; }): ReactNode;
+function EditorLocaleSwitch(props: { testIdPrefix: string; locales: string[]; locale: string; onLocale: (locale: string) => void; }): ReactNode;
+function EditorModeSwitch(props: { testIdPrefix: string; mode: EditorMode; onMode: (mode: EditorMode) => void; }): ReactNode;
 function EditorPanel(props: EditorPanelProps): ReactNode;
+function EditorWorkbench(props: EditorWorkbenchProps): ReactNode;
 function EmptyState(props: { icon?: ReactNode; title: string; description?: string; action?: ReactNode; testId?: string; }): ReactNode; // Empty state with an optional icon and CTA, using the dashed-box style of entityList empty states as a standalone widget for custom screens.
 function ErrorState(props: { error: DispatcherError; onRetry?: () => void; testId?: string; }): ReactNode; // Error state based on the Banner primitive, with a retry button.
 function FeedList(props: { rows: FeedRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Non-tabular compact list (e.g. "upcoming appointments") — primary text plus an optional right-aligned trailing value for each row.
@@ -42,6 +50,7 @@ function FileViewAction(props: { fileId: string; }): ReactNode; // "View" action
 function FloatingPanel(props: FloatingPanelProps): ReactNode; // Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered.
 function FormScreenShell(props: { children: ReactNode; className?: string; testId?: string; maxWidth?: FormScreenShellWidth; fillHeight?: boolean; }): ReactNode;
 function HeaderActionGroup(props: HeaderActionGroupProps): ReactNode;
+function HtmlMailFrame(props: { html: string; title: string; allowRemoteImages: boolean; testId?: string; }): ReactNode; // Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content.
 function Icon(props: { name: NavIconKey; className?: string; }): ReactNode;
 function InfinityList<TData = unknown, TRow = Readonly<Record<string, unknown>>>(props: InfinityListProps<TData, TRow>): ReactNode; // Cursor-paginated scroll list (mail inbox, activity feeds) — loads the next page when the end sentinel becomes visible (IntersectionObserver), instead of a pager bar like QueryTable/entityList.
 function KumikoLink(props: KumikoLinkProps): ReactNode;
@@ -73,6 +82,10 @@ function ProgressBar(props: { value: number; tone?: ProgressTone; size?: "defaul
 function ProgressList(props: { rows: ProgressListRow[]; emptyContent?: ReactNode; testId?: string; }): ReactNode; // Label/value header and progress bar for each entry (for example, loan repayment progress).
 function PublicShell(props: PublicShellProps): ReactNode; // One header and footer for anonymous pages; `focus` narrows to a task column, `card` centers a single card (sign-in).
 function QueryTable<TData = unknown>(props: QueryTableProps<TData>): ReactNode;
+function RailField(props: { children: ReactNode; }): ReactNode;
+function RailHint(props: { children: ReactNode; }): ReactNode;
+function RailRow(props: { symbol?: string; label: string; nameHint?: string; required?: boolean; trailing?: ReactNode; trailingTone?: keyof typeof TRAILING_TONE; action?: ReactNode; bad?: boolean; testId?: string; onPress?: () => void; }): ReactNode;
+function RailSection(props: { title: string; action?: ReactNode; testId?: string; children: ReactNode; }): ReactNode;
 function RangeField(props: RangeFieldProps): ReactNode; // Slider = Field + Input(kind:"range").
 function RenderEdit<TValues extends FormValues, TCtx = unknown>(rawProps: RenderEditProps<TValues, TCtx>): ReactNode;
 function RenderField(props: RenderFieldProps): ReactNode;
@@ -135,6 +148,7 @@ function filterAppSchemaNavsByAllowlist(schema: AppSchema, allowedNavQns: Readon
 function filterByAccess(workspaces: WorkspaceSchema[], userRoles: string[] | undefined): WorkspaceSchema[];
 function formatMoney(amountMinor: number, currency: string, locale?: string, fractionDigits?: number): string;
 function formatPath(target: ScreenTarget): string;
+function formatRelativeWhen(value: string, now?: number): string;
 function parsePath(pathname: string, hasWorkspaces?: boolean): NavRoute | undefined;
 function parseTargetFromSearchParams(params: Readonly<Record<string, string>>): TargetRef | undefined; // Parses the current search parameters back into a TargetRef.
 function postWithDownload(dispatcher: Dispatcher, type: string, payload: unknown): Promise<DispatcherError | null>;
@@ -278,6 +292,7 @@ type ClientFeatureDefinition = {
   navEntities?: Readonly<Record<string, string[]>>; // SSE entity lists per nav ID for live refresh of navProviders, analogous to `treeEntities`.
   navProvidersFromCollections?: (collections: QualifiedContentCollection[]) => CollectionNavProviders; // Nav providers derived from the app schema — called with every `r.contentCollection()` the app declares.
   contentEditors?: Partial<Record<ContentEditorFormat, ContentEditorComponent>>; // Content editor components — map `contentFormat` ("plain" | "document") → React component.
+  contentPreviews?: ContentPreviewsMap; // Preview renderers for the editor workbench's preview mode, keyed by target ("pdf" | "mail" | "web" | "text").
   resolvers?: Readonly<Record<string, ComponentType<{ target: TargetRef; onClose: () => void; }>>>; // Editor resolver components keyed by featureId:action.
 };
 type ColorTokens = {
@@ -501,8 +516,45 @@ type DrawerProps = {
   panelClassName?: string; // Extra classes for the panel, merged over the built-in ones.
   fillBody?: boolean; // The body becomes a plain flex column with no padding or scrolling of its own, for children that bring their own scroll area and pinned footer.
 };
+type EditorActionTestIds = {
+  discard: string;
+  save: string;
+  publish: string;
+};
+type EditorHeaderTestIds = {
+  save: string;
+  publish: string;
+};
+type EditorMode = "edit" | "preview";
 type EditorPanelProps = {
   resolvers: ReadonlyMap<string, ResolverComponent>;
+};
+type EditorSaveActions = {
+  busy: boolean;
+  canSave: boolean;
+  onSave: () => void;
+  saveLabel?: string; // Replaces "Save", e.g. "Create" for a record that does not exist yet.
+  canPublish?: boolean; // Without them the header has no publish button.
+  onPublish?: () => void;
+};
+type EditorWorkbenchProps = {
+  testId: string;
+  title: string;
+  status?: ReactNode;
+  info: {
+    edit: ReactNode;
+    preview: ReactNode;
+  }; // Info bar text per mode.
+  controls?: ReactNode; // Info bar controls shared by both modes, e.g. the locale switch.
+  banners?: ReactNode;
+  edit: ReactNode;
+  preview: ReactNode;
+  rail: {
+    edit: ReactNode;
+    preview: ReactNode;
+    left?: ReactNode;
+  }; // Right rail per mode; `left` adds a rail on the left (a placeholder list) shown in both modes.
+  save: WorkbenchSave;
 };
 type FeedRow = {
   id: string;
@@ -581,6 +633,7 @@ type FontTokens = {
   heading: string;
   mono: string;
 };
+type FooterTone = "bad" | "warn" | "ok";
 type FormProps = { // Submit wrapper.
   onSubmit: (e?: FormEvent) => void;
   focusFirstErrorKey?: number; // Bumped by the host each time a submit fails on field errors; the form then moves focus to its first invalid control.
@@ -651,6 +704,7 @@ type InfinityListSelection = { // Position of the selected row among the rows lo
   nextId: string | null;
   hasMore: boolean;
 };
+type InfoBarTone = "active" | "muted" | "warn";
 type InputProps =
   | {
     kind: "text";
@@ -1684,6 +1738,16 @@ type UseQueryResult<TData> = {
 type UserRolesProviderProps = {
   roles: string[] | undefined;
   children: ReactNode;
+};
+type WorkbenchSave = {
+  busy: boolean;
+  canSave: boolean;
+  dirty: boolean;
+  onSave: () => void;
+  saveLabel?: string;
+  onDiscard: () => void;
+  saveError: string | null;
+  modifiedAt?: string | null;
 };
 type WorkspaceShellProps = {
   brand: ReactNode; // Branding / logo on the left side of the topbar.
