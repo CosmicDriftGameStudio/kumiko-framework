@@ -10,6 +10,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   defineQueryHandler,
+  type FeatureDefinition,
   SYSTEM_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -326,10 +327,13 @@ export const IMPORT_JOB = "doc-fixtures:job:import-document";
 
 export const FIXED_NOW = "2026-06-15T10:00:00Z";
 
-export async function setupDocumentStack(documents = documentsFeature): Promise<TestStack> {
+export async function setupDocumentStack(
+  documents = documentsFeature,
+  extraFeatures: readonly FeatureDefinition[] = [],
+): Promise<TestStack> {
   patchFileInstanceofForBunTest();
   return setupTestStack({
-    features: [createFilesFeature(), hostFeature, documents],
+    features: [createFilesFeature(), hostFeature, documents, ...extraFeatures],
     files: { storageProvider: createInMemoryFileProvider() },
     jobs: { consumerLane: "worker" },
     extraContext: { clock: { now: () => Temporal.Instant.from(FIXED_NOW) } },

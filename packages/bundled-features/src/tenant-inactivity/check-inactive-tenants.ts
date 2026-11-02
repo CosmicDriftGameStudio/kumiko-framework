@@ -27,6 +27,7 @@ import {
 } from "./mail-notifications.ts";
 import { resolveInactivityRule, type TenantInactivityOptions } from "./options.ts";
 import {
+  isInactivityCycleCurrent,
   loadInactivityState,
   loadNewestSessionActivity,
   type StoredInactivityState,
@@ -219,6 +220,8 @@ async function evaluate(
   }
 
   if (!ctx.registry) throw new Error("tenant-inactivity: ctx.registry required");
+  // The probes and mails above are slow; a keep link redeemed meanwhile must not end in a deletion request.
+  if (stored !== null && !(await isInactivityCycleCurrent(ctx.db, stored.cycleId))) return state;
   const result = await requestTenantDestruction({
     tenantId,
     actor: ctx.systemUser,

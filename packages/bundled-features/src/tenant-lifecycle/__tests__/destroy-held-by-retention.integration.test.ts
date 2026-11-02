@@ -19,6 +19,7 @@ import {
   createEntity,
   createSystemUser,
   createTextField,
+  createTimestampField,
   defineFeature,
   EXT_TENANT_DATA,
   type TenantDataHookCtx,
@@ -71,6 +72,7 @@ const RETENTION_JOB = "data-retention:job:retention-cleanup";
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 const CREATE_LEDGER = "hold-fixtures:write:ledger-create";
 const CREATE_SCRATCH = "hold-fixtures:write:scratch-create";
+const CREATE_MATTER = "hold-fixtures:write:matter-create";
 const HOLDER_NAME = "Erika Mustermann";
 const tenantAdmin = TestUsers.admin;
 const tenantId = tenantAdmin.tenantId;
@@ -94,6 +96,16 @@ const scratchEntity = createEntity({
     label: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
+const matterEntity = createEntity({
+  table: "read_hold_matter",
+  fields: {
+    label: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    closedAt: createTimestampField({}),
+  },
+  retention: { keepFor: "1y", strategy: "blockDelete", reference: "closedAt" },
+});
+const matterTable = buildEntityTable("matter", matterEntity);
+const matterCrud = createEventStoreExecutor(matterTable, matterEntity, { entityName: "matter" });
 const ledgerTable = buildEntityTable("ledger", ledgerEntity);
 const scratchTable = buildEntityTable("scratch", scratchEntity);
 const ledgerCrud = createEventStoreExecutor(ledgerTable, ledgerEntity, { entityName: "ledger" });
@@ -115,6 +127,13 @@ async function forgetAllScratchRows(ctx: TenantDataHookCtx): Promise<void> {
   }
 }
 
+async function forgetAllMatterRows(ctx: TenantDataHookCtx): Promise<void> {
+  const rows = await ctx.db.selectMany<{ id: string }>(matterTable, { tenantId: ctx.tenantId });
+  for (const row of rows) {
+    await matterCrud.forget({ id: row.id }, createSystemUser(ctx.tenantId), ctx.db);
+  }
+}
+
 const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
   r.requires({ features: ["tenant-lifecycle"] });
   r.entity({ name: "ledger", ...ledgerEntity });
@@ -126,6 +145,15 @@ const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
     description: "test-only ledger row creation",
     handler: async (event, ctx) => ledgerCrud.create(event.payload, event.user, ctx.db),
   });
+  r.entity({ name: "matter", ...matterEntity });
+  r.writeHandler({
+    name: "matter-create",
+    schema: z.object({ label: z.string(), closedAt: z.string().optional() }),
+    access: { roles: access.authenticated },
+    description: "test-only matter row creation",
+    handler: async (event, ctx) => matterCrud.create(event.payload, event.user, ctx.db),
+  });
+  r.useExtension(EXT_TENANT_DATA, "matter", { destroy: forgetAllMatterRows });
   r.writeHandler({
     name: "scratch-create",
     schema: z.object({ label: z.string() }),
@@ -169,6 +197,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, tenantRetentionOverrideEntity);
   await unsafeCreateEntityTable(stack.db, ledgerEntity, "ledger");
   await unsafeCreateEntityTable(stack.db, scratchEntity, "scratch");
+  await unsafeCreateEntityTable(stack.db, matterEntity, "matter");
 });
 
 afterAll(async () => {
@@ -186,6 +215,7 @@ beforeEach(async () => {
     tenantMembershipsTable,
     ledgerTable,
     scratchTable,
+    matterTable,
     eventsTable,
   ]);
 });
@@ -313,6 +343,26 @@ describe("tenant-lifecycle :: destruction held by blockDelete retention", () => 
 
     expect(await ledgerRows()).toHaveLength(1);
     expect(await tenantStatus()).toBe("destroyHeld");
+  });
+
+  test("a held entity's row whose reference was never set is purged too, so the tenant is released", async () => {
+    await seedTenant();
+    await stack.http.writeOk(
+      CREATE_MATTER,
+      { label: "closed", closedAt: clock.now().toString() },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(CREATE_MATTER, { label: "never closed" }, tenantAdmin);
+    await requestDestructionAndWaitOutGrace();
+    expect((await sweepUntilRest()).at(-1)).toBe("destroyHeld");
+    expect(await selectMany(stack.db, matterTable, { tenantId })).toHaveLength(2);
+
+    clock.advance({ hours: 24 * 400 });
+    await dispatchJob(RETENTION_JOB);
+    expect(await selectMany(stack.db, matterTable, { tenantId })).toHaveLength(0);
+
+    expect((await sweepUntilRest()).at(-1)).toBe("destroyed");
+    expect(await failureEventCount()).toBe(0);
   });
 
   test("a tenant without held rows is destroyed in one pass and never parked", async () => {

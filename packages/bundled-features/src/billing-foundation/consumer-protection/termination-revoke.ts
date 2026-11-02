@@ -164,7 +164,7 @@ export function createRecordContractTerminationRevocationHandler(
       const reasons: OperatorNoticeReason[] = ["revoked"];
       if (
         requested?.providerCancel === "period-end" &&
-        !hasOtherOpenProviderCancel(stream.events, payload.requestId)
+        !hasOtherOpenProviderCancel(stream.events, payload.requestId, now)
       ) {
         reasons.push(...(await resumeAtProvider(ctx, subscription)));
       }
