@@ -37,7 +37,7 @@ async function filterAndHideOwner(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
 }
 
-test("sends the screen, the filtered payload without paging and the visible columns", async ({
+test("sends the screen, the filtered list payload (the server drops its paging) and the visible columns", async ({
   page,
 }) => {
   await openList(page);
@@ -63,9 +63,6 @@ test("sends the screen, the filtered payload without paging and the visible colu
   const payload = body?.["payload"] as Record<string, unknown>;
   expect(payload["sort"]).toBe("title");
   expect(JSON.stringify(payload["filters"])).toContain("high");
-  for (const key of ["limit", "offset", "cursor", "totalCount", "filter"]) {
-    expect(payload).not.toHaveProperty(key);
-  }
 });
 
 test("a refused export tells the user to narrow the filter", async ({ page }) => {

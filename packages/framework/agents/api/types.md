@@ -1602,6 +1602,7 @@ type ContentEditorProps = {
 
 ```ts
 type ContentPreviewsMap = Partial<Record<PreviewTarget, PreviewRenderer>>;
+const PREVIEW_TARGETS: ["pdf", "mail", "web", "text"];
 type PreviewRenderer = ComponentType<PreviewRendererProps>;
 type PreviewRendererProps = {
   content: string;
@@ -2624,6 +2625,12 @@ type BoundaryErrorHandler = (error: Error, info: ErrorInfo, context: BoundaryErr
 
 ```ts
 type ResolverComponent = ComponentType<{ target: TargetRef; onClose: () => void; }>;
+```
+
+## packages/renderer/src/web/editor/editor-rail.tsx
+
+```ts
+const TRAILING_TONE: { ok: "text-status-ok"; bad: "text-status-bad"; muted: "text-muted-foreground"; };
 ```
 
 ## packages/renderer/src/web/layout/default-app-shell.tsx

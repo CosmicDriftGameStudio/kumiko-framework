@@ -112,16 +112,26 @@ describe("readExportRows", () => {
   });
 
   test("reports too many rows as soon as maxRows + 1 are read", async () => {
-    const d = fakeDispatcher(() => ({ rows: rowsOf(200), nextCursor: "next" }));
+    const d = fakeDispatcher((_p, call) => ({
+      rows: rowsOf(200, call * 200),
+      nextCursor: `n${call}`,
+    }));
     const result = await readExportRows(d, plan(250), {}, user);
     expect(result).toEqual({ tooMany: true });
     expect(d.calls.map((c) => c["limit"])).toEqual([200, 51]);
   });
 
   test("stops on a repeated cursor instead of looping", async () => {
-    const d = fakeDispatcher(() => ({ rows: rowsOf(200), nextCursor: "same" }));
+    const d = fakeDispatcher((_p, call) => ({ rows: rowsOf(200, call * 200), nextCursor: "same" }));
     const result = await readExportRows(d, plan(100000), {}, user);
     expect(result.tooMany).toBe(false);
+    expect(d.calls).toHaveLength(2);
+  });
+
+  test("stops when a query ignores offset and keeps returning the same rows", async () => {
+    const d = fakeDispatcher(() => ({ rows: rowsOf(30) }));
+    const result = await readExportRows(d, plan(1000), {}, user);
+    expect(result.tooMany ? 0 : result.rows).toHaveLength(30);
     expect(d.calls).toHaveLength(2);
   });
 

@@ -96,6 +96,12 @@ describe("defineWebhookEvent", () => {
       passthrough: z.object({ id: z.uuid() }).passthrough(),
       catchall: z.object({ id: z.uuid() }).catchall(z.string()),
       nestedLoose: z.object({ items: z.array(z.looseObject({ id: z.uuid() })).optional() }),
+      recordValue: z.object({ byId: z.record(z.string(), z.looseObject({ id: z.uuid() })) }),
+      mapValue: z.object({ byId: z.map(z.string(), z.looseObject({ id: z.uuid() })) }),
+      setValue: z.object({ rows: z.set(z.looseObject({ id: z.uuid() })) }),
+      intersectionRight: z.object({ both: z.object({ id: z.uuid() }).and(z.looseObject({})) }),
+      intersectionLeft: z.object({ both: z.looseObject({}).and(z.object({ id: z.uuid() })) }),
+      lazyLoose: z.object({ row: z.lazy(() => z.looseObject({ id: z.uuid() })) }),
     };
     for (const [label, payload] of Object.entries(open)) {
       expect(
@@ -111,6 +117,24 @@ describe("defineWebhookEvent", () => {
         label,
       ).toThrow(/undeclared keys/);
     }
+  });
+
+  test("accepts a recursive closed schema without looping", () => {
+    type Node = { readonly id: string; readonly children: readonly Node[] };
+    const node: z.ZodType<Node> = z.strictObject({
+      id: z.uuid(),
+      children: z.array(z.lazy(() => node)),
+    });
+    expect(() =>
+      defineFeature("shop", (r) => {
+        r.defineWebhookEvent({
+          name: "order-paid",
+          description: "An order was paid.",
+          payload: z.object({ tree: node }),
+          version: 1,
+        });
+      }),
+    ).not.toThrow();
   });
 
   test("accepts explicitly declared record and unknown fields", () => {

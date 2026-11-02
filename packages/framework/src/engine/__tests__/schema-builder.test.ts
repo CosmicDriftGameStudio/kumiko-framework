@@ -1305,6 +1305,14 @@ describe("buildUpdateSchema", () => {
     test("NOT NULL jsonb-backed field still rejects null", () => {
       expect(schema.safeParse({ tags: null }).success).toBe(false);
     });
+
+    test("optional money rejects null (the currency column would keep its stale value)", () => {
+      const moneyEntity = createEntity({
+        table: "NullClearMoney",
+        fields: { price: createMoneyField() },
+      });
+      expect(buildUpdateSchema(moneyEntity).safeParse({ price: null }).success).toBe(false);
+    });
   });
 });
 

@@ -9,6 +9,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/hooks";
 import { configureEventPiiCatalog } from "../crypto/event-pii.ts";
 import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.ts";
+import { entityReadsSystemRows } from "../db/entity-table-meta.ts";
 import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.ts";
 import { resolveMaxPerTenant } from "../jobs/max-per-tenant.ts";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.ts";
@@ -338,6 +339,7 @@ export function buildImplicitProjections(
         qualify,
         feature.entityTables?.[entityName],
         feature.entityProjectionExtensions?.[entityName] ?? [],
+        entityReadsSystemRows(feature, entityName, entity),
       );
       if (state.projectionMap.has(def.name)) {
         throw new Error(

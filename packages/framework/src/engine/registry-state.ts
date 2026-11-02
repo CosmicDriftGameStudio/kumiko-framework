@@ -51,7 +51,7 @@ import { applyEntityEvent } from "../db/apply-entity-event.ts";
 import { assertBackingTableSuperset, deriveEntityTableMeta } from "../db/entity-table-meta.ts";
 import { markExecutorManagedTable } from "../db/executor-managed-tables.ts";
 import { asEntityTableMeta } from "../db/query.ts";
-import { buildEntityTable } from "../db/table-builder.ts";
+import { buildEntityTable, declareSystemRowsReadable } from "../db/table-builder.ts";
 import { type QnType, qualifyEntityName } from "./qualified-name.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 
@@ -93,6 +93,7 @@ export function buildImplicitProjection(
   qualify: typeof qualifyEntityName,
   backingTable?: unknown,
   extensions: readonly EntityProjectionExtension[] = [],
+  readsSystemRows = false,
 ): ProjectionDefinition {
   const name = qualify(featureName, "projection", `${entityName}${IMPLICIT_PROJECTION_SUFFIX}`);
   // Backing table (r.entity({ name, ...def, backingTable })) is the one physical table
@@ -104,6 +105,8 @@ export function buildImplicitProjection(
     backingTable !== undefined
       ? resolveBackingTable(entityName, entity, backingTable)
       : buildEntityTable(entityName, entity);
+  // Push paths read the table's own meta, so the reference-data-derived flag must land there too.
+  if (readsSystemRows) declareSystemRowsReadable(drizzleTable);
   markExecutorManagedTable(drizzleTable, { entityName, entity });
   // applyEntityEvent returns ApplyResult, but SingleStreamApplyFn expects
   // Promise<void>. The row is irrelevant during rebuild, so we discard it.

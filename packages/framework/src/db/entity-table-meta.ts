@@ -21,6 +21,7 @@ import type { EntityDefinition, EntityIndexDef } from "@cosmicdrift/kumiko-types
 import type { EntityRelations } from "@cosmicdrift/kumiko-types/relations";
 import type { EntityTenancy, TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import { collectPiiEncryptedFields, isRecordKeyedField } from "../crypto/index.ts";
+import type { FeatureDefinition } from "../engine/types/index.ts";
 
 import { isSqlExpression } from "./dialect.ts";
 import { fieldToColumnMeta } from "./entity-column-meta.ts";
@@ -394,4 +395,16 @@ function assertUnmanagedTableName(tableName: string, via: string): void {
         `See #1208/#1220.`,
     );
   }
+}
+
+// Reference data rows live on the system tenant by definition, so tenant reads need them.
+export function entityReadsSystemRows(
+  feature: Pick<FeatureDefinition, "referenceData">,
+  entityName: string,
+  entity: EntityDefinition,
+): boolean {
+  return (
+    entity.systemRowsReadable === true ||
+    (feature.referenceData ?? []).some((def) => def.entityName === entityName)
+  );
 }

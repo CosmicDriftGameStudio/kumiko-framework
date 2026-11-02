@@ -369,16 +369,19 @@ export function createSearchEventConsumer(
           );
           continue;
         }
-        const flushFailure = bucket
-          ? await flushTenantHoldingFailedOperations(searchAdapter, tenantId, bucket)
-          : null;
-        const held: HeldTenantOperations | null =
-          flushFailure && unresolvedOps
-            ? {
-                eventIds: [...unresolvedOps.eventIds, ...flushFailure.eventIds],
-                error: unresolvedOps.error,
-              }
-            : (flushFailure ?? unresolvedOps ?? null);
+        // An unresolved event may carry an earlier op for an entity a later resolved op targets
+        // (update fails, delete resolves); writing the later op now would let the retry resurrect it.
+        const held: HeldTenantOperations | null = unresolvedOps
+          ? {
+              eventIds: [
+                ...unresolvedOps.eventIds,
+                ...(bucket?.sourcedOps.map((s) => s.sourceEventId) ?? []),
+              ],
+              error: unresolvedOps.error,
+            }
+          : bucket
+            ? await flushTenantHoldingFailedOperations(searchAdapter, tenantId, bucket)
+            : null;
         if (held) {
           turn.holdForRetry(held.eventIds, recordTenantFailure(tenantId, held));
           continue;

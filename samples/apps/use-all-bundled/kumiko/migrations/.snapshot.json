@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-02T20:18:57.948Z",
+  "generatedAt": "2026-11-02T21:56:21.315Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2607,7 +2607,8 @@
           "unique": true
         }
       ],
-      "source": "managed"
+      "source": "managed",
+      "systemRowsReadable": true
     },
     {
       "tableName": "read_payments",
@@ -6030,6 +6031,13 @@
           "rolesSql": "PUBLIC",
           "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
           "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        },
+        {
+          "name": "kumiko_system_tenant_read",
+          "command": "SELECT",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
         }
       ]
     },

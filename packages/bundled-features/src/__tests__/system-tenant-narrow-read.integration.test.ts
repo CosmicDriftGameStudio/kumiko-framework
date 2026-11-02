@@ -1,9 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import {
-  asRawClient,
-  createTenantDb,
-  defineUnmanagedTable,
-} from "@cosmicdrift/kumiko-framework/db";
+import { createTenantDb, defineUnmanagedTable } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemoryFileProvider,
@@ -12,6 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -47,11 +44,14 @@ let stack: TestStack;
 
 async function seedFileRef(id: string, tenantId: string): Promise<void> {
   await provider.write(`storage/${id}`, SYSTEM_BYTES, "application/pdf");
-  await asRawClient(stack.db).unsafe(
-    `INSERT INTO file_refs (id, tenant_id, storage_key, file_name, mime_type, size, inserted_by_id)
-     VALUES ($1, $2, $3, $4, 'application/pdf', $5, $6)`,
-    [id, tenantId, `storage/${id}`, `${id}.pdf`, SYSTEM_BYTES.length, tenantA],
-  );
+  await seedRowViaEventStore(stack.db, fileRefsTable, {
+    id,
+    tenantId,
+    storageKey: `storage/${id}`,
+    fileName: `${id}.pdf`,
+    mimeType: "application/pdf",
+    size: SYSTEM_BYTES.length,
+  });
 }
 
 function tenantSession(tenantId: string) {

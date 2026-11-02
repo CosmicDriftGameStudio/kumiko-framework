@@ -45,7 +45,7 @@ export type ScrubEventPayloadOptions = {
   readonly fields: readonly string[];
   // Why these values have to go; refused when it is a placeholder.
   readonly reason: string;
-  // Narrows the scrub to matching values; without it every non-empty value of the fields goes (non-strings become null).
+  // Narrows the scrub to matching values; without it every non-empty value of the fields goes (text fields get the placeholder, other fields become null).
   readonly shouldScrub?: (
     value: unknown,
     candidate: EventScrubCandidate,
@@ -76,6 +76,41 @@ function hasValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== PII_ERASED_SENTINEL;
 }
 
+const TEXT_FIELD_TYPES: ReadonlySet<string> = new Set(["text", "longText"]);
+
+// The sentinel is text; written into a typed projection column (integer, date, uuid, jsonb) it
+// would fail every later rebuild of the table, and the event can no longer be repaired. So only
+// text fields take it, other declared fields go null, and a required non-text field has no
+// valid replacement. Fields the registry does not declare fall back to the value's own type.
+function replacementFor(
+  registry: Registry,
+  aggregateType: string,
+  field: string,
+  value: unknown,
+): string | null {
+  const def = registry.getEntity(aggregateType)?.fields[field];
+  if (def === undefined) return typeof value === "string" ? PII_ERASED_SENTINEL : null;
+  if (TEXT_FIELD_TYPES.has(def.type)) return typeof value === "string" ? PII_ERASED_SENTINEL : null;
+  if ("required" in def && def.required === true) {
+    throw new Error(
+      `scrubEventPayloadFields: "${aggregateType}.${field}" is a required ${def.type} field; ` +
+        "it can neither hold the erase placeholder nor null, so its events cannot be scrubbed.",
+    );
+  }
+  return null;
+}
+
+function assertLifecycleFieldsScrubbable(
+  registry: Registry,
+  eventType: string,
+  fields: readonly string[],
+): void {
+  for (const [entityName] of registry.getAllEntities()) {
+    if (!isLifecycleEventOf(eventType, entityName)) continue;
+    for (const field of fields) replacementFor(registry, entityName, field, "");
+  }
+}
+
 function payloadSections(
   row: ScrubEventRow,
   payload: Record<string, unknown>,
@@ -84,6 +119,7 @@ function payloadSections(
 }
 
 async function scrubPayload(
+  registry: Registry,
   row: ScrubEventRow,
   options: ScrubEventPayloadOptions,
 ): Promise<{ readonly payload: Record<string, unknown>; readonly scrubbed: number }> {
@@ -103,9 +139,7 @@ async function scrubPayload(
         payload: row.payload,
       };
       if (options.shouldScrub && !(await options.shouldScrub(value, candidate))) continue;
-      // The sentinel is text; written into a typed projection column (integer, timestamptz, jsonb)
-      // it would fail every later rebuild of the table, and the event can no longer be repaired.
-      section[field] = typeof value === "string" ? PII_ERASED_SENTINEL : null;
+      section[field] = replacementFor(registry, row.aggregate_type, field, value);
       scrubbed++;
     }
   }
@@ -141,7 +175,7 @@ async function scrubOneBatch(
     const touchedAggregateTypes = new Set<string>();
     for (const row of rows) {
       totals.scannedEvents++;
-      const { payload, scrubbed } = await scrubPayload(row, options);
+      const { payload, scrubbed } = await scrubPayload(registry, row, options);
       if (scrubbed === 0) continue;
       totals.scrubbedEvents++;
       totals.scrubbedFields += scrubbed;
@@ -225,6 +259,7 @@ export function scrubEventPayloadFields(
   if (options.fields.length === 0) {
     throw new Error("scrubEventPayloadFields: name at least one payload field to scrub");
   }
+  assertLifecycleFieldsScrubbable(registry, options.eventType, options.fields);
   return runInSystemRowLevelSecurityScope(
     "event payload scrub rewrites one event type across all tenants",
     () =>
