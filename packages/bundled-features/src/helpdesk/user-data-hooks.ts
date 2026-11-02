@@ -46,7 +46,7 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
 });
 
 // Attachments are copied into the system tenant and bound to the request or reply row.
-async function findAttachments(ctx: UserDataHookCtx, entity: string, id: string) {
+export async function findAttachments(ctx: UserDataHookCtx, entity: string, id: string) {
   return ctx.db.selectMany<{ id: string; storageKey: string; fileName: string }>(fileRefsTable, {
     tenantId: SYSTEM_TENANT_ID,
     entityType: entity,
@@ -57,7 +57,11 @@ async function findAttachments(ctx: UserDataHookCtx, entity: string, id: string)
 
 // Bytes first, then the fileRef row: a crash in between leaves a row whose delete converges on the
 // next run, never bytes without a row. A failing byte delete aborts, like the generic fileRef hook.
-async function purgeAttachments(ctx: UserDataHookCtx, entity: string, id: string): Promise<void> {
+export async function purgeAttachments(
+  ctx: UserDataHookCtx,
+  entity: string,
+  id: string,
+): Promise<void> {
   const attachments = await findAttachments(ctx, entity, id);
   // skip: a row without attachments has no bytes to erase and needs no storage provider
   if (attachments.length === 0) return;
