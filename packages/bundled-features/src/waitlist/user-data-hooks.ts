@@ -4,29 +4,16 @@ import type {
   UserDataExportHook,
   UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { collectErasureFailure, decryptStoredPii, throwIfErasureFailed } from "../shared/index.ts";
-import { userTable } from "../user/index.ts";
-import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.ts";
+import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
+import { resolveVerifiedUserEmail } from "../user/index.ts";
+import { platformActor, waitlistExecutor } from "./lib.ts";
 
 const PII_DECRYPT_REASON = "waitlist:user-data";
 const ERASE_REASON = "waitlist:user-data-forget";
 const ENTRY_LOOKUP_LIMIT = 100;
 
-// Entries are matched by email, so the user must have proven they own it:
-// otherwise registering with someone else's address would expose or erase that
-// person's entries. The forget anonymization leaves emailVerified untouched,
-// so the live row stays a reliable source; only the email needs the pre-tx
-// copy because the user hook has already rewritten it by now.
-async function resolveVerifiedUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
-  const row = await ctx.db.fetchOne<{ email: string; emailVerified: boolean }>(userTable, {
-    id: ctx.userId,
-  });
-  if (row?.emailVerified !== true) return null;
-  if (ctx.userEmailBeforeDelete) return normalizeEmail(ctx.userEmailBeforeDelete);
-  return normalizeEmail(await decryptStoredPii(row.email, "email", PII_DECRYPT_REASON));
-}
-
 // Entries are decrypted by the executor's list (subject-encrypted name/email/message).
+// guard:dup-ok executor and foreign-key field differ; a generic executor abstraction would obscure row types.
 async function findEntriesByEmail(ctx: UserDataHookCtx, email: string) {
   const found = await waitlistExecutor.list(
     { filter: { field: "email", op: "eq", value: email }, limit: ENTRY_LOOKUP_LIMIT },
@@ -37,7 +24,7 @@ async function findEntriesByEmail(ctx: UserDataHookCtx, email: string) {
 }
 
 export const waitlistEntryExportHook: UserDataExportHook = async (ctx) => {
-  const email = await resolveVerifiedUserEmail(ctx);
+  const email = await resolveVerifiedUserEmail(ctx, PII_DECRYPT_REASON);
   // skip: unverified or missing email must not be matched against waitlist entries
   if (!email) return null;
   const rows = await findEntriesByEmail(ctx, email);
@@ -61,7 +48,7 @@ export const waitlistEntryExportHook: UserDataExportHook = async (ctx) => {
 // is purged through the executor (replays on rebuild) and its record subject
 // key is shredded so the event log's ciphertext becomes unreadable.
 export const waitlistEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
-  const email = await resolveVerifiedUserEmail(ctx);
+  const email = await resolveVerifiedUserEmail(ctx, PII_DECRYPT_REASON);
   // skip: unverified or missing email must not be matched against waitlist entries
   if (!email) return;
   const kms = configuredPiiSubjectKms();

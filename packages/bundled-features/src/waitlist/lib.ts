@@ -11,7 +11,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { acknowledgedSystemDb } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { userTable } from "../user/index.ts";
 import { waitlistEntryEntity, waitlistEntryTable } from "./entity.ts";
@@ -29,12 +29,7 @@ export function normalizeEmail(email: string): string {
 }
 
 export function waitlistDb(ctx: Pick<AppContext, "systemDb">): TenantDb {
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message: "waitlist requires ctx.systemDb — is r.systemScope() set on the feature?",
-    });
-  }
-  return ctx.systemDb.acknowledgeCrossTenant(WAITLIST_CROSS_TENANT_REASON);
+  return acknowledgedSystemDb(ctx, "waitlist", WAITLIST_CROSS_TENANT_REASON);
 }
 
 // Entries are systemStream rows, so every write targets the system tenant's stream.

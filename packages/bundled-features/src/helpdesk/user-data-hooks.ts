@@ -9,9 +9,9 @@ import type {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { collectErasureFailure, decryptStoredPii, throwIfErasureFailed } from "../shared/index.ts";
-import { userTable } from "../user/index.ts";
-import { normalizeEmail, platformActor, replyExecutor, requestExecutor } from "./lib.ts";
+import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
+import { resolveVerifiedUserEmail } from "../user/index.ts";
+import { platformActor, replyExecutor, requestExecutor } from "./lib.ts";
 import {
   HELPDESK_REPLY_ENTITY,
   HELPDESK_REQUEST_ENTITY,
@@ -22,24 +22,13 @@ const PII_DECRYPT_REASON = "helpdesk:user-data";
 const ERASE_REASON = "helpdesk:user-data-forget";
 const LOOKUP_LIMIT = 200;
 
-// Anonymous requests are matched by email, so the user must have proven they own it: otherwise
-// registering with someone else's address would expose or erase that person's requests.
-async function resolveVerifiedUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
-  const row = await ctx.db.fetchOne<{ email: string; emailVerified: boolean }>(userTable, {
-    id: ctx.userId,
-  });
-  if (row?.emailVerified !== true) return null;
-  if (ctx.userEmailBeforeDelete) return normalizeEmail(ctx.userEmailBeforeDelete);
-  return normalizeEmail(await decryptStoredPii(row.email, "email", PII_DECRYPT_REASON));
-}
-
 async function findRequests(ctx: UserDataHookCtx) {
   const byUser = await requestExecutor.list(
     { filter: { field: "reporterUserId", op: "eq", value: ctx.userId }, limit: LOOKUP_LIMIT },
     platformActor(),
     ctx.db,
   );
-  const email = await resolveVerifiedUserEmail(ctx);
+  const email = await resolveVerifiedUserEmail(ctx, PII_DECRYPT_REASON);
   const byEmail = email
     ? await requestExecutor.list(
         { filter: { field: "email", op: "eq", value: email }, limit: LOOKUP_LIMIT },
@@ -102,6 +91,7 @@ async function purgeAttachments(ctx: UserDataHookCtx, entity: string, id: string
   throwIfErasureFailed(failures);
 }
 
+// guard:dup-ok executor and foreign-key field differ; a generic executor abstraction would obscure row types.
 async function findReplies(ctx: UserDataHookCtx, requestId: string) {
   const found = await replyExecutor.list(
     { filter: { field: "requestId", op: "eq", value: requestId }, limit: LOOKUP_LIMIT },

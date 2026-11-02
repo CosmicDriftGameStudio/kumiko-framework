@@ -1,3 +1,4 @@
+export { acknowledgedSystemDb } from "./acknowledged-system-db.ts";
 export { assertBillingLive } from "./assert-billing-live.ts";
 export { collectErasureFailure, throwIfErasureFailed } from "./assert-erased.ts";
 export { assertNoWhereRuleInOwnershipWrite } from "./assert-no-where-rule-in-ownership-write.ts";
@@ -88,6 +89,7 @@ export {
   signRowBoundGrant,
 } from "./row-bound-grant.ts";
 export { runInSubTransaction } from "./run-in-sub-transaction.ts";
+export { sendBestEffort } from "./send-best-effort.ts";
 export { registrationLocaleFromRequest, sessionLocaleField } from "./session-locale-field.ts";
 export { sessionTimezoneField } from "./session-timezone-field.ts";
 export { assertNotSvg, MAX_INPUT_PIXELS, SHARP_INPUT_OPTIONS } from "./sharp-input-limits.ts";

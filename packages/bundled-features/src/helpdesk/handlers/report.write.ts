@@ -3,6 +3,7 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import {
+  forwardHelpdeskRequest,
   helpdeskDb,
   loadTenantName,
   loadTenantPlan,
@@ -24,7 +25,6 @@ import {
   HELPDESK_STATUS,
   HELPDESK_UPLOAD_FIELD,
   HelpdeskErrors,
-  HelpdeskHandlers,
   HelpdeskScreens,
   helpdeskIdempotencyKeys,
 } from "../web/constants.ts";
@@ -96,14 +96,7 @@ export function createReportHandler(opts: HelpdeskOptions, settings: HelpdeskSet
       );
       if (!created.isSuccess) return created;
 
-      await sendBestEffort(ctx, "forward request", async () => {
-        const forwarded = await ctx.dispatch.writeAs(
-          platformActor(),
-          HelpdeskHandlers.forwardRequest,
-          { requestId },
-        );
-        if (!forwarded.isSuccess) throw new Error(forwarded.error.message);
-      });
+      await sendBestEffort(ctx, "forward request", () => forwardHelpdeskRequest(ctx, requestId));
 
       await sendBestEffort(ctx, "confirmation mail", (notify) =>
         notify(HELPDESK_NOTIFICATION_TYPES.confirmation, {

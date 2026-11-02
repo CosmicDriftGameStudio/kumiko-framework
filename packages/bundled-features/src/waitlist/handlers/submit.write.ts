@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { sendBestEffort } from "../../shared/index.ts";
 import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
 import {
   resolveWaitlistMailLocale,
@@ -109,23 +110,6 @@ async function resolveAdminRecipient(
   }
 }
 
-async function sendBestEffort(
-  ctx: HandlerContext,
-  label: string,
-  send: (notify: NonNullable<HandlerContext["notify"]>) => Promise<unknown>,
-): Promise<void> {
-  try {
-    if (!ctx.notify) {
-      throw new InternalError({ message: "ctx.notify unavailable — mount the delivery feature" });
-    }
-    await send(ctx.notify);
-  } catch (err) {
-    ctx.obs.log?.warn(`[waitlist:submit] ${label} mail failed`, {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-}
-
 export function createSubmitHandler(opts: WaitlistOptions) {
   const emailRateLimits = opts.emailRateLimits ?? DEFAULT_SUBMIT_EMAIL_RATE_LIMITS;
   return defineWriteHandler<"submit", typeof WaitlistSubmitSchema, WaitlistSubmitData>({
@@ -175,7 +159,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
       );
       if (!created.isSuccess) return created;
 
-      await sendBestEffort(ctx, "confirmation", (notify) =>
+      await sendBestEffort(ctx, "[waitlist:submit] confirmation mail failed", (notify) =>
         notify(WAITLIST_NOTIFICATION_TYPES.confirmation, {
           route: { email },
           data: waitlistConfirmationVariables({
@@ -187,7 +171,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
         }),
       );
 
-      await sendBestEffort(ctx, "admin notice", async (notify) => {
+      await sendBestEffort(ctx, "[waitlist:submit] admin notice mail failed", async (notify) => {
         // skip: no admin recipient configured
         if (!adminRecipient) return;
         await notify(WAITLIST_NOTIFICATION_TYPES.adminNotice, {

@@ -12,9 +12,12 @@ import {
   type SessionUser,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { decryptStoredPii } from "../shared/index.ts";
+import {
+  acknowledgedSystemDb,
+  decryptStoredPii,
+  sendBestEffort as sendSharedBestEffort,
+} from "../shared/index.ts";
 import { tenantTable } from "../tenant/index.ts";
 import { TierEngineQueries } from "../tier-engine/index.ts";
 import { USER_STATUS, userTable } from "../user/index.ts";
@@ -29,6 +32,7 @@ import {
   HELPDESK_REPLY_ENTITY,
   HELPDESK_REQUEST_ENTITY,
   HelpdeskErrors,
+  HelpdeskHandlers,
   type HelpdeskPhoneMode,
   type HelpdeskReplyChannels,
 } from "./web/constants.ts";
@@ -77,12 +81,7 @@ export function normalizeEmail(email: string): string {
 }
 
 export function helpdeskDb(ctx: Pick<AppContext, "systemDb">): TenantDb {
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message: "helpdesk requires ctx.systemDb — is r.systemScope() set on the feature?",
-    });
-  }
-  return ctx.systemDb.acknowledgeCrossTenant(HELPDESK_CROSS_TENANT_REASON);
+  return acknowledgedSystemDb(ctx, "helpdesk", HELPDESK_CROSS_TENANT_REASON);
 }
 
 // Requests and replies are systemStream rows, so every write targets the system tenant's stream.
@@ -117,16 +116,17 @@ export async function sendBestEffort(
   label: string,
   send: (notify: NonNullable<HandlerContext["notify"]>) => Promise<unknown>,
 ): Promise<void> {
-  try {
-    if (!ctx.notify) {
-      throw new InternalError({ message: "ctx.notify unavailable — mount the delivery feature" });
-    }
-    await send(ctx.notify);
-  } catch (err) {
-    ctx.obs.log?.warn(`[helpdesk] ${label} failed`, {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
+  return sendSharedBestEffort(ctx, `[helpdesk] ${label} failed`, send);
+}
+
+export async function forwardHelpdeskRequest(
+  ctx: Pick<HandlerContext, "dispatch">,
+  requestId: string,
+): Promise<void> {
+  const forwarded = await ctx.dispatch.writeAs(platformActor(), HelpdeskHandlers.forwardRequest, {
+    requestId,
+  });
+  if (!forwarded.isSuccess) throw new Error(forwarded.error.message);
 }
 
 export async function pickReplyChannels(
