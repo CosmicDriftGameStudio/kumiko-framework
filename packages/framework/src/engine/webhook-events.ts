@@ -54,6 +54,53 @@ export function formatWebhookPayloadIssues(issues: readonly WebhookPayloadIssue[
     .join("; ");
 }
 
+function assertValidWebhookEventDefinition(
+  where: string,
+  definition: {
+    readonly name: string;
+    readonly description: string;
+    readonly payload: ZodObject;
+    readonly version: number;
+    readonly wireName?: string;
+  },
+): void {
+  const { name, description, payload, version } = definition;
+  if (typeof name !== "string" || !isKebabSegment(name)) {
+    throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.nameNotKebab, {
+      message: `${where}: name must be kebab-case, got ${JSON.stringify(name)}`,
+    });
+  }
+  if (typeof description !== "string" || description.trim() === "") {
+    throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.descriptionEmpty, {
+      message: `${where}("${name}"): description must be a non-empty sentence`,
+    });
+  }
+  if (!(payload instanceof ZodObject)) {
+    throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.payloadNotZodObject, {
+      message: `${where}("${name}"): payload must be a zod object schema`,
+    });
+  }
+  const openShape = findOpenPayloadShape(payload);
+  if (openShape !== undefined) {
+    throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.payloadOpenShape, {
+      message: `${where}("${name}"): payload lets undeclared keys through at ${openShape}; use closed objects (no looseObject, passthrough or catchall)`,
+    });
+  }
+  if (!Number.isInteger(version) || version < 1) {
+    throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.versionInvalid, {
+      message: `${where}("${name}"): version must be a positive integer`,
+    });
+  }
+  if (
+    definition.wireName !== undefined &&
+    (typeof definition.wireName !== "string" || definition.wireName.trim() === "")
+  ) {
+    throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.wireNameEmpty, {
+      message: `${where}("${name}"): wireName must be a non-empty string`,
+    });
+  }
+}
+
 export function buildWebhookEventMethods(state: FeatureBuilderState, featureName: string) {
   return {
     defineWebhookEvent(definition: {
@@ -67,40 +114,7 @@ export function buildWebhookEventMethods(state: FeatureBuilderState, featureName
         throwObjectArgumentRequired(featureName, "defineWebhookEvent");
       const { name, description, payload, version } = definition;
       const where = `[Feature ${featureName}] defineWebhookEvent`;
-      if (typeof name !== "string" || !isKebabSegment(name)) {
-        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.nameNotKebab, {
-          message: `${where}: name must be kebab-case, got ${JSON.stringify(name)}`,
-        });
-      }
-      if (typeof description !== "string" || description.trim() === "") {
-        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.descriptionEmpty, {
-          message: `${where}("${name}"): description must be a non-empty sentence`,
-        });
-      }
-      if (!(payload instanceof ZodObject)) {
-        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.payloadNotZodObject, {
-          message: `${where}("${name}"): payload must be a zod object schema`,
-        });
-      }
-      const openShape = findOpenPayloadShape(payload);
-      if (openShape !== undefined) {
-        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.payloadOpenShape, {
-          message: `${where}("${name}"): payload lets undeclared keys through at ${openShape}; use closed objects (no looseObject, passthrough or catchall)`,
-        });
-      }
-      if (!Number.isInteger(version) || version < 1) {
-        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.versionInvalid, {
-          message: `${where}("${name}"): version must be a positive integer`,
-        });
-      }
-      if (
-        definition.wireName !== undefined &&
-        (typeof definition.wireName !== "string" || definition.wireName.trim() === "")
-      ) {
-        throw bootRuleError(DEFINITION_WEBHOOK_EVENT_RULES.wireNameEmpty, {
-          message: `${where}("${name}"): wireName must be a non-empty string`,
-        });
-      }
+      assertValidWebhookEventDefinition(where, definition);
       const wireName = definition.wireName?.trim() ?? name;
       const qn = `${toKebab(featureName)}:${name}`;
       if (state.webhookEvents[qn] !== undefined) {

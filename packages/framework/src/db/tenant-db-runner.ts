@@ -4,7 +4,7 @@ import type { TenantId } from "../engine/types/identifiers.ts";
 import { InternalError } from "../errors/index.ts";
 import type { DbRunner } from "./connection.ts";
 import {
-  SYSTEM_ROW_LEVEL_SECURITY_SCOPE,
+  systemScopedRunner,
   type TenantDbModeOptions,
   tenantDbRowLevelSecurityScope,
   withRowLevelSecurityScope,
@@ -52,7 +52,7 @@ export function tenantDbRunner(tenantDb: TenantDb): DbRunner {
 export function tenantDbRunnerForTable(tenantDb: TenantDb, table: unknown): DbRunner {
   const runner = tenantDbRunner(tenantDb);
   return asEntityTableMeta(table)?.tenancy === "global"
-    ? withRowLevelSecurityScope(runner, SYSTEM_ROW_LEVEL_SECURITY_SCOPE)
+    ? systemScopedRunner(runner, "global table rows carry the system tenant")
     : runner;
 }
 

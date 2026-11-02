@@ -14,7 +14,7 @@ import { buildEntityIndexes } from "./entity-table-indexes.ts";
 import { markExecutorManagedTable } from "./executor-managed-tables.ts";
 import type { LocatedTimestampRead } from "./located-timestamp.ts";
 import type { MoneyRead } from "./money.ts";
-import { columnHandleName } from "./table-introspection.ts";
+import { asEntityTableMeta, columnHandleName } from "./table-introspection.ts";
 
 export { toSnakeCase } from "../utils/case.ts";
 
@@ -556,18 +556,23 @@ export type BuildEntityTableOptions = {
   readonly relations?: EntityRelations;
 };
 
+function writeTableMeta(table: object, meta: EntityTableMeta): void {
+  // The meta slot is symbol-keyed and set by table(); it is absent from the static table type.
+  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = meta;
+}
+
 // pgTable's own meta stamp sees neither entity.tenancy nor that this table is an executor-managed projection;
 // patch both so db.global()'s runtime guards match the type brands.
 function stampEntityTableMeta<E extends EntityDefinition>(table: EntityTable<E>, entity: E): void {
   const meta = (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL];
   // skip: no meta stamp present — nothing to patch
   if (!meta) return;
-  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
+  writeTableMeta(table, {
     ...meta,
     source: "managed",
     ...(entity.tenancy === "global" && { tenancy: "global" as const }),
     ...(entity.systemRowsReadable === true && { systemRowsReadable: true as const }),
-  };
+  });
 }
 
 /**
@@ -588,24 +593,17 @@ export function declareGlobalTenancy<T extends SchemaTable>(table: T): T & Tenan
         "per-row tenant identity.",
     );
   }
-  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
-    ...meta,
-    tenancy: "global",
-  };
+  writeTableMeta(table, { ...meta, tenancy: "global" });
   // @cast-boundary phantom-brand — TenancyBrand<"global"> is a phantom marker with no runtime representation.
   return table as T & TenancyBrand<"global">;
 }
 
 /** Stamps `systemRowsReadable` onto an entity table's meta in place (no-op if already set). */
 export function declareSystemRowsReadable(table: object): void {
-  const meta = (table as unknown as Record<symbol, EntityTableMeta | undefined>)[
-    KUMIKO_META_SYMBOL
-  ];
+  const meta = KUMIKO_META_SYMBOL in table ? asEntityTableMeta(table) : undefined;
+  // skip: no meta stamp, or already readable — nothing to patch
   if (!meta || meta.systemRowsReadable === true) return;
-  (table as unknown as Record<symbol, EntityTableMeta>)[KUMIKO_META_SYMBOL] = {
-    ...meta,
-    systemRowsReadable: true,
-  };
+  writeTableMeta(table, { ...meta, systemRowsReadable: true });
 }
 
 // The featureName prefix is inserted between read_ and the base name so all

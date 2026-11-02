@@ -1,6 +1,6 @@
+import { isAllowedDocumentLinkHref } from "@cosmicdrift/kumiko-bundled-features/template-resolver/document-link-policy";
 import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import { Marked } from "marked";
-import { isAllowedDocumentLinkHref } from "../../template-resolver/web/document-link-policy.ts";
 
 // The server sanitizer rejects what it cannot keep, so the conversion drops it up front and the
 // lossy banner stays true: a link outside the document link policy keeps its text, an external
