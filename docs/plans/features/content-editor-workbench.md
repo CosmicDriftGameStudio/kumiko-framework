@@ -1,7 +1,7 @@
 ---
 status: in-progress
 verified: 2026-11-02
-next: Umsetzung aller Abschnitte in einem PR (kumiko-framework#4212), danach FW-Release durch Marc und je ein Bump-Push in publicstatus, money-horse, show-pony.
+next: Umsetzung aller Abschnitte in einem PR (Branch feat/content-editor-workbench, Plan in kumiko-framework#4212 gemergt), danach FW-Release durch Marc und je ein Bump-Push in publicstatus, money-horse, show-pony.
 track: framework
 depends: [kumiko-framework:docs/plans/features/document-designer.md]
 ---
