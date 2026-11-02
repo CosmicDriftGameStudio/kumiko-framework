@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { EditSectionViewModel, EditViewModel, FormValues } from "../headless/index.ts";
+import type { EditSectionViewModel, FormValues } from "../headless/index.ts";
 import type { FooterFlags, LayoutFlags } from "./render-edit-layout-flags.ts";
 import type { TitleModel } from "./render-edit-titles.ts";
 import type { RenderEditProps } from "./render-edit-types.ts";
@@ -89,8 +89,6 @@ export type RenderEditEngine<TValues extends FormValues, TCtx = unknown> = Rende
 > & {
   readonly handleSubmit: (options?: { readonly saveNow?: boolean }) => Promise<void>;
 };
-
-export type { EditSectionViewModel, EditViewModel };
 
 export type RenderEditModel<TValues extends FormValues, TCtx = unknown> = {
   readonly engine: RenderEditEngine<TValues, TCtx>;

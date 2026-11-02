@@ -1,6 +1,7 @@
 import type { PointerEvent, ReactNode } from "react";
 import { cn } from "../lib/cn.ts";
 import { chartColor, percent, valueAt } from "./chart-data.ts";
+import { ChartSwatch, type ChartSwatchKind } from "./chart-parts.tsx";
 import { bucketIndexAtFraction } from "./chart-window.ts";
 import { STACKED_AREA_PLOT_HEIGHT_CLASS } from "./stacked-area-geometry.ts";
 import type { StackedAreaModel } from "./stacked-area-model.ts";
@@ -14,7 +15,7 @@ type ChartTooltipRow = {
   readonly key: string;
   readonly label: string;
   readonly color: string;
-  readonly swatch: "area" | "line" | "dashed-line";
+  readonly swatch: ChartSwatchKind;
   readonly value: number;
 };
 
@@ -49,28 +50,6 @@ function buildTooltipRows(m: StackedAreaModel, tooltipAtMs: number): readonly Ch
   ];
 }
 
-function renderTooltipSwatch(row: ChartTooltipRow): ReactNode {
-  if (row.swatch === "area") {
-    return (
-      <span
-        aria-hidden="true"
-        className="size-2 shrink-0 rounded-[2px]"
-        style={{ backgroundColor: row.color }}
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className="w-3 shrink-0 border-t-2"
-      style={{
-        borderColor: row.color,
-        borderTopStyle: row.swatch === "dashed-line" ? "dashed" : "solid",
-      }}
-    />
-  );
-}
-
 function renderTooltipCard(m: StackedAreaModel, tooltipAtMs: number): ReactNode {
   const tooltipFraction = m.win.fractionOf(tooltipAtMs);
   const tooltipOnLeft = tooltipFraction > 0.5;
@@ -94,7 +73,7 @@ function renderTooltipCard(m: StackedAreaModel, tooltipAtMs: number): ReactNode 
         <div className="mb-1 font-medium">{m.win.formatBucket(tooltipAtMs)}</div>
         {buildTooltipRows(m, tooltipAtMs).map((row) => (
           <div key={row.key} className="flex items-center gap-1.5">
-            {renderTooltipSwatch(row)}
+            <ChartSwatch color={row.color} swatch={row.swatch} className="shrink-0" />
             <span className="min-w-0 truncate text-muted-foreground">{row.label}</span>
             <span className="ml-auto tabular-nums">{m.props.formatAxisValue(row.value)}</span>
           </div>

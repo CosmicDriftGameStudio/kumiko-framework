@@ -1,8 +1,4 @@
-import type {
-  ProjectionDetailScreenDefinition,
-  RowAction,
-  RowActionWriteHandler,
-} from "@cosmicdrift/kumiko-framework/ui-types";
+import type { RowAction, RowActionWriteHandler } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { useCallback, useMemo } from "react";
 import type { RenderEditAction } from "../components/render-edit.tsx";
@@ -14,6 +10,7 @@ import type { useAppFeatures } from "./app-features-context.tsx";
 import type { useClientActionRuntime } from "./client-actions.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import type { NavApi, ScreenTarget } from "./nav.tsx";
+import type { ProjectionDetailScreenWithTarget } from "./projection-detail-states.tsx";
 import { lastSegment } from "./qn.ts";
 import {
   navigateToReturnOr,
@@ -28,7 +25,7 @@ import type { useProjectionDetailData } from "./use-projection-detail-data.ts";
 
 type DetailActionsInput = {
   readonly schema: FeatureSchema;
-  readonly screen: ProjectionDetailScreenDefinition & { readonly detailFor?: string };
+  readonly screen: ProjectionDetailScreenWithTarget;
   readonly effectiveTranslate: Translate;
   readonly effectiveEntityId: string | undefined;
   readonly nav: NavApi;

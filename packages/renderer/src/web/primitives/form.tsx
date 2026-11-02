@@ -364,7 +364,6 @@ export function FormFooter({
     unsavedCount,
     railed,
     pinned,
-    secondaryActions,
     renderedSecondary,
     renderedActions,
     hasNonPrimaryOverflow,

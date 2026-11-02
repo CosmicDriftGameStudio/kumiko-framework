@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { resolveRecordTitle } from "../components/render-edit-helpers.tsx";
 import { requestLeave } from "../leave-guard.ts";
 import type { ErrorNotice } from "./error-reference.tsx";
-import { HeaderActionsBar } from "./header-actions-bar.tsx";
 import {
   buildMetricItems,
   type DetailHeaderModel,
@@ -93,8 +92,8 @@ function renderPageHeaderBranch(
   headerSlot: ReactNode | undefined,
   PageHeader: NonNullable<DetailRegionPieces["PageHeader"]>,
 ): ReactNode {
-  const { screen, record, primitives, setActionError, hasHeaderActions, hasMetrics } = model;
-  const { Grid, Button, Dialog, ActionOverflowMenu, MetricBand } = primitives;
+  const { screen, record, primitives, hasHeaderActions, hasMetrics } = model;
+  const { MetricBand } = primitives;
   const { pageHeaderCompact, recordTitle, statusBadge, bandSubtitle, metricItems } = pieces;
   const header = screen.header;
   return (
@@ -104,26 +103,7 @@ function renderPageHeaderBranch(
         {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
         {...(!pageHeaderCompact && statusBadge !== undefined && { status: statusBadge })}
         {...(hasHeaderActions && {
-          actions: (
-            <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
-              <HeaderActionsBar
-                actions={model.headerActionsList}
-                Button={Button}
-                Dialog={Dialog}
-                ActionOverflowMenu={ActionOverflowMenu}
-                onError={setActionError}
-                collapseAfterPrimary
-                compact={pageHeaderCompact}
-                PageHeader={PageHeader}
-                {...(screen.primaryAction !== undefined && {
-                  preferredPrimaryId: screen.primaryAction,
-                })}
-                {...(screen.inlineActions !== undefined && {
-                  inlineActionIds: screen.inlineActions,
-                })}
-              />
-            </Grid>
-          ),
+          actions: renderHeaderActionsContent(model, { compact: pageHeaderCompact, PageHeader }),
         })}
       />
       {/* The band owns the horizontal inset; the slot is its unstyled lead

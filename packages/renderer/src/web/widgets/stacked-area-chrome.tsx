@@ -1,11 +1,11 @@
 import type { ReactNode, RefObject } from "react";
 import { cn } from "../lib/cn.ts";
-import { chartColor, seriesTotal, valueAt } from "./chart-data.ts";
+import { chartColor, seriesTotal } from "./chart-data.ts";
 import { MarkerLegend, markerLegendItems } from "./chart-markers.tsx";
 import { ChartLegend, YTicks } from "./chart-parts.tsx";
 import { ModeSwitch } from "./mode-switch.tsx";
 import { StackedAreaBrush } from "./stacked-area-brush.tsx";
-import { STACKED_AREA_PLOT_HEIGHT_CLASS } from "./stacked-area-geometry.ts";
+import { bucketTotals, STACKED_AREA_PLOT_HEIGHT_CLASS } from "./stacked-area-geometry.ts";
 import type { StackedAreaModel } from "./stacked-area-model.ts";
 import { renderStackedAreaPlot } from "./stacked-area-plot.tsx";
 
@@ -39,7 +39,7 @@ export function renderBrushBar(m: StackedAreaModel): ReactNode {
   return (
     <StackedAreaBrush
       times={allTimes}
-      totals={allTimes.map((atMs) => allSeries.reduce((sum, s) => sum + valueAt(s, atMs), 0))}
+      totals={bucketTotals(allTimes, allSeries)}
       window={visibleWindow}
       labels={brushLabels}
       onChange={(next) =>

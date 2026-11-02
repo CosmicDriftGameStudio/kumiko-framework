@@ -3,7 +3,7 @@
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
-import { expenseSum } from "./fixtures/expense-fixture";
+import { EXPENSE_PAGE_SIZE, expenseSum } from "./fixtures/expense-fixture";
 import {
   REPORT_EXPENSE_ROWS,
   REPORT_ROWS,
@@ -60,7 +60,10 @@ test.describe("expandableRow grouped through table.grouping", () => {
     }
     // Report A has more open expenses than one page; only the server count knows the rest.
     const openA = reportExpenseCount("rep-a", "open");
-    await expect(page.getByTestId("row-rep-a-expansion").getByText(`5 of ${openA}`)).toBeVisible();
+    expect(openA).toBeGreaterThan(EXPENSE_PAGE_SIZE);
+    await expect(
+      page.getByTestId("row-rep-a-expansion").getByText(`${EXPENSE_PAGE_SIZE} of ${openA}`),
+    ).toBeVisible();
     expect((await aggregateGroupings(page)).length).toBeGreaterThanOrEqual(REPORT_ROWS.length);
   });
 

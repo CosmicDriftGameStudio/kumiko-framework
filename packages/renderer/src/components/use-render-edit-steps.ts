@@ -61,9 +61,8 @@ export function useRenderEditSteps<TValues extends FormValues, TCtx>({
     state.rawStep,
     filteredSections,
   );
-  // Kept fresh for patchAndScheduleDraftSave's debounce timer above, which
-  // is defined before `currentStep` exists (it depends on `filteredSections`,
-  // computed further up from `vm`) and so cannot close over it directly.
+  // Kept fresh for patchAndScheduleDraftSave's debounce timer: useRenderEditDraftSave
+  // runs before this hook, so `currentStep` does not exist there yet.
   draft.refs.currentStepRef.current = currentStep;
   const isLastWizardStep = currentStep >= lastStepIndex;
 

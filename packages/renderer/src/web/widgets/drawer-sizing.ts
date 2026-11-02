@@ -3,7 +3,7 @@ import { MAX_VIEWPORT_WIDTH } from "./drawer-panel-class.ts";
 
 export const MIN_WIDTH_PX = 320;
 export const MAX_WIDTH_PX = 1000;
-// Must match the static `max(600px,37.5vw)` in floatingSideClass — Tailwind's
+// Must match the static `max(600px,37.5vw)` in WIDTH_CLASS (drawer-panel-class.ts) — Tailwind's
 // JIT can't read these at runtime, so the two are kept in sync by hand.
 // 600px (vs. the old 520px floor) gives a two-column field row (e.g.
 // street/number, zip/city) room to breathe, while staying well under half

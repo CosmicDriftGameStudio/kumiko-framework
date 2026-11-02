@@ -37,6 +37,7 @@ import type { FeatureSchema } from "../feature-schema.ts";
 import { KumikoScreen } from "../kumiko-screen.tsx";
 import type { NavApi, ScreenTarget } from "../nav.tsx";
 import { NavProvider } from "../nav.tsx";
+import type { ProjectionDetailScreenWithTarget } from "../projection-detail-states.tsx";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
@@ -196,7 +197,7 @@ function stubDispatcher(
 }
 
 function detailScreen(
-  overrides?: Partial<ProjectionDetailScreenDefinition & { readonly detailFor?: string }>,
+  overrides?: Partial<ProjectionDetailScreenWithTarget>,
 ): FeatureSchema["screens"][number] {
   return {
     id: "rent-detail",
