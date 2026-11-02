@@ -28,7 +28,7 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { createEsOperationsTable, esOperationsTable } from "@cosmicdrift/kumiko-framework/es-ops";
 import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
+import { isEntitySearchable, type SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
 import { type DatabaseWaitClock, waitUntilDatabaseReachable } from "./wait-for-database.ts";
 
 export const STREAM_TENANT_BACKFILL_LOCK_KEY = 0x73_74_62_66; // 'stbf'
@@ -154,9 +154,7 @@ async function runPart(
 ): Promise<{ outcome: StreamBackfillPartOutcome; aggregatesMigrated: number }> {
   const { db, registry, log } = deps;
   const entity = part === "user" ? "user" : "tenant";
-  const searchable =
-    registry.getSearchableFields(entity).length > 0 ||
-    registry.getSearchPayloadExtensions(entity).length > 0;
+  const searchable = isEntitySearchable(registry, entity);
   const blockedWithoutAdapter = isDeferredWithoutSearchAdapter(searchable, deps);
   const warnBlocked = () =>
     log.warn(

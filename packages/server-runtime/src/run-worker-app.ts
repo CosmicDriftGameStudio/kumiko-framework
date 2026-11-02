@@ -44,6 +44,7 @@ import { runEnvGate } from "./boot/env-gate.ts";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.ts";
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
 import { startSearchReindexOnBoot } from "./boot/search-reindex-on-boot.ts";
+import { withEnvDefaults } from "./boot/shared-boot-steps.ts";
 import {
   runStreamTenantBackfillOnBoot,
   type SearchBackendDeclaration,
@@ -259,10 +260,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
 
   assertWorkerStackRequirements(options);
   const wiring = await resolveBootOptionWiring(options, resolvedEnvSource);
-  const envSource =
-    Object.keys(wiring.envDefaults).length > 0
-      ? { ...wiring.envDefaults, ...resolvedEnvSource }
-      : resolvedEnvSource;
+  const envSource = withEnvDefaults(wiring.envDefaults, resolvedEnvSource);
   let boot: WorkerBootResult;
   try {
     boot = await bootWorkerProcess(

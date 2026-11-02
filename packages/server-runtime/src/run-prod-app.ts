@@ -7,7 +7,7 @@
 //   - Hard schema-drift gate: checks kumiko/migrations against
 //     _kumiko_migrations and verifies every expected table with tableExists.
 //     Boot never runs CREATE TABLE automatically; migrations are applied by
-//     CI (`bun kumiko schema apply`) and boot only validates them. This avoids
+//     CI (`bun /app/kumiko.js schema apply`) and boot only validates them. This avoids
 //     races in multi-replica deployments and keeps schema state reviewable.
 //   - Idempotent seeds run only when the database is empty, using an
 //     `isDbEmpty` probe per seed. Reboots after the first seed are no-ops.

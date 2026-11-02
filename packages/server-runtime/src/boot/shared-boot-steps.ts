@@ -72,12 +72,19 @@ export function composeAppFeatures(
   });
 }
 
-export function validateComposedFeatures(
+export function validateBootAndWarnTz(
   features: readonly FeatureDefinition[],
   bootOptions: ValidateBootOptions,
 ): void {
   validateBoot(features, bootOptions);
   warnIfNonUtcServerTimeZone();
+}
+
+export function validateComposedFeatures(
+  features: readonly FeatureDefinition[],
+  bootOptions: ValidateBootOptions,
+): void {
+  validateBootAndWarnTz(features, bootOptions);
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 }
 
