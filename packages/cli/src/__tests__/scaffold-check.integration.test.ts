@@ -33,9 +33,20 @@ afterAll(() => {
   for (const dir of createdDirs) rmSync(dir, { recursive: true, force: true });
 });
 
+// The boot step checks the live row-level security state whenever DATABASE_URL is set, and the
+// test preload points it at the shared dev database; a fresh scaffold has no database of its own.
+function envWithoutDatabase(): Record<string, string | undefined> {
+  const { DATABASE_URL: _databaseUrl, ...rest } = process.env;
+  return rest;
+}
+
 // The blank starter must boot without a demo password, whatever the machine env carries.
 function envWithoutDemoAdmin(): Record<string, string | undefined> {
-  const { DEMO_ADMIN_PASSWORD: _password, DEMO_ADMIN_EMAIL: _email, ...rest } = process.env;
+  const {
+    DEMO_ADMIN_PASSWORD: _password,
+    DEMO_ADMIN_EMAIL: _email,
+    ...rest
+  } = envWithoutDatabase();
   return rest;
 }
 
@@ -73,7 +84,7 @@ beforeAll(async () => {
 });
 
 function runEnvOf(starter: ScaffoldStarter): Record<string, string | undefined> {
-  return starter === "blank" ? envWithoutDemoAdmin() : process.env;
+  return starter === "blank" ? envWithoutDemoAdmin() : envWithoutDatabase();
 }
 
 function appDirOf(starter: ScaffoldStarter): string {

@@ -13,12 +13,19 @@ function captureOut(): { out: SchemaCliOut; log: string[]; err: string[] } {
 
 describe("runSchemaCli validate — VALIDATE_BOOT_OPTIONS export", () => {
   let appCwd: string;
+  let previousDatabaseUrl: string | undefined;
   beforeEach(() => {
     appCwd = mkdtempSync(join(tmpdir(), "kumiko-schema-cli-boot-options-"));
     mkdirSync(join(appCwd, "kumiko"), { recursive: true });
+    // validate checks the live row-level security state whenever DATABASE_URL is set; these
+    // fixtures have no database, and a host env must not point them at a shared one.
+    previousDatabaseUrl = process.env["DATABASE_URL"];
+    delete process.env["DATABASE_URL"];
   });
   afterEach(() => {
     rmSync(appCwd, { recursive: true, force: true });
+    if (previousDatabaseUrl === undefined) delete process.env["DATABASE_URL"];
+    else process.env["DATABASE_URL"] = previousDatabaseUrl;
   });
 
   // `orphan` is a nav whose screen no allowlisted nav entry reaches.
