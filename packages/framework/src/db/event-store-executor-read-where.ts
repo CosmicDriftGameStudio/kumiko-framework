@@ -12,10 +12,12 @@ import {
   appendShiftedClause,
   applyListFilter,
   collectListFilters,
+  deriveParentNarrowHostIds,
   deriveParentNarrowTypes,
   type ListWhere,
 } from "./event-store-executor-read-filter.ts";
 import { applyListSearch } from "./event-store-executor-read-search.ts";
+import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
@@ -98,18 +100,17 @@ export async function buildListWhere(
   // The parent-visibility gate lifts its deleted-host predicate for a trash list the same way.
   const includeDeleted = onlyDeleted || runtimeOptions?.includeDeleted === true;
 
-  // Decide before touching search or the DB: an `empty` ownership skips both paths.
-  const ownership = resolveReadOwnership(
+  const gate = { includeDeleted, narrowTypes: deriveParentNarrowTypes(entity, payload) };
+  const parentVisibility = await withGlobalParentHosts(
     ctx,
-    tableName,
     user,
     db,
     runtimeOptions?.parentVisibility,
-    {
-      includeDeleted,
-      narrowTypes: deriveParentNarrowTypes(entity, payload),
-    },
+    gate,
+    { kind: "list", pinnedHostIds: deriveParentNarrowHostIds(entity, payload) },
   );
+  // Decide before touching search or the DB: an `empty` ownership skips both paths.
+  const ownership = resolveReadOwnership(ctx, tableName, user, db, parentVisibility, gate);
   if (ownership.kind === "empty") return { kind: "empty" };
 
   const where: ListWhere = {

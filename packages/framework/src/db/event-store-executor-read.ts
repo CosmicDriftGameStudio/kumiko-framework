@@ -25,6 +25,7 @@ import {
   takeLastSortLabel,
 } from "./event-store-executor-read-sort.ts";
 import { buildListWhere } from "./event-store-executor-read-where.ts";
+import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
@@ -173,10 +174,16 @@ export function createReadVerbs(
       // db/parent-ref-clause.ts). `empty` → the user can never see this row
       // regardless of its id. Return null (same shape as "not found", so a
       // probing attacker can't distinguish "no access" from "doesn't exist").
-      const ownership = resolveReadOwnership(ctx, tableName, user, db, options?.parentVisibility, {
-        includeDeleted: false,
-        narrowTypes: undefined,
-      });
+      const gate = { includeDeleted: false, narrowTypes: undefined };
+      const parentVisibility = await withGlobalParentHosts(
+        ctx,
+        user,
+        db,
+        options?.parentVisibility,
+        gate,
+        { kind: "row", rowId: payload.id },
+      );
+      const ownership = resolveReadOwnership(ctx, tableName, user, db, parentVisibility, gate);
       if (ownership.kind === "empty") return null;
 
       const idWhere = idFilter(payload.id);

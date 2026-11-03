@@ -46,6 +46,7 @@ import {
   resolveEntityFieldEncryption,
 } from "./entity-field-encryption.ts";
 import type { EventStoreExecutorOptions } from "./event-store-executor.ts";
+import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { constraintOf, isUniqueViolation } from "./pg-error.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { toSnakeCase } from "./table-builder.ts";
@@ -613,13 +614,17 @@ export function buildExecutorContext(
     db: TenantDb,
     parentVisibility: ParentVisibilityOption | undefined,
   ): Promise<boolean> {
+    const gate = { includeDeleted: false, narrowTypes: undefined };
     const ownership = resolveReadOwnership(
       { entity, table },
       String(schemaTableName(table)),
       user,
       db,
-      parentVisibility,
-      { includeDeleted: false, narrowTypes: undefined },
+      await withGlobalParentHosts({ entity, table }, user, db, parentVisibility, gate, {
+        kind: "row",
+        rowId: id,
+      }),
+      gate,
     );
     if (ownership.kind === "pass") return true;
     if (ownership.kind === "empty") return false;
