@@ -19,7 +19,7 @@ export {
 } from "./classify-stored-envelope.ts";
 export { collectExtensionOptions } from "./collect-extension-options.ts";
 export { decryptStoredPii, decryptStoredUserEmail } from "./decrypt-stored-pii.ts";
-export { defineUserDataFeature } from "./define-user-data-feature.ts";
+export { registerUserDataHooks } from "./register-user-data-hooks.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";

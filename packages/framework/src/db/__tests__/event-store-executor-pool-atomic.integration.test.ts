@@ -97,6 +97,20 @@ async function createLedger(title: string): Promise<EntityId> {
 }
 
 describe("executor writes on a pool runner are atomic", () => {
+  test("a successful create and update run the custom projection on the pool path", async () => {
+    const id = await createLedger("ok");
+    expect((await selectMany(stack.db, ledgerLogTable)).map((row) => row["title"])).toEqual(["ok"]);
+
+    const updated = await ledgerExecutor.update(
+      { id, version: 1, changes: { title: "ok-updated" } },
+      admin,
+      poolDb(),
+    );
+    expect(updated.isSuccess).toBe(true);
+    const titles = (await selectMany(stack.db, ledgerLogTable)).map((row) => row["title"]);
+    expect([...titles].sort()).toEqual(["ok", "ok-updated"]);
+  });
+
   test("a throwing projection on create leaves no event and no row", async () => {
     const headBefore = await selectEventsHeadId(stack.db);
 
