@@ -38,10 +38,13 @@ export type SmtpFailure =
 // response, which stay in the server log.
 export class SmtpFailureError extends Error {
   readonly failure: SmtpFailure;
-  constructor(failure: SmtpFailure, detail: string) {
+  /** The host guard refused the target; as opposed to a name that did not resolve. */
+  readonly blocked: boolean;
+  constructor(failure: SmtpFailure, detail: string, blocked = false) {
     super(`SMTP ${failure}: ${detail}`);
     this.name = "SmtpFailureError";
     this.failure = failure;
+    this.blocked = blocked;
   }
 }
 
@@ -94,7 +97,7 @@ async function openSmtpTransport(login: SmtpLogin): Promise<Transporter> {
       host: login.host,
       reason,
     });
-    throw new SmtpFailureError("hostUnreachable", blocked ? "blocked" : "unresolved");
+    throw new SmtpFailureError("hostUnreachable", blocked ? "blocked" : "unresolved", blocked);
   }
   return createTransport(smtpTransportOptions(login, target));
 }

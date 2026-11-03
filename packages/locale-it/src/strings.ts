@@ -2252,14 +2252,14 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.loginRejected":
     "Il server IMAP ha rifiutato l'accesso. Controlla nome utente e password.",
   "inboundMail.imap.connect.errors.tlsFailed":
-    "La connessione cifrata non è riuscita. Controlla la porta e l'opzione TLS.",
+    "La connessione cifrata non è riuscita. Controlla che la porta sia quella di IMAPS (di solito 993).",
   "inboundMail.imap.connect.errors.connectFailed":
     "Nessuna connessione al server IMAP. Controlla nome del server e porta.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Server in uscita (SMTP)",
   "inbound-provider-imap:entity:__action-form__:field:smtpPort": "Porta SMTP",
   "inboundMail.imap.connect.outgoing": "Invio",
   "inboundMail.imap.connect.outgoingHint":
-    "Le risposte partono da questo indirizzo tramite il tuo server di posta, con lo stesso nome utente e la stessa password. Lascia vuoto il campo se il server si chiama come il server IMAP, con smtp. al posto di imap. Di solito 587, anche se il tuo provider indica 465/SSL.",
+    "Le risposte partono da questo indirizzo tramite il tuo server di posta, con lo stesso nome utente e la stessa password. Lascia vuoto il campo se il server si chiama come il server IMAP, con smtp. al posto di imap. Di solito 587, anche se il tuo provider indica 465/SSL. La porta 465 significa SSL/TLS, qualsiasi altra porta significa STARTTLS.",
   "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId":
     "Identificativo del server di posta",
   "inboundMail.imap.connect.senderCheck": "Verifica del mittente",

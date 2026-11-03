@@ -2196,14 +2196,14 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.loginRejected":
     "The IMAP server rejected the sign-in. Check the user name and password.",
   "inboundMail.imap.connect.errors.tlsFailed":
-    "The encrypted connection failed. Check the port and the TLS setting.",
+    "The encrypted connection failed. Check that the port is the IMAPS port (usually 993).",
   "inboundMail.imap.connect.errors.connectFailed":
     "No connection to the IMAP server. Check the server name and port.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Outgoing server (SMTP)",
   "inbound-provider-imap:entity:__action-form__:field:smtpPort": "SMTP port",
   "inboundMail.imap.connect.outgoing": "Sending",
   "inboundMail.imap.connect.outgoingHint":
-    "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL.",
+    "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL. Port 465 means SSL/TLS, every other port means STARTTLS.",
   "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId": "Mail server ID",
   "inboundMail.imap.connect.senderCheck": "Sender check",
   "inboundMail.imap.connect.senderCheckHint":

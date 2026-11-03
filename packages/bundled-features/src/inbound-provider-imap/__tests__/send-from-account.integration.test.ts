@@ -462,6 +462,29 @@ describe("sendMailFromAccount", () => {
     });
   }
 
+  test("a mailbox without a stored credential answers not configured, not a rejected login", async () => {
+    const admin = freshAdmin();
+    const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+      InboundMailFoundationHandlers.connectAccount,
+      {
+        provider: "imap",
+        authMethod: "password",
+        displayName: "Office",
+        address: ADDRESS,
+        scope: "shared",
+      },
+      admin,
+    );
+
+    const error = await stack.http.writeErr(
+      SEND_HANDLER,
+      { accountId, message: { to: [RECIPIENT], subject: "Hallo", text: "Test" } },
+      admin,
+    );
+
+    expect(error.i18nKey).toBe(MAIL_SEND_ERRORS.notConfigured.i18nKey);
+  });
+
   test("a mailbox stored without an outgoing server answers not configured", async () => {
     const admin = freshAdmin();
     const { accountId } = await stack.http.writeOk<{ accountId: string }>(

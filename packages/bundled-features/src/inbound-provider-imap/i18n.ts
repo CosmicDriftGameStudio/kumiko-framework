@@ -33,7 +33,7 @@ export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: 
   "inboundMail.imap.connect.server": { en: "Server sign-in" },
   "inboundMail.imap.connect.outgoing": { en: "Sending" },
   "inboundMail.imap.connect.outgoingHint": {
-    en: "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL.",
+    en: "Replies go out from this address over your own mail server, with the same user name and password. Leave the field empty if the server is called like the IMAP server, with smtp. instead of imap. Usually 587, even when your provider lists 465/SSL. Port 465 means SSL/TLS, every other port means STARTTLS.",
   },
   [formFieldKey("trustedAuthservId")]: { en: "Mail server ID" },
   "inboundMail.imap.connect.senderCheck": { en: "Sender check" },
@@ -55,7 +55,7 @@ export const INBOUND_PROVIDER_IMAP_I18N: Readonly<Record<string, { readonly en: 
     en: "The IMAP server rejected the sign-in. Check the user name and password.",
   },
   [IMAP_CONNECT_ERRORS.tlsFailed.i18nKey]: {
-    en: "The encrypted connection failed. Check the port and the TLS setting.",
+    en: "The encrypted connection failed. Check that the port is the IMAPS port (usually 993).",
   },
   [IMAP_CONNECT_ERRORS.connectFailed.i18nKey]: {
     en: "No connection to the IMAP server. Check the server name and port.",

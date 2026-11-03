@@ -6,6 +6,7 @@ import {
   InboundAuthError,
   type InboundMailContext,
   InboundTransientError,
+  isInboundAuthError,
   type MailAccountRecord,
   MailSendNotConfiguredError,
   MailSendRejectedError,
@@ -15,11 +16,18 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import MailComposer from "nodemailer/lib/mail-composer";
 import { FEATURE_NAME } from "./constants.ts";
-import { readCredentialDocument } from "./credential-document.ts";
+import { type ImapCredentialDocument, readCredentialDocument } from "./credential-document.ts";
 import { appendToSentFolder } from "./sent-folder.ts";
 import { SmtpFailureError, sendRawViaSmtp } from "./smtp-client.ts";
 
-function toFoundationSendError(err: SmtpFailureError): Error {
+// A host the guard blocks stays blocked and a failed certificate check stays failed: retrying
+// cannot help, the tenant has to connect the mailbox again.
+function isPermanentSmtpFailure(err: SmtpFailureError): boolean {
+  return err.failure === "tlsFailed" || (err.failure === "hostUnreachable" && err.blocked);
+}
+
+export function toFoundationSendError(err: SmtpFailureError): Error {
+  if (isPermanentSmtpFailure(err)) return new MailSendNotConfiguredError(err.message);
   switch (err.failure) {
     case "loginRejected":
       return new InboundAuthError(err.message);
@@ -34,13 +42,31 @@ function stripAngles(id: string): string {
   return id.replace(/^<|>$/g, "");
 }
 
+// A missing or unreadable credential document means no login was attempted: the mailbox has to be
+// connected again, which is not a rejected password.
+async function readSendCredentialDocument(
+  ctx: InboundMailContext,
+  account: MailAccountRecord,
+): Promise<ImapCredentialDocument> {
+  try {
+    return await readCredentialDocument(ctx, account);
+  } catch (err) {
+    if (isInboundAuthError(err)) {
+      throw new MailSendNotConfiguredError(
+        `${FEATURE_NAME}: account ${account.id} has no usable credential document`,
+      );
+    }
+    throw err;
+  }
+}
+
 export async function sendFromImapAccount(
   ctx: InboundMailContext,
   account: MailAccountRecord,
   message: OutboundMailMessage,
   attachments: readonly OutboundAttachment[],
 ): Promise<ProviderSentMail> {
-  const doc = await readCredentialDocument(ctx, account);
+  const doc = await readSendCredentialDocument(ctx, account);
   if (!doc.smtpHost || !doc.password) {
     throw new MailSendNotConfiguredError(
       `${FEATURE_NAME}: account ${account.id} has no outgoing server stored`,

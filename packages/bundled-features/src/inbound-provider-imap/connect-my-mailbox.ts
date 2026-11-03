@@ -30,8 +30,7 @@ export const createConnectMyMailboxHandler = ({ memberRoles }: InboundMailRoles)
     // connect-account is admin-only; the personal mailbox is created through the system identity. The owner
     // is always event.user.id from the session, never a payload field.
     escapeHatch: { grants: ["unsafeRaw", "systemIdentity"], reason: MY_MAILBOX_ESCAPE_REASON },
-    beforeTransaction: (event, ctx) =>
-      checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log),
+    beforeTransaction: (event, ctx) => checkMailboxLogin(credentialDocumentOf(event.payload), ctx),
     handler: async (event, ctx) => {
       const { displayName, address } = event.payload;
       return connectPasswordMailbox(

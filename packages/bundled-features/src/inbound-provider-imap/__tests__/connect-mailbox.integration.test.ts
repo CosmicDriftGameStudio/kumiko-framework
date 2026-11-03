@@ -33,7 +33,7 @@ import { markEvents, setupReadinessStack } from "../../readiness/__tests__/readi
 import { ReadinessQueries, ReadinessWrites } from "../../readiness/constants.ts";
 import { tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
-import { IMAP_CONNECT_ERRORS, ImapHandlers } from "../constants.ts";
+import { IMAP_CONNECT_ERRORS, ImapHandlers, SMTP_CONNECT_ERRORS } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
 import { greenmailAvailable } from "./greenmail-availability.ts";
@@ -336,6 +336,44 @@ describe("connect mailbox form", () => {
     expect(error.i18nKey).toBe(IMAP_CONNECT_ERRORS.hostUnreachable.i18nKey);
     expect(JSON.stringify(error)).not.toContain("unknown-host");
     await expectNothingStored(admin, newEvents);
+  });
+
+  greenmailTest("an unreachable outgoing port names the entered port", async () => {
+    const admin = freshAdmin();
+    const closedSmtpPort = 2;
+
+    const error = await stack.http.writeErr(
+      ImapHandlers.connectMailbox,
+      { ...form(PASSWORD), smtpPort: closedSmtpPort },
+      admin,
+    );
+
+    expect(error.i18nKey).toBe(SMTP_CONNECT_ERRORS.connectFailed.i18nKey);
+    expect(error.i18nParams).toEqual({ port: closedSmtpPort });
+  });
+
+  test("tenants probing the same host and user share one budget", async () => {
+    setImapMailHostLookup((async (hostname: string) => {
+      throw new Error(`ENOTFOUND ${hostname}`);
+    }) as unknown as typeof lookup);
+    const host = `imap.${crypto.randomUUID()}.example`;
+    const budget = 20;
+
+    for (let attempt = 0; attempt < budget; attempt += 1) {
+      const error = await stack.http.writeErr(
+        ImapHandlers.connectMailbox,
+        form(WRONG_PASSWORD, host),
+        freshAdmin(),
+      );
+      expect(error.i18nKey).toBe(IMAP_CONNECT_ERRORS.hostUnreachable.i18nKey);
+    }
+    const limited = await stack.http.writeErr(
+      ImapHandlers.connectMailbox,
+      form(WRONG_PASSWORD, host),
+      freshAdmin(),
+    );
+
+    expect(limited.httpStatus).toBe(429);
   });
 
   test("a rejected form keeps the password out of the validation error", async () => {

@@ -205,6 +205,33 @@ describe("shared mailbox: an admin reactivates it", () => {
     expect(await statusOf(tenant, accountId)).toBe("active");
   });
 
+  greenmailWithSmtpsTest(
+    "an admin using the owner form, which has no sender-check field, keeps the stored policy",
+    async () => {
+      const tenant = freshTenant();
+      const accountId = await connectBrokenAccount(tenant, "shared");
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.setTrustedAuthservId,
+        { accountId, trustedAuthservId: "mx.example.com" },
+        tenant.admin,
+      );
+
+      await stack.http.writeOk(
+        ImapHandlers.reconnectMailbox,
+        form(accountId, PASSWORD),
+        tenant.admin,
+      );
+
+      const { rows } = await stack.http.queryOk<{
+        rows: Array<{ id: string; status: string; trustedAuthservId: string | null }>;
+      }>(InboundMailFoundationQueries.listAccounts, {}, tenant.admin);
+      expect(rows.find((row) => row.id === accountId)).toMatchObject({
+        status: "active",
+        trustedAuthservId: "mx.example.com",
+      });
+    },
+  );
+
   test("a plain member is told the mailbox does not exist", async () => {
     const tenant = freshTenant();
     const accountId = await connectBrokenAccount(tenant, "shared");

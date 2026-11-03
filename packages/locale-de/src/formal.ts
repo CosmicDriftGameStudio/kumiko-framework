@@ -264,11 +264,11 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.loginRejected":
     "Der IMAP-Server hat die Anmeldung abgelehnt. Prüfen Sie Benutzername und Passwort.",
   "inboundMail.imap.connect.errors.tlsFailed":
-    "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfen Sie Port und TLS-Einstellung.",
+    "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfen Sie, ob der Port der IMAPS-Port ist (meist 993).",
   "inboundMail.imap.connect.errors.connectFailed":
     "Keine Verbindung zum IMAP-Server. Prüfen Sie Servernamen und Port.",
   "inboundMail.imap.connect.outgoingHint":
-    "Antworten gehen von dieser Adresse über Ihren eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lassen Sie das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn Ihr Anbieter 465/SSL nennt.",
+    "Antworten gehen von dieser Adresse über Ihren eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lassen Sie das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn Ihr Anbieter 465/SSL nennt. Port 465 bedeutet SSL/TLS, jeder andere Port STARTTLS.",
   "inboundMail.imap.connect.errors.smtpHostUnreachable":
     "Empfang ok, Senden geht nicht: Der Postausgangsserver ist nicht erreichbar oder nicht erlaubt. Prüfen Sie seinen Namen.",
   "inboundMail.send.errors.notConfigured":
