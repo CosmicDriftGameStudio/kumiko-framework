@@ -53,18 +53,18 @@ describe("RLS-Session-Settings Guard: session-level settings", () => {
   });
 
   test("flags a set_config spelled with a unicode escape, which the text prefilter cannot see", () => {
-    const violations = run(TEST, "SELECT set\\u005fconfig('statement_timeout', '0', false)", '"');
+    const violations = run(TEST, `SELECT set\\u005fconfig('statement_timeout', '0', ${OFF})`, '"');
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain("literal true as is_local");
   });
 
   test("flags a set_config spelled with an identity escape", () => {
-    const violations = run(TEST, "SELECT set\\_config('statement_timeout', '0', false)", '"');
+    const violations = run(TEST, `SELECT set\\_config('statement_timeout', '0', ${OFF})`, '"');
     expect(violations).toHaveLength(1);
   });
 
   test("flags a set_config split over a backslash-newline continuation", () => {
-    const violations = run(TEST, "SELECT set_config('statement_timeout',\\\n '0', false)", '"');
+    const violations = run(TEST, `SELECT ${SC}('statement_timeout',\\\n '0', ${OFF})`, '"');
     expect(violations).toHaveLength(1);
   });
 
