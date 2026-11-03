@@ -22,6 +22,7 @@ import { buildEntityTable } from "../table-builder.ts";
 
 const docEntity = createEntity({
   table: "read_distinct_on_docs",
+  systemRowsReadable: true,
   fields: {
     key: createTextField({ personal: false, reason: "technical_reference", required: true }),
     revision: createNumberField({ required: true }),

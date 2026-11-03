@@ -62,8 +62,6 @@ async function seedTemplate(db: DbConnection, args: SeedTemplateArgs): Promise<v
     variableSchema: JSON.stringify(args.variableSchema ?? {}),
     linkedResources: JSON.stringify(args.linkedResources ?? {}),
     parentTemplateId: args.parentTemplateId ?? null,
-    insertedById: "conformance",
-    modifiedById: "conformance",
   });
 }
 

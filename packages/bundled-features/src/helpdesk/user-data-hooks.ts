@@ -9,6 +9,7 @@ import type {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
+import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
 import { platformActor, replyExecutor, requestExecutor } from "./lib.ts";
@@ -45,9 +46,14 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
 
-// Attachments are copied into the system tenant and bound to the request or reply row.
+// Attachments are copied into the system tenant and bound to the request or reply row; a tenant
+// session cannot read those file_refs, so the lookup uses the system-tenant read handle.
 export async function findAttachments(ctx: UserDataHookCtx, entity: string, id: string) {
-  return ctx.db.selectMany<{ id: string; storageKey: string; fileName: string }>(fileRefsTable, {
+  return systemTenantReadDb(ctx.db).selectMany<{
+    id: string;
+    storageKey: string;
+    fileName: string;
+  }>(fileRefsTable, {
     tenantId: SYSTEM_TENANT_ID,
     entityType: entity,
     entityId: id,

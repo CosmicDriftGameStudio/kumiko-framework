@@ -126,8 +126,6 @@ beforeAll(async () => {
     variableSchema: JSON.stringify({}),
     linkedResources: JSON.stringify({}),
     parentTemplateId: null,
-    insertedById: "test",
-    modifiedById: "test",
   });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });

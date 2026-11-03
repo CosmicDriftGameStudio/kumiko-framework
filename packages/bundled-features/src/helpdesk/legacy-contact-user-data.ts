@@ -6,6 +6,7 @@ import type {
   UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
 import { helpdeskReplyEntity, helpdeskRequestEntity } from "./entity.ts";
@@ -40,7 +41,8 @@ const legacyReplyExecutor = createEventStoreExecutor(
 // missing table would abort the surrounding transaction. The event log is always present, and
 // the read tables were created together with the first contact event.
 async function hasLegacyContactData(ctx: UserDataHookCtx): Promise<boolean> {
-  const firstEvent = await ctx.db.fetchOne(eventsTable, {
+  // Helpdesk streams live on the system tenant, invisible to a tenant session.
+  const firstEvent = await systemTenantReadDb(ctx.db).fetchOne(eventsTable, {
     aggregateType: LEGACY_CONTACT_REQUEST_ENTITY,
   });
   return firstEvent !== undefined;

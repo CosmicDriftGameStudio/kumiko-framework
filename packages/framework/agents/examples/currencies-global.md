@@ -341,6 +341,7 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 
 export const currencyEntity = createEntity({
   table: "read_sample_currencies",
+  systemRowsReadable: true,
   fields: {
     code: createTextField({ personal: false, reason: "is_reference_data", required: true }),
     name: createTextField({ personal: false, reason: "is_reference_data", required: true }),

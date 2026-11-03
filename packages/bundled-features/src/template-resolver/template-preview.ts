@@ -17,6 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { createI18n } from "@cosmicdrift/kumiko-framework/i18n";
+import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import * as z from "zod";
 import { createEmailAttachmentReader, createTemplateMailRenderer } from "../delivery/index.ts";
@@ -257,12 +258,22 @@ async function describeAttachments(
   refs: readonly MailAttachmentRef[],
 ): Promise<{ readonly attachments: PreviewAttachment[]; readonly missing: string[] }> {
   const fileRefIds = refs.flatMap((ref) => (ref.kind === "rendered-pdf" ? [] : [ref.fileRefId]));
-  const rows =
+  type SizedFileRef = { id: string; size: number | bigint | string };
+  const ownRows =
     fileRefIds.length === 0
       ? []
-      : await selectMany<{ id: string; size: number | bigint | string }>(ctx.db, fileRefsTable, {
-          id: fileRefIds,
+      : await selectMany<SizedFileRef>(ctx.db, fileRefsTable, { id: fileRefIds });
+  // System template resources are invisible to a tenant session; read them through the narrow
+  // system-tenant path, only for ids the own tenant does not hold.
+  const ownIds = new Set(ownRows.map((row) => row.id));
+  const systemIds = fileRefIds.filter((id) => !ownIds.has(id));
+  const systemRows =
+    systemIds.length === 0
+      ? []
+      : await selectMany<SizedFileRef>(systemTenantReadDb(ctx.db), fileRefsTable, {
+          id: systemIds,
         });
+  const rows = [...ownRows, ...systemRows];
   const sizeById = new Map(rows.map((row) => [row.id, Number(row.size)]));
   // An inline image is named by its content id because the stored file name is personal data and
   // may be ciphertext; a file attachment carries the name the admin gave it.
