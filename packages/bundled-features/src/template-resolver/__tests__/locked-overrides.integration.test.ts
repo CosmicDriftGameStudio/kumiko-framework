@@ -292,8 +292,6 @@ describe("locked template overrides :: side channels stay closed", () => {
         variableSchema: "{}",
         linkedResources: JSON.stringify({ [BANNER_KEY]: BANNER_FILE_REF }),
         meta: JSON.stringify({ subject: "Eigen", layoutSlug: LOCKED_LAYOUT }),
-        insertedById: "test",
-        modifiedById: "test",
       });
 
       const validation = await stack.http.queryOk<{ warnings: { detail: string }[] }>(
@@ -353,8 +351,6 @@ describe("locked template overrides :: side channels stay closed", () => {
         variableSchema: "{}",
         linkedResources: JSON.stringify({ [BANNER_KEY]: BANNER_FILE_REF }),
         meta: "{}",
-        insertedById: "test",
-        modifiedById: "test",
       });
       const blocks = await stack.http.queryOk<{ resourceKeys: string[] }>(
         TemplateResolverQueries.documentBlocks,
@@ -435,8 +431,6 @@ describe("locked template overrides :: a collection does not open system templat
         variableSchema: "{}",
         linkedResources: "{}",
         meta: "{}",
-        insertedById: "test",
-        modifiedById: "test",
       });
       expect(await resolveContent(stack, SHADOWED_SLUG, "document-pdf")).toContain("system pdf");
 
@@ -484,8 +478,6 @@ describe("locked template overrides :: public text-block paths follow the same r
           variableSchema: "{}",
           linkedResources: "{}",
           meta: "{}",
-          insertedById: "test",
-          modifiedById: "test",
         });
       await block(SYSTEM_TENANT_ID, "imprint", "System-Impressum");
       await block(tenantId, "imprint", "Tenant-Impressum");

@@ -104,6 +104,8 @@ describe("startDevJobRunners", () => {
 // ctx.dispatch.write and ctx.dispatch.queryAs end-to-end.
 const attachNoteEntity = createEntity({
   table: "job_attach_notes",
+  // The job's dispatch.write lands on the system tenant; the tenant session must read it back.
+  systemRowsReadable: true,
   fields: { text: createTextField({ personal: false, reason: "test_fixture", required: true }) },
 });
 const attachNoteTable = buildEntityTable("note", attachNoteEntity);

@@ -1,4 +1,5 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
+import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { jobRunsTable } from "../../jobs/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
 
@@ -10,7 +11,7 @@ import { featureMounted } from "./feature-mounted.ts";
 
 export const jobRunExportHook: UserDataExportHook = async (ctx) => {
   if (!featureMounted(ctx, "jobs")) return null;
-  const rows = await ctx.db.selectMany<Record<string, unknown>>(jobRunsTable, {
+  const rows = await systemTenantReadDb(ctx.db).selectMany<Record<string, unknown>>(jobRunsTable, {
     triggeredById: ctx.userId,
   });
   if (rows.length === 0) return null;

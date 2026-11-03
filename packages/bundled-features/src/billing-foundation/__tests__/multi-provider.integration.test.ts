@@ -283,8 +283,6 @@ beforeEach(async () => {
     variableSchema: JSON.stringify({}),
     linkedResources: JSON.stringify({}),
     parentTemplateId: null,
-    insertedById: "test",
-    modifiedById: "test",
   });
   await seedNotificationTemplates(stack.db, stack.registry);
 });

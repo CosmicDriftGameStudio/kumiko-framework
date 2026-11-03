@@ -222,8 +222,6 @@ async function resetStack(target: TestStack): Promise<void> {
     variableSchema: JSON.stringify({}),
     linkedResources: JSON.stringify({}),
     parentTemplateId: null,
-    insertedById: "test",
-    modifiedById: "test",
   });
 }
 

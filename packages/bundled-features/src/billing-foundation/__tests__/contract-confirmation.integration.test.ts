@@ -241,8 +241,6 @@ async function seedTerms(locale: string, content: string): Promise<void> {
     variableSchema: JSON.stringify({}),
     linkedResources: JSON.stringify({}),
     parentTemplateId: null,
-    insertedById: "test",
-    modifiedById: "test",
   });
 }
 
