@@ -261,6 +261,51 @@ async function backfillAllEventBatches(
   return { ...total, failures };
 }
 
+function failureReason(e: unknown): string {
+  const reason = e instanceof Error ? e.message : String(e);
+  if (!(e instanceof SubjectResolutionError)) return reason;
+  return (
+    `${reason} (retry with { resolveOwnerFromProjection: true } to resolve the owner ` +
+    "from the entity's projection table, and/or { eraseUnresolvableSubjects: true } to " +
+    "erase fields whose subject stays unresolvable)"
+  );
+}
+
+function selectEventBatch(
+  raw: ReturnType<typeof asRawClient>,
+  aggregateTypes: readonly string[],
+  catalogTypes: readonly string[],
+  options: PiiBackfillBatchOptions,
+  batchSize: number,
+): Promise<readonly EventRow[]> {
+  if (options.eventIds) {
+    return raw.unsafe<EventRow>(
+      `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
+           FROM "kumiko_events"
+          WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" = ANY($3::bigint[])
+          ORDER BY "id" ASC`,
+      [
+        toPostgresArrayLiteral(aggregateTypes),
+        toPostgresArrayLiteral(catalogTypes),
+        toPostgresArrayLiteral([...options.eventIds]),
+      ],
+    );
+  }
+  return raw.unsafe<EventRow>(
+    `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
+           FROM "kumiko_events"
+          WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
+          ORDER BY "id" ASC
+          LIMIT $4`,
+    [
+      toPostgresArrayLiteral(aggregateTypes),
+      toPostgresArrayLiteral(catalogTypes),
+      String(options.afterEventId ?? 0),
+      batchSize,
+    ],
+  );
+}
+
 // Processes exactly one batch. Snapshots of the batch's touched aggregates are
 // dropped inside the same call so an abort between batches never leaves a
 // snapshot that caches plaintext for an already-encrypted stream.
@@ -300,31 +345,7 @@ export async function backfillEventPiiEncryptionBatch(
   });
   if (aggregateTypes.length === 0 && catalogTypes.length === 0) return emptyBatch();
 
-  const rows = await (options.eventIds
-    ? raw.unsafe<EventRow>(
-        `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
-           FROM "kumiko_events"
-          WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" = ANY($3::bigint[])
-          ORDER BY "id" ASC`,
-        [
-          toPostgresArrayLiteral(aggregateTypes),
-          toPostgresArrayLiteral(catalogTypes),
-          toPostgresArrayLiteral([...options.eventIds]),
-        ],
-      )
-    : raw.unsafe<EventRow>(
-        `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
-           FROM "kumiko_events"
-          WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
-          ORDER BY "id" ASC
-          LIMIT $4`,
-        [
-          toPostgresArrayLiteral(aggregateTypes),
-          toPostgresArrayLiteral(catalogTypes),
-          String(options.afterEventId ?? 0),
-          batchSize,
-        ],
-      ));
+  const rows = await selectEventBatch(raw, aggregateTypes, catalogTypes, options, batchSize);
   const last = rows[rows.length - 1];
   if (last === undefined) return emptyBatch();
 
@@ -355,17 +376,8 @@ export async function backfillEventPiiEncryptionBatch(
       touchedAggregateTypes.add(row.aggregate_type);
       touchedEventTypes.add(row.type);
     } catch (e) {
-      const reason = e instanceof Error ? e.message : String(e);
       firstFailedEventId ??= String(row.id);
-      result.failures.push({
-        eventId: String(row.id),
-        reason:
-          e instanceof SubjectResolutionError
-            ? `${reason} (retry with { resolveOwnerFromProjection: true } to resolve the owner ` +
-              "from the entity's projection table, and/or { eraseUnresolvableSubjects: true } to " +
-              "erase fields whose subject stays unresolvable)"
-            : reason,
-      });
+      result.failures.push({ eventId: String(row.id), reason: failureReason(e) });
     }
   }
 
@@ -666,7 +678,8 @@ export async function backfillEventPiiEncryptionBatch(
     return subject.kind === "user" && forgottenAggregates.has(subject.userId);
   }
 
-  // A later event that sets the field (`changes`, or the flat payload of a created event).
+  // A later event that sets the field (`changes`, or the flat payload of a created event). An
+  // explicit null counts: it replaced the value this event carries, so that value is stale.
   async function aggregateHasNewerValueOfField(
     event: EventRow,
     fieldName: string,
@@ -675,9 +688,9 @@ export async function backfillEventPiiEncryptionBatch(
       `SELECT 1 AS found FROM "kumiko_events"
         WHERE "aggregate_id" = $1 AND "tenant_id" = $2 AND "id" > $3::bigint
           AND (
-            COALESCE(jsonb_typeof("payload" -> 'changes' -> $4::text), 'null') <> 'null'
+            jsonb_exists("payload" -> 'changes', $4::text)
             OR ("payload" -> 'changes' IS NULL AND "payload" -> 'previous' IS NULL
-                AND COALESCE(jsonb_typeof("payload" -> $4::text), 'null') <> 'null')
+                AND jsonb_exists("payload", $4::text))
           )
         LIMIT 1`,
       [event.aggregate_id, event.tenant_id, event.id, fieldName],

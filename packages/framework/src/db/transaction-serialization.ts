@@ -84,14 +84,16 @@ export function openSerializedSavepoint<T>(
   );
 }
 
-// Runs a statement on a transaction handle. Inside a running unit (or with no unit queued) it
-// goes straight to the driver; otherwise it queues behind the pending units.
+// Runs a statement on a transaction handle. With no unit queued on the current chain (the nested
+// chain inside a running unit, else the root) it goes straight to the driver; otherwise it queues
+// behind the pending units of that chain.
 export async function runStatementBehindPendingUnits<T>(
   handle: HandleKey,
   statement: () => T,
 ): Promise<Awaited<T>> {
   const transactionKey = transactionKeyOf(handle);
-  if (nestedChainsInScope.getStore()?.get(transactionKey)?.active) return await statement();
-  if ((rootChains.get(transactionKey)?.pending ?? 0) === 0) return await statement();
+  const nested = nestedChainsInScope.getStore()?.get(transactionKey);
+  const chain = nested?.active ? nested : rootChains.get(transactionKey);
+  if ((chain?.pending ?? 0) === 0) return await statement();
   return runOnChain(transactionKey, async (): Promise<Awaited<T>> => await statement());
 }

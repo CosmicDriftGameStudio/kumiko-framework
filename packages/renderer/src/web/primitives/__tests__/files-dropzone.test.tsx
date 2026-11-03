@@ -125,6 +125,17 @@ describe("FilesDropzoneInput", () => {
     expect(queryByText("id-old-1")).toBeNull();
   });
 
+  test("a FileRef id the server has no meta for shows a fallback text instead of an endless placeholder", async () => {
+    const fileId = crypto.randomUUID();
+    (globalThis.fetch as unknown as { mockRestore(): void }).mockRestore();
+    spyOn(globalThis, "fetch").mockImplementation(
+      (async () => new Response(JSON.stringify({ files: [] }))) as unknown as typeof fetch,
+    );
+    const { getByText, queryByText } = mount(undefined, [fileId]);
+    await waitFor(() => expect(getByText("File no longer available")).toBeTruthy());
+    expect(queryByText("…")).toBeNull();
+  });
+
   test("an existing FileRef id shows its file name, not the id", async () => {
     const fileId = crypto.randomUUID();
     (globalThis.fetch as unknown as { mockRestore(): void }).mockRestore();

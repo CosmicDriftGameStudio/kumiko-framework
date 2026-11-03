@@ -168,21 +168,32 @@ function loadFileMeta(fileId: string): Promise<FileMeta | null> {
   return promise;
 }
 
-export function useFileMeta(fileId: string): FileMeta | null {
-  const [meta, setMeta] = useState<FileMeta | null>(null);
+/** `settled` is false while the lookup runs, so "still loading" and "no meta for this id" differ. */
+export function useFileMetaResult(fileId: string): {
+  readonly meta: FileMeta | null;
+  readonly settled: boolean;
+} {
+  const [result, setResult] = useState<{ meta: FileMeta | null; settled: boolean }>({
+    meta: null,
+    settled: false,
+  });
   const validId = isUuid(fileId);
   useEffect(() => {
     let cancelled = false;
-    setMeta(null);
+    setResult({ meta: null, settled: false });
     if (!validId) return;
     void loadFileMeta(fileId).then((loaded) => {
-      if (!cancelled) setMeta(loaded);
+      if (!cancelled) setResult({ meta: loaded, settled: true });
     });
     return () => {
       cancelled = true;
     };
   }, [fileId, validId]);
-  return meta;
+  return result;
+}
+
+export function useFileMeta(fileId: string): FileMeta | null {
+  return useFileMetaResult(fileId).meta;
 }
 
 export function FileNameLink({

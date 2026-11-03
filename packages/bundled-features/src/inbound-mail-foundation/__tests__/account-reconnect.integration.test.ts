@@ -141,6 +141,42 @@ describe("one mailbox per address", () => {
     );
   });
 
+  test("with a disconnected personal and a disconnected shared mailbox, a shared connect meets the shared one", async () => {
+    const admin = adminFor(6307);
+    const address = "both@tenant.example";
+    const personal = (await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.connectAccount,
+      { ...connectPayload(address), scope: "user" },
+      admin,
+    )) as { accountId: string };
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.disconnectAccount,
+      { accountId: personal.accountId },
+      admin,
+    );
+    const shared = (await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.connectAccount,
+      connectPayload(address),
+      admin,
+    )) as { accountId: string };
+    await env.stack.http.writeOk(
+      InboundMailFoundationHandlers.disconnectAccount,
+      { accountId: shared.accountId },
+      admin,
+    );
+
+    const error = await env.stack.http.writeErr(
+      InboundMailFoundationHandlers.connectAccount,
+      connectPayload(address),
+      admin,
+    );
+
+    expect(JSON.stringify(error)).toContain(InboundMailConnectErrors.addressDisconnected.reason);
+    expect(
+      await selectMany(env.stack.db, mailAccountsProjectionTable, { tenantId: admin.tenantId }),
+    ).toHaveLength(2);
+  });
+
   test("a disconnected OAuth mailbox is not reopened without the OAuth callback's owner override", async () => {
     const admin = adminFor(6304);
     const first = (await env.stack.http.writeOk(

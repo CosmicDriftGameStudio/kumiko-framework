@@ -117,6 +117,7 @@ function isTenantDataExtensionHooks(o: unknown): o is TenantDataExtensionHooks;
 function isTenantResourceExtensionHooks(o: unknown): o is TenantResourceExtensionHooks;
 function isTierResolverPlugin(v: unknown): v is TierResolverPlugin; // Narrows a registration's untyped `options` bag to the tier-resolver plugin shape — the only thing every implementation must provide is the `build` factory.
 function isToggleableFeature(feature: FeatureDefinition): feature is FeatureDefinition & { toggleableDefault: boolean; };
+function isUnchangedValue(a: unknown, b: unknown): boolean;
 function isUuid(value: unknown): value is string;
 function isValidQn(value: string): boolean;
 function maskWriteOnlyFields<T extends Readonly<Record<string, unknown>>>(entity: EntityDefinition, row: T): T;

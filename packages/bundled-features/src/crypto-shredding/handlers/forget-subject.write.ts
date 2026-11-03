@@ -46,6 +46,7 @@ import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/se
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { resolveRetentionPolicyForTenant } from "../../data-retention/index.ts";
+import { NOTES_HISTORY_FEATURE_NAME } from "../../notes-history/index.ts";
 import { eraseNoteBodiesReachingSubject } from "../../notes-history-user-data/index.ts";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.ts";
 import { purgeFilesReachingSubject } from "../../shared/index.ts";
@@ -340,7 +341,7 @@ async function sweepDerivedSubjectData(
     }
 
     // Note bodies are keyed per note, so the subject's own key never reaches them.
-    if (ctx.registry.features.has("notes-history")) {
+    if (ctx.registry.features.has(NOTES_HISTORY_FEATURE_NAME)) {
       await eraseNoteBodiesReachingSubject({
         db: crossTenantSubjectRunner,
         subject,

@@ -217,8 +217,10 @@ export function startDevFileWatchers(deps: DevFileWatcherDeps): void {
   const entryDirs = new Set<string>();
   for (const e of deps.entries) entryDirs.add(resolve(e.sourceFile, ".."));
   const entrySourceFiles = new Set(deps.entries.map((e) => resolve(e.sourceFile)));
-  const watchStartedAtMs = probeFilesystemClockMs();
   const dirs = [...entryDirs, ...expandWatchPatterns(deps.watchDirs ?? [])];
+  // The probe sits on the watched filesystem: tmpdir() may be another mount with another clock.
+  // It is removed before the watchers start, so it raises no change event.
+  const watchStartedAtMs = probeFilesystemClockMs(dirs[0]);
   for (const dir of dirs) {
     void watchDir(
       dir,

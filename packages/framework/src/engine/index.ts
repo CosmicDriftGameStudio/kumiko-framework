@@ -431,6 +431,7 @@ export {
 } from "./schema-builder.ts";
 export {
   isFieldsEditSection,
+  isUnchangedValue,
   normalizeEditField,
   normalizeListColumn,
   screenShortId,

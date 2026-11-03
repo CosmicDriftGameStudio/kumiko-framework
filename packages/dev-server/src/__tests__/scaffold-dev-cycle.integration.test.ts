@@ -10,13 +10,14 @@
 // (test-stack.ts:200-209) breaks, the development flow gives a false result.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { asRawClient, createDbConnection, tableExists } from "@cosmicdrift/kumiko-framework/db";
+import { createDbConnection, tableExists } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { dropDatabaseIfExists } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import {
   pushEntityProjectionTables,
@@ -50,7 +51,7 @@ afterAll(async () => {
   const adminUrl = base.replace(/\/[^/]+$/, "/postgres");
   const admin = createDbConnection({ url: adminUrl, maxConnections: 1 });
   try {
-    await asRawClient(admin.db).unsafe(`DROP DATABASE IF EXISTS "${dbName}"`);
+    await dropDatabaseIfExists(admin.db, dbName);
   } finally {
     await admin.close();
   }

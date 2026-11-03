@@ -21,8 +21,29 @@ detail: The in-memory, local and S3 file providers throw `FileObjectMissingError
 -->
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: mail-foundation
 type: fix
-title: mail and billing robustness fixes
-detail: An inline mail image whose stored object is gone is skipped instead of failing the mail. A final step-delivery attempt whose outcome cannot be recorded still erases the dispatch key. A second in-app plan switch is refused until the provider's webhook confirmed the first one (30 minute window). An admin can connect a shared mailbox on an address held by a member's disconnected personal mailbox. The IMAP sent-folder copy is appended detached, and the docs say to call `sendMailFromAccount` from `beforeTransaction`.
+title: Missing inline images no longer fail a mail
+detail: An inline mail image whose stored object is gone is skipped instead of failing the mail.
+-->
+
+<!-- kumiko-changes
+feature: step-dispatcher
+type: fix
+title: Final step-delivery attempt erases the dispatch key
+detail: A final step-delivery attempt whose outcome cannot be recorded still erases the dispatch key.
+-->
+
+<!-- kumiko-changes
+feature: billing-foundation
+type: fix
+title: Pending in-app plan switch blocks a second one
+detail: A second in-app plan switch is refused until the provider's webhook confirmed the first one (30 minute window).
+-->
+
+<!-- kumiko-changes
+feature: inbound-mail-foundation
+type: fix
+title: Shared mailbox on an address of a disconnected personal mailbox
+detail: An admin can connect a shared mailbox on an address held by a member's disconnected personal mailbox. The IMAP sent-folder copy is appended detached, and the docs say to call `sendMailFromAccount` from `beforeTransaction`. With several disconnected mailboxes on one address, the one of the wanted owner kind (shared or personal) is chosen, then the smallest id.
 -->

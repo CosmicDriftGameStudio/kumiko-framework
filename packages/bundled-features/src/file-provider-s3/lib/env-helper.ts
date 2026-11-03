@@ -1,5 +1,6 @@
-import { requiredEnvFor } from "@cosmicdrift/kumiko-framework/env";
+import { type EnvSource, requiredEnvFor } from "@cosmicdrift/kumiko-framework/env";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import { isAcceptableS3Endpoint } from "../env-schema.ts";
 import { createS3Provider, type S3ProviderConfig } from "./s3-provider.ts";
 
 // Reads S3 connection details from process.env with a configurable prefix so
@@ -11,21 +12,34 @@ import { createS3Provider, type S3ProviderConfig } from "./s3-provider.ts";
 // <prefix>SECRET_KEY. Optional: <prefix>ENDPOINT (for R2/Minio),
 // <prefix>FORCE_PATH_STYLE (explicit override — auto-detected when ENDPOINT
 // is set).
-export function createS3ProviderFromEnv(prefix = "S3_"): FileStorageProvider {
-  return createS3Provider(parseS3EnvConfig(prefix));
+export function createS3ProviderFromEnv(
+  prefix = "S3_",
+  env: EnvSource = process.env,
+): FileStorageProvider {
+  return createS3Provider(parseS3EnvConfig(prefix, env));
 }
 
 // Separated from createS3ProviderFromEnv so the env → config translation is
 // unit-testable without spinning up an S3Client. The returned config is a
 // plain object — pass it to createS3Provider to get a working provider.
-export function parseS3EnvConfig(prefix: string): S3ProviderConfig {
-  const requireEnv = requiredEnvFor("S3 file provider", process.env);
+export function parseS3EnvConfig(prefix: string, env: EnvSource = process.env): S3ProviderConfig {
+  const requireEnv = requiredEnvFor("S3 file provider", env);
   const bucket = requireEnv(`${prefix}BUCKET`);
   const region = requireEnv(`${prefix}REGION`);
   const accessKeyId = requireEnv(`${prefix}ACCESS_KEY`);
   const secretAccessKey = requireEnv(`${prefix}SECRET_KEY`);
-  const endpoint = process.env[`${prefix}ENDPOINT`];
-  const forcePathStyleRaw = process.env[`${prefix}FORCE_PATH_STYLE`];
+  const endpoint = env[`${prefix}ENDPOINT`];
+  const forcePathStyleRaw = env[`${prefix}FORCE_PATH_STYLE`];
+
+  if (
+    endpoint !== undefined &&
+    endpoint !== "" &&
+    !isAcceptableS3Endpoint(endpoint, env["NODE_ENV"] === "production")
+  ) {
+    throw new Error(
+      `[S3 file provider] ${prefix}ENDPOINT must use https unless the host is loopback (NODE_ENV=production)`,
+    );
+  }
 
   return {
     bucket,

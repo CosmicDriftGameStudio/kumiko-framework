@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { DocumentsReasons } from "../constants.ts";
 import { linkedDocumentIds } from "../queries/list-page.ts";
 
 type LinkPageQuery = { readonly cursor?: string };
@@ -27,6 +28,6 @@ describe("linkedDocumentIds", () => {
   test("rejects a record with more linked documents than the id filter can carry", async () => {
     await expect(
       linkedDocumentIds({ dispatch: dispatchWithLinks(10_300, 200) }, target),
-    ).rejects.toThrow("more than 10000 linked documents");
+    ).rejects.toMatchObject({ details: { reason: DocumentsReasons.tooManyLinkedDocuments } });
   });
 });

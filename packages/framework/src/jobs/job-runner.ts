@@ -3,7 +3,6 @@ import type { Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { JobsOptions } from "bullmq";
 import { DelayedError, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
-import { requestContext } from "../api/request-context.ts";
 import type { DbConnection } from "../db/connection.ts";
 import {
   assertNoActiveRowLevelSecurityScope,
@@ -30,6 +29,7 @@ import type { DistributedLock } from "../pipeline/distributed-lock.ts";
 import { createDistributedLock } from "../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../pipeline/redis-keys.ts";
 import { isScheduledTrigger, scheduleRepeatOptions } from "./cron-repeat-options.ts";
+import { applyConcurrencyMode, buildEnqueueInputs } from "./job-runner-dispatch.ts";
 import { createJobEventTriggers } from "./job-runner-event-triggers.ts";
 import { applyHandlerDeferral, executeJobInSpan } from "./job-runner-execution.ts";
 import {
@@ -47,14 +47,12 @@ import {
   BOOT_REDIS_TIMEOUT_MS,
   buildRetryBullOpts,
   COMPLETED_JOB_RETENTION_AGE_SEC,
-  captureTraceContext,
   FAILED_JOB_RETENTION_AGE_SEC,
   maxRetryWindowMs,
   parseRedisOpts,
   STOP_QUEUE_READY_TIMEOUT_MS,
   stampGatedWriteOrigin,
   startQueueDepthPolling,
-  TRACE_CONTEXT_KEY,
   timeoutReject,
 } from "./job-runner-helpers.ts";
 import {
@@ -68,7 +66,6 @@ import {
   schedulerIdForJobName,
 } from "./job-runner-schedulers.ts";
 import {
-  announceDropped,
   announceQueued,
   isOverPerTenantLimit,
   type JobRunnerScope,
@@ -721,61 +718,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           return "skipped:max-per-tenant";
         }
 
-        const concurrency = jobDef.concurrency ?? "parallel";
         const bullOpts: Record<string, unknown> = {};
-
-        switch (concurrency) {
-          case "skip": {
-            const active = await targetQueue.getActive();
-            const waiting = await targetQueue.getWaiting();
-            const isRunning = [...active, ...waiting].some((j) => j.name === jobName);
-            if (isRunning) {
-              return "skipped";
-            }
-            break;
-          }
-          case "replace": {
-            const waiting = await targetQueue.getWaiting();
-            for (const j of waiting) {
-              if (j.name === jobName && j.id) {
-                await j.remove();
-                await announceDropped(scope, jobName, jobDef, j.id, j.data);
-              }
-            }
-            break;
-          }
-          // case "sequential" is rejected at boot — see createJobRunner. Once
-          // the OSS-compatible implementation lands (per-name Redis lock),
-          // re-add the dispatch branch here.
-          case "debounce": {
-            const debounceMs = jobDef.debounceMs ?? 5000;
-            bullOpts["debounce"] = { id: jobName, ttl: debounceMs };
-            break;
-          }
-          default:
-            break;
+        if (
+          (await applyConcurrencyMode(scope, targetQueue, jobName, jobDef, bullOpts)) === "skipped"
+        ) {
+          return "skipped";
         }
-
-        Object.assign(bullOpts, buildRetryBullOpts(jobDef));
-        if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
-        if (meta?.priority !== undefined) bullOpts["priority"] = meta.priority;
-        if (meta?.jobId !== undefined) bullOpts["jobId"] = meta.jobId;
-
-        // Pack meta into job data with _ prefix
-        const data: Record<string, unknown> = { ...payload };
-        if (meta?.triggeredById !== undefined) data["_triggeredById"] = meta.triggeredById;
-        if (meta?.payload !== undefined) data["_payload"] = meta.payload;
-        // Carry the enqueuing span context into the worker so job.execute shows
-        // as a child of the caller.
-        const traceCtx = captureTraceContext(tracer);
-        if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
-        // Propagate correlation from the scheduling request into the job
-        // execution context. The worker re-enters requestContext.run with
-        // this value so ctx.events.append / executor writes during the job
-        // stamp the same correlation as the HTTP request that scheduled it.
-        const reqCtx = requestContext.get();
-        if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
-        stampGatedWriteOrigin(data);
+        const data = buildEnqueueInputs(tracer, jobDef, payload, meta, bullOpts);
 
         const job = await targetQueue.add(jobName, data, bullOpts);
         await announceQueued(scope, jobName, jobDef, job, data);

@@ -99,6 +99,14 @@ const ownedContactEntity = createEntity({
       required: true,
       encrypted: true,
     }),
+    // Multi-word names: a raw SELECT * would hand these on as snake_case, and
+    // the blind-index column (work_email_bidx) would leak next to them.
+    workEmail: createTextField({ personal: "tenant", find: "exact" }),
+    salaryBand: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      access: { read: ["Admin"] },
+    }),
   },
   access: { read: { admin: from("user:id", "ownerId") } },
 });
@@ -211,11 +219,13 @@ beforeAll(async () => {
     name: "Owned Grace",
     email: "owned-grace@acme.test",
     iban: "DE99999",
+    workEmail: "work@acme.test",
+    salaryBand: "B7",
   };
   const ownedPiiEncrypted = await encryptPiiFieldValues(
     plainOwned,
     ownedContactEntity,
-    ["email"],
+    ["email", "workEmail"],
     kms,
     { requestId: "test" },
     { entityName: "owned-contact" },
@@ -425,6 +435,23 @@ describe("enrichWithReferences", () => {
     expect(owned?.["name"]).toBe("Owned Grace");
     expect(owned?.["email"]).toBe("owned-grace@acme.test");
     expect(owned?.["iban"]).toBe("DE99999");
+  });
+
+  test("ownership-scoped ref entity: multi-word fields come back camelCase, decrypted, without blind-index columns", async () => {
+    const [row] = (await runInRowLevelSecurityScope(tenantRowLevelSecurityScope(tenantA), () =>
+      enrichWithReferences(
+        [{ id: "l1", ownedContact: OWNED }],
+        leadEntity,
+        resolve,
+        dbA,
+        viewerFor(ownerUser),
+      ),
+    )) as EagerloadedRow[];
+    const owned = single(row, "ownedContact");
+
+    expect(owned?.["workEmail"]).toBe("work@acme.test");
+    expect(Object.keys(owned ?? {}).filter((key) => key.includes("_"))).toEqual([]);
+    expect(Object.keys(owned ?? {}).filter((key) => /bidx/i.test(key))).toEqual([]);
   });
 
   test("ownership-scoped ref entity: a non-owner gets no ref at all", async () => {

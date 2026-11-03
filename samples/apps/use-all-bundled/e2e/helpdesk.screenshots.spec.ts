@@ -227,11 +227,12 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
   await page.getByRole("link", { name: "Meldungen", exact: true }).click();
   await expect(page.getByText("Als erledigt markieren").first()).toBeHidden();
   await expect(page.getByText(MONITOR_SUBJECT)).toBeVisible();
-  await expect(
-    page.getByRole("button", {
-      name: new RegExp(`Offen\\s*${openBefore + OPEN_REQUESTS_FROM_THIS_SPEC}`),
-    }),
-  ).toHaveCount(1);
+  // Parallel workers open requests of their own, so the exact count is not stable: at least
+  // this spec's requests on top of what existed before must be counted.
+  const openChip = page.getByRole("button", { name: /^Offen\s*\d+/ });
+  await expect(openChip).toHaveCount(1);
+  const openCount = Number((await openChip.textContent())?.match(/\d+/)?.[0]);
+  expect(openCount).toBeGreaterThanOrEqual(openBefore + OPEN_REQUESTS_FROM_THIS_SPEC);
   await expect(page.getByRole("button", { name: "Alle" })).toBeVisible();
   await captureScreenshot(page, "b03-list");
 

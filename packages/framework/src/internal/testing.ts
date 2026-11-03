@@ -18,7 +18,7 @@ export {
   type ExecutorManagedEntitySource,
   executorManagedEntitySourceOf,
 } from "../db/executor-managed-tables.ts";
-export { expectWellFormedBootRuleTable } from "./boot-rule-table-expectations.ts";
+export { bootRuleTableViolations } from "./boot-rule-table-expectations.ts";
 
 // Seeds and teardown write read-model rows without events; the capability is the sanctioned test seam.
 export function withExecutorManagedWritesForTests(db: TenantDb): ExecutorManagedTenantDb;

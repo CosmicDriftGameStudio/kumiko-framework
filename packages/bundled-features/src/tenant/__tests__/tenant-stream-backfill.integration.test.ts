@@ -331,6 +331,48 @@ describe("backfillTenantStreamTenants", () => {
     expect(await searchHits(SESSION_TENANT, "alpha")).toEqual([TENANT_ALPHA]);
   });
 
+  test("a failed candidate reindexes only its own document, not the rest of its old bucket", async () => {
+    await legacyCreateTenant(SESSION_TENANT, TENANT_ALPHA, "alpha", "Alpha Freight");
+    await legacyCreateTenant(SESSION_TENANT, TENANT_GAMMA, "gamma", "Gamma Freight");
+    await drainEventConsumers(stack, [SEARCH_CONSUMER_NAME]);
+    const reindexedIds: string[] = [];
+    const removesAlphaThenFails = {
+      ...stack.search,
+      index: async (bucket: TenantId, doc: Parameters<typeof stack.search.index>[1]) => {
+        if (bucket === SESSION_TENANT) reindexedIds.push(String(doc.entityId));
+        return stack.search.index(bucket, doc);
+      },
+      indexBatch: async (
+        bucket: TenantId,
+        docs: readonly Parameters<typeof stack.search.index>[1][],
+      ) => {
+        if (bucket === SESSION_TENANT) {
+          for (const doc of docs) reindexedIds.push(String(doc.entityId));
+        }
+        return stack.search.indexBatch?.(bucket, docs);
+      },
+      removeBatch: async (
+        bucket: TenantId,
+        items: readonly { entityType: string; entityId: string }[],
+      ) => {
+        await stack.search.removeBatch?.(bucket, items);
+        if (items.some((item) => item.entityId === TENANT_ALPHA)) {
+          throw new Error("connection lost after the removal");
+        }
+      },
+    };
+
+    const result = await backfillTenantStreamTenants({
+      db: stack.db,
+      registry: stack.registry,
+      searchAdapter: removesAlphaThenFails,
+    });
+
+    expect(result.tenants.failed.map((f) => f.aggregateId)).toEqual([TENANT_ALPHA]);
+    expect(await searchHits(SESSION_TENANT, "alpha")).toEqual([TENANT_ALPHA]);
+    expect(reindexedIds).toEqual([TENANT_ALPHA]);
+  });
+
   test("runs without a search adapter", async () => {
     await legacyCreateTenant(SESSION_TENANT, TENANT_ALPHA, "alpha", "Alpha Freight");
     const result = await backfillTenantStreamTenants({ db: stack.db, registry: stack.registry });

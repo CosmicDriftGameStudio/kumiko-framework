@@ -24,7 +24,10 @@ export function markExecutorManagedTable(
   executorManagedTables.add(table);
   const meta = asEntityTableMeta(table);
   if (meta !== undefined) executorManagedTables.add(meta);
-  if (entitySource !== undefined) entitySourceByTable.set(table, entitySource);
+  if (entitySource !== undefined) {
+    entitySourceByTable.set(table, entitySource);
+    if (meta !== undefined) entitySourceByTable.set(meta, entitySource);
+  }
 }
 
 export function executorManagedEntitySourceOf(

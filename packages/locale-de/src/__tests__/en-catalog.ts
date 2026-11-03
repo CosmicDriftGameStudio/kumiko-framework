@@ -346,6 +346,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "This tenant has no active subscription to switch.",
   "billing-foundation.errors.planSwitchNotSupported":
     "This provider does not support switching plans.",
+  "billing-foundation.errors.planSwitchPending":
+    "A plan switch is already being processed. Wait a moment for it to complete.",
   "billing-foundation.errors.planTiersShareProduct":
     "Each plan needs its own Stripe product. Contact support.",
   "billing-foundation.errors.priceUnavailable": "This plan's price is temporarily unavailable.",
@@ -426,6 +428,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "cap-overview.list.filter.tier": "Tier",
   "cap-overview.notMeasured": "Not measured yet",
   "cap-overview.notIncluded": "Not included",
+  "cap-overview.notIncludedButUsed": "{used} · not included",
   "cap-overview.platform.filter.tenant": "Tenant",
   "cap-overview.unlimited": "{used} · unlimited",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Compliance profile",
@@ -807,6 +810,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.remove-row": "Remove row",
   "kumiko.field.file-list.add": "Add file",
   "kumiko.field.file-list.empty": "No files yet.",
+  "kumiko.field.dropzone.file-unavailable": "File no longer available",
   "kumiko.field.dropzone.limit-count": "up to {count} files",
   "kumiko.field.dropzone.limit-size": "up to {size} per file",
   "kumiko.field.dropzone.title": "Drop files here or click to choose",

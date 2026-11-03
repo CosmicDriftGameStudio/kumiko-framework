@@ -365,6 +365,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Dieser Mandant hat kein aktives Abo zum Wechseln.",
   "billing-foundation.errors.planSwitchNotSupported":
     "Dieser Anbieter unterstützt keinen Tarifwechsel.",
+  "billing-foundation.errors.planSwitchPending":
+    "Ein Tarifwechsel wird bereits verarbeitet. Warte einen Moment, bis er abgeschlossen ist.",
   "billing-foundation.errors.planTiersShareProduct":
     "Jeder Tarif braucht ein eigenes Stripe-Produkt. Bitte den Support kontaktieren.",
   "billing-foundation.errors.priceUnavailable":
@@ -445,6 +447,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "cap-overview.list.filter.tier": "Tier",
   "cap-overview.notMeasured": "Noch nicht gemessen",
   "cap-overview.notIncluded": "Nicht enthalten",
+  "cap-overview.notIncludedButUsed": "{used} · nicht enthalten",
   "cap-overview.platform.filter.tenant": "Mandant",
   "cap-overview.unlimited": "{used} · unbegrenzt",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Compliance-Profil",
@@ -831,6 +834,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.remove-row": "Zeile entfernen",
   "kumiko.field.file-list.add": "Datei hinzufügen",
   "kumiko.field.file-list.empty": "Noch keine Dateien.",
+  "kumiko.field.dropzone.file-unavailable": "Datei nicht mehr verfügbar",
   "kumiko.field.dropzone.limit-count": "bis zu {count} Dateien",
   "kumiko.field.dropzone.limit-size": "bis zu {size} pro Datei",
   "kumiko.field.dropzone.title": "Dateien hierher ziehen oder klicken zum Auswählen",

@@ -163,7 +163,7 @@ export async function connectPasswordMailbox(
 ): Promise<WriteResult<{ accountId: string }>> {
   const { displayName, address, credentialDocument } = mailbox;
   const ownerUserId = scope === "user" ? event.user.id : null;
-  const existing = await findMailboxByAddress(ctx, event.user.tenantId, address);
+  const existing = await findMailboxByAddress(ctx, event.user.tenantId, address, ownerUserId);
   const reopened = existing !== undefined && isReopenableByThisForm(existing, ownerUserId);
   let accountId: string;
   if (reopened) {
