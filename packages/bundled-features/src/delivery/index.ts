@@ -15,6 +15,7 @@ export {
   toAttachmentRef,
   withoutDeliveryEnvelopeKeys,
 } from "./attachment-ref.ts";
+export { logAttempt } from "./attempt-log.ts";
 export {
   type AttemptLogRetentionOptions,
   DEFAULT_ATTEMPT_LOG_RETENTION_DAYS,

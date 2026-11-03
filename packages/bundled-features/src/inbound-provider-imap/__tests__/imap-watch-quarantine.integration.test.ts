@@ -51,6 +51,7 @@ import {
 } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { createInboundProviderImapFeature } from "../feature.ts";
 import { greenmailAvailable } from "./greenmail-availability.ts";
 import { buildMailWithTooManyParts, MAILPARSER_MAX_MIME_NODES } from "./too-many-parts-mail.ts";
@@ -88,6 +89,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
       createInboundMailFoundationFeature(),
+      createUserFeature(),
       createInboundProviderImapFeature(),
     ],
     files: { storageProvider: createInMemoryFileProvider() },

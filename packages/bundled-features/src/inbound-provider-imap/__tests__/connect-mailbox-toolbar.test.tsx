@@ -41,6 +41,7 @@ import {
 import { createSecretsFeature } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { createInboundProviderImapFeature } from "../feature.ts";
 
 const CONNECT_BUTTON = "render-list-toolbar-action-connect-imap";
@@ -79,7 +80,7 @@ function appSchema(withImap: boolean) {
     createComplianceProfilesFeature(),
     createTenantLifecycleFeature(),
     createInboundMailFoundationFeature(),
-    ...(withImap ? [createInboundProviderImapFeature()] : []),
+    ...(withImap ? [createUserFeature(), createInboundProviderImapFeature()] : []),
   ];
   return buildAppSchema(createRegistry(features)).features;
 }

@@ -559,19 +559,14 @@ export const forgetSubjectWrite = defineWriteHandler({
     // crash recovery is safe. User-feature guard: without the user feature
     // read_users doesn't exist (crypto-only stack). Tenant subjects have no
     // credentials.
-    // Runs before the sweep and in its own transaction: a failing sweep rolls the
-    // handler transaction back, and the handler tx holds no lock on this user's
-    // read_users row yet (only read gates ran), so there is no lock conflict.
-    // Called from another write handler (withSubjectForgetAfterDelete), the caller's transaction may
-    // hold uncommitted events on the subject's own stream; an outside-transaction append at the next
-    // version of that stream would wait on it forever. Nested, everything commits with the caller.
-    const callerOwnsTransaction =
-      requestContext.get()?.entryHandler?.qn !== FORGET_SUBJECT_QUALIFIED_NAME;
-    const outsideRunner = () =>
-      callerOwnsTransaction ? undefined : ctx.db.outsideTransaction?.unsafeRaw();
+    // Door close and audit event commit on the outside-transaction db, before the sweep:
+    // the key erase above is irreversible, so neither may roll back with the handler tx
+    // (sweep failure, a later subject, a later hook, a failed commit). The handler tx holds
+    // no lock on this user's read_users row yet (only read gates ran).
+    const outsideRunner = ctx.db.outsideTransaction?.unsafeRaw();
 
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
-      await closeUserLoginDoor(ctx, raw.userId, outsideRunner(), ctx.db.unsafeRaw());
+      await closeUserLoginDoor(ctx, raw.userId, outsideRunner, ctx.db.unsafeRaw());
     }
 
     const cleanupError = await sweepDerivedSubjectData(
@@ -583,17 +578,23 @@ export const forgetSubjectWrite = defineWriteHandler({
       raw,
     );
 
+    // Called from another write handler (subjectForgetAfterDeleteHook), the caller's tx holds
+    // the uncommitted delete event on the subject's own stream; appending there from outside
+    // that tx would wait on it forever, so the event goes onto a fresh stream.
+    const entryHandlerQn = requestContext.get()?.entryHandler?.qn;
+    const nestedInCallerTransaction =
+      entryHandlerQn !== undefined && entryHandlerQn !== FORGET_SUBJECT_QUALIFIED_NAME;
     await appendSubjectForgotten(
       ctx,
       event,
-      subjectAggregateId(raw),
+      nestedInCallerTransaction ? generateId() : subjectAggregateId(raw),
       {
         subjectKey,
         reason: event.payload.reason,
         forgottenBy: event.user.id,
         ...(cleanupError !== undefined && { cleanupError }),
       },
-      outsideRunner(),
+      outsideRunner,
     );
 
     if (cleanupError !== undefined) {

@@ -10,6 +10,7 @@ import {
 import { ImapHandlers } from "../../inbound-provider-imap/constants.ts";
 import { createInboundProviderImapFeature } from "../../inbound-provider-imap/feature.ts";
 import { resetInboundInMemory, seedInboundMessage } from "../../inbound-provider-inmemory/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import { INBOUND_MAIL_FOUNDATION_FEATURE } from "../constants.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "../events.ts";
@@ -33,7 +34,7 @@ beforeAll(async () => {
   env = await setupMailStack({
     withFiles: true,
     roles: ROLES,
-    extraFeatures: [createInboundProviderImapFeature(ROLES)],
+    extraFeatures: [createUserFeature(), createInboundProviderImapFeature(ROLES)],
   });
 });
 

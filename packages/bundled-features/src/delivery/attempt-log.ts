@@ -3,7 +3,7 @@
 // delivery.render / delivery.send job handlers — keeping the append +
 // inline-projection logic in one place so both paths produce identical rows.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { append, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
@@ -55,7 +55,7 @@ export function projectedAttemptAddress(
 // Shared append + inline-projection write (low-level append() does not
 // auto-fire projections — only the dispatcher/executor paths do).
 async function writeAttemptEvent(
-  db: DbConnection,
+  db: DbRunner,
   registry: Registry,
   attemptId: string,
   expectedVersion: number,
@@ -100,7 +100,7 @@ export async function appendAttemptEvent(
 // FRESH aggregate id is guaranteed version 0 — skip the getStreamVersion
 // round-trip that appendAttemptEvent needs for its follow-up-event case.
 export async function logAttempt(
-  db: DbConnection,
+  db: DbRunner,
   registry: Registry,
   entry: DeliveryLogEntry,
 ): Promise<string> {

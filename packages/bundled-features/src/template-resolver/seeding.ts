@@ -23,6 +23,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { NotFoundError, VersionConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   deleteRowsWithoutReplayableStream,
   getStreamVersion,
@@ -398,6 +399,12 @@ export async function seedNotificationTemplates(
   }
 }
 
+// WriteResult errors are plain objects, so the class instances only supply the codes.
+const ALREADY_REMOVED_ERROR_CODES: ReadonlySet<string> = new Set([
+  new NotFoundError("template").code,
+  new VersionConflictError({ entityId: "", expectedVersion: 0, currentVersion: 0 }).code,
+]);
+
 const NOTIFICATION_SLUG_PATTERN = /^([^:]+):notify:[^:]+$/;
 
 function isOrphanedNotificationSlug(registry: Registry, slug: string): boolean {
@@ -438,6 +445,14 @@ async function removeOrphanedNotificationTemplates(
       continue;
     }
     const result = await executor.delete({ id: String(row.id) }, by, tdb);
+    if (!result.isSuccess && ALREADY_REMOVED_ERROR_CODES.has(result.error.code)) {
+      // A replica booting at the same time removed it first.
+      log.info("orphaned notification template was already removed", {
+        slug: row.slug,
+        locale: row.locale,
+      });
+      continue;
+    }
     if (!result.isSuccess) {
       throw new Error(
         `removeOrphanedNotificationTemplates: delete of ${row.slug} (${row.locale}) failed: ${JSON.stringify(result)}`,

@@ -1,3 +1,4 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   ConfigScopes,
   createSystemUser,
@@ -28,7 +29,7 @@ export async function carryOverLegacyContactConfig(ctx: JobContext): Promise<num
       message: "[helpdesk] legacy-contact-config needs the crossTenantReads grant",
     });
   }
-  const systemAdmin = createSystemUser(SYSTEM_TENANT_ID, ["SystemAdmin"]);
+  const systemAdmin = createSystemUser(SYSTEM_TENANT_ID, [ROLES.SystemAdmin]);
   let carriedOver = 0;
   for (const { legacy, current } of CARRIED_OVER_KEYS) {
     // skip: telegramChat is only registered with option telegram, then there is nothing to carry into
