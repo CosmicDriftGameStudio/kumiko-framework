@@ -69,9 +69,13 @@ describe("ctx.defer", () => {
       await waitFor(() => expect(events).toContain("complete"));
       expect(events).toEqual(["start", "deferred", "start", "deferred", "start", "complete"]);
       expect(attemptsSeen).toEqual([1, 1, 1]);
-      const job = await queue.getJob(bootJobIdForJobName("deferok:job:busy"));
-      expect(job?.attemptsMade).toBe(1);
-      expect(job?.data["_handlerDeferCount"]).toBe(2);
+      // onJobComplete fires inside the processor, before BullMQ persists completion and attemptsMade.
+      await waitFor(async () => {
+        const job = await queue.getJob(bootJobIdForJobName("deferok:job:busy"));
+        expect(await job?.getState()).toBe("completed");
+        expect(job?.attemptsMade).toBe(1);
+        expect(job?.data["_handlerDeferCount"]).toBe(2);
+      });
     } finally {
       await queue.close();
       await runner.stop();
