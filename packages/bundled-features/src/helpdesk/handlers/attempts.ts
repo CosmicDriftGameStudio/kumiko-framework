@@ -1,3 +1,4 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   createSystemUser,
   type HandlerContext,
@@ -9,7 +10,6 @@ import { IN_APP_NOTIFICATION_QUERIES } from "@cosmicdrift/kumiko-types/in-app-no
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { DeliveryQueries } from "../../delivery/index.ts";
-import { SYSTEM_ADMIN_ROLE } from "../lib.ts";
 
 // Both queries accept at most this many keys per call.
 const MAX_KEYS_PER_QUERY = 50;
@@ -57,7 +57,7 @@ export async function loadReadAtByKey(
   if (ctx.registry.getQueryHandler(IN_APP_NOTIFICATION_QUERIES.readStateByKeys) === undefined) {
     return readAtByKey;
   }
-  const user = createSystemUser(reporterTenantId, [SYSTEM_ADMIN_ROLE]);
+  const user = createSystemUser(reporterTenantId, [ROLES.SystemAdmin]);
   for (const keyChunk of chunk(keys, MAX_KEYS_PER_QUERY)) {
     const result = await ctx.dispatch.queryAs(user, IN_APP_NOTIFICATION_QUERIES.readStateByKeys, {
       keys: keyChunk,

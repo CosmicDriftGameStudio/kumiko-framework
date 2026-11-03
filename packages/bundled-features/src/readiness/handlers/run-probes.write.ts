@@ -34,8 +34,17 @@ const ACTIVE_STATUSES = [PROBE_RUN_STATUS.Pending, PROBE_RUN_STATUS.Running];
 type ActiveRunRow = {
   readonly id: string;
   readonly version: number;
+  readonly status: string;
   readonly requestedAt: { readonly epochMilliseconds: number };
+  readonly startedAt?: { readonly epochMilliseconds: number } | null;
 };
+
+// A queued run may wait on the worker lane for long; only a running one is judged by when it started.
+function lastLifeSignMs(run: ActiveRunRow): number {
+  const anchor =
+    run.status === PROBE_RUN_STATUS.Running ? (run.startedAt ?? run.requestedAt) : run.requestedAt;
+  return anchor.epochMilliseconds;
+}
 
 function isActiveRunConflict(failure: WriteFailure): boolean {
   return (
@@ -76,7 +85,7 @@ export const runProbesWrite = defineWriteHandler({
     const nowMs = ctx.tz.now().epochMilliseconds;
     const active = await findActive();
     if (active) {
-      if (nowMs - active.requestedAt.epochMilliseconds <= staleRunAfterMs(ctx.registry)) {
+      if (nowMs - lastLifeSignMs(active) <= staleRunAfterMs(ctx.registry)) {
         return { isSuccess: true as const, data: { runId: active.id, isExisting: true } };
       }
       const abandoned = await crud.update(

@@ -1,11 +1,10 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type {
   ConfigCascade,
   ConfigCascadeLevel,
   ConfigKeyDefinition,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
-
-const SYSTEM_ADMIN_ROLE = "SystemAdmin";
 
 // The viewer's own cascade rungs. Every other rung (system-row, app-override,
 // computed, default) carries a platform-inherited value — for an
@@ -26,8 +25,12 @@ const OWN_SOURCES: ReadonlySet<ConfigValueSource> = new Set(["user-row", "tenant
 // for the functional readiness rollup. See readiness.query.ts.
 export const MASKED = "••••••";
 
+export function isSystemAdmin(roles: readonly string[]): boolean {
+  return roles.includes(ROLES.SystemAdmin);
+}
+
 export function mayViewInheritedValue(roles: readonly string[]): boolean {
-  return roles.includes(SYSTEM_ADMIN_ROLE);
+  return isSystemAdmin(roles);
 }
 
 export function shouldRedactInherited(

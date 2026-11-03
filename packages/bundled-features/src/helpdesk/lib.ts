@@ -1,3 +1,4 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   createEventStoreExecutor,
   fetchOne,
@@ -42,7 +43,6 @@ export const TELEGRAM_FEATURE = "channel-telegram";
 
 export const HELPDESK_CROSS_TENANT_REASON = "helpdesk is platform-wide (systemScope)";
 
-export const SYSTEM_ADMIN_ROLE = "SystemAdmin";
 const PII_DECRYPT_REASON = "helpdesk:user-lookup";
 
 export const adminAccess = { roles: access.systemAdmin } as const;
@@ -60,20 +60,33 @@ export const replyExecutor = createEventStoreExecutor(helpdeskReplyTable, helpde
   entityName: HELPDESK_REPLY_ENTITY,
 });
 
-const MAX_REPLIES_PER_REQUEST = 200;
+// Equals the executor's MAX_LIST_LIMIT, so every page is filled until the last one.
+const LIST_PAGE_SIZE = 200;
 
-export async function listRepliesOf(db: TenantDb, requestId: string) {
-  const found = await replyExecutor.list(
-    {
-      filter: { field: "requestId", op: "eq", value: requestId },
-      sort: "sentAt",
-      sortDirection: "asc",
-      limit: MAX_REPLIES_PER_REQUEST,
-    },
-    platformActor(),
-    db,
+export async function listAllPages<Row>(
+  fetchPage: (page: { limit: number; offset: number }) => Promise<{ rows: readonly Row[] }>,
+): Promise<Row[]> {
+  const all: Row[] = [];
+  for (;;) {
+    const { rows } = await fetchPage({ limit: LIST_PAGE_SIZE, offset: all.length });
+    all.push(...rows);
+    if (rows.length < LIST_PAGE_SIZE) return all;
+  }
+}
+
+export function listRepliesOf(db: TenantDb, requestId: string) {
+  return listAllPages((page) =>
+    replyExecutor.list(
+      {
+        filter: { field: "requestId", op: "eq", value: requestId },
+        sort: "sentAt",
+        sortDirection: "asc",
+        ...page,
+      },
+      platformActor(),
+      db,
+    ),
   );
-  return found.rows;
 }
 
 export function normalizeEmail(email: string): string {
@@ -93,7 +106,7 @@ export async function listSystemAdminIds(db: TenantDb): Promise<readonly string[
   const rows = await selectMany<{ readonly id: string }>(
     db,
     userTable,
-    { isDeleted: false, status: USER_STATUS.Active, roles: SYSTEM_ADMIN_ROLE },
+    { isDeleted: false, status: USER_STATUS.Active, roles: ROLES.SystemAdmin },
     { fields: ["id"], orderBy: { col: "id" } },
   );
   return rows.map((r) => r.id);
@@ -165,7 +178,7 @@ export async function loadTenantPlan(
   if (ctx.registry.getQueryHandler(TierEngineQueries.getTenantTier) === undefined) return null;
   try {
     const assignment = await ctx.dispatch.queryAs(
-      createSystemUser(SYSTEM_TENANT_ID, [SYSTEM_ADMIN_ROLE]),
+      createSystemUser(SYSTEM_TENANT_ID, [ROLES.SystemAdmin]),
       TierEngineQueries.getTenantTier,
       { tenantId },
     );

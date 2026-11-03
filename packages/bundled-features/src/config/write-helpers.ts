@@ -30,6 +30,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
+import { isSystemAdmin } from "./read-redaction.ts";
 import { decryptStoredValue } from "./resolver.ts";
 import { configValuesTable } from "./table.ts";
 import { ConfigErrors } from "./web/constants.ts";
@@ -182,7 +183,7 @@ export function checkScopeWriteAccess(
 ): KumikoError | null {
   if (scope !== ConfigScopes.system) return null;
   if (userRoles.includes(SYSTEM_ROLE)) return null;
-  if (userRoles.includes("SystemAdmin")) return null;
+  if (isSystemAdmin(userRoles)) return null;
   return new AccessDeniedError({
     message: "system-scope config write requires SystemAdmin",
     i18nKey: "config.errors.systemScopeWriteDenied",
@@ -219,7 +220,7 @@ export function keyDefAtScope(
 ): ConfigKeyDefinition {
   if (
     readScope === undefined ||
-    !roles.includes("SystemAdmin") ||
+    !isSystemAdmin(roles) ||
     SCOPE_LEVEL[readScope] >= SCOPE_LEVEL[keyDef.scope]
   ) {
     return keyDef;

@@ -8,6 +8,7 @@ import {
   evalFieldCondition,
   normalizeListColumn,
   parseRefTarget,
+  pickEmptyStateText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context.tsx";
@@ -141,18 +142,6 @@ function warnRelatedListEmptyStateDrawerDropped(actionId: string): void {
 function buildRowTone(rule: RelatedListRowTone | undefined): DataTableProps["rowTone"] {
   if (rule === undefined) return undefined;
   return (row) => (evalFieldCondition(rule, { ...row.values }) ? rule.tone : undefined);
-}
-
-type EmptyStateViewModel = NonNullable<EditRelatedListSectionViewModel["emptyState"]>;
-
-function pickEmptyStateText(
-  emptyState: EmptyStateViewModel | undefined,
-  record: Readonly<Record<string, unknown>>,
-): Pick<EmptyStateViewModel, "title" | "description"> | undefined {
-  if (emptyState === undefined) return undefined;
-  return (
-    emptyState.variants?.find((variant) => evalFieldCondition(variant.when, record)) ?? emptyState
-  );
 }
 
 export function RelatedListSection({

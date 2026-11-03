@@ -46,6 +46,7 @@ import {
   holdBlockDeleteRowsForDestruction,
 } from "../data-retention/index.ts";
 import {
+  type TenantLifecycleStatus,
   tenantEntity,
   tenantMembershipEntity,
   tenantMembershipsTable,
@@ -110,14 +111,17 @@ function newOutcomeAccumulator(): {
 } {
   let allDone = true;
   let pending = false;
+  let stuck = false;
   let processed = 0;
   return {
     add: (result) => {
       if (result?.done === false) allDone = false;
       if (result?.done === false && result.pending === true) pending = true;
+      if (result?.done === false && result.processed === 0 && result.pending !== true) stuck = true;
       processed += result?.processed ?? 0;
     },
-    outcome: () => ({ done: allDone, processed, pending }),
+    // A genuinely stuck hook must not hide behind another hook's legitimate pending.
+    outcome: () => ({ done: allDone, processed, pending: pending && !stuck }),
   };
 }
 
@@ -196,6 +200,11 @@ async function runTenantDataHooks(
   return total.outcome();
 }
 
+const IRREVERSIBLY_DESTROYED_STATUSES: ReadonlySet<string> = new Set<TenantLifecycleStatus>([
+  "destroying",
+  "destroyed",
+]);
+
 // A user key outlives the tenant while the user still belongs to another live tenant:
 // erasing it would tombstone the key and break every later PII write for that user.
 async function userIdsWithoutOtherLiveTenant(
@@ -214,8 +223,12 @@ async function userIdsWithoutOtherLiveTenant(
   const otherTenants = await selectMany<{ id: string; status: string }>(ctx.db, tenantTable, {
     id: { in: [...new Set(otherMemberships.map((membership) => membership.tenantId))] },
   });
+  // A tenant already destroying is past the point of return: two overlapping destructions with a
+  // shared member must not each count the other as live, or the user key would never be erased.
   const liveTenantIds = new Set(
-    otherTenants.filter((tenant) => tenant.status !== "destroyed").map((tenant) => tenant.id),
+    otherTenants
+      .filter((tenant) => !IRREVERSIBLY_DESTROYED_STATUSES.has(tenant.status))
+      .map((tenant) => tenant.id),
   );
   const retainedUserIds = new Set(
     otherMemberships

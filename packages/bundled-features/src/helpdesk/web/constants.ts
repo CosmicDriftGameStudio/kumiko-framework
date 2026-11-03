@@ -112,7 +112,6 @@ export const HelpdeskErrors = {
   phoneNotAllowed: "helpdesk_phone_not_allowed",
   phoneRequired: "helpdesk_phone_required",
   reporterEmailMissing: "helpdesk_reporter_email_missing",
-  attachmentNotFound: "helpdesk_attachment_not_found",
 } as const;
 
 export const HELPDESK_NOTIFICATION_TYPES = {

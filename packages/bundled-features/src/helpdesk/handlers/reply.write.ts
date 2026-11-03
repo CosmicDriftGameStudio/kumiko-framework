@@ -3,11 +3,7 @@ import {
   defineWriteHandler,
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  NotFoundError,
-  UnprocessableError,
-  writeFailure,
-} from "@cosmicdrift/kumiko-framework/errors";
+import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import {
@@ -26,7 +22,6 @@ import {
   HELPDESK_REPLY_ENTITY,
   HELPDESK_REQUEST_ENTITY,
   HELPDESK_STATUS,
-  HelpdeskErrors,
   HelpdeskHandlers,
   type HelpdeskReplyChannels,
   HelpdeskScreens,
@@ -160,9 +155,7 @@ export function createReplyHandler() {
         entityId: replyId,
         fileIds: event.payload.fileIds ?? [],
       });
-      if (!uploaded.isSuccess) {
-        return writeFailure(new UnprocessableError(HelpdeskErrors.attachmentNotFound));
-      }
+      if (!uploaded.isSuccess) return uploaded;
       const fileIds = uploaded.data;
       const author = await loadUserLabel(db, event.user.id);
       const authorName = author?.name ?? event.user.id;

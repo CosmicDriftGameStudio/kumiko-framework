@@ -119,4 +119,18 @@ describe("tenant-lifecycle :: subject-keys stage with members of several tenants
 
     await expect(kms.getKey({ kind: "user", userId: user })).rejects.toBeInstanceOf(KeyErasedError);
   });
+
+  test("a member whose other tenant is destroying at the same time is erased", async () => {
+    const doomed = await createTenant("doomed");
+    const alsoDestroying = await createTenant("also-destroying");
+    const user = crypto.randomUUID();
+    await addMember(doomed, user);
+    await addMember(alsoDestroying, user);
+    await seedDestroyingTenant(stack.db, alsoDestroying);
+
+    await seedDestroyingTenant(stack.db, doomed);
+    expect(await driveDestructionToCompletion(stack, stack.db, doomed)).toBe("destroyed");
+
+    await expect(kms.getKey({ kind: "user", userId: user })).rejects.toBeInstanceOf(KeyErasedError);
+  });
 });

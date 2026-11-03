@@ -181,6 +181,24 @@ export function evalFieldCondition(cond: FieldCondition, values: Record<string, 
   return val !== cond.ne;
 }
 
+type EmptyStateText = { readonly title: string; readonly description?: string | undefined };
+
+/** Picks the first emptyState variant whose `when` matches the record, else the base emptyState.
+ *  Shared by the renderer and the specs' tests so they cannot diverge. */
+export function pickEmptyStateText<
+  Variant extends EmptyStateText & { readonly when: FieldCondition },
+  EmptyState extends EmptyStateText & { readonly variants?: readonly Variant[] },
+>(
+  emptyState: EmptyState | undefined,
+  record: Readonly<Record<string, unknown>>,
+): EmptyState | Variant | undefined {
+  if (emptyState === undefined) return undefined;
+  return (
+    emptyState.variants?.find((variant) => evalFieldCondition(variant.when, { ...record })) ??
+    emptyState
+  );
+}
+
 // A row that lacks the condition's field counts as locked: an unreadable lock state
 // must not open the record.
 export function isRecordLocked(

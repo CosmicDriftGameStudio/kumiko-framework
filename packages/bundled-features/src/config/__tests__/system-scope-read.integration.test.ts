@@ -31,7 +31,7 @@ const platformFeature = defineFeature("platform", (r) => {
   });
 });
 
-type Values = Record<string, { value: unknown; source: string }>;
+type Values = Record<string, { value: unknown; scope: string; source: string }>;
 
 let stack: TestStack;
 
@@ -74,6 +74,7 @@ describe("config:query:values with a read scope", () => {
 
     expect(res[PLAN_NAME]?.value).toBe("platform-default");
     expect(res[PLAN_NAME]?.source).toBe("system-row");
+    expect(res[PLAN_NAME]?.scope).toBe("tenant");
   });
 
   test("without a read scope the caller's own tenant row still wins", async () => {

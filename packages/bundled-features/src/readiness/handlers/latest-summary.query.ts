@@ -1,6 +1,7 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { hasPaidProbes } from "../collect-probes.ts";
+import { RUN_OUTCOME } from "../constants.ts";
 import { fetchLatestRun, viewRun } from "../run-view.ts";
 import { countResults } from "../visible-results.ts";
 import { toneOf } from "./run-tone.ts";
@@ -46,7 +47,7 @@ export const latestSummaryQuery = defineQueryHandler({
       outcome,
       tone: toneOf(outcome),
       text:
-        outcome === "running"
+        outcome === RUN_OUTCOME.running
           ? { i18nKey: SUMMARY_RUNNING_TEXT_KEY }
           : {
               i18nKey: SUMMARY_TEXT_KEY,
