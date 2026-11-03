@@ -224,7 +224,7 @@ function emitFieldColumns<K extends FieldType>(
 ): FieldColumns {
   // A type from untyped input must not reach an Object.prototype member.
   if (!Object.hasOwn(COLUMN_EMITTERS, type)) {
-    throw new Error(`[Kumiko] unhandled field type: ${String(field)}`);
+    throw new Error(`[Kumiko] unhandled field type: ${String(type)}`);
   }
   const emit: ColumnEmitter<K> = COLUMN_EMITTERS[type];
   return emit(name, toSnakeCase(name), field, entity);

@@ -26,7 +26,7 @@ export function isSqlExpression(v: unknown): v is { kind: "sql-expr"; text: stri
 // A `date` column takes a plain "yyyy-mm-dd" string (or PlainDate.toString())
 // as-is — no Instant detour. Postgres parses a DATE literal without ever
 // consulting the session timezone, so this is TZ-independent by construction
-// (verified empirically — see plainDateFromDriver above for the read side).
+// (verified empirically — see plainDateFromDriver in driver-row-coercion.ts for the read side).
 // Compat cushion: code (this field used to be an Instant) may still
 // hand a Temporal.Instant into a where-filter or write on a `date` column —
 // same UTC anchor as plainDateFromDriver's read side, so a filter built with

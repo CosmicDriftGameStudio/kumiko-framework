@@ -37,13 +37,10 @@ type DerivedPlan = {
   readonly valueType: DerivedValueType;
   readonly sortable: boolean;
   readonly expression: SqlBuilder | undefined;
-  // money only: the currency column read next to the amount, and the related entity's fallback.
-  readonly currency:
-    | {
-        readonly alias: string;
-        readonly expression: SqlBuilder | undefined;
-        readonly fallback: string;
-      }
+  // money only: the [amount, currency] pair projected in one subquery (the amount-only
+  // `expression` stays the sort key), and the related entity's fallback currency.
+  readonly money:
+    | { readonly pairExpression: SqlBuilder | undefined; readonly fallback: string }
     | undefined;
 };
 
@@ -93,7 +90,7 @@ function relatedDefaultCurrency(spec: DerivedSqlSpec, input: DerivedSelectInput)
 function buildExpression(
   spec: DerivedSqlSpec,
   input: DerivedSelectInput,
-  currency = false,
+  moneyPair = false,
 ): SqlBuilder | undefined {
   if (spec.kind === "coalesce") return buildCoalesceExpression(spec.fields, input);
   const runtime = input.runtime?.derivedSql;
@@ -111,8 +108,13 @@ function buildExpression(
     db: input.db,
     runtime,
     parentVisibility: input.runtime?.parentVisibility,
-    currency,
+    moneyPair,
   });
+}
+
+// The driver hands jsonb back parsed; NULL (hidden or unreadable related field) has no pair.
+function moneyPairOf(raw: unknown): readonly [unknown, unknown] {
+  return Array.isArray(raw) ? [raw[0], raw[1]] : [null, null];
 }
 
 export function buildDerivedSelect(input: DerivedSelectInput): DerivedSelect | undefined {
@@ -127,11 +129,10 @@ export function buildDerivedSelect(input: DerivedSelectInput): DerivedSelect | u
       valueType: def.valueType,
       sortable: def.sortable === true,
       expression: buildExpression(def.sql, input),
-      currency:
+      money:
         def.valueType === "money"
           ? {
-              alias: `${alias}_currency`,
-              expression: buildExpression(def.sql, input, true),
+              pairExpression: buildExpression(def.sql, input, true),
               fallback: relatedDefaultCurrency(def.sql, input),
             }
           : undefined,
@@ -142,10 +143,10 @@ export function buildDerivedSelect(input: DerivedSelectInput): DerivedSelect | u
   return {
     projections: (params) =>
       plans
-        .flatMap((plan) => [
-          { alias: plan.alias, expression: plan.expression },
-          ...(plan.currency === undefined ? [] : [plan.currency]),
-        ])
+        .map((plan) => ({
+          alias: plan.alias,
+          expression: plan.money === undefined ? plan.expression : plan.money.pairExpression,
+        }))
         .map(({ alias, expression }) => `, ${expression?.(params) ?? "NULL"} AS "${alias}"`)
         .join(""),
     sortExpr: (name) => {
@@ -157,19 +158,13 @@ export function buildDerivedSelect(input: DerivedSelectInput): DerivedSelect | u
       rawRows.map((raw) => {
         const values: Record<string, unknown> = {};
         for (const plan of plans) {
-          if (plan.currency !== undefined) {
-            const amount = raw[plan.alias];
+          if (plan.money !== undefined) {
+            const [amount, currency] = moneyPairOf(raw[plan.alias]);
             // A stored money field without an amount has no key on the row; match that.
             if (amount !== null && amount !== undefined) {
-              values[plan.name] = readMoney(
-                plan.name,
-                amount,
-                raw[plan.currency.alias],
-                plan.currency.fallback,
-              );
+              values[plan.name] = readMoney(plan.name, amount, currency, plan.money.fallback);
             }
             delete raw[plan.alias];
-            delete raw[plan.currency.alias];
             continue;
           }
           values[plan.name] = coerceDriverValueOfPgType(

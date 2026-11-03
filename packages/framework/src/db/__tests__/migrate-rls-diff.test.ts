@@ -159,6 +159,31 @@ describe("generateMigration with row level security", () => {
     expect(second.sqlContent).not.toContain(`CREATE POLICY "legacy_policy"`);
   });
 
+  test("a tenant_id type change drops the old policies before ALTER COLUMN TYPE", () => {
+    const textTenant: EntityTableMeta = {
+      ...items,
+      columns: items.columns.map((col) =>
+        col.name === "tenant_id" ? { ...col, pgType: "text" as const } : col,
+      ),
+    };
+    const first = generate([textTenant], null, "on");
+    const second = generate([items], first, "on");
+    const sql = second.sqlContent;
+    const dropAt = sql.indexOf(`DROP POLICY IF EXISTS "kumiko_tenant_isolation" ON "store_items";`);
+    const alterAt = sql.indexOf(`ALTER COLUMN "tenant_id" TYPE`);
+    expect(alterAt).toBeGreaterThan(-1);
+    expect(dropAt).toBeGreaterThan(-1);
+    expect(dropAt).toBeLessThan(alterAt);
+    expect(sql).toContain("-- === Row level security (pre) ===");
+    expect(sql).toContain(`CREATE POLICY "kumiko_tenant_isolation" ON "store_items"`);
+  });
+
+  test("a change that leaves tenant_id alone adds no pre section", () => {
+    const first = generate([items], null, "on");
+    const second = generate([items], first, "off");
+    expect(second.sqlContent).not.toContain("(pre)");
+  });
+
   test("a dropped table produces no RLS statements", () => {
     const first = generate([items, orders], null, "on");
     const second = generate([items], first, "on");

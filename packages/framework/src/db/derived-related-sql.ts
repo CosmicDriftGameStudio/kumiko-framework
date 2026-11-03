@@ -117,8 +117,8 @@ export function buildRelatedSubquery(input: {
   readonly db: TenantDb;
   readonly runtime: DerivedSqlRuntime;
   readonly parentVisibility: ParentVisibilityOption | undefined;
-  /** Select the measured money field's currency column instead of its amount. */
-  readonly currency?: boolean;
+  /** Select the measured money field as [amount, currency] in one subquery. */
+  readonly moneyPair?: boolean;
 }): ((params: unknown[]) => string) | undefined {
   const { spec, outer, user, db, runtime } = input;
   const relatedName = parseRefTargetEntityName(spec.entity);
@@ -191,15 +191,18 @@ function relatedSelect(
     readonly db: TenantDb;
     readonly user: SessionUser;
     readonly parentVisibility: ParentVisibilityOption | undefined;
-    readonly currency?: boolean;
+    readonly moneyPair?: boolean;
   },
 ): ((params: unknown[]) => string) | undefined {
   if (measure.kind === "count") return () => "COUNT(*)::int";
   if (measure.kind === "countDistinct")
     return () => `COUNT(DISTINCT ${column(measure.field)})::int`;
   if (measure.label !== true) {
-    const selected = input.currency === true ? `${measure.field}Currency` : measure.field;
-    return () => column(selected);
+    if (input.moneyPair === true) {
+      return () =>
+        `jsonb_build_array(${column(measure.field)}, ${column(`${measure.field}Currency`)})`;
+    }
+    return () => column(measure.field);
   }
   const def = related.fields[measure.field];
   if (def?.type !== "reference" || def.labelField === undefined) return undefined;

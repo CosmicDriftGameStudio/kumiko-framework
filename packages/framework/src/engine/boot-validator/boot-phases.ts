@@ -48,6 +48,7 @@ import { validateQueryRefs } from "./query-refs.ts";
 import { validateReadGates } from "./read-gate.ts";
 import { validateRecordOwnedSubjects } from "./record-owned.ts";
 import { validateScreenShortIdCollisions, validateScreens } from "./screens.ts";
+import { validateSortNulls } from "./sort-nulls.ts";
 import { validateTransferGraph } from "./transfer-graph.ts";
 import { validateWorkspaces } from "./workspaces.ts";
 
@@ -137,6 +138,7 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
     check: "validateHandlerFieldReferences",
     run: (f, c) => validateHandlerFieldReferences(f, c.featureMap),
   },
+  { check: "validateSortNulls", run: (f) => validateSortNulls(f) },
   { check: "validateTransitions", run: (f) => validateTransitions(f) },
   { check: "validateLockedWhen", run: (f) => validateLockedWhen(f) },
   { check: "validateFieldConditions", run: (f) => validateFieldConditions(f) },

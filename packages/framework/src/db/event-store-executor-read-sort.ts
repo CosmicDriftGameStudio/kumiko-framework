@@ -15,9 +15,10 @@ import type { ListWhere } from "./event-store-executor-read-filter.ts";
 import {
   isSoftDeletedTargetHidden,
   referenceTargetOwnership,
+  referenceTargetTable,
 } from "./event-store-executor-read-search.ts";
 import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
-import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
+import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
 
@@ -99,7 +100,7 @@ export function buildReferenceSortExpr(
 
   const targetTable =
     resolveTable?.(descriptor.targetEntityName) ??
-    buildEntityTable(descriptor.targetEntityName, targetEntity);
+    referenceTargetTable(descriptor.targetEntityName, targetEntity);
   // The order of labels the viewer may not read would leak them bit by bit, same as the search path.
   const labelAccess = buildOwnershipClause(
     user,

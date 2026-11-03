@@ -18,7 +18,7 @@ export const TENANT_ID_SETTING = "kumiko.tenant_id";
 export const SCOPE_SETTING = "kumiko.scope";
 export const SYSTEM_SCOPE = "system";
 
-const TENANT_COLUMN = "tenant_id";
+export const TENANT_COLUMN = "tenant_id";
 
 export const POLICY_COMMANDS = ["ALL", "SELECT", "INSERT", "UPDATE", "DELETE"] as const;
 export const POLICY_KINDS = ["PERMISSIVE", "RESTRICTIVE"] as const;

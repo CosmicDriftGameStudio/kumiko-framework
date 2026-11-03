@@ -105,8 +105,8 @@ export function isSoftDeletedTargetHidden(
 
 // Tenant-scoped ILIKE lookup against one reference target — never raw/
 // unscoped SQL, a match in a foreign tenant must never surface a row here.
-// Mirrors the main table's own tenant filter (see the `table["tenantId"]`
-// check further down in list()).
+// Mirrors the main table's tenant filter in appendTenantAndSoftDeleteScope
+// (event-store-executor-read-where.ts) — keep in lock-step.
 async function resolveReferenceMatchesViaIlike(
   descriptor: ReferenceSearchDescriptor,
   searchTerm: string,
@@ -303,7 +303,7 @@ async function resolveReferenceMatches(
 // keyed by the definition object so a re-registered entity never sees a stale table.
 const referenceTargetTables = new WeakMap<EntityDefinition, { name: string; table: Table }>();
 
-function referenceTargetTable(name: string, entity: EntityDefinition): Table {
+export function referenceTargetTable(name: string, entity: EntityDefinition): Table {
   const cached = referenceTargetTables.get(entity);
   if (cached?.name === name) return cached.table;
   const table = buildEntityTable(name, entity);
