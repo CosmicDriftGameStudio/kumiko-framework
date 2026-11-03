@@ -640,7 +640,119 @@ describe("buildAgentManifest feature descriptions", () => {
     ).toBe("Handles requests, e.g. exports per Art. 15 of the GDPR.");
   });
 
-  test("a sentence without an end is capped at 300 characters", () => {
-    expect(manifestDescription("a".repeat(500))).toHaveLength(300);
+  test("an abbreviation before a capital keeps the sentence whole", () => {
+    expect(manifestDescription("Handles e.g. The exports. More.")).toBe(
+      "Handles e.g. The exports.",
+    );
+    expect(manifestDescription("Hilft z. B. Das Team. Mehr.")).toBe("Hilft z. B. Das Team.");
+    expect(manifestDescription("Ask Dr. Smith for access. More.")).toBe(
+      "Ask Dr. Smith for access.",
+    );
   });
+
+  test("a question or exclamation mark ends the sentence", () => {
+    expect(manifestDescription("Is it on? Yes. More.")).toBe("Is it on?");
+    expect(manifestDescription("Stop now! Then wait.")).toBe("Stop now!");
+  });
+
+  test("a sentence without an end is capped at 300 characters and marked as cut", () => {
+    const shown = manifestDescription("a".repeat(500));
+    expect(Array.from(shown ?? "")).toHaveLength(300);
+    expect(shown?.endsWith("…")).toBe(true);
+  });
+
+  test("a surrogate pair at the cut is kept whole", () => {
+    const shown = manifestDescription(`${"a".repeat(298)}😀${"b".repeat(50)}`) ?? "";
+    expect(shown).toBe(`${"a".repeat(298)}😀…`);
+  });
+});
+
+describe("buildAgentManifest entity and feature reachability branches", () => {
+  const textField = createTextField({ personal: false, reason: "technical_reference" });
+  const entityOf = () => createEntity({ fields: { name: textField } });
+  const handler = (name: string, extra: Record<string, unknown> = {}) => ({
+    name,
+    schema: z.object({ id: z.string() }),
+    handler: async () => ({}),
+    access: { roles: ["admin"] },
+    description: `Handler ${name}.`,
+    ...extra,
+  });
+
+  const branches = defineFeature("rf-branches", (r) => {
+    r.entity({ name: "hidden", ...entityOf() });
+    r.queryHandler(handler("hidden:lookup", { agent: { expose: false } }));
+    r.entity({ name: "listed", ...entityOf() });
+    r.screen({ id: "listed-list", type: "entityList", entity: "listed", columns: ["name"] });
+    r.entity({ name: "detailed", ...entityOf() });
+    r.screen({
+      id: "detailed-view",
+      type: "projectionDetail",
+      query: "rf-branches:query:detailed:details",
+      detailFor: "detailed",
+      layout: { sections: [{ fields: ["name"] }] },
+    });
+    r.entity({ name: "written", ...entityOf() });
+    r.writeHandler({
+      ...handler("written:archive"),
+      handler: async () => ({ isSuccess: true, data: {} }),
+    });
+  });
+  const workspaceOnly = defineFeature("rf-shell", (r) => {
+    r.workspace({ id: "lonely", label: "Lonely" });
+  });
+  const manifest = buildAgentManifest(createRegistry([branches, workspaceOnly]), {
+    locale: "en",
+    roles: ["admin"],
+  });
+
+  test("a query handler with agent.expose:false does not keep its entity alive", () => {
+    expect(manifest.entities.map((e) => e.name)).not.toContain("hidden");
+  });
+
+  test("entities shown by an entityList or detailFor screen stay", () => {
+    expect(manifest.entities.map((e) => e.name)).toEqual(
+      expect.arrayContaining(["listed", "detailed"]),
+    );
+  });
+
+  test("a write handler keeps its entity and its feature", () => {
+    expect(manifest.entities.map((e) => e.name)).toContain("written");
+    expect(manifest.features.map((f) => f.name)).toContain("rf-branches");
+  });
+
+  test("a feature that contributes only a visible workspace stays in features", () => {
+    expect(manifest.workspaces.map((w) => w.id)).toEqual(["rf-shell:workspace:lonely"]);
+    expect(manifest.features.map((f) => f.name)).toContain("rf-shell");
+  });
+});
+
+describe("manifest entities cover every registry-derived entity tool", () => {
+  const entity = createEntity({
+    fields: {
+      label: createTextField({ searchable: true, personal: false, reason: "test_fixture" }),
+    },
+  });
+  const feature = defineFeature("rf-crud", (r) => {
+    r.crud("open-item", entity, {
+      read: { access: { roles: ["admin", "viewer"] } },
+      write: { access: { roles: ["admin"] } },
+    });
+    r.crud("admin-item", entity, {
+      read: { access: { roles: ["admin"] } },
+      write: { access: { roles: ["admin"] } },
+    });
+  });
+  const registry = createRegistry([feature]);
+
+  for (const role of ["admin", "viewer", "nobody"]) {
+    test(`role ${role}: each get_/list_/search_ tool names an entity in the manifest`, () => {
+      const manifest = buildAgentManifest(registry, { locale: "en", roles: [role] });
+      const entityNames = new Set(manifest.entities.map((e) => e.name));
+      const toolEntities = buildToolCatalog(registry, manifest, { mode: "read-only" })
+        .tools.map((t) => /^(?:get|list|search)_(.+)$/.exec(t.name)?.[1])
+        .filter((name): name is string => name !== undefined);
+      for (const name of toolEntities) expect(entityNames.has(name)).toBe(true);
+    });
+  }
 });

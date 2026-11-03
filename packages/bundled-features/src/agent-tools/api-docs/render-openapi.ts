@@ -30,6 +30,7 @@ function embedSchema(schema: Json, name: string, hoisted: Record<string, unknown
       Object.entries(node)
         .filter(([key]) => key !== "$schema" && key !== "$defs")
         .map(([key, value]) => {
+          if (key === "$ref" && value === "#") return [key, `${SCHEMAS}/${name}`];
           if (key === "$ref" && typeof value === "string" && value.startsWith("#/$defs/")) {
             return [key, `${SCHEMAS}/${name}.${value.slice("#/$defs/".length)}`];
           }

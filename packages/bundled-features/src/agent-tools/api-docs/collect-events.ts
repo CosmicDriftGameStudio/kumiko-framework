@@ -68,6 +68,13 @@ function fieldLabelsByRow(
   );
 }
 
+function exampleForVersion(
+  example: WebhookExampleFile | undefined,
+  version: number,
+): WebhookExampleFile | undefined {
+  return example?.version === version ? example : undefined;
+}
+
 function buildEvent(
   registry: RegistryManifestView,
   contract: WebhookEventContract,
@@ -111,7 +118,7 @@ function buildEvent(
     fieldLabels: fieldLabelsByRow(translations, contract, payloadSchema, locales),
     payloadSchema,
     domains,
-    example: options.examples.get(contract.qn),
+    example: exampleForVersion(options.examples.get(contract.qn), contract.version),
   };
 }
 

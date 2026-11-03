@@ -104,8 +104,22 @@ function isDetailHandlerQn(qn: string, entityName: string): boolean {
  *  `resolveAgentExposure` never runs for them. Only an EXPLICIT opt-out may hide one here —
  *  the resolver's own default is fail-closed on a missing `description`, and CRUD-generated
  *  handlers never carry one, so reusing it would delete every entity tool in every app. */
-export function isExplicitlyAgentHidden(def: QueryHandlerDef): boolean {
+function isExplicitlyAgentHidden(def: QueryHandlerDef): boolean {
   return def.agent?.expose === false;
+}
+
+/** The entity a query handler serves to this role as a registry-derived tool, if any. The
+ *  manifest and the catalog both decide entity reachability through this one rule. */
+export function reachableQueryEntity(
+  registry: Pick<RegistrySearchView, "getHandlerEntity">,
+  qn: string,
+  def: QueryHandlerDef,
+  roleFilter: { roles: readonly string[] },
+  denyQns: ReadonlySet<string>,
+): string | undefined {
+  const entityName = registry.getHandlerEntity(qn);
+  if (entityName === undefined || denyQns.has(qn) || isExplicitlyAgentHidden(def)) return undefined;
+  return hasAccess(roleFilter, def.access) ? entityName : undefined;
 }
 
 /** The model's filters feed the WHERE clause, and only the output is field-filtered — a field
@@ -431,10 +445,8 @@ function addRegistrySearchTools(
   sink: CatalogSink,
 ): void {
   for (const [qn, def] of registry.getAllQueryHandlers()) {
-    const entityName = registry.getHandlerEntity(qn);
+    const entityName = reachableQueryEntity(registry, qn, def, roleFilter, denyQns);
     if (!entityName || !isListHandlerQn(qn, entityName)) continue;
-    if (denyQns.has(qn) || isExplicitlyAgentHidden(def)) continue;
-    if (!hasAccess(roleFilter, def.access)) continue;
 
     const entity = registry.getEntity(entityName);
     if (!entity) continue;
@@ -466,9 +478,8 @@ function collectEntityHandlerQns(
     if (isListHandlerQn(qn, entityName)) entityListDetailQns.add(qn);
   }
   for (const [qn, def] of registry.getAllQueryHandlers()) {
-    const entityName = registry.getHandlerEntity(qn);
-    if (!entityName || !hasAccess(roleFilter, def.access)) continue;
-    if (denyQns.has(qn) || isExplicitlyAgentHidden(def)) continue;
+    const entityName = reachableQueryEntity(registry, qn, def, roleFilter, denyQns);
+    if (!entityName) continue;
     if (isDetailHandlerQn(qn, entityName)) detailQnByEntity.set(entityName, qn);
     if (isListHandlerQn(qn, entityName)) listQnByEntity.set(entityName, qn);
   }

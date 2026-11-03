@@ -221,6 +221,10 @@ export type RegistryManifestView = {
   getAllQueryHandlers(): ReadonlyMap<string, QueryHandlerDef>;
   getAllWriteHandlers(): ReadonlyMap<string, WriteHandlerDef>;
   getHandlerEntity(qualifiedHandler: string): string | undefined;
+  getHandlerFeature(qualifiedHandler: string): string | undefined;
+  getScreenFeature(qualifiedName: string): string | undefined;
+  getNavFeature(qualifiedName: string): string | undefined;
+  getWorkspaceFeature(qualifiedName: string): string | undefined;
   getSearchableFields(entityName: string): readonly string[];
   getAllTranslations(): TranslationKeys;
   getAllScreens(): ReadonlyMap<string, ScreenDefinition>;

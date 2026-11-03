@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { findDescriptionTranslationGaps } from "../../agent-doc-lint.ts";
-import { localizedLabels, localizedLabelsForSuffix } from "../../labels.ts";
+import { entityFieldLabels, localizedLabels, localizedLabelsForSuffix } from "../../labels.ts";
 
 const translations = {
   "owner:pat.create.title": { en: "Create" },
@@ -34,6 +34,23 @@ describe("localizedLabels", () => {
     });
   });
 
+  test("a key that merely ends with the suffix text is not taken for the owner", () => {
+    const keys = {
+      "foo:xentity:ticket:field:title": { en: "Wrong" },
+      "owner:entity:ticket:field:title": { en: "Right" },
+    };
+    expect(localizedLabelsForSuffix(keys, "entity:ticket:field:title")).toEqual({ en: "Right" });
+  });
+
+  test("an entity name used by two features resolves to the handler's own feature", () => {
+    const keys = {
+      "a:entity:ticket:field:title": { en: "From a" },
+      "b:entity:ticket:field:title": { en: "From b" },
+    };
+    expect(entityFieldLabels(keys, "ticket", "title")).toEqual({ en: "From a" });
+    expect(entityFieldLabels(keys, "ticket", "title", "b")).toEqual({ en: "From b" });
+  });
+
   test("an unknown suffix yields no labels", () => {
     expect(localizedLabelsForSuffix(translations, ":nope")).toEqual({});
   });
@@ -53,5 +70,20 @@ describe("findDescriptionTranslationGaps with locale packages", () => {
       locales: ["en", "de", "fr"],
     });
     expect(gaps.map((gap) => gap.locale)).toEqual(["fr"]);
+  });
+});
+
+describe("findDescriptionTranslationGaps with an empty translation", () => {
+  test("an empty string counts as missing, like the generator's fallback to en", () => {
+    const registry = {
+      getAllTranslations: () => ({
+        "shop:write:order:create:description": { en: "Creates.", de: "" },
+      }),
+    };
+    const gaps = findDescriptionTranslationGaps(registry, {
+      handlerQns: ["shop:write:order:create"],
+      locales: ["en", "de"],
+    });
+    expect(gaps.map((gap) => gap.locale)).toEqual(["de"]);
   });
 });

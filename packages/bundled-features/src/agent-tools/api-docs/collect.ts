@@ -11,6 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   expandScopes,
+  PAT_FEATURE,
   type PatScopeConfig,
   patRateLimitFromFeature,
   patScopesFromFeature,
@@ -34,7 +35,7 @@ import { isSystemOnlyHandler } from "./system-only.ts";
 
 export function findPatFeature(registry: RegistryManifestView): FeatureDefinition | undefined {
   return [...registry.features.values()].find(
-    (feature) => patScopesFromFeature(feature) !== undefined,
+    (feature) => feature.name === PAT_FEATURE && patScopesFromFeature(feature) !== undefined,
   );
 }
 
@@ -76,7 +77,7 @@ function buildHandler(
       const labels =
         Object.keys(own).length > 0 || entity === undefined
           ? own
-          : entityFieldLabels(translations, entity, field);
+          : entityFieldLabels(translations, entity, field, qn.split(":")[0]);
       return [field, perLocale(locales, (locale) => pickLabel(labels, locale))];
     }),
   );

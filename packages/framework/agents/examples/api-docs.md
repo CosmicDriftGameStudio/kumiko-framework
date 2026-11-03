@@ -115,6 +115,7 @@ import {
   generateApiDocs,
   type NamedApiExample,
   type NamedWebhookExample,
+  resolveApiDocsConfig,
   WebhookExampleFileSchema,
 } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
@@ -175,12 +176,7 @@ describe("api-docs golden", () => {
     registry: createRegistry(
       composeFeatures(allAppFeatures(config), { includeBundled: config.includeBundled === true }),
     ),
-    config: {
-      ...config.apiDocs,
-      locales: config.apiDocs?.locales ?? ["en"],
-      baseUrl: config.apiDocs?.baseUrl ?? "",
-      appName: config.apiDocs?.appName ?? appName,
-    },
+    config: resolveApiDocsConfig(config.apiDocs ?? {}, { appName }),
     // Fixed so that a release does not turn the golden red.
     source: { framework: "0.0.0-recipe", app: { name: appName, version: "0.0.0" } },
     examples: readExamples(),

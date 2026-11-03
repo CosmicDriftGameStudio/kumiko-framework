@@ -273,7 +273,11 @@ export function findDescriptionTranslationGaps(
   for (const handlerQn of options.handlerQns) {
     const labels = localizedLabels(translations, handlerDescriptionKey(handlerQn));
     for (const locale of options.locales) {
-      if (locale === DESCRIPTION_FALLBACK_LOCALE || labels[locale] !== undefined) continue;
+      if (
+        locale === DESCRIPTION_FALLBACK_LOCALE ||
+        (labels[locale] !== undefined && labels[locale] !== "")
+      )
+        continue;
       gaps.push({
         qn: handlerQn,
         feature: handlerQn.split(":")[0] ?? handlerQn,

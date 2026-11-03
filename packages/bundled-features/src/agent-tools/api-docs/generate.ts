@@ -17,9 +17,11 @@ import { renderOpenApi } from "./render-openapi.ts";
 import { renderOverview } from "./render-overview.ts";
 import { renderReferencePage } from "./render-reference.ts";
 import { renderTokens } from "./render-tokens.ts";
+import { scopeSlugCollisionProblems } from "./scope-slug-collisions.ts";
 import { isApiDocsLocale, resolveApiDocsTexts } from "./texts/index.ts";
 import { findTitleAndFieldLabelProblems } from "./translation-gaps.ts";
 import { uiWriteProblems } from "./ui-writes.ts";
+import { webhookExampleProblems } from "./webhook-example-problems.ts";
 
 export const OPENAPI_FILE = "openapi.json";
 
@@ -167,6 +169,8 @@ export function generateApiDocs(input: ApiDocsInput): ApiDocsResult {
     ),
     ...findTitleAndFieldLabelProblems(registry, model, locales),
     ...uiWriteProblems(registry, model, config.uiOnlyWrites ?? []),
+    ...scopeSlugCollisionProblems(model.scopes),
+    ...webhookExampleProblems(input.webhookExamples ?? [], model.events),
     ...model.events.flatMap((event) =>
       event.untranslatedLocales.map(
         (locale): ApiDocsProblem => ({

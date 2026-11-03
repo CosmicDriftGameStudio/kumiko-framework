@@ -303,7 +303,16 @@ async function dispatchServerWrite(
       return invalidToolCall(`This tool requires a non-empty string "id" argument`);
     }
     if (!descriptor.detailQn) {
-      return invalidToolCall("Tool is misconfigured: no detail handler to read version from");
+      const message = `Tool ${descriptor.qn} injects a version but has no detail handler to read it from`;
+      return classifyFailure(
+        {
+          code: "internal_error",
+          httpStatus: HTTP_SERVER_ERROR,
+          message,
+          retryAfterSeconds: undefined,
+        },
+        new Error(message),
+      );
     }
     const current = await dispatcher.query(descriptor.detailQn, { id }, user);
     const version =
