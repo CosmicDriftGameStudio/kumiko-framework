@@ -428,7 +428,6 @@ type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   };
   computed?: ConfigComputedFn<T>;
   validate?: ConfigValidateFn<T>;
-  allowPerRequest?: boolean;
   required?: boolean;
   env?: string;
   inheritedToTenant?: boolean;

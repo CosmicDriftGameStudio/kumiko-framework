@@ -71,7 +71,6 @@ model: createTenantConfig("select", {
 - Der Boot prüft, dass die QN einen registrierten Query-Handler trifft, bei Config-Keys und bei Screen-Feldern.
 - Der Server prüft den geschriebenen Wert nicht gegen das Query-Ergebnis. Das Feature, das den Wert verwendet, validiert ihn dort selbst.
 - Auf Entity-Feldern (auch eingebetteten) ist `optionsQuery` ein Boot-Fehler, weil der gespeicherte Wert sonst ungeprüft bliebe. Dort bleibt es bei statischen `options` oder einem `reference`-Feld.
-- Config-Keys mit `optionsQuery` dürfen nicht `allowPerRequest` sein, ein Per-Request-Wert ginge ungeprüft durch.
 
 ### Beschreibung und Gruppen
 

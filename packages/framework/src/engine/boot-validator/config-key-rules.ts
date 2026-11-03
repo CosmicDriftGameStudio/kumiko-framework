@@ -38,16 +38,6 @@ export const CONFIG_KEY_RULES = {
       "A required config key has no non-empty default, otherwise it can never be unset and readiness never flags it.",
     fix: 'Use default "" or drop required.',
   },
-  perRequestText: {
-    id: "config-key/per-request-text",
-    summary: 'A config key of type "text" does not set allowPerRequest (XSS/injection risk).',
-    fix: "Remove allowPerRequest or change the key type.",
-  },
-  perRequestEncrypted: {
-    id: "config-key/per-request-encrypted",
-    summary: 'A config key with encrypted/backing="secrets" does not set allowPerRequest.',
-    fix: "Remove allowPerRequest or the secrets storage from the key.",
-  },
   conditionalOptions: {
     id: "config-key/conditional-options",
     summary:
@@ -73,12 +63,6 @@ export const CONFIG_KEY_RULES = {
     id: "config-key/options-and-options-query",
     summary: "A config key declares either static options or optionsQuery, not both.",
     fix: "Remove options or optionsQuery.",
-  },
-  optionsQueryPerRequest: {
-    id: "config-key/options-query-per-request",
-    summary:
-      "A config key with optionsQuery does not set allowPerRequest, which would bypass the option set unchecked.",
-    fix: "Remove allowPerRequest or optionsQuery.",
   },
   optionsQueryPayloadSelfReference: {
     id: "config-key/options-query-payload-self-reference",

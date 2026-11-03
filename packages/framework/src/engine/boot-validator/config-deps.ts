@@ -117,32 +117,6 @@ export function validateConfigKeyRequired(feature: FeatureDefinition): void {
   }
 }
 
-// --- Config key allowPerRequest compatibility ---
-
-export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): void {
-  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
-    if (!keyDef.allowPerRequest) continue;
-
-    // text is hard-locked against per-request — the helper refuses
-    // anyway, but declaring allowPerRequest on a text key is a
-    // misconfiguration that should fail loudly at boot.
-    if (keyDef.type === "text") {
-      throw bootRuleError(CONFIG_KEY_RULES.perRequestText, {
-        message: `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but type="text" — text keys are permanently ineligible for per-request overrides (XSS/injection risk). Remove allowPerRequest or change the key type.`,
-      });
-    }
-
-    // encrypted + per-request would expose a cipher-text interpretation
-    // to query-strings. The secret-value shouldn't be transported this
-    // way — reject as a paradigm-mismatch.
-    if (isEncryptedAtRest(keyDef)) {
-      throw bootRuleError(CONFIG_KEY_RULES.perRequestEncrypted, {
-        message: `[Feature ${feature.name}] Config key "${keyName}" has allowPerRequest=true but encrypted/backing="secrets" — secret values may not be set via query-params`,
-      });
-    }
-  }
-}
-
 // --- Config key optionsQuery compatibility ---
 
 export function validateConfigKeyOptionsQuery(feature: FeatureDefinition): void {
@@ -174,11 +148,6 @@ export function validateConfigKeyOptionsQuery(feature: FeatureDefinition): void 
     if (keyDef.options !== undefined && keyDef.options.length > 0) {
       throw bootRuleError(CONFIG_KEY_RULES.optionsAndOptionsQuery, {
         message: `${prefix} declares both options and optionsQuery — pick one`,
-      });
-    }
-    if (keyDef.allowPerRequest) {
-      throw bootRuleError(CONFIG_KEY_RULES.optionsQueryPerRequest, {
-        message: `${prefix} has optionsQuery AND allowPerRequest=true — a per-request value would bypass the option set unchecked`,
       });
     }
     validateOptionsQueryKeyRefs(feature, keyName, keyDef);
