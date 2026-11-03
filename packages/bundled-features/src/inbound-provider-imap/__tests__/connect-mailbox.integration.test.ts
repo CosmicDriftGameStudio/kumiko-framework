@@ -24,6 +24,7 @@ import {
   InboundMailConnectErrors,
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
+  inboundCredentialSecretKey,
   ingestFailureEntity,
   quarantineEntity,
   seenMessageEntity,
@@ -146,6 +147,28 @@ async function expectNothingStored(admin: Admin, newEvents: () => Promise<unknow
   expect(await newEvents()).toEqual([]);
 }
 
+async function disconnectedPersonalMailboxOfOwner() {
+  const owner = freshAdmin();
+  const otherAdmin = createTestUser({
+    id: nextTenant + 100_000,
+    tenantId: owner.tenantId,
+    roles: ["TenantAdmin"],
+  });
+  const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+    InboundMailFoundationHandlers.connectAccount,
+    {
+      provider: "imap",
+      authMethod: "password",
+      displayName: "Mine",
+      address: "testuser@example.com",
+      scope: "user",
+    },
+    owner,
+  );
+  await stack.http.writeOk(InboundMailFoundationHandlers.disconnectAccount, { accountId }, owner);
+  return { owner, otherAdmin, accountId };
+}
+
 describe("connect mailbox form", () => {
   greenmailWithSmtpsTest(
     "a good login connects an active mailbox the probe can reach",
@@ -219,33 +242,12 @@ describe("connect mailbox form", () => {
   );
 
   greenmailWithSmtpsTest(
-    "a personal mailbox of someone else is not reopened by the form, the message names Reactivate",
+    "a personal mailbox of someone else is not reopened by another member's personal form, the message names Reactivate",
     async () => {
-      const owner = freshAdmin();
-      const otherAdmin = createTestUser({
-        id: owner.id + 100_000,
-        tenantId: owner.tenantId,
-        roles: ["TenantAdmin"],
-      });
-      const { accountId } = await stack.http.writeOk<{ accountId: string }>(
-        InboundMailFoundationHandlers.connectAccount,
-        {
-          provider: "imap",
-          authMethod: "password",
-          displayName: "Mine",
-          address: "testuser@example.com",
-          scope: "user",
-        },
-        owner,
-      );
-      await stack.http.writeOk(
-        InboundMailFoundationHandlers.disconnectAccount,
-        { accountId },
-        owner,
-      );
+      const { owner, otherAdmin, accountId } = await disconnectedPersonalMailboxOfOwner();
 
       const error = await stack.http.writeErr(
-        ImapHandlers.connectMailbox,
+        ImapHandlers.connectMyMailbox,
         form(PASSWORD),
         otherAdmin,
       );
@@ -255,6 +257,31 @@ describe("connect mailbox form", () => {
         expect.objectContaining({ id: accountId, status: "disconnected" }),
       ]);
       expect(await secretsOf(owner)).toEqual([]);
+    },
+  );
+
+  greenmailWithSmtpsTest(
+    "a disconnected personal mailbox does not lock the address for the shared form, which creates a new shared mailbox",
+    async () => {
+      const { owner, otherAdmin, accountId } = await disconnectedPersonalMailboxOfOwner();
+
+      const created = await stack.http.writeOk<{ accountId: string }>(
+        ImapHandlers.connectMailbox,
+        form(PASSWORD),
+        otherAdmin,
+      );
+
+      expect(created.accountId).not.toBe(accountId);
+      const accounts = await accountsOf(owner);
+      expect(accounts).toHaveLength(2);
+      expect(accounts).toContainEqual(
+        expect.objectContaining({ id: accountId, status: "disconnected" }),
+      );
+      expect(accounts).toContainEqual(
+        expect.objectContaining({ id: created.accountId, status: "active", provider: "imap" }),
+      );
+      const secretKeys = (await secretsOf(owner)).map((secret) => secret.key);
+      expect(secretKeys).toEqual([inboundCredentialSecretKey(created.accountId)]);
     },
   );
 
