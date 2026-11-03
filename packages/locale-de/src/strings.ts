@@ -2250,14 +2250,14 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.loginRejected":
     "Der IMAP-Server hat die Anmeldung abgelehnt. Prüfe Benutzername und Passwort.",
   "inboundMail.imap.connect.errors.tlsFailed":
-    "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfe Port und TLS-Einstellung.",
+    "Die verschlüsselte Verbindung ist fehlgeschlagen. Prüfe, ob der Port der IMAPS-Port ist (meist 993).",
   "inboundMail.imap.connect.errors.connectFailed":
     "Keine Verbindung zum IMAP-Server. Prüfe Servernamen und Port.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Postausgangsserver (SMTP)",
   "inbound-provider-imap:entity:__action-form__:field:smtpPort": "SMTP-Port",
   "inboundMail.imap.connect.outgoing": "Senden",
   "inboundMail.imap.connect.outgoingHint":
-    "Antworten gehen von dieser Adresse über deinen eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lass das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn dein Anbieter 465/SSL nennt.",
+    "Antworten gehen von dieser Adresse über deinen eigenen Mailserver raus, mit demselben Benutzernamen und Passwort. Lass das Feld leer, wenn der Server wie der IMAP-Server heißt, nur mit smtp. statt imap. Meist 587, auch wenn dein Anbieter 465/SSL nennt. Port 465 bedeutet SSL/TLS, jeder andere Port STARTTLS.",
   "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId": "Kennung des Mailservers",
   "inboundMail.imap.connect.senderCheck": "Absenderprüfung",
   "inboundMail.imap.connect.senderCheckHint":

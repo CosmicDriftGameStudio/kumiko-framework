@@ -60,7 +60,7 @@ export const createReconnectMailboxHandler = ({ memberRoles, adminRoles }: Inbou
       if (!mayReactivateMailbox(lookup.row.ownerUserId, ctx.user, adminRoles)) {
         return failNotFound("mail-account", event.payload.accountId);
       }
-      return checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log);
+      return checkMailboxLogin(credentialDocumentOf(event.payload), ctx);
     },
     handler: async (event, ctx) => {
       const { accountId } = event.payload;

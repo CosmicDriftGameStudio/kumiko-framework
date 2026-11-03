@@ -1,7 +1,18 @@
 import { describe, expect, test } from "bun:test";
+import {
+  isInboundAuthError,
+  isInboundTransientError,
+  isMailSendNotConfiguredError,
+} from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { credentialDocumentOf, deriveSmtpHost } from "../connect-mailbox.ts";
+import { toFoundationSendError } from "../send-mail.ts";
 import { pickSentMailboxPath } from "../sent-folder.ts";
-import { classifySmtpError, rejectedRecipientsOf, smtpTransportOptions } from "../smtp-client.ts";
+import {
+  classifySmtpError,
+  rejectedRecipientsOf,
+  SmtpFailureError,
+  smtpTransportOptions,
+} from "../smtp-client.ts";
 
 function smtpError(fields: Record<string, unknown>): Error {
   return Object.assign(new Error("smtp"), fields);
@@ -116,5 +127,36 @@ describe("rejectedRecipientsOf", () => {
       "b@example.org",
     ]);
     expect(rejectedRecipientsOf(undefined)).toEqual([]);
+  });
+});
+
+describe("toFoundationSendError", () => {
+  test("a failed certificate check and a blocked host need a reconnect, not a retry", () => {
+    expect(
+      isMailSendNotConfiguredError(
+        toFoundationSendError(new SmtpFailureError("tlsFailed", "ETLS")),
+      ),
+    ).toBe(true);
+    expect(
+      isMailSendNotConfiguredError(
+        toFoundationSendError(new SmtpFailureError("hostUnreachable", "blocked", true)),
+      ),
+    ).toBe(true);
+  });
+
+  test("a name that does not resolve and a refused connection stay transient, a rejected login stays an auth error", () => {
+    expect(
+      isInboundTransientError(
+        toFoundationSendError(new SmtpFailureError("hostUnreachable", "unresolved")),
+      ),
+    ).toBe(true);
+    expect(
+      isInboundTransientError(
+        toFoundationSendError(new SmtpFailureError("connectFailed", "ETIMEDOUT")),
+      ),
+    ).toBe(true);
+    expect(
+      isInboundAuthError(toFoundationSendError(new SmtpFailureError("loginRejected", "EAUTH"))),
+    ).toBe(true);
   });
 });

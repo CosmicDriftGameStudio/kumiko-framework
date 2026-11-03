@@ -2273,14 +2273,14 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.loginRejected":
     "Le serveur IMAP a refusé la connexion. Vérifiez le nom d'utilisateur et le mot de passe.",
   "inboundMail.imap.connect.errors.tlsFailed":
-    "La connexion chiffrée a échoué. Vérifiez le port et le réglage TLS.",
+    "La connexion chiffrée a échoué. Vérifiez que le port est bien celui d'IMAPS (généralement 993).",
   "inboundMail.imap.connect.errors.connectFailed":
     "Aucune connexion au serveur IMAP. Vérifiez le nom du serveur et le port.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Serveur sortant (SMTP)",
   "inbound-provider-imap:entity:__action-form__:field:smtpPort": "Port SMTP",
   "inboundMail.imap.connect.outgoing": "Envoi",
   "inboundMail.imap.connect.outgoingHint":
-    "Les réponses partent de cette adresse via votre propre serveur de messagerie, avec le même nom d'utilisateur et le même mot de passe. Laissez le champ vide si le serveur porte le nom du serveur IMAP, avec smtp. au lieu de imap. En général 587, même si votre fournisseur indique 465/SSL.",
+    "Les réponses partent de cette adresse via votre propre serveur de messagerie, avec le même nom d'utilisateur et le même mot de passe. Laissez le champ vide si le serveur porte le nom du serveur IMAP, avec smtp. au lieu de imap. En général 587, même si votre fournisseur indique 465/SSL. Le port 465 signifie SSL/TLS, tout autre port signifie STARTTLS.",
   "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId":
     "Identifiant du serveur de messagerie",
   "inboundMail.imap.connect.senderCheck": "Vérification de l'expéditeur",

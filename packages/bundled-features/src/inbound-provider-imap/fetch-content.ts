@@ -10,8 +10,10 @@ import type {
   RejectedInboundMessage,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { InboundTransientError } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import type { ImapFlow } from "imapflow";
 import { planWithinByteBudget } from "./byte-budget.ts";
 import { readCredentialDocument } from "./credential-document.ts";
+import { fetchAndParse } from "./download-batch.ts";
 import {
   closeOnAbort,
   createImapClient,
@@ -19,13 +21,47 @@ import {
   imapMailHostGuard,
   mapImapError,
 } from "./imap-client.ts";
-import { coerceDate, parseOrReject } from "./parse-message.ts";
 
 function uidOf(providerMessageId: string, serverUidValidity: string): number | null {
   const separator = providerMessageId.lastIndexOf(":");
   if (separator < 0 || providerMessageId.slice(0, separator) !== serverUidValidity) return null;
   const uid = Number(providerMessageId.slice(separator + 1));
   return Number.isInteger(uid) && uid > 0 ? uid : null;
+}
+
+function splitByServerUidValidity(
+  providerMessageIds: readonly string[],
+  serverUidValidity: string,
+): { readonly idByUid: Map<number, string>; readonly missing: string[] } {
+  const idByUid = new Map<number, string>();
+  const missing: string[] = [];
+  for (const id of providerMessageIds) {
+    const uid = uidOf(id, serverUidValidity);
+    if (uid === null) missing.push(id);
+    else idByUid.set(uid, id);
+  }
+  return { idByUid, missing };
+}
+
+async function downloadWithinBudget(
+  client: ImapFlow,
+  idByUid: Map<number, string>,
+  serverUidValidity: string,
+): Promise<{
+  readonly messages: RawInboundMessage[];
+  readonly rejected: RejectedInboundMessage[];
+}> {
+  const plan = await planWithinByteBudget(client, [...idByUid.keys()], serverUidValidity);
+  for (const rejectedMail of plan.tooLarge) {
+    const tooLargeUid = uidOf(rejectedMail.providerMessageId, serverUidValidity);
+    if (tooLargeUid !== null) idByUid.delete(tooLargeUid);
+  }
+  // Cut by the byte budget, not gone: they stay candidates and come in a later round.
+  for (const uid of plan.deferred) idByUid.delete(uid);
+  if (plan.download.length === 0) return { messages: [], rejected: [...plan.tooLarge] };
+  const fetched = await fetchAndParse(client, plan.download.join(","), serverUidValidity, null);
+  for (const uid of fetched.seenUids) idByUid.delete(uid);
+  return { messages: fetched.messages, rejected: [...plan.tooLarge, ...fetched.rejected] };
 }
 
 export async function fetchMessageContent(
@@ -44,44 +80,11 @@ export async function fetchMessageContent(
     const mailbox = client.mailbox;
     if (typeof mailbox === "boolean") throw new InboundTransientError("mailbox not open");
     const serverUidValidity = String(mailbox.uidValidity);
-    const idByUid = new Map<number, string>();
-    const missing: string[] = [];
-    for (const id of providerMessageIds) {
-      const uid = uidOf(id, serverUidValidity);
-      if (uid === null) missing.push(id);
-      else idByUid.set(uid, id);
-    }
-    const messages: RawInboundMessage[] = [];
-    const rejected: RejectedInboundMessage[] = [];
-    if (idByUid.size > 0) {
-      const plan = await planWithinByteBudget(client, [...idByUid.keys()], serverUidValidity);
-      rejected.push(...plan.tooLarge);
-      for (const rejectedMail of plan.tooLarge) {
-        const tooLargeUid = uidOf(rejectedMail.providerMessageId, serverUidValidity);
-        if (tooLargeUid !== null) idByUid.delete(tooLargeUid);
-      }
-      // Cut by the byte budget, not gone: they stay candidates and come in a later round.
-      for (const uid of plan.deferred) idByUid.delete(uid);
-      for await (const msg of plan.download.length === 0
-        ? []
-        : client.fetch(
-            plan.download.join(","),
-            { uid: true, internalDate: true, source: true, envelope: true },
-            { uid: true },
-          )) {
-        if (!msg.source) continue;
-        const parsed = await parseOrReject({
-          source: msg.source,
-          uid: msg.uid,
-          uidValidity: serverUidValidity,
-          internalDate: coerceDate(msg.internalDate ?? undefined),
-          envelope: msg.envelope,
-        });
-        idByUid.delete(msg.uid);
-        if ("message" in parsed) messages.push(parsed.message);
-        else rejected.push(parsed.rejected);
-      }
-    }
+    const { idByUid, missing } = splitByServerUidValidity(providerMessageIds, serverUidValidity);
+    const { messages, rejected } =
+      idByUid.size > 0
+        ? await downloadWithinBudget(client, idByUid, serverUidValidity)
+        : { messages: [], rejected: [] };
     // What the server did not return is gone (expunged since the import).
     missing.push(...idByUid.values());
     return { messages, missing, rejected };

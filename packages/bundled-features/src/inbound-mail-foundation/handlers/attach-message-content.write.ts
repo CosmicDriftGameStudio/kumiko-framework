@@ -57,10 +57,14 @@ function hasContentAlready(events: readonly { type: string; payload: unknown }[]
 
 const receivedOwnerSchema = z.object({ ownerUserId: z.string().nullable() });
 
-function ownerUserIdOfStream(events: readonly { type: string; payload: unknown }[]): string | null {
+// `null` inside the result means a shared mailbox; an unreadable stream has no result at all, so a
+// personal mail can never fall through to the shared routing.
+function ownerOfStream(
+  events: readonly { type: string; payload: unknown }[],
+): { readonly ownerUserId: string | null } | undefined {
   const received = events.find((e) => e.type === INBOUND_MESSAGE_RECEIVED_EVENT_QN);
   const parsed = receivedOwnerSchema.safeParse(received?.payload);
-  return parsed.success ? parsed.data.ownerUserId : null;
+  return parsed.success ? { ownerUserId: parsed.data.ownerUserId } : undefined;
 }
 
 // Read before the transaction, so it can only skip work: a row that already shows attached content
@@ -160,6 +164,9 @@ export const attachMessageContentHandler = defineWriteHandler({
       return { isSuccess: true as const, data: { duplicate: true as const } };
     }
 
+    const owner = ownerOfStream(events);
+    if (owner === undefined) return failNotFound("inbound-message-received-event", messageAggId);
+
     const content =
       payload.outcome !== "fetched"
         ? undefined
@@ -171,7 +178,7 @@ export const attachMessageContentHandler = defineWriteHandler({
       content,
       tenantId,
       messageAggId,
-      ownerUserIdOfStream(events),
+      owner.ownerUserId,
     );
     const appended = await ctx.events.tryAppend({
       aggregateId: messageAggId,

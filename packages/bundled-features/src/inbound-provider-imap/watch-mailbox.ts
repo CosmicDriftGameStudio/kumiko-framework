@@ -6,8 +6,8 @@ import type {
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import type { ImapFlow } from "imapflow";
 import { readCredentialDocument } from "./credential-document.ts";
+import { fetchAndParse } from "./download-batch.ts";
 import { createImapClient, IMAP_MAILBOX, imapMailHostGuard, mapImapError } from "./imap-client.ts";
-import { coerceDate, parseOrReject } from "./parse-message.ts";
 
 // IMAP IDLE (imapflow idles automatically while the mailbox is open
 // and emits 'exists' for new messages).
@@ -36,29 +36,14 @@ export async function watchMailbox(
     let nextUid = Number(mailbox.uidNext ?? 1);
 
     const drainNew = async () => {
-      const messages: RawInboundMessage[] = [];
-      const rejected: RejectedInboundMessage[] = [];
-      let maxSeen = nextUid - 1;
-      for await (const msg of client.fetch(
+      const { messages, rejected, seenUids } = await fetchAndParse(
+        client,
         `${nextUid}:*`,
-        { uid: true, internalDate: true, source: true, envelope: true },
-        { uid: true },
-      )) {
-        // `N:*` gotcha (see fetch): filter out the previous last message.
-        if (msg.uid < nextUid || !msg.source) continue;
-        const parsed = await parseOrReject({
-          source: msg.source,
-          envelope: msg.envelope,
-          uid: msg.uid,
-          uidValidity,
-          internalDate: coerceDate(msg.internalDate ?? undefined),
-          trustedAuthservId: account.trustedAuthservId ?? null,
-        });
-        if ("message" in parsed) messages.push(parsed.message);
-        else rejected.push(parsed.rejected);
-        if (msg.uid > maxSeen) maxSeen = msg.uid;
-      }
-      nextUid = maxSeen + 1;
+        uidValidity,
+        account.trustedAuthservId ?? null,
+        nextUid,
+      );
+      nextUid = seenUids.reduce((highest, uid) => Math.max(highest, uid), nextUid - 1) + 1;
       if (messages.length > 0 || rejected.length > 0) await handlers.onMessages(messages, rejected);
     };
 

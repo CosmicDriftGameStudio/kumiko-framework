@@ -16,6 +16,7 @@ import {
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
+  type BeforeTransactionContext,
   type BeforeTransactionResult,
   createSystemUser,
   defineWriteHandler,
@@ -24,6 +25,7 @@ import {
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
+import { enforceConnectTargetLimit } from "./connect-target-rate-limit.ts";
 import { IMAP_CONNECT_ERRORS, IMAP_PROVIDER_KEY, SMTP_CONNECT_ERRORS } from "./constants.ts";
 import {
   type ImapCredentialDocument,
@@ -117,8 +119,11 @@ async function checkSmtpLogin(doc: ImapCredentialDocument): Promise<ConnectFailu
 // Checks the IMAP login, then the SMTP login of the outgoing server; shared by connect and reconnect.
 export async function checkMailboxLogin(
   doc: ImapCredentialDocument,
-  log: { warn(message: string, data?: Record<string, unknown>): void },
+  ctx: Pick<BeforeTransactionContext, "services" | "rateLimitDigest" | "obs">,
 ): Promise<BeforeTransactionResult<null>> {
+  const { log } = ctx.obs;
+  const limited = await enforceConnectTargetLimit(ctx, doc);
+  if (!limited.isSuccess) return limited;
   try {
     await connectOnce(doc, true);
   } catch (err) {
@@ -222,8 +227,7 @@ export const createConnectMailboxHandler = ({ adminRoles }: InboundMailRoles) =>
     // used to scan ports or to guess passwords at someone else's mail server.
     rateLimit: { per: "tenant+handler", limit: 10, windowSeconds: 600 },
     escapeHatch: { grants: ["unsafeRaw"], reason: SECRET_TRANSACTION_REASON },
-    beforeTransaction: (event, ctx) =>
-      checkMailboxLogin(credentialDocumentOf(event.payload), ctx.obs.log),
+    beforeTransaction: (event, ctx) => checkMailboxLogin(credentialDocumentOf(event.payload), ctx),
     handler: async (event, ctx) => {
       const { displayName, address, trustedAuthservId } = event.payload;
       const connected = await connectPasswordMailbox(

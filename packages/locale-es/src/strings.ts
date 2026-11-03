@@ -2244,14 +2244,14 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.imap.connect.errors.loginRejected":
     "El servidor IMAP rechazó el inicio de sesión. Revisa el usuario y la contraseña.",
   "inboundMail.imap.connect.errors.tlsFailed":
-    "La conexión cifrada falló. Revisa el puerto y la opción TLS.",
+    "La conexión cifrada falló. Comprueba que el puerto sea el de IMAPS (normalmente 993).",
   "inboundMail.imap.connect.errors.connectFailed":
     "No hay conexión con el servidor IMAP. Revisa el nombre del servidor y el puerto.",
   "inbound-provider-imap:entity:__action-form__:field:smtpHost": "Servidor de salida (SMTP)",
   "inbound-provider-imap:entity:__action-form__:field:smtpPort": "Puerto SMTP",
   "inboundMail.imap.connect.outgoing": "Envío",
   "inboundMail.imap.connect.outgoingHint":
-    "Las respuestas salen desde esta dirección a través de tu propio servidor de correo, con el mismo usuario y contraseña. Deja el campo vacío si el servidor se llama como el servidor IMAP, con smtp. en lugar de imap. Normalmente 587, aunque tu proveedor indique 465/SSL.",
+    "Las respuestas salen desde esta dirección a través de tu propio servidor de correo, con el mismo usuario y contraseña. Deja el campo vacío si el servidor se llama como el servidor IMAP, con smtp. en lugar de imap. Normalmente 587, aunque tu proveedor indique 465/SSL. El puerto 465 significa SSL/TLS, cualquier otro puerto significa STARTTLS.",
   "inbound-provider-imap:entity:__action-form__:field:trustedAuthservId":
     "Identificador del servidor de correo",
   "inboundMail.imap.connect.senderCheck": "Verificación del remitente",
