@@ -1,5 +1,5 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, isUuid } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { userEntity, userTable } from "../schema/user.ts";
@@ -34,6 +34,8 @@ export const meQuery = defineQueryHandler({
     const db = ctx.systemDb.acknowledgeCrossTenant(
       "user rows are tenant-agnostic identity records; self-lookup by id needs no tenant filter",
     );
+    // Anonymous and system callers carry no uuid; querying the uuid column with one fails the tx.
+    if (!isUuid(query.user.id)) return null;
     const row = await crud.detail({ id: query.user.id }, query.user, db);
     // `timezone` on the row is only the stored override (often unset); clients
     // need the effective zone (override, else tenant, else UTC) to compute "today".
