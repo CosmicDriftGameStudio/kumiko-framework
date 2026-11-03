@@ -77,7 +77,7 @@ export const downloadByTokenQuery = defineQueryHandler({
   }),
   // public-intake: rejected attempts store the anonymous caller's IP in the audit row.
   access: {
-    roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"],
+    roles: ["anonymous"],
     personalData: "public-intake",
     anySignedIn: true,
   },

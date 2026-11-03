@@ -62,7 +62,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     name: "request-deletion-by-email",
     schema: z.object({ email: z.email() }),
     access: {
-      roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"],
+      roles: ["anonymous"],
       anySignedIn: true,
     },
     description:

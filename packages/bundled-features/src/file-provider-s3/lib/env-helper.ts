@@ -1,3 +1,4 @@
+import { requiredEnvFor } from "@cosmicdrift/kumiko-framework/env";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { createS3Provider, type S3ProviderConfig } from "./s3-provider.ts";
 
@@ -18,6 +19,7 @@ export function createS3ProviderFromEnv(prefix = "S3_"): FileStorageProvider {
 // unit-testable without spinning up an S3Client. The returned config is a
 // plain object — pass it to createS3Provider to get a working provider.
 export function parseS3EnvConfig(prefix: string): S3ProviderConfig {
+  const requireEnv = requiredEnvFor("S3 file provider", process.env);
   const bucket = requireEnv(`${prefix}BUCKET`);
   const region = requireEnv(`${prefix}REGION`);
   const accessKeyId = requireEnv(`${prefix}ACCESS_KEY`);
@@ -38,12 +40,4 @@ export function parseS3EnvConfig(prefix: string): S3ProviderConfig {
       forcePathStyle: forcePathStyleRaw === "true",
     }),
   };
-}
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === "") {
-    throw new Error(`missing_env: ${name} is required to construct the S3 file provider`);
-  }
-  return value;
 }

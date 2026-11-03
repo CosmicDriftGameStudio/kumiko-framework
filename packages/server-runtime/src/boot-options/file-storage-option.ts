@@ -2,6 +2,7 @@ import { createFileProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-f
 import {
   createFileProviderS3Feature,
   createFileProviderS3NamedEnvFeature,
+  isAcceptableS3Endpoint,
 } from "@cosmicdrift/kumiko-bundled-features/file-provider-s3";
 import {
   type FeatureDefinition,
@@ -83,6 +84,22 @@ function assertNamedProviderNames(named: readonly NamedS3FileProvider[]): void {
   }
 }
 
+function assertEndpointsAcceptable(
+  envSource: Record<string, string | undefined>,
+  isProduction: boolean,
+  providers: readonly { readonly label: string; readonly envPrefix: string }[],
+): void {
+  for (const { label, envPrefix } of providers) {
+    const key = `${envPrefix}ENDPOINT`;
+    const endpoint = envSource[key];
+    if (endpoint && !isAcceptableS3Endpoint(endpoint, isProduction)) {
+      throw new Error(
+        `[runProdApp] fileStorage ${label}: ${key} must use https unless the host is loopback (NODE_ENV=production).`,
+      );
+    }
+  }
+}
+
 function buildProviderFeature(provider: FileStorageProviderName): FeatureDefinition {
   return provider === "s3-env"
     ? createFileProviderS3Feature({ fromEnv: true })
@@ -133,6 +150,10 @@ export function resolveFileStorageOption(
   }
   const named = additional.filter(isNamedS3FileProvider);
   assertNamedProviderNames(named);
+  assertEndpointsAcceptable(deps.envSource, deps.isProduction, [
+    ...(wanted.has("s3-env") ? [{ label: '"s3-env"', envPrefix: "S3_" }] : []),
+    ...named.map((entry) => ({ label: `provider "${entry.name}"`, envPrefix: entry.envPrefix })),
+  ]);
   for (const entry of named) {
     const missing = entry.lazy ? [] : missingEnvKeys(deps.envSource, s3KeysOf(entry.envPrefix));
     if (missing.length > 0) {

@@ -19,6 +19,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import * as jose from "jose";
 import { createInMemoryTransport } from "../../channel-email/types.ts";
 import { createConfigFeature } from "../../config/feature.ts";
 import { configValuesTable } from "../../config/table.ts";
@@ -360,6 +361,76 @@ describe("resubscribe at the generation limit", () => {
 
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: { code: DeliveryErrors.resubscribeLimitReached } });
+  });
+});
+
+describe("write failures behind a valid token", () => {
+  // A tenant id the event store cannot take: the token verifies, the write itself fails.
+  const unwritableTenant = "not-a-tenant-id" as TenantId;
+  const ADDRESS = "write-fails@external.test";
+
+  async function unwritableUnsubscribeToken(): Promise<string> {
+    return signAddressUnsubscribeToken(
+      {
+        tenantId: unwritableTenant,
+        notificationType: NEWS,
+        channel: "email",
+        address: ADDRESS,
+        locale: "de",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+  }
+
+  async function unwritableUndoToken(): Promise<string> {
+    const addressHash = hashUnsubscribeAddress(ADDRESS);
+    if (addressHash === undefined) throw new Error("blind-index key not configured for this test");
+    return new jose.SignJWT({
+      tenantId: unwritableTenant,
+      notificationType: NEWS,
+      channel: "email",
+      addressHash,
+      kind: "address",
+      locale: "de",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(addressHash)
+      .setIssuer("kumiko:unsubscribe")
+      .setAudience("kumiko:resubscribe")
+      .setIssuedAt()
+      .setExpirationTime("10m")
+      .sign(new TextEncoder().encode(UNSUBSCRIBE_SECRET));
+  }
+
+  test("unsubscribe answers a localized HTML failure page with 500", async () => {
+    const res = await postForm(DELIVERY_UNSUBSCRIBE_PATH, {
+      token: await unwritableUnsubscribeToken(),
+    });
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toContain('<html lang="de">');
+  });
+
+  test("resubscribe by form answers a localized HTML failure page with 500", async () => {
+    const res = await postForm(DELIVERY_RESUBSCRIBE_PATH, { token: await unwritableUndoToken() });
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain('<html lang="de">');
+    expect(html).toContain("Bitte später noch einmal versuchen.");
+  });
+
+  test("resubscribe by JSON still answers the JSON failure code with 500", async () => {
+    const res = await stack.app.request(DELIVERY_RESUBSCRIBE_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: await unwritableUndoToken() }),
+    });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: { code: "resubscribe_failed" } });
   });
 });
 

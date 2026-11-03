@@ -1,26 +1,27 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { s3EndpointSchema } from "../env-schema.ts";
+import { describe, expect, test } from "bun:test";
+import { isAcceptableS3Endpoint } from "../env-schema.ts";
 
-describe("s3EndpointSchema", () => {
-  const originalNodeEnv = process.env["NODE_ENV"];
-  afterEach(() => {
-    if (originalNodeEnv === undefined) delete process.env["NODE_ENV"];
-    else process.env["NODE_ENV"] = originalNodeEnv;
-  });
-
+describe("isAcceptableS3Endpoint", () => {
   test("outside production a compose hostname over http is accepted", () => {
-    process.env["NODE_ENV"] = "development";
-    expect(s3EndpointSchema.safeParse("http://minio:9000").success).toBe(true);
+    expect(isAcceptableS3Endpoint("http://minio:9000", false)).toBe(true);
   });
 
   test("in production http on a remote host is rejected", () => {
-    process.env["NODE_ENV"] = "production";
-    expect(s3EndpointSchema.safeParse("http://minio:9000").success).toBe(false);
+    expect(isAcceptableS3Endpoint("http://minio:9000", true)).toBe(false);
   });
 
   test("in production https and loopback http stay accepted", () => {
-    process.env["NODE_ENV"] = "production";
-    expect(s3EndpointSchema.safeParse("https://s3.example.com").success).toBe(true);
-    expect(s3EndpointSchema.safeParse("http://localhost:9000").success).toBe(true);
+    expect(isAcceptableS3Endpoint("https://s3.example.com", true)).toBe(true);
+    expect(isAcceptableS3Endpoint("http://localhost:9000", true)).toBe(true);
+  });
+
+  test("ignores the ambient process NODE_ENV", () => {
+    const original = process.env["NODE_ENV"];
+    delete process.env["NODE_ENV"];
+    try {
+      expect(isAcceptableS3Endpoint("http://s3.example.com", true)).toBe(false);
+    } finally {
+      if (original !== undefined) process.env["NODE_ENV"] = original;
+    }
   });
 });

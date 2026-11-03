@@ -4,7 +4,6 @@ import { issueChallenge } from "../challenge.ts";
 import { CHALLENGE_RATE_LIMIT, type HelpdeskSettings } from "../options.ts";
 import { HelpdeskEmptySchema } from "../payloads.ts";
 import { HELPDESK_WEBSITE_KINDS, type HelpdeskPhoneMode } from "../web/constants.ts";
-import { SUBMIT_ROLES } from "./access.ts";
 
 export type HelpdeskChallengeData = {
   readonly challenge: string;
@@ -17,7 +16,7 @@ export function createChallengeQuery(settings: HelpdeskSettings) {
   return defineQueryHandler({
     name: "challenge",
     schema: HelpdeskEmptySchema,
-    access: { roles: SUBMIT_ROLES, personalData: "public-intake", anySignedIn: true },
+    access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit: CHALLENGE_RATE_LIMIT,
     agent: { expose: false },
     description:

@@ -72,6 +72,36 @@ describe("fileStorage option", () => {
     expect(resolved.envDefaults).toEqual({ FILE_STORAGE_PROVIDER: "s3-env" });
   });
 
+  test("plain http to a remote S3 endpoint is refused by the booted env, not process.env", () => {
+    const env = { ...S3_ENV, S3_ENDPOINT: "http://s3.example.com" };
+    expect(process.env["NODE_ENV"]).not.toBe("production");
+    expect(() =>
+      resolveFileStorageOption(
+        { provider: "s3-env" },
+        { ...base, isProduction: true, envSource: env },
+      ),
+    ).toThrow(/S3_ENDPOINT must use https/);
+    expect(
+      resolveFileStorageOption(
+        { provider: "s3-env" },
+        { ...base, isProduction: false, envSource: env },
+      ).provider,
+    ).toBe("s3-env");
+  });
+
+  test("a named provider endpoint over remote http is refused in production", () => {
+    expect(() =>
+      resolveFileStorageOption(
+        { provider: "s3-env", providers: [{ name: "rel", envPrefix: "REL_S3_", lazy: true }] },
+        {
+          ...base,
+          isProduction: true,
+          envSource: { ...S3_ENV, REL_S3_ENDPOINT: "http://s3.example.com" },
+        },
+      ),
+    ).toThrow(/REL_S3_ENDPOINT must use https/);
+  });
+
   test('"auto" in production without S3 names the missing keys', () => {
     expect(() =>
       resolveFileStorageOption(

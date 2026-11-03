@@ -2,20 +2,20 @@ import * as z from "zod";
 
 const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-// The bucket holds tenant files, so in production a remote endpoint must be
-// https. Outside production plain http stays allowed, also for compose-network
-// hostnames (minio, rustfs) that are not loopback.
-function isAcceptableEndpoint(value: string): boolean {
+/** The bucket holds tenant files, so in production a remote endpoint must be
+ *  https. Outside production plain http stays allowed, also for compose-network
+ *  hostnames (minio, rustfs) that are not loopback. `isProduction` comes from the
+ *  env being booted: a field schema cannot see sibling vars, so the caller
+ *  (resolveFileStorageOption) applies this per endpoint. */
+export function isAcceptableS3Endpoint(value: string, isProduction: boolean): boolean {
   if (!URL.canParse(value)) return false;
   const url = new URL(value);
   if (url.protocol === "https:") return true;
-  return process.env["NODE_ENV"] !== "production" || LOOPBACK_HOSTNAMES.has(url.hostname);
+  return !isProduction || LOOPBACK_HOSTNAMES.has(url.hostname);
 }
 
-/** S3-compatible endpoint URL: https, or http on a loopback host; any http host outside `NODE_ENV=production`. */
-export const s3EndpointSchema = z
-  .url({ protocol: /^https?$/ })
-  .refine(isAcceptableEndpoint, "must use https unless the host is loopback");
+/** S3-compatible endpoint URL (http or https); the production https rule is `isAcceptableS3Endpoint`. */
+export const s3EndpointSchema = z.url({ protocol: /^https?$/ });
 
 function buildS3Shape(prefix: string) {
   return {

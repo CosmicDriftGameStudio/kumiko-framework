@@ -807,7 +807,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.actions": "Acciones",
   "kumiko.field.embedded-list.add-row": "Añadir fila",
   "kumiko.field.embedded-list.cell-label": "{column}, fila {row}",
-  "kumiko.field.embedded-list.limit-range": "Límite {min} a {max}",
+  "kumiko.field.embedded-list.limit-range": "Límite de {min} a {max}",
   "kumiko.field.embedded-list.limit-min": "Al menos {min}",
   "kumiko.field.embedded-list.limit-max": "Como máximo {max}",
   "kumiko.field.embedded-list.duplicate-row": "Duplicar fila",
