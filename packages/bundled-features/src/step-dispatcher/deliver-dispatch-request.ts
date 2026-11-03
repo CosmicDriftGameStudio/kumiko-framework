@@ -261,6 +261,14 @@ async function abortOnFinalAttempt(
       await recorder.recordFailure(rawStepKindOf(requestedPayload), FINAL_ATTEMPT_ABORTED_ERROR);
     }
   } catch {
+    // No outcome and no further retry: the request payload must not stay decryptable. A later
+    // redelivery then ends as "payload erased" instead of sending again.
+    await eraseDispatchKey(aggregateId).catch((eraseErr: unknown) => {
+      log.warn("dispatch key erase failed after an unrecorded final attempt", {
+        aggregateId,
+        errorName: eraseErr instanceof Error ? eraseErr.name : "unknown",
+      });
+    });
     throw new Error(FINAL_ATTEMPT_UNRECORDED_ERROR);
   }
 }

@@ -49,3 +49,24 @@ export async function deleteSnapshotsOfAggregates(
   );
   return deleted.length;
 }
+
+// Returns the number of events whose header carried the key; with dryRun nothing is written.
+export async function removeEventHeaderKey(
+  db: DbRunner,
+  args: { readonly eventTypes: readonly string[]; readonly key: string; readonly dryRun: boolean },
+): Promise<number> {
+  const types = toPostgresArrayLiteral([...args.eventTypes]);
+  const rows = args.dryRun
+    ? await asRawClient(db).unsafe(
+        `SELECT "id" FROM "kumiko_events"
+          WHERE "type" = ANY($1::text[]) AND "metadata"->'headers' ? $2`,
+        [types, args.key],
+      )
+    : await asRawClient(db).unsafe(
+        `UPDATE "kumiko_events" SET "metadata" = "metadata" #- ARRAY['headers', $2]::text[]
+          WHERE "type" = ANY($1::text[]) AND "metadata"->'headers' ? $2
+          RETURNING "id"`,
+        [types, args.key],
+      );
+  return rows.length;
+}

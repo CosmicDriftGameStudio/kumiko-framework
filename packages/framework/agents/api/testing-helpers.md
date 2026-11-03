@@ -42,9 +42,9 @@ function resetTestTables(db: AnyDb, tables: ClearableTable[]): Promise<void>; //
 function rolesOf(access: AccessRule | undefined): string[];
 function runInRowLevelSecurityScope<T>(scope: RowLevelSecurityScope, fn: () => T): T;
 function runInSystemRowLevelSecurityScope<T>(reason: string, fn: () => T): T;
-function seedRow<TRow = unknown>(db: AnyDb, table: SeedTable, values: Record<string, unknown>): Promise<TRow | undefined>;
+function seedRow<TRow = unknown>(db: AnyDb, table: SeedTable, values: Record<string, unknown>, options?: SeedOptions): Promise<TRow | undefined>;
 function seedRowViaEventStore(db: DbConnection, table: EventStoreWriteTarget["table"], values: Readonly<Record<string, unknown>>): Promise<void>;
-function seedRows<TRow = unknown>(db: AnyDb, table: SeedTable, rows: ReadonlyArray<Record<string, unknown>>): Promise<TRow[]>;
+function seedRows<TRow = unknown>(db: AnyDb, table: SeedTable, rows: ReadonlyArray<Record<string, unknown>>, options?: SeedOptions): Promise<TRow[]>;
 function sleep(ms: number): Promise<unknown>;
 function tenantRowLevelSecurityScope(tenantId: TenantId): RowLevelSecurityScope;
 function terminateBackendsByApplicationName(admin: AdminClient, applicationName: string): Promise<void>;

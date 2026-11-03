@@ -4,7 +4,7 @@
 // Factored out of test-files so any package can opt in (samples, downstream
 // feature tests) without re-inventing a Map-backed mock.
 
-import type { FileStorageProvider } from "./types.ts";
+import { FileObjectMissingError, type FileStorageProvider } from "./types.ts";
 
 export type InMemoryFileProvider = FileStorageProvider & {
   // Test-only introspection: keys currently stored. Useful for assertions
@@ -54,7 +54,7 @@ export function createInMemoryFileProvider(): InMemoryFileProvider {
 
     async read(key) {
       const entry = store.get(key);
-      if (!entry) throw new Error(`in-memory file not found: ${key}`);
+      if (!entry) throw new FileObjectMissingError(key, `in-memory file not found: ${key}`);
       return new Uint8Array(entry.data);
     },
 

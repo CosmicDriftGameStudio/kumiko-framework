@@ -107,6 +107,20 @@ describe("inline attachments without a provider resolver", () => {
 });
 
 describe("inline attachment read failures", () => {
+  test("an inline image whose stored object is gone is skipped instead of failing the mail", async () => {
+    const fileRefId = await uploadLogo();
+    const emptyProvider = createInMemoryFileProvider();
+    const read = createEmailAttachmentReader(
+      stack.db,
+      stack.registry,
+      jobTenantId,
+      undefined,
+      (tenantId) => createFileContext(() => Promise.resolve(emptyProvider), tenantId as TenantId),
+    );
+
+    expect(await read({ kind: "inline", cid: "logo", fileRefId }, "template")).toBeNull();
+  });
+
   test("a storage read error propagates so the send job retries", async () => {
     const fileRefId = await uploadLogo();
     const failingProvider = {

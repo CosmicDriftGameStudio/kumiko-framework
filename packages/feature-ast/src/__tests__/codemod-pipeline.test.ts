@@ -88,7 +88,7 @@ import { z } from "zod";
 export const myHandler = defineWriteHandler({
   name: "test:static",
   schema: z.object({}),
-  access: { roles: access.authenticated },
+  access: { roles: access.builtinUserRoles },
   handler: async () => ({ isSuccess: true, data: { ok: true } }),
 });
 `;
@@ -100,7 +100,7 @@ import { z } from "zod";
 export const myHandler = defineWriteHandler({
   name: "test:create",
   schema: z.object({ label: z.string() }),
-  access: { roles: access.authenticated },
+  access: { roles: access.builtinUserRoles },
   handler: async (event, ctx) => {
     const result = await invoiceExecutor.create({ label: event.payload.label });
     return { isSuccess: true, data: result };
@@ -115,7 +115,7 @@ import { z } from "zod";
 export const myHandler = defineWriteHandler({
   name: "test:update",
   schema: z.object({ id: z.string(), changes: z.record(z.unknown()) }),
-  access: { roles: access.authenticated },
+  access: { roles: access.builtinUserRoles },
   handler: async (event, ctx) => {
     const result = await invoiceExecutor.update({ id: event.payload.id, changes: event.payload.changes });
     return { isSuccess: true, data: result };
@@ -130,7 +130,7 @@ import { z } from "zod";
 export const myHandler = defineWriteHandler({
   name: "test:complex",
   schema: z.object({ value: z.number() }),
-  access: { roles: access.authenticated },
+  access: { roles: access.builtinUserRoles },
   handler: async (event, ctx) => {
     if (event.payload.value < 0) {
       return { isSuccess: false, error: "negative" };
@@ -148,7 +148,7 @@ import { z } from "zod";
 export const myHandler = defineWriteHandler({
   name: "test:pipeline",
   schema: z.object({}),
-  access: { roles: access.authenticated },
+  access: { roles: access.builtinUserRoles },
   perform: stepsPipeline(({ event, r }) => [
     r.step.return((ctx) => ({ isSuccess: true, data: { ok: true } })),
   ]),
@@ -260,7 +260,7 @@ import { z } from "zod";
 export const h = defineWriteHandler({
   name: "test",
   schema: z.object({}),
-  access: { roles: access.authenticated },
+  access: { roles: access.builtinUserRoles },
   handler: async (event, ctx) => {
     const result = await invoiceExecutor.create({ label: "x" });
     return {

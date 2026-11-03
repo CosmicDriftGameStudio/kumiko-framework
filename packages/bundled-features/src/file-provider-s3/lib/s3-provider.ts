@@ -1,8 +1,10 @@
 import {
   assertSafeStorageKey,
+  FileObjectMissingError,
   type FileStorageProvider,
   type SignedUrlOptions,
 } from "@cosmicdrift/kumiko-framework/files";
+import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 // =============================================================================
 // Required operator setup (multipart-upload cleanup)
@@ -138,7 +140,12 @@ export function createS3Provider(config: S3ProviderConfig): FileStorageProvider 
 
     async read(key): Promise<Uint8Array> {
       assertSafeStorageKey(key);
-      return new Uint8Array(await client.file(key).arrayBuffer());
+      try {
+        return new Uint8Array(await client.file(key).arrayBuffer());
+      } catch (e) {
+        if (errorCodeOf(e) === "NoSuchKey") throw new FileObjectMissingError(key);
+        throw e;
+      }
     },
 
     readStream(key): AsyncIterable<Uint8Array> {

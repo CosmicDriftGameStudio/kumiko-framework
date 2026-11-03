@@ -111,7 +111,7 @@ const testInvoiceFeature: FeatureDefinition = defineFeature("test-invoice", (r) 
     create: r.writeHandler({
       name: "create",
       schema: z.object({ amount: z.string() }),
-      access: { roles: access.authenticated },
+      access: { roles: access.builtinUserRoles },
       description: "test-only invoice creation for the retention-preset forget test",
       handler: async (event, ctx) =>
         invoiceCrud.create({ amount: event.payload.amount }, event.user, ctx.db),

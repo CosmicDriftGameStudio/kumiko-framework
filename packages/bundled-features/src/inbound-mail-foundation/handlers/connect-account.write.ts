@@ -12,7 +12,7 @@
 //     stays fast and offline-capable (the test result arrives asynchronously
 //     as a status transition).
 //   - No second account for one address: a live or disconnected address is
-//     refused (409 reasons in InboundMailConnectErrors); only a disconnected or
+//     refused (a disconnected personal mailbox gives way to a shared one) (409 reasons in InboundMailConnectErrors); only a disconnected or
 //     sign-in-failed OAuth mailbox is reopened in place, keeping its account id and cursor.
 //     The reopen returns the existing id and changes nothing yet; the callback re-arms it.
 
@@ -128,11 +128,13 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
             data: { accountId: existing.id, reconnected: true as const },
           };
         }
-        const { reason, i18nKey } =
-          conflict === "address_disconnected"
-            ? InboundMailConnectErrors.addressDisconnected
-            : InboundMailConnectErrors.addressAlreadyConnected;
-        return writeFailure(new UnprocessableError(reason, { i18nKey }));
+        if (conflict !== "replace_disconnected_personal") {
+          const { reason, i18nKey } =
+            conflict === "address_disconnected"
+              ? InboundMailConnectErrors.addressDisconnected
+              : InboundMailConnectErrors.addressAlreadyConnected;
+          return writeFailure(new UnprocessableError(reason, { i18nKey }));
+        }
       }
 
       // PII-encrypt the address before the append. This is the only write path to

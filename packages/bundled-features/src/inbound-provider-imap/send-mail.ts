@@ -104,7 +104,9 @@ export async function sendFromImapAccount(
     throw err instanceof SmtpFailureError ? toFoundationSendError(err) : err;
   }
 
-  await appendToSentFolder(doc, raw, account.id);
+  // Detached: the copy is best effort and must not keep the caller (maybe inside a request
+  // transaction) waiting for another server round trip; appendToSentFolder never rejects.
+  void appendToSentFolder(doc, raw, account.id);
   return {
     messageIdHeader: stripAngles(mime.messageId()),
     ...(rejectedRecipients.length > 0 && { rejectedRecipients }),

@@ -1,5 +1,11 @@
 // Drizzle-free gate (kumiko/migrations system) — the canonical boot-gate.
 
+// Removes chosen keys from the headers of stored events.
+export {
+  type ScrubEventHeaderOptions,
+  type ScrubEventHeaderResult,
+  scrubEventHeaderKeys,
+} from "./event-header-scrub.ts";
 // Erases chosen payload fields of stored events and rebuilds the projections fed by them.
 export {
   type EventScrubCandidate,

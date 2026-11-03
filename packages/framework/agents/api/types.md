@@ -2866,6 +2866,9 @@ type ClockStep = {
 ## packages/testing/src/helpers/seed.ts
 
 ```ts
+type SeedOptions = {
+  projectionOnly?: string;
+};
 type SeedTable = EntityTable | EntityTableMeta;
 ```
 

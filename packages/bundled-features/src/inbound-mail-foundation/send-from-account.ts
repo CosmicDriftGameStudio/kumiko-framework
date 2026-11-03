@@ -93,8 +93,10 @@ function isSendableBy(row: MailAccountRow, user: SendMailFromAccountContext["use
   return row.status !== InboundMailAccountStatuses.disconnected && isVisibleToCaller(row, user);
 }
 
-// Sends immediately and cannot be rolled back: called inside a handler transaction it holds the
-// connection for the whole SMTP/IMAP round trip, and a later rollback would not recall the mail.
+// Sends immediately and cannot be rolled back. Call it from a handler's `beforeTransaction`
+// (its ctx fits here): in the handler body the request transaction would stay open for the whole
+// SMTP/IMAP round trip, and a later rollback would not recall the mail. Pass the result on as the
+// hook's data; a client retry after a failed handler still sends a second copy.
 export async function sendMailFromAccount(
   ctx: SendMailFromAccountContext,
   input: SendMailFromAccountInput,

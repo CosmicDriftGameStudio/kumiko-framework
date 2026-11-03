@@ -234,7 +234,7 @@ const WORKFLOW_RUN_STARTED_TYPE: "kumiko:system:workflow.run-started";
 const WORKFLOW_SYSTEM_EVENT_DEFS: ReadonlyMap<string, EventDef>;
 const WORKFLOW_WAITING_FOR_EVENT_TYPE: "kumiko:system:workflow.step.waiting-for-event";
 const WORKFLOW_WAITING_TYPE: "kumiko:system:workflow.step.waiting";
-const access: { all; admin; systemAdmin; system; privileged; authenticated; anonymous; roles; withSystem };
+const access: { all; admin; systemAdmin; system; privileged; builtinUserRoles; anonymous; roles; withSystem };
 const entityListSchema;
 const templateVariable: { text; link; richText; money; date; percent; images; list };
 ```

@@ -14,6 +14,7 @@ import {
   prepareConsent,
   recordConsent,
 } from "../consumer-protection/consent-gate.ts";
+import { assertNoPendingPlanSwitch, recordPlanSwitchRequested } from "../pending-plan-switch.ts";
 import { purchaseRolesOf } from "../plan-catalog.ts";
 import { type PreparedPlanSwitch, preparePlanSwitch } from "../plan-switch.ts";
 import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types.ts";
@@ -64,8 +65,8 @@ export function createSwitchPlanHandler(
   };
 }
 
-// Consent is recorded before the provider call, and a failing apply rolls the whole handler
-// back. The webhook later picks the consent up again through pendingSwitchConsentId.
+// Consent and the pending marker are recorded before the provider call, and a failing apply rolls
+// the whole handler back. The webhook later picks the consent up again through pendingSwitchConsentId.
 async function applyInApp(
   prepared: PreparedPlanSwitch,
   payload: { readonly tier: string; readonly consent?: ConsentPayload },
@@ -78,6 +79,7 @@ async function applyInApp(
       message: `billing-foundation: provider "${providerName}" has neither createPlanSwitchSession nor applyPlanSwitch`,
     });
   }
+  await assertNoPendingPlanSwitch(ctx, options.now());
   const consent = options.consumerProtection
     ? await prepareConsent(
         ctx,
@@ -95,6 +97,11 @@ async function applyInApp(
       providerName,
     });
   }
+  await recordPlanSwitchRequested(ctx, {
+    tier: payload.tier,
+    priceId: prepared.target.priceId,
+    now: options.now(),
+  });
   await plugin.applyPlanSwitch(ctx, {
     providerSubscriptionId: prepared.subscription.providerSubscriptionId,
     targetPriceId: prepared.target.priceId,

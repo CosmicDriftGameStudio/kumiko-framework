@@ -138,6 +138,9 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
     en: "This subscription is scheduled to end. Reactivate it before switching plans.",
   },
   "billing-foundation.errors.alreadyOnPlan": { en: "This tenant is already on that plan." },
+  "billing-foundation.errors.planSwitchPending": {
+    en: "A plan switch is already being processed. Wait a moment for it to complete.",
+  },
   "billing-foundation.errors.planSwitchNotSupported": {
     en: "This provider does not support switching plans.",
   },
