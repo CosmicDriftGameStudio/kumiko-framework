@@ -145,6 +145,8 @@ export type CreateKumikoServerOptions = {
   }>;
   /** @internal — replaces the native directory watcher in tests. */
   readonly _watchDirectory?: DirectoryWatchEvents;
+  /** @internal — replaces the Tailwind pipeline in tests. */
+  readonly _startStylesheet?: typeof startDevStylesheet;
   /** Absolute path to the CSS entry (typically styles.css with
    *  @import "tailwindcss"). The dev-server builds it with the Tailwind
    *  CLI and serves the result at /styles.css; `stylesheetWatch` decides
@@ -285,68 +287,74 @@ export async function createKumikoServer(
   const entries = normalizeEntries(options);
   const buildBundle = options._buildBundle ?? buildClient;
   const clientBundles = await buildClientBundles(entries, buildBundle);
-  const stylesheet = await startDevStylesheet(options);
-  const templates = await loadHtmlTemplates(entries, options.htmlPath);
+  const stylesheet = await (options._startStylesheet ?? startDevStylesheet)(options);
+  try {
+    const templates = await loadHtmlTemplates(entries, options.htmlPath);
 
-  const dbMode = resolveDevDbMode(process.env);
-  const { stack, ownedRedisSseBroker } = await bootDevStack(options, dbMode);
-  const devJobRunners = await startDevBackgroundRunners(stack, dbMode.jobQueueNamePrefix);
-  // Built once purely to surface authoring warnings (settings-hub placement
-  // etc.) at the same point prod would; clients fetch the schema themselves
-  // from GET /api/schema, so the result is discarded.
-  buildAppSchema(stack.registry, {
-    authoringWarnings: true,
-    searchAdapterMissing: !stack.context.searchAdapter,
-  });
+    const dbMode = resolveDevDbMode(process.env);
+    const { stack, ownedRedisSseBroker } = await bootDevStack(options, dbMode);
+    const devJobRunners = await startDevBackgroundRunners(stack, dbMode.jobQueueNamePrefix);
+    // Built once purely to surface authoring warnings (settings-hub placement
+    // etc.) at the same point prod would; clients fetch the schema themselves
+    // from GET /api/schema, so the result is discarded.
+    buildAppSchema(stack.registry, {
+      authoringWarnings: true,
+      searchAdapterMissing: !stack.context.searchAdapter,
+    });
 
-  const reloadHub = createReloadHub();
-  const handleFetch = createDevFetchHandler({
-    options,
-    stack,
-    entries,
-    clientBundles,
-    templates,
-    stylesheetPath: stylesheet?.outPath,
-    reloadHub,
-  });
-  const server = startDevHttpServer(port, handleFetch, stack);
+    const reloadHub = createReloadHub();
+    const handleFetch = createDevFetchHandler({
+      options,
+      stack,
+      entries,
+      clientBundles,
+      templates,
+      stylesheetPath: stylesheet?.outPath,
+      reloadHub,
+    });
+    const server = startDevHttpServer(port, handleFetch, stack);
 
-  const watcherAbort = new AbortController();
-  const stop = createDevServerStop({
-    watcherAbort,
-    killTailwind: stylesheet?.kill,
-    server,
-    stack,
-    devJobRunners,
-    dbMode,
-    ownedRedisSseBroker,
-  });
-  startDevFileWatchers({
-    entries,
-    watchDirs: options.watchDirs,
-    watchDirectory: options._watchDirectory,
-    signal: watcherAbort.signal,
-    buildBundle,
-    clientBundles,
-    reloadHub,
-    stop,
-  });
-  if (options.installSignalHandlers ?? true) installDevSignalHandlers(stop);
+    const watcherAbort = new AbortController();
+    const stop = createDevServerStop({
+      watcherAbort,
+      killTailwind: stylesheet?.kill,
+      server,
+      stack,
+      devJobRunners,
+      dbMode,
+      ownedRedisSseBroker,
+    });
+    startDevFileWatchers({
+      entries,
+      watchDirs: options.watchDirs,
+      watchDirectory: options._watchDirectory,
+      signal: watcherAbort.signal,
+      buildBundle,
+      clientBundles,
+      reloadHub,
+      stop,
+    });
+    if (options.installSignalHandlers ?? true) installDevSignalHandlers(stop);
 
-  if (server !== undefined) {
-    logInfo(
-      `[kumiko-server] listening on http://localhost:${port}` +
-        (entries.length > 0
-          ? ` (hot reload on ${entries.length === 1 ? "client entry" : `${entries.length} entries`})`
-          : ""),
-    );
+    if (server !== undefined) {
+      logInfo(
+        `[kumiko-server] listening on http://localhost:${port}` +
+          (entries.length > 0
+            ? ` (hot reload on ${entries.length === 1 ? "client entry" : `${entries.length} entries`})`
+            : ""),
+      );
+    }
+    return {
+      fetch: handleFetch,
+      server,
+      stack,
+      stop,
+      jobQueueNamePrefix: dbMode.jobQueueNamePrefix,
+      sseChannelPrefix: dbMode.sseChannelPrefix,
+    };
+  } catch (err) {
+    // No stop() exists yet, so a failed boot would leave the --watch child running.
+    stylesheet?.kill();
+    throw err;
   }
-  return {
-    fetch: handleFetch,
-    server,
-    stack,
-    stop,
-    jobQueueNamePrefix: dbMode.jobQueueNamePrefix,
-    sseChannelPrefix: dbMode.sseChannelPrefix,
-  };
 }

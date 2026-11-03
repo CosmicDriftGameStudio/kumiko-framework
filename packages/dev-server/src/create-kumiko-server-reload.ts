@@ -62,14 +62,19 @@ export function broadcastReload(hub: DevReloadHub, changedFile: string): void {
 
 export function openReloadStream(hub: DevReloadHub): Response {
   const encoder = new TextEncoder();
+  let entry: ReloadClient | undefined;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const entry: ReloadClient = { controller, encoder, closed: false };
+      entry = { controller, encoder, closed: false };
       hub.clients.add(entry);
       controller.enqueue(encoder.encode(": connected\n\n"));
       controller.enqueue(encoder.encode(`event: boot\ndata: ${hub.bootId}\n\n`));
     },
     cancel() {
+      if (entry !== undefined) {
+        entry.closed = true;
+        hub.clients.delete(entry);
+      }
       for (const c of hub.clients) {
         if (c.closed) hub.clients.delete(c);
       }

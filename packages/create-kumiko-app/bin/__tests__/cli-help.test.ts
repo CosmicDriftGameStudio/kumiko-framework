@@ -56,6 +56,7 @@ describe("create-kumiko-app --help", () => {
       console.log(JSON.stringify({ code, modules: Object.keys(require.cache) }));
     `;
     const proc = Bun.spawnSync(["bun", "-e", probe], { cwd, stdout: "pipe", stderr: "pipe" });
+    expect(proc.exitCode, proc.stderr.toString()).toBe(0);
     const parsed: unknown = JSON.parse(proc.stdout.toString());
     if (
       typeof parsed !== "object" ||

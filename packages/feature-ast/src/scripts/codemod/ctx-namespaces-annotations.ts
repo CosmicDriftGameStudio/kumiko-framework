@@ -2,6 +2,7 @@ import { Node, Project, type SourceFile, SyntaxKind, type Type } from "ts-morph"
 import { ensureNamedImport, removeNamedImport } from "./codemod-support.ts";
 import type { EditPlan } from "./ctx-namespaces-edits.ts";
 import type { ContextKind } from "./ctx-namespaces-mapping.ts";
+import type { StructuralContextParameter } from "./ctx-namespaces-structural-types.ts";
 
 export interface NamedImportNeed {
   readonly specifier: string;
@@ -19,6 +20,10 @@ export class Counters {
   // Structural context type members moved in this run, so a type shared by several parameters is
   // rewritten once.
   readonly rewrittenMembers = new Set<Node>();
+  // Finding the kinds a parameter receives walks references recursively; every call site and the
+  // annotation visit ask for the same parameter.
+  readonly structuralParameters = new Map<Node, StructuralContextParameter | undefined>();
+  readonly typeSharedWithOthers = new Map<Node, boolean>();
 
   pinnedKindOf(expression: Node): ContextKind | undefined {
     if (!Node.isIdentifier(expression)) return undefined;

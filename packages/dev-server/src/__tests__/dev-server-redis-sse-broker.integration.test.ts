@@ -38,6 +38,8 @@ async function bootAndOpenSse(): Promise<{
   readonly channelPrefix: string;
   readonly arrival: () => SseOutcome;
 }> {
+  // createDefaultSseBroker silently falls back to in-memory without it, which would only surface as a waitFor timeout.
+  expect(process.env["REDIS_URL"]).toBeDefined();
   handle = await createKumikoServer({
     features: [probeFeature],
     port: 0,

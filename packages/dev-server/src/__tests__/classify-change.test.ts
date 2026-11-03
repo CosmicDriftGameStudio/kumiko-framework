@@ -5,13 +5,14 @@
 // changes fail to propagate (UX is broken). Both are costly, so we pin this behavior.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   classifyChange,
   classifyWatchedChange,
   isUnchangedSinceWatchStart,
+  probeFilesystemClockMs,
 } from "../create-kumiko-server-watcher.ts";
 
 describe("classifyChange", () => {
@@ -144,5 +145,24 @@ describe("isUnchangedSinceWatchStart", () => {
 
   test("missing file (deleted or renamed) → changed", () => {
     expect(isUnchangedSinceWatchStart(join(dir, "gone.ts"), watchStartedAtMs)).toBe(false);
+  });
+});
+
+describe("probeFilesystemClockMs", () => {
+  const dir = mkdtempSync(join(tmpdir(), "kumiko-watch-probe-"));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  test("a file saved at the probe's mtime counts as changed, not skipped", () => {
+    const probeMs = probeFilesystemClockMs(dir);
+    const path = join(dir, "same-tick.ts");
+    writeFileSync(path, "x");
+    utimesSync(path, probeMs / 1000, probeMs / 1000);
+    expect(isUnchangedSinceWatchStart(path, probeMs)).toBe(false);
+  });
+
+  test("removes its probe directory", () => {
+    const before = readdirSync(dir).length;
+    probeFilesystemClockMs(dir);
+    expect(readdirSync(dir).length).toBe(before);
   });
 });

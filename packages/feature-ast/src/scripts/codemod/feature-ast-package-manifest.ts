@@ -48,14 +48,16 @@ function mirrorOptionalPeer(record: Record<string, unknown>): void {
   }
 }
 
+function declaresInAnyBlock(record: Record<string, unknown>, packageName: string): boolean {
+  return DEPENDENCY_BLOCKS.some((name) => {
+    const block = record[name];
+    return isStringRecord(block) && packageName in block;
+  });
+}
+
 // Every block that declares framework needs the entry: a devDependencies-only add would leave
 // the published package (peerDependencies) without it.
 function addFeatureAstDependency(record: Record<string, unknown>): string[] {
-  const alreadyDeclared = DEPENDENCY_BLOCKS.some((name) => {
-    const block = record[name];
-    return isStringRecord(block) && NEW_PACKAGE in block;
-  });
-  if (alreadyDeclared) return [];
   const touched: string[] = [];
   for (const name of DEPENDENCY_BLOCKS) {
     const block = record[name];
@@ -83,6 +85,10 @@ export function transformPackageJson(
   }
   if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) return source;
   const record: Record<string, unknown> = { ...manifest };
+  // Cheap manifest checks first: the source walk below parses every matching file.
+  if (declaresInAnyBlock(record, NEW_PACKAGE) || !declaresInAnyBlock(record, FRAMEWORK_PACKAGE)) {
+    return source;
+  }
   if (!packageUsesFeatureAst(dirname(filePath), probe)) return source;
   const touched = addFeatureAstDependency(record);
   if (touched.length === 0) return source;
