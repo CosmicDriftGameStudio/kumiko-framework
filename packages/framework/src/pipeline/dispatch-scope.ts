@@ -2,7 +2,7 @@ import type { SessionUser } from "@cosmicdrift/kumiko-types/handlers";
 import {
   type RowLevelSecurityScope,
   runInRowLevelSecurityScope,
-  SYSTEM_ROW_LEVEL_SECURITY_SCOPE,
+  systemRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
 } from "../db/row-level-security-scope.ts";
 import type { Registry } from "../engine/types/index.ts";
@@ -16,7 +16,7 @@ export function dispatchRowLevelSecurityScope(
   user: SessionUser,
 ): RowLevelSecurityScope {
   return types.length > 0 && types.every((type) => registry.isHandlerSystemScoped(type))
-    ? SYSTEM_ROW_LEVEL_SECURITY_SCOPE
+    ? systemRowLevelSecurityScope("dispatch of system-scoped handlers")
     : tenantRowLevelSecurityScope(user.tenantId);
 }
 

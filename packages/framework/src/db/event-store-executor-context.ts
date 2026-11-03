@@ -615,9 +615,10 @@ export function buildExecutorContext(
     parentVisibility: ParentVisibilityOption | undefined,
   ): Promise<boolean> {
     const gate = { includeDeleted: false, narrowTypes: undefined };
+    const tableName = String(schemaTableName(table));
     const ownership = resolveReadOwnership(
       { entity, table },
-      String(schemaTableName(table)),
+      tableName,
       user,
       db,
       await withGlobalParentHosts({ entity, table }, user, db, parentVisibility, gate, {
@@ -628,7 +629,6 @@ export function buildExecutorContext(
     );
     if (ownership.kind === "pass") return true;
     if (ownership.kind === "empty") return false;
-    const tableName = String(schemaTableName(table));
     const { whereParts, params } = buildRawIdWhere(db, { id }, ownership);
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       tenantDbRunnerForTable(db, table),

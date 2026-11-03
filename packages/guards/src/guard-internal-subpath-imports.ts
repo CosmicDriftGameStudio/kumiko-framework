@@ -6,8 +6,7 @@
  * 2. `runInRowLevelSecurityScope`, `runInSystemRowLevelSecurityScope` and
  *    `tenantRowLevelSecurityScope` from `@cosmicdrift/kumiko-testing/helpers` are test-only.
  * 3. `runInSystemRowLevelSecurityScope` and `systemScopedRunner` take a non-empty string literal
- *    reason, so every system-scope entry stays greppable; `SYSTEM_ROW_LEVEL_SECURITY_SCOPE` is
- *    framework-internal and only used by an allowlist. An object literal passed to
+ *    reason, so every system-scope entry stays greppable. An object literal passed to
  *    `createTenantDb` with `mode: "system"` carries the same kind of `reason`.
  *
  * Usage:
@@ -56,14 +55,6 @@ const REASON_ARG_INDEX: Record<string, number> = {
   runInSystemRowLevelSecurityScope: 0,
   systemScopedRunner: 1,
 };
-
-const FIXED_SCOPE_SYMBOL = "SYSTEM_ROW_LEVEL_SECURITY_SCOPE";
-
-const FIXED_SCOPE_ALLOWLIST = [
-  /^packages\/framework\/src\/db\/row-level-security-scope\.ts$/,
-  /^packages\/framework\/src\/pipeline\/dispatch-scope\.ts$/,
-  /^packages\/framework\/src\/db\/migrate-runner\.ts$/,
-];
 
 // Exercises the empty-reason rejection, so it passes empty literals on purpose.
 const REASON_RULE_EXEMPT = [
@@ -279,21 +270,10 @@ function findTenantDbReasonViolations(sf: SourceFile): Finding[] {
   return findings;
 }
 
-function findFixedScopeUses(sf: SourceFile): Finding[] {
-  if (!sf.getFullText().includes(FIXED_SCOPE_SYMBOL)) return [];
-  return sf
-    .getDescendantsOfKind(SyntaxKind.Identifier)
-    .filter((id) => id.getText() === FIXED_SCOPE_SYMBOL)
-    .map((id) => ({
-      line: id.getStartLineNumber(),
-      message: `[fixed-system-scope] ${FIXED_SCOPE_SYMBOL} carries no call-site reason; use runInSystemRowLevelSecurityScope(reason, fn)`,
-    }));
-}
-
 export const guard: AstGuard = {
   name: "Internal-Subpath-Imports Guard",
   scan: SCAN,
-  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. Every system-scope entry, including createTenantDb with mode system, passes a specific string-literal reason (why it needs cross-tenant access). SYSTEM_ROW_LEVEL_SECURITY_SCOPE is limited to row-level-security-scope.ts, dispatch-scope.ts and migrate-runner.ts; extend that allowlist in guard-internal-subpath-imports.ts with a reason.",
+  hint: "Consumer repos use the public subpaths only; `@cosmicdrift/kumiko-framework/internal/*` is for framework packages. Scope helpers from kumiko-testing/helpers belong in tests. Every system-scope entry, including createTenantDb with mode system, passes a specific string-literal reason (why it needs cross-tenant access).",
   run(files, roots = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
@@ -308,7 +288,6 @@ export const guard: AstGuard = {
       if (!isAllowlisted(rel, FORWARDED_TENANT_DB_REASON_ALLOWLIST)) {
         findings.push(...findTenantDbReasonViolations(sf));
       }
-      if (!isAllowlisted(rel, FIXED_SCOPE_ALLOWLIST)) findings.push(...findFixedScopeUses(sf));
       for (const f of findings) violations.push({ file: rel, ...f });
     }
 

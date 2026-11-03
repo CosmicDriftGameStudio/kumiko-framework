@@ -27,7 +27,7 @@ import {
   type RawClientWithBegin,
   type ReservedClient,
 } from "./query.ts";
-import { SYSTEM_ROW_LEVEL_SECURITY_SCOPE } from "./row-level-security-scope.ts";
+import { systemRowLevelSecurityScope } from "./row-level-security-scope.ts";
 
 export type Migration = {
   readonly id: string; // filename without .sql
@@ -324,7 +324,7 @@ export async function runMigrations(
         await conn.unsafe("BEGIN");
         try {
           // Transaction-local, so the next migration's BEGIN starts clean; migrations rewrite every tenant's rows.
-          await applyRowLevelSecurityScope(conn, SYSTEM_ROW_LEVEL_SECURITY_SCOPE);
+          await applyRowLevelSecurityScope(conn, systemRowLevelSecurityScope("migration run"));
           for (const stmt of m.statements) {
             await conn.unsafe(stmt);
           }

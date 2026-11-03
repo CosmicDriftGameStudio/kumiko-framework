@@ -61,6 +61,14 @@ describe("reportIngestProgress", () => {
     });
   });
 
+  test("parallel reports for one file all land and the row ends on a reported state", async () => {
+    await Promise.all([report("file-p", 1, 4), report("file-p", 2, 4), report("file-p", 3, 4)]);
+
+    const rows = (await progressRows()).filter((row) => row.fileRefId === "file-p");
+    expect(rows).toHaveLength(1);
+    expect([1, 2, 3].includes(rows[0]?.pagesDone ?? 0)).toBe(true);
+  });
+
   test("a second file gets its own row", async () => {
     await report("file-a", 2, 3);
     await report("file-b", 1, 5);

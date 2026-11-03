@@ -9,7 +9,7 @@ export type RowLevelSecurityScope =
   | { readonly kind: "tenant"; readonly tenantId: TenantId }
   | { readonly kind: "system"; readonly reason: string };
 
-function systemRowLevelSecurityScope(reason: string): RowLevelSecurityScope {
+export function systemRowLevelSecurityScope(reason: string): RowLevelSecurityScope {
   if (reason.trim() === "") {
     throw new InternalError({
       message: "A system row-level-security scope requires a non-empty reason.",
@@ -17,10 +17,6 @@ function systemRowLevelSecurityScope(reason: string): RowLevelSecurityScope {
   }
   return { kind: "system", reason };
 }
-
-export const SYSTEM_ROW_LEVEL_SECURITY_SCOPE: RowLevelSecurityScope = systemRowLevelSecurityScope(
-  "framework-internal cross-tenant access",
-);
 
 function describeRowLevelSecurityScope(scope: RowLevelSecurityScope): string {
   return scope.kind === "system"
@@ -81,7 +77,8 @@ export function tenantDbRowLevelSecurityScope(
   table?: unknown,
 ): RowLevelSecurityScope {
   if (options.mode === "system") return systemRowLevelSecurityScope(options.reason);
-  if (asEntityTableMeta(table)?.tenancy === "global") return SYSTEM_ROW_LEVEL_SECURITY_SCOPE;
+  if (asEntityTableMeta(table)?.tenancy === "global")
+    return systemRowLevelSecurityScope("global-tenancy table access");
   return tenantRowLevelSecurityScope(tenantId);
 }
 

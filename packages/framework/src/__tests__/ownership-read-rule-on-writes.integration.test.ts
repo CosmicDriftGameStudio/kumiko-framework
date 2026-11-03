@@ -8,8 +8,12 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { createEventStoreExecutor } from "../db/event-store-executor.ts";
+import { buildEntityTable } from "../db/table-builder.ts";
+import { createTenantDb } from "../db/tenant-db.ts";
 import {
   createEntity,
+  createSystemUser,
   createTextField,
   defineEntityQueryHandler,
   defineEntityWriteHandler,
@@ -143,5 +147,30 @@ describe("access.read is enforced on update, delete and restore", () => {
     expect(await titleSeenByA(note.id)).toBeUndefined();
     await stack.http.writeOk("readrulenotes:write:note:restore", { id: note.id }, userA);
     expect(await titleSeenByA(note.id)).toBe("edited");
+  });
+});
+
+describe("access.read is enforced on forget", () => {
+  const noteExecutor = createEventStoreExecutor(buildEntityTable("note", noteEntity), noteEntity, {
+    entityName: "note",
+  });
+  const tenantDbFor = (user: SessionUser) =>
+    createTenantDb({ db: stack.db, tenantId: user.tenantId });
+
+  test("a non-owner cannot forget the row: not_found and the row survives", async () => {
+    const note = await createNoteOfA();
+    const result = await noteExecutor.forget({ id: note.id }, userB, tenantDbFor(userB));
+    expect(result.isSuccess).toBe(false);
+    expect(JSON.stringify(result)).toContain("not_found");
+    expect(JSON.stringify(result)).not.toContain(SECRET_TITLE);
+    expect(await titleSeenByA(note.id)).toBe(SECRET_TITLE);
+  });
+
+  test("the framework system user forgets the row regardless of the read rule", async () => {
+    const note = await createNoteOfA();
+    const system = createSystemUser(userA.tenantId);
+    const result = await noteExecutor.forget({ id: note.id }, system, tenantDbFor(system));
+    expect(result.isSuccess).toBe(true);
+    expect(await titleSeenByA(note.id)).toBeUndefined();
   });
 });

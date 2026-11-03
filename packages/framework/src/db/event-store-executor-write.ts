@@ -665,10 +665,6 @@ export function createWriteVerbs(
         "payload.changes.tenantId",
         payload.changes["tenantId"],
       );
-      const previous = await loadById(payload.id, db, {
-        includeDeleted: updateOptions?.includeDeleted === true,
-      });
-      if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
       const unreadable = await unreadableRowFailure(
         payload.id,
         user,
@@ -676,6 +672,10 @@ export function createWriteVerbs(
         updateOptions?.parentVisibility,
       );
       if (unreadable) return unreadable;
+      const previous = await loadById(payload.id, db, {
+        includeDeleted: updateOptions?.includeDeleted === true,
+      });
+      if (!previous) return writeFailure(new NotFoundError(entityName, payload.id));
       const streamTenantId = updateOptions?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, previous, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;
@@ -781,8 +781,6 @@ export function createWriteVerbs(
         assertIrreversibleOperationAllowed(`${entityName}.delete (entity has no softDelete)`);
       }
       const runner = tenantDbWriteRunnerForTable(db, "ctx.db executor delete", table);
-      const existing = await loadById(payload.id, db);
-      if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
       const unreadable = await unreadableRowFailure(
         payload.id,
         user,
@@ -790,6 +788,8 @@ export function createWriteVerbs(
         options?.parentVisibility,
       );
       if (unreadable) return unreadable;
+      const existing = await loadById(payload.id, db);
+      if (!existing) return writeFailure(new NotFoundError(entityName, payload.id));
       const streamTenantId = options?.streamTenantId;
       const streamTenantMismatch = streamTenantOverrideFailure(db, existing, streamTenantId);
       if (streamTenantMismatch) return streamTenantMismatch;

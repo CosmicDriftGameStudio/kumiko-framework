@@ -22,9 +22,10 @@ export async function withSessionAdvisoryLock<T>(
     } finally {
       // A dropped session already released its lock; failing here would mask fn's outcome.
       await conn.unsafe(`SELECT pg_advisory_unlock($1)`, [key]).catch(() => undefined);
-      await conn.unsafe("RESET statement_timeout").catch(() => undefined);
     }
   } finally {
+    // Outside the inner try: a failing lock call must not hand the connection back without the pool's cap.
+    await conn.unsafe("RESET statement_timeout").catch(() => undefined);
     await conn.release();
   }
 }

@@ -206,7 +206,7 @@ async function deleteIfPresent(
   types: readonly string[],
 ): Promise<number> {
   // Dead-letter and archive tables are created lazily, so a fresh database may not have them.
-  if (!(await tableExists(tx, `public.${tableName}`))) return 0;
+  if (!(await tableExists(tx, tableName))) return 0;
   return deleteMany(tx, table, { aggregateType: [...types] });
 }
 
