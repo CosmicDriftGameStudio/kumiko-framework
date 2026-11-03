@@ -22,7 +22,7 @@
  *   3. Object literals containing `reason: "X"` — same rule for the X.
  *      Skips `openToAll: { reason: "..." }` / `escapeHatch: { reason: "..." }` /
  *      `grants: { unsafeRaw: { reason: "..." } }` (every escape-hatch grant)
- *      and `declareEscapeHatch({ reason: "..." })` — those are prose
+ *      and `declareEscapeHatch({ reason: "..." })` / `subjectForgetAfterDeleteHook({ reason })` — those are prose
  *      access-declaration justifications, enforced instead by
  *      the boot validator and the runtime reasonProblem check.
  *
@@ -70,11 +70,13 @@ const ACCESS_DECLARATION_NAMES = new Set<string>([
 ]);
 
 // Calls whose object-literal argument carries a prose `reason` for an
-// access grant / escape hatch / system-mode TenantDb.
+// access grant / escape hatch / system-mode TenantDb. subjectForgetAfterDeleteHook's reason
+// becomes the forget-subject audit reason and part of its systemIdentity escape-hatch reason.
 const ACCESS_DECLARATION_CALLS = new Set([
   "declareEscapeHatch",
   "withUnsafeRawGrant",
   "createTenantDb",
+  "subjectForgetAfterDeleteHook",
 ]);
 
 interface Violation {

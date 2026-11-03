@@ -180,7 +180,8 @@ describe("crypto-shredding :: subjectForgetAfterDeleteHook", () => {
 
     const response = await stack.http.write(DELETE, { id }, owner);
 
-    expect(response.status).toBe(500);
+    // forget-subject's own key-store error reaches the caller instead of an anonymous internal error.
+    expect(response.status).toBe(503);
     expect(await rowCount(id)).toBe(1);
     // The first key is gone for good, so its audit trail must outlive the rolled-back delete.
     expect(await rawBodyOf(id)).toBe(PII_ERASED_SENTINEL);
@@ -191,6 +192,18 @@ describe("crypto-shredding :: subjectForgetAfterDeleteHook", () => {
     expect(audit[0]?.payload.subjectKey).toBe(
       subjectIdToKey({ kind: "record", entity: ENTITY, id }),
     );
+  });
+
+  test("a refused forget surfaces as its own error, not as an anonymous internal error", async () => {
+    const id = await createProbe();
+    trailingSubjectIds = ["not-a-uuid"];
+
+    const response = await stack.http.write(DELETE, { id }, owner);
+
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("validation_error");
+    expect(await rowCount(id)).toBe(1);
   });
 
   test("a delete of another tenant's row is refused and never reaches the key erase", async () => {

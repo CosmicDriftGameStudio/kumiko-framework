@@ -51,6 +51,17 @@ createTenantDb({ mode: "system", reason: "sweep reads every tenant" });`,
   });
 });
 
+describe("guard-error-reasons — subjectForgetAfterDeleteHook", () => {
+  test("does not flag the prose forget reason", () => {
+    const sf = parse(
+      `declare function subjectForgetAfterDeleteHook(o: unknown): void;
+subjectForgetAfterDeleteHook({ subjectsOf: () => [], reason: "lead deleted: crypto-shred its notes" });`,
+      "packages/framework/src/x/feature.ts",
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+});
+
 describe("guard-error-reasons — grants", () => {
   test.each(["unsafeRaw", "globalWrites", "systemIdentity", "crossTenantReads"])(
     "does not flag the prose reason of grants.%s",
