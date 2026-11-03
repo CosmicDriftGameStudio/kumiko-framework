@@ -14,3 +14,4 @@ export {
   type MaintenanceWindow,
   maintenanceWindowFromEnv,
 } from "./maintenance-window.ts";
+export { type ObliterateJobQueuesOptions, obliterateJobQueues } from "./obliterate-job-queues.ts";

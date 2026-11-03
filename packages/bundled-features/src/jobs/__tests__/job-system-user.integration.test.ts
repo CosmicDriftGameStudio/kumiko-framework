@@ -24,6 +24,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigAccessor, createConfigFeature } from "../../config/feature.ts";
@@ -129,7 +130,7 @@ beforeAll(async () => {
     context: { db, registry, configResolver: resolver, configEncryption: encryption },
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-system-user-test-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-system-user-test"),
   });
 
   await jobRunner.start();

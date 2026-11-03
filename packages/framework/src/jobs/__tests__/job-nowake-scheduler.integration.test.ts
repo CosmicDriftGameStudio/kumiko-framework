@@ -3,7 +3,11 @@
 // start drops the scheduler the job had under its previous id.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext } from "../../engine/types/index.ts";
@@ -31,7 +35,7 @@ async function withRunner(
   seed: (queue: Queue) => Promise<void>,
   verify: (queue: Queue) => Promise<void>,
 ): Promise<void> {
-  const prefix = `kumiko-test-nowake-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const prefix = testRunQueueNamePrefix("kumiko-test-nowake");
   const queue = new Queue(`${prefix}-worker`, {
     connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
   });

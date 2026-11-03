@@ -8,6 +8,7 @@ import {
   setupTestStack,
   TEST_APPLICATION_ROLE,
   type TestStack,
+  testRunQueueNamePrefix,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { runProdApp } from "../run-prod-app.ts";
 import { runWorkerApp } from "../run-worker-app.ts";
@@ -72,7 +73,7 @@ async function bootWorker(mode: "on" | "off", warnings: string[]): Promise<void>
     features: [probeFeature],
     rowLevelSecurity: mode,
     migrations: false,
-    jobs: { queueNamePrefix: `test-rlswarn-${SUFFIX}-${mode}` },
+    jobs: { queueNamePrefix: testRunQueueNamePrefix(`test-rlswarn-${mode}`) },
     extraContext: { log: recordingLogger(warnings) },
     envSource: mode === "off" ? envFor(OFF_DB) : envFor(ON_DB, TEST_APPLICATION_ROLE),
   });

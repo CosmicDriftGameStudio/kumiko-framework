@@ -26,6 +26,7 @@ import {
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -62,7 +63,7 @@ beforeAll(async () => {
     features: [createFormDraftFeature(), createConfigFeature()],
     jobs: {
       consumerLane: "worker",
-      queueNamePrefix: `kumiko-form-draft-cleanup-test-${Date.now()}`,
+      queueNamePrefix: testRunQueueNamePrefix("kumiko-form-draft-cleanup-test"),
     },
     extraContext: ({ registry }) => ({
       configResolver: resolver,

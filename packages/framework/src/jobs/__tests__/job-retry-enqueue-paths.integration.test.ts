@@ -10,7 +10,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, TenantId } from "../../engine/types/index.ts";
@@ -29,7 +33,7 @@ afterAll(async () => {
 });
 
 function uniquePrefix(tag: string): string {
-  return `kumiko-test-retry-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return testRunQueueNamePrefix(`kumiko-test-retry-${tag}`);
 }
 
 async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {

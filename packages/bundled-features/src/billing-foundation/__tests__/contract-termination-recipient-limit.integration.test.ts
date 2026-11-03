@@ -9,12 +9,12 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { expectSuccess, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Redis } from "ioredis";
@@ -126,7 +126,7 @@ beforeAll(async () => {
     extraRoutes: [createSubscriptionWebhookRoute()],
     anonymousAccess: { defaultTenantId: ANONYMOUS_TENANT },
     trustedProxyHops: 1,
-    jobs: { consumerLane: "worker", queueNamePrefix: `recipient-limit-${generateId()}` },
+    jobs: { consumerLane: "worker", queueNamePrefix: testRunQueueNamePrefix("recipient-limit") },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);

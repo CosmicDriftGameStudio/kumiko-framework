@@ -13,7 +13,6 @@ import {
 import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   resetPiiSubjectKmsForTests,
@@ -23,6 +22,7 @@ import {
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -158,7 +158,7 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
     }),
     extraRoutes: [createSubscriptionWebhookRoute()],
-    jobs: { consumerLane: "worker", queueNamePrefix: `pii-kms-${generateId()}` },
+    jobs: { consumerLane: "worker", queueNamePrefix: testRunQueueNamePrefix("pii-kms") },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);

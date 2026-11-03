@@ -7,7 +7,7 @@ import {
   buildIntegrationTestArgs,
   listIntegrationTestFiles,
   resolveRequestedIntegrationFiles,
-  runWithTestDbTemplates,
+  runWithTestRun,
   selectIntegrationFiles,
 } from "../src/integration-runner";
 
@@ -112,9 +112,9 @@ async function runIntegration(args: readonly string[], io: CliIo): Promise<numbe
     ...(values.timings !== undefined && { timings: values.timings }),
     ...(values["update-timings"] === true && { updateTimings: true }),
   });
-  return runWithTestDbTemplates(
+  return runWithTestRun(
     // Bun.spawn defaults to the env from process start; pass the live one so the
-    // template run id set by runWithTestDbTemplates reaches the test process.
+    // run id set by runWithTestRun reaches the test process.
     () =>
       Bun.spawn(["bun", ...testArgs], {
         cwd: io.cwd,

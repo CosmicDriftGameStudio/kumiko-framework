@@ -15,6 +15,7 @@ import { resetTestTables, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { formDraftEntity } from "../entity.ts";
@@ -28,7 +29,10 @@ beforeAll(async () => {
   // No createConfigFeature() here — the whole point of this suite.
   stack = await setupTestStack({
     features: [createFormDraftFeature()],
-    jobs: { consumerLane: "worker", queueNamePrefix: `kumiko-form-draft-no-config-${Date.now()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("kumiko-form-draft-no-config"),
+    },
   });
   await unsafeCreateEntityTable(stack.db, formDraftEntity);
 });

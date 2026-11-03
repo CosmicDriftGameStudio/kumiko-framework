@@ -22,6 +22,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -87,7 +88,7 @@ beforeAll(async () => {
     context: { db, registry, configResolver: resolver },
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-multi-tenant-test-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-multi-tenant-test"),
     getActiveTenantIds: async () => {
       const handler = registry.getQueryHandler(TenantQueries.activeTenantIds);
       if (!handler) return [];

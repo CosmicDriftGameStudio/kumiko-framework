@@ -5,6 +5,7 @@ import {
   setupTestStack,
   type TestRedis,
   type TestStack,
+  testRunQueueNamePrefix,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
@@ -101,7 +102,7 @@ describe("JobContext.attempt / finalAttempt through the runner's other entry poi
   });
 
   function uniquePrefix(tag: string): string {
-    return `kumiko-test-attempt-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return testRunQueueNamePrefix(`kumiko-test-attempt-${tag}`);
   }
 
   async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {

@@ -23,6 +23,7 @@ import {
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -187,7 +188,10 @@ async function createTerminationStack(
       ...(stackOptions.terminationRoutes ?? createContractTerminationRoutes()),
     ],
     anonymousAccess,
-    jobs: { consumerLane: "worker", queueNamePrefix: `contract-termination-${generateId()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("contract-termination"),
+    },
   });
   await unsafeCreateEntityTable(terminationStack.db, userEntity);
   await unsafeCreateEntityTable(terminationStack.db, tenantEntity);

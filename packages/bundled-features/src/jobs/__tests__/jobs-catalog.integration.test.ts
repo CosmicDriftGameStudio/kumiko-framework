@@ -7,6 +7,7 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
@@ -30,7 +31,10 @@ const appFeature = defineFeature("catalog-app", (r) => {
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [appFeature, createJobsFeature()],
-    jobs: { consumerLane: "worker", queueNamePrefix: `kumiko-jobs-catalog-test-${Date.now()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("kumiko-jobs-catalog-test"),
+    },
   });
   await unsafePushTables(stack.db, { jobRunsTable, jobRunLogsTable });
 });

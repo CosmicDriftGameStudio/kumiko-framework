@@ -63,7 +63,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer/headless/apex";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
+import { testRunQueueNamePrefix, unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
@@ -1411,7 +1411,7 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
   // worker-lane cron was never registered. createAllInOneEntrypoint (new
   // single-instance default) runs two runners, so it IS registered.
   test("default single-instance schedules the WORKER-lane cron", async () => {
-    const prefix = `test-rsi-${Date.now().toString(36)}`;
+    const prefix = testRunQueueNamePrefix("test-rsi");
     const handle = await boot(undefined, {
       features: [cronProbeFeature],
       jobs: { queueNamePrefix: prefix },
@@ -1422,7 +1422,7 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
   });
 
   test("runSingleInstance:false → api-only, worker lane left to a dedicated worker", async () => {
-    const prefix = `test-rsi-api-${Date.now().toString(36)}`;
+    const prefix = testRunQueueNamePrefix("test-rsi-api");
     const handle = await boot(undefined, {
       features: [cronProbeFeature],
       jobs: { queueNamePrefix: prefix },

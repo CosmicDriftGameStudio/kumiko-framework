@@ -28,6 +28,7 @@ import {
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -248,7 +249,7 @@ async function notifyThroughJobs(tenantId: TenantId, to: string, type: string) {
     context: { db: stack.db, secrets, configAccessorFactory: accessorFactory },
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-email-tenant-transport-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-email-tenant-transport"),
   });
   await jobRunner.start();
   try {

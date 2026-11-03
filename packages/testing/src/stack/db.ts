@@ -16,8 +16,8 @@ import {
   transferPublicSchemaOwnership,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import { ensureTemporalPolyfill } from "@cosmicdrift/kumiko-framework/time";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { DbConnection, PgListenClient } from "@cosmicdrift/kumiko-types/db-connection";
+import { testDatabaseName } from "./test-run.ts";
 
 const requireEnv = requiredEnvFor(
   "test stack",
@@ -63,7 +63,7 @@ export function adminUrlOf(url: string): string {
   return url.replace(/\/[^/]+$/, "/postgres");
 }
 
-function databaseUrlOf(url: string, dbName: string): string {
+export function databaseUrlOf(url: string, dbName: string): string {
   return url.replace(/\/[^/]+$/, `/${dbName}`);
 }
 
@@ -132,7 +132,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
   await ensureTemporalPolyfill();
   const opts: CreateTestDbOptions = typeof arg === "string" ? { baseUrl: arg } : (arg ?? {});
   const url = opts.baseUrl ?? requireEnv("TEST_DATABASE_URL");
-  const dbName = opts.dbName ?? `kumiko_test_${generateId().slice(-8)}`;
+  const dbName = opts.dbName ?? testDatabaseName();
   const adminUrl = adminUrlOf(url);
 
   const applicationRole = opts.applicationRole === true;

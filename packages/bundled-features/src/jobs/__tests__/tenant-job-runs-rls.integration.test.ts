@@ -16,6 +16,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createJobsFeature } from "../feature.ts";
@@ -50,7 +51,7 @@ beforeAll(async () => {
     registry,
     context: { db: testDb.db },
     redisUrl: `redis://${host}:${port}/${db}`,
-    queueNamePrefix: `kumiko-tenant-job-runs-rls-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-tenant-job-runs-rls"),
   };
   enqueuer = createJobRunner({
     ...runnerOptions,

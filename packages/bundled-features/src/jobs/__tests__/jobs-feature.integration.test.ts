@@ -14,6 +14,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
@@ -87,7 +88,7 @@ beforeAll(async () => {
     context: { db }, // jobRunner wired in after creation
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-jobs-feature-test-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-jobs-feature-test"),
     ...logger,
   });
 

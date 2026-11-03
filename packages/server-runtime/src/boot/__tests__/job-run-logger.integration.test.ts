@@ -31,6 +31,7 @@ import {
   setupTestStack,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -71,7 +72,7 @@ describe("startDevJobRunners", () => {
       db,
       context: {},
       redisUrl: testRedis.redisUrl,
-      queueNamePrefix: `test-lane-default-${crypto.randomUUID()}`,
+      queueNamePrefix: testRunQueueNamePrefix("test-lane-default"),
       // Construction-only — this job never calls ctx.dispatch.write/ctx.dispatch.queryAs, so a
       // dispatcher built against a bare `{}` context is enough to satisfy
       // the (now required) opts.dispatcher without wiring a full stack.
@@ -169,7 +170,7 @@ describe("startDevJobRunners attaches the dispatcher", () => {
   });
 
   test("a dev-run job's ctx.dispatch.write and ctx.dispatch.queryAs both succeed", async () => {
-    const attachQueueNamePrefix = `test-attach-dispatcher-${crypto.randomUUID()}`;
+    const attachQueueNamePrefix = testRunQueueNamePrefix("test-attach-dispatcher");
     const stack = await setupTestStack({
       features: [attachDispatcherFeature, createJobsFeature()],
       // Enqueuer-only — startDevJobRunners below is the sole consumer,
@@ -242,7 +243,7 @@ describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
       db,
       context: {},
       redisUrl: testRedis.redisUrl,
-      queueNamePrefix: `test-iso-a-${crypto.randomUUID()}`,
+      queueNamePrefix: testRunQueueNamePrefix("test-iso-a"),
       dispatcher: createDispatcher(registryA, {}),
     });
     const runnerB = await startDevJobRunners({
@@ -250,7 +251,7 @@ describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
       db,
       context: {},
       redisUrl: testRedis.redisUrl,
-      queueNamePrefix: `test-iso-b-${crypto.randomUUID()}`,
+      queueNamePrefix: testRunQueueNamePrefix("test-iso-b"),
       dispatcher: createDispatcher(registryB, {}),
     });
 

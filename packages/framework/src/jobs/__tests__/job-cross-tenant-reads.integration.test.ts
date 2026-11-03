@@ -4,6 +4,7 @@ import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   createTestRedis,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
@@ -108,7 +109,7 @@ beforeAll(async () => {
     },
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-cross-tenant-reads-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-cross-tenant-reads"),
     getActiveTenantIds: async () => [ownTenant],
   });
   await jobRunner.start();

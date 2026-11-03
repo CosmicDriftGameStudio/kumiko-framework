@@ -27,6 +27,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
@@ -118,7 +119,7 @@ beforeAll(async () => {
     context: { db },
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-tenant-job-failures-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-tenant-job-failures"),
     ...createJobRunLogger({ db, registry }),
   });
 

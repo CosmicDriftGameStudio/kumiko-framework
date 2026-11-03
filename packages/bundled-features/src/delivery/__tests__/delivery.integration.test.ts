@@ -32,6 +32,7 @@ import {
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as jose from "jose";
@@ -1896,7 +1897,7 @@ describe("flow 17: async render→send pipeline", () => {
   test("with a real job runner, email + push deliver via delivery.render → delivery.send", async () => {
     const redisUrl = process.env["REDIS_URL"];
     if (!redisUrl) throw new Error("REDIS_URL required for the async delivery e2e test");
-    const queueNamePrefix = `kumiko-delivery-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-delivery-test");
     const jobRunner = createJobRunner({
       registry: stack.registry,
       context: { db },

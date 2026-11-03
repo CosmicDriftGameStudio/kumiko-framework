@@ -51,7 +51,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  testRunQueueNamePrefix,
+  unsafeEnsureEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
@@ -219,7 +223,7 @@ async function bootWithChatChannels(): Promise<ProdAppHandle> {
         KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
       },
     }),
-    jobs: { queueNamePrefix: `test-delivery-${Date.now().toString(36)}` },
+    jobs: { queueNamePrefix: testRunQueueNamePrefix("test-delivery") },
   });
   handle = booted;
   return booted;

@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext } from "../../engine/types/index.ts";
 import { createJobRunner } from "../job-runner.ts";
@@ -30,7 +34,7 @@ describe("maxPerTenant skip cap under concurrent dispatch", () => {
         await gate.wait();
       });
     });
-    const queueNamePrefix = `kumiko-test-capburst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-capburst");
     const options = {
       registry: createRegistry([feature]),
       context: {} satisfies AppContext,

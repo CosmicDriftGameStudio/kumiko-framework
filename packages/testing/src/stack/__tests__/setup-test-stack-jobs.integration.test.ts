@@ -20,6 +20,7 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Redis } from "ioredis";
 import * as z from "zod";
 import { createTestEnvelopeCipher, waitFor } from "../../helpers/index.ts";
+import { testRunQueueNamePrefix } from "../test-run.ts";
 import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
@@ -160,7 +161,7 @@ describe("setupTestStack({ jobs }) queue isolation between parallel stacks", () 
 
   test("an explicit shared queueNamePrefix wins, so both stacks read one queue", async () => {
     laneIsolationRuns.length = 0;
-    const queueNamePrefix = `laneisolation-shared-${generateId()}`;
+    const queueNamePrefix = testRunQueueNamePrefix("laneisolation-shared");
     [stack, secondStack] = await Promise.all([
       setupTestStack({
         features: [laneIsolationFeature],
@@ -274,5 +275,52 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
     }
 
     expect(await bullKeysFor(redisUrl, queuePrefix)).toEqual([]);
+  });
+
+  test("cleanup() costs only the stack's own keys: no SCAN, foreign keys and the namespace stay", async () => {
+    laneIsolationRuns.length = 0;
+    const live = await setupTestStack({
+      features: [laneIsolationFeature],
+      jobs: { consumerLane: "worker" },
+    });
+    const { redisUrl, keyPrefix } = live.redis;
+    const queuePrefix = keyPrefix.split(":").filter(Boolean).join("-");
+    const foreignKeys = [`foreign-${generateId()}:key`, `bull:foreign-${generateId()}-api:meta`];
+    const raw = new Redis(redisUrl);
+    // MONITOR sees every command the server runs; filtering on this stack's own key patterns keeps
+    // parallel tests' SCANs out of the count.
+    const monitor = await raw.monitor();
+    const ownScans: string[][] = [];
+    const doneMarker = `cleanup-done-${generateId()}`;
+    let doneSeen = false;
+    monitor.on("monitor", (_time: string, args: string[]) => {
+      if (args.includes(doneMarker)) doneSeen = true;
+      const isOwnPattern = (arg: string): boolean =>
+        arg.startsWith(keyPrefix) || arg.startsWith(`bull:${queuePrefix}`);
+      if (args[0]?.toLowerCase() === "scan" && args.some(isOwnPattern)) ownScans.push(args);
+    });
+    try {
+      await Promise.all(foreignKeys.map((key) => raw.set(key, "1")));
+      await live.redis.redis.set("namespace-key", "1");
+      await live.jobRunner?.dispatch("laneisolation:job:record", { from: "scope-check" });
+      await waitFor(() => {
+        expect(laneIsolationRuns.some((run) => run.from === "scope-check")).toBe(true);
+      });
+
+      await live.cleanup();
+      await raw.echo(doneMarker);
+      await waitFor(() => {
+        expect(doneSeen).toBe(true);
+      });
+
+      expect(ownScans).toEqual([]);
+      expect(await raw.exists(...foreignKeys)).toBe(foreignKeys.length);
+      expect(await raw.exists(`${keyPrefix}namespace-key`)).toBe(1);
+      expect(await bullKeysFor(redisUrl, queuePrefix)).toEqual([]);
+    } finally {
+      monitor.disconnect();
+      await raw.del(...foreignKeys, `${keyPrefix}namespace-key`);
+      raw.disconnect();
+    }
   });
 });

@@ -18,6 +18,7 @@ import { expectSuccess, seedRowViaEventStore, waitFor } from "@cosmicdrift/kumik
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -165,7 +166,10 @@ beforeAll(async () => {
     }),
     extraRoutes: [createSubscriptionWebhookRoute(), ...createContractTerminationRoutes()],
     anonymousAccess: { defaultTenantId: ANONYMOUS_TENANT },
-    jobs: { consumerLane: "worker", queueNamePrefix: `contract-revocation-${generateId()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("contract-revocation"),
+    },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);

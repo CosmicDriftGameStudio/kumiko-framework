@@ -3,7 +3,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext } from "../../engine/types/index.ts";
 import type { Logger } from "../../logging/types.ts";
@@ -48,7 +52,7 @@ function captureContext(): {
 }
 
 function uniquePrefix(tag: string): string {
-  return `kumiko-test-failedlog-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return testRunQueueNamePrefix(`kumiko-test-failedlog-${tag}`);
 }
 
 async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {

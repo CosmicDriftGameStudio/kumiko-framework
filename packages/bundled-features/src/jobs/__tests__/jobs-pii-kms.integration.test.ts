@@ -36,6 +36,7 @@ import {
   type TestDb,
   type TestRedis,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.ts";
@@ -478,7 +479,7 @@ describe("jobs:query:details decrypts log messages and error end-to-end", () => 
       features: [createJobsFeature()],
       jobs: {
         consumerLane: "worker",
-        queueNamePrefix: `kumiko-jobs-detail-pii-test-${Date.now()}`,
+        queueNamePrefix: testRunQueueNamePrefix("kumiko-jobs-detail-pii-test"),
       },
     });
     await unsafePushTables(detailStack.db, { jobRunsTable, jobRunLogsTable, tenantJobRunsTable });
@@ -620,7 +621,7 @@ describe("jobs:write:retry decrypts payload before dispatch", () => {
       features: [retryAppFeature, createJobsFeature()],
       jobs: {
         consumerLane: "worker",
-        queueNamePrefix: `kumiko-jobs-retry-pii-test-${Date.now()}`,
+        queueNamePrefix: testRunQueueNamePrefix("kumiko-jobs-retry-pii-test"),
       },
     });
     await unsafePushTables(retryStack.db, { jobRunsTable, jobRunLogsTable, tenantJobRunsTable });

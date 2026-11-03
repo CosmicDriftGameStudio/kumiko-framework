@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sleep } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext, Registry } from "../../engine/types/index.ts";
 import { createPrometheusMeter } from "../../observability/index.ts";
@@ -30,7 +34,7 @@ describe("job-runner — kumiko_job_queue_depth", () => {
     const meter = createPrometheusMeter();
     registerStandardMetrics(meter);
     const context: AppContext = { meter };
-    const queueNamePrefix = `kumiko-test-qd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-qd");
 
     const runner = createJobRunner({
       registry,
@@ -70,7 +74,7 @@ describe("job-runner — kumiko_job_queue_depth", () => {
     const meter = createPrometheusMeter();
     registerStandardMetrics(meter);
     const context: AppContext = { meter };
-    const queueNamePrefix = `kumiko-test-qd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-qd");
 
     const runner = createJobRunner({ registry, context, redisUrl, queueNamePrefix });
     try {

@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { BUNFIG_FILES, TEST_TIMEOUT_MS } from "./bunfig";
@@ -89,20 +88,32 @@ export function buildIntegrationTestArgs(opts: IntegrationRunOptions): string[] 
   ];
 }
 
-// Test stacks of this run clone migrated template databases instead of repeating
-// the DDL per stack; the templates live exactly as long as the run.
-export async function runWithTestDbTemplates(run: () => Promise<number>): Promise<number> {
-  const { TEST_DB_TEMPLATE_RUN_ENV, dropTestDbTemplates } = await import("./stack/db.ts");
-  const runId = randomBytes(4).toString("hex");
+// One run id for every process of the run: test stacks clone the run's migrated template
+// databases, and the run's Redis keys and databases are swept once when it ends, together with
+// those of runs that died without a sweep.
+export async function runWithTestRun(run: () => Promise<number>): Promise<number> {
+  const { TEST_DB_TEMPLATE_RUN_ENV, adminUrlOf } = await import("./stack/db.ts");
+  const { TEST_RUN_ID_ENV, createTestRunId, keepTestRunAlive, sweepFinishedTestRuns } =
+    await import("./stack/test-run.ts");
+  const runId = createTestRunId();
+  const redisUrl = process.env["REDIS_URL"] ?? SERVICE_ENV_DEFAULTS.REDIS_URL;
+  const databaseUrl = process.env["TEST_DATABASE_URL"] ?? SERVICE_ENV_DEFAULTS.TEST_DATABASE_URL;
+  let alive: { readonly stop: () => void } | undefined;
   try {
-    return await withEnv({ [TEST_DB_TEMPLATE_RUN_ENV]: runId }, run);
+    alive = await keepTestRunAlive(redisUrl, runId);
+  } catch (error) {
+    // biome-ignore lint/suspicious/noConsole: runner output is the interface
+    console.warn(`kumiko-testing: could not mark test run ${runId} alive:`, error);
+  }
+  try {
+    return await withEnv({ [TEST_DB_TEMPLATE_RUN_ENV]: runId, [TEST_RUN_ID_ENV]: runId }, run);
   } finally {
-    const baseUrl = process.env["TEST_DATABASE_URL"] ?? SERVICE_ENV_DEFAULTS.TEST_DATABASE_URL;
+    alive?.stop();
     try {
-      await dropTestDbTemplates(baseUrl, runId);
+      await sweepFinishedTestRuns({ runId, redisUrl, adminDatabaseUrl: adminUrlOf(databaseUrl) });
     } catch (error) {
       // biome-ignore lint/suspicious/noConsole: runner output is the interface
-      console.warn(`kumiko-testing: could not drop the test DB templates of run ${runId}:`, error);
+      console.warn(`kumiko-testing: could not sweep the leftovers of test run ${runId}:`, error);
     }
   }
 }

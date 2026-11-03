@@ -10,7 +10,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { ROLES } from "../../auth/roles.ts";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
@@ -169,7 +173,7 @@ function redisUrl(): string {
 }
 
 function uniquePrefix(label: string): string {
-  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return testRunQueueNamePrefix(label);
 }
 
 async function notesFor(note: string): Promise<Array<{ created_by: string }>> {
