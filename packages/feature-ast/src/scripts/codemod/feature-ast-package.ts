@@ -81,17 +81,78 @@ function namedSpecifiers(declaration: Declaration) {
 const isMovedSpecifier = (specifier: { getName(): string }): boolean =>
   MOVED_NAMES.has(specifier.getName());
 
+function readsMovedMember(node: Node, namespace: string): boolean {
+  if (Node.isPropertyAccessExpression(node)) {
+    return node.getExpression().getText() === namespace && MOVED_NAMES.has(node.getName());
+  }
+  if (Node.isElementAccessExpression(node)) {
+    const key = node.getArgumentExpression();
+    return (
+      node.getExpression().getText() === namespace &&
+      key !== undefined &&
+      Node.isStringLiteral(key) &&
+      MOVED_NAMES.has(key.getLiteralValue())
+    );
+  }
+  if (Node.isVariableDeclaration(node)) {
+    const pattern = node.getNameNode();
+    return (
+      Node.isObjectBindingPattern(pattern) &&
+      node.getInitializer()?.getText() === namespace &&
+      pattern
+        .getElements()
+        .some((element) =>
+          MOVED_NAMES.has(element.getPropertyNameNode()?.getText() ?? element.getName()),
+        )
+    );
+  }
+  return false;
+}
+
 function readsMovedNamespaceMember(sourceFile: SourceFile, namespace: string): number | undefined {
-  for (const access of sourceFile.getDescendants()) {
-    if (
-      Node.isPropertyAccessExpression(access) &&
-      access.getExpression().getText() === namespace &&
-      MOVED_NAMES.has(access.getName())
-    ) {
-      return access.getStartLineNumber();
+  return sourceFile
+    .getDescendants()
+    .find((node) => readsMovedMember(node, namespace))
+    ?.getStartLineNumber();
+}
+
+// Forms whose moved names cannot be rewritten mechanically: the old module is still read, so
+// the run must not look finished.
+function reportUnrewritableEngineUses(
+  sourceFile: SourceFile,
+  filePath: string,
+  result: SiteLists,
+): void {
+  for (const declaration of sourceFile.getExportDeclarations()) {
+    const isBareReExportOfEngine =
+      declaration.getModuleSpecifierValue() === OLD_ENGINE_MODULE &&
+      !declaration.hasNamedExports() &&
+      declaration.getNamespaceExport() === undefined;
+    if (isBareReExportOfEngine) {
+      result.manual.push({
+        file: filePath,
+        line: declaration.getStartLineNumber(),
+        description: `export * from ${OLD_ENGINE_MODULE} no longer re-exports the moved names; re-export them from ${NEW_PACKAGE}`,
+      });
     }
   }
-  return undefined;
+  for (const literal of moduleSpecifierLiterals(sourceFile)) {
+    const isDeclarationSpecifier =
+      Node.isImportDeclaration(literal.getParent()) ||
+      Node.isExportDeclaration(literal.getParent());
+    if (
+      isDeclarationSpecifier ||
+      !Node.isStringLiteral(literal) ||
+      literal.getLiteralValue() !== OLD_ENGINE_MODULE
+    ) {
+      continue;
+    }
+    result.manual.push({
+      file: filePath,
+      line: literal.getStartLineNumber(),
+      description: `dynamic import or import type of ${OLD_ENGINE_MODULE}: moved names must come from ${NEW_PACKAGE}`,
+    });
+  }
 }
 
 function splitDeclaration(sourceFile: SourceFile, declaration: Declaration): void {
@@ -190,6 +251,7 @@ function transformTypeScriptSource(source: string, filePath: string, result: Sit
   for (const declaration of declarations.reverse()) {
     rewriteDeclaration(sourceFile, declaration, filePath, result);
   }
+  reportUnrewritableEngineUses(sourceFile, filePath, result);
   rewriteCodemodSubpath(sourceFile, filePath, result);
   return sourceFile.getFullText();
 }

@@ -10,6 +10,27 @@ import { createKumikoServer } from "../create-kumiko-server.ts";
 
 const emptyFeature = defineFeature("dev-server-errors-probe", () => {});
 
+describe("createKumikoServer — boot failure after the stylesheet started", () => {
+  test("kills the Tailwind watcher when a later boot phase throws", async () => {
+    let killed = 0;
+    await expect(
+      createKumikoServer({
+        features: [emptyFeature],
+        port: 0,
+        installSignalHandlers: false,
+        htmlPath: join(tmpdir(), "kumiko-missing-template", "index.html"),
+        _startStylesheet: async () => ({
+          outPath: "/unused/styles.css",
+          kill: () => {
+            killed += 1;
+          },
+        }),
+      }),
+    ).rejects.toThrow(/ENOENT/);
+    expect(killed).toBe(1);
+  });
+});
+
 describe("createKumikoServer — client bundle failure", () => {
   test("broken clientEntry rejects at boot with client bundle failed", async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-bundle-fail-"));

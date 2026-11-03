@@ -8,6 +8,7 @@ import {
   MOVED_ENGINE_EXPORTS,
   transformFeatureAstPackageSource,
 } from "../scripts/codemod/feature-ast-package.ts";
+import { transformPackageJson } from "../scripts/codemod/feature-ast-package-manifest.ts";
 
 const FILE = "/repo/apps/demo/src/feature.ts";
 const ENGINE = "@cosmicdrift/kumiko-framework/engine";
@@ -65,6 +66,38 @@ describe("feature-ast-package codemod: sources", () => {
     expect(result.output).toBe(source);
     expect(result.manual).toHaveLength(1);
     expect(result.rewrites).toHaveLength(0);
+  });
+
+  it.each([
+    ["element access", `engine["parseFeatureFile"]("x");`],
+    ["destructuring", `const { parseFeatureFile: parse } = engine;`],
+  ])("reports a namespace import read through %s as manual", (_form, usage) => {
+    const source = `import * as engine from "${ENGINE}";\n${usage}\n`;
+    const result = run(source);
+    expect(result.output).toBe(source);
+    expect(result.manual).toHaveLength(1);
+  });
+
+  it("reports export * from the old module as manual", () => {
+    const source = `export * from "${ENGINE}";\n`;
+    const result = run(source);
+    expect(result.output).toBe(source);
+    expect(result.manual).toHaveLength(1);
+    expect(result.manual[0]?.description).toContain("export *");
+  });
+
+  it("leaves export * as ns and named re-exports of unmoved names alone", () => {
+    const source = `export * as engine from "${ENGINE}";\nexport { defineFeature } from "${ENGINE}";\n`;
+    expect(run(source)).toMatchObject({ output: source, manual: [], rewrites: [] });
+  });
+
+  it.each([
+    ["dynamic import", `const { parseFeatureFile } = await import("${ENGINE}");\n`],
+    ["import type", `type Parsed = import("${ENGINE}").ParseResult;\n`],
+  ])("reports a %s of the old module as manual", (_form, source) => {
+    const result = run(source);
+    expect(result.output).toBe(source);
+    expect(result.manual).toHaveLength(1);
   });
 
   it("leaves a namespace import alone when it reads no moved name", () => {
@@ -143,6 +176,25 @@ describe("feature-ast-package codemod: package.json", () => {
       "@cosmicdrift/kumiko-framework": "^0.389.0",
     });
     expect(transform(text).output).toBe(text);
+  });
+
+  it("does not walk the sources of a package that already declares feature-ast or lacks framework", () => {
+    let probed = 0;
+    const countingProbe = () => {
+      probed += 1;
+      return true;
+    };
+    const path = join(dir, "package.json");
+    for (const block of [
+      { "@cosmicdrift/kumiko-feature-ast": "^1.0.0", "@cosmicdrift/kumiko-framework": "^1.0.0" },
+      { zod: "^4.0.0" },
+    ]) {
+      const text = manifest(block);
+      expect(transformPackageJson(text, path, { rewrites: [], manual: [] }, countingProbe)).toBe(
+        text,
+      );
+    }
+    expect(probed).toBe(0);
   });
 
   it("keeps the indent and appends when the block was not sorted", () => {

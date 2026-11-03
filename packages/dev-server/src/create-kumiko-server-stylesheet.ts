@@ -98,7 +98,8 @@ function runTailwindOneShotBuild(
   });
 }
 
-// unref() so the watcher cannot outlive a crashed parent as an orphan.
+// unref() only keeps the child from holding the parent's event loop open; it does not end it,
+// so a failed boot must call the returned kill.
 function spawnTailwindWatcher(
   bunPath: string,
   cliPath: string,

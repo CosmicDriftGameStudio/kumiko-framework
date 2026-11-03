@@ -5,6 +5,7 @@ import {
   Node,
   type ParameterDeclaration,
   type PropertySignature,
+  SyntaxKind,
   type TypeLiteralNode,
 } from "ts-morph";
 import { appContextReference, type Counters } from "./ctx-namespaces-annotations.ts";
@@ -240,7 +241,7 @@ function foreignMovedNames(declarations: readonly Node[]): string[] {
   );
 }
 
-interface StructuralContextParameter {
+export interface StructuralContextParameter {
   readonly annotation: Node;
   readonly collected: Collected;
   readonly foreign: string[];
@@ -249,6 +250,18 @@ interface StructuralContextParameter {
 }
 
 function structuralContextParameter(
+  counters: Counters,
+  parameter: Node,
+): StructuralContextParameter | undefined {
+  if (counters.structuralParameters.has(parameter)) {
+    return counters.structuralParameters.get(parameter);
+  }
+  const found = findStructuralContextParameter(counters, parameter);
+  counters.structuralParameters.set(parameter, found);
+  return found;
+}
+
+function findStructuralContextParameter(
   counters: Counters,
   parameter: Node,
 ): StructuralContextParameter | undefined {
@@ -271,10 +284,59 @@ function structuralContextParameter(
   return { annotation, collected, foreign, kinds, conflicts };
 }
 
+function isRewritableAlone(found: StructuralContextParameter | undefined): boolean {
+  return found !== undefined && found.foreign.length === 0 && !found.conflicts;
+}
+
+function typeDeclarationOf(owner: MemberOwner): Node | undefined {
+  return Node.isInterfaceDeclaration(owner)
+    ? owner
+    : owner.getFirstAncestorByKind(SyntaxKind.TypeAliasDeclaration);
+}
+
+function isInsideTypeAnnotation(reference: Node, parameter: Node): boolean {
+  const annotation = Node.isParameterDeclaration(parameter) ? parameter.getTypeNode() : undefined;
+  return (
+    annotation !== undefined &&
+    reference.getStart() >= annotation.getStart() &&
+    reference.getEnd() <= annotation.getEnd()
+  );
+}
+
+// A shared alias or interface is rewritten for every user at once. A user the rewrite does not
+// reach (another parameter name, a non-parameter reference, a mock typed by it) would keep the flat
+// shape and stop type-checking, so the type is reported instead.
+function isTypeSharedWithOthers(
+  counters: Counters,
+  parameter: Node,
+  found: StructuralContextParameter,
+): boolean {
+  const cached = counters.typeSharedWithOthers.get(parameter);
+  if (cached !== undefined) return cached;
+  const shared = found.collected.owners.some((owner) => {
+    const declaration = typeDeclarationOf(owner);
+    if (declaration === undefined || !Node.isNamed(declaration)) return false;
+    return declaration
+      .getNameNode()
+      .findReferencesAsNodes()
+      .some((reference) => {
+        const user = reference.getFirstAncestorByKind(SyntaxKind.Parameter);
+        if (user === undefined || !isInsideTypeAnnotation(reference, user)) return true;
+        return user !== parameter && !isRewritableAlone(structuralContextParameter(counters, user));
+      });
+  });
+  counters.typeSharedWithOthers.set(parameter, shared);
+  return shared;
+}
+
 // The structural-params report would repeat what the rewrite of this parameter already fixes.
 export function isRewrittenStructuralParameter(counters: Counters, parameter: Node): boolean {
   const found = structuralContextParameter(counters, parameter);
-  return found !== undefined && found.foreign.length === 0 && !found.conflicts;
+  return (
+    found !== undefined &&
+    isRewritableAlone(found) &&
+    !isTypeSharedWithOthers(counters, parameter, found)
+  );
 }
 
 // A hand-written structural type (alias, interface, intersection or inline literal) that declares
@@ -291,6 +353,13 @@ export function planStructuralContextParameter(
     plan.flagManual(
       annotation,
       `a structural context type declared in another file reads ${[...new Set(foreign)].join(", ")}, which moved into context namespaces`,
+    );
+    return false;
+  }
+  if (isTypeSharedWithOthers(counters, parameter, found)) {
+    plan.flagManual(
+      annotation,
+      "a structural context type is also used where the rewrite does not reach it (other parameter names, mocks or type references); move its flat members by hand",
     );
     return false;
   }

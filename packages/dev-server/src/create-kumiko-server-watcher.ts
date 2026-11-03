@@ -1,7 +1,8 @@
 /// <reference types="bun-types" preserve="true" />
-import { statSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { watch } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import {
   type ClientBundle,
   type ClientBundleBuilder,
@@ -147,6 +148,19 @@ export type DevFileWatcherDeps = {
   readonly stop: () => Promise<void>;
 };
 
+// mtimes come from the filesystem clock at its granularity, not from Date.now(); a baseline taken
+// from the same clock keeps a coarse-mtime or skewed filesystem from swallowing real edits.
+export function probeFilesystemClockMs(probeParentDir: string = tmpdir()): number {
+  const probeDir = mkdtempSync(join(probeParentDir, "kumiko-watch-start-"));
+  try {
+    const probeFile = join(probeDir, "probe");
+    writeFileSync(probeFile, "");
+    return statSync(probeFile).mtimeMs;
+  } finally {
+    rmSync(probeDir, { recursive: true, force: true });
+  }
+}
+
 // A deleted or renamed file is a real change, so a failing stat counts as changed.
 export function isUnchangedSinceWatchStart(
   absolutePath: string,
@@ -203,7 +217,7 @@ export function startDevFileWatchers(deps: DevFileWatcherDeps): void {
   const entryDirs = new Set<string>();
   for (const e of deps.entries) entryDirs.add(resolve(e.sourceFile, ".."));
   const entrySourceFiles = new Set(deps.entries.map((e) => resolve(e.sourceFile)));
-  const watchStartedAtMs = Date.now();
+  const watchStartedAtMs = probeFilesystemClockMs();
   const dirs = [...entryDirs, ...expandWatchPatterns(deps.watchDirs ?? [])];
   for (const dir of dirs) {
     void watchDir(

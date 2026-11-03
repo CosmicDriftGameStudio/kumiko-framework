@@ -354,6 +354,42 @@ export function job(job: JobContext) {
       expect(output).toContain("ctx.obs.log(");
     });
 
+    it("reports a shared type instead of rewriting it when a differently named parameter also uses it", () => {
+      const source = `${header}type Traced = { readonly tracer?: unknown; readonly log: (line: string) => void };
+export function run(ctx: Traced) {
+  ctx.log("x");
+}
+export function inspect(deps: Traced) {
+  deps.log("y");
+}
+export function job(job: JobContext) {
+  return run(job);
+}
+`;
+      const result = runOn("old", "structural-shared-other-name", source);
+
+      expect(result.output).toBe(source);
+      expect(result.manual.map((site) => site.description)).toContain(
+        "a structural context type is also used where the rewrite does not reach it (other parameter names, mocks or type references); move its flat members by hand",
+      );
+    });
+
+    it("reports a shared type that a mock literal is typed by", () => {
+      const source = `${header}type Traced = { readonly log: (line: string) => void };
+export function run(ctx: Traced) {
+  ctx.log("x");
+}
+export const mock: Traced = { log: () => {} };
+export function job(job: JobContext) {
+  return run(job);
+}
+`;
+      const result = runOn("old", "structural-shared-mock", source);
+
+      expect(result.output).toBe(source);
+      expect(result.manual).toHaveLength(1);
+    });
+
     it("reports a member that moves for the handler but not the job instead of rewriting it", () => {
       const source = `${header}type Traced = { readonly tracer?: unknown };
 export function run(ctx: Traced) {

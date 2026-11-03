@@ -51,9 +51,10 @@ export function collectSourceFiles(
   return files;
 }
 
-// git check-ignore exits 0 when it printed ignored paths, 1 when none is ignored and 128 outside a
-// repository; only 0 filters anything.
+// git check-ignore exits 0 when it printed ignored paths and 1 when none is ignored. Any other code
+// (128: outside a repository, or one path in a submodule fails the whole batch) cannot filter the batch.
 const GIT_CHECK_IGNORE_SOME_IGNORED = 0;
+const GIT_CHECK_IGNORE_NONE_IGNORED = 1;
 
 // A git hook exports GIT_DIR and friends, and git prefers them over cwd: inherited, check-ignore
 // would ask the hook's repository about paths outside it.
@@ -70,9 +71,33 @@ export function envWithoutGitRepositoryOverrides(): Record<string, string> {
 function withoutGitIgnored(cwd: string, files: readonly string[]): readonly string[] {
   if (files.length === 0) return files;
   const result = runGitCheckIgnore(cwd, files);
-  if (result === undefined || result.exitCode !== GIT_CHECK_IGNORE_SOME_IGNORED) return files;
+  if (result === undefined || result.exitCode === GIT_CHECK_IGNORE_NONE_IGNORED) return files;
+  if (result.exitCode !== GIT_CHECK_IGNORE_SOME_IGNORED) {
+    if (!isInsideWorkTree(cwd)) return files;
+    return files.filter((file) => !isIgnoredByOwnRepository(file));
+  }
   const ignored = new Set(result.stdout.toString().split("\0"));
   return files.filter((file) => !ignored.has(file));
+}
+
+function isInsideWorkTree(cwd: string): boolean {
+  return (
+    Bun.spawnSync({
+      cmd: ["git", "rev-parse", "--is-inside-work-tree"],
+      cwd,
+      env: envWithoutGitRepositoryOverrides(),
+      stdout: "ignore",
+      stderr: "ignore",
+    }).exitCode === 0
+  );
+}
+
+// The batch failed inside a repository, so each file is asked from its own directory: a file inside a submodule or
+// embedded checkout then answers from that repository's .gitignore instead of dropping the filter
+// for every file under the root.
+function isIgnoredByOwnRepository(file: string): boolean {
+  const result = runGitCheckIgnore(dirname(file), [file]);
+  return result?.exitCode === GIT_CHECK_IGNORE_SOME_IGNORED;
 }
 
 function runGitCheckIgnore(cwd: string, files: readonly string[]) {
