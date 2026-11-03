@@ -1417,7 +1417,7 @@ type Dispatcher = {
 
 ```ts
 type BatchTurnControl = {
-  holdForRetry: (eventIds: string[], reason: string) => void;
+  holdForRetry: (eventIds: string[], reason: string, options?: { stillBackingOff?: boolean; }) => void;
 };
 type DispatcherPassResult = {
   processed: number;

@@ -183,6 +183,11 @@ function renderClass(node: ClassDeclaration): string[] {
       lines.push(`${INDENT}constructor(${ctor.getParameters().map(parameterText).join(", ")});`);
     }
   }
+  const getterNames = new Set(
+    node
+      .getMembers()
+      .flatMap((member) => (Node.isGetAccessorDeclaration(member) ? [member.getName()] : [])),
+  );
   for (const member of node.getMembers()) {
     if (!isPublicClassMember(member)) continue;
     const isStatic = Node.isStaticable(member) && member.isStatic() ? "static " : "";
@@ -193,6 +198,12 @@ function renderClass(node: ClassDeclaration): string[] {
       lines.push(
         `${INDENT}${isStatic}${member.getName()}${signatureText(member)};${docSuffix(member)}`,
       );
+    } else if (Node.isGetAccessorDeclaration(member)) {
+      const text = typeText(member.getReturnTypeNode(), 1, INDENT);
+      lines.push(`${INDENT}${isStatic}${member.getName()}: ${text};${docSuffix(member)}`);
+    } else if (Node.isSetAccessorDeclaration(member) && !getterNames.has(member.getName())) {
+      const text = typeText(member.getParameters()[0]?.getTypeNode(), 1, INDENT);
+      lines.push(`${INDENT}${isStatic}${member.getName()}: ${text};${docSuffix(member)}`);
     }
   }
   if (lines.length === 0) return [`${head} {}${docSuffix(node)}`];

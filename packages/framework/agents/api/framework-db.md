@@ -172,6 +172,7 @@ function writeSnapshotJson(path: string, snapshot: Snapshot): void;
 ## Constants
 
 ```ts
+const BUN_SQL_CONNECTION_ERROR_CODES: string[];
 const DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX: 3;
 const ROW_LEVEL_SECURITY_MODES: ["off", "on"];
 const WritePurposes: { retention: "retention"; erasure: "erasure"; };

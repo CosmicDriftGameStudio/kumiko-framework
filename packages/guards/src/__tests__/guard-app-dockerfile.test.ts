@@ -62,6 +62,43 @@ describe("inspectAppDockerfile", () => {
     expect(inspectAppDockerfile(input({ dockerfileText: text })).violations).toEqual([]);
   });
 
+  test("inline assignment unrelated to the mounted secret does not count", () => {
+    const text = dockerfile(
+      "COPY . .\nRUN --mount=type=secret,id=npm_auth_token GITHUB_TOKEN=dummy bun install",
+    );
+    expect(inspectAppDockerfile(input({ dockerfileText: text })).violations).toEqual([
+      expect.stringContaining("does not mount the registry token"),
+    ]);
+  });
+
+  test("inline assignment reads a custom mount target", () => {
+    const text = dockerfile(
+      "COPY . .\nRUN --mount=type=secret,id=npm_auth_token,target=/tmp/t GITHUB_TOKEN=$(cat /tmp/t) bun install",
+    );
+    expect(inspectAppDockerfile(input({ dockerfileText: text })).violations).toEqual([]);
+  });
+
+  test("a variable only used for another registry in bunfig does not count", () => {
+    const bunfigText = `${BUNFIG}[install.registry]\nurl = "https://registry.npmjs.org"\ntoken = "$NPM_TOKEN"\n`;
+    const text = SECRET_DOCKERFILE.replace("env=GITHUB_TOKEN", "env=NPM_TOKEN");
+    expect(inspectAppDockerfile(input({ dockerfileText: text, bunfigText })).violations).toEqual([
+      expect.stringContaining("does not mount the registry token"),
+    ]);
+  });
+
+  test("heredoc RUN and the `bun i` alias count as the build-stage install", () => {
+    for (const run of [
+      `RUN ${SECRET_MOUNT} <<EOF\nbun install --frozen-lockfile\nEOF`,
+      `RUN ${SECRET_MOUNT} bun i --frozen-lockfile`,
+    ]) {
+      const text = dockerfile(`COPY . .\n${run}`);
+      expect(inspectAppDockerfile(input({ dockerfileText: text }))).toEqual({
+        violations: [],
+        warnings: [],
+      });
+    }
+  });
+
   test("mount under a variable the registry config does not read is a violation", () => {
     const text = SECRET_DOCKERFILE.replace("env=GITHUB_TOKEN", "env=NPM_AUTH_TOKEN");
     expect(inspectAppDockerfile(input({ dockerfileText: text })).violations).toEqual([

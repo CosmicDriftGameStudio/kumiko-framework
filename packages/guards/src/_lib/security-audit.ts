@@ -41,6 +41,7 @@ export type SecurityEvaluation = {
   readonly warnings: AuditAdvisory[];
   readonly suppressed: AuditAdvisory[];
   readonly usedExceptions: SecurityException[];
+  readonly matchedExceptions: SecurityException[];
   readonly counts: Record<Severity, number>;
 };
 
@@ -93,16 +94,21 @@ function matchesAdvisory(exceptionAdvisory: string, advisoryId: string, url: str
   return url.includes(exceptionAdvisory);
 }
 
-function findSecurityException(
+function matchingSecurityExceptions(
   advisory: AuditAdvisory,
   exceptions: readonly SecurityException[],
-  nowMs: number,
-): SecurityException | undefined {
-  const matching = exceptions.filter(
+): SecurityException[] {
+  return exceptions.filter(
     (ex) =>
       matchesAdvisory(ex.advisory, advisory.advisoryId, advisory.url) &&
       (ex.package === "*" || matchesPackageName(ex.package, advisory.package)),
   );
+}
+
+function findSecurityException(
+  matching: readonly SecurityException[],
+  nowMs: number,
+): SecurityException | undefined {
   // An expired earlier entry (e.g. bundled) must not shadow a valid later one (e.g. repo-level).
   return matching.find((ex) => isSecurityExceptionActive(ex, nowMs)) ?? matching[0];
 }
@@ -122,10 +128,13 @@ export function evaluateSecurity(
   const warnings: AuditAdvisory[] = [];
   const suppressed: AuditAdvisory[] = [];
   const usedExceptions = new Set<SecurityException>();
+  const matchedExceptions = new Set<SecurityException>();
 
   for (const advisory of advisories) {
     counts[advisory.severity] += 1;
-    const exception = findSecurityException(advisory, exceptions, nowMs);
+    const matching = matchingSecurityExceptions(advisory, exceptions);
+    for (const ex of matching) matchedExceptions.add(ex);
+    const exception = findSecurityException(matching, nowMs);
     const covered = exception !== undefined && isSecurityExceptionActive(exception, nowMs);
 
     if (covered) {
@@ -138,7 +147,14 @@ export function evaluateSecurity(
     }
   }
 
-  return { blocking, warnings, suppressed, usedExceptions: [...usedExceptions], counts };
+  return {
+    blocking,
+    warnings,
+    suppressed,
+    usedExceptions: [...usedExceptions],
+    matchedExceptions: [...matchedExceptions],
+    counts,
+  };
 }
 
 /** True when `bytes` starts with the gzip magic header (1f 8b). */

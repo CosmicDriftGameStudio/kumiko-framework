@@ -45,8 +45,12 @@ export function isPublicClassMember(member: Node): boolean {
   )
     return false;
   return (
-    !(Node.isPropertyDeclaration(member) || Node.isMethodDeclaration(member)) ||
-    !member.getName().startsWith("#")
+    !(
+      Node.isPropertyDeclaration(member) ||
+      Node.isMethodDeclaration(member) ||
+      Node.isGetAccessorDeclaration(member) ||
+      Node.isSetAccessorDeclaration(member)
+    ) || !member.getName().startsWith("#")
   );
 }
 
@@ -83,6 +87,9 @@ function classTypeRoots(node: ClassDeclaration): Node[] {
     if (Node.isMethodDeclaration(member) || Node.isConstructorDeclaration(member)) {
       roots.push(...member.getParameters(), ...presentNodes(member.getReturnTypeNode()));
     }
+    if (Node.isGetAccessorDeclaration(member))
+      roots.push(...presentNodes(member.getReturnTypeNode()));
+    if (Node.isSetAccessorDeclaration(member)) roots.push(...member.getParameters());
   }
   return roots;
 }

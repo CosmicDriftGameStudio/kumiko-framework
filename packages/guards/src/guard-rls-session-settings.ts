@@ -22,6 +22,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { Glob } from "bun";
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { decodedLiteralText, mayContainEscapedLiteral } from "./_lib/escaped-literal";
 import {
   ALL_REPO_KINDS,
   type AstGuard,
@@ -145,12 +146,13 @@ const MENTIONS_RLS_SETTING_RE = /kumiko\.|set_config/i;
 
 function findSessionSettings(sf: SourceFile, rel: string) {
   const found: Array<{ line: number; message: string }> = [];
-  if (!MENTIONS_RLS_SETTING_RE.test(sf.getFullText())) return found;
+  const text = sf.getFullText();
+  if (!MENTIONS_RLS_SETTING_RE.test(text) && !mayContainEscapedLiteral(text)) return found;
   for (const node of sf.getDescendants()) {
     if (!isStringLike(node)) continue;
     // A template's own spans are visited as separate nodes; its full text is checked once here.
     if (node.getParent()?.getKind() === SyntaxKind.TemplateSpan) continue;
-    for (const message of violationsInText(node.getText(), rel)) {
+    for (const message of violationsInText(decodedLiteralText(node), rel)) {
       found.push({ line: node.getStartLineNumber(), message: `[rls-session-setting] ${message}` });
     }
   }

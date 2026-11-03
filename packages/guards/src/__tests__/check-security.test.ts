@@ -211,6 +211,25 @@ describe("runSecurityCheck", () => {
       expect(log).not.toContain("suppressed no advisory");
     });
 
+    test("an expired repo exception whose advisory still occurs asks for renewal, not removal", async () => {
+      const expired = securityException({ expires: "2026-10-01" });
+      const { exitCode, log } = await runAndCaptureLog([expired], report("high"));
+      expect(exitCode).toBe(1);
+      expect(log).not.toContain("suppressed no advisory");
+    });
+
+    test("a repo exception shadowed by a valid bundled one for the same advisory does not warn", async () => {
+      const bundled = securityException({
+        source: { file: "/pkg/dependency-security-exceptions.json", origin: "bundled" },
+      });
+      const { exitCode, log } = await runAndCaptureLog(
+        [bundled, securityException({})],
+        report("high"),
+      );
+      expect(exitCode).toBe(0);
+      expect(log).not.toContain("suppressed no advisory");
+    });
+
     test("an unused bundled exception does not warn", async () => {
       const bundled = securityException({
         source: { file: "/pkg/dependency-security-exceptions.json", origin: "bundled" },

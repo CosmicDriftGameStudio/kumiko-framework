@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { RepoRoot } from "./roots";
 
@@ -117,7 +117,8 @@ function statusDependentFieldProblems(status: string, fields: Map<string, string
   return problems;
 }
 
-export function parseStatusFrontmatter(content: string): ParsedFrontmatter {
+export function parseStatusFrontmatter(rawContent: string): ParsedFrontmatter {
+  const content = rawContent.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
   if (!content.startsWith("---\n"))
     return invalid("no status frontmatter (file must start with '---')");
   const end = content.indexOf("\n---", 4);
@@ -174,7 +175,10 @@ export function statusDocHygieneWarnings(doc: StatusDoc): readonly string[] {
 }
 
 function collectMarkdownFiles(dir: string, walkRoot: string, out: string[]): void {
-  for (const name of readdirSync(dir)) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    // A symlink to a parent directory would recurse forever.
+    if (entry.isSymbolicLink()) continue;
+    const name = entry.name;
     const abs = join(dir, name);
     // Segments below the walk root only: a checkout under ~/marketing/ must not hide every doc.
     if (
@@ -184,7 +188,7 @@ function collectMarkdownFiles(dir: string, walkRoot: string, out: string[]): voi
     ) {
       continue;
     }
-    if (statSync(abs).isDirectory()) collectMarkdownFiles(abs, walkRoot, out);
+    if (entry.isDirectory()) collectMarkdownFiles(abs, walkRoot, out);
     else if (name.endsWith(".md")) out.push(abs);
   }
 }

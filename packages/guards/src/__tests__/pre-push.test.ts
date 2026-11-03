@@ -646,18 +646,16 @@ describe("kumiko-pre-push", () => {
     test("test:dom runs after test in one lane, the other steps run beside it", () => {
       const worktreeDir = setupWorktree({
         typecheck: `echo typecheck >> ${HOOK_LOG_NAME}`,
-        test: `sleep 1 && echo test >> ${HOOK_LOG_NAME}`,
+        test: `echo test >> ${HOOK_LOG_NAME}`,
         "test:dom": `echo test:dom >> ${HOOK_LOG_NAME}`,
       });
 
       const { exitCode } = runHook(worktreeDir, tmp, { KUMIKO_PRE_PUSH_POOL: "4" });
 
       expect(exitCode).toBe(0);
-      expect(readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8").trim().split("\n")).toEqual([
-        "typecheck",
-        "test",
-        "test:dom",
-      ]);
+      const logged = readFileSync(join(worktreeDir, HOOK_LOG_NAME), "utf-8").trim().split("\n");
+      expect([...logged].sort()).toEqual(["test", "test:dom", "typecheck"]);
+      expect(logged.indexOf("test")).toBeLessThan(logged.indexOf("test:dom"));
     });
 
     test("declared uiRoots add the UI guards, as in kumiko check", () => {

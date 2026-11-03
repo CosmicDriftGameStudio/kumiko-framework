@@ -23,6 +23,7 @@ import {
   SyntaxKind,
 } from "ts-morph";
 import { findRepoRootFor } from "./_lib/baseline-compare";
+import { mayContainEscapedLiteral } from "./_lib/escaped-literal";
 import {
   ALL_REPO_KINDS,
   type AstGuard,
@@ -73,7 +74,7 @@ type Finding = { line: number; message: string };
 // escape could spell a name without its plain text, so any `\u` keeps the walk.
 function mayMention(sf: SourceFile, names: readonly string[]): boolean {
   const text = sf.getFullText();
-  return text.includes("\\u") || names.some((name) => text.includes(name));
+  return mayContainEscapedLiteral(text) || names.some((name) => text.includes(name));
 }
 
 function isTestFile(rel: string): boolean {
