@@ -43,6 +43,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -144,7 +145,7 @@ beforeAll(async () => {
     context: { db },
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-projrebuild-test-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-projrebuild-test"),
     ...logger,
   });
   await jobRunner.start();

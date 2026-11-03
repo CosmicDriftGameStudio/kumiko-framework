@@ -18,14 +18,17 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { entityEventName } from "../../db/index.ts";
 import { defineFeature, type JobContext } from "../../engine/index.ts";
 import { loadAggregate } from "../../event-store/index.ts";
 import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { generateId } from "../../utils/index.ts";
 
 const ITEM_REQUESTED_EVENT_QN = "job-trigger-fixture:event:item-requested";
 const FILE_REF_CREATED = entityEventName("fileRef", "created");
@@ -136,7 +139,10 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [jobTriggerFixtureFeature],
     files: { storageProvider: provider },
-    jobs: { consumerLane: "worker", queueNamePrefix: `job-trigger-fixture-${generateId()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("job-trigger-fixture"),
+    },
   });
   whereProvider = createInMemoryFileProvider();
   whereStack = await setupTestStack({
@@ -145,7 +151,10 @@ beforeAll(async () => {
     // Distinct prefix from `stack` above — createTestRedis's keyPrefix
     // isolation doesn't cover BullMQ's own connections, so without this both
     // JobRunners would race each other on the same default queue name.
-    jobs: { consumerLane: "worker", queueNamePrefix: `job-trigger-where-fixture-${generateId()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("job-trigger-where-fixture"),
+    },
   });
 });
 

@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type {
   ConfigAccessor,
   ConfigAccessorFactory,
@@ -273,7 +277,7 @@ async function withRunner(
   const context: AppContext = {};
   // Date.now() alone collided when two tests ran in the same millisecond;
   // adding a random suffix keeps queue names unique across the whole run.
-  const queueNamePrefix = `kumiko-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const queueNamePrefix = testRunQueueNamePrefix("kumiko-test");
   const runner = createJobRunner({
     registry,
     context,
@@ -536,8 +540,8 @@ describe("concurrency: sequential", () => {
     clearLog();
     // Regression guard: the lock key used to omit queueNamePrefix, so two
     // isolated runners sharing a Redis collided on the same lock.
-    const prefixA = `kumiko-test-lockscope-a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const prefixB = `kumiko-test-lockscope-b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prefixA = testRunQueueNamePrefix("kumiko-test-lockscope-a");
+    const prefixB = testRunQueueNamePrefix("kumiko-test-lockscope-b");
     const runnerA = createJobRunner({
       registry: createRegistry([testFeature]),
       context: {},
@@ -721,7 +725,7 @@ describe("concurrency: replace", () => {
   test("enqueuer-only: each dispatch removes prior waiting peers", async () => {
     // No consumer → jobs stay waiting. The replace branch walks getWaiting()
     // and removes same-name peers before add — so three dispatches leave one.
-    const queueNamePrefix = `kumiko-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test");
     await withRunner(
       async (runner) => {
         const id1 = await runner.dispatch("test:job:replace-job", { n: 1 });
@@ -1105,7 +1109,7 @@ describe("perTenant across multiple runner instances", () => {
       return tenants;
     };
     const registry = createRegistry([cronFeature]);
-    const queueNamePrefix = `kumiko-test-multi-cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-multi-cron");
     const runnerA = createJobRunner({
       registry,
       context: { db: { runnerTag: "runner-a" } as unknown as AppContext["db"] },
@@ -1207,7 +1211,7 @@ describe("perTenant across multiple runner instances", () => {
     const tenants = Array.from({ length: 12 }, (_, i) => `multi-worker-${i}`) as TenantId[];
     const getActiveTenantIds = async () => tenants;
     const registry = createRegistry([manualFeature]);
-    const queueNamePrefix = `kumiko-test-multi-worker-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-multi-worker");
     const runnerA = createJobRunner({
       registry,
       context: { db: { runnerTag: "runner-a" } as unknown as AppContext["db"] },
@@ -1267,7 +1271,7 @@ describe("perTenant wrapper re-run for the same trigger", () => {
     const tenants = ["dedup-a", "dedup-b", "dedup-c"] as TenantId[];
     const getActiveTenantIds = async () => tenants;
     const registry = createRegistry([dedupFeature]);
-    const queueNamePrefix = `kumiko-test-dedup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-dedup");
     const runner = createJobRunner({
       registry,
       context: {},
@@ -1336,7 +1340,7 @@ describe("perTenant wrapper re-run for the same trigger", () => {
       return tenants;
     };
     const registry = createRegistry([cronFeature]);
-    const queueNamePrefix = `kumiko-test-dedup-cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-dedup-cron");
     const runner = createJobRunner({
       registry,
       context: {},
@@ -1458,7 +1462,7 @@ describe("boot gates", () => {
   const GATE_FAILURE = "required legal blocks are not seeded";
 
   function uniquePrefix(): string {
-    return `kumiko-gate-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return testRunQueueNamePrefix("kumiko-gate");
   }
 
   function createGateRunner(
@@ -1801,7 +1805,7 @@ describe("runner lifecycle: immediate stop", () => {
           context: {},
           redisUrl,
           consumerLane: "worker",
-          queueNamePrefix: `kumiko-test-stop-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+          queueNamePrefix: testRunQueueNamePrefix(`kumiko-test-stop-${i}`),
         });
         // No await between construction and stop(): the Queue connection is
         // guaranteed to still be 'initializing' here.
@@ -1857,7 +1861,7 @@ describe("maxPerTenant defer", () => {
 
     const runStarts: string[] = [];
     const runFailures: string[] = [];
-    const queueNamePrefix = `kumiko-test-defer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const queueNamePrefix = testRunQueueNamePrefix("kumiko-test-defer");
     const runner = createJobRunner({
       registry: createRegistry([deferFeature]),
       context: {},

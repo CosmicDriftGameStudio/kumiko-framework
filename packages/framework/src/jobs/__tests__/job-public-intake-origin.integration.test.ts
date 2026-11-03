@@ -5,6 +5,7 @@ import { resetTestTables, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
@@ -55,7 +56,7 @@ function recordGatedFailure(job: string, err: unknown): never {
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
 const RATE_LIMIT = { per: "ip", limit: 1000, windowSeconds: 60 } as const;
-const QUEUE_NAME_PREFIX = `kumiko-write-origin-test-${Date.now()}`;
+const QUEUE_NAME_PREFIX = testRunQueueNamePrefix("kumiko-write-origin-test");
 const UNSAFE_RAW_REASON =
   "test: proves ctx.systemDb.unsafeRaw()-derived createTenantDb inherits the job's gate";
 

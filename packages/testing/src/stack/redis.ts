@@ -1,6 +1,8 @@
 // @runtime dev
+import { obliterateJobQueues } from "@cosmicdrift/kumiko-framework/jobs";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { requireEnv } from "./db.ts";
+import { ensureCurrentTestRunAlive } from "./test-run.ts";
 
 export type TestRedis = {
   redis: import("ioredis").Redis;
@@ -12,8 +14,8 @@ export type TestRedis = {
   redisUrl: string;
   /** The per-test `keyPrefix` on `redis`, e.g. `kt:1a2b3c4d:`. */
   keyPrefix: string;
-  /** Delete every key this test created (prefix-scoped). Replaces the old
-   *  `redis.flushdb()` — that wiped other parallel tests' BullMQ state. */
+  /** Delete every key this test created (prefix-scoped). Scans the whole Redis, so call it
+   *  between tests that need a clean namespace, not as teardown — the run sweep does that. */
   flushNamespace: () => Promise<void>;
   cleanup: () => Promise<void>;
 };
@@ -27,17 +29,18 @@ export function queueNamePrefixForTestRedis(keyPrefix: string): string {
 
 export type CreateTestRedisOptions = {
   /** Reuse another stack's keyPrefix on a fresh connection. cleanup() then only
-   *  disconnects — the owning stack flushes the namespace and its queues. */
+   *  disconnects — the owning stack removes the shared queues. */
   readonly borrowKeyPrefix?: string;
 };
 
 export async function createTestRedis(opts: CreateTestRedisOptions = {}): Promise<TestRedis> {
   const Redis = (await import("ioredis")).Redis;
   const redisUrl = requireEnv("REDIS_URL");
-  // Every test gets a per-file key prefix on a shared DB (no DB-pool-of-15
-  // round-robin). Collisions at birthday-paradox rates are gone — the
-  // prefix space is unbounded. See Track B.3 in docs/plans/tests-refactor.
-  const prefix = opts.borrowKeyPrefix ?? `kt:${generateId().slice(-8)}:`;
+  // Per-stack prefix inside the test run's namespace on a shared DB: the run sweep removes the
+  // namespace once per run instead of every cleanup scanning the whole Redis for it.
+  const prefix =
+    opts.borrowKeyPrefix ??
+    `kt:${await ensureCurrentTestRunAlive(redisUrl)}:${generateId().slice(-8)}:`;
   // Callers that check redis.status (rate-limit resolver) must not see "connect" on their first call.
   const redis = new Redis(redisUrl, { keyPrefix: prefix, lazyConnect: true });
   try {
@@ -73,12 +76,12 @@ export async function createTestRedis(opts: CreateTestRedisOptions = {}): Promis
     cleanup: async () => {
       if (opts.borrowKeyPrefix !== undefined) {
         redis.disconnect();
-        // skip: the owning stack flushes the shared namespace and its queues
+        // skip: the owning stack removes the shared queues
         return;
       }
-      await flushNamespace();
-      // The derived per-stack JobRunner queues sit outside the keyPrefix.
-      await deleteKeysMatching(`bull:${queueNamePrefixForTestRedis(prefix)}-*`);
+      // The namespace itself stays for the run sweep; only the derived JobRunner queues, which
+      // sit outside the keyPrefix, go now, by name.
+      await obliterateJobQueues({ redisUrl, queueNamePrefix: queueNamePrefixForTestRedis(prefix) });
       redis.disconnect();
     },
   };

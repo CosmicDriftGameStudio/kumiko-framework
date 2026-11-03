@@ -9,6 +9,7 @@ import {
   setupTestStack,
   type TestRedis,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
@@ -475,7 +476,7 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
       context,
       redisUrl,
       consumerLane: "worker",
-      queueNamePrefix: `kumiko-obs-${Date.now()}`,
+      queueNamePrefix: testRunQueueNamePrefix("kumiko-obs"),
     });
 
     try {
@@ -519,7 +520,7 @@ describe("Observability (integration) — Jobs cross-process trace", () => {
       context,
       redisUrl,
       consumerLane: "worker",
-      queueNamePrefix: `kumiko-obs-${Date.now()}`,
+      queueNamePrefix: testRunQueueNamePrefix("kumiko-obs"),
     });
 
     try {

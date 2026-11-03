@@ -24,7 +24,7 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { readSseFrames, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
+import { testRunQueueNamePrefix, unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
@@ -292,7 +292,7 @@ describe("runProdApp behind a prefix-scoped Redis ACL user", () => {
 
 describe("runProdApp without a Redis prefix", () => {
   test("keeps the unprefixed key layout", async () => {
-    const queueNamePrefix = `nsplain${uniqueSuffix()}`;
+    const queueNamePrefix = testRunQueueNamePrefix("nsplain");
     touchedKeyPatterns.push(`*${queueNamePrefix}*`);
     const app = await boot(bootEnv({}), queueNamePrefix);
 
@@ -311,7 +311,7 @@ describe("runProdApp without a Redis prefix", () => {
 
 describe("runProdApp shutdown with a running job", () => {
   test("stop() waits for the running job and takes no new job", async () => {
-    const queueNamePrefix = `nsdrain${uniqueSuffix()}`;
+    const queueNamePrefix = testRunQueueNamePrefix("nsdrain");
     touchedKeyPatterns.push(`*${queueNamePrefix}*`);
     const app = await boot(bootEnv({ KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS: "20000" }), queueNamePrefix);
     heldJobFinished = false;
@@ -340,7 +340,7 @@ describe("runProdApp shutdown with a running job", () => {
   });
 
   test("a job that outlives the configured drain budget does not hold stop() back", async () => {
-    const queueNamePrefix = `nsbudget${uniqueSuffix()}`;
+    const queueNamePrefix = testRunQueueNamePrefix("nsbudget");
     touchedKeyPatterns.push(`*${queueNamePrefix}*`);
     const app = await boot(bootEnv({ KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS: "300" }), queueNamePrefix);
     heldJobFinished = false;
@@ -359,7 +359,7 @@ describe("runProdApp shutdown with a running job", () => {
 describe("runProdApp maintenance window", () => {
   test("an invalid KUMIKO_MAINTENANCE_WINDOW aborts the boot", async () => {
     await expect(
-      boot(bootEnv({ KUMIKO_MAINTENANCE_WINDOW: "25:00" }), `nswin${uniqueSuffix()}`),
+      boot(bootEnv({ KUMIKO_MAINTENANCE_WINDOW: "25:00" }), testRunQueueNamePrefix("nswin")),
     ).rejects.toThrow(/KUMIKO_MAINTENANCE_WINDOW/);
   });
 });

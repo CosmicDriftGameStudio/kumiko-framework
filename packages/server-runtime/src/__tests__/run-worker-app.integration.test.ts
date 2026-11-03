@@ -48,14 +48,18 @@ import {
   getConsumerState,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  testRunQueueNamePrefix,
+  unsafeEnsureEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { Redis } from "ioredis";
 import * as z from "zod";
 import { makeDispatchSystemWrite } from "../extra-routes-deps.ts";
 import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app.ts";
 
-const bootJobQueuePrefix = `test-worker-boot-${Date.now().toString(36)}`;
+const bootJobQueuePrefix = testRunQueueNamePrefix("test-worker-boot");
 
 const jobRuns: Array<{ note: string; temporalWasDefined: boolean }> = [];
 
@@ -165,7 +169,7 @@ async function boot(extra?: Partial<Parameters<typeof runWorkerApp>[0]>): Promis
       rowLevelSecurity: "off",
       features: [workerProbeFeature],
       migrations: false,
-      jobs: { queueNamePrefix: `test-worker-${Date.now().toString(36)}` },
+      jobs: { queueNamePrefix: testRunQueueNamePrefix("test-worker") },
       ...(extra ?? {}),
     });
     handles.push(handle);

@@ -14,7 +14,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { asRawClient } from "../../db/query.ts";
@@ -111,7 +115,7 @@ const JWT = "split-deploy-test-secret-must-be-32-chars!!";
 // in jobs.integration.ts when two tests landed in the same millisecond —
 // the random suffix pins each test's BullMQ queues even then.
 function uniquePrefix(label: string): string {
-  return `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return testRunQueueNamePrefix(label);
 }
 
 let testDb: BunTestDb;

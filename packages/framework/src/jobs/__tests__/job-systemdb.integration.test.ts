@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { unscopedRunnerOf } from "../../db/row-level-security-scope.ts";
 import { tenantDbRunner } from "../../db/tenant-db-runner.ts";
@@ -104,7 +108,7 @@ beforeAll(async () => {
     context: { db: testDb.db },
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-job-systemdb-test-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-job-systemdb-test"),
     getActiveTenantIds: async () => [ownTenant],
   });
 

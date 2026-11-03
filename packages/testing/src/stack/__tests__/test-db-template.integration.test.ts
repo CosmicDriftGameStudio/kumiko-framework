@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import { noteFeature } from "../../__tests__/note-feature.ts";
 import { withEnv } from "../../helpers/with-env.ts";
-import { runWithTestDbTemplates } from "../../integration-runner.ts";
+import { runWithTestRun } from "../../integration-runner.ts";
 import {
   adminUrlOf,
   buildTestDbTemplate,
@@ -46,7 +46,7 @@ describe("setupTestStack inside an integration run", () => {
   test("parallel stacks with one schema clone a single template, each into its own database", async () => {
     let runId = "";
     let templatesDuringRun: readonly string[] = [];
-    const exitCode = await runWithTestDbTemplates(async () => {
+    const exitCode = await runWithTestRun(async () => {
       runId = runIdOfCurrentRun();
       const [first, second] = await Promise.all([
         setupTestStack({ features: [noteFeature] }),

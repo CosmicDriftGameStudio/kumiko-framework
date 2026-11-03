@@ -28,6 +28,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { UnrecoverableError } from "bullmq";
@@ -144,7 +145,7 @@ beforeAll(async () => {
   });
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
-  const queueNamePrefix = `kumiko-tenant-job-runs-${Date.now()}`;
+  const queueNamePrefix = testRunQueueNamePrefix("kumiko-tenant-job-runs");
   enqueuer = createJobRunner({
     registry,
     context: { db },

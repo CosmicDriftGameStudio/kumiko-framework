@@ -12,6 +12,7 @@ import {
   applicationRoleUrlOf,
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { runProdApp } from "../run-prod-app.ts";
 import { runWorkerApp } from "../run-worker-app.ts";
@@ -109,7 +110,7 @@ describe("rowLevelSecurity on: boot hooks see a system-scoped db", () => {
       features: [probeFeature],
       rowLevelSecurity: "on",
       migrations: false,
-      jobs: { queueNamePrefix: `test-rlshooks-${SUFFIX}` },
+      jobs: { queueNamePrefix: testRunQueueNamePrefix("test-rlshooks") },
       envSource: envFor(APP_DB),
       wireComponents: async (deps) => {
         wireRead = await readNames(deps.db);

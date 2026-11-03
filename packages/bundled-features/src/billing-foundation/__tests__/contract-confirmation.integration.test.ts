@@ -8,7 +8,6 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   expectError,
@@ -19,6 +18,7 @@ import {
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -205,7 +205,10 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
     }),
     extraRoutes: [createSubscriptionWebhookRoute()],
-    jobs: { consumerLane: "worker", queueNamePrefix: `contract-confirmation-${generateId()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("contract-confirmation"),
+    },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);

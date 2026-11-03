@@ -14,7 +14,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
@@ -99,7 +103,7 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       redisUrl,
-      queueNamePrefix: `wiring-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      queueNamePrefix: testRunQueueNamePrefix("wiring"),
     });
     await entry.start();
     try {
@@ -142,7 +146,7 @@ describe("createAllInOneEntrypoint auto-wires jobRunner into command-dispatcher"
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       redisUrl,
-      queueNamePrefix: `wiring-mixed-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      queueNamePrefix: testRunQueueNamePrefix("wiring-mixed"),
     });
     await entry.start();
     try {
@@ -195,7 +199,7 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       redisUrl,
-      queueNamePrefix: `wiring-qd-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      queueNamePrefix: testRunQueueNamePrefix("wiring-qd"),
       observability,
     });
     await entry.start();
@@ -265,7 +269,7 @@ describe("createAllInOneEntrypoint — job context sees dispatcherOptions.effect
       context: { db: testDb.db, redis: testRedis.redis },
       jwtSecret: JWT,
       redisUrl,
-      queueNamePrefix: `wiring-features-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      queueNamePrefix: testRunQueueNamePrefix("wiring-features"),
       dispatcherOptions: {
         effectiveFeatures: () => new Set(["featuregate", "some-feature"]),
       },

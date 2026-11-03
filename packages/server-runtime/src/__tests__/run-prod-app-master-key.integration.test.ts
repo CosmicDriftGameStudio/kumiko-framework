@@ -39,7 +39,11 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  testRunQueueNamePrefix,
+  unsafeEnsureEntityTable,
+  unsafePushTables,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 
@@ -164,7 +168,7 @@ async function bootApp(withMasterKey: boolean): Promise<ProdAppHandle> {
         },
       }),
     }),
-    jobs: { queueNamePrefix: `test-masterkey-${Date.now().toString(36)}` },
+    jobs: { queueNamePrefix: testRunQueueNamePrefix("test-masterkey") },
   });
   handle = booted;
   return booted;

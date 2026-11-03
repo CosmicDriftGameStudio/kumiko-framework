@@ -2,7 +2,11 @@
 // restarting with another window replaces it instead of adding a second one.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { createRegistry, defineFeature } from "../../engine/index.ts";
 import type { AppContext } from "../../engine/types/index.ts";
@@ -52,7 +56,7 @@ async function delayedDueTimes(queue: Queue): Promise<number[]> {
 
 describe("maintenance trigger", () => {
   test("a restart with another window replaces the scheduler and its delayed job", async () => {
-    const prefix = `kumiko-test-maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prefix = testRunQueueNamePrefix("kumiko-test-maint");
     const queue = new Queue(`${prefix}-worker`, {
       connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
     });
@@ -91,7 +95,7 @@ describe("maintenance trigger", () => {
   });
 
   test("without a window the job runs at 03:00 UTC", async () => {
-    const prefix = `kumiko-test-maint-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prefix = testRunQueueNamePrefix("kumiko-test-maint");
     const queue = new Queue(`${prefix}-worker`, {
       connection: { host: testRedis.redis.options.host, port: testRedis.redis.options.port },
     });

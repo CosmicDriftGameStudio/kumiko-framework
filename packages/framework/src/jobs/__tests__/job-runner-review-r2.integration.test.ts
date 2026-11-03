@@ -8,6 +8,7 @@ import {
   createTestRedis,
   type TestDb,
   type TestRedis,
+  testRunQueueNamePrefix,
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
@@ -36,7 +37,7 @@ afterAll(async () => {
 });
 
 function uniquePrefix(tag: string): string {
-  return `kumiko-test-r2-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return testRunQueueNamePrefix(`kumiko-test-r2-${tag}`);
 }
 
 async function purgeWorkerKeys(queueNamePrefix: string): Promise<void> {

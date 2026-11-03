@@ -3,7 +3,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  setupTestStack,
+  type TestStack,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { selectMany } from "../../db/query.ts";
 import { defineFeature } from "../../engine/index.ts";
@@ -86,7 +90,7 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [catchUpFixtureFeature],
-    jobs: { consumerLane: "worker", queueNamePrefix: `catch-up-fixture-${generateId()}` },
+    jobs: { consumerLane: "worker", queueNamePrefix: testRunQueueNamePrefix("catch-up-fixture") },
   });
 });
 

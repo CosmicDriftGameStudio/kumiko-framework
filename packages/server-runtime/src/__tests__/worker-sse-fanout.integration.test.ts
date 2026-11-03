@@ -22,7 +22,7 @@ import {
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { readSseFrames, type SseFrame, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
+import { testRunQueueNamePrefix, unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { makeDispatchSystemWrite } from "../extra-routes-deps.ts";
 import { type ProdAppHandle, runProdApp } from "../run-prod-app.ts";
 import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app.ts";
@@ -112,7 +112,7 @@ async function bootApi(env: Record<string, string>): Promise<ProdAppHandle> {
     migrations: false,
     runSingleInstance: false,
     allowPlaintextPii: "test: SSE fanout focus, not PII crypto",
-    jobs: { queueNamePrefix: `test-worker-sse-api-${Date.now().toString(36)}` },
+    jobs: { queueNamePrefix: testRunQueueNamePrefix("test-worker-sse-api") },
   });
   api = booted;
   return booted;
@@ -125,7 +125,7 @@ async function bootWorker(
     rowLevelSecurity: "off",
     features: [sseProbeFeature],
     migrations: false,
-    jobs: { queueNamePrefix: `test-worker-sse-${Date.now().toString(36)}` },
+    jobs: { queueNamePrefix: testRunQueueNamePrefix("test-worker-sse") },
     ...options,
   });
   worker = booted;

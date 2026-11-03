@@ -8,12 +8,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
@@ -252,7 +252,7 @@ beforeAll(async () => {
       configAccessorFactory: createConfigAccessorFactory(deps.registry, configResolver),
     }),
     extraRoutes: [createSubscriptionWebhookRoute()],
-    jobs: { consumerLane: "worker", queueNamePrefix: `multi-provider-${generateId()}` },
+    jobs: { consumerLane: "worker", queueNamePrefix: testRunQueueNamePrefix("multi-provider") },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);

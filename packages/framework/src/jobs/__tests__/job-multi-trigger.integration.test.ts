@@ -8,7 +8,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
-import { createTestRedis, type TestRedis } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  createTestRedis,
+  type TestRedis,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import type { Hono } from "hono";
 import * as z from "zod";
 import { buildServer, type JwtHelper } from "../../api/index.ts";
@@ -73,7 +77,7 @@ beforeAll(async () => {
     context: {},
     redisUrl,
     consumerLane: "worker",
-    queueNamePrefix: `kumiko-multi-trigger-test-${Date.now()}`,
+    queueNamePrefix: testRunQueueNamePrefix("kumiko-multi-trigger-test"),
   });
 
   const server = buildServer({

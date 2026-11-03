@@ -24,7 +24,12 @@ import {
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
-import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  testRunQueueNamePrefix,
+} from "@cosmicdrift/kumiko-testing/stack";
 import { Queue } from "bullmq";
 import * as z from "zod";
 import { createSecretsFeature } from "../../secrets/index.ts";
@@ -88,7 +93,7 @@ const admin = createTestUser({ roles: ["Admin"] });
 const fetchMock = mock<(...args: Parameters<typeof fetch>) => Promise<Response>>();
 const mailMock = mock<(spec: MailSpec) => Promise<MailDispatchResult>>();
 const originalAllowedPrivateHostsEnv = process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
-const QUEUE_NAME_PREFIX = `step-delivery-${generateId().slice(-8)}`;
+const QUEUE_NAME_PREFIX = testRunQueueNamePrefix("step-delivery");
 const HOOK_URL = "https://hooks.example/hook";
 
 let stack: TestStack;

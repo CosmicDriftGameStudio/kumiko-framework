@@ -15,6 +15,6 @@ Format: one line per function or constant, object and options types as property 
 | `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 41 |
 | `@cosmicdrift/kumiko-framework/seeding` | `api/framework-seeding.md` | 6 |
 | `@cosmicdrift/kumiko-renderer/web` | `api/renderer-web.md` | 371 |
-| `@cosmicdrift/kumiko-testing/stack` | `api/testing-stack.md` | 22 |
+| `@cosmicdrift/kumiko-testing/stack` | `api/testing-stack.md` | 23 |
 | `@cosmicdrift/kumiko-testing/helpers` | `api/testing-helpers.md` | 71 |
 | `@cosmicdrift/kumiko-dev-server/testing` | `api/dev-server-testing.md` | 5 |

@@ -29,4 +29,5 @@ export { pushEntityProjectionTables } from "./push-entity-projection-tables.ts";
 export { createTestRedis, type TestRedis } from "./redis.ts";
 export { createRequestHelper, type RequestHelper } from "./request-helper.ts";
 export { resetEventStore } from "./table-helpers.ts";
+export { testRunQueueNamePrefix } from "./test-run.ts";
 export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack.ts";

@@ -58,6 +58,7 @@ import {
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
@@ -238,7 +239,10 @@ beforeAll(async () => {
     files: { storageProvider: provider },
     // Distinct prefix: avoids sharing a BullMQ queue namespace with any other
     // setupTestStack call on the same test Redis.
-    jobs: { consumerLane: "worker", queueNamePrefix: `document-ingest-foundation-${generateId()}` },
+    jobs: {
+      consumerLane: "worker",
+      queueNamePrefix: testRunQueueNamePrefix("document-ingest-foundation"),
+    },
   });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, attachmentNoteEntity);
@@ -1035,7 +1039,7 @@ describe("fileRef.created — no provider mounted", () => {
       files: { storageProvider: noProviderFileProvider },
       jobs: {
         consumerLane: "worker",
-        queueNamePrefix: `document-ingest-foundation-no-provider-${generateId()}`,
+        queueNamePrefix: testRunQueueNamePrefix("document-ingest-foundation-no-provider"),
       },
     });
     await unsafeCreateEntityTable(noProviderStack.db, tenantEntity);
