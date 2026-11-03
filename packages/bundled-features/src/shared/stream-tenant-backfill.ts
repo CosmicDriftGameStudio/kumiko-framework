@@ -55,6 +55,8 @@ export type StreamBackfillOptions = {
   // Runs per candidate before its events move; a throw skips the aggregate
   // and lands in `failed` (search cleanup must not be lost by a move).
   readonly beforeMove?: (candidate: StreamBackfillCandidate) => Promise<void>;
+  // Runs when beforeMove or the move failed, to restore what beforeMove may have removed.
+  readonly onMoveFailed?: (candidate: StreamBackfillCandidate) => Promise<void>;
   // Restricts the candidate scan to events on these tenants, which lets Postgres use
   // events_tenant_type_idx instead of grouping every event of the type. Streams on a tenant
   // outside the list are not found; omit it for the full scan.
@@ -86,6 +88,7 @@ export async function backfillAggregateStreamTenants(
   const failed: StreamBackfillFailure[] = [];
 
   for (const row of rows) {
+    let beforeMoveStarted: StreamBackfillCandidate | undefined;
     try {
       if (!row.target_tenant_id) {
         throw new Error(`earliest event of the aggregate carries no payload.tenantId`);
@@ -95,17 +98,35 @@ export async function backfillAggregateStreamTenants(
         targetTenantId: row.target_tenant_id,
         sourceTenantIds: row.source_tenant_ids,
       };
+      beforeMoveStarted = candidate;
       await options.beforeMove?.(candidate);
       eventsMigrated += await migrateAggregate(db, options.aggregateType, candidate);
       aggregatesMigrated++;
     } catch (e) {
+      const moveError = e instanceof Error ? e.message : String(e);
       failed.push({
         aggregateId: row.aggregate_id,
-        error: e instanceof Error ? e.message : String(e),
+        error: await withRestoreOutcome(options, beforeMoveStarted, moveError),
       });
     }
   }
   return { aggregatesMigrated, eventsMigrated, failed };
+}
+
+// The move rolled back, so the aggregate stays where it was and must keep its pre-move derived state.
+async function withRestoreOutcome(
+  options: StreamBackfillOptions,
+  candidate: StreamBackfillCandidate | undefined,
+  moveError: string,
+): Promise<string> {
+  if (candidate === undefined || options.onMoveFailed === undefined) return moveError;
+  try {
+    await options.onMoveFailed(candidate);
+    return moveError;
+  } catch (restoreError) {
+    const detail = restoreError instanceof Error ? restoreError.message : String(restoreError);
+    return `${moveError}; restoring the pre-move derived state failed: ${detail}`;
+  }
 }
 
 async function readCandidateRows(

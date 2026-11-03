@@ -481,9 +481,16 @@ async function rowNeedsAnonymize(
     const current = isPiiCiphertext(stored)
       ? await decryptStoredPii(stored, field, "retention-anonymize")
       : stored;
-    if (current !== PII_ERASED_SENTINEL && current !== target) return true;
+    if (current !== PII_ERASED_SENTINEL && !sameAnonymizedValue(current, target)) return true;
   }
   return false;
+}
+
+// Objects and arrays (JSON fields) are never identical by reference, so they compare by content.
+function sameAnonymizedValue(current: unknown, target: unknown): boolean {
+  if (current === target) return true;
+  if (typeof target !== "object" || target === null) return false;
+  return JSON.stringify(current) === JSON.stringify(target);
 }
 
 // Anonymize every matching row via the executor (event → rebuild-safe).

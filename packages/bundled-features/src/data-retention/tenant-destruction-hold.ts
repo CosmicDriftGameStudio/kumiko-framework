@@ -169,6 +169,9 @@ export async function holdBlockDeleteRowsForDestruction(
     const targets = await resolveAnonymizeTargets(entity.fields);
     if (!targets) continue;
     const executor = createEventStoreExecutor(table, entity, { entityName });
+    // Every page restarts at the first row, so a row that is anonymized twice means the update does
+    // not converge (the loop would never see a short page).
+    const anonymizedIds = new Set<string>();
     let updated = ANONYMIZE_PAGE_SIZE;
     while (updated === ANONYMIZE_PAGE_SIZE) {
       updated = await anonymizeMatchingRows(
@@ -178,6 +181,12 @@ export async function holdBlockDeleteRowsForDestruction(
         ANONYMIZE_PAGE_SIZE,
         targets,
         async (id, changes) => {
+          if (anonymizedIds.has(String(id))) {
+            throw new Error(
+              `data-retention: anonymizing held ${entityName} row ${String(id)} does not converge, the anonymized value differs from the stored one`,
+            );
+          }
+          anonymizedIds.add(String(id));
           const result = await executor.update({ id, changes }, systemUser, tdb, {
             skipOptimisticLock: true,
             writePurpose: WritePurposes.retention,

@@ -56,13 +56,37 @@ export async function parentRowIsVisible(
   // the executor.
   if (!idShapeMatchesEntity(entity, entityId)) return false;
 
+  return (await executorFor(entityType, entity).detail({ id: entityId }, user, db)) !== null;
+}
+
+function executorFor(entityType: string, entity: EntityDefinition): EventStoreExecutor {
   let executor = executorsByEntity.get(entity);
   if (!executor) {
     executor = createEntityExecutor(entityType, entity).executor;
     executorsByEntity.set(entity, executor);
   }
+  return executor;
+}
 
-  return (await executor.detail({ id: entityId }, user, db)) !== null;
+// Batch form of parentRowIsVisible: one list query for all ids instead of one detail lookup each.
+// Same gates and the same default-deny; the caller keeps ids it was given that are not returned out.
+export async function visibleParentRowIds(
+  registry: Registry,
+  entityType: string,
+  entityIds: readonly string[],
+  user: SessionUser,
+  db: TenantDb,
+): Promise<ReadonlySet<string>> {
+  const entity = registry.getEntity(entityType);
+  if (!entity || entity.parentRef !== undefined) return new Set();
+  const wellFormed = entityIds.filter((entityId) => idShapeMatchesEntity(entity, entityId));
+  if (wellFormed.length === 0) return new Set();
+  const page = await executorFor(entityType, entity).list(
+    { filters: [{ field: "id", op: "in", value: wellFormed }], limit: wellFormed.length },
+    user,
+    db,
+  );
+  return new Set(page.rows.map((row) => String(row["id"])));
 }
 
 const hostTablesByEntity = new WeakMap<EntityDefinition, ReturnType<typeof buildEntityTable>>();

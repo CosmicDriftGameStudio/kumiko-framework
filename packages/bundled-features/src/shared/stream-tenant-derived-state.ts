@@ -3,7 +3,11 @@
 // in stream-tenant-backfill.ts; this part is repeatable and safe to run without moves.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { type Registry, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  parseTenantId,
+  type Registry,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   isEntitySearchable,
@@ -21,13 +25,37 @@ export type DerivedStateMode = "if-moved" | "always";
 export function createSearchBucketCleanup(
   searchAdapter: SearchAdapter | undefined,
   entityType: string,
+  rowSource: { readonly db: DbConnection; readonly registry: Registry },
 ): {
   readonly beforeMove: (candidate: StreamBackfillCandidate) => Promise<void>;
+  readonly onMoveFailed: (candidate: StreamBackfillCandidate) => Promise<void>;
   readonly cleanedAggregates: () => number;
 } {
   let cleaned = 0;
   return {
     cleanedAggregates: () => cleaned,
+    // The rolled-back move leaves the row in its old bucket, so reindexing that bucket brings the doc back.
+    onMoveFailed: async (candidate) => {
+      // skip: no adapter means no search docs were removed
+      if (!searchAdapter || !isEntitySearchable(rowSource.registry, entityType)) return;
+      const oldBuckets = candidate.sourceTenantIds.filter((id) => id !== candidate.targetTenantId);
+      for (const bucket of oldBuckets) {
+        const bucketTenantId = parseTenantId(bucket);
+        if (bucketTenantId === null) throw new Error(`source bucket ${bucket} is not a tenant id`);
+        const reindex = await reindexEntity(
+          rowSource.db,
+          rowSource.registry,
+          searchAdapter,
+          entityType,
+          bucketTenantId,
+        );
+        if (reindex.failures.length > 0) {
+          throw new Error(
+            `reindex of bucket ${bucket} failed for ${reindex.failures.length} rows: ${reindex.failures[0]?.reason}`,
+          );
+        }
+      }
+    },
     beforeMove: async (candidate) => {
       // skip: no adapter means no search docs to clean
       if (!searchAdapter) return;

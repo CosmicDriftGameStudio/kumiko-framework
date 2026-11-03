@@ -39,15 +39,21 @@ function variantClass(variant: BannerVariant, compact: boolean): string {
 }
 
 function BannerParts({ parts }: { readonly parts: BannerProps["parts"] }): ReactNode {
-  return parts?.map((part) =>
-    part.strong === true ? (
-      <strong key={`strong:${part.text}`} className="font-semibold">
+  // Parts are a static ordered list; the occurrence counter keeps repeated texts (separators) unique.
+  const seen = new Map<string, number>();
+  return parts?.map((part) => {
+    const base = `${part.strong === true ? "strong" : "plain"}:${part.text}`;
+    const occurrence = seen.get(base) ?? 0;
+    seen.set(base, occurrence + 1);
+    const key = `${base}:${occurrence}`;
+    return part.strong === true ? (
+      <strong key={key} className="font-semibold">
         {part.text}
       </strong>
     ) : (
-      <span key={`plain:${part.text}`}>{part.text}</span>
-    ),
-  );
+      <span key={key}>{part.text}</span>
+    );
+  });
 }
 
 function BannerText({

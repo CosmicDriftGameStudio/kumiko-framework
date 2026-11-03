@@ -7,12 +7,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { findForbiddenMembershipRole, reservedMembershipRoleError } from "./membership-roles.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
 import { seedTenantMembership } from "./seeding.ts";
 import { TenantErrors } from "./web/constants.ts";
+
+const log = createFallbackLogger("invited-membership");
 
 const membershipExecutor = createEventStoreExecutor(
   tenantMembershipsTable,
@@ -67,11 +70,17 @@ export async function grantInvitedMembershipRole(db: DbRunner, options: InvitedM
     tenantId: options.tenantId,
   });
   if (!existing) {
-    await seedTenantMembership(db, {
+    const membership = await seedTenantMembership(db, {
       userId: options.userId,
       tenantId: options.tenantId,
       roles: [options.role],
     });
+    if (membership.rowMissing) {
+      log.warn("invited membership: stream exists but its row is missing", {
+        tenantId: options.tenantId,
+        userId: options.userId,
+      });
+    }
     return grantedMembership(false, [options.role]);
   }
 

@@ -306,6 +306,31 @@ describe("backfillTenantStreamTenants", () => {
     expect(await listIds("alpha")).toEqual([TENANT_ALPHA]);
   });
 
+  test("a candidate that fails after its search docs were removed gets them back in the old bucket", async () => {
+    await legacyCreateTenant(SESSION_TENANT, TENANT_ALPHA, "alpha", "Alpha Freight");
+    await drainEventConsumers(stack, [SEARCH_CONSUMER_NAME]);
+    const removesThenFails = {
+      ...stack.search,
+      removeBatch: async (
+        bucket: TenantId,
+        items: readonly { entityType: string; entityId: string }[],
+      ) => {
+        await stack.search.removeBatch?.(bucket, items);
+        throw new Error("connection lost after the removal");
+      },
+    };
+
+    const result = await backfillTenantStreamTenants({
+      db: stack.db,
+      registry: stack.registry,
+      searchAdapter: removesThenFails,
+    });
+
+    expect(result.tenants.failed.map((f) => f.aggregateId)).toEqual([TENANT_ALPHA]);
+    expect((await streamOf(TENANT_ALPHA)).map((e) => e.tenantId)).toEqual([SESSION_TENANT]);
+    expect(await searchHits(SESSION_TENANT, "alpha")).toEqual([TENANT_ALPHA]);
+  });
+
   test("runs without a search adapter", async () => {
     await legacyCreateTenant(SESSION_TENANT, TENANT_ALPHA, "alpha", "Alpha Freight");
     const result = await backfillTenantStreamTenants({ db: stack.db, registry: stack.registry });

@@ -176,11 +176,17 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
         if (forbiddenInviteRole !== undefined) {
           return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
         }
-        await seedTenantMembership(dbConn, {
+        const membership = await seedTenantMembership(dbConn, {
           userId,
           tenantId: invitationTenantId,
           roles: [invitationRole],
         });
+        if (membership.rowMissing) {
+          ctx.obs.log.warn("invite signup: membership stream exists but its row is missing", {
+            tenantId: invitationTenantId,
+            userId,
+          });
+        }
 
         // Update the invitation in the invited tenant's database context.
         const invitationTdb = createTenantDb({

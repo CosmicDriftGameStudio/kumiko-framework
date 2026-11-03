@@ -44,17 +44,31 @@ export function othersOf(
 }
 
 // Names are looked up per response and never stored, so an erased user leaves no name behind.
+export async function displayNamesOf(
+  ctx: HandlerContext,
+  userIds: readonly string[],
+): Promise<ReadonlyMap<string, string>> {
+  if (userIds.length === 0 || !ctx.registry.getFeature(USER_FEATURE)) return new Map();
+  return resolveUserDisplayNames(ctx.db, userIds);
+}
+
 export async function toEntries(
   ctx: HandlerContext,
   records: readonly PresenceRecord[],
 ): Promise<readonly PresenceEntry[]> {
-  if (records.length === 0) return [];
-  const names = ctx.registry.getFeature(USER_FEATURE)
-    ? await resolveUserDisplayNames(
-        ctx.db,
-        records.map((record) => record.userId),
-      )
-    : new Map<string, string>();
+  return entriesWithNames(
+    records,
+    await displayNamesOf(
+      ctx,
+      records.map((record) => record.userId),
+    ),
+  );
+}
+
+export function entriesWithNames(
+  records: readonly PresenceRecord[],
+  names: ReadonlyMap<string, string>,
+): readonly PresenceEntry[] {
   return records.map((record) => ({
     userId: record.userId,
     displayName: names.get(record.userId) ?? record.userId,

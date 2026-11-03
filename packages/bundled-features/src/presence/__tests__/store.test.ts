@@ -76,6 +76,71 @@ describe("redis store without a usable connection", () => {
   });
 });
 
+describe("redis store expiry cleanup", () => {
+  function hashRedis(hashes: Map<string, Map<string, string>>, afterRead: () => void): Redis {
+    const snapshot = (key: string) => Object.fromEntries(hashes.get(key) ?? []);
+    return {
+      status: "ready",
+      hgetall: async (key: string) => {
+        const read = snapshot(key);
+        afterRead();
+        return read;
+      },
+      pipeline: () => {
+        const keys: string[] = [];
+        const chain = {
+          hgetall: (key: string) => {
+            keys.push(key);
+            return chain;
+          },
+          exec: async () => {
+            const replies = keys.map((key) => [null, snapshot(key)]);
+            afterRead();
+            return replies;
+          },
+        };
+        return chain;
+      },
+      // Emulates the compare-and-delete script: a field is removed only while it still holds the read value.
+      eval: async (_script: string, _keys: number, key: string, ...args: string[]) => {
+        const hash = hashes.get(key);
+        for (let i = 0; i < args.length; i += 2) {
+          const field = args[i];
+          if (field !== undefined && hash !== undefined && hash.get(field) === args[i + 1])
+            hash.delete(field);
+        }
+        return 0;
+      },
+    } as unknown as Redis; // test double: only the commands the store uses
+  }
+
+  const stored = (seenAt: number) => JSON.stringify({ activity: "viewing", since: 1, seenAt });
+
+  test("a touch landing between the read and the cleanup survives", async () => {
+    const hashes = new Map([[KEY, new Map([["u1", stored(1000)]])]]);
+    const fresh = stored(1000 + TTL_MS * 2);
+    const redis = hashRedis(hashes, () => hashes.get(KEY)?.set("u1", fresh));
+    const store = createRedisPresenceStore(redis, log);
+    expect(await store.list(KEY, 1000 + TTL_MS + 1, TTL_MS)).toEqual([]);
+    expect(hashes.get(KEY)?.get("u1")).toBe(fresh);
+  });
+
+  test("an unchanged expired entry is removed, live ones stay, for several rooms at once", async () => {
+    const other = "presence:tenant:doc:2";
+    const hashes = new Map([
+      [KEY, new Map([["u1", stored(1000)]])],
+      [other, new Map([["u2", stored(1000 + TTL_MS)]])],
+    ]);
+    const redis = hashRedis(hashes, () => undefined);
+    const store = createRedisPresenceStore(redis, log);
+    const [first, second] = await store.listMany([KEY, other], 1000 + TTL_MS + 1, TTL_MS);
+    expect(first).toEqual([]);
+    expect(second?.map((record) => record.userId)).toEqual(["u2"]);
+    expect(hashes.get(KEY)?.size).toBe(0);
+    expect(hashes.get(other)?.size).toBe(1);
+  });
+});
+
 describe("memory store sweep", () => {
   test("an abandoned room is dropped by a later touch elsewhere once a ttl has passed", async () => {
     const store = createMemoryPresenceStore();

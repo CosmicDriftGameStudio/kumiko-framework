@@ -59,11 +59,12 @@ export async function backfillUserStreamTenantsWithDerivedState(deps: {
     scanTenantIds,
     onFirstCandidate,
   } = deps;
-  const searchCleanup = createSearchBucketCleanup(searchAdapter, USER_AGGREGATE);
+  const searchCleanup = createSearchBucketCleanup(searchAdapter, USER_AGGREGATE, { db, registry });
   const streams = await backfillAggregateStreamTenants(db, {
     aggregateType: USER_AGGREGATE,
     target: { kind: "system" },
     beforeMove: searchCleanup.beforeMove,
+    onMoveFailed: searchCleanup.onMoveFailed,
     ...(scanTenantIds && { scanTenantIds }),
     ...(onFirstCandidate && { onFirstCandidate }),
   });

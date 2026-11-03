@@ -11,8 +11,20 @@ import {
   InMemoryKmsAdapter,
   KeyErasedError,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  asRawClient,
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+  selectMany,
+} from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEntity,
+  createSystemUser,
+  createTextField,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
@@ -64,7 +76,25 @@ const selfFallbackEntity = createEntity({
   retention: { keepFor: "30d", strategy: "hardDelete" },
 });
 
+// Entity D: anonymize strategy over an encrypted PII field. The stored value is ciphertext, so the
+// "already anonymized" diff must compare the decrypted value.
+const anonPiiEntity = createEntity({
+  table: "read_c9_anon_pii",
+  fields: {
+    note: {
+      ...createTextField({ required: true, personal: { of: "id" }, find: "none" }),
+      anonymize: () => "[ANONYMIZED]",
+    },
+  },
+  retention: { keepFor: "30d", strategy: "anonymize" },
+});
+const anonPiiTable = buildEntityTable("c9-anon-pii", anonPiiEntity);
+const anonPiiExecutor = createEventStoreExecutor(anonPiiTable, anonPiiEntity, {
+  entityName: "c9-anon-pii",
+});
+
 const c9Feature = defineFeature("c9-retention-kms-fixtures", (r) => {
+  r.entity({ name: "c9-anon-pii", ...anonPiiEntity });
   r.entity({ name: "c9-self-fallback", ...selfFallbackEntity });
   r.entity({ name: "c9-record-owned", ...recordOwnedEntity });
   r.entity({ name: "c9-user-owned", ...userOwnedEntity });
@@ -82,6 +112,7 @@ beforeAll(async () => {
     recordOwnedEntity,
     userOwnedEntity,
     selfFallbackEntity,
+    anonPiiEntity,
   ]) {
     await unsafeCreateEntityTable(stack.db, e);
   }
@@ -94,7 +125,12 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["read_c9_record_owned", "read_c9_user_owned", "read_c9_self_fallback"]) {
+  for (const t of [
+    "read_c9_record_owned",
+    "read_c9_user_owned",
+    "read_c9_self_fallback",
+    "read_c9_anon_pii",
+  ]) {
     await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
   }
   kms = new InMemoryKmsAdapter();
@@ -135,6 +171,58 @@ async function seedUserOwned(
   await kms.createKey({ kind: "user", userId: ownerUserId });
   return rowId;
 }
+
+describe("runRetentionCleanup :: anonymize over encrypted PII", () => {
+  const tenantId = testTenantId(9);
+
+  async function createEncryptedRow(): Promise<string> {
+    const result = await anonPiiExecutor.create(
+      { note: "secret" },
+      createSystemUser(tenantId),
+      createTenantDb({
+        db: stack.db,
+        tenantId,
+        mode: "system",
+        reason: "test writes an encrypted row of an explicit tenant",
+      }),
+    );
+    if (!result.isSuccess) throw new Error(`create failed: ${result.error.code}`);
+    return String(result.data["id"]);
+  }
+
+  async function anonymizeEventCount(): Promise<number> {
+    const events = await selectMany(stack.db, eventsTable, { aggregateType: "c9-anon-pii" });
+    return events.length;
+  }
+
+  // The rows are fresh, so the cleanup runs 60 days ahead to put them past the cutoff.
+  const runCleanup = () =>
+    runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId,
+      preloadedTenantPreset: null,
+      now: now.add({ hours: 60 * 24 }),
+    });
+
+  test("a second run appends no anonymize event for an already anonymized encrypted field", async () => {
+    await createEncryptedRow();
+
+    expect((await runCleanup()).anonymized).toBe(1);
+    const eventsAfterFirst = await anonymizeEventCount();
+    expect((await runCleanup()).anonymized).toBe(0);
+    expect(await anonymizeEventCount()).toBe(eventsAfterFirst);
+  });
+
+  test("a row whose subject key was erased counts as anonymized and appends no event", async () => {
+    const rowId = await createEncryptedRow();
+    await kms.eraseKey({ kind: "record", entity: "c9-anon-pii", id: rowId });
+    const eventsBefore = await anonymizeEventCount();
+
+    expect((await runCleanup()).anonymized).toBe(0);
+    expect(await anonymizeEventCount()).toBe(eventsBefore);
+  });
+});
 
 describe("runRetentionCleanup :: hardDelete crypto-shredding", () => {
   test("erases a recordOwned row's own key, leaves a userOwned row's owner key untouched", async () => {
