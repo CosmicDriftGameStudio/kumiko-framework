@@ -1,6 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { SUBSCRIPTION_WEBHOOK_PATH } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { createInMemoryTransport } from "@cosmicdrift/kumiko-bundled-features/channel-email";
+import * as stripeFeatureModule from "@cosmicdrift/kumiko-bundled-features/subscription-stripe";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveBillingOption } from "../billing-option.ts";
 import { resolveFileStorageOption } from "../file-storage-option.ts";
@@ -170,6 +171,18 @@ describe("billing option", () => {
     expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-stripe"]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
     expect(resolved.route.method).toBe("POST");
+  });
+
+  test("stripe.clientConfig reaches the subscription-stripe feature factory", () => {
+    const clientConfig = { host: "127.0.0.1", port: 4010, protocol: "http" } as const;
+    const factory = spyOn(stripeFeatureModule, "createSubscriptionStripeFeature");
+    try {
+      resolveBillingOption({ ...billing, stripe: { ...billing.stripe, clientConfig } }, {});
+      expect(factory).toHaveBeenCalledTimes(1);
+      expect(factory.mock.calls[0]?.[0]).toMatchObject({ clientConfig });
+    } finally {
+      factory.mockRestore();
+    }
   });
 
   test("paddle alone mounts subscription-paddle on the shared route", () => {

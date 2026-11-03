@@ -119,7 +119,13 @@ export function createCheckoutSessionHandler(
           ? await consumerProtection.oneOffItemLabel?.(ctx, payload.priceId)
           : undefined;
       assertValidOrderItem(orderItem, payload.priceId);
-      const consent = await prepareConsent(ctx, consumerProtection, payload.consent, mode);
+      const consent = await prepareConsent(
+        ctx,
+        consumerProtection,
+        payload.consent,
+        mode,
+        payload.providerName,
+      );
       const result = await startProviderCheckout(ctx, plugin, {
         ...checkoutInput,
         ...consentCheckoutFields(consent),

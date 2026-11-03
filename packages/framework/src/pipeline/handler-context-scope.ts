@@ -22,6 +22,7 @@ import { createEscapeHatchReporter } from "../observability/escape-hatch-report.
 import type { ContextServiceOverrides } from "./context-services.ts";
 import { resolveDbSource } from "./dispatch-context-helpers.ts";
 import type { DispatchContext, HandlerTransactionScope } from "./dispatch-shared.ts";
+import { isEffectivelySystemScoped } from "./effective-system-scope.ts";
 import { createUserLiveSignals } from "./user-live-signals.ts";
 import type { WriteOrigin } from "./write-origin.ts";
 
@@ -61,7 +62,7 @@ export function resolveHandlerContextScope(input: {
 }): HandlerContextScope {
   const { ctx, type, user, origin, tx, transactionScope } = input;
   const { registry, appContext: context } = ctx;
-  const isSystem = registry.isHandlerSystemScoped(type);
+  const isSystem = isEffectivelySystemScoped(registry, type);
   // A system-scope handler reads and writes across tenants; an agent tool call carries the user's
   // session into the LLM context, so it must never reach one.
   if (isSystem && isAgentToolCallScope()) {

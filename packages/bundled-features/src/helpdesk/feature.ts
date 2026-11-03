@@ -27,6 +27,7 @@ import { createSendReplyMailHandler } from "./handlers/send-reply-mail.write.ts"
 import { createSendTestHandler } from "./handlers/send-test.write.ts";
 import { createSubmitHandler } from "./handlers/submit.write.ts";
 import { createHelpdeskI18n } from "./i18n.ts";
+import { createLegacyContactRetentionJob } from "./legacy-contact-retention.ts";
 import {
   LEGACY_CONTACT_REQUEST_ENTITY,
   legacyContactDeleteHook,
@@ -179,6 +180,7 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
       export: legacyContactExportHook,
       delete: legacyContactDeleteHook,
     });
+    r.job(createLegacyContactRetentionJob(keepFor));
     // Replies are exported nested under their request and erased with it (helpdeskDeleteHook).
     r.useExtension(EXT_USER_DATA, "helpdesk-reply", {
       export: async () => null,

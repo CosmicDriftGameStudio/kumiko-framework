@@ -14,7 +14,13 @@ import * as z from "zod";
 import { runAsAgentToolCallEntry } from "../../api/request-context.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
-import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import {
+  createEntity,
+  createTextField,
+  defineEntityCreateHandler,
+  defineEntityListHandler,
+  defineFeature,
+} from "../../engine/index.ts";
 import type { HandlerContext } from "../../engine/types/index.ts";
 
 import { eventsTable } from "../../event-store/index.ts";
@@ -33,6 +39,20 @@ const noteEntity = createEntity({
 });
 const noteTable = buildEntityTable("note", noteEntity);
 const noteExecutor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
+
+const catalogEntity = createEntity({
+  table: "handler_xtr_catalog",
+  tenancy: "global",
+  systemStream: true,
+  fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
+});
+const catalogTable = buildEntityTable("catalog", catalogEntity);
+
+const ledgerEntity = createEntity({
+  table: "handler_xtr_ledger",
+  fields: { label: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
+});
+const ledgerTable = buildEntityTable("ledger", ledgerEntity);
 
 const GRANT_REASON = "cross-tenant overview probe — reads notes of every tenant";
 const FEATURE = "handler-xtr";
@@ -84,6 +104,23 @@ const systemProbeFeature = defineFeature("handler-xtr-system", (r) => {
     access: { roles: ["Admin"] },
     handler: async () => ({ ran: true }),
   });
+});
+
+const GLOBAL_FEATURE = "handler-xtr-global";
+const globalCatalogFeature = defineFeature(GLOBAL_FEATURE, (r) => {
+  r.systemScope();
+  r.entity({ name: "catalog", ...catalogEntity });
+  r.entity({ name: "ledger", ...ledgerEntity });
+  r.writeHandler(
+    defineEntityCreateHandler("catalog", catalogEntity, { access: { roles: ["Admin"] } }),
+  );
+  r.queryHandler(
+    defineEntityListHandler("catalog", catalogEntity, { access: { roles: ["Admin"] } }),
+  );
+  r.writeHandler(
+    defineEntityCreateHandler("ledger", ledgerEntity, { access: { roles: ["Admin"] } }),
+  );
+  r.queryHandler(defineEntityListHandler("ledger", ledgerEntity, { access: { roles: ["Admin"] } }));
 });
 
 const probeFeature = defineFeature(FEATURE, (r) => {
@@ -161,7 +198,7 @@ const recordingProvider: ObservabilityProvider = {
 
 beforeAll(async () => {
   stack = await setupTestStack({
-    features: [probeFeature, systemProbeFeature],
+    features: [probeFeature, systemProbeFeature, globalCatalogFeature],
     observability: recordingProvider,
     extraContext: {
       _escapeHatchAuditSink: async (event: EscapeHatchUseEvent) => {
@@ -170,6 +207,8 @@ beforeAll(async () => {
     },
   });
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
+  await unsafeCreateEntityTable(stack.db, catalogEntity, "catalog");
+  await unsafeCreateEntityTable(stack.db, ledgerEntity, "ledger");
 });
 
 afterAll(async () => {
@@ -177,11 +216,17 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetTestTables(stack.db, [noteTable, eventsTable]);
-  auditEvents.length = 0;
-  metricEvents.length = 0;
+  await resetTestTables(stack.db, [noteTable, catalogTable, ledgerTable, eventsTable]);
   await stack.http.writeOk(`${FEATURE}:write:add-note`, { title: "own-note" }, ownAdmin);
   await stack.http.writeOk(`${FEATURE}:write:add-note`, { title: "foreign-note" }, foreignAdmin);
+  await stack.http.writeOk(`${GLOBAL_FEATURE}:write:catalog:create`, { label: "shared" }, ownAdmin);
+  await stack.http.writeOk(
+    `${GLOBAL_FEATURE}:write:ledger:create`,
+    { label: "own-ledger" },
+    ownAdmin,
+  );
+  auditEvents.length = 0;
+  metricEvents.length = 0;
 });
 
 describe("ctx.crossTenantReads on handlers", () => {
@@ -284,5 +329,39 @@ describe("ctx.crossTenantReads on handlers", () => {
         stack.dispatcher.query("handler-xtr-system:query:ping", {}, ownAdmin),
       ),
     ).rejects.toMatchObject({ code: "access_denied" });
+  });
+
+  describe("global entity reads inside an agent tool call", () => {
+    const labelsOf = (result: unknown): string[] =>
+      (result as { rows: { label: string }[] }).rows.map((r) => r.label).sort();
+
+    test("a system-scope feature's list on a tenancy-global entity returns the shared rows", async () => {
+      const result = await runAsAgentToolCallEntry(() =>
+        stack.dispatcher.query(`${GLOBAL_FEATURE}:query:catalog:list`, {}, foreignAdmin),
+      );
+      expect(labelsOf(result)).toEqual(["shared"]);
+    });
+
+    test("a write on the global entity is still denied in an agent tool call", async () => {
+      const result = await runAsAgentToolCallEntry(() =>
+        stack.dispatcher.write(
+          `${GLOBAL_FEATURE}:write:catalog:create`,
+          { label: "agent-made" },
+          ownAdmin,
+        ),
+      );
+      expect(result).toMatchObject({
+        isSuccess: false,
+        error: { code: "access_denied", details: { reason: "agent.tool_not_allowed" } },
+      });
+    });
+
+    test("a list on a system-scope entity that is not global is still denied", async () => {
+      await expect(
+        runAsAgentToolCallEntry(() =>
+          stack.dispatcher.query(`${GLOBAL_FEATURE}:query:ledger:list`, {}, ownAdmin),
+        ),
+      ).rejects.toMatchObject({ code: "access_denied" });
+    });
   });
 });

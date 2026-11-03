@@ -14,7 +14,8 @@ import {
   CONSENT_TEXTS,
   consentTextVersion,
   documentsAcknowledgementTextFor,
-  legalLinksPerLocale,
+  hasProviderRefundLink,
+  legalLinksFor,
 } from "../consumer-protection/consent-text.ts";
 import {
   type BillingPlansBase,
@@ -24,6 +25,7 @@ import {
   toBillingPlansResult,
 } from "../plan-catalog.ts";
 import type {
+  BillingConsumerProtectionView,
   BillingPlanCatalog,
   BillingPlansResult,
   BillingProviderView,
@@ -50,13 +52,10 @@ export function createBillingPlansQuery(
       if (!consumerProtection) return result;
       return {
         ...result,
-        consumerProtection: {
-          consentTexts: {
-            de: consentTextView(consumerProtection, "de"),
-            en: consentTextView(consumerProtection, "en"),
-          },
-          legalLinks: legalLinksPerLocale(consumerProtection.legalLinks),
-        },
+        consumerProtection: consumerProtectionView(
+          consumerProtection,
+          base.blockingSubscription ? base.subscriptionView?.providerName : undefined,
+        ),
       };
     },
   };
@@ -87,12 +86,23 @@ async function resolveProviderPlans(
   const result = toBillingPlansResult(catalog, base, firstViews);
 
   const providerTexts = options.consumerProtection?.providerTexts;
-  const hasNote = first !== null && providerTexts?.[first.name]?.checkoutNote !== undefined;
-  if (offered.length <= 1 && !(offered.length === 1 && hasNote)) return result;
+  const hasProviderSpecifics =
+    first !== null &&
+    (providerTexts?.[first.name]?.checkoutNote !== undefined ||
+      (options.consumerProtection !== undefined &&
+        hasProviderRefundLink(options.consumerProtection, first.name)));
+  if (offered.length <= 1 && !(offered.length === 1 && hasProviderSpecifics)) return result;
 
   const providers = await Promise.all(
     offered.map((provider, index) =>
-      providerView(ctx, catalog, base, provider, providerTexts, index === 0 ? firstViews : null),
+      providerView(
+        ctx,
+        catalog,
+        base,
+        provider,
+        options.consumerProtection,
+        index === 0 ? firstViews : null,
+      ),
     ),
   );
   return { ...result, providers };
@@ -103,25 +113,48 @@ async function providerView(
   catalog: BillingPlanCatalog,
   base: BillingPlansBase,
   provider: ResolvedProvider,
-  providerTexts: ConsumerProtectionOptions["providerTexts"],
+  consumerProtection: ConsumerProtectionOptions | undefined,
   known: ProviderPlanViews | null,
 ): Promise<BillingProviderView> {
   const views = known ?? (await buildProviderPlanViews(ctx, provider.plugin, catalog, base));
-  const note = providerTexts?.[provider.name]?.checkoutNote;
+  const note = consumerProtection?.providerTexts?.[provider.name]?.checkoutNote;
+  const ownConsumerProtection =
+    consumerProtection !== undefined && hasProviderRefundLink(consumerProtection, provider.name)
+      ? consumerProtectionView(consumerProtection, provider.name)
+      : undefined;
   return {
     name: provider.name,
     displayName: provider.plugin.displayName ?? provider.name,
     ...(note !== undefined && { note }),
+    ...(ownConsumerProtection !== undefined && { consumerProtection: ownConsumerProtection }),
     plans: views.plans,
+  };
+}
+
+function consumerProtectionView(
+  consumerProtection: ConsumerProtectionOptions,
+  providerName?: string,
+): BillingConsumerProtectionView {
+  return {
+    consentTexts: {
+      de: consentTextView(consumerProtection, "de", providerName),
+      en: consentTextView(consumerProtection, "en", providerName),
+    },
+    legalLinks: legalLinksFor(consumerProtection, providerName),
   };
 }
 
 function consentTextView(
   consumerProtection: ConsumerProtectionOptions,
   locale: (typeof CONSENT_LOCALES)[number],
+  providerName?: string,
 ) {
   const { earlyPerformance, withdrawalLoss } = CONSENT_TEXTS[locale];
-  const documentsAcknowledgement = documentsAcknowledgementTextFor(consumerProtection, locale);
+  const documentsAcknowledgement = documentsAcknowledgementTextFor(
+    consumerProtection,
+    locale,
+    providerName,
+  );
   return {
     earlyPerformance,
     withdrawalLoss,

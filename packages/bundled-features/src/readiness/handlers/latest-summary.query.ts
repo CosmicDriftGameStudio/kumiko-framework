@@ -14,12 +14,16 @@ export const latestSummaryQuery = defineQueryHandler({
   schema: z.object({}),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   description:
-    "Returns the one-line summary of the tenant's latest system-check run (when it started, how many of the checks the caller may see passed, a tone and a ready-made translatable text) and whether the caller's check has paid probes. Zero counts and runId null when no run exists yet.",
+    "Returns the one-line summary of the tenant's latest system-check run (when it started, how many of the checks the caller may see passed, a tone and a ready-made translatable text) and whether the caller may start a run with paid probes (SystemAdmins only). Zero counts and runId null when no run exists yet.",
   handler: async (query, ctx) => {
-    const paid = hasPaidProbes(ctx.registry, {
-      includeSystemProbes: query.user.roles.includes("SystemAdmin"),
-      enabledFeatures: ctx.services.effectiveFeatures?.(query.user.tenantId),
-    });
+    const isSystemAdmin = query.user.roles.includes("SystemAdmin");
+    // Only a SystemAdmin may start a paid run, so only they are offered the button.
+    const paid =
+      isSystemAdmin &&
+      hasPaidProbes(ctx.registry, {
+        includeSystemProbes: true,
+        enabledFeatures: ctx.services.effectiveFeatures?.(query.user.tenantId),
+      });
     const latest = await fetchLatestRun(ctx.db);
     if (!latest) {
       return {

@@ -316,3 +316,134 @@ describe("documentsAcknowledgement off", () => {
     expect(checkoutCount).toBe(1);
   });
 });
+
+describe("providerTexts refundLink", () => {
+  const { refund: _global, ...withoutGlobalRefund } = baseOptions.legalLinks as {
+    terms: string;
+    withdrawal: string;
+    privacy: string;
+    refund?: string;
+  };
+  const noGlobalRefund: ConsumerProtectionOptions = {
+    ...baseOptions,
+    legalLinks: withoutGlobalRefund,
+  };
+  const ownRefundOptions: ConsumerProtectionOptions = {
+    ...noGlobalRefund,
+    providerTexts: { "mock-documents-provider": { refundLink: "/legal/provider-refund" } },
+  };
+  const otherProviderOptions: ConsumerProtectionOptions = {
+    ...noGlobalRefund,
+    providerTexts: { "another-provider": { refundLink: "/legal/other-refund" } },
+  };
+  let ownStack: TestStack;
+  let otherStack: TestStack;
+
+  type PlansResult = {
+    providers?: readonly {
+      name: string;
+      consumerProtection?: {
+        consentTexts: Record<
+          string,
+          { documentsAcknowledgement?: string; consentTextVersion: string }
+        >;
+        legalLinks: Record<string, { refund?: string }>;
+      };
+    }[];
+    consumerProtection: {
+      consentTexts: Record<string, { consentTextVersion: string }>;
+      legalLinks: Record<string, { refund?: string }>;
+    };
+  };
+
+  beforeAll(async () => {
+    ownStack = await setup(ownRefundOptions);
+    await seedTerms(ownStack);
+    otherStack = await setup(otherProviderOptions);
+    await seedTerms(otherStack);
+  });
+  afterAll(async () => {
+    await ownStack.cleanup();
+    await otherStack.cleanup();
+  });
+
+  test("a provider with its own refundLink shows it and records the refund variant of the text", async () => {
+    const plans = (await ownStack.http.queryOk(
+      "billing-foundation:query:billing-plans",
+      {},
+      adminFor(8206),
+    )) as PlansResult;
+    const view = plans.providers?.find((p) => p.name === "mock-documents-provider");
+    const providerVersion = consentTextVersion(
+      "de",
+      documentsAcknowledgementTextFor(ownRefundOptions, "de", "mock-documents-provider"),
+    );
+    expect(view?.consumerProtection?.legalLinks["de"]?.refund).toBe("/legal/provider-refund");
+    expect(view?.consumerProtection?.consentTexts["de"]?.documentsAcknowledgement).toContain(
+      "Erstattungsrichtlinie",
+    );
+    expect(view?.consumerProtection?.consentTexts["de"]?.consentTextVersion).toBe(providerVersion);
+    expect(plans.consumerProtection.legalLinks["de"]?.refund).toBeUndefined();
+
+    const withoutRefundVersion = consentTextVersion(
+      "de",
+      documentsAcknowledgementTextFor(noGlobalRefund, "de"),
+    );
+    const outdated = await ownStack.http.writeErr(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      {
+        tier: "pro",
+        providerName: "mock-documents-provider",
+        consent: {
+          ...consentWith({ documentsAcknowledged: true }),
+          consentTextVersion: withoutRefundVersion,
+        },
+      },
+      adminFor(8206),
+    );
+    expect(JSON.stringify(outdated)).toContain("consent_text_outdated");
+
+    await ownStack.http.writeOk(
+      SubscriptionFoundationHandlers.startPlanCheckout,
+      {
+        tier: "pro",
+        providerName: "mock-documents-provider",
+        consent: {
+          ...consentWith({ documentsAcknowledged: true }),
+          consentTextVersion: providerVersion,
+        },
+      },
+      adminFor(8206),
+    );
+    const tenantId = testTenantId(8206);
+    const recorded = (
+      await loadAggregate(ownStack.db, subscriptionAggregateId(tenantId), tenantId, {
+        includeArchived: true,
+      })
+    ).filter((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN);
+    expect(recorded[0]?.payload).toMatchObject({
+      providerName: "mock-documents-provider",
+      documentsAcknowledged: true,
+      consentTextVersion: providerVersion,
+    });
+  });
+
+  test("a provider without refundLink and without legalLinks.refund shows none", async () => {
+    const plans = (await otherStack.http.queryOk(
+      "billing-foundation:query:billing-plans",
+      {},
+      adminFor(8207),
+    )) as PlansResult;
+    expect(plans.providers).toBeUndefined();
+    expect(plans.consumerProtection.legalLinks["de"]?.refund).toBeUndefined();
+    expect(plans.consumerProtection.legalLinks["en"]?.refund).toBeUndefined();
+
+    const withoutRefundVersion = consentTextVersion(
+      "de",
+      documentsAcknowledgementTextFor(noGlobalRefund, "de"),
+    );
+    expect(plans.consumerProtection.consentTexts["de"]?.consentTextVersion).toBe(
+      withoutRefundVersion,
+    );
+  });
+});

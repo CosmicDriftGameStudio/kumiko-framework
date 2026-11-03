@@ -103,7 +103,13 @@ export function createStartPlanCheckoutHandler(
       }
 
       const consent = consumerProtection
-        ? await prepareConsent(ctx, consumerProtection, payload.consent, "subscription")
+        ? await prepareConsent(
+            ctx,
+            consumerProtection,
+            payload.consent,
+            "subscription",
+            providerName,
+          )
         : undefined;
 
       const baseUrl = options.baseUrl ?? "";

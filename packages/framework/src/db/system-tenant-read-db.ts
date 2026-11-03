@@ -14,3 +14,9 @@ export function systemTenantReadDb(db: TenantDb | DbRunner): TenantDb {
     grants: { writesDeniedReason: "on a handle that reads the system tenant's rows only" },
   });
 }
+
+// Raw runner on the same system-tenant handle, for event-store functions that take a DbRunner
+// (event streaming, stream archival). Writes stay inside the system tenant's isolation.
+export function systemTenantStreamRunner(db: TenantDb | DbRunner): DbRunner {
+  return tenantDbRunner(systemTenantReadDb(db));
+}

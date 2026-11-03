@@ -5,11 +5,16 @@
 
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  AccessDeniedError,
+  FrameworkReasons,
+  InternalError,
+  type WriteFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { staleRunAfterMs } from "../collect-probes.ts";
+import { ReadinessWrites } from "../constants.ts";
 import {
   ACTIVE_PROBE_RUN_CONSTRAINT,
   PROBE_RUN_STATUS,
@@ -45,11 +50,23 @@ export const runProbesWrite = defineWriteHandler({
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
   rateLimit: RUN_PROBES_RATE_LIMIT,
   description:
-    "Starts the system check: real calls against mail, storage, search, inbound mailboxes and PDF that show what works in this environment. Returns the run id (isExisting true while a run is still active); the worker fills the run, read the outcome via readiness:query:probe-run:latest-results. Paid probes only run with includePaid true, which only a SystemAdmin can set; for a TenantAdmin it is ignored.",
+    "Starts the system check: real calls against mail, storage, search, inbound mailboxes and PDF that show what works in this environment. Returns the run id (isExisting true while a run is still active); the worker fills the run, read the outcome via readiness:query:probe-run:latest-results. Paid probes only run with includePaid true, which only a SystemAdmin can set; includePaid true from a TenantAdmin is rejected with access_denied.",
   handler: async (event, ctx) => {
     if (!ctx.services.jobRunner) {
       throw new InternalError({
         message: "readiness:run-probes needs a job runner; mount the jobs infrastructure",
+      });
+    }
+
+    const isSystemAdmin = event.user.roles.includes("SystemAdmin");
+    if (event.payload.includePaid && !isSystemAdmin) {
+      throw new AccessDeniedError({
+        message: "readiness:run-probes: includePaid is reserved for SystemAdmins",
+        details: {
+          reason: FrameworkReasons.fieldAccessDenied,
+          handler: ReadinessWrites.runProbes,
+          field: "includePaid",
+        },
       });
     }
 
@@ -74,11 +91,10 @@ export const runProbesWrite = defineWriteHandler({
       if (!abandoned.isSuccess) return abandoned;
     }
 
-    const isSystemAdmin = event.user.roles.includes("SystemAdmin");
     const created = await crud.create(
       {
         status: PROBE_RUN_STATUS.Pending,
-        includePaid: event.payload.includePaid && isSystemAdmin,
+        includePaid: event.payload.includePaid,
         includeSystemProbes: isSystemAdmin,
         triggeredByUserId: event.user.id,
         requestedAt: ctx.tz.now(),

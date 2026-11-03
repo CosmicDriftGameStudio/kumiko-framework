@@ -493,13 +493,17 @@ export type ConsumerProtectionOptions = {
   /** Per-provider texts keyed by provider name, e.g. for a merchant-of-record
    *  provider that issues the invoice and VAT itself. `vatNote` here replaces
    *  the global one in that provider's confirmation mail; `checkoutNote` is
-   *  shown under the provider choice. de and en are required for each text. */
+   *  shown under the provider choice. de and en are required for each text.
+   *  `refundLink` replaces `legalLinks.refund` for that provider (one link for
+   *  every locale, or one per consent locale); a provider without it falls back
+   *  to `legalLinks.refund`. */
   readonly providerTexts?: Readonly<
     Record<
       string,
       {
         readonly vatNote?: Readonly<Record<string, string>>;
         readonly checkoutNote?: Readonly<Record<string, string>>;
+        readonly refundLink?: string | Readonly<Record<ConsentLocale, string>>;
       }
     >
   >;
@@ -583,10 +587,28 @@ export type BillingPlanView = {
   readonly action: BillingPlanAction;
 };
 
+export type BillingConsumerProtectionView = {
+  readonly consentTexts: Readonly<
+    Record<
+      "de" | "en",
+      {
+        readonly earlyPerformance: string;
+        readonly withdrawalLoss: string;
+        /** Present only when `documentsAcknowledgement` is on. */
+        readonly documentsAcknowledgement?: string;
+        readonly consentTextVersion: string;
+      }
+    >
+  >;
+  readonly legalLinks: Readonly<Record<ConsentLocale, LegalLinkSet>>;
+};
+
 export type BillingProviderView = {
   readonly name: string;
   readonly displayName: string;
   readonly note?: Readonly<Record<string, string>>;
+  /** Only set when the provider has its own `providerTexts.refundLink`; replaces the top-level `consumerProtection` while this provider is selected. */
+  readonly consumerProtection?: BillingConsumerProtectionView;
   readonly plans: readonly BillingPlanView[];
 };
 
@@ -628,21 +650,7 @@ export type BillingPlansResult = {
   /** Present only when `catalog.priceNoteKey` is configured. */
   readonly priceNoteKey?: string;
   /** Present only when `consumerProtection` is configured. */
-  readonly consumerProtection?: {
-    readonly consentTexts: Readonly<
-      Record<
-        "de" | "en",
-        {
-          readonly earlyPerformance: string;
-          readonly withdrawalLoss: string;
-          /** Present only when `documentsAcknowledgement` is on. */
-          readonly documentsAcknowledgement?: string;
-          readonly consentTextVersion: string;
-        }
-      >
-    >;
-    readonly legalLinks: Readonly<Record<ConsentLocale, LegalLinkSet>>;
-  };
+  readonly consumerProtection?: BillingConsumerProtectionView;
 };
 
 // r.useExtension options-shape, co-located since the framework never imports upward.

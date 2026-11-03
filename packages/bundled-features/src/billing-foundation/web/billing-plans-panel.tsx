@@ -264,6 +264,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   const switchPlan =
     switchTier !== null ? shownPlans.find((plan) => plan.tier === switchTier) : undefined;
   const consumerProtection = result.consumerProtection;
+  const checkoutConsumerProtection = activeProvider?.consumerProtection ?? consumerProtection;
   const noteLocale = resolveConsentLocale(locale);
   const noteOf = (provider: { readonly note?: Readonly<Record<string, string>> }) =>
     provider.note?.[noteLocale] ?? provider.note?.["en"];
@@ -385,7 +386,7 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             renewalKey: renewalKey(consentPlan.price),
             count: new Intl.NumberFormat(locale).format(consentPlan.price.intervalCount ?? 1),
           }}
-          consumerProtection={consumerProtection}
+          consumerProtection={checkoutConsumerProtection}
           providerChoice={providerChoiceFor(consentPlan.tier)}
           note={singleProviderNote}
           onOrder={(consent) => orderWithConsent(consentPlan.tier, consent)}

@@ -1,145 +1,87 @@
-import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
-import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import type {
   UserDataDeleteHook,
   UserDataExportHook,
   UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
-import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
-import { helpdeskReplyEntity, helpdeskRequestEntity } from "./entity.ts";
-import { platformActor } from "./lib.ts";
+import { eraseLegacyRequest } from "./legacy-contact-erasure.ts";
+import {
+  LEGACY_CONTACT_REPLY_ENTITY,
+  LEGACY_CONTACT_REQUEST_ENTITY,
+  type LegacyAggregate,
+  readLegacyAggregates,
+  repliesOf,
+} from "./legacy-contact-streams.ts";
 import { findAttachments, purgeAttachments } from "./user-data-hooks.ts";
 
-// Data stored before the contact -> helpdesk rename stays under the old aggregate names and
-// tables. The old entities are only used to read and forget those rows, never registered, so no
-// schema is generated for them.
-export const LEGACY_CONTACT_REQUEST_ENTITY = "contact-request";
-export const LEGACY_CONTACT_REPLY_ENTITY = "contact-reply";
+export { LEGACY_CONTACT_REPLY_ENTITY, LEGACY_CONTACT_REQUEST_ENTITY };
 
 const PII_DECRYPT_REASON = "helpdesk:legacy-contact-user-data";
-const ERASE_REASON = "helpdesk:legacy-contact-user-data-forget";
-const LOOKUP_LIMIT = 200;
 
-const legacyRequestEntity = { ...helpdeskRequestEntity, table: "read_contact_requests" };
-const legacyReplyEntity = { ...helpdeskReplyEntity, table: "read_contact_replies" };
-
-const legacyRequestExecutor = createEventStoreExecutor(
-  buildEntityTable(LEGACY_CONTACT_REQUEST_ENTITY, legacyRequestEntity),
-  legacyRequestEntity,
-  { entityName: LEGACY_CONTACT_REQUEST_ENTITY },
-);
-const legacyReplyExecutor = createEventStoreExecutor(
-  buildEntityTable(LEGACY_CONTACT_REPLY_ENTITY, legacyReplyEntity),
-  legacyReplyEntity,
-  { entityName: LEGACY_CONTACT_REPLY_ENTITY },
-);
-
-// The read tables are absent on installs that never ran the contact feature, and querying a
-// missing table would abort the surrounding transaction. The event log is always present, and
-// the read tables were created together with the first contact event.
-async function hasLegacyContactData(ctx: UserDataHookCtx): Promise<boolean> {
-  // Helpdesk streams live on the system tenant, invisible to a tenant session.
-  const firstEvent = await systemTenantReadDb(ctx.db).fetchOne(eventsTable, {
-    aggregateType: LEGACY_CONTACT_REQUEST_ENTITY,
+// A signed-in request carries the user id; an anonymous one is matched by the verified account
+// email. A request whose personal fields are unreadable can only match by user id.
+async function findLegacyRequests(ctx: UserDataHookCtx): Promise<readonly LegacyAggregate[]> {
+  const email = (await resolveVerifiedUserEmail(ctx, PII_DECRYPT_REASON))?.toLowerCase();
+  const requests = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REQUEST_ENTITY);
+  return requests.filter((request) => {
+    if (request.fields["reporterUserId"] === ctx.userId) return true;
+    const requestEmail = request.fields["email"];
+    return (
+      !request.erased &&
+      email !== undefined &&
+      typeof requestEmail === "string" &&
+      requestEmail.toLowerCase() === email
+    );
   });
-  return firstEvent !== undefined;
-}
-
-async function findLegacyRequests(ctx: UserDataHookCtx) {
-  const byUser = await legacyRequestExecutor.list(
-    { filter: { field: "reporterUserId", op: "eq", value: ctx.userId }, limit: LOOKUP_LIMIT },
-    platformActor(),
-    ctx.db,
-  );
-  const email = await resolveVerifiedUserEmail(ctx, PII_DECRYPT_REASON);
-  const byEmail = email
-    ? await legacyRequestExecutor.list(
-        { filter: { field: "email", op: "eq", value: email }, limit: LOOKUP_LIMIT },
-        platformActor(),
-        ctx.db,
-      )
-    : { rows: [] };
-  const unique = new Map(byUser.rows.map((row) => [row.id, row]));
-  for (const row of byEmail.rows) unique.set(row.id, row);
-  return [...unique.values()];
-}
-
-async function findLegacyReplies(ctx: UserDataHookCtx, requestId: string) {
-  const found = await legacyReplyExecutor.list(
-    { filter: { field: "requestId", op: "eq", value: requestId }, limit: LOOKUP_LIMIT },
-    platformActor(),
-    ctx.db,
-  );
-  return found.rows;
 }
 
 export const legacyContactExportHook: UserDataExportHook = async (ctx) => {
-  if (!(await hasLegacyContactData(ctx))) return null;
-  const requests = await findLegacyRequests(ctx);
+  const requests = (await findLegacyRequests(ctx)).filter((request) => !request.erased);
   if (requests.length === 0) return null;
+  const replies = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REPLY_ENTITY);
   const rows = [];
   for (const request of requests) {
-    const replies = await findLegacyReplies(ctx, request.id);
+    const { fields } = request;
     rows.push({
-      kind: request.kind,
-      status: request.status,
-      source: request.source,
-      subject: request.subject,
-      message: request.message,
-      name: request.name,
-      email: request.email,
-      phone: request.phone,
-      page: request.page,
-      submittedAt: String(request.submittedAt),
+      kind: fields["kind"],
+      status: fields["status"],
+      source: fields["source"],
+      subject: fields["subject"],
+      message: fields["message"],
+      name: fields["name"],
+      email: fields["email"],
+      phone: fields["phone"],
+      page: fields["page"],
+      submittedAt: String(fields["submittedAt"]),
       attachments: (await findAttachments(ctx, LEGACY_CONTACT_REQUEST_ENTITY, request.id)).map(
         (file) => file.fileName,
       ),
-      replies: replies.map((reply) => ({
-        message: reply.message,
-        authorName: reply.authorName,
-        sentAt: String(reply.sentAt),
-      })),
+      replies: repliesOf(replies, request.id)
+        .filter((reply) => !reply.erased)
+        .map((reply) => ({
+          message: reply.fields["message"],
+          authorName: reply.fields["authorName"],
+          sentAt: String(reply.fields["sentAt"]),
+        })),
     });
   }
   return { entity: LEGACY_CONTACT_REQUEST_ENTITY, rows };
 };
 
 export const legacyContactDeleteHook: UserDataDeleteHook = async (ctx) => {
+  const requests = await findLegacyRequests(ctx);
   // skip: user has no pre-rename contact data to erase
-  if (!(await hasLegacyContactData(ctx))) return;
-  const kms = configuredPiiSubjectKms();
-  const failures: string[] = [];
-  const erase = async (
-    entity: string,
-    id: string,
-    forgotten: Parameters<typeof collectErasureFailure>[0],
-  ) => {
-    collectErasureFailure(forgotten, entity, id, failures);
-    if (forgotten.isSuccess && kms) {
-      await kms.eraseKey(
-        { kind: "record", entity, id },
-        { requestId: ERASE_REASON, userId: ctx.userId, eraseReason: ERASE_REASON },
-      );
-    }
-  };
-  for (const request of await findLegacyRequests(ctx)) {
-    for (const reply of await findLegacyReplies(ctx, request.id)) {
-      await purgeAttachments(ctx, LEGACY_CONTACT_REPLY_ENTITY, reply.id);
-      await erase(
-        LEGACY_CONTACT_REPLY_ENTITY,
-        reply.id,
-        await legacyReplyExecutor.forget({ id: reply.id }, platformActor(), ctx.db),
-      );
-    }
-    await purgeAttachments(ctx, LEGACY_CONTACT_REQUEST_ENTITY, request.id);
-    await erase(
-      LEGACY_CONTACT_REQUEST_ENTITY,
-      request.id,
-      await legacyRequestExecutor.forget({ id: request.id }, platformActor(), ctx.db),
+  if (requests.length === 0) return;
+  const replies = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REPLY_ENTITY);
+  for (const request of requests) {
+    await eraseLegacyRequest(
+      {
+        db: ctx.db,
+        erasedBy: ctx.userId,
+        purgeAttachments: (entity, id) => purgeAttachments(ctx, entity, id),
+      },
+      request,
+      repliesOf(replies, request.id),
     );
   }
-  throwIfErasureFailed(failures);
 };
