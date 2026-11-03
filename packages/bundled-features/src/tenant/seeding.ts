@@ -306,6 +306,8 @@ export async function seedTenant(
  * ConflictError on duplicates (duplicate calls no-op).
  *
  * Returns the membership-row id (existing on no-op, freshly minted on create).
+ * `rowMissing` marks a live stream whose projection row is gone: nothing is written, the
+ * membership is invisible until the projection is rebuilt.
  */
 export async function seedTenantMembership(
   db: DbRunner,
@@ -316,7 +318,7 @@ export async function seedTenantMembership(
   // `allOf: "tenantMembership"`) for fixtures/self-signup that opt in.
   // Omit to keep today's hook-less behavior.
   hooks?: SeedTenantHooks,
-): Promise<{ id: string }> {
+): Promise<{ id: string; rowMissing?: true }> {
   // Chokepoint: invite-accept (×3) + seedAdmin/provisionSignup all flow
   // through here — reject reserved/global roles before they ever persist.
   assertAssignableMembershipRoles(options.roles);
@@ -336,7 +338,7 @@ export async function seedTenantMembership(
   const existing = await fetchOne(db, tenantMembershipsTable, pair);
   if (existing) return { id: extractMembershipId(existing) };
   const liveStreamId = await findLiveMembershipStreamId(db, pair);
-  if (liveStreamId) return { id: liveStreamId };
+  if (liveStreamId) return { id: liveStreamId, rowMissing: true };
 
   // Keep by.id as audit actor, but force stream tenant to the membership tenant
   // so a cross-tenant `by` override cannot diverge row tenant vs event stream.

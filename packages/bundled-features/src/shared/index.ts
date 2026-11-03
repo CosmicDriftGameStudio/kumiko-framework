@@ -41,6 +41,7 @@ export {
   hostRowIsGone,
   joinRowParentIsVisible,
   parentRowIsVisible,
+  visibleParentRowIds,
 } from "./parent-visibility.ts";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.ts";
 export {

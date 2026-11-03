@@ -465,8 +465,12 @@ async function tenantHasForeignMember(
   tenantId: TenantId,
   ownUserId: string | undefined,
 ): Promise<boolean> {
-  const members = await selectMany(db, tenantMembershipsTable, { tenantId });
-  return members.some((member) => member["userId"] !== ownUserId);
+  const where = ownUserId === undefined ? { tenantId } : { tenantId, userId: { ne: ownUserId } };
+  const [foreignMember] = await selectMany(db, tenantMembershipsTable, where, {
+    fields: ["id"],
+    limit: 1,
+  });
+  return foreignMember !== undefined;
 }
 
 /**

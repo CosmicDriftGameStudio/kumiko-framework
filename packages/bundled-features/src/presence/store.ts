@@ -1,5 +1,6 @@
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { PresenceActivity } from "@cosmicdrift/kumiko-types/presence-types";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Redis } from "ioredis";
 import * as z from "zod";
 
@@ -30,6 +31,12 @@ export type PresenceStore = {
   remove(key: string, userId: string): Promise<{ readonly existed: boolean }>;
   /** Live entries only; expired ones are dropped on read. */
   list(key: string, nowMs: number, ttlMs: number): Promise<readonly PresenceRecord[]>;
+  /** `list` for many rooms in one round trip; result order follows `keys`. */
+  listMany(
+    keys: readonly string[],
+    nowMs: number,
+    ttlMs: number,
+  ): Promise<readonly (readonly PresenceRecord[])[]>;
 };
 
 export function presenceKey(tenantId: string, entity: string, id: string): string {
@@ -83,8 +90,24 @@ export function createMemoryPresenceStore(): MemoryPresenceStore {
     }
   }
 
+  async function list(
+    key: string,
+    nowMs: number,
+    ttlMs: number,
+  ): Promise<readonly PresenceRecord[]> {
+    const room = rooms.get(key);
+    if (!room) return [];
+    for (const [userId, record] of room) {
+      if (isExpired(record, nowMs, ttlMs)) room.delete(userId);
+    }
+    if (room.size === 0) rooms.delete(key);
+    return [...room.values()];
+  }
+
   return {
     roomCount: () => rooms.size,
+    list,
+    listMany: (keys, nowMs, ttlMs) => Promise.all(keys.map((key) => list(key, nowMs, ttlMs))),
     async touch(key, userId, state, nowMs, ttlMs) {
       sweepExpired(nowMs, ttlMs);
       const room = rooms.get(key) ?? new Map<string, PresenceRecord>();
@@ -99,15 +122,6 @@ export function createMemoryPresenceStore(): MemoryPresenceStore {
       const existed = room?.delete(userId) ?? false;
       if (room?.size === 0) rooms.delete(key);
       return { existed };
-    },
-    async list(key, nowMs, ttlMs) {
-      const room = rooms.get(key);
-      if (!room) return [];
-      for (const [userId, record] of room) {
-        if (isExpired(record, nowMs, ttlMs)) room.delete(userId);
-      }
-      if (room.size === 0) rooms.delete(key);
-      return [...room.values()];
     },
   };
 }
@@ -169,17 +183,61 @@ export function createRedisPresenceStore(redis: Redis, log: Logger): PresenceSto
     remove: (key, userId) =>
       guarded({ existed: false }, async () => ({ existed: (await redis.hdel(key, userId)) > 0 })),
     list: (key, nowMs, ttlMs) =>
-      guarded<readonly PresenceRecord[]>([], async () => {
-        const all = await redis.hgetall(key);
-        const live: PresenceRecord[] = [];
-        const expired: string[] = [];
-        for (const [userId, raw] of Object.entries(all)) {
-          const record = parseRecord(userId, raw);
-          if (record && !isExpired(record, nowMs, ttlMs)) live.push(record);
-          else expired.push(userId);
-        }
-        if (expired.length > 0) await redis.hdel(key, ...expired);
-        return live;
-      }),
+      guarded<readonly PresenceRecord[]>([], async () =>
+        liveRecordsOf(key, await redis.hgetall(key), nowMs, ttlMs),
+      ),
+    listMany: (keys, nowMs, ttlMs) =>
+      guarded<readonly (readonly PresenceRecord[])[]>(
+        keys.map(() => []),
+        async () => {
+          if (keys.length === 0) return [];
+          const pipeline = redis.pipeline();
+          for (const key of keys) pipeline.hgetall(key);
+          const replies = (await pipeline.exec()) ?? [];
+          return Promise.all(
+            keys.map(async (key, index) => {
+              const [error, all] = replies[index] ?? [new Error("missing pipeline reply"), null];
+              if (error) throw error;
+              return liveRecordsOf(key, hashOf(all), nowMs, ttlMs);
+            }),
+          );
+        },
+      ),
   };
+
+  // Expired fields are removed only while they still hold the value that was read: a touch landing
+  // between the read and the removal must survive.
+  async function liveRecordsOf(
+    key: string,
+    all: Readonly<Record<string, string>>,
+    nowMs: number,
+    ttlMs: number,
+  ): Promise<readonly PresenceRecord[]> {
+    const live: PresenceRecord[] = [];
+    const staleArgs: string[] = [];
+    for (const [userId, raw] of Object.entries(all)) {
+      const record = parseRecord(userId, raw);
+      if (record && !isExpired(record, nowMs, ttlMs)) live.push(record);
+      else staleArgs.push(userId, raw);
+    }
+    if (staleArgs.length > 0) await redis.eval(DROP_FIELDS_IF_UNCHANGED, 1, key, ...staleArgs);
+    return live;
+  }
+}
+
+const DROP_FIELDS_IF_UNCHANGED = `
+for i = 1, #ARGV, 2 do
+  if redis.call('HGET', KEYS[1], ARGV[i]) == ARGV[i + 1] then
+    redis.call('HDEL', KEYS[1], ARGV[i])
+  end
+end
+return 0`;
+
+function hashOf(value: unknown): Readonly<Record<string, string>> {
+  const hash: Record<string, string> = {};
+  if (!isPlainObject(value)) return hash;
+  for (const [field, raw] of Object.entries(value)) {
+    if (typeof raw === "string") hash[field] = raw;
+  }
+  return hash;
 }

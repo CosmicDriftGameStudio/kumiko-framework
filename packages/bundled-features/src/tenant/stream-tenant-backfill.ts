@@ -64,12 +64,16 @@ export async function backfillTenantStreamTenants(
     ...(scanTenantIds && { scanTenantIds }),
     ...(onFirstCandidate && { onFirstCandidate }),
   };
-  const searchCleanup = createSearchBucketCleanup(searchAdapter, TENANT_AGGREGATE);
+  const searchCleanup = createSearchBucketCleanup(searchAdapter, TENANT_AGGREGATE, {
+    db,
+    registry,
+  });
 
   const tenants = await backfillAggregateStreamTenants(db, {
     aggregateType: TENANT_AGGREGATE,
     target: { kind: "system" },
     beforeMove: searchCleanup.beforeMove,
+    onMoveFailed: searchCleanup.onMoveFailed,
     ...scan,
   });
   const memberships = await backfillAggregateStreamTenants(db, {

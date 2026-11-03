@@ -520,7 +520,8 @@ export function createTierEngineFeature<
           }
           alwaysOnHolder.set = computedAlwaysOn;
           // One feature instance can serve several stacks in a process; rebuild state from this DB only.
-          // Safe vs. "never clear-then-refill": no request reaches this resolver before build() returns.
+          // The cache is shared per instance, so this is safe only for sequential stack lifecycles
+          // (no request of an earlier stack still running): clear-then-refill would lock its tenants out.
           cache.clear();
           latestTicket.clear();
           isBuilt = true;
@@ -529,10 +530,15 @@ export function createTierEngineFeature<
           // have <100k tenants, so a single-pass scan is acceptable. The scaling
           // path (lazy load + LRU) is planned once a real need arises.
           type AssignmentRow = { tenantId: string; tier: string };
+          ticketCounter += 1;
+          const preloadTicket = ticketCounter;
           const rows = await selectMany<AssignmentRow>(systemDb, tierAssignmentTable);
           for (const row of rows) {
+            const tenantId = row.tenantId as TenantId;
+            // skip: a tier write committed while the snapshot was read; its cache entry is newer
+            if ((latestTicket.get(tenantId) ?? 0) > preloadTicket) continue;
             cache.set(
-              row.tenantId as TenantId,
+              tenantId,
               mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
             );
           }

@@ -1,8 +1,11 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { DocumentsQueries } from "../constants.ts";
 
 const LINK_PAGE_SIZE = 200;
+// Well below the Postgres bind-parameter limit (65535) that the `id IN (...)` filter would hit.
+const MAX_LINKED_DOCUMENTS = 10_000;
 
 const pageSchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())),
@@ -43,6 +46,12 @@ export async function linkedDocumentIds(
     for (const row of page.rows) {
       const documentId = row["documentId"];
       if (typeof documentId === "string") ids.push(documentId);
+    }
+    if (ids.length > MAX_LINKED_DOCUMENTS) {
+      throw new UnprocessableError("too-many-linked-documents", {
+        message: `documents: record ${target.entityType}:${target.entityId} has more than ${MAX_LINKED_DOCUMENTS} linked documents; the id list would exceed the query parameter limit`,
+        details: { limit: MAX_LINKED_DOCUMENTS },
+      });
     }
     cursor = page.nextCursor ?? undefined;
   } while (cursor !== undefined);

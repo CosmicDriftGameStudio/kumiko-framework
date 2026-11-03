@@ -213,7 +213,9 @@ describe("membership streams a replay must not see", () => {
       roles: ["Admin"],
     });
 
+    expect(first.rowMissing).toBeUndefined();
     expect(again.id).toBe(first.id);
+    expect(again.rowMissing).toBe(true);
     expect(await membershipStreamIds()).toEqual([first.id]);
     const result = await rebuildMemberships();
     expect(result.failures).toEqual([]);

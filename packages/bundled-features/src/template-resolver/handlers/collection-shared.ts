@@ -1,8 +1,3 @@
-import { requestContext } from "@cosmicdrift/kumiko-framework/api";
-import {
-  configuredPiiSubjectKms,
-  decryptPiiFieldValues,
-} from "@cosmicdrift/kumiko-framework/crypto";
 import type { EventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import type {
@@ -12,6 +7,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { decryptStoredPii } from "../../shared/index.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
 import { userContentEntriesTable, userContentEntryEntity } from "../user-content-table.ts";
 import type { ContentFormat } from "../web/constants.ts";
@@ -88,13 +84,11 @@ export async function readableCollectionEntry(
   store: CollectionStore,
   fallbackRequestId: string,
 ) {
-  const kms = configuredPiiSubjectKms();
-  if (!store.contentIsPii || !kms || row.content === null) return toCollectionEntry(row);
-  const decrypted = await decryptPiiFieldValues({ content: row.content }, ["content"], kms, {
-    requestId: requestContext.get()?.requestId ?? fallbackRequestId,
+  if (!store.contentIsPii || row.content === null) return toCollectionEntry(row);
+  return toCollectionEntry({
+    ...row,
+    content: await decryptStoredPii(row.content, "content", fallbackRequestId),
   });
-  const content = decrypted["content"];
-  return toCollectionEntry({ ...row, content: typeof content === "string" ? content : null });
 }
 
 export function toCollectionEntry(row: CollectionEntryRow) {
