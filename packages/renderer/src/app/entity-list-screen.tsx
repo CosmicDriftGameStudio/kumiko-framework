@@ -270,6 +270,7 @@ function EntityListBody({
     payload: queryPayload,
     infinite: useInfinite,
     aggregates: listTable.aggregates,
+    restoring: listTable.restoring,
   });
   const { refreshAfterWrite: refreshListAfterWrite } = listRows;
   const refreshRowsAfterWrite = useCallback(async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { DataTableBulk } from "../../../data-table-bulk-types.ts";
-import { fireEvent, render, screen, within } from "../../__tests__/test-utils.tsx";
+import { atViewportWidth, fireEvent, render, screen, within } from "../../__tests__/test-utils.tsx";
 import { defaultPrimitives } from "../index.tsx";
 
 const { DataTable } = defaultPrimitives;
@@ -24,21 +24,9 @@ const statusFacet = {
   chips: [{ id: "open", label: "Open", values: ["open"], count: 3 }],
 };
 
-function atWidth(width: number, run: () => void): void {
-  const happyDom = (window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } })
-    .happyDOM;
-  const original = window.innerWidth;
-  happyDom.setInnerWidth(width);
-  try {
-    run();
-  } finally {
-    happyDom.setInnerWidth(original);
-  }
-}
-
 describe("DataTable narrow layout parts", () => {
   test("a full-height narrow table hides its facets behind a toggle that opens them", () => {
-    atWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={columns}
@@ -71,7 +59,7 @@ describe("DataTable narrow layout parts", () => {
       ],
       reload: async () => {},
     };
-    atWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={columns} rows={rows} testId="t" bulk={bulk} />);
       const card = within(screen.getByTestId("t-cards")).getByTestId("row-a1");
       fireEvent.click(within(card).getByTestId("row-a1-select"));
@@ -81,7 +69,7 @@ describe("DataTable narrow layout parts", () => {
 
   test("cards show server group headers as list items and the totals card", () => {
     const onToggle = mock();
-    atWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={columns}

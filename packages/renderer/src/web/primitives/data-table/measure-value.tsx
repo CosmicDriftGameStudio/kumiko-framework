@@ -1,12 +1,10 @@
 import { isListAggregateCurrencyAmounts } from "@cosmicdrift/kumiko-types/list-aggregate-types";
+import { toMajorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 import type { ReactNode } from "react";
 import type { DataTableMeasure } from "../../../data-table-aggregate-types.ts";
 import type { ListColumnViewModel } from "../../../headless/index.ts";
 import { useOptionalLocale, useOptionalTranslation } from "../../../index.ts";
 import { DataTableCell } from "../data-table-cell.tsx";
-
-// Money measures arrive in the storage scale (minor units, ×100), one entry per currency.
-const MONEY_STORAGE_SCALE = 100;
 
 const NO_ROW: Readonly<Record<string, unknown>> = {};
 
@@ -62,10 +60,7 @@ export function MeasureValue({
   return (
     <span className="inline-flex flex-col items-end">
       {value.map((entry) =>
-        cell(
-          { amount: entry.value / MONEY_STORAGE_SCALE, currency: entry.currency },
-          entry.currency,
-        ),
+        cell({ amount: toMajorUnits(entry.value), currency: entry.currency }, entry.currency),
       )}
     </span>
   );

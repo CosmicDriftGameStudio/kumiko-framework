@@ -1,11 +1,11 @@
 import type { FormFieldDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { toMajorUnits, toMinorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   computeDerivedCellValue,
   roundDerivedCellValue,
   withDerivedCells,
 } from "./embedded-derived.ts";
-import { MINOR_UNIT_SCALE, toMinorUnits } from "./minor-units.ts";
 import type { FieldDefinition } from "./types/fields.ts";
 import type { FormFieldDerivation } from "./types/screen.ts";
 
@@ -212,8 +212,8 @@ export function applyFormDerivations(values: unknown, screen: FormDerivationScre
       const currency = targetCurrency(targetField, result[target], sourceCurrency);
       result[target] =
         currency === undefined
-          ? { amount: minor / MINOR_UNIT_SCALE }
-          : { amount: minor / MINOR_UNIT_SCALE, currency };
+          ? { amount: toMajorUnits(minor) }
+          : { amount: toMajorUnits(minor), currency };
     } else if (targetField.type === "decimal") {
       result[target] = roundDerivedCellValue(computed, targetField);
     } else {

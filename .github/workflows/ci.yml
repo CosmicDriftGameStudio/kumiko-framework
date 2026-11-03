@@ -445,7 +445,10 @@ jobs:
 
       - name: Read Puppeteer version
         id: puppeteer
-        run: echo "version=$(jq -r '.dependencies.puppeteer' apps/puppeteer-service/package.json)" >> "$GITHUB_OUTPUT"
+        run: |
+          v=$(jq -r '.dependencies.puppeteer' apps/puppeteer-service/package.json)
+          [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::puppeteer must be pinned exactly under dependencies, got: $v"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - name: Cache Puppeteer browsers
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

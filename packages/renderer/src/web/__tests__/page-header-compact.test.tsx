@@ -20,6 +20,7 @@ import {
   fireEvent,
   renderWithSidebar,
   screen,
+  setViewportWidth,
   waitFor,
   within,
 } from "./test-utils.tsx";
@@ -27,12 +28,6 @@ import {
 const PHONE = 500;
 const DESKTOP = 1024;
 const originalWidth = window.innerWidth;
-
-function setViewportWidth(width: number): void {
-  (
-    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-  ).happyDOM.setInnerWidth(width);
-}
 
 afterEach(() => setViewportWidth(originalWidth));
 

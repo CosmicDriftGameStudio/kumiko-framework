@@ -64,7 +64,7 @@ export async function runStatus(
   // An empty stdout from a failed status is not a clean tree.
   if (statusRes.status !== 0) {
     ctx.out.log(`  git status failed: ${statusRes.stderr.trim() || `exit ${statusRes.status}`}`);
-    return 0;
+    return 1;
   }
   const changes = statusRes.stdout.trim();
   if (changes) {

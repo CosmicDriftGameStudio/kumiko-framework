@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type { DataTableViewOptions } from "../../data-table-view-types.ts";
 import { DataTable } from "./_primitives-helpers.tsx";
-import { fireEvent, render, screen } from "./test-utils.tsx";
+import { atViewportWidth, fireEvent, render, screen } from "./test-utils.tsx";
 
 const columns = [
   { field: "name", label: "Name", type: "string" as const, sortable: true },
@@ -23,18 +23,6 @@ function headerFields(): string[] {
   return Array.from(document.querySelectorAll("th[data-testid^='column-']")).map(
     (th) => th.getAttribute("data-testid")?.replace("column-", "") ?? "",
   );
-}
-
-function withWidth(width: number, run: () => void): void {
-  const happy = (window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } })
-    .happyDOM;
-  const original = window.innerWidth;
-  happy.setInnerWidth(width);
-  try {
-    run();
-  } finally {
-    happy.setInnerWidth(original);
-  }
 }
 
 const sizing = {
@@ -105,7 +93,7 @@ describe("DataTable column pinning", () => {
   });
 
   test("below md pins have no effect", () => {
-    withWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={columns}
@@ -344,7 +332,7 @@ describe("DataTable column resizing", () => {
   });
 
   test("below md there is no handle and no fixed layout", () => {
-    withWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={columns}
@@ -434,7 +422,7 @@ describe("DataTable keyboard navigation", () => {
     );
     expect(rowEl("r1").getAttribute("tabindex")).toBeNull();
     unmount();
-    withWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={columns}

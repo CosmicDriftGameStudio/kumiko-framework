@@ -25,7 +25,7 @@ import {
 } from "../../index.ts";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { defaultTokens } from "../tokens.ts";
-import { render } from "./test-utils.tsx";
+import { atViewportWidth, render } from "./test-utils.tsx";
 
 afterEach(cleanup);
 
@@ -83,18 +83,6 @@ function renderFullList(): void {
       onFilterReset={() => {}}
     />,
   );
-}
-
-function withWidth(width: number, run: () => void): void {
-  const happy = (window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } })
-    .happyDOM;
-  const original = window.innerWidth;
-  happy.setInnerWidth(width);
-  try {
-    run();
-  } finally {
-    happy.setInnerWidth(original);
-  }
 }
 
 const postEntity = {
@@ -161,14 +149,14 @@ const section: EditRelatedListSectionViewModel = {
 
 describe("lists without a table block", () => {
   test("table layout with facets, search, sort and pager", () => {
-    withWidth(1024, () => {
+    atViewportWidth(1024, () => {
       renderFullList();
       expect(stableMarkup()).toMatchSnapshot();
     });
   });
 
   test("card layout (narrow) with facets, search, sort and pager", () => {
-    withWidth(500, () => {
+    atViewportWidth(500, () => {
       renderFullList();
       expect(stableMarkup()).toMatchSnapshot();
     });

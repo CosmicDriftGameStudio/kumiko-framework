@@ -35,15 +35,11 @@ import { DEFAULT_CURRENCIES } from "../engine/field-helpers.ts";
 // amount column (legacy DB convention for money — `SUM(buying_price)` remains
 // idiomatic). `<name>Currency` is the additional column.
 
-import { MINOR_UNIT_SCALE, toMinorUnits } from "../engine/minor-units.ts";
+import { toMajorUnits, toMinorUnits } from "@cosmicdrift/kumiko-types/minor-units";
 
 export const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
 
 export { toMinorUnits };
-
-function toMajorUnits(amountScaled: number): number {
-  return amountScaled / MINOR_UNIT_SCALE;
-}
 
 // One money field's write payload — `{ amount, currency }` or a bare number
 // (both MAJOR units, see file header) — reduced to minor units. This is the

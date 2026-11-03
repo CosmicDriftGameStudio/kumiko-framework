@@ -2,12 +2,14 @@
 // file, the field value is the array of FileRef ids of the files that uploaded. Failed files stay
 // out of the value; removing a row removes its id.
 
+import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useSessionEndedSignal, useTrackFormUpload, useTranslation } from "../../index.ts";
 import { isSessionEndedCause } from "../../session/session-ended.tsx";
 import { FileCountLimitError, uploadErrorKey } from "../lib/upload-error-key.ts";
 import { type FileRefTarget, uploadFileRef } from "../lib/upload-file-ref.ts";
 import { UploadZone } from "../widgets/upload-zone.tsx";
+import { useFileMeta } from "./file-thumbnail.tsx";
 
 export type FilesDropzoneInputProps = {
   readonly id: string;
@@ -23,6 +25,13 @@ export type FilesDropzoneInputProps = {
   readonly fieldName?: string;
   readonly testId?: string;
 };
+
+function FileRefName({ fileId }: { readonly fileId: string }): ReactNode {
+  const meta = useFileMeta(fileId);
+  // A non-UUID value has no meta to resolve; show it as is.
+  if (!isUuid(fileId)) return fileId;
+  return meta?.fileName ?? "…";
+}
 
 export function FilesDropzoneInput({
   id,
@@ -96,6 +105,7 @@ export function FilesDropzoneInput({
       {...(disabled !== undefined && { disabled })}
       doneValues={value}
       trackUpload={trackFormUpload}
+      labelForValue={(fileId) => <FileRefName fileId={fileId} />}
       onUpload={uploadOne}
       onRemove={removeOne}
       describeError={(cause) => t(uploadErrorKey(cause), { count: maxCount })}

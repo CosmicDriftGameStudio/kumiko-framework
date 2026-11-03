@@ -14,17 +14,11 @@ import { HeaderActionGroup } from "../layout/header-action-group.tsx";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.tsx";
 import { ShellHeader } from "../layout/shell-header.tsx";
 import { ThemeToggle } from "../layout/theme-toggle.tsx";
-import { fireEvent, renderWithSidebar, screen, within } from "./test-utils.tsx";
+import { fireEvent, renderWithSidebar, screen, setViewportWidth, within } from "./test-utils.tsx";
 
 const PHONE = 500;
 const DESKTOP = 1024;
 const originalWidth = window.innerWidth;
-
-function setViewportWidth(width: number): void {
-  (
-    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-  ).happyDOM.setInnerWidth(width);
-}
 
 afterEach(() => setViewportWidth(originalWidth));
 

@@ -28,6 +28,8 @@ export type ScreenListTable = {
   readonly props: ListTableProps &
     Pick<DataTableTableBlockProps, "serverGroups" | "totals" | "notice">;
   readonly aggregates: ListAggregates;
+  /** The remembered params are still on their way into the URL; list queries wait. */
+  readonly restoring: boolean;
 };
 
 /** Table-block wiring of a URL-backed list screen (entityList, projectionList). */
@@ -48,7 +50,7 @@ export function useScreenListTable({
     () => ({ columnFields: schemaColumns.map((column) => column.field), filterFields }),
     [schemaColumns, filterFields],
   );
-  useRememberedListParams({
+  const { restoring } = useRememberedListParams({
     screenId,
     enabled: table?.rememberState === true,
     store,
@@ -73,6 +75,7 @@ export function useScreenListTable({
     pageSize,
     paging,
     translate,
+    paused: restoring,
   });
   const { serverGroups, totals, notice } = aggregates;
   return {
@@ -83,5 +86,6 @@ export function useScreenListTable({
       ...(notice !== undefined && { notice }),
     },
     aggregates,
+    restoring,
   };
 }

@@ -26,6 +26,19 @@ function stripScreenPrefix(
   );
 }
 
+function storedParamsOf(
+  store: ListStateStore,
+  screenId: string,
+  known: KnownListFields,
+): Record<string, string> | undefined {
+  const stored = sanitizeStoredListState(store.read(screenId), known)?.params;
+  return stored !== undefined && Object.keys(stored).length > 0 ? stored : undefined;
+}
+
+function hasRestorableParams(store: ListStateStore, screenId: string, known: KnownListFields) {
+  return storedParamsOf(store, screenId, known) !== undefined;
+}
+
 function sameParams(a: Readonly<Record<string, string>>, b: Readonly<Record<string, string>>) {
   const keys = Object.keys(a);
   return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
@@ -33,19 +46,27 @@ function sameParams(a: Readonly<Record<string, string>>, b: Readonly<Record<stri
 
 /** URL stays the source of truth: the stored list params are copied into the
  *  URL once when the screen opens without any, and every later URL change is
- *  written back. A link that already carries list params is never overridden. */
+ *  written back. A link that already carries list params is never overridden.
+ *  Returns `restoring` while that copy is outstanding, so the list holds its
+ *  queries instead of fetching once with the defaults. */
 export function useRememberedListParams({
   screenId,
   enabled,
   store,
   known,
-}: RememberedListParamsArgs): void {
+}: RememberedListParamsArgs): { readonly restoring: boolean } {
   const nav = useNav();
   const current = useMemo(
     () => stripScreenPrefix(nav.searchParams, screenId),
     [nav.searchParams, screenId],
   );
   const phaseRef = useRef<{ screenId: string; phase: Phase }>({ screenId, phase: "pending" });
+  const phaseNow = phaseRef.current.screenId === screenId ? phaseRef.current.phase : "pending";
+  const restoring =
+    enabled &&
+    phaseNow !== "live" &&
+    Object.keys(current).length === 0 &&
+    hasRestorableParams(store, screenId, known);
 
   useEffect(() => {
     // skip: remembering is not enabled
@@ -55,8 +76,8 @@ export function useRememberedListParams({
     const currentIsEmpty = Object.keys(current).length === 0;
 
     if (state.phase === "pending" && currentIsEmpty) {
-      const stored = sanitizeStoredListState(store.read(screenId), known)?.params;
-      if (stored !== undefined && Object.keys(stored).length > 0) {
+      const stored = storedParamsOf(store, screenId, known);
+      if (stored !== undefined) {
         state.phase = "restoring";
         nav.setSearchParams(
           Object.fromEntries(Object.entries(stored).map(([k, v]) => [`${screenId}.${k}`, v])),
@@ -76,4 +97,6 @@ export function useRememberedListParams({
     if (existing?.params !== undefined && sameParams(existing.params, current)) return;
     store.write(screenId, { ...existing, params: current });
   }, [enabled, screenId, current, known, store, nav]);
+
+  return { restoring };
 }

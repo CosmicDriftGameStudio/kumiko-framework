@@ -34,6 +34,10 @@
       "types": "./src/kebab-case.ts",
       "default": "./src/kebab-case.ts"
     },
+    "./minor-units": {
+      "types": "./src/minor-units.ts",
+      "default": "./src/minor-units.ts"
+    },
     "./identifiers": {
       "types": "./src/identifiers.ts",
       "default": "./src/identifiers.ts"
@@ -340,6 +344,10 @@
       "./kebab-case": {
         "types": "./dist/kebab-case.d.ts",
         "default": "./dist/kebab-case.js"
+      },
+      "./minor-units": {
+        "types": "./dist/minor-units.d.ts",
+        "default": "./dist/minor-units.js"
       },
       "./identifiers": {
         "types": "./dist/identifiers.d.ts",
