@@ -11,6 +11,7 @@ import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { EnvelopeCipher, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
+import { createDeliveryAttemptLogFactory } from "./attempt-log-factory.ts";
 import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.ts";
 import { collectChannels, createDeliveryService } from "./delivery-service.ts";
 import { createDeliveryNotifyFactory } from "./notify-factory.ts";
@@ -34,7 +35,7 @@ export type CreateDeliveryTestContextOptions = {
 };
 
 /**
- * Helper for setupTestStack: creates a DeliveryService + _notifyFactory for the test context.
+ * Helper for setupTestStack: creates a DeliveryService + _notifyFactory + _deliveryAttemptLogFactory for the test context.
  * Abstracts the boilerplate that every Delivery-using test needs.
  *
  * Usage:
@@ -60,6 +61,7 @@ export function createDeliveryTestContext(
   return {
     deliveryService, // exposed so tests can inspect/call directly if needed
     _notifyFactory: createDeliveryNotifyFactory(deliveryService),
+    _deliveryAttemptLogFactory: createDeliveryAttemptLogFactory(deliveryService),
     ...(options.addressCipher && { configEncryption: options.addressCipher }),
   };
 }

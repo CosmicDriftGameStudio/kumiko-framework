@@ -498,6 +498,16 @@ type DeleteContext = {
   event: StoredEvent;
   lockGuardBypassed?: boolean | undefined;
 };
+type DeliveryAttemptLogEntry = {
+  notificationType: string;
+  channel: string;
+  recipientAddress: string | null;
+  status: NotifyDeliveryStatus;
+  error: DeliveryErrorCode | null;
+  priority: NotifyPriority;
+};
+type DeliveryAttemptLogFactory = (user: SessionUser, tenantId: TenantId, deliveryDb?: DbConnection) => DeliveryAttemptLogFn;
+type DeliveryAttemptLogFn = (entry: DeliveryAttemptLogEntry) => Promise<void>;
 type DeliveryErrorCode = DeliveryFailureCode | DeliverySkipReason | `http_${number}`;
 type DeliveryFailureCode = (typeof DELIVERY_FAILURE_CODES)[number];
 type DeliverySkipReason = (typeof DELIVERY_SKIP_REASONS)[number];

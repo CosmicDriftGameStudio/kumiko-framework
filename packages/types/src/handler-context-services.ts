@@ -7,6 +7,8 @@ import type { EnvelopeCipher } from "./envelope-cipher-types.ts";
 import type { FileContext } from "./file-handle-types.ts";
 import type { FileProviderResolver } from "./file-provider-resolver-types.ts";
 import type {
+  DeliveryAttemptLogFactory,
+  DeliveryAttemptLogFn,
   EscapeHatchAuditSink,
   JobRunnerRef,
   NotifyFactory,
@@ -66,6 +68,9 @@ export type ContextServices = {
   readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   // _notifyFactory bound for post-commit delivery of a notify built for another user or tenant (seed hooks).
   readonly _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
+  readonly _deliveryAttemptLogFactory?: DeliveryAttemptLogFactory;
+  // _deliveryAttemptLogFactory bound to the caller and the outside-tx pool, for a handler that sends through a channel itself.
+  readonly _logOwnDeliveryAttempt?: DeliveryAttemptLogFn;
   // Wired when the `audit` feature is mounted; absent means a structured warn log.
   readonly _escapeHatchAuditSink?: EscapeHatchAuditSink;
   // extraContext keys the framework does not know (templateResolver, app provisioners, ...).

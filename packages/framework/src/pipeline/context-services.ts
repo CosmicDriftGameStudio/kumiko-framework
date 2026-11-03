@@ -25,6 +25,8 @@ export const APP_CONTEXT_KEY_ROLES = {
   _notifyFactory: "service",
   _notifyInTransactionFactory: "service",
   _notifyAfterCommitFactory: "service",
+  _deliveryAttemptLogFactory: "service",
+  _logOwnDeliveryAttempt: "service",
   _escapeHatchAuditSink: "service",
   db: "wiring",
   systemDb: "wiring",
@@ -72,11 +74,12 @@ function isServiceKey(key: string): key is ServiceKey {
   return isAppContextKey(key) && APP_CONTEXT_KEY_ROLES[key] === "service";
 }
 
-// The dispatcher binds these two to one call's transaction; a factory inherited from an outer
-// context must not leak into a context that has none of its own.
+// The dispatcher binds these to one call's caller and transaction; a binding inherited from an
+// outer context must not leak into a context that has none of its own.
 const PER_CALL_FACTORY_KEYS: ReadonlySet<ServiceKey> = new Set([
   "_notifyInTransactionFactory",
   "_notifyAfterCommitFactory",
+  "_logOwnDeliveryAttempt",
 ]);
 
 function copyService<Key extends ServiceKey>(

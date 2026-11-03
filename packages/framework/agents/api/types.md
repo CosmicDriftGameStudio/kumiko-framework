@@ -4043,6 +4043,8 @@ type ContextServices = { // Infrastructure the app wired at boot, as the handler
   _notifyFactory?: NotifyFactory;
   _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
+  _deliveryAttemptLogFactory?: DeliveryAttemptLogFactory;
+  _logOwnDeliveryAttempt?: DeliveryAttemptLogFn;
   _escapeHatchAuditSink?: EscapeHatchAuditSink;
   extensions: Readonly<Record<string, unknown>>;
 };
@@ -4265,6 +4267,8 @@ type SharedContextFields = {
   _notifyFactory?: NotifyFactory;
   _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
+  _deliveryAttemptLogFactory?: DeliveryAttemptLogFactory;
+  _logOwnDeliveryAttempt?: DeliveryAttemptLogFn;
   _escapeHatchAuditSink?: EscapeHatchAuditSink;
   secrets?: SecretsContext;
   masterKeyProvider?: MasterKeyProvider;

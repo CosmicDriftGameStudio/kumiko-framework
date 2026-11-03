@@ -4,6 +4,12 @@ import type { ZodType } from "zod";
 import type { CacheSyncBus } from "./cache-sync-types.ts";
 import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config.ts";
 import type { DbConnection, DbTx } from "./db-connection.ts";
+import type {
+  DeliveryAttemptLogFactory,
+  DeliveryAttemptLogFn,
+  DeliveryErrorCode,
+  NotifyDeliveryStatus,
+} from "./delivery-attempt-types.ts";
 import type { DerivativesContext } from "./derivatives-types.ts";
 import type { EntityCache } from "./entity-cache.ts";
 import type { EventMetadata, WriteOrigin } from "./event-store-types.ts";
@@ -449,52 +455,20 @@ export type NotifyOptions = {
   readonly locale?: string;
 };
 
-export type NotifyDeliveryStatus = "queued" | "sent" | "failed" | "skipped";
-
-// Closed vocabulary for delivery failures and skips. Only these values (plus
-// `http_<status>`) are ever stored or returned as a delivery error, never a raw
-// error message: provider errors can carry URLs, tokens and addresses.
-export const DELIVERY_FAILURE_CODES = [
-  "timeout",
-  "network_error",
-  "redirect_blocked",
-  "host_not_allowed",
-  "missing_credentials",
-  "invalid_address",
-  "unexpected_response",
-  "render_failed",
-  "send_failed",
-  "channel_error",
-] as const;
-
-export const DELIVERY_SKIP_REASONS = [
-  "channel_disabled",
-  "preference_disabled",
-  "rate_limited",
-  "no_address",
-  "unsubscribed",
-  "duplicate_idempotency_key",
-] as const;
-
-export type DeliveryFailureCode = (typeof DELIVERY_FAILURE_CODES)[number];
-export type DeliverySkipReason = (typeof DELIVERY_SKIP_REASONS)[number];
-export type DeliveryErrorCode = DeliveryFailureCode | DeliverySkipReason | `http_${number}`;
-
-// Failures a chat webhook send can end in: http_<status> plus the transport codes.
-export type ChatSendFailureCode =
-  | `http_${number}`
-  | Exclude<DeliveryFailureCode, "render_failed" | "send_failed" | "channel_error">;
-
-export const HTTP_ERROR_CODE_PATTERN = /^http_(\d{3})$/;
-
-export function isDeliveryErrorCode(value: unknown): value is DeliveryErrorCode {
-  if (typeof value !== "string") return false;
-  return (
-    HTTP_ERROR_CODE_PATTERN.test(value) ||
-    DELIVERY_FAILURE_CODES.some((code) => code === value) ||
-    DELIVERY_SKIP_REASONS.some((reason) => reason === value)
-  );
-}
+export {
+  type ChatSendFailureCode,
+  DELIVERY_FAILURE_CODES,
+  DELIVERY_SKIP_REASONS,
+  type DeliveryAttemptLogEntry,
+  type DeliveryAttemptLogFactory,
+  type DeliveryAttemptLogFn,
+  type DeliveryErrorCode,
+  type DeliveryFailureCode,
+  type DeliverySkipReason,
+  HTTP_ERROR_CODE_PATTERN,
+  isDeliveryErrorCode,
+  type NotifyDeliveryStatus,
+} from "./delivery-attempt-types.ts";
 
 export type NotifyDelivery = {
   readonly channel: string;
@@ -612,6 +586,8 @@ type SharedContextFields = {
   readonly _notifyFactory?: NotifyFactory;
   readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   readonly _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
+  readonly _deliveryAttemptLogFactory?: DeliveryAttemptLogFactory;
+  readonly _logOwnDeliveryAttempt?: DeliveryAttemptLogFn;
   readonly _escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly secrets?: import("./secrets-types.ts").SecretsContext;
   readonly masterKeyProvider?: import("./secrets-types.ts").MasterKeyProvider;

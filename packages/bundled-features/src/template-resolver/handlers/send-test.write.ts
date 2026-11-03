@@ -3,9 +3,13 @@ import {
   defineWriteHandler,
   type NotifyDeliveryStatus,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { type ChannelResult, EMAIL_CHANNEL_NAME, logAttempt } from "../../delivery/index.ts";
+import { type ChannelResult, EMAIL_CHANNEL_NAME } from "../../delivery/index.ts";
 import { unprocessable } from "../../shared/index.ts";
 import {
   refuseTemplateEdit,
@@ -54,11 +58,6 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
     }),
     access: templateEditAccess(policy.tenantEditable),
     rateLimit: { per: "user+handler", ...TEST_MAIL_RATE_LIMIT },
-    escapeHatch: {
-      grants: ["unsafeRaw"],
-      reason:
-        "the delivery attempt log appends its event and inline projection on the outside-transaction connection, the one delivery itself uses, so a failed test mail stays logged although the handler transaction rolls back",
-    },
     description:
       "Sends the rendered preview of a mail template draft, or of the stored template when no content is given, to the calling user's own address with the subject prefixed by [TEST] unless prefixSubject is false, carrying the inline images and, unless includeAttachments is false, the files attached to the template; there is no recipient input, the sample values come from the declared variable examples unless variables replaces them (checked against the variable schema), and a draft that fails the write rules is rejected without sending.",
     handler: async (event, ctx) => {
@@ -87,6 +86,14 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
           }),
         );
       }
+      // Fail closed before sending: a test mail must never leave without its attempt row.
+      const logOwnDeliveryAttempt = ctx.services._logOwnDeliveryAttempt;
+      if (logOwnDeliveryAttempt === undefined) {
+        throw new InternalError({
+          message:
+            "template test mail: no delivery attempt log wired; the delivery boot context (createDeliveryTestContext in tests) sets _deliveryAttemptLogFactory",
+        });
+      }
       const channelContext = testMailChannelContext(ctx, event.user);
       const address = await resolveTestMailAddress(channel, channelContext, event.user);
       if (address === null) {
@@ -98,14 +105,11 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
       }
 
       const subject = `${prefixSubject ? TEST_MAIL_SUBJECT_PREFIX : ""}${preview.subject ?? ""}`;
-      // The outside-transaction connection, so a failed send (rolled-back handler tx) stays logged.
-      const attemptDb = (ctx.db.outsideTransaction ?? ctx.db).unsafeRaw();
+      // Delivery logs on its own connection, so a failed send stays logged although this handler's transaction rolls back.
       const logTestMail = (status: NotifyDeliveryStatus, error: DeliveryErrorCode | null) =>
-        logAttempt(attemptDb, ctx.registry, {
-          tenantId: event.user.tenantId,
+        logOwnDeliveryAttempt({
           notificationType: TEST_MAIL_NOTIFICATION_TYPE,
           channel: EMAIL_CHANNEL_NAME,
-          recipientId: event.user.id,
           recipientAddress: address,
           status,
           error,
