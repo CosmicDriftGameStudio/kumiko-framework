@@ -1,5 +1,5 @@
 import { dispatcherErrorText, useDispatcher, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import type { DispatcherError, Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { useCallback, useState } from "react";
 import { isTenantOverrideDeniedError } from "./tenant-override.ts";
 
@@ -14,8 +14,6 @@ export type ContentWriteResponse = {
   readonly locale: string;
   readonly isNew: boolean;
 };
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 // A validation failure names the offending field with its own message; prefer that over the generic one.
 function writeErrorText(error: DispatcherError, t: Translate): string {

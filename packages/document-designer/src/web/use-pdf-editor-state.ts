@@ -1,5 +1,6 @@
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EditorMode } from "./editor-header.tsx";
@@ -31,8 +32,6 @@ import { useBranding } from "./use-branding.ts";
 import { useFilesCapability } from "./use-files-capability.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 function usePdfHostServices() {
   const insert = useInsertTargets();

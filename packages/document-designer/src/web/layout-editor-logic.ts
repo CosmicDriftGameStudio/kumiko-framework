@@ -3,6 +3,7 @@ import {
   PDF_DOCUMENT_BLOCKS,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { dispatcherErrorText, type useMutation } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { composeLayoutHtml } from "./compose-layout.ts";
 import type { FooterTone } from "./editor-shell.tsx";
@@ -20,7 +21,6 @@ import { asRowStatus } from "./status-label.ts";
 
 export type EditorTab = "draft" | "mjml";
 export type Region = "header" | "signature" | "footer";
-export type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export const REGION_EDITOR_IDS: Readonly<Record<Region, string>> = {
   header: "document-designer-region-header",

@@ -1,4 +1,5 @@
 import { dispatcherErrorText } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { LeaveTarget } from "./mail-dialogs.tsx";
 import { parseLinkedResources } from "./mail-draft.ts";
 import {
@@ -13,8 +14,6 @@ import { footerMessage, metaFieldMessages } from "./mail-footer.ts";
 import type { MailDraft, MailValidation, PickedValues } from "./mail-types.ts";
 import type { MailServices, MailUiState } from "./use-mail-editor-parts.ts";
 import { templateTitleText } from "./used-by-label.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export type MailModelInput = {
   readonly props: MailEditorBodyProps;
@@ -109,7 +108,7 @@ export function buildMailModel(input: MailModelInput) {
   );
   const uploadTemplateId = row?.scope === "tenant" ? row.id : null;
   const footer =
-    locked || validation === undefined || validation === null
+    locked || validation === null
       ? null
       : footerMessage(
           t,

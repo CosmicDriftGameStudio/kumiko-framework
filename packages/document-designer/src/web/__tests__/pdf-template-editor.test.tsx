@@ -5,8 +5,10 @@ import {
   textBlocksClient,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
+  AppFeaturesProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
+  type FeatureSchema,
   kumikoDefaultTranslations,
   LocaleProvider,
   mergeTranslations,
@@ -20,6 +22,7 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
+import { BRANDING_QUERY_QN, MANAGED_PAGES_FEATURE_NAME } from "../constants.ts";
 import { PdfTemplateEditor } from "../pdf-template-editor.tsx";
 
 const translations = mergeTranslations(
@@ -98,8 +101,13 @@ function validationFor(options: FakeOptions) {
   };
 }
 
-function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; writes: Call[] } {
+function createFakeDispatcher(options: FakeOptions): {
+  dispatcher: Dispatcher;
+  writes: Call[];
+  queries: string[];
+} {
   const writes: Call[] = [];
+  const queries: string[] = [];
   const failure = {
     isSuccess: false,
     error: {
@@ -110,6 +118,7 @@ function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; w
     },
   };
   const query = async (type: string, payload: unknown) => {
+    queries.push(type);
     switch (type) {
       case TemplateResolverQueries.list: {
         const kind = Reflect.get(Object(payload), "kind");
@@ -195,32 +204,35 @@ function createFakeDispatcher(options: FakeOptions): { dispatcher: Dispatcher; w
     pendingWrites: () => [],
     pendingFiles: () => [],
   } as unknown as Dispatcher;
-  return { dispatcher, writes };
+  return { dispatcher, writes, queries };
 }
 
 function renderEditor(
   options: FakeOptions,
   onLocaleChange?: (locale: string) => void,
   roles: readonly string[] = ["TenantAdmin"],
+  features: readonly FeatureSchema[] = [],
 ) {
   const fake = createFakeDispatcher(options);
   const tree = (currentRoles: readonly string[]) => (
-    <LocaleProvider
-      resolver={createStaticLocaleResolver({ locale: "en" })}
-      fallbackBundles={[translations]}
-    >
-      <DispatcherProvider dispatcher={fake.dispatcher}>
-        <UserRolesProvider roles={currentRoles}>
-          <PrimitivesProvider value={defaultPrimitives}>
-            <PdfTemplateEditor
-              slug={SLUG}
-              locale="de"
-              {...(onLocaleChange && { onLocaleChange })}
-            />
-          </PrimitivesProvider>
-        </UserRolesProvider>
-      </DispatcherProvider>
-    </LocaleProvider>
+    <AppFeaturesProvider features={features}>
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en" })}
+        fallbackBundles={[translations]}
+      >
+        <DispatcherProvider dispatcher={fake.dispatcher}>
+          <UserRolesProvider roles={currentRoles}>
+            <PrimitivesProvider value={defaultPrimitives}>
+              <PdfTemplateEditor
+                slug={SLUG}
+                locale="de"
+                {...(onLocaleChange && { onLocaleChange })}
+              />
+            </PrimitivesProvider>
+          </UserRolesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>
+    </AppFeaturesProvider>
   );
   const { rerender } = render(tree(roles));
   return { ...fake, switchRoles: (next: readonly string[]) => rerender(tree(next)) };
@@ -278,6 +290,29 @@ describe("PdfTemplateEditor", () => {
 
     await screen.findByText(/PDF generation is not available/);
     for (const button of buttonsNamed("Generate PDF")) expect(button.disabled).toBe(true);
+  });
+
+  test("without managed-pages the editor never asks for branding", async () => {
+    const { queries } = renderEditor({ puppeteer: "available" });
+    await ready();
+    expect(queries).toContain(TemplateResolverQueries.validate);
+    expect(queries).not.toContain(BRANDING_QUERY_QN);
+  });
+
+  test("with managed-pages mounted the editor asks for branding", async () => {
+    const managedPages: FeatureSchema = {
+      featureName: MANAGED_PAGES_FEATURE_NAME,
+      entities: {},
+      screens: [],
+    };
+    const { queries } = renderEditor(
+      { puppeteer: "available" },
+      undefined,
+      ["TenantAdmin"],
+      [managedPages],
+    );
+    await ready();
+    await waitFor(() => expect(queries).toContain(BRANDING_QUERY_QN));
   });
 
   test("page settings travel in the saved meta", async () => {

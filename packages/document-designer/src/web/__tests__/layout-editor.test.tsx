@@ -107,10 +107,11 @@ const nav: NavApi = {
   setSearchParams: () => {},
 };
 
-const MANAGED_PAGES_FEATURE = {
+const MANAGED_PAGES_FEATURE: FeatureSchema = {
   featureName: "managed-pages",
+  entities: {},
   screens: [],
-} as unknown as FeatureSchema;
+};
 
 const translations = mergeTranslations(
   mergeTranslations(kumikoDefaultTranslations, textBlocksClient().translations ?? {}),

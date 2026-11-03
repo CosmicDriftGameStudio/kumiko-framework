@@ -1,7 +1,8 @@
 import type { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { ModeSwitch, TextareaField } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
-import type { EditorTab, Translate } from "./layout-editor-logic.ts";
+import type { EditorTab } from "./layout-editor-logic.ts";
 import { renderPaper } from "./layout-editor-paper.tsx";
 import type { LayoutEditorBodyProps, LayoutEditorModel } from "./use-layout-editor-state.ts";
 

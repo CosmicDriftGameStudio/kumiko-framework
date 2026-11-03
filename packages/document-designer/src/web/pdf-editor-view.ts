@@ -1,3 +1,4 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { fileUrl } from "./file-name.ts";
 import type { EditorState } from "./pdf-editor-draft.ts";
 import { snapshotOf } from "./pdf-editor-draft.ts";
@@ -8,8 +9,6 @@ import { parseJsonObject } from "./template-rows.ts";
 import { DEFAULT_LAYOUT_SLUG, type TemplateDetail } from "./types.ts";
 import type { PdfEditorState } from "./use-pdf-editor-state.ts";
 import { templateTitle, templateTitleText } from "./used-by-label.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 function originTextOf(
   t: Translate,

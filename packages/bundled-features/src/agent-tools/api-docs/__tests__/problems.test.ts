@@ -56,6 +56,17 @@ describe("generateApiDocs problems", () => {
     expect([...titles, ...labels].some((entry) => entry.endsWith(" en"))).toBe(false);
   });
 
+  test("a field without a label in any locale is not a translation gap", () => {
+    const { problems } = generateApiDocs(fixtureInput());
+    const unlabeled = problems.filter(
+      (p) =>
+        p.kind === "fieldLabelMissing" &&
+        p.qn === "ticketing:query:ticket:list" &&
+        p.field === "aggregate",
+    );
+    expect(unlabeled).toEqual([]);
+  });
+
   test("handlers without a description are doc gaps", () => {
     const { problems } = generateApiDocs(fixtureInput());
     expect(problems.flatMap((p) => (p.kind === "docGap" ? [p.gap.qn] : []))).toContain(

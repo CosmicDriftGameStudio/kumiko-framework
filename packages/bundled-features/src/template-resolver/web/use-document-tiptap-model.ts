@@ -1,3 +1,4 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { useEditor, useEditorState } from "@tiptap/react";
 import { useMemo, useState } from "react";
 import { createDocumentEditorExtensions } from "./document-editor-extensions.ts";
@@ -5,8 +6,6 @@ import { activeStateOf, type PanelKind, previewsKey } from "./document-tiptap-he
 import type { DocumentEditorProps, DocumentResourcePreview } from "./document-toolbar-blocks.ts";
 import { useEditorHandleReport } from "./editor-handle.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export function documentEditorLabels(t: Translate) {
   return {

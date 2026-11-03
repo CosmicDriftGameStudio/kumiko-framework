@@ -1,7 +1,7 @@
 import { DocumentContentEditor } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
-import type { Translate } from "./layout-editor-logic.ts";
 import { PAPER_WIDTH_CLASS, REGION_EDITOR_IDS, type Region } from "./layout-editor-logic.ts";
 import type { LayoutEditorModel } from "./use-layout-editor-state.ts";
 

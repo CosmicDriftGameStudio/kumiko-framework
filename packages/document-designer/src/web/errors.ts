@@ -1,8 +1,6 @@
 import { TemplateResolverErrors } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
+import type { DispatcherError, Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 function reasonOf(error: DispatcherError): string | undefined {
   const reason = propertyOf(error.details, "reason");

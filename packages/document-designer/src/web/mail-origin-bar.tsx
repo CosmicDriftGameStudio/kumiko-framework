@@ -7,6 +7,7 @@ import {
   usePrimitives,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
 import { originOf } from "./editor-header.tsx";
@@ -14,8 +15,6 @@ import { EditorInfoBar } from "./editor-shell.tsx";
 import type { TemplateRowView } from "./mail-types.ts";
 import { DiffDrawer } from "./origin-bar.tsx";
 import { draftBesideActiveSentence } from "./status-label.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export function languageName(t: Translate, locale: string): string {
   const key = `documentDesigner.mail.language.${locale}`;

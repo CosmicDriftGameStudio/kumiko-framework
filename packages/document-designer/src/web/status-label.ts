@@ -1,7 +1,6 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { StatusBadgeTone } from "@cosmicdrift/kumiko-renderer/web";
 import type { OverviewRowView } from "./overview-row.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 const STATUS_TONE: Readonly<Record<OverviewRowView["status"], StatusBadgeTone>> = {
   active: "ok",

@@ -1,13 +1,12 @@
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useQuery, useUnsavedInputSource } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { useEffect, useRef, useState } from "react";
 import { buildMeta, isDraftDirty, parseJsonRecord, pickDeclaredVariables } from "./mail-draft.ts";
 import type { MailEditorBodyProps } from "./mail-editor-logic.ts";
 import { buildMailModel } from "./mail-editor-model.ts";
 import type { MailValidation, PickedValues } from "./mail-types.ts";
 import { useMailServices, useMailUiState } from "./use-mail-editor-parts.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export function useMailEditorState(props: MailEditorBodyProps, t: Translate) {
   const { slug, locale, isSystemAdmin, row } = props;

@@ -123,7 +123,7 @@ export function renderMarkButtons(c: TiptapContext): ReactNode {
 }
 
 export function renderListButtons(c: TiptapContext): ReactNode {
-  const { t, editor, canvas, activeState } = c;
+  const { t, editor, activeState } = c;
   return (
     <>
       {iconButton(
@@ -132,7 +132,6 @@ export function renderListButtons(c: TiptapContext): ReactNode {
         <List size={16} />,
         activeState?.bulletList ?? false,
         () => editor.chain().focus().toggleBulletList().run(),
-        canvas ? undefined : t("template-resolver.documentEditor.list"),
       )}
       {iconButton(
         c,

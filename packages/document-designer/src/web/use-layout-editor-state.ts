@@ -3,6 +3,7 @@ import {
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useMutation, useQuery } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { useState } from "react";
 import {
   accentLineShown,
@@ -18,7 +19,6 @@ import {
   resourcePreviewsOf,
   saveLayout,
   shownRowOf,
-  type Translate,
 } from "./layout-editor-logic.ts";
 import { appearanceOf } from "./layout-meta.ts";
 import type {
