@@ -17,6 +17,7 @@ export const CAP_OVERVIEW_I18N: Readonly<Record<string, LocalizedString>> = {
   "cap-overview.cards.viewAll": { en: "View all usage" },
   "cap-overview.notMeasured": { en: "Not measured yet" },
   "cap-overview.notIncluded": { en: "Not included" },
+  "cap-overview.notIncludedButUsed": { en: "{used} · not included" },
   "cap-overview.unlimited": { en: "{used} · unlimited" },
   "cap-overview.errors.progressPrimitiveMissing": {
     en: "Usage bar unavailable — Progress primitive is not registered.",

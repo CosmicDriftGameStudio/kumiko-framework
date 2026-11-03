@@ -10,6 +10,7 @@ export {
 export type {
   CapSpec,
   CapSpecLimitContext,
+  CapSpecLimitTenant,
   CapUsage,
   CapUsageTone,
   CapUsageWithMeta,

@@ -72,7 +72,8 @@ export type ConfigValidateContext = {
   // that tenant's rows plus reference data, never other tenants'.
   readonly db: TenantDb;
   // Full cascade of any registered key as seen from `tenantId` / the writing user, e.g. to read
-  // an operator default on another level. Throws for an unknown key.
+  // an operator default on another level. Throws for an unknown key and for encrypted
+  // (encrypted, secrets-backed or piiEncrypted) keys, whose plaintext must not reach error details.
   readonly readCascade: (qualifiedKey: string) => Promise<ConfigCascade>;
 };
 

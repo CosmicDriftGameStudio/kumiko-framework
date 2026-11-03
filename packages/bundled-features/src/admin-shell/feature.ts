@@ -53,16 +53,17 @@ export type CreateAdminShellOptions = {
   readonly extraPlatformPanels?: readonly DashboardPanelDefinition[];
 };
 
-type NavIdOptions = {
-  readonly includeTenantOverview?: boolean;
-  readonly includeTierAdmin?: boolean;
+type SharedNavIdOptions = {
   readonly includeCapOverview: boolean;
   readonly includeDocumentDesigner: boolean;
 };
 
-function tenantWorkspaceNavIds(options: NavIdOptions): string[] {
+type TenantNavIdOptions = SharedNavIdOptions & { readonly includeTenantOverview: boolean };
+type PlatformNavIdOptions = SharedNavIdOptions & { readonly includeTierAdmin: boolean };
+
+function tenantWorkspaceNavIds(options: TenantNavIdOptions): string[] {
   return [
-    ...(options.includeTenantOverview === true ? ["admin-shell:nav:tenant-overview"] : []),
+    ...(options.includeTenantOverview ? ["admin-shell:nav:tenant-overview"] : []),
     "tenant:nav:members",
     "audit:nav:audit-log",
     ...(options.includeCapOverview ? ["admin-shell:nav:my-caps"] : []),
@@ -70,7 +71,7 @@ function tenantWorkspaceNavIds(options: NavIdOptions): string[] {
   ];
 }
 
-function platformWorkspaceNavIds(options: NavIdOptions): string[] {
+function platformWorkspaceNavIds(options: PlatformNavIdOptions): string[] {
   return [
     "admin-shell:nav:platform-overview",
     "admin-shell:nav:tenants",
@@ -78,7 +79,7 @@ function platformWorkspaceNavIds(options: NavIdOptions): string[] {
     "audit:nav:audit-log-all-tenants",
     "jobs:nav:job-runs",
     ...(options.includeDocumentDesigner ? ["document-designer:nav:platform-templates"] : []),
-    ...(options.includeTierAdmin === true ? ["admin-shell:nav:tier-admin"] : []),
+    ...(options.includeTierAdmin ? ["admin-shell:nav:tier-admin"] : []),
   ];
 }
 

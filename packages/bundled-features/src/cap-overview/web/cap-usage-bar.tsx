@@ -2,7 +2,7 @@ import { useLocale, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-re
 import type { ReactNode } from "react";
 import type { CapUsage } from "../types.ts";
 import { formatCapAmount, formatCapUsedOfLimit } from "./cap-amount-format.ts";
-import { computeTone, isCapNotIncluded } from "./usage-math.ts";
+import { computeTone, isCapNotIncluded, isCapUsedWithoutAllowance } from "./usage-math.ts";
 
 export function CapUsageBar({
   usage,
@@ -18,6 +18,15 @@ export function CapUsageBar({
   const locale = useLocale().locale();
 
   if (isCapNotIncluded(usage.limit)) {
+    if (isCapUsedWithoutAllowance(usage.limit, usage.used)) {
+      return (
+        <Text variant="small" testId="cap-usage-not-included-used">
+          {t("cap-overview.notIncludedButUsed", {
+            used: formatCapAmount(usage.used ?? 0, usage.unit, locale),
+          })}
+        </Text>
+      );
+    }
     return (
       <Text variant="small" testId="cap-usage-not-included">
         {t("cap-overview.notIncluded")}

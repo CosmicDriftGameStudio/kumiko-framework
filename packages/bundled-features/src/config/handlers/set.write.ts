@@ -121,6 +121,13 @@ export const setWrite = defineWriteHandler({
                 message: `[config:write:set] readCascade: unknown config key "${qualifiedKey}"`,
               });
             }
+            // Validators are free to echo values into error details; plaintext of a stored
+            // secret or PII key must never reach the writing admin that way.
+            if (isEncryptedAtRest(cascadeKeyDef) || cascadeKeyDef.piiEncrypted) {
+              throw new InternalError({
+                message: `[config:write:set] readCascade: key "${qualifiedKey}" is encrypted and cannot be read by a validator`,
+              });
+            }
             return requireConfigResolver(ctx, "config:write:set").getCascade(
               qualifiedKey,
               cascadeKeyDef,

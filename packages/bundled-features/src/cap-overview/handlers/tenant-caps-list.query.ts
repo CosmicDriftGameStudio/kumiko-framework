@@ -11,7 +11,7 @@ import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 import { tierAssignmentEntity } from "../../tier-engine/index.ts";
-import type { CapSpec, CapSpecLimitContext, CapUsage } from "../types.ts";
+import type { CapSpec, CapSpecLimitContext, CapSpecLimitTenant, CapUsage } from "../types.ts";
 import { capFieldName } from "../web/constants.ts";
 import { computeFraction } from "../web/usage-math.ts";
 
@@ -84,15 +84,31 @@ async function resolveLimitsByTenantAndCap(
   configFor: ((tenantId: TenantId) => ConfigAccessor) | undefined,
   db: CapSpecLimitContext["db"],
 ): Promise<ReadonlyMap<string, number | null>> {
+  const limitTenants: readonly CapSpecLimitTenant[] = tenants.map(({ tenantId, tier }) => ({
+    config: configFor?.(tenantId),
+    tenantId,
+    tier,
+  }));
   const entries = await Promise.all(
-    tenants.flatMap(({ tenantId, tier }) => {
-      const context: CapSpecLimitContext = { config: configFor?.(tenantId), tenantId, db };
-      return caps.map(
-        async (cap) => [tenantCapKey(tenantId, cap.id), await cap.limit(tier, context)] as const,
+    caps.map(async (cap) => {
+      if (cap.limitBatch) {
+        const batch = await cap.limitBatch(limitTenants, db);
+        return limitTenants.map(
+          ({ tenantId }) => [tenantCapKey(tenantId, cap.id), batch.get(tenantId) ?? null] as const,
+        );
+      }
+      return Promise.all(
+        limitTenants.map(async ({ tier, ...tenantContext }) => {
+          const context: CapSpecLimitContext = { ...tenantContext, db };
+          return [
+            tenantCapKey(tenantContext.tenantId, cap.id),
+            await cap.limit(tier, context),
+          ] as const;
+        }),
       );
     }),
   );
-  return new Map(entries);
+  return new Map(entries.flat());
 }
 
 // tier is a plain string with no defined ordering — lt/gt have no meaning

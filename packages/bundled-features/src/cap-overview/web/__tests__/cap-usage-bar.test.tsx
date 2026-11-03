@@ -110,8 +110,21 @@ describe("CapUsageBar", () => {
     expect(screen.queryByTestId("cap-usage-unlimited")).toBeNull();
   });
 
+  test("limit 0 with usage above zero shows the used amount next to not-included", () => {
+    render(
+      <Wrapper>
+        <CapUsageBar usage={{ used: 5, limit: 0, fraction: 0 }} />
+      </Wrapper>,
+    );
+
+    expect(screen.getByTestId("cap-usage-not-included-used").textContent).toContain(
+      "cap-overview.notIncludedButUsed",
+    );
+    expect(screen.queryByTestId("cap-usage-not-included")).toBeNull();
+  });
+
   test("limit 0 renders not-included, even when nothing is measured", () => {
-    for (const used of [null, 5]) {
+    for (const used of [null, 0]) {
       const usage: CapUsage = { used, limit: 0, fraction: 0 };
       const { unmount } = render(
         <Wrapper>

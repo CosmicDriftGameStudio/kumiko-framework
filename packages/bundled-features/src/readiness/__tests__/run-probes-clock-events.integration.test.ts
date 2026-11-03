@@ -17,14 +17,17 @@ import { markEvents, setupReadinessStack } from "./readiness-test-stack.ts";
 const clock = createManualClock(getTemporal().Now.instant());
 const STALE_ADVANCE_MINUTES = 11;
 
+// Matches the worker lane's concurrency in job-runner.ts: this many held runs keep the next job queued.
+const WORKER_LANE_CONCURRENCY = 5;
+
 // The worker lane consumes jobs as soon as they are enqueued, so the stale run is held inside its
 // probe: it then sits deterministically in "running" while the second start takes over.
-let heldProbe: { entered: () => void; released: Promise<void> } | undefined;
+const heldProbes: { entered: () => void; released: Promise<void> }[] = [];
 
 function holdNextProbe() {
   const entered = Promise.withResolvers<void>();
   const released = Promise.withResolvers<void>();
-  heldProbe = { entered: entered.resolve, released: released.promise };
+  heldProbes.push({ entered: entered.resolve, released: released.promise });
   return { entered: entered.promise, release: released.resolve };
 }
 
@@ -38,8 +41,7 @@ const fixtureFeature = defineFeature("clock-fixture", (r) => {
     area: "clock.area",
     label: "clock.label",
     run: async () => {
-      const hold = heldProbe;
-      heldProbe = undefined;
+      const hold = heldProbes.shift();
       if (hold !== undefined) {
         hold.entered();
         await hold.released;
@@ -120,6 +122,39 @@ describe("readiness run-probes with injected clock", () => {
     );
     expect(staleResults.rows).toEqual([]);
     expect(runResultsEmptyTitleFor(staleRun)).toBe(ScreenTextKeys.latestAbandoned);
+  });
+
+  test("a run that started recently stays active although it was requested long ago", async () => {
+    const { tenantAdmin } = freshUsers();
+    // Other tenants' runs occupy every worker slot, so this tenant's run waits as pending.
+    const fillers = Array.from({ length: WORKER_LANE_CONCURRENCY }, () => holdNextProbe());
+    for (const filler of fillers) {
+      await start(freshUsers().tenantAdmin);
+      await filler.entered;
+    }
+    const target = holdNextProbe();
+    const queuedLongAgo = await start(tenantAdmin);
+    const queuedRuns = await stack.http.queryOk<{ rows: RunListRow[] }>(
+      ReadinessQueries.runList,
+      {},
+      tenantAdmin,
+    );
+    expect(queuedRuns.rows.map((row) => row.status)).toEqual(["pending"]);
+
+    clock.advance({ minutes: STALE_ADVANCE_MINUTES });
+    for (const filler of fillers) filler.release();
+    await target.entered;
+    const second = await start(tenantAdmin);
+    target.release();
+    await stack.drainJobs();
+
+    expect(second).toEqual({ runId: queuedLongAgo.runId, isExisting: true });
+    const finished = await stack.http.queryOk<{ rows: RunListRow[] }>(
+      ReadinessQueries.runList,
+      {},
+      tenantAdmin,
+    );
+    expect(finished.rows.map((row) => row.status)).toEqual(["done"]);
   });
 
   test("a run writes events only on its own run entry", async () => {
