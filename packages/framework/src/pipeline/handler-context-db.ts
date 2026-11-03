@@ -16,7 +16,7 @@ import {
   createSystemScopedDbGuard,
   isMemberResolutionPrincipal,
   resolveAppPoolDb,
-} from "./dispatch-shared.ts";
+} from "./dispatch-context-helpers.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";
 import { buildPersonalDataGate } from "./write-origin.ts";
 

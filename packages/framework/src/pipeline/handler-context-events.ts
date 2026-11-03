@@ -3,10 +3,8 @@ import type {
   AppendEventArgs,
   FetchForWritingArgs,
 } from "@cosmicdrift/kumiko-types/handlers";
-import type { DbConnection, DbTx } from "../db/connection.ts";
-import { runInSavepoint, selectMany } from "../db/query.ts";
-import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
-import { hasTenantColumn } from "../db/tenant-db.ts";
+import type { DbTx } from "../db/connection.ts";
+import { runInSavepoint } from "../db/query.ts";
 import type { HandlerContext, HandlerEvents, SessionUser } from "../engine/types/index.ts";
 
 import { InternalError, VersionConflictError } from "../errors/index.ts";
@@ -37,33 +35,11 @@ import {
 } from "../event-store/snapshot.ts";
 import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.ts";
 import { appendDomainEventCore } from "./append-event-core.ts";
-import {
-  type DispatchContext,
-  isMemberResolutionPrincipal,
-  resolveDbSource,
-} from "./dispatch-shared.ts";
+import { isMemberResolutionPrincipal, requireDbSource } from "./dispatch-context-helpers.ts";
+import type { DispatchContext } from "./dispatch-shared.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";
-import { createGatedProjectionReader, type ProjectionReader } from "./system-identity-switch.ts";
 import { asTypedAppendEventFn } from "./typed-append-event.ts";
 
-function requireDbSource(
-  ctx: DispatchContext,
-  tx: DbTx | undefined,
-  surfaceCall: string,
-): DbConnection | DbTx {
-  const dbSource = resolveDbSource(ctx, tx);
-  if (!dbSource) {
-    throw new InternalError({
-      message: `${surfaceCall} requires a database connection — none is configured.`,
-    });
-  }
-  return dbSource;
-}
-
-// ctx.events.append — append a domain event onto a specific aggregate stream
-// in the current tx, then fire matching inline projections. Core logic
-// lives in appendDomainEventCore; this wrapper just locates dbSource +
-// stringifies the SessionUser id for the shared helper.
 async function appendDomainEvent(
   ctx: DispatchContext,
   args: AppendEventArgs & { readonly expectedVersion?: number },
@@ -269,57 +245,6 @@ function buildLoadAggregateWithSnapshot(scope: HandlerContextScope) {
   };
 }
 
-// queryProjection works against both single-stream and multi-stream
-// projections. MSPs without a table cannot be queried — those are
-// side-effect-only consumers (no state to read back).
-function buildHandlerProjectionReader(scope: HandlerContextScope): ProjectionReader {
-  const { ctx, type, user, tx, registry, hasIdentitySwitchGrant, identitySwitchAudit } = scope;
-  const findProjectionTable = (qualifiedName: string) =>
-    registry.getAllProjections().get(qualifiedName)?.table ??
-    registry.getAllMultiStreamProjections().get(qualifiedName)?.table;
-  const ungatedQueryProjection: ProjectionReader = async <T = Record<string, unknown>>(
-    qualifiedName: string,
-    queryOptions?: { readonly unsafeAllTenants?: boolean },
-  ): Promise<readonly T[]> => {
-    const projTable = findProjectionTable(qualifiedName);
-    if (!projTable) {
-      const singleNames = [...registry.getAllProjections().keys()];
-      const mspNames = [...registry.getAllMultiStreamProjections().keys()].filter(
-        (n) => registry.getAllMultiStreamProjections().get(n)?.table,
-      );
-      const all = [...singleNames, ...mspNames];
-      throw new InternalError({
-        message:
-          `ctx.dispatch.queryProjection("${qualifiedName}") — projection not registered, or it is a ` +
-          `table-less MSP (side-effect-only). Known queryable projections: ${all.join(", ") || "(none)"}`,
-      });
-    }
-    const dbSource = requireDbSource(ctx, tx, `ctx.dispatch.queryProjection("${qualifiedName}")`);
-    const allTenants = queryOptions?.unsafeAllTenants === true;
-    const where =
-      hasTenantColumn(projTable) && !allTenants ? { tenantId: user.tenantId } : undefined;
-    const read = () => selectMany<Record<string, unknown>>(dbSource, projTable, where);
-    const rows = await (allTenants
-      ? runInSystemRowLevelSecurityScope(
-          "handler projection read with allTenants spans every tenant",
-          read,
-        )
-      : read());
-    return rows as readonly T[]; // @cast-boundary engine-payload
-  };
-  return createGatedProjectionReader(
-    `handler "${type}"`,
-    hasIdentitySwitchGrant,
-    ungatedQueryProjection,
-    identitySwitchAudit,
-    (qualifiedName) => {
-      const projTable = findProjectionTable(qualifiedName);
-      // Unknown projection: keep the grant check first, the ungated reader reports the real error.
-      return projTable === undefined || hasTenantColumn(projTable);
-    },
-  );
-}
-
 // tryAppend keeps its inferred result: it can also report an idempotent-append conflict, which the
 // public TryAppendEventResult (VersionConflict only) does not model yet; the engine-bridge cast
 // in buildHandlerContext is where that gap is tolerated, as before the namespace split.
@@ -329,7 +254,6 @@ type EventsFacet = Omit<HandlerEvents, "tryAppend"> & {
 
 export function buildEventStoreFacet(scope: HandlerContextScope): {
   readonly events: EventsFacet;
-  readonly queryProjection: ProjectionReader;
 } {
   const { ctx, type, user, tx, registry } = scope;
   const events: EventsFacet = {
@@ -369,5 +293,5 @@ export function buildEventStoreFacet(scope: HandlerContextScope): {
     snapshot: buildSnapshotAggregate(scope),
     loadWithSnapshot: buildLoadAggregateWithSnapshot(scope),
   };
-  return { events, queryProjection: buildHandlerProjectionReader(scope) };
+  return { events };
 }

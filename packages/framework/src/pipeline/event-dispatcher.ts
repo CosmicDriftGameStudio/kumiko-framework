@@ -1,4 +1,5 @@
 import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
+import { BUN_SQL_CONNECTION_ERROR_CODES } from "../db/bun-sql-connection-codes.ts";
 import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.ts";
 import { extractPgError } from "../db/pg-error.ts";
 import {
@@ -257,12 +258,10 @@ const PENDING_GAPS_WARN_THRESHOLD = 1000;
 const DEFAULT_MAX_PENDING_GAP_RANGES = 2 * PENDING_GAPS_WARN_THRESHOLD;
 
 // Only these say the database socket itself is gone; timeouts, schema or pool errors do not
-// imply the dedicated LISTEN connection dropped.
+// imply the dedicated LISTEN connection dropped. Raw socket codes (ECONNRESET, ...) are not
+// counted: the driver reports a lost connection as ERR_POSTGRES_CONNECTION_*.
 const CONNECTION_LOSS_CODES: ReadonlySet<string> = new Set([
-  "ERR_POSTGRES_CONNECTION_CLOSED",
-  "ERR_POSTGRES_CONNECTION_REFUSED",
-  "ERR_POSTGRES_CONNECTION_TIMEOUT",
-  "ERR_POSTGRES_CONNECTION_FAILED",
+  ...BUN_SQL_CONNECTION_ERROR_CODES,
   "57P01",
 ]);
 

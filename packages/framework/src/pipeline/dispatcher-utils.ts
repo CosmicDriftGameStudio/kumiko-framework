@@ -12,8 +12,10 @@ import {
   type WriteErrorInfo,
 } from "../errors/index.ts";
 import { toKumikoError } from "../errors/to-kumiko-error.ts";
-
 import { VersionConflictError as EventStoreVersionConflictError } from "../event-store/errors.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
+
+const dispatcherUtilsLog = createFallbackLogger("dispatcher-utils");
 
 export type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 
@@ -213,6 +215,10 @@ export function wrapToKumiko(e: unknown): KumikoError {
   }
   // Payload schemas without z.iso.date() let impossible dates reach the column; that is bad input, not a 500.
   if (isInvalidDateTimeValue(e)) {
+    // Also hit by server-generated dates (hooks, jobs); the 400 hides those, so leave a trail.
+    dispatcherUtilsLog.warn("invalid datetime value mapped to validation error", {
+      cause: e instanceof Error ? e.message : String(e),
+    });
     return new ValidationError({ fields: [] }, { cause: e instanceof Error ? e : undefined });
   }
   return toKumikoError(e);

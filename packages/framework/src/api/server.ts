@@ -25,6 +25,7 @@ import {
 } from "./route-registrars.ts";
 import { handleUncaughtRouteError } from "./routes.ts";
 import { compilePublicApiRequestMatcher, mountExtraRoutes } from "./server-extra-routes.ts";
+import { mountFeatureHttpRoutes } from "./server-feature-http-routes.ts";
 import {
   installAuthGuardChain,
   installObservability,
@@ -38,11 +39,10 @@ import {
   mountAuthRoutes,
   mountClientErrorRoute,
   mountDispatcherRoutes,
-  mountFeatureHttpRoutes,
   mountFileRoutes,
   mountOperationalRoutes,
-  mountSchemaRoute,
 } from "./server-routes.ts";
+import { mountSchemaRoute } from "./server-schema-route.ts";
 import { mountWebSocketRoutes } from "./server-websocket-routes.ts";
 import { resolveServerWiring } from "./server-wiring.ts";
 import type { SseBroker } from "./sse-broker.ts";

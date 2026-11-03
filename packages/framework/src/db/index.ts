@@ -8,6 +8,7 @@ export {
   recordRowOwningTenantId,
   subjectRowExistsInTenant,
 } from "./blind-index-cleanup.ts";
+export { BUN_SQL_CONNECTION_ERROR_CODES } from "./bun-sql-connection-codes.ts";
 export { collectTableMetas } from "./collect-table-metas.ts";
 export { seedConfigValues } from "./config-seed.ts";
 export type {

@@ -128,6 +128,31 @@ describe("applyMemberResolutionReadOnly", () => {
     expect(typeof Reflect.get(proxied ?? {}, "get")).toBe("function");
   });
 
+  test("drops kms, master key provider and audit sink, and lets secrets only read", async () => {
+    const base = stubHandlerContext();
+    const secrets = { get: async () => "value", has: async () => true, set: async () => {} };
+    // @cast-boundary test stub — only the service keys under test are present.
+    const wired = {
+      ...base,
+      services: {
+        ...base.services,
+        secrets,
+        kms: {},
+        masterKeyProvider: {},
+        _escapeHatchAuditSink: {},
+      },
+    } as unknown as HandlerContext;
+    const { services } = applyMemberResolutionReadOnly(wired);
+
+    expect(services.kms).toBeUndefined();
+    expect(services.masterKeyProvider).toBeUndefined();
+    expect(services._escapeHatchAuditSink).toBeUndefined();
+    expect(typeof Reflect.get(services.secrets ?? {}, "get")).toBe("function");
+    expect(typeof Reflect.get(services.secrets ?? {}, "has")).toBe("function");
+    expect(() => Reflect.get(services.secrets ?? {}, "set")).toThrow(AccessDeniedError);
+    expect(() => Reflect.get(services.secrets ?? {}, "delete")).toThrow(AccessDeniedError);
+  });
+
   test("extensions pass through unchanged", () => {
     expect(readOnlyContext().services.extensions).toEqual({ custom: "kept" });
   });

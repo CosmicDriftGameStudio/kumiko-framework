@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 // Bun.SQL lets savepoints on one transaction overlap, so a RELEASE aborts it with 3B001.
 // Work started inside a running unit nests on the server and gets its own chain.
 
-type WorkChain = { tail: Promise<void> };
+type WorkChain = { tail: Promise<void>; active: boolean };
 type HandleKey = object;
 
 const runnerProxyTargets = new WeakMap<HandleKey, HandleKey>();
@@ -36,10 +36,12 @@ function transactionKeyOf(handle: HandleKey): HandleKey {
 
 function chainFor(transactionKey: HandleKey): WorkChain {
   const nested = nestedChainsInScope.getStore()?.get(transactionKey);
-  if (nested) return nested;
+  // Background tasks started inside a unit outlive it and inherit its scope; once the unit has
+  // finished their work must queue on the root chain again.
+  if (nested?.active) return nested;
   const root = rootChains.get(transactionKey);
   if (root) return root;
-  const created: WorkChain = { tail: Promise.resolve() };
+  const created: WorkChain = { tail: Promise.resolve(), active: true };
   rootChains.set(transactionKey, created);
   return created;
 }
@@ -52,11 +54,13 @@ async function runOnChain<T>(transactionKey: HandleKey, work: () => Promise<T>):
     release = resolve;
   });
   await previous;
+  const nestedChain: WorkChain = { tail: Promise.resolve(), active: true };
   try {
     const scope = new Map(nestedChainsInScope.getStore());
-    scope.set(transactionKey, { tail: Promise.resolve() });
+    scope.set(transactionKey, nestedChain);
     return await nestedChainsInScope.run(scope, work);
   } finally {
+    nestedChain.active = false;
     release();
   }
 }
