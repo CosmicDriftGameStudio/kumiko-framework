@@ -862,7 +862,6 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   pattern?: T extends "text" ? { regex: string; flags?: string; } : never;
   computed?: ConfigComputedFn<T>;
   validate?: ConfigValidateFn<T>;
-  allowPerRequest?: T extends "text" ? never : boolean;
   required?: boolean;
   env?: string;
   inheritedToTenant?: boolean;

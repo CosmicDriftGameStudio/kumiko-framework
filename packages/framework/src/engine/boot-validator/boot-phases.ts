@@ -7,7 +7,6 @@ import { collectExposedApis } from "./boot-context.ts";
 import type { BootReport } from "./boot-report.ts";
 import {
   validateCircularDeps,
-  validateConfigKeyAllowPerRequest,
   validateConfigKeyBacking,
   validateConfigKeyBounds,
   validateConfigKeyComputed,
@@ -150,7 +149,6 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
   { check: "validateConfigKeyBounds", run: (f) => validateConfigKeyBounds(f) },
   { check: "validateConfigKeyRequired", run: (f) => validateConfigKeyRequired(f) },
   { check: "validateConfigKeyComputed", run: (f) => validateConfigKeyComputed(f) },
-  { check: "validateConfigKeyAllowPerRequest", run: (f) => validateConfigKeyAllowPerRequest(f) },
   { check: "validateConfigKeyBacking", run: (f) => validateConfigKeyBacking(f) },
   { check: "validateConfigKeyOptionsQuery", run: (f) => validateConfigKeyOptionsQuery(f) },
   { check: "validateConfigKeyPiiEncrypted", run: (f) => validateConfigKeyPiiEncrypted(f) },

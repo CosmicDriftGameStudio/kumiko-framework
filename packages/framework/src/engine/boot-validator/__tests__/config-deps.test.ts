@@ -1,11 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createSystemConfig, createTenantConfig, createUserConfig } from "../../config-helpers.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
-import {
-  validateConfigKeyAllowPerRequest,
-  validateConfigKeyComputed,
-  validateConfigKeyPiiEncrypted,
-} from "../config-deps.ts";
+import { validateConfigKeyComputed, validateConfigKeyPiiEncrypted } from "../config-deps.ts";
 
 function fakeFeature(configKeys: FeatureDefinition["configKeys"]): FeatureDefinition {
   return { name: "test-feature", configKeys } as unknown as FeatureDefinition;
@@ -31,17 +27,6 @@ describe("validateConfigKeyComputed", () => {
       apiKey: createSystemConfig("text", { computed: async () => "x" }),
     });
     expect(() => validateConfigKeyComputed(feature)).not.toThrow();
-  });
-});
-
-describe("validateConfigKeyAllowPerRequest", () => {
-  test("rejects allowPerRequest + backing:secrets on a number key", () => {
-    const feature = fakeFeature({
-      rateLimit: createSystemConfig("number", { backing: "secrets", allowPerRequest: true }),
-    });
-    expect(() => validateConfigKeyAllowPerRequest(feature)).toThrow(
-      /may not be set via query-params/,
-    );
   });
 });
 

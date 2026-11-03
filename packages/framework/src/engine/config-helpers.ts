@@ -62,10 +62,6 @@ export const access = {
 // app-override exists — used for plan-based limits (see
 // configuration-layers.md, "Question 3: Is money involved?").
 //
-// `allowPerRequest` is conditional against `text`: text keys can never
-// opt in to per-request overrides (XSS/SQL/Shell risk). For other types
-// it's a plain boolean opt-in consumed by resolveConfigOrParam.
-//
 // Provisioning metadata (optional, available on every scope so a key never
 // switches factory to gain it):
 //   `env`              binds an ENV var as the boot-time default (the
@@ -94,7 +90,6 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   pattern?: T extends "text" ? { regex: string; flags?: string } : never;
   computed?: ConfigComputedFn<T>;
   validate?: ConfigValidateFn<T>;
-  allowPerRequest?: T extends "text" ? never : boolean;
   required?: boolean;
   env?: string;
   inheritedToTenant?: boolean;
@@ -146,7 +141,6 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.pattern ? { pattern: opts.pattern } : {}),
     computed: opts.computed,
     validate: opts.validate,
-    ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
     ...(opts.required === true ? { required: true } : {}),
     ...(opts.env ? { env: opts.env } : {}),
     ...(opts.inheritedToTenant === false ? { inheritedToTenant: false } : {}),

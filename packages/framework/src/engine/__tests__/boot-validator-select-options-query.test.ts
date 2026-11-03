@@ -78,16 +78,6 @@ describe("validateBoot — select optionsQuery on config keys", () => {
     );
     expect(() => validateBoot([catalog, shop])).toThrow(/optionsQueryPayload without optionsQuery/);
   });
-
-  test("optionsQuery together with allowPerRequest throws", () => {
-    const shop = featureWithConfigKey(
-      createTenantConfig("select", {
-        optionsQuery: "catalog:query:model-options",
-        allowPerRequest: true,
-      }),
-    );
-    expect(() => validateBoot([catalog, shop])).toThrow(/optionsQuery AND allowPerRequest/);
-  });
 });
 
 function featureWithActionForm(fields: Record<string, unknown>) {

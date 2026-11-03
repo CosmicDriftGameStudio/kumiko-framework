@@ -114,7 +114,7 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly options?: readonly string[];
   /** Only on `type: "select"`: loads the options from this query (QN), contract
    *  `{ rows: { value, label, description?, group? }[] }`, labels shown verbatim. Mutually exclusive with
-   *  `options` and `allowPerRequest`. The write side does not check the value against
+   *  `options`. The write side does not check the value against
    *  the query result; the consuming feature validates it where it uses it. */
   readonly optionsQuery?: string;
   /** Payload sent with every `optionsQuery` call. Requires `optionsQuery`. `{ field }`
@@ -142,17 +142,6 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // Runs inside the write transaction, so it holds the dispatcher's DB connection for its whole
   // duration: external I/O (DNS, HTTP) needs its own short timeout, the framework sets none.
   readonly validate?: ConfigValidateFn<T>;
-  // Per-request opt-in. Default false — resolveConfigOrParam throws for
-  // keys without this marker, even when the caller provides paramValue. This
-  // forces feature developers to explicitly decide that "this key may be
-  // overridden per request" instead of accidentally allowing a query parameter
-  // to bypass any tenant config.
-  //
-  // Incompatible with type="text" (boot rejection) — text values are always
-  // blocked because of XSS/SQL/shell risks, even with opt-in.
-  // Incompatible with encrypted (boot rejection) — encrypted keys are not read
-  // transiently from query strings.
-  readonly allowPerRequest?: boolean;
   // Tenant must supply a real value before the owning feature works — for
   // text keys an empty/whitespace value counts as unset. Surfaced by
   // config:query:readiness; keep in sync with the feature's requireNonEmpty

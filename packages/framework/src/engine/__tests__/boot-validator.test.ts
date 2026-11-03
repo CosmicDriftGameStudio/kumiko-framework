@@ -1235,67 +1235,6 @@ describe("boot-validator", () => {
     });
   });
 
-  describe("config key allowPerRequest compatibility", () => {
-    test("accepts allowPerRequest on number keys", () => {
-      const features = [
-        defineFeature("files", (r) => {
-          r.config({
-            keys: {
-              maxSize: createTenantConfig("number", {
-                default: 10,
-                bounds: { min: 1, max: 1000 },
-                allowPerRequest: true,
-              }),
-            },
-          });
-        }),
-      ];
-      expect(() => validateBoot(features)).not.toThrow();
-    });
-
-    test("rejects allowPerRequest on text keys (hand-rolled bypass)", () => {
-      const features = [
-        defineFeature("files", (r) => {
-          r.config({
-            keys: {
-              hacked: {
-                type: "text",
-                allowPlaintext: "test fixture value, not personal data",
-                scope: "tenant",
-                access: { read: ["all"], write: ["all"] },
-                allowPerRequest: true,
-                // biome-ignore lint/suspicious/noExplicitAny: defence-in-depth test for hand-rolled definitions
-              } as any,
-            },
-          });
-        }),
-      ];
-      expect(() => validateBoot(features)).toThrow(/allowPerRequest.*type="text".*ineligible/i);
-    });
-
-    test("rejects allowPerRequest on encrypted keys (secret-value protection)", () => {
-      const features = [
-        defineFeature("secrets", (r) => {
-          r.config({
-            keys: {
-              apiKey: {
-                type: "number",
-                scope: "tenant",
-                access: { read: ["Admin"], write: ["Admin"] },
-                encrypted: true,
-                allowPerRequest: true,
-                // biome-ignore lint/suspicious/noExplicitAny: defence-in-depth test for hand-rolled definitions
-              } as any,
-            },
-          });
-        }),
-      ];
-      expect(() => validateBoot(features)).toThrow(
-        /allowPerRequest.*encrypted.*secret values may not be set via query-params/i,
-      );
-    });
-  });
-
   // --- H.2 Ownership-Rule validation ---
 
   describe("ownership rules (H.2)", () => {
