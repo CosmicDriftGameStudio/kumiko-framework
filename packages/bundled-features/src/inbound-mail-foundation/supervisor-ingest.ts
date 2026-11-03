@@ -181,7 +181,11 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
   ): Promise<Attempt> {
     try {
       const msg = normalizeRawInboundMessage(raw);
-      const bodyRef = await storeBodyOf(account, raw);
+      // Normalization drops an oversized original; the hook must not store what ingest then discards.
+      const bodyRef = await storeBodyOf(
+        account,
+        msg.rawMime === null ? { ...raw, rawMime: null } : raw,
+      );
       const result = await deps.dispatchWrite({
         handlerQn: InboundMailFoundationHandlers.ingestMessage,
         tenantId: account.tenantId,

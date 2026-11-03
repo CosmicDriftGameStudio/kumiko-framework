@@ -15,7 +15,6 @@
 // tenant subject key, making event-log payloads AND any ciphertext copies
 // unreadable. These hooks dispose of the rows.
 
-import type { EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveAndDeleteTenantRows } from "../tenant-lifecycle/index.ts";
 import { seenMessageTable, syncCursorTable } from "./entities.ts";
@@ -36,24 +35,12 @@ import { quarantineTable } from "./quarantine-entities.ts";
 export const INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON =
   "tenant-destroy archives each inbound-mail entity's event-streams before the projection rows are deleted";
 
-function archiveAndDeleteRows(
-  ctx: TenantDataHookCtx,
-  table: EntityTableMeta,
-  aggregateType: string,
-): Promise<readonly string[]> {
-  return archiveAndDeleteTenantRows(
-    ctx,
-    table,
-    aggregateType,
-    INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
-  );
-}
-
 export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  const accountIds = await archiveAndDeleteRows(
+  const accountIds = await archiveAndDeleteTenantRows(
     ctx,
     mailAccountsProjectionTable,
     MAIL_ACCOUNT_AGGREGATE_TYPE,
+    INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   );
   for (const accountId of accountIds) {
     await ctx.db.deleteMany(syncCursorTable, { accountId });
@@ -64,9 +51,19 @@ export async function mailAccountTenantDestroyHook(ctx: TenantDataHookCtx): Prom
 }
 
 export async function inboundMessageTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  await archiveAndDeleteRows(ctx, inboundMessagesProjectionTable, INBOUND_MESSAGE_AGGREGATE_TYPE);
+  await archiveAndDeleteTenantRows(
+    ctx,
+    inboundMessagesProjectionTable,
+    INBOUND_MESSAGE_AGGREGATE_TYPE,
+    INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
+  );
 }
 
 export async function mailThreadTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  await archiveAndDeleteRows(ctx, mailThreadsProjectionTable, MAIL_THREAD_AGGREGATE_TYPE);
+  await archiveAndDeleteTenantRows(
+    ctx,
+    mailThreadsProjectionTable,
+    MAIL_THREAD_AGGREGATE_TYPE,
+    INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
+  );
 }

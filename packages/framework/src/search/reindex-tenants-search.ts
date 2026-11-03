@@ -60,6 +60,19 @@ async function configureTolerant(
   return { configured, failedConfigures };
 }
 
+// System-stream documents land in the system tenant's index, which needs the same configuration.
+function withSystemTenantForSystemStreams(
+  registry: Registry,
+  tenantIds: readonly TenantId[],
+): readonly TenantId[] {
+  if (tenantIds.includes(SYSTEM_TENANT_ID)) return tenantIds;
+  const hasSystemStreamSearchable = [...registry.getAllEntities()].some(
+    ([entityName, entity]) =>
+      entity.systemStream === true && isEntitySearchable(registry, entityName),
+  );
+  return hasSystemStreamSearchable ? [...tenantIds, SYSTEM_TENANT_ID] : tenantIds;
+}
+
 export async function reindexTenantsSearch(
   db: DbRunner,
   registry: Registry,
@@ -70,10 +83,12 @@ export async function reindexTenantsSearch(
   const reindexTimeoutMs = options.timeoutMs ?? DEFAULT_REINDEX_TIMEOUT_MS;
   const dryRun = options.dryRun === true;
 
+  const configureTargets = withSystemTenantForSystemStreams(registry, options.tenantIds);
+
   const { configured, failedConfigures } = dryRun
-    ? { configured: [...options.tenantIds], failedConfigures: 0 }
+    ? { configured: [...configureTargets], failedConfigures: 0 }
     : await configureTolerant(
-        options.tenantIds,
+        configureTargets,
         registry,
         searchAdapter,
         options.configureTimeoutMs ?? DEFAULT_CONFIGURE_TIMEOUT_MS,
@@ -87,7 +102,10 @@ export async function reindexTenantsSearch(
   for (const [entityName, entity] of registry.getAllEntities()) {
     if (!isEntitySearchable(registry, entityName)) continue;
     entities += 1;
-    const targetTenantIds = entity.systemStream === true ? [SYSTEM_TENANT_ID] : configured;
+    const targetTenantIds =
+      entity.systemStream === true
+        ? configured.filter((tenantId) => tenantId === SYSTEM_TENANT_ID)
+        : configured.filter((tenantId) => options.tenantIds.includes(tenantId));
     for (const tenantId of targetTenantIds) {
       const abortOnTimeout = new AbortController();
       const outcome = await runWithTimeout(

@@ -8,6 +8,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineFeature,
+  SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { MetricsHandle } from "@cosmicdrift/kumiko-framework/observability";
@@ -45,6 +46,7 @@ const PROBE_PROVIDER_KEY = "probe";
 
 type FetchCall = {
   readonly metricsFor: InboundMailContext["metricsFor"];
+  readonly auditUserId: InboundMailContext["auditUserId"];
   readonly unknownIds: readonly string[] | undefined;
 };
 
@@ -77,7 +79,11 @@ const probePlugin: InboundMailProviderPlugin = {
     const listing = listingByAccount.get(account.id) ?? [];
     const unknown = await opts.filterUnknownMessageIds?.(listing);
     const calls = fetchCallsByAccount.get(account.id) ?? [];
-    calls.push({ metricsFor: ctx.metricsFor, unknownIds: unknown && [...unknown] });
+    calls.push({
+      metricsFor: ctx.metricsFor,
+      auditUserId: ctx.auditUserId,
+      unknownIds: unknown && [...unknown],
+    });
     fetchCallsByAccount.set(account.id, calls);
     return {
       messages: (unknown ? [...unknown] : [])
@@ -175,6 +181,22 @@ describe("watch-supervisor — fetch context", () => {
     await createSupervisor({ registry: stack.registry, metricsFor }).pollOnce();
 
     expect(fetchCallsByAccount.get(accountId)?.[0]?.metricsFor).toBe(metricsFor);
+  });
+
+  test("the provider context carries the system user as audit identity when the app set none", async () => {
+    const accountId = await connectProbeAccount(4307);
+
+    await createSupervisor().pollOnce();
+
+    expect(fetchCallsByAccount.get(accountId)?.[0]?.auditUserId).toBe(SYSTEM_USER_ID);
+  });
+
+  test("an audit identity set by the app is kept", async () => {
+    const accountId = await connectProbeAccount(4308);
+
+    await createSupervisor({ registry: stack.registry, auditUserId: "custom-worker" }).pollOnce();
+
+    expect(fetchCallsByAccount.get(accountId)?.[0]?.auditUserId).toBe("custom-worker");
   });
 });
 

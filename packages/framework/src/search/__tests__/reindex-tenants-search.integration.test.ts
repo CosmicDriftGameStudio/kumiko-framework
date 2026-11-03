@@ -4,7 +4,12 @@ import {
   createEventStoreExecutor,
   createTenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createInMemorySearchAdapter,
   reindexEntity,
@@ -30,8 +35,21 @@ const noteEntity = createEntity({
   },
 });
 const noteTable = buildEntityTable("note", noteEntity);
+const platformNoteEntity = createEntity({
+  table: "read_reindex_tenants_platform_notes",
+  systemStream: true,
+  fields: {
+    title: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      searchable: true,
+    }),
+  },
+});
 const noteFeature = defineFeature("reindex-tenants-test", (r) => {
   r.entity({ name: "note", ...noteEntity });
+  r.entity({ name: "platformNote", ...platformNoteEntity });
 });
 
 let stack: TestStack;
@@ -40,6 +58,7 @@ const admin = TestUsers.admin;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [noteFeature] });
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
+  await unsafeCreateEntityTable(stack.db, platformNoteEntity, "platformNote");
   const executor = createEventStoreExecutor(noteTable, noteEntity, { entityName: "note" });
   const tenantDb = createTenantDb({
     db: stack.db,
@@ -81,6 +100,23 @@ describe("reindexTenantsSearch", () => {
     expect(hits).toHaveLength(1);
   });
 
+  test("configures the system tenant once when a searchable entity lives on the system stream", async () => {
+    const configured: string[] = [];
+    const base = createInMemorySearchAdapter();
+    const adapter: SearchAdapter = {
+      ...base,
+      configure: (tenantId, config) => {
+        configured.push(tenantId);
+        return base.configure(tenantId, config);
+      },
+    };
+    await reindexTenantsSearch(stack.db, stack.registry, adapter, {
+      tenantIds: [admin.tenantId],
+      warn: () => {},
+    });
+    expect(configured.toSorted()).toEqual([admin.tenantId, SYSTEM_TENANT_ID].toSorted());
+  });
+
   test("dry run scans without writing", async () => {
     const adapter = createInMemorySearchAdapter();
     const result = await reindexTenantsSearch(stack.db, stack.registry, adapter, {
@@ -100,7 +136,7 @@ describe("reindexTenantsSearch", () => {
       tenantIds: [admin.tenantId],
       warn: (message) => warnings.push(message),
     });
-    expect(result.failedConfigures).toBe(1);
+    expect(result.failedConfigures).toBe(2); // tenant plus system tenant
     expect(result.indexedRows).toBe(0);
     expect(warnings.some((message) => message.includes("configure boom"))).toBe(true);
   });
@@ -115,7 +151,7 @@ describe("reindexTenantsSearch", () => {
       configureTimeoutMs: 20,
       warn: () => {},
     });
-    expect(result.failedConfigures).toBe(1);
+    expect(result.failedConfigures).toBe(2); // tenant plus system tenant
   });
 
   test("a failing reindex is counted, not thrown", async () => {
