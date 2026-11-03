@@ -302,7 +302,7 @@ function appScripts(testSetup: ScaffoldTestSetup | undefined): Record<string, st
     build: "bun kumiko-build",
     start: "bun run bin/main.ts",
     boot: "KUMIKO_DRY_RUN_ENV=boot bun bin/main.ts",
-    typecheck: "tsc --noEmit",
+    typecheck: "bun check --no-script",
     lint: "biome check .",
     check: "kumiko check",
     ...(testSetup?.scripts ?? { test: "bun --config=bunfig.toml test --dots" }),
@@ -324,6 +324,8 @@ function renderPackageJson(
       version: "0.1.0",
       private: true,
       type: "module",
+      // `bun check` is built in from 1.4.4; older Bun resolves it to the app's `check` script.
+      engines: { bun: ">=1.4.4" },
       kumiko: { deploy: { infraRef } },
       scripts: appScripts(testSetup),
       dependencies: {
