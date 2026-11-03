@@ -217,19 +217,29 @@ describe("SQL derived fields (related)", () => {
     }
 
     const tenantId = admin.tenantId;
-    await seedRows(stack.db, buildEntityTable("dsql-contact", contactEntity), [
-      { id: ANNA, tenantId, name: "Anna" },
-      { id: MIKE, tenantId, name: "Mike" },
-      { id: ZOE, tenantId, name: "Zoe" },
-    ]);
-    await seedRows(stack.db, buildEntityTable("dsql-unit", unitEntity), [
-      { id: U1, tenantId, name: "Alpha", region: "N" },
-      { id: U2, tenantId, name: "Beta", region: "N" },
-      { id: U3, tenantId, name: "Gamma", region: "N" },
-      { id: U4, tenantId, name: "Delta", region: "N" },
-      { id: U5, tenantId, name: "Epsilon", region: "N" },
-      { id: U6, tenantId, name: "Zeta", region: "S" },
-    ]);
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsql-contact", contactEntity),
+      [
+        { id: ANNA, tenantId, name: "Anna" },
+        { id: MIKE, tenantId, name: "Mike" },
+        { id: ZOE, tenantId, name: "Zoe" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsql-unit", unitEntity),
+      [
+        { id: U1, tenantId, name: "Alpha", region: "N" },
+        { id: U2, tenantId, name: "Beta", region: "N" },
+        { id: U3, tenantId, name: "Gamma", region: "N" },
+        { id: U4, tenantId, name: "Delta", region: "N" },
+        { id: U5, tenantId, name: "Epsilon", region: "N" },
+        { id: U6, tenantId, name: "Zeta", region: "S" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     for (const [entityId, name] of [
       [U1, "Alpha"],
       [U2, "Beta"],
@@ -273,25 +283,41 @@ describe("SQL derived fields (related)", () => {
           assigneeId: null,
         },
       ].map((row) => ({ isDeleted: false, ...row })),
+      { projectionOnly: "fixture plants a projection row without its event" },
     );
-    await seedRows(stack.db, buildEntityTable("dsql-lease", leaseEntity), [
-      { tenantId, unitRef: U1, tenantName: "A", startsOn: "2026-01-01", endsOn: null },
-      { tenantId, unitRef: U1, tenantName: "A", startsOn: "2026-03-01", endsOn: null },
-      { tenantId, unitRef: U1, tenantName: "B", startsOn: "2025-01-01", endsOn: "2025-12-31" },
-      { tenantId, unitRef: U2, tenantName: "C", startsOn: "2026-07-01", endsOn: null },
-      { tenantId, unitRef: U4, tenantName: "D", startsOn: "2026-01-01", endsOn: "2026-06-15" },
-      { tenantId, unitRef: U4, tenantName: "E", startsOn: "2026-02-01", endsOn: "2026-12-31" },
-    ]);
-    await seedRows(stack.db, buildEntityTable("dsql-note", noteEntity), [
-      { tenantId, unitId: U1, body: "Alfa", writtenAt: "2026-01-01T00:00:00Z" },
-      { tenantId, unitId: U1, body: "Yankee", writtenAt: "2026-03-01T00:00:00Z" },
-      { tenantId, unitId: U2, body: "Bravo", writtenAt: "2026-02-01T00:00:00Z" },
-    ]);
-    await seedRows(stack.db, buildEntityTable("dsql-remark", adminOnlyRemarkEntity), [
-      { tenantId, unitId: U1 },
-      { tenantId, unitId: U1 },
-      { tenantId, unitId: U3 },
-    ]);
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsql-lease", leaseEntity),
+      [
+        { tenantId, unitRef: U1, tenantName: "A", startsOn: "2026-01-01", endsOn: null },
+        { tenantId, unitRef: U1, tenantName: "A", startsOn: "2026-03-01", endsOn: null },
+        { tenantId, unitRef: U1, tenantName: "B", startsOn: "2025-01-01", endsOn: "2025-12-31" },
+        { tenantId, unitRef: U2, tenantName: "C", startsOn: "2026-07-01", endsOn: null },
+        { tenantId, unitRef: U4, tenantName: "D", startsOn: "2026-01-01", endsOn: "2026-06-15" },
+        { tenantId, unitRef: U4, tenantName: "E", startsOn: "2026-02-01", endsOn: "2026-12-31" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsql-note", noteEntity),
+      [
+        { tenantId, unitId: U1, body: "Alfa", writtenAt: "2026-01-01T00:00:00Z" },
+        { tenantId, unitId: U1, body: "Yankee", writtenAt: "2026-03-01T00:00:00Z" },
+        { tenantId, unitId: U2, body: "Bravo", writtenAt: "2026-02-01T00:00:00Z" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsql-remark", adminOnlyRemarkEntity),
+      [
+        { tenantId, unitId: U1 },
+        { tenantId, unitId: U1 },
+        { tenantId, unitId: U3 },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
   });
 
   afterAll(async () => {

@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { TestUsers } from "../../seeding/seed-users.ts";
-import { asRawClient, runInSavepoint, runInSavepointIfSupported, transaction } from "../query.ts";
+import {
+  asRawClient,
+  runInSavepoint,
+  runInSavepointIfSupported,
+  transaction,
+  unsafeLoggingClosedConnection,
+} from "../query.ts";
 import { createTenantDb, withExecutorManagedWrites } from "../tenant-db.ts";
 import { tenantDbRunner } from "../tenant-db-runner.ts";
 import { type BunTestDb, createTestDb } from "./query/bun-test-db.ts";
@@ -83,6 +89,29 @@ describe("savepoints opened in parallel on one transaction", () => {
     });
 
     expect(await committedValues()).toEqual(["capable", "gated", "raw"]);
+  });
+
+  test("a plain statement on the transaction waits for the open savepoint and survives its rollback", async () => {
+    const tenantId = TestUsers.admin.tenantId;
+    await transaction(testDb.db, async (tx) => {
+      const gatedRunner = tenantDbRunner(createTenantDb({ db: tx, tenantId }));
+      await Promise.all([
+        runInSavepointIfSupported(gatedRunner, async (sp) => {
+          await insertAfterPause(sp, "discarded", 0.05);
+          await asRawClient(sp).unsafe("SELECT 1 FROM psp_no_such_table");
+        }).catch(() => undefined),
+        unsafeLoggingClosedConnection(
+          gatedRunner,
+          "INSERT INTO psp_rows (value) VALUES ($1)",
+          ["audit"],
+          {
+            operation: "test insert",
+          },
+        ),
+      ]);
+    });
+
+    expect(await committedValues()).toEqual(["audit"]);
   });
 
   test("savepoints opened inside a savepoint nest, also through the outer handle", async () => {

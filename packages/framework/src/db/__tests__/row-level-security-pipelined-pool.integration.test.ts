@@ -13,6 +13,7 @@ import { defineUnmanagedTable } from "../entity-table-meta.ts";
 import { applyTableRowLevelSecurity } from "../queries/ddl.ts";
 import { asRawClient } from "../query.ts";
 import {
+  outsideRowLevelSecurityScope,
   runInRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
@@ -65,12 +66,15 @@ async function labelsOf(db: TestDb): Promise<string[]> {
   return rows.map((row) => row.label);
 }
 
+// Outside the scope, otherwise the observing statement would open its own transaction.
 async function sessionState(db: TestDb) {
-  const rows = await asRawClient(db.db).unsafe<{
-    tenant: string;
-    scope: string;
-    in_open_transaction: boolean;
-  }>(SESSION_STATE);
+  const rows = await outsideRowLevelSecurityScope(() =>
+    asRawClient(db.db).unsafe<{
+      tenant: string;
+      scope: string;
+      in_open_transaction: boolean;
+    }>(SESSION_STATE),
+  );
   return rows[0];
 }
 

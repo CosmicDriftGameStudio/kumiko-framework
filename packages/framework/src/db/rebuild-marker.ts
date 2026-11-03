@@ -17,7 +17,11 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { managedChangeRequiresRecreate, type SchemaDiff } from "./migrate-generator.ts";
+import {
+  managedChangeRequiresRecreate,
+  type SchemaDiff,
+  type TableDiff,
+} from "./migrate-generator.ts";
 
 const MARKER_VERSION = 1 as const;
 
@@ -53,11 +57,26 @@ function markerPathFor(migrationsDir: string, migrationId: string): string {
 // convention `${snake}_bidx` from entity-table-meta.ts:111) is always
 // additive SQL-wise but still needs a rebuild — the index is an HMAC over
 // the decrypted value, which SQL cannot backfill.
+//
+// Second exception: a jsonb default change (`{}` → `[]` via emptyValue). SET DEFAULT only
+// affects future inserts; existing rows keep the old shape until the projection is re-derived.
+function hasJsonbDefaultChange(diff: TableDiff): boolean {
+  return diff.changedColumns.some(
+    (change) =>
+      change.defaultChanged !== undefined &&
+      diff.nextMeta.columns.some((col) => col.name === change.name && col.pgType === "jsonb"),
+  );
+}
+
 export function rebuildTablesFromDiff(diff: SchemaDiff): readonly string[] {
   const names = new Set<string>();
   for (const t of diff.changedTables) {
     if (t.nextMeta.source !== "managed") continue;
-    if (managedChangeRequiresRecreate(t) || t.newColumns.some((c) => c.name.endsWith("_bidx"))) {
+    if (
+      managedChangeRequiresRecreate(t) ||
+      t.newColumns.some((c) => c.name.endsWith("_bidx")) ||
+      hasJsonbDefaultChange(t)
+    ) {
       names.add(t.tableName);
     }
   }

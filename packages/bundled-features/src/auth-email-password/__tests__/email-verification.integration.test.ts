@@ -259,7 +259,9 @@ describe("POST /auth/verify-email", () => {
     const firstAttempt = await post("/api/auth/verify-email", { token });
     expect(firstAttempt.status).toBe(422);
 
-    await seedRow(stack.db, userTable, userRow);
+    await seedRow(stack.db, userTable, userRow, {
+      projectionOnly: "fixture plants a projection row without its event",
+    });
 
     const secondAttempt = await post("/api/auth/verify-email", { token });
     expect(secondAttempt.status).toBe(200);
@@ -303,11 +305,16 @@ describe("POST /auth/verify-email", () => {
     await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 
     const orphanId = "00000000-0000-4000-8000-0000000000ff";
-    await seedRow(stack.db, userTable, {
-      ...donorRow,
-      id: orphanId,
-      email: "orphan@example.com",
-    });
+    await seedRow(
+      stack.db,
+      userTable,
+      {
+        ...donorRow,
+        id: orphanId,
+        email: "orphan@example.com",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const { token } = signVerificationToken(orphanId, 60, verifySecret);
     const res = await post("/api/auth/verify-email", { token });

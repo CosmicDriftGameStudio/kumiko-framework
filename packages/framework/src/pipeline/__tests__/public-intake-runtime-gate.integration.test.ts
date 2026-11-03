@@ -827,9 +827,12 @@ describe("public-intake runtime gate", () => {
 
       test(`global updateMany — rejected (${suffix}), row untouched`, async () => {
         const id = crypto.randomUUID();
-        await seedRows(stack.db, globalContactTable, [
-          { id, tenantId: SYSTEM_TENANT_ID, email: "seed-global@example.com" },
-        ]);
+        await seedRows(
+          stack.db,
+          globalContactTable,
+          [{ id, tenantId: SYSTEM_TENANT_ID, email: "seed-global@example.com" }],
+          { projectionOnly: "fixture plants a projection row without its event" },
+        );
         const res = await stack.http.raw("POST", "/api/write", {
           type: `intakea:write:global-update-many-${suffix}`,
           payload: { id },

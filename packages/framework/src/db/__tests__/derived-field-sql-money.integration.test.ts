@@ -95,12 +95,17 @@ describe("SQL derived money field", () => {
     await unsafeCreateEntityTable(stack.db, propertyEntity, "dsqm-property");
 
     const tenantId = admin.tenantId;
-    await seedRows(stack.db, buildEntityTable("dsqm-property", propertyEntity), [
-      { id: P1, tenantId, name: "Alpha", storedRent: 120050, storedRentCurrency: "EUR" },
-      { id: P2, tenantId, name: "Beta", storedRent: 90000, storedRentCurrency: "CHF" },
-      { id: P3, tenantId, name: "Gamma", storedRent: null, storedRentCurrency: "EUR" },
-      { id: P4, tenantId, name: "Delta", storedRent: null, storedRentCurrency: "EUR" },
-    ]);
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsqm-property", propertyEntity),
+      [
+        { id: P1, tenantId, name: "Alpha", storedRent: 120050, storedRentCurrency: "EUR" },
+        { id: P2, tenantId, name: "Beta", storedRent: 90000, storedRentCurrency: "CHF" },
+        { id: P3, tenantId, name: "Gamma", storedRent: null, storedRentCurrency: "EUR" },
+        { id: P4, tenantId, name: "Delta", storedRent: null, storedRentCurrency: "EUR" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     await seedRows(
       stack.db,
       buildEntityTable("dsqm-rent", rentEntity),
@@ -111,6 +116,7 @@ describe("SQL derived money field", () => {
         { tenantId, propertyId: P2, validFrom: "2026-02-01", rent: 90000, rentCurrency: "CHF" },
         { tenantId, propertyId: P3, validFrom: "2026-03-01", rent: 50000, rentCurrency: "EUR" },
       ].map((row) => ({ secretRent: 777, secretRentCurrency: "EUR", ...row })),
+      { projectionOnly: "fixture plants a projection row without its event" },
     );
   });
 

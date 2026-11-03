@@ -101,13 +101,18 @@ beforeEach(async () => {
 });
 
 async function seedLiveRow(id: string, tenantId: string): Promise<void> {
-  await seedRow(stack.db, writableRunViewTable, {
-    id,
-    tenantId,
-    version: 1,
-    workflowName: "invoice-reminder",
-    status: "running",
-  });
+  await seedRow(
+    stack.db,
+    writableRunViewTable,
+    {
+      id,
+      tenantId,
+      version: 1,
+      workflowName: "invoice-reminder",
+      status: "running",
+    },
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 }
 
 async function runRows(): Promise<readonly Record<string, unknown>[]> {

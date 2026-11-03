@@ -114,20 +114,36 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, readableOwnerEntity, "readable-owner");
   await unsafeCreateEntityTable(stack.db, ruleLessOwnerEntity, "rule-less-owner");
   await unsafeCreateEntityTable(stack.db, documentEntity, "document");
-  await seedRows(stack.db, readableOwnerTable, [
-    { id: OWNER_ID, tenantId: tenantOne, title: "Mail" },
-  ]);
-  await seedRows(stack.db, ruleLessOwnerTable, [
-    { id: RULE_LESS_OWNER_ID, tenantId: tenantOne, title: "Open mail" },
-  ]);
-  await seedRows(stack.db, fileRefsTable, [
-    fileRefRow(READABLE_FILE_ID, "readable-owner", OWNER_ID),
-    fileRefRow(RULE_LESS_FILE_ID, "rule-less-owner", RULE_LESS_OWNER_ID),
-  ]);
-  await seedRows(stack.db, documentTable, [
-    { id: READABLE_DOC_ID, tenantId: tenantOne, title: "readable", file: READABLE_FILE_ID },
-    { id: RULE_LESS_DOC_ID, tenantId: tenantOne, title: "rule-less", file: RULE_LESS_FILE_ID },
-  ]);
+  await seedRows(
+    stack.db,
+    readableOwnerTable,
+    [{ id: OWNER_ID, tenantId: tenantOne, title: "Mail" }],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    ruleLessOwnerTable,
+    [{ id: RULE_LESS_OWNER_ID, tenantId: tenantOne, title: "Open mail" }],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    fileRefsTable,
+    [
+      fileRefRow(READABLE_FILE_ID, "readable-owner", OWNER_ID),
+      fileRefRow(RULE_LESS_FILE_ID, "rule-less-owner", RULE_LESS_OWNER_ID),
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    documentTable,
+    [
+      { id: READABLE_DOC_ID, tenantId: tenantOne, title: "readable", file: READABLE_FILE_ID },
+      { id: RULE_LESS_DOC_ID, tenantId: tenantOne, title: "rule-less", file: RULE_LESS_FILE_ID },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 });
 
 afterAll(async () => {

@@ -66,35 +66,48 @@ describe("message read rule against isVisibleToCaller", () => {
 
     for (const [index, ownerUserId] of owners.entries()) {
       const messageId = uuid(100 + index);
-      await seedRows(env.stack.db, inboundMessagesProjectionTable, [
-        {
-          id: messageId,
-          tenantId,
-          accountId: uuid(1),
-          ownerUserId,
-          messageIdHeader: `parity-${index}@example.org`,
-          threadKey: `parity-${index}`,
-          from: "sender@example.org",
-          receivedAt: new Date("2026-01-01T00:00:00Z"),
-        },
-      ]);
+      await seedRows(
+        env.stack.db,
+        inboundMessagesProjectionTable,
+        [
+          {
+            id: messageId,
+            tenantId,
+            accountId: uuid(1),
+            ownerUserId,
+            messageIdHeader: `parity-${index}@example.org`,
+            threadKey: `parity-${index}`,
+            from: "sender@example.org",
+            receivedAt: new Date("2026-01-01T00:00:00Z"),
+          },
+        ],
+        { projectionOnly: "fixture plants a projection row without its event" },
+      );
       const fileId = uuid(200 + index);
-      await seedRows(env.stack.db, fileRefsTable, [
-        {
-          id: fileId,
-          tenantId,
-          storageKey: `parity-${index}`,
-          fileName: "a.pdf",
-          mimeType: "application/pdf",
-          size: 1n,
-          entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
-          entityId: messageId,
-          fieldName: "attachmentFileIds",
-        },
-      ]);
-      await seedRows(env.stack.db, documentTable, [
-        { id: uuid(300 + index), tenantId, title: "doc", file: fileId },
-      ]);
+      await seedRows(
+        env.stack.db,
+        fileRefsTable,
+        [
+          {
+            id: fileId,
+            tenantId,
+            storageKey: `parity-${index}`,
+            fileName: "a.pdf",
+            mimeType: "application/pdf",
+            size: 1n,
+            entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+            entityId: messageId,
+            fieldName: "attachmentFileIds",
+          },
+        ],
+        { projectionOnly: "fixture plants a projection row without its event" },
+      );
+      await seedRows(
+        env.stack.db,
+        documentTable,
+        [{ id: uuid(300 + index), tenantId, title: "doc", file: fileId }],
+        { projectionOnly: "fixture plants a projection row without its event" },
+      );
     }
 
     for (const caller of [reader, stranger]) {

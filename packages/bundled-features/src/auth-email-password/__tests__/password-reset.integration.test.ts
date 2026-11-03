@@ -394,7 +394,9 @@ describe("POST /auth/reset-password", () => {
 
     // Re-insert the captured row verbatim. Same userId, same version, same
     // token still valid.
-    await seedRow(stack.db, userTable, userRow);
+    await seedRow(stack.db, userTable, userRow, {
+      projectionOnly: "fixture plants a projection row without its event",
+    });
 
     const secondAttempt = await post("/api/auth/reset-password", {
       token,
@@ -449,11 +451,16 @@ describe("POST /auth/reset-password", () => {
     await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
 
     const orphanId = "00000000-0000-4000-8000-0000000000ff";
-    await seedRow(stack.db, userTable, {
-      ...donorRow,
-      id: orphanId,
-      email: "orphan@example.com",
-    });
+    await seedRow(
+      stack.db,
+      userTable,
+      {
+        ...donorRow,
+        id: orphanId,
+        email: "orphan@example.com",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const { token } = signResetToken(orphanId, 15, resetSecret);
     const res = await post("/api/auth/reset-password", {

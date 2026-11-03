@@ -60,11 +60,18 @@ beforeAll(async () => {
   });
   await unsafeCreateEntityTable(stack.db, teamEntity, "team");
   await unsafeCreateEntityTable(stack.db, backingEntity, "ticket");
-  await seedRows(stack.db, teamTable, [{ id: TEAM_SUPPORT, tenantId: TENANT_A, name: "Support" }]);
-  await seedRows(stack.db, backingTicketTable, [
-    { tenantId: TENANT_A, teamId: TEAM_SUPPORT },
-    { tenantId: TENANT_A, teamId: TEAM_SUPPORT },
-  ]);
+  await seedRows(stack.db, teamTable, [{ id: TEAM_SUPPORT, tenantId: TENANT_A, name: "Support" }], {
+    projectionOnly: "fixture plants a projection row without its event",
+  });
+  await seedRows(
+    stack.db,
+    backingTicketTable,
+    [
+      { tenantId: TENANT_A, teamId: TEAM_SUPPORT },
+      { tenantId: TENANT_A, teamId: TEAM_SUPPORT },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 });
 
 afterAll(async () => {

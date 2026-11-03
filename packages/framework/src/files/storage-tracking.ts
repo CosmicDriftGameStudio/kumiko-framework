@@ -16,6 +16,7 @@ import { type DbRunner, entityEventName } from "../db/index.ts";
 import { toPostgresArrayLiteral } from "../db/queries/postgres-array-literal.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { incrementCounter } from "../db/query.ts";
+import { withExecutorManagedWrites } from "../db/tenant-db.ts";
 import { defineFeature, qn, type Registry, toKebab } from "../engine/index.ts";
 import type { PendingGapEntry } from "../pipeline/event-consumer-state.ts";
 import { selectConsumerCursorForUpdate } from "../pipeline/event-dispatcher-delivery.ts";
@@ -221,12 +222,15 @@ export async function transferTenantStorageUsage(args: {
   // skip: the moved fileRefs carry no applied storage share
   if (bytes === 0 && files === 0) return;
 
+  // read_* tables take writes only through an executor-managed runner, like the MSP apply above.
+  const managed = withExecutorManagedWrites(db);
+
   // Source: insert-values stay 0/0 (same guard as the DELETED handler above)
   // — the row this subtracts from is expected to already exist (the MSP
   // already applied the create against it), and if it somehow doesn't, this
   // must not conjure a negative balance out of thin air.
   await incrementCounter(
-    db,
+    managed,
     tenantStorageUsageTable,
     { tenantId: sourceTenantId, totalBytes: 0, fileCount: 0 },
     { totalBytes: -bytes, fileCount: -files },
@@ -237,7 +241,7 @@ export async function transferTenantStorageUsage(args: {
   // its counter row at the transferred total, not at 0 with an increment
   // that only fires once a row already exists.
   await incrementCounter(
-    db,
+    managed,
     tenantStorageUsageTable,
     { tenantId: destinationTenantId, totalBytes: bytes, fileCount: files },
     { totalBytes: bytes, fileCount: files },

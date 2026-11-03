@@ -21,7 +21,7 @@ import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/diale
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { insertOne, selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { createTenantDb, type TenantDb, withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import {
   createEntity,
   createRegistry,
@@ -78,7 +78,7 @@ const refProjection = {
       tx: unknown,
     ) => {
       const payload = event.payload as { refId?: string };
-      await insertOne(tx as DbTx, noteRefsTable, {
+      await insertOne(withExecutorManagedWrites(tx as DbTx), noteRefsTable, {
         noteId: event.aggregateId,
         tenantId: event.tenantId,
         refId: payload.refId ?? null,
@@ -212,7 +212,7 @@ describe("eventMigrations renaming a pii field", () => {
             tx: unknown,
           ) => {
             const payload = event.payload as { fullName?: string };
-            await insertOne(tx as DbTx, seenNamesTable, {
+            await insertOne(withExecutorManagedWrites(tx as DbTx), seenNamesTable, {
               noteId: event.aggregateId,
               tenantId: event.tenantId,
               fullName: payload.fullName ?? null,

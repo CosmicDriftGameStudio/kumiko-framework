@@ -1021,6 +1021,48 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
     );
   });
 
+  test("owner changed X to Y by the live path (newer event holds a Y copy): the older X value stays X-keyed, X's forget erases it", async () => {
+    const userX = generateId();
+    const userY = generateId();
+    const memoId = generateId();
+    await appendPlain(memoId, "memo", "memo.created", {
+      id: memoId,
+      ownerId: userX,
+      body: "Alice",
+    });
+    armKms();
+    await backfillEventPiiEncryption(testDb.db, registry);
+    const copyUnderY = await encryptPiiValueForSubject(
+      kms,
+      { kind: "user", userId: userY },
+      "Alice",
+      { requestId: "test" },
+      "body",
+    );
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { ownerId: userY, body: copyUnderY }, previous: { id: memoId, ownerId: userX } },
+      1,
+    );
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
+      [memoId, TENANT, userY, "projection-row-body"],
+    );
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(result.rekeyedFields).toBe(0);
+    const body = await createdBody(memoId);
+    expect(body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${userX}:`);
+    await kms.eraseKey({ kind: "user", userId: userX });
+    expect(await decryptPiiValueForSubject(kms, body, { requestId: "test" }, "body")).toBe(
+      PII_ERASED_SENTINEL,
+    );
+  });
+
   test("user-keyed value whose key is already erased becomes the erased sentinel", async () => {
     const userX = generateId();
     const memoId = generateId();

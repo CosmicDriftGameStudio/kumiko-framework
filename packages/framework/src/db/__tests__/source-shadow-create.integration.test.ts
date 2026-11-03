@@ -46,11 +46,16 @@ describe("entity with a `source` field — create-path is shadow-proof", () => {
     // Passing a real Temporal.Instant exercises the timestamptz serializer
     // path that the shadow used to bypass. Pre-fix this threw "Cannot use
     // valueOf"; post-fix the row persists and round-trips as a Temporal.Instant.
-    await seedRow(stack.db, sourceTable, {
-      source: "import",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      insertedAt: Temporal.Instant.from("2026-01-15T12:00:00Z"),
-    });
+    await seedRow(
+      stack.db,
+      sourceTable,
+      {
+        source: "import",
+        tenantId: "00000000-0000-4000-8000-000000000001",
+        insertedAt: Temporal.Instant.from("2026-01-15T12:00:00Z"),
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const rows = await selectMany(stack.db, sourceTable);
     expect(rows).toHaveLength(1);

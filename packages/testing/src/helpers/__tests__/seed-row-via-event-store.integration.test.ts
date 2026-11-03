@@ -5,6 +5,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack/index.ts";
 import { resetTestTables } from "../db-cleanup.ts";
 import { seedRowViaEventStore } from "../event-store-writes.ts";
+import { seedRow, seedRows } from "../seed.ts";
 
 const gadgetEntity = createEntity({
   table: "read_seed_via_es_gadgets",
@@ -82,5 +83,37 @@ describe("seedRowViaEventStore", () => {
     await expect(
       seedRowViaEventStore(stack.db, gadgetTable, { id: GADGET_ID, label: "again" }),
     ).rejects.toThrow(/seed seed-gadget failed: version_conflict/);
+  });
+});
+
+describe("seedRow on an event-sourced entity table", () => {
+  test("throws and points to seedRowViaEventStore, nothing is written", async () => {
+    expect(() => seedRow(stack.db, gadgetTable, { id: GADGET_ID, label: "x" })).toThrow(
+      /use seedRowViaEventStore/,
+    );
+    expect(await selectMany(stack.db, gadgetTable, {})).toHaveLength(0);
+  });
+
+  test("seedRows throws the same way", () => {
+    expect(() => seedRows(stack.db, gadgetTable, [{ id: GADGET_ID, label: "x" }])).toThrow(
+      /use seedRowViaEventStore/,
+    );
+  });
+
+  test("projectionOnly with a reason plants the event-less row on purpose", async () => {
+    await seedRow(
+      stack.db,
+      gadgetTable,
+      { id: GADGET_ID, tenantId: TENANT_ID, label: "legacy" },
+      { projectionOnly: "legacy row without an event" },
+    );
+    expect(await selectMany(stack.db, gadgetTable, {})).toHaveLength(1);
+    expect(await selectMany(stack.db, eventsTable, { aggregateId: GADGET_ID })).toHaveLength(0);
+  });
+
+  test("an empty projectionOnly reason does not lift the check", () => {
+    expect(() =>
+      seedRow(stack.db, gadgetTable, { id: GADGET_ID, label: "x" }, { projectionOnly: " " }),
+    ).toThrow(/use seedRowViaEventStore/);
   });
 });

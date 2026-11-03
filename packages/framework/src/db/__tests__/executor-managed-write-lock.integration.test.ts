@@ -247,8 +247,18 @@ describe("createTenantDataDestroyDb", () => {
   const otherTenantId = TestUsers.otherTenant.tenantId;
 
   test("deletes the pinned tenant's managed rows, leaves a foreign tenant's row, and keeps unsafeRaw locked", async () => {
-    await seedRow(testDb.db, managedTable, { tenantId, name: "destroy-own" });
-    await seedRow(testDb.db, managedTable, { tenantId: otherTenantId, name: "destroy-foreign" });
+    await seedRow(
+      testDb.db,
+      managedTable,
+      { tenantId, name: "destroy-own" },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRow(
+      testDb.db,
+      managedTable,
+      { tenantId: otherTenantId, name: "destroy-foreign" },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const destroyDb = createTenantDataDestroyDb({
       db: testDb.db,

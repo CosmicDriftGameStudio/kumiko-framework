@@ -187,20 +187,25 @@ describe("list-download-attempts without an ambient Temporal global", () => {
   test("from/to filter works without relying on globalThis.Temporal", async () => {
     const T = await import("@cosmicdrift/kumiko-framework/time");
     const now = T.getTemporal().Now.instant();
-    await seedRows(stack.db, downloadAttemptsTable, [
-      {
-        id: "33333333-3333-4333-8333-333333333333",
-        tenantId: tenantA,
-        result: "notFound",
-        via: "token",
-        tokenHash: "abc",
-        jobId: null,
-        attemptedByUserId: null,
-        ip: "1.2.3.4",
-        userAgent: "test",
-        attemptedAt: now,
-      },
-    ]);
+    await seedRows(
+      stack.db,
+      downloadAttemptsTable,
+      [
+        {
+          id: "33333333-3333-4333-8333-333333333333",
+          tenantId: tenantA,
+          result: "notFound",
+          via: "token",
+          tokenHash: "abc",
+          jobId: null,
+          attemptedByUserId: null,
+          ip: "1.2.3.4",
+          userAgent: "test",
+          attemptedAt: now,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const savedGlobal = (globalThis as { Temporal?: unknown }).Temporal;
     delete (globalThis as { Temporal?: unknown }).Temporal;
@@ -244,32 +249,37 @@ describe("list-download-attempts (DPO operator-query)", () => {
     // Direct-INSERT in attempts (simuliert was die download-handler schreiben).
     const T = await import("@cosmicdrift/kumiko-framework/time");
     const now = T.getTemporal().Now.instant();
-    await seedRows(stack.db, downloadAttemptsTable, [
-      {
-        id: "11111111-1111-4111-8111-111111111111",
-        tenantId: tenantA,
-        result: "notFound",
-        via: "token",
-        tokenHash: "abc",
-        jobId: null,
-        attemptedByUserId: null,
-        ip: "1.2.3.4",
-        userAgent: "test",
-        attemptedAt: now,
-      },
-      {
-        id: "22222222-2222-4222-8222-222222222222",
-        tenantId: tenantA,
-        result: "expired",
-        via: "token",
-        tokenHash: "def",
-        jobId: null,
-        attemptedByUserId: null,
-        ip: "1.2.3.4",
-        userAgent: "test",
-        attemptedAt: now,
-      },
-    ]);
+    await seedRows(
+      stack.db,
+      downloadAttemptsTable,
+      [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          tenantId: tenantA,
+          result: "notFound",
+          via: "token",
+          tokenHash: "abc",
+          jobId: null,
+          attemptedByUserId: null,
+          ip: "1.2.3.4",
+          userAgent: "test",
+          attemptedAt: now,
+        },
+        {
+          id: "22222222-2222-4222-8222-222222222222",
+          tenantId: tenantA,
+          result: "expired",
+          via: "token",
+          tokenHash: "def",
+          jobId: null,
+          attemptedByUserId: null,
+          ip: "1.2.3.4",
+          userAgent: "test",
+          attemptedAt: now,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const filtered = await stack.http.queryOk<{ rows: Array<{ result: string }> }>(
       LIST_ATTEMPTS,

@@ -45,7 +45,10 @@
 //   tenant-keyed ciphertext of a userOwned field moves under the user the
 //   strict chain (stages 1+2, never whenAbsent) names; user-keyed ciphertext
 //   moves under the projection's current owner when that is another user (an
-//   owner change made before owner transitions re-keyed the value). An owner
+//   owner change made before owner transitions re-keyed the value). Only the latest
+//   event that carries the field moves: older events were written for the previous
+//   owner, and a newer event means the live path already re-keyed the value, so a
+//   forget of the previous owner must keep erasing the older ones. An owner
 //   cleared again (owner → none) is not recoverable from the projection: such
 //   values stay tenant-keyed, unlike the live path that keeps the last owner.
 //   For whenAbsent: "self" fields the same stage moves tenant-keyed ciphertext
@@ -581,6 +584,7 @@ export async function backfillEventPiiEncryptionBatch(
           kmsCtx,
           dryRun: options.dryRun === true,
           isForgottenSubject: (subject) => isForgottenSubject(subject, row.aggregate_id),
+          hasNewerValueOfField: (fieldName) => aggregateHasNewerValueOfField(row, fieldName),
           predictOutcome: predictEncryptOutcome,
         },
         {
@@ -592,6 +596,7 @@ export async function backfillEventPiiEncryptionBatch(
           subjectSource,
           ownerFallback,
           projectionOwnerRow,
+          isSupersededHistory: section === payload["previous"] && isRecord(payload["changes"]),
         },
       );
       if (rekey.kind === "rekeyed") {
@@ -661,6 +666,25 @@ export async function backfillEventPiiEncryptionBatch(
     return subject.kind === "user" && forgottenAggregates.has(subject.userId);
   }
 
+  // A later event that sets the field (`changes`, or the flat payload of a created event).
+  async function aggregateHasNewerValueOfField(
+    event: EventRow,
+    fieldName: string,
+  ): Promise<boolean> {
+    const rows = await raw.unsafe<{ found: number }>(
+      `SELECT 1 AS found FROM "kumiko_events"
+        WHERE "aggregate_id" = $1 AND "tenant_id" = $2 AND "id" > $3::bigint
+          AND (
+            COALESCE(jsonb_typeof("payload" -> 'changes' -> $4::text), 'null') <> 'null'
+            OR ("payload" -> 'changes' IS NULL AND "payload" -> 'previous' IS NULL
+                AND COALESCE(jsonb_typeof("payload" -> $4::text), 'null') <> 'null')
+          )
+        LIMIT 1`,
+      [event.aggregate_id, event.tenant_id, event.id, fieldName],
+    );
+    return rows.length > 0;
+  }
+
   // A tenant destroyed before its name was record-owned never had a record key
   // to erase, and destroy tombstones the row instead of emitting *.forgotten —
   // read_tenants.destroyed_at is the only durable marker.
@@ -719,6 +743,7 @@ type RekeyDeps = {
   readonly kmsCtx: KmsContext;
   readonly dryRun: boolean;
   readonly isForgottenSubject: (subject: SubjectId) => Promise<boolean>;
+  readonly hasNewerValueOfField: (field: string) => Promise<boolean>;
   readonly predictOutcome: (subject: SubjectId) => Promise<FieldOutcome>;
 };
 
@@ -731,6 +756,8 @@ type RekeyTarget = {
   readonly subjectSource: Record<string, unknown>;
   readonly ownerFallback: Record<string, unknown> | undefined;
   readonly projectionOwnerRow: Record<string, unknown> | undefined;
+  // The `previous` section of an update event: the state before that event, never the latest.
+  readonly isSupersededHistory: boolean;
 };
 
 // Stage 4. In dryRun the "rekeyed" value is the untouched ciphertext (nothing is written).
@@ -747,6 +774,12 @@ async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Prom
         ? currentProjectionOwnerIfOther(target, fieldDef.userOwned.ownerField, keyedUnder.userId)
         : null;
   if (userSubject === null) return { kind: "unchanged" };
+  if (
+    keyedUnder?.kind === "user" &&
+    (target.isSupersededHistory || (await deps.hasNewerValueOfField(field)))
+  ) {
+    return { kind: "unchanged" };
+  }
 
   if (await deps.isForgottenSubject(userSubject)) return { kind: "erased" };
   if (deps.dryRun) {

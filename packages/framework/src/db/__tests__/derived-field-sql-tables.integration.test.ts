@@ -125,18 +125,33 @@ describe("derived fields over backing tables and self-relations", () => {
     await unsafeCreateEntityTable(stack.db, jobBacking, "job");
     await unsafeCreateEntityTable(stack.db, crewEntity, "crew");
     const tenantId = admin.tenantId;
-    await seedRows(stack.db, personTable, [
-      { id: ZED, tenantId, name: "Zed" },
-      { id: PIA, tenantId, name: "Pia" },
-    ]);
-    await seedRows(stack.db, buildEntityTable("crew", crewEntity), [
-      { id: C1, tenantId, name: "Crew 1", parentCrewId: null },
-      { id: C2, tenantId, name: "Crew 2", parentCrewId: C1 },
-    ]);
-    await seedRows(stack.db, jobTable, [
-      { id: J1, tenantId, crewId: C1, leadId: ZED },
-      { id: J2, tenantId, crewId: C2, leadId: PIA },
-    ]);
+    await seedRows(
+      stack.db,
+      personTable,
+      [
+        { id: ZED, tenantId, name: "Zed" },
+        { id: PIA, tenantId, name: "Pia" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      stack.db,
+      buildEntityTable("crew", crewEntity),
+      [
+        { id: C1, tenantId, name: "Crew 1", parentCrewId: null },
+        { id: C2, tenantId, name: "Crew 2", parentCrewId: C1 },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      stack.db,
+      jobTable,
+      [
+        { id: J1, tenantId, crewId: C1, leadId: ZED },
+        { id: J2, tenantId, crewId: C2, leadId: PIA },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
   });
 
   afterAll(async () => {

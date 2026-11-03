@@ -242,12 +242,17 @@ describe("ctx.events.load via queryHandler — Marten AggregateStreamAsync equiv
     // produce garbage.
     const invoiceId = "00000000-0000-4000-8000-000000000042";
     await (stack.db as DbConnection).begin(async (tx: DbTx) => {
-      await seedRow(tx, invoiceTable, {
-        id: invoiceId,
-        tenantId: admin.tenantId,
-        customer: "LegacyCo",
-        status: "imported",
-      });
+      await seedRow(
+        tx,
+        invoiceTable,
+        {
+          id: invoiceId,
+          tenantId: admin.tenantId,
+          customer: "LegacyCo",
+          status: "imported",
+        },
+        { projectionOnly: "fixture plants a projection row without its event" },
+      );
 
       // Initial "created" event at v1 of that too — but asofInvoice.created
       // has no migration, its eventVersion is irrelevant here.

@@ -89,7 +89,9 @@ async function importedMessage(accountId: string, reader: User, providerMessageI
 }
 
 async function seedDocument(tenantId: string, id: string, file: string) {
-  await seedRows(env.stack.db, documentTable, [{ id, tenantId, title: "doc", file }]);
+  await seedRows(env.stack.db, documentTable, [{ id, tenantId, title: "doc", file }], {
+    projectionOnly: "fixture plants a projection row without its event",
+  });
 }
 
 async function listedIds(as: User): Promise<string[]> {
@@ -134,19 +136,24 @@ describe("document whose file is an inbound-message attachment", () => {
     const foreignTenant = testTenantId(91);
     const foreignUser = createTestUser({ id: 6905, tenantId: foreignTenant, roles: ["User"] });
     const FOREIGN_FILE = "f0000000-0000-4000-8000-000000000003";
-    await seedRows(env.stack.db, fileRefsTable, [
-      {
-        id: FOREIGN_FILE,
-        tenantId: foreignTenant,
-        storageKey: "foreign-key",
-        fileName: "invoice.pdf",
-        mimeType: "application/pdf",
-        size: 1n,
-        entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
-        entityId: shared.messageId,
-        fieldName: "attachmentFileIds",
-      },
-    ]);
+    await seedRows(
+      env.stack.db,
+      fileRefsTable,
+      [
+        {
+          id: FOREIGN_FILE,
+          tenantId: foreignTenant,
+          storageKey: "foreign-key",
+          fileName: "invoice.pdf",
+          mimeType: "application/pdf",
+          size: 1n,
+          entityType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+          entityId: shared.messageId,
+          fieldName: "attachmentFileIds",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     await seedDocument(foreignTenant, FOREIGN_DOC, FOREIGN_FILE);
 
     expect((await listedIds(owner)).sort()).toEqual([PERSONAL_DOC, SHARED_DOC]);

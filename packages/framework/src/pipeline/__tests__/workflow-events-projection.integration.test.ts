@@ -111,13 +111,18 @@ beforeEach(async () => {
 // separate path, e.g. an MSP sync), so the test seeds the live rows the way
 // that path would: id = run aggregate id, state = what the stream implies.
 async function seedLiveRow(id: string, status: string, version: number): Promise<void> {
-  await seedRow(stack.db, writableRunViewTable, {
-    id,
-    tenantId: admin.tenantId,
-    version,
-    workflowName: "invoice-reminder",
-    status,
-  });
+  await seedRow(
+    stack.db,
+    writableRunViewTable,
+    {
+      id,
+      tenantId: admin.tenantId,
+      version,
+      workflowName: "invoice-reminder",
+      status,
+    },
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 }
 
 async function runRows(): Promise<readonly Record<string, unknown>[]> {

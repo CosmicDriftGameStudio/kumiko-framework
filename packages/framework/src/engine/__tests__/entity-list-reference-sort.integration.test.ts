@@ -68,34 +68,44 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [peopleFeature, ticketFeature] });
   await unsafeCreateEntityTable(stack.db, personEntity, "person");
   await unsafeCreateEntityTable(stack.db, ticketEntity, "ticket");
-  await seedRows(stack.db, personTable, [
-    { id: PERSON_MIKE, tenantId: admin.tenantId, name: "Mike" },
-    { id: PERSON_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
-    { id: PERSON_ZULU, tenantId: admin.tenantId, name: "Zulu" },
-  ]);
-  await seedRows(stack.db, ticketTable, [
-    {
-      id: TICKET_A,
-      tenantId: admin.tenantId,
-      note: "a",
-      ownerId: PERSON_ZULU,
-      plainOwnerId: PERSON_ZULU,
-    },
-    {
-      id: TICKET_B,
-      tenantId: admin.tenantId,
-      note: "b",
-      ownerId: PERSON_MIKE,
-      plainOwnerId: PERSON_MIKE,
-    },
-    {
-      id: TICKET_C,
-      tenantId: admin.tenantId,
-      note: "c",
-      ownerId: PERSON_ALPHA,
-      plainOwnerId: PERSON_ALPHA,
-    },
-  ]);
+  await seedRows(
+    stack.db,
+    personTable,
+    [
+      { id: PERSON_MIKE, tenantId: admin.tenantId, name: "Mike" },
+      { id: PERSON_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
+      { id: PERSON_ZULU, tenantId: admin.tenantId, name: "Zulu" },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    ticketTable,
+    [
+      {
+        id: TICKET_A,
+        tenantId: admin.tenantId,
+        note: "a",
+        ownerId: PERSON_ZULU,
+        plainOwnerId: PERSON_ZULU,
+      },
+      {
+        id: TICKET_B,
+        tenantId: admin.tenantId,
+        note: "b",
+        ownerId: PERSON_MIKE,
+        plainOwnerId: PERSON_MIKE,
+      },
+      {
+        id: TICKET_C,
+        tenantId: admin.tenantId,
+        note: "c",
+        ownerId: PERSON_ALPHA,
+        plainOwnerId: PERSON_ALPHA,
+      },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 });
 
 afterAll(async () => {

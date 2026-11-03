@@ -97,6 +97,15 @@ export async function buildListWhere(
       ],
     });
   }
+  // Soft-deleted rows leave the search index, so a search over the trash would always come back
+  // empty; refusing is honest, an empty list would read as "nothing in the trash matches".
+  if (onlyDeleted && payload.search) {
+    throw new ValidationError({
+      fields: [
+        { path: "search", code: "search_in_trash", i18nKey: "errors.validation.onlyDeleted" },
+      ],
+    });
+  }
   // The parent-visibility gate lifts its deleted-host predicate for a trash list the same way.
   const includeDeleted = onlyDeleted || runtimeOptions?.includeDeleted === true;
 

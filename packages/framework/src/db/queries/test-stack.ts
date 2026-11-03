@@ -1,6 +1,7 @@
 import { extractPgError } from "../pg-error.ts";
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
+import { outsideRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 import { PROJECTION_REBUILD_SCHEMA } from "./shadow-swap.ts";
 import { quoteTableIdent } from "./table-ops.ts";
@@ -35,8 +36,9 @@ export async function createDatabase(
   const template =
     templateDbName === undefined ? "" : ` TEMPLATE ${quoteTableIdent(templateDbName)}`;
   const ownerClause = owner === undefined ? "" : ` OWNER ${quoteTableIdent(owner)}`;
-  await asRawClient(db).unsafe(
-    `CREATE DATABASE ${quoteTableIdent(dbName)}${template}${ownerClause}`,
+  // CREATE/ALTER DATABASE cannot run inside the transaction an enforced pool wraps statements in.
+  await outsideRowLevelSecurityScope(() =>
+    asRawClient(db).unsafe(`CREATE DATABASE ${quoteTableIdent(dbName)}${template}${ownerClause}`),
   );
 }
 
@@ -97,8 +99,10 @@ export async function transferDatabaseOwnership(
   dbName: string,
   owner: string,
 ): Promise<void> {
-  await asRawClient(admin).unsafe(
-    `ALTER DATABASE ${quoteTableIdent(dbName)} OWNER TO ${quoteTableIdent(owner)}`,
+  await outsideRowLevelSecurityScope(() =>
+    asRawClient(admin).unsafe(
+      `ALTER DATABASE ${quoteTableIdent(dbName)} OWNER TO ${quoteTableIdent(owner)}`,
+    ),
   );
 }
 
@@ -144,8 +148,10 @@ export async function transferPublicSchemaOwnership(db: AnyDb, owner: string): P
 }
 
 export async function renameDatabase(db: AnyDb, fromName: string, toName: string): Promise<void> {
-  await asRawClient(db).unsafe(
-    `ALTER DATABASE ${quoteTableIdent(fromName)} RENAME TO ${quoteTableIdent(toName)}`,
+  await outsideRowLevelSecurityScope(() =>
+    asRawClient(db).unsafe(
+      `ALTER DATABASE ${quoteTableIdent(fromName)} RENAME TO ${quoteTableIdent(toName)}`,
+    ),
   );
 }
 
@@ -167,5 +173,7 @@ export async function acquireSessionAdvisoryLock(db: AnyDb, key: string): Promis
 }
 
 export async function dropDatabaseIfExists(db: AnyDb, dbName: string): Promise<void> {
-  await asRawClient(db).unsafe(`DROP DATABASE IF EXISTS ${quoteTableIdent(dbName)}`);
+  await outsideRowLevelSecurityScope(() =>
+    asRawClient(db).unsafe(`DROP DATABASE IF EXISTS ${quoteTableIdent(dbName)}`),
+  );
 }

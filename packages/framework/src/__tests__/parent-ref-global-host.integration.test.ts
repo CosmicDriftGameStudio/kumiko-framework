@@ -82,10 +82,15 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, globalHostEntity, "globalHost");
   await unsafeCreateEntityTable(stack.db, linkEntity, "link");
-  await seedRows(stack.db, globalHostTable, [
-    { id: LIVE_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: false },
-    { id: DELETED_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: true },
-  ]);
+  await seedRows(
+    stack.db,
+    globalHostTable,
+    [
+      { id: LIVE_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: false },
+      { id: DELETED_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: true },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 });
 
 afterAll(async () => {

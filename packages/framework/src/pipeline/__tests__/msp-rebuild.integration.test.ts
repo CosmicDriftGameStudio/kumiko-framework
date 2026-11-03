@@ -31,6 +31,7 @@ import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
 import { readRowLevelSecurityState } from "../../db/queries/rls-catalog.ts";
 import { asRawClient, selectMany, updateMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
+import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
 import {
   eventConsumerStateTable,
@@ -346,7 +347,7 @@ describe("rebuildMultiStreamProjection — rebuildable read-model", () => {
 
     // Corrupt the read-model — simulate a buggy apply() landing bad numbers.
     await updateMany(
-      stack.db,
+      withExecutorManagedWrites(stack.db),
       balanceTable,
       { invoicesCents: -999, paymentsCents: 999 },
       { customer: carol },

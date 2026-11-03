@@ -96,6 +96,30 @@ describe("rebuildTablesFromDiff", () => {
     expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
   });
 
+  test("managed jsonb default {} → [] rebuilds, so old rows get the new empty value", () => {
+    const jsonb = (defaultSql: string): EntityTableMeta["columns"][number] => ({
+      name: "candidates",
+      pgType: "jsonb",
+      notNull: true,
+      defaultSql,
+    });
+    const prev = snapshotFromMetas([meta("read_a", jsonb("'{}'::jsonb"))]);
+    const next = snapshotFromMetas([meta("read_a", jsonb("'[]'::jsonb"))]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual(["read_a"]);
+  });
+
+  test("a default change on a non-jsonb managed column stays in-place", () => {
+    const text = (defaultSql: string): EntityTableMeta["columns"][number] => ({
+      name: "title",
+      pgType: "text",
+      notNull: true,
+      defaultSql,
+    });
+    const prev = snapshotFromMetas([meta("read_a", text("'a'"))]);
+    const next = snapshotFromMetas([meta("read_a", text("'b'"))]);
+    expect(rebuildTablesFromDiff(diffSnapshots(prev, next))).toEqual([]);
+  });
+
   test("managed new UNIQUE index → rebuild (recreate, could fail on duplicates)", () => {
     const prev = snapshotFromMetas([meta("read_a")]);
     const next = snapshotFromMetas([

@@ -150,6 +150,15 @@ describe("list payload onlyDeleted", () => {
     expectErrorIncludes(err, "validation");
   });
 
+  test("onlyDeleted together with a search term is a validation error, not an empty list", async () => {
+    const err = await stack.http.queryErr(
+      "trashlist:query:note:list",
+      { onlyDeleted: true, search: "alice" },
+      admin,
+    );
+    expectErrorIncludes(err, "validation");
+  });
+
   test("onlyDeleted on an entity without softDelete is a validation error", async () => {
     const err = await stack.http.queryErr(
       "trashlist:query:plain:list",

@@ -7,6 +7,7 @@ import type { RowLevelSecurityMode } from "./render-rls-ddl.ts";
 import {
   activeRowLevelSecurityScope,
   innerOfScopedRunner,
+  isOutsideRowLevelSecurityScope,
   type RowLevelSecurityScope,
   rowLevelSecurityScopeKey,
   runInCapturedRowLevelSecurityScope,
@@ -216,14 +217,16 @@ async function pipelinedScopedTransaction(
   }
 }
 
-// A pool statement under a scope runs as its own short transaction; without a scope it passes
-// through and the policies see no tenant (fail closed), so DDL like CONCURRENTLY keeps working.
+// Every pool statement runs as its own short transaction that sets both scope settings, to '' when
+// no scope is active: a pooled connection may carry a session-level scope set by raw SQL, which a
+// pass-through would let every scope-free statement inherit. Only outsideRowLevelSecurityScope
+// (CONCURRENTLY and other non-transactional DDL) sends a statement straight to the connection.
 export function enforceRowLevelSecurity<T extends object>(pool: T): T {
   const inScopedTransaction = (run: (conn: object) => unknown): Promise<unknown> =>
     pipelinedScopedTransaction(pool, activeRowLevelSecurityScope(), run);
   const proxy = new Proxy(pool, {
     apply(target, _thisArg, args) {
-      if (!isTaggedTemplateCall(args) || activeRowLevelSecurityScope() === undefined) {
+      if (!isTaggedTemplateCall(args) || isOutsideRowLevelSecurityScope()) {
         return applyOnTarget(target, args);
       }
       return inScopedTransaction((conn) => applyOnTarget(conn, args));
@@ -233,7 +236,7 @@ export function enforceRowLevelSecurity<T extends object>(pool: T): T {
       if (typeof value !== "function") return value;
       if (prop === "unsafe" || prop === "file") {
         return (...args: unknown[]) => {
-          if (activeRowLevelSecurityScope() === undefined) return callMethod(target, prop, args);
+          if (isOutsideRowLevelSecurityScope()) return callMethod(target, prop, args);
           if (prop === "file") {
             // Bun sends file() only after its async file read, i.e. after the pipelined COMMIT.
             const scope = activeRowLevelSecurityScope();
