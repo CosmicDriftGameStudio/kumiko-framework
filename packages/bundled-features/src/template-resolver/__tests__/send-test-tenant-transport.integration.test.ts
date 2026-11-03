@@ -4,8 +4,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { runAsAgentToolCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -115,6 +117,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   appTransport.sent.length = 0;
+  appTransport.failNext = null;
   clearInbox(tenantWithProvider);
 });
 
@@ -162,17 +165,73 @@ describe("template-resolver :: send-test through the notification's transport", 
 });
 
 describe("template-resolver :: send-test leaves an audit trail", () => {
+  const attemptsOf = async () =>
+    (await selectMany(stack.db, deliveryAttemptsTable, {
+      notificationType: TEST_MAIL_NOTIFICATION_TYPE,
+      recipientId: adminWithProvider.id,
+    })) as Array<{
+      channel: string;
+      status: string;
+      error: string | null;
+      recipientAddress: string | null;
+    }>;
+  const sendTestPayload = { slug: APP_ROUTED_SLUG, locale: LOCALE };
+  const sendTestAsAgentToolCall = () =>
+    runAsAgentToolCallEntry(() =>
+      stack.dispatcher.write(TemplateResolverHandlers.sendTest, sendTestPayload, adminWithProvider),
+    );
+
+  test("a failed test mail stays logged although the handler transaction rolls back", async () => {
+    const before = (await attemptsOf()).length;
+    appTransport.failNext = { message: "smtp refused" };
+
+    const error = await stack.http.writeErr(
+      TemplateResolverHandlers.sendTest,
+      sendTestPayload,
+      adminWithProvider,
+    );
+
+    expectErrorIncludes(error, "template_test_mail_failed");
+    const attempts = await attemptsOf();
+    expect(attempts).toHaveLength(before + 1);
+    expect(attempts.at(-1)).toMatchObject({
+      channel: "email",
+      status: "failed",
+      error: "channel_error",
+    });
+  });
+
+  test("an agent tool call sends the test mail and logs the attempt", async () => {
+    const before = (await attemptsOf()).length;
+
+    const result = await sendTestAsAgentToolCall();
+
+    expect(result.isSuccess).toBe(true);
+    expect(appTransport.sent.map((message) => message.to)).toEqual([
+      addressOf(adminWithProvider.id),
+    ]);
+    const attempts = await attemptsOf();
+    expect(attempts).toHaveLength(before + 1);
+    expect(attempts.at(-1)).toMatchObject({ channel: "email", status: "sent", error: null });
+  });
+
+  test("a failed test mail from an agent tool call stays logged", async () => {
+    const before = (await attemptsOf()).length;
+    appTransport.failNext = { message: "smtp refused" };
+
+    const result = await sendTestAsAgentToolCall();
+
+    expect(result.isSuccess).toBe(false);
+    const attempts = await attemptsOf();
+    expect(attempts).toHaveLength(before + 1);
+    expect(attempts.at(-1)).toMatchObject({
+      channel: "email",
+      status: "failed",
+      error: "channel_error",
+    });
+  });
+
   test("a sent test mail is logged as a delivery attempt with a masked address", async () => {
-    const attemptsOf = async () =>
-      (await selectMany(stack.db, deliveryAttemptsTable, {
-        notificationType: TEST_MAIL_NOTIFICATION_TYPE,
-        recipientId: adminWithProvider.id,
-      })) as Array<{
-        channel: string;
-        status: string;
-        error: string | null;
-        recipientAddress: string | null;
-      }>;
     const before = (await attemptsOf()).length;
 
     await stack.http.writeOk(

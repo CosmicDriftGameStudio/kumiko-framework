@@ -23,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import {
   collectChannels,
+  createDeliveryAttemptLogFactory,
   createDeliveryNotifyFactory,
   createDeliveryService,
   DELIVERY_FEATURE,
@@ -46,6 +47,7 @@ import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework
 import {
   type ConfigResolver,
   createSystemUser,
+  type DeliveryAttemptLogFactory,
   type EscapeHatchAuditSink,
   type FeatureDefinition,
   type NotifyFactory,
@@ -106,7 +108,9 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 // the calling context's job runner (3rd factory arg); without one they send
 // inline, with `secrets` for chat-channel credentials. `to: { tenant }` resolves
 // through tenantUserIdsQuery, which the caller sets when the tenant feature is mounted.
-function buildDeliveryNotifyFactory(opts: {
+// The attempt log factory shares the service, so a handler sending through a channel itself
+// logs exactly like ctx.notify does.
+function buildDeliveryContextFactories(opts: {
   readonly db: DbConnection;
   readonly registry: Registry;
   readonly secrets?: SecretsContext;
@@ -119,7 +123,10 @@ function buildDeliveryNotifyFactory(opts: {
   readonly configResolver: ConfigResolver | undefined;
   readonly deliverQueuedInline: boolean | undefined;
   readonly unsubscribeLinks: UnsubscribeLinkConfig | undefined;
-}): NotifyFactory {
+}): {
+  readonly _notifyFactory: NotifyFactory;
+  readonly _deliveryAttemptLogFactory: DeliveryAttemptLogFactory;
+} {
   if (!opts.addressCipher && opts.deliverQueuedInline !== true) {
     createFallbackLogger("delivery", opts.log).warn(
       "No master key configured: queued delivery jobs carry recipient addresses in plaintext " +
@@ -152,9 +159,12 @@ function buildDeliveryNotifyFactory(opts: {
       },
     }),
   });
-  return createDeliveryNotifyFactory(deliveryService, {
-    deliverQueuedInline: opts.deliverQueuedInline === true,
-  });
+  return {
+    _notifyFactory: createDeliveryNotifyFactory(deliveryService, {
+      deliverQueuedInline: opts.deliverQueuedInline === true,
+    }),
+    _deliveryAttemptLogFactory: createDeliveryAttemptLogFactory(deliveryService),
+  };
 }
 
 function isLogger(value: unknown): value is Logger {
@@ -294,7 +304,7 @@ function bootDeliveryContext(
   const hasTenantFeature = opts.features.some((f) => f.name === TENANT_FEATURE);
   const { crypto, secrets, escapeHatchAuditSink } = parts;
   return {
-    _notifyFactory: buildDeliveryNotifyFactory({
+    ...buildDeliveryContextFactories({
       db: opts.db,
       registry: opts.registry,
       ...(secrets && { secrets }),

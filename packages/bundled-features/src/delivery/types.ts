@@ -138,6 +138,7 @@ export type DeliveryService = {
     deliveryDb?: DbConnection,
     fileProviderResolver?: FileProviderResolver,
   ): Promise<NotifyDispatched>;
+  logAttempt(entry: DeliveryLogEntry, deliveryDb?: DbConnection): Promise<void>;
 };
 
 // r.useExtension options-shape: `name` is NOT part of the registration

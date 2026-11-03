@@ -8,5 +8,9 @@ export function scopedForTest(service: DeliveryService): DeliveryService {
       runInSystemRowLevelSecurityScope("test calls the delivery service outside a request", () =>
         service.notify(...args),
       ),
+    logAttempt: (...args) =>
+      runInSystemRowLevelSecurityScope("test calls the delivery service outside a request", () =>
+        service.logAttempt(...args),
+      ),
   };
 }

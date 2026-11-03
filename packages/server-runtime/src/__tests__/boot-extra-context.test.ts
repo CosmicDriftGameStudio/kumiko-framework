@@ -37,7 +37,7 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
     expect(ctx["_notifyFactory"]).toBeUndefined();
   });
 
-  test("delivery feature mounted → _notifyFactory wired (ctx.notify works in prod)", () => {
+  test("delivery feature mounted → _notifyFactory and _deliveryAttemptLogFactory wired (ctx.notify and the test mail log work in prod)", () => {
     const ctx = buildBootExtraContext({
       db: fakeDb,
       features: [createDeliveryFeature()],
@@ -46,6 +46,7 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       hasAuth: false,
     });
     expect(typeof ctx["_notifyFactory"]).toBe("function");
+    expect(typeof ctx["_deliveryAttemptLogFactory"]).toBe("function");
   });
 
   test("appOverrides without auth or delivery feature aborts instead of being dropped", () => {
@@ -70,6 +71,7 @@ describe("buildBootExtraContext — framework-default provider autowire", () => 
       hasAuth: false,
     });
     expect(ctx["_notifyFactory"]).toBeUndefined();
+    expect(ctx["_deliveryAttemptLogFactory"]).toBeUndefined();
   });
 
   test("secrets feature mounted + valid KEK env → ctx.secrets wired", () => {

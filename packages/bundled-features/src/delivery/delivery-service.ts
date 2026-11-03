@@ -1107,5 +1107,8 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       await releaseIdempotencyIfNothingDelivered(tenantId, idempotencyKey, run, notificationType);
       return dispatched(run);
     },
+    async logAttempt(entry, deliveryDb) {
+      await logAttempt(deliveryDb ?? db, registry, entry);
+    },
   };
 }

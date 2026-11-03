@@ -102,7 +102,8 @@ export function denyTransactionBoundSurfaces(handlerContext: HandlerContext): Ha
   };
 }
 
-// A notify factory builds a working notify, so a phase that denies ctx.notify must drop them too.
+// A notify factory builds a working notify, so a phase that denies ctx.notify must drop them too,
+// along with the delivery attempt log that belongs to a delivery.
 export function withoutNotifyFactories(
   services: HandlerContext["services"],
 ): HandlerContext["services"] {
@@ -110,6 +111,8 @@ export function withoutNotifyFactories(
     _notifyFactory: _factory,
     _notifyInTransactionFactory: _inTransaction,
     _notifyAfterCommitFactory: _afterCommit,
+    _deliveryAttemptLogFactory: _attemptLogFactory,
+    _logOwnDeliveryAttempt: _ownAttemptLog,
     ...rest
   } = services;
   return rest;

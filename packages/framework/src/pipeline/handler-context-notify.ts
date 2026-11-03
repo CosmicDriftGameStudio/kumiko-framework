@@ -78,6 +78,11 @@ export function buildNotifyFacet(
         )
     : undefined;
   const notify = buildNotify(scope, sinks, notifyAfterCommitFactory, notifyInTransactionFactory);
+  const logOwnDeliveryAttempt = context._deliveryAttemptLogFactory?.(
+    scope.user,
+    scope.user.tenantId,
+    outsideTxSource,
+  );
   return {
     notify,
     factoryServices: {
@@ -85,6 +90,7 @@ export function buildNotifyFacet(
         _notifyInTransactionFactory: notifyInTransactionFactory,
       }),
       ...(notifyAfterCommitFactory && { _notifyAfterCommitFactory: notifyAfterCommitFactory }),
+      ...(logOwnDeliveryAttempt && { _logOwnDeliveryAttempt: logOwnDeliveryAttempt }),
     },
   };
 }
