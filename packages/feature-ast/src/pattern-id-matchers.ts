@@ -54,7 +54,11 @@ const PATTERN_ID_MATCHERS: PatternIdMatchers = {
   "ai.classify": matchAiStepCall,
 };
 
-export function callMatchesId<K extends PatternIdKind>(
+export function callMatchesId(call: CallExpression, id: PatternId): boolean {
+  return dispatchMatcher(call, id.kind, id);
+}
+
+function dispatchMatcher<K extends PatternIdKind>(
   call: CallExpression,
   kind: K,
   id: PatternIdOfKind[K],

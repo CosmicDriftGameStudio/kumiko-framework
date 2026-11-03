@@ -40,8 +40,8 @@ export function runDefinitionStep<T>(feature: string, check: string, step: () =>
     return step();
   } catch (thrown) {
     if (isRuntimeCrash(thrown)) {
-      // Follow-up of an earlier violation (a failed step returned undefined); without one it is a real bug.
-      if (collector.length === 0) throw thrown;
+      // Follow-up of an earlier violation of this feature (a failed step returned undefined); without one it is a real bug.
+      if (!collector.some((violation) => violation.feature === feature)) throw thrown;
       return undefined;
     }
     if (thrown instanceof Error) collector.push(...violationsOf(thrown, check, feature));

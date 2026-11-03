@@ -223,6 +223,7 @@ const SYSTEM_USER_ID: "00000000-0000-0000-0000-000000000000";
 const TENANT_CURRENCY_CONFIG_KEY: "tenant-settings:config:currency"; // Qualified config key a `{ kind: "tenant" }` MoneyCurrencySource resolves against — the tenant-settings bundle's per-tenant currency.
 const TENANT_MEMBERSHIPS_QUERY: "tenant:query:memberships";
 const TENANT_TIER_RESOLVER_EXT: "tenantTierResolver"; // Extension name under which a tier-resolver plugin must be registered in the registry.
+const WEBHOOK_ENTITY_VERBS: WebhookEntityVerb[];
 const WORKFLOW_AGGREGATE_TYPE: "workflow-run";
 const WORKFLOW_RESUMED_TYPE: "kumiko:system:workflow.step.resumed";
 const WORKFLOW_RETRY_SCHEDULED_TYPE: "kumiko:system:workflow.retry.scheduled";

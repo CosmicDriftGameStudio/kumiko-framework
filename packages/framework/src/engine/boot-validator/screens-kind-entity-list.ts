@@ -13,13 +13,11 @@ import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import {
   assertWriteHandlerRegistered,
-  rejectRedirectOnListRowAction,
   resolveRowActionNavigateTarget,
   resolveScreenTargetQn,
   validateActionFieldRefs,
   validateAtMostOneRowClick,
   validateDrawerTargetAction,
-  validateRowActionNavigateParams,
 } from "./screens-actions.ts";
 import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
 import { validateDashboardPanelVisibleWhen } from "./screens-dashboard.ts";
@@ -33,7 +31,7 @@ import {
   type ScreenValidationContext,
   validateListColumnRendering,
 } from "./screens-kind-shared.ts";
-import { validateRelatedListSection, validateRowActionTarget } from "./screens-lists.ts";
+import { validateListActionTargets, validateRelatedListSection } from "./screens-lists.ts";
 
 type EntityListFields = {
   readonly entityDef: EntityDefinition;
@@ -233,53 +231,19 @@ function validateEntityListRowAction(
   action: RowAction,
 ): void {
   const featureName = ctx.feature.name;
-  rejectRedirectOnListRowAction(featureName, screenId, "entityList", action);
-  if (action.kind === "navigate") {
-    const target = resolveRowActionNavigateTarget(
-      featureName,
-      screenId,
-      "entityList",
-      "rowAction",
-      action,
-      ctx.allScreenQns,
-      ctx.navTargetShortIds,
-      ctx.screensByShortId,
-      ctx.detailForScreens,
-    );
-    rejectCrossFeatureEditTargetWithoutEntityId(featureName, screenId, action, target);
-    // params only have a reader in actionForm and entityEdit-CREATE; on
-    // projectionDetail/dashboard/configEdit/entityEdit-update they are
-    // silently ignored at runtime. `custom` is deliberately exempt: it renders
-    // an app-registered component the framework has no visibility into, so
-    // flagging it would be a false positive on working code.
-    //
-    // Whether an entityEdit target lands in create or update mode is decided
-    // by the same rule the renderer's runNavigate() uses: an explicit
-    // entityId always forces update mode, and (absent an explicit entityId) a
-    // same-entity target gets row["id"] auto-injected — only a cross-entity
-    // target with no explicit entityId reaches create.
-    validateRowActionNavigateParams(
-      featureName,
+  validateListActionTargets(
+    listActionContext(
+      ctx,
       screenId,
       "entityList",
       screen.entity,
-      action,
-      target,
-    );
-  } else {
-    validateRowActionTarget(
-      listActionContext(
-        ctx,
-        screenId,
-        "entityList",
-        screen.entity,
-        `Screen "${screenId}" (entityList)`,
-      ),
-      "rowAction",
-      "rowAction",
-      action,
-    );
-  }
+      `Screen "${screenId}" (entityList)`,
+    ),
+    "rowAction",
+    action,
+    (navigateAction, target) =>
+      rejectCrossFeatureEditTargetWithoutEntityId(featureName, screenId, navigateAction, target),
+  );
   validateActionFieldRefs(
     featureName,
     screenId,

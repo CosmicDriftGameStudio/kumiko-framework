@@ -5,6 +5,7 @@ import { validateSqlDerivedFields } from "../boot-validator/derived-sql-fields.t
 import { validateBoot as validateBootRaw } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import {
+  createBigIntField,
   createDateField,
   createDerivedField,
   createEntity,
@@ -24,6 +25,7 @@ const childFields = {
   startsOn: createDateField(),
   endsOn: createDateField(),
   rank: createNumberField(),
+  counter: createBigIntField(),
   assigneeId: { type: "reference", entity: "unit", labelField: "name" },
   plainRef: { type: "reference", entity: "unit" },
 } as const;
@@ -127,6 +129,14 @@ describe("validateSqlDerivedFields", () => {
         n: related({ measure: { kind: "countDistinct", field: "amount" } }),
       }),
     ).toThrow(/measure field "amount".*money/);
+  });
+
+  test("rejects a bigInt field, which a number valueType would round above 2^53", () => {
+    expect(() =>
+      validateWith({
+        n: related({ measure: { kind: "countDistinct", field: "counter" } }),
+      }),
+    ).toThrow(/measure field "counter" has type "bigInt"/);
   });
 
   describe("money", () => {

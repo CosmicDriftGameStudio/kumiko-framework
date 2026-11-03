@@ -3758,6 +3758,22 @@ describe("boot-validator", () => {
       expect(() => validateBoot([feature])).toThrow(/Screen "mystery" has unknown type "bogus"\./);
     });
 
+    test("unknown screen type is reported as such even when the app has nav entries", () => {
+      const feature = defineFeature("shop", (r) => {
+        r.screen({ id: "home", type: "custom", renderer: { react: "stub" } });
+        r.nav({ id: "home", label: "Home", screen: "shop:screen:home" });
+        r.screen({ id: "mystery", type: "bogus" } as never);
+      });
+      let message = "";
+      try {
+        validateBoot([feature]);
+      } catch (e) {
+        message = e instanceof Error ? e.message : String(e);
+      }
+      expect(message).toMatch(/Screen "mystery" has unknown type "bogus"\./);
+      expect(message).not.toMatch(/Screen "mystery" has no nav entry/);
+    });
+
     test("happy path: all 4 checks passed → no throw", () => {
       expect(() => validateBoot([makeFeature()])).not.toThrow();
     });

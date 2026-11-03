@@ -55,6 +55,20 @@ describe("collectDefinitionViolations", () => {
     expect(!outcome.loaded && outcome.thrown).toBeInstanceOf(TypeError);
   });
 
+  test("a crash in a feature without its own violation stays visible next to another feature's violation", async () => {
+    const { violations, outcome } = await collectDefinitionViolations(async () => {
+      defineFeature("alpha", (r) => {
+        r.nav(badNav);
+      });
+      defineFeature("beta", (r) => {
+        r.nav(null as never);
+      });
+    });
+    expect(violations.map((v) => v.feature)).toEqual(["alpha"]);
+    expect(outcome.loaded).toBe(false);
+    expect(!outcome.loaded && outcome.thrown).toBeInstanceOf(TypeError);
+  });
+
   test("the collector is reset after a throw, so defineFeature throws immediately again", async () => {
     await collectDefinitionViolations(async () => {
       throw new Error("load failed");

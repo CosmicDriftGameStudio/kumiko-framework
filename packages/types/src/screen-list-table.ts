@@ -3,6 +3,9 @@ import type { ListAggregateMeasureKind } from "./list-aggregate-types.ts";
 export const LIST_TABLE_DENSITIES = ["comfortable", "compact"] as const;
 export type ListTableDensity = (typeof LIST_TABLE_DENSITIES)[number];
 
+/** Upper bound for a list column width in pixels; the renderer clamps to it, the boot validator rejects above it. */
+export const LIST_COLUMN_MAX_WIDTH_PX = 2000;
+
 export const LIST_COLUMN_PINS = ["left", "right"] as const;
 export type ListColumnPin = (typeof LIST_COLUMN_PINS)[number];
 

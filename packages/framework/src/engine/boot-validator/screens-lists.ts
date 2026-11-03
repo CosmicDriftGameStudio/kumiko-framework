@@ -263,16 +263,22 @@ function rejectEmptyStateActionParams(
   }
 }
 
+type NavigateTargetCheck = (
+  action: Extract<RowAction, { readonly kind: "navigate" }>,
+  target: ReturnType<typeof resolveRowActionNavigateTarget>,
+) => void;
+
 // Target checks shared by list/related-list rowActions and emptyState.action:
 // navigate target + params, drawer target, write-handler registration.
 export function validateListActionTargets(
   ctx: ListActionTargetContext,
   actionLabel: "rowAction" | "emptyState action",
   action: RowAction,
+  onNavigateTarget?: NavigateTargetCheck,
 ): void {
   rejectRedirectOnListRowAction(ctx.featureName, ctx.screenId, ctx.screenType, action);
   if (actionLabel === "emptyState action") rejectEmptyStateActionParams(ctx, actionLabel, action);
-  validateRowActionTarget(ctx, actionLabel, actionLabel, action);
+  validateRowActionTarget(ctx, actionLabel, actionLabel, action, onNavigateTarget);
 }
 
 // Header actions have always reported navigate-params errors under the
@@ -283,6 +289,7 @@ export function validateRowActionTarget(
   actionLabel: "rowAction" | "emptyState action" | "action",
   paramsLabel: "rowAction" | "emptyState action",
   action: RowAction,
+  onNavigateTarget?: NavigateTargetCheck,
 ): void {
   const { featureName, screenId, screenType } = ctx;
   if (action.kind === "navigate") {
@@ -297,6 +304,7 @@ export function validateRowActionTarget(
       ctx.screensByShortId,
       ctx.detailForScreens,
     );
+    onNavigateTarget?.(action, target);
     validateRowActionNavigateParams(
       featureName,
       screenId,

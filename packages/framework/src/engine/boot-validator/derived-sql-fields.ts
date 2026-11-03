@@ -28,7 +28,6 @@ const VALUE_TYPE_OF_FIELD_TYPE: Readonly<
   tz: "text",
   reference: "text",
   number: "number",
-  bigInt: "number",
   decimal: "decimal",
   boolean: "boolean",
   date: "date",
@@ -51,7 +50,7 @@ function requireUsableField(site: Site, entity: EntityDefinition, field: string,
   }
   if (valueTypeOfField(entity, field) === undefined) {
     throw bootRuleError(DERIVED_SQL_FIELD_RULES.unsupportedFieldType, {
-      message: `${site.where}: ${role} "${field}" has type "${entity.fields[field]?.type}", which a SQL derived field cannot read (compound types are not supported; money only as the measure of a related first).`,
+      message: `${site.where}: ${role} "${field}" has type "${entity.fields[field]?.type}", which a SQL derived field cannot read (compound types and bigInt are not supported, as a bigInt loses precision above 2^53 as a number; money only as the measure of a related first).`,
     });
   }
   if (holdsCiphertextOrSecret(entity, field)) {

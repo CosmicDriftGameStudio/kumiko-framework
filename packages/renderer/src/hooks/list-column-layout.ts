@@ -1,3 +1,4 @@
+import { LIST_COLUMN_MAX_WIDTH_PX } from "@cosmicdrift/kumiko-types/screen-list-table";
 import type {
   DataTableColumnPin,
   DataTableColumnPins,
@@ -7,7 +8,7 @@ import type {
 export const DEFAULT_COLUMN_WIDTH_PX = 160;
 export const DEFAULT_MIN_COLUMN_WIDTH_PX = 64;
 /** Upper bound so a tampered stored width cannot blow the table up. */
-export const MAX_COLUMN_WIDTH_PX = 2000;
+export const MAX_COLUMN_WIDTH_PX = LIST_COLUMN_MAX_WIDTH_PX;
 
 type LayoutSchemaColumn = {
   readonly field: string;

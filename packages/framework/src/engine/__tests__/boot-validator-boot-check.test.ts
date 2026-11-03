@@ -126,3 +126,36 @@ describe("r.bootCheck / validateFeatureBootChecks", () => {
     expect(seenNames).toEqual(["feature-a", "feature-b"]);
   });
 });
+
+describe("r.bootCheck failure classification", () => {
+  test("a TypeError inside a bootCheck surfaces as itself, not as a boot-check finding", () => {
+    const buggy = defineFeature("buggy-check", (r) => {
+      r.bootCheck(() => {
+        const nothing = undefined as unknown as { foo: string };
+        void nothing.foo;
+      });
+    });
+    expect(() => validateBoot([buggy])).toThrow(TypeError);
+  });
+
+  test("a nested BootValidationError keeps its own violations", () => {
+    const nested = new BootValidationError([
+      { ruleId: "nav/screen-unregistered", check: "inner", message: "inner broke" },
+      { ruleId: "nav/screen-unregistered", check: "inner", message: "inner broke too" },
+    ]);
+    const forwarding = defineFeature("forwarding-check", (r) => {
+      r.bootCheck(() => {
+        throw nested;
+      });
+    });
+    try {
+      validateBoot([forwarding]);
+    } catch (e) {
+      expect(e).toBeInstanceOf(BootValidationError);
+      if (!(e instanceof BootValidationError)) throw e;
+      expect(e.violations.map((v) => v.message)).toEqual(["inner broke", "inner broke too"]);
+      return;
+    }
+    throw new Error("expected BootValidationError");
+  });
+});

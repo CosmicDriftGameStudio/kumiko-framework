@@ -273,8 +273,8 @@ export function validateScreens(
     detailForScreens,
   );
   for (const [screenId, screen] of Object.entries(feature.screens)) {
-    validateScreenPrelude(ctx, screenId, screen);
     rejectUnknownScreenKind(feature.name, screenId, screen);
+    validateScreenPrelude(ctx, screenId, screen);
     validateScreenOfKind(ctx, screenId, screen.type, screen);
   }
 }

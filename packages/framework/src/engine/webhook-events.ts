@@ -41,10 +41,19 @@ export function toEntityWebhookPayload(
   event: { readonly aggregateId: string; readonly payload: Readonly<Record<string, unknown>> },
 ): WebhookPayloadResult {
   const { aggregateId, payload } = event;
-  const shaped =
-    contract.verb === "created"
-      ? { ...payload, id: aggregateId }
-      : { id: aggregateId, changes: payload["changes"], previous: payload["previous"] };
+  const shaped = (() => {
+    switch (contract.verb) {
+      case "created":
+        return { ...payload, id: aggregateId };
+      case "updated":
+      case "deleted":
+        return { id: aggregateId, changes: payload["changes"], previous: payload["previous"] };
+      case undefined:
+        throw new Error(
+          "toEntityWebhookPayload needs an entity-derived contract; a declared contract has no verb.",
+        );
+    }
+  })();
   return parseWebhookPayload(contract, shaped);
 }
 
