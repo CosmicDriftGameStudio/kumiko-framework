@@ -80,7 +80,7 @@
     "packages/framework/src/engine/steps/retry.ts": {
       "Record<string, unknown>": 2
     },
-    "packages/framework/src/pipeline/dispatch-shared.ts": {
+    "packages/framework/src/pipeline/dispatch-context-helpers.ts": {
       "TenantDb": 1
     },
     "packages/guards/src/_lib/guard-kit.ts": {

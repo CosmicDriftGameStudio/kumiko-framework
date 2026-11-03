@@ -172,13 +172,28 @@ export function priorAttemptsOf(data: Record<string, unknown>): number {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
 }
 
+type DeferrableInvocation = JobInvocation & {
+  readonly moveToDelayed: NonNullable<JobInvocation["moveToDelayed"]>;
+};
+
+// Only a run picked up from the queue can be moved to delayed; an inline boot-gate run has neither token nor moveToDelayed.
+export function isQueuedRun(
+  bullJob: JobInvocation,
+  token: string | undefined,
+): bullJob is DeferrableInvocation {
+  return token !== undefined && bullJob.moveToDelayed !== undefined;
+}
+
 export function attemptNumberOf(bullJob: JobInvocation): number {
   return bullJob.attemptsMade + 1 + priorAttemptsOf(bullJob.data);
 }
 
 // BullMQ stops retrying once attemptsMade reaches the configured attempts
 // (`retries + 1`), so this is the attempt whose failure is final.
-export function isFinalAttempt(bullJob: JobInvocation, jobDef: JobDefinition): boolean {
+export function isFinalAttempt(
+  bullJob: JobInvocation,
+  jobDef: Pick<JobDefinition, "retries">,
+): boolean {
   return bullJob.retryable === false || attemptNumberOf(bullJob) >= (jobDef.retries ?? 0) + 1;
 }
 
@@ -271,17 +286,28 @@ type RedisConnectionOptions = {
   tls?: Record<string, never> | undefined;
 };
 
+// A credential with a stray "%" is accepted by URL but not decodable; ioredis then uses it as written.
+function decodeCredential(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    // skip: not percent-encoded, the raw value is the credential
+    return raw;
+  }
+}
+
 export function parseRedisOpts(url: string): RedisConnectionOptions {
   const parsed = new URL(url);
   const result: RedisConnectionOptions = {
-    host: parsed.hostname,
+    // URL keeps the brackets of an IPv6 literal; ioredis and BullMQ need the bare address.
+    host: parsed.hostname.replace(/^\[(.*)\]$/, "$1"),
     port: Number(parsed.port) || 6379,
   };
   if (parsed.pathname.length > 1) {
     result.db = Number(parsed.pathname.slice(1));
   }
-  if (parsed.username) result.username = decodeURIComponent(parsed.username);
-  if (parsed.password) result.password = decodeURIComponent(parsed.password);
+  if (parsed.username) result.username = decodeCredential(parsed.username);
+  if (parsed.password) result.password = decodeCredential(parsed.password);
   if (parsed.protocol === "rediss:") result.tls = {};
   return result;
 }

@@ -366,6 +366,7 @@ export function createSearchEventConsumer(
               ...(unresolvedOps?.eventIds ?? []),
             ],
             retry.reason,
+            { stillBackingOff: true },
           );
           continue;
         }

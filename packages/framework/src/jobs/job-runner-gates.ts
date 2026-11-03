@@ -2,6 +2,7 @@
 import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
 
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { scrubLogText } from "../logging/index.ts";
 import { type JobRun, prepareJobRun } from "./job-runner-context.ts";
 import {
   attemptNumberOf,
@@ -9,6 +10,7 @@ import {
   DEFER_COUNT_KEY,
   deferDelayMs,
   isFinalAttempt,
+  isQueuedRun,
   priorAttemptsOf,
   priorDeferCountOf,
 } from "./job-runner-helpers.ts";
@@ -110,12 +112,11 @@ export async function fanOutPerTenantJob(
   } catch (err) {
     // A retry may still succeed, and a succeeding wrapper reports no completion
     // that could clear an earlier failure, so only the final attempt is reported.
-    const retries = scope.allJobs.get(actualName)?.retries ?? 0;
-    const finalAttempt = bullJob.attemptsMade + 1 >= retries + 1;
+    const finalAttempt = isFinalAttempt(bullJob, scope.allJobs.get(actualName) ?? { retries: 0 });
     logFailedAttempt(scope, {
       job: bullJob.name,
       jobId: bullJob.id ?? "unknown",
-      attempt: bullJob.attemptsMade + 1,
+      attempt: attemptNumberOf(bullJob),
       finalAttempt,
       err,
     });
@@ -133,9 +134,17 @@ async function reportPreRunFailure(
   err: unknown,
 ): Promise<void> {
   const message = err instanceof Error ? err.message : String(err);
-  await scope.options.onJobFailed?.(jobName, bullJob.id ?? "unknown", message, [
-    { level: "error", message, timestamp: Temporal.Now.instant() },
-  ]);
+  try {
+    await scope.options.onJobFailed?.(jobName, bullJob.id ?? "unknown", message, [
+      { level: "error", message, timestamp: Temporal.Now.instant() },
+    ]);
+  } catch (hookErr) {
+    // The caller rethrows the original error; a failing hook (often the same unreachable store) must not replace it as BullMQ's failedReason.
+    scope.errorLogger.warn("onJobFailed hook threw while reporting a pre-run failure", {
+      job: jobName,
+      error: scrubLogText(hookErr instanceof Error ? hookErr.message : String(hookErr)),
+    });
+  }
 }
 
 // prepareJobRun and onJobStart throw before the handler span exists, so the
@@ -178,7 +187,7 @@ export async function resolveJobDefinitionOrFail(
   logFailedAttempt(scope, {
     job: jobName,
     jobId: bullJob.id ?? "unknown",
-    attempt: bullJob.attemptsMade + 1,
+    attempt: attemptNumberOf(bullJob),
     finalAttempt: true,
     err,
   });
@@ -200,8 +209,7 @@ export async function deferOverTenantLimit(
   if (
     maxPerTenant?.onLimit === "defer" &&
     typeof deferTenantId === "string" &&
-    token !== undefined &&
-    bullJob.moveToDelayed &&
+    isQueuedRun(bullJob, token) &&
     (await isOverPerTenantLimit(scope, bullJob.name, deferTenantId, maxPerTenant.limit, {
       activeOnly: true,
       self: { id: bullJob.id, processedOn: bullJob.processedOn },

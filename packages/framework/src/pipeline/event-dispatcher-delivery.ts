@@ -324,6 +324,9 @@ export type DeliveryOutcome = {
   // Ids past the starting cursor the batch handler held for a later turn. The cursor moves over
   // them, so the caller must add them to pending_gaps; held pending ids simply stay there.
   readonly heldNewIds: readonly bigint[];
+  // Every held event of the pass was only waiting out a backoff: no handler call hit the failing
+  // dependency, so the pass says nothing about whether it recovered.
+  readonly heldOnlyWhileBackingOff?: boolean;
 };
 
 // Deliver events to the consumer's handler in events.id order, or — when
@@ -433,7 +436,7 @@ function escalateIntakePausedOutcome(
     `${pendingGapCount} pending gap ranges reached the limit of ${maxPendingGapRanges}; ` +
     `no new events are taken until the held events of tenant ${heldTenant} drain ` +
     `(first held event ${firstHeld ?? "unknown"})`;
-  if (outcome.processed > 0) return { ...outcome, lastError };
+  if (outcome.processed > 0 || outcome.heldOnlyWhileBackingOff) return { ...outcome, lastError };
   const attempts = state.attempts + 1;
   return {
     ...outcome,
@@ -518,7 +521,10 @@ function outcomeOfAppliedBatch(
   const newIds = events.map((row) => row.id).filter((id) => id > startCursor);
   const anyDelivered = deliveredIds.length > 0;
   let lastError: string | null = anyDelivered ? null : (state.lastError ?? null);
-  if (heldIds.length > 0 && batch.heldReason !== null) lastError = batch.heldReason;
+  const failedEventId = heldIds[0] ?? null;
+  const failedReason =
+    failedEventId === null ? undefined : batch.heldReasons.get(String(failedEventId));
+  if (failedReason !== undefined) lastError = failedReason;
   return {
     cursor: newIds.at(-1) ?? startCursor,
     attempts: anyDelivered ? 0 : state.attempts,
@@ -526,9 +532,10 @@ function outcomeOfAppliedBatch(
     deadLettered: false,
     processed: deliveredIds.length,
     failed: heldIds.length,
-    failedEventId: heldIds[0] ?? null,
+    failedEventId,
     resolvedPendingIds: deliveredIds.filter((id) => id <= startCursor),
     heldNewIds: heldIds.filter((id) => id > startCursor),
+    heldOnlyWhileBackingOff: heldIds.length > 0 && !batch.anyHoldAfterAttempt,
   };
 }
 
@@ -584,7 +591,9 @@ type BatchApplyResult =
   | {
       readonly applied: true;
       readonly held: ReadonlySet<string>;
-      readonly heldReason: string | null;
+      // The reason of the first hold per event, so lastError names the event failedEventId points at.
+      readonly heldReasons: ReadonlyMap<string, string>;
+      readonly anyHoldAfterAttempt: boolean;
     };
 
 async function tryApplyBatch(
@@ -593,16 +602,20 @@ async function tryApplyBatch(
   context: AppContext,
 ): Promise<BatchApplyResult> {
   const held = new Set<string>();
-  let heldReason: string | null = null;
+  const heldReasons = new Map<string, string>();
+  let anyHoldAfterAttempt = false;
   const turn: BatchTurnControl = {
-    holdForRetry: (eventIds, reason) => {
-      for (const id of eventIds) held.add(id);
-      heldReason ??= reason;
+    holdForRetry: (eventIds, reason, options) => {
+      for (const id of eventIds) {
+        held.add(id);
+        if (!heldReasons.has(id)) heldReasons.set(id, reason);
+      }
+      if (options?.stillBackingOff !== true) anyHoldAfterAttempt = true;
     },
   };
   try {
     await applyBatch(consumer, events, context, turn);
-    return { applied: true, held, heldReason };
+    return { applied: true, held, heldReasons, anyHoldAfterAttempt };
   } catch (e) {
     const errMessage = e instanceof Error ? e.message : String(e);
     context.log?.warn(

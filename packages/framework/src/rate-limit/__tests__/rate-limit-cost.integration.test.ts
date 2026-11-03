@@ -21,6 +21,20 @@ const bulkFeature = defineFeature("rl-cost", (r) => {
     rateLimit: { per: "tenant+handler", limit: 20, windowSeconds: 600 },
     rateLimitCost: () => Number.NaN,
   });
+  for (const [name, cost, limit] of [
+    ["zero-cost", 0, 2],
+    ["negative-cost", -5, 2],
+    ["fractional-cost", 1.2, 3],
+  ] as const) {
+    r.writeHandler({
+      name,
+      schema: z.object({ items: z.array(z.string()) }),
+      handler: async () => ({ isSuccess: true as const, data: {} }),
+      access: { roles: ["Admin"] },
+      rateLimit: { per: "tenant+handler", limit, windowSeconds: 600 },
+      rateLimitCost: () => cost,
+    });
+  }
 });
 
 let stack: TestStack;
@@ -68,5 +82,20 @@ describe("rateLimitCost books tokens per payload element", () => {
   test("a cost callback returning NaN fails the write instead of crashing", async () => {
     const res = await stack.http.write("rl-cost:write:broken-cost", items(1), admin);
     expect(res.status).toBe(500);
+  });
+
+  test("a cost below 1 still books one token, so the bucket cannot be bypassed", async () => {
+    for (const handler of ["zero-cost", "negative-cost"]) {
+      const type = `rl-cost:write:${handler}`;
+      expect((await stack.http.write(type, items(1), admin)).status).toBe(200);
+      expect((await stack.http.write(type, items(1), admin)).status).toBe(200);
+      expect((await stack.http.write(type, items(1), admin)).status).toBe(429);
+    }
+  });
+
+  test("a fractional cost rounds up: 1.2 books two tokens", async () => {
+    const type = "rl-cost:write:fractional-cost";
+    expect((await stack.http.write(type, items(1), admin)).status).toBe(200);
+    expect((await stack.http.write(type, items(1), admin)).status).toBe(429);
   });
 });

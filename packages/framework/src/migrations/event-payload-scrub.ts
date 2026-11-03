@@ -53,7 +53,7 @@ export type ScrubEventPayloadOptions = {
   // Counts what would be scrubbed and writes nothing.
   readonly dryRun?: boolean;
   readonly batchSize?: number;
-  readonly logger?: Pick<Logger, "error"> & Partial<Pick<Logger, "warn" | "debug">>;
+  readonly logger?: Pick<Logger, "error"> & Partial<Pick<Logger, "warn" | "info" | "debug">>;
 };
 
 export type ScrubEventPayloadResult = {
@@ -241,7 +241,10 @@ async function scrubAllBatches(
           failureMessage:
             "Projection rebuild after an event payload scrub failed; the tables stay queued in kumiko_pending_rebuilds",
         });
-  log.debug?.("Event payload scrub finished", {
+  // A real run is an audit trail of a destructive cross-tenant rewrite, so it must survive prod log levels.
+  (options.dryRun ? log.debug : log.info)?.("Event payload scrub finished", {
+    migrationId,
+    dryRun: options.dryRun === true,
     eventType: options.eventType,
     fields: options.fields,
     reason: options.reason,
@@ -250,6 +253,8 @@ async function scrubAllBatches(
   return { ...totals, queuedTables: [...queuedTables], rebuild };
 }
 
+// Run it in a maintenance window: batches page by id over committed rows, so an event that
+// commits below the cursor while the run is in progress is not scrubbed.
 export function scrubEventPayloadFields(
   db: DbConnection,
   registry: Registry,

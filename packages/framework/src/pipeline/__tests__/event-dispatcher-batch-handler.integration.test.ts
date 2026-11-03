@@ -316,4 +316,74 @@ describe("event-dispatcher — batchHandler", () => {
     expect(released?.status).toBe("idle");
     expect(released?.lastError).toBeNull();
   });
+
+  test("passes that only wait out a backoff at the pending gap limit do not count as failed attempts", async () => {
+    const consumerName = "batchhandlerintegration:gap-limit-backoff";
+    const consumer: EventConsumer = {
+      name: consumerName,
+      errorPolicy: { maxAttempts: 2 },
+      batchHandler: async (events, _ctx, turn) => {
+        const held = events.filter((event) => event.tenantId === admin.tenantId);
+        turn.holdForRetry(
+          held.map((event) => event.id),
+          "tenant index backing off",
+          { stillBackingOff: true },
+        );
+      },
+      handler: async () => {
+        throw new Error("per-event fallback must not run while the batch succeeds");
+      },
+    };
+
+    const dispatcher = buildDispatcher([consumer], 200, 2);
+    await dispatcher.ensureRegistered();
+
+    await appendWidget("held one");
+    await appendOtherTenantWidget("other one");
+    await appendWidget("held two");
+    await appendOtherTenantWidget("other two");
+    await appendWidget("held three");
+    await appendOtherTenantWidget("other three");
+    await dispatcher.runOnce();
+
+    await appendOtherTenantWidget("other four");
+    for (let pass = 0; pass < 4; pass++) await dispatcher.runOnce();
+
+    const state = await getConsumerState(stack.db, consumerName);
+    expect(state?.status).toBe("idle");
+    expect(state?.attempts).toBe(0);
+    expect(state?.lastError).toContain("3 pending gap ranges reached the limit of 2");
+  });
+
+  test("with two holding tenants lastError carries the reason of the event failedEventId points at", async () => {
+    const consumerName = "batchhandlerintegration:hold-reasons";
+    const consumer: EventConsumer = {
+      name: consumerName,
+      batchHandler: async (events, _ctx, turn) => {
+        const ofOtherTenant = events.filter((event) => event.tenantId !== admin.tenantId);
+        const ofAdminTenant = events.filter((event) => event.tenantId === admin.tenantId);
+        turn.holdForRetry(
+          ofOtherTenant.map((event) => event.id),
+          "reason of the other tenant",
+        );
+        turn.holdForRetry(
+          ofAdminTenant.map((event) => event.id),
+          "reason of the admin tenant",
+        );
+      },
+      handler: async () => {
+        throw new Error("per-event fallback must not run while the batch succeeds");
+      },
+    };
+
+    const dispatcher = buildDispatcher([consumer]);
+    await dispatcher.ensureRegistered();
+
+    await appendWidget("held admin");
+    await appendOtherTenantWidget("held other");
+    await dispatcher.runOnce();
+
+    const state = await getConsumerState(stack.db, consumerName);
+    expect(state?.lastError).toBe("reason of the admin tenant");
+  });
 });

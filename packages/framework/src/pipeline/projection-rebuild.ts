@@ -162,6 +162,22 @@ type RebuildDeps = {
 
 const TENANT_COLUMN_SUFFIX = ".tenant_id";
 
+function sampledRowIds(drift: ColumnDriftResult): Set<string> {
+  return new Set(drift.sample.map((s) => s.slice(0, s.lastIndexOf("."))));
+}
+
+export function columnDriftLikelyCause(drift: ColumnDriftResult): string {
+  // A stream-tenant move (boot backfill) changes the stream's tenant, so the replayed row differs only in tenant_id.
+  // A truncated or empty sample proves nothing about the rows outside it.
+  const onlyTenantColumn =
+    drift.sample.length > 0 &&
+    sampledRowIds(drift).size === drift.rowCount &&
+    drift.sample.every((s) => s.endsWith(TENANT_COLUMN_SUFFIX));
+  return onlyTenantColumn
+    ? "Expected cause: a stream-tenant move by the boot backfill (the replay carries the new stream tenant)."
+    : "Likely cause: a legacy direct-write predating the row's event history (#494), or a sensitive custom field pending #972. Investigate if unexpected.";
+}
+
 // Ops-facing log line for countColumnDrift's result. No-op when clean.
 function warnOnColumnDrift(
   projectionName: string,
@@ -170,16 +186,12 @@ function warnOnColumnDrift(
 ): void {
   // skip: no drift found — nothing to warn about
   if (drift.rowCount === 0) return;
-  const sampledIds = new Set(drift.sample.map((s) => s.slice(0, s.lastIndexOf("."))));
+  const sampledIds = sampledRowIds(drift);
   const countLabel =
     sampledIds.size < drift.rowCount
       ? `${drift.rowCount} (sample truncated)`
       : String(drift.rowCount);
-  // A stream-tenant move (boot backfill) changes the stream's tenant, so the replayed row differs only in tenant_id.
-  const onlyTenantColumn = drift.sample.every((s) => s.endsWith(TENANT_COLUMN_SUFFIX));
-  const likelyCause = onlyTenantColumn
-    ? "Expected cause: a stream-tenant move by the boot backfill (the replay carries the new stream tenant)."
-    : "Likely cause: a legacy direct-write predating the row's event history (#494), or a sensitive custom field pending #972. Investigate if unexpected.";
+  const likelyCause = columnDriftLikelyCause(drift);
   log.warn(
     `projection "${projectionName}": ${countLabel} live row(s) in "${tableName}" have ` +
       `column values that differ from the freshly-replayed shadow (sample: ${drift.sample.join(", ")}). ` +

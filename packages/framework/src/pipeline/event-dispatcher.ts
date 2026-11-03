@@ -114,7 +114,13 @@ export type EventConsumerBatchHandler = (
 // up to EventDispatcherOptions.maxPendingGapRanges: past it the consumer escalates like a
 // poison event so the cursor row stays bounded.
 export type BatchTurnControl = {
-  readonly holdForRetry: (eventIds: readonly string[], reason: string) => void;
+  // stillBackingOff marks a hold that waits out an earlier failure without calling the failing
+  // dependency again; such a pass does not count towards the pending-gap-limit escalation.
+  readonly holdForRetry: (
+    eventIds: readonly string[],
+    reason: string,
+    options?: { readonly stillBackingOff?: boolean },
+  ) => void;
 };
 
 // Per-consumer error policy. When skipApplyErrors is true and handler throws,

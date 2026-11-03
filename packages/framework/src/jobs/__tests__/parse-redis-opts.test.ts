@@ -32,4 +32,12 @@ describe("parseRedisOpts", () => {
   test("turns on TLS for rediss URLs", () => {
     expect(parseRedisOpts("rediss://cache:6380").tls).toEqual({});
   });
+
+  test("strips the brackets of an IPv6 host", () => {
+    expect(parseRedisOpts("redis://[::1]:6379")).toEqual({ host: "::1", port: 6379 });
+  });
+
+  test("a password with a stray percent sign is used as written instead of crashing", () => {
+    expect(parseRedisOpts("redis://:p%zz@cache:6379").password).toBe("p%zz");
+  });
 });

@@ -216,4 +216,71 @@ describe("pre-run job failures", () => {
       await purgeWorkerKeys(queueNamePrefix);
     }
   });
+
+  test("a throwing onJobFailed hook does not replace the original pre-run error", async () => {
+    const feature = defineFeature("prerunhook", (r) => {
+      r.job("boot", { trigger: { manual: true }, runOnBoot: true, retries: 0 }, async () => {});
+    });
+    const { context, errors } = captureContext();
+    const queueNamePrefix = uniquePrefix("hook");
+    let hookCalls = 0;
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      onJobStart: () => {
+        throw new Error("run log unreachable");
+      },
+      onJobFailed: () => {
+        hookCalls += 1;
+        throw new Error("failure sink unreachable");
+      },
+    });
+    const rawQueue = openRawQueue(queueNamePrefix);
+    try {
+      await runner.start();
+      await waitFor(() => expect(hookCalls).toBe(1));
+      await waitFor(async () => expect(await rawQueue.getFailedCount()).toBe(1));
+      const [failed] = await rawQueue.getFailed();
+      expect(failed?.failedReason).toBe("run log unreachable");
+      expect(errors.some((entry) => entry.msg === "job failed")).toBe(true);
+    } finally {
+      await runner.stop();
+      await rawQueue.close();
+      await purgeWorkerKeys(queueNamePrefix);
+    }
+  });
+
+  test("a perTenant wrapper that spent its budget through _priorAttempts is reported as final", async () => {
+    const feature = defineFeature("prerunprior", (r) => {
+      r.job("fanout", { trigger: { manual: true }, perTenant: true, retries: 1 }, async () => {});
+    });
+    const { context, errors } = captureContext();
+    const failures: Failure[] = [];
+    const queueNamePrefix = uniquePrefix("prior");
+    const runner = createJobRunner({
+      registry: createRegistry([feature]),
+      context,
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      onJobFailed: (jobName, _id, error) => {
+        failures.push({ jobName, error });
+      },
+    });
+    const rawQueue = openRawQueue(queueNamePrefix);
+    try {
+      await runner.start();
+      await rawQueue.add("_perTenant:prerunprior:job:fanout", { _priorAttempts: 1 });
+      await waitFor(() => expect(failures).toHaveLength(1));
+      await waitFor(() => expect(failedLines(errors)).toHaveLength(1));
+      expect(failedLines(errors)[0]?.data).toMatchObject({ attempt: 2, final: true });
+    } finally {
+      await runner.stop();
+      await rawQueue.close();
+      await purgeWorkerKeys(queueNamePrefix);
+    }
+  });
 });

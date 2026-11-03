@@ -17,6 +17,7 @@ import {
   HANDLER_DEFER_COUNT_KEY,
   hasDeferBudgetLeft,
   isJobDeferral,
+  isQueuedRun,
   priorDeferCountOf,
   readTraceContext,
   resolveJobTz,
@@ -218,7 +219,7 @@ export async function applyHandlerDeferral(
   deferral: JobDeferral | undefined,
   token: string | undefined,
 ): Promise<"deferred" | "not-deferred"> {
-  if (!deferral || token === undefined || !bullJob.moveToDelayed) return "not-deferred";
+  if (!deferral || !isQueuedRun(bullJob, token)) return "not-deferred";
   // Run-log bookkeeping must not turn a defer into a failure.
   try {
     await scope.options.onJobDeferred?.(run.jobName, run.jobId, run.meta);

@@ -55,6 +55,8 @@ export function laneForJob(def: { readonly runIn?: JobRunIn | undefined }): JobR
 // One getJobs per queue reads the requested lists in a single Lua script, so a job
 // moving from waiting to active between two separate reads can no longer vanish
 // from the count; that gap let a third dispatch pass the cap in CI.
+// Only this snapshot is atomic: the caller's check and its following queue.add are two steps,
+// so concurrent dispatches for one tenant can still pass together and the cap stays soft.
 // `activeOnly` + `self` serve the defer check, which runs inside the job being
 // counted: it must not see waiting jobs or itself, and only counts jobs that
 // became active before it. Without that order, workers that fetch a burst of
