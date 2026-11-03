@@ -38,6 +38,18 @@ export type ApiDocsProblem =
       readonly locale: string;
     }
   | {
+      readonly kind: "webhookExampleVersionMismatch";
+      readonly qn: string;
+      readonly fileVersion: number;
+      readonly contractVersion: number;
+    }
+  | { readonly kind: "unusedWebhookExample"; readonly fileName: string }
+  | {
+      readonly kind: "scopeSlugCollision";
+      readonly slug: string;
+      readonly domains: readonly string[];
+    }
+  | {
       readonly kind: "invalidTextOverride";
       readonly locale: string;
       readonly key: string;
@@ -64,6 +76,12 @@ export function formatApiDocsProblem(problem: ApiDocsProblem): string {
       return `[webhookDeliveryTextMissing] Webhook events are public but apiDocs.webhookDelivery has no \`${problem.locale}\` text.`;
     case "webhookEventWithoutDescriptionTranslation":
       return `[webhookEventWithoutDescriptionTranslation] ${problem.qn} has no \`${problem.locale}\` description translation (key ${webhookEventDescriptionKey(problem.qn)}).`;
+    case "webhookExampleVersionMismatch":
+      return `[webhookExampleVersionMismatch] The recorded example for ${problem.qn} is version ${problem.fileVersion}, the contract is version ${problem.contractVersion}, so the example is not shown.`;
+    case "unusedWebhookExample":
+      return `[unusedWebhookExample] The webhook example ${problem.fileName} names no event that a token scope lists.`;
+    case "scopeSlugCollision":
+      return `[scopeSlugCollision] The scopes ${problem.domains.join(", ")} share the reference page slug "${problem.slug}". Rename one of them.`;
     case "invalidTextOverride":
       return `[invalidTextOverride] apiDocs.texts.${problem.locale}["${problem.key}"]: ${problem.cause}`;
   }

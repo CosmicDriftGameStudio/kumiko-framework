@@ -128,6 +128,13 @@ export function localizedLabels(
   return merged;
 }
 
+function endsAtKeyBoundary(key: string, suffix: string): boolean {
+  if (!key.endsWith(suffix)) return false;
+  if (key.length === suffix.length || suffix.startsWith(":") || suffix.startsWith(".")) return true;
+  const before = key[key.length - suffix.length - 1];
+  return before === ":" || before === ".";
+}
+
 /** `labelsForSuffix` with the locale-package completion of `localizedLabels`: the owner
  *  key behind the suffix is preferred over a locale package key that ends the same way. */
 export function localizedLabelsForSuffix(
@@ -137,21 +144,25 @@ export function localizedLabelsForSuffix(
   const match = suffixMatch(translations, suffix);
   if (match === undefined) return {};
   const owner = Object.keys(translations).find(
-    (key) => !key.startsWith(LOCALE_PACKAGE_PREFIX) && key.endsWith(suffix),
+    (key) => !key.startsWith(LOCALE_PACKAGE_PREFIX) && endsAtKeyBoundary(key, suffix),
   );
   return localizedLabels(translations, owner ?? match.key);
 }
 
-/** Entity field label per locale; `field` may be a dotted path, only its last segment names the field. */
+/** Entity field label per locale; `field` may be a dotted path, only its last segment names the field.
+ *  With `ownerFeature` that feature's own key wins over a same-named entity of another feature. */
 export function entityFieldLabels(
   translations: TranslationKeys,
   entity: string,
   field: string,
+  ownerFeature?: string,
 ): Readonly<Record<string, string>> {
-  return localizedLabelsForSuffix(
-    translations,
-    `:entity:${entity}:field:${field.slice(field.lastIndexOf(".") + 1)}`,
-  );
+  const tail = `entity:${entity}:field:${field.slice(field.lastIndexOf(".") + 1)}`;
+  if (ownerFeature !== undefined) {
+    const own = localizedLabels(translations, `${ownerFeature}:${tail}`);
+    if (Object.keys(own).length > 0) return own;
+  }
+  return localizedLabelsForSuffix(translations, `:${tail}`);
 }
 
 function lastSegmentOf(qualifiedId: string): string {

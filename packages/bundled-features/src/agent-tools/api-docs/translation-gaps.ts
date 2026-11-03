@@ -29,7 +29,7 @@ export function findTitleAndFieldLabelProblems(
       const labels =
         Object.keys(own).length > 0 || entity === undefined
           ? own
-          : entityFieldLabels(translations, entity, field);
+          : entityFieldLabels(translations, entity, field, handler.qn.split(":")[0]);
       return checkedLocales.flatMap((locale): ApiDocsProblem[] =>
         labels[locale] === undefined
           ? [{ kind: "fieldLabelMissing", qn: handler.qn, field, locale }]

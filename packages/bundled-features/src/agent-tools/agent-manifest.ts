@@ -24,7 +24,7 @@ import {
   screenTitleLabels,
 } from "./labels.ts";
 import { recordManifestDenyQns } from "./manifest-deny-qns.ts";
-import { isExplicitlyAgentHidden } from "./tool-catalog.ts";
+import { reachableQueryEntity } from "./tool-catalog.ts";
 import type {
   AgentManifest,
   AgentManifestEntity,
@@ -137,16 +137,27 @@ function buildEntities(
 
 const FEATURE_DESCRIPTION_MAX_CHARS = 300;
 
-// Only ". " before a capital ends the sentence, so "e.g. the" and "Art. 15" stay whole.
-const SENTENCE_END = /\.\s+(?=\p{Lu})/u;
+// A sentence ends at ./!/? plus a capital; a capital with its own period ("B." in "z. B.")
+// continues the abbreviation, and a known abbreviation before the period is no end either.
+const SENTENCE_END = /[.!?]\s+(?=\p{Lu})(?!\p{Lu}\.)/gu;
+const ABBREVIATION_BEFORE_END = /(?:^|[^\p{L}])(?:e\.g|i\.e|z\. ?B|d\. ?h|u\. ?a|Dr|Art|Nr|vs)\.$/u;
+const TRUNCATION_MARK = "…";
+
+function firstSentence(text: string): string {
+  for (const end of text.matchAll(SENTENCE_END)) {
+    const candidate = text.slice(0, end.index + 1);
+    if (!ABBREVIATION_BEFORE_END.test(candidate)) return candidate;
+  }
+  return text;
+}
 
 /** The manifest is prompt payload; the full text stays in `FeatureDefinition.description`
- *  for the docs generators. */
+ *  for the docs generators. Cut by code point so no surrogate pair is split. */
 function leadSentence(description: string): string {
-  const text = description.replace(/\s+/g, " ").trim();
-  const end = SENTENCE_END.exec(text);
-  const sentence = end === null ? text : text.slice(0, end.index + 1);
-  return sentence.slice(0, FEATURE_DESCRIPTION_MAX_CHARS);
+  const sentence = firstSentence(description.replace(/\s+/g, " ").trim());
+  const codePoints = Array.from(sentence);
+  if (codePoints.length <= FEATURE_DESCRIPTION_MAX_CHARS) return sentence;
+  return codePoints.slice(0, FEATURE_DESCRIPTION_MAX_CHARS - 1).join("") + TRUNCATION_MARK;
 }
 
 function buildFeatures(
@@ -277,22 +288,20 @@ function withoutOrphanedNavs(navs: readonly AgentManifestNav[]): readonly AgentM
   }
 }
 
-// Qualified handler, screen and nav ids all start with the owning feature name.
-function featureNameOf(qualifiedId: string): string {
-  const idx = qualifiedId.indexOf(":");
-  return idx === -1 ? qualifiedId : qualifiedId.slice(0, idx);
-}
-
 function visibleFeatureNamesOf(
+  registry: RegistryManifestView,
   handlers: readonly AgentManifestHandler[],
   screens: readonly AgentManifestScreen[],
   navs: readonly AgentManifestNav[],
+  workspaces: readonly AgentManifestWorkspace[],
 ): ReadonlySet<string> {
-  return new Set(
-    [...handlers.map((h) => h.qn), ...screens.map((s) => s.id), ...navs.map((n) => n.id)].map(
-      featureNameOf,
-    ),
-  );
+  const owners = [
+    ...handlers.map((h) => registry.getHandlerFeature(h.qn)),
+    ...screens.map((s) => registry.getScreenFeature(s.id)),
+    ...navs.map((n) => registry.getNavFeature(n.id)),
+    ...workspaces.map((w) => registry.getWorkspaceFeature(w.id)),
+  ];
+  return new Set(owners.filter((owner): owner is string => owner !== undefined));
 }
 
 function entitiesOfQueryToolsFor(
@@ -300,13 +309,10 @@ function entitiesOfQueryToolsFor(
   roles: readonly string[],
   denyQns: ReadonlySet<string>,
 ): readonly string[] {
-  const names: string[] = [];
-  for (const [qn, def] of registry.getAllQueryHandlers()) {
-    const entityName = registry.getHandlerEntity(qn);
-    if (entityName === undefined || denyQns.has(qn) || isExplicitlyAgentHidden(def)) continue;
-    if (hasAccess({ roles }, def.access)) names.push(entityName);
-  }
-  return names;
+  return [...registry.getAllQueryHandlers()].flatMap(([qn, def]) => {
+    const entityName = reachableQueryEntity(registry, qn, def, { roles }, denyQns);
+    return entityName === undefined ? [] : [entityName];
+  });
 }
 
 // A reference target is "entity" or "<feature>:entity"; registry entity keys are the bare name.
@@ -472,7 +478,10 @@ export function buildAgentManifest(
     options.locale,
   );
   const workspaces = buildWorkspaces(workspaceMap, translations, roles, options.locale);
-  const features = buildFeatures(registry.features, visibleFeatureNamesOf(handlers, screens, navs));
+  const features = buildFeatures(
+    registry.features,
+    visibleFeatureNamesOf(registry, handlers, screens, navs, workspaces),
+  );
   const entities = buildEntities(
     registry.getAllEntities(),
     translations,

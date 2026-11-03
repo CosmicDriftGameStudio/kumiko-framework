@@ -28,6 +28,7 @@ export {
   type NamedWebhookExample,
   OPENAPI_FILE,
   type ResolvedApiDocsConfig,
+  resolveApiDocsConfig,
   WebhookExampleFileSchema,
 } from "./api-docs/index.ts";
 export { AGENT_TOOLS_FEATURE_NAME, createAgentToolsFeature } from "./feature.ts";

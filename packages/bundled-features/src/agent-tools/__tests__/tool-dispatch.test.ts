@@ -324,6 +324,40 @@ describe("dispatchToolCall — server write tools", () => {
     ]);
   });
 
+  test("injectsVersion without a detail handler is a logged internal error, not an invalid tool call", async () => {
+    const dispatcher = recordingDispatcher();
+    const logged: unknown[] = [];
+    const table = new Map<string, ToolDispatchDescriptor>([
+      [
+        "broken_approve",
+        {
+          kind: "server",
+          op: "write",
+          qn: "vendor-feature:write:vendor:approve",
+          risk: "mid",
+          injectsVersion: true,
+        },
+      ],
+    ]);
+    const result = await dispatchToolCall(
+      request({
+        dispatcher,
+        dispatchTable: table,
+        toolName: "broken_approve",
+        input: { id: "vendor-1" },
+        log: { error: (...args: unknown[]) => void logged.push(args) },
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "Tool failed unexpectedly",
+      code: "internal_error",
+    });
+    expect(logged).toHaveLength(1);
+    expect(dispatcher.writeCalls).toHaveLength(0);
+  });
+
   test("a write rejection becomes an error result, never a throw, and never falls back to the raw payload", async () => {
     const dispatcher = recordingDispatcher({
       query: async () => ({ id: "vendor-1", version: 5 }),
