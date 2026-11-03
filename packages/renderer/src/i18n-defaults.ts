@@ -258,6 +258,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.upload.remove": "Remove file",
     "kumiko.field.dropzone.title": "Drop files here or click to choose",
     "kumiko.field.dropzone.limit-size": "up to {size} per file",
+    "kumiko.field.dropzone.file-unavailable": "File no longer available",
     "kumiko.field.dropzone.limit-count": "up to {count} files",
     "kumiko.widget.pdf-preview.loading": "Loading PDF…",
     "kumiko.widget.pdf-preview.pageOf": "Page {page} of {pages}",

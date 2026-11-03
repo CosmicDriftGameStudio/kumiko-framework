@@ -107,7 +107,7 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
         CONNECT_ADDRESS_LOCK_NAMESPACE,
         normalizeMailAddress(payload.address),
       );
-      const existing = await findMailboxByAddress(ctx, tenantId, payload.address);
+      const existing = await findMailboxByAddress(ctx, tenantId, payload.address, ownerUserId);
       if (existing) {
         const matched = connectConflictOf(existing, {
           authMethod: payload.authMethod,

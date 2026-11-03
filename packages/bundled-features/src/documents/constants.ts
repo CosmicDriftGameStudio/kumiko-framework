@@ -29,6 +29,10 @@ export const DocumentsQueries = {
   overview: "documents:query:overview",
 } as const;
 
+export const DocumentsReasons = {
+  tooManyLinkedDocuments: "too_many_linked_documents",
+} as const;
+
 export const EXPIRY_STATES = ["expired", "expiring", "valid", "none"] as const;
 export type ExpiryState = (typeof EXPIRY_STATES)[number];
 

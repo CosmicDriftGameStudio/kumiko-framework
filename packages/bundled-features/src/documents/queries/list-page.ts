@@ -1,7 +1,7 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { DocumentsQueries } from "../constants.ts";
+import { DocumentsQueries, DocumentsReasons } from "../constants.ts";
 
 const LINK_PAGE_SIZE = 200;
 // Well below the Postgres bind-parameter limit (65535) that the `id IN (...)` filter would hit.
@@ -48,7 +48,7 @@ export async function linkedDocumentIds(
       if (typeof documentId === "string") ids.push(documentId);
     }
     if (ids.length > MAX_LINKED_DOCUMENTS) {
-      throw new UnprocessableError("too-many-linked-documents", {
+      throw new UnprocessableError(DocumentsReasons.tooManyLinkedDocuments, {
         message: `documents: record ${target.entityType}:${target.entityId} has more than ${MAX_LINKED_DOCUMENTS} linked documents; the id list would exceed the query parameter limit`,
         details: { limit: MAX_LINKED_DOCUMENTS },
       });

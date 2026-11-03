@@ -1063,6 +1063,36 @@ describe("backfillEventPiiEncryption: owner re-key", () => {
     );
   });
 
+  test("owner changed X to Y and a newer event cleared the field to null: the older X value is not re-keyed onto Y", async () => {
+    const userX = generateId();
+    const userY = generateId();
+    const memoId = generateId();
+    await appendPlain(memoId, "memo", "memo.created", {
+      id: memoId,
+      ownerId: userX,
+      body: "Alice",
+    });
+    armKms();
+    await backfillEventPiiEncryption(testDb.db, registry);
+    await appendPlain(
+      memoId,
+      "memo",
+      "memo.updated",
+      { changes: { ownerId: userY, body: null }, previous: { id: memoId, ownerId: userX } },
+      1,
+    );
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${memoTable.tableName}" (id, tenant_id, owner_id, body) VALUES ($1, $2, $3, $4)`,
+      [memoId, TENANT, userY, null],
+    );
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(result.rekeyedFields).toBe(0);
+    expect(await createdBody(memoId)).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${userX}:`);
+  });
+
   test("user-keyed value whose key is already erased becomes the erased sentinel", async () => {
     const userX = generateId();
     const memoId = generateId();

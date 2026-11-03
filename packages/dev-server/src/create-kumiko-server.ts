@@ -288,6 +288,7 @@ export async function createKumikoServer(
   const buildBundle = options._buildBundle ?? buildClient;
   const clientBundles = await buildClientBundles(entries, buildBundle);
   const stylesheet = await (options._startStylesheet ?? startDevStylesheet)(options);
+  let stop: (() => Promise<void>) | undefined;
   try {
     const templates = await loadHtmlTemplates(entries, options.htmlPath);
 
@@ -315,7 +316,7 @@ export async function createKumikoServer(
     const server = startDevHttpServer(port, handleFetch, stack);
 
     const watcherAbort = new AbortController();
-    const stop = createDevServerStop({
+    stop = createDevServerStop({
       watcherAbort,
       killTailwind: stylesheet?.kill,
       server,
@@ -353,8 +354,10 @@ export async function createKumikoServer(
       sseChannelPrefix: dbMode.sseChannelPrefix,
     };
   } catch (err) {
-    // No stop() exists yet, so a failed boot would leave the --watch child running.
-    stylesheet?.kill();
+    // Before stop() exists only the --watch child needs killing; once it exists, it tears down
+    // the server, stack, runners and watcher that a late failure would otherwise leak.
+    if (stop) await stop();
+    else stylesheet?.kill();
     throw err;
   }
 }

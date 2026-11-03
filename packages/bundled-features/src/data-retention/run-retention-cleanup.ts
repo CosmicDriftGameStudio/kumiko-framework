@@ -65,6 +65,7 @@ import {
   type EntityDefinition,
   type EntityId,
   entityHasAnonymizableSubjectField,
+  isUnchangedValue,
   type Registry,
   type SessionUser,
   type TenantId,
@@ -494,11 +495,12 @@ async function rowNeedsAnonymize(
   return false;
 }
 
-// Objects and arrays (JSON fields) are never identical by reference, so they compare by content.
-function sameAnonymizedValue(current: unknown, target: unknown): boolean {
+// Objects and arrays (JSON fields) are never identical by reference, so they compare by content;
+// jsonb returns keys in its own order, so the comparison must not depend on key order.
+export function sameAnonymizedValue(current: unknown, target: unknown): boolean {
   if (current === target) return true;
   if (typeof target !== "object" || target === null) return false;
-  return JSON.stringify(current) === JSON.stringify(target);
+  return isUnchangedValue(current, target);
 }
 
 // Anonymize every matching row via the executor (event → rebuild-safe).

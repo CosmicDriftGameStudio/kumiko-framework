@@ -25,7 +25,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "../crypto/index.ts";
-import { selectMany } from "../db/query.ts";
+import { coerceRow, selectMany } from "../db/query.ts";
 import { filterReadFields } from "../engine/field-access.ts";
 import { shiftParams, tableNameOf } from "../engine/ownership.ts";
 import { parseRefTargetEntityName } from "../engine/parse-ref-target.ts";
@@ -44,6 +44,7 @@ import { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
+import { extractTableInfo } from "./table-info.ts";
 import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
@@ -168,7 +169,10 @@ async function resolveRefAccessScope(
     `SELECT * FROM "${refTableName}" WHERE "id" = ANY($1::uuid[])${tenantClause} AND ${shifted.sqlText}`,
     params,
   );
-  return { kind: "restricted", readableRows: rows };
+  // The raw SELECT * rows carry driver column names; coerce like selectMany so field-level
+  // read rules and PII decryption see the camelCase entity row.
+  const info = extractTableInfo(refTable);
+  return { kind: "restricted", readableRows: rows.map((row) => coerceRow(row, info)) };
 }
 
 // Per-row, not Promise.all: a single legacy/backfilled row without a valid

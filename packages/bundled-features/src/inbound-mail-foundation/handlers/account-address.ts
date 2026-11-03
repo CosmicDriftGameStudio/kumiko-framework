@@ -27,10 +27,13 @@ function textOf(value: unknown): string {
 }
 
 // A live mailbox wins over a disconnected one: connecting next to a live mailbox is always a duplicate.
+// Among equals the mailbox of the wanted owner kind (shared or personal) wins, then the smallest id,
+// so the outcome does not depend on projection row order.
 export async function findMailboxByAddress(
   ctx: Pick<HandlerContext, "db">,
   tenantId: string,
   address: string,
+  wantedOwnerUserId: string | null,
 ): Promise<AddressMatch | undefined> {
   const wanted = normalizeMailAddress(address);
   const rows = await ctx.db.selectMany(mailAccountsProjectionTable, { tenantId });
@@ -51,7 +54,10 @@ export async function findMailboxByAddress(
       status: textOf(row["status"]),
     });
   }
-  return matches.find((m) => m.status !== InboundMailAccountStatuses.disconnected) ?? matches[0];
+  const rank = (m: AddressMatch): number =>
+    (m.status === InboundMailAccountStatuses.disconnected ? 2 : 0) +
+    ((m.ownerUserId === null) === (wantedOwnerUserId === null) ? 0 : 1);
+  return [...matches].sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id))[0];
 }
 
 export type ConnectConflict =

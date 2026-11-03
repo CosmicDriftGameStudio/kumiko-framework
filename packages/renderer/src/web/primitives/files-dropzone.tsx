@@ -9,7 +9,7 @@ import { isSessionEndedCause } from "../../session/session-ended.tsx";
 import { FileCountLimitError, uploadErrorKey } from "../lib/upload-error-key.ts";
 import { type FileRefTarget, uploadFileRef } from "../lib/upload-file-ref.ts";
 import { UploadZone } from "../widgets/upload-zone.tsx";
-import { useFileMeta } from "./file-thumbnail.tsx";
+import { useFileMetaResult } from "./file-thumbnail.tsx";
 
 export type FilesDropzoneInputProps = {
   readonly id: string;
@@ -27,10 +27,12 @@ export type FilesDropzoneInputProps = {
 };
 
 function FileRefName({ fileId }: { readonly fileId: string }): ReactNode {
-  const meta = useFileMeta(fileId);
+  const t = useTranslation();
+  const { meta, settled } = useFileMetaResult(fileId);
   // A non-UUID value has no meta to resolve; show it as is.
   if (!isUuid(fileId)) return fileId;
-  return meta?.fileName ?? "…";
+  if (meta) return meta.fileName;
+  return settled ? t("kumiko.field.dropzone.file-unavailable") : "…";
 }
 
 export function FilesDropzoneInput({

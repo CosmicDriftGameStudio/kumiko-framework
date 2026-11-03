@@ -287,6 +287,14 @@ import { createInMemorySuspendedRunFetcher } from "../postgres-resume-loop";
 import { runResumeLoop, type SuspendableRun } from "../resume-loop";
 import { startAndRunWorkflow } from "../workflow-runner";
 
+// No Postgres in-memory: wait steps read their wake time from this stand-in for the database clock.
+function makeAppendOnlyCtx() {
+  return {
+    events: { unsafeAppend: mock().mockResolvedValue(undefined) },
+    db: { databaseNow: async () => new Date("2031-03-04T05:06:07.000Z") },
+  };
+}
+
 function makeWaitWorkflow(name: string) {
   return defineWorkflow({
     name,
@@ -325,7 +333,7 @@ describe("workflow-engine", () => {
   });
 
   it("webhook-delivery completes with exactly one dispatch request", async () => {
-    const ctx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const ctx = makeAppendOnlyCtx();
 
     const result = await startAndRunWorkflow({
       runId: "wf-webhook-delivery-1",
@@ -366,10 +374,6 @@ describe("workflow-engine", () => {
 });
 
 describe("workflow-runner", () => {
-  function makeAppendOnlyCtx() {
-    return { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
-  }
-
   it("startAndRunWorkflow writes run.started with Q7 snapshot fingerprint, then runs the pipeline to completion when no suspension", async () => {
     const workflow = defineWorkflow({
       name: "demo-sync",
@@ -453,7 +457,7 @@ describe("workflow-runner", () => {
 
 describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
   it("suspends on the first wait, then resume-loop runs it through to completion", async () => {
-    const ctx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const ctx = makeAppendOnlyCtx();
     const trigger = {
       aggregateId: "agg_user_42",
       type: "user.signed-up",
@@ -516,7 +520,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       definitionFingerprint: waitingCall.payload["definitionFingerprint"] as string,
     };
 
-    const resumeCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const resumeCtx = makeAppendOnlyCtx();
     const count = await runResumeLoop(
       createInMemorySuspendedRunFetcher([suspendedRun]),
       resumeCtx as never,
@@ -542,7 +546,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
   });
 
   it("not-engaged path picks the reminder branch", async () => {
-    const ctx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const ctx = makeAppendOnlyCtx();
     const trigger = {
       aggregateId: "agg_user_cold",
       type: "user.signed-up",
@@ -568,7 +572,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       triggerEvent: trigger as never,
       definitionFingerprint: waiting.payload["definitionFingerprint"] as string,
     };
-    const resumeCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const resumeCtx = makeAppendOnlyCtx();
     await runResumeLoop(createInMemorySuspendedRunFetcher([suspendedRun]), resumeCtx as never);
 
     const reminderMail = resumeCtx.events.unsafeAppend.mock.calls[1]![0] as {
@@ -722,7 +726,7 @@ describe("cron-scheduler", () => {
       steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
     });
 
-    const handlerCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const handlerCtx = makeAppendOnlyCtx();
     const lastRuns = new Map<string, Temporal.Instant>();
     const lastRun = Temporal.Instant.from("2025-05-31T08:00:00Z");
     lastRuns.set("test-daily", lastRun);
@@ -770,7 +774,7 @@ describe("resume-loop", () => {
     };
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
-    const handlerCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const handlerCtx = makeAppendOnlyCtx();
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 
@@ -804,7 +808,7 @@ describe("resume-loop", () => {
     };
 
     const fetchRuns = createInMemorySuspendedRunFetcher([suspendedRun]);
-    const handlerCtx = { events: { unsafeAppend: mock().mockResolvedValue(undefined) } };
+    const handlerCtx = makeAppendOnlyCtx();
 
     const count = await runResumeLoop(fetchRuns, handlerCtx as never);
 

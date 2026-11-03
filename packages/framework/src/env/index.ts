@@ -17,6 +17,7 @@
 import * as z from "zod";
 import type { FeatureDefinition } from "../engine/types/feature.ts";
 import { zodDef, zodMeta, zodShape, zodShapeField } from "./_zod-introspect.ts";
+import { envRuleViolation, envRuleViolations } from "./field-rules.ts";
 import {
   buildPulumiSuggestion,
   type ComposedEnvShape,
@@ -400,13 +401,15 @@ export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
   }
 
   const result = safeParseReportingThrows(relaxCiphertextOnlySlots(schema, cleaned), cleaned);
-  if (result.success) {
+  const ruleViolations = envRuleViolations(schema, cleaned);
+  if (result.success && ruleViolations.size === 0) {
     // @cast-boundary schema-walk — z.infer<S> erasure across safeParse result
     return result.data as z.infer<S>;
   }
 
   // Map Zod-issues → EnvError[], augmenting with suggestions when meta+prefix.
-  const errors: EnvError[] = result.error.issues.map((issue) => {
+  const issues = result.success ? [] : result.error.issues;
+  const errors: EnvError[] = issues.map((issue) => {
     const name = String(issue.path[0] ?? "<unknown>");
     const field = zodShapeField(schema, name);
     // Zod v4 dropped the `received` property on invalid_type issues; the
@@ -430,6 +433,13 @@ export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
       ...(suggestion ? { suggestion } : {}),
     };
   });
+
+  const reported = new Set(errors.map((error) => error.name));
+  for (const [name, message] of ruleViolations) {
+    if (reported.has(name)) continue;
+    const source = options.sources?.[name];
+    errors.push({ name, kind: "invalid", message, ...(source ? { source } : {}) });
+  }
 
   throw new KumikoBootError(errors);
 }
@@ -489,7 +499,7 @@ export function inspectEnv(
     if (raw === undefined) {
       return { name, klass, source, status: klass === "required" ? "missing" : "unset" };
     }
-    const issue = firstFieldIssue(field, raw);
+    const issue = firstFieldIssue(field, raw) ?? envRuleViolation(field, raw, cleaned);
     return issue === undefined
       ? { name, klass, source, status: "set" }
       : { name, klass, source, status: "invalid", message: issue };

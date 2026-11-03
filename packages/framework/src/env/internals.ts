@@ -1,6 +1,7 @@
 import * as z from "zod";
 import type { FeatureDefinition } from "../engine/types/feature.ts";
 import { zodDef, zodDescription } from "./_zod-introspect.ts";
+import type { EnvFieldRule } from "./field-rules.ts";
 import { readKumikoMeta } from "./index.ts";
 
 // --- Per-env-var metadata (attach via Zod's `.meta()`) ---
@@ -23,6 +24,8 @@ export type KumikoEnvMeta = {
    *  is unset; a set plaintext always wins. A flag, not an object: every slot
    *  uses the same `_CIPHERTEXT` twin and one shared key (`PLATFORM_KEK_KMS_*`). */
   readonly kms?: true;
+  /** Rule that needs sibling variables, e.g. the production flag; runs in parseEnv and the boot dry run. */
+  readonly envRule?: EnvFieldRule;
 };
 
 // --- Field-classification helpers (Zod v4 introspection) ---

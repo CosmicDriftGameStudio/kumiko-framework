@@ -84,10 +84,15 @@ afterEach(() => {
   resetPiiSubjectKmsForTests();
 });
 
-async function seedDoc(table: string, tenantId: string, title: string): Promise<string> {
+async function seedDoc(
+  table: string,
+  tenantId: string,
+  title: string,
+  ageHours = 24 * 60,
+): Promise<string> {
   const rows = (await asRawClient(stack.db).unsafe(
     `INSERT INTO ${table} (tenant_id, title, inserted_at) VALUES ($1, $2, $3::timestamptz) RETURNING id::text AS id`,
-    [tenantId, title, now.subtract({ hours: 24 * 60 }).toString()],
+    [tenantId, title, now.subtract({ hours: ageHours }).toString()],
   )) as { id: string }[];
   const id = rows[0]?.id;
   if (!id) throw new Error("seedDoc: insert returned no id");
@@ -125,13 +130,9 @@ const runCleanup = (tenantId: string) =>
 describe("retention hardDelete cascades to the notes on the parent", () => {
   test("a tenant-scoped parent loses its note bodies, notes on other rows stay", async () => {
     const expired = await seedDoc("read_notes_retention_scoped_docs", writer.tenantId, "old");
-    const live = await seedDoc("read_notes_retention_scoped_docs", writer.tenantId, "kept");
+    const live = await seedDoc("read_notes_retention_scoped_docs", writer.tenantId, "kept", 1);
     const onExpired = await addNote("notes-retention-scoped-doc", expired, "about the old doc");
     const onLive = await addNote("notes-retention-scoped-doc", live, "about the kept doc");
-    await asRawClient(stack.db).unsafe(
-      `UPDATE read_notes_retention_scoped_docs SET inserted_at = now() WHERE id = $1`,
-      [live],
-    );
 
     expect((await runCleanup(writer.tenantId)).hardDeleted).toBe(1);
 

@@ -106,6 +106,36 @@ describe("parseS3EnvConfig — optional ENDPOINT", () => {
   });
 });
 
+describe("parseS3EnvConfig — production endpoint rule from the given env record", () => {
+  const base = {
+    TEST_S3_BUCKET: "b",
+    TEST_S3_REGION: "r",
+    TEST_S3_ACCESS_KEY: "a",
+    TEST_S3_SECRET_KEY: "s",
+  };
+
+  test("a remote http endpoint is refused when the record says production", () => {
+    const env = { ...base, TEST_S3_ENDPOINT: "http://s3.example.com", NODE_ENV: "production" };
+    expect(() => parseS3EnvConfig("TEST_S3_", env)).toThrow(/must use https/);
+  });
+
+  test("the same endpoint passes outside production and ignores process.env", () => {
+    const env = { ...base, TEST_S3_ENDPOINT: "http://s3.example.com" };
+    expect(parseS3EnvConfig("TEST_S3_", env).endpoint).toBe("http://s3.example.com");
+  });
+
+  test("https and loopback http pass in production", () => {
+    const prod = { ...base, NODE_ENV: "production" };
+    expect(
+      parseS3EnvConfig("TEST_S3_", { ...prod, TEST_S3_ENDPOINT: "https://s3.example.com" })
+        .endpoint,
+    ).toBe("https://s3.example.com");
+    expect(
+      parseS3EnvConfig("TEST_S3_", { ...prod, TEST_S3_ENDPOINT: "http://localhost:9000" }).endpoint,
+    ).toBe("http://localhost:9000");
+  });
+});
+
 describe("parseS3EnvConfig — FORCE_PATH_STYLE parsing", () => {
   test("undefined → config has no forcePathStyle (auto-detect at provider level)", () => {
     setRequired();

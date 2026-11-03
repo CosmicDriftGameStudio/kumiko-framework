@@ -5,13 +5,25 @@ const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 /** The bucket holds tenant files, so in production a remote endpoint must be
  *  https. Outside production plain http stays allowed, also for compose-network
  *  hostnames (minio, rustfs) that are not loopback. `isProduction` comes from the
- *  env being booted: a field schema cannot see sibling vars, so the caller
- *  (resolveFileStorageOption) applies this per endpoint. */
+ *  env being booted: a field schema cannot see sibling vars, so the endpoint
+ *  variables carry it as an env rule and the env readers apply it again. */
 export function isAcceptableS3Endpoint(value: string, isProduction: boolean): boolean {
   if (!URL.canParse(value)) return false;
   const url = new URL(value);
   if (url.protocol === "https:") return true;
   return !isProduction || LOOPBACK_HOSTNAMES.has(url.hostname);
+}
+
+const ENDPOINT_RULE_MESSAGE = "must use https unless the host is loopback (NODE_ENV=production)";
+
+/** Env rule for the endpoint variables: the production flag comes from the env being booted. */
+export function s3EndpointEnvRule(
+  value: string,
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined {
+  return isAcceptableS3Endpoint(value, env["NODE_ENV"] === "production")
+    ? undefined
+    : ENDPOINT_RULE_MESSAGE;
 }
 
 /** S3-compatible endpoint URL (http or https); the production https rule is `isAcceptableS3Endpoint`. */
@@ -37,7 +49,8 @@ function buildS3Shape(prefix: string) {
     [`${prefix}ENDPOINT`]: z
       .union([z.literal("").transform(() => undefined), s3EndpointSchema])
       .optional()
-      .describe("S3-compatible endpoint (Hetzner, R2, MinIO). Default: AWS."),
+      .describe("S3-compatible endpoint (Hetzner, R2, MinIO). Default: AWS.")
+      .meta({ kumiko: { envRule: s3EndpointEnvRule } }),
     [`${prefix}FORCE_PATH_STYLE`]: z
       .enum(["true", "false"])
       .optional()

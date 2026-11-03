@@ -37,6 +37,8 @@ export type ReindexEntityOptions = {
   readonly batchSize?: number;
   // Scan + build docs, write nothing.
   readonly dryRun?: boolean;
+  // Reindex only this row (e.g. to restore one document whose move was rolled back).
+  readonly onlyEntityId?: string;
   // Runs after a batch was read and its documents built, before they are written. Lets a test
   // place a concurrent delete/update at exactly the point the reconcile pass exists for.
   readonly afterBatchRead?: () => Promise<void>;
@@ -283,14 +285,23 @@ export async function reindexEntity(
       for (;;) {
         options.signal?.throwIfAborted();
         // Keyset, not OFFSET: rows deleted or changed while the loop runs must not shift the window.
-        const afterLastId = lastId === undefined ? "" : `AND ${quoteIdent("id")} > $3`;
+        const params: unknown[] = [tenantId, batchSize];
+        const extraFilters: string[] = [];
+        if (lastId !== undefined) {
+          params.push(lastId);
+          extraFilters.push(`AND ${quoteIdent("id")} > $${params.length}`);
+        }
+        if (options.onlyEntityId !== undefined) {
+          params.push(options.onlyEntityId);
+          extraFilters.push(`AND ${quoteIdent("id")} = $${params.length}`);
+        }
         const rows = await readBatchWithoutStatementTimeout(
           db,
           `SELECT * FROM ${quoteIdent(tableName)}
-        WHERE ${quoteIdent("tenant_id")} = $1 ${deletedFilter} ${afterLastId}
+        WHERE ${quoteIdent("tenant_id")} = $1 ${deletedFilter} ${extraFilters.join(" ")}
         ORDER BY ${quoteIdent("id")} ASC
         LIMIT $2`,
-          lastId === undefined ? [tenantId, batchSize] : [tenantId, batchSize, lastId],
+          params,
         );
         const [firstRow] = rows;
         if (firstRow === undefined) break;

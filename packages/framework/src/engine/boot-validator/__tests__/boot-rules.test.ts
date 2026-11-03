@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { expectWellFormedBootRuleTable } from "../../../internal/testing.ts";
+import { bootRuleTableViolations } from "../../../internal/testing.ts";
 import { bootRuleDocLink } from "../boot-rule.ts";
 import { FRAMEWORK_BOOT_RULE_TABLES, FRAMEWORK_BOOT_RULES } from "../boot-rules.ts";
 
@@ -14,7 +14,9 @@ describe("framework boot rule tables", () => {
   });
 
   test("the flat list is well formed", () => {
-    expectWellFormedBootRuleTable(Object.fromEntries(FRAMEWORK_BOOT_RULES.map((r) => [r.id, r])));
+    expect(
+      bootRuleTableViolations(Object.fromEntries(FRAMEWORK_BOOT_RULES.map((r) => [r.id, r]))),
+    ).toEqual([]);
   });
 
   test("bootRuleDocLink maps the slash to a dash and skips unclassified ids", () => {

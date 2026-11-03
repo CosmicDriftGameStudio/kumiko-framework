@@ -330,10 +330,13 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     onError: requestTooLarge,
   });
 
-  const bodyLimitForCaller: MiddlewareHandler = (c, next) =>
-    isAnonymousSessionUser(getUser(c))
-      ? anonymousUploadBodyLimit(c, next)
-      : uploadBodyLimit(c, next);
+  // Without an opted-in field the handler answers 401 before reading any body, so an anonymous
+  // caller must get that 401 and not the 413 of a cap that only exists for opted-in uploads.
+  const anonymousUploadAllowed = registryHasAnonymousUploadField(options.registry);
+  const bodyLimitForCaller: MiddlewareHandler = (c, next) => {
+    if (!isAnonymousSessionUser(getUser(c))) return uploadBodyLimit(c, next);
+    return anonymousUploadAllowed ? anonymousUploadBodyLimit(c, next) : next();
+  };
 
   async function chargeAnonymousUpload(c: Context): Promise<Response | undefined> {
     if (!rateLimitResolver || !clientIpResolver) return undefined;

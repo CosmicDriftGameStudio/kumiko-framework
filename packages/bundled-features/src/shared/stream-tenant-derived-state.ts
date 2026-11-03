@@ -34,7 +34,8 @@ export function createSearchBucketCleanup(
   let cleaned = 0;
   return {
     cleanedAggregates: () => cleaned,
-    // The rolled-back move leaves the row in its old bucket, so reindexing that bucket brings the doc back.
+    // The rolled-back move leaves the row in its old bucket, so reindexing that row brings the doc
+    // back; the rest of the bucket was not touched by this candidate.
     onMoveFailed: async (candidate) => {
       // skip: no adapter means no search docs were removed
       if (!searchAdapter || !isEntitySearchable(rowSource.registry, entityType)) return;
@@ -48,10 +49,11 @@ export function createSearchBucketCleanup(
           searchAdapter,
           entityType,
           bucketTenantId,
+          { onlyEntityId: candidate.aggregateId },
         );
         if (reindex.failures.length > 0) {
           throw new Error(
-            `reindex of bucket ${bucket} failed for ${reindex.failures.length} rows: ${reindex.failures[0]?.reason}`,
+            `reindex of ${candidate.aggregateId} in bucket ${bucket} failed for ${reindex.failures.length} rows: ${reindex.failures[0]?.reason}`,
           );
         }
       }

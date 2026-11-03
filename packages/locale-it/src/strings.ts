@@ -373,6 +373,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "Questa organizzazione non ha alcun abbonamento attivo da cambiare.",
   "billing-foundation.errors.planSwitchNotSupported":
     "Questo provider non supporta il cambio di piano.",
+  "billing-foundation.errors.planSwitchPending":
+    "Un cambio di piano è già in elaborazione. Attendi un momento che venga completato.",
   "billing-foundation.errors.planTiersShareProduct":
     "Ogni piano richiede un proprio prodotto Stripe. Contatta l'assistenza.",
   "billing-foundation.errors.priceUnavailable":
@@ -442,6 +444,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "cap-overview.list.filter.tier": "Tier",
   "cap-overview.notMeasured": "Non ancora misurato",
   "cap-overview.notIncluded": "Non incluso",
+  "cap-overview.notIncludedButUsed": "{used} · non incluso",
   "cap-overview.platform.filter.tenant": "Organizzazione",
   "cap-overview.unlimited": "{used} · illimitato",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Profilo di conformità",
@@ -826,6 +829,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.field.embedded-list.remove-row": "Rimuovi riga",
   "kumiko.field.file-list.add": "Aggiungi file",
   "kumiko.field.file-list.empty": "Ancora nessun file.",
+  "kumiko.field.dropzone.file-unavailable": "File non più disponibile",
   "kumiko.field.dropzone.limit-count": "fino a {count} file",
   "kumiko.field.dropzone.limit-size": "fino a {size} per file",
   "kumiko.field.dropzone.title": "Trascina qui i file o fai clic per sceglierli",

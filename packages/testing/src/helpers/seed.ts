@@ -31,11 +31,14 @@ export type SeedOptions = {
 // A row seeded on an event-sourced entity table has no event, so a rebuild erases it. The
 // entity-source registry sees tables the guard's file-local scan cannot (imported ones).
 function assertSeedable(table: SeedTable, options: SeedOptions | undefined): void {
-  if (executorManagedEntitySourceOf(table) === undefined) return;
-  if (options?.projectionOnly !== undefined && options.projectionOnly.trim() !== "") return;
-  throw new Error(
-    "seedRow on an event-sourced entity table writes the projection without its event: use seedRowViaEventStore, or pass { projectionOnly: reason } for a deliberate event-less row",
-  );
+  const isEventSourced = executorManagedEntitySourceOf(table) !== undefined;
+  const hasProjectionOnlyReason =
+    options?.projectionOnly !== undefined && options.projectionOnly.trim() !== "";
+  if (isEventSourced && !hasProjectionOnlyReason) {
+    throw new Error(
+      "seedRow on an event-sourced entity table writes the projection without its event: use seedRowViaEventStore, or pass { projectionOnly: reason } for a deliberate event-less row",
+    );
+  }
 }
 
 export function seedRow<TRow = unknown>(
