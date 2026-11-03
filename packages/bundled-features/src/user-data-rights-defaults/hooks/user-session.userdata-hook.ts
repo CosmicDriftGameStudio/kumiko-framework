@@ -1,6 +1,7 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { userSessionTable } from "../../sessions/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
+import { hardDeleteOwnRowsDeleteHook } from "./hard-delete-own-rows-hook.ts";
 
 // userData-Hooks for the sessions feature's user-session rows (ip, userAgent).
 //
@@ -34,8 +35,7 @@ export const userSessionExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-export const userSessionDeleteHook: UserDataDeleteHook = async (ctx) => {
-  // skip: sessions not mounted — its table doesn't exist, nothing to erase.
-  if (!featureMounted(ctx, "sessions")) return;
-  await ctx.db.deleteMany(userSessionTable, { userId: ctx.userId, tenantId: ctx.tenantId });
-};
+export const userSessionDeleteHook: UserDataDeleteHook = hardDeleteOwnRowsDeleteHook({
+  featureName: "sessions",
+  table: userSessionTable,
+});

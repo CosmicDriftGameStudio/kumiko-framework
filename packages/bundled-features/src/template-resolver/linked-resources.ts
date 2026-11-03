@@ -1,6 +1,7 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import type { FileAttachmentRef } from "../renderer-foundation/index.ts";
+import { stringValuesOf } from "./string-values.ts";
 import { pdfAttachmentFileNamePatternSchema, templateSlugSchema } from "./template-meta.ts";
 
 export const templatePdfAttachmentLinkSchema = z
@@ -66,11 +67,7 @@ export function parseLinkedResourceEntries(
 export function imageLinksOf(
   entries: Readonly<Record<string, LinkedResourceEntry>>,
 ): Record<string, string> {
-  const images: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(entries)) {
-    if (typeof entry === "string") images[key] = entry;
-  }
-  return images;
+  return stringValuesOf(entries);
 }
 
 function entriesOfKind<TEntry extends LinkedResourceEntry>(

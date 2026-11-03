@@ -1,8 +1,7 @@
 // sql now comes from native dialect
 import type { DbConnection } from "../db/connection.ts";
 import { bigint, index, instant, table as pgTable, sql, text } from "../db/dialect.ts";
-import { tableExists } from "../db/schema-inspection.ts";
-import { unsafePushTables } from "../db/table-push.ts";
+import { pushTableIfMissing } from "../db/table-push.ts";
 
 // Framework-level state for every registered projection. One row per qualified
 // projection name. Written by the rebuild machinery; read by the CLI + any
@@ -46,7 +45,7 @@ export const projectionStateTable = pgTable(
 // already there (second stack in same test DB, production boot after
 // migration), skip cleanly.
 export async function createProjectionStateTable(db: DbConnection): Promise<void> {
-  // skip: table already exists — bootstrap is called from multiple paths
-  if (await tableExists(db, "public.kumiko_projections")) return;
-  await unsafePushTables(db, { kumikoProjections: projectionStateTable });
+  await pushTableIfMissing(db, "public.kumiko_projections", {
+    kumikoProjections: projectionStateTable,
+  });
 }

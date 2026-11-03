@@ -1,6 +1,7 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { inAppMessagesTable } from "../../channel-in-app/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
+import { hardDeleteOwnRowsDeleteHook } from "./hard-delete-own-rows-hook.ts";
 
 // userData-Hooks for channel-in-app's in_app_messages. Plain SQL table (no
 // r.entity, no event stream — see channel-in-app/tables.ts), written by
@@ -30,8 +31,7 @@ export const inAppMessageExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-export const inAppMessageDeleteHook: UserDataDeleteHook = async (ctx) => {
-  // skip: channel-in-app not mounted — its table doesn't exist, nothing to erase.
-  if (!featureMounted(ctx, "channel-in-app")) return;
-  await ctx.db.deleteMany(inAppMessagesTable, { userId: ctx.userId, tenantId: ctx.tenantId });
-};
+export const inAppMessageDeleteHook: UserDataDeleteHook = hardDeleteOwnRowsDeleteHook({
+  featureName: "channel-in-app",
+  table: inAppMessagesTable,
+});

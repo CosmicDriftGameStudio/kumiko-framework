@@ -5,9 +5,9 @@
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { FileAttachmentRef } from "../renderer-foundation/index.ts";
+import { requireBootstrapExtension } from "../shared/index.ts";
 import {
   fileAttachmentsOf,
   imageLinksOf,
@@ -335,18 +335,11 @@ export function requireTemplateResolver(
   ctx: { readonly services: { readonly extensions: Readonly<Record<string, unknown>> } },
   callerName: string,
 ): TemplateResolverApi {
-  // @cast-boundary engine-bridge — templateResolver kommt per extraContext
-  // from App-Bootstrap and lands in services.extensions; the framework does not know its type.
-  const api = ctx.services.extensions["templateResolver"] as TemplateResolverApi | undefined;
-  if (!api) {
-    throw new InternalError({
-      message:
-        `[${callerName}] ctx.templateResolver missing — App-Bootstrap muss ` +
-        `extraContext: { templateResolver: createTemplateResolverApi(db, registry) } setzen ` +
-        `(siehe template-resolver/README.md).`,
-    });
-  }
-  return api;
+  return requireBootstrapExtension<TemplateResolverApi>(ctx, callerName, {
+    key: "templateResolver",
+    bootstrapExample: "templateResolver: createTemplateResolverApi(db, registry)",
+    readme: "template-resolver/README.md",
+  });
 }
 
 export type { SessionUser };

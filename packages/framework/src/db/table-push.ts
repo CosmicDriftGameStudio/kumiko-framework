@@ -132,6 +132,17 @@ export async function unsafePushTables(
   }
 }
 
+// Idempotent bootstrap for a framework meta-table that several boot paths create.
+export async function pushTableIfMissing(
+  db: DbConnection,
+  fullyQualifiedName: string,
+  tables: Record<string, unknown>,
+): Promise<void> {
+  // skip: table already exists — bootstrap runs from multiple paths
+  if (await tableExists(db, fullyQualifiedName)) return;
+  await unsafePushTables(db, tables);
+}
+
 // @wrapper-known semantic-alias
 function renderColumnType(col: ColumnMeta): string {
   return pgTypeToSqlType(col.pgType);

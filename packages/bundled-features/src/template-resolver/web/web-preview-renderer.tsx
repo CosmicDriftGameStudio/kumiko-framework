@@ -17,22 +17,13 @@ import {
 } from "@cosmicdrift/kumiko-renderer/web";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
+import { stringValuesOf } from "../string-values.ts";
 import { TemplateResolverQueries } from "./qualified-names.ts";
 
 const PREVIEW_DEBOUNCE_MS = 300;
 
 function htmlOf(value: unknown): string | null {
   return isPlainObject(value) && typeof value["html"] === "string" ? value["html"] : null;
-}
-
-export function stringExamples(
-  variables: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, string>> {
-  const strings: Record<string, string> = {};
-  for (const [name, value] of Object.entries(variables)) {
-    if (typeof value === "string") strings[name] = value;
-  }
-  return strings;
 }
 
 // The paper frame around a rendered body, with the optional Desktop/Mobil width switch of the web
@@ -128,7 +119,7 @@ export const WebPreviewRenderer: PreviewRenderer = ({
   const isDocument = editFormat === "document";
   return (
     <BodyPreviewFrame
-      body={isDocument ? content : substituteVariables(content, stringExamples(variables))}
+      body={isDocument ? content : substituteVariables(content, stringValuesOf(variables))}
       bodyFormat={isDocument ? "document" : "markdown"}
     />
   );
