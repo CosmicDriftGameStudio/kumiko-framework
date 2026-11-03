@@ -109,9 +109,9 @@ describe.each(SCAFFOLD_STARTERS)("scaffolded %s app passes kumiko check", (start
     if (expectedLine !== undefined) expect(check.output).toContain(expectedLine);
   });
 
-  test("tsc against the framework presets is green", async () => {
+  test("bun check against the framework presets is green", async () => {
     const tsc = await run(
-      ["bun", "x", "tsc", "--noEmit", "-p", "."],
+      ["bun", "check", "--no-script", "-p", "."],
       appDirOf(starter),
       runEnvOf(starter),
     );

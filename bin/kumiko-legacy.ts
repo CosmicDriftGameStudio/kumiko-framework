@@ -126,7 +126,6 @@ const BIN_PATH = (() => {
   return rootBin; // Fallback
 })();
 const BIOME = join(BIN_PATH, "biome");
-const TSC = join(BIN_PATH, "tsc");
 const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
 const KUMIKO_CLI = resolvePath(import.meta.dir, "..", "packages", "cli", "bin", "cli.ts");
 
@@ -234,7 +233,7 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     } else if (existsSync(join(absPath, "tsconfig.json"))) {
       steps.push({
         name: `TypeScript (${root.kind})`,
-        cmd: `cd ${absPath} && ${TSC} --noEmit`,
+        cmd: `cd ${absPath} && bun check --no-script`,
       });
     }
   }

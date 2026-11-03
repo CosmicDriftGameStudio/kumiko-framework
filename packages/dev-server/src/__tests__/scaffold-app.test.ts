@@ -93,6 +93,15 @@ describe("scaffoldApp", () => {
     expect(pkg.kumiko.deploy.infraRef).toBe(CURRENT_INFRA_REF);
   });
 
+  test("package.json requires the Bun version whose built-in check runs the typecheck script", async () => {
+    const dest = join(tmp, "my-shop");
+    await scaffoldApp({ name: "my-shop", destination: dest });
+
+    const pkg = JSON.parse(readFileSync(join(dest, "package.json"), "utf-8"));
+    expect(pkg.scripts.typecheck).toBe("bun check --no-script");
+    expect(pkg.engines.bun).toBe(">=1.4.4");
+  });
+
   test("CLAUDE.md imports the framework guide and AGENTS.md points at it", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });

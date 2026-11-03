@@ -69,7 +69,7 @@
     "test:integration:perf:strict": "KUMIKO_PERF_GATE=1 bun test --dots --config=bunfig.integration.toml --timeout=15000 packages/framework/src/event-store/__tests__/get-stream-version-perf.integration.test.ts packages/framework/src/engine/__tests__/pipeline-performance.integration.test.ts packages/framework/src/pipeline/__tests__/perf-rebuild.integration.test.ts",
     "test:integration:perf:eventstore": "KUMIKO_PERF_GATE=1 bun test --dots --config=bunfig.integration.toml --timeout=15000 packages/framework/src/event-store/__tests__/perf.integration.test.ts",
     "test:integration:perf": "KUMIKO_PERF_GATE=1 bun scripts/run-integration-tests.ts --perf",
-    "typecheck": "tsc --build",
+    "typecheck": "bun check -b --no-script",
     "build:apps": "bun run scripts/build-apps.ts",
     "build": "echo 'kumiko-framework: packages publish TypeScript source as-is, except those with publishConfig.exports (compiled dist, built at pack time by scripts/pack-with-publish-config.sh).'",
     "check:dist": "bash scripts/verify-dist-packages.sh && bash scripts/verify-samples-package.sh",
