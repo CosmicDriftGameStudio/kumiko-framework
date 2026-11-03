@@ -1,3 +1,4 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type {
   Registry,
   SecretKeyDefinition,
@@ -11,7 +12,6 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { SYSTEM_ADMIN_ROLE } from "./secret-scope.ts";
 import { INVALID_SECRET_VALUE_CODE, SECRETS_ERROR_KEYS } from "./web/constants.ts";
 
 // Fixed keys carry their definition (redact fn, writeRoles); namespace keys
@@ -59,7 +59,7 @@ export function checkSecretKeyWrite(
     !keyDef &&
     !(namespace && namespaceAcceptsKey(namespace, key)) &&
     (options.allowUndeclared !== true ||
-      (isUnderMountedFeaturePrefix(registry, key) && !userRoles.includes(SYSTEM_ADMIN_ROLE)))
+      (isUnderMountedFeaturePrefix(registry, key) && !userRoles.includes(ROLES.SystemAdmin)))
   ) {
     return unknownKeyFailure(key);
   }

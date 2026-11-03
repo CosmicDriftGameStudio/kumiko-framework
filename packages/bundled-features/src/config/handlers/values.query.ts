@@ -40,6 +40,7 @@ export const valuesQuery = defineQueryHandler({
 
     const allKeys = registry.getAllConfigKeys();
     const keyDefs = new Map<string, ConfigKeyDefinition>();
+    const declaredScopes = new Map<string, ConfigScope>();
     const filteredKeys: string[] = [];
     const requestedKeys =
       query.payload.keys === undefined ? undefined : new Set(query.payload.keys);
@@ -47,6 +48,7 @@ export const valuesQuery = defineQueryHandler({
       if (requestedKeys !== undefined && !requestedKeys.has(qualifiedKey)) continue;
       if (!hasConfigAccess(keyDef.access.read, query.user.roles)) continue;
       keyDefs.set(qualifiedKey, keyDefAtScope(keyDef, query.payload.scope, query.user.roles));
+      declaredScopes.set(qualifiedKey, keyDef.scope);
       filteredKeys.push(qualifiedKey);
     }
 
@@ -91,7 +93,12 @@ export const valuesQuery = defineQueryHandler({
         value = cascade.value;
       }
 
-      result[qualifiedKey] = { value, scope: keyDef.scope, source: cascade.source };
+      // The response scope is the key's declared one: a widened read scope must not turn into a write target.
+      result[qualifiedKey] = {
+        value,
+        scope: declaredScopes.get(qualifiedKey) ?? keyDef.scope,
+        source: cascade.source,
+      };
     }
 
     return result;

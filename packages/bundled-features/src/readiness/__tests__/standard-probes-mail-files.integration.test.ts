@@ -2,11 +2,19 @@
 // extension turns each probe red. Also pins that a run with these probes writes events only on the run.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+  PII_CIPHERTEXT_PREFIX,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { defineFeature, EXT_FILE_PROVIDER } from "@cosmicdrift/kumiko-framework/engine";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { HostResolutionError } from "@cosmicdrift/kumiko-framework/http";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  resetPiiSubjectKmsForTests,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import { type TestStack, unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
 import { createFileFoundationFeature } from "../../file-foundation/index.ts";
 import { createFileProviderInMemoryFeature, listKeys } from "../../file-provider-inmemory/index.ts";
@@ -49,6 +57,8 @@ const unresolvableMail = defineFeature("probe-unresolvable-mail", (r) => {
   });
 });
 
+let failingFilesDeleteCalls = 0;
+
 const failingFiles = defineFeature("probe-failing-files", (r) => {
   r.requires({ features: ["file-foundation"] });
   r.useExtension(EXT_FILE_PROVIDER, "failing", {
@@ -56,6 +66,10 @@ const failingFiles = defineFeature("probe-failing-files", (r) => {
       ...createInMemoryFileProvider(),
       write: async () => {
         throw new Error("disk full");
+      },
+      delete: async () => {
+        failingFilesDeleteCalls += 1;
+        throw new Error("ENOENT");
       },
     }),
   });
@@ -181,6 +195,21 @@ describe("mail probe", () => {
     expect(row?.status).toBe("skipped");
     expect(row?.message.i18nKey).toBe("mail-foundation.probe.no-recipient");
   });
+
+  test("a starter address that cannot be decrypted skips the mail probe without stopping the run", async () => {
+    const admin = await freshAdmin(`${PII_CIPHERTEXT_PREFIX}user:unknown-subject:AAAA`);
+    await select(admin, MAIL_PROVIDER_KEY, "inmemory");
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    try {
+      const rows = await resultsOf(admin);
+
+      expect(find(rows, MAIL_PROBE)?.message.i18nKey).toBe("mail-foundation.probe.no-recipient");
+      expect(rows.length).toBeGreaterThan(1);
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
+  });
 });
 
 describe("storage probe", () => {
@@ -208,11 +237,13 @@ describe("storage probe", () => {
   test("a provider that throws fails the probe", async () => {
     const admin = await freshAdmin(undefined);
     await select(admin, FILE_PROVIDER_KEY, "failing");
+    failingFilesDeleteCalls = 0;
 
     const row = find(await resultsOf(admin), FILES_PROBE);
 
     expect(row?.status).toBe("failed");
     expect(row?.message.i18nKey).toBe(ProbeTextKeys.failed);
+    expect(failingFilesDeleteCalls).toBe(0);
   });
 
   test("a tenant without a provider is skipped as not configured", async () => {

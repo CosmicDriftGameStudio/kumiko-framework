@@ -54,14 +54,20 @@ export function registerStorageProbe(r: FeatureRegistrar<"file-foundation">): vo
         handlerName: "file-foundation:probe",
       })(ctx.tenantId);
       const key = `${ctx.tenantId}/__readiness-probe/${ctx.probeRunId}.txt`;
+      await provider.write(key, PROBE_CONTENT, "text/plain");
       try {
-        await provider.write(key, PROBE_CONTENT, "text/plain");
         if (!isSameBytes(await provider.read(key), PROBE_CONTENT)) {
           throw new Error("storage returned different bytes than were written");
         }
-      } finally {
-        await provider.delete(key);
+      } catch (error) {
+        await provider.delete(key).catch((cleanupError: unknown) => {
+          ctx.obs.log.warn("storage probe could not clean up after a failed roundtrip", {
+            error: cleanupError instanceof Error ? cleanupError.name : "unknown",
+          });
+        });
+        throw error;
       }
+      await provider.delete(key);
       return { status: "ok", message: { key: FILE_PROBE_KEYS.reachable } };
     },
   });

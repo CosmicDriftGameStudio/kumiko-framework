@@ -133,7 +133,7 @@ export function createHelpdeskReplyEntity(retentionKeepFor: string = DEFAULT_RET
   return createEntity({
     table: "read_helpdesk_replies",
     description:
-      "A SystemAdmin's answer to a contact request, with the channels it went out on; the message is the reporter's personal data because it quotes and addresses them.",
+      "A SystemAdmin's answer to a helpdesk request, with the channels it went out on; the message is the reporter's personal data because it quotes and addresses them.",
     systemStream: true,
     tenancy: "global",
     retention: { keepFor: retentionKeepFor, strategy: "hardDelete", reference: "sentAt" },

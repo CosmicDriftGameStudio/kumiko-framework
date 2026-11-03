@@ -9,7 +9,7 @@ import {
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   type EditRelatedListSection,
-  evalFieldCondition,
+  pickEmptyStateText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { BuiltInProbeKeys } from "../built-in-probes.ts";
@@ -58,10 +58,7 @@ function latestEmptyTitleFor(summary: Readonly<Record<string, unknown>>): string
     (section): section is EditRelatedListSection =>
       section.kind === "relatedList" && section.id === "latest",
   );
-  const emptyState = latest?.emptyState;
-  return (
-    emptyState?.variants?.find((variant) => evalFieldCondition(variant.when, summary)) ?? emptyState
-  )?.title;
+  return pickEmptyStateText(latest?.emptyState, summary)?.title;
 }
 
 describe("search probe", () => {

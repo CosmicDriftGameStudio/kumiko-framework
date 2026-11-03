@@ -85,16 +85,16 @@ function resultsSection(
       // A finished run without rows had nothing the caller may see, not "no run yet".
       variants: [
         {
+          when: { field: "status", eq: PROBE_RUN_STATUS.Abandoned },
+          title: ScreenTextKeys.latestAbandoned,
+        },
+        {
           when: { field: "outcome", eq: RUN_OUTCOME.running },
           title: ScreenTextKeys.latestRunning,
         },
         {
           when: { field: "outcome", eq: RUN_OUTCOME.ok },
           title: ScreenTextKeys.latestNothingToCheck,
-        },
-        {
-          when: { field: "status", eq: PROBE_RUN_STATUS.Abandoned },
-          title: ScreenTextKeys.latestAbandoned,
         },
       ],
     },

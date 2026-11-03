@@ -1,3 +1,4 @@
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
   type SessionUser,
   SYSTEM_TENANT_ID,
@@ -5,8 +6,6 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-
-export const SYSTEM_ADMIN_ROLE = "SystemAdmin";
 
 // "system" targets the platform-wide secrets under SYSTEM_TENANT_ID (settings a SystemAdmin
 // edits for the whole app). The target is never taken from the payload, only chosen here.
@@ -23,7 +22,7 @@ export function resolveSecretTarget(
   scope: SecretScope,
 ): SecretTarget {
   if (scope !== "system") return { ok: true, tenantId: user.tenantId };
-  if (!user.roles.includes(SYSTEM_ADMIN_ROLE)) {
+  if (!user.roles.includes(ROLES.SystemAdmin)) {
     return {
       ok: false,
       error: new AccessDeniedError({ message: "system-scope secrets need the SystemAdmin role" }),

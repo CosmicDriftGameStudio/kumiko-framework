@@ -16,7 +16,7 @@ import {
 import { eraseNoteBodiesReachingSubject } from "../notes-history-user-data/index.ts";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
-import { platformActor, replyExecutor, requestExecutor } from "./lib.ts";
+import { listAllPages, platformActor, replyExecutor, requestExecutor } from "./lib.ts";
 import {
   HELPDESK_REPLY_ENTITY,
   HELPDESK_REQUEST_ENTITY,
@@ -25,26 +25,29 @@ import {
 
 const PII_DECRYPT_REASON = "helpdesk:user-data";
 const ERASE_REASON = "helpdesk:user-data-forget";
-const LOOKUP_LIMIT = 200;
 const NOTE_ERASE_WRITE_REASON =
   "erases the note bodies SystemAdmins wrote in the system tenant on a request of an erased subject";
 
 async function findRequests(ctx: UserDataHookCtx) {
-  const byUser = await requestExecutor.list(
-    { filter: { field: "reporterUserId", op: "eq", value: ctx.userId }, limit: LOOKUP_LIMIT },
-    platformActor(),
-    ctx.db,
+  const byUser = await listAllPages((page) =>
+    requestExecutor.list(
+      { filter: { field: "reporterUserId", op: "eq", value: ctx.userId }, ...page },
+      platformActor(),
+      ctx.db,
+    ),
   );
   const email = await resolveVerifiedUserEmail(ctx, PII_DECRYPT_REASON);
   const byEmail = email
-    ? await requestExecutor.list(
-        { filter: { field: "email", op: "eq", value: email }, limit: LOOKUP_LIMIT },
-        platformActor(),
-        ctx.db,
+    ? await listAllPages((page) =>
+        requestExecutor.list(
+          { filter: { field: "email", op: "eq", value: email }, ...page },
+          platformActor(),
+          ctx.db,
+        ),
       )
-    : { rows: [] };
-  const unique = new Map(byUser.rows.map((row) => [row.id, row]));
-  for (const row of byEmail.rows) unique.set(row.id, row);
+    : [];
+  const unique = new Map(byUser.map((row) => [row.id, row]));
+  for (const row of byEmail) unique.set(row.id, row);
   return [...unique.values()];
 }
 
@@ -138,13 +141,14 @@ export async function eraseNotesOnRequest(
 }
 
 // guard:dup-ok executor and foreign-key field differ; a generic executor abstraction would obscure row types.
-async function findReplies(ctx: UserDataHookCtx, requestId: string) {
-  const found = await replyExecutor.list(
-    { filter: { field: "requestId", op: "eq", value: requestId }, limit: LOOKUP_LIMIT },
-    platformActor(),
-    ctx.db,
+function findReplies(ctx: UserDataHookCtx, requestId: string) {
+  return listAllPages((page) =>
+    replyExecutor.list(
+      { filter: { field: "requestId", op: "eq", value: requestId }, ...page },
+      platformActor(),
+      ctx.db,
+    ),
   );
-  return found.rows;
 }
 
 export const helpdeskExportHook: UserDataExportHook = async (ctx) => {

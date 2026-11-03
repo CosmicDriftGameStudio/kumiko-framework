@@ -116,6 +116,49 @@ describe("tenant-lifecycle stages", () => {
     ]);
   });
 
+  test("files stage reports a stuck hook as no progress even when another hook is pending", async () => {
+    const pendingProvider = defineFeature("pending-storage-provider", (r) => {
+      r.useExtension(EXT_STORAGE_PROVIDER, "pending-entity", {
+        destroyTenant: async () => ({ done: false, processed: 0, pending: true }),
+      });
+    });
+    const stuckProvider = defineFeature("stuck-storage-provider", (r) => {
+      r.useExtension(EXT_STORAGE_PROVIDER, "stuck-entity", {
+        destroyTenant: async () => ({ done: false, processed: 0 }),
+      });
+    });
+    const registry = createRegistry([
+      declares(EXT_STORAGE_PROVIDER),
+      pendingProvider,
+      stuckProvider,
+    ]);
+    const outcome = await stageNamed("files").run({
+      db: fakeDb,
+      registry,
+      tenantId: fakeTenantId,
+      deadlineAt: Number.POSITIVE_INFINITY,
+      now: fixedNow,
+    });
+    expect(outcome).toEqual({ done: false, processed: 0, pending: false });
+  });
+
+  test("files stage stays pending when the only unfinished hook is pending", async () => {
+    const pendingProvider = defineFeature("pending-only-storage-provider", (r) => {
+      r.useExtension(EXT_STORAGE_PROVIDER, "pending-entity", {
+        destroyTenant: async () => ({ done: false, processed: 0, pending: true }),
+      });
+    });
+    const registry = createRegistry([declares(EXT_STORAGE_PROVIDER), pendingProvider]);
+    const outcome = await stageNamed("files").run({
+      db: fakeDb,
+      registry,
+      tenantId: fakeTenantId,
+      deadlineAt: Number.POSITIVE_INFINITY,
+      now: fixedNow,
+    });
+    expect(outcome).toEqual({ done: false, processed: 0, pending: true });
+  });
+
   test("pickNextStage halts when any stage was abandoned", () => {
     const completed = new Set(["external-resources", "search-indices"]);
     const abandoned = new Set(["app-data"]);

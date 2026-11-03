@@ -1,6 +1,6 @@
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import type { RUN_OUTCOME } from "./constants.ts";
+import { RUN_OUTCOME } from "./constants.ts";
 import { PROBE_RUN_STATUS } from "./schema/probe-run.ts";
 
 const probeTextSchema = z.object({
@@ -102,6 +102,8 @@ export function isRunActive(status: string): boolean {
 }
 
 export function outcomeOf(status: string, counts: ResultCounts): RunOutcome {
-  if (isRunActive(status)) return "running";
-  return status === PROBE_RUN_STATUS.Done && counts.failedCount === 0 ? "ok" : "failed";
+  if (isRunActive(status)) return RUN_OUTCOME.running;
+  return status === PROBE_RUN_STATUS.Done && counts.failedCount === 0
+    ? RUN_OUTCOME.ok
+    : RUN_OUTCOME.failed;
 }

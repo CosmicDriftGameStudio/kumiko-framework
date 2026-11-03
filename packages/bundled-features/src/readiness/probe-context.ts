@@ -19,23 +19,24 @@ async function resolveTriggeredByEmail(
   userId: string,
 ): Promise<string | undefined> {
   if (!ctx.registry.features.has("user")) return undefined;
-  let found: unknown;
+  // Probes that need the address skip themselves; neither lookup nor decrypt may take the whole run down.
   try {
-    found = await ctx.dispatch.queryAs(createSystemUser(tenantId), UserQueries.findForAuth, {
-      id: userId,
-    });
+    const found: unknown = await ctx.dispatch.queryAs(
+      createSystemUser(tenantId),
+      UserQueries.findForAuth,
+      { id: userId },
+    );
+    const row = triggeringUserRowSchema.safeParse(found);
+    if (!row.success || row.data.email === undefined || row.data.isDeleted === true) {
+      return undefined;
+    }
+    return (await decryptStoredUserEmail(row.data.email, "readiness:run-probes")) ?? undefined;
   } catch (error) {
-    // Probes that need the address skip themselves; the lookup must not take the whole run down.
     ctx.obs.log.warn("readiness could not look up the run starter", {
       error: error instanceof Error ? error.name : "unknown",
     });
     return undefined;
   }
-  const row = triggeringUserRowSchema.safeParse(found);
-  if (!row.success || row.data.email === undefined || row.data.isDeleted === true) {
-    return undefined;
-  }
-  return (await decryptStoredUserEmail(row.data.email, "readiness:run-probes")) ?? undefined;
 }
 
 export async function buildProbeContext(

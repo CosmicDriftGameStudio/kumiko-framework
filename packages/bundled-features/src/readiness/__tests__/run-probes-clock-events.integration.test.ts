@@ -6,7 +6,7 @@ import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seed
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   type EditRelatedListSection,
-  evalFieldCondition,
+  pickEmptyStateText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createManualClock } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
@@ -83,10 +83,7 @@ function runResultsEmptyTitleFor(run: Readonly<Record<string, unknown>>): string
   const results = systemCheckRunScreen.layout.sections.find(
     (section): section is EditRelatedListSection => section.kind === "relatedList",
   );
-  const emptyState = results?.emptyState;
-  return (
-    emptyState?.variants?.find((variant) => evalFieldCondition(variant.when, run)) ?? emptyState
-  )?.title;
+  return pickEmptyStateText(results?.emptyState, run)?.title;
 }
 
 describe("readiness run-probes with injected clock", () => {

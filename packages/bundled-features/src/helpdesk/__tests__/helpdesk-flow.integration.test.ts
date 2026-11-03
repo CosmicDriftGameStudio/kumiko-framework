@@ -10,6 +10,7 @@ import {
   fetchOne,
 } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { FrameworkReasons } from "@cosmicdrift/kumiko-framework/errors";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { InAppHandlers, InAppQueries } from "../../channel-in-app/index.ts";
@@ -194,7 +195,7 @@ describe("helpdesk reply", () => {
       admin,
     );
     expect(failure.httpStatus).toBe(422);
-    expect(failure.details).toMatchObject({ reason: "helpdesk_attachment_not_found" });
+    expect(failure.details).toMatchObject({ reason: FrameworkReasons.fileRejected });
     const [row] = await loadRequests(ctx.stack);
     expect(row?.["status"]).toBe("open");
   });
