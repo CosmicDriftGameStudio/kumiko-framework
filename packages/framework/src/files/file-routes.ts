@@ -2,9 +2,10 @@ import { isUuid } from "@cosmicdrift/kumiko-types/identifiers";
 import type { RateLimitResolver } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-types/write-error-info-types";
-import { type Context, Hono } from "hono";
+import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { getUser } from "../api/auth-middleware.ts";
+import { getStaleCredentialCode, getUser } from "../api/auth-middleware.ts";
+import { type ClientIpResolver, clientIpSourceFromHonoContext } from "../api/client-ip.ts";
 import { requestContext } from "../api/request-context.ts";
 import { ROLES } from "../auth/roles.ts";
 import {
@@ -61,6 +62,7 @@ import { parseMaxSize, resolveServedContentType } from "./types.ts";
 import {
   isAnonymousPendingUploadAllowed,
   registryHasAnonymousUploadField,
+  resolveMaxAnonymousUploadBytes,
 } from "./upload-field-resolution.ts";
 import { withUploadLedger } from "./upload-ledger.ts";
 
@@ -110,9 +112,11 @@ export type FileAccessGuard = (args: {
 
 export type FileRoutesOptions = {
   readonly db: DbConnection;
-  // Charges GET /files/meta by id count, because every id costs a KMS-decrypting read.
-  // Absent: the route is limited only by the global request limiter.
-  readonly metaBatchRateLimitResolver?: RateLimitResolver;
+  // Charges GET /files/meta by id count (every id costs a KMS-decrypting read) and anonymous
+  // uploads by client IP. Absent: these routes are limited only by the global request limiter.
+  readonly rateLimitResolver?: RateLimitResolver;
+  // Keys the anonymous upload bucket; without it anonymous uploads are not charged.
+  readonly clientIpResolver?: ClientIpResolver;
   // Per-tenant provider resolver — resolves through file-foundation so uploads,
   // ctx.services.files and the GDPR jobs all hit the same store. Resolution runs under
   // system identity for the secret-read; request-user authorization is the
@@ -140,12 +144,12 @@ export type FileRoutesOptions = {
   readonly canWriteRecord?: RecordWriteCheck;
 };
 
-// 401 (not 403) lets the client tell a revoked or expired session from a missing permission.
+// 401 (not 403) lets the client tell a missing sign-in from a missing permission. Only a visitor
+// whose stale session cookie was downgraded gets the session-ended code; a visitor who never
+// signed in must not be sent to the "session ended" banner.
 function unauthenticatedUploadResponse(c: Context): Response {
-  return c.json(
-    { error: "unauthenticated: sign in to upload files", code: "unauthenticated" },
-    401,
-  );
+  const code = getStaleCredentialCode(c) === undefined ? "sign_in_required" : "unauthenticated";
+  return c.json({ error: "unauthenticated: sign in to upload files", code }, 401);
 }
 
 // 15 minutes — long enough for a download to start, short enough that a
@@ -156,6 +160,8 @@ const SIGNED_URL_DEFAULT_EXPIRY_SECONDS = 15 * 60;
 const MAX_BATCH_META_IDS = 100;
 const META_BATCH_IDS_PER_WINDOW = 1_000;
 const META_BATCH_WINDOW_SECONDS = 60;
+export const ANONYMOUS_UPLOADS_PER_WINDOW = 20;
+const ANONYMOUS_UPLOAD_WINDOW_SECONDS = 60;
 // Each detail() read decrypts through the KMS pool; a bounded chunk keeps one batch from hogging it.
 const BATCH_META_CONCURRENCY = 10;
 
@@ -230,8 +236,9 @@ function canReadSystemTenantFile(user: SessionUser, fileTenantId: TenantId): boo
 }
 
 export function createFileRoutes(options: FileRoutesOptions): Hono {
-  const { db, metaBatchRateLimitResolver } = options;
+  const { db, rateLimitResolver, clientIpResolver } = options;
   const reportMetaBatchLimiterFailOpen = createFailOpenReporter("files-meta-batch");
+  const reportAnonymousUploadLimiterFailOpen = createFailOpenReporter("files-upload-anon");
   // Plain resolvers (not built via withFileProviderResolver) get the ledger on the route's own root connection.
   const resolveProvider: FileProviderResolver = options.resolveProvider.uploadLedgerFor
     ? options.resolveProvider
@@ -304,23 +311,59 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
   // Runs before parseBody buffers the request below: checks Content-Length
   // upfront, counts chunked bodies while streaming.
+  const requestTooLarge = (c: Context) =>
+    c.json(
+      { error: "request_too_large: request body exceeds the maximum allowed upload size" },
+      413,
+    );
   const uploadBodyLimit = bodyLimit({
     maxSize: resolveMaxUploadBodyBytes(options),
-    onError: (c) =>
-      c.json(
-        { error: "request_too_large: request body exceeds the maximum allowed upload size" },
-        413,
-      ),
+    onError: requestTooLarge,
+  });
+  // Anonymous callers are capped by the opted-in fields alone, not by the largest field of the app.
+  const anonymousUploadBodyLimit = bodyLimit({
+    maxSize:
+      resolveMaxAnonymousUploadBytes(
+        options.registry,
+        options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE,
+      ) + MULTIPART_OVERHEAD_MARGIN_BYTES,
+    onError: requestTooLarge,
   });
 
+  const bodyLimitForCaller: MiddlewareHandler = (c, next) =>
+    isAnonymousSessionUser(getUser(c))
+      ? anonymousUploadBodyLimit(c, next)
+      : uploadBodyLimit(c, next);
+
+  async function chargeAnonymousUpload(c: Context): Promise<Response | undefined> {
+    if (!rateLimitResolver || !clientIpResolver) return undefined;
+    const ip = clientIpResolver.resolve(clientIpSourceFromHonoContext(c));
+    if (!ip) return undefined;
+    const bucket = `files-upload-anon:${ip}`;
+    try {
+      const decision = await rateLimitResolver.check(bucket, {
+        limit: ANONYMOUS_UPLOADS_PER_WINDOW,
+        windowSeconds: ANONYMOUS_UPLOAD_WINDOW_SECONDS,
+      });
+      if (!decision.allowed) return respondRateLimited(c, decision, bucket);
+    } catch (e) {
+      reportAnonymousUploadLimiterFailOpen(e);
+    }
+    return undefined;
+  }
+
   // POST /files — multipart upload.
-  api.post("/files", uploadBodyLimit, async (c) => {
+  api.post("/files", bodyLimitForCaller, async (c) => {
     const user = getUser(c);
     const isAnonymous = isAnonymousSessionUser(user);
     // 401 (not 403) lets the client tell an ended session apart. Without any opted-in field
     // no body is worth reading.
     if (isAnonymous && !registryHasAnonymousUploadField(options.registry)) {
       return unauthenticatedUploadResponse(c);
+    }
+    if (isAnonymous) {
+      const limited = await chargeAnonymousUpload(c);
+      if (limited) return limited;
     }
     const body = await c.req.parseBody();
     const file = body["file"];
@@ -351,7 +394,9 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // Ahead of the record check below, which would answer 404/403 for the entity half.
     if (actionForm !== undefined && (entityType !== undefined || entityId !== undefined)) {
       return c.json(
-        { error: "invalid_action_form: actionForm cannot be combined with entityType or entityId" },
+        {
+          error: "invalid_action_form: actionForm cannot be combined with entityType or entityId",
+        },
         400,
       );
     }
@@ -446,10 +491,10 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     if (isAnonymousSessionUser(user)) return c.json({ error: "not_found" }, 404);
     const ids = [...new Set((c.req.query("ids") ?? "").split(",").filter((id) => isUuid(id)))];
     if (ids.length > MAX_BATCH_META_IDS) return c.json({ error: "too_many_ids" }, 400);
-    if (metaBatchRateLimitResolver && ids.length > 0) {
+    if (rateLimitResolver && ids.length > 0) {
       const bucket = `files-meta:${user.tenantId}:${user.id}`;
       try {
-        const decision = await metaBatchRateLimitResolver.check(bucket, {
+        const decision = await rateLimitResolver.check(bucket, {
           limit: META_BATCH_IDS_PER_WINDOW,
           windowSeconds: META_BATCH_WINDOW_SECONDS,
           cost: ids.length,

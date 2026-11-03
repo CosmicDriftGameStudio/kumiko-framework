@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
+  ARCHIVE_JOB,
   documentsOf,
   IMPORT_JOB,
   seedLease,
@@ -201,6 +202,51 @@ describe("link target without an update handler", () => {
     expect(
       (await stack.http.writeErr("documents:write:link", toCrate, users.admin)).httpStatus,
     ).toBe(404);
+
+    // later tests count the documents of the shared property
+    await stack.http.writeOk(
+      "documents:write:unlink",
+      { documentId: doc.id, entityType: "property", entityId: propertyId },
+      users.admin,
+    );
+  });
+});
+
+describe("link target without an update handler and a row-bound write rule", () => {
+  test("only the owner of the row may link a document to it", async () => {
+    const doc = await fileDirectlyUploadedDocument("Shelf proof");
+    await stack.http.writeOk(
+      "documents:write:link",
+      { documentId: doc.id, entityType: "property", entityId: propertyId },
+      users.admin,
+    );
+    const foreignShelf = await stack.http.writeOk<{ id: string }>(
+      "doc-fixtures:write:shelf:create",
+      { name: "Foreign", ownerId: users.otherLedgerEditor.id },
+      users.otherLedgerEditor,
+    );
+    const ownShelf = await stack.http.writeOk<{ id: string }>(
+      "doc-fixtures:write:shelf:create",
+      { name: "Own", ownerId: users.ledgerEditor.id },
+      users.ledgerEditor,
+    );
+
+    const toForeign = { documentId: doc.id, entityType: "shelf", entityId: foreignShelf.id };
+    expect(
+      (await stack.http.writeErr("documents:write:link", toForeign, users.ledgerEditor)).httpStatus,
+    ).toBe(404);
+    expect((await documentsOf(stack, users.ledgerReader, "shelf", foreignShelf.id)).rows).toEqual(
+      [],
+    );
+
+    await stack.http.writeOk(
+      "documents:write:link",
+      { documentId: doc.id, entityType: "shelf", entityId: ownShelf.id },
+      users.ledgerEditor,
+    );
+    expect((await documentsOf(stack, users.ledgerReader, "shelf", ownShelf.id)).rows).toHaveLength(
+      1,
+    );
 
     // later tests count the documents of the shared property
     await stack.http.writeOk(
@@ -431,5 +477,22 @@ describe("expiry overview (clock fixed at 2026-06-15)", () => {
       ],
     });
     expect(expired.total).toBe(1);
+  });
+});
+
+describe("import of a document whose stream was archived", () => {
+  test("changes nothing, like any repeat of the import", async () => {
+    const id = "5c000000-0000-4000-8000-000000000001";
+    await runImport({ id });
+    await stack.jobRunner?.dispatch(ARCHIVE_JOB, { tenantId: tenant, id });
+    await stack.drainJobs();
+
+    await runImport({ id });
+
+    const page = await visibleDocuments(stack, users.admin, {
+      filters: [{ field: "title", op: "eq", value: "Imported" }],
+    });
+    expect(page.rows.filter((row) => row.id === id)).toHaveLength(1);
+    expect(await linkRows(id)).toHaveLength(1);
   });
 });

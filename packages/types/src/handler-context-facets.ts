@@ -62,12 +62,20 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
   readonly load: (
     aggregateId: string,
     options?:
-      | { readonly asOf?: Temporal.Instant; readonly atVersion?: never }
-      | { readonly atVersion?: number; readonly asOf?: never },
+      | {
+          readonly asOf?: Temporal.Instant;
+          readonly atVersion?: never;
+          readonly includeArchived?: boolean;
+        }
+      | {
+          readonly atVersion?: number;
+          readonly asOf?: never;
+          readonly includeArchived?: boolean;
+        },
   ) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
   // Marten-aligned stream lifecycle. Archived streams become read-only:
   // events.append throws ArchivedStreamError, events.load returns []
-  // (pass { includeArchived: true } on the low-level loaders to override).
+  // (pass { includeArchived: true } to override).
   // restore reopens a stream; aggregate-level lifecycle states like
   // "closed" stay in the domain events, not the archive flag.
   readonly archive: (

@@ -3,6 +3,7 @@ import { isFileField } from "../engine/field-helpers.ts";
 import type { Registry } from "../engine/types/index.ts";
 import { isActionFormScreenQn, resolveActionFormFileField } from "./action-form-upload.ts";
 import { resolveFileSubField } from "./file-field-slots.ts";
+import { parseMaxSize } from "./types.ts";
 
 type UploadTarget = {
   readonly entityType?: string | undefined;
@@ -135,4 +136,21 @@ export function isAnonymousPendingUploadAllowed(
     isFileField(resolution.fieldDef) &&
     resolution.fieldDef.anonymousUpload === true
   );
+}
+
+// The anonymous body cap: the largest opted-in field, not the registry-wide largest, so a
+// visitor cannot make the server buffer a body only an authenticated field would accept.
+export function resolveMaxAnonymousUploadBytes(
+  registry: Registry | undefined,
+  defaultMaxSize: string,
+): number {
+  let maxBytes = 0;
+  for (const entity of registry?.getAllEntities().values() ?? []) {
+    for (const fieldDef of Object.values(entity.fields)) {
+      if (isFileField(fieldDef) && fieldDef.anonymousUpload === true) {
+        maxBytes = Math.max(maxBytes, parseMaxSize(fieldDef.maxSize ?? defaultMaxSize));
+      }
+    }
+  }
+  return maxBytes;
 }
