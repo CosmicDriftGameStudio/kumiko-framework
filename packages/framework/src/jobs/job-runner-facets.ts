@@ -22,6 +22,7 @@ import { configAccessorFactoryOf } from "../pipeline/config-accessor-factory.ts"
 import { createGatedIdentitySwitch } from "../pipeline/system-identity-switch.ts";
 import { buildPersonalDataGate } from "../pipeline/write-origin.ts";
 import { isScheduledTrigger } from "./cron-repeat-options.ts";
+import { isQueuedRun } from "./job-runner-helpers.ts";
 import type { JobRunnerScope } from "./job-runner-scope.ts";
 import type { JobInvocation, JobLogEntry } from "./job-runner-types.ts";
 
@@ -242,7 +243,7 @@ export function createJobDefer(
         `Job "${jobName}": ctx.defer needs a positive integer delay in ms (got ${delayMs})`,
       );
     }
-    if (token === undefined || !bullJob.moveToDelayed) {
+    if (!isQueuedRun(bullJob, token)) {
       throw new InternalError({
         message: `Job "${jobName}": ctx.defer needs a queued run; it is not available inline (boot gate).`,
       });

@@ -52,6 +52,7 @@ export async function reportIngestProgress(
         });
         await runProjectionsForEvent(stored, deps.registry, tx);
       });
+      // skip: event appended, nothing left to retry
       return;
     } catch (e) {
       if (!(e instanceof VersionConflictError) || attempt >= MAX_VERSION_CONFLICT_ATTEMPTS) throw e;

@@ -26,6 +26,7 @@ import {
   hasDeferBudgetLeft,
   isFinalAttempt,
   isJobTriggerEvent,
+  isQueuedRun,
   jobSubjectKey,
   missingDbProxy,
   tenantIdOfJobData,
@@ -172,10 +173,7 @@ function buildJobContext(
   const jobLogger = createJobLogger(input.logs);
   const jobContext: Omit<JobContext, "tz"> = {
     defer: createJobDefer(jobName, bullJob, token),
-    canDefer:
-      token !== undefined &&
-      bullJob.moveToDelayed !== undefined &&
-      hasDeferBudgetLeft(rawData, input.jobDef.maxDefers),
+    canDefer: isQueuedRun(bullJob, token) && hasDeferBudgetLeft(rawData, input.jobDef.maxDefers),
     db: jobDb ?? missingDbProxy(jobName),
     events: {
       append: createJobAppendEvent({
