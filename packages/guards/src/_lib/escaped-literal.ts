@@ -1,11 +1,11 @@
 import { Node } from "ts-morph";
 
-const ESCAPE_SEQUENCE_RE = /\\[ux0-7]/;
+const BACKSLASH_RE = /\\/;
 
-// Text prefilters search raw file text, which a string-literal escape (`_`, `\x20`, octal)
-// can spell around; such files must still go through the AST check.
+// Text prefilters search raw file text, which any string-literal escape (`\_`, `\x20`, octal,
+// backslash-newline continuation) can spell around; such files must still go through the AST check.
 export function mayContainEscapedLiteral(text: string): boolean {
-  return ESCAPE_SEQUENCE_RE.test(text);
+  return BACKSLASH_RE.test(text);
 }
 
 // Source text of a string-like literal with escapes resolved, so `"set_config"` matches

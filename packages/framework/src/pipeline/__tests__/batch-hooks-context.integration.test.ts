@@ -100,9 +100,33 @@ describe("postSaveBatch system hook context", () => {
     ]);
   });
 
-  test("a batch without successful saves does not run the hook", async () => {
+  test("an empty batch does not run the hook", async () => {
     const res = await stack.http.batch([], TestUsers.admin);
     expect(res.status).toBe(200);
     expect(observations).toEqual([]);
+  });
+});
+
+describe("a stack without batch hooks", () => {
+  let hooklessStack: TestStack;
+
+  beforeAll(async () => {
+    hooklessStack = await setupTestStack({ features: [noteFeature] });
+  });
+
+  afterAll(async () => {
+    await hooklessStack.cleanup();
+  });
+
+  test("a non-empty batch still saves", async () => {
+    const res = await hooklessStack.http.batch(
+      [{ type: "batchhook:write:note:create", payload: { title: "solo" } }],
+      TestUsers.admin,
+    );
+    expect(res.status).toBe(200);
+    expect(observations).toEqual([]);
+    expect((await selectMany(hooklessStack.db, noteTable)).map((row) => row["title"])).toEqual([
+      "solo",
+    ]);
   });
 });

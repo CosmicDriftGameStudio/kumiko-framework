@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
@@ -67,6 +68,12 @@ describe("reportIngestProgress", () => {
     const rows = (await progressRows()).filter((row) => row.fileRefId === "file-p");
     expect(rows).toHaveLength(1);
     expect([1, 2, 3].includes(rows[0]?.pagesDone ?? 0)).toBe(true);
+    const streamVersion = await getStreamVersion(
+      stack.db,
+      documentIngestAggregateId(admin.tenantId, "file-p"),
+      admin.tenantId,
+    );
+    expect(streamVersion).toBe(3);
   });
 
   test("a second file gets its own row", async () => {

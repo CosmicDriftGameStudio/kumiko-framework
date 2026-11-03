@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/core";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { isDocumentReferenceName, isDocumentResourceKey } from "./document-schema.ts";
 import type { DocumentEditorHandle } from "./document-toolbar-blocks.ts";
 
@@ -32,10 +32,13 @@ export function useEditorHandleReport(
   editor: Editor | null,
   onEditorReady: ((handle: DocumentEditorHandle | null) => void) | undefined,
 ): void {
+  // Callers pass a fresh function per render; keying the effect on it would re-report each render.
+  const reportRef = useRef(onEditorReady);
+  reportRef.current = onEditorReady;
   useEffect(() => {
     // skip: useEditor creates the instance in a later effect; the next run reports it
     if (editor === null) return;
-    onEditorReady?.(createEditorHandle(editor));
-    return () => onEditorReady?.(null);
-  }, [editor, onEditorReady]);
+    reportRef.current?.(createEditorHandle(editor));
+    return () => reportRef.current?.(null);
+  }, [editor]);
 }

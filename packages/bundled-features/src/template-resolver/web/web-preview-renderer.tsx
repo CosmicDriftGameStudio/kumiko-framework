@@ -17,8 +17,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer/web";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
-import { stringValuesOf } from "../string-values.ts";
 import { TemplateResolverQueries } from "./qualified-names.ts";
+import { stringValuesOf } from "./string-values.ts";
 
 const PREVIEW_DEBOUNCE_MS = 300;
 

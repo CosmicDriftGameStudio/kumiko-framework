@@ -55,6 +55,16 @@ describe("inspectAppDockerfile", () => {
     expect(inspectAppDockerfile(input({ dockerfileText: text })).violations).toEqual([]);
   });
 
+  test.each(["RUN cat <<< foo", "RUN echo $((1 << FOO))"])(
+    "%s is no heredoc: the following stage is still inspected",
+    (shiftLine) => {
+      const text = dockerfile(`COPY . .\n${shiftLine}\nRUN bun install --frozen-lockfile`);
+      expect(
+        inspectAppDockerfile(input({ dockerfileText: text })).violations.length,
+      ).toBeGreaterThan(0);
+    },
+  );
+
   test("inline assignment from /run/secrets counts as exposing the token", () => {
     const text = dockerfile(
       "COPY . .\nRUN --mount=type=secret,id=npm_auth_token GITHUB_TOKEN=$(cat /run/secrets/npm_auth_token) bun install",

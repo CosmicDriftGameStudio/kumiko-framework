@@ -49,9 +49,9 @@ r.writeHandler({
 });
 ```
 
-The cost is computed from the validated payload and booked on every declared bucket, so an
-invalid payload costs nothing and a rejected request consumes nothing. Results below 1 count
-as 1. Because it books after the parse, boot rejects `rateLimitCost` on anonymous or ip-limited
+The cost is computed from the validated payload and booked on every declared bucket, so a
+schema-invalid payload costs nothing, while a payload rejected afterwards by a validation hook or
+field roles still consumes its cost. Results below 1 count as 1. Because it books after the parse, boot rejects `rateLimitCost` on anonymous or ip-limited
 handlers.
 
 ## Per-payload limits

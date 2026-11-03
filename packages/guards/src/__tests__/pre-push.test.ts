@@ -643,7 +643,7 @@ describe("kumiko-pre-push", () => {
       ]);
     });
 
-    test("test:dom runs after test in one lane, the other steps run beside it", () => {
+    test("test:dom runs after test", () => {
       const worktreeDir = setupWorktree({
         typecheck: `echo typecheck >> ${HOOK_LOG_NAME}`,
         test: `echo test >> ${HOOK_LOG_NAME}`,

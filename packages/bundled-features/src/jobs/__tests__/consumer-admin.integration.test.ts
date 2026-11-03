@@ -193,25 +193,33 @@ describe("event consumer admin over HTTP", () => {
     expect(observed).toContain("while-paused");
   });
 
-  test("every successful transition leaves an audit event with the actor, rejected ones leave none", async () => {
-    const events = await selectMany<{ payload: Record<string, unknown> }>(
-      stack.db,
-      eventsTable,
-      { type: CONSUMER_STATE_CHANGED_EVENT_NAME },
-      { orderBy: { col: "id", direction: "asc" } },
-    );
-    expect(events.map((e) => e.payload["action"])).toEqual([
-      "restarted",
-      "restarted",
-      "skipped",
-      "disabled",
-      "enabled",
-    ]);
-    for (const e of events) {
-      expect(e.payload).toMatchObject({ name: CONSUMER, instanceId: SHARED });
-      expect(e.payload["actor"]).toBe(systemAdmin.id);
-    }
-    expect(events[2]?.payload["skippedEventId"]).toEqual(expect.any(String));
+  test("a successful transition leaves exactly one audit event with the actor, a rejected one leaves none", async () => {
+    const auditEvents = () =>
+      selectMany<{ payload: Record<string, unknown> }>(
+        stack.db,
+        eventsTable,
+        { type: CONSUMER_STATE_CHANGED_EVENT_NAME },
+        { orderBy: { col: "id", direction: "asc" } },
+      );
+
+    const beforeDisable = await auditEvents();
+    await stack.http.writeOk(JobHandlers.consumerDisable, target, systemAdmin);
+    const afterDisable = await auditEvents();
+    expect(afterDisable).toHaveLength(beforeDisable.length + 1);
+    const disabledEvent = afterDisable.at(-1);
+    expect(disabledEvent?.payload).toMatchObject({
+      name: CONSUMER,
+      instanceId: SHARED,
+      action: "disabled",
+      actor: systemAdmin.id,
+    });
+
+    await stack.http.writeOk(JobHandlers.consumerEnable, target, systemAdmin);
+    expect(await auditEvents()).toHaveLength(afterDisable.length + 1);
+
+    const beforeRejected = await auditEvents();
+    await stack.http.writeErr(JobHandlers.consumerSkip, target, systemAdmin);
+    expect(await auditEvents()).toHaveLength(beforeRejected.length);
   });
 
   test("rejections carry fixed codes and never the internal error text", async () => {

@@ -58,6 +58,16 @@ describe("RLS-Session-Settings Guard: session-level settings", () => {
     expect(violations[0]?.message).toContain("literal true as is_local");
   });
 
+  test("flags a set_config spelled with an identity escape", () => {
+    const violations = run(TEST, "SELECT set\\_config('statement_timeout', '0', false)", '"');
+    expect(violations).toHaveLength(1);
+  });
+
+  test("flags a set_config split over a backslash-newline continuation", () => {
+    const violations = run(TEST, "SELECT set_config('statement_timeout',\\\n '0', false)", '"');
+    expect(violations).toHaveLength(1);
+  });
+
   test.each([
     sql("SET", '"kumiko.tenant_id"', "=", "'t'"),
     sql("SET", "SESSION", '"kumiko.scope"', "TO", "'system'"),

@@ -1,5 +1,6 @@
 import {
   type ClassDeclaration,
+  type ClassMemberTypes,
   type EnumDeclaration,
   type FunctionDeclaration,
   type InterfaceDeclaration,
@@ -173,6 +174,29 @@ function renderEnum(node: EnumDeclaration): string[] {
   return [`enum ${node.getName()} { ${members.join(", ")} }${docSuffix(node)}`];
 }
 
+function renderClassMember(
+  member: ClassMemberTypes,
+  getterNames: ReadonlySet<string>,
+): string | undefined {
+  if (!isPublicClassMember(member)) return undefined;
+  const isStatic = Node.isStaticable(member) && member.isStatic() ? "static " : "";
+  const line = (name: string, text: string): string =>
+    `${INDENT}${isStatic}${name}: ${text};${docSuffix(member)}`;
+  if (Node.isPropertyDeclaration(member)) {
+    return line(member.getName(), typeText(member.getTypeNode(), 1, INDENT));
+  }
+  if (Node.isMethodDeclaration(member)) {
+    return `${INDENT}${isStatic}${member.getName()}${signatureText(member)};${docSuffix(member)}`;
+  }
+  if (Node.isGetAccessorDeclaration(member)) {
+    return line(member.getName(), typeText(member.getReturnTypeNode(), 1, INDENT));
+  }
+  if (Node.isSetAccessorDeclaration(member) && !getterNames.has(member.getName())) {
+    return line(member.getName(), typeText(member.getParameters()[0]?.getTypeNode(), 1, INDENT));
+  }
+  return undefined;
+}
+
 function renderClass(node: ClassDeclaration): string[] {
   const base = node.getExtends();
   const extendsText = base === undefined ? "" : ` extends ${nodeText(base)}`;
@@ -189,22 +213,8 @@ function renderClass(node: ClassDeclaration): string[] {
       .flatMap((member) => (Node.isGetAccessorDeclaration(member) ? [member.getName()] : [])),
   );
   for (const member of node.getMembers()) {
-    if (!isPublicClassMember(member)) continue;
-    const isStatic = Node.isStaticable(member) && member.isStatic() ? "static " : "";
-    if (Node.isPropertyDeclaration(member)) {
-      const text = typeText(member.getTypeNode(), 1, INDENT);
-      lines.push(`${INDENT}${isStatic}${member.getName()}: ${text};${docSuffix(member)}`);
-    } else if (Node.isMethodDeclaration(member)) {
-      lines.push(
-        `${INDENT}${isStatic}${member.getName()}${signatureText(member)};${docSuffix(member)}`,
-      );
-    } else if (Node.isGetAccessorDeclaration(member)) {
-      const text = typeText(member.getReturnTypeNode(), 1, INDENT);
-      lines.push(`${INDENT}${isStatic}${member.getName()}: ${text};${docSuffix(member)}`);
-    } else if (Node.isSetAccessorDeclaration(member) && !getterNames.has(member.getName())) {
-      const text = typeText(member.getParameters()[0]?.getTypeNode(), 1, INDENT);
-      lines.push(`${INDENT}${isStatic}${member.getName()}: ${text};${docSuffix(member)}`);
-    }
+    const line = renderClassMember(member, getterNames);
+    if (line !== undefined) lines.push(line);
   }
   if (lines.length === 0) return [`${head} {}${docSuffix(node)}`];
   return [`${head} {${docSuffix(node)}`, ...lines, "}"];

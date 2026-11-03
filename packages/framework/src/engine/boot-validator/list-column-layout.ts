@@ -1,4 +1,4 @@
-import { LIST_COLUMN_MAX_WIDTH_PX } from "@cosmicdrift/kumiko-types/screen-list-table";
+import { LIST_COLUMN_MAX_WIDTH_PX } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import { LIST_COLUMN_PINS, type ListColumnSpec } from "../types/screen.ts";

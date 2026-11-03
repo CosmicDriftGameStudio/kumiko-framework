@@ -57,8 +57,12 @@ function LabelledLine({ registry }: { readonly registry: Record<string, Document
   );
 }
 
-function SwitchingField({ registry }: { readonly registry: Record<string, DocumentEditorHandle> }) {
-  const [field, setField] = useState("first");
+function InlineStateReporter({
+  reports,
+}: {
+  readonly reports: Array<DocumentEditorHandle | null>;
+}) {
+  const [, setHandle] = useState<DocumentEditorHandle | null>(null);
   const [value, setValue] = useState("");
   return (
     <LocaleProvider
@@ -73,13 +77,10 @@ function SwitchingField({ registry }: { readonly registry: Record<string, Docume
           onChange={setValue}
           variableLabels={{}}
           onEditorReady={(handle) => {
-            if (handle === null) delete registry[field];
-            else registry[field] = handle;
+            reports.push(handle);
+            setHandle(handle);
           }}
         />
-        <button type="button" onClick={() => setField("second")}>
-          switch field
-        </button>
         <output data-testid="value">{value}</output>
       </PrimitivesProvider>
     </LocaleProvider>
@@ -110,18 +111,15 @@ describe("PlaceholderLineEditor remount", () => {
     }
   });
 
-  test("swapping onEditorReady on a standing editor moves the handle to the new callback only", async () => {
-    const registry: Record<string, DocumentEditorHandle> = {};
-    render(<SwitchingField registry={registry} />);
-    await waitFor(() => expect(registry["first"]).toBeDefined());
+  test("an inline state-setting onEditorReady reports once per editor instance", async () => {
+    const reports: Array<DocumentEditorHandle | null> = [];
+    render(<InlineStateReporter reports={reports} />);
+    await waitFor(() => expect(reports.length).toBeGreaterThan(0));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, FLUSH_TIPTAP_TIMERS_MS));
+    });
 
-    fireEvent.click(screen.getByRole("button", { name: "switch field" }));
-    await waitFor(() => expect(registry["second"]).toBeDefined());
-    expect(registry["first"]).toBeUndefined();
-
-    act(() => registry["second"]?.insertPlaceholder("noticeLabel"));
-    await waitFor(() =>
-      expect(screen.getByTestId("value").textContent).toContain("{{noticeLabel}}"),
-    );
+    expect(reports.filter((handle) => handle !== null)).toHaveLength(1);
+    expect(reports.filter((handle) => handle === null)).toHaveLength(0);
   });
 });
