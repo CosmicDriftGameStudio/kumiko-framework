@@ -11,6 +11,7 @@ import {
   defineFeature,
   defineQueryHandler,
   type FeatureDefinition,
+  from,
   SYSTEM_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -57,6 +58,11 @@ export const users = {
     id: 10,
     tenantId: tenant,
     roles: ["PropertyReader", "LedgerReader"],
+  }),
+  otherLedgerEditor: createTestUser({
+    id: 11,
+    tenantId: tenant,
+    roles: ["PropertyReader", "LedgerReader", "LedgerEditor"],
   }),
 };
 export type TestUser = (typeof users)["admin"];
@@ -109,6 +115,16 @@ export const crateEntity = createEntity({
   access: { read: { LedgerReader: "all", TenantAdmin: "all" } },
 });
 
+// Write rule bound to the row: a LedgerEditor may only link documents to the shelves they own.
+export const shelfEntity = createEntity({
+  table: "doc_t_shelves",
+  fields: { name: text(64), ownerId: text(64) },
+  access: {
+    read: { LedgerReader: "all", LedgerEditor: "all", TenantAdmin: "all" },
+    write: { LedgerEditor: from("user:id", "ownerId") },
+  },
+});
+
 const PDF = new TextEncoder().encode("%PDF-1.4 fixture");
 
 export const hostFeature = defineFeature("doc-fixtures", (r) => {
@@ -118,11 +134,13 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
   r.entity({ name: "vault", ...vaultEntity });
   r.entity({ name: "ledger", ...ledgerEntity });
   r.entity({ name: "crate", ...crateEntity });
+  r.entity({ name: "shelf", ...shelfEntity });
   for (const [name, entity] of [
     ["property", propertyEntity],
     ["lease", leaseEntity],
     ["ledger", ledgerEntity],
     ["crate", crateEntity],
+    ["shelf", shelfEntity],
   ] as const) {
     r.writeHandler(defineEntityCreateHandler(name, entity, { access: openToAll }));
     r.queryHandler(defineEntityListHandler(name, entity, { access: openToAll }));
@@ -166,6 +184,21 @@ export const hostFeature = defineFeature("doc-fixtures", (r) => {
         event.user,
         ctx.db,
       ),
+  });
+  r.writeHandler({
+    name: "archive-document",
+    schema: z.object({ id: z.uuid() }),
+    access: { roles: [SYSTEM_ROLE] },
+    handler: async (event, ctx) => {
+      await ctx.events.archive(event.payload.id, { aggregateType: "filed-document" });
+      return { isSuccess: true as const, data: {} };
+    },
+  });
+  r.job("archive-document", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+    const archived = await ctx.dispatch.write("doc-fixtures:write:archive-document", {
+      id: z.uuid().parse(payload["id"]),
+    });
+    if (!archived.isSuccess) throw new Error(archived.error.message);
   });
   r.job("import-document", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     const id = z.uuid().parse(payload["id"]);
@@ -254,7 +287,7 @@ export function createFixtureDocumentsFeature(
   return createDocumentsFeature({
     ...featureOptions,
     categories: ["contract", "id"],
-    linkTargets: ["property", "lease", "ledger", "crate"],
+    linkTargets: ["property", "lease", "ledger", "crate", "shelf"],
     access: openToAll,
     // Every test role reads all the gate allows; the system role is left out on purpose, so
     // capture and import must work without it.
@@ -324,6 +357,7 @@ export async function uploadFile(
 
 // The migration path: a SYSTEM job creates the file bound to the document and imports it.
 export const IMPORT_JOB = "doc-fixtures:job:import-document";
+export const ARCHIVE_JOB = "doc-fixtures:job:archive-document";
 
 export const FIXED_NOW = "2026-06-15T10:00:00Z";
 

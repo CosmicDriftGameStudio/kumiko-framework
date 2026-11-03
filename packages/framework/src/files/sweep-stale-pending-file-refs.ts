@@ -13,10 +13,11 @@ type PendingRow = {
   readonly insertedById: string | null;
 };
 
-// A pending upload names its target field (entityType set) but no record yet. Uploads without a
-// target field (inbox, dropzone) and files the system generated are kept on purpose.
+// A pending upload names its target field (entityType set, filtered in SQL) but no record yet.
+// Uploads without a target field (inbox, dropzone) and files the system generated are kept on
+// purpose. The system filter stays in memory: SQL `<>` would also drop rows with a NULL inserter.
 function isStalePendingUpload(row: PendingRow): boolean {
-  return row.entityType !== null && row.insertedById !== SYSTEM_USER_ID;
+  return row.insertedById !== SYSTEM_USER_ID;
 }
 
 // Soft-deletes pending uploads whose record never came, through the fileRef executor, so the
@@ -41,6 +42,7 @@ export async function sweepStalePendingFileRefs(args: {
       fileRefsTable,
       {
         entityId: null,
+        entityType: { ne: null },
         isDeleted: false,
         insertedAt: { lt: cutoff },
         ...(cursor !== undefined && { id: { gt: cursor } }),

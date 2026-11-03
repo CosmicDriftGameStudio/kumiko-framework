@@ -178,9 +178,13 @@ function buildLoadAggregate(scope: HandlerContextScope) {
     loadOptions?: Parameters<HandlerContext["events"]["load"]>[1],
   ): Promise<readonly StoredEvent[]> => {
     const dbSource = requireDbSource(ctx, tx, `ctx.events.load("${aggregateId}")`);
+    const includeArchived = loadOptions?.includeArchived === true;
     const events = loadOptions?.asOf
-      ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf)
+      ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf, {
+          includeArchived,
+        })
       : await loadAggregate(dbSource, aggregateId, user.tenantId, {
+          includeArchived,
           ...(loadOptions?.atVersion !== undefined && { atVersion: loadOptions.atVersion }),
         });
     return upcastStoredEvents(events, registry.getEventUpcasters(), {

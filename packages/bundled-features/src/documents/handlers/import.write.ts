@@ -45,9 +45,9 @@ async function fileRefExists(
 type StreamLoader = Pick<HandlerEvents, "load">;
 
 // The stream, not the projected row: a row-level readAccess can hide a document from the system
-// user, and a deleted document still has its stream.
+// user, and a deleted or retention-archived document still has its stream.
 async function streamTypeOf(events: StreamLoader, id: string): Promise<string | undefined> {
-  const [first] = await events.load(id, { atVersion: 1 });
+  const [first] = await events.load(id, { atVersion: 1, includeArchived: true });
   return first?.aggregateType;
 }
 

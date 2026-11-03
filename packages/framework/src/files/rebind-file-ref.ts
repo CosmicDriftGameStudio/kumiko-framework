@@ -91,6 +91,16 @@ async function loadRow(
   };
 }
 
+function callerCheckContextOf(ctx: RebindFileRefContext): CallerCheckContext {
+  const { dispatch } = ctx;
+  if (dispatch === undefined) {
+    throw new InternalError({
+      message: "rebindFileRef: a caller other than the system user needs ctx.dispatch.query",
+    });
+  }
+  return { ...ctx, dispatch };
+}
+
 function isOwnedBy(fileRef: FileRef, owner: FileRefOwner): boolean {
   return (
     fileRef.entityType === owner.entityType &&
@@ -109,19 +119,14 @@ async function lockSourceRow(ctx: CallerCheckContext, from: FileRefOwner): Promi
   await selectRowForUpdateById(tenantDbRunner(ctx.db), tableName, from.entityId);
 }
 
-// A caller other than the system job must be able to read the file today and must be able to
-// write both records as a save of them would: the source it takes the file from (unlocked, and
-// with an update handler the caller passes; without one only the system job may move the file),
-// and the target field it puts the file into.
+// A caller other than the system job must be able to write both records as a save of them would:
+// the source it takes the file from (unlocked, and with an update handler the caller passes;
+// without one only the system job may move the file), and the target field it puts the file into.
 async function assertCallerMayMove(
   ctx: CallerCheckContext,
-  fileRef: FileRef,
   from: FileRefOwner,
   to: FileRefOwner,
 ): Promise<void> {
-  if (!(await canCallerReadFileRef(ctx, fileRef))) {
-    throw new AccessDeniedError({ message: `rebindFileRef: file ${fileRef.id} is not readable` });
-  }
   const canWriteRecord = createRecordWriteCheck({
     registry: ctx.registry,
     canReadRecord: createRecordReadCheck(ctx.registry, (qn, payload) =>
@@ -172,12 +177,13 @@ async function assertTargetRecordExists(
  * file uploaded elsewhere (an upload record, a mail attachment). Server code only; pending uploads
  * go through bindPendingFileRef.
  *
- * Only files of the caller's tenant are found ("not-found" otherwise, as for unknown ids). The
+ * Only files of the caller's tenant that the caller may read are found ("not-found" otherwise,
+ * as for unknown ids; the system user reads every file of its tenant). The
  * file must still sit at `from`; "moved" means it does not (any more), for example because a
  * parallel rebind took it first. A file already at `to` answers "rebound" without a write. The
  * target must be a registered file field whose accept/maxSize the file fits (InternalError /
  * UnprocessableError). Unless the caller is the framework system user, the caller must be able
- * to read the file and to write both the source record and field (it must not be locked, and an
+ * to write both the source record and field (it must not be locked, and an
  * entity without update handler leaves the move to the system user) and the target record and
  * field (AccessDeniedError, RecordLockedError); the system user skips these checks, and only the
  * target record has to exist (NotFoundError). The update is checked against the file's stream
@@ -196,6 +202,12 @@ export async function rebindFileRef(
   const loaded = await loadRow(ctx, fileRefId);
   if (loaded === undefined) return "not-found";
   const { fileRef, version } = loaded;
+  const callerCheck = isFrameworkSystemUser(ctx.user) ? undefined : callerCheckContextOf(ctx);
+  // Before the ownership short-circuits: "moved" and "rebound" would tell a caller who may not
+  // read the file that it exists and where it sits.
+  if (callerCheck !== undefined && !(await canCallerReadFileRef(callerCheck, fileRef))) {
+    return "not-found";
+  }
   if (isOwnedBy(fileRef, to)) return "rebound";
   if (!isOwnedBy(fileRef, from)) return "moved";
 
@@ -204,16 +216,10 @@ export async function rebindFileRef(
     { entityName: to.entityType, fieldName: to.fieldName },
     fileRef,
   );
-  if (isFrameworkSystemUser(ctx.user)) {
+  if (callerCheck === undefined) {
     await assertTargetRecordExists(ctx, to);
   } else {
-    const { dispatch } = ctx;
-    if (dispatch === undefined) {
-      throw new InternalError({
-        message: "rebindFileRef: a caller other than the system user needs ctx.dispatch.query",
-      });
-    }
-    await assertCallerMayMove({ ...ctx, dispatch }, fileRef, from, to);
+    await assertCallerMayMove(callerCheck, from, to);
   }
 
   const moved = await getFileRefExecutor().update(

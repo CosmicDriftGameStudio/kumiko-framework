@@ -65,7 +65,7 @@ export function withUploadLedger(
   db: DbConnection | TenantDb,
   now?: () => Temporal.Instant,
 ): FileProviderResolver {
-  return Object.assign(resolver, {
+  return Object.assign((tenantId: TenantId) => resolver(tenantId), {
     uploadLedgerFor: (tenantId: TenantId) => createFileUploadLedger(db, tenantId, now),
   });
 }

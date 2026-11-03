@@ -126,7 +126,7 @@ describe("rebindFileRef", () => {
     expect((await ownerOf(stack, fileRefId)).entityId).toBe(uploadId);
   });
 
-  test("a caller who may not write the target, or not read the file, is refused", async () => {
+  test("a caller who may not write the target is refused", async () => {
     const { fileRefId, uploadId } = await uploadBoundFile(stack);
     const contactId = await createContact(stack);
 
@@ -138,14 +138,32 @@ describe("rebindFileRef", () => {
     expect(notWritable.code).toBe("access_denied");
     expect(notWritable.message).toContain("contact.doc of");
 
-    const notReadable = await stack.http.writeErr(
-      REBIND,
-      { fileRefId, uploadId, contactId },
-      users.contactEditor,
-    );
-    expect(notReadable.code).toBe("access_denied");
-    expect(notReadable.message).toContain("is not readable");
+    expect((await ownerOf(stack, fileRefId)).entityId).toBe(uploadId);
+  });
 
+  test("a caller who may not read the file gets the answer of an unknown id, whatever owner it names", async () => {
+    const { fileRefId, uploadId } = await uploadBoundFile(stack);
+    const contactId = await createContact(stack);
+    const unknownId = crypto.randomUUID();
+
+    const unreadableAtSource = await rebindAs(stack, users.contactEditor, {
+      fileRefId,
+      uploadId,
+      contactId,
+    });
+    const unreadableElsewhere = await rebindAs(stack, users.contactEditor, {
+      fileRefId,
+      uploadId: crypto.randomUUID(),
+      contactId,
+    });
+    const unknown = await rebindAs(stack, users.contactEditor, {
+      fileRefId: unknownId,
+      uploadId,
+      contactId,
+    });
+
+    expect([unreadableAtSource, unreadableElsewhere]).toEqual([unknown, unknown]);
+    expect(unknown).toBe("not-found");
     expect((await ownerOf(stack, fileRefId)).entityId).toBe(uploadId);
   });
 

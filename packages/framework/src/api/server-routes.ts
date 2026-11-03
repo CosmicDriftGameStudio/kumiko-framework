@@ -119,11 +119,16 @@ export function mountFileRoutes(
   app: Hono,
   wiring: Pick<
     ServerWiring,
-    "options" | "dispatcher" | "fileProviderResolver" | "rateLimitResolver" | "tracedRedis"
+    | "options"
+    | "dispatcher"
+    | "fileProviderResolver"
+    | "rateLimitResolver"
+    | "tracedRedis"
+    | "clientIpResolver"
   >,
 ): void {
   const { options, dispatcher, fileProviderResolver, rateLimitResolver, tracedRedis } = wiring;
-  const metaBatchRateLimitResolver =
+  const fileRateLimitResolver =
     rateLimitResolver ??
     (tracedRedis ? createRateLimitResolver({ redis: tracedRedis }) : undefined);
   // Mount upload/download routes whenever a file provider is resolvable (a
@@ -143,7 +148,8 @@ export function mountFileRoutes(
         db: fileDb,
         registry: options.registry,
         resolveProvider: fileProviderResolver,
-        ...(metaBatchRateLimitResolver ? { metaBatchRateLimitResolver } : {}),
+        ...(fileRateLimitResolver ? { rateLimitResolver: fileRateLimitResolver } : {}),
+        clientIpResolver: wiring.clientIpResolver,
         canReadRecord,
         canWriteRecord: createRecordWriteCheck({
           registry: options.registry,
