@@ -86,7 +86,7 @@ export function createAccountHealth(deps: {
   }
 
   async function lastErrorWithoutOutage(account: AccountHealthRef) {
-    if (await hasOpenQuarantine(deps.db, account.id)) {
+    if (await hasOpenQuarantine(deps.db, { tenantId: account.tenantId, accountId: account.id })) {
       return InboundMailLastErrors.messageQuarantined;
     }
     if (storageUnavailable.has(account.id)) return InboundMailLastErrors.fileStorageUnavailable;

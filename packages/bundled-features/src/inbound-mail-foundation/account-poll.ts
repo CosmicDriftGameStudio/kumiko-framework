@@ -84,7 +84,11 @@ export function createAccountPoller(deps: AccountPollerDeps): {
         for (const row of seen) seenIds.add(row.providerMessageId);
       }
       // A quarantined message counts as seen: re-fetching it would only fail the same way again.
-      for (const id of await quarantinedMessageIds(systemDb, account.id, providerMessageIds)) {
+      for (const id of await quarantinedMessageIds(
+        systemDb,
+        { tenantId: account.tenantId, accountId: account.id },
+        providerMessageIds,
+      )) {
         seenIds.add(id);
       }
       return new Set(providerMessageIds.filter((id) => !seenIds.has(id)));

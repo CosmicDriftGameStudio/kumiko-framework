@@ -48,8 +48,9 @@ const HANDLER_QN_OF_NAME: Readonly<Record<string, Readonly<Record<string, string
   InboundMailFoundationHandlers,
   ImapHandlers,
 };
-const DISPATCH_CALL = /\bdispatch(?:System)?Write\(\{/g;
-const DISPATCHED_QN = /handlerQn:\s*(\w+)\.(\w+)/g;
+const DISPATCH_CALL = /\bdispatch(?:System)?Write\(\{|\bwriteAs\(\s*createSystemUser\(/g;
+const DISPATCHED_QN =
+  /handlerQn:\s*(\w+)\.(\w+)|\bwriteAs\(\s*createSystemUser\([^)]*\),\s*(\w+)\.(\w+)/g;
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true })
@@ -65,7 +66,7 @@ function codeWithoutComments(file: string): string {
 }
 
 describe("system dispatch call sites", () => {
-  test("every dispatchWrite/dispatchSystemWrite call targets a listed handler", () => {
+  test("every dispatchWrite/dispatchSystemWrite/writeAs(system) call targets a listed handler", () => {
     const dispatches: string[] = [];
     for (const file of FEATURE_DIRS.flatMap(sourceFiles)) {
       const code = codeWithoutComments(file);
@@ -73,10 +74,13 @@ describe("system dispatch call sites", () => {
       const targets = [...code.matchAll(DISPATCHED_QN)];
       // A call whose handler is not written as `Handlers.name` cannot be checked here.
       expect(targets.length, file).toBe(calls);
-      for (const [, holder, name] of targets) {
-        const qn = HANDLER_QN_OF_NAME[holder ?? ""]?.[name ?? ""];
+      for (const [, handlerHolder, handlerName, writeAsHolder, writeAsName] of targets) {
+        const holder = handlerHolder ?? writeAsHolder ?? "";
+        const name = handlerName ?? writeAsName ?? "";
+        const qn = HANDLER_QN_OF_NAME[holder]?.[name];
         expect(qn, `${file}: ${holder}.${name}`).toBeDefined();
-        dispatches.push(qn as string);
+        if (qn === undefined) continue;
+        dispatches.push(qn);
       }
     }
     expect(dispatches.length).toBeGreaterThan(0);

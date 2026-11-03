@@ -41,7 +41,14 @@ import {
   type MailAccountEventPayload,
 } from "../events.ts";
 import { accessRolesOf, type InboundMailRoles } from "../mail-roles.ts";
-import { connectConflictOf, findMailboxByAddress } from "./account-address.ts";
+import {
+  connectConflictOf,
+  findMailboxByAddress,
+  normalizeMailAddress,
+} from "./account-address.ts";
+
+// 'inma': serializes the duplicate-address check and the append per tenant and address (the lock key is tenant-scoped).
+const CONNECT_ADDRESS_LOCK_NAMESPACE = 0x696e6d61;
 
 export const connectAccountSchema = z
   .object({
@@ -96,6 +103,10 @@ export function createConnectAccountHandler({ adminRoles }: InboundMailRoles): W
             ? event.user.id
             : null;
 
+      await ctx.db.advisoryXactLock(
+        CONNECT_ADDRESS_LOCK_NAMESPACE,
+        normalizeMailAddress(payload.address),
+      );
       const existing = await findMailboxByAddress(ctx, tenantId, payload.address);
       if (existing) {
         const matched = connectConflictOf(existing, {

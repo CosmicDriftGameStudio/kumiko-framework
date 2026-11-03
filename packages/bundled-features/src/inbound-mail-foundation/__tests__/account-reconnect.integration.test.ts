@@ -71,6 +71,28 @@ describe("one mailbox per address", () => {
     ).toHaveLength(1);
   });
 
+  test("two concurrent connects of one address create a single account", async () => {
+    const admin = adminFor(6305);
+
+    const outcomes = await Promise.allSettled([
+      env.stack.http.writeOk(
+        InboundMailFoundationHandlers.connectAccount,
+        connectPayload("race@tenant.example"),
+        admin,
+      ),
+      env.stack.http.writeOk(
+        InboundMailFoundationHandlers.connectAccount,
+        connectPayload("Race@Tenant.example"),
+        admin,
+      ),
+    ]);
+
+    expect(outcomes.filter((o) => o.status === "fulfilled")).toHaveLength(1);
+    expect(
+      await selectMany(env.stack.db, mailAccountsProjectionTable, { tenantId: admin.tenantId }),
+    ).toHaveLength(1);
+  });
+
   test("a disconnected password mailbox is not silently duplicated", async () => {
     const admin = adminFor(6302);
     const accountId = await connectInMemoryAccount(env.stack, admin);

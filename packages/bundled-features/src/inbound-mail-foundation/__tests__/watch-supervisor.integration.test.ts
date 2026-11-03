@@ -60,6 +60,7 @@ import {
   syncCursorEntity,
   syncCursorTable,
 } from "../index.ts";
+import { INBOUND_RAW_MIME_MAX_BYTES } from "../normalize-inbound-message.ts";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -510,6 +511,37 @@ describe("watch-supervisor — watch restart + ingest resilience", () => {
     );
     await supervisor.pollOnce();
     expect(stored).toEqual(["body-store-1"]);
+  });
+
+  test("storeBody hook is not called for an original that normalization drops as too large", async () => {
+    const admin = adminFor(4113);
+    const accountId = await connectSharedAccount(admin);
+    const stored: string[] = [];
+    const supervisor = createInboundMailSupervisor({
+      lock: createDistributedLock(stack.redis.redis, "test-watch-lease:"),
+      providerCtx: { registry: stack.registry },
+      db: stack.unscopedDb,
+      dispatchWrite: ({ handlerQn, payload, tenantId }) =>
+        stack.dispatcher.write(
+          handlerQn,
+          payload,
+          createSystemUser(tenantId as TenantId, [ROLES.SystemAdmin]),
+        ),
+      storeBody: async (_account, msg) => {
+        stored.push(msg.providerMessageId);
+        return `body-ref:${msg.providerMessageId}`;
+      },
+      pollIntervalMs: 60_000,
+    });
+    await seedInboundMessage(
+      accountId,
+      rawMsg({
+        providerMessageId: "body-store-too-large",
+        rawMime: new Uint8Array(INBOUND_RAW_MIME_MAX_BYTES + 1),
+      }),
+    );
+    await supervisor.pollOnce();
+    expect(stored).toEqual([]);
   });
 
   test("disconnecting an account tears down its watcher on the next pollOnce", async () => {

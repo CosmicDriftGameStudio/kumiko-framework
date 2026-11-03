@@ -22,12 +22,15 @@ export async function quarantineMessage(
   target: QuarantineTarget,
   reasonCode: QuarantineReasonCode,
 ): Promise<boolean> {
-  const key = { accountId: target.accountId, providerMessageId: target.providerMessageId };
+  const key = {
+    tenantId: target.tenantId,
+    accountId: target.accountId,
+    providerMessageId: target.providerMessageId,
+  };
   if (await fetchOne<{ id: string }>(db, quarantineTable, key)) return false;
   try {
     await insertOne(db, quarantineTable, {
       id: crypto.randomUUID(),
-      tenantId: target.tenantId,
       ...key,
       reasonCode,
       quarantinedAt: Temporal.Now.instant().toString(),
@@ -40,9 +43,12 @@ export async function quarantineMessage(
   }
 }
 
+// tenantId leads the lookups: the unique index and the tenant index are the only ones on the table.
+type QuarantineAccount = Pick<QuarantineTarget, "tenantId" | "accountId">;
+
 export async function quarantinedMessageIds(
   db: DbConnection,
-  accountId: string,
+  { tenantId, accountId }: QuarantineAccount,
   providerMessageIds: readonly string[],
 ): Promise<ReadonlySet<string>> {
   const ids = new Set<string>();
@@ -51,6 +57,7 @@ export async function quarantinedMessageIds(
       db,
       quarantineTable,
       {
+        tenantId,
         accountId,
         providerMessageId: { in: providerMessageIds.slice(start, start + LOOKUP_CHUNK_SIZE) },
       },
@@ -61,11 +68,14 @@ export async function quarantinedMessageIds(
   return ids;
 }
 
-export async function hasOpenQuarantine(db: DbConnection, accountId: string): Promise<boolean> {
+export async function hasOpenQuarantine(
+  db: DbConnection,
+  { tenantId, accountId }: QuarantineAccount,
+): Promise<boolean> {
   const rows = await selectMany<{ id: string }>(
     db,
     quarantineTable,
-    { accountId, acknowledgedAt: null },
+    { tenantId, accountId, acknowledgedAt: null },
     { fields: ["id"], limit: 1 },
   );
   return rows.length > 0;
