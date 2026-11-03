@@ -117,6 +117,15 @@ describe("assertRowLevelSecurityBootState", () => {
     );
   });
 
+  test('"off" points to schema generate for the DISABLE migration', async () => {
+    const { db } = await openAppDbWithTable();
+    const message = String(
+      await assertRowLevelSecurityBootState(db, "off", knowsEverything).catch((e: Error) => e),
+    );
+    expect(message).toContain("bun kumiko-schema generate");
+    expect(message).toMatch(/row-level security is still enabled on: .*store_boot_check_items/);
+  });
+
   test('"off" over a database without row-level security passes', async () => {
     const { db } = await openDb(false);
     await unsafePushTables(db, { items: tenantTable });
@@ -141,6 +150,20 @@ describe("assertRowLevelSecurityBootState", () => {
     expect(String(error)).toMatch(/tables of this app without it: store_boot_check_items/);
     expect(String(error)).toContain("bun kumiko-schema generate");
     expect(String(error)).not.toContain("no feature declares");
+  });
+
+  test("a live framework table without protection points to schema apply", async () => {
+    const { db } = await openDb(true);
+    await unsafePushTables(db, { fw: { ...tenantTable, tableName: "kumiko_boot_check_items" } });
+    const raw = asRawClient(db);
+    await raw.unsafe(`ALTER TABLE "kumiko_boot_check_items" NO FORCE ROW LEVEL SECURITY`);
+    await raw.unsafe(`ALTER TABLE "kumiko_boot_check_items" DISABLE ROW LEVEL SECURITY`);
+    const message = String(
+      await assertRowLevelSecurityBootState(db, "on", knowsEverything).catch((e: Error) => e),
+    );
+    expect(message).toMatch(/framework tables without it: kumiko_boot_check_items/);
+    expect(message).toContain("bun kumiko-schema apply");
+    expect(message).not.toContain("tables of this app");
   });
 
   test("an unknown tenant table is reported as orphaned with the DROP TABLE fix", async () => {

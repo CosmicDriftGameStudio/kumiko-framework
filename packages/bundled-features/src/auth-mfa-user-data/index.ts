@@ -5,15 +5,22 @@
 // consumers without the user-data-rights stack don't pull a hard dependency.
 // Mirrors folders-user-data.
 
-import { defineUserDataFeature } from "../shared/index.ts";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { registerUserDataHooks } from "../shared/index.ts";
 import { userMfaDeleteHook, userMfaExportHook } from "./hooks.ts";
 
 export function createAuthMfaUserDataFeature() {
-  return defineUserDataFeature({
-    name: "auth-mfa-user-data",
-    description:
-      "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `auth-mfa` feature's `user-mfa` entity. Mounts the EXT_USER_DATA export + delete hooks so 2FA enrollment status is included in the user-data export bundle and a user's TOTP secret + recovery codes are hard-deleted (via executor.forget, rebuild-safe) on a data-subject erasure request. Kept separate from `auth-mfa` so consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `auth-mfa`.",
-    sourceFeature: "auth-mfa",
-    entities: [{ entity: "user-mfa", export: userMfaExportHook, delete: userMfaDeleteHook }],
-  });
+  return defineFeature(
+    "auth-mfa-user-data",
+    (r) => {
+      r.describe(
+        "GDPR (Art. 20 export / Art. 17 erasure) coverage for the `auth-mfa` feature's `user-mfa` entity. Mounts the EXT_USER_DATA export + delete hooks so 2FA enrollment status is included in the user-data export bundle and a user's TOTP secret + recovery codes are hard-deleted (via executor.forget, rebuild-safe) on a data-subject erasure request. Kept separate from `auth-mfa` so consumers without the user-data-rights pipeline don't pull a hard dependency — requires `user-data-rights`, optionalRequires `auth-mfa`.",
+      );
+      registerUserDataHooks(r, {
+        sourceFeature: "auth-mfa",
+        entities: [{ entity: "user-mfa", export: userMfaExportHook, delete: userMfaDeleteHook }],
+      });
+    },
+    { dedupeOptions: {} },
+  );
 }

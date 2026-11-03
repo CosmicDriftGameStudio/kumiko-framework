@@ -14,6 +14,7 @@ const leadEntity = createEntity({
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
     receivedAt: createTimestampField({ sortable: true, sortNulls: "last" }),
     seenAt: createTimestampField({ sortable: true }),
+    firstSeenAt: createTimestampField({ sortable: true, sortNulls: "first" }),
   },
 });
 
@@ -40,10 +41,25 @@ describe("sortNulls on a sortable field", () => {
     await unsafeCreateEntityTable(stack.db, leadEntity);
     const leads = [
       { name: "manual-1" },
-      { name: "old", receivedAt: "2026-01-01T00:00:00Z", seenAt: "2026-01-01T00:00:00Z" },
+      {
+        name: "old",
+        receivedAt: "2026-01-01T00:00:00Z",
+        seenAt: "2026-01-01T00:00:00Z",
+        firstSeenAt: "2026-01-01T00:00:00Z",
+      },
       { name: "manual-2" },
-      { name: "new", receivedAt: "2026-03-01T00:00:00Z", seenAt: "2026-03-01T00:00:00Z" },
-      { name: "mid", receivedAt: "2026-02-01T00:00:00Z", seenAt: "2026-02-01T00:00:00Z" },
+      {
+        name: "new",
+        receivedAt: "2026-03-01T00:00:00Z",
+        seenAt: "2026-03-01T00:00:00Z",
+        firstSeenAt: "2026-03-01T00:00:00Z",
+      },
+      {
+        name: "mid",
+        receivedAt: "2026-02-01T00:00:00Z",
+        seenAt: "2026-02-01T00:00:00Z",
+        firstSeenAt: "2026-02-01T00:00:00Z",
+      },
     ];
     for (const lead of leads) await stack.http.writeOk(CREATE, lead, TestUsers.user);
   });
@@ -86,5 +102,12 @@ describe("sortNulls on a sortable field", () => {
 
     expect([...names.slice(0, 2)].sort()).toEqual(["manual-1", "manual-2"]);
     expect(names.slice(2)).toEqual(["new", "mid", "old"]);
+  });
+
+  test('"first" keeps rows without a value at the start ascending, across cursor pages', async () => {
+    const names = await pagedNames("firstSeenAt", "asc");
+
+    expect([...names.slice(0, 2)].sort()).toEqual(["manual-1", "manual-2"]);
+    expect(names.slice(2)).toEqual(["old", "mid", "new"]);
   });
 });

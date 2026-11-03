@@ -7,6 +7,7 @@ import {
 import { testTenantId } from "../../seeding/seed-users.ts";
 import { defineUnmanagedTable } from "../entity-table-meta.ts";
 import { markExecutorManagedTable } from "../executor-managed-tables.ts";
+import { constraintOf, isUniqueViolation } from "../pg-error.ts";
 import { createTenantDb } from "../tenant-db.ts";
 
 const columns = [
@@ -76,9 +77,14 @@ describe("TenantDb.upsert", () => {
     const dbB = createTenantDb({ db: stack.db, tenantId: tenantB });
     await dbA.upsert(slotsTable, { code: "tok-owner", token: "tok-shared", label: "a" }, byCode);
 
-    await expect(
-      dbB.upsert(slotsTable, { code: "other", token: "tok-shared", label: "hijack" }, byCode),
-    ).rejects.toThrow();
+    const failure = await dbB
+      .upsert(slotsTable, { code: "other", token: "tok-shared", label: "hijack" }, byCode)
+      .then(
+        () => undefined,
+        (err: unknown) => err,
+      );
+    expect(isUniqueViolation(failure)).toBe(true);
+    expect(constraintOf(failure)).toBe("store_upsert_slots_it_token");
     expect(await dbA.selectMany(slotsTable, { token: "tok-shared" })).toMatchObject([
       { label: "a" },
     ]);

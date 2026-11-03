@@ -39,6 +39,21 @@ const orderEntity = createEntity({
 });
 const orderTable = buildEntityTable("refSortOrder", orderEntity);
 
+const nullsFirstOrderEntity = createEntity({
+  table: "read_ref_sort_nulls_first_orders",
+  fields: {
+    note: createTextField({ personal: false, reason: "test_fixture" }),
+    customerId: {
+      type: "reference",
+      entity: "refSortCustomer",
+      labelField: "name",
+      sortable: true,
+      sortNulls: "first",
+    },
+  },
+});
+const nullsFirstOrderTable = buildEntityTable("refSortNullsFirstOrder", nullsFirstOrderEntity);
+
 // Same shape, but the reference column is Admin-only: a caller who cannot read
 // the column must not be able to probe its target's label through the ordering
 // (the read path gates sorting like projection).
@@ -116,6 +131,9 @@ let tdbA: TenantDb;
 const admin = TestUsers.admin;
 const otherTenantAdmin = TestUsers.otherTenant;
 const orderExec = createEventStoreExecutor(orderTable, orderEntity, { entityName: "refSortOrder" });
+const nullsFirstOrderExec = createEventStoreExecutor(nullsFirstOrderTable, nullsFirstOrderEntity, {
+  entityName: "refSortNullsFirstOrder",
+});
 const restrictedOrderExec = createEventStoreExecutor(restrictedOrderTable, restrictedOrderEntity, {
   entityName: "refSortRestrictedOrder",
 });
@@ -140,6 +158,7 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, customerEntity, "refSortCustomer");
   await unsafeCreateEntityTable(testDb.db, orderEntity, "refSortOrder");
+  await unsafeCreateEntityTable(testDb.db, nullsFirstOrderEntity, "refSortNullsFirstOrder");
   await unsafeCreateEntityTable(testDb.db, restrictedOrderEntity, "refSortRestrictedOrder");
   await unsafeCreateEntityTable(testDb.db, ownedCustomerEntity, "refSortOwnedCustomer");
   await unsafeCreateEntityTable(
@@ -156,7 +175,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
-    "TRUNCATE kumiko_events, read_ref_sort_customers, read_ref_sort_orders, " +
+    "TRUNCATE kumiko_events, read_ref_sort_customers, read_ref_sort_orders, read_ref_sort_nulls_first_orders, " +
       "read_ref_sort_restricted_orders, read_ref_sort_owned_customers, " +
       "read_ref_sort_label_restricted_customers RESTART IDENTITY CASCADE",
   );
@@ -181,6 +200,32 @@ describe("event-store-executor.list — sortable reference fields", () => {
     });
 
     expect(idsOf(res.rows)).toEqual([ORDER_A, ORDER_B, ORDER_C]);
+  });
+
+  test("sortNulls first puts orders without a reference ahead of the labels, across cursor pages", async () => {
+    const noReference = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await seedFixture();
+    await seedRows(testDb.db, nullsFirstOrderTable, [
+      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+      { id: noReference, tenantId: admin.tenantId, note: "none" },
+    ]);
+
+    const ids: unknown[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await nullsFirstOrderExec.list(
+        { sort: "customerId", sortDirection: "asc", limit: 2, ...(cursor && { cursor }) },
+        admin,
+        tdbA,
+        { referenceSort },
+      );
+      ids.push(...idsOf(page.rows));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+
+    expect(ids).toEqual([noReference, ORDER_C, ORDER_B, ORDER_A]);
   });
 
   test("does not leak the sort-label projection into the returned rows", async () => {

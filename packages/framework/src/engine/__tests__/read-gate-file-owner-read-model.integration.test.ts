@@ -26,7 +26,7 @@ const text = () => createTextField({ personal: false, reason: "test_fixture" });
 const readableOwnerEntity = createEntity({
   table: "rm_gate_owners",
   fields: { title: text(), scan: createFileField() },
-  access: { read: { RoleA: "all" } },
+  access: { read: { RoleA: "all", RoleD: "all" } },
 });
 const ruleLessOwnerEntity = createEntity({
   table: "rm_gate_rule_less_owners",
@@ -62,19 +62,21 @@ const feature = defineFeature("rmgate", (r) => {
     r.queryHandler({
       name: `${name}:detail`,
       schema: z.object({ id: z.uuid() }),
-      access: { roles: ["RoleA"] },
+      access: { roles: name === "readable-owner" ? ["RoleA", "RoleC"] : ["RoleA"] },
       handler: async () => null,
     });
   }
   r.crud("document", documentEntity, {
     write: { access: { roles: ["Admin"] } },
-    read: { access: { roles: ["RoleA", "RoleB"] } },
+    read: { access: { roles: ["RoleA", "RoleB", "RoleC", "RoleD"] } },
   });
 });
 
 const tenantOne = testTenantId(1);
 const roleA = createTestUser({ id: 1, tenantId: tenantOne, roles: ["RoleA"] });
 const roleB = createTestUser({ id: 2, tenantId: tenantOne, roles: ["RoleB"] });
+const roleC = createTestUser({ id: 4, tenantId: tenantOne, roles: ["RoleC"] });
+const roleD = createTestUser({ id: 5, tenantId: tenantOne, roles: ["RoleD"] });
 const otherTenantRoleA = createTestUser({ id: 3, tenantId: testTenantId(2), roles: ["RoleA"] });
 
 const OWNER_ID = "a0000000-0000-4000-8000-000000000001";
@@ -159,7 +161,28 @@ describe("readGate.fileOwner with a read-model owner", () => {
     expect(detail).toBeNull();
   });
 
+  test("a role allowed to call the detail query but not in access.read does not see the document", async () => {
+    expect(await listedIds(roleC)).toEqual([]);
+    const detail = await stack.http.queryOk<{ id: string } | null>(
+      DETAIL,
+      { id: READABLE_DOC_ID },
+      roleC,
+    );
+    expect(detail).toBeNull();
+  });
+
+  test("a role in access.read but not allowed to call the detail query does not see the document", async () => {
+    expect(await listedIds(roleD)).toEqual([]);
+    const detail = await stack.http.queryOk<{ id: string } | null>(
+      DETAIL,
+      { id: READABLE_DOC_ID },
+      roleD,
+    );
+    expect(detail).toBeNull();
+  });
+
   test("a read model without access.read never makes its documents visible", async () => {
+    expect(await listedIds(roleA)).not.toContain(RULE_LESS_DOC_ID);
     const detail = await stack.http.queryOk<{ id: string } | null>(
       DETAIL,
       { id: RULE_LESS_DOC_ID },

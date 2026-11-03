@@ -41,6 +41,8 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
   test("Snapshot — explicitly update whenever the list changes", () => {
     const summary = KUMIKO_SUB_PROCESSORS.map((sp) => ({
       name: sp.name,
+      purpose: sp.purpose,
+      addedAt: sp.addedAt,
       region: sp.region,
       status: sp.status ?? "active",
       appliesTo: sp.appliesTo,
@@ -50,16 +52,19 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
     expect(summary).toMatchInlineSnapshot(`
       [
         {
+          "addedAt": "2024-01-01",
           "appliesTo": [
             "all-tiers",
           ],
           "name": "Hetzner Online GmbH",
           "optInOnly": false,
+          "purpose": "Cloud-Infrastructure (CNPG-Postgres-Cluster, K8s-Pods, Volumes, Object-Storage)",
           "region": "EU (Germany)",
           "sccRequired": false,
           "status": "active",
         },
         {
+          "addedAt": "2024-03-01",
           "appliesTo": [
             "standard",
             "business",
@@ -67,67 +72,80 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
           ],
           "name": "Sendinblue SAS (Brevo)",
           "optInOnly": false,
+          "purpose": "Transactional Email Delivery",
           "region": "EU (France)",
           "sccRequired": false,
           "status": "active",
         },
         {
+          "addedAt": "2026-06-01",
           "appliesTo": [
             "business",
             "enterprise",
           ],
           "name": "Anthropic PBC",
           "optInOnly": true,
+          "purpose": "AI Model Inference (L2 Composition Layer, AI-Foundation)",
           "region": "US",
           "sccRequired": true,
           "status": "active",
         },
         {
+          "addedAt": "2026-06-01",
           "appliesTo": [
             "all-tiers",
           ],
           "name": "Stripe, Inc.",
           "optInOnly": false,
+          "purpose": "Payment Processing (Subscription-Stripe-Plugin)",
           "region": "Global (US-headquartered)",
           "sccRequired": true,
           "status": "active",
         },
         {
+          "addedAt": "2026-07-04",
           "appliesTo": [
             "all-tiers",
           ],
           "name": "Scaleway SAS",
           "optInOnly": false,
+          "purpose": "Platform key custody (Key Manager)",
           "region": "EU (France)",
           "sccRequired": false,
           "status": "active",
         },
         {
+          "addedAt": "2026-09-02",
           "appliesTo": [
             "all-tiers",
           ],
           "name": "ALL-INKL.COM – Neue Medien Münnich",
           "optInOnly": false,
+          "purpose": "Mailbox Hosting (support and contact mailboxes)",
           "region": "EU (Germany)",
           "sccRequired": false,
           "status": "active",
         },
         {
+          "addedAt": "2026-09-18",
           "appliesTo": [
             "all-tiers",
           ],
           "name": "Scaleway SAS",
           "optInOnly": false,
+          "purpose": "Offsite Backup Mirror (Object Storage)",
           "region": "EU (France)",
           "sccRequired": false,
           "status": "active",
         },
         {
+          "addedAt": "2026-11-01",
           "appliesTo": [
             "all-tiers",
           ],
           "name": "Scaleway SAS",
           "optInOnly": false,
+          "purpose": "Transactional Email Delivery (TEM)",
           "region": "EU (France)",
           "sccRequired": false,
           "status": "active",

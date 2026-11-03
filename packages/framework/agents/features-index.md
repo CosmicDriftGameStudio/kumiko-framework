@@ -18,6 +18,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation"`
 - `auth-mfa`: TOTP-based two-factor authentication: enable/disable flow with QR-code setup, 8 single-use recovery codes, and (once wired into a login flow) a second login step after password verification.
   `import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa"`; requires `user`, `config`, `tenant`
+- `auth-mfa-user-data`: GDPR (Art.
+  `import { createAuthMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa-user-data"`; requires `user-data-rights`
 - `auth-self-registration`: Runtime on/off switch for the auth-email-password self-signup flow.
   `import { createAuthSelfRegistrationToggleFeature } from "@cosmicdrift/kumiko-bundled-features/auth-email-password"`
 - `billing-foundation`: Plugin host for subscription billing.
@@ -80,6 +82,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createFilesTenantDataFeature } from "@cosmicdrift/kumiko-bundled-features/files-tenant-data"`; requires `tenant-lifecycle`
 - `folders`: Generic, host-agnostic hierarchical folders for any entity.
   `import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folders"`
+- `folders-user-data`: GDPR (Art.
+  `import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data"`; requires `user-data-rights`
 - `form-draft`: Per-user, per-tenant working copy of an in-progress form, saved BEFORE the real domain entity exists.
   `import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft"`
 - `form-draft-user-data`: GDPR (Art.
@@ -116,6 +120,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createSystemMetricsFeature } from "@cosmicdrift/kumiko-bundled-features/metrics"`; requires `jobs`, `delivery`, `sessions`, `tenant`
 - `notes-history`: Generic, host-agnostic, append-only note history for any entity.
   `import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history"`
+- `notes-history-user-data`: GDPR (Art.
+  `import { createNotesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data"`; requires `user-data-rights`
 - `personal-access-tokens`: Long-lived, revocable Personal Access Tokens for headless HTTP-API access.
   `import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens"`; requires `user`, `tenant`, `auth-foundation`
 - `rate-limiting`: Adds an ops-side `rate-limiting:query:status` query handler for inspecting current bucket state; the actual request throttling is wired automatically by the dispatcher when any handler declares a `rateLimit` option (e.g. `{ per: 'user', limit: 3, windowSeconds: 60 }`) or when you pass `context.rateLimit` to `buildServer`.
@@ -148,6 +154,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createTagsFeature } from "@cosmicdrift/kumiko-bundled-features/tags"`
 - `template-resolver`: Every piece of editable text lives here, in one entity: mail bodies, notification texts, PDF document templates, AI prompts and plain text blocks.
   `import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver"`
+- `template-resolver-user-data`: GDPR (Art.
+  `import { createTemplateResolverUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver-user-data"`; requires `user-data-rights`
 - `tenant`: Registers the three core multi-tenancy entities — `tenant`, `tenant-membership`, and `tenant-invitation` (DB tables `read_tenants`, `read_tenant_memberships`, and `read_tenant_invitations`) — along with write handlers for create/update/disable/enable/addMember/removeMember/updateMemberRoles and the matching queries.
   `import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant"`; requires `config`; config without default `smtp-host`, `smtp-pass`
 - `tenant-handover`: Try-before-signup ownership handover: claims the rows of a declared-transferable entity graph (root plus its parentRef-linked children) from an anonymous/public tenant into the caller's own tenant, legitimized by a row-bound grant the anonymous flow minted.
