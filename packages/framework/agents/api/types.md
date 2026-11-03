@@ -1087,6 +1087,10 @@ type StepListOutcome =
 ## packages/framework/src/engine/screen-helpers.ts
 
 ```ts
+type EmptyStateText = {
+  title: string;
+  description?: string | undefined;
+};
 type FieldsOrGroupsSection = { // Structural reader contract for every section that can carry `fields` and/or `groups`: the `EditFieldsSection` union members and `EditWriteFormSection` all assign without narrowing.
   fields?: EditFieldSpec[];
   groups?: { title: string; fields: EditFieldSpec[]; }[];

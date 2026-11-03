@@ -921,7 +921,7 @@ type HandlerEvents<TMap extends object = KumikoEventTypeMap> = { // Event-store 
   unsafeAppend: UnsafeAppendEventFn; // Untyped append (`payload: unknown`) with the same runtime as `append`.
   tryAppend: TryAppendEventFn; // Optimistic append: runs in a savepoint and returns a version conflict as a result instead of throwing, so the handler can continue after losing a race on the same aggregate stream.
   fetchForWriting: (args: FetchForWritingArgs) => Promise<AggregateStreamHandle>;
-  load: (aggregateId: string, options?: { asOf?: Temporal.Instant; atVersion?: never; } | { atVersion?: number; asOf?: never; }) => Promise<StoredEvent[]>;
+  load: (aggregateId: string, options?: { asOf?: Temporal.Instant; atVersion?: never; includeArchived?: boolean; } | { atVersion?: number; asOf?: never; includeArchived?: boolean; }) => Promise<StoredEvent[]>;
   archive: (aggregateId: string, args: { aggregateType: string; reason?: string; }) => Promise<void>;
   restore: (aggregateId: string) => Promise<void>;
   isArchived: (aggregateId: string) => Promise<boolean>;
@@ -1574,6 +1574,7 @@ type SecretKeyDefinition = {
   };
   scope: "tenant";
   required?: boolean;
+  requiredWhenConfigSet?: string;
   writeRoles?: string[];
   valueSchema?: ZodType<string>;
 };

@@ -18,6 +18,7 @@ import {
   type JobRunnerScope,
   laneForJob,
 } from "./job-runner-scope.ts";
+import { acquireTenantCapLock } from "./job-runner-tenant-cap-lock.ts";
 import type { JobRunner } from "./job-runner-types.ts";
 import { resolveMaxPerTenant } from "./max-per-tenant.ts";
 
@@ -58,18 +59,27 @@ export function createJobEventTriggers(
     // Same maxPerTenant guard as dispatch — events that fan into many
     // jobs must respect the per-tenant cap or the limit is one-sided.
     const maxPerTenant = resolveMaxPerTenant(jobDef);
-    if (maxPerTenant?.onLimit === "skip" && user?.tenantId !== undefined) {
-      if (await isOverPerTenantLimit(scope, name, String(user.tenantId), maxPerTenant.limit)) {
+    const capped = maxPerTenant?.onLimit === "skip" && user?.tenantId !== undefined;
+    const releaseCapLock = capped
+      ? await acquireTenantCapLock(scope, name, String(user.tenantId))
+      : undefined;
+    try {
+      if (
+        capped &&
+        (await isOverPerTenantLimit(scope, name, String(user.tenantId), maxPerTenant.limit))
+      ) {
         // skip: onLimit "skip" drops this trigger on purpose while the tenant is at its cap.
         return;
       }
+      stampGatedWriteOrigin(data);
+      const bullOpts: JobsOptions = { ...buildRetryBullOpts(jobDef) };
+      if (jobId !== undefined) bullOpts.jobId = jobId;
+      // Route to the job's declared lane, not a fixed queue.
+      const job = await queues[laneForJob(jobDef)].add(name, data, bullOpts);
+      await announceQueued(scope, name, jobDef, job, data);
+    } finally {
+      await releaseCapLock?.();
     }
-    stampGatedWriteOrigin(data);
-    const bullOpts: JobsOptions = { ...buildRetryBullOpts(jobDef) };
-    if (jobId !== undefined) bullOpts.jobId = jobId;
-    // Route to the job's declared lane, not a fixed queue.
-    const job = await queues[laneForJob(jobDef)].add(name, data, bullOpts);
-    await announceQueued(scope, name, jobDef, job, data);
   }
 
   return {

@@ -7,10 +7,12 @@
 // after the backoff duration and re-enters the step at the same index.
 // After all attempts exhausted, the original error propagates.
 
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createFallbackLogger } from "../../logging/index.ts";
 import { defineStep } from "../define-step.ts";
 import { runStepList } from "../run-pipeline.ts";
 import type { PipelineCtx, StepInstance } from "../types/step.ts";
+import { databaseNowIso } from "./_database-clock.ts";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
@@ -61,7 +63,9 @@ defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
       });
 
       const backoffMs = calculateBackoff(attempt, args.backoff);
-      const wakeAt = Temporal.Now.instant().add({ milliseconds: backoffMs }).toString();
+      const wakeAt = Temporal.Instant.from(await databaseNowIso(ctx))
+        .add({ milliseconds: backoffMs })
+        .toString();
 
       await ctx.events.unsafeAppend({
         aggregateId: ctx.workflow.runId,

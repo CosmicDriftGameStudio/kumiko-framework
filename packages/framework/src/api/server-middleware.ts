@@ -5,8 +5,8 @@ import type { Registry } from "../engine/types/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";
 import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership.ts";
 import { authEndpointRateLimit, globalIpRateLimit } from "../rate-limit/index.ts";
-import { authMiddleware, getUser, type TenantLifecycleStatusResolver } from "./auth-middleware.ts";
-import { assertSessionCallbacksPaired, type LoginRateLimiter } from "./auth-routes.ts";
+import { authMiddleware, type TenantLifecycleStatusResolver } from "./auth-middleware.ts";
+import { assertSessionCallbacksPaired } from "./auth-routes.ts";
 import { csrfMiddleware } from "./csrf-middleware.ts";
 import type { JwtHelper } from "./jwt.ts";
 import { observabilityMiddleware } from "./observability-middleware.ts";
@@ -15,12 +15,12 @@ import {
   normalizeOrigin,
   resolveOriginGuard,
 } from "./origin-middleware.ts";
-import { PAT_RATE_LIMITED_CODE } from "./pat-auth-reject.ts";
 import { patRouteGuard } from "./pat-route-guard.ts";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard.ts";
 import { requestIdMiddleware } from "./request-id-middleware.ts";
 import type { ServerOptions } from "./server.ts";
 import type { PublicApiRequestMatcher } from "./server-extra-routes.ts";
+import { buildPatRateLimitGuard } from "./server-pat-rate-limit-guard.ts";
 import type { ServerWiring } from "./server-wiring.ts";
 import {
   type ResolvedSessionCookies,
@@ -273,27 +273,6 @@ function buildSessionOnlyGuard(
     ...(options.auth?.tokenVerifier ? { tokenVerifier: options.auth.tokenVerifier } : {}),
     ...(tenantLifecycleResolver ? { resolveTenantLifecycleStatus: tenantLifecycleResolver } : {}),
   });
-}
-
-// Must run after the auth guard so getUser(c) carries the PAT.
-function buildPatRateLimitGuard(patRateLimiter: LoginRateLimiter): MiddlewareHandler {
-  return async (c, next) => {
-    const pat = getUser(c)?.pat;
-    if (pat && !(await patRateLimiter.check(pat.tokenId))) {
-      return c.json(
-        {
-          error: {
-            code: PAT_RATE_LIMITED_CODE,
-            httpStatus: 429,
-            message: "personal access token rate limit exceeded",
-            i18nKey: "auth.errors.patRateLimited",
-          },
-        },
-        429,
-      );
-    }
-    return next();
-  };
 }
 
 function deriveTenantLifecycleResolver(

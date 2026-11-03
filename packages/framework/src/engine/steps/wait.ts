@@ -11,6 +11,7 @@
 
 import { defineStep } from "../define-step.ts";
 import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.ts";
+import { databaseNowIso } from "./_database-clock.ts";
 import { addDuration } from "./_duration-utils.ts";
 import { resolveRequired } from "./_resolver-utils.ts";
 import {
@@ -37,7 +38,7 @@ defineStep<WaitStepArgs, undefined | typeof SUSPEND_SENTINEL>({
 
     const duration = resolveRequired(args.for, ctx);
 
-    const now = Temporal.Now.instant().toString();
+    const now = await databaseNowIso(ctx);
     const wakeAt =
       duration.startsWith("P") || duration.startsWith("PT") ? addDuration(now, duration) : duration;
 
