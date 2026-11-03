@@ -17,9 +17,20 @@ export function validateScopeEventContracts(
   features: readonly FeatureDefinition[],
 ): void {
   const resolver = createWebhookContractResolver(features);
+  const qnByWireName = new Map<string, string>();
   for (const [domain, def] of Object.entries(scopes)) {
     for (const qn of def.events ?? []) {
-      if (resolver.get(qn)) continue;
+      const contract = resolver.get(qn);
+      if (contract) {
+        const existing = qnByWireName.get(contract.wireName);
+        if (existing !== undefined && existing !== contract.qn) {
+          throw bootRuleError(PERSONAL_ACCESS_TOKENS_BOOT_RULES.releasedWireNameCollision, {
+            message: `[${PAT_FEATURE}] released webhook wire name "${contract.wireName}" is used by both "${existing}" and "${contract.qn}"; receivers tell events apart by wire name, give one of them another wireName.`,
+          });
+        }
+        qnByWireName.set(contract.wireName, contract.qn);
+        continue;
+      }
       throw bootRuleError(PERSONAL_ACCESS_TOKENS_BOOT_RULES.scopeEventWithoutContract, {
         message:
           `[${PAT_FEATURE}] scope "${domain}" lists event "${qn}" without a public contract. ` +

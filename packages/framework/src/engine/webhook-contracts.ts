@@ -208,26 +208,3 @@ export function createWebhookContractResolver(
     },
   };
 }
-
-/** Receivers tell events apart by wire name, so two contracts must never share one. */
-export function assertUniqueWebhookWireNames(features: readonly FeatureDefinition[]): void {
-  const qnByWireName = new Map<string, string>();
-  const claim = (wireName: string, qn: string): void => {
-    const existing = qnByWireName.get(wireName);
-    if (existing !== undefined && existing !== qn) {
-      throw new Error(
-        `Webhook wire name "${wireName}" is used by both "${existing}" and "${qn}"; give one of them another wireName.`,
-      );
-    }
-    qnByWireName.set(wireName, qn);
-  };
-  for (const feature of features) {
-    for (const def of Object.values(feature.webhookEvents ?? {})) claim(def.wireName, def.qn);
-  }
-  for (const feature of features) {
-    for (const [name, entity] of Object.entries(feature.entities ?? {})) {
-      if (entity.webhookEvents !== true) continue;
-      for (const verb of ENTITY_VERBS) claim(`${name}.${verb}`, `${name}.${verb}`);
-    }
-  }
-}

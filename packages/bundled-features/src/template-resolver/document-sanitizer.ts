@@ -22,6 +22,7 @@ export type DocumentViolationCode =
   | "script_element"
   | "event_handler_attribute"
   | "disallowed_link_href"
+  | "relative_link_without_base"
   | "external_image_source"
   | "image_without_resource"
   | "invalid_reference_name"
@@ -355,6 +356,25 @@ function imagesBlockViolation(input: SanitizeBodyInput): DocumentViolation | nul
     : null;
 }
 
+// Mails and PDFs have no base address, so compileDocumentBody turns a relative href into "#"; refuse it
+// on save instead of losing the admin's input silently. Managed pages resolve it against their host.
+function relativeLinkViolations(html: string): DocumentViolation[] {
+  return withParsedDocument(html, (body) =>
+    Array.from(body.querySelectorAll("a[href]")).flatMap((anchor) => {
+      const href = anchor.getAttribute("href") ?? "";
+      return isAllowedDocumentLinkHref(href) && !isAllowedDocumentUrlHref(href)
+        ? [
+            violation(
+              "relative_link_without_base",
+              href,
+              `Link target "${href}" is relative, but mails and PDF documents have no base address; use an absolute https link`,
+            ),
+          ]
+        : [];
+    }),
+  );
+}
+
 export function sanitizeTemplateBody(input: SanitizeBodyInput): SanitizeBodyResult {
   const formatViolation = requiredFormatViolation(input.kind, input.contentFormat);
   if (formatViolation !== null) return { ok: false, violations: [formatViolation] };
@@ -362,6 +382,10 @@ export function sanitizeTemplateBody(input: SanitizeBodyInput): SanitizeBodyResu
   if (imagesViolation !== null) return { ok: false, violations: [imagesViolation] };
   if (!isSanitizedBody(input) || input.contentFormat !== "html" || input.content === null) {
     return { ok: true, content: input.content };
+  }
+  if (HTML_ONLY_KINDS.has(input.kind)) {
+    const relativeLinks = relativeLinkViolations(input.content);
+    if (relativeLinks.length > 0) return { ok: false, violations: relativeLinks };
   }
   const result = sanitizeDocumentHtml(input.content);
   return result.ok ? { ok: true, content: result.html } : result;
@@ -371,6 +395,7 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   script_element: "templateResolver.errors.document.scriptElement",
   event_handler_attribute: "templateResolver.errors.document.eventHandlerAttribute",
   disallowed_link_href: "templateResolver.errors.document.disallowedLinkHref",
+  relative_link_without_base: "templateResolver.errors.document.relativeLinkWithoutBase",
   external_image_source: "templateResolver.errors.document.externalImageSource",
   image_without_resource: "templateResolver.errors.document.imageWithoutResource",
   invalid_reference_name: "templateResolver.errors.document.invalidReferenceName",

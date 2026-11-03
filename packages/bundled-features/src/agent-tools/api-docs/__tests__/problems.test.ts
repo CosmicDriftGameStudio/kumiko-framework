@@ -44,6 +44,18 @@ describe("generateApiDocs problems", () => {
     expect(missing.some((entry) => entry.endsWith(" en"))).toBe(false);
   });
 
+  test("a missing title or field label translation is reported per locale, not for en", () => {
+    const { problems } = generateApiDocs(fixtureInput());
+    const titles = problems.flatMap((p) =>
+      p.kind === "titleTranslationMissing" ? [`${p.qn} ${p.locale}`] : [],
+    );
+    const labels = problems.flatMap((p) =>
+      p.kind === "fieldLabelMissing" ? [`${p.qn} ${p.field} ${p.locale}`] : [],
+    );
+    expect(titles.length + labels.length).toBeGreaterThan(0);
+    expect([...titles, ...labels].some((entry) => entry.endsWith(" en"))).toBe(false);
+  });
+
   test("handlers without a description are doc gaps", () => {
     const { problems } = generateApiDocs(fixtureInput());
     expect(problems.flatMap((p) => (p.kind === "docGap" ? [p.gap.qn] : []))).toContain(

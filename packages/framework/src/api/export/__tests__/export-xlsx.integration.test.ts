@@ -8,8 +8,10 @@ import {
 import type { SessionUser } from "../../../engine/index.ts";
 import type { TenantId } from "../../../engine/types/identifiers.ts";
 import { eventsTable } from "../../../event-store/index.ts";
-import { TestUsers } from "../../../seeding/seed-users.ts";
+import { createTestUser, TestUsers } from "../../../seeding/seed-users.ts";
+import { generateId } from "../../../utils/index.ts";
 import type { TokenVerifier } from "../../auth-middleware.ts";
+import { EXPORT_RATE_LIMIT } from "../export-route.ts";
 import {
   ADMIN_SCREEN,
   CREATE_ITEM,
@@ -274,6 +276,18 @@ describe("POST /api/export/xlsx", () => {
     expect(statuses.every((status) => status === 200 || status === 429)).toBe(true);
     const sequential = await exportRequest({ screen: LIST_SCREEN, columns: ["title"] });
     expect(sequential.status).toBe(200);
+  });
+
+  test("exports are rate limited per user: the request over the limit gets 429 with Retry-After", async () => {
+    const heavyUser = createTestUser({ id: generateId() });
+    const body = { screen: LIST_SCREEN, columns: ["title"] };
+    for (let sent = 0; sent < EXPORT_RATE_LIMIT.limit; sent++) {
+      expect((await exportRequest(body, heavyUser)).status).toBe(200);
+    }
+    const blocked = await exportRequest(body, heavyUser);
+    expect(blocked.status).toBe(429);
+    expect(Number(blocked.headers.get("Retry-After"))).toBeGreaterThanOrEqual(1);
+    expect((await exportRequest(body, admin)).status).toBe(200);
   });
 
   test("a user without screen access gets 403", async () => {

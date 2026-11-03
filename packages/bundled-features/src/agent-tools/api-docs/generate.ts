@@ -18,6 +18,7 @@ import { renderOverview } from "./render-overview.ts";
 import { renderReferencePage } from "./render-reference.ts";
 import { renderTokens } from "./render-tokens.ts";
 import { isApiDocsLocale, resolveApiDocsTexts } from "./texts/index.ts";
+import { findTitleAndFieldLabelProblems } from "./translation-gaps.ts";
 import { uiWriteProblems } from "./ui-writes.ts";
 
 export const OPENAPI_FILE = "openapi.json";
@@ -164,6 +165,7 @@ export function generateApiDocs(input: ApiDocsInput): ApiDocsResult {
           ? []
           : [{ kind: "descriptionTranslationMissing", qn: gap.qn, locale: gap.locale }],
     ),
+    ...findTitleAndFieldLabelProblems(registry, model, locales),
     ...uiWriteProblems(registry, model, config.uiOnlyWrites ?? []),
     ...model.events.flatMap((event) =>
       event.untranslatedLocales.map(

@@ -46,6 +46,7 @@ import {
 import { SYSTEM_TENANT_ID, type TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
+import { readChromeLogoSrc } from "./chrome-logo.ts";
 import { DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.ts";
 import {
   collectRegionResourceKeys,
@@ -817,7 +818,7 @@ export async function readMailChrome(
     resolveMailFooter(options, ctx, locale),
     resolveMailSiteUrl(options, ctx, locale),
     resolveBrandSuffix(options, ctx, locale),
-    readBrandingLogoUrl(ctx),
+    readChromeLogoSrc(ctx),
     readBrandingAccentColor(ctx),
   ]);
   const footerText = footer?.text?.trim() ?? "";

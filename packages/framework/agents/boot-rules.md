@@ -815,6 +815,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="personal-access-tokens-released-wire-name-collision"></a>`personal-access-tokens/released-wire-name-collision` | Webhook events released through PAT scopes have unique wire names. | Give one of the colliding events another wireName in r.defineWebhookEvent. | `packages/bundled-features/src/personal-access-tokens/boot-rules.ts` |
 | <a id="personal-access-tokens-scope-event-without-contract"></a>`personal-access-tokens/scope-event-without-contract` | Events listed in PAT scopes have a public webhook contract. | Declare the event with r.defineWebhookEvent or opt the entity into webhookEvents. | `packages/bundled-features/src/personal-access-tokens/boot-rules.ts` |
 
 ## pii

@@ -58,6 +58,18 @@ describe("documents access", () => {
     });
   });
 
+  test("without an access option only the admin roles create, the other writes stay open", () => {
+    const feature = featureWith(undefined);
+    expect(accessOf(feature, CREATE)).toEqual({ roles: ["TenantAdmin", "SystemAdmin"] });
+    expect(accessOf(feature, UPDATE)).toEqual({ roles: ["TenantAdmin", "TenantMember"] });
+    const custom = createDocumentsFeature({
+      categories: ["contract"],
+      linkTargets: ["property"],
+      adminRoles: ["Boss"],
+    });
+    expect(accessOf(custom, CREATE)).toEqual({ roles: ["Boss"] });
+  });
+
   test("the import stays reserved for the system user whatever the access", () => {
     const feature = featureWith({ read: readers, write: writers, delete: deleters });
     expect(accessOf(feature, DocumentsHandlers.import)).toEqual({ roles: [SYSTEM_ROLE] });

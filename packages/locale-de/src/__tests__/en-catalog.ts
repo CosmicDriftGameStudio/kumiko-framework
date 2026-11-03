@@ -1410,6 +1410,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "The button target “{detail}” must be a placeholder.",
   "templateResolver.errors.document.disallowedLinkHref":
     "Link target “{detail}” is not allowed; use https, http, mailto, tel, a relative path or a placeholder.",
+  "templateResolver.errors.document.relativeLinkWithoutBase":
+    "Link target “{detail}” is relative, but mails and PDF documents have no base address; use an absolute https link.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "This template kind requires the html format, got “{detail}”.",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

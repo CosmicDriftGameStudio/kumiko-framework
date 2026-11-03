@@ -42,6 +42,12 @@ function httpsOrigin(url: string | undefined): string | undefined {
   }
 }
 
+const INLINE_LOGO_RE = /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+function isShowableLogoSrc(src: string | undefined): boolean {
+  return src !== undefined && (httpsOrigin(src) !== undefined || INLINE_LOGO_RE.test(src));
+}
+
 function webHost(url: string): string | undefined {
   try {
     const parsed = new URL(url);
@@ -97,7 +103,7 @@ function brandRowHtml(chrome: MailChrome): string {
   const name = chrome.tenantName.trim();
   const initial = Array.from(name)[0]?.toLocaleUpperCase() ?? "";
   const mark =
-    httpsOrigin(chrome.logoUrl) !== undefined && chrome.logoUrl !== undefined
+    isShowableLogoSrc(chrome.logoUrl) && chrome.logoUrl !== undefined
       ? `<img src="${escapeHtmlAttr(chrome.logoUrl)}" alt="">`
       : initial === ""
         ? ""

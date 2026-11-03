@@ -1449,6 +1449,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Das Ziel der Schaltfläche „{detail}“ muss ein Platzhalter sein.",
   "templateResolver.errors.document.disallowedLinkHref":
     "Das Linkziel „{detail}“ ist nicht erlaubt; verwende https, http, mailto, tel, einen relativen Pfad oder einen Platzhalter.",
+  "templateResolver.errors.document.relativeLinkWithoutBase":
+    "Das Linkziel „{detail}“ ist relativ, aber Mails und PDF-Dokumente haben keine Basisadresse; verwende einen absoluten https-Link.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Diese Vorlagenart erfordert das Format html, erhalten: „{detail}“.",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

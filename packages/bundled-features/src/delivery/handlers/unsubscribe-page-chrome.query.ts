@@ -1,6 +1,7 @@
 import { access, defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { fileContextForTenant } from "../../file-foundation/index.ts";
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
@@ -50,6 +51,7 @@ export const unsubscribePageChromeQuery = defineQueryHandler({
         registry: ctx.registry,
         tenantId,
         ...(ctx.config !== undefined && { config: ctx.config }),
+        filesForTenant: (fileTenantId) => fileContextForTenant(ctx, tenantId, fileTenantId),
       },
     );
   },

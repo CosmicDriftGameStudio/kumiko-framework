@@ -1443,6 +1443,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El destino del botón «{detail}» debe ser un marcador.",
   "templateResolver.errors.document.disallowedLinkHref":
     "El destino del enlace «{detail}» no está permitido; usa https, http, mailto, tel, una ruta relativa o un marcador.",
+  "templateResolver.errors.document.relativeLinkWithoutBase":
+    "El destino del enlace «{detail}» es relativo, pero los correos y los documentos PDF no tienen dirección base; usa un enlace https absoluto.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Este tipo de plantilla requiere el formato html, recibido: «{detail}».",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

@@ -44,4 +44,16 @@ describe("renderUnsubscribeResultPage", () => {
     expect(html).toContain("<title>Enlace no válido</title>");
     expect(html).not.toContain("<form");
   });
+
+  test("shows an inline raster logo and drops a data URI that is not a raster image", () => {
+    const chromeWith = (logoUrl: string) => ({ tenantName: "Muster AG", brandSuffix: "", logoUrl });
+    const inline = "data:image/png;base64,iVBORw0KGgo=";
+    expect(
+      renderUnsubscribeResultPage({ kind: "invalid", locale: "es", chrome: chromeWith(inline) }),
+    ).toContain(`<img src="${inline}" alt="">`);
+    const svg = "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=";
+    expect(
+      renderUnsubscribeResultPage({ kind: "invalid", locale: "es", chrome: chromeWith(svg) }),
+    ).not.toContain("<img");
+  });
 });

@@ -1460,6 +1460,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "La cible du bouton « {detail} » doit être un espace réservé.",
   "templateResolver.errors.document.disallowedLinkHref":
     "La cible de lien « {detail} » n'est pas autorisée ; utilisez https, http, mailto, tel, un chemin relatif ou un espace réservé.",
+  "templateResolver.errors.document.relativeLinkWithoutBase":
+    "La cible de lien « {detail} » est relative, mais les e-mails et les documents PDF n'ont pas d'adresse de base ; utilisez un lien https absolu.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Ce type de modèle exige le format html, mais « {detail} » a été fourni.",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

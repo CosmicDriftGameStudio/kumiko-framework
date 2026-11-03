@@ -574,9 +574,37 @@ describe("isolatedSpecs", () => {
       "**/desktop-only.spec.ts",
       isolatedSpec,
     ]);
-    const isolated = config.projects?.at(-1);
-    expect(isolated?.name).toBe(ISOLATED_E2E_PROJECT_NAME);
-    expect(isolated?.dependencies).toEqual(["chromium", "mobile"]);
+    const isolatedNames = config.projects?.map((project) => project.name).slice(2);
+    expect(isolatedNames).toEqual([ISOLATED_E2E_PROJECT_NAME, "mobile-isolated"]);
+  });
+
+  test("every project keeps its isolated specs under its own use and runs them serially", () => {
+    const mobileUse = { viewport: { width: 390, height: 844 }, locale: "de" };
+    const config = defineAppE2eConfig({
+      port: 1,
+      isolatedSpecs: isolatedSpec,
+      projects: [{ name: "mobile", use: mobileUse, testIgnore: "**/desktop-only.spec.ts" }],
+    });
+    const mobileIsolated = config.projects?.find((project) => project.name === "mobile-isolated");
+    expect(mobileIsolated?.use).toEqual(mobileUse);
+    expect(mobileIsolated?.testMatch).toEqual([isolatedSpec]);
+    expect(mobileIsolated?.testIgnore).toEqual([...defaultRunIgnore(), "**/desktop-only.spec.ts"]);
+    expect(mobileIsolated?.workers).toBe(1);
+    expect(mobileIsolated?.dependencies).toEqual(["chromium", "mobile", ISOLATED_E2E_PROJECT_NAME]);
+    const chromiumIsolated = config.projects?.find(
+      (project) => project.name === ISOLATED_E2E_PROJECT_NAME,
+    );
+    expect(chromiumIsolated?.dependencies).toEqual(["chromium", "mobile"]);
+  });
+
+  test("an app project with its own testMatch is rejected with isolatedSpecs", () => {
+    expect(() =>
+      defineAppE2eConfig({
+        port: 1,
+        isolatedSpecs: isolatedSpec,
+        projects: [{ name: "mobile", testMatch: "**/mobile/*.spec.ts" }],
+      }),
+    ).toThrow(/cannot be combined with testMatch on project "mobile"/);
   });
 
   test("an unnamed app project is rejected", () => {
