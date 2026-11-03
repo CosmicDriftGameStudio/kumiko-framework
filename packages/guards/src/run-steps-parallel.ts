@@ -35,10 +35,10 @@ export function parseStepArgs(argv: readonly string[]): ParsedArgs {
   return { failPrefix, lanes };
 }
 
-// Most steps are single-threaded, so a few lanes still finish far sooner than one
-// even on a busy machine; beyond that floor the pool follows the free capacity
-// (cores minus 1-min load), so parallel pushes don't oversubscribe it further.
-const MIN_POOL = 4;
+// The pool follows the free capacity (cores minus 1-min load). The floor stays small
+// because the test lane already fans out into its own workers; several pushes at once
+// must not each claim four more lanes on a saturated machine.
+const MIN_POOL = 2;
 
 export function resolvePoolSize(
   override: string | undefined,

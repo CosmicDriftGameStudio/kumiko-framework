@@ -52,6 +52,12 @@ describe("RLS-Session-Settings Guard: session-level settings", () => {
     expect(violations[0]?.message).toContain("literal true as is_local");
   });
 
+  test("flags a set_config spelled with a unicode escape, which the text prefilter cannot see", () => {
+    const violations = run(TEST, "SELECT set\\u005fconfig('statement_timeout', '0', false)", '"');
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("literal true as is_local");
+  });
+
   test.each([
     sql("SET", '"kumiko.tenant_id"', "=", "'t'"),
     sql("SET", "SESSION", '"kumiko.scope"', "TO", "'system'"),

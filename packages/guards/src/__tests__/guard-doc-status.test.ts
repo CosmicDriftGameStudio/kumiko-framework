@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { parseStatusFrontmatter, statusDocHygieneWarnings } from "../_lib/doc-status";
@@ -26,6 +26,16 @@ describe("parseStatusFrontmatter", () => {
     expect(parseStatusFrontmatter("---\nstatus: idea\n").problems).toEqual([
       "frontmatter is not closed (second '---' missing)",
     ]);
+  });
+
+  test("accepts CRLF line endings and a UTF-8 BOM", () => {
+    const crlf = `﻿${frontmatter(["status: reference", "verified: 2026-10-25"])}`.replace(
+      /\n/g,
+      "\r\n",
+    );
+    const parsed = parseStatusFrontmatter(crlf);
+    expect(parsed.problems).toEqual([]);
+    expect(parsed.frontmatter?.verified).toBe("2026-10-25");
   });
 
   test("rejects an unknown status and a non-ISO verified date", () => {
@@ -130,6 +140,16 @@ describe("doc-status check over a repo", () => {
         message: "no status frontmatter (file must start with '---')",
       },
     ]);
+  });
+
+  test("a symlink to a parent directory is skipped instead of recursing forever", async () => {
+    const root = makeRepo({
+      "docs/reference/ok.md": frontmatter(["status: reference", "verified: 2026-10-25"]),
+    });
+    symlinkSync("..", join(root.absPath, "docs/reference/shared"));
+    const outcome = await check.run([root]);
+    expect(outcome.matchedFiles).toBe(1);
+    expect(outcome.violations).toEqual([]);
   });
 
   test("repo without status doc dirs is not applicable", async () => {

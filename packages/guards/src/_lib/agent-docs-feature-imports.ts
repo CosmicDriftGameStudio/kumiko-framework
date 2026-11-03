@@ -114,6 +114,11 @@ function exportEntries(repoRoot: string, project: Project, site: FeatureDefiniti
   return entries;
 }
 
+const EQUALITY_OPERATORS: ReadonlySet<SyntaxKind> = new Set([
+  SyntaxKind.EqualsEqualsEqualsToken,
+  SyntaxKind.EqualsEqualsToken,
+]);
+
 // `options.<flag> === true ? <factory>() : …` inside an exported factory means
 // that factory with `{ <flag>: true }` builds the feature.
 function flagCall(name: string, fn: FunctionDeclaration, factoryName: string): string | undefined {
@@ -124,7 +129,13 @@ function flagCall(name: string, fn: FunctionDeclaration, factoryName: string): s
     if (!Node.isCallExpression(whenTrue) || whenTrue.getExpression().getText() !== factoryName) {
       continue;
     }
-    if (!Node.isBinaryExpression(condition) || condition.getRight().getText() !== "true") continue;
+    if (
+      !Node.isBinaryExpression(condition) ||
+      condition.getRight().getText() !== "true" ||
+      !EQUALITY_OPERATORS.has(condition.getOperatorToken().getKind())
+    ) {
+      continue;
+    }
     const flag = condition.getLeft();
     if (Node.isPropertyAccessExpression(flag)) return `${name}({ ${flag.getName()}: true })`;
   }

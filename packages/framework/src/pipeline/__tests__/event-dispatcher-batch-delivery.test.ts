@@ -91,7 +91,7 @@ describe("deliverEvents — batchHandler fast-path", () => {
 
     expect(batchCalls).toEqual([["1", "2", "3"]]);
     expect(handlerCalls).toBe(0);
-    expect(batchOutcome).toEqual(perEventOutcome);
+    expect(batchOutcome).toEqual({ ...perEventOutcome, heldOnlyWhileBackingOff: false });
     expect(batchOutcome.cursor).toBe(3n);
     expect(batchOutcome.attempts).toBe(0);
     expect(batchOutcome.lastError).toBeNull();

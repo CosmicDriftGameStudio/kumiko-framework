@@ -24,6 +24,7 @@ export const createWrite = defineWriteHandler({
   access: { roles: ["system", "SystemAdmin"] },
   description:
     "Creates a new tenant from a key and display name, optionally under a caller-chosen id for seeds or external provisioning; use it when onboarding a new customer or workspace.",
+  // guard:dup-ok create and list handler bodies share only the acknowledgedSystemDb + crud call shape; different verbs
   handler: async (event, ctx) => {
     const db = acknowledgedSystemDb(
       ctx,

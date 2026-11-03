@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseStepArgs, resolvePoolSize, runLanes } from "../run-steps-parallel";
 
@@ -48,9 +50,10 @@ describe("resolvePoolSize", () => {
     expect(resolvePoolSize(undefined, 12, 0)).toBe(11);
   });
 
-  test("keeps four lanes on a saturated machine, capped below the core count", () => {
-    expect(resolvePoolSize(undefined, 12, 17)).toBe(4);
-    expect(resolvePoolSize(undefined, 4, 9)).toBe(3);
+  test("keeps two lanes on a saturated machine, capped below the core count", () => {
+    expect(resolvePoolSize(undefined, 12, 17)).toBe(2);
+    expect(resolvePoolSize(undefined, 4, 9)).toBe(2);
+    expect(resolvePoolSize(undefined, 2, 0)).toBe(1);
     expect(resolvePoolSize(undefined, 1, 0)).toBe(1);
   });
 });
@@ -78,13 +81,22 @@ describe("runLanes", () => {
   });
 
   test("lanes run concurrently up to the pool size", async () => {
-    const started = performance.now();
-    await runLanes(
-      [[{ label: "x", cmd: "sleep 1" }], [{ label: "y", cmd: "sleep 1" }]],
-      2,
-      () => {},
-    );
-    expect(performance.now() - started).toBeLessThan(1900);
+    // Each step only finishes once the other one's marker exists, so both exit 0
+    // only if they were running at the same time. The bounded wait is the failure
+    // path (a serial run would otherwise hang), not a timing allowance.
+    const dir = mkdtempSync(join(tmpdir(), "run-steps-"));
+    try {
+      const rendezvous = (own: string, other: string) =>
+        `touch ${dir}/${own}; for i in $(seq 1 400); do [ -e ${dir}/${other} ] && exit 0; sleep 0.05; done; exit 1`;
+      const results = await runLanes(
+        [[{ label: "x", cmd: rendezvous("x", "y") }], [{ label: "y", cmd: rendezvous("y", "x") }]],
+        2,
+        () => {},
+      );
+      expect(results.map((result) => result.exitCode)).toEqual([0, 0]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("each step's output is logged as one block with its status line", async () => {

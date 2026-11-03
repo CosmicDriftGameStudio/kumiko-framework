@@ -20,6 +20,14 @@ describe("Test-ES-Fixtures Guard", () => {
     expect(messages[0]).toContain("runSeedWritesAt");
   });
 
+  test("flags an UPDATE kumiko_events spelled with a hex escape", () => {
+    const messages = messagesFor(
+      TEST_PATH,
+      'export const q = "UPDATE kumiko\\x5fevents SET created_at = now()";',
+    );
+    expect(messages).toHaveLength(1);
+  });
+
   test("flags hand-written read_tenant_memberships DDL", () => {
     const messages = messagesFor(
       TEST_PATH,

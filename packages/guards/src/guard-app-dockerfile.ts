@@ -56,17 +56,21 @@ export type AppDockerfileFindings = {
   readonly warnings: readonly string[];
 };
 
-function hasBunfigScope(bunfigText: string | undefined): boolean {
-  if (bunfigText === undefined) return false;
+function bunfigScopeEntry(bunfigText: string | undefined): unknown {
+  if (bunfigText === undefined) return undefined;
   let parsed: unknown;
   try {
     parsed = Bun.TOML.parse(bunfigText);
   } catch {
-    return false;
+    return undefined;
   }
   const install = isPlainObject(parsed) ? parsed["install"] : undefined;
   const scopes = isPlainObject(install) ? install["scopes"] : undefined;
-  return isPlainObject(scopes) && PRIVATE_SCOPE in scopes;
+  return isPlainObject(scopes) ? scopes[PRIVATE_SCOPE] : undefined;
+}
+
+function hasBunfigScope(bunfigText: string | undefined): boolean {
+  return bunfigScopeEntry(bunfigText) !== undefined;
 }
 
 // A registry line without an auth token routes the scope to GitHub Packages
@@ -79,14 +83,27 @@ function hasNpmrcScope(npmrcText: string | undefined): boolean {
   );
 }
 
-function tokenVariablesOf(...configTexts: readonly (string | undefined)[]): Set<string> {
-  const variables = new Set<string>();
-  for (const text of configTexts) {
-    for (const match of (text ?? "").matchAll(SHELL_VARIABLE_RE)) {
-      if (match[1]) variables.add(match[1]);
-    }
-  }
-  return variables;
+function variablesIn(text: string | undefined): string[] {
+  return [...(text ?? "").matchAll(SHELL_VARIABLE_RE)].flatMap((match) =>
+    match[1] ? [match[1]] : [],
+  );
+}
+
+// Only the private scope's own credential counts: a variable for another
+// registry would let a mount of the wrong variable pass the guard.
+function tokenVariablesOf(
+  bunfigText: string | undefined,
+  npmrcText: string | undefined,
+): Set<string> {
+  const scope = bunfigScopeEntry(bunfigText);
+  const bunfigToken = isPlainObject(scope) ? scope["token"] : undefined;
+  const npmrcAuthLine = /^\s*\/\/npm\.pkg\.github\.com\/:_authToken=(.*)$/m.exec(
+    npmrcText ?? "",
+  )?.[1];
+  return new Set([
+    ...variablesIn(typeof bunfigToken === "string" ? bunfigToken : undefined),
+    ...variablesIn(npmrcAuthLine),
+  ]);
 }
 
 function registryAuthViolation(input: AppDockerfileInput, stage: DockerStage): string | undefined {

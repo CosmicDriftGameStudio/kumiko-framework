@@ -30,6 +30,14 @@ describe("Test-ES-Row-Writes Guard", () => {
     expect(messages).toHaveLength(1);
   });
 
+  test("flags a raw DELETE spelled with a hex escape", () => {
+    const messages = messagesFor(
+      TEST_PATH,
+      'export const q = "DELETE\\x20FROM kumiko_events WHERE true";',
+    );
+    expect(messages).toEqual([RAW_SQL_MESSAGE]);
+  });
+
   test("ignores a same-named local function without the testing import", () => {
     expect(
       messagesFor(

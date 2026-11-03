@@ -4,6 +4,7 @@
 // template SQL stay invisible.
 import type { SourceFile } from "ts-morph";
 import { Node, SyntaxKind } from "ts-morph";
+import { decodedLiteralText, mayContainEscapedLiteral } from "./escaped-literal";
 
 export type RawWriteFinding = { readonly line: number; readonly message: string };
 
@@ -46,7 +47,7 @@ function isEventSourcedBinding(name: string, entityTables: ReadonlySet<string>):
 }
 
 function writesEventSourcedTable(node: Node, entityTables: ReadonlySet<string>): boolean {
-  const text = node.getText();
+  const text = decodedLiteralText(node);
   if (LITERAL_WRITE_RE.test(text)) return true;
   if (!Node.isTemplateExpression(node)) return false;
   for (const match of text.matchAll(TEMPLATE_WRITE_RE)) {
@@ -57,7 +58,8 @@ function writesEventSourcedTable(node: Node, entityTables: ReadonlySet<string>):
 
 export function findRawSqlWrites(sourceFile: SourceFile): RawWriteFinding[] {
   const findings: RawWriteFinding[] = [];
-  if (!SQL_WRITE_START_RE.test(sourceFile.getFullText())) return findings;
+  const text = sourceFile.getFullText();
+  if (!SQL_WRITE_START_RE.test(text) && !mayContainEscapedLiteral(text)) return findings;
   const entityTables = entityTableBindings(sourceFile);
   for (const kind of [
     SyntaxKind.StringLiteral,

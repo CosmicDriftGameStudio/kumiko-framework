@@ -108,6 +108,29 @@ describe("agent docs API reference", () => {
     });
   });
 
+  test("renders public accessors of exported classes and their types", () => {
+    const source = [
+      ENGINE_FIXTURE_SOURCE,
+      "type StateSnapshot = { phase: string };",
+      "type StateInput = { phase: string; force: boolean };",
+      "export class StateHolder {",
+      "  get state(): StateSnapshot { return { phase: 'x' }; }",
+      "  set input(value: StateInput) {}",
+      "  private get hidden(): number { return 1; }",
+      "}",
+      "",
+    ].join("\n");
+    withRepo({ [FRAMEWORK_ENGINE_FIXTURE_PATH]: source }, (root) => {
+      const engine = renderedFile(root, "api/framework-engine.md");
+      expect(engine).toContain("  state: StateSnapshot;\n");
+      expect(engine).toContain("  input: StateInput;\n");
+      expect(engine).not.toContain("hidden");
+      const types = renderedFile(root, "api/types.md");
+      expect(types).toContain("StateSnapshot");
+      expect(types).toContain("StateInput");
+    });
+  });
+
   test("points a later entry point at the file that already documents a shared export", () => {
     withRepo({}, (root) => {
       expect(renderedFile(root, "api/framework-ui-types.md")).toContain(
@@ -168,6 +191,23 @@ describe("agent docs feature index", () => {
         '  `import { createMailFeature } from "@cosmicdrift/kumiko-bundled-features/mail"`, call `createMailFeature({ fromEnv: true })`',
       );
     });
+  });
+
+  test("does not derive a flag call from an inverted comparison", () => {
+    withRepo(
+      {
+        "packages/bundled-features/src/mail/feature.ts": [
+          'const MAIL_ENV_FEATURE = "mail-env";',
+          "function createMailEnvFeature() { return defineFeature(MAIL_ENV_FEATURE, () => {}); }",
+          "export function createMailFeature(options = {}) {",
+          '  return options.fromEnv !== true ? defineFeature("mail", () => {}) : createMailEnvFeature();',
+          "}",
+        ].join("\n"),
+      },
+      (root) => {
+        expect(renderedFile(root, "features-index.md")).not.toContain("call `createMailFeature(");
+      },
+    );
   });
 
   test("leaves out features that no package defines", () => {

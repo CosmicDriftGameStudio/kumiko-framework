@@ -11,6 +11,7 @@
  */
 import type { SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
+import { decodedLiteralText, mayContainEscapedLiteral } from "./_lib/escaped-literal";
 import {
   type AstGuard,
   type GuardViolation,
@@ -60,11 +61,14 @@ function collect(sourceFile: SourceFile, roots: readonly RepoRoot[]): GuardViola
   const file = relFromRepoRoot(sourceFile.getFilePath(), roots);
   if (ALLOWLIST.some((re) => re.test(file))) return [];
   // Both rules need one of these table names in a literal, which is part of the file's text.
-  if (!/kumiko_events|read_tenant_memberships/i.test(sourceFile.getFullText())) return [];
+  const text = sourceFile.getFullText();
+  if (!/kumiko_events|read_tenant_memberships/i.test(text) && !mayContainEscapedLiteral(text)) {
+    return [];
+  }
   const violations: GuardViolation[] = [];
   for (const kind of LITERAL_KINDS) {
     for (const node of sourceFile.getDescendantsOfKind(kind)) {
-      const message = violationMessage(node.getText());
+      const message = violationMessage(decodedLiteralText(node));
       if (message) violations.push({ file, line: node.getStartLineNumber(), message });
     }
   }

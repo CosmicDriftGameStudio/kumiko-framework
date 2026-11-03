@@ -69,11 +69,12 @@ export function shouldBlock(
 }
 
 // Bundled exceptions apply to every consumer, including those without the package, so only repo-local ones can be stale.
+// "Matched" instead of "used": an expired or shadowed exception whose advisory still occurs needs a renewal, not removal.
 function findUnusedRepoExceptions(
   exceptions: readonly SecurityException[],
-  used: readonly SecurityException[],
+  matched: readonly SecurityException[],
 ): SecurityException[] {
-  return exceptions.filter((ex) => ex.source.origin === "repo" && !used.includes(ex));
+  return exceptions.filter((ex) => ex.source.origin === "repo" && !matched.includes(ex));
 }
 
 function printExceptionWarnings(
@@ -93,7 +94,7 @@ function printExceptionWarnings(
     }
   }
 
-  const unusedRepoExceptions = findUnusedRepoExceptions(exceptions, evaluation.usedExceptions);
+  const unusedRepoExceptions = findUnusedRepoExceptions(exceptions, evaluation.matchedExceptions);
   if (unusedRepoExceptions.length > 0) {
     console.log(
       "\n  WARN: security exceptions suppressed no advisory in this run — remove the entry if it is obsolete:",
