@@ -4,8 +4,11 @@ import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.ts";
 import { type OwnershipClause, shiftParams } from "../engine/ownership.ts";
 
 import { ValidationError } from "../errors/index.ts";
+import { pgTypeToSqlType } from "./dialect.ts";
 import { isListFilterAllowed } from "./entity-field-encryption.ts";
 import { buildFilterWhere, type Table } from "./event-store-executor-context.ts";
+import { extractTableInfo } from "./table-info.ts";
+import { asEntityTableMeta } from "./table-introspection.ts";
 
 // Raw-SQL WHERE under construction: fragments are AND-joined and bound against
 // one positional params list, so every step appends in statement order.
@@ -39,6 +42,24 @@ export function bindPlaceholders(params: unknown[], values: readonly unknown[]):
       return `$${params.length}`;
     })
     .join(", ");
+}
+
+// One array parameter instead of one placeholder per value: Postgres rejects more than 65535 binds,
+// and a long id list would also bloat the SQL text that lands in the plan cache.
+function inListSql(
+  table: Table,
+  colSql: (field: string) => string,
+  params: unknown[],
+  field: string,
+  values: readonly unknown[],
+): string {
+  const columnName = extractTableInfo(table).columnOf(field);
+  const pgType = asEntityTableMeta(table)?.columns.find((c) => c.name === columnName)?.pgType;
+  const arrayable =
+    pgType !== undefined && pgType !== "jsonb" && pgType !== "serial" && pgType !== "bigserial";
+  if (!arrayable) return `${colSql(field)} IN (${bindPlaceholders(params, values)})`;
+  params.push(values);
+  return `${colSql(field)} = ANY($${params.length}::${pgTypeToSqlType(pgType)}[])`;
 }
 
 export type ListFilter = {
@@ -121,7 +142,7 @@ function applyScreenFilter(
     if (value === null) {
       whereSql.push(`${colSql(field)} IS NULL`);
     } else if (Array.isArray(value)) {
-      whereSql.push(`${colSql(field)} IN (${bindPlaceholders(params, value)})`);
+      whereSql.push(inListSql(table, colSql, params, field, value));
     } else if (isPlainObject(value)) {
       if (value["ne"] === null && Object.keys(value).length === 1) {
         whereSql.push(`${colSql(field)} IS NOT NULL`);

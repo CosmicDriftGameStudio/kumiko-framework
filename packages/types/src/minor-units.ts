@@ -4,6 +4,10 @@
 // Client-safe on purpose: db/money.ts pulls in engine runtime values.
 export const MINOR_UNIT_SCALE = 100;
 
+export function toMajorUnits(minorAmount: number): number {
+  return minorAmount / MINOR_UNIT_SCALE;
+}
+
 export function toMinorUnits(amount: number): number {
   return Math.round(amount * MINOR_UNIT_SCALE);
 }

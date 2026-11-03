@@ -241,6 +241,17 @@ export function setViewportWidth(width: number): void {
   ).happyDOM.setInnerWidth(width);
 }
 
+/** Runs `run` at the given viewport width and restores the previous width afterwards. */
+export function atViewportWidth(width: number, run: () => void): void {
+  const original = window.innerWidth;
+  setViewportWidth(width);
+  try {
+    run();
+  } finally {
+    setViewportWidth(original);
+  }
+}
+
 /** Call inside a `describe`: restores the viewport width to its pre-test value after each test. */
 export function restoreViewportWidthAfterEach(): void {
   let originalWidth = 0;

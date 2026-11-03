@@ -10,13 +10,8 @@ import {
   kumikoDefaultTranslations,
   LocaleProvider,
 } from "../../../index.ts";
+import { setViewportWidth } from "../../__tests__/test-utils.tsx";
 import { EmbeddedListInput } from "../embedded-list-input.tsx";
-
-function setViewportWidth(width: number): void {
-  (
-    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-  ).happyDOM.setInnerWidth(width);
-}
 
 function renderWithLocale(ui: ReactElement, locale = "en") {
   return render(

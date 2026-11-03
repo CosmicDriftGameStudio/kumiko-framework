@@ -1,15 +1,15 @@
 // Zod schema for ComplianceProfileOverride with recursive `.strict()` validation.
 //
-// Previously, set-profile.write.ts checked only top-level keys against
-// OVERRIDABLE_PROFILE_KEYS. Sub-level typos (for example,
+// A top-level key whitelist alone would let sub-level typos (for example,
 // `{ userRights: { weeks: 3 } }` instead of
-// `{ userRights: { gracePeriod: { days: 30 } } }`) passed through —
+// `{ userRights: { gracePeriod: { days: 30 } } }`) pass through —
 // deepMerge spliced the nonsense into the effective profile, and a caller
 // reading `userRights.gracePeriod.days` crashed with `undefined`.
 //
 // The schema maps the ComplianceProfile structure to DeepPartial form and
-// uses `.strict()` on every object so unknown keys throw. It is a single
-// source of truth like OVERRIDABLE_PROFILE_KEYS, with sub-level coverage.
+// uses `.strict()` on every object so unknown keys throw. It is the single
+// source of truth for the override whitelist; profiles.test.ts checks it
+// against ComplianceProfile.
 //
 // Identification fields (`key`, `region`, `label`, `extends`) are excluded
 // from the schema because overriding them would destroy profile identity.

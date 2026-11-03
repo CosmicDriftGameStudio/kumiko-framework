@@ -31,6 +31,8 @@ type ListAggregatesArgs = {
   readonly pageSize: number;
   readonly paging: ListGroupPaging;
   readonly translate: Translate;
+  /** Holds the aggregate queries, e.g. while remembered params are restored. */
+  readonly paused?: boolean;
 };
 
 export type ListGroupPagesProps = {
@@ -80,8 +82,9 @@ function useAggregateQueries(args: {
   readonly base: Readonly<Record<string, unknown>>;
   readonly groupField: string | undefined;
   readonly measures: readonly MeasureRequest[];
+  readonly paused: boolean;
 }) {
-  const { queryType, base, groupField, measures } = args;
+  const { queryType, base, groupField, measures, paused } = args;
   const grouped = groupField !== undefined;
   const withTotals = measures.length > 0;
   const groupsPayload = useMemo(
@@ -89,10 +92,13 @@ function useAggregateQueries(args: {
     [base, groupField, measures],
   );
   const totalsPayload = useMemo(() => ({ ...base, aggregate: { measures } }), [base, measures]);
-  const groupsQuery = useQuery<unknown>(queryType, groupsPayload, { live: true, enabled: grouped });
+  const groupsQuery = useQuery<unknown>(queryType, groupsPayload, {
+    live: true,
+    enabled: grouped && !paused,
+  });
   const totalsQuery = useQuery<unknown>(queryType, totalsPayload, {
     live: true,
-    enabled: withTotals,
+    enabled: withTotals && !paused,
   });
 
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -125,6 +131,7 @@ export function useListAggregates({
   pageSize,
   paging,
   translate,
+  paused = false,
 }: ListAggregatesArgs): ListAggregates {
   const grouping = table?.grouping;
   const totalSpecs = useMemo(() => table?.totals ?? [], [table?.totals]);
@@ -141,6 +148,7 @@ export function useListAggregates({
     base,
     groupField,
     measures,
+    paused,
   });
 
   const { state, onToggle, onHeaderVisible, onLoadMore, onResult } = useGroupLoadState(

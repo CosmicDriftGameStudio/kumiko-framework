@@ -38,8 +38,7 @@ import { brandWritable, schemaTableName } from "./table-introspection.ts";
 export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 
 // Public type aliases — historical compat for callers that used to import
-// these from drizzle-orm/pg-core. SelectQuery is no longer a meaningful
-// shape (no chain builder); TableColumns is the new SchemaTable union.
+// these from drizzle-orm/pg-core. TableColumns is the new SchemaTable union.
 export type TableColumns<_T = unknown> = SchemaTable;
 
 function isNumericPgType(t: PgType): t is `numeric(${number},${number})` {

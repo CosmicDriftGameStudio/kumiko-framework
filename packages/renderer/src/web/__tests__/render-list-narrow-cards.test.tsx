@@ -14,25 +14,16 @@
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
 import { defaultPrimitives } from "../primitives/index.tsx";
-import { fireEvent, render, screen, within } from "./test-utils.tsx";
+import {
+  atViewportWidth,
+  fireEvent,
+  render,
+  screen,
+  setViewportWidth,
+  within,
+} from "./test-utils.tsx";
 
 const { DataTable } = defaultPrimitives;
-
-function setViewportWidth(width: number): void {
-  (
-    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-  ).happyDOM.setInnerWidth(width);
-}
-
-function withViewportWidth(width: number, run: () => void): void {
-  const originalWidth = window.innerWidth;
-  setViewportWidth(width);
-  try {
-    run();
-  } finally {
-    setViewportWidth(originalWidth);
-  }
-}
 
 async function withViewportWidthAsync(width: number, run: () => Promise<void>): Promise<void> {
   const originalWidth = window.innerWidth;
@@ -63,7 +54,7 @@ const ROWS = [
 
 describe("DataTable — cards below 768px", () => {
   test("desktop viewport: table renders as before, no cards", () => {
-    withViewportWidth(1024, () => {
+    atViewportWidth(1024, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
       expect(screen.getByTestId("t").tagName).toBe("TABLE");
       expect(screen.queryByTestId("t-cards")).toBeNull();
@@ -71,7 +62,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("narrow viewport: no <table>, one list row per record with title and meta values", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
       expect(document.querySelector("table")).toBeNull();
       const card = within(screen.getByTestId("t-cards")).getByTestId("row-u1");
@@ -84,7 +75,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("narrow viewport: rowTone tints only matching cards", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const rows = [
         { id: "a1", values: { name: "A1", role: "late" } },
         { id: "a2", values: { name: "A2", role: "ok" } },
@@ -105,7 +96,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("highlighted column becomes the row title", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const columns = COLUMNS.map((c) => (c.field === "role" ? { ...c, highlighted: true } : c));
       render(<DataTable columns={columns} rows={ROWS} testId="t" />);
       const card = within(screen.getByTestId("t-cards")).getByTestId("row-u1");
@@ -114,7 +105,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("a select column renders as badge next to the title, the meta values stay out of the title row", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
         { field: "status", label: "Status", type: "select", sortable: false },
@@ -140,7 +131,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("meta values sit in one wrapping row with a separator per item, all values stay in the DOM", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
         { field: "from", label: "From", type: "string", sortable: false },
@@ -173,7 +164,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("a long value truncates only its own value element", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const longValue = "A very long description ".repeat(10).trim();
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
@@ -207,7 +198,7 @@ describe("DataTable — cards below 768px", () => {
   ] as const;
 
   test("hovering an overflowing meta value exposes its full text as tooltip", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const rows = [{ id: "u1", values: { name: "Anna", note: "Full note text" } }];
       render(<DataTable columns={noteColumns} rows={rows} testId="t" />);
       const note = screen.getByTestId("cell-u1-note");
@@ -219,7 +210,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("hovering a meta value that fits sets no tooltip", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const rows = [{ id: "u1", values: { name: "Anna", note: "Short" } }];
       render(<DataTable columns={noteColumns} rows={rows} testId="t" />);
       const note = screen.getByTestId("cell-u1-note");
@@ -230,7 +221,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("the tooltip follows a changed value after a rerender", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const first = [{ id: "u1", values: { name: "Anna", note: "Offen" } }];
       const second = [{ id: "u1", values: { name: "Anna", note: "Erledigt" } }];
       const { rerender } = render(<DataTable columns={noteColumns} rows={first} testId="t" />);
@@ -310,7 +301,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("a true boolean meta column shows its label, false and blank values show nothing", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={[
@@ -337,7 +328,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("a text-typed column with format boolean behaves like a boolean column in the card", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={[
@@ -376,18 +367,18 @@ describe("DataTable — cards below 768px", () => {
       },
     ] as const;
     const rows = [{ id: "a", values: { name: "A", flag: false } }];
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={columns} rows={rows} testId="t" />);
       expect(screen.getByTestId("cell-a-flag").textContent).toBe("false");
     });
-    withViewportWidth(1024, () => {
+    atViewportWidth(1024, () => {
       render(<DataTable columns={columns} rows={rows} testId="t2" />);
       expect(screen.getAllByTestId("cell-a-flag").at(-1)?.textContent).toBe("false");
     });
   });
 
   test("a boolean column with its own trueLabel keeps it in the card subtitle", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={[
@@ -446,7 +437,7 @@ describe("DataTable — cards below 768px", () => {
   });
 
   test("empty state renders the same way in card mode, no card container", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={[]} testId="t" />);
       expect(screen.getByTestId("t-empty")).not.toBeNull();
       expect(screen.queryByTestId("t-cards")).toBeNull();
@@ -460,7 +451,7 @@ describe("DataTable — cards below 768px", () => {
 // to sort and somewhere for the result to go.
 describe("DataTable — card-mode sort select", () => {
   test("lists only the sortable columns, both directions, and reports the picked one", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const onSortChange = mock();
       render(<DataTable columns={COLUMNS} rows={ROWS} onSortChange={onSortChange} testId="t" />);
       const select = screen.getByTestId("t-sort") as HTMLSelectElement;
@@ -473,7 +464,7 @@ describe("DataTable — card-mode sort select", () => {
   });
 
   test("a sort on a non-sortable column still shows up in the select instead of 'Unsorted'", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={COLUMNS}
@@ -490,21 +481,21 @@ describe("DataTable — card-mode sort select", () => {
   });
 
   test("narrow viewport: the bare testId stays resolvable next to -cards", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
       expect(within(screen.getByTestId("t")).getByTestId("t-cards")).not.toBeNull();
     });
   });
 
   test("no select without onSortChange — nothing to wire it to", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
       expect(screen.queryByTestId("t-sort")).toBeNull();
     });
   });
 
   test("no select when no column is sortable", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       const onSortChange = mock();
       const nonSortableColumns = COLUMNS.map((c) => ({ ...c, sortable: false }));
       render(
@@ -520,7 +511,7 @@ describe("DataTable — card-mode sort select", () => {
   });
 
   test("desktop viewport never renders the select — header clicks already cover it", () => {
-    withViewportWidth(1024, () => {
+    atViewportWidth(1024, () => {
       const onSortChange = mock();
       render(<DataTable columns={COLUMNS} rows={ROWS} onSortChange={onSortChange} testId="t" />);
       expect(screen.queryByTestId("t-sort")).toBeNull();
@@ -530,7 +521,7 @@ describe("DataTable — card-mode sort select", () => {
 
 describe("DataTable — card-mode row menu and hideOnNarrow", () => {
   test("the rowClick action alone leaves no menu next to the chevron", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={COLUMNS}
@@ -545,7 +536,7 @@ describe("DataTable — card-mode row menu and hideOnNarrow", () => {
   });
 
   test("an action beyond the rowClick one keeps its menu", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={COLUMNS}
@@ -564,12 +555,12 @@ describe("DataTable — card-mode row menu and hideOnNarrow", () => {
 
   test("hideOnNarrow keeps a column out of the cards but in the table", () => {
     const columns = COLUMNS.map((c) => (c.field === "role" ? { ...c, hideOnNarrow: true } : c));
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={columns} rows={ROWS} testId="t" />);
       expect(screen.queryByTestId("cell-u1-role")).toBeNull();
       expect(screen.getByTestId("cell-u1-email")).not.toBeNull();
     });
-    withViewportWidth(1024, () => {
+    atViewportWidth(1024, () => {
       render(<DataTable columns={columns} rows={ROWS} testId="t2" />);
       expect(screen.getByTestId("cell-u1-role")).not.toBeNull();
     });
@@ -587,7 +578,7 @@ describe("DataTable — card-mode row menu and hideOnNarrow", () => {
     ];
 
     test("table layout: a labelled button with its icon", () => {
-      withViewportWidth(1024, () => {
+      atViewportWidth(1024, () => {
         render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={responsiveActions("check")} />);
         const button = screen.getByTestId("row-u1-action-mark-posted");
         expect(button.textContent).toBe("Mark as posted");
@@ -613,7 +604,7 @@ describe("DataTable — card-mode row menu and hideOnNarrow", () => {
     });
 
     test("card layout without an icon keeps the label", () => {
-      withViewportWidth(500, () => {
+      atViewportWidth(500, () => {
         render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={responsiveActions()} />);
         expect(screen.getByTestId("row-u1-action-mark-posted").textContent).toBe("Mark as posted");
       });
@@ -636,7 +627,7 @@ describe("DataTable card with an image column", () => {
   ] as const;
 
   test("the image leads the card and the title is the first text column", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={COLUMNS_WITH_IMAGE}

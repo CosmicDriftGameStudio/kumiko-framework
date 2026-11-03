@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { DataTableViewOptions } from "../../data-table-view-types.ts";
 import { DataTable } from "./_primitives-helpers.tsx";
-import { fireEvent, render, screen, within } from "./test-utils.tsx";
+import { atViewportWidth, fireEvent, render, screen, within } from "./test-utils.tsx";
 
 const columns = [
   { field: "name", label: "Name", type: "string" as const, sortable: false },
@@ -32,18 +32,6 @@ function headerFields(): string[] {
     .filter((field) => columns.some((c) => c.field === field));
 }
 
-function withWidth(width: number, run: () => void): void {
-  const happy = (window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } })
-    .happyDOM;
-  const original = window.innerWidth;
-  happy.setInnerWidth(width);
-  try {
-    run();
-  } finally {
-    happy.setInnerWidth(original);
-  }
-}
-
 describe("DataTable view options", () => {
   test("hidden columns disappear and the saved order applies in the table layout", () => {
     render(
@@ -65,7 +53,7 @@ describe("DataTable view options", () => {
   });
 
   test("below md visibility applies but the order does not", () => {
-    withWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={columns}

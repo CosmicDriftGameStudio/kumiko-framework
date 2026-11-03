@@ -5,28 +5,16 @@
 import { describe, expect, test } from "bun:test";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from "../ui/sidebar.tsx";
-import { fireEvent, render, screen, within } from "./test-utils.tsx";
+import { atViewportWidth, fireEvent, render, screen, within } from "./test-utils.tsx";
 
 const { DataTable, Form, GridCell, Grid } = defaultPrimitives;
-
-function withViewportWidth(width: number, run: () => void): void {
-  const happyDom = (window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } })
-    .happyDOM;
-  const originalWidth = window.innerWidth;
-  happyDom.setInnerWidth(width);
-  try {
-    run();
-  } finally {
-    happyDom.setInnerWidth(originalWidth);
-  }
-}
 
 describe("DataTable cards: right padding follows the row menu", () => {
   const columns = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
   const rows = [{ id: "r1", values: { name: "Anna" } }];
 
   test("no row actions: pr-4, so the content does not touch the edge", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(<DataTable columns={columns} rows={rows} testId="t" />);
       const card = screen.getByTestId("row-r1");
       expect(card.className).toContain("pr-4");
@@ -35,7 +23,7 @@ describe("DataTable cards: right padding follows the row menu", () => {
   });
 
   test("with a menu action: pr-2, the menu button supplies the remaining space", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <DataTable
           columns={columns}
@@ -60,7 +48,7 @@ describe("DataTable cells: numbers right-aligned, digit columns tabular", () => 
   const rows = [{ id: "r1", values: { amount: 1200, due: "2026-01-15", name: "Anna" } }];
 
   test("numeric cell is right-aligned and tabular", () => {
-    withViewportWidth(1024, () => {
+    atViewportWidth(1024, () => {
       render(<DataTable columns={columns} rows={rows} testId="t" />);
       const cell = screen.getByTestId("cell-r1-amount").closest("td");
       expect(cell?.className).toContain("text-right");
@@ -69,7 +57,7 @@ describe("DataTable cells: numbers right-aligned, digit columns tabular", () => 
   });
 
   test("date cell is tabular but keeps its left alignment; text cells are neither", () => {
-    withViewportWidth(1024, () => {
+    atViewportWidth(1024, () => {
       render(<DataTable columns={columns} rows={rows} testId="t" />);
       const dateCell = screen.getByTestId("cell-r1-due").closest("td");
       expect(dateCell?.className).toContain("tabular-nums");
@@ -153,7 +141,7 @@ describe("SidebarContent", () => {
 
 describe("mobile sidebar sheet", () => {
   test("the sheet content has inner padding", () => {
-    withViewportWidth(500, () => {
+    atViewportWidth(500, () => {
       render(
         <SidebarProvider>
           <SidebarTrigger data-testid="open" />

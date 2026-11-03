@@ -49,11 +49,13 @@ export function useScreenListRows({
   payload,
   infinite,
   aggregates,
+  restoring = false,
 }: {
   readonly queryType: string;
   readonly payload: Readonly<Record<string, unknown>>;
   readonly infinite: boolean;
   readonly aggregates: ListAggregates;
+  readonly restoring?: boolean;
 }): ScreenListRows {
   const { grouped, refresh: refreshAggregates } = aggregates;
   const resetKey = JSON.stringify(payload);
@@ -66,7 +68,10 @@ export function useScreenListRows({
     () => (cursor === undefined ? payload : { ...payload, cursor }),
     [payload, cursor],
   );
-  const rowsQuery = useQuery<PagedRows>(queryType, rowsPayload, { live: true, enabled: !grouped });
+  const rowsQuery = useQuery<PagedRows>(queryType, rowsPayload, {
+    live: true,
+    enabled: !grouped && !restoring,
+  });
   const { data, loading, refetch } = rowsQuery;
 
   const lastDataRef = useRef<PagedRows | null>(null);
@@ -127,7 +132,7 @@ export function useScreenListRows({
   return {
     rows: infinite ? state.rows : (data?.rows ?? []),
     page: data,
-    firstLoad: loading && data === null,
+    firstLoad: restoring || (loading && data === null),
     error: rowsQuery.error,
     hasData: data !== null,
     retry,

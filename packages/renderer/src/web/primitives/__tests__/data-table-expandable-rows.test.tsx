@@ -1,17 +1,10 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { DataTableProps } from "../../../index.ts";
+import { setViewportWidth } from "../../__tests__/test-utils.tsx";
 import { defaultPrimitives } from "../index.tsx";
 
 const { DataTable } = defaultPrimitives;
-
-// A plain `window.innerWidth =` write pins an override in happy-dom that later
-// setInnerWidth calls in other files of the shared DOM run can no longer change.
-function setViewportWidth(width: number): void {
-  (
-    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-  ).happyDOM.setInnerWidth(width);
-}
 
 const columns = [
   { field: "name", label: "Name", type: "string", sortable: false },

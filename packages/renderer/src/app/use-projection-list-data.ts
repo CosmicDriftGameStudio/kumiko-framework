@@ -46,6 +46,7 @@ export function useProjectionListData(input: ProjectionListDataInput) {
     payload: queryPayload,
     infinite: false,
     aggregates: listTable.aggregates,
+    restoring: listTable.restoring,
   });
 
   const filterFacets = useMemo<DataTableFacet[]>(() => {

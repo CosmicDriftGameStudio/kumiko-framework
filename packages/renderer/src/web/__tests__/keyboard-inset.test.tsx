@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { StickyActionBar } from "../primitives/sticky-action-bar.tsx";
-import { render, screen } from "./test-utils.tsx";
+import { render, screen, setViewportWidth } from "./test-utils.tsx";
 
 class FakeVisualViewport extends EventTarget {
   constructor(
@@ -79,17 +79,11 @@ describe("pinned narrow FormFooter keyboard inset", () => {
   let wideInnerWidth = 0;
   beforeEach(() => {
     wideInnerWidth = window.innerWidth;
-    setInnerWidth(390);
+    setViewportWidth(390);
   });
   afterEach(() => {
-    setInnerWidth(wideInnerWidth);
+    setViewportWidth(wideInnerWidth);
   });
-
-  function setInnerWidth(width: number): void {
-    (
-      window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
-    ).happyDOM.setInnerWidth(width);
-  }
 
   function renderPinned(): HTMLElement {
     render(

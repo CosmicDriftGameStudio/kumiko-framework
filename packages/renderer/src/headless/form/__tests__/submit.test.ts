@@ -337,6 +337,24 @@ describe("createFormController — submit()", () => {
     expect("price" in call).toBe(false);
   });
 
+  test("payloadMode: 'values' — keeps a money amount the user cleared from a stored value", async () => {
+    const disp = makeDispatcher();
+    const initial: { title: string; price: { amount?: number; currency: string } } = {
+      title: "hello",
+      price: { amount: 500, currency: "EUR" },
+    };
+    const form = createFormController({
+      initial,
+      submit: { dispatcher: disp, type: "app:write:task:update" },
+    });
+    form.setField("price", { currency: "EUR" });
+
+    await form.submit();
+
+    const call = disp.writeSpy.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(call["price"]).toEqual({ currency: "EUR" });
+  });
+
   test("payloadMode: 'values' with stripEmptySeeds: false — keeps an untouched empty-string field", async () => {
     // Same setup as the strip test above, but the caller opts out — the
     // untouched "" seed must survive unchanged in the payload.

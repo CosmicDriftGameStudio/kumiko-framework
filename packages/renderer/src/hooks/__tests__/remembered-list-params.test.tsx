@@ -13,6 +13,7 @@ function renderRemembered(
   store = createMemoryListStateStore(),
 ) {
   let latest: Record<string, string> = initial;
+  const restoringByRender: boolean[] = [];
   // biome-ignore lint/correctness/noComponentHookFactories: closes over the renderRemembered-local initial params and latest tracker; defined once per renderRemembered call, never during a render
   function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
     const [params, setParams] = useState(initial);
@@ -37,10 +38,14 @@ function renderRemembered(
     };
     return <NavProvider value={nav}>{children}</NavProvider>;
   }
-  renderHook(() => useRememberedListParams({ screenId: "orders", enabled, store, known }), {
-    wrapper: Wrapper,
-  });
-  return { store, params: () => latest };
+  renderHook(
+    () => {
+      const { restoring } = useRememberedListParams({ screenId: "orders", enabled, store, known });
+      restoringByRender.push(restoring);
+    },
+    { wrapper: Wrapper },
+  );
+  return { store, params: () => latest, restoringByRender };
 }
 
 describe("useRememberedListParams", () => {
@@ -71,5 +76,24 @@ describe("useRememberedListParams", () => {
     const store = createMemoryListStateStore();
     renderRemembered({ "orders-archive.q": "x", "orders.sort": "name" }, true, store);
     expect(store.read("orders")?.params).toEqual({ sort: "name" });
+  });
+
+  test("reports restoring from the first render until the remembered params are in the URL", () => {
+    const store = createMemoryListStateStore();
+    store.write("orders", { params: { q: "acme" } });
+    const { restoringByRender } = renderRemembered({}, true, store);
+    expect(restoringByRender[0]).toBe(true);
+    expect(restoringByRender.at(-1)).toBe(false);
+  });
+
+  test("never reports restoring without remembered params, with a linked URL or when disabled", () => {
+    const store = createMemoryListStateStore();
+    store.write("orders", { params: { q: "acme" } });
+    const linked = renderRemembered({ "orders.q": "linked" }, true, store);
+    const disabled = renderRemembered({}, false, store);
+    const nothingStored = renderRemembered({}, true);
+    for (const run of [linked, disabled, nothingStored]) {
+      expect(run.restoringByRender.every((restoring) => !restoring)).toBe(true);
+    }
   });
 });

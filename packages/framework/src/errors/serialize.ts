@@ -24,8 +24,8 @@ export type ErrorResponseBody = {
 };
 
 // InternalError deliberately omits `details` from the response in production,
-// because that field often carries the internal cause. The log still has
-// everything (see buildErrorLog).
+// because that field often carries the internal cause. The server log keeps
+// the full details.
 //
 // In dev/test the cause is exposed in the response body to make debugging
 // possible — without this, a crash in a handler comes back as a bare

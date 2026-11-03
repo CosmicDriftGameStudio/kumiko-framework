@@ -10,7 +10,7 @@ type UploadRowStatus = "uploading" | "done" | "error";
 
 type UploadRow = {
   readonly id: string;
-  readonly fileName: string;
+  readonly fileName: ReactNode;
   readonly status: UploadRowStatus;
   readonly error?: string;
   /** What `onUpload` returned for a done row; handed to `onRemove`. */
@@ -57,6 +57,9 @@ export type UploadZoneProps = {
   /** Wraps the whole per-file work, image resize included, so a surrounding form can hold
    *  back submit while the file is still being prepared. */
   readonly trackUpload?: TrackFormUpload;
+  /** Row label of a value the owner already held (e.g. a FileRef id resolved to its file name).
+   *  Default: the value itself. */
+  readonly labelForValue?: (value: string) => ReactNode;
 };
 
 // `accept` on the native <input> only filters the file-picker dialog — a
@@ -103,6 +106,7 @@ export function UploadZone({
   onRemove,
   doneValues,
   trackUpload,
+  labelForValue,
 }: UploadZoneProps): ReactNode {
   const t = useTranslation();
   const inputId = useId();
@@ -193,7 +197,12 @@ export function UploadZone({
       ? []
       : doneValues
           .filter((value) => !rows.some((row) => row.value === value))
-          .map((value) => ({ id: `existing:${value}`, fileName: value, status: "done", value }));
+          .map((value) => ({
+            id: `existing:${value}`,
+            fileName: labelForValue?.(value) ?? value,
+            status: "done",
+            value,
+          }));
   const visibleRows = [
     ...existingRows,
     ...rows.filter(

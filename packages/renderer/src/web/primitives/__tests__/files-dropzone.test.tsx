@@ -125,6 +125,20 @@ describe("FilesDropzoneInput", () => {
     expect(queryByText("id-old-1")).toBeNull();
   });
 
+  test("an existing FileRef id shows its file name, not the id", async () => {
+    const fileId = crypto.randomUUID();
+    (globalThis.fetch as unknown as { mockRestore(): void }).mockRestore();
+    spyOn(globalThis, "fetch").mockImplementation(
+      (async () =>
+        new Response(
+          JSON.stringify({ files: [{ id: fileId, fileName: "Mietvertrag.pdf" }] }),
+        )) as unknown as typeof fetch,
+    );
+    const { getByText, queryByText } = mount(undefined, [fileId]);
+    await waitFor(() => expect(getByText("Mietvertrag.pdf")).toBeTruthy());
+    expect(queryByText(fileId)).toBeNull();
+  });
+
   test("an upload next to existing files adds one row, not a duplicate id row", async () => {
     const { values, getAllByTestId } = mount(undefined, ["id-old"]);
     nextReplies = [{ status: 201, body: { id: "id-new" } }];

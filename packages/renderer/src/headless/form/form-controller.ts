@@ -92,6 +92,8 @@ function valuesDiff<TValues extends FormValues>(
 // Fixing that needs real per-field seed-tracking (which value was actually
 // user-set vs. defaulted), not just a wider strip predicate here.
 // The seed of an untouched optional money field (buildInitialValues); never a valid payload value.
+// Stripped only while the initial value was that seed too: clearing a stored amount must reach the
+// server, which rejects it visibly instead of keeping the old amount silently.
 function isCurrencyOnlyMoney(value: unknown): boolean {
   return (
     typeof value === "object" &&
@@ -113,7 +115,7 @@ function stripUntouchedEmptyStrings<TValues extends FormValues>(
     // Value-based seed strip, except keys previously submitted as "" after a
     // real clear — those must survive post-rebase submits.
     const untouchedEmptyString = !forceIncludeEmpty.has(key) && v[key] === "" && ini[key] === "";
-    if (untouchedEmptyString || isCurrencyOnlyMoney(v[key])) {
+    if (untouchedEmptyString || (isCurrencyOnlyMoney(v[key]) && isCurrencyOnlyMoney(ini[key]))) {
       out ??= { ...v };
       delete out[key];
     }

@@ -107,6 +107,21 @@ describe("named list filters", () => {
     expect(r.total).toBe(2);
   });
 
+  test("a resolver id list beyond the Postgres bind limit still filters", async () => {
+    pinnedIds = [
+      ...Array.from({ length: 70_000 }, () => crypto.randomUUID()),
+      ids["A"] ?? "",
+      ids["C"] ?? "",
+    ];
+    const r = await stack.http.queryOk<ListResult>(
+      LIST,
+      { namedFilter: "pinned", totalCount: true, limit: 50 },
+      TestUsers.admin,
+    );
+    expect(titles(r)).toEqual(["A", "C"]);
+    expect(r.total).toBe(2);
+  });
+
   test("combined with a facet filter the total stays consistent", async () => {
     const r = await stack.http.queryOk<ListResult>(
       LIST,
