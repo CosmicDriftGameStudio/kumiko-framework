@@ -6,9 +6,8 @@ import {
   type ErasedSubjectHandling,
   ErasedSubjectHandlings,
 } from "../crypto/pii-field-encryption.ts";
-import { checkWriteFieldOwnership } from "../engine/field-access.ts";
 import { instructionFieldNames } from "../engine/instruction-fields.ts";
-import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.ts";
+import { userCanWriteFieldRow } from "../engine/ownership.ts";
 import { buildInsertSchema, buildUpdateSchema } from "../engine/schema-builder.ts";
 import { isRecordLocked, isUnchangedValue } from "../engine/screen-helpers.ts";
 import type { SessionUser, TenantId } from "../engine/types/index.ts";
@@ -68,6 +67,7 @@ import { isFrameworkSystemUser, isLockGuardBypassed } from "./lock-guard.ts";
 import { runInSavepointIfSupported } from "./query.ts";
 import { assertPersonalDataWrite, tableNameOf, withExecutorManagedWrites } from "./tenant-db.ts";
 import { tenantDbWriteRunnerForTable } from "./tenant-db-runner.ts";
+import { createOwnershipFailure, updateOwnershipFailure } from "./write-ownership-failures.ts";
 
 type WriteRunner = ReturnType<typeof tenantDbWriteRunnerForTable>;
 type AppendedEvent = Awaited<ReturnType<typeof append>>;
@@ -294,119 +294,6 @@ export function createWriteVerbs(
       Object.keys(data),
       entityInstructionFieldNames,
     );
-  }
-
-  function createOwnershipFailure(
-    user: SessionUser,
-    streamTenantId: TenantId | undefined,
-    payloadWithoutId: Record<string, unknown>,
-    data: DbRow,
-  ): WriteFailure | undefined {
-    // H.2 — entity-level write-ownership on create. No oldRow exists, so
-    // only the new row is checked. No Straddle concern for creates.
-    if (
-      !userCanCreateFieldRow(ownershipSubject(user, streamTenantId), entity.access?.write, data)
-    ) {
-      return ownershipDeniedFailure({
-        scope: "entity",
-        entityName,
-        action: "create",
-        userId: user.id,
-      });
-    }
-
-    // Field-level write-ownership on create — mirror of entity-level but
-    // per declared field. Role-level was already checked by the
-    // dispatcher; here we enforce ownership-rules against the new row.
-    //
-    // Which fields get checked is scoped to the pre-hook payload
-    // — a hook-derived field the user never submitted must not be
-    // field-ownership-checked against the user. The rule for a checked
-    // field is still evaluated against the full post-hook row (`data`) —
-    // an ownership rule can reference a column only a hook populates.
-    const fieldDeniedCreate = checkWriteFieldOwnership(
-      entity,
-      applyDefaults(payloadWithoutId),
-      ownershipSubject(user, streamTenantId),
-      undefined,
-      data,
-    );
-    if (fieldDeniedCreate) {
-      return ownershipDeniedFailure({
-        scope: "field",
-        entityName,
-        action: "create",
-        field: fieldDeniedCreate,
-        userId: user.id,
-      });
-    }
-    return undefined;
-  }
-
-  function updateOwnershipFailure(
-    user: SessionUser,
-    streamTenantId: TenantId | undefined,
-    id: EntityId,
-    submittedChanges: Record<string, unknown>,
-    previous: DbRow,
-    changes: DbRow,
-    mergedNew: Record<string, unknown>,
-  ): WriteFailure | undefined {
-    // H.2 — entity-level write-ownership on update. Load old row (already
-    // done above), build post-change row via shallow merge. Straddle-safe
-    // multi-role check: at least one role must accept BOTH old and new —
-    // prevents the attack where role A passes old, role B passes new and
-    // aggregation would wrongly allow a row-grab.
-    if (
-      !userCanWriteFieldRow(
-        ownershipSubject(user, streamTenantId),
-        entity.access?.write,
-        previous,
-        mergedNew,
-      )
-    ) {
-      return ownershipDeniedFailure({
-        scope: "entity",
-        entityName,
-        action: "update",
-        userId: user.id,
-        entityId: id,
-      });
-    }
-    // Field-level write-ownership on update — this is the path the
-    // dispatcher could not evaluate (no oldRow). Now that we have
-    // `previous`, we can run the ownership rules per field against both
-    // sides and reject individual fields the user isn't entitled to
-    // touch on this specific row.
-    //
-    // Which fields get checked is scoped to `payload.changes` (the user's
-    // actual submission), NOT `changes` (post-preSave-hook data)
-    // — a hook-derived field the user never submitted (e.g. a system hook
-    // setting `assignedTo`) has no business being field-ownership-checked
-    // against the *user*, and doing so rejects writes the user is fully
-    // entitled to make. The dispatcher's role-gate (checkWriteFieldAccess)
-    // already runs on this same pre-hook payload for consistency. The rule
-    // for a checked field is still evaluated against the full post-hook
-    // row (`changes` merged onto `previous`) — an ownership rule can
-    // reference a column only a hook populates.
-    const fieldDeniedUpdate = checkWriteFieldOwnership(
-      entity,
-      submittedChanges,
-      ownershipSubject(user, streamTenantId),
-      previous,
-      changes,
-    );
-    if (fieldDeniedUpdate) {
-      return ownershipDeniedFailure({
-        scope: "field",
-        entityName,
-        action: "update",
-        field: fieldDeniedUpdate,
-        userId: user.id,
-        entityId: id,
-      });
-    }
-    return undefined;
   }
 
   function updateSelectOptionFailure(
@@ -708,7 +595,15 @@ export function createWriteVerbs(
       const data = preSaveResult.data;
 
       assertFieldWritesAllowed(db, "create", data);
-      const ownershipDenied = createOwnershipFailure(user, streamTenantId, payloadWithoutId, data);
+      const ownershipDenied = createOwnershipFailure({
+        entity,
+        entityName,
+        user,
+        streamTenantId,
+        payloadWithoutId,
+        data,
+        applyDefaults,
+      });
       if (ownershipDenied) return ownershipDenied;
 
       const invalidFieldState = fieldStateFailure(entity.fields, data);
@@ -803,15 +698,17 @@ export function createWriteVerbs(
 
       const mergedNew: Record<string, unknown> = { ...previous, ...changes };
       const guardFailure =
-        updateOwnershipFailure(
+        updateOwnershipFailure({
+          entity,
+          entityName,
           user,
           streamTenantId,
-          payload.id,
+          id: payload.id,
           submittedChanges,
           previous,
           changes,
           mergedNew,
-        ) ??
+        }) ??
         recordLockedFailure(previous, payload.id, user, updateOptions) ??
         updateSelectOptionFailure(user, mergedNew, previous, updateOptions);
       if (guardFailure) return guardFailure;
