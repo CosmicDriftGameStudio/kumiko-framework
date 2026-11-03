@@ -21,7 +21,7 @@ import type { TestRedis } from "./redis.ts";
 import { createRequestHelper } from "./request-helper.ts";
 import type { TestStack, TestStackOptions } from "./test-stack.ts";
 import type { JobFailureTracker, StackServices } from "./test-stack-services.ts";
-import type { StackStorage } from "./test-stack-storage.ts";
+import { runCleanupsIgnoringErrors, type StackStorage } from "./test-stack-storage.ts";
 
 function collectSearchableFields(features: TestStackOptions["features"]): string[] {
   const searchableFields: string[] = [];
@@ -266,7 +266,13 @@ export async function startStackServer(input: StackServerInput): Promise<TestSta
   // runOnBoot jobs, and one that reaches JobContext.write before the attach fails its run.
   if (jobRunner) {
     jobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
-    await jobRunner.start();
+    try {
+      await jobRunner.start();
+    } catch (error) {
+      // setupTestStack's failure cleanup predates the server; a failed boot gate must not leak its observability.
+      await runCleanupsIgnoringErrors([() => server.observability.shutdown()]);
+      throw error;
+    }
   }
 
   const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;
