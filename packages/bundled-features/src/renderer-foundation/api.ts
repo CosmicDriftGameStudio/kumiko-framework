@@ -4,7 +4,7 @@
 // The pattern mirrors ai-foundation's `createLLMProviderForTenant`.
 
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { requireBootstrapExtension } from "../shared/index.ts";
 import { DEFAULT_PLUGIN_BY_KIND, type RenderKind } from "./constants.ts";
 import { RendererError, type RendererPlugin } from "./types.ts";
 
@@ -90,16 +90,9 @@ export function requireRendererFoundation(
   ctx: { readonly services: { readonly extensions: Readonly<Record<string, unknown>> } },
   callerName: string,
 ): RendererFoundationApi {
-  // @cast-boundary engine-bridge — rendererFoundation kommt per extraContext
-  // from the app bootstrap and lands in services.extensions; the framework does not know its type.
-  const api = ctx.services.extensions["rendererFoundation"] as RendererFoundationApi | undefined;
-  if (!api) {
-    throw new InternalError({
-      message:
-        `[${callerName}] ctx.rendererFoundation missing — App-Bootstrap muss ` +
-        `extraContext: { rendererFoundation: createRendererFoundationApi(plugins) } setzen ` +
-        `(siehe renderer-foundation/README.md).`,
-    });
-  }
-  return api;
+  return requireBootstrapExtension<RendererFoundationApi>(ctx, callerName, {
+    key: "rendererFoundation",
+    bootstrapExample: "rendererFoundation: createRendererFoundationApi(plugins)",
+    readme: "renderer-foundation/README.md",
+  });
 }

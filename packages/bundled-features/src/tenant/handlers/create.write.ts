@@ -1,7 +1,7 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { acknowledgedSystemDb } from "../../shared/index.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -25,13 +25,11 @@ export const createWrite = defineWriteHandler({
   description:
     "Creates a new tenant from a key and display name, optionally under a caller-chosen id for seeds or external provisioning; use it when onboarding a new customer or workspace.",
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:write:create requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant("creating a tenant is inherently cross-tenant");
+    const db = acknowledgedSystemDb(
+      ctx,
+      "tenant:write:create",
+      "creating a tenant is inherently cross-tenant",
+    );
     return crud.create(event.payload, event.user, db);
   },
 });

@@ -1,6 +1,7 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
 import { apiTokenTable } from "../../personal-access-tokens/index.ts";
 import { featureMounted } from "./feature-mounted.ts";
+import { hardDeleteOwnRowsDeleteHook } from "./hard-delete-own-rows-hook.ts";
 
 // userData-Hooks for personal-access-tokens rows. Same shape as user-session:
 // unmanaged direct-write store (no event stream, rebuild-safe DELETE), and a
@@ -29,8 +30,7 @@ export const apiTokenExportHook: UserDataExportHook = async (ctx) => {
   };
 };
 
-export const apiTokenDeleteHook: UserDataDeleteHook = async (ctx) => {
-  // skip: personal-access-tokens not mounted — its table doesn't exist, nothing to erase.
-  if (!featureMounted(ctx, "personal-access-tokens")) return;
-  await ctx.db.deleteMany(apiTokenTable, { userId: ctx.userId, tenantId: ctx.tenantId });
-};
+export const apiTokenDeleteHook: UserDataDeleteHook = hardDeleteOwnRowsDeleteHook({
+  featureName: "personal-access-tokens",
+  table: apiTokenTable,
+});

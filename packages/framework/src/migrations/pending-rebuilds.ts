@@ -16,7 +16,7 @@ import { instant, table as pgTable, sql, text } from "../db/dialect.ts";
 import { deleteMany, selectMany, upsertOnConflict } from "../db/query.ts";
 import { readRebuildMarker } from "../db/rebuild-marker.ts";
 import { tableExists } from "../db/schema-inspection.ts";
-import { unsafePushTables } from "../db/table-push.ts";
+import { pushTableIfMissing } from "../db/table-push.ts";
 import type { Registry } from "../engine/types/index.ts";
 import type { JobRunner } from "../jobs/index.ts";
 import type { Logger } from "../logging/types.ts";
@@ -33,9 +33,9 @@ export const pendingRebuildsTable = pgTable("kumiko_pending_rebuilds", {
 });
 
 export async function createPendingRebuildsTable(db: DbConnection): Promise<void> {
-  // skip: table already exists — bootstrap runs from multiple paths
-  if (await tableExists(db, "public.kumiko_pending_rebuilds")) return;
-  await unsafePushTables(db, { kumikoPendingRebuilds: pendingRebuildsTable });
+  await pushTableIfMissing(db, "public.kumiko_pending_rebuilds", {
+    kumikoPendingRebuilds: pendingRebuildsTable,
+  });
 }
 
 /** Reads rebuild markers from freshly applied migrations and queues the

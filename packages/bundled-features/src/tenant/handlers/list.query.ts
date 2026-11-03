@@ -1,7 +1,7 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { acknowledgedSystemDb } from "../../shared/index.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -18,13 +18,11 @@ export const listQuery = defineQueryHandler({
   description:
     "Pages through every tenant on the platform with an optional search term, for a SystemAdmin browsing the tenant roster.",
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:list requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant("SystemAdmin lists tenants platform-wide");
+    const db = acknowledgedSystemDb(
+      ctx,
+      "tenant:query:list",
+      "SystemAdmin lists tenants platform-wide",
+    );
     return crud.list(query.payload, query.user, db); // @wrapper-known semantic-alias
   },
 });

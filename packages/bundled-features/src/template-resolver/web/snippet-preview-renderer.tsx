@@ -4,8 +4,9 @@ import {
   TextPreviewRenderer,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
+import { stringValuesOf } from "../string-values.ts";
 import { fillDocumentVariables } from "./fill-document-variables.ts";
-import { HtmlPaperFrame, stringExamples } from "./web-preview-renderer.tsx";
+import { HtmlPaperFrame } from "./web-preview-renderer.tsx";
 
 // The "text" target of collection entries: a document entry shows as the finished text with its
 // example values. Collections are open to members who may not call the admin-only body preview, so
@@ -16,7 +17,7 @@ export const SnippetPreviewRenderer: PreviewRenderer = (props: PreviewRendererPr
   if (props.editFormat !== "document") return <TextPreviewRenderer {...props} />;
   return (
     <HtmlPaperFrame
-      html={fillDocumentVariables(props.content, stringExamples(props.variables))}
+      html={fillDocumentVariables(props.content, stringValuesOf(props.variables))}
       devices={false}
     />
   );

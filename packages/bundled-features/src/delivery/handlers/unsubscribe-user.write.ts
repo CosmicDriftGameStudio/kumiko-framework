@@ -1,8 +1,6 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { currentNotificationType } from "../notification-type-aliases.ts";
-import { upsertPreference } from "../upsert-preference.ts";
+import { setPreferenceEnabled } from "../set-preference-enabled.ts";
 
 export const unsubscribeUserWrite = defineWriteHandler({
   name: "unsubscribeUser",
@@ -18,28 +16,5 @@ export const unsubscribeUserWrite = defineWriteHandler({
   agent: { expose: false },
   description:
     "Disables one notification type and channel combination for the userId carried in a verified unsubscribe token; dispatched by the signed unsubscribe route, not meant for UI callers.",
-  handler: async (event, ctx) => {
-    // userId comes from the payload, not event.user.id — the caller here is
-    // the system user dispatchSystemWrite runs as, not the user unsubscribing.
-    const { userId, channel } = event.payload;
-    const notificationType = currentNotificationType(ctx.registry, event.payload.notificationType);
-    const { tenantId } = event.user;
-
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "unsubscribeUser: ctx.systemDb missing on a system-scoped handler",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(tenantId);
-
-    const result = await upsertPreference(db, event.user, {
-      tenantId,
-      userId,
-      notificationType,
-      channel,
-      enabled: false,
-    });
-    if (!result.isSuccess) return result;
-    return { isSuccess: true, data: { notificationType, channel } };
-  },
+  handler: (event, ctx) => setPreferenceEnabled("unsubscribeUser", event, ctx, false),
 });

@@ -19,6 +19,7 @@ export {
 } from "./classify-stored-envelope.ts";
 export { collectExtensionOptions } from "./collect-extension-options.ts";
 export { decryptStoredPii, decryptStoredUserEmail } from "./decrypt-stored-pii.ts";
+export { defineUserDataFeature } from "./define-user-data-feature.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
@@ -73,6 +74,7 @@ export {
   redactUrls,
 } from "./redact.ts";
 export { REDACTED_PII_PLACEHOLDER, redactPiiCiphertext } from "./redact-pii-ciphertext.ts";
+export { requireBootstrapExtension } from "./require-bootstrap-extension.ts";
 export { requireForTenant } from "./require-for-tenant.ts";
 export { resolveFeatureAccess } from "./resolve-feature-access.ts";
 export {

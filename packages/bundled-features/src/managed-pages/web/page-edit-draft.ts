@@ -1,3 +1,4 @@
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { effectiveBodyFormat } from "./constants.ts";
 import { detectLossyMarkdown, type LossyMarkdownFeature } from "./lossy-markdown.ts";
 import { markdownToDocumentHtml } from "./markdown-to-document.ts";
@@ -102,6 +103,6 @@ export function changesOf(draft: PageDraft, initial: PageDraft): Readonly<Record
 
 /** The create handler answers `{ id }`; anything else means the id is unknown and the list opens. */
 export function createdIdOf(data: unknown): string | undefined {
-  if (typeof data !== "object" || data === null || !("id" in data)) return undefined;
-  return typeof data.id === "string" ? data.id : undefined;
+  const id = propertyOf(data, "id");
+  return typeof id === "string" ? id : undefined;
 }
