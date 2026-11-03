@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { FloatingPanel, type FloatingPanelProps } from "../widgets/floating-panel.tsx";
+import { FLOATING_PANEL_MARGIN_PX } from "../widgets/floating-panel-geometry.ts";
 import { render, screen } from "./test-utils.tsx";
 
 const STORAGE_KEY = "test:floating-panel-fixed";
@@ -29,6 +30,17 @@ describe("FloatingPanel placement fixed", () => {
     expect(screen.queryByRole("button", { name: /move/i })).toBeNull();
     expect(screen.queryAllByRole("separator")).toHaveLength(0);
     expect(panel.innerHTML).not.toContain("cursor-grab");
+  });
+
+  test("width and height leave room for the right and bottom offsets", () => {
+    renderFixed({
+      placement: { mode: "fixed", rightPx: 364, bottomPx: 24, widthPx: 420, heightPx: 600 },
+    });
+    const panel = screen.getByTestId("panel");
+    expect(panel.style.width).toBe("420px");
+    expect(panel.style.maxWidth).toBe(`calc(100vw - ${364 + FLOATING_PANEL_MARGIN_PX}px)`);
+    expect(panel.style.height).toBe("600px");
+    expect(panel.style.maxHeight).toBe(`calc(100vh - ${24 + FLOATING_PANEL_MARGIN_PX}px)`);
   });
 
   test("ignores the storage key", () => {

@@ -312,8 +312,10 @@ export function FloatingPanel({
         style={{
           right: fixedPlacement.rightPx,
           bottom: fixedPlacement.bottomPx,
-          width: `min(${fixedPlacement.widthPx}px, calc(100vw - ${2 * FLOATING_PANEL_MARGIN_PX}px))`,
-          height: `min(${fixedPlacement.heightPx}px, calc(100vh - ${fixedPlacement.bottomPx + FLOATING_PANEL_MARGIN_PX}px))`,
+          width: fixedPlacement.widthPx,
+          maxWidth: `calc(100vw - ${fixedPlacement.rightPx + FLOATING_PANEL_MARGIN_PX}px)`,
+          height: fixedPlacement.heightPx,
+          maxHeight: `calc(100vh - ${fixedPlacement.bottomPx + FLOATING_PANEL_MARGIN_PX}px)`,
         }}
       >
         <div
