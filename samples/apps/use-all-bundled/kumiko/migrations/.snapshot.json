@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-03T00:26:41.115Z",
+  "generatedAt": "2026-11-03T08:29:12.542Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1303,6 +1303,10 @@
         {
           "name": "read_helpdesk_replies_tenant_id_idx",
           "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_helpdesk_replies_tenant_id_request_id_idx",
+          "columns": ["tenant_id", "request_id"]
         }
       ],
       "source": "managed",
@@ -1488,6 +1492,14 @@
         {
           "name": "read_helpdesk_requests_email_bidx_idx",
           "columns": ["email_bidx"]
+        },
+        {
+          "name": "read_helpdesk_requests_tenant_id_status_idx",
+          "columns": ["tenant_id", "status"]
+        },
+        {
+          "name": "read_helpdesk_requests_tenant_id_reporter_user_id_idx",
+          "columns": ["tenant_id", "reporter_user_id"]
         }
       ],
       "source": "managed",
