@@ -6,8 +6,8 @@ export function findEntity(
   entityName: string,
 ): EntityDefinition | undefined {
   for (const feature of features.values()) {
-    const entity = feature.entities?.[entityName];
-    if (entity) return entity;
+    const entities = feature.entities;
+    if (entities && Object.hasOwn(entities, entityName)) return entities[entityName];
   }
   return undefined;
 }

@@ -715,7 +715,7 @@ function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | 
     if (!propAccess) continue;
     if (propAccess.getExpression().getText() !== registrarParam) continue;
     if (propAccess.getName() !== id.kind) continue;
-    if (callMatchesId(call, id.kind, id)) matches.push(call);
+    if (callMatchesId(call, id)) matches.push(call);
   }
 
   if (SINGLETON_KINDS.has(id.kind) && matches.length > 1) {
@@ -738,7 +738,7 @@ function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression |
   const matches: CallExpression[] = [];
   for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     if (call.getExpression().getText() !== factory) continue;
-    if (callMatchesId(call, id.kind, id)) matches.push(call);
+    if (callMatchesId(call, id)) matches.push(call);
   }
   if (matches.length > 1) {
     throw new Error(

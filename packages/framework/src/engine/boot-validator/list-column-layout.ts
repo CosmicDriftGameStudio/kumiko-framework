@@ -1,3 +1,4 @@
+import { LIST_COLUMN_MAX_WIDTH_PX } from "@cosmicdrift/kumiko-types/screen-list-table";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import { LIST_COLUMN_PINS, type ListColumnSpec } from "../types/screen.ts";
@@ -6,16 +7,21 @@ import { LIST_TABLE_RULES } from "./list-table-rules.ts";
 
 type ColumnLayoutFlags = { readonly pinning: boolean; readonly resizing: boolean };
 
-function isPositiveFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
+function isPixelWidth(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value > 0 &&
+    value <= LIST_COLUMN_MAX_WIDTH_PX
+  );
 }
 
 function validatePixelWidth(where: string, field: string, key: string, value: unknown): void {
-  if (!isPositiveFiniteNumber(value)) {
+  if (!isPixelWidth(value)) {
     throw bootRuleError(LIST_TABLE_RULES.columnWidthInvalid, {
       message:
         `${where} column "${field}" has ${key} ${JSON.stringify(value)} — ` +
-        `must be a finite number of pixels greater than 0.`,
+        `must be a finite number of pixels greater than 0 and at most ${LIST_COLUMN_MAX_WIDTH_PX}.`,
     });
   }
 }

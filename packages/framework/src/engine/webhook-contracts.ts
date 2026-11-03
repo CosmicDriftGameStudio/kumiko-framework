@@ -6,7 +6,7 @@ import { personalFieldNames } from "./personal-data-fields.ts";
 import { fieldToZod } from "./schema-builder.ts";
 import type { FeatureDefinition } from "./types/index.ts";
 
-const ENTITY_VERBS: readonly WebhookEntityVerb[] = ["created", "updated", "deleted"];
+export const WEBHOOK_ENTITY_VERBS: readonly WebhookEntityVerb[] = ["created", "updated", "deleted"];
 const CONTRACT_VERSION = 1;
 
 // money and locatedTimestamp are stored as several flat columns (amount plus currency, instant
@@ -156,7 +156,7 @@ function entityVerbOf(
 ): { entity: string; verb: WebhookEntityVerb } | undefined {
   const dot = qualifiedName.lastIndexOf(".");
   if (dot <= 0) return undefined;
-  const verb = ENTITY_VERBS.find((candidate) => candidate === qualifiedName.slice(dot + 1));
+  const verb = WEBHOOK_ENTITY_VERBS.find((candidate) => candidate === qualifiedName.slice(dot + 1));
   return verb === undefined ? undefined : { entity: qualifiedName.slice(0, dot), verb };
 }
 

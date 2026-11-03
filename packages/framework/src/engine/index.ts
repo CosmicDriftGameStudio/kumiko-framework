@@ -519,6 +519,7 @@ export type {
 export { walkStepInstances } from "./walk-step-instances.ts";
 export {
   createWebhookContractResolver,
+  WEBHOOK_ENTITY_VERBS,
   type WebhookContractResolver,
 } from "./webhook-contracts.ts";
 export {

@@ -88,8 +88,9 @@ export const LIST_TABLE_RULES = {
   },
   columnWidthInvalid: {
     id: "list-table/column-width-invalid",
-    summary: "A column's width and minWidth are finite pixel counts greater than 0.",
-    fix: "Set a positive finite number or remove the option.",
+    summary:
+      "A column's width and minWidth are finite pixel counts greater than 0 and at most 2000.",
+    fix: "Set a positive finite number up to 2000 or remove the option.",
   },
   columnWidthWithoutResizing: {
     id: "list-table/column-width-without-resizing",

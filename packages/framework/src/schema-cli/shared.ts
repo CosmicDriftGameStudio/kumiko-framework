@@ -138,7 +138,12 @@ function reportMissingSchemaFile({ out, schemaFile }: SchemaCliContext): void {
 
 export type CollectedSchemaLoad =
   | { readonly kind: "loaded"; readonly schemaMod: SchemaMod }
-  | { readonly kind: "violations"; readonly violations: readonly BootViolation[] }
+  | {
+      readonly kind: "violations";
+      readonly violations: readonly BootViolation[];
+      /** A runtime crash stopped the import, so later features were never evaluated. */
+      readonly importAborted?: true;
+    }
   | { readonly kind: "failed" };
 
 // Loads kumiko/schema.ts in collect mode: definition-layer violations of all features come back
@@ -161,8 +166,12 @@ export async function loadSchemaModCollectingDefinitionViolations(
   }
   const { thrown } = outcome;
   if (isRuntimeCrash(thrown)) {
-    if (violations.length > 0) return { kind: "violations", violations };
-    out.err(`  ${describeThrown(thrown)}`);
+    out.err(
+      violations.length > 0
+        ? `  schema.ts import stopped early: ${describeThrown(thrown)}; further violations may be missing.`
+        : `  ${describeThrown(thrown)}`,
+    );
+    if (violations.length > 0) return { kind: "violations", violations, importAborted: true };
     return { kind: "failed" };
   }
   if (thrown instanceof Error) {

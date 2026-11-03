@@ -44,20 +44,27 @@ describe("validateScopeEventContracts", () => {
     expect(() =>
       validateScopeEventContracts(scopesWith(["ticketing:event:internal-note"]), [ticketing]),
     ).toThrow(
-      /scope "support" lists event "ticketing:event:internal-note".*r\.defineWebhookEvent/s,
+      /scope "support" lists event "ticketing:event:internal-note".*r\.defineWebhookEvent.*internal r\.defineEvent events are never released\.$/s,
     );
   });
 
   test("rejects an entity event of an entity without the webhookEvents opt-in", () => {
     expect(() => validateScopeEventContracts(scopesWith(["note.created"]), [ticketing])).toThrow(
-      /webhookEvents: true.*entity "note"/s,
+      /webhookEvents: true.*entity "note" has no such opt-in\./s,
     );
   });
 
   test("rejects an entity event of an unknown entity", () => {
     expect(() => validateScopeEventContracts(scopesWith(["plane.created"]), [ticketing])).toThrow(
-      /plane\.created/,
+      /plane\.created.*there is no entity "plane"\./s,
     );
+    let message = "";
+    try {
+      validateScopeEventContracts(scopesWith(["plane.created"]), [ticketing]);
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    }
+    expect(message).not.toContain("no such opt-in");
   });
 
   test("rejects two released events sharing a wire name, accepts shared names that stay unreleased", () => {

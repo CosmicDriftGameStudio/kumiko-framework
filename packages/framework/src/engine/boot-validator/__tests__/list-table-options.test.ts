@@ -217,6 +217,17 @@ describe("validateBoot — list table block", () => {
     ).toThrow(/column "name" has width .* must be a finite number of pixels greater than 0/);
   });
 
+  test.each(["width", "minWidth"] as const)(
+    "a %s above the renderer's maximum is rejected",
+    (key) => {
+      expect(() =>
+        validateBoot([
+          featureWith("entityList", { resizing: true }, [{ field: "name", [key]: 2001 }]),
+        ]),
+      ).toThrow(new RegExp(`column "name" has ${key} 2001 .* at most 2000`));
+    },
+  );
+
   test("a non-positive minWidth is rejected", () => {
     expect(() =>
       validateBoot([

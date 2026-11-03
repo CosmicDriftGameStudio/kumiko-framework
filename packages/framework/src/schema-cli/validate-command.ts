@@ -246,9 +246,44 @@ function checkMigrationContentDrift(
 //   4. live row-level security (only with DATABASE_URL): the boot's
 //      table-state check against the real database (not the role: that is a boot-time property).
 // The DB-level gate (assertKumikoSchemaCurrent) stays at boot/deploy.
-function printBootJson(ctx: SchemaCliContext, boot: BootOutcome): void {
+type ValidateJsonExtras = {
+  readonly importAborted?: true;
+  readonly checks?: {
+    readonly schemaDrift: boolean;
+    readonly migrations: boolean;
+    readonly rowLevelSecurity: boolean;
+  };
+};
+
+// `ok` mirrors the exit code; `boot` stays the violation list for machine consumers.
+function printValidateJson(
+  ctx: SchemaCliContext,
+  boot: BootOutcome,
+  extras: ValidateJsonExtras = {},
+): void {
   const { ok, skipped, violations } = boot;
-  ctx.out.log(JSON.stringify({ boot: { ok, ...(skipped ? { skipped } : {}), violations } }));
+  const { importAborted, checks } = extras;
+  const allOk =
+    ok &&
+    (checks === undefined || (checks.schemaDrift && checks.migrations && checks.rowLevelSecurity));
+  ctx.out.log(
+    JSON.stringify({
+      ok: allOk,
+      boot: {
+        ok,
+        ...(skipped ? { skipped } : {}),
+        ...(importAborted ? { importAborted } : {}),
+        violations,
+      },
+      ...(checks === undefined
+        ? {}
+        : {
+            schemaDrift: { ok: checks.schemaDrift },
+            migrations: { ok: checks.migrations },
+            rowLevelSecurity: { ok: checks.rowLevelSecurity },
+          }),
+    }),
+  );
 }
 
 export async function runValidateCommand(ctx: SchemaCliContext): Promise<number> {
@@ -259,13 +294,19 @@ export async function runValidateCommand(ctx: SchemaCliContext): Promise<number>
   const loaded = await loadSchemaModCollectingDefinitionViolations(humanCtx);
   if (loaded.kind === "violations") {
     reportBootViolations(out, loaded.violations);
-    if (jsonMode) printBootJson(ctx, { ok: false, violations: loaded.violations });
+    if (jsonMode) {
+      printValidateJson(
+        ctx,
+        { ok: false, violations: loaded.violations },
+        { ...(loaded.importAborted ? { importAborted: loaded.importAborted } : {}) },
+      );
+    }
     return 1;
   }
   if (loaded.kind === "failed") {
     if (jsonMode) {
       const message = "kumiko/schema.ts could not be loaded";
-      printBootJson(ctx, {
+      printValidateJson(ctx, {
         ok: false,
         violations: [{ ruleId: "unclassified/loadSchemaMod", check: "loadSchemaMod", message }],
       });
@@ -278,6 +319,14 @@ export async function runValidateCommand(ctx: SchemaCliContext): Promise<number>
   const boot = checkBootValidity(out, schemaMod);
   const migrationsOk = checkMigrationContentDrift(humanCtx, prevSnapshot);
   const rowLevelSecurityOk = await checkLiveRowLevelSecurity(out, schemaMod);
-  if (jsonMode) printBootJson(ctx, boot);
+  if (jsonMode) {
+    printValidateJson(ctx, boot, {
+      checks: {
+        schemaDrift: schemaOk,
+        migrations: migrationsOk,
+        rowLevelSecurity: rowLevelSecurityOk,
+      },
+    });
+  }
   return schemaOk && boot.ok && migrationsOk && rowLevelSecurityOk ? 0 : 1;
 }

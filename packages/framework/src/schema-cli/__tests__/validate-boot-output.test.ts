@@ -42,6 +42,46 @@ export const FEATURES = [
 ];
 `;
 
+const DRIFT_SCHEMA_SOURCE = `
+export const ENTITY_METAS = [
+  {
+    tableName: "drift_widgets",
+    source: "unmanaged",
+    indexes: [],
+    columns: [
+      { name: "id", pgType: "uuid", notNull: true, primaryKey: true, defaultSql: "gen_random_uuid()" },
+    ],
+  },
+];
+export const FEATURES = [];
+`;
+
+const VIOLATION_THEN_MODULE_THROW_SCHEMA_SOURCE = `
+import { defineFeature } from ${JSON.stringify(defineFeaturePath)};
+export const ENTITY_METAS = [];
+export const FEATURES = [
+  defineFeature("zeta", (r) => {
+    r.nav({ id: "Bad_Id", label: "Home", screen: "zeta:screen:home" });
+  }),
+];
+throw new Error("boom");
+`;
+
+const MODULE_THROW_SCHEMA_SOURCE = `
+export const ENTITY_METAS = [];
+throw new Error("boom");
+`;
+
+const VIOLATION_THEN_CRASH_SCHEMA_SOURCE = `
+import { defineFeature } from ${JSON.stringify(defineFeaturePath)};
+export const ENTITY_METAS = [];
+defineFeature("eta", (r) => {
+  r.nav({ id: "Bad_Id", label: "Home", screen: "eta:screen:home" });
+});
+const missing = undefined;
+missing.property;
+`;
+
 type Captured = { readonly stdout: string[]; readonly stderr: string[] };
 
 async function runValidate(appDir: string, args: readonly string[]) {
@@ -179,11 +219,70 @@ describe("kumiko-schema validate boot output", () => {
     try {
       const { stdout } = await runValidate(plainDir, ["--json"]);
       expect(stdout).toHaveLength(1);
-      expect(JSON.parse(stdout[0] ?? "")).toEqual({
+      expect(JSON.parse(stdout[0] ?? "")).toMatchObject({
+        ok: true,
         boot: { ok: true, skipped: true, violations: [] },
       });
     } finally {
       rmSync(plainDir, { recursive: true, force: true });
     }
+  });
+  async function runInFreshApp(schemaSource: string, args: readonly string[]) {
+    // One directory per run: the imported schema.ts is cached per process.
+    const dir = mkdtempSync(join(tmpdir(), "kumiko-validate-extra-"));
+    mkdirSync(join(dir, "kumiko", "migrations"), { recursive: true });
+    writeFileSync(join(dir, "kumiko", "schema.ts"), schemaSource);
+    try {
+      return await runValidate(dir, args);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test("--json reports schema drift next to a valid boot, matching the exit code", async () => {
+    const { exitCode, stdout } = await runInFreshApp(DRIFT_SCHEMA_SOURCE, ["--json"]);
+    expect(exitCode).toBe(1);
+    expect(stdout).toHaveLength(1);
+    expect(JSON.parse(stdout[0] ?? "")).toMatchObject({
+      ok: false,
+      boot: { ok: true, violations: [] },
+      schemaDrift: { ok: false },
+    });
+  });
+
+  test("a module-level throw after a violation shows up next to it", async () => {
+    const { exitCode, stdout } = await runInFreshApp(VIOLATION_THEN_MODULE_THROW_SCHEMA_SOURCE, [
+      "--json",
+    ]);
+    expect(exitCode).toBe(1);
+    const parsed = JSON.parse(stdout[0] ?? "");
+    expect(parsed.boot.violations).toMatchObject([
+      { ruleId: "nav/id-not-kebab", feature: "zeta" },
+      { ruleId: "unclassified/loadSchemaMod", check: "loadSchemaMod", message: "boom" },
+    ]);
+  });
+
+  test("a module-level throw without an earlier violation becomes a loadSchemaMod violation", async () => {
+    const { exitCode, stdout } = await runInFreshApp(MODULE_THROW_SCHEMA_SOURCE, ["--json"]);
+    expect(exitCode).toBe(1);
+    expect(JSON.parse(stdout[0] ?? "")).toMatchObject({
+      boot: {
+        ok: false,
+        violations: [
+          { ruleId: "unclassified/loadSchemaMod", check: "loadSchemaMod", message: "boom" },
+        ],
+      },
+    });
+  });
+
+  test("a runtime crash after a violation is announced as an incomplete list", async () => {
+    const { exitCode, stdout, stderr } = await runInFreshApp(VIOLATION_THEN_CRASH_SCHEMA_SOURCE, [
+      "--json",
+    ]);
+    expect(exitCode).toBe(1);
+    expect(stderr.some((line) => line.includes("import stopped early"))).toBe(true);
+    expect(JSON.parse(stdout[0] ?? "")).toMatchObject({
+      boot: { ok: false, importAborted: true, violations: [{ ruleId: "nav/id-not-kebab" }] },
+    });
   });
 });
