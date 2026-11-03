@@ -1,26 +1,11 @@
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { WriteHandlerDef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import type { DbRow, DbRunner, DbTx } from "../db/connection.ts";
-import { selectRowForUpdateById } from "../db/queries/entity-read.ts";
-import { asEntityTableMeta, selectMany } from "../db/query.ts";
-import { buildEntityTable, toSnakeCase } from "../db/table-builder.ts";
-import { createTenantDb, hasTenantColumn } from "../db/tenant-db.ts";
-import { tenantDbRunner } from "../db/tenant-db-runner.ts";
 import { ConfigScopes } from "../engine/constants.ts";
-import { checkWriteFieldOwnership, maskWriteOnlyFields } from "../engine/field-access.ts";
 import { HookPhases } from "../engine/hook-helpers.ts";
-import { defineTransitions, guardTransition } from "../engine/state-machine.ts";
 import type { HandlerContext, SessionUser } from "../engine/types/index.ts";
 
-import {
-  AccessDeniedError,
-  FrameworkReasons,
-  InternalError,
-  NotFoundError,
-  ValidationError,
-  writeFailure,
-} from "../errors/index.ts";
+import { InternalError, NotFoundError, writeFailure } from "../errors/index.ts";
 import { memberResolutionReadOnlyDenied } from "../errors/member-resolution.ts";
 
 import { assertFileRefsBelongToTenant } from "../files/assert-file-refs-belong-to-tenant.ts";
@@ -29,7 +14,6 @@ import { disposeRemovedFileRefs } from "../files/dispose-removed-file-refs.ts";
 import { loadSaveFileRefs } from "../files/load-save-file-refs.ts";
 import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.ts";
 import { assertNoSecretLeak } from "../secrets/leak-guard.ts";
-
 import type { DispatchContext, WriteOrigin } from "./dispatch-shared.ts";
 import {
   buildHandlerContext,
@@ -43,10 +27,8 @@ import {
 import {
   type AfterCommitHook,
   describeShape,
-  extractNestedSpecs,
   isLifecycleResult,
   isWriteResultShape,
-  prefixValidationPath,
   wrapToKumiko,
 } from "./dispatcher-utils.ts";
 import { perCommandNestedDenied } from "./handler-context-phase-denials.ts";
@@ -58,42 +40,7 @@ import {
   nestedPreTransactionDenial,
 } from "./pre-transaction-reservations.ts";
 import { runProjections } from "./projections-runner.ts";
-
-function getTable(
-  ctx: DispatchContext,
-  entityName: string,
-): ReturnType<typeof buildEntityTable> | undefined {
-  const { registry, tableCache } = ctx;
-  if (tableCache.has(entityName)) return tableCache.get(entityName);
-  const entity = registry.getEntity(entityName);
-  if (!entity) return undefined;
-  const table = buildEntityTable(entityName, entity, {
-    relations: registry.getRelations(entityName),
-  });
-  tableCache.set(entityName, table);
-  return table;
-}
-
-function getTransitions(
-  ctx: DispatchContext,
-  args: {
-    entityName: string;
-    fieldName: string;
-    map: Record<string, readonly string[]>;
-  },
-): ReturnType<typeof defineTransitions> {
-  const { transitionCache } = ctx;
-  // Scope by entity — `fieldName` alone collides across entities (e.g. both
-  // `invoice.status` and `driverOrder.status` exist with different maps),
-  // which would apply the wrong transition rules to whichever entity arrives
-  // second.
-  const key = `${args.entityName}:${args.fieldName}`;
-  const cached = transitionCache.get(key);
-  if (cached) return cached;
-  const transitions = defineTransitions(args.map);
-  transitionCache.set(key, transitions);
-  return transitions;
-}
+import { guardAutoTransitions, resolveTransitionGuardDb } from "./write-transition-guard.ts";
 
 // A successful config:write:set/reset returns { key, scope, ... } — see
 // bundled-features/src/config/handlers/{set,reset}.write.ts. Narrows the
@@ -237,289 +184,6 @@ export async function executeWrite(
   );
 }
 
-function isForeignTenantParentRow(
-  parentRow: Readonly<Record<string, unknown>>,
-  user: SessionUser,
-): boolean {
-  const rowTenantId = parentRow["tenantId"];
-  return typeof rowTenantId === "string" && rowTenantId !== user.tenantId;
-}
-
-// A custom create handler may return a row without a string tenantId; the row's
-// tenant is then unknown from the payload, so re-read it through the caller's tenant
-// filter. Fail-closed: anything that cannot be verified counts as not visible.
-// Tenant reads also return SYSTEM reference rows, so the row's own tenantId must match
-// (same rule as the string path) unless the entity has no tenant column.
-async function isParentRowHiddenFromCaller(
-  ctx: DispatchContext,
-  parentEntityName: string | undefined,
-  parentId: string,
-  user: SessionUser,
-  tx: DbTx | undefined,
-): Promise<boolean> {
-  if (parentEntityName === undefined) return true;
-  const table = getTable(ctx, parentEntityName);
-  const source = resolveDbSource(ctx, tx);
-  if (!table || !source) return true;
-  const callerDb = createTenantDb({ db: source, tenantId: user.tenantId, mode: "tenant" });
-  const visibleRow = await callerDb.fetchOne(table, { id: parentId });
-  if (visibleRow === undefined) return true;
-  return hasTenantColumn(table) && visibleRow["tenantId"] !== user.tenantId;
-}
-
-// A custom create handler may return a partial row. The ownership check only
-// inspects the keys it is given, so a row missing the ownership-bound field
-// would be denied (rule evaluated against undefined) or skipped entirely.
-// Complete it from the stored row, read through the caller's tenant filter.
-async function completeParentRow(
-  ctx: DispatchContext,
-  parentEntityName: string,
-  parentEntity: EntityDefinition,
-  parentRow: Record<string, unknown>,
-  user: SessionUser,
-  tx: DbTx | undefined,
-): Promise<Record<string, unknown>> {
-  if (Object.keys(parentEntity.fields).every((fieldName) => fieldName in parentRow)) {
-    return parentRow;
-  }
-  const table = getTable(ctx, parentEntityName);
-  const source = resolveDbSource(ctx, tx);
-  if (!table || !source || typeof parentRow["id"] !== "string") return parentRow;
-  const stored = await createTenantDb({
-    db: source,
-    tenantId: user.tenantId,
-    mode: "tenant",
-  }).fetchOne(table, {
-    id: parentRow["id"],
-  });
-  return stored ? { ...stored, ...parentRow } : parentRow;
-}
-
-function collectNestedForeignKeyIssues(
-  nested: NonNullable<ReturnType<typeof extractNestedSpecs>>,
-): Array<{ path: string; code: string; i18nKey: string }> {
-  // Pre-flight client-shape checks. Merge non-array issues (collected up
-  // front by extractNestedSpecs) with fk-injection issues into one error
-  // so the client sees every problem in a single round-trip.
-  //
-  // Security rail: the client MUST NOT supply the foreign key on nested
-  // items. The framework binds it from the parent's new id. Silent-overwrite
-  // would mask an attempt to attach children to a different parent — fail
-  // loud with a ValidationError carrying a client-mappable path.
-  const issues: Array<{ path: string; code: string; i18nKey: string }> = [...nested.typeIssues];
-  for (const spec of nested.specs) {
-    for (let i = 0; i < spec.items.length; i++) {
-      const item = spec.items[i];
-      if (item && typeof item === "object" && spec.foreignKey in item) {
-        issues.push({
-          path: `${spec.key}.${i}.${spec.foreignKey}`,
-          code: "unexpected_field",
-          i18nKey: "errors.validation.unexpected_field",
-        });
-      }
-    }
-  }
-  return issues;
-}
-
-// Handlers built on the CRUD executor return a SaveContext wrapper —
-// `{ kind: "save", id, data: <row>, changes, previous, event, ... }`.
-// The wrapper is load-bearing for batch-level hooks downstream (see
-// flushBatchHooks), so we mutate in place: nested children land on the
-// inner `data` (which mirrors the entity shape the client expects) while
-// the wrapper keeps its SaveContext semantics intact for the lifecycle
-// pipeline. For handlers that return a bare row (no wrapper), children
-// land directly on that object.
-//
-// Hook-ordering note: per-entity postSave hooks already ran inside the
-// parent's executeWrite call — they never saw `tasks`, which is
-// the right semantic (postSave gets the entity's own columns, not
-// synthetic relation keys). A future postSaveBatch subscriber that
-// enumerates columns generically WOULD see `tasks`; no such subscriber
-// exists today. If you add one that iterates `Object.keys(save.data)`,
-// filter by `entity.fields` membership to stay correct.
-// handler-Result.data is generic across all entity handlers; nested-
-// write inspects the shape structurally.
-function unwrapSaveRow(data: unknown): Record<string, unknown> {
-  const wrapper = data as Record<string, unknown>; // @cast-boundary engine-payload
-  return (wrapper["data"] ?? wrapper) as Record<string, unknown>; // @cast-boundary engine-payload
-}
-
-// A custom create handler may return an existing foreign row; verify it before attaching children.
-async function rejectUnverifiedParent(
-  ctx: DispatchContext,
-  type: string,
-  parentRow: Record<string, unknown>,
-  parentId: string,
-  user: SessionUser,
-  tx: DbTx | undefined,
-): Promise<WriteResult | undefined> {
-  const { registry } = ctx;
-  const parentEntityName = registry.getHandlerEntity(type);
-  const isCallerScoped = !registry.isHandlerSystemScoped(type);
-  const isParentForeign =
-    isCallerScoped &&
-    (typeof parentRow["tenantId"] === "string"
-      ? isForeignTenantParentRow(parentRow, user)
-      : await isParentRowHiddenFromCaller(ctx, parentEntityName, parentId, user, tx));
-  if (isParentForeign) {
-    return writeFailure(
-      new AccessDeniedError({
-        message: `nested-write: parent row belongs to another tenant — refusing to attach children to "${type}"`,
-        details: { reason: FrameworkReasons.fieldAccessDenied, handler: type },
-      }),
-    );
-  }
-  if (!parentEntityName) return undefined;
-  const parentEntity = registry.getEntity(parentEntityName);
-  if (!parentEntity) return undefined;
-  const ownershipRow = await completeParentRow(
-    ctx,
-    parentEntityName,
-    parentEntity,
-    parentRow,
-    user,
-    tx,
-  );
-  const deniedField = checkWriteFieldOwnership(
-    parentEntity,
-    ownershipRow,
-    user,
-    undefined,
-    ownershipRow,
-    false,
-  );
-  if (!deniedField) return undefined;
-  return writeFailure(
-    new AccessDeniedError({
-      message: `nested-write: parent row ownership check failed on field "${deniedField}" of "${type}" — refusing to attach children to a parent row the caller does not own`,
-      i18nKey: "errors.access.fieldDenied",
-      details: {
-        reason: FrameworkReasons.fieldAccessDenied,
-        field: deniedField,
-        handler: type,
-      },
-    }),
-  );
-}
-
-async function writeNestedChildren(
-  ctx: DispatchContext,
-  spec: NonNullable<ReturnType<typeof extractNestedSpecs>>["specs"][number],
-  parentId: string,
-  user: SessionUser,
-  origin: WriteOrigin,
-  tx: DbTx | undefined,
-  afterCommitHooks: AfterCommitHook[],
-): Promise<
-  | { readonly kind: "failed"; readonly failure: WriteResult }
-  | { readonly kind: "written"; readonly rows: Record<string, unknown>[] }
-> {
-  const { registry } = ctx;
-  const subRows: Record<string, unknown>[] = [];
-  for (let i = 0; i < spec.items.length; i++) {
-    const rawItem = spec.items[i];
-    const itemObj = (rawItem ?? {}) as Record<string, unknown>; // @cast-boundary engine-payload
-    const subPayload = { ...itemObj, [spec.foreignKey]: parentId };
-    const subResult = await executeWrite(
-      ctx,
-      spec.subType,
-      subPayload,
-      user,
-      origin,
-      tx,
-      afterCommitHooks,
-    );
-    if (!subResult.isSuccess) {
-      return {
-        kind: "failed",
-        failure: {
-          isSuccess: false,
-          error: prefixValidationPath(subResult.error, `${spec.key}.${i}`),
-        },
-      };
-    }
-    const subRow = unwrapSaveRow(subResult.data);
-    const subEntityName = registry.getHandlerEntity(spec.subType);
-    const subEntity = subEntityName ? registry.getEntity(subEntityName) : undefined;
-    // parentRow is returned to the client; the child's own SaveContext keeps the plaintext.
-    subRows.push(subEntity ? maskWriteOnlyFields(subEntity, subRow) : subRow);
-  }
-  return { kind: "written", rows: subRows };
-}
-
-// Nested-write orchestration (v1: depth=1, create-only, hasMany-only).
-//
-// When a parent `:create` handler's payload carries values under keys
-// declared as `hasMany` relations with `nestedWrite: true`, those values
-// are expanded into child writes: parent first (so its new id exists),
-// then each nested entry as a separate `<target>:create` write with the
-// foreign key set by the framework — never taken from the client. All of
-// this runs inside the caller's transaction, so a child failure rolls the
-// parent (and any earlier children) back together.
-//
-// This wrapper is what runBatch calls, not executeWrite. Single writes
-// (`dispatcher.write`) flow through runBatch as batch-of-one, so they get
-// nested-expansion too for free. A batch with N heterogeneous commands
-// can each independently carry nested-children — all still one TX.
-export async function executeNestedWrite(
-  ctx: DispatchContext,
-  type: string,
-  payload: unknown,
-  user: SessionUser,
-  origin: WriteOrigin,
-  tx: DbTx | undefined,
-  afterCommitHooks: AfterCommitHook[],
-): Promise<WriteResult> {
-  const nested = extractNestedSpecs(type, payload, ctx.registry);
-  if (!nested) return executeWrite(ctx, type, payload, user, origin, tx, afterCommitHooks);
-
-  const issues = collectNestedForeignKeyIssues(nested);
-  if (issues.length > 0) {
-    return writeFailure(new ValidationError({ fields: issues }));
-  }
-
-  const parentResult = await executeWrite(
-    ctx,
-    type,
-    nested.cleanPayload,
-    user,
-    origin,
-    tx,
-    afterCommitHooks,
-  );
-  if (!parentResult.isSuccess) return parentResult;
-
-  const parentRow = unwrapSaveRow(parentResult.data);
-  const parentId = parentRow["id"];
-  if (typeof parentId !== "string") {
-    return writeFailure(
-      new InternalError({
-        message: `nested-write: parent handler "${type}" returned no string "id" — cannot attach children`,
-      }),
-    );
-  }
-
-  const parentRejection = await rejectUnverifiedParent(ctx, type, parentRow, parentId, user, tx);
-  if (parentRejection) return parentRejection;
-
-  for (const spec of nested.specs) {
-    const children = await writeNestedChildren(
-      ctx,
-      spec,
-      parentId,
-      user,
-      origin,
-      tx,
-      afterCommitHooks,
-    );
-    if (children.kind === "failed") return children.failure;
-    parentRow[spec.key] = children.rows;
-  }
-
-  return parentResult;
-}
-
 async function confirmReservation(
   reservation: ConsumedReservation,
   tx: DbTx | undefined,
@@ -605,110 +269,6 @@ async function runWriteGates(
   const nestedDenial = reservation ? undefined : nestedPreTransactionDenial(handler, type);
   if (nestedDenial) return failedStep(nestedDenial);
   return { kind: "run", parsedPayload, reservation };
-}
-
-// Reads via the guard's own db handle — for r.systemScope() handlers
-// handlerContext.db is fail-closed, so this reaches for
-// systemDb.acknowledgeCrossTenant like any other framework-internal
-// mechanism that touches a system-scoped handler's data.
-function resolveTransitionGuardDb(handlerContext: HandlerContext, type: string) {
-  return handlerContext.systemDb
-    ? handlerContext.systemDb.acknowledgeCrossTenant(
-        `auto transition guard for r.systemScope() write handler (${type})`,
-      )
-    : handlerContext.db;
-}
-
-type TransitionGuardDb = ReturnType<typeof resolveTransitionGuardDb>;
-
-// Auto transition guard: if entity has transitions and handler doesn't skip it.
-async function guardAutoTransitions(
-  ctx: DispatchContext,
-  handler: WriteHandlerDef,
-  type: string,
-  parsedPayload: unknown,
-  transitionGuardDb: TransitionGuardDb,
-  tx: DbTx | undefined,
-): Promise<void> {
-  const entityName = ctx.registry.getHandlerEntity(type);
-  // skip: handler has no entity or opted out of the transition guard
-  if (!entityName || handler.unsafeSkipTransitionGuard) return;
-  const entity = ctx.registry.getEntity(entityName);
-  // skip: entity declares no transitions, or there is no db to read the current value from
-  if (!entity?.transitions || !transitionGuardDb) return;
-  const parsedData = parsedPayload as DbRow; // @cast-boundary engine-payload
-  const changes = (parsedData["changes"] as DbRow) ?? parsedData; // @cast-boundary engine-payload
-  const id = (parsedData["id"] as number) ?? undefined; // @cast-boundary engine-payload
-
-  for (const [fieldName, transitionMap] of Object.entries(entity.transitions)) {
-    await guardFieldTransition(ctx, {
-      entityName,
-      entity,
-      fieldName,
-      transitionMap,
-      changes,
-      id,
-      transitionGuardDb,
-      tx,
-    });
-  }
-}
-
-async function guardFieldTransition(
-  ctx: DispatchContext,
-  args: {
-    readonly entityName: string;
-    readonly entity: EntityDefinition;
-    readonly fieldName: string;
-    readonly transitionMap: Record<string, readonly string[]>;
-    readonly changes: DbRow;
-    readonly id: number | undefined;
-    readonly transitionGuardDb: NonNullable<TransitionGuardDb>;
-    readonly tx: DbTx | undefined;
-  },
-): Promise<void> {
-  const { entityName, entity, fieldName, transitionMap, changes, id, transitionGuardDb, tx } = args;
-  const newValue = changes[fieldName] as string | undefined; // @cast-boundary engine-bridge
-  // skip: field is not part of this write
-  if (!newValue || !id) return;
-
-  const table = getTable(ctx, entityName);
-  // skip: entity has no table to read the current value from
-  if (!table) return;
-
-  // SELECT FOR UPDATE inside the surrounding transaction — locks the
-  // row so a concurrent handler can't mutate `status` between our
-  // guard check and the handler's UPDATE. Without this lock the guard
-  // can false-pass; optimistic locking would catch it later, but with
-  // a less specific error. Falls back to a plain SELECT if no tx is
-  // active (tests without a DB connection).
-  const tableName = asEntityTableMeta(table)?.tableName ?? "";
-  const rows = tx
-    ? await selectRowForUpdateById(tenantDbRunner(transitionGuardDb), tableName, id)
-    : await selectMany(transitionGuardDb, table, { id });
-  const row = rows[0];
-
-  // skip: no stored row to transition from
-  if (!row) return;
-  // Skip guard for soft-deleted rows — they shouldn't be transitioning
-  // at all; a handler that wants to move a deleted row should use
-  // unsafeSkipTransitionGuard or restore first.
-  const rowAsRow = row as DbRow; // @cast-boundary engine-payload
-  const isDeleted = rowAsRow["isDeleted"] ?? rowAsRow["is_deleted"];
-  // skip: soft-deleted row
-  if (entity.softDelete && isDeleted === true) {
-    return;
-  }
-  const currentValue =
-    ((row as DbRow)[fieldName] as string | undefined) ??
-    ((row as DbRow)[toSnakeCase(fieldName)] as string); // @cast-boundary engine-bridge
-  // skip: an unchanged value is no transition (an edit form resends the current status)
-  if (currentValue === newValue) return;
-  guardTransition(
-    getTransitions(ctx, { entityName, fieldName, map: transitionMap }),
-    currentValue,
-    newValue,
-  );
 }
 
 // The handler itself plus the lifecycle pipeline run under the same

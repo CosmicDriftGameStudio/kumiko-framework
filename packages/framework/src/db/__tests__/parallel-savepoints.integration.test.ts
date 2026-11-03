@@ -100,4 +100,27 @@ describe("savepoints opened in parallel on one transaction", () => {
 
     expect(await committedValues()).toEqual(["inner-on-sp", "inner-on-tx", "sibling"]);
   });
+
+  test("a savepoint opened by a background task after its parent savepoint ended queues with its siblings", async () => {
+    let startBackground: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      startBackground = resolve;
+    });
+    let background: Promise<void> = Promise.resolve();
+
+    await transaction(testDb.db, async (tx) => {
+      await runInSavepoint(tx, async () => {
+        background = gate.then(() =>
+          runInSavepoint(tx, (sp) => insertAfterPause(sp, "background", 0.05)),
+        );
+      });
+      startBackground();
+      await Promise.all([
+        background,
+        runInSavepoint(tx, (sp) => insertAfterPause(sp, "sibling", 0.02)),
+      ]);
+    });
+
+    expect(await committedValues()).toEqual(["background", "sibling"]);
+  });
 });

@@ -37,6 +37,7 @@ function allowlistedReadOnlyProxy<T extends object>(
 }
 
 const MEMBER_READ_SEARCH_METHODS: ReadonlySet<string> = new Set(["search"]);
+const MEMBER_READ_SECRETS_METHODS: ReadonlySet<string> = new Set(["get", "has"]);
 const MEMBER_READ_ENTITY_CACHE_METHODS: ReadonlySet<string> = new Set(["get", "mget"]);
 const MEMBER_READ_REDIS_METHODS: ReadonlySet<string> = new Set([
   "get",
@@ -62,13 +63,19 @@ const MEMBER_READ_REDIS_METHODS: ReadonlySet<string> = new Set([
 ]);
 
 function readOnlyServices(services: HandlerContext["services"]): HandlerContext["services"] {
-  const { searchAdapter, redis, entityCache, jobRunner } = services;
+  const { searchAdapter, redis, entityCache, jobRunner, secrets } = services;
   // A read as a member gets no file storage, no notify factory and no job runner; the read-only
   // proxies keep the rest. The resolver and factories would reopen what files/notify close.
+  // kms, masterKeyProvider and the audit sink write through their own connections, which the
+  // READ ONLY transaction does not cover.
   const {
     files: _files,
     derivatives: _derivatives,
     _fileProviderResolver: _resolver,
+    kms: _kms,
+    masterKeyProvider: _masterKeyProvider,
+    _escapeHatchAuditSink: _auditSink,
+    secrets: _secrets,
     ...kept
   } = withoutNotifyFactories(services);
   const runner: JobRunnerRef | undefined = jobRunner && denyingJobRunnerProxy();
@@ -77,6 +84,9 @@ function readOnlyServices(services: HandlerContext["services"]): HandlerContext[
     ...(runner && { jobRunner: runner }),
     ...(searchAdapter && {
       searchAdapter: allowlistedReadOnlyProxy(searchAdapter, MEMBER_READ_SEARCH_METHODS),
+    }),
+    ...(secrets && {
+      secrets: allowlistedReadOnlyProxy(secrets, MEMBER_READ_SECRETS_METHODS),
     }),
     ...(redis && { redis: allowlistedReadOnlyProxy(redis, MEMBER_READ_REDIS_METHODS) }),
     ...(entityCache && {

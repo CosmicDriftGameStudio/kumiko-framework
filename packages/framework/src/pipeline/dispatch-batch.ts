@@ -18,10 +18,11 @@ import { toWriteErrorInfo } from "../errors/write-error-info.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { parseJsonSafe } from "../utils/safe-json.ts";
 import { flushAfterRollback } from "./after-rollback-sink.ts";
+import { executeNestedWrite } from "./dispatch-nested-write.ts";
 import { runInDispatchScope } from "./dispatch-scope.ts";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.ts";
 import { buildHandlerContext, resolveAppPoolDb } from "./dispatch-shared.ts";
-import { executeNestedWrite, executeWrite } from "./dispatch-write.ts";
+import { executeWrite } from "./dispatch-write.ts";
 import {
   type AfterCommitHook,
   BatchRollback,
@@ -282,8 +283,8 @@ async function runBatchBody(
         if (lifecycleResult.kind === "save") saves.push(lifecycleResult);
         else if (lifecycleResult.kind === "delete") deletes.push(lifecycleResult);
       }
-      // skip: nothing to flush when there are no lifecycle hooks or no successful save/delete
-      if (!lifecycle || (saves.length === 0 && deletes.length === 0)) return;
+      // skip: nothing to flush when there are no batch hooks or no successful save/delete
+      if (!lifecycle?.hasBatchHooks() || (saves.length === 0 && deletes.length === 0)) return;
       // Post-commit context: batch hooks may write, but nothing is left to roll back.
       const hookContext = await buildHandlerContext(ctx, BATCH_HOOKS_CONTEXT_TYPE, user, origin, {
         transactionScope: "postCommit",

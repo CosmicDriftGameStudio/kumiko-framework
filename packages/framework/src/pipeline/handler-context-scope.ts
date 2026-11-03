@@ -20,11 +20,8 @@ import { AgentReasons } from "../errors/reasons.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import { createEscapeHatchReporter } from "../observability/escape-hatch-report.ts";
 import type { ContextServiceOverrides } from "./context-services.ts";
-import {
-  type DispatchContext,
-  type HandlerTransactionScope,
-  resolveDbSource,
-} from "./dispatch-shared.ts";
+import { resolveDbSource } from "./dispatch-context-helpers.ts";
+import type { DispatchContext, HandlerTransactionScope } from "./dispatch-shared.ts";
 import { createUserLiveSignals } from "./user-live-signals.ts";
 import type { WriteOrigin } from "./write-origin.ts";
 

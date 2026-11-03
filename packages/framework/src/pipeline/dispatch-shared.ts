@@ -21,7 +21,7 @@ import type { SseBroker } from "../api/sse-broker.ts";
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import type { buildEntityTable } from "../db/table-builder.ts";
-import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
+import { createTenantDb } from "../db/tenant-db.ts";
 import type { defineTransitions } from "../engine/state-machine.ts";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
@@ -57,6 +57,12 @@ import { isPlainObject } from "../utils/is-plain-object.ts";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.ts";
 import { configAccessorFactoryOf } from "./config-accessor-factory.ts";
 import { buildContextServices } from "./context-services.ts";
+import {
+  createSystemScopedDbGuard,
+  isMemberResolutionPrincipal,
+  resolveAppPoolDb,
+  resolveDbSource,
+} from "./dispatch-context-helpers.ts";
 import { executeQuery } from "./dispatch-query.ts";
 import {
   type AfterCommitHook,
@@ -81,6 +87,7 @@ import {
   denyTransactionBoundSurfaces,
   withoutTransactionDenied,
 } from "./handler-context-phase-denials.ts";
+import { buildHandlerProjectionReader } from "./handler-context-projection.ts";
 import {
   buildLifecycleSignal,
   buildPreSave,
@@ -95,8 +102,13 @@ import { TENANT_TIMEZONE_CONFIG_KEY } from "./tenant-timezone-config-key.ts";
 import { rootWriteOrigin, type WriteOrigin } from "./write-origin.ts";
 
 export type { WriteOrigin } from "./write-origin.ts";
-
-export { TENANT_TIMEZONE_CONFIG_KEY };
+export {
+  createSystemScopedDbGuard,
+  isMemberResolutionPrincipal,
+  resolveAppPoolDb,
+  resolveDbSource,
+  TENANT_TIMEZONE_CONFIG_KEY,
+};
 
 // Same bundled-features-free constraint as above — these name the config
 // feature's write handlers so dispatch-write.ts can invalidate
@@ -148,51 +160,6 @@ export type DispatchContext = {
 };
 
 export const DEFAULT_MEMBER_READ_TIMEOUT_MS = 10_000;
-
-// Narrowing helper: AppContext.db is DbConnection|TenantDb|undefined. The
-// dispatch paths need DbConnection (or DbTx from the caller scope) for
-// appendEvent/projection writes; the TenantDb branch is excluded here.
-export function resolveDbSource(
-  ctx: DispatchContext,
-  tx: DbTx | undefined,
-): DbConnection | DbTx | undefined {
-  return tx ?? resolveAppPoolDb(ctx);
-}
-
-export function resolveAppPoolDb(ctx: DispatchContext): DbConnection | undefined {
-  return ctx.appContext.db as DbConnection | undefined; // @cast-boundary db-operator
-}
-
-// r.systemScope() handlers must go through ctx.systemDb's guarded methods
-// (assertTenantMatch / acknowledgeCrossTenant) instead of plain ctx.db —
-// "system" mode has no tenant filter at all, so silent ctx.db or
-// ctx.db.outsideTransaction use there is a cross-tenant leak. HandlerContext
-// has no way to make either field optional per handler (isSystem is a
-// runtime-only registry lookup, not a type-level discriminant), so instead
-// of omitting the key we hand back a Proxy that throws on first touch,
-// naming the handler and pointing at the matching ctx.systemDb escape hatch.
-// Only the db guard answers `outsideTransaction` (the inner guard, set by attachOutsideTransaction).
-export function createSystemScopedDbGuard(
-  handlerType: string,
-  fieldName: "db" | "db.outsideTransaction",
-  hint: string,
-): TenantDb {
-  return new Proxy({} as TenantDb, {
-    get(target, prop) {
-      if (fieldName === "db" && prop === "outsideTransaction") return Reflect.get(target, prop);
-      throw new InternalError({
-        message:
-          `Handler "${handlerType}" is r.systemScope()'d — ctx.${fieldName} is unavailable ` +
-          `(it would be unfiltered across every tenant). Use ${hint} ` +
-          `instead (attempted to read "${String(prop)}").`,
-      });
-    },
-  });
-}
-
-export function isMemberResolutionPrincipal(user: SessionUser): boolean {
-  return user.origin === "member-resolution";
-}
 
 // inTransaction: ctx.dispatch.write nests in the open transaction. withoutTransaction: no transaction is open,
 // so ctx.dispatch.write runs as its own command and ctx.db/event-store writes are denied. postCommit: afterCommit
@@ -262,11 +229,11 @@ export async function buildHandlerContext(
   const configFacet = buildConfigFacet(scope, dbFacet.db);
   const writeTarget = buildWriteTarget(scope, dbFacet.exposedDb, readOnlyForTenant);
   const fileFragment = buildFileFragment(scope, dbFacet.db);
-  const authFacet = buildAuthFacet(scope);
+  const authFacet = buildAuthFacet(scope, resolveAuthClaimsFn);
   const eventStoreFacet = buildEventStoreFacet(scope);
   const dispatchFacet = buildDispatchFacet(scope, sinks, {
     queryAsMember: authFacet.queryAsMember,
-    queryProjection: eventStoreFacet.queryProjection,
+    queryProjection: buildHandlerProjectionReader(scope),
   });
   const tz = await resolveHandlerTz(scope, configFacet.config);
   const locale = resolveHandlerLocale(scope);

@@ -19,12 +19,8 @@ import {
   type SystemDispatchArgs,
 } from "./extra-route.ts";
 import { bodyLimitForRoutePath, DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars.ts";
-import {
-  isMissingOrAnonymousUser,
-  makeSystemQuery,
-  mountHonoRoute,
-  unauthenticatedResponse,
-} from "./server-routes.ts";
+import { makeSystemQuery, mountHonoRoute } from "./server-feature-http-routes.ts";
+import { isMissingOrAnonymousUser, unauthenticatedResponse } from "./server-routes.ts";
 import type { ServerWiring } from "./server-wiring.ts";
 import { tenantScopedSecrets } from "./tenant-scoped-secrets.ts";
 

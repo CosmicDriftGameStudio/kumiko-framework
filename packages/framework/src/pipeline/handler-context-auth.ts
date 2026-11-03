@@ -3,12 +3,19 @@ import type { TenantId } from "../engine/types/identifiers.ts";
 import type { HandlerAuth, SessionUser } from "../engine/types/index.ts";
 
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.ts";
-import { resolveAuthClaimsFn } from "./dispatch-shared.ts";
 import type { HandlerContextScope } from "./handler-context-scope.ts";
 import { createMemberReaderFn } from "./member-reader.ts";
 import { createGatedMemberReader, systemIdentitySwitchDenied } from "./system-identity-switch.ts";
 
-export function buildAuthFacet(scope: HandlerContextScope): {
+export type ResolveAuthClaimsFn = (
+  ctx: HandlerContextScope["ctx"],
+  user: SessionUser,
+) => Promise<Record<string, unknown>>;
+
+export function buildAuthFacet(
+  scope: HandlerContextScope,
+  resolveAuthClaimsFn: ResolveAuthClaimsFn,
+): {
   readonly auth: HandlerAuth;
   readonly queryAsMember: MemberReader;
   readonly hasFeature: (featureName: string) => Promise<boolean>;

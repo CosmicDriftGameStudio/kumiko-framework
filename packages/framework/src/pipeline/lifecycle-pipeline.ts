@@ -90,6 +90,7 @@ export type LifecycleHooks = {
   // never rethrown — the writes are already committed.
   runPostSaveBatch(results: readonly SaveContext[], context: HandlerContext): Promise<void>;
   runPostDeleteBatch(payloads: readonly DeleteContext[], context: HandlerContext): Promise<void>;
+  hasBatchHooks(): boolean;
 };
 
 export type LifecycleOptions = {
@@ -334,6 +335,12 @@ export function createLifecycleHooks(
         phaseLabel: `postDelete:${phase}`,
         hookPhase: phase,
       });
+    },
+
+    hasBatchHooks() {
+      return (
+        (systemHooks.postSaveBatch?.length ?? 0) + (systemHooks.postDeleteBatch?.length ?? 0) > 0
+      );
     },
 
     async runPostSaveBatch(results, context) {

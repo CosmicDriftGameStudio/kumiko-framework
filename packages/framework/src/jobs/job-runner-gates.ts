@@ -103,7 +103,7 @@ export async function fanOutPerTenantJob(
   bullJob: JobInvocation,
   actualName: string,
 ): Promise<void> {
-  // These throws happen before runInSpan, so its onJobFailed never sees them
+  // These throws happen before executeJobInSpan, so recordJobFailure never sees them
   // and a drained test stack would stay green over a fan-out that never ran.
   try {
     await enqueuePerTenantChildren(scope, bullJob, actualName);

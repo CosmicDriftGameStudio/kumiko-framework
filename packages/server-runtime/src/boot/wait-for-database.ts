@@ -1,4 +1,9 @@
-import { type DbConnection, extractPgError, tableExists } from "@cosmicdrift/kumiko-framework/db";
+import {
+  BUN_SQL_CONNECTION_ERROR_CODES,
+  type DbConnection,
+  extractPgError,
+  tableExists,
+} from "@cosmicdrift/kumiko-framework/db";
 
 const TRANSIENT_CODES: ReadonlySet<string> = new Set([
   "53300", // too_many_connections
@@ -8,10 +13,7 @@ const TRANSIENT_CODES: ReadonlySet<string> = new Set([
   "ETIMEDOUT",
   "ENOTFOUND",
   "EAI_AGAIN",
-  "ERR_POSTGRES_CONNECTION_CLOSED",
-  "ERR_POSTGRES_CONNECTION_REFUSED",
-  "ERR_POSTGRES_CONNECTION_TIMEOUT",
-  "ERR_POSTGRES_CONNECTION_FAILED",
+  ...BUN_SQL_CONNECTION_ERROR_CODES,
 ]);
 
 const CONNECTION_EXCEPTION_CLASS = "08";
