@@ -2216,6 +2216,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.errors.addressAlreadyConnected": "Cette boîte est déjà connectée.",
   "inboundMail.accounts.errors.addressDisconnected":
     "Cette boîte a été déconnectée auparavant. Utilisez « Réactiver » dans la liste des boîtes pour conserver son historique.",
+  "inboundMail.accounts.errors.personalAddressNotOwn":
+    "Une boîte personnelle ne peut être connectée qu'avec l'adresse e-mail de votre propre compte. Un administrateur connecte les autres adresses comme boîte partagée.",
   "inboundMail.accounts.reactivate": "Réactiver",
   "inboundMail.accounts.quarantine": "Quarantaine",
   "inboundMail.accounts.errors.credentialRequired":

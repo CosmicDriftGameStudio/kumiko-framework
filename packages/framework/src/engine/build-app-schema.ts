@@ -47,6 +47,7 @@ import {
 } from "./build-config-feature-schema.ts";
 import { isEncryptedAtRest } from "./config-helpers.ts";
 import { isListQueryWithoutSearchableFields } from "./entity-list-searchability.ts";
+import { projectNamedFilterRoles } from "./named-filter-roles.ts";
 import { projectQueryLiveEntities } from "./project-query-live-entities.ts";
 import { QnTypes, qualifyEntityName } from "./qualified-name.ts";
 import type { Registry } from "./types/feature.ts";
@@ -360,6 +361,12 @@ function projectScreens(
     assertValidScreenMultilineRows(featureName, shortId, screen);
     if (screen.type === "configEdit") return projectConfigEditScreen(screen, encryptedConfigKeyQns);
     if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
+    if (screen.type === "entityList") {
+      return projectNamedFilterRoles(
+        screen,
+        registry.features.get(featureName)?.entities?.[screen.entity]?.namedFilters,
+      );
+    }
     if (screen.type === "entityEdit") {
       const { writeExcludedFields: _authoredExclusions, ...authoredScreen } = screen;
       return {

@@ -31,6 +31,9 @@ import {
 import { markEvents, setupReadinessStack } from "../../readiness/__tests__/readiness-test-stack.ts";
 import { tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
 import { IMAP_CONNECT_ERRORS, ImapHandlers } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
@@ -66,10 +69,12 @@ beforeAll(async () => {
     features: [
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
+      createUserFeature(),
       createInboundMailFoundationFeature(),
       createInboundProviderImapFeature(),
     ],
   });
+  await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
@@ -91,21 +96,24 @@ afterAll(async () => {
   resetPiiSubjectKmsForTests();
 });
 
-function freshTenant() {
+// Users are tenant-agnostic rows; the member's login address is the mailbox address of the form.
+async function freshTenant() {
   nextTenant += 1;
   const tenantId = testTenantId(nextTenant);
-  const person = (offset: number, roles: string[]) =>
-    createTestUser({ id: nextTenant * 10 + offset, tenantId, roles });
+  const person = async (name: string, email: string, roles: string[]) => {
+    const { id } = await seedUser(stack.db, { email, displayName: name, emailVerified: true });
+    return createTestUser({ id, tenantId, roles });
+  };
   return {
     tenantId,
-    admin: person(0, ["TenantAdmin"]),
-    member: person(1, ["User"]),
-    otherMember: person(2, ["User"]),
-    outsider: person(3, ["Guest"]),
+    admin: await person("Admin", `admin-${nextTenant}@example.com`, ["TenantAdmin"]),
+    member: await person("Member", ADDRESS, ["User"]),
+    otherMember: await person("Other", `other-${nextTenant}@example.com`, ["User"]),
+    outsider: await person("Outsider", `outsider-${nextTenant}@example.com`, ["Guest"]),
   };
 }
 
-type Tenant = ReturnType<typeof freshTenant>;
+type Tenant = Awaited<ReturnType<typeof freshTenant>>;
 type AccountRow = { id: string; status: string; ownerUserId: string | null };
 
 function form(password: string) {
@@ -149,7 +157,7 @@ describe("connect-my-mailbox", () => {
   greenmailWithSmtpsTest(
     "a member with only the User role connects a personal mailbox",
     async () => {
-      const tenant = freshTenant();
+      const tenant = await freshTenant();
 
       const { accountId } = await stack.http.writeOk<{ accountId: string }>(
         ImapHandlers.connectMyMailbox,
@@ -169,7 +177,7 @@ describe("connect-my-mailbox", () => {
   );
 
   test("a user without a mail member role gets 403 and nothing is stored", async () => {
-    const tenant = freshTenant();
+    const tenant = await freshTenant();
 
     const error = await stack.http.writeErr(
       ImapHandlers.connectMyMailbox,
@@ -182,10 +190,56 @@ describe("connect-my-mailbox", () => {
     expect(await secretCount(tenant)).toBe(0);
   });
 
+  test("a foreign address is refused before any login is tried, nothing is stored", async () => {
+    const tenant = await freshTenant();
+    const newEvents = await markEvents(stack);
+
+    const error = await stack.http.writeErr(
+      ImapHandlers.connectMyMailbox,
+      { ...form(PASSWORD), address: "info@example.com" },
+      tenant.member,
+    );
+
+    expect(error.i18nKey).toBe(InboundMailConnectErrors.personalAddressNotOwn.i18nKey);
+    expect(await accountsOf(tenant)).toEqual([]);
+    expect(await secretCount(tenant)).toBe(0);
+    expect(await newEvents()).toEqual([]);
+  });
+
+  test("the own address in other casing passes the address rule and reaches the login check", async () => {
+    const tenant = await freshTenant();
+
+    const error = await stack.http.writeErr(
+      ImapHandlers.connectMyMailbox,
+      { ...form(PASSWORD), address: "TestUser@EXAMPLE.com", host: "127.0.0.1", port: 1 },
+      tenant.member,
+    );
+
+    expect(error.i18nKey).not.toBe(InboundMailConnectErrors.personalAddressNotOwn.i18nKey);
+    const imapKeys: readonly (string | undefined)[] = Object.values(IMAP_CONNECT_ERRORS).map(
+      (e) => e.i18nKey,
+    );
+    expect(imapKeys).toContain(error.i18nKey);
+  });
+
+  greenmailWithSmtpsTest("the own address matches case-insensitively", async () => {
+    const tenant = await freshTenant();
+
+    const { accountId } = await stack.http.writeOk<{ accountId: string }>(
+      ImapHandlers.connectMyMailbox,
+      { ...form(PASSWORD), address: "TestUser@EXAMPLE.com" },
+      tenant.member,
+    );
+
+    expect(await accountsOf(tenant, tenant.member)).toEqual([
+      expect.objectContaining({ id: accountId, ownerUserId: tenant.member.id }),
+    ]);
+  });
+
   greenmailWithSmtpsTest(
     "the member's own disconnected personal mailbox is reopened under its account id",
     async () => {
-      const tenant = freshTenant();
+      const tenant = await freshTenant();
       const { accountId } = await stack.http.writeOk<{ accountId: string }>(
         ImapHandlers.connectMyMailbox,
         form(PASSWORD),
@@ -214,7 +268,7 @@ describe("connect-my-mailbox", () => {
   greenmailWithSmtpsTest(
     "an address of another member is refused, also after a disconnect, no second account",
     async () => {
-      const tenant = freshTenant();
+      const tenant = await freshTenant();
       // The OAuth callback's path: the system user connects on behalf of the owner.
       const connected = await stack.dispatcher.write(
         InboundMailFoundationHandlers.connectAccount,
@@ -256,7 +310,7 @@ describe("connect-my-mailbox", () => {
   greenmailWithSmtpsTest(
     "an address of a shared mailbox is refused, also after a disconnect, no second account",
     async () => {
-      const tenant = freshTenant();
+      const tenant = await freshTenant();
       const { accountId } = await stack.http.writeOk<{ accountId: string }>(
         InboundMailFoundationHandlers.connectAccount,
         connectAccountPayload("shared"),
@@ -290,7 +344,7 @@ describe("connect-my-mailbox", () => {
   );
 
   greenmailTest("a rejected login stores no account and no secret", async () => {
-    const tenant = freshTenant();
+    const tenant = await freshTenant();
     const newEvents = await markEvents(stack);
 
     const error = await stack.http.writeErr(
@@ -309,7 +363,7 @@ describe("connect-my-mailbox", () => {
 
 describe("connect-account is admin-only", () => {
   test("a member gets 403 for both scopes and claims no address", async () => {
-    const tenant = freshTenant();
+    const tenant = await freshTenant();
 
     for (const scope of ["user", "shared"] as const) {
       const error = await stack.http.writeErr(
@@ -323,7 +377,7 @@ describe("connect-account is admin-only", () => {
   });
 
   test("an admin connects a shared mailbox", async () => {
-    const tenant = freshTenant();
+    const tenant = await freshTenant();
 
     await stack.http.writeOk(
       InboundMailFoundationHandlers.connectAccount,
@@ -335,7 +389,7 @@ describe("connect-account is admin-only", () => {
   });
 
   test("a user without a mail member role gets 403 for both scopes", async () => {
-    const tenant = freshTenant();
+    const tenant = await freshTenant();
 
     for (const scope of ["user", "shared"] as const) {
       const error = await stack.http.writeErr(

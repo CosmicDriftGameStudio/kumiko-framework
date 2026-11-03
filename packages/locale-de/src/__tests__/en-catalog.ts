@@ -2141,6 +2141,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "inboundMail.accounts.errors.addressAlreadyConnected": "This mailbox is already connected.",
   "inboundMail.accounts.errors.addressDisconnected":
     "This mailbox was disconnected before. Use Reactivate in the mailbox list to keep its history.",
+  "inboundMail.accounts.errors.personalAddressNotOwn":
+    "A personal mailbox can only be connected with the email address of your own account. An admin connects other addresses as a shared mailbox.",
   "inboundMail.accounts.reactivate": "Reactivate",
   "inboundMail.accounts.quarantine": "Quarantine",
   "inboundMail.accounts.errors.credentialRequired":

@@ -2194,6 +2194,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.errors.addressAlreadyConnected": "Questa casella è già connessa.",
   "inboundMail.accounts.errors.addressDisconnected":
     "Questa casella è stata disconnessa in precedenza. Usa «Riattiva» nell'elenco delle caselle per mantenere la cronologia.",
+  "inboundMail.accounts.errors.personalAddressNotOwn":
+    "Una casella personale può essere connessa solo con l'indirizzo email del proprio account. Un amministratore connette gli altri indirizzi come casella condivisa.",
   "inboundMail.accounts.reactivate": "Riattiva",
   "inboundMail.accounts.quarantine": "Quarantena",
   "inboundMail.accounts.errors.credentialRequired":

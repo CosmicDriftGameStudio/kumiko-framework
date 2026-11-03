@@ -33,6 +33,8 @@ export const InboundMailFoundationHandlers = {
   retryQuarantinedMessage: "inbound-mail-foundation:write:retry-quarantined-message",
   /** Marks all open quarantine entries of a mailbox as acknowledged. */
   acknowledgeQuarantine: "inbound-mail-foundation:write:acknowledge-quarantine",
+  /** Permanently removes one imported mail with its original and attachments. */
+  forgetMessage: "inbound-mail-foundation:write:forget-message",
   /** Supervisor-only: stores the content of an already imported snippet mail. */
   attachMessageContent: "inbound-mail-foundation:write:attach-message-content",
   /** OAuth callback only: the refresh token is stored now, so an active account can sync. */
@@ -87,6 +89,10 @@ export const InboundMailConnectErrors = {
   addressDisconnected: {
     reason: "address_disconnected",
     i18nKey: "inboundMail.accounts.errors.addressDisconnected",
+  },
+  personalAddressNotOwn: {
+    reason: "personal_address_not_own",
+    i18nKey: "inboundMail.accounts.errors.personalAddressNotOwn",
   },
   credentialRequired: {
     reason: "credential_required",

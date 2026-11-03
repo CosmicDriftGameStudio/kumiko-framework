@@ -15,12 +15,14 @@ import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
+import { namedFilterNavigateAllows } from "../../app/screen-access.ts";
 import { rendererWarn } from "../../dev-console.ts";
 import { EMPTY_VALUE_PLACEHOLDER, type Translate } from "../../headless/index.ts";
 import { listNamedFilterUrlKey } from "../../hooks/use-list-url-state.ts";
 import {
   extensionSectionName,
   lastSegment,
+  useAppFeatures,
   useExtensionSectionComponent,
   useNav,
   usePrimitives,
@@ -103,21 +105,34 @@ function fallbackText<T extends string | undefined>(raw: unknown, placeholder: T
   return String(raw);
 }
 
-export function StatPanelBody({
-  panel,
-  label,
-  screenId,
-  screenParams,
-  translate,
-  variant,
-}: {
+type StatPanelBodyProps = {
   readonly panel: DashboardStatPanel;
   readonly label: string;
   readonly screenId: string;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
   readonly variant: "card" | "strip";
-}): ReactNode {
+};
+
+// Hidden before any query hook runs: the tile's own count query would be refused for this user.
+export function StatPanelBody(props: StatPanelBodyProps): ReactNode {
+  const appFeatures = useAppFeatures();
+  const userRoles = useUserRoles();
+  const { navigate } = props.panel;
+  if (navigate !== undefined && !namedFilterNavigateAllows(navigate, appFeatures, userRoles)) {
+    return null;
+  }
+  return <StatPanelContent {...props} />;
+}
+
+function StatPanelContent({
+  panel,
+  label,
+  screenId,
+  screenParams,
+  translate,
+  variant,
+}: StatPanelBodyProps): ReactNode {
   const formats = useDashboardFormats();
   const nav = useNav();
   const link = statNavigationLink(nav, panel.navigate);

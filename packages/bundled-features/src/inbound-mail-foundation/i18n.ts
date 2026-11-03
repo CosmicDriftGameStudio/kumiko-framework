@@ -60,6 +60,9 @@ export const INBOUND_MAIL_FOUNDATION_I18N: Readonly<Record<string, { readonly en
   [InboundMailConnectErrors.addressDisconnected.i18nKey]: {
     en: "This mailbox was disconnected before. Use Reactivate in the mailbox list to keep its history.",
   },
+  [InboundMailConnectErrors.personalAddressNotOwn.i18nKey]: {
+    en: "A personal mailbox can only be connected with the email address of your own account. An admin connects other addresses as a shared mailbox.",
+  },
   "inboundMail.accounts.acknowledgeQuarantine": { en: "Confirm quarantine" },
   [`${MAIL_ACCOUNT_STATUS_OPTION_KEY_PREFIX}${InboundMailAccountStatuses.active}`]: {
     en: "Active",

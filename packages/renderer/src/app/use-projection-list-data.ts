@@ -1,5 +1,6 @@
 import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useMemo } from "react";
+import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
 import type { DataTableFacet } from "../primitives.tsx";
 import { buildFilterFacets, type ResolvedFacetSpec } from "./list-facets.ts";
@@ -27,6 +28,7 @@ export function useProjectionListData(input: ProjectionListDataInput) {
     effectiveTranslate,
     resolvedFacetSpecs,
   } = input;
+  const userRoles = useUserRoles();
   const facetFilterFields = useMemo(
     () => (screen.facets ?? []).map((facet) => facet.field),
     [screen.facets],
@@ -50,11 +52,11 @@ export function useProjectionListData(input: ProjectionListDataInput) {
   });
 
   const filterFacets = useMemo<DataTableFacet[]>(() => {
-    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate);
+    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate, userRoles);
     return [
       ...(namedFacet !== undefined ? [namedFacet] : []),
       ...buildFilterFacets(resolvedFacetSpecs),
     ];
-  }, [resolvedFacetSpecs, screen.namedFilters, effectiveTranslate]);
+  }, [resolvedFacetSpecs, screen.namedFilters, effectiveTranslate, userRoles]);
   return { listTable, listRows, filterFacets };
 }

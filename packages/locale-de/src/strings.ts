@@ -2193,6 +2193,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.errors.addressAlreadyConnected": "Dieses Postfach ist bereits verbunden.",
   "inboundMail.accounts.errors.addressDisconnected":
     "Dieses Postfach wurde früher getrennt. In der Postfachliste „Reaktivieren“ wählen, damit der Verlauf erhalten bleibt.",
+  "inboundMail.accounts.errors.personalAddressNotOwn":
+    "Ein persönliches Postfach lässt sich nur mit der E-Mail-Adresse des eigenen Kontos verbinden. Andere Adressen verbindet ein Admin als gemeinsames Postfach.",
   "inboundMail.accounts.reactivate": "Reaktivieren",
   "inboundMail.accounts.quarantine": "Quarantäne",
   "inboundMail.accounts.errors.credentialRequired":

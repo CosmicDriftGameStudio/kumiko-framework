@@ -292,7 +292,7 @@ function EntityListBody({
     [],
   );
   const filterFacets = useMemo<DataTableFacet[]>(() => {
-    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate);
+    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate, userRoles);
     return [
       ...(namedFacet !== undefined ? [namedFacet] : []),
       ...buildEntityFilterFacets(
@@ -308,6 +308,7 @@ function EntityListBody({
     screen.facets,
     screen.namedFilters,
     effectiveTranslate,
+    userRoles,
     facetCounts,
   ]);
   const filterValues = useMemo(

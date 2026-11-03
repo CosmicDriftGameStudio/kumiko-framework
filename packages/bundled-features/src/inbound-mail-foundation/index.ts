@@ -128,6 +128,7 @@ export {
   outboundMailMessageSchema,
   type ProviderSentMail,
 } from "./outbound-mail.ts";
+export { isOwnLoginAddress } from "./personal-address.ts";
 export {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
