@@ -69,7 +69,27 @@ afterAll(async () => {
 });
 
 describe("system-check screen queries", () => {
-  test("the summary has a row and the paid flag before the first run", async () => {
+  test("the paid flag is only set for a SystemAdmin, who alone may start a paid run", async () => {
+    const tenantId = testTenantId(803);
+    const tenantAdmin = createTestUser({ id: 803, tenantId, roles: ["TenantAdmin"] });
+    const systemAdmin = createTestUser({ id: 804, tenantId, roles: ["SystemAdmin"] });
+
+    const asTenantAdmin = await stack.http.queryOk<Summary>(
+      ReadinessQueries.latestSummary,
+      {},
+      tenantAdmin,
+    );
+    const asSystemAdmin = await stack.http.queryOk<Summary>(
+      ReadinessQueries.latestSummary,
+      {},
+      systemAdmin,
+    );
+
+    expect(asTenantAdmin.hasPaidProbes).toBe(false);
+    expect(asSystemAdmin.hasPaidProbes).toBe(true);
+  });
+
+  test("the summary has a row before the first run", async () => {
     const tenantId = testTenantId(801);
     const admin = createTestUser({ id: 801, tenantId, roles: ["TenantAdmin"] });
 
@@ -78,7 +98,6 @@ describe("system-check screen queries", () => {
     expect(summary).toMatchObject({
       id: tenantId,
       runId: null,
-      hasPaidProbes: true,
       okCount: 0,
       failedCount: 0,
       skippedCount: 0,

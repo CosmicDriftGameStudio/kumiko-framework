@@ -79,7 +79,13 @@ async function applyInApp(
     });
   }
   const consent = options.consumerProtection
-    ? await prepareConsent(ctx, options.consumerProtection, payload.consent, "subscription")
+    ? await prepareConsent(
+        ctx,
+        options.consumerProtection,
+        payload.consent,
+        "subscription",
+        providerName,
+      )
     : undefined;
   if (consent) {
     await recordConsent(ctx, consent, {

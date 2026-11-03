@@ -94,6 +94,7 @@ export async function prepareConsent(
   options: ConsumerProtectionOptions,
   consent: ConsentPayload | undefined,
   mode: CheckoutMode,
+  providerName?: string,
 ): Promise<PreparedConsent> {
   const documentsRequired = options.documentsAcknowledgement === true;
   if (
@@ -107,7 +108,7 @@ export async function prepareConsent(
     });
   }
   const locale = resolveConsentLocale(consent.locale);
-  const documentsText = documentsAcknowledgementTextFor(options, locale);
+  const documentsText = documentsAcknowledgementTextFor(options, locale, providerName);
   if (consent.consentTextVersion !== consentTextVersion(locale, documentsText)) {
     throw new UnprocessableError("consent_text_outdated", {
       i18nKey: "billing-foundation.errors.consentTextOutdated",

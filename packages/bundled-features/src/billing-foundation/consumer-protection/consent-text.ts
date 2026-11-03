@@ -60,15 +60,62 @@ export function legalLinksPerLocale(
   return isLegalLinkSet(legalLinks) ? { de: legalLinks, en: legalLinks } : legalLinks;
 }
 
+function providerRefundLink(
+  options: ConsumerProtectionOptions,
+  providerName: string | undefined,
+  locale: ConsentLocale,
+): string | undefined {
+  const own = providerName === undefined ? undefined : options.providerTexts?.[providerName];
+  if (own?.refundLink === undefined) return undefined;
+  return typeof own.refundLink === "string" ? own.refundLink : own.refundLink[locale];
+}
+
+export function hasProviderRefundLink(
+  options: ConsumerProtectionOptions,
+  providerName: string | undefined,
+): boolean {
+  return (
+    providerName !== undefined && options.providerTexts?.[providerName]?.refundLink !== undefined
+  );
+}
+
+/** The provider's own refund link, else the global `legalLinks.refund`. */
+export function refundLinkFor(
+  options: ConsumerProtectionOptions,
+  locale: ConsentLocale,
+  providerName?: string,
+): string | undefined {
+  return (
+    providerRefundLink(options, providerName, locale) ??
+    legalLinksPerLocale(options.legalLinks)[locale].refund
+  );
+}
+
+export function legalLinksFor(
+  options: ConsumerProtectionOptions,
+  providerName?: string,
+): Readonly<Record<ConsentLocale, LegalLinkSet>> {
+  const base = legalLinksPerLocale(options.legalLinks);
+  if (!hasProviderRefundLink(options, providerName)) return base;
+  const withRefund = (locale: ConsentLocale): LegalLinkSet => ({
+    ...base[locale],
+    ...(providerRefundLink(options, providerName, locale) !== undefined && {
+      refund: providerRefundLink(options, providerName, locale),
+    }),
+  });
+  return { de: withRefund("de"), en: withRefund("en") };
+}
+
 /** The documents checkbox text for a locale, or undefined when the app did not
- *  opt in. The variant follows whether that locale has a refund link. */
+ *  opt in. The variant follows whether the provider (or the locale) has a refund link. */
 export function documentsAcknowledgementTextFor(
   options: ConsumerProtectionOptions,
   locale: ConsentLocale,
+  providerName?: string,
 ): string | undefined {
   if (!options.documentsAcknowledgement) return undefined;
   const texts = DOCUMENTS_ACKNOWLEDGEMENT_TEXTS[locale];
-  return legalLinksPerLocale(options.legalLinks)[locale].refund !== undefined
+  return refundLinkFor(options, locale, providerName) !== undefined
     ? texts.withRefund
     : texts.withoutRefund;
 }

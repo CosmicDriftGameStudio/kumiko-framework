@@ -9,7 +9,11 @@ import type {
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { systemTenantReadDb } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import {
+  systemTenantReadDb,
+  systemTenantStreamRunner,
+} from "@cosmicdrift/kumiko-framework/internal/row-level-security";
+import { eraseNoteBodiesReachingSubject } from "../notes-history-user-data/index.ts";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
 import { resolveVerifiedUserEmail } from "../user/index.ts";
 import { platformActor, replyExecutor, requestExecutor } from "./lib.ts";
@@ -48,7 +52,11 @@ const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
 
 // Attachments are copied into the system tenant and bound to the request or reply row; a tenant
 // session cannot read those file_refs, so the lookup uses the system-tenant read handle.
-export async function findAttachments(ctx: UserDataHookCtx, entity: string, id: string) {
+export async function findAttachments(
+  ctx: Pick<UserDataHookCtx, "db">,
+  entity: string,
+  id: string,
+) {
   return systemTenantReadDb(ctx.db).selectMany<{
     id: string;
     storageKey: string;
@@ -61,28 +69,23 @@ export async function findAttachments(ctx: UserDataHookCtx, entity: string, id: 
   });
 }
 
+export type AttachmentByteDeleter = (storageKey: string) => Promise<readonly string[]>;
+
 // Bytes first, then the fileRef row: a crash in between leaves a row whose delete converges on the
 // next run, never bytes without a row. A failing byte delete aborts, like the generic fileRef hook.
-export async function purgeAttachments(
-  ctx: UserDataHookCtx,
+// The deleter is resolved lazily, so a row without attachments needs no storage provider.
+export async function purgeAttachmentsWith(
+  ctx: Pick<UserDataHookCtx, "db">,
   entity: string,
   id: string,
+  resolveByteDeleter: () => Promise<AttachmentByteDeleter>,
 ): Promise<void> {
   const attachments = await findAttachments(ctx, entity, id);
   // skip: a row without attachments has no bytes to erase and needs no storage provider
   if (attachments.length === 0) return;
-  const provider = await ctx.buildStorageProvider?.(SYSTEM_TENANT_ID);
-  if (!provider) {
-    throw new InternalError({
-      message: `[helpdesk:user-data] no file storage resolvable, attachments of ${entity} ${id} cannot be erased`,
-    });
-  }
+  const deleteBytes = await resolveByteDeleter();
   for (const attachment of attachments) {
-    const failed = await deleteStoredFileAndDerivatives(
-      attachment.storageKey,
-      provider,
-      "helpdesk:user-data",
-    );
+    const failed = await deleteBytes(attachment.storageKey);
     if (failed.length > 0) {
       throw new InternalError({
         message: `[helpdesk:user-data] ${failed.length} attachment byte delete(s) failed for ${entity} ${id}`,
@@ -99,6 +102,37 @@ export async function purgeAttachments(
     );
   }
   throwIfErasureFailed(failures);
+}
+
+export function purgeAttachments(ctx: UserDataHookCtx, entity: string, id: string): Promise<void> {
+  return purgeAttachmentsWith(ctx, entity, id, async () => {
+    const provider = await ctx.buildStorageProvider?.(SYSTEM_TENANT_ID);
+    if (!provider) {
+      throw new InternalError({
+        message: `[helpdesk:user-data] no file storage resolvable, attachments of ${entity} ${id} cannot be erased`,
+      });
+    }
+    return (storageKey) =>
+      deleteStoredFileAndDerivatives(storageKey, provider, "helpdesk:user-data");
+  });
+}
+
+// Note bodies hang on the request as host. Notes written by SystemAdmins live in the system tenant,
+// which a tenant-scoped hook db cannot see, so both handles are swept.
+export async function eraseNotesOnRequest(
+  ctx: Pick<UserDataHookCtx, "db">,
+  entity: string,
+  id: string,
+  erasedBy: string,
+): Promise<void> {
+  for (const db of [ctx.db, systemTenantStreamRunner(ctx.db)]) {
+    await eraseNoteBodiesReachingSubject({
+      db,
+      subject: { kind: "record", entity, id },
+      erasedBy,
+      requestId: ERASE_REASON,
+    });
+  }
 }
 
 // guard:dup-ok executor and foreign-key field differ; a generic executor abstraction would obscure row types.
@@ -175,6 +209,7 @@ export const helpdeskDeleteHook: UserDataDeleteHook = async (ctx) => {
       request.id,
       await requestExecutor.forget({ id: request.id }, platformActor(), ctx.db),
     );
+    await eraseNotesOnRequest(ctx, HELPDESK_REQUEST_ENTITY, request.id, ctx.userId);
   }
   throwIfErasureFailed(failures);
 };

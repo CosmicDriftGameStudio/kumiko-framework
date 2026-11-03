@@ -4,9 +4,9 @@ import {
   createEventStoreExecutor,
   createTenantDb,
   fetchOne,
-  selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import { type SessionUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { isStreamArchived } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { unsafeCreateEntityTable } from "@cosmicdrift/kumiko-testing/stack";
@@ -88,11 +88,6 @@ async function createFormerReply(requestId: string): Promise<void> {
   if (!created.isSuccess) throw new Error(`former reply create failed: ${created.error.code}`);
 }
 
-async function formerSubjects(): Promise<readonly string[]> {
-  const rows = await selectMany<{ subject: string }>(ctx.stack.db, formerRequestTable, {});
-  return rows.map((row) => row.subject).sort();
-}
-
 async function requestDeletion(userId: string): Promise<void> {
   const row = await fetchOne(ctx.stack.db, userTable, { id: userId });
   if (!row) throw new Error("user missing");
@@ -162,9 +157,9 @@ describe("requests stored under the former contact names are covered by user dat
       { reporterUserId: reporter.id, email: "other@example.com" },
       "Filed while signed in",
     );
-    await createFormerRequest({ email: REPORTER_EMAIL }, "Filed anonymously");
+    const anonymousId = await createFormerRequest({ email: REPORTER_EMAIL }, "Filed anonymously");
     await createFormerReply(requestId);
-    await createFormerRequest({ email: "stranger@example.com" }, "Someone else");
+    const strangerId = await createFormerRequest({ email: "stranger@example.com" }, "Someone else");
 
     await requestDeletion(reporter.id);
     const result = await runForgetCleanup({
@@ -175,7 +170,9 @@ describe("requests stored under the former contact names are covered by user dat
     });
 
     expect(result.errors).toHaveLength(0);
-    expect(await formerSubjects()).toEqual(["Someone else"]);
-    expect(await selectMany(ctx.stack.db, formerReplyTable, {})).toHaveLength(0);
+    const archived = async (id: string) => isStreamArchived(ctx.stack.db, SYSTEM_TENANT_ID, id);
+    expect(await archived(requestId)).toBe(true);
+    expect(await archived(anonymousId)).toBe(true);
+    expect(await archived(strangerId)).toBe(false);
   });
 });

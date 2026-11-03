@@ -6,6 +6,7 @@ import {
   tenantRowLevelSecurityScope,
 } from "../db/row-level-security-scope.ts";
 import type { Registry } from "../engine/types/index.ts";
+import { isEffectivelySystemScoped } from "./effective-system-scope.ts";
 
 // Handlers declared with r.systemScope() act across tenants, so a single-type dispatch of one runs system-scoped.
 // The caller picks the types of a batch, so a batch is system-scoped only when every command is; each command then
@@ -15,7 +16,7 @@ export function dispatchRowLevelSecurityScope(
   types: readonly string[],
   user: SessionUser,
 ): RowLevelSecurityScope {
-  return types.length > 0 && types.every((type) => registry.isHandlerSystemScoped(type))
+  return types.length > 0 && types.every((type) => isEffectivelySystemScoped(registry, type))
     ? systemRowLevelSecurityScope("dispatch of system-scoped handlers")
     : tenantRowLevelSecurityScope(user.tenantId);
 }

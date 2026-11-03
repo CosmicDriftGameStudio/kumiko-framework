@@ -3,6 +3,8 @@ import {
   CONSENT_TEXTS,
   consentTextVersion,
   documentsAcknowledgementTextFor,
+  legalLinksFor,
+  refundLinkFor,
   resolveConsentLocale,
 } from "../consumer-protection/consent-text.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
@@ -50,6 +52,36 @@ describe("consent text", () => {
     expect(documentsAcknowledgementTextFor(options(), "de")).toBeUndefined();
     expect(consentTextVersion("de", withRefund)).not.toBe(consentTextVersion("de"));
     expect(consentTextVersion("de", withRefund)).not.toBe(consentTextVersion("de", withoutRefund));
+  });
+
+  test("the effective refund link is the provider's own, else the global one", () => {
+    const set = { terms: "/t", withdrawal: "/w", privacy: "/p" };
+    const withProviders = options({
+      documentsAcknowledgement: true,
+      legalLinks: { ...set, refund: "/global" },
+      providerTexts: {
+        a: { refundLink: "/a-refund" },
+        perLocale: { refundLink: { de: "/de-refund", en: "/en-refund" } },
+        b: {},
+      },
+    });
+    expect(refundLinkFor(withProviders, "de", "a")).toBe("/a-refund");
+    expect(refundLinkFor(withProviders, "en", "perLocale")).toBe("/en-refund");
+    expect(refundLinkFor(withProviders, "de", "b")).toBe("/global");
+    expect(refundLinkFor(withProviders, "de")).toBe("/global");
+    expect(legalLinksFor(withProviders, "a")["de"].refund).toBe("/a-refund");
+    expect(legalLinksFor(withProviders, "b")["de"].refund).toBe("/global");
+
+    const noGlobal = options({
+      documentsAcknowledgement: true,
+      providerTexts: { a: { refundLink: "/a-refund" }, b: {} },
+    });
+    expect(refundLinkFor(noGlobal, "de", "b")).toBeUndefined();
+    expect(legalLinksFor(noGlobal, "b")["de"].refund).toBeUndefined();
+    expect(documentsAcknowledgementTextFor(noGlobal, "de", "a")).toContain("Erstattungsrichtlinie");
+    expect(documentsAcknowledgementTextFor(noGlobal, "de", "b")).not.toContain(
+      "Erstattungsrichtlinie",
+    );
   });
 
   test("every locale carries all four texts", () => {
@@ -127,5 +159,25 @@ describe("consumerProtection option validation", () => {
     expect(
       create(options({ legalLinks: { de: set, en: { ...set, refund: "//evil.example" } } }), base),
     ).toThrow(/legalLinks\.en\.refund/);
+  });
+
+  test("providerTexts refundLink is validated like the other links", () => {
+    const refundOf = (refundLink: unknown) =>
+      options({
+        providerTexts: {
+          a: {
+            refundLink: refundLink as NonNullable<
+              ConsumerProtectionOptions["providerTexts"]
+            >[string]["refundLink"],
+          },
+        },
+      });
+    expect(create(refundOf("/r"), base)).not.toThrow();
+    expect(create(refundOf({ de: "/r", en: "https://x.example/r" }), base)).not.toThrow();
+    expect(create(refundOf("http://x.example"), base)).toThrow(/providerTexts\.a\.refundLink/);
+    expect(create(refundOf({ de: "/r", en: "//evil.example" }), base)).toThrow(
+      /providerTexts\.a\.refundLink\.en/,
+    );
+    expect(create(refundOf({ de: "/r" }), base)).toThrow(/providerTexts\.a\.refundLink\.en/);
   });
 });

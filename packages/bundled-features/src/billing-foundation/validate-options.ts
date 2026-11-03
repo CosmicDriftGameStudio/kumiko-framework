@@ -30,8 +30,26 @@ function isRootRelativeOrHttpsUrl(link: string): boolean {
   }
 }
 
+function validateProviderRefundLink(
+  providerName: string,
+  refundLink: string | Readonly<Record<ConsentLocale, string>>,
+): void {
+  const links =
+    typeof refundLink === "string"
+      ? [["refundLink", refundLink] as const]
+      : CONSENT_LOCALES.map((locale) => [`refundLink.${locale}`, refundLink[locale]] as const);
+  for (const [path, link] of links) {
+    if (typeof link !== "string" || !isRootRelativeOrHttpsUrl(link)) {
+      throw bootRuleError(BILLING_FOUNDATION_BOOT_RULES.consumerProtectionInvalid, {
+        message: `createBillingFoundationFeature: consumerProtection.providerTexts.${providerName}.${path} "${link}" must be a root-relative path ("/..." not "//") or an absolute https URL.`,
+      });
+    }
+  }
+}
+
 function validateProviderTexts(cp: ConsumerProtectionOptions): void {
   for (const [providerName, texts] of Object.entries(cp.providerTexts ?? {})) {
+    if (texts.refundLink !== undefined) validateProviderRefundLink(providerName, texts.refundLink);
     for (const [textName, text] of [
       ["vatNote", texts.vatNote],
       ["checkoutNote", texts.checkoutNote],
