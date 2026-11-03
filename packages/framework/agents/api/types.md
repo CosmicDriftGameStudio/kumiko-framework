@@ -4484,6 +4484,7 @@ type NamedListFilterOp = "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
 type NamedListFilterRef = { // Screen-side reference to an entity-defined named filter; `label` is an i18n key.
   id: string;
   label: string;
+  roles?: string[]; // Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them.
 };
 type NamedListFilterScope = {
   ctx: HandlerContext;

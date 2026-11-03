@@ -28,6 +28,7 @@ function isStreamArchived(db: DbRunner, tenantId: TenantId, aggregateId: string)
 function loadAggregate(db: DbRunner, aggregateId: string, tenantId: TenantId, options?: { includeArchived?: boolean; aggregateType?: string; atVersion?: number; }): Promise<StoredEvent[]>;
 function makeUpcastCtx(db: DbRunner, tenantId: TenantId): EventUpcastCtx;
 function runSeedWritesAt<T>(createdAt: Temporal.Instant, fn: () => Promise<T>): Promise<T>; // Runs `fn` so that every event appended inside it (through the normal write path: handlers, validation, projections) is stored with `createdAt` instead of the database `now()`.
+function selectOpenStreamsStartedBefore(db: DbRunner, args: OpenStreamsArgs): Promise<OpenStream[]>;
 function streamAllEventsByType(db: DbRunner, aggregateType: string, batchSize?, signal?: AbortSignal): AsyncIterable<StoredEvent>;
 function transferAggregateStreams(db: DbRunner, args: TransferAggregateStreamsArgs): Promise<number>;
 function upcastStoredEvent(event: StoredEvent, upcasters: EventUpcasters, ctx: EventUpcastCtx): Promise<StoredEvent>;
@@ -82,6 +83,19 @@ type EventMetadata = {
   feature?: string;
   handler?: string;
   writeOrigin?: WriteOrigin;
+};
+type OpenStream = {
+  id: string;
+  tenantId: string;
+  aggregateId: string;
+};
+type OpenStreamsArgs = {
+  aggregateType: string;
+  startedType: string;
+  closingTypes: string[];
+  startedBeforeIso: string;
+  limit: number;
+  afterId?: string;
 };
 type StoredEvent<TPayload = Record<string, unknown>> = {
   id: string;

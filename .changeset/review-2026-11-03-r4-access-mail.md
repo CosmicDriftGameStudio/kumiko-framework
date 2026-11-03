@@ -43,7 +43,14 @@ detail: `send-test` now writes one delivery attempt per test mail (notification 
 
 <!-- kumiko-changes
 feature: inbound-mail-foundation
-type: feature
+type: improvement
 title: forget-message permanently removes one imported mail
 detail: The new write `forget-message` archives the stream of one mail, deletes its read row, the stored original and the attachment files, and keeps the seen anchor so the intake does not import the mail again. The owner of a personal mailbox or, for a shared one, an admin may call it (agent risk high); a mail of another tenant or of someone else's personal mailbox is reported as not found. The retention sweep shares the purge logic.
+-->
+
+<!-- kumiko-changes
+feature: auth-email-password
+type: fix
+title: Logout navigates once and no longer races a login redirect
+detail: In the browser `logout()` leaves the session state untouched and either assigns `postLogoutUrl` or reloads the page. Before, the reload path first flipped the state to unauthenticated, which let an `AuthGate` with `loginUrl` start its own redirect against the reload (aborted navigation, flaky e2e). Without `window` (native, SSR) the state is still set to unauthenticated.
 -->

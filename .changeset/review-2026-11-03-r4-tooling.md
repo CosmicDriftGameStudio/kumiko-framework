@@ -40,7 +40,7 @@ detail: For a column that disappears from an in-place table, `schema generate` e
 
 <!-- kumiko-changes
 feature: framework
-type: feature
+type: improvement
 title: Jobs read event streams with ctx.events.load
 detail: `JobContext.events` gains `load(aggregateId, options?)` with the handler semantics (`asOf`, `atVersion`, `includeArchived`): scoped to the tenant of the job, payloads pass the upcaster chain. It shares its implementation with the handler `ctx.events.load`. Jobs no longer need a raw `selectMany` on `eventsTable` to read a stream.
 -->
@@ -50,4 +50,11 @@ feature: types
 type: improvement
 title: Long external calls with writes belong in transaction perCommand
 detail: A `perCommand` write handler holds no transaction or connection while an external call runs and keeps `ctx.db.outsideTransaction`, so metering and provenance bookings work there (covered by an integration test with the cap counter). The docs of `WriteHandlerTransactionMode` and `BeforeTransactionContext` say so; `beforeTransaction` keeps its read-only context.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: improvement
+title: outsideRowLevelSecurityScope is exported from the db barrel
+detail: `outsideRowLevelSecurityScope(fn)` runs non-transactional DDL (`CREATE INDEX CONCURRENTLY`) and session-level statements on a pool with row-level security enforced, where every statement otherwise runs in its own transaction. It sits next to `assertNoActiveRowLevelSecurityScope` in `@cosmicdrift/kumiko-framework/db`, so the migration advice from the R3 note can be followed without a deep import.
 -->

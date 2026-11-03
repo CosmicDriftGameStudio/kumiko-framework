@@ -219,18 +219,16 @@ export function SessionProvider({
     await logoutApi();
     // The reload below would hide the identity change from the list-state boot.
     clearRememberedListState();
-    if (postLogoutUrl !== undefined && typeof window !== "undefined") {
-      // State stays untouched: flipping to unauthenticated would let an AuthGate
-      // with loginUrl race this navigation to its own redirect.
-      window.location.assign(postLogoutUrl);
+    if (typeof window === "undefined") {
+      setState(UNAUTHENTICATED);
       return;
     }
-    setState(UNAUTHENTICATED);
-    // Hard reload: the React tree, dispatcher live caches, and EventSource
-    // are all reset. After logout, this is the cheapest way to reach a clean
-    // state without having to invalidate every consumer through a context
-    // reset.
-    if (typeof window !== "undefined") {
+    // State stays untouched in the browser: flipping to unauthenticated would let an
+    // AuthGate with loginUrl race this single navigation to its own redirect. The
+    // reload also resets the React tree, live caches and EventSource.
+    if (postLogoutUrl !== undefined) {
+      window.location.assign(postLogoutUrl);
+    } else {
       window.location.reload();
     }
   }, [postLogoutUrl]);

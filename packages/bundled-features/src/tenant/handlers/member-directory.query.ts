@@ -3,6 +3,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   definePagedQueryHandler,
+  isUuid,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
@@ -74,10 +75,15 @@ export const memberDirectoryQuery = definePagedQueryHandler({
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as user:query:user:list did",
       );
-      users = await selectMany(db, userTable, ids === undefined ? undefined : { id: ids }, {
-        limit: scanLimit,
-        orderBy: { col: "id", direction: "asc" },
-      });
+      // Audit actors can be non-uuid ("anonymous"); binding them to the uuid column would fail the query.
+      const uuidIds = ids?.filter(isUuid);
+      users =
+        uuidIds?.length === 0
+          ? []
+          : await selectMany(db, userTable, uuidIds === undefined ? undefined : { id: uuidIds }, {
+              limit: scanLimit,
+              orderBy: { col: "id", direction: "asc" },
+            });
     } else {
       const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
       const requestedIds = ids === undefined ? undefined : new Set(ids);

@@ -52,8 +52,8 @@ export function runInCapturedRowLevelSecurityScope<T>(
 
 const outsideScopeStorage = new AsyncLocalStorage<true>();
 
-// DDL such as CREATE INDEX CONCURRENTLY cannot run in the per-statement transaction an enforced pool
-// opens for every statement; only this explicit opt-out sends it straight to the connection.
+// Use for non-transactional DDL (CREATE INDEX CONCURRENTLY) and session-level statements on an RLS-enforced
+// pool: it opens a per-statement transaction for every statement, and only this opt-out bypasses it.
 export function outsideRowLevelSecurityScope<T>(fn: () => T): T {
   return storage.exit(() => outsideScopeStorage.run(true, fn));
 }

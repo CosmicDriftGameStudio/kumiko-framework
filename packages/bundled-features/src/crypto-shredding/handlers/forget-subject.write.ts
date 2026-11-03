@@ -96,6 +96,31 @@ export const subjectForgetDeniedSchema = z.object({
 
 type SubjectIdInput = z.infer<typeof subjectIdSchema>;
 
+function subjectOfInput(raw: SubjectIdInput): SubjectId {
+  switch (raw.kind) {
+    case "user":
+      return { kind: "user", userId: raw.userId };
+    case "tenant":
+      return { kind: "tenant", tenantId: raw.tenantId };
+    case "record":
+      return { kind: "record", entity: raw.entity, id: raw.id };
+    default: {
+      const unreachable: never = raw;
+      return unreachable;
+    }
+  }
+}
+
+// Called from another write handler (subjectForgetAfterDeleteHook), the caller's tx holds
+// the uncommitted delete event on the subject's own stream; appending there from outside
+// that tx would wait on it forever, so the event goes onto a fresh stream.
+function forgottenEventAggregateId(raw: SubjectIdInput): string {
+  const entryHandlerQn = requestContext.get()?.entryHandler?.qn;
+  const nestedInCallerTransaction =
+    entryHandlerQn !== undefined && entryHandlerQn !== FORGET_SUBJECT_QUALIFIED_NAME;
+  return nestedInCallerTransaction ? generateId() : subjectAggregateId(raw);
+}
+
 // Exhaustive switch so a 4th subject kind fails to compile instead of
 // silently aggregating under the wrong id.
 function subjectAggregateId(raw: SubjectIdInput): string {
@@ -491,12 +516,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     }
 
     const raw = event.payload.subject;
-    const subject: SubjectId =
-      raw.kind === "user"
-        ? { kind: "user", userId: raw.userId }
-        : raw.kind === "tenant"
-          ? { kind: "tenant", tenantId: raw.tenantId }
-          : { kind: "record", entity: raw.entity, id: raw.id };
+    const subject = subjectOfInput(raw);
     const subjectKey = subjectIdToKey(subject);
 
     const tenantScopeDenial = await resolveTenantScopeDenial(
@@ -578,16 +598,10 @@ export const forgetSubjectWrite = defineWriteHandler({
       raw,
     );
 
-    // Called from another write handler (subjectForgetAfterDeleteHook), the caller's tx holds
-    // the uncommitted delete event on the subject's own stream; appending there from outside
-    // that tx would wait on it forever, so the event goes onto a fresh stream.
-    const entryHandlerQn = requestContext.get()?.entryHandler?.qn;
-    const nestedInCallerTransaction =
-      entryHandlerQn !== undefined && entryHandlerQn !== FORGET_SUBJECT_QUALIFIED_NAME;
     await appendSubjectForgotten(
       ctx,
       event,
-      nestedInCallerTransaction ? generateId() : subjectAggregateId(raw),
+      forgottenEventAggregateId(raw),
       {
         subjectKey,
         reason: event.payload.reason,
