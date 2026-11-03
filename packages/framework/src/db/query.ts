@@ -580,11 +580,12 @@ export async function insertMany<TRow = AnyRow>(
   const managedDenied = executorManagedWriteDenied(db, table, "insertMany");
   if (managedDenied) throw managedDenied;
   const info = extractTableInfo(table);
-  // Use the column-set from the first row; assume all rows share keys.
-  const firstRow = rows[0];
-  if (firstRow === undefined) return [];
-  // Filter out fields that don't exist as columns in the table (like drizzle did implicitly)
-  const fields = Object.keys(firstRow).filter((k) => info.hasColumn(k));
+  // Union of all rows' keys, so a field only a later row sets is not dropped; rows that omit it
+  // get DEFAULT, like a single insertOne without that key. Keys that aren't table columns are
+  // filtered out (like drizzle did implicitly).
+  const fields = [...new Set(rows.flatMap((row) => Object.keys(row)))].filter((k) =>
+    info.hasColumn(k),
+  );
   if (fields.length === 0) throw new Error("insertMany: empty row object");
   const cols = fields.map((k) => quoteIdent(info.columnOf(k))).join(", ");
   const params: unknown[] = [];
@@ -592,6 +593,10 @@ export async function insertMany<TRow = AnyRow>(
   for (const row of rows) {
     const placeholders: string[] = [];
     for (const f of fields) {
+      if (!Object.hasOwn(row, f)) {
+        placeholders.push("DEFAULT");
+        continue;
+      }
       const col = info.columnOf(f);
       const pgType = info.pgTypeOf(col);
       const p = prepareValue(row[f], pgType);
