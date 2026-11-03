@@ -21,6 +21,8 @@ export function s3EndpointEnvRule(
   value: string,
   env: Readonly<Record<string, string | undefined>>,
 ): string | undefined {
+  // A blank endpoint means "unset" (the field schema maps it to undefined), so there is nothing to check.
+  if (value === "") return undefined;
   return isAcceptableS3Endpoint(value, env["NODE_ENV"] === "production")
     ? undefined
     : ENDPOINT_RULE_MESSAGE;
