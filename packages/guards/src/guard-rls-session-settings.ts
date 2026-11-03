@@ -157,14 +157,54 @@ function findSessionSettings(sf: SourceFile, rel: string) {
   return found;
 }
 
-const SQL_IGNORED_DIRS = /(^|\/)(node_modules|\.wt|\.git|dist)(\/|$)/;
+const SQL_IGNORED_DIRS = /(^|\/)(node_modules|\.wt|\.git|\.turbo|dist|build|coverage)(\/|$)/;
+const DOLLAR_QUOTE_OPEN_RE = /^\$(?:[A-Za-z_]\w*)?\$/;
 
-// Statements split on ";" with their start line; "--" comment lines are blanked so prose in them never matches.
+function closingIndex(sql: string, token: string, from: number): number {
+  const index = sql.indexOf(token, from);
+  return index === -1 ? sql.length : index + token.length;
+}
+
+// Splits on top-level ";" only. Comments are dropped (their newlines kept for line counting);
+// quoted strings, quoted identifiers and dollar-quoted bodies stay intact and never split.
+function sqlStatements(sql: string): string[] {
+  const statements: string[] = [];
+  let current = "";
+  let i = 0;
+  while (i < sql.length) {
+    if (sql.startsWith("--", i)) {
+      const eol = sql.indexOf("\n", i);
+      i = eol === -1 ? sql.length : eol;
+    } else if (sql.startsWith("/*", i)) {
+      const close = closingIndex(sql, "*/", i + 2);
+      current += sql.slice(i, close).replace(/[^\n]/g, "");
+      i = close;
+    } else if (sql.charAt(i) === ";") {
+      statements.push(current);
+      current = "";
+      i++;
+    } else {
+      const end = quotedSpanEnd(sql, i) ?? i + 1;
+      current += sql.slice(i, end);
+      i = end;
+    }
+  }
+  statements.push(current);
+  return statements;
+}
+
+function quotedSpanEnd(sql: string, from: number): number | undefined {
+  const c = sql.charAt(from);
+  if (c === "'" || c === '"') return closingIndex(sql, c, from + 1);
+  if (c !== "$" || /\w/.test(sql.charAt(from - 1))) return undefined;
+  const tag = DOLLAR_QUOTE_OPEN_RE.exec(sql.slice(from, from + 64))?.[0];
+  return tag === undefined ? undefined : closingIndex(sql, tag, from + tag.length);
+}
+
 export function findSqlSessionSettings(sql: string, rel: string) {
   const found: Array<{ line: number; message: string }> = [];
-  const code = sql.replace(/^\s*--.*$/gm, "");
   let line = 1;
-  for (const statement of code.split(";")) {
+  for (const statement of sqlStatements(sql)) {
     const startLine =
       line + countNewlines(statement.slice(0, statement.length - statement.trimStart().length));
     for (const message of violationsInText(statement, rel)) {

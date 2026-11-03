@@ -11,7 +11,7 @@
  * Usage:
  *   bun guards/guard-i18n-locale-terminology.ts
  *
- * Ignore: // kumiko-lint-ignore i18n-locale-terminology
+ * Ignore: // kumiko-lint-ignore i18n-locale-terminology <reason>
  */
 
 import { type Node, type SourceFile, SyntaxKind } from "ts-morph";

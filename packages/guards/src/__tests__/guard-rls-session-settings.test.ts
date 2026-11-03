@@ -152,3 +152,27 @@ describe("RLS-Session-Settings Guard: .sql files", () => {
     expect(findSqlSessionSettings(sql, "migrations/0003.sql")).toHaveLength(0);
   });
 });
+
+const SET_SESSION = ["SET", "SESSION"].join(" ");
+const SCOPE_WRITER_SQL = "packages/framework/src/db/queries/rls-scope.ts";
+
+describe("RLS-Session-Settings Guard: unrelated settings and SQL noise", () => {
+  test("a semicolon inside a string literal does not split the statement", () => {
+    const sql = `SELECT ${SC}('kumiko.x', 'a;b', true);`;
+    expect(findSqlSessionSettings(sql, SCOPE_WRITER_SQL)).toEqual([]);
+  });
+
+  test("a semicolon inside a dollar-quoted body does not split a statement", () => {
+    const sql = `DO $body$ BEGIN PERFORM ${SC}('kumiko.x', 'a;b', true); END $body$;`;
+    expect(findSqlSessionSettings(sql, SCOPE_WRITER_SQL)).toEqual([]);
+  });
+
+  test("block comments and trailing line comments never match, line numbers stay right", () => {
+    const sql = [
+      `/* ${SET_SESSION} kumiko.tenant_id = 'x' */`,
+      `SELECT 1; -- ${SET_SESSION} kumiko.tenant_id = 'y'`,
+      `${SET_SESSION} kumiko.tenant_id = 'z';`,
+    ].join("\n");
+    expect(findSqlSessionSettings(sql, "m.sql").map((f) => f.line)).toEqual([3]);
+  });
+});

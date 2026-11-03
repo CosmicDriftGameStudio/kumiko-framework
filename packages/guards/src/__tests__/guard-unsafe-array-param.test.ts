@@ -80,3 +80,14 @@ describe("Unsafe Array Param check", () => {
     expect(outcome.warnings).toBeUndefined();
   });
 });
+
+describe("findUnsafeArrayParams: wrapped array literals", () => {
+  test("sees through a non-null assertion on the element and on the parameter list", () => {
+    expect(findingsOf(`await tx.unsafe(sql, [[a, b]!]);`)).toHaveLength(1);
+    expect(findingsOf(`await tx.unsafe(sql, [[a, b]]!);`)).toHaveLength(1);
+  });
+
+  test("sees through an angle-bracket type assertion", () => {
+    expect(findingsOf(`await tx.unsafe(sql, [<string[]>[a, b]]);`)).toHaveLength(1);
+  });
+});

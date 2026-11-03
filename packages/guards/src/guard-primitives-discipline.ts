@@ -67,7 +67,7 @@ const FORBIDDEN_CALLS: ReadonlyArray<{
 // token — seeing it in a className means a hand-rebuilt card instead of
 // `<Card>` (slots/options). Exactly the copy-paste drift the Card primitive
 // is meant to eliminate. Real exceptions (foundation token swatches,
-// navigation surfaces) carry `// kumiko-lint-ignore primitives-discipline`.
+// navigation surfaces) carry `// kumiko-lint-ignore primitives-discipline <reason>`.
 const FORBIDDEN_CLASSES: ReadonlyArray<{
   readonly token: string;
   readonly counterpart: string;

@@ -131,3 +131,35 @@ await runSchemaCli(rest, cwd, out, { features: allAppFeatures(appConfig) });
     expect(outcome.notApplicable).toBe(true);
   });
 });
+
+describe("findSchemaCliFeatureProblems: namespace and extension forms", () => {
+  test("accepts a .js specifier for the schema module", () => {
+    expect(
+      problemsOf(`${SCHEMA_CLI_IMPORT}import { FEATURES } from "../kumiko/schema.js";
+await runSchemaCli(rest, cwd, out, { features: FEATURES });`),
+    ).toEqual([]);
+  });
+
+  test("accepts features: schema.FEATURES from a namespace import of the schema module", () => {
+    expect(
+      problemsOf(`import * as cli from "@cosmicdrift/kumiko-framework/schema-cli";
+import * as schema from "../kumiko/schema";
+await cli.runSchemaCli(rest, cwd, out, { features: schema.FEATURES });`),
+    ).toEqual([]);
+  });
+
+  test("flags a namespace call to runSchemaCli with allAppFeatures", () => {
+    expect(
+      problemsOf(`import * as cli from "@cosmicdrift/kumiko-framework/schema-cli";
+await cli.runSchemaCli(rest, cwd, out, { features: allAppFeatures(appConfig) });`),
+    ).toHaveLength(1);
+  });
+
+  test("flags schema.FEATURES when the namespace is not the schema module", () => {
+    expect(
+      problemsOf(`import * as cli from "@cosmicdrift/kumiko-framework/schema-cli";
+import * as schema from "../other/schema";
+await cli.runSchemaCli(rest, cwd, out, { features: schema.FEATURES });`),
+    ).toHaveLength(1);
+  });
+});
