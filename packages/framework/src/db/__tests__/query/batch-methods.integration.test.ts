@@ -49,6 +49,25 @@ async function withCodeTable<T>(
   }
 }
 
+const scoreFlagCols = [
+  { name: "score", pgType: "integer" as const, notNull: true, defaultSql: "0" },
+  { name: "flag", pgType: "boolean" as const, notNull: true, defaultSql: "false" },
+] as const;
+
+describe("insertMany", () => {
+  test("keeps columns that only a later row sets and defaults them for the other rows", async () => {
+    await withTable(scoreFlagCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [{ score: 1 }, { score: 2, flag: true }, { flag: true }]);
+      const rows = await selectMany<{ score: number; flag: boolean }>(db, meta);
+      expect(rows.map((row) => [row.score, row.flag]).sort()).toEqual([
+        [0, true],
+        [1, false],
+        [2, true],
+      ]);
+    });
+  });
+});
+
 describe("countWhere", () => {
   test("counts all rows when where is empty", async () => {
     await withTable(scoreCols, async ({ db, meta }) => {
