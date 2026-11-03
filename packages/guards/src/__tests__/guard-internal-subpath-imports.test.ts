@@ -204,3 +204,26 @@ describe("Internal-Subpath-Imports Guard: bypass forms", () => {
     expect(violations).toHaveLength(0);
   });
 });
+
+describe("Internal-Subpath-Imports Guard: re-export and import-equals bypasses", () => {
+  test("flags export * from testing helpers in production code", () => {
+    const violations = run({
+      "/fx/app/src/a.ts": `export * from "${HELPERS}";`,
+      "/fx/app/src/b.ts": `export * as helpers from "${HELPERS}";`,
+    });
+    expect(violations.map((v) => v.file).sort()).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(violations.every((v) => v.message.includes("[test-only-scope]"))).toBe(true);
+  });
+
+  test("allows export * from testing helpers in a test file", () => {
+    expect(run({ "/fx/app/src/__tests__/a.test.ts": `export * from "${HELPERS}";` })).toEqual([]);
+  });
+
+  test("flags import = require of an internal subpath in a consumer repo", () => {
+    const violations = run({
+      "/fx/app/src/a.ts": `import m = require("${INTERNAL}");\nvoid m;`,
+    });
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("[internal-import]");
+  });
+});

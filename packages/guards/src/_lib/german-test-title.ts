@@ -76,7 +76,8 @@ const GERMAN_TITLE_WORDS: ReadonlySet<string> = new Set([
   "jedes",
 ]);
 
-const QUOTED_OR_CODE_RE = /`[^`]*`|"[^"]*"|'[^']*'/g;
+// A single quote between letters is an apostrophe ("doesn't", "it's"), not a quote boundary.
+const QUOTED_OR_CODE_RE = /`[^`]*`|"[^"]*"|(?<!\p{L})'[^']*'(?!\p{L})/gu;
 const WORD_RE = /[\p{L}]+/gu;
 
 function isUpperCaseAcronym(word: string): boolean {

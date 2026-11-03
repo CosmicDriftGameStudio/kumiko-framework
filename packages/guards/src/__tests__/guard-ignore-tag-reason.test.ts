@@ -65,3 +65,24 @@ describe("ignore-tag-reason guard", () => {
     });
   });
 });
+
+describe("ignore-tag-reason guard: prefixed tags and line numbers", () => {
+  test.each([
+    "// note: kumiko-lint-ignore test-title",
+    "// biome-ignore lint/style/noNonNullAssertion: legacy; kumiko-lint-ignore cross-feature-import x",
+  ])("flags a tag with text before it: %s", (comment) => {
+    expect(weakLines(`${comment}\nexport const value = 1;\n`)).toEqual([1]);
+  });
+
+  test("reports the right line for comments after many lines", () => {
+    const filler = Array.from({ length: 50 }, (_, i) => `export const v${i} = ${i};`);
+    const source = [
+      ...filler,
+      "// kumiko-lint-ignore raw-sql legacy",
+      ...filler,
+      "/* a",
+      "   kumiko-lint-ignore raw-sql todo */",
+    ].join("\n");
+    expect(weakLines(source)).toEqual([51, 103]);
+  });
+});

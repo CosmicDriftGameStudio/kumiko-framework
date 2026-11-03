@@ -16,7 +16,13 @@
  * Exit 1 on violations, 0 when clean.
  */
 
-import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type ExportDeclaration,
+  type ImportDeclaration,
+  Node,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 import { findRepoRootFor } from "./_lib/baseline-compare";
 import {
   ALL_REPO_KINDS,
@@ -99,6 +105,13 @@ function staticSpecifierHead(arg: Node): string | undefined {
   return undefined;
 }
 
+// `import m = require("x")`
+function requireSpecifierOf(reference: Node): string | undefined {
+  if (!Node.isExternalModuleReference(reference)) return undefined;
+  const expression = reference.getExpression();
+  return expression === undefined ? undefined : staticSpecifierHead(expression);
+}
+
 function findInternalImports(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
   const report = (line: number, specifier: string): void => {
@@ -109,6 +122,12 @@ function findInternalImports(sf: SourceFile): Finding[] {
   };
   for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
     const specifier = decl.getModuleSpecifierValue();
+    if (specifier !== undefined && isInternalSpecifier(specifier)) {
+      report(decl.getStartLineNumber(), specifier);
+    }
+  }
+  for (const decl of sf.getDescendantsOfKind(SyntaxKind.ImportEqualsDeclaration)) {
+    const specifier = requireSpecifierOf(decl.getModuleReference());
     if (specifier !== undefined && isInternalSpecifier(specifier)) {
       report(decl.getStartLineNumber(), specifier);
     }
@@ -128,6 +147,11 @@ function findInternalImports(sf: SourceFile): Finding[] {
   return findings;
 }
 
+// `export * from` / `export * as ns from`: no named exports to inspect.
+function isStarReexport(decl: ImportDeclaration | ExportDeclaration): boolean {
+  return !("getNamedImports" in decl) && decl.getNamedExports().length === 0;
+}
+
 function findTestOnlyScopeImports(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
   const decls = [
@@ -136,6 +160,12 @@ function findTestOnlyScopeImports(sf: SourceFile): Finding[] {
   ];
   for (const decl of decls) {
     if (decl.getModuleSpecifierValue() !== TESTING_HELPERS) continue;
+    if (isStarReexport(decl)) {
+      findings.push({
+        line: decl.getStartLineNumber(),
+        message: `[test-only-scope] export * from ${TESTING_HELPERS} re-exports the test-only scope helpers; allowed in test files only`,
+      });
+    }
     const named =
       "getNamedImports" in decl
         ? decl.getNamedImports().map((n) => n.getName())

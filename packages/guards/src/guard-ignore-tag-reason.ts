@@ -37,7 +37,8 @@ const SCAN: ScanSpec = {
 const EXCLUDE = /(\.d\.(ts|tsx)$|\/dist\/)/;
 const COMMENT_MARKER_PREFIX_RE = /^\s*(?:\/\/+|\/\*+|\*+)?\s*/;
 const COMMENT_CLOSE_SUFFIX_RE = /\s*\*\/\s*\}?\s*$/;
-const TAG_LINE_RE = /^kumiko-lint-ignore\s+(\S+)(?:\s+(.*))?$/;
+// Not anchored: lineHasIgnoreTag honours the tag anywhere in a line, so a prefixed tag must be checked too.
+const TAG_LINE_RE = /\bkumiko-lint-ignore\s+(\S+)(?:\s+(.*))?$/;
 
 export type WeakIgnoreReason = {
   readonly line: number;
@@ -53,10 +54,19 @@ function isWeakReason(reason: string): boolean {
   return isGenericReason(reason) || reason.split(/\s+/).filter(Boolean).length < MIN_REASON_WORDS;
 }
 
+function countNewlines(text: string, from: number, to: number): number {
+  let count = 0;
+  for (let i = text.indexOf("\n", from); i !== -1 && i < to; i = text.indexOf("\n", i + 1)) count++;
+  return count;
+}
+
 export function findWeakIgnoreReasons(fullText: string): WeakIgnoreReason[] {
   const sites: WeakIgnoreReason[] = [];
+  let scannedUpTo = 0;
+  let firstLine = 1;
   for (const comment of scanCommentTrivia(fullText)) {
-    const firstLine = fullText.slice(0, comment.start).split("\n").length;
+    firstLine += countNewlines(fullText, scannedUpTo, comment.start);
+    scannedUpTo = comment.start;
     for (const [offset, rawLine] of comment.text.split("\n").entries()) {
       const body = rawLine
         .replace(COMMENT_MARKER_PREFIX_RE, "")

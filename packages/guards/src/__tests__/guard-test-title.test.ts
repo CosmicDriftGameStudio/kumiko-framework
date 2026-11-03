@@ -102,3 +102,24 @@ describe("test-title guard", () => {
     });
   });
 });
+
+describe("test-title guard: false negatives and false positives", () => {
+  test("an English contraction does not hide a German word between two apostrophes", () => {
+    expect(hits(`test("doesn't schreibt der Wert when it's empty", () => {});`)).toEqual([
+      { line: 1, reason: "German" },
+    ]);
+  });
+
+  test("still treats a single-quoted fixture name as quoted", () => {
+    expect(hits(`test("keeps 'kann' as fixture name", () => {});`)).toEqual([]);
+  });
+
+  test("leaves hex colours and row positions alone but flags real references", () => {
+    expect(hits('test("falls back to #000 text color", () => {});')).toEqual([]);
+    expect(hits('test("falls back to #111111 text color", () => {});')).toEqual([]);
+    expect(hits('test("renders row #3", () => {});')).toEqual([]);
+    expect(hits('test("renders row #12", () => {});')).toHaveLength(1);
+    expect(hits('test("fixes org/repo#5", () => {});')).toHaveLength(1);
+    expect(hasIssueReference("rejects it (#1234)")).toBe(true);
+  });
+});

@@ -23,7 +23,7 @@ import { type ScanSpec, scanFiles } from "./_lib/scan-scope";
 const SCAN: ScanSpec = { scope: "source", extensions: ["ts"], kinds: ["app", "library"] };
 
 const SCHEMA_MODULE_REL = "kumiko/schema.ts";
-const SCHEMA_MODULE_SPECIFIER = /(^|\/)kumiko\/schema(\.ts)?$/;
+const SCHEMA_MODULE_SPECIFIER = /(^|\/)kumiko\/schema(\.[cm]?[jt]s)?$/;
 const SCHEMA_CLI_CALL = "runSchemaCli";
 const OPTIONS_ARG_INDEX = 3;
 const FEATURES_EXPORT = "FEATURES";
@@ -47,6 +47,25 @@ function importOf(sf: SourceFile, localName: string): { name: string; module: st
     }
   }
   return undefined;
+}
+
+function schemaNamespaceImports(sf: SourceFile): Set<string> {
+  const names = new Set<string>();
+  for (const imp of sf.getImportDeclarations()) {
+    const namespace = imp.getNamespaceImport();
+    if (namespace !== undefined && SCHEMA_MODULE_SPECIFIER.test(imp.getModuleSpecifierValue())) {
+      names.add(namespace.getText());
+    }
+  }
+  return names;
+}
+
+function isSchemaFeaturesNamespaceAccess(sf: SourceFile, value: Node): boolean {
+  return (
+    Node.isPropertyAccessExpression(value) &&
+    value.getName() === FEATURES_EXPORT &&
+    schemaNamespaceImports(sf).has(value.getExpression().getText())
+  );
 }
 
 function isSchemaFeaturesImport(sf: SourceFile, localName: string): boolean {
@@ -73,6 +92,7 @@ function featuresValueOf(options: Node): Node | undefined | "no-literal" {
 }
 
 function isRunSchemaCliCall(sf: SourceFile, callee: Node): boolean {
+  if (Node.isPropertyAccessExpression(callee)) return callee.getName() === SCHEMA_CLI_CALL;
   if (!Node.isIdentifier(callee)) return false;
   const localName = callee.getText();
   return (importOf(sf, localName)?.name ?? localName) === SCHEMA_CLI_CALL;
@@ -88,6 +108,7 @@ function problemOf(sf: SourceFile, optionsArg: Node | undefined): string | undef
   }
   if (value === undefined) return `${SCHEMA_CLI_CALL} options have no \`features\` property`;
   if (Node.isIdentifier(value) && isSchemaFeaturesImport(sf, value.getText())) return undefined;
+  if (isSchemaFeaturesNamespaceAccess(sf, value)) return undefined;
   return `${SCHEMA_CLI_CALL} gets \`features: ${snippet(value)}\`, not ${FEATURES_EXPORT} from kumiko/schema`;
 }
 

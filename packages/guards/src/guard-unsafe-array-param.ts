@@ -40,6 +40,8 @@ function unwrapExpression(node: Node): Node {
   while (
     Node.isAsExpression(current) ||
     Node.isSatisfiesExpression(current) ||
+    Node.isNonNullExpression(current) ||
+    Node.isTypeAssertion(current) ||
     Node.isParenthesizedExpression(current)
   ) {
     current = current.getExpression();

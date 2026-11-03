@@ -29,7 +29,6 @@ import {
   TEST_DECLARATION_CALLEE,
   testFrameworkAliases,
 } from "./_lib/test-callee";
-import { REFERENCE_RE } from "./guard-comment-issue-ref-only";
 
 const ROOT = process.cwd();
 const GUARD_NAME = "test-title";
@@ -59,8 +58,17 @@ const PLAYWRIGHT_DESCRIBE_CALLEE = /^test\.(describe|fixme|fail)(\.\w+)*$/;
 
 type TitleFinding = { readonly line: number; readonly title: string; readonly reason: string };
 
+// Prefixed (`fw#12`, `org/repo#5`) or at least two digits; a lone digit is a position ("row #3").
+const TITLE_REFERENCE_RE = /(?<!&)(?:[\w./-]+#\d+|(?<![\w./-])#(\d{2,}))(?!\w)/g;
+const REPEATED_DIGIT_RE = /^(\d)\1*$/;
+
 export function hasIssueReference(title: string): boolean {
-  return (title.match(REFERENCE_RE)?.length ?? 0) > 0;
+  for (const match of title.matchAll(TITLE_REFERENCE_RE)) {
+    const bareNumber = match[1];
+    // "#000" and "#111" are hex colours, never issue numbers.
+    if (bareNumber === undefined || !REPEATED_DIGIT_RE.test(bareNumber)) return true;
+  }
+  return false;
 }
 
 function titleReason(title: string): string | undefined {
