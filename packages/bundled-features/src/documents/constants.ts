@@ -11,15 +11,19 @@ export const DEFAULT_EXPIRING_WITHIN_DAYS = 30;
 
 export const DOCUMENTS_LIST_SCREEN_ID = "list";
 
+export const DOCUMENT_LIVE_ENTITIES = [DOCUMENT_ENTITY, DOCUMENT_LINK_ENTITY];
+
 export const DocumentsHandlers = {
+  deleteDocument: `documents:write:${DOCUMENT_ENTITY}:delete`,
   link: "documents:write:link",
   unlink: "documents:write:unlink",
   import: "documents:write:import",
 } as const;
 
 export const DocumentsQueries = {
-  list: "documents:query:filed-document:list",
-  detail: "documents:query:filed-document:detail",
+  list: `documents:query:${DOCUMENT_ENTITY}:list`,
+  detail: `documents:query:${DOCUMENT_ENTITY}:detail`,
+  linkList: `documents:query:${DOCUMENT_LINK_ENTITY}:list`,
   forRecord: "documents:query:for-record",
   expiryOverview: "documents:query:expiry-overview",
   overview: "documents:query:overview",

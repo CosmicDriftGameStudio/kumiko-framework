@@ -4,12 +4,11 @@ import {
   type HandlerContext,
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DocumentsQueries } from "../constants.ts";
+import { DOCUMENT_LIVE_ENTITIES, DocumentsQueries } from "../constants.ts";
 import { type ForRecordPayload, forRecordPayloadSchema } from "../schemas.ts";
 import { linkedDocumentIds, listDocuments } from "./list-page.ts";
 
 const EMPTY_PAGE = { rows: [], nextCursor: null, total: 0 };
-const LIVE_ENTITIES = ["filed-document", "filed-document-link"];
 
 type Dispatching = Pick<HandlerContext, "dispatch">;
 
@@ -37,7 +36,7 @@ export function createForRecordQuery(access: AccessRule, linkTargets: readonly s
     name: "for-record",
     schema: forRecordPayloadSchema,
     access,
-    liveEntities: LIVE_ENTITIES,
+    liveEntities: DOCUMENT_LIVE_ENTITIES,
     description:
       "Lists the documents linked to one record, paged and filterable like the document list; a record the caller cannot read, or a type that takes no documents, yields an empty page.",
     handler: async (query, ctx) => documentsOfRecord(ctx, linkTargets, query.payload),
@@ -64,7 +63,7 @@ export function createForTypeQuery(
       id: forRecordPayloadSchema.shape.entityId,
     }),
     access,
-    liveEntities: LIVE_ENTITIES,
+    liveEntities: DOCUMENT_LIVE_ENTITIES,
     description: `Lists the documents linked to one ${entityType} record by its id, paged and filterable like the document list; it feeds the documents tab on the ${entityType} screen.`,
     handler: async (query, ctx) => {
       const { id, ...rest } = query.payload;

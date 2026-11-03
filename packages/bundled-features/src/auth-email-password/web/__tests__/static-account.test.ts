@@ -171,6 +171,22 @@ describe("invitations", () => {
     });
   });
 
+  test("an MFA setup gate is mfa-pending too", async () => {
+    stubFetch(() => jsonResponse({ mfaSetupRequired: true, preauthSetupToken: "p" }));
+    expect(await acceptInviteWithLogin("t", "a@b.de", "pw")).toEqual({
+      kind: "success",
+      data: { status: "mfa-pending" },
+    });
+  });
+
+  test("a 200 without tenant and without an MFA marker is an unexpected response", async () => {
+    stubFetch(() => jsonResponse({}));
+    expect(await acceptInviteWithLogin("t", "a@b.de", "pw")).toEqual({
+      kind: "failure",
+      reason: "unexpected_response",
+    });
+  });
+
   test("a bad invitation is a failure", async () => {
     stubFetch(() => jsonResponse({ error: { code: "invalid_invite_token" } }, { status: 422 }));
     expect(await acceptInviteWithNewAccount("t", "pw")).toEqual({

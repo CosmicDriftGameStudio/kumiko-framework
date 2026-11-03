@@ -41,8 +41,8 @@ const systemAdmin = TestUsers.systemAdmin;
 
 let stack: TestStack;
 
-async function createTenant(key: string, name: string): Promise<string> {
-  const created = await stack.http.writeOk<{ id: string }>(
+async function createTenant(key: string, name: string): Promise<TenantId> {
+  const created = await stack.http.writeOk<{ id: TenantId }>(
     TenantHandlers.create,
     { key, name },
     systemAdmin,
@@ -192,7 +192,7 @@ describe("tenant.name backfill", () => {
 
   test("a tenant destroyed before the backfill is erased, not encrypted under a fresh key", async () => {
     const tenantId = await createTenant("pii-destroyed", "Destroyed Legacy GmbH");
-    await updateTenantViaEventStore(stack.db, tenantId as TenantId, {
+    await updateTenantViaEventStore(stack.db, tenantId, {
       status: "destroyed",
       destroyedAt: Temporal.Instant.from("2026-01-15T00:00:00Z"),
     });

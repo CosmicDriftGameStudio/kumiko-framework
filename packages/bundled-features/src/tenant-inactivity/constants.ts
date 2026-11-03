@@ -1,8 +1,7 @@
 export const TENANT_INACTIVITY_FEATURE = "tenant-inactivity";
 export const TENANT_INACTIVITY_STATE_ENTITY = "tenant-inactivity-state";
 
-// Everyone who may react to the warning: the account-close roles plus TenantAdmin, so the mail
-// reaches exactly the people who can open the keep-account link and read the state.
+// Stays import-free for the client-safe subpath; a test ties it to TENANT_ACCOUNT_CLOSE_ROLES.
 export const TENANT_KEEP_ACCOUNT_ROLES = ["TenantOwner", "TenantAdmin", "Admin"] as const;
 
 export const TenantInactivityJobs = {

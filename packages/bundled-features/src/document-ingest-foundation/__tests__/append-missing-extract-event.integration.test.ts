@@ -136,7 +136,6 @@ function appendMissing(
       tenantDb: tenantDb(),
       registry: stack.registry,
       actor: createSystemUser(admin.tenantId),
-      tenantId: admin.tenantId,
     },
     existing,
     fileRefId,
@@ -229,5 +228,31 @@ describe("appendMissingDocumentExtractEvent", () => {
         payload: { documentExtractId, fileRefId, error: META_ERROR_PREFIX },
       },
     ]);
+  });
+
+  test("treats a non-string meta.error as a failure", async () => {
+    const { documentExtractId, fileRefId } = await createExtractWithoutTerminalEvent();
+
+    const result = await appendMissing(
+      { id: documentExtractId, meta: { error: { code: "x" } } },
+      fileRefId,
+    );
+
+    expect(result).toBe("appended-failed");
+    expect(await observedEventsOf(documentExtractId)).toEqual([
+      { type: FAILED_EVENT_QN, payload: { documentExtractId, fileRefId, error: '{"code":"x"}' } },
+    ]);
+  });
+
+  test("two concurrent catch-up runs append one terminal event and report the other as already-terminal", async () => {
+    const { documentExtractId, fileRefId } = await createExtractWithoutTerminalEvent();
+
+    const results = await Promise.all([
+      appendMissing({ id: documentExtractId, meta: null }, fileRefId),
+      appendMissing({ id: documentExtractId, meta: null }, fileRefId),
+    ]);
+
+    expect([...results].sort()).toEqual(["already-terminal", "appended-ready"]);
+    expect(await streamVersion(documentExtractId)).toBe(2);
   });
 });

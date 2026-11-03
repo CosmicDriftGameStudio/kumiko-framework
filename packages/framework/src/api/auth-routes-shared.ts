@@ -5,6 +5,7 @@ import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { NotFoundError } from "../errors/index.ts";
 import { createFallbackLogger } from "../logging/utils.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
+import { MAX_RETURN_PATH_LENGTH } from "../utils/return-path-limit.ts";
 
 const log = createFallbackLogger("kumiko");
 
@@ -13,7 +14,7 @@ export type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
 
 // Content is checked where the mail link is built (bundled-features knows the path rules); a bad
 // value must never void the whole body, or the request would silently send no mail.
-const returnToField = z.string().max(2048).optional().catch(undefined);
+const returnToField = z.string().max(MAX_RETURN_PATH_LENGTH).optional().catch(undefined);
 
 // Cross-device try-first handover: an optional tenant-handover grant the signup-request
 // route forwards to the handler for server-side verification and binding —

@@ -1,4 +1,5 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { DOCUMENT_LIVE_ENTITIES } from "../constants.ts";
 import { expiryWindow } from "../expiry.ts";
 import { expiryOverviewPayloadSchema } from "../schemas.ts";
 import { linkedDocumentIds, listDocuments } from "./list-page.ts";
@@ -12,7 +13,7 @@ export function createExpiryOverviewQuery(access: AccessRule, expiringWithinDays
     name: "expiry-overview",
     schema: expiryOverviewPayloadSchema,
     access,
-    liveEntities: ["filed-document", "filed-document-link"],
+    liveEntities: DOCUMENT_LIVE_ENTITIES,
     description:
       "Counts the documents the caller can read by validity: expired, expiring within the configured window, valid beyond it and without an expiry date; optionally for one record only.",
     handler: async (query, ctx) => {

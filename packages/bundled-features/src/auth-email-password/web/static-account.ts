@@ -132,7 +132,12 @@ async function postInviteAccept(
   if (result.kind === "failure") return result;
   const body = result.data;
   const tenantId = body["tenantId"];
-  if (typeof tenantId !== "string") return staticSuccess({ status: "mfa-pending" });
+  if (typeof tenantId !== "string") {
+    const isMfaGate = body["mfaRequired"] === true || body["mfaSetupRequired"] === true;
+    return isMfaGate
+      ? staticSuccess({ status: "mfa-pending" })
+      : staticFailure(UNEXPECTED_RESPONSE_REASON);
+  }
   const landingPath = body["landingPath"];
   return staticSuccess({
     status: "accepted",

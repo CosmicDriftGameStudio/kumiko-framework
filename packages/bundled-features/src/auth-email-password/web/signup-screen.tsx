@@ -21,9 +21,8 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { requestSignup } from "./auth-client.ts";
 import { retryAfterMinutes } from "./auth-form-logic.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
-import { readReturnToFromWindow } from "./auth-redirect.ts";
+import { resolveReturnTo } from "./auth-redirect.ts";
 import { AuthQueries } from "./constants.ts";
-import { isSafeReturnPath } from "./return-path.ts";
 
 export type SignupScreenProps = {
   readonly title?: string;
@@ -35,10 +34,6 @@ export type SignupScreenProps = {
    *  parameter of this page. Unsafe values are dropped. */
   readonly returnTo?: string;
 };
-
-function resolveReturnTo(prop: string | undefined): string | undefined {
-  return (isSafeReturnPath(prop) ? prop : readReturnToFromWindow()) ?? undefined;
-}
 
 function SignupScreenBody({
   title,

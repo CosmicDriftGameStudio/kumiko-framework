@@ -168,10 +168,26 @@ function registerDocuments(
       agent: { risk: "high" },
     }),
   );
-  r.hook({ type: "preSave", target: "filed-document:create", handler: rejectForeignPendingFile });
-  r.hook({ type: "preSave", target: "filed-document:update", handler: rejectForeignPendingFile });
-  r.hook({ type: "preSave", target: "filed-document:update", handler: writeGuard.beforeUpdate });
-  r.hook({ type: "preDelete", target: "filed-document:delete", handler: writeGuard.beforeDelete });
+  r.hook({
+    type: "preSave",
+    target: `${DOCUMENT_ENTITY}:create`,
+    handler: rejectForeignPendingFile,
+  });
+  r.hook({
+    type: "preSave",
+    target: `${DOCUMENT_ENTITY}:update`,
+    handler: rejectForeignPendingFile,
+  });
+  r.hook({
+    type: "preSave",
+    target: `${DOCUMENT_ENTITY}:update`,
+    handler: writeGuard.beforeUpdate,
+  });
+  r.hook({
+    type: "preDelete",
+    target: `${DOCUMENT_ENTITY}:delete`,
+    handler: writeGuard.beforeDelete,
+  });
   r.writeHandler(createLinkDocumentHandler({ access: access.write, executors, linkTargets }));
   r.writeHandler(createUnlinkDocumentHandler({ access: access.write, executors, linkTargets }));
   r.writeHandler(

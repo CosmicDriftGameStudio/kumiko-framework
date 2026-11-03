@@ -188,6 +188,19 @@ describe("secrets feature — only declared keys are writable", () => {
     expect(rows).toHaveLength(1);
   });
 
+  test("SystemAdmin can delete a since-undeclared key under a mounted feature prefix", async () => {
+    const featureOwnedKey = "secrets-test:dropped.credential";
+    await secretsContext.set(admin.tenantId, featureOwnedKey, "feature-token");
+
+    await stack.http.writeOk(SecretsHandlers.delete, { key: featureOwnedKey }, systemAdmin);
+
+    const rows = await selectMany(stack.db, tenantSecretsTable, {
+      tenantId: admin.tenantId,
+      key: featureOwnedKey,
+    });
+    expect(rows).toHaveLength(0);
+  });
+
   test("a declared key without writeRoles stays writable for TenantAdmin", async () => {
     await stack.http.writeOk(SecretsHandlers.set, { key: PLAIN_KEY, value: "plain-value" }, admin);
     await stack.http.writeOk(SecretsHandlers.delete, { key: PLAIN_KEY }, admin);

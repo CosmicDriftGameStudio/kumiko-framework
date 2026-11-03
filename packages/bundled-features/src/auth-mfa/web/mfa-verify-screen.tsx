@@ -10,6 +10,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 // kumiko-lint-ignore cross-feature-import client-only barrel, the feature's server barrel has no web/ re-export
 import { AuthCard, useSession } from "../../auth-email-password/web/index.ts";
 import { verifyMfaChallenge } from "./mfa-client.ts";
+import { MfaCodeOrRecoveryField } from "./mfa-code-or-recovery-field.tsx";
 
 export type MfaVerifyScreenProps = {
   readonly challengeToken: string;
@@ -28,8 +29,6 @@ export type MfaVerifyScreenProps = {
 };
 
 type CodeEntryMode = "authenticator" | "recovery";
-
-const MFA_CODE_LENGTH = 6;
 
 function reasonToKey(reason: string): string {
   switch (reason) {
@@ -58,7 +57,7 @@ export function MfaVerifyScreen({
   onCancel,
 }: MfaVerifyScreenProps): ReactNode {
   const t = useTranslation();
-  const { Form, Field, Input, Button, Banner } = usePrimitives();
+  const { Form, Button, Banner } = usePrimitives();
   const session = useSession();
   const [mode, setMode] = useState<CodeEntryMode>("authenticator");
   const [code, setCode] = useState("");
@@ -89,12 +88,6 @@ export function MfaVerifyScreen({
     void doSubmit(code);
   };
 
-  const toggleMode = (): void => {
-    setMode(mode === "authenticator" ? "recovery" : "authenticator");
-    setCode("");
-    setError(null);
-  };
-
   const isRecovery = mode === "recovery";
   const fieldId = isRecovery ? "mfa-verify-recovery-code" : "mfa-verify-code";
   const defaultSubtitle = isRecovery
@@ -104,51 +97,27 @@ export function MfaVerifyScreen({
   return (
     <AuthCard title={title ?? t("auth.mfa.verify.title")} subtitle={subtitle ?? defaultSubtitle}>
       <Form onSubmit={onSubmit}>
-        <Field
+        <MfaCodeOrRecoveryField
           id={fieldId}
-          label={isRecovery ? t("auth.mfa.verify.recoveryCode") : t("auth.mfa.verify.code")}
+          codeLabel={t("auth.mfa.verify.code")}
+          code={code}
+          onCodeChange={setCode}
+          useRecovery={isRecovery}
+          onUseRecoveryChange={(useRecovery) => {
+            setMode(useRecovery ? "recovery" : "authenticator");
+            setError(null);
+          }}
+          disabled={submitting}
           required
-        >
-          {isRecovery ? (
-            <Input
-              key={`${mode}-${attempt}`}
-              kind="text"
-              id={fieldId}
-              name={fieldId}
-              value={code}
-              onChange={setCode}
-              disabled={submitting}
-              required
-              autoFocus
-              autoComplete="off"
-            />
-          ) : (
-            <Input
-              key={`${mode}-${attempt}`}
-              kind="code"
-              length={MFA_CODE_LENGTH}
-              id={fieldId}
-              name={fieldId}
-              value={code}
-              onChange={setCode}
-              onComplete={(next) => void doSubmit(next)}
-              disabled={submitting}
-              hasError={error !== null}
-              required
-              autoFocus
-            />
-          )}
-        </Field>
+          hasError={error !== null}
+          inputKey={`${mode}-${attempt}`}
+          onComplete={(next) => void doSubmit(next)}
+        />
         {error !== null ? <Banner variant="error">{t(reasonToKey(error))}</Banner> : null}
         <Button type="submit" loading={submitting} disabled={submitting}>
           {submitting
             ? t("auth.mfa.verify.submitting")
             : (submitLabel ?? t("auth.mfa.verify.submit"))}
-        </Button>
-        <Button type="button" variant="link" onClick={toggleMode} disabled={submitting}>
-          {isRecovery
-            ? t("auth.mfa.verify.useAuthenticatorCode")
-            : t("auth.mfa.verify.useRecoveryCode")}
         </Button>
         {onCancel ? (
           <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>

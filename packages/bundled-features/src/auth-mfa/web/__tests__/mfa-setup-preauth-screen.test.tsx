@@ -122,6 +122,7 @@ describe("MfaSetupPreauthScreen", () => {
 
     fireEvent.click(screen.getByLabelText("I've saved my recovery codes."));
     expect(confirm).toHaveProperty("disabled", true);
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Code from your authenticator app/));
 
     const fetchMock = mock(async () => jsonResponse(confirmBody));
     globalThis.fetch = fetchMock as unknown as typeof fetch;

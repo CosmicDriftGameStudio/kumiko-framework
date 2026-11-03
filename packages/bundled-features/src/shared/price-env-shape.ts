@@ -20,10 +20,7 @@ export function priceEnvShape<const TEnvPrefix extends string, const TPrice exte
       `${envPrefix}_PRICE_${price}`,
       z
         .string()
-        .regex(
-          new RegExp(`^${priceIdPrefix}`),
-          `${envPrefix}_PRICE_${price} must start with '${priceIdPrefix}'`,
-        )
+        .startsWith(priceIdPrefix, `${envPrefix}_PRICE_${price} must start with '${priceIdPrefix}'`)
         .optional()
         .describe(`${label} price id (\`${priceIdPrefix}...\`) of the ${price} plan.`),
     ]),

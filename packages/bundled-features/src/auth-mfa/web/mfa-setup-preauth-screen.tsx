@@ -241,7 +241,7 @@ export function MfaSetupPreauthScreen({
                 onComplete={(next) => void confirmSetup(next)}
                 disabled={busy || !acknowledged}
                 hasError={error !== null}
-                autoFocus={attempt > 0}
+                autoFocus={acknowledged}
               />
             </Field>
 
