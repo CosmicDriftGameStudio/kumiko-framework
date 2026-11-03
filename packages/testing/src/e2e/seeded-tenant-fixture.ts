@@ -236,7 +236,9 @@ export function perTestClientIpKey(
 }
 
 // Chromium turns its HTTP cache off for a context as soon as it has a route,
-// so the header goes through setExtraHTTPHeaders and the cache stays on.
+// so the header goes through setExtraHTTPHeaders and the cache stays on. It also rides on
+// cross-origin requests, where it forces a CORS preflight: mock or proxy third-party endpoints
+// that don't allow x-forwarded-for.
 export async function providePerTestClientIpContext(
   {
     context,
