@@ -59,6 +59,7 @@ import {
 import {
   CRYPTO_SHREDDING_AGGREGATE_TYPE,
   CRYPTO_SHREDDING_FEATURE_NAME,
+  FORGET_SUBJECT_QUALIFIED_NAME,
   RECORD_ENTITY_NOT_REGISTERED,
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
@@ -561,13 +562,16 @@ export const forgetSubjectWrite = defineWriteHandler({
     // Runs before the sweep and in its own transaction: a failing sweep rolls the
     // handler transaction back, and the handler tx holds no lock on this user's
     // read_users row yet (only read gates ran), so there is no lock conflict.
+    // Called from another write handler (withSubjectForgetAfterDelete), the caller's transaction may
+    // hold uncommitted events on the subject's own stream; an outside-transaction append at the next
+    // version of that stream would wait on it forever. Nested, everything commits with the caller.
+    const callerOwnsTransaction =
+      requestContext.get()?.entryHandler?.qn !== FORGET_SUBJECT_QUALIFIED_NAME;
+    const outsideRunner = () =>
+      callerOwnsTransaction ? undefined : ctx.db.outsideTransaction?.unsafeRaw();
+
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
-      await closeUserLoginDoor(
-        ctx,
-        raw.userId,
-        ctx.db.outsideTransaction?.unsafeRaw(),
-        ctx.db.unsafeRaw(),
-      );
+      await closeUserLoginDoor(ctx, raw.userId, outsideRunner(), ctx.db.unsafeRaw());
     }
 
     const cleanupError = await sweepDerivedSubjectData(
@@ -589,7 +593,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         forgottenBy: event.user.id,
         ...(cleanupError !== undefined && { cleanupError }),
       },
-      ctx.db.outsideTransaction?.unsafeRaw(),
+      outsideRunner(),
     );
 
     if (cleanupError !== undefined) {

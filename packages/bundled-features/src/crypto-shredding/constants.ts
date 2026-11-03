@@ -1,5 +1,7 @@
 export const CRYPTO_SHREDDING_FEATURE_NAME = "crypto-shredding";
 
+export const FORGET_SUBJECT_QUALIFIED_NAME = `${CRYPTO_SHREDDING_FEATURE_NAME}:write:forget-subject`;
+
 export const SUBJECT_FORGOTTEN_EVENT_NAME = "crypto-shredding:event:subject-forgotten";
 export const SUBJECT_FORGET_DENIED_EVENT_NAME = "crypto-shredding:event:forget-denied";
 

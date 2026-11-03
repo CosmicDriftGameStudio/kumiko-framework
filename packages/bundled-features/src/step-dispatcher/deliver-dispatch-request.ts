@@ -36,6 +36,7 @@ const DELIVERY_RETRY_ERROR = "step delivery failed, retrying";
 const DISPATCH_THREW_ERROR = "delivery attempt threw unexpectedly";
 const FINAL_ATTEMPT_ABORTED_ERROR = "delivery aborted on the final attempt";
 const FINAL_ATTEMPT_UNRECORDED_ERROR = "step delivery failed and its outcome could not be recorded";
+const DISPATCH_ABANDONED_ERROR = "dispatch abandoned without a recorded outcome";
 
 export function isDispatchOutcome(e: { readonly type: string }): boolean {
   return e.type === STEP_DISPATCHED_TYPE || e.type === STEP_DISPATCH_FAILED_TYPE;
@@ -155,6 +156,26 @@ function createOutcomeRecorder(
     recordFailure: (stepKind, error) =>
       record(STEP_DISPATCH_FAILED_TYPE, { stepKind, error, attempt }),
   };
+}
+
+// For a deliver job that ended terminally without an outcome (BullMQ stall, lost job): the
+// request is closed as failed and its key erased. A stream that already has an outcome only
+// repeats the erase.
+export async function closeAbandonedDispatch(
+  ctx: MultiStreamApplyContext,
+  aggregateId: string,
+): Promise<"closed" | "already-closed"> {
+  const stream = await ctx.loadAggregate(aggregateId);
+  if (stream.some(isDispatchOutcome)) {
+    await eraseDispatchKey(aggregateId);
+    return "already-closed";
+  }
+  const requested = stream.find((e) => e.type === STEP_DISPATCH_REQUESTED_TYPE);
+  await createOutcomeRecorder(ctx, aggregateId, 0).recordFailure(
+    rawStepKindOf(requested?.payload),
+    DISPATCH_ABANDONED_ERROR,
+  );
+  return "closed";
 }
 
 type RequestedEvent = Awaited<ReturnType<MultiStreamApplyContext["loadAggregate"]>>[number];

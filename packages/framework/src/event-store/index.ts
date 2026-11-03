@@ -3,6 +3,11 @@ export {
   backfillEventPiiEncryption,
   backfillEventPiiEncryptionBatch,
 } from "../db/queries/backfill-pii.ts";
+export {
+  type OpenStream,
+  type OpenStreamsArgs,
+  selectOpenStreamsStartedBefore,
+} from "../db/queries/event-store-open-streams.ts";
 export { deleteRowsWithoutReplayableStream } from "../db/queries/event-store-orphan-rows.ts";
 export {
   archivedStreamsTable,

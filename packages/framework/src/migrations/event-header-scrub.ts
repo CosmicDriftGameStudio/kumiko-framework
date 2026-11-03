@@ -1,7 +1,7 @@
 // Removes chosen keys from the headers of stored events. For personal data that was written into
 // event headers, which crypto-shredding cannot reach (only payload fields are encrypted).
 
-import type { DbConnection } from "../db/connection.ts";
+import type { DbRunner } from "../db/connection.ts";
 import { removeEventHeaderKey } from "../db/queries/event-store-payload-scrub.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
 import { assertReason } from "../engine/escape-hatch-reason.ts";
@@ -22,7 +22,7 @@ export type ScrubEventHeaderResult = {
 
 // Headers are not part of any projection or snapshot, so no rebuild follows.
 export function scrubEventHeaderKeys(
-  db: DbConnection,
+  db: DbRunner,
   options: ScrubEventHeaderOptions,
 ): Promise<ScrubEventHeaderResult> {
   assertReason("scrubEventHeaderKeys", options.reason);

@@ -253,8 +253,9 @@ async function scrubAllBatches(
   return { ...totals, queuedTables: [...queuedTables], rebuild };
 }
 
-// Run it in a maintenance window: batches page by id over committed rows, so an event that
-// commits below the cursor while the run is in progress is not scrubbed.
+// Run it in a maintenance window without running writes on the affected event types: batches
+// page by id (`"id" > afterEventId`) over committed rows, and bigserial ids are handed out before
+// commit, so a parallel append whose id is below the cursor commits unseen and is skipped.
 export function scrubEventPayloadFields(
   db: DbConnection,
   registry: Registry,
