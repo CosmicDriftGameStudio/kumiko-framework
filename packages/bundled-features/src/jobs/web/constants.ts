@@ -11,6 +11,10 @@ export const JobHandlers = {
   consumerEnable: "jobs:write:consumer-enable",
 } as const;
 
+/** Operator transitions of an event consumer; the events table is the audit trail for them. */
+export const CONSUMER_STATE_CHANGED_EVENT_NAME = "jobs:event:consumer-state-changed" as const;
+export const JOBS_AGGREGATE_TYPE = "jobs" as const;
+
 // Qualified query handler names (QN format: scope:type:name)
 export const JobQueries = {
   list: "jobs:query:list",

@@ -134,4 +134,34 @@ describe("a hanging mailbox", () => {
       await selectMany(env.stack.db, syncCursorTable, { accountId: hungAccountId }),
     ).toHaveLength(1);
   });
+
+  test("an abandoned sync stops ingesting its remaining messages once the deadline passed", async () => {
+    const accountId = await connectInMemoryAccount(env.stack, adminFor(6331));
+    for (const id of ["late-1", "late-2", "late-3"]) {
+      await seedInboundMessage(accountId, rawMsg({ providerMessageId: id, text: id }));
+    }
+    let ingestWrites = 0;
+    let firstIngestFinished: () => void = () => {};
+    const firstIngest = new Promise<void>((resolve) => {
+      firstIngestFinished = resolve;
+    });
+    const supervisor = createMailSupervisor(env.stack, {
+      accountPollDeadlineMs: 100,
+      wrapWrite: (write) => async (args) => {
+        if (!args.handlerQn.endsWith(":ingest-message")) return write(args);
+        ingestWrites += 1;
+        // The first ingest outlives the deadline, so the sync is abandoned while it is mid-batch.
+        if (ingestWrites === 1) await new Promise((resolve) => setTimeout(resolve, 400));
+        const result = await write(args);
+        firstIngestFinished();
+        return result;
+      },
+    });
+
+    await supervisor.pollOnce();
+    await firstIngest;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(ingestWrites).toBe(1);
+  });
 });

@@ -120,6 +120,20 @@ function headersOfEnvelope(
   };
 }
 
+/** A mail that was not downloaded (too large): quarantined by its envelope, with no original to retry from. */
+export function rejectedWithoutSource(args: {
+  readonly uid: number;
+  readonly uidValidity: string;
+  readonly internalDate: Date | undefined;
+  readonly envelope?: MessageEnvelopeObject | undefined;
+}): RejectedInboundMessage {
+  return {
+    providerMessageId: buildProviderMessageId(args.uidValidity, args.uid),
+    reason: "unparseable",
+    ...(args.envelope && { headers: headersOfEnvelope(args.envelope, args.internalDate) }),
+  };
+}
+
 export type ParsedOrRejected =
   | { readonly message: RawInboundMessage }
   | { readonly rejected: RejectedInboundMessage };

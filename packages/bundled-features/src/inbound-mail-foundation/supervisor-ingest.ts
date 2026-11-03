@@ -273,6 +273,8 @@ export function createMessageIngester(deps: IngesterDeps): MessageIngester {
     let storageHealthy = options.proof?.storageHealthy ?? false;
     const failures: Failure[] = [];
     for (const msg of msgs) {
+      // An abandoned sync (deadline) must stop storing mail while the next sync of the account runs.
+      options.signal?.throwIfAborted();
       const result = await attempt(account, msg, cursorSnapshot);
       if (result.kind === "permanent") {
         const headerOnly = headerOnlyOf(msg);

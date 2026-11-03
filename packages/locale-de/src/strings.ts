@@ -2364,6 +2364,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "audit.log.event.waitlist-exported": "Warteliste exportiert",
   "audit.log.event.waitlist-purged": "Warteliste bereinigt",
   "audit.log.event.feature-toggle-set": "Funktionsschalter geändert",
+  "audit.log.event.consumer-state-changed": "Event-Consumer-Status geändert",
   "audit.log.event.contract-termination-requested": "Vertragskündigung angefordert",
   "audit.log.event.contract-termination-declared": "Vertragskündigung erklärt",
   "audit.log.event.contract-termination-unmatched": "Vertragskündigung nicht zugeordnet",

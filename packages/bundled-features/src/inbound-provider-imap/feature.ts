@@ -125,15 +125,17 @@ async function fetchMessages(
       ? await unknownUidsOf(uids, serverUidValidity, opts.filterUnknownMessageIds)
       : uids;
     const batch = unknown.slice(0, opts.maxMessages);
-    const hasMore = unknown.length > batch.length;
-    const { messages, rejected } = await downloadBatch(
+    const { messages, rejected, deferred } = await downloadBatch(
       client,
       batch,
       serverUidValidity,
       account.trustedAuthservId ?? null,
     );
+    const deferredUids = new Set(deferred);
+    const handled = batch.filter((uid) => !deferredUids.has(uid));
+    const hasMore = unknown.length > handled.length;
     // From the UIDs, not from what was downloaded: a known or skipped mail must not hold the cursor back.
-    const lastUid = Math.max(parsedCursor?.lastUid ?? 0, ...(hasMore ? batch : uids));
+    const lastUid = Math.max(parsedCursor?.lastUid ?? 0, ...(hasMore ? handled : uids));
 
     return {
       messages,

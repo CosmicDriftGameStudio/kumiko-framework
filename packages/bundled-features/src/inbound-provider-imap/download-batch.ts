@@ -3,6 +3,7 @@ import type {
   RejectedInboundMessage,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import type { ImapFlow } from "imapflow";
+import { planWithinByteBudget } from "./byte-budget.ts";
 import { coerceDate, parseOrReject } from "./parse-message.ts";
 
 export async function downloadBatch(
@@ -13,12 +14,15 @@ export async function downloadBatch(
 ): Promise<{
   readonly messages: RawInboundMessage[];
   readonly rejected: RejectedInboundMessage[];
+  /** uids cut by the byte budget; they are fetched in a later round. */
+  readonly deferred: readonly number[];
 }> {
   const messages: RawInboundMessage[] = [];
-  const rejected: RejectedInboundMessage[] = [];
-  if (batch.length === 0) return { messages, rejected };
+  const plan = await planWithinByteBudget(client, batch, uidValidity);
+  const rejected: RejectedInboundMessage[] = [...plan.tooLarge];
+  if (plan.download.length === 0) return { messages, rejected, deferred: plan.deferred };
   for await (const msg of client.fetch(
-    batch.join(","),
+    plan.download.join(","),
     { uid: true, internalDate: true, source: true, envelope: true },
     { uid: true },
   )) {
@@ -34,5 +38,5 @@ export async function downloadBatch(
     if ("message" in parsed) messages.push(parsed.message);
     else rejected.push(parsed.rejected);
   }
-  return { messages, rejected };
+  return { messages, rejected, deferred: plan.deferred };
 }

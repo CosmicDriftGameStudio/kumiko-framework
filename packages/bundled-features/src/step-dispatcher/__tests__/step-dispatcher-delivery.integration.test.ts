@@ -418,6 +418,19 @@ describe("step-dispatcher job delivery", () => {
       await expectKeyErased(aggregateId);
     });
 
+    test("an adapter that throws a connection-refused error is retried, as nothing was accepted", async () => {
+      mailMock.mockRejectedValueOnce(
+        Object.assign(new Error("connect refused"), { code: "ECONNREFUSED" }),
+      );
+      await stack.http.writeOk("step-delivery-probe:write:notify-mail", mailPayload, admin);
+
+      await drain();
+
+      expect(mailMock).toHaveBeenCalledTimes(2);
+      expect(await eventsOfType(DISPATCHED)).toHaveLength(1);
+      expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(0);
+    });
+
     test("a failure without an SMTP code or with a 4xx code is still retried", async () => {
       mailMock.mockResolvedValueOnce({ ok: false, error: "421 try later", smtpCode: 421 });
       mailMock.mockResolvedValueOnce({ ok: false, error: "transport busy" });

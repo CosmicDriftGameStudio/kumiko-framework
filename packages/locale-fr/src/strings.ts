@@ -2388,6 +2388,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "audit.log.event.waitlist-exported": "Liste d'attente exportée",
   "audit.log.event.waitlist-purged": "Liste d'attente purgée",
   "audit.log.event.feature-toggle-set": "Interrupteur de fonctionnalité modifié",
+  "audit.log.event.consumer-state-changed": "État du consommateur d’événements modifié",
   "audit.log.event.contract-termination-requested": "Résiliation de contrat demandée",
   "audit.log.event.contract-termination-declared": "Résiliation de contrat déclarée",
   "audit.log.event.contract-termination-unmatched": "Résiliation de contrat non rattachée",

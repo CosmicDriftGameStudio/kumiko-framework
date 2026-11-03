@@ -9,6 +9,7 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { MultiStreamApplyContext } from "@cosmicdrift/kumiko-framework/pipeline";
 import { SYSTEM_USER_ID, type TenantId } from "@cosmicdrift/kumiko-types/identifiers";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { redactEmailAddresses } from "../shared/index.ts";
 import {
   buildDispatchSpec,
@@ -65,6 +66,20 @@ function mailResultAsDelivery(result: MailDispatchResult): DeliveryResult {
     result.smtpCode >= SMTP_PERMANENT_REJECTION_MIN &&
     result.smtpCode <= SMTP_PERMANENT_REJECTION_MAX;
   return { ok: false, error: result.error, retryable: !isPermanent };
+}
+
+// Socket errors raised before any byte reached the provider: nothing can have been accepted.
+const PRE_ACCEPT_NETWORK_ERROR_CODES: ReadonlySet<string> = new Set([
+  "ECONNREFUSED",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+]);
+
+function isThrownBeforeProviderAccepted(err: unknown): boolean {
+  const code = propertyOf(err, "code");
+  return typeof code === "string" && PRE_ACCEPT_NETWORK_ERROR_CODES.has(code);
 }
 
 export type DeliverDispatchRequestArgs = {
@@ -214,11 +229,12 @@ async function sendDispatch(
       errorName: err instanceof Error ? err.name : "unknown",
     });
     // A mail adapter has no idempotency key: a throw after the provider accepted the message
-    // would send it again, so only the webhook (which carries one) is retried.
+    // would send it again, so only the webhook (which carries one) and mail that failed before
+    // the connection was established are retried.
     return {
       ok: false,
       error: DISPATCH_THREW_ERROR,
-      retryable: dispatchSpec.stepKind === "webhook.send",
+      retryable: dispatchSpec.stepKind === "webhook.send" || isThrownBeforeProviderAccepted(err),
     };
   }
 }

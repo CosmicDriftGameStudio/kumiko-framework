@@ -67,6 +67,7 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "waitlist:event:exported": label("waitlist-exported"),
   "waitlist:event:purged": label("waitlist-purged"),
   "feature-toggles:event:toggle-set": label("feature-toggle-set"),
+  "jobs:event:consumer-state-changed": label("consumer-state-changed"),
 };
 
 // Streams whose payload holds rows that only a SystemAdmin or a single owner may read: a
