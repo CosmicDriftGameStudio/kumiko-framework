@@ -6,6 +6,7 @@ import type {
 import { resolveVerifiedUserEmail } from "../user/index.ts";
 import { eraseLegacyRequest } from "./legacy-contact-erasure.ts";
 import {
+  findLegacyRequestsOfSubject,
   LEGACY_CONTACT_REPLY_ENTITY,
   LEGACY_CONTACT_REQUEST_ENTITY,
   type LegacyAggregate,
@@ -18,27 +19,23 @@ export { LEGACY_CONTACT_REPLY_ENTITY, LEGACY_CONTACT_REQUEST_ENTITY };
 
 const PII_DECRYPT_REASON = "helpdesk:legacy-contact-user-data";
 
-// A signed-in request carries the user id; an anonymous one is matched by the verified account
-// email. A request whose personal fields are unreadable can only match by user id.
 async function findLegacyRequests(ctx: UserDataHookCtx): Promise<readonly LegacyAggregate[]> {
   const email = (await resolveVerifiedUserEmail(ctx, PII_DECRYPT_REASON))?.toLowerCase();
-  const requests = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REQUEST_ENTITY);
-  return requests.filter((request) => {
-    if (request.fields["reporterUserId"] === ctx.userId) return true;
-    const requestEmail = request.fields["email"];
-    return (
-      !request.erased &&
-      email !== undefined &&
-      typeof requestEmail === "string" &&
-      requestEmail.toLowerCase() === email
-    );
+  return findLegacyRequestsOfSubject(ctx.db, { userId: ctx.userId, email });
+}
+
+// Replies are linked by the plaintext request id, so only those of the matched requests are read.
+function repliesOfRequests(ctx: UserDataHookCtx, requests: readonly LegacyAggregate[]) {
+  const requestIds = new Set(requests.map((request) => request.id));
+  return readLegacyAggregates(ctx.db, LEGACY_CONTACT_REPLY_ENTITY, {
+    isCandidate: (raw) => typeof raw["requestId"] === "string" && requestIds.has(raw["requestId"]),
   });
 }
 
 export const legacyContactExportHook: UserDataExportHook = async (ctx) => {
   const requests = (await findLegacyRequests(ctx)).filter((request) => !request.erased);
   if (requests.length === 0) return null;
-  const replies = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REPLY_ENTITY);
+  const replies = await repliesOfRequests(ctx, requests);
   const rows = [];
   for (const request of requests) {
     const { fields } = request;
@@ -72,7 +69,7 @@ export const legacyContactDeleteHook: UserDataDeleteHook = async (ctx) => {
   const requests = await findLegacyRequests(ctx);
   // skip: user has no pre-rename contact data to erase
   if (requests.length === 0) return;
-  const replies = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REPLY_ENTITY);
+  const replies = await repliesOfRequests(ctx, requests);
   for (const request of requests) {
     await eraseLegacyRequest(
       {

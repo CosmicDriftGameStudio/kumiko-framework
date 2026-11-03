@@ -31,14 +31,15 @@ export async function eraseLegacyAggregate(
   await archiveLegacyStream(eraser.db, entity, id);
 }
 
-// Replies go with their request; notes hang on the request as host.
+// Replies go with their request; notes hang on the request as host and go first, so a retry still
+// finds the request.
 export async function eraseLegacyRequest(
   eraser: LegacyEraser,
   request: LegacyAggregate,
   replies: readonly LegacyAggregate[],
 ): Promise<void> {
+  await eraseNotesOnRequest(eraser, LEGACY_CONTACT_REQUEST_ENTITY, request.id, eraser.erasedBy);
   for (const reply of replies)
     await eraseLegacyAggregate(eraser, LEGACY_CONTACT_REPLY_ENTITY, reply.id);
   await eraseLegacyAggregate(eraser, LEGACY_CONTACT_REQUEST_ENTITY, request.id);
-  await eraseNotesOnRequest(eraser, LEGACY_CONTACT_REQUEST_ENTITY, request.id, eraser.erasedBy);
 }

@@ -18,6 +18,7 @@ import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
+  defineEntityDetailHandler,
   defineEntityListHandler,
   defineFeature,
 } from "../../engine/index.ts";
@@ -117,6 +118,19 @@ const globalCatalogFeature = defineFeature(GLOBAL_FEATURE, (r) => {
   r.queryHandler(
     defineEntityListHandler("catalog", catalogEntity, { access: { roles: ["Admin"] } }),
   );
+  r.queryHandler({
+    name: "catalog:usage-stats",
+    schema: z.object({}),
+    access: { roles: ["Admin"] },
+    handler: async () => ({ ran: true }),
+  });
+  r.queryHandler({
+    ...defineEntityDetailHandler("catalog", catalogEntity, { access: { roles: ["SystemAdmin"] } }),
+    escapeHatch: {
+      reason: "test: convention-shaped query with an identity switch",
+      grants: ["systemIdentity"],
+    },
+  });
   r.writeHandler(
     defineEntityCreateHandler("ledger", ledgerEntity, { access: { roles: ["Admin"] } }),
   );
@@ -353,6 +367,33 @@ describe("ctx.crossTenantReads on handlers", () => {
       expect(result).toMatchObject({
         isSuccess: false,
         error: { code: "access_denied", details: { reason: "agent.tool_not_allowed" } },
+      });
+    });
+
+    test("a hand-written query mapped to a global entity is still denied", async () => {
+      await expect(
+        runAsAgentToolCallEntry(() =>
+          stack.dispatcher.query(`${GLOBAL_FEATURE}:query:catalog:usage-stats`, {}, ownAdmin),
+        ),
+      ).rejects.toMatchObject({
+        code: "access_denied",
+        details: { reason: "agent.tool_not_allowed" },
+      });
+    });
+
+    test("a convention query with an escapeHatch is still denied", async () => {
+      const systemAdmin = createTestUser({ id: 3, tenantId: ownTenant, roles: ["SystemAdmin"] });
+      await expect(
+        runAsAgentToolCallEntry(() =>
+          stack.dispatcher.query(
+            `${GLOBAL_FEATURE}:query:catalog:detail`,
+            { id: "00000000-0000-4000-8000-000000000001" },
+            systemAdmin,
+          ),
+        ),
+      ).rejects.toMatchObject({
+        code: "access_denied",
+        details: { reason: "agent.tool_not_allowed" },
       });
     });
 
