@@ -653,6 +653,79 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
     expect(window.location.pathname).toContain("task-list");
     expect(window.location.search).toContain("task-list.filter=overdue");
   });
+
+  describe("a stat on a role-restricted named filter", () => {
+    const targetFeature: FeatureSchema = {
+      featureName: "work",
+      entities: {},
+      screens: [
+        {
+          id: "task-list",
+          type: "projectionList",
+          query: "work:query:task:list",
+          columns: ["name"],
+          namedFilters: [{ id: "audit", label: "work:audit", roles: ["Auditor"] }],
+        },
+      ],
+    };
+    const tileSchema: FeatureSchema = {
+      featureName: "work",
+      entities: {},
+      screens: [
+        {
+          id: "overview",
+          type: "dashboard",
+          panels: [
+            {
+              kind: "stat",
+              id: "audit",
+              label: "work:dashboard:audit",
+              query: "work:query:task:list",
+              valueField: "total",
+              params: { namedFilter: "audit", limit: 1, totalCount: true },
+              navigate: { screen: "task-list", namedFilter: "audit" },
+            },
+          ],
+        },
+      ],
+    };
+
+    function renderTile(roles: readonly string[]) {
+      const calls: string[] = [];
+      const dispatcher = createMockDispatcher({
+        query: (async (type: string) => {
+          calls.push(type);
+          return { isSuccess: true, data: { total: 3 } };
+        }) as unknown as Dispatcher["query"],
+      });
+      render(
+        <AppFeaturesProvider features={[targetFeature, tileSchema]}>
+          <UserRolesProvider roles={roles}>
+            <BrowserNav>
+              <DispatcherProvider dispatcher={dispatcher}>
+                <DashboardBodyProvider value={WebDashboardBody}>
+                  <KumikoScreen schema={tileSchema} qn="work:screen:overview" />
+                </DashboardBodyProvider>
+              </DispatcherProvider>
+            </BrowserNav>
+          </UserRolesProvider>
+        </AppFeaturesProvider>,
+      );
+      return calls;
+    }
+
+    test("is hidden and never queried for a user without the role", async () => {
+      const calls = renderTile(["User"]);
+      await screen.findByTestId("dashboard-overview");
+      expect(screen.queryByTestId("dashboard-panel-audit")).toBeNull();
+      expect(calls).toEqual([]);
+    });
+
+    test("is shown for a user with the role", async () => {
+      renderTile(["Auditor"]);
+      expect(await screen.findByTestId("dashboard-panel-audit-link")).toBeTruthy();
+    });
+  });
 });
 
 const sessionsSchema: FeatureSchema = {

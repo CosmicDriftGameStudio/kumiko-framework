@@ -8,6 +8,7 @@ import type {
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
+import { UserRolesProvider } from "../../context/user-roles-context.tsx";
 import type { Dispatcher } from "../../headless/index.ts";
 import { listResetUpdates } from "../../hooks/list-reset.ts";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.tsx";
@@ -102,7 +103,12 @@ function StatefulNav({
   return <NavProvider value={value}>{children}</NavProvider>;
 }
 
-function renderScreen(schema: FeatureSchema, qn: string, urlParams: Record<string, string>): void {
+function renderScreen(
+  schema: FeatureSchema,
+  qn: string,
+  urlParams: Record<string, string>,
+  roles?: readonly string[],
+): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "de-DE", timeZone: "UTC" })}
@@ -111,7 +117,9 @@ function renderScreen(schema: FeatureSchema, qn: string, urlParams: Record<strin
       <DispatcherProvider dispatcher={stubDispatcher()}>
         <StatefulNav initial={urlParams}>
           <PrimitivesProvider value={testPrimitives}>
-            <KumikoScreen schema={schema} qn={qn} />
+            <UserRolesProvider roles={roles}>
+              <KumikoScreen schema={schema} qn={qn} />
+            </UserRolesProvider>
           </PrimitivesProvider>
         </StatefulNav>
       </DispatcherProvider>
@@ -218,6 +226,27 @@ describe("entityList namedFilters", () => {
     });
     await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
     expect(queryCalls[0]?.payload).not.toHaveProperty("filters");
+  });
+
+  test("a chip restricted to roles is offered only to users holding one", async () => {
+    const gated = [
+      { id: "overdue", label: "Überfällig" },
+      { id: "audit", label: "Prüfung", roles: ["Auditor"] },
+    ];
+    reset();
+    renderScreen(taskSchema({ namedFilters: gated }), QN, {}, ["User"]);
+    const withoutRole = await capturedTable();
+    expect(
+      withoutRole.filterFacets?.find((f) => f.field === "__namedFilter")?.chips?.map((c) => c.id),
+    ).toEqual(["overdue"]);
+
+    cleanup();
+    reset();
+    renderScreen(taskSchema({ namedFilters: gated }), QN, {}, ["Auditor"]);
+    const withRole = await capturedTable();
+    expect(
+      withRole.filterFacets?.find((f) => f.field === "__namedFilter")?.chips?.map((c) => c.id),
+    ).toEqual(["overdue", "audit"]);
   });
 
   test("the .filter key does not collide with a field facet key and resets with the list", () => {

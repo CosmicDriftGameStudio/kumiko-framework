@@ -40,15 +40,13 @@
 
 import { type DbRunner, deleteMany, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  archiveStream,
-  deleteRowsWithoutReplayableStream,
-} from "@cosmicdrift/kumiko-framework/event-store";
+import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { seenMessageTable } from "./entities.ts";
 import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.ts";
 import { ingestFailureTable } from "./ingest-failures.ts";
 import { inboundMessagesProjectionTable } from "./projection.ts";
+import { purgeInboundMessages } from "./purge-messages.ts";
 import { QUARANTINE_ACKNOWLEDGED_RETENTION_DAYS } from "./quarantine.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
 
@@ -150,36 +148,25 @@ async function purgeExpiredMessages(
     ).filter((row) => !failedIds.has(row.id));
     if (rows.length === 0) break;
 
-    const ids: string[] = [];
-    for (const row of rows) {
-      await archiveStream(args.db, {
-        tenantId: args.tenantId,
-        aggregateId: row.id,
-        aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,
-        archivedBy: ARCHIVED_BY,
-        reason: REASON,
-      });
-      try {
-        if (row.bodyRef && args.deleteBodyObject) {
-          await args.deleteBodyObject(row.bodyRef);
-          bodyObjectsDeleted++;
-        }
-        await args.deleteAttachments?.(row.id);
-      } catch {
-        bodyObjectErrors++;
-        failedIds.add(row.id);
-        continue;
-      }
-      ids.push(row.id);
-    }
-    if (ids.length > 0) {
-      const deleted = await deleteRowsWithoutReplayableStream(args.db, {
-        table: inboundMessagesProjectionTable,
-        ids,
-        tenantId: args.tenantId,
-      });
-      messagesPurged += deleted.length;
-    }
+    const purged = await purgeInboundMessages({
+      db: args.db,
+      tenantId: args.tenantId,
+      rows,
+      archive: (messageId) =>
+        archiveStream(args.db, {
+          tenantId: args.tenantId,
+          aggregateId: messageId,
+          aggregateType: INBOUND_MESSAGE_AGGREGATE_TYPE,
+          archivedBy: ARCHIVED_BY,
+          reason: REASON,
+        }),
+      deleteBodyObject: args.deleteBodyObject,
+      deleteAttachments: args.deleteAttachments,
+    });
+    messagesPurged += purged.purgedIds.length;
+    bodyObjectsDeleted += purged.bodyObjectsDeleted;
+    bodyObjectErrors += purged.failedIds.length;
+    for (const id of purged.failedIds) failedIds.add(id);
 
     if (rows.length < BATCH_LIMIT) break;
   }

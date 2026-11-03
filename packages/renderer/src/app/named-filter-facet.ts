@@ -8,11 +8,22 @@ export const NAMED_FILTER_FACET_FIELD = "__namedFilter";
 
 type NamedFilterUrlState = Pick<ListUrlStateApi, "namedFilter" | "setFilter" | "setNamedFilter">;
 
-/** One toggle chip per named filter, rendered by the existing facet chip row. */
+// Unknown roles (undefined) deny a restricted filter, like role-gated screens do.
+export function isNamedFilterOffered(
+  ref: NamedListFilterRef,
+  userRoles: readonly string[] | undefined,
+): boolean {
+  const required = ref.roles;
+  return required === undefined || (userRoles ?? []).some((role) => required.includes(role));
+}
+
+/** One toggle chip per named filter the user may open, rendered by the existing facet chip row. */
 export function buildNamedFilterFacet(
-  refs: readonly NamedListFilterRef[] | undefined,
+  allRefs: readonly NamedListFilterRef[] | undefined,
   translate: Translate,
+  userRoles: readonly string[] | undefined,
 ): DataTableFacet | undefined {
+  const refs = allRefs?.filter((ref) => isNamedFilterOffered(ref, userRoles));
   if (refs === undefined || refs.length === 0) return undefined;
   return {
     field: NAMED_FILTER_FACET_FIELD,

@@ -3,6 +3,7 @@ import type {
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isNamedFilterOffered } from "./named-filter-facet.ts";
 import { findDetailForScreen } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 
@@ -46,6 +47,26 @@ export function navigateTargetAllows(
   // Unresolvable target — the boot-validator doesn't check metric navigate
   // targets, so this is a typo'd dead jump. Don't offer it.
   return false;
+}
+
+// A tile counting a named filter the user may not open would only get the 403 of its count query.
+// An unresolvable target or filter is left to the boot validator and the target screen itself.
+export function namedFilterNavigateAllows(
+  navigate: { readonly screen: string; readonly namedFilter?: string },
+  appFeatures: readonly FeatureSchema[],
+  userRoles: readonly string[] | undefined,
+): boolean {
+  const { namedFilter } = navigate;
+  if (namedFilter === undefined) return true;
+  const targetId = lastSegment(navigate.screen);
+  for (const feature of appFeatures) {
+    const target = feature.screens.find((s) => lastSegment(s.id) === targetId);
+    if (target === undefined) continue;
+    if (target.type !== "entityList" && target.type !== "projectionList") return true;
+    const ref = target.namedFilters?.find((candidate) => candidate.id === namedFilter);
+    return ref === undefined || isNamedFilterOffered(ref, userRoles);
+  }
+  return true;
 }
 
 // Searches all mounted features, and access is part of the predicate so a

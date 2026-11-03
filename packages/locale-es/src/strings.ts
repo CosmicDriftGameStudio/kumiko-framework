@@ -2188,6 +2188,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.errors.addressAlreadyConnected": "Este buzón ya está conectado.",
   "inboundMail.accounts.errors.addressDisconnected":
     "Este buzón se desconectó antes. Usa «Reactivar» en la lista de buzones para conservar su historial.",
+  "inboundMail.accounts.errors.personalAddressNotOwn":
+    "Un buzón personal solo se puede conectar con la dirección de correo de tu propia cuenta. Un administrador conecta otras direcciones como buzón compartido.",
   "inboundMail.accounts.reactivate": "Reactivar",
   "inboundMail.accounts.quarantine": "Cuarentena",
   "inboundMail.accounts.errors.credentialRequired":

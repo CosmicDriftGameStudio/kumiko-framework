@@ -55,6 +55,7 @@ import { createAcknowledgeQuarantineHandler } from "./handlers/acknowledge-quara
 import { attachMessageContentHandler } from "./handlers/attach-message-content.write.ts";
 import { createConnectAccountHandler } from "./handlers/connect-account.write.ts";
 import { createDisconnectAccountHandler } from "./handlers/disconnect-account.write.ts";
+import { createForgetMessageHandler } from "./handlers/forget-message.write.ts";
 import { ingestMessageHandler } from "./handlers/ingest-message.write.ts";
 import { createListAccountsQuery } from "./handlers/list-accounts.query.ts";
 import { createListMessagesQuery } from "./handlers/list-messages.query.ts";
@@ -256,6 +257,7 @@ export function createInboundMailFoundationFeature(options: InboundMailRoleOptio
       r.writeHandler(createReactivateAccountHandler(roles));
       r.writeHandler(createSetTrustedAuthservIdHandler(roles));
       r.writeHandler(createAcknowledgeQuarantineHandler(roles));
+      r.writeHandler(createForgetMessageHandler(roles));
       r.writeHandler(createRetryQuarantinedMessageHandler(roles));
       r.writeHandler(attachMessageContentHandler);
       r.writeHandler(markCredentialStoredHandler);

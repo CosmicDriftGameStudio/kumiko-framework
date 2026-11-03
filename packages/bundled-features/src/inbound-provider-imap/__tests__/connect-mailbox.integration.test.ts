@@ -34,6 +34,9 @@ import { markEvents, setupReadinessStack } from "../../readiness/__tests__/readi
 import { ReadinessQueries, ReadinessWrites } from "../../readiness/constants.ts";
 import { tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
+import { userEntity } from "../../user/schema/user.ts";
+import { seedUser } from "../../user/seeding.ts";
 import { IMAP_CONNECT_ERRORS, ImapHandlers, SMTP_CONNECT_ERRORS } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
@@ -73,10 +76,12 @@ beforeAll(async () => {
     features: [
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
+      createUserFeature(),
       createInboundMailFoundationFeature(),
       createInboundProviderImapFeature(),
     ],
   });
+  await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, syncCursorEntity);
   await unsafeCreateEntityTable(stack.db, seenMessageEntity);
@@ -149,8 +154,13 @@ async function expectNothingStored(admin: Admin, newEvents: () => Promise<unknow
 
 async function disconnectedPersonalMailboxOfOwner() {
   const owner = freshAdmin();
+  const { id: otherAdminId } = await seedUser(stack.db, {
+    email: "testuser@example.com",
+    displayName: "Other admin",
+    emailVerified: true,
+  });
   const otherAdmin = createTestUser({
-    id: nextTenant + 100_000,
+    id: otherAdminId,
     tenantId: owner.tenantId,
     roles: ["TenantAdmin"],
   });

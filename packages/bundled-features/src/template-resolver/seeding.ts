@@ -13,6 +13,7 @@ import {
   createTenantDb,
   type DbConnection,
   fetchOne,
+  selectMany,
   type TenantDb,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -27,6 +28,7 @@ import {
   getStreamVersion,
   getUnscopedStreamMaxVersionForSeed,
 } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
@@ -39,6 +41,8 @@ import { templateSlugSchema } from "./template-meta.ts";
 import { variablesFromSchema } from "./template-validation.ts";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./web/constants.ts";
 import { TEMPLATE_RESOLVER_FEATURE, TemplateResolverHandlers } from "./web/qualified-names.ts";
+
+const log = createFallbackLogger("template-resolver-seeding");
 
 /** Drop projection orphans (no events anywhere) so boot seeds can recreate. */
 async function resolveExistingForEventStoreSeed(
@@ -388,6 +392,63 @@ export async function seedNotificationTemplates(
         ifExists: "update",
       });
     }
+  }
+  if (registry.getFeature(TEMPLATE_RESOLVER_FEATURE) !== undefined) {
+    await removeOrphanedNotificationTemplates(db, registry);
+  }
+}
+
+const NOTIFICATION_SLUG_PATTERN = /^([^:]+):notify:[^:]+$/;
+
+function isOrphanedNotificationSlug(registry: Registry, slug: string): boolean {
+  const feature = NOTIFICATION_SLUG_PATTERN.exec(slug)?.[1];
+  if (feature === undefined) return false;
+  const notifications = registry.getAllNotifications();
+  if (notifications.has(slug)) return false;
+  const renamedAway = Array.from(notifications.values()).some((notification) =>
+    notification.renamedFrom?.includes(slug),
+  );
+  return renamedAway || registry.getFeature(feature) !== undefined;
+}
+
+// A removed or renamed notification leaves its seeded system rows behind; they would keep
+// showing up in the template overview. Tenant overrides may hold customer text, so they stay
+// and are only reported. Slugs of unmounted features are not ours to judge.
+async function removeOrphanedNotificationTemplates(
+  db: DbConnection,
+  registry: Registry,
+): Promise<void> {
+  const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
+    kind: "mail",
+  });
+  const orphans = rows.filter((row) => isOrphanedNotificationSlug(registry, row.slug));
+  if (orphans.length === 0) return;
+
+  const tdb = createTenantDb({
+    db,
+    tenantId: SYSTEM_TENANT_ID,
+    mode: "system",
+    reason: "seeding removes orphaned system notification templates",
+  });
+  const by = createSystemUser(SYSTEM_TENANT_ID);
+  const overrideCountBySlug = new Map<string, number>();
+  for (const row of orphans) {
+    if (row.tenantId !== SYSTEM_TENANT_ID) {
+      overrideCountBySlug.set(row.slug, (overrideCountBySlug.get(row.slug) ?? 0) + 1);
+      continue;
+    }
+    const result = await executor.delete({ id: String(row.id) }, by, tdb);
+    if (!result.isSuccess) {
+      throw new Error(
+        `removeOrphanedNotificationTemplates: delete of ${row.slug} (${row.locale}) failed: ${JSON.stringify(result)}`,
+      );
+    }
+  }
+  for (const [slug, count] of overrideCountBySlug) {
+    log.warn("tenant template override of a notification that no longer exists is kept", {
+      slug,
+      count,
+    });
   }
 }
 

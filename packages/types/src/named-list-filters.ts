@@ -27,4 +27,6 @@ export type NamedListFilterDef = {
 export type NamedListFilterRef = {
   readonly id: string;
   readonly label: string;
+  /** Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them. */
+  readonly roles?: readonly string[];
 };
