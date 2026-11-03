@@ -8,6 +8,7 @@ import type { Table } from "./event-store-executor-context.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
+import { isGlobalTenancyTable } from "./tenant-db-runner.ts";
 
 export type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 
@@ -75,6 +76,17 @@ function selectCandidates(
   return candidates;
 }
 
+type ParentRefGateOptions = {
+  readonly includeDeleted?: boolean;
+  readonly narrowTypes?: ReadonlySet<string>;
+  readonly requireReadHandler?: boolean;
+};
+
+// "statement": the clause the caller embeds; a global host it cannot see under the tenant scope
+// counts only through `option.globalHostIds`. "globalHostsOnly": the global hosts' EXISTS arms,
+// for the system-scope statement that resolves those ids (parent-ref-global-hosts.ts).
+export type ParentRefGateMode = "statement" | "globalHostsOnly";
+
 export function buildParentRefClause(
   entity: EntityDefinition,
   table: Table,
@@ -82,11 +94,26 @@ export function buildParentRefClause(
   user: SessionUser,
   db: TenantDb,
   option: ParentVisibilityOption | undefined,
-  opts: {
-    readonly includeDeleted?: boolean;
-    readonly narrowTypes?: ReadonlySet<string>;
-    readonly requireReadHandler?: boolean;
-  },
+  opts: ParentRefGateOptions,
+): OwnershipClause {
+  return buildParentRefGate(entity, table, tableName, user, db, option, opts, "statement");
+}
+
+// A tenant-scoped statement reads a global host table under row level security, which hides the
+// system tenant rows a global host lives on; a join table that is global itself runs in the system scope.
+export function readsGlobalHostsUnderTenantScope(db: TenantDb, joinTable: Table): boolean {
+  return db.mode === "tenant" && !isGlobalTenancyTable(joinTable);
+}
+
+export function buildParentRefGate(
+  entity: EntityDefinition,
+  table: Table,
+  tableName: string,
+  user: SessionUser,
+  db: TenantDb,
+  option: ParentVisibilityOption | undefined,
+  opts: ParentRefGateOptions,
+  mode: ParentRefGateMode,
 ): OwnershipClause {
   const parentRef = entity.parentRef;
   if (parentRef === undefined) return { kind: "pass" };
@@ -116,40 +143,109 @@ export function buildParentRefClause(
   );
   if (candidates.length === 0) return { kind: "empty" };
 
-  // The uuid shape and the tenant ids are bound once and shared by every
-  // branch. The shape is a parameter rather than a literal because shiftParams
-  // rewrites `$<digits>` anywhere in the text, including inside a string.
-  const params: unknown[] = [UUID_SHAPE_PATTERN];
-  const uuidIdx = params.length;
-  let tenantIdx: readonly [number, number] | undefined;
-  if (db.mode === "tenant") {
-    params.push(db.tenantId, SYSTEM_TENANT_ID);
-    tenantIdx = [params.length - 1, params.length];
-  }
+  const { branches, params } = collectGateBranches(candidates, mode, {
+    db,
+    user,
+    option,
+    joinTableName: tableName,
+    typeCol,
+    idCol,
+    includeDeleted: opts.includeDeleted === true,
+    globalHostsHidden: readsGlobalHostsUnderTenantScope(db, table),
+  });
+  if (branches.length === 0) return { kind: "empty" };
+  return { kind: "sql", sqlText: `(${branches.join(" OR ")})`, params };
+}
 
+type GateBranchInputs = {
+  readonly db: TenantDb;
+  readonly user: SessionUser;
+  readonly option: ParentVisibilityOption;
+  readonly joinTableName: string;
+  readonly typeCol: string;
+  readonly idCol: string;
+  readonly includeDeleted: boolean;
+  readonly globalHostsHidden: boolean;
+};
+
+function collectGateBranches(
+  candidates: ReturnType<typeof selectCandidates>,
+  mode: ParentRefGateMode,
+  gate: GateBranchInputs,
+): { readonly branches: readonly string[]; readonly params: readonly unknown[] } {
+  // The uuid shape and the tenant ids are bound once, together with the first kept
+  // EXISTS branch, and shared by every later one: Postgres rejects a statement with
+  // a parameter it cannot type, which an unused one is. The shape is a parameter
+  // rather than a literal because shiftParams rewrites `$<digits>` anywhere in the
+  // text, including inside a string.
+  const params: unknown[] = [];
+  let shared: SharedBinding | undefined;
   const branches: string[] = [];
   for (const [candidateName, candidate] of candidates) {
-    const branch = buildCandidateBranch(candidateName, candidate, user, {
-      joinTableName: tableName,
-      typeCol,
-      idCol,
-      uuidIdx,
-      tenantIdx,
-      includeDeleted: opts.includeDeleted === true,
+    const isHiddenGlobalHost = gate.globalHostsHidden && candidate.tenancy === "global";
+    if (mode === "globalHostsOnly" && !isHiddenGlobalHost) continue;
+    const resolvesHostIds = mode === "statement" && isHiddenGlobalHost;
+    const pendingShared =
+      resolvesHostIds || shared !== undefined
+        ? undefined
+        : planSharedBinding(gate.db, params.length);
+    const binding = pendingShared ?? shared;
+    const branchContext: BranchContext = {
+      joinTableName: gate.joinTableName,
+      typeCol: gate.typeCol,
+      idCol: gate.idCol,
+      uuidIdx: binding?.uuidIdx ?? 0,
+      tenantIdx: binding?.tenantIdx,
+      includeDeleted: gate.includeDeleted,
       // Ownership params are laid out right after the branch's own host-type
       // placeholder. Nothing reaches the shared `params` until the branch is
       // kept, so a dropped branch reserves no index and can't shift the
       // positional binding of the branches after it.
-      typeParamIdx: params.length + 1,
-      resolveTable: option.resolveTable,
-    });
+      typeParamIdx: params.length + (pendingShared?.values.length ?? 0) + 1,
+      resolveTable: gate.option.resolveTable,
+    };
+    const branch = resolvesHostIds
+      ? buildResolvedHostBranch(gate.option.globalHostIds?.get(candidateName), branchContext)
+      : buildCandidateBranch(candidateName, candidate, gate.user, branchContext);
     if (branch === undefined) continue;
+    if (pendingShared !== undefined) {
+      params.push(...pendingShared.values);
+      shared = pendingShared;
+    }
     params.push(candidateName, ...branch.params);
     branches.push(branch.sqlText);
   }
 
-  if (branches.length === 0) return { kind: "empty" };
-  return { kind: "sql", sqlText: `(${branches.join(" OR ")})`, params };
+  return { branches, params };
+}
+
+type SharedBinding = {
+  readonly values: readonly unknown[];
+  readonly uuidIdx: number;
+  readonly tenantIdx: readonly [number, number] | undefined;
+};
+
+function planSharedBinding(db: TenantDb, boundSoFar: number): SharedBinding {
+  if (db.mode !== "tenant") {
+    return { values: [UUID_SHAPE_PATTERN], uuidIdx: boundSoFar + 1, tenantIdx: undefined };
+  }
+  return {
+    values: [UUID_SHAPE_PATTERN, db.tenantId, SYSTEM_TENANT_ID],
+    uuidIdx: boundSoFar + 1,
+    tenantIdx: [boundSoFar + 2, boundSoFar + 3],
+  };
+}
+
+// Unresolved ids leave the arm out: a host the statement cannot check is never treated as readable.
+function buildResolvedHostBranch(
+  hostIds: readonly string[] | undefined,
+  ctx: BranchContext,
+): { readonly sqlText: string; readonly params: readonly unknown[] } | undefined {
+  if (hostIds === undefined || hostIds.length === 0) return undefined;
+  return {
+    sqlText: `("${ctx.joinTableName}"."${ctx.typeCol}" = $${ctx.typeParamIdx} AND "${ctx.joinTableName}"."${ctx.idCol}"::text = ANY($${ctx.typeParamIdx + 1}::text[]))`,
+    params: [hostIds],
+  };
 }
 
 type BranchContext = {

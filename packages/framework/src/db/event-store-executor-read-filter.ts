@@ -170,17 +170,33 @@ export function deriveParentNarrowTypes(
   entity: EntityDefinition,
   payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
 ): ReadonlySet<string> | undefined {
-  const parentRef = entity.parentRef;
-  if (parentRef === undefined) return undefined;
-  if (entity.fields[parentRef.entityTypeField]?.type === "multiSelect") return undefined;
+  return pinnedParentFieldValues(entity, payload, entity.parentRef?.entityTypeField);
+}
 
-  const typeFilters = [
+// Same subset argument for the host id field: a list pinned to some hosts only needs those
+// hosts resolved.
+export function deriveParentNarrowHostIds(
+  entity: EntityDefinition,
+  payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
+): ReadonlySet<string> | undefined {
+  return pinnedParentFieldValues(entity, payload, entity.parentRef?.entityIdField);
+}
+
+function pinnedParentFieldValues(
+  entity: EntityDefinition,
+  payload: { readonly filter?: ListFilter; readonly filters?: readonly ListFilter[] },
+  parentField: string | undefined,
+): ReadonlySet<string> | undefined {
+  if (parentField === undefined) return undefined;
+  if (entity.fields[parentField]?.type === "multiSelect") return undefined;
+
+  const fieldFilters = [
     ...(payload.filter ? [payload.filter] : []),
     ...(payload.filters ?? []),
-  ].filter((f) => f.field === parentRef.entityTypeField);
+  ].filter((f) => f.field === parentField);
 
   let narrowed: Set<string> | undefined;
-  for (const f of typeFilters) {
+  for (const f of fieldFilters) {
     let values: readonly string[] | undefined;
     if (f.op === "eq" && typeof f.value === "string") {
       values = [f.value];

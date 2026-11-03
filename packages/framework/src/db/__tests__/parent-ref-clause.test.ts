@@ -213,3 +213,68 @@ describe("combineClauses", () => {
     expect(combined.params).toEqual(["av", "bv", "cv"]);
   });
 });
+
+describe("buildParentRefClause on a global host", () => {
+  const globalHost = createEntity({
+    table: "read_test_global_hosts",
+    tenancy: "global",
+    fields: { ownerId: textField() },
+  });
+  const HOST_ID = "33333333-3333-4333-8333-333333333333";
+
+  function buildWithIds(
+    entities: ReadonlyMap<string, EntityDefinition>,
+    globalHostIds: ReadonlyMap<string, readonly string[]> | undefined,
+    db: TenantDb = tenantDb,
+  ) {
+    return buildParentRefClause(
+      joinEntity,
+      joinTable,
+      "read_test_joins",
+      user,
+      db,
+      { entities, ...(globalHostIds !== undefined && { globalHostIds }) },
+      {},
+    );
+  }
+
+  test("a tenant-scoped statement without resolved host ids leaves the global host arm out", () => {
+    expect(buildWithIds(new Map([["global-host", globalHost]]), undefined)).toEqual({
+      kind: "empty",
+    });
+  });
+
+  test("resolved host ids replace the EXISTS, and no unused shared parameter is bound", () => {
+    const clause = buildWithIds(
+      new Map([["global-host", globalHost]]),
+      new Map([["global-host", [HOST_ID]]]),
+    );
+    expect(clause).toEqual({
+      kind: "sql",
+      sqlText:
+        '(("read_test_joins"."entity_type" = $1 AND "read_test_joins"."entity_id"::text = ANY($2::text[])))',
+      params: ["global-host", [HOST_ID]],
+    });
+  });
+
+  test("a system-mode statement keeps the EXISTS on the global host", () => {
+    const clause = buildWithIds(new Map([["global-host", globalHost]]), undefined, systemDb);
+    if (clause.kind !== "sql") throw new Error(`expected sql, got ${clause.kind}`);
+    expect(clause.sqlText).toContain('EXISTS (SELECT 1 FROM "read_test_global_hosts"');
+  });
+
+  test("a tenant host next to a resolved global host binds the shared parameters with its own arm", () => {
+    const clause = buildWithIds(
+      new Map<string, EntityDefinition>([
+        ["global-host", globalHost],
+        ["host", hostEntity()],
+      ]),
+      new Map([["global-host", [HOST_ID]]]),
+    );
+    if (clause.kind !== "sql") throw new Error(`expected sql, got ${clause.kind}`);
+    expect(clause.params.slice(0, 2)).toEqual(["global-host", [HOST_ID]]);
+    expect(clause.params.slice(3, 5)).toEqual([TENANT, "00000000-0000-4000-8000-000000000000"]);
+    expect(clause.params.at(-1)).toBe("host");
+    expect(clause.sqlText).toContain('EXISTS (SELECT 1 FROM "read_test_hosts"');
+  });
+});

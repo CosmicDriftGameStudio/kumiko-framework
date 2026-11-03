@@ -47,11 +47,15 @@ export function tenantDbRunner(tenantDb: TenantDb): DbRunner {
   return runner;
 }
 
+export function isGlobalTenancyTable(table: unknown): boolean {
+  return asEntityTableMeta(table)?.tenancy === "global";
+}
+
 // Raw statements against one entity table: a global table holds system tenant rows, so its reads run
 // in the system scope like the TenantDb's own statements on it (tenantDbRowLevelSecurityScope).
 export function tenantDbRunnerForTable(tenantDb: TenantDb, table: unknown): DbRunner {
   const runner = tenantDbRunner(tenantDb);
-  return asEntityTableMeta(table)?.tenancy === "global"
+  return isGlobalTenancyTable(table)
     ? systemScopedRunner(runner, "global table rows carry the system tenant")
     : runner;
 }

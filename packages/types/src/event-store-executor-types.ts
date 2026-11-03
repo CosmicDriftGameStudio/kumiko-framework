@@ -28,6 +28,9 @@ export type ParentVisibilityOption = {
   readonly canReadEntity?: (entityName: string) => boolean;
   // The table the executor reads the entity from (a backingTable differs from the field-derived one).
   readonly resolveTable?: (entityName: string) => SchemaTable;
+  // Readable ids per global host entity, resolved in the system scope before a tenant-scoped
+  // statement whose row level security hides the system tenant rows those hosts live on.
+  readonly globalHostIds?: ReadonlyMap<string, readonly string[]>;
 };
 
 // Writes apply the same parent-ref read-gate as detail, so a join row whose host the

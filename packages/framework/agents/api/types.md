@@ -3402,6 +3402,7 @@ type ParentVisibilityOption = {
   readModelEntities?: ReadonlyMap<string, { entity: EntityDefinition; table: SchemaTable; }>;
   canReadEntity?: (entityName: string) => boolean;
   resolveTable?: (entityName: string) => SchemaTable;
+  globalHostIds?: ReadonlyMap<string, string[]>;
 };
 type PreSaveRunner = (changes: Record<string, unknown>, previous: Readonly<Record<string, unknown>>, isNew: boolean) => Promise<Record<string, unknown>>;
 type StreamTenantOption = {
