@@ -48,8 +48,12 @@ export function createLegacyContactRetentionJob(keepFor: string): JobDefinition 
             return (storageKey) => deleteFileRefBytes(files, { storageKey }, RETENTION_CONTEXT);
           }),
       };
-      const requests = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REQUEST_ENTITY);
-      const replies = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REPLY_ENTITY);
+      const requests = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REQUEST_ENTITY, {
+        decrypt: false,
+      });
+      const replies = await readLegacyAggregates(ctx.db, LEGACY_CONTACT_REPLY_ENTITY, {
+        decrypt: false,
+      });
       const erasedRequestIds = new Set<string>();
       for (const request of requests) {
         if (!isOlderThan(request, "submittedAt", cutoff)) continue;

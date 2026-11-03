@@ -1,10 +1,16 @@
+import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import { isAgentToolCallScope } from "../api/request-context-scopes.ts";
 import type { Registry } from "../engine/types/index.ts";
 
 // A global entity's rows are shared reference data every tenant already reads in tenant mode, so an
-// agent tool call may run the query convention handler of a system-scope feature that serves one.
+// agent tool call may run the generated list/detail query of a system-scope feature that serves
+// one. A hand-written query could do anything with system scope, and an escapeHatch (e.g.
+// systemIdentity) must never run on behalf of the LLM, so both stay refused.
 export function isGlobalEntityReadInAgentToolCall(registry: Registry, type: string): boolean {
-  if (!isAgentToolCallScope() || !registry.getQueryHandler(type)) return false;
+  if (!isAgentToolCallScope()) return false;
+  const handler = registry.getQueryHandler(type);
+  if (handler === undefined || handler[ENTITY_CONVENTION_QUERY_BRAND] !== true) return false;
+  if (handler.escapeHatch !== undefined) return false;
   const entityName = registry.getHandlerEntity(type);
   return entityName !== undefined && registry.getEntity(entityName)?.tenancy === "global";
 }

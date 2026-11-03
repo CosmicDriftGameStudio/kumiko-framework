@@ -20,7 +20,7 @@ migration: |
 feature: framework
 type: fix
 title: Agent tool calls can read global entities
-detail: A query handler of a system-scoped feature that reads an entity with tenancy `global` (a catalog or lookup table) was refused inside an agent tool call with `agent.tool_not_allowed`. Such a read now runs with the caller's own scope and rate limit. Every other system-scoped handler, and every write handler, is still refused for agents.
+detail: The generated list and detail query of a system-scoped feature that serves an entity with tenancy `global` (a catalog or lookup table) was refused inside an agent tool call with `agent.tool_not_allowed`. Such a read now runs with the caller's tenant scope; the system-scope default rate limit still applies. This only holds for the entity convention handlers without an `escapeHatch`; hand-written queries, queries with an `escapeHatch` (e.g. `systemIdentity`), other entities and every write handler are still refused for agents.
 -->
 
 <!-- kumiko-changes

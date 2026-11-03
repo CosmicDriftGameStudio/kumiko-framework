@@ -11,7 +11,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   systemTenantReadDb,
-  systemTenantStreamRunner,
+  systemTenantWriteRunner,
 } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import { eraseNoteBodiesReachingSubject } from "../notes-history-user-data/index.ts";
 import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.ts";
@@ -26,6 +26,8 @@ import {
 const PII_DECRYPT_REASON = "helpdesk:user-data";
 const ERASE_REASON = "helpdesk:user-data-forget";
 const LOOKUP_LIMIT = 200;
+const NOTE_ERASE_WRITE_REASON =
+  "erases the note bodies SystemAdmins wrote in the system tenant on a request of an erased subject";
 
 async function findRequests(ctx: UserDataHookCtx) {
   const byUser = await requestExecutor.list(
@@ -125,7 +127,7 @@ export async function eraseNotesOnRequest(
   id: string,
   erasedBy: string,
 ): Promise<void> {
-  for (const db of [ctx.db, systemTenantStreamRunner(ctx.db)]) {
+  for (const db of [ctx.db, systemTenantWriteRunner(ctx.db, NOTE_ERASE_WRITE_REASON)]) {
     await eraseNoteBodiesReachingSubject({
       db,
       subject: { kind: "record", entity, id },
@@ -203,13 +205,13 @@ export const helpdeskDeleteHook: UserDataDeleteHook = async (ctx) => {
         await replyExecutor.forget({ id: reply.id }, platformActor(), ctx.db),
       );
     }
+    await eraseNotesOnRequest(ctx, HELPDESK_REQUEST_ENTITY, request.id, ctx.userId);
     await purgeAttachments(ctx, HELPDESK_REQUEST_ENTITY, request.id);
     await erase(
       HELPDESK_REQUEST_ENTITY,
       request.id,
       await requestExecutor.forget({ id: request.id }, platformActor(), ctx.db),
     );
-    await eraseNotesOnRequest(ctx, HELPDESK_REQUEST_ENTITY, request.id, ctx.userId);
   }
   throwIfErasureFailed(failures);
 };
