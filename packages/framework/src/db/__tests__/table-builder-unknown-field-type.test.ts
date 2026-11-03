@@ -13,7 +13,7 @@ function entityWithFieldType(type: string): EntityDefinition {
 describe("buildEntityTable with an unknown field type", () => {
   test("rejects a type that has no column emitter", () => {
     expect(() => buildEntityTable("unknownTypeProbe", entityWithFieldType("bogus"))).toThrow(
-      "[Kumiko] unhandled field type",
+      "[Kumiko] unhandled field type: bogus",
     );
   });
 
@@ -22,7 +22,7 @@ describe("buildEntityTable with an unknown field type", () => {
     (prototypeKey) => {
       expect(() =>
         buildEntityTable("prototypeTypeProbe", entityWithFieldType(prototypeKey)),
-      ).toThrow("[Kumiko] unhandled field type");
+      ).toThrow(`[Kumiko] unhandled field type: ${prototypeKey}`);
     },
   );
 });

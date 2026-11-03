@@ -4,6 +4,7 @@
 import {
   isSameTableRowLevelSecurity,
   renderDisableRowLevelSecurity,
+  renderDropPolicy,
   renderEnableRowLevelSecurity,
   type TableRowLevelSecurity,
 } from "./render-rls-ddl.ts";
@@ -98,4 +99,21 @@ export function renderRowLevelSecurityChanges(
     ...changes.flatMap((change) => [`-- ${change.tableName}`, ...renderChange(change)]),
     "",
   ];
+}
+
+// Postgres refuses ALTER COLUMN TYPE / DROP COLUMN on a column a policy still references, so the
+// previous policies must go before the in-place table changes; the section after them recreates them.
+export function renderPolicyDropsBeforeTenantColumnChange(
+  changes: readonly RowLevelSecurityChange[] = [],
+  tablesChangingTenantColumn: ReadonlySet<string>,
+): string[] {
+  const statements = changes.flatMap((change) => {
+    if (!tablesChangingTenantColumn.has(change.tableName) || change.previous === undefined) {
+      return [];
+    }
+    const tableSql = quoteIdent(change.tableName);
+    return change.previous.policies.map((policy) => renderDropPolicy(tableSql, policy.name));
+  });
+  if (statements.length === 0) return [];
+  return ["-- === Row level security (pre) ===", ...statements, ""];
 }

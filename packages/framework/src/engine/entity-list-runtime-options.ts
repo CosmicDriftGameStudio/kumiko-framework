@@ -35,12 +35,16 @@ const detailAccessOf = memoizePerRegistry(collectEntityDetailAccess);
 const queryAccessOf = memoizePerRegistry(collectEntityQueryAccess);
 
 // An entity with a backingTable is read from that table; the implicit projection holds it.
-function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefinition) {
-  const implicit = ctx.registry
+function implicitProjectionOf(ctx: HandlerContext, entityName: string) {
+  return ctx.registry
     .getProjectionsForSource(entityName)
     .find((projection) =>
       projection.name.endsWith(`:projection:${entityName}${IMPLICIT_PROJECTION_SUFFIX}`),
     );
+}
+
+function readTableOf(ctx: HandlerContext, entityName: string, entity: EntityDefinition) {
+  const implicit = implicitProjectionOf(ctx, entityName);
   return implicit?.table ?? buildEntityTable(entityName, entity);
 }
 
@@ -134,11 +138,7 @@ function physicalReadTableName(
   entityName: string,
   entity: EntityDefinition,
 ): string {
-  const implicit = ctx.registry
-    .getProjectionsForSource(entityName)
-    .find((projection) =>
-      projection.name.endsWith(`:projection:${entityName}${IMPLICIT_PROJECTION_SUFFIX}`),
-    );
+  const implicit = implicitProjectionOf(ctx, entityName);
   return implicit !== undefined
     ? extractTableInfo(implicit.table).name
     : resolveTableName(entityName, entity, undefined);

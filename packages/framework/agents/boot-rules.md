@@ -277,6 +277,7 @@
 | <a id="entity-located-by-missing-field"></a>`entity/located-by-missing-field` | A timestamp locatedBy names a field of the same entity. | Declare the tz field or use createLocatedTimestampField(). | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="entity-located-by-not-tz"></a>`entity/located-by-not-tz` | A timestamp locatedBy points at a tz field. | Point locatedBy at a field of type tz. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 | <a id="entity-searchable-restricted-read"></a>`entity/searchable-restricted-read` | A searchable field has no restricted access.read. | Drop searchable/find: "fuzzy" or access.read. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
+| <a id="entity-sort-nulls-needs-sortable"></a>`entity/sort-nulls-needs-sortable` | A field with sortNulls is sortable. | Add sortable: true or drop sortNulls. | `packages/framework/src/engine/boot-validator/entity-structure-rules.ts` |
 
 ## entity-edit
 

@@ -1,5 +1,4 @@
 import { camelCase as envCamelCase } from "../env/internals.ts";
-import type { TableLike } from "./query.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { asEntityTableMeta } from "./table-introspection.ts";
 
@@ -29,7 +28,7 @@ export type TableInfo = {
   readonly hasColumn: (fieldOrColumn: string) => boolean;
 };
 
-export function extractTableInfo(table: TableLike): TableInfo {
+export function extractTableInfo(table: unknown): TableInfo {
   const meta = asEntityTableMeta(table);
   if (!meta) {
     throw new Error(

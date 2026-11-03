@@ -121,11 +121,7 @@ function applyScreenFilter(
     if (value === null) {
       whereSql.push(`${colSql(field)} IS NULL`);
     } else if (Array.isArray(value)) {
-      const placeholders = value.map((v) => {
-        params.push(v);
-        return `$${params.length}`;
-      });
-      whereSql.push(`${colSql(field)} IN (${placeholders.join(", ")})`);
+      whereSql.push(`${colSql(field)} IN (${bindPlaceholders(params, value)})`);
     } else if (isPlainObject(value)) {
       if (value["ne"] === null && Object.keys(value).length === 1) {
         whereSql.push(`${colSql(field)} IS NOT NULL`);

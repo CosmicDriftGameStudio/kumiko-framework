@@ -51,6 +51,11 @@ export const ENTITY_STRUCTURE_RULES = {
     summary: "An encrypted text field is not sortable.",
     fix: "Drop sortable: true or remove the encryption.",
   },
+  sortNullsNeedsSortable: {
+    id: "entity/sort-nulls-needs-sortable",
+    summary: "A field with sortNulls is sortable.",
+    fix: "Add sortable: true or drop sortNulls.",
+  },
   encryptedFilterable: {
     id: "entity/encrypted-filterable",
     summary: "An encrypted text field is not filterable.",

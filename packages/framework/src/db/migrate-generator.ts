@@ -35,6 +35,7 @@ import {
 import {
   diffRowLevelSecurity,
   type RowLevelSecurityChange,
+  renderPolicyDropsBeforeTenantColumnChange,
   renderRowLevelSecurityChanges,
 } from "./migrate-rls-diff.ts";
 import { renderIndex, renderTableDdl } from "./render-ddl.ts";
@@ -43,6 +44,7 @@ import {
   type RowLevelSecurityMode,
   rowLevelSecurityByTable,
   type TableRowLevelSecurity,
+  TENANT_COLUMN,
 } from "./render-rls-ddl.ts";
 import { findRetiredTableDrops, type RetiredFrameworkTable } from "./retired-framework-tables.ts";
 import { quoteIdent } from "./sql-identifier.ts";
@@ -491,6 +493,21 @@ function renderRetiredDrops(retiredDrops: readonly RetiredFrameworkTable[]): str
   ];
 }
 
+function tablesChangingTenantColumn(changedTables: readonly TableDiff[]): Set<string> {
+  return new Set(
+    changedTables
+      .filter(
+        (td) =>
+          !isRecreatedManagedTable(td) &&
+          (td.droppedColumns.includes(TENANT_COLUMN) ||
+            td.changedColumns.some(
+              (change) => change.name === TENANT_COLUMN && change.typeChanged !== undefined,
+            )),
+      )
+      .map((td) => td.tableName),
+  );
+}
+
 // Render the diff as a SQL-file content with header-comment + grouped
 // statements. Destructive operations (DROP TABLE/COLUMN, DROP INDEX where
 // the index serves performance) are emitted as commented-out statements
@@ -501,6 +518,10 @@ export function renderMigrationSql(diff: SchemaDiff, options: MigrationSqlOption
   const lines = [
     ...renderMigrationHeader(options),
     ...renderNewTables(diff.newTables),
+    ...renderPolicyDropsBeforeTenantColumnChange(
+      rowLevelSecurityChanges,
+      tablesChangingTenantColumn(diff.changedTables),
+    ),
     ...renderChangedTables(diff.changedTables),
     ...renderRowLevelSecurityChanges(options.rowLevelSecurityChanges),
     ...renderDroppedTables(diff.droppedTables),

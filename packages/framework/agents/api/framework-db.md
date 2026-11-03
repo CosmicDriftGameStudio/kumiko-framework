@@ -68,7 +68,7 @@ function entityTableFromRegistry(registry: Registry, entityName: string, entity:
 function enumerateFeatureTableSources(feature: FeatureDefinition): FeatureTableSource[];
 function executeRawQuery<T = Record<string, unknown>>(db: AnyDb, sqlText: string, params?: unknown[]): Promise<T[]>; // Escape hatch for caller-built SQL that may write (or lock).
 function extractPgError(e: unknown): PgErrorInfo | null;
-function extractTableInfo(table: TableLike): TableInfo;
+function extractTableInfo(table: unknown): TableInfo;
 function extractTableName(table: unknown, context?): string; // Reads the `kumiko:schema:Name` symbol from a table object.
 function fetchOne<TRow = AnyRow>(db: AnyDb, table: TableLike, where: WhereObject): Promise<TRow | undefined>;
 function generateMigration(input: GenerateMigrationInput): GenerateMigrationOutput;
