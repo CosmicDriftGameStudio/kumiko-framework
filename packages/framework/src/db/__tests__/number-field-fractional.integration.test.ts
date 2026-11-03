@@ -56,16 +56,20 @@ describe("createNumberField() without integer:true — fractional values round-t
 
 describe("createNumberField({ integer: true }) — still rejects fractional values at the DB", () => {
   test("INSERT with a non-integer value into an integer-flagged field throws", async () => {
+    // The failing INSERT runs in its own transaction so the aborted statement
+    // rolls back and never leaves a poisoned connection in the pool.
     await expect(
-      seedRow(
-        stack.db,
-        statsTable,
-        {
-          expectedValue: 1,
-          wholeCount: 3.5,
-          tenantId: "00000000-0000-4000-8000-000000000001",
-        },
-        { projectionOnly: "fixture plants a projection row without its event" },
+      stack.db.begin((tx) =>
+        seedRow(
+          tx,
+          statsTable,
+          {
+            expectedValue: 1,
+            wholeCount: 3.5,
+            tenantId: "00000000-0000-4000-8000-000000000001",
+          },
+          { projectionOnly: "fixture plants a projection row without its event" },
+        ),
       ),
     ).rejects.toThrow(/invalid input syntax for type integer/);
   });

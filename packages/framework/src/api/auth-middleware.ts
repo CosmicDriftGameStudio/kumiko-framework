@@ -725,12 +725,14 @@ async function resolveWithAuthoritativeResolver(
 ): Promise<ResolvedTenant | ResolveError> {
   const resolved = await tenantResolver(c);
   if (resolved !== null && resolved !== undefined) {
-    if (clientTenant && clientTenant.id !== resolved) {
+    // A cookie is ambient state (possibly apex-scoped, left over from another
+    // tenant's subdomain); only an explicit header counts as a conflicting claim.
+    if (clientTenant && clientTenant.source === "header" && clientTenant.id !== resolved) {
       return {
         error: {
           code: "tenant_mismatch",
           status: 400,
-          message: `${clientTenant.source} tenant disagrees with resolved tenant`,
+          message: "header tenant disagrees with resolved tenant",
           i18nKey: "auth.errors.tenantMismatch",
           details: { clientTenantId: clientTenant.id, resolvedTenantId: resolved },
         },

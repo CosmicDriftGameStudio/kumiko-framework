@@ -29,6 +29,13 @@ detail: A statement issued through the query helpers on a transaction now queues
 -->
 
 <!-- kumiko-changes
+feature: framework
+type: fix
+title: authoritative tenant resolver ignores a disagreeing kumiko_tenant cookie
+detail: With `resolverTrust: "authoritative"`, only an `X-Tenant` header that disagrees with the resolver answers 400 tenant_mismatch. A `kumiko_tenant` cookie is ambient state, possibly apex-scoped and left over from another tenant's subdomain, so a disagreeing cookie is ignored and the resolver's tenant wins; before, such a visitor was locked out of every other tenant subdomain.
+-->
+
+<!-- kumiko-changes
 feature: dev-server
 type: fix
 title: managed check reports a bin entry that does not pass bundledLists
