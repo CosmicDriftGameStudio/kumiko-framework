@@ -330,6 +330,7 @@ export type {
 } from "./screen-list-table.ts";
 export {
   DEFAULT_EXPORT_MAX_ROWS,
+  LIST_COLUMN_MAX_WIDTH_PX,
   LIST_COLUMN_PINS,
   LIST_TABLE_DENSITIES,
   LIST_TABLE_DENSITY_KEYS,

@@ -1,8 +1,8 @@
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import type { FileAttachmentRef } from "../renderer-foundation/index.ts";
-import { stringValuesOf } from "./string-values.ts";
 import { pdfAttachmentFileNamePatternSchema, templateSlugSchema } from "./template-meta.ts";
+import { stringValuesOf } from "./web/string-values.ts";
 
 export const templatePdfAttachmentLinkSchema = z
   .object({

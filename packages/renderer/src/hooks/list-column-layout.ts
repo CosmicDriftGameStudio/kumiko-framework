@@ -1,4 +1,4 @@
-import { LIST_COLUMN_MAX_WIDTH_PX } from "@cosmicdrift/kumiko-types/screen-list-table";
+import { LIST_COLUMN_MAX_WIDTH_PX } from "@cosmicdrift/kumiko-types/screen";
 import type {
   DataTableColumnPin,
   DataTableColumnPins,

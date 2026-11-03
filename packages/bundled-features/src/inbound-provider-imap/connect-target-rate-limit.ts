@@ -1,5 +1,7 @@
 // The handlers' own `rateLimit` counts per tenant, so many tenants could probe one foreign mail
 // host (login oracle, port scan). These buckets are keyed by the target and count across tenants.
+// Trade-off: tokens are booked before the login attempt and the limiter has no refund, so a
+// tenant admin can exhaust a foreign host+user bucket; the oracle protection is the weightier risk.
 
 import { InternalError, isKumikoError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type {
@@ -23,7 +25,8 @@ export async function enforceConnectTargetLimit(
       message: "inbound-provider-imap connect checks need a rate limiter and a digest key",
     });
   }
-  const host = doc.host.toLowerCase();
+  // Trailing dot is the same DNS name; without stripping it `imap.x.com.` would get its own buckets.
+  const host = doc.host.toLowerCase().replace(/\.+$/, "");
   try {
     await rateLimit.enforceAll([
       {

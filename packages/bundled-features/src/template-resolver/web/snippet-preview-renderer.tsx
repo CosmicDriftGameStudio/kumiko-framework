@@ -4,8 +4,8 @@ import {
   TextPreviewRenderer,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { stringValuesOf } from "../string-values.ts";
 import { fillDocumentVariables } from "./fill-document-variables.ts";
+import { stringValuesOf } from "./string-values.ts";
 import { HtmlPaperFrame } from "./web-preview-renderer.tsx";
 
 // The "text" target of collection entries: a document entry shows as the finished text with its
