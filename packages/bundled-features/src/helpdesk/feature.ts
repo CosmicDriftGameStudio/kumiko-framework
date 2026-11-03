@@ -27,6 +27,10 @@ import { createSendReplyMailHandler } from "./handlers/send-reply-mail.write.ts"
 import { createSendTestHandler } from "./handlers/send-test.write.ts";
 import { createSubmitHandler } from "./handlers/submit.write.ts";
 import { createHelpdeskI18n } from "./i18n.ts";
+import {
+  carryOverLegacyContactConfig,
+  LEGACY_CONTACT_CONFIG_JOB,
+} from "./legacy-contact-config.ts";
 import { runLegacyContactRetention } from "./legacy-contact-retention.ts";
 import {
   LEGACY_CONTACT_REQUEST_ENTITY,
@@ -109,28 +113,35 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
       });
     }
 
+    // renamedFrom: preferences and opt-outs stored under the former contact feature keep applying.
     r.notification("new-request", {
+      renamedFrom: ["contact:notify:new-request"],
       variables: HELPDESK_NEW_REQUEST_VARIABLES,
       localizedTemplate: helpdeskNewRequestTemplate,
       ...(telegram && { templates: { telegram: telegramTemplate } }),
     });
     r.notification("confirmation", {
+      renamedFrom: ["contact:notify:confirmation"],
       variables: HELPDESK_CONFIRMATION_VARIABLES,
       localizedTemplate: helpdeskConfirmationTemplate,
     });
     r.notification("acknowledgement", {
+      renamedFrom: ["contact:notify:acknowledgement"],
       variables: HELPDESK_ACKNOWLEDGEMENT_VARIABLES,
       localizedTemplate: helpdeskAcknowledgementTemplate,
     });
     r.notification("reply", {
+      renamedFrom: ["contact:notify:reply"],
       variables: HELPDESK_REPLY_VARIABLES,
       localizedTemplate: helpdeskReplyTemplate,
     });
     r.notification("reply-in-app", {
+      renamedFrom: ["contact:notify:reply-in-app"],
       templates: { inApp: inAppTemplate },
     });
     if (telegram) {
       r.notification("test", {
+        renamedFrom: ["contact:notify:test"],
         variables: HELPDESK_TEST_VARIABLES,
         localizedTemplate: helpdeskTestTemplate,
         templates: { telegram: telegramTemplate },
@@ -179,6 +190,21 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     r.useExtension(EXT_USER_DATA, LEGACY_CONTACT_REQUEST_ENTITY, {
       export: legacyContactExportHook,
       delete: legacyContactDeleteHook,
+    });
+    r.job({
+      name: LEGACY_CONTACT_CONFIG_JOB,
+      trigger: { manual: true },
+      runOnBoot: true,
+      concurrency: "skip",
+      escapeHatch: {
+        reason:
+          "reads the config values stored under the former contact keys across the system tenant and writes them to the helpdesk keys via config:write:set as SystemAdmin",
+        grants: ["crossTenantReads", "systemIdentity"],
+      },
+      handler: async (_payload, ctx) => {
+        const carriedOver = await carryOverLegacyContactConfig(ctx);
+        ctx.obs.log.info("helpdesk: carried over former contact config", { carriedOver });
+      },
     });
     r.job({
       name: "legacy-contact-retention",

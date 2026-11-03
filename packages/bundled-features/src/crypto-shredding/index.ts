@@ -12,3 +12,7 @@ export {
   subjectForgottenSchema,
   subjectIdSchema,
 } from "./handlers/forget-subject.write.ts";
+export {
+  type SubjectForgetAfterDeleteOptions,
+  subjectForgetAfterDeleteHook,
+} from "./subject-forget-after-delete-hook.ts";
