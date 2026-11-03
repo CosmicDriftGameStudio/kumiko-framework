@@ -57,6 +57,7 @@ import {
 } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { ImapHandlers, SMTP_CONNECT_ERRORS } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT } from "../smtp-client.ts";
@@ -146,6 +147,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       createFilesFeature(),
       createInboundMailFoundationFeature(),
+      createUserFeature(),
       createInboundProviderImapFeature(),
       sendTestFeature,
     ],

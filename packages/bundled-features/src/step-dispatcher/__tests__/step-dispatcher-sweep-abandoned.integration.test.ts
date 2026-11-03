@@ -1,4 +1,4 @@
-// A deliver job can end terminally without an outcome (BullMQ stall, lost job). The hourly sweeper
+// A deliver job can end terminally without an outcome (BullMQ stall, lost job). The daily sweeper
 // closes such a request as failed once it is older than ABANDON_DISPATCH_AFTER_HOURS and erases
 // its payload key; requests with an outcome or still inside the window stay untouched.
 
@@ -32,6 +32,7 @@ import {
   type MailSpec,
   setMailRunner,
 } from "../index.ts";
+import { sweepAbandonedDispatches } from "../sweep-abandoned.ts";
 
 const DISPATCH_REQUESTED = "kumiko:system:step.dispatch-requested";
 const DISPATCHED = "kumiko:system:step.dispatched";
@@ -195,6 +196,30 @@ describe("step-dispatcher sweep-abandoned", () => {
     expect(await failedOf(abandoned)).toHaveLength(1);
     expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(1);
     expect(mailMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("pages past a full batch so every abandoned request is closed in one run", async () => {
+    const abandoned: string[] = [];
+    for (let index = 0; index < 5; index++) {
+      abandoned.push(await sendMail(`lost-${index}@example.com`));
+    }
+    await loseDeliverJobs();
+
+    await sweepAbandonedDispatches({
+      db: stack.db,
+      registry: stack.registry,
+      startedBeforeIso: "2100-01-01T00:00:00Z",
+      batchSize: 2,
+      onCloseFailure: (aggregateId, errorName) => {
+        throw new Error(`close of ${aggregateId} failed: ${errorName}`);
+      },
+    });
+
+    for (const aggregateId of abandoned) {
+      expect(await failedOf(aggregateId)).toHaveLength(1);
+      expect(await keyIsErased(aggregateId)).toBe(true);
+    }
+    expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(5);
   });
 
   test("a request closed this way is not sent when its late deliver job finally runs", async () => {

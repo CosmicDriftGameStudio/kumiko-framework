@@ -8,6 +8,7 @@ import {
   decryptPiiFieldValues,
   InMemoryKmsAdapter,
   PII_ERASED_SENTINEL,
+  subjectIdToKey,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { buildEntityTable, createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -21,12 +22,14 @@ import {
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.ts";
 import { createCryptoShreddingFeature } from "../feature.ts";
 import { subjectForgetAfterDeleteHook } from "../subject-forget-after-delete-hook.ts";
 
@@ -54,6 +57,19 @@ const probeTable = buildEntityTable(ENTITY, probeEntity);
 const access = { roles: ["Owner"] };
 
 let rejectDelete = false;
+let trailingSubjectIds: readonly string[] = [];
+
+class FailingEraseKmsAdapter extends InMemoryKmsAdapter {
+  readonly failingRecordIds = new Set<string>();
+
+  override async eraseKey(...args: Parameters<InMemoryKmsAdapter["eraseKey"]>): Promise<void> {
+    const [subject] = args;
+    if (subject.kind === "record" && this.failingRecordIds.has(subject.id)) {
+      throw new Error("kms unavailable for this subject");
+    }
+    await super.eraseKey(...args);
+  }
+}
 
 const probeFeature = defineFeature("after-delete-probe", (r) => {
   const probe = r.entity({ name: ENTITY, ...probeEntity });
@@ -62,7 +78,12 @@ const probeFeature = defineFeature("after-delete-probe", (r) => {
   r.hook(
     subjectForgetAfterDeleteHook({
       target: { allOf: probe },
-      subjectsOf: (id) => [{ kind: "record", entity: ENTITY, id }],
+      subjectsOf: (id) =>
+        [id, ...trailingSubjectIds].map((subjectId) => ({
+          kind: "record" as const,
+          entity: ENTITY,
+          id: subjectId,
+        })),
       reason: "probe row deleted: crypto-shred its note",
     }),
   );
@@ -76,7 +97,7 @@ const probeFeature = defineFeature("after-delete-probe", (r) => {
 });
 
 let stack: TestStack;
-let kms: InMemoryKmsAdapter;
+let kms: FailingEraseKmsAdapter;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [createCryptoShreddingFeature(), probeFeature] });
@@ -89,9 +110,10 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await resetTestTables(stack.db, [probeTable, eventsTable]);
-  kms = new InMemoryKmsAdapter();
+  kms = new FailingEraseKmsAdapter();
   configurePiiSubjectKms(kms);
   rejectDelete = false;
+  trailingSubjectIds = [];
 });
 
 afterEach(() => {
@@ -148,6 +170,27 @@ describe("crypto-shredding :: subjectForgetAfterDeleteHook", () => {
     expect(response.status).toBe(409);
     expect(await rowCount(id)).toBe(1);
     expect(await rawBodyOf(id)).toBe(PLAINTEXT);
+  });
+
+  test("a failing second subject rolls the delete back but keeps the audit event of the erased first subject", async () => {
+    const id = await createProbe();
+    const failingSubjectId = generateId();
+    trailingSubjectIds = [failingSubjectId];
+    kms.failingRecordIds.add(failingSubjectId);
+
+    const response = await stack.http.write(DELETE, { id }, owner);
+
+    expect(response.status).toBe(500);
+    expect(await rowCount(id)).toBe(1);
+    // The first key is gone for good, so its audit trail must outlive the rolled-back delete.
+    expect(await rawBodyOf(id)).toBe(PII_ERASED_SENTINEL);
+    const audit = (await selectMany(stack.db, eventsTable, {
+      type: SUBJECT_FORGOTTEN_EVENT_NAME,
+    })) as Array<{ payload: { subjectKey: string } }>;
+    expect(audit).toHaveLength(1);
+    expect(audit[0]?.payload.subjectKey).toBe(
+      subjectIdToKey({ kind: "record", entity: ENTITY, id }),
+    );
   });
 
   test("a delete of another tenant's row is refused and never reaches the key erase", async () => {

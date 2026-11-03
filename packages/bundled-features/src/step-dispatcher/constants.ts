@@ -28,4 +28,8 @@ export const DELIVER_RETRIES = 3;
 // live job is done long before this. Only a stalled or lost job leaves a request older than it
 // without an outcome; 24 h also covers a worker lane that was down for a night.
 export const ABANDON_DISPATCH_AFTER_HOURS = 24;
+
+// Page size of the daily sweep. The open-stream query filters kumiko_events by aggregate type and
+// event type without a matching index (the only index starts with tenant_id), so it is a seq
+// scan: the cron runs once a day, not hourly.
 export const SWEEP_ABANDONED_BATCH_SIZE = 500;

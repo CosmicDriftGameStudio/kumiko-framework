@@ -10,9 +10,13 @@ export type OpenStreamsArgs = {
   readonly closingTypes: readonly string[];
   readonly startedBeforeIso: string;
   readonly limit: number;
+  // Keyset cursor: only streams whose opening event has a larger id, for paging past a full page.
+  readonly afterId?: string;
 };
 
 export type OpenStream = {
+  // Id of the opening event, the cursor for the next page.
+  readonly id: string;
   readonly tenantId: string;
   readonly aggregateId: string;
 };
@@ -23,10 +27,15 @@ export async function selectOpenStreamsStartedBefore(
   db: DbRunner,
   args: OpenStreamsArgs,
 ): Promise<readonly OpenStream[]> {
-  const rows = await asRawClient(db).unsafe<{ tenant_id: string; aggregate_id: string }>(
-    `SELECT s."tenant_id", s."aggregate_id"
+  const rows = await asRawClient(db).unsafe<{
+    id: string;
+    tenant_id: string;
+    aggregate_id: string;
+  }>(
+    `SELECT s."id"::text AS "id", s."tenant_id", s."aggregate_id"
        FROM "kumiko_events" s
       WHERE s."aggregate_type" = $1 AND s."type" = $2 AND s."created_at" < $3::timestamptz
+        AND ($6::bigint IS NULL OR s."id" > $6::bigint)
         AND NOT EXISTS (
           SELECT 1 FROM "kumiko_events" c
            WHERE c."tenant_id" = s."tenant_id" AND c."aggregate_id" = s."aggregate_id"
@@ -44,7 +53,12 @@ export async function selectOpenStreamsStartedBefore(
       args.startedBeforeIso,
       toPostgresArrayLiteral([...args.closingTypes]),
       args.limit,
+      args.afterId ?? null,
     ],
   );
-  return rows.map((row) => ({ tenantId: row.tenant_id, aggregateId: row.aggregate_id }));
+  return rows.map((row) => ({
+    id: row.id,
+    tenantId: row.tenant_id,
+    aggregateId: row.aggregate_id,
+  }));
 }

@@ -2,6 +2,7 @@
 // own mail provider gets the test mail from that provider, not from the app transport.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
@@ -17,6 +18,7 @@ import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { ConfigHandlers } from "../../config/web/constants.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
+import { maskRecipientAddress } from "../../delivery/mask-recipient-address.ts";
 import { deliveryAttemptsTable, notificationPreferencesTable } from "../../delivery/tables.ts";
 import { createMailFoundationFeature } from "../../mail-foundation/feature.ts";
 import { tenantMailTransport } from "../../mail-foundation/index.ts";
@@ -34,6 +36,7 @@ import { userEntity } from "../../user/schema/user.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { seedNotificationTemplates } from "../seeding.ts";
 import { templateResourceEntity } from "../table.ts";
+import { TEST_MAIL_NOTIFICATION_TYPE } from "../web/constants.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 
 const LOCALE = "en";
@@ -155,6 +158,35 @@ describe("template-resolver :: send-test through the notification's transport", 
       addressOf(adminWithProvider.id),
     ]);
     expect(getInbox(tenantWithProvider)).toHaveLength(0);
+  });
+});
+
+describe("template-resolver :: send-test leaves an audit trail", () => {
+  test("a sent test mail is logged as a delivery attempt with a masked address", async () => {
+    const attemptsOf = async () =>
+      (await selectMany(stack.db, deliveryAttemptsTable, {
+        notificationType: TEST_MAIL_NOTIFICATION_TYPE,
+        recipientId: adminWithProvider.id,
+      })) as Array<{
+        channel: string;
+        status: string;
+        error: string | null;
+        recipientAddress: string | null;
+      }>;
+    const before = (await attemptsOf()).length;
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.sendTest,
+      { slug: APP_ROUTED_SLUG, locale: LOCALE },
+      adminWithProvider,
+    );
+
+    const attempts = await attemptsOf();
+    expect(attempts).toHaveLength(before + 1);
+    const attempt = attempts.at(-1);
+    expect(attempt).toMatchObject({ channel: "email", status: "sent", error: null });
+    expect(attempt?.recipientAddress).toBe(maskRecipientAddress(addressOf(adminWithProvider.id)));
+    expect(attempt?.recipientAddress).not.toBe(addressOf(adminWithProvider.id));
   });
 });
 

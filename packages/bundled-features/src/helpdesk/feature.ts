@@ -198,7 +198,7 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
       concurrency: "skip",
       escapeHatch: {
         reason:
-          "reads the config values stored under the former contact keys across the system tenant and writes them to the helpdesk keys via config:write:set as SystemAdmin",
+          "the job has no tenant scope and reads the system-tenant config rows stored under the former contact keys through crossTenantReads, then writes them to the helpdesk keys via config:write:set as SystemAdmin",
         grants: ["crossTenantReads", "systemIdentity"],
       },
       handler: async (_payload, ctx) => {

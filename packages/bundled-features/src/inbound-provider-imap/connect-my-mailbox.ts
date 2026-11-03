@@ -20,7 +20,7 @@ import {
 
 const connectMyMailboxSchema = connectMailboxSchema.omit({ trustedAuthservId: true });
 
-const MY_MAILBOX_ESCAPE_REASON = `${SECRET_TRANSACTION_REASON}; the account is created with writeAs(system) on connect-account, which is admin-only, and the owner comes from the caller's session`;
+const MY_MAILBOX_ESCAPE_REASON = `${SECRET_TRANSACTION_REASON}; the account is created with writeAs(system) on connect-account, which is admin-only, and the owner comes from the caller's session; beforeTransaction reads the caller's own login address with a system queryAs(user findForAuth)`;
 
 export const createConnectMyMailboxHandler = ({ memberRoles }: InboundMailRoles) =>
   defineWriteHandler({

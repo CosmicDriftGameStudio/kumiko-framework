@@ -13,6 +13,7 @@ import { createInboundProviderImapFeature } from "../../inbound-provider-imap/fe
 import { createSecretsFeature } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { InboundMailFoundationHandlers } from "../constants.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
 import { SYSTEM_DISPATCHED_MAIL_HANDLERS } from "../mail-roles.ts";
@@ -28,6 +29,7 @@ describe("system-dispatched mail handlers", () => {
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
       createInboundMailFoundationFeature(APP_ROLES),
+      createUserFeature(),
       createInboundProviderImapFeature(APP_ROLES),
     ]);
     const systemUser = { roles: [ROLES.SystemAdmin] };

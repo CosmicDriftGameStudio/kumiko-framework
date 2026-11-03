@@ -30,6 +30,7 @@ import {
 import { setupReadinessStack } from "../../readiness/__tests__/readiness-test-stack.ts";
 import { tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { ImapHandlers, ImapQueries } from "../constants.ts";
 import { createInboundProviderImapFeature, setImapMailHostLookup } from "../feature.ts";
 import { SMTP_IMPLICIT_TLS_PORT as SMTPS_PORT } from "../smtp-client.ts";
@@ -63,6 +64,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
       createInboundMailFoundationFeature(),
+      createUserFeature(),
       createInboundProviderImapFeature(),
     ],
   });

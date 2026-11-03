@@ -1,6 +1,11 @@
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type DeliveryErrorCode,
+  defineWriteHandler,
+  type NotifyDeliveryStatus,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { type ChannelResult, EMAIL_CHANNEL_NAME, logAttempt } from "../../delivery/index.ts";
 import { unprocessable } from "../../shared/index.ts";
 import {
   refuseTemplateEdit,
@@ -8,7 +13,7 @@ import {
   templateEditAccess,
 } from "../template-edit-policy.ts";
 import { renderTemplatePreview } from "../template-preview.ts";
-import { TEST_MAIL_SUBJECT_PREFIX } from "../web/constants.ts";
+import { TEST_MAIL_NOTIFICATION_TYPE, TEST_MAIL_SUBJECT_PREFIX } from "../web/constants.ts";
 import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import {
   emailChannelOf,
@@ -49,6 +54,11 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
     }),
     access: templateEditAccess(policy.tenantEditable),
     rateLimit: { per: "user+handler", ...TEST_MAIL_RATE_LIMIT },
+    escapeHatch: {
+      grants: ["unsafeRaw"],
+      reason:
+        "the delivery attempt log appends its event and inline projection on the outside-transaction connection, the one delivery itself uses, so a failed test mail stays logged although the handler transaction rolls back",
+    },
     description:
       "Sends the rendered preview of a mail template draft, or of the stored template when no content is given, to the calling user's own address with the subject prefixed by [TEST] unless prefixSubject is false, carrying the inline images and, unless includeAttachments is false, the files attached to the template; there is no recipient input, the sample values come from the declared variable examples unless variables replaces them (checked against the variable schema), and a draft that fails the write rules is rejected without sending.",
     handler: async (event, ctx) => {
@@ -88,9 +98,22 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
       }
 
       const subject = `${prefixSubject ? TEST_MAIL_SUBJECT_PREFIX : ""}${preview.subject ?? ""}`;
-      let sentStatus: string;
+      // The outside-transaction connection, so a failed send (rolled-back handler tx) stays logged.
+      const attemptDb = (ctx.db.outsideTransaction ?? ctx.db).unsafeRaw();
+      const logTestMail = (status: NotifyDeliveryStatus, error: DeliveryErrorCode | null) =>
+        logAttempt(attemptDb, ctx.registry, {
+          tenantId: event.user.tenantId,
+          notificationType: TEST_MAIL_NOTIFICATION_TYPE,
+          channel: EMAIL_CHANNEL_NAME,
+          recipientId: event.user.id,
+          recipientAddress: address,
+          status,
+          error,
+          priority: "normal",
+        });
+      let result: ChannelResult;
       try {
-        const result = await channel.send(
+        result = await channel.send(
           address,
           {
             // The template slug is the notification name, so the test mail takes the transport the real mail takes.
@@ -109,7 +132,6 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
             attachments: mailAttachments,
           },
         );
-        sentStatus = result.status;
       } catch (error) {
         // Class and code only: the message can carry the address or a provider response body.
         ctx.obs.log?.warn("template test mail: channel threw", {
@@ -117,15 +139,18 @@ export function makeSendTestWrite(policy: TemplateEditPolicy) {
           errorClass: error instanceof Error ? error.name : typeof error,
           errorCode: errorCodeOf(error),
         });
+        await logTestMail("failed", "channel_error");
         return testMailFailed("channel_error");
       }
-      if (sentStatus !== "sent") {
+      if (result.status !== "sent") {
         ctx.obs.log?.warn("template test mail: channel did not send", {
           tenantId: event.user.tenantId,
-          status: sentStatus,
+          status: result.status,
         });
+        await logTestMail(result.status, result.error ?? "send_failed");
         return testMailFailed("not_sent");
       }
+      await logTestMail("sent", null);
       return { isSuccess: true as const, data: { subject, checks: preview.checks } };
     },
   });

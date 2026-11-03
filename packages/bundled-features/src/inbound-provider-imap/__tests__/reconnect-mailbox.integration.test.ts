@@ -31,6 +31,7 @@ import { markEvents, setupReadinessStack } from "../../readiness/__tests__/readi
 import { ReadinessQueries, ReadinessWrites } from "../../readiness/constants.ts";
 import { tenantSecretsTable } from "../../secrets/index.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import {
   IMAP_CONNECT_ERRORS,
   IMAP_RECONNECT_ERRORS,
@@ -72,6 +73,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
       createInboundMailFoundationFeature(),
+      createUserFeature(),
       createInboundProviderImapFeature(),
     ],
   });

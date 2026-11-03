@@ -16,6 +16,8 @@ export type SubjectForgetAfterDeleteOptions = {
 // returns, and the key erase cannot be rolled back. Run here, in the delete's own transaction, the
 // erase only happens once every preDelete hook has accepted the delete; a failed forget throws and
 // rolls the delete back. The escalation stays in the tenant of the deleted row's own event.
+// forget-subject is irreversible (assertIrreversibleOperationAllowed), so the consumer's delete
+// handler (the entry handler) must resolve to agent risk "high", otherwise the hook fails.
 export function subjectForgetAfterDeleteHook(
   options: SubjectForgetAfterDeleteOptions,
 ): Extract<HookDefinition, { type: "postDelete" }> {

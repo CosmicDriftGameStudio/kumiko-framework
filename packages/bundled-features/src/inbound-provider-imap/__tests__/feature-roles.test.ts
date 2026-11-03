@@ -12,6 +12,7 @@ import {
 import { createSecretsFeature } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import { ImapHandlers } from "../constants.ts";
 import { createInboundProviderImapFeature } from "../feature.ts";
 import { createImapConnectScreen, createMyImapConnectScreen } from "../screens.ts";
@@ -30,6 +31,7 @@ function boot(
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
       createInboundMailFoundationFeature(foundation),
+      createUserFeature(),
       createInboundProviderImapFeature(imap),
     ]);
 }

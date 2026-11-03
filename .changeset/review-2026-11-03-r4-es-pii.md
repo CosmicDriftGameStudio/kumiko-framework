@@ -9,7 +9,7 @@ Event-store and PII review fixes: abandoned step dispatches are closed, legacy b
 feature: step-dispatcher
 type: fix
 title: A sweeper closes dispatch streams that never got an outcome
-detail: The hourly job `step-dispatcher:job:sweep-abandoned` finds `step-dispatch` streams older than 24 hours that have neither a dispatched nor a failed event (a lost deliver job, a worker that died after the request was written), appends `step-dispatch.failed` with the error `dispatch abandoned without a recorded outcome` and erases the stream's PII key, so the personal data of a request nobody delivers no longer stays readable forever. A stream that already has an outcome only gets its key erased. A late deliver job for a swept stream sends nothing. The job declares an `escapeHatch` for the cross-tenant read of open streams. Framework: `selectOpenStreamsStartedBefore` (event-store) lists open streams of one aggregate type across tenants.
+detail: The daily job `step-dispatcher:job:sweep-abandoned` pages through all `step-dispatch` streams older than 24 hours that have neither a dispatched nor a failed event (a lost deliver job, a worker that died after the request was written), appends `step-dispatch.failed` with the error `dispatch abandoned without a recorded outcome` and erases the stream's PII key, so the personal data of a request nobody delivers no longer stays readable forever. Streams that already have an outcome are not swept. A late deliver job for a swept stream sends nothing. The job declares an `escapeHatch` for the cross-tenant read of open streams. Framework: `selectOpenStreamsStartedBefore` (event-store) lists open streams of one aggregate type across tenants.
 -->
 
 <!-- kumiko-changes
@@ -30,14 +30,14 @@ detail: The JSDoc of `scrubEventPayloadFields` now states that it pages by bigse
 feature: crypto-shredding
 type: improvement
 title: subjectForgetAfterDeleteHook erases a deleted row's subjects only after the delete is accepted
-detail: `subjectForgetAfterDeleteHook({ target, subjectsOf, reason })` returns a `postDelete` hook (in the delete's transaction) that runs `crypto-shredding:write:forget-subject` as the system identity for the subjects of the row just deleted, in the tenant of the deleted row's event. Because preDelete hooks run after the delete handler returns and a key erase cannot be rolled back, forgetting inside the delete handler erased the key even when a preDelete hook then rejected the delete; the hook runs after all of them, and a failed forget throws and rolls the delete back. Register it with `r.hook(subjectForgetAfterDeleteHook({ target: { allOf: entity }, ... }))`; it declares the narrow `systemIdentity` grant itself.
+detail: `subjectForgetAfterDeleteHook({ target, subjectsOf, reason })` returns a `postDelete` hook (in the delete's transaction) that runs `crypto-shredding:write:forget-subject` as the system identity for the subjects of the row just deleted, in the tenant of the deleted row's event. Because preDelete hooks run after the delete handler returns and a key erase cannot be rolled back, forgetting inside the delete handler erased the key even when a preDelete hook then rejected the delete; the hook runs after all of them, and a failed forget throws and rolls the delete back. Register it with `r.hook(subjectForgetAfterDeleteHook({ target: { allOf: entity }, ... }))`; it declares the narrow `systemIdentity` grant itself. `forget-subject` is an irreversible operation, so the consumer's delete handler (the entry handler) must resolve to agent risk `high`, otherwise the hook fails.
 -->
 
 <!-- kumiko-changes
 feature: crypto-shredding
 type: fix
 title: forget-subject called from another write handler no longer blocks on the caller's stream
-detail: The audit event and the user login-door close of `forget-subject` were written on the outside-transaction connection with the subject id as aggregate id. When the caller's transaction had already written an event for that id (a delete of the very row), the outside append waited for the uncommitted version and the request hung. Called from another write handler, `forget-subject` now writes both inside the caller's transaction; direct calls (HTTP, agents) are unchanged.
+detail: The audit event and the user login-door close of `forget-subject` were written on the outside-transaction connection with the subject id as aggregate id. When the caller's transaction had already written an event for that id (a delete of the very row), the outside append waited for the uncommitted version and the request hung. Called from another write handler, `forget-subject` still commits the login-door close and the audit event on the outside-transaction connection (the key erase cannot be undone, so they must not roll back with the caller), but the audit event goes onto a fresh aggregate id instead of the subject's id; direct calls (HTTP, agents) are unchanged.
 -->
 
 <!-- kumiko-changes

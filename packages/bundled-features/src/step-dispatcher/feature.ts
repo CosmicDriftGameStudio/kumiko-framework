@@ -14,13 +14,9 @@ import {
   defineFeature,
   type FeatureDefinition,
   STEP_DISPATCH_AGGREGATE_TYPE,
-  STEP_DISPATCH_FAILED_TYPE,
   STEP_DISPATCH_REQUESTED_TYPE,
-  STEP_DISPATCHED_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { selectOpenStreamsStartedBefore } from "@cosmicdrift/kumiko-framework/event-store";
 import { createMultiStreamApplyContext } from "@cosmicdrift/kumiko-framework/pipeline";
-import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
 import {
   ABANDON_DISPATCH_AFTER_HOURS,
@@ -29,14 +25,13 @@ import {
   deliverJobId,
   STEP_DISPATCHER_FEATURE,
   StepDispatcherJobs,
-  SWEEP_ABANDONED_BATCH_SIZE,
 } from "./constants.ts";
 import {
-  closeAbandonedDispatch,
   deliverDispatchRequest,
   eraseDispatchKey,
   isDispatchOutcome,
 } from "./deliver-dispatch-request.ts";
+import { sweepAbandonedDispatches } from "./sweep-abandoned.ts";
 import {
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS,
@@ -65,7 +60,7 @@ const deliverJobPayloadSchema = z.object({ aggregateId: z.string() });
 export function createStepDispatcherFeature(): FeatureDefinition {
   return defineFeature("step-dispatcher", (r) => {
     r.describe(
-      "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. An `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event enqueues one `step-dispatcher:job:deliver` BullMQ job per dispatch (Redis carries only the stream id and tenant, never the request payload). The job performs the actual HTTP or mail delivery and appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream, so the outcome is recorded in the event log without a separate status table. Transient failures (network error, timeout, 5xx, 408, 429, any mail adapter failure) are retried 3 times with exponential backoff; the outcome is recorded after the final attempt and the payload key is erased only then. A request that still has no outcome after 24 hours (job stalled or lost, or its final attempt could not record one) is closed by the hourly `step-dispatcher:job:sweep-abandoned` cron with a generic `dispatch-failed` event and its payload key is erased. Permanent failures (invalid url, blocked host, other 4xx, unavailable auth secret) are recorded immediately. At most 2 deliveries per tenant run at once (`maxPerTenant` with `onLimit: \"defer\"`), so a slow receiver of one tenant does not delay other tenants. Requires a job runner (Redis) and a worker consuming the job's default `worker` lane; without a job runner the projection fails loudly. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`. Requires the `secrets` feature (`createSecretsFeature()`) to be mounted — `webhook.send` auth resolves per-tenant through it, under `step-dispatcher:webhook-auth.<name>`. Every `webhook.send` request carries `Idempotency-Key: <dispatch stream id>`, stable across retries and redeliveries of the same dispatch request; an explicit `Idempotency-Key` in `headers` takes precedence.",
+      "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. An `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event enqueues one `step-dispatcher:job:deliver` BullMQ job per dispatch (Redis carries only the stream id and tenant, never the request payload). The job performs the actual HTTP or mail delivery and appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream, so the outcome is recorded in the event log without a separate status table. Transient failures (network error, timeout, 5xx, 408, 429, any mail adapter failure) are retried 3 times with exponential backoff; the outcome is recorded after the final attempt and the payload key is erased only then. A request that still has no outcome after 24 hours (job stalled or lost, or its final attempt could not record one) is closed by the daily `step-dispatcher:job:sweep-abandoned` cron (it pages through all such requests; requests that already have an outcome are not swept) with a generic `dispatch-failed` event and its payload key is erased. Permanent failures (invalid url, blocked host, other 4xx, unavailable auth secret) are recorded immediately. At most 2 deliveries per tenant run at once (`maxPerTenant` with `onLimit: \"defer\"`), so a slow receiver of one tenant does not delay other tenants. Requires a job runner (Redis) and a worker consuming the job's default `worker` lane; without a job runner the projection fails loudly. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`. Requires the `secrets` feature (`createSecretsFeature()`) to be mounted — `webhook.send` auth resolves per-tenant through it, under `step-dispatcher:webhook-auth.<name>`. Every `webhook.send` request carries `Idempotency-Key: <dispatch stream id>`, stable across retries and redeliveries of the same dispatch request; an explicit `Idempotency-Key` in `headers` takes precedence.",
     );
     r.secretNamespace("webhook-auth", WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS);
     r.uiHints({
@@ -114,40 +109,21 @@ export function createStepDispatcherFeature(): FeatureDefinition {
     r.job(
       "sweep-abandoned",
       {
-        trigger: { cron: "17 * * * *", wakesSleepingApp: false },
+        trigger: { cron: "17 3 * * *", wakesSleepingApp: false },
         concurrency: "skip",
         escapeHatch: { reason: SWEEP_ESCAPE_HATCH_REASON },
       },
       async (_payload, ctx) => {
-        const db = ctx.db.unsafeRaw();
-        const abandoned = await selectOpenStreamsStartedBefore(db, {
-          aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
-          startedType: STEP_DISPATCH_REQUESTED_TYPE,
-          closingTypes: [STEP_DISPATCHED_TYPE, STEP_DISPATCH_FAILED_TYPE],
+        await sweepAbandonedDispatches({
+          db: ctx.db.unsafeRaw(),
+          registry: ctx.registry,
           startedBeforeIso: ctx.tz
             .now()
             .subtract({ hours: ABANDON_DISPATCH_AFTER_HOURS })
             .toString(),
-          limit: SWEEP_ABANDONED_BATCH_SIZE,
+          onCloseFailure: (aggregateId, errorName) =>
+            ctx.obs.log.warn("abandoned dispatch could not be closed", { aggregateId, errorName }),
         });
-        for (const { tenantId, aggregateId } of abandoned) {
-          const applyContext = createMultiStreamApplyContext({
-            registry: ctx.registry,
-            db,
-            tenantId,
-            userId: SYSTEM_USER_ID,
-            callerFeature: STEP_DISPATCHER_FEATURE,
-          });
-          try {
-            await closeAbandonedDispatch(applyContext, aggregateId);
-          } catch (err) {
-            // One broken stream must not keep the others open; the next run retries it.
-            ctx.obs.log.warn("abandoned dispatch could not be closed", {
-              aggregateId,
-              errorName: err instanceof Error ? err.name : "unknown",
-            });
-          }
-        }
       },
     );
 

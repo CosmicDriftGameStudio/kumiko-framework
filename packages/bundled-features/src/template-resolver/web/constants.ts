@@ -99,6 +99,9 @@ export const MAIL_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 
 export const TEST_MAIL_SUBJECT_PREFIX = "[TEST] ";
 
+// Notification type of the delivery attempt logged for a send-test mail.
+export const TEST_MAIL_NOTIFICATION_TYPE = "template-resolver:test-mail";
+
 // System templates live under the SYSTEM_TENANT_ID sentinel; the client-safe types package is its single source.
 export { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 

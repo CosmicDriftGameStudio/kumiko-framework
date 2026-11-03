@@ -185,6 +185,7 @@ export function createInboundProviderImapFeature(options: InboundMailRoleOptions
       });
       r.requires({ features: ["inbound-mail-foundation"] });
       r.requires({ features: ["secrets"] });
+      r.requires({ features: ["user"] });
       r.envSchema(mailAllowedPrivateHostsEnvSchema);
       r.useExtension(INBOUND_MAIL_PROVIDER_EXTENSION, IMAP_PROVIDER_KEY, imapInboundMailPlugin);
       r.bootCheck(({ features }) => assertRolesMatchFoundation(FEATURE_NAME, roles, features));

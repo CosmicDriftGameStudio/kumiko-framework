@@ -35,6 +35,13 @@ detail: `seedNotificationTemplates` deletes, through the event-based delete writ
 -->
 
 <!-- kumiko-changes
+feature: template-resolver
+type: improvement
+title: A template test mail is logged as a delivery attempt
+detail: `send-test` now writes one delivery attempt per test mail (notification type `template-resolver:test-mail`, channel `email`, the caller as recipient, status and error code of the send, address masked like every attempt), also when the send fails, so test mails show up in the delivery log. The attempt is written on the outside-transaction connection through the delivery attempt log, which the delivery feature now exports as `logAttempt`.
+-->
+
+<!-- kumiko-changes
 feature: inbound-mail-foundation
 type: feature
 title: forget-message permanently removes one imported mail
