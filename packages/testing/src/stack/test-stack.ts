@@ -23,15 +23,17 @@ import { createJobFailureTracker } from "./drain-jobs.ts";
 import type { EventCollector } from "./event-collector.ts";
 import type { TestRedis } from "./redis.ts";
 import type { RequestHelper } from "./request-helper.ts";
+import { startStackServer } from "./test-stack-server.ts";
 import {
   buildStackServices,
   createStackCacheSync,
   createStackJobRunner,
+} from "./test-stack-services.ts";
+import {
   provisionStackStorage,
   runCleanupsIgnoringErrors,
-  startStackServer,
   validateStackFeatures,
-} from "./test-stack-setup.ts";
+} from "./test-stack-storage.ts";
 
 export type TestStack = {
   app: Hono;

@@ -5,17 +5,16 @@
 // free) — NEVER via seed/bundled-features, they pull in vitest transitively.
 
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { CLIENT_IP_HEADER } from "@cosmicdrift/kumiko-testing/e2e";
 import { type Cookie, expect, type Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from "../../src/app/auth-constants";
+import { adminSessionFileForRunner } from "./admin-session-file";
 
 // The session screens list every admin session, so the whole run shares one sign-in instead of
 // one per Playwright worker: the first worker of a run (same parent runner pid) signs in and
 // writes the cookies, the others wait for them. It also keeps the suite far below the login
 // limit of 20 requests per minute and IP.
-const SHARED_SESSION_FILE = join(tmpdir(), `use-all-bundled-admin-session-${process.ppid}.json`);
+const SHARED_SESSION_FILE = adminSessionFileForRunner(process.ppid);
 // A public documentation address (TEST-NET-3), so "This session" reads like a real sign-in.
 const ADMIN_CLIENT_IP = "203.0.113.12";
 

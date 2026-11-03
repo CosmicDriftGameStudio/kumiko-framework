@@ -4,6 +4,7 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import { defineFeature, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
+import { DEFAULT_EVENT_DISPATCHER_BATCH_SIZE } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import * as z from "zod";
 import { createJobFailureTracker, drainJobs } from "../drain-jobs.ts";
@@ -165,7 +166,7 @@ describe("stack.drainJobs() under row-level security", () => {
 
     await stack.http.writeOk(
       "draintestchain:write:emit-backlog",
-      { value: "behind-the-backlog", fillerCount: 450 },
+      { value: "behind-the-backlog", fillerCount: 2 * DEFAULT_EVENT_DISPATCHER_BATCH_SIZE + 50 },
       TestUsers.admin,
     );
     await stack.drainJobs();

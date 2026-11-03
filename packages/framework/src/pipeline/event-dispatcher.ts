@@ -255,7 +255,7 @@ export type EventDispatcherOptions = {
   readonly pgClient?: PgListenClient;
 };
 
-const DEFAULT_BATCH_SIZE = 200;
+export const DEFAULT_BATCH_SIZE = 200;
 const DEFAULT_POLL_MS = 100;
 const DEFAULT_MAX_ATTEMPTS = 10;
 const DEFAULT_REARM_COOLDOWN_MS = 5 * 60_000;

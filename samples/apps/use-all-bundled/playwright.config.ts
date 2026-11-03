@@ -25,6 +25,7 @@ const appConfig = defineAppE2eConfig({
 // that `playwright install chromium` provides instead of a Chrome download of its own.
 export default {
   ...appConfig,
+  globalSetup: "./e2e/global-setup.ts",
   webServer: [
     {
       command: "bun run src/index.ts",

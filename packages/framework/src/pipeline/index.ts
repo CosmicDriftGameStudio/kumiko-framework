@@ -29,6 +29,7 @@ export type {
 } from "./event-dispatcher.ts";
 export {
   ConsumerTransitionError,
+  DEFAULT_BATCH_SIZE as DEFAULT_EVENT_DISPATCHER_BATCH_SIZE,
   disableConsumer,
   enableConsumer,
   getAllConsumerProgress,
