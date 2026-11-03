@@ -1,5 +1,6 @@
 import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { useDispatcher } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { uploadFileRef } from "@cosmicdrift/kumiko-renderer/web";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { describeError, isAlreadyActive } from "./errors.ts";
@@ -18,8 +19,6 @@ import {
   type TemplateDetail,
 } from "./types.ts";
 import type { PdfEditorState } from "./use-pdf-editor-state.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export type PdfActionsInput = {
   readonly s: PdfEditorState;
@@ -71,7 +70,7 @@ function writeActions(input: PdfActionsInput) {
 
   async function persist(): Promise<SaveResult | null> {
     const { draft } = current;
-    const parentTemplateId = detail?.scope === "system" ? detail.id : detail?.parentTemplateId;
+    const parentTemplateId = detail.scope === "system" ? detail.id : detail.parentTemplateId;
     const result = await dispatcher.write<SaveResult>(
       scope === "system"
         ? TemplateResolverHandlers.upsertSystem
@@ -111,19 +110,14 @@ function writeActions(input: PdfActionsInput) {
     setActionError(null);
     // A system save activates immediately; a tenant row needs a save first when it
     // does not exist yet or carries unsaved edits, then an explicit publish.
-    const needsSave = dirty || detail?.scope === "system";
+    const needsSave = dirty || detail.scope === "system";
     const saved = needsSave ? await persist() : null;
     const saveFailed = needsSave && saved === null;
-    // upsertSystem already activates, so only a tenant row needs the explicit publish.
-    const alreadyActivatedBySave = scope === "system" && saved !== null;
-    const templateId = saved?.id ?? detail?.id ?? null;
-    if (templateId !== null && !saveFailed && !alreadyActivatedBySave) {
-      const result = await dispatcher.write(
-        scope === "system"
-          ? TemplateResolverHandlers.publishSystem
-          : TemplateResolverHandlers.publish,
-        { id: templateId },
-      );
+    // A system host always saves above and upsertSystem activates, so only a tenant row publishes.
+    if (scope === "tenant" && !saveFailed) {
+      const result = await dispatcher.write(TemplateResolverHandlers.publish, {
+        id: saved?.id ?? detail.id,
+      });
       if (!result.isSuccess && !isAlreadyActive(result.error))
         setActionError(describeError(t, result.error));
     }
@@ -170,7 +164,7 @@ function pdfActions(input: PdfActionsInput) {
   async function uploadResource(file: File): Promise<void> {
     const sourceFileRefId = await uploadFileRef(file);
     const result = await dispatcher.write(TemplateResolverHandlers.resourceUpload, {
-      templateId: detail?.id,
+      templateId: detail.id,
       sourceFileRefId,
     });
     if (!result.isSuccess) throw new Error(describeError(t, result.error));

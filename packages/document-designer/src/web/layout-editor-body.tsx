@@ -1,10 +1,10 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { EditorHeader } from "./editor-header.tsx";
 import { EditorBody, EditorFooter, EditorFrame } from "./editor-shell.tsx";
 import { renderCenter } from "./layout-editor-center.tsx";
-import type { Translate } from "./layout-editor-logic.ts";
 import {
   AppearanceRail,
   BrandingRail,

@@ -1,4 +1,4 @@
-import type { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { Editor, JSONContent } from "@tiptap/core";
 import {
   isAllowedDocumentLinkHref,
@@ -7,10 +7,7 @@ import {
   isDocumentResourceKey,
 } from "./document-schema.ts";
 import { parseDocumentStepsInput } from "./document-steps.ts";
-import { type PanelKind, repeatTableContent } from "./document-tiptap-helpers.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
-type Primitives = ReturnType<typeof usePrimitives>;
+import { type PanelKind, type Primitives, repeatTableContent } from "./document-tiptap-helpers.ts";
 
 export type PanelModel = {
   readonly t: Translate;
@@ -142,15 +139,13 @@ const INSERT_HANDLERS: Partial<Record<PanelKind, (m: PanelModel) => () => void>>
   images: (m) => () => insertAndCloseOf(m)({ type: "images", attrs: { variable: m.selectedName } }),
 };
 
-const KINDS_WITHOUT_VARIABLE_GUARD: readonly PanelKind[] = ["link", "image"];
-
 export function panelActionProps(m: PanelModel): {
   onInsert?: () => void;
   onRemoveLink?: () => void;
 } {
   const { editor, kind } = m;
   const build = INSERT_HANDLERS[kind];
-  const insertAllowed = KINDS_WITHOUT_VARIABLE_GUARD.includes(kind) || !m.noVariables;
+  const insertAllowed = !m.noVariables;
   return {
     ...(build !== undefined && insertAllowed && { onInsert: build(m) }),
     ...(kind === "link" &&

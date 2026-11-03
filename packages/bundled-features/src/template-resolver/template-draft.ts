@@ -84,7 +84,8 @@ export function toWorkingRow(row: TemplateResourceRow, viewerTenantId: string): 
   const draft = row.tenantId === viewerTenantId ? parseTemplateDraft(row.draft) : null;
   // Saves and discards of drafts raise row.version; an editor without a draft shows the served number.
   if (draft === null) return { ...row, version: active?.version ?? row.version, active };
-  return { ...row, ...draft, status: "draft", active };
+  // An archived row keeps its status, otherwise the editor would show a retired template as a draft.
+  return { ...row, ...draft, status: row.status === "archived" ? row.status : "draft", active };
 }
 
 // Event changes that turn a row into a served one. Every value is explicit so a

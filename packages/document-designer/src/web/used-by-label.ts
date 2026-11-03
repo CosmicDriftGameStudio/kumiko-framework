@@ -1,8 +1,7 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { EMPTY_VALUE_PLACEHOLDER, pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { DEFAULT_LAYOUT_SLUG } from "./constants.ts";
 import type { OverviewRowView, OverviewUsageView } from "./overview-row.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 // t() returns the key itself when no translation exists.
 function translateOrRaw(t: Translate, key: string, raw: string): string {

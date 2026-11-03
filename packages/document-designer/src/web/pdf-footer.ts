@@ -1,8 +1,7 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { FooterTone } from "./editor-shell.tsx";
 import type { ValidationResult } from "./types.ts";
 import { variableLabelText } from "./used-by-label.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export type GeneratedProbe = {
   readonly pages: number;

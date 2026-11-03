@@ -1,8 +1,7 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ValidationIssue } from "./layout-types.ts";
 import type { MailValidation } from "./mail-types.ts";
 import { variableLabelText } from "./used-by-label.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 function issueText(t: Translate, issue: ValidationIssue): string {
   const translated = t(issue.i18nKey, issue.params);

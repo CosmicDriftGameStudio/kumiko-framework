@@ -42,6 +42,7 @@ const PLAIN_NAMES = [
   "legacy",
   "system",
   "sysdraft",
+  "archived-draft",
 ];
 const slugOf = (name: string) => `dd-mailer:notify:${name}`;
 
@@ -246,6 +247,20 @@ describe("template-resolver :: draft beside the active version", () => {
     const id = await saveMail("gate-free", "Aktiv", { status: "active" });
     const err = await stack.http.writeErr(TemplateResolverHandlers.discardDraft, { id }, admin);
     expect(validationCodes(err)).toEqual(["no_draft"]);
+  });
+
+  test("an archived template with an open draft stays archived and publish brings the draft back", async () => {
+    const id = await saveMail("archived-draft", "Aktiv", { status: "active" });
+    await saveMail("archived-draft", "Entwurf nach Archiv");
+    await stack.http.writeOk(TemplateResolverHandlers.archive, { id }, admin);
+
+    const archived = await findWorking(id);
+    expect(archived.status).toBe("archived");
+    expect(archived.content).toContain("Entwurf nach Archiv");
+
+    await stack.http.writeOk(TemplateResolverHandlers.publish, { id }, admin);
+    expect((await findWorking(id)).status).toBe("active");
+    expect(await servedContent("archived-draft")).toContain("Entwurf nach Archiv");
   });
 
   test("a draft that fails the publish gate saves, but publish is refused and the served version stays", async () => {

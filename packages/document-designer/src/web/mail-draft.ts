@@ -1,3 +1,4 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   DOCUMENT_FALLBACK_CURRENCY,
   formatDocumentDate,
@@ -48,8 +49,6 @@ export const SYSTEM_PLACEHOLDER_TYPE: Readonly<Record<string, PlaceholderType>> 
   imprint: "link",
   unsubscribeUrl: "link",
 };
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export function systemPlaceholderLabel(t: Translate, name: string): string {
   const key = `documentDesigner.placeholder.${name}`;

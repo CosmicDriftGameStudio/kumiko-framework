@@ -90,7 +90,8 @@ describe("panelActionProps", () => {
 
   test("still offers insert for a link without variables", () => {
     const { editor } = fakeEditor({});
-    const { model } = panelModel("link", { editor, noVariables: true });
+    const { model } = panelModel("link", { editor, ...chosenNamesOf("link", [], "") });
+    expect(model.noVariables).toBe(false);
     expect(panelActionProps(model).onInsert).toBeDefined();
   });
 

@@ -6,6 +6,7 @@ import type { TiptapContext } from "./document-tiptap-context.ts";
 import {
   buttonTargetLabel,
   findRepeatTable,
+  type SelectedBlock,
   toggleRepeatHeader,
 } from "./document-tiptap-helpers.ts";
 
@@ -68,10 +69,7 @@ function repeatBarLabelOf(c: TiptapContext): string {
     : t("template-resolver.documentEditor.repeatBarList", { list: repeatListLabel });
 }
 
-function renderBlockOptionsBar(
-  c: TiptapContext,
-  selectedBlock: { readonly type: "resource" | "button"; readonly detail: string },
-): ReactNode {
+function renderBlockOptionsBar(c: TiptapContext, selectedBlock: SelectedBlock): ReactNode {
   const { t, Button, editor } = c;
   return (
     <div className={BUBBLE_BAR_CLASS} data-testid="document-block-options">

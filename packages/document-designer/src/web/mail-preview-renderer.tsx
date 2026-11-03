@@ -7,6 +7,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { createContext, type ReactNode, useContext, useEffect } from "react";
@@ -32,8 +33,6 @@ export const MailPreviewViewContext = createContext<MailPreviewView>(DEFAULT_VIE
 export function isMailPreview(value: unknown): value is MailPreview {
   return isPlainObject(value) && typeof value["html"] === "string";
 }
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 function attachmentText(t: Translate, attachment: PreviewAttachment): string | null {
   switch (attachment.kind) {

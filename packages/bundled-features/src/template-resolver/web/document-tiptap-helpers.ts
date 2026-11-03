@@ -1,3 +1,4 @@
+import type { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Editor, JSONContent } from "@tiptap/core";
 import type { DocumentResourcePreview, DocumentToolbarBlock } from "./document-toolbar-blocks.ts";
@@ -131,9 +132,7 @@ function blockStyleOf(e: Editor): "1" | "2" | "3" | "paragraph" {
   return "paragraph";
 }
 
-function selectedBlockOf(
-  e: Editor,
-): { readonly type: "resource" | "button"; readonly detail: string } | null {
+function selectedBlockOf(e: Editor): SelectedBlock | null {
   if (e.isActive("resource")) {
     return { type: "resource", detail: String(e.getAttributes("resource")["resource"]) };
   }
@@ -157,5 +156,9 @@ export function activeStateOf(e: Editor, showHtml: boolean) {
     repeatTable: findRepeatTable(e),
   };
 }
+
+export type Primitives = ReturnType<typeof usePrimitives>;
+
+export type SelectedBlock = { readonly type: "resource" | "button"; readonly detail: string };
 
 export type ActiveState = ReturnType<typeof activeStateOf>;

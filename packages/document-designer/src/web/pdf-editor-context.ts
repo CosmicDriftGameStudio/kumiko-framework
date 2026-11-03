@@ -1,11 +1,11 @@
 import type { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { PdfActions } from "./pdf-editor-actions.ts";
 import type { EditorState } from "./pdf-editor-draft.ts";
 import type { PdfView } from "./pdf-editor-view.ts";
 import type { TemplateDetail } from "./types.ts";
 import type { PdfEditorState } from "./use-pdf-editor-state.ts";
 
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 type Primitives = ReturnType<typeof usePrimitives>;
 
 export type PdfRenderContext = {

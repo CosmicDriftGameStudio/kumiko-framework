@@ -23,7 +23,7 @@ export function renderMailPreview(
       })}
       picked={m.picked}
       onPick={m.setPicked}
-      validation={m.validation ?? null}
+      validation={m.validation}
       slug={props.slug}
       locale={props.locale}
       fromName={ui.settled.senderName}

@@ -1,4 +1,5 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import {
   LAYOUT_OWNED_PLACEHOLDERS,
@@ -9,8 +10,6 @@ import {
 import type { LinkedResourceView, MailValidation } from "./mail-types.ts";
 import { RailHint, RailRow, RailSection } from "./rail.tsx";
 import { variableLabelText } from "./used-by-label.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 // What both editors' validation results share; the PDF validation fits it structurally.
 export type PlaceholderSource = Pick<

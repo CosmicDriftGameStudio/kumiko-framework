@@ -1,4 +1,4 @@
-import type { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { Editor } from "@tiptap/core";
 import type { Dispatch, SetStateAction } from "react";
 import {
@@ -7,12 +7,11 @@ import {
   HEADING_LEVELS,
   isParagraphStyle,
   type PanelKind,
+  type Primitives,
+  variableLabelOf,
 } from "./document-tiptap-helpers.ts";
 import type { DocumentToolbarBlock } from "./document-toolbar-blocks.ts";
 import type { DocumentEditorLabels } from "./use-document-tiptap-model.ts";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
-type Primitives = ReturnType<typeof usePrimitives>;
 
 export type TiptapContext = {
   readonly id: string;
@@ -79,7 +78,7 @@ function repeatListLabelOf(
 ): string | undefined {
   const repeatTable = activeState?.repeatTable ?? null;
   return repeatTable !== null && repeatTable.lists.length === 1
-    ? (variableLabels[repeatTable.lists[0] ?? ""] ?? repeatTable.lists[0])
+    ? variableLabelOf(repeatTable.lists[0] ?? "", variableLabels)
     : undefined;
 }
 

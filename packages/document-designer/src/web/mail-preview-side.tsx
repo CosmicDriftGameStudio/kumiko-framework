@@ -4,6 +4,7 @@ import {
   useTenantCurrency,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { DOCUMENT_FALLBACK_CURRENCY } from "@cosmicdrift/kumiko-renderer/headless";
 import { type ReactNode, useState } from "react";
 import { displayValue } from "./mail-draft.ts";
@@ -15,8 +16,6 @@ import type { TestMailAvailability } from "./use-test-mail.ts";
 import { variableLabelText } from "./used-by-label.ts";
 
 const noop = (): void => undefined;
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 // Check params list placeholder names as arrays; the message templates expect one string, and
 // the editor shows each placeholder by its label.

@@ -1,4 +1,5 @@
 import type { usePrimitives } from "@cosmicdrift/kumiko-renderer";
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
 import { EditorLocaleSwitch } from "./editor-header.tsx";
 import { EditorBody } from "./editor-shell.tsx";
@@ -21,7 +22,6 @@ import {
 import { UploadModal } from "./mail-upload-modal.tsx";
 import { VersionsSection } from "./mail-versions.tsx";
 
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 type Banner = ReturnType<typeof usePrimitives>["Banner"];
 
 export function renderMailControls(props: MailEditorBodyProps, m: MailEditorModel): ReactNode {

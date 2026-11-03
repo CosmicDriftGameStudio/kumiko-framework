@@ -1,3 +1,4 @@
+import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { fileUrl } from "./file-name.ts";
 import { buildMeta, systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import type { EditorVocabulary } from "./mail-edit-center.tsx";
@@ -11,8 +12,6 @@ import type {
 
 // The editor replaces this token with the decoded image size once the preview image loaded.
 const SIZE_TOKEN = "{size}";
-
-type Translate = (key: string, params?: Readonly<Record<string, unknown>>) => string;
 
 export type MailEditorBodyProps = {
   readonly slug: string;
@@ -83,14 +82,12 @@ export function resourcePreviewsOfMail(resources: readonly LinkedResourceView[],
 
 // Nothing is written yet in a missing language, so no placeholder may read as missing.
 export function railValidationOf(locked: boolean, validation: MailValidation | null) {
-  return locked && validation != null
-    ? { ...validation, missingRequired: [] }
-    : (validation ?? null);
+  return locked && validation !== null ? { ...validation, missingRequired: [] } : validation;
 }
 
 export function vocabularyOf(t: Translate, validation: MailValidation | null): EditorVocabulary {
   return {
-    names: placeholderNames(validation ?? null),
+    names: placeholderNames(validation),
     labels: {
       ...systemLabelMap(t, validation?.systemPlaceholders ?? []),
       ...variableLabelMap(t, validation?.variables ?? {}),

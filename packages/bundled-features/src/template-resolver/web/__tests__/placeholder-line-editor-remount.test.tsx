@@ -57,6 +57,35 @@ function LabelledLine({ registry }: { readonly registry: Record<string, Document
   );
 }
 
+function SwitchingField({ registry }: { readonly registry: Record<string, DocumentEditorHandle> }) {
+  const [field, setField] = useState("first");
+  const [value, setValue] = useState("");
+  return (
+    <LocaleProvider
+      resolver={localeResolver}
+      fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
+    >
+      <PrimitivesProvider value={defaultPrimitives}>
+        <PlaceholderLineEditor
+          id="line"
+          aria-label="Line"
+          value={value}
+          onChange={setValue}
+          variableLabels={{}}
+          onEditorReady={(handle) => {
+            if (handle === null) delete registry[field];
+            else registry[field] = handle;
+          }}
+        />
+        <button type="button" onClick={() => setField("second")}>
+          switch field
+        </button>
+        <output data-testid="value">{value}</output>
+      </PrimitivesProvider>
+    </LocaleProvider>
+  );
+}
+
 describe("PlaceholderLineEditor remount", () => {
   test("the new editor's handle stays registered after the replaced editor is torn down", async () => {
     const restoreTimers = pinBrowserTimerOrder();
@@ -79,5 +108,20 @@ describe("PlaceholderLineEditor remount", () => {
     } finally {
       restoreTimers();
     }
+  });
+
+  test("swapping onEditorReady on a standing editor moves the handle to the new callback only", async () => {
+    const registry: Record<string, DocumentEditorHandle> = {};
+    render(<SwitchingField registry={registry} />);
+    await waitFor(() => expect(registry["first"]).toBeDefined());
+
+    fireEvent.click(screen.getByRole("button", { name: "switch field" }));
+    await waitFor(() => expect(registry["second"]).toBeDefined());
+    expect(registry["first"]).toBeUndefined();
+
+    act(() => registry["second"]?.insertPlaceholder("noticeLabel"));
+    await waitFor(() =>
+      expect(screen.getByTestId("value").textContent).toContain("{{noticeLabel}}"),
+    );
   });
 });
