@@ -179,14 +179,24 @@ describe("readiness run-probes", () => {
     expect(paidRuns).toBe(0);
   });
 
-  test("includePaid runs the paid probe", async () => {
+  test("includePaid from a SystemAdmin runs the paid probe", async () => {
+    const { systemAdmin } = usersOfFreshTenant();
+    paidRuns = 0;
+
+    await runChecks(systemAdmin, true);
+
+    expect(byProbe((await latest(systemAdmin)).rows, "paid-tenant")?.status).toBe("ok");
+    expect(paidRuns).toBe(1);
+  });
+
+  test("includePaid from a TenantAdmin does not run the paid probe", async () => {
     const { tenantAdmin } = usersOfFreshTenant();
     paidRuns = 0;
 
     await runChecks(tenantAdmin, true);
 
-    expect(byProbe((await latest(tenantAdmin)).rows, "paid-tenant")?.status).toBe("ok");
-    expect(paidRuns).toBe(1);
+    expect(byProbe((await latest(tenantAdmin)).rows, "paid-tenant")?.status).toBe("skipped");
+    expect(paidRuns).toBe(0);
   });
 
   test("a hanging probe times out while the others finish", async () => {

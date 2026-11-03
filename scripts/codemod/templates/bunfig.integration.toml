@@ -9,4 +9,6 @@
 # actually raises the per-test default above bun's 5s built-in.
 
 [test]
+# WHY no codegen preload (ts-morph runCodegen): bun --parallel workers load every preload per
+# test file, and that preload pushed the integration workers over the 3Gi limit of the CI runners.
 preload = ["./test-setup/integration.preload.ts"]

@@ -21,6 +21,9 @@ const crud = createEventStoreExecutor(probeRunsTable, probeRunEntity, {
   entityName: "probe-run",
 });
 
+// The single-active-run lock only bounds concurrency; each run sends a real mail and logs in to every mailbox.
+const RUN_PROBES_RATE_LIMIT = { per: "user+handler", limit: 10, windowSeconds: 3600 } as const;
+
 const ACTIVE_STATUSES = [PROBE_RUN_STATUS.Pending, PROBE_RUN_STATUS.Running];
 
 type ActiveRunRow = {
@@ -40,10 +43,9 @@ export const runProbesWrite = defineWriteHandler({
   name: "run-probes",
   schema: z.object({ includePaid: z.boolean().default(false) }),
   access: { roles: ["TenantAdmin", "SystemAdmin"] },
-  // The single-active-run lock only bounds concurrency; each run sends a real mail and logs in to every mailbox.
-  rateLimit: { per: "user+handler", limit: 10, windowSeconds: 3600 },
+  rateLimit: RUN_PROBES_RATE_LIMIT,
   description:
-    "Starts the system check: real calls against mail, storage, search, inbound mailboxes and PDF that show what works in this environment. Returns the run id (isExisting true while a run is still active); the worker fills the run, read the outcome via readiness:query:probe-run:latest-results. Paid probes only run with includePaid true.",
+    "Starts the system check: real calls against mail, storage, search, inbound mailboxes and PDF that show what works in this environment. Returns the run id (isExisting true while a run is still active); the worker fills the run, read the outcome via readiness:query:probe-run:latest-results. Paid probes only run with includePaid true, which only a SystemAdmin can set; for a TenantAdmin it is ignored.",
   handler: async (event, ctx) => {
     if (!ctx.services.jobRunner) {
       throw new InternalError({
@@ -72,11 +74,12 @@ export const runProbesWrite = defineWriteHandler({
       if (!abandoned.isSuccess) return abandoned;
     }
 
+    const isSystemAdmin = event.user.roles.includes("SystemAdmin");
     const created = await crud.create(
       {
         status: PROBE_RUN_STATUS.Pending,
-        includePaid: event.payload.includePaid,
-        includeSystemProbes: event.user.roles.includes("SystemAdmin"),
+        includePaid: event.payload.includePaid && isSystemAdmin,
+        includeSystemProbes: isSystemAdmin,
         triggeredByUserId: event.user.id,
         requestedAt: ctx.tz.now(),
         results: { rows: [] },

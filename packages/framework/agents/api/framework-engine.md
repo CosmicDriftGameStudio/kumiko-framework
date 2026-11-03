@@ -146,6 +146,7 @@ function resolveEntityTransferAdjacency(entities: ReadonlyMap<string, EntityDefi
 function resolveNamedListFilters(ctx: HandlerContext, user: SessionUser, entityName: string, name: string): Promise<NamedListFilterCondition[]>;
 function runPipeline<TPayload, TData, TMap extends object = KumikoEventTypeMap>(pipelineDef: PipelineDef<TPayload, TData>, event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>, workflow?: PipelineCtx["workflow"], resumeFrom?: number): Promise<WriteResult<TData>>;
 function runStepList<TPayload, TMap extends object = KumikoEventTypeMap>(steps: StepInstance[], event: WriteEvent<TPayload>, handlerCtx: HandlerContext<TMap>, stepsAcc: Record<string, unknown>, scopeAcc: Record<string, unknown>, workflow?: PipelineCtx["workflow"], resumeFrom?: number): Promise<StepListOutcome>; // Walk a step-list.
+function screenShortId(ref: string): string;
 function sectionFieldSpecs(section: FieldsOrGroupsSection): EditFieldSpec[];
 function selectablePluginIds(registry: Pick<Registry, "getExtensionUsages">, extensionName: string): string[];
 function serializeManifest(manifest: FeatureManifest): string;

@@ -7,6 +7,8 @@
 # Replacement für vitest.config.ts test-section. Aliase wandern in tsconfig.json paths.
 
 [test]
+# WHY no codegen preload (ts-morph runCodegen): bun --parallel workers load every preload per
+# test file, and that preload pushed the integration workers over the 3Gi limit of the CI runners.
 preload = ["./test-setup/unit.preload.ts"]
 timeout = 5000
 

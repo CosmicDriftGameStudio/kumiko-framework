@@ -124,6 +124,8 @@ export function createHelpdeskRequestEntity(retentionKeepFor: string = DEFAULT_R
       closedAt: createTimestampField(),
       replyCount: createNumberField({ default: 0 }),
     },
+    // All rows live in the system tenant, so the tenant_id index alone selects nothing.
+    indexes: [{ columns: ["tenantId", "status"] }, { columns: ["tenantId", "reporterUserId"] }],
   });
 }
 
@@ -163,6 +165,7 @@ export function createHelpdeskReplyEntity(retentionKeepFor: string = DEFAULT_RET
         reason: "is_submission_timestamp",
       }),
     },
+    indexes: [{ columns: ["tenantId", "requestId"] }],
   });
 }
 
