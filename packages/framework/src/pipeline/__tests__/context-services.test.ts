@@ -10,6 +10,12 @@ const WIRING_KEYS = Object.entries(APP_CONTEXT_KEY_ROLES)
   .filter(([, role]) => role === "wiring")
   .map(([key]) => key);
 
+const PER_CALL_BINDINGS = [
+  "_notifyInTransactionFactory",
+  "_notifyAfterCommitFactory",
+  "_logOwnDeliveryAttempt",
+];
+
 // Each key gets a distinct sentinel so a mix-up between two services shows up.
 function contextWith(keys: readonly string[]): AppContext {
   // @cast-boundary test stub — the values are sentinels, buildContextServices never calls them.
@@ -20,9 +26,16 @@ describe("buildContextServices", () => {
   test("copies every service-role key of the boot context", () => {
     const services = buildContextServices(contextWith(SERVICE_KEYS));
 
-    const perCallFactories = ["_notifyInTransactionFactory", "_notifyAfterCommitFactory"];
-    for (const key of SERVICE_KEYS.filter((entry) => !perCallFactories.includes(entry))) {
+    for (const key of SERVICE_KEYS.filter((entry) => !PER_CALL_BINDINGS.includes(entry))) {
       expect(Reflect.get(services, key)).toEqual({ sentinel: key });
+    }
+  });
+
+  test("never copies a per-call binding of an outer context", () => {
+    const services = buildContextServices(contextWith(PER_CALL_BINDINGS));
+
+    for (const key of PER_CALL_BINDINGS) {
+      expect(Reflect.get(services, key)).toBeUndefined();
     }
   });
 
