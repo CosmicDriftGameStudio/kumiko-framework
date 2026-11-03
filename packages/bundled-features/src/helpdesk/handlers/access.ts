@@ -1,13 +1,3 @@
-import { access } from "@cosmicdrift/kumiko-framework/engine";
-
-// The website client sends without a session (credentials: "omit"), so it arrives as anonymous; other callers that carry a session pass through anySignedIn on the handlers.
-export const SUBMIT_ROLES = access.roles(
-  ...access.anonymous,
-  ...access.builtinUserRoles,
-  "Member",
-  "TenantAdmin",
-);
-
 export const REPORT_ACCESS = {
   openToAll: {
     reason:

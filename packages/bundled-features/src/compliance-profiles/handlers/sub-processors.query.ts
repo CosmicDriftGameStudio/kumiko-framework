@@ -23,7 +23,7 @@ export const subProcessorsQuery = defineQueryHandler({
   name: "sub-processors",
   schema: z.object({}),
   access: {
-    roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"],
+    roles: ["anonymous"],
     anySignedIn: true,
   },
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },

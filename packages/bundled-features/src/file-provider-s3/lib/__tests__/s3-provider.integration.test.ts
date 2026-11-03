@@ -215,9 +215,9 @@ describe("createS3ProviderFromEnv", () => {
   });
 
   test("throws for missing required env var", () => {
-    // Any prefix that doesn't map to any env vars should yield a missing_env
+    // Any prefix that doesn't map to any env vars should yield a missing-env
     // error immediately — not a silent misconfiguration at first I/O.
-    expect(() => createS3ProviderFromEnv("NON_EXISTENT_PREFIX_")).toThrow(/missing_env/);
+    expect(() => createS3ProviderFromEnv("NON_EXISTENT_PREFIX_")).toThrow(/required env var/);
   });
 });
 

@@ -41,7 +41,6 @@ import {
   HELPDESK_STATUS,
   helpdeskIdempotencyKeys,
 } from "../web/constants.ts";
-import { SUBMIT_ROLES } from "./access.ts";
 
 export type HelpdeskSubmitData = { readonly kind: "submitted" };
 
@@ -120,7 +119,7 @@ export function createSubmitHandler(opts: HelpdeskOptions, settings: HelpdeskSet
   return defineWriteHandler<"submit", typeof HelpdeskSubmitSchema, HelpdeskSubmitData>({
     name: "submit",
     schema: HelpdeskSubmitSchema,
-    access: { roles: SUBMIT_ROLES, personalData: "public-intake", anySignedIn: true },
+    access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
     agent: { expose: false },
     description:

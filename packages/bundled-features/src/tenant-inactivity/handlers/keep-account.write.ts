@@ -2,7 +2,6 @@ import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { TENANT_KEEP_ACCOUNT_ROLES } from "../constants.ts";
 import { redeemKeepAccountToken } from "../keep-token.ts";
 import { tenantInactivityStateTable } from "../state-table.ts";
 
@@ -14,7 +13,7 @@ export function createKeepAccountHandler(opts: { readonly keepAccountTokenSecret
     name: "keep-account",
     schema: z.object({ token: z.string().min(1) }),
     access: {
-      roles: ["anonymous", "Member", "User", ...TENANT_KEEP_ACCOUNT_ROLES, "SystemAdmin"],
+      roles: ["anonymous"],
       anySignedIn: true,
     },
     escapeHatch: { grants: ["unsafeRaw"], reason: KEEP_ACCOUNT_ESCAPE_HATCH_REASON },

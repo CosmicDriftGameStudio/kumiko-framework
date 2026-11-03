@@ -5,7 +5,6 @@ import {
   runInSavepointIfSupported,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  access,
   defineWriteHandler,
   type HandlerContext,
   type TenantId,
@@ -33,13 +32,6 @@ import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../web/constants.t
 const SUBMIT_LOCK_NAMESPACE = 0x776c7374;
 const SUBMIT_LOCK_REASON =
   "takes the per-email advisory lock so parallel submits cannot both pass the duplicate check and wraps the admin-recipient resolver in a savepoint so a failing statement cannot abort the submit transaction; TenantDb has neither API";
-
-const SUBMIT_ROLES = access.roles(
-  ...access.anonymous,
-  ...access.builtinUserRoles,
-  "Member",
-  "TenantAdmin",
-);
 
 const OPEN_STATUSES = [WAITLIST_STATUS.Pending, WAITLIST_STATUS.Invited];
 
@@ -115,7 +107,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
   return defineWriteHandler<"submit", typeof WaitlistSubmitSchema, WaitlistSubmitData>({
     name: "submit",
     schema: WaitlistSubmitSchema,
-    access: { roles: SUBMIT_ROLES, personalData: "public-intake", anySignedIn: true },
+    access: { roles: ["anonymous"], personalData: "public-intake", anySignedIn: true },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
     // An empty array means "disabled"; boot validation rejects an empty additionalRateLimits.
     ...(emailRateLimits.length > 0 && { additionalRateLimits: emailRateLimits }),

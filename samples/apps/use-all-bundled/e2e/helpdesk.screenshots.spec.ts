@@ -68,7 +68,13 @@ async function readInAppReply(page: Page): Promise<void> {
   await write(page, "channel-in-app:write:mark-read", { id: message.id });
 }
 
-type RequestRow = { readonly id: string; readonly subject: string };
+type RequestRow = {
+  readonly id: string;
+  readonly subject: string;
+  readonly status: "open" | "answered" | "done";
+};
+
+const OPEN_REQUESTS_FROM_THIS_SPEC = 4;
 
 async function csrfHeader(page: Page): Promise<Record<string, string>> {
   const csrf = (await page.context().cookies()).find((c) => c.name === CSRF_COOKIE_NAME)?.value;
@@ -128,6 +134,7 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
     admin: { displayName: "Jonas Brandt", email: "jonas@acme-cloud.example" },
   });
   await loginAsAdmin(page);
+  const openBefore = (await listRequests(page)).filter((row) => row.status === "open").length;
   // Attachments need a storage provider; the sample ships none selected.
   await write(page, "config:write:set", {
     key: "file-foundation:config:provider",
@@ -220,9 +227,11 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
   await page.getByRole("link", { name: "Meldungen", exact: true }).click();
   await expect(page.getByText("Als erledigt markieren").first()).toBeHidden();
   await expect(page.getByText(MONITOR_SUBJECT)).toBeVisible();
-  // The docs screenshot spec seeds open requests into the same platform inbox in parallel, so
-  // the chip count depends on the run order; the requests above are asserted by subject.
-  await expect(page.getByRole("button", { name: /Offen\s*\d+/ })).toHaveCount(1);
+  await expect(
+    page.getByRole("button", {
+      name: new RegExp(`Offen\\s*${openBefore + OPEN_REQUESTS_FROM_THIS_SPEC}`),
+    }),
+  ).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Alle" })).toBeVisible();
   await captureScreenshot(page, "b03-list");
 

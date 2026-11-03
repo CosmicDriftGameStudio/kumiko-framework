@@ -4,7 +4,12 @@ export {
   createFileProviderS3NamedEnvFeature,
   type NamedS3EnvProviderOptions,
 } from "./env-named-feature.ts";
-export { createS3EnvSchema, s3EndpointSchema, s3EnvSchema } from "./env-schema.ts";
+export {
+  createS3EnvSchema,
+  isAcceptableS3Endpoint,
+  s3EndpointSchema,
+  s3EnvSchema,
+} from "./env-schema.ts";
 export {
   createFileProviderS3Feature,
   type FileProviderS3FeatureOptions,

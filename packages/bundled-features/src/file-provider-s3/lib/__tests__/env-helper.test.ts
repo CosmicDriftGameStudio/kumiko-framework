@@ -44,34 +44,34 @@ function setRequired(prefix = "TEST_S3_"): void {
 }
 
 describe("parseS3EnvConfig — required vars", () => {
-  test("throws missing_env when BUCKET is absent", () => {
+  test("throws missing env var when BUCKET is absent", () => {
     setRequired();
     delete process.env["TEST_S3_BUCKET"];
-    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/missing_env.*TEST_S3_BUCKET/);
+    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/required env var .*TEST_S3_BUCKET/);
   });
 
-  test("throws missing_env when REGION is absent", () => {
+  test("throws missing env var when REGION is absent", () => {
     setRequired();
     delete process.env["TEST_S3_REGION"];
-    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/missing_env.*TEST_S3_REGION/);
+    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/required env var .*TEST_S3_REGION/);
   });
 
-  test("throws missing_env when ACCESS_KEY is absent", () => {
+  test("throws missing env var when ACCESS_KEY is absent", () => {
     setRequired();
     delete process.env["TEST_S3_ACCESS_KEY"];
-    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/missing_env.*TEST_S3_ACCESS_KEY/);
+    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/required env var .*TEST_S3_ACCESS_KEY/);
   });
 
-  test("throws missing_env when SECRET_KEY is absent", () => {
+  test("throws missing env var when SECRET_KEY is absent", () => {
     setRequired();
     delete process.env["TEST_S3_SECRET_KEY"];
-    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/missing_env.*TEST_S3_SECRET_KEY/);
+    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/required env var .*TEST_S3_SECRET_KEY/);
   });
 
   test("treats empty string as missing (CI that exports VAR='' to unset)", () => {
     setRequired();
     process.env["TEST_S3_BUCKET"] = "";
-    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/missing_env.*TEST_S3_BUCKET/);
+    expect(() => parseS3EnvConfig("TEST_S3_")).toThrow(/required env var .*TEST_S3_BUCKET/);
   });
 
   test("passes required vars straight through", () => {
