@@ -257,15 +257,17 @@ function assembleTestStack(
 
 export async function startStackServer(input: StackServerInput): Promise<TestStack> {
   const { options, enabledHooks, testDb, testRedis, services, jobRunner } = input;
-  if (jobRunner) await jobRunner.start();
   await configureStackSearch(options, enabledHooks, services.searchAdapter);
 
   const anonymousAccess = await resolveStackAnonymousAccess(options, testDb, testRedis, services);
   const server = buildServer(buildStackServerOptions(input, anonymousAccess));
 
-  // Mirrors the prod entrypoints — without this, JobContext.write/writeAs/
-  // queryAs/queryAsMember throw on first use inside a test-stack job.
-  if (jobRunner) jobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
+  // Attach before start, as the prod entrypoints do: start() runs the worker and enqueues the
+  // runOnBoot jobs, and one that reaches JobContext.write before the attach fails its run.
+  if (jobRunner) {
+    jobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
+    await jobRunner.start();
+  }
 
   const eventDispatcher: EventDispatcher | undefined = server.eventDispatcher;
 

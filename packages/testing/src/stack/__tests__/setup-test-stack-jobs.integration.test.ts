@@ -276,3 +276,54 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
     expect(await bullKeysFor(redisUrl, queuePrefix)).toEqual([]);
   });
 });
+
+describe("setupTestStack({ jobs }) attaches the job dispatcher before the runner starts", () => {
+  test("a runOnBoot job's ctx.dispatch.write succeeds during setup", async () => {
+    let runnerStarted = false;
+    let markBootWriteSettled = (): void => {};
+    const bootWriteSettled = new Promise<void>((resolve) => {
+      markBootWriteSettled = resolve;
+    });
+    const bootWriteOutcomes: string[] = [];
+    const bootDispatchFeature = defineFeature("bootdispatch", (r) => {
+      r.writeHandler({
+        name: "mark",
+        schema: z.object({}),
+        handler: async () => ({ isSuccess: true as const, data: {} }),
+        access: { openToAll: { reason: "test handler the boot job writes through" } },
+      });
+      r.job("gate", { trigger: { manual: true }, bootGate: true }, async () => {
+        runnerStarted = true;
+      });
+      r.job(
+        "write-on-boot",
+        { trigger: { manual: true }, runOnBoot: true, retries: 0 },
+        async (_payload, ctx) => {
+          try {
+            await ctx.dispatch.write("bootdispatch:write:mark", {});
+            bootWriteOutcomes.push("written");
+          } catch (error) {
+            bootWriteOutcomes.push(error instanceof Error ? error.message : String(error));
+            throw error;
+          } finally {
+            markBootWriteSettled();
+          }
+        },
+      );
+    });
+
+    stack = await setupTestStack({
+      features: [bootDispatchFeature],
+      jobs: { consumerLane: "worker" },
+      // Once the runner has started, setup is held here until the boot job ran, so the job always
+      // lands in whatever window this setup step sits in instead of racing it.
+      enrichAnonymousAccess: async (base) => {
+        if (runnerStarted) await bootWriteSettled;
+        return base;
+      },
+    });
+    await stack.drainJobs();
+
+    expect(bootWriteOutcomes).toEqual(["written"]);
+  });
+});
