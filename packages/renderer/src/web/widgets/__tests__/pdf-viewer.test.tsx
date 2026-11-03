@@ -196,10 +196,11 @@ describe("PdfViewer", () => {
     await screen.findByTestId("pdf-toolbar");
     fireEvent.click(screen.getByLabelText("Search in document"));
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "heizung" } });
-    await waitFor(() =>
-      expect(screen.getByTestId("pdf-match-count").textContent).toBe("Match 1 of 2"),
-    );
-    expect(scrolledPages).toContain("3");
+    // The scroll runs in a passive effect after the render that shows the count.
+    await waitFor(() => {
+      expect(screen.getByTestId("pdf-match-count").textContent).toBe("Match 1 of 2");
+      expect(scrolledPages).toContain("3");
+    });
     fireEvent.click(screen.getByLabelText("Next match"));
     expect(screen.getByTestId("pdf-match-count").textContent).toBe("Match 2 of 2");
     fireEvent.click(screen.getByLabelText("Next match"));
@@ -216,10 +217,10 @@ describe("PdfViewer", () => {
 
   test("searchTerm opens the search on the first hit", async () => {
     renderViewer(<PdfViewer document={fakeDocument()} searchTerm="Nutzeinheit" />);
-    await waitFor(() =>
-      expect(screen.getByTestId("pdf-match-count").textContent).toBe("Match 1 of 1"),
-    );
-    expect(scrolledPages).toContain("2");
+    await waitFor(() => {
+      expect(screen.getByTestId("pdf-match-count").textContent).toBe("Match 1 of 1");
+      expect(scrolledPages).toContain("2");
+    });
     expect((screen.getByRole("searchbox") as HTMLInputElement).value).toBe("Nutzeinheit");
   });
 
