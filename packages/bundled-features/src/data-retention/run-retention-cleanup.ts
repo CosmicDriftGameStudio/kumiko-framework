@@ -85,6 +85,7 @@ import {
   runInSubTransaction,
   type SingleFileHolder,
 } from "../shared/index.ts";
+import { eraseNotesOfDeletedRow } from "./erase-notes-of-deleted-row.ts";
 import { computeCutoff, type Instant } from "./keep-for.ts";
 import type { RetentionPresetKey } from "./presets.ts";
 import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant.ts";
@@ -279,6 +280,13 @@ async function forgetRowAndEraseKeys(args: {
       entityName: args.entityName,
       tenantId: args.tenantId,
       row: args.row,
+    });
+    await eraseNotesOfDeletedRow({
+      registry: args.registry,
+      tx: sp,
+      entityName: args.entityName,
+      rowId: String(args.rowId),
+      erasedBy: args.systemUser.id,
     });
     return { isSuccess: true };
   });
