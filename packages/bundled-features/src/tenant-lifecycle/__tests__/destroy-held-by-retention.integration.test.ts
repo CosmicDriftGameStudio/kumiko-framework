@@ -141,7 +141,7 @@ const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
   r.writeHandler({
     name: "ledger-create",
     schema: z.object({ holder: z.string(), amount: z.string() }),
-    access: { roles: access.authenticated },
+    access: { roles: access.builtinUserRoles },
     description: "test-only ledger row creation",
     handler: async (event, ctx) => ledgerCrud.create(event.payload, event.user, ctx.db),
   });
@@ -149,7 +149,7 @@ const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
   r.writeHandler({
     name: "matter-create",
     schema: z.object({ label: z.string(), closedAt: z.string().optional() }),
-    access: { roles: access.authenticated },
+    access: { roles: access.builtinUserRoles },
     description: "test-only matter row creation",
     handler: async (event, ctx) => matterCrud.create(event.payload, event.user, ctx.db),
   });
@@ -157,7 +157,7 @@ const holdFixturesFeature = defineFeature("hold-fixtures", (r) => {
   r.writeHandler({
     name: "scratch-create",
     schema: z.object({ label: z.string() }),
-    access: { roles: access.authenticated },
+    access: { roles: access.builtinUserRoles },
     description: "test-only scratch row creation",
     handler: async (event, ctx) => scratchCrud.create(event.payload, event.user, ctx.db),
   });

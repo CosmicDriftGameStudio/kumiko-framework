@@ -2,7 +2,7 @@ import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import { createTenantDb, type DbConnection, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigAccessor, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import type { FileContext } from "@cosmicdrift/kumiko-framework/files";
+import { type FileContext, FileObjectMissingError } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import {
@@ -91,7 +91,8 @@ function createPdfRenderer(
 }
 
 // A decorative inline image (logo) of a tenant without file storage must not fail the whole mail;
-// transient read errors rethrow so the send job retries.
+// a file ref whose object is gone is permanent, so it is skipped too; transient read errors rethrow
+// so the send job retries.
 async function readInlineImageOrNull(
   fileRefId: string,
   read: () => Promise<FileRefContent | null>,
@@ -99,7 +100,9 @@ async function readInlineImageOrNull(
   try {
     return await read();
   } catch (err) {
-    if (!(err instanceof FileStorageUnavailableError)) throw err;
+    if (!(err instanceof FileStorageUnavailableError || err instanceof FileObjectMissingError)) {
+      throw err;
+    }
     createFallbackLogger("delivery").warn("inline image could not be read, sending without it", {
       fileRefId,
       errorName: err.name,

@@ -40,7 +40,7 @@ export const access = {
   // Only the built-in user roles, not every signed-in caller: a member holding just an app role
   // is not covered. For "any signed-in user" declare `anySignedIn: true` (next to the anonymous
   // role) or `openToAll` instead.
-  authenticated: ["User", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  builtinUserRoles: ["User", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   anonymous: ["anonymous"] as readonly string[], // @cast-boundary schema-walk
   roles: (...roles: string[]): readonly string[] => roles,
   // Tenant self-service roles PLUS the system actor — for tenant-scope keys a

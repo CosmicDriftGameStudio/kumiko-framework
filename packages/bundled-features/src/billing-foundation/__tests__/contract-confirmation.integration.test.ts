@@ -441,6 +441,43 @@ describe("contract confirmation mail on a subscription", () => {
     expect(switchIssued).toHaveLength(1);
   });
 
+  test("a second in-app switch is refused until the provider's webhook confirmed the first one", async () => {
+    const buyer = await createBuyer(8215);
+    const starter = await recordSubscriptionConsent(buyer, "de", "starter");
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_pending_1",
+        tier: "starter",
+        providerCheckoutId: starter.providerCheckoutId,
+      }),
+    );
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentFor("de") },
+      buyer,
+    );
+
+    const refused = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentFor("de") },
+      buyer,
+    );
+
+    expect(JSON.stringify(refused)).toContain("planSwitchPending");
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_pending_2",
+        type: SubscriptionEventTypes.updated,
+      }),
+    );
+    const afterConfirmation = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentFor("de") },
+      buyer,
+    );
+    expect(JSON.stringify(afterConfirmation)).not.toContain("planSwitchPending");
+  });
+
   test("an English consent produces the English mail with the English terms", async () => {
     const buyer = await createBuyer(8202);
     const { providerCheckoutId } = await recordSubscriptionConsent(buyer, "en");

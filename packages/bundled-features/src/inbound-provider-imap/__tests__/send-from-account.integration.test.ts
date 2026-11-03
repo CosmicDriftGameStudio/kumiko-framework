@@ -22,7 +22,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -280,10 +280,13 @@ describe("sendMailFromAccount", () => {
         from: { name: "Office", address: ADDRESS },
         inReplyTo: "<original-4711@example.org>",
       });
-      const copy = await withMailbox(SENDER_LOGIN, (client) =>
-        findByMessageId(client, "Sent", sent.messageIdHeader),
-      );
-      expect(copy?.from?.address).toBe(ADDRESS);
+      // The sent copy is stored after sendMailFromAccount returned.
+      await waitFor(async () => {
+        const copy = await withMailbox(SENDER_LOGIN, (client) =>
+          findByMessageId(client, "Sent", sent.messageIdHeader),
+        );
+        expect(copy?.from?.address).toBe(ADDRESS);
+      });
     },
   );
 
@@ -375,11 +378,14 @@ describe("sendMailFromAccount", () => {
       admin,
     );
 
-    const copy = await withMailbox(SENDER_LOGIN, (client) =>
-      findSourceByMessageId(client, "Sent", sent.messageIdHeader),
-    );
-    const parsed = await simpleParser(copy as Buffer);
-    expect(parsed.attachments.map((attachment) => attachment.filename)).toEqual(["scan.pdf"]);
+    await waitFor(async () => {
+      const copy = await withMailbox(SENDER_LOGIN, (client) =>
+        findSourceByMessageId(client, "Sent", sent.messageIdHeader),
+      );
+      expect(copy).toBeDefined();
+      const parsed = await simpleParser(copy as Buffer);
+      expect(parsed.attachments.map((attachment) => attachment.filename)).toEqual(["scan.pdf"]);
+    });
   });
 
   greenmailTest("a file of another tenant is refused and nothing is sent", async () => {

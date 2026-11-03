@@ -36,7 +36,7 @@ const SUBMIT_LOCK_REASON =
 
 const SUBMIT_ROLES = access.roles(
   ...access.anonymous,
-  ...access.authenticated,
+  ...access.builtinUserRoles,
   "Member",
   "TenantAdmin",
 );

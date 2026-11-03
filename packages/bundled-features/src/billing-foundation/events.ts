@@ -142,6 +142,25 @@ export const checkoutOpenedPayloadSchema = z.object({
 export type CheckoutOpenedPayload = z.infer<typeof checkoutOpenedPayloadSchema>;
 
 // =============================================================================
+// plan-switch-requested — in-app plan switch in flight
+// =============================================================================
+//
+// Appended onto the subscription stream when switch-plan applied a switch at the provider; the
+// tier only changes once the provider's webhook arrives. No projection applies it. It blocks a
+// second switch until a state event follows or the window runs out.
+
+export const PLAN_SWITCH_REQUESTED_EVENT_SHORT = "plan-switch-requested" as const;
+export const PLAN_SWITCH_REQUESTED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${PLAN_SWITCH_REQUESTED_EVENT_SHORT}` as const;
+
+export const planSwitchRequestedPayloadSchema = z.object({
+  tier: z.string().min(1).max(50),
+  priceId: z.string().min(1).max(200),
+  requestedAtIso: z.iso.datetime(),
+});
+export type PlanSwitchRequestedPayload = z.infer<typeof planSwitchRequestedPayloadSchema>;
+
+// =============================================================================
 // checkout-consent-recorded — consumer-protection consent
 // =============================================================================
 //

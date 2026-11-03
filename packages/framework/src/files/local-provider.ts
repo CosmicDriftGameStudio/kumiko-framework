@@ -3,7 +3,7 @@ import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "n
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { assertSafeStorageKey, type FileStorageProvider } from "./types.ts";
+import { assertSafeStorageKey, FileObjectMissingError, type FileStorageProvider } from "./types.ts";
 
 // Local-filesystem backend — intended for dev + tests. Production deploys
 // pick an object-store provider (S3/R2/…). mimeType is ignored here; the
@@ -58,7 +58,12 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
 
     async read(key: string): Promise<Uint8Array> {
       const filePath = resolveContainedPath(key);
-      return readFile(filePath);
+      try {
+        return await readFile(filePath);
+      } catch (e) {
+        if (errorCodeOf(e) === "ENOENT") throw new FileObjectMissingError(key);
+        throw e;
+      }
     },
 
     readStream(key: string): AsyncIterable<Uint8Array> {

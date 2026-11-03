@@ -54,7 +54,11 @@ export async function findMailboxByAddress(
   return matches.find((m) => m.status !== InboundMailAccountStatuses.disconnected) ?? matches[0];
 }
 
-export type ConnectConflict = "already_connected" | "address_disconnected" | "reopen_in_place";
+export type ConnectConflict =
+  | "already_connected"
+  | "address_disconnected"
+  | "reopen_in_place"
+  | "replace_disconnected_personal";
 
 // A disconnected or sign-in-failed OAuth mailbox of the same provider and owner is reopened (the
 // callback writes the new token into the same slot); everything else must not silently create a second stream for one address.
@@ -70,6 +74,10 @@ export function connectConflictOf(
   // A sign-in error of an OAuth mailbox is healed by signing in again, so it reopens like a disconnect.
   const signInFailed = existing.status === InboundMailAccountStatuses.authError;
   if (!disconnected && !signInFailed) return "already_connected";
+  // A member's disconnected personal mailbox must not lock the address for the team's shared one.
+  if (disconnected && wanted.ownerUserId === null && existing.ownerUserId !== null) {
+    return "replace_disconnected_personal";
+  }
   const bothOauth =
     wanted.authMethod === InboundMailAuthMethods.oauth &&
     existing.authMethod === InboundMailAuthMethods.oauth &&

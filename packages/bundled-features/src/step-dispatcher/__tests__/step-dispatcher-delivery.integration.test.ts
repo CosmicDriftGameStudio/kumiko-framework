@@ -353,6 +353,36 @@ describe("step-dispatcher job delivery", () => {
       await expectKeyErased(aggregateId);
     });
 
+    test("a final attempt whose outcome cannot be appended still erases the key and fails the job", async () => {
+      await stack.http.writeOk(
+        "step-delivery-probe:write:notify-mail",
+        { to: "ops@example.com", subject: "Server down", body: "Disk is full" },
+        admin,
+      );
+      const aggregateId = await requestedAggregateId();
+      const realGetKey = kms.getKey.bind(kms);
+      kms.getKey = async () => {
+        throw new Error("kms down");
+      };
+
+      await expect(
+        deliverDispatchRequest({
+          aggregateId,
+          tenantId: admin.tenantId,
+          attempt: DELIVER_RETRIES + 1,
+          finalAttempt: true,
+          applyContextFor: (userId) => ({
+            ...applyContextFor(userId),
+            unsafeAppendEvent: () => Promise.reject(new Error("db down")),
+          }),
+        }),
+      ).rejects.toThrow("step delivery failed and its outcome could not be recorded");
+
+      kms.getKey = realGetKey;
+      expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(0);
+      await expectKeyErased(aggregateId);
+    });
+
     test("the same throw before the final attempt propagates without an outcome or erase", async () => {
       await stack.http.writeOk(
         "step-delivery-probe:write:notify-mail",

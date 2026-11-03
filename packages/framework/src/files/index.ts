@@ -66,6 +66,7 @@ export type {
 export {
   assertSafeStorageKey,
   buildStorageKey,
+  FileObjectMissingError,
   normalizeMimeType,
   sniffMimeType,
   tenantExportPrefix,

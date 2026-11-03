@@ -31,8 +31,8 @@ describe("access presets", () => {
     expect(access.privileged).toEqual(["system", "SystemAdmin"]);
   });
 
-  test("access.authenticated lists only the built-in user roles, no system and no app roles", () => {
-    expect(access.authenticated).toEqual(["User", "Admin", "SystemAdmin"]);
+  test("access.builtinUserRoles lists only the built-in user roles, no system and no app roles", () => {
+    expect(access.builtinUserRoles).toEqual(["User", "Admin", "SystemAdmin"]);
   });
 
   test("access.roles() creates custom role list", () => {

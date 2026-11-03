@@ -17,6 +17,18 @@ export type {
   WriteStreamOptions,
 } from "@cosmicdrift/kumiko-types/file-storage-provider-types";
 
+// Providers throw this when read() finds no object for a key, so callers can tell a permanently
+// missing object from transient storage errors.
+export class FileObjectMissingError extends Error {
+  constructor(
+    readonly storageKey: string,
+    message = `file object not found: ${storageKey}`,
+  ) {
+    super(message);
+    this.name = "FileObjectMissingError";
+  }
+}
+
 export type FileValidationOptions = {
   /** "10mb"-style string or a byte count. */
   readonly maxSize?: string | number | undefined;

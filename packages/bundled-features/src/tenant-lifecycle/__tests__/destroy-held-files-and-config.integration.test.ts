@@ -110,14 +110,14 @@ const holdFixturesFeature = defineFeature("hold-files-fixtures", (r) => {
   r.writeHandler({
     name: "ledger-create",
     schema: z.object({ amount: z.string(), receipt: z.string() }),
-    access: { roles: access.authenticated },
+    access: { roles: access.builtinUserRoles },
     description: "test-only ledger row creation",
     handler: async (event, ctx) => ledgerCrud.create(event.payload, event.user, ctx.db),
   });
   r.writeHandler({
     name: "contract-create",
     schema: z.object({ title: z.string() }),
-    access: { roles: access.authenticated },
+    access: { roles: access.builtinUserRoles },
     description: "test-only contract row creation",
     handler: async (event, ctx) => contractCrud.create(event.payload, event.user, ctx.db),
   });

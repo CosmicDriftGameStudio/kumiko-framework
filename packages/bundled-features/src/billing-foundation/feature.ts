@@ -67,7 +67,9 @@ import {
   PAYMENT_AGGREGATE_TYPE,
   PAYMENT_RECEIVED_EVENT_QN,
   PAYMENT_RECEIVED_EVENT_SHORT,
+  PLAN_SWITCH_REQUESTED_EVENT_SHORT,
   paymentEventPayloadSchema,
+  planSwitchRequestedPayloadSchema,
   SUBSCRIPTION_AGGREGATE_TYPE,
   SUBSCRIPTION_CANCELED_EVENT_QN,
   SUBSCRIPTION_CANCELED_EVENT_SHORT,
@@ -246,6 +248,9 @@ export function createBillingFoundationFeature<TTier extends string = string>(
         r.queryHandler(createBillingPlansQuery(widened, catalog));
         r.queryHandler(createPlanSwitchPreviewQuery(catalog));
         r.writeHandler(createStartPlanCheckoutHandler(widened, catalog));
+        r.defineEvent(PLAN_SWITCH_REQUESTED_EVENT_SHORT, planSwitchRequestedPayloadSchema, {
+          piiFields: "none",
+        });
         r.writeHandler(createSwitchPlanHandler(widened, catalog));
         r.screen(createBillingPlansScreen(catalog.viewRoles));
       }
