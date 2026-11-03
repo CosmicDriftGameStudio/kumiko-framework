@@ -5,7 +5,7 @@ import {
   type JobContext,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { ConfigHandlers, configValuesTable } from "../config/index.ts";
@@ -54,7 +54,7 @@ export async function carryOverLegacyContactConfig(ctx: JobContext): Promise<num
       value: value.data,
       scope: ConfigScopes.system,
     });
-    if (!written.isSuccess) throw written.error;
+    if (!written.isSuccess) throw reraiseAsKumikoError(written.error);
     carriedOver++;
   }
   return carriedOver;

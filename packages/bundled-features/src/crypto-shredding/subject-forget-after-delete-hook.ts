@@ -1,7 +1,7 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import type { SubjectId } from "@cosmicdrift/kumiko-framework/crypto";
 import { createSystemUser, parseTenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import type { HookDefinition } from "@cosmicdrift/kumiko-types/feature-registrar";
 import { FORGET_SUBJECT_QUALIFIED_NAME } from "./constants.ts";
 
@@ -42,7 +42,7 @@ export function subjectForgetAfterDeleteHook(
           subject,
           reason: options.reason,
         });
-        if (!forgotten.isSuccess) throw forgotten.error;
+        if (!forgotten.isSuccess) throw reraiseAsKumikoError(forgotten.error);
       }
     },
   };

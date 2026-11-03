@@ -116,6 +116,19 @@ describe("helpdesk :: settings of the former contact feature", () => {
     expect(await storedValue(REPLY_TO)).toBe("current@example.com");
   });
 
+  test("a former value the helpdesk key rejects fails the job with a readable error", async () => {
+    await storeFormerConfig(FORMER_REPLY_TO, "not an address");
+
+    const failure = await runJob().then(
+      () => undefined,
+      (error: unknown) => (error instanceof Error ? error.message : String(error)),
+    );
+
+    expect(failure).toContain(JOB);
+    expect(failure).not.toContain("[object Object]");
+    expect(await storedValue(REPLY_TO)).toBeUndefined();
+  });
+
   test("a notification preference stored under the contact name applies to the helpdesk notification", async () => {
     const stored = await upsertPreference(
       createTenantDb({ db: ctx.stack.db, tenantId: admin.tenantId }),
