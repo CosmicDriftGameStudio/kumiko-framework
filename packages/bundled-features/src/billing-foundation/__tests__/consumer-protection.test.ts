@@ -54,6 +54,31 @@ describe("consent text", () => {
     expect(consentTextVersion("de", withRefund)).not.toBe(consentTextVersion("de", withoutRefund));
   });
 
+  test("the documents checkbox text never asks consent to the privacy policy", () => {
+    const legalLinks = { terms: "/t", withdrawal: "/w", privacy: "/p", refund: "/r" };
+    for (const locale of ["de", "en"] as const) {
+      const withRefund = documentsAcknowledgementTextFor(
+        options({ documentsAcknowledgement: true, legalLinks }),
+        locale,
+      );
+      const withoutRefund = documentsAcknowledgementTextFor(
+        options({ documentsAcknowledgement: true }),
+        locale,
+      );
+      expect(withRefund).not.toMatch(/Datenschutz|Privacy/i);
+      expect(withoutRefund).not.toMatch(/Datenschutz|Privacy/i);
+    }
+    expect(
+      documentsAcknowledgementTextFor(
+        options({ documentsAcknowledgement: true, legalLinks }),
+        "en",
+      ),
+    ).toContain("Refund Policy");
+    expect(
+      documentsAcknowledgementTextFor(options({ documentsAcknowledgement: true }), "en"),
+    ).not.toContain("Refund");
+  });
+
   test("the effective refund link is the provider's own, else the global one", () => {
     const set = { terms: "/t", withdrawal: "/w", privacy: "/p" };
     const withProviders = options({

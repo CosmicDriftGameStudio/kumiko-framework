@@ -43,6 +43,7 @@ import {
   TERMINATION_PROVIDER_LOCK_KEY,
   TERMINATION_PROVIDER_LOCK_NAMESPACE,
 } from "./termination-provider-lock.ts";
+import { withProviderCallTimeout } from "./termination-provider-timeout.ts";
 import type { OperatorNoticeReason } from "./termination-texts.ts";
 import { isWithinWithdrawalPeriod } from "./withdrawal-period.ts";
 
@@ -140,10 +141,12 @@ async function cancelAtProvider(
     return { providerCancel: "none", effectiveAtIso: null, noticeReason: "provider_cannot_cancel" };
   }
   try {
-    await plugin.cancelSubscription(ctx, {
-      providerSubscriptionId: subscription.providerSubscriptionId,
-      when,
-    });
+    await withProviderCallTimeout(
+      plugin.cancelSubscription(ctx, {
+        providerSubscriptionId: subscription.providerSubscriptionId,
+        when,
+      }),
+    );
   } catch (error) {
     ctx.obs.log?.warn(
       `[billing-foundation:record-contract-termination] provider cancel failed for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -344,9 +347,11 @@ export async function resumeAtProvider(
   const plugin = findPlugin(ctx, subscription.providerName);
   if (!plugin?.resumeSubscription) return ["revocation_resume_manual"];
   try {
-    await plugin.resumeSubscription(ctx, {
-      providerSubscriptionId: subscription.providerSubscriptionId,
-    });
+    await withProviderCallTimeout(
+      plugin.resumeSubscription(ctx, {
+        providerSubscriptionId: subscription.providerSubscriptionId,
+      }),
+    );
   } catch (error) {
     ctx.obs.log?.warn(
       `[billing-foundation:revoke-contract-termination] provider resume failed: ${error instanceof Error ? error.message : String(error)}`,
