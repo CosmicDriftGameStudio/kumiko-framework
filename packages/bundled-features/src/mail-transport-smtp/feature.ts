@@ -54,6 +54,7 @@ import { SMTP_CONFIG_KEYS } from "./config-keys.ts";
 import { MAIL_TRANSPORT_SMTP_I18N } from "./i18n.ts";
 
 const FEATURE_NAME = "mail-transport-smtp";
+const SMTP_AUTH_USER_CONFIG_QN = `${FEATURE_NAME}:config:auth-user`;
 
 const log = createFallbackLogger(FEATURE_NAME);
 
@@ -105,7 +106,7 @@ export function createMailTransportSmtpFeature() {
           return `${plaintext.slice(0, 3)}...${plaintext.slice(-2)}`;
         },
         scope: "tenant",
-        // Only needed once authUser is set (readPassword throws then), so readiness must not demand it.
+        requiredWhenConfigSet: SMTP_AUTH_USER_CONFIG_QN,
       });
 
       const configKeys = r.config({ keys: SMTP_CONFIG_KEYS });

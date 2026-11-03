@@ -35,8 +35,9 @@ export const downloadAttemptEntity = createEntity({
     jobId: createTextField({ personal: false, reason: "technical_reference" }),
     // User ID for the authenticated job path; NULL for anonymous token-path requests.
     attemptedByUserId: createTextField({ personal: false, reason: "pseudonymous_fk" }),
-    // The anonymous token path has no owner, so those rows fall back to the tenant key;
-    // find "exact" on ip because list-download-attempts filters by IP.
+    // Token-path rows stay on the tenant key even when the job owner is known: ip and user agent
+    // come from whoever holds the link, possibly someone other than the owner, and they expire by
+    // retention. find "exact" on ip because list-download-attempts filters by IP.
     ip: createTextField({
       maxLength: 64,
       personal: { of: "attemptedByUserId", whenAbsent: "tenant" },

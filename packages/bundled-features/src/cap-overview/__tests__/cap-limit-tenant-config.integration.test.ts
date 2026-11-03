@@ -107,6 +107,23 @@ const appsCap: CapSpec = {
   usage: async () => 3,
 };
 
+const BATCHED_LIMIT = 7;
+let perTenantLimitCalls = 0;
+let batchLimitCalls = 0;
+const batchedCap: CapSpec = {
+  id: "batched",
+  label: "test.cap.batched",
+  limit: async () => {
+    perTenantLimitCalls += 1;
+    return BATCHED_LIMIT;
+  },
+  limitBatch: async (tenants) => {
+    batchLimitCalls += 1;
+    return new Map(tenants.map(({ tenantId }) => [tenantId, BATCHED_LIMIT]));
+  },
+  usage: async () => 0,
+};
+
 let stack: TestStack;
 
 const adminA = createTestUser({
@@ -130,7 +147,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       createBillingFoundationFeature(),
       createTierEngineFeature(),
-      createCapOverviewFeature({ caps: [seatsCap, appsCap] }),
+      createCapOverviewFeature({ caps: [seatsCap, appsCap, batchedCap] }),
     ],
     extraContext: ({ registry }) => {
       const resolver = createConfigResolver();
@@ -247,6 +264,28 @@ describe("cap limits see the target tenant and a db to read its rows", () => {
     };
     expect(appsLimitOf(TENANT_A)).toBe(1);
     expect(appsLimitOf(TENANT_B)).toBe(10);
+  });
+});
+
+describe("tenant-caps:list resolves limits in one batch per cap", () => {
+  test("a cap with limitBatch is asked once for the whole page, never per tenant", async () => {
+    perTenantLimitCalls = 0;
+    batchLimitCalls = 0;
+
+    const list = await stack.http.queryOk<TenantCapsListResult>(
+      CapOverviewQueries.tenantCapsList,
+      { limit: 50 },
+      adminA,
+    );
+
+    expect(batchLimitCalls).toBe(1);
+    expect(perTenantLimitCalls).toBe(0);
+    for (const tenantId of [TENANT_A, TENANT_B, TENANT_C]) {
+      const cell = list.rows.find((row) => row.tenantId === tenantId)?.[capFieldName("batched")];
+      expect(
+        typeof cell === "object" && cell !== null ? Reflect.get(cell, "limit") : undefined,
+      ).toBe(BATCHED_LIMIT);
+    }
   });
 });
 

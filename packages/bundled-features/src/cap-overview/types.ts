@@ -17,6 +17,8 @@ export type CapSpecLimitContext = CapLimitContext & {
   readonly db: TenantDb;
 };
 
+export type CapSpecLimitTenant = Omit<CapSpecLimitContext, "db"> & { readonly tier: string };
+
 // Consumer-owned cap definition. `usage`/`usageBatch` receive the SAME
 // unfiltered system-mode TenantDb the handler itself reads through — the
 // callback is responsible for scoping its own app-owned tables by tenantId,
@@ -27,11 +29,19 @@ export type CapSpec = {
   readonly label: string;
   // `null` = unlimited (a pure usage meter: counted but never capped).
   // `<= 0` = not part of this tier — existing, unchanged meaning (usage-math.ts).
-  // Resolved once per (cap, tier) per request, so a config read here is cheap.
+  // Resolved per (cap, tenant), so a list of N tenants calls it N times; a limit that reads
+  // app rows from `context.db` should also provide `limitBatch` for the list.
   readonly limit: (
     tier: string,
     context: CapSpecLimitContext,
   ) => number | null | Promise<number | null>;
+  // Batched `limit` for the tenant-caps:list screen: called once per cap with the page's
+  // tenants. Optional: falls back to per-tenant `limit()`. A tenant absent from the returned
+  // map counts as unlimited (`null`).
+  readonly limitBatch?: (
+    tenants: readonly CapSpecLimitTenant[],
+    db: TenantDb,
+  ) => Promise<ReadonlyMap<TenantId, number | null>>;
   // `null` means "no measurement exists yet for this cap" (not "0 used") —
   // callers that haven't wired up instrumentation return null instead of a
   // number they don't actually have.

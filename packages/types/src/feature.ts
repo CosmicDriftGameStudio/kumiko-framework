@@ -96,6 +96,10 @@ export type SecretKeyDefinition = {
   // by readiness:query:status; keep in sync with the missing-secret throw
   // in the feature's build-fn.
   readonly required?: boolean;
+  // Qualified name of a text config key: the secret counts as required only while
+  // that key is non-empty for the tenant (e.g. a password that is needed once a user is set).
+  // Ignored when `required` is true.
+  readonly requiredWhenConfigSet?: string;
   // Roles allowed to set/delete this key. Narrows the secrets handler access
   // (both must pass); absent = the handler access alone decides.
   readonly writeRoles?: readonly string[];

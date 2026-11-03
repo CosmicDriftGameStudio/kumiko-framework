@@ -9,6 +9,7 @@ export {
   createConfigAccessor,
   createConfigAccessorFactory,
   createConfigFeature,
+  requireConfigResolver,
 } from "./feature.ts";
 export type { ReadinessMissingKey, RequiredKeyGate } from "./handlers/readiness.query.ts";
 export {

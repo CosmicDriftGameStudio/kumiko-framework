@@ -17,12 +17,26 @@ import { ConfigQueries } from "../web/constants.ts";
 
 const GATE = "validated:config:gate";
 const GUARDED = "validated:config:guarded";
+const ENCRYPTED = "validated:config:vault";
+const PEEKING = "validated:config:peeking";
 
 const validatedFeature = defineFeature("validated", (r) => {
   r.requires({ features: ["config"] });
   r.config({
     keys: {
       gate: createTenantConfig("text", { default: "open", write: access.roles("Admin") }),
+      vault: createTenantConfig("text", {
+        write: access.roles("Admin"),
+        read: access.roles("Admin"),
+        encrypted: true,
+      }),
+      peeking: createTenantConfig("text", {
+        default: "",
+        write: access.roles("Admin"),
+        validate: async (_value, { readCascade }) => {
+          await readCascade(ENCRYPTED);
+        },
+      }),
       guarded: createTenantConfig("text", {
         default: "",
         write: access.roles("Admin"),
@@ -82,4 +96,14 @@ test("validator can read the cascade of another key via readCascade", async () =
   await stack.http.writeOk("config:write:set", { key: GATE, value: "open" }, admin);
   await stack.http.writeOk("config:write:set", { key: GUARDED, value: "x" }, admin);
   expect(await storedValue(GUARDED)).toBe("x");
+});
+
+test("validator cannot read the cascade of an encrypted key", async () => {
+  const rejected = await stack.http.writeErr(
+    "config:write:set",
+    { key: PEEKING, value: "x" },
+    admin,
+  );
+  expectErrorIncludes(rejected, "internal_error");
+  expect(await storedValue(PEEKING)).toBe("");
 });

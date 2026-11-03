@@ -42,10 +42,25 @@ export type StockCapSpec<TCaps> = {
 
 // Lock on the counted set, not on `code`: two handlers capping the same rows under
 // different codes must still serialize against each other.
-// guard:dup-ok lock key of one counted set; only the sorted-entries shape matches other key builders
-function countedSetKey(spec: Pick<StockCapSpec<unknown>, "table" | "where">): string {
-  const where = Object.entries(spec.where ?? {}).sort(([a], [b]) => a.localeCompare(b));
-  return `${spec.table.tableName}:${JSON.stringify(where)}`;
+export function countedSetKey(spec: Pick<StockCapSpec<unknown>, "table" | "where">): string {
+  return `${spec.table.tableName}:${canonicalWhereJson(spec.where ?? {})}`;
+}
+
+// Sorted keys at every depth; toJSON values (Temporal, Date) serialize as their string form
+// instead of being walked as empty objects.
+function canonicalWhereJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalWhereJson).join(",")}]`;
+  if (value === null || typeof value !== "object" || hasToJson(value)) {
+    return JSON.stringify(value) ?? "null";
+  }
+  const entries = Object.entries(value)
+    .filter(([, nested]) => nested !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return `{${entries.map(([key, nested]) => `${JSON.stringify(key)}:${canonicalWhereJson(nested)}`).join(",")}}`;
+}
+
+function hasToJson(value: object): boolean {
+  return "toJSON" in value && typeof value.toJSON === "function";
 }
 
 export type StockCapGuard<TCaps> = {

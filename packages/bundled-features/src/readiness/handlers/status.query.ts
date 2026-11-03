@@ -1,6 +1,7 @@
 import {
   buildProviderSelectionGate,
   collectMissingRequiredConfig,
+  requireConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
@@ -41,9 +42,22 @@ export const statusQuery = defineQueryHandler({
       ReadinessQueries.status,
     );
     const missingSecrets: ReadinessMissingSecret[] = [];
+    const resolver = requireConfigResolver(ctx, ReadinessQueries.status);
     for (const [qualifiedName, keyDef] of ctx.registry.getAllSecretKeys()) {
-      if (keyDef.required !== true) continue;
       if (!gate(qualifiedName)) continue;
+      if (keyDef.required !== true) {
+        const conditionKey = keyDef.requiredWhenConfigSet;
+        const conditionDef = conditionKey && ctx.registry.getConfigKey(conditionKey);
+        if (!conditionKey || !conditionDef) continue;
+        const conditionValue = await resolver.get(
+          conditionKey,
+          conditionDef,
+          query.user.tenantId,
+          query.user.id,
+          ctx.db,
+        );
+        if (typeof conditionValue !== "string" || conditionValue.trim() === "") continue;
+      }
       if (!(await secrets.has(query.user.tenantId, qualifiedName))) {
         missingSecrets.push({ key: qualifiedName });
       }

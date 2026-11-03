@@ -501,6 +501,20 @@ describe("CapCardsPanel", () => {
     expect(screen.queryByText("0%")).toBeNull();
   });
 
+  test("limit 0 with usage above zero keeps the overage visible", () => {
+    queryState = {
+      data: { rows: [capRow({ id: "c1", used: 5, limit: 0, percent: 0 })] },
+      loading: false,
+      error: null,
+    };
+
+    renderPanel(undefined);
+
+    const card = screen.getByTestId("cap-card");
+    expect(card.textContent).toContain("cap-overview.notIncludedButUsed");
+    expect(card.textContent).not.toContain("cap-overview.notIncluded ");
+  });
+
   test("formats values by unit and groups plain numbers", () => {
     queryState = {
       data: {

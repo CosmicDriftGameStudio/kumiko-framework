@@ -33,6 +33,8 @@ import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { ReadinessQueries } from "../constants.ts";
 import { createReadinessFeature } from "../feature.ts";
 
+const AUTH_USER_CONFIG_KEY = "readiness-probe:config:auth-user";
+
 // Probe-feature: one required + one optional config key, one required +
 // one optional secret — the rollup must list exactly the required gaps.
 const probeFeature = defineFeature("readiness-probe", (r) => {
@@ -49,6 +51,10 @@ const probeFeature = defineFeature("readiness-probe", (r) => {
       }),
       timeout: createTenantConfig("number", {
         default: 30,
+        write: access.roles("TenantAdmin", "SystemAdmin"),
+      }),
+      authUser: createTenantConfig("text", {
+        default: "",
         write: access.roles("TenantAdmin", "SystemAdmin"),
       }),
       // Operator key: required, but read/write is restricted beyond TenantAdmin —
@@ -71,6 +77,11 @@ const probeFeature = defineFeature("readiness-probe", (r) => {
   r.secret("probe.optionalToken", {
     label: { de: "Optionales Token", en: "Optional token" },
     scope: "tenant",
+  });
+  r.secret("probe.authPassword", {
+    label: { de: "Auth-Passwort", en: "Auth password" },
+    scope: "tenant",
+    requiredWhenConfigSet: AUTH_USER_CONFIG_KEY,
   });
 });
 
@@ -230,6 +241,27 @@ describe("readiness:query:status", () => {
     expect(status.missingConfig.map((k) => k.key)).not.toContain(REQUIRED_CONFIG_KEY);
     expect(status.missingSecrets).toEqual([]);
     expect(status.ready).toBe(true);
+  });
+
+  test("a secret conditional on a config key counts as missing only once that key is set", async () => {
+    const admin = adminFor(606);
+    const beforeAuthUser = (await statusFor(admin)).missingSecrets.map((s) => s.key);
+
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: AUTH_USER_CONFIG_KEY, value: "relay-user" },
+      admin,
+    );
+    const afterAuthUser = (await statusFor(admin)).missingSecrets.map((s) => s.key);
+
+    const newlyMissing = afterAuthUser.filter((key) => !beforeAuthUser.includes(key));
+    expect(newlyMissing).toHaveLength(1);
+    expect(afterAuthUser).toHaveLength(beforeAuthUser.length + 1);
+
+    const [conditionalSecret] = newlyMissing;
+    await stack.http.writeOk("secrets:write:set", { key: conditionalSecret, value: "pw" }, admin);
+    const afterSecret = (await statusFor(admin)).missingSecrets.map((s) => s.key);
+    expect(afterSecret).toEqual(beforeAuthUser);
   });
 
   test("SystemAdmin-gated required Key counts in the TenantAdmin verdict", async () => {

@@ -12,6 +12,11 @@ export function isCapNotIncluded(limit: number | null): boolean {
   return limit !== null && limit <= 0;
 }
 
+// Leftover data after a downgrade: the tier grants nothing, yet usage is above zero.
+export function isCapUsedWithoutAllowance(limit: number | null, used: number | null): boolean {
+  return isCapNotIncluded(limit) && used !== null && used > 0;
+}
+
 function rawFraction(used: number, limit: number | null): number {
   if (limit === null) return 0;
   if (isCapNotIncluded(limit)) return 0;

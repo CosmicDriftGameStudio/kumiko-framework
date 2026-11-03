@@ -19,7 +19,7 @@ import type { CapIconKey, CapUnit, CapUsageTone, CapUsageWithMeta } from "../typ
 import { formatCapAmount, formatCapUsedOfLimit } from "./cap-amount-format.ts";
 import { CapUsageBar } from "./cap-usage-bar.tsx";
 import { CapOverviewQueries, MY_CAPS_SCREEN_ID } from "./constants.ts";
-import { isCapNotIncluded } from "./usage-math.ts";
+import { isCapNotIncluded, isCapUsedWithoutAllowance } from "./usage-math.ts";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 
@@ -133,7 +133,11 @@ function CapUsageStat({
       label={t(cap.label)}
       value={
         notIncluded
-          ? t("cap-overview.notIncluded")
+          ? isCapUsedWithoutAllowance(cap.limit, cap.used)
+            ? t("cap-overview.notIncludedButUsed", {
+                used: formatCapAmount(cap.used ?? 0, cap.unit, locale),
+              })
+            : t("cap-overview.notIncluded")
           : !isMeasured(cap)
             ? EMPTY_VALUE_PLACEHOLDER
             : cap.limit === null
