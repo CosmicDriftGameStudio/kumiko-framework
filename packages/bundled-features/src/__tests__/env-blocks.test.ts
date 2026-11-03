@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
+import * as z from "zod";
 import { createAuthEmailPasswordFeature } from "../auth-email-password/index.ts";
 import {
   authMfaEnvSchema,
@@ -16,6 +17,7 @@ import { createCryptoShreddingFeature, kmsEnvSchema } from "../crypto-shredding/
 import {
   createFileProviderS3Feature,
   createS3EnvSchema,
+  s3EndpointSchema,
   s3EnvSchema,
 } from "../file-provider-s3/index.ts";
 import { buildInfoEnvSchema, demoAdminEnvSchema } from "../foundation-shared/index.ts";
@@ -97,6 +99,37 @@ describe("s3EnvSchema", () => {
       "http://localhost:9000",
     );
     expect(parseEnv(s3EnvSchema, { S3_ENDPOINT: "" }).S3_ENDPOINT).toBeUndefined();
+  });
+
+  it("applies the production https rule through the field and through composed schemas", () => {
+    const prod = { NODE_ENV: "production" };
+    expect(
+      invalidNames(() => parseEnv(s3EnvSchema, { ...prod, S3_ENDPOINT: "http://minio:9000" })),
+    ).toEqual(["S3_ENDPOINT:invalid"]);
+    const composed = composeEnvSchema({
+      features: [createFileProviderS3Feature({ fromEnv: true })],
+    });
+    expect(
+      invalidNames(() => parseEnv(composed.schema, { ...prod, S3_ENDPOINT: "http://minio:9000" })),
+    ).toEqual(["S3_ENDPOINT:invalid"]);
+  });
+
+  it("brings the production https rule into an app schema that only reuses s3EndpointSchema", () => {
+    const appSchema = z.object({
+      NODE_ENV: z.string().optional(),
+      ASSETS_ENDPOINT: s3EndpointSchema.optional(),
+    });
+    const prod = { NODE_ENV: "production" };
+    expect(
+      invalidNames(() =>
+        parseEnv(appSchema, { ...prod, ASSETS_ENDPOINT: "http://s3.example.com" }),
+      ),
+    ).toEqual(["ASSETS_ENDPOINT:invalid"]);
+    expect(
+      parseEnv(appSchema, { ...prod, ASSETS_ENDPOINT: "https://s3.example.com" }),
+    ).toBeTruthy();
+    expect(parseEnv(appSchema, { ...prod, ASSETS_ENDPOINT: "http://localhost:9000" })).toBeTruthy();
+    expect(parseEnv(appSchema, { ASSETS_ENDPOINT: "http://s3.example.com" })).toBeTruthy();
   });
 
   it("rejects a non-boolean path-style flag", () => {

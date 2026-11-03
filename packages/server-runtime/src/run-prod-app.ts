@@ -786,7 +786,7 @@ async function bootProdApp(
     registry,
     cacheSync: connections.cacheSync,
   });
-  await assertProdSchemaCurrent(connections.db, options.migrations, log);
+  await assertProdSchemaCurrent(connections.db, options.migrations, log, features);
   await assertRowLevelSecurityBootState(
     connections.db,
     config.rowLevelSecurity,

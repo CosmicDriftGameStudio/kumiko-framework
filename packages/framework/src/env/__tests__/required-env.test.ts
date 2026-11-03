@@ -27,4 +27,11 @@ describe("requiredEnvFor", () => {
       }),
     );
   });
+
+  test("appends the hint after the message", () => {
+    const requiredEnv = requiredEnvFor("stack", {}, "Copy .env.example to .env.");
+    expect(() => requiredEnv("DATABASE_URL")).toThrow(
+      "DATABASE_URL is missing or empty. Copy .env.example to .env.",
+    );
+  });
 });

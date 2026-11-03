@@ -515,3 +515,23 @@ describe("loadSnapshotJson", () => {
     expect(() => loadSnapshotJson(path)).toThrow(`expected ${currentVersion}`);
   });
 });
+
+describe("renderMigrationSql — dropped column on an in-place table", () => {
+  test("a commented not-empty guard precedes the commented drop", () => {
+    const prev = snapshotFromMetas([
+      meta("store_a", { name: "o'legacy", pgType: "text", notNull: false }),
+    ]);
+    const next = snapshotFromMetas([meta("store_a")]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), { name: "drop", sequenceNumber: 2 });
+    const lines = sql.split("\n");
+    const guardIndex = lines.findIndex((l) => l.startsWith("-- DO $$"));
+    const dropIndex = lines.findIndex((l) => l.startsWith("-- DESTRUCTIVE: ALTER TABLE"));
+    expect(guardIndex).toBeGreaterThan(-1);
+    expect(dropIndex).toBe(guardIndex + 1);
+    expect(lines[guardIndex]).toContain(
+      `IF EXISTS (SELECT 1 FROM "store_a" WHERE "o'legacy" IS NOT NULL)`,
+    );
+    expect(lines[guardIndex]).toContain(`RAISE EXCEPTION 'store_a.o''legacy is not empty'`);
+    expect(lines[guardIndex]).not.toContain("DESTRUCTIVE");
+  });
+});

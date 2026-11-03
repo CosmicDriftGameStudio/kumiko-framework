@@ -17,6 +17,7 @@ import {
 } from "../../db/migrate-runner.ts";
 import { asRawClient } from "../../db/query.ts";
 import { tableExists } from "../../db/schema-inspection.ts";
+import { defineFeature } from "../../engine/define-feature.ts";
 import { createEntity, createTextField } from "../../engine/index.ts";
 import { ensureTemporalPolyfill } from "../../time/polyfill.ts";
 import { assertKumikoSchemaCurrent, detectKumikoDrift, SchemaDriftError } from "../kumiko-drift.ts";
@@ -236,5 +237,52 @@ describe("kumiko-drift end-to-end (generate → apply → gate)", () => {
 
     const report = await detectKumikoDrift(testDb.db, dir);
     expect(report.ok).toBe(true);
+  });
+});
+
+describe("kumiko-drift booted-tables layer", () => {
+  function bootedEntity(table: string) {
+    return createEntity({
+      table,
+      fields: {
+        name: createTextField({ personal: false, reason: "test_fixture", required: true }),
+      },
+    });
+  }
+
+  function bootedFeature(table: string) {
+    return defineFeature("kdrift-booted", (r) => {
+      r.entity({ name: "kdriftBooted", ...bootedEntity(table) });
+    });
+  }
+
+  async function applyInit(table: string): Promise<void> {
+    const result = generateMigration({
+      metas: [deriveEntityTableMeta("kdriftBooted", bootedEntity(table))],
+      prevSnapshot: null,
+      name: "init",
+      sequenceNumber: 1,
+    });
+    writeFileSync(join(dir, result.filename), result.sqlContent);
+    writeSnapshotJson(join(dir, ".snapshot.json"), result.snapshot);
+    await runMigrationsFromDir(testDb.db, dir);
+  }
+
+  test("snapshot covers every booted table → ok", async () => {
+    await applyInit("kdrift_gen");
+    const report = await detectKumikoDrift(testDb.db, dir, [bootedFeature("kdrift_gen")]);
+    expect(report.tablesMissingFromSnapshot).toEqual([]);
+    expect(report.ok).toBe(true);
+  });
+
+  test("a booted entity table absent from the snapshot → not ok, names the table", async () => {
+    await applyInit("kdrift_gen");
+    const booted = [bootedFeature("kdrift_gen"), bootedFeature("kdrift_widget")];
+    const report = await detectKumikoDrift(testDb.db, dir, booted);
+    expect(report.ok).toBe(false);
+    expect(report.tablesMissingFromSnapshot).toEqual(["kdrift_widget"]);
+    const error = await assertKumikoSchemaCurrent(testDb.db, dir, booted).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SchemaDriftError);
+    expect(String(error)).toContain("kdrift_widget");
   });
 });

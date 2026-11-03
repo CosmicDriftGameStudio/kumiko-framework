@@ -129,12 +129,13 @@ async function assertWorkerSchemaCurrent(
   db: DbConnection,
   migrationsDir: string | undefined,
   processName: string,
+  bootedFeatures: readonly FeatureDefinition[],
 ): Promise<void> {
   const dir = migrationsDir ?? "./kumiko/migrations";
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint
   console.log(`[${processName}] checking schema drift (${dir})…`);
   try {
-    await assertKumikoSchemaCurrent(db, dir);
+    await assertKumikoSchemaCurrent(db, dir, bootedFeatures);
   } catch (err) {
     if (err instanceof SchemaDriftError) {
       // biome-ignore lint/suspicious/noConsole: terminal error message
@@ -259,7 +260,7 @@ export async function bootWorkerProcess(
 
   if (options.migrations !== false) {
     try {
-      await assertWorkerSchemaCurrent(db, options.migrations?.dir, processName);
+      await assertWorkerSchemaCurrent(db, options.migrations?.dir, processName, features);
     } catch (err) {
       await closeDb();
       await closeOutsideTransactionDb();

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { requiredEnvFor } from "@cosmicdrift/kumiko-framework/env";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { describeFileProviderContract } from "@cosmicdrift/kumiko-testing/helpers";
@@ -9,11 +10,7 @@ import { createS3Provider } from "../s3-provider.ts";
 // (kumiko dev starts it alongside postgres/redis/meili). If Minio isn't up
 // the tests fail fast — same as postgres, not env-gated.
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing env for S3 integration test: ${name}`);
-  return value;
-}
+const requireEnv = requiredEnvFor("S3 integration test", process.env);
 
 // Keep all keys under a per-run prefix so repeated test runs don't pollute
 // each other and a stray failure doesn't leak bytes into the next developer's

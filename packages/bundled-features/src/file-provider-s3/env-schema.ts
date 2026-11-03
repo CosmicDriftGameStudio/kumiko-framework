@@ -28,8 +28,11 @@ export function s3EndpointEnvRule(
     : ENDPOINT_RULE_MESSAGE;
 }
 
-/** S3-compatible endpoint URL (http or https); the production https rule is `isAcceptableS3Endpoint`. */
-export const s3EndpointSchema = z.url({ protocol: /^https?$/ });
+/** S3-compatible endpoint URL (http or https). Carries the production https rule as an env rule,
+ *  so any env schema that reuses it (also wrapped in `.optional()`) enforces it without app code. */
+export const s3EndpointSchema = z
+  .url({ protocol: /^https?$/ })
+  .meta({ kumiko: { envRule: s3EndpointEnvRule } });
 
 function buildS3Shape(prefix: string) {
   return {
@@ -51,8 +54,7 @@ function buildS3Shape(prefix: string) {
     [`${prefix}ENDPOINT`]: z
       .union([z.literal("").transform(() => undefined), s3EndpointSchema])
       .optional()
-      .describe("S3-compatible endpoint (Hetzner, R2, MinIO). Default: AWS.")
-      .meta({ kumiko: { envRule: s3EndpointEnvRule } }),
+      .describe("S3-compatible endpoint (Hetzner, R2, MinIO). Default: AWS."),
     [`${prefix}FORCE_PATH_STYLE`]: z
       .enum(["true", "false"])
       .optional()

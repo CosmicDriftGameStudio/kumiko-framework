@@ -3,9 +3,15 @@ import type {
   AppendEventArgs,
   FetchForWritingArgs,
 } from "@cosmicdrift/kumiko-types/handlers";
-import type { DbTx } from "../db/connection.ts";
+import type { DbRunner, DbTx } from "../db/connection.ts";
 import { runInSavepoint } from "../db/query.ts";
-import type { HandlerContext, HandlerEvents, SessionUser } from "../engine/types/index.ts";
+import type {
+  HandlerContext,
+  HandlerEvents,
+  Registry,
+  SessionUser,
+  TenantId,
+} from "../engine/types/index.ts";
 
 import { InternalError, VersionConflictError } from "../errors/index.ts";
 import { memberResolutionReadOnlyDenied } from "../errors/member-resolution.ts";
@@ -33,7 +39,7 @@ import {
   type SnapshotReducer,
   saveSnapshot,
 } from "../event-store/snapshot.ts";
-import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.ts";
+import { makeUpcastCtx, upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.ts";
 import { appendDomainEventCore } from "./append-event-core.ts";
 import { isMemberResolutionPrincipal, requireDbSource } from "./dispatch-context-helpers.ts";
 import type { DispatchContext } from "./dispatch-shared.ts";
@@ -171,26 +177,35 @@ function buildFetchForWriting(scope: HandlerContextScope) {
   };
 }
 
+/** Shared by handler and job `ctx.events.load`: tenant-scoped read through the upcaster chain. */
+export async function loadUpcastedAggregate(
+  source: { readonly db: DbRunner; readonly registry: Registry; readonly tenantId: TenantId },
+  aggregateId: string,
+  loadOptions?: Parameters<HandlerContext["events"]["load"]>[1],
+): Promise<readonly StoredEvent[]> {
+  const { db, registry, tenantId } = source;
+  const includeArchived = loadOptions?.includeArchived === true;
+  const events = loadOptions?.asOf
+    ? await loadAggregateAsOf(db, aggregateId, tenantId, loadOptions.asOf, { includeArchived })
+    : await loadAggregate(db, aggregateId, tenantId, {
+        includeArchived,
+        ...(loadOptions?.atVersion !== undefined && { atVersion: loadOptions.atVersion }),
+      });
+  return upcastStoredEvents(events, registry.getEventUpcasters(), makeUpcastCtx(db, tenantId));
+}
+
 function buildLoadAggregate(scope: HandlerContextScope) {
   const { ctx, user, tx, registry } = scope;
-  return async (
+  return (
     aggregateId: string,
     loadOptions?: Parameters<HandlerContext["events"]["load"]>[1],
   ): Promise<readonly StoredEvent[]> => {
-    const dbSource = requireDbSource(ctx, tx, `ctx.events.load("${aggregateId}")`);
-    const includeArchived = loadOptions?.includeArchived === true;
-    const events = loadOptions?.asOf
-      ? await loadAggregateAsOf(dbSource, aggregateId, user.tenantId, loadOptions.asOf, {
-          includeArchived,
-        })
-      : await loadAggregate(dbSource, aggregateId, user.tenantId, {
-          includeArchived,
-          ...(loadOptions?.atVersion !== undefined && { atVersion: loadOptions.atVersion }),
-        });
-    return upcastStoredEvents(events, registry.getEventUpcasters(), {
-      db: dbSource,
-      tenantId: user.tenantId,
-    });
+    const db = requireDbSource(ctx, tx, `ctx.events.load("${aggregateId}")`);
+    return loadUpcastedAggregate(
+      { db, registry, tenantId: user.tenantId },
+      aggregateId,
+      loadOptions,
+    );
   };
 }
 

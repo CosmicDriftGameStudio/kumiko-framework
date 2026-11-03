@@ -1,5 +1,5 @@
 import type * as z from "zod";
-import { zodMeta, zodShape } from "./_zod-introspect.ts";
+import { zodDef, zodMeta, zodShape } from "./_zod-introspect.ts";
 
 /** Cross-variable rule on one env field: gets the field's raw value and the whole env being
  *  booted (so `NODE_ENV` comes from the injected source, not `process.env`), returns a message
@@ -13,12 +13,26 @@ function isEnvFieldRule(value: unknown): value is EnvFieldRule {
   return typeof value === "function";
 }
 
-function envRuleOf(field: z.ZodType): EnvFieldRule | undefined {
+function ownEnvRule(field: z.ZodType): EnvFieldRule | undefined {
   const meta = zodMeta(field);
   if (typeof meta !== "object" || meta === null || !("kumiko" in meta)) return undefined;
   const kumiko = meta.kumiko;
   if (typeof kumiko !== "object" || kumiko === null || !("envRule" in kumiko)) return undefined;
   return isEnvFieldRule(kumiko.envRule) ? kumiko.envRule : undefined;
+}
+
+// `.optional()`/`.default()` and unions wrap a fresh instance without the inner meta, so a
+// reusable schema that carries the rule keeps it when an app wraps it in its own field.
+function envRuleOf(field: z.ZodType): EnvFieldRule | undefined {
+  const own = ownEnvRule(field);
+  if (own !== undefined) return own;
+  const def = zodDef(field);
+  if (def?.innerType !== undefined) return envRuleOf(def.innerType);
+  for (const option of def?.options ?? []) {
+    const fromOption = envRuleOf(option);
+    if (fromOption !== undefined) return fromOption;
+  }
+  return undefined;
 }
 
 /** Rule message for one set field; undefined when the field has no rule or the value passes. */

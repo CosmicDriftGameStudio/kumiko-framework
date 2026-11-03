@@ -154,8 +154,9 @@ export type HandlerObservability = {
   readonly meter?: Meter;
 };
 
-// Own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
-export type JobEvents = Pick<HandlerEvents, "append">;
+// `append`: own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
+// `load`: same semantics as in handlers, scoped to the job's tenant.
+export type JobEvents = Pick<HandlerEvents, "append" | "load">;
 
 // `write` runs as the job's systemUser; `writeAs`/`queryAs` take an explicit identity. They throw
 // until JobRunner.attachDispatcher() has run. `queryAsMember`'s tenant is the job's resolved tenant.
@@ -177,7 +178,8 @@ export type ReservationContext<TMap extends object = KumikoEventTypeMap> = Omit<
   readonly lifecycle: Omit<HandlerLifecycle, "afterCommit" | "afterRollback">;
 };
 
-/** ctx of `beforeTransaction`: external I/O and reads only, so the outside-transaction handles are gone too. */
+/** ctx of `beforeTransaction`: external I/O and reads only, so the outside-transaction handles are gone too.
+ *  A long external call that must also write (metering, provenance) belongs in `transaction: "perCommand"`. */
 export type BeforeTransactionContext<TMap extends object = KumikoEventTypeMap> = Omit<
   ReservationContext<TMap>,
   "db" | "systemDb"
