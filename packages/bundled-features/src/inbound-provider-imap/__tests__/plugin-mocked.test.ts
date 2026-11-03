@@ -9,6 +9,7 @@ import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.ts";
 import {
+  INBOUND_MAIL_ATTACHMENTS_MAX_BYTES,
   type InboundMailContext,
   isInboundAuthError,
   isInboundCursorInvalidError,
@@ -16,11 +17,14 @@ import {
   type MailAccountRecord,
   type RawInboundMessage,
 } from "../../inbound-mail-foundation/index.ts";
+import { IMAP_BATCH_MAX_BYTES } from "../byte-budget.ts";
 
 type FakeMsg = {
   readonly uid: number;
   readonly source: Buffer;
   readonly internalDate: Date;
+  /** Size the server reports; the source length when absent. */
+  readonly size?: number;
 };
 
 type FakeState = {
@@ -31,6 +35,8 @@ type FakeState = {
   messages: FakeMsg[];
   /** When set, search() returns this list instead of all message uids. */
   searchUids?: number[];
+  /** Every fetch call in order: the uid range and whether it asked for the raw source. */
+  fetchQueries: { range: string; withSource: boolean }[];
 };
 
 let state: FakeState;
@@ -82,13 +88,15 @@ class FakeImapFlow extends EventEmitter {
 
   async *fetch(
     range: string,
-    _opts?: unknown,
+    query?: { readonly source?: boolean },
     _uidOpts?: unknown,
   ): AsyncGenerator<{
     uid: number;
-    source: Buffer;
+    source?: Buffer;
+    size: number;
     internalDate: Date;
   }> {
+    state.fetchQueries.push({ range, withSource: query?.source === true });
     // Real imapflow is called with either "N,M,…" (explicit uid list) or "N:*".
     const wanted = new Set<number>();
     if (range.includes("*")) {
@@ -104,7 +112,12 @@ class FakeImapFlow extends EventEmitter {
     }
     for (const m of state.messages) {
       if (wanted.size > 0 && !wanted.has(m.uid)) continue;
-      yield { uid: m.uid, source: m.source, internalDate: m.internalDate };
+      yield {
+        uid: m.uid,
+        size: m.size ?? m.source.length,
+        internalDate: m.internalDate,
+        ...(query?.source === true && { source: m.source }),
+      };
     }
   }
 
@@ -203,6 +216,7 @@ beforeEach(() => {
   state = {
     uidValidity: "17",
     uidNext: 3,
+    fetchQueries: [],
     messages: [
       {
         uid: 1,
@@ -304,6 +318,44 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
     expect(result.messages.map((m) => m.subject)).toEqual(["two", "three"]);
     expect(result.hasMore).toBe(true);
     expect(result.nextCursor).toEqual({ uidValidity: "17", lastUid: 3 });
+  });
+
+  test("fetch: a mail above the size limit is rejected without downloading its source", async () => {
+    state.messages = [
+      { uid: 1, source: mime("one", "x"), internalDate: new Date("2024-01-01T12:00:00Z") },
+      {
+        uid: 2,
+        source: mime("huge", "x"),
+        size: INBOUND_MAIL_ATTACHMENTS_MAX_BYTES + 1,
+        internalDate: new Date("2024-01-02T12:00:00Z"),
+      },
+    ];
+    const result = await imapInboundMailPlugin.fetch(ctxWithDoc(goodDoc), account, null, {
+      backfillWindowDays: 7,
+      maxMessages: 50,
+    });
+    expect(result.messages.map((m) => m.subject)).toEqual(["one"]);
+    expect(result.rejected?.map((r) => r.providerMessageId)).toEqual(["17:2"]);
+    expect(state.fetchQueries.filter((q) => q.withSource).map((q) => q.range)).toEqual(["1"]);
+    expect(result.nextCursor).toEqual({ uidValidity: "17", lastUid: 2 });
+    expect(result.hasMore).toBe(false);
+  });
+
+  test("fetch: a batch is cut at the byte budget and the rest is left for the next round", async () => {
+    const third = Math.floor(IMAP_BATCH_MAX_BYTES / 3) + 1;
+    state.messages = [1, 2, 3].map((uid) => ({
+      uid,
+      source: mime(`m${uid}`, "x"),
+      size: third,
+      internalDate: new Date("2024-01-01T12:00:00Z"),
+    }));
+    const result = await imapInboundMailPlugin.fetch(ctxWithDoc(goodDoc), account, null, {
+      backfillWindowDays: 7,
+      maxMessages: 50,
+    });
+    expect(result.messages.map((m) => m.subject)).toEqual(["m1", "m2"]);
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toEqual({ uidValidity: "17", lastUid: 2 });
   });
 
   test("fetch: UIDVALIDITY change → InboundCursorInvalidError", async () => {

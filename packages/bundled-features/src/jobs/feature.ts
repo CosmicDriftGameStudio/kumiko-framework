@@ -4,6 +4,7 @@ import {
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { JOBS_BOOT_RULES } from "./boot-rules.ts";
+import { consumerStateChangedSchema } from "./events.ts";
 import { catalogQuery } from "./handlers/catalog.query.ts";
 import {
   consumerDisableWrite,
@@ -80,6 +81,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       recommended: false,
     });
     r.systemScope();
+    r.defineEvent("consumer-state-changed", consumerStateChangedSchema, { piiFields: "none" });
     r.storeTable(jobRunsTableMeta, {
       reason: "direct_write.job_runs",
       // payload/error carry personal:{of:"triggeredById"} (job-run-table.ts): encrypted under the

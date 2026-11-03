@@ -2359,6 +2359,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "audit.log.event.waitlist-exported": "Lista de espera exportada",
   "audit.log.event.waitlist-purged": "Lista de espera depurada",
   "audit.log.event.feature-toggle-set": "Interruptor de función cambiado",
+  "audit.log.event.consumer-state-changed": "Estado del consumidor de eventos cambiado",
   "audit.log.event.contract-termination-requested": "Rescisión de contrato solicitada",
   "audit.log.event.contract-termination-declared": "Rescisión de contrato declarada",
   "audit.log.event.contract-termination-unmatched": "Rescisión de contrato sin asignar",

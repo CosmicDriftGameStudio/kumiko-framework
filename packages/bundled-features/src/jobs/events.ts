@@ -34,3 +34,13 @@ export const runFailedSchema = z.object({
   error: z.string(),
   logs: z.array(jobLogEntrySchema),
 });
+
+export const CONSUMER_STATE_ACTIONS = ["restarted", "skipped", "disabled", "enabled"] as const;
+
+export const consumerStateChangedSchema = z.object({
+  action: z.enum(CONSUMER_STATE_ACTIONS),
+  name: z.string(),
+  instanceId: z.string(),
+  skippedEventId: z.string().nullable(),
+  actor: z.string(),
+});

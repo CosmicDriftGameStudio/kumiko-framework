@@ -93,6 +93,8 @@ function isSendableBy(row: MailAccountRow, user: SendMailFromAccountContext["use
   return row.status !== InboundMailAccountStatuses.disconnected && isVisibleToCaller(row, user);
 }
 
+// Sends immediately and cannot be rolled back: called inside a handler transaction it holds the
+// connection for the whole SMTP/IMAP round trip, and a later rollback would not recall the mail.
 export async function sendMailFromAccount(
   ctx: SendMailFromAccountContext,
   input: SendMailFromAccountInput,

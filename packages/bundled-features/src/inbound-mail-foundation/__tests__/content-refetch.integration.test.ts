@@ -3,6 +3,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
+import { insertMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -12,6 +13,8 @@ import {
   setInboundFullContent,
 } from "../../inbound-provider-inmemory/index.ts";
 import { inboundMessageAggregateId } from "../aggregate-id.ts";
+import { CONTENT_REFETCH_SCAN_ROWS_PER_TICK } from "../content-refetch.ts";
+import { seenMessageTable } from "../entities.ts";
 import {
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
@@ -115,6 +118,33 @@ describe("snippet-only mails are reloaded", () => {
 
     expect(contentFetchesOf(accountId)).toEqual([["snip-1"]]);
     expect((await contentOf(admin, accountId, "snip-1"))?.attachmentFileIds).toHaveLength(1);
+  });
+
+  test("a snippet-only mail behind more newer anchors than one tick scans is still reloaded", async () => {
+    const admin = adminFor(6125);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    await ingestSnippetOnly(admin, accountId, "deep-1");
+    const newer = Temporal.Now.instant().add({ minutes: 1 });
+    await insertMany(
+      env.stack.db,
+      seenMessageTable,
+      Array.from({ length: CONTENT_REFETCH_SCAN_ROWS_PER_TICK + 100 }, (_, i) => ({
+        tenantId: admin.tenantId,
+        accountId,
+        providerMessageId: `newer-${i}`,
+        seenAt: newer.add({ milliseconds: i }).toString(),
+      })),
+    );
+    setInboundFullContent(
+      accountId,
+      rawMsg({ providerMessageId: "deep-1", text: "the complete text", rawMime: EML_BYTES }),
+    );
+    const supervisor = createMailSupervisor(env.stack);
+
+    await supervisor.pollOnce();
+    await supervisor.pollOnce();
+
+    expect((await contentOf(admin, accountId, "deep-1"))?.contentState).toBe("complete");
   });
 
   test("a fetch that returns neither text nor original ends as unavailable, not asked again", async () => {

@@ -62,6 +62,7 @@ export const AUDIT_I18N: Readonly<Record<string, LocalizedString>> = {
   "audit.log.event.waitlist-exported": { en: "Waitlist exported" },
   "audit.log.event.waitlist-purged": { en: "Waitlist purged" },
   "audit.log.event.feature-toggle-set": { en: "Feature toggle changed" },
+  "audit.log.event.consumer-state-changed": { en: "Event consumer state changed" },
   "audit.log.event.contract-termination-requested": { en: "Contract termination requested" },
   "audit.log.event.contract-termination-declared": { en: "Contract termination declared" },
   "audit.log.event.contract-termination-unmatched": { en: "Contract termination not matched" },

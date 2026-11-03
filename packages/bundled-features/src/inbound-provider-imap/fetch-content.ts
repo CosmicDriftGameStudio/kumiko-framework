@@ -10,6 +10,7 @@ import type {
   RejectedInboundMessage,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
 import { InboundTransientError } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { planWithinByteBudget } from "./byte-budget.ts";
 import { readCredentialDocument } from "./credential-document.ts";
 import {
   closeOnAbort,
@@ -53,11 +54,21 @@ export async function fetchMessageContent(
     const messages: RawInboundMessage[] = [];
     const rejected: RejectedInboundMessage[] = [];
     if (idByUid.size > 0) {
-      for await (const msg of client.fetch(
-        [...idByUid.keys()].join(","),
-        { uid: true, internalDate: true, source: true, envelope: true },
-        { uid: true },
-      )) {
+      const plan = await planWithinByteBudget(client, [...idByUid.keys()], serverUidValidity);
+      rejected.push(...plan.tooLarge);
+      for (const rejectedMail of plan.tooLarge) {
+        const tooLargeUid = uidOf(rejectedMail.providerMessageId, serverUidValidity);
+        if (tooLargeUid !== null) idByUid.delete(tooLargeUid);
+      }
+      // Cut by the byte budget, not gone: they stay candidates and come in a later round.
+      for (const uid of plan.deferred) idByUid.delete(uid);
+      for await (const msg of plan.download.length === 0
+        ? []
+        : client.fetch(
+            plan.download.join(","),
+            { uid: true, internalDate: true, source: true, envelope: true },
+            { uid: true },
+          )) {
         if (!msg.source) continue;
         const parsed = await parseOrReject({
           source: msg.source,

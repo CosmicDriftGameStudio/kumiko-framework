@@ -2310,6 +2310,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "audit.log.event.waitlist-exported": "Waitlist exported",
   "audit.log.event.waitlist-purged": "Waitlist purged",
   "audit.log.event.feature-toggle-set": "Feature toggle changed",
+  "audit.log.event.consumer-state-changed": "Event consumer state changed",
   "audit.log.event.contract-termination-requested": "Contract termination requested",
   "audit.log.event.contract-termination-declared": "Contract termination declared",
   "audit.log.event.contract-termination-unmatched": "Contract termination not matched",

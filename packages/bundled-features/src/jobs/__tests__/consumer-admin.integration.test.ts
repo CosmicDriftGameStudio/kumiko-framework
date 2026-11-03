@@ -2,6 +2,7 @@
 // event drives its consumer to "dead"; restart/skip/disable/enable act on that real state.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
@@ -9,13 +10,19 @@ import {
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { getConsumerState } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createJobsFeature } from "../feature.ts";
 import { consumerRowId } from "../handlers/consumers.query.ts";
-import { JobErrors, JobHandlers, JobQueries } from "../web/constants.ts";
+import {
+  CONSUMER_STATE_CHANGED_EVENT_NAME,
+  JobErrors,
+  JobHandlers,
+  JobQueries,
+} from "../web/constants.ts";
 
 const POISON_NAME = "poison";
 const MAX_PASSES_TO_DEAD = 12;
@@ -184,6 +191,27 @@ describe("event consumer admin over HTTP", () => {
     expect(enabled.status).toBe("idle");
     await runPasses(3);
     expect(observed).toContain("while-paused");
+  });
+
+  test("every successful transition leaves an audit event with the actor, rejected ones leave none", async () => {
+    const events = await selectMany<{ payload: Record<string, unknown> }>(
+      stack.db,
+      eventsTable,
+      { type: CONSUMER_STATE_CHANGED_EVENT_NAME },
+      { orderBy: { col: "id", direction: "asc" } },
+    );
+    expect(events.map((e) => e.payload["action"])).toEqual([
+      "restarted",
+      "restarted",
+      "skipped",
+      "disabled",
+      "enabled",
+    ]);
+    for (const e of events) {
+      expect(e.payload).toMatchObject({ name: CONSUMER, instanceId: SHARED });
+      expect(e.payload["actor"]).toBe(systemAdmin.id);
+    }
+    expect(events[2]?.payload["skippedEventId"]).toEqual(expect.any(String));
   });
 
   test("rejections carry fixed codes and never the internal error text", async () => {

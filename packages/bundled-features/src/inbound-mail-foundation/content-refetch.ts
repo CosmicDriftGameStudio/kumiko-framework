@@ -17,6 +17,12 @@ import type { InboundMailContext, InboundMailProviderPlugin, MailAccountRecord }
 export const CONTENT_REFETCH_BUDGET_PER_TICK = 50;
 const SEEN_PAGE_SIZE = 250;
 const SEEN_MAX_PAGES = 4;
+export const CONTENT_REFETCH_SCAN_ROWS_PER_TICK = SEEN_PAGE_SIZE * SEEN_MAX_PAGES;
+
+// Where the previous tick stopped scanning, per account. Without it every tick re-reads the newest
+// rows and snippet-only mails further back would never be reached. Lost on restart, which only
+// means the scan starts at the newest mail again.
+const scanResumePoint = new Map<string, Temporal.Instant>();
 
 type SeenRow = { readonly providerMessageId: string; readonly seenAt: Temporal.Instant };
 type MessageRow = {
@@ -37,7 +43,8 @@ async function findSnippetOnlyMessageIds(
 ): Promise<string[]> {
   const cutoff = Temporal.Now.instant().subtract({ hours: windowDays * 24 });
   const found: string[] = [];
-  let before: Temporal.Instant | undefined;
+  let before = scanResumePoint.get(account.id);
+  scanResumePoint.delete(account.id);
   for (
     let page = 0;
     page < SEEN_MAX_PAGES && found.length < CONTENT_REFETCH_BUDGET_PER_TICK;
@@ -58,6 +65,7 @@ async function findSnippetOnlyMessageIds(
       },
     );
     if (seen.length === 0) break;
+    const pageStart = before;
     const aggregateToProvider = new Map(
       seen.map((row) => [
         inboundMessageAggregateId(account.id, row.providerMessageId),
@@ -76,7 +84,13 @@ async function findSnippetOnlyMessageIds(
     }
     const oldest = seen[seen.length - 1];
     if (seen.length < SEEN_PAGE_SIZE || !oldest) break;
+    if (found.length >= CONTENT_REFETCH_BUDGET_PER_TICK) {
+      // Reloaded mails stop being candidates, so the page can be read again without looping.
+      if (pageStart) scanResumePoint.set(account.id, pageStart);
+      break;
+    }
     before = oldest.seenAt;
+    scanResumePoint.set(account.id, before);
   }
   return found.slice(0, CONTENT_REFETCH_BUDGET_PER_TICK);
 }
