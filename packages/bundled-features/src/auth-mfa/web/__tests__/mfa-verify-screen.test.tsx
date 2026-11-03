@@ -140,6 +140,29 @@ describe("MfaVerifyScreen", () => {
     });
   });
 
+  test("Recovery mode: surrounding whitespace of a pasted code is not sent", async () => {
+    const fetchMock = mock(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ isSuccess: false, error: "invalid_recovery_code" }), {
+          status: 200,
+        }),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use a recovery code instead" }));
+    fireEvent.change(screen.getByLabelText(/^Recovery code/), {
+      target: { value: " abcd-efgh\n" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      code: "abcd-efgh",
+    });
+  });
+
   test("onCancel gesetzt → 'Back to login'-Button vorhanden, klick ruft onCancel", () => {
     const onCancel = mock(() => {});
     void renderScreen(<MfaVerifyScreen challengeToken="challenge-1" onCancel={onCancel} />);

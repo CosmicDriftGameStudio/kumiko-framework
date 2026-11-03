@@ -1,8 +1,7 @@
-// Reads `?token=...` from the URL, auto-posts it on mount and shows success/error. The server
-// side is idempotent, so a repeated call is safe.
+// Reads `?token=...` from the URL, auto-posts it on mount and shows success/error.
 //
-// useEffect with empty deps + a once-guard so React Strict Mode's double
-// useEffect dispatch in dev fires the confirm call only once.
+// Tokens can be single-use server-side (verify-email), so the once-guard keeps Strict Mode's
+// double effect from showing an invalid-token error after a successful first call.
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";

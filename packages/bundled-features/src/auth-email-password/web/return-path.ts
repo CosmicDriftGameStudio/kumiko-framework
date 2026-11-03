@@ -1,10 +1,11 @@
 // Shared by the server (mail link) and the web pages (landing page), so it is plain string logic:
 // no DOM, no window, no `new URL` (React Native's URL getters throw).
 
+import { MAX_RETURN_PATH_LENGTH } from "@cosmicdrift/kumiko-framework/utils";
 import { readPathParam } from "./read-path-param.ts";
 
 export const RETURN_TO_QUERY_PARAM = "returnTo";
-export const MAX_RETURN_PATH_LENGTH = 2048;
+export { MAX_RETURN_PATH_LENGTH };
 
 const DOT_SEGMENTS = new Set([".", "..", ".%2e", "%2e.", "%2e%2e", "%2e"]);
 

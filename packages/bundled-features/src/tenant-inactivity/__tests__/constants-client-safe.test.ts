@@ -1,12 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { TenantInactivityHandlers } from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity/constants";
+import {
+  TENANT_KEEP_ACCOUNT_ROLES,
+  TenantInactivityHandlers,
+} from "@cosmicdrift/kumiko-bundled-features/tenant-inactivity/constants";
+import { TENANT_ACCOUNT_CLOSE_ROLES } from "../../tenant-lifecycle/constants.ts";
 
 describe("tenant-inactivity/constants subpath", () => {
   test("exposes the handler names without importing any module", () => {
     expect(TenantInactivityHandlers.keepAccount).toBe("tenant-inactivity:write:keep-account");
     const source = readFileSync(new URL("../constants.ts", import.meta.url), "utf8");
     expect(source).not.toMatch(/^\s*(import|export\s+\*?.*from)\b/m);
+  });
+
+  test("every role that can close the account also receives the inactivity warning", () => {
+    for (const role of TENANT_ACCOUNT_CLOSE_ROLES) {
+      expect(TENANT_KEEP_ACCOUNT_ROLES).toContain(role);
+    }
   });
 
   test("the package maps the subpath to the constants file in source and dist", () => {

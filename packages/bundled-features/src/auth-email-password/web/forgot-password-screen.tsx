@@ -12,8 +12,7 @@ import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
 import { requestPasswordReset } from "./auth-client.ts";
 import { AuthCard } from "./auth-form-primitives.tsx";
-import { readReturnToFromWindow } from "./auth-redirect.ts";
-import { isSafeReturnPath } from "./return-path.ts";
+import { resolveReturnTo } from "./auth-redirect.ts";
 
 export type ForgotPasswordScreenProps = {
   readonly title?: string;
@@ -25,10 +24,6 @@ export type ForgotPasswordScreenProps = {
    *  `returnTo` query parameter of this page. Unsafe values are dropped. */
   readonly returnTo?: string;
 };
-
-function resolveReturnTo(prop: string | undefined): string | undefined {
-  return (isSafeReturnPath(prop) ? prop : readReturnToFromWindow()) ?? undefined;
-}
 
 export function ForgotPasswordScreen({
   title,

@@ -1,5 +1,5 @@
 import { type AccessRule, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { EXPIRING_FACET_VALUE } from "../constants.ts";
+import { DOCUMENT_LIVE_ENTITIES, EXPIRING_FACET_VALUE } from "../constants.ts";
 import { expiryStateOf, expiryWindow } from "../expiry.ts";
 import { overviewPayloadSchema } from "../schemas.ts";
 import { type ListFilter, listDocuments } from "./list-page.ts";
@@ -23,7 +23,7 @@ export function createOverviewQuery(access: AccessRule, expiringWithinDays: numb
     name: "overview",
     schema: overviewPayloadSchema,
     access,
-    liveEntities: ["filed-document", "filed-document-link"],
+    liveEntities: DOCUMENT_LIVE_ENTITIES,
     description:
       "Lists the documents the caller can read with an expiry state per row (expired, expiring, valid, none); the expiring filter returns expired and soon-expiring documents. Powers the documents list screen.",
     handler: async (query, ctx) => {

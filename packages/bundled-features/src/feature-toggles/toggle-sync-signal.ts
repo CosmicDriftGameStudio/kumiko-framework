@@ -3,7 +3,7 @@ import {
   type CacheSyncBus,
   createRedisPubSubSignal,
   type RedisClientOptions,
-  redisChannelPrefixFromEnv,
+  type RedisNamespace,
   redisNamespaceFromEnv,
 } from "@cosmicdrift/kumiko-framework/redis";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
@@ -36,9 +36,12 @@ function isTogglePayload(value: unknown): value is { featureName: string; enable
 export function createRedisToggleSyncSignal(
   redisUrl: string,
   clientOptions?: RedisClientOptions,
-  channelPrefix: string = redisChannelPrefixFromEnv(),
-  channelSubscribePattern: string | undefined = redisNamespaceFromEnv().channelSubscribePattern,
+  namespace: Pick<
+    RedisNamespace,
+    "channelPrefix" | "channelSubscribePattern"
+  > = redisNamespaceFromEnv(),
 ): RedisToggleSyncSignal {
+  const { channelPrefix, channelSubscribePattern } = namespace;
   const toggleSyncChannel = `${channelPrefix}${TOGGLE_SYNC_CHANNEL_NAME}`;
   const signal = createRedisPubSubSignal({
     redisUrl,

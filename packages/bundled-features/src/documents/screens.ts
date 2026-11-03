@@ -3,7 +3,12 @@ import {
   i18nKey,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DOCUMENTS_LIST_SCREEN_ID, DocumentsQueries, EXPIRING_FACET_VALUE } from "./constants.ts";
+import {
+  DOCUMENTS_LIST_SCREEN_ID,
+  DocumentsHandlers,
+  DocumentsQueries,
+  EXPIRING_FACET_VALUE,
+} from "./constants.ts";
 
 // The columns every document list shows; the tab and the standalone screen stay alike.
 export const DOCUMENT_COLUMNS = ["title", "category", "validUntil", "file"] as const;
@@ -73,7 +78,7 @@ export function createDocumentListScreen(
         kind: "writeHandler",
         id: "delete",
         label: i18nKey("kumiko.actions.delete"),
-        handler: "documents:write:filed-document:delete",
+        handler: DocumentsHandlers.deleteDocument,
         payload: { pick: ["id"] },
         confirm: i18nKey("kumiko.actions.delete-confirm"),
         style: "danger",

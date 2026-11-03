@@ -11,6 +11,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { SYSTEM_ADMIN_ROLE } from "./secret-scope.ts";
 import { INVALID_SECRET_VALUE_CODE, SECRETS_ERROR_KEYS } from "./web/constants.ts";
 
 // Fixed keys carry their definition (redact fn, writeRoles); namespace keys
@@ -45,7 +46,7 @@ function namespaceAcceptsKey(namespace: SecretNamespaceDefinition, key: string):
 // further for a key or a whole namespace. Delete passes allowUndeclared: it
 // creates nothing, and legacy rows under since-undeclared keys must stay removable,
 // unless the key sits under a mounted feature's prefix: those rows belong to the
-// feature and must not be removable by a tenant admin outside its writeRoles.
+// feature, so only a SystemAdmin may remove them (e.g. after the feature dropped the key).
 export function checkSecretKeyWrite(
   registry: Registry,
   userRoles: readonly string[],
@@ -57,7 +58,8 @@ export function checkSecretKeyWrite(
   if (
     !keyDef &&
     !(namespace && namespaceAcceptsKey(namespace, key)) &&
-    (options.allowUndeclared !== true || isUnderMountedFeaturePrefix(registry, key))
+    (options.allowUndeclared !== true ||
+      (isUnderMountedFeaturePrefix(registry, key) && !userRoles.includes(SYSTEM_ADMIN_ROLE)))
   ) {
     return unknownKeyFailure(key);
   }

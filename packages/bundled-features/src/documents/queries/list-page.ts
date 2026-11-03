@@ -2,7 +2,6 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DocumentsQueries } from "../constants.ts";
 
-const LINK_LIST = "documents:query:filed-document-link:list";
 const LINK_PAGE_SIZE = 200;
 
 const pageSchema = z.object({
@@ -32,7 +31,7 @@ export async function linkedDocumentIds(
   let cursor: string | undefined;
   do {
     const page = pageSchema.parse(
-      await ctx.dispatch.query(LINK_LIST, {
+      await ctx.dispatch.query(DocumentsQueries.linkList, {
         filters: [
           { field: "entityType", op: "eq", value: target.entityType },
           { field: "entityId", op: "eq", value: target.entityId },

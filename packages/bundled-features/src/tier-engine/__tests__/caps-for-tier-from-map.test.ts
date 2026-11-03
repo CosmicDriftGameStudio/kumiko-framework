@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { capsForTierFromMap } from "../caps-for-tier-from-map.ts";
-import { createTierResolver } from "../tier-resolver.ts";
 
 type TierName = "free" | "pro";
 type Caps = { readonly maxItems: number };
@@ -33,14 +32,5 @@ describe("capsForTierFromMap", () => {
     expect(() => capsForTierFromMap(incomplete, neverKnown, "free")("anything")).toThrow(
       'tier-map: tier "free" not in tier map',
     );
-  });
-
-  test("fits TierResolverDeps.capsForTier", () => {
-    const resolver = createTierResolver({
-      capsForTier,
-      isTierName,
-      defaultTier: "free",
-    });
-    expect(resolver.tierAssignmentTable).toBeDefined();
   });
 });

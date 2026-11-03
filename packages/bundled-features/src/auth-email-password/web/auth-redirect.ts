@@ -19,6 +19,11 @@ export function readReturnToFromWindow(): string | null {
   return typeof window === "undefined" ? null : readReturnToFromSearch(window.location.search);
 }
 
+// A safe prop wins over the returnTo of this page's own URL.
+export function resolveReturnTo(prop: string | undefined): string | undefined {
+  return (isSafeReturnPath(prop) ? prop : readReturnToFromWindow()) ?? undefined;
+}
+
 // The safe `next` of this page's URL; null on native, where there is no window.
 export function readNextFromWindow(): string | null {
   return typeof window === "undefined" ? null : readNextFromSearch(window.location.search);

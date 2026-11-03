@@ -9,6 +9,11 @@ export type MfaCodeOrRecoveryFieldProps = {
   readonly useRecovery: boolean;
   readonly onUseRecoveryChange: (useRecovery: boolean) => void;
   readonly disabled?: boolean;
+  readonly required?: boolean;
+  readonly hasError?: boolean;
+  /** Remounts the input, e.g. to regain focus after a disabled submit. */
+  readonly inputKey?: string;
+  readonly onComplete?: (code: string) => void;
 };
 
 export function MfaCodeOrRecoveryField({
@@ -19,6 +24,10 @@ export function MfaCodeOrRecoveryField({
   useRecovery,
   onUseRecoveryChange,
   disabled,
+  required,
+  hasError,
+  inputKey,
+  onComplete,
 }: MfaCodeOrRecoveryFieldProps): ReactNode {
   const t = useTranslation();
   const { Button, Field, Input } = usePrimitives();
@@ -28,24 +37,31 @@ export function MfaCodeOrRecoveryField({
       <Field id={id} label={useRecovery ? t("auth.mfa.verify.recoveryCode") : codeLabel} required>
         {useRecovery ? (
           <Input
+            key={inputKey}
             kind="text"
             id={id}
             name={id}
             value={code}
-            onChange={onCodeChange}
+            // Pasted recovery codes often carry a trailing space or newline; the server rejects them by length.
+            onChange={(next) => onCodeChange(next.trim())}
             disabled={disabled}
+            required={required}
             autoFocus
             autoComplete="off"
           />
         ) : (
           <Input
+            key={inputKey}
             kind="code"
             length={6}
             id={id}
             name={id}
             value={code}
             onChange={onCodeChange}
+            onComplete={onComplete}
             disabled={disabled}
+            hasError={hasError}
+            required={required}
             autoFocus
           />
         )}
