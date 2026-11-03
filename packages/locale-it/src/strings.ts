@@ -1446,6 +1446,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "La destinazione del pulsante «{detail}» deve essere un segnaposto.",
   "templateResolver.errors.document.disallowedLinkHref":
     "La destinazione del link «{detail}» non è consentita; usa https, http, mailto, tel, un percorso relativo o un segnaposto.",
+  "templateResolver.errors.document.relativeLinkWithoutBase":
+    "La destinazione del link «{detail}» è relativa, ma le e-mail e i documenti PDF non hanno un indirizzo di base; usa un link https assoluto.",
   "templateResolver.errors.document.documentRequiresHtmlFormat":
     "Questo tipo di modello richiede il formato html, ma è stato fornito «{detail}».",
   "templateResolver.errors.document.layoutRequiresMjmlFormat":

@@ -262,6 +262,12 @@ function assertIsolatedSpecsUsable(appProjects: readonly E2eProject[]): void {
       "defineAppE2eConfig: isolatedSpecs needs named projects, because the isolated project waits for them via dependencies",
     );
   }
+  const withOwnTestMatch = appProjects.find((project) => project.testMatch !== undefined);
+  if (withOwnTestMatch !== undefined) {
+    throw new Error(
+      `defineAppE2eConfig: isolatedSpecs cannot be combined with testMatch on project "${withOwnTestMatch.name}"; the isolated twin of a project would run specs outside its match`,
+    );
+  }
   if (isShardedRun()) {
     throw new Error(
       "defineAppE2eConfig: isolatedSpecs cannot be combined with --shard; Playwright does not shard dependency projects, so one shard would run every spec.",
@@ -284,20 +290,32 @@ function buildE2eProjects(input: ProjectsInput): Project[] {
     ...project,
     testIgnore: [...new Set([...baseIgnore, ...patternList(project.testIgnore), ...isolated])],
   }));
-  return [
-    ...parallelProjects,
-    {
-      name: ISOLATED_E2E_PROJECT_NAME,
+  const parallelNames = parallelProjects.flatMap((project) =>
+    project.name === undefined ? [] : [project.name],
+  );
+  // Each base project gets its own serial twin so an isolated spec still runs under every
+  // project's `use` (viewport, storageState, locale) instead of only under Desktop Chrome.
+  const isolatedProjects: Project[] = [];
+  for (const project of baseProjects) {
+    const isChromium = project === baseProjects[0];
+    const { name, testIgnore: ownIgnore, ...rest } = project;
+    isolatedProjects.push({
+      ...rest,
+      name: isChromium ? ISOLATED_E2E_PROJECT_NAME : `${name}-isolated`,
       testMatch: [...isolated],
-      testIgnore: [...baseIgnore, ...(realRun ? [NON_REAL_SPEC_PATTERN] : [])],
-      dependencies: parallelProjects.flatMap((project) =>
-        project.name === undefined ? [] : [project.name],
-      ),
+      testIgnore: [
+        ...new Set([
+          ...baseIgnore,
+          ...patternList(ownIgnore),
+          ...(realRun ? [NON_REAL_SPEC_PATTERN] : []),
+        ]),
+      ],
+      dependencies: [...parallelNames, ...isolatedProjects.flatMap((prev) => prev.name ?? [])],
       fullyParallel: false,
       workers: 1,
-      use: chromiumUse,
-    },
-  ];
+    });
+  }
+  return [...parallelProjects, ...isolatedProjects];
 }
 
 export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConfig {

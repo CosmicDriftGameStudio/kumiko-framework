@@ -191,8 +191,8 @@ export type RendererContext = {
 export type MailChromeLink = { readonly label: string; readonly url: string };
 
 /** The tenant's mail look with every text resolved for one locale, for pages a
- *  recipient reaches from a mail link. URLs are http(s) only, the logo https only,
- *  the accent color a #rrggbb hex. */
+ *  recipient reaches from a mail link. URLs are http(s) only, the logo an https URL or a
+ *  base64 raster data URI, the accent color a #rrggbb hex. */
 export type MailChrome = {
   readonly tenantName: string;
   readonly brandSuffix: string;

@@ -160,6 +160,23 @@ describe("sanitizeTemplateBody", () => {
     ).toEqual({ ok: true, content: "# Hi" });
   });
 
+  test("mail and PDF bodies reject a relative link, snippets keep it", () => {
+    const content = '<p><a href="/impressum">Imprint</a></p>';
+    for (const kind of ["mail", "document-pdf"]) {
+      const result = sanitizeTemplateBody({ kind, contentFormat: "html", content });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.violations[0]?.code).toBe("relative_link_without_base");
+    }
+    expect(
+      sanitizeTemplateBody({
+        kind: "mail",
+        contentFormat: "html",
+        content: '<a href="https://x.example/a">x</a>',
+      }).ok,
+    ).toBe(true);
+    expect(sanitizeTemplateBody({ kind: "snippet", contentFormat: "html", content }).ok).toBe(true);
+  });
+
   test("rejects mail with a non-html format and names the kind", () => {
     const result = sanitizeTemplateBody({ kind: "mail", contentFormat: "markdown", content: "x" });
     expect(result.ok).toBe(false);

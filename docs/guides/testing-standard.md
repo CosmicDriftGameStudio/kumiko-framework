@@ -142,8 +142,10 @@ export default defineAppE2eConfig({
 ```
 
 The marked files leave the `chromium` project and every app project and move
-into the `chromium-isolated` project. It starts once all other projects have
-finished and runs its files one after another on a single worker. Without the
+into an isolated twin of it (`chromium-isolated`, `<name>-isolated`) that keeps
+the project's own `use`. The twins start once all other projects have
+finished and run their files one after another on a single worker. A project
+with its own `testMatch` is rejected. Without the
 option the config is unchanged.
 
 The isolated project depends on the parallel projects, so Playwright's rules

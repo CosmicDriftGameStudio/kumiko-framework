@@ -17,6 +17,7 @@ import {
 import {
   createDeliveryFeature,
   createDeliveryTestContext,
+  createUnsubscribePageChromeReader,
   deliveryAttemptsTable,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import {
@@ -39,6 +40,7 @@ import {
   tenantEntity,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import { makeDispatchSystemQuery } from "@cosmicdrift/kumiko-framework/api";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
@@ -177,6 +179,7 @@ const adminTenantI = tenantAdmin(39);
 const adminTenantJ = tenantAdmin(40);
 const adminTenantK = tenantAdmin(41);
 const adminTenantL = tenantAdmin(42);
+const adminTenantM = tenantAdmin(43);
 
 // Job failures only surface as a bare error code; the job's error log names the failing step.
 const loggedErrors: string[] = [];
@@ -521,6 +524,23 @@ describe("mail attachments: inline logo and file attachment", () => {
     expect(Buffer.from(mail.attachments?.[0]?.content ?? [])).toEqual(
       Buffer.from(await storedBytes(brandingFileRefId)),
     );
+  });
+
+  test("the unsubscribe page chrome carries the uploaded branding logo as a data URI", async () => {
+    const brandingFileRefId = await uploadResource(adminTenantM);
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: BRANDING_QN.logoFile, value: brandingFileRefId },
+      adminTenantM,
+    );
+    const readChrome = createUnsubscribePageChromeReader({
+      dispatchSystemQuery: makeDispatchSystemQuery(stack.dispatcher),
+    });
+
+    const chrome = await readChrome(adminTenantM.tenantId, "en");
+
+    const expected = `data:image/png;base64,${Buffer.from(await storedBytes(brandingFileRefId)).toString("base64")}`;
+    expect(chrome?.logoUrl).toBe(expected);
   });
 
   test("an image in the data-header of a tenant layout is sent as an inline attachment", async () => {

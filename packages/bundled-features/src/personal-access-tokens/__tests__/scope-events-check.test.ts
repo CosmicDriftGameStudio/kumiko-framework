@@ -59,4 +59,29 @@ describe("validateScopeEventContracts", () => {
       /plane\.created/,
     );
   });
+
+  test("rejects two released events sharing a wire name, accepts shared names that stay unreleased", () => {
+    const declare = (feature: string) =>
+      defineFeature(feature, (r) => {
+        r.defineWebhookEvent({
+          name: "status-changed",
+          description: "Status changed.",
+          payload: z.object({ id: z.uuid() }),
+          version: 1,
+        });
+      });
+    const shop = declare("shop");
+    const billing = declare("billing");
+    expect(() =>
+      validateScopeEventContracts(scopesWith(["shop:status-changed"]), [shop, billing]),
+    ).not.toThrow();
+    expect(() =>
+      validateScopeEventContracts(scopesWith(["shop:status-changed", "billing:status-changed"]), [
+        shop,
+        billing,
+      ]),
+    ).toThrow(
+      /"status-changed" is used by both "shop:status-changed" and "billing:status-changed"/,
+    );
+  });
 });

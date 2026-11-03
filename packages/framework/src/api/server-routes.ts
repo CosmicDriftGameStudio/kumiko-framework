@@ -105,16 +105,22 @@ export function mountClientErrorRoute(
 
 export function mountDispatcherRoutes(
   app: Hono,
-  wiring: Pick<ServerWiring, "options" | "dispatcher" | "sseBroker">,
+  wiring: Pick<
+    ServerWiring,
+    "options" | "dispatcher" | "sseBroker" | "rateLimitResolver" | "tracedRedis"
+  >,
 ): void {
-  const { options, dispatcher, sseBroker } = wiring;
+  const { options, dispatcher, sseBroker, rateLimitResolver, tracedRedis } = wiring;
+  const exportRateLimitResolver =
+    rateLimitResolver ??
+    (tracedRedis ? createRateLimitResolver({ redis: tracedRedis }) : undefined);
   app.route(
     "/api",
     createApiRoutes(dispatcher, {
       ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
     }),
   );
-  app.route("/api", createExportRoutes(dispatcher, options.registry));
+  app.route("/api", createExportRoutes(dispatcher, options.registry, exportRateLimitResolver));
   app.route(
     "/api",
     createSseRoute(sseBroker, {

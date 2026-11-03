@@ -50,7 +50,8 @@ test("member sees the note", async ({ seedTenant, page }) => {
 - `defineAppE2eConfig({ port, env?, locale?, projects?, serverEntry?, testDir?, testMatch?, isolatedSpecs? })`: parallelism, retries, timeouts and
   workers (`KUMIKO_E2E_WORKERS` overrides) are fixed by the template; projects cannot set them.
 - `isolatedSpecs: ["**/composer.spec.ts"]` moves specs that change app-wide state (catalog entries, global
-  settings) into the `chromium-isolated` project, which runs after all parallel projects on one worker. It cannot
+  settings) into an isolated twin of each project (`chromium-isolated`, `<name>-isolated`), which runs after all parallel
+  projects on one worker with the project's own `use`. A project with its own `testMatch` is rejected. It cannot
   be combined with `--shard`; details in `docs/guides/testing-standard.md`.
 - `KUMIKO_E2E_REMOTE_BASE_URL=https://staging.example.com` runs the same specs against an already running
   instance: no web server is started and `baseURL` is that URL (http or https only). Add

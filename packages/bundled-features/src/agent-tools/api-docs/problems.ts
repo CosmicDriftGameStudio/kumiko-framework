@@ -1,4 +1,8 @@
-import { webhookEventDescriptionKey } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  handlerFieldLabelKey,
+  handlerTitleKey,
+  webhookEventDescriptionKey,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { AgentDocGap } from "../agent-doc-lint.ts";
 import { formatAgentDocGap } from "../agent-doc-lint.ts";
 
@@ -8,6 +12,17 @@ export type ApiDocsProblem =
   | {
       readonly kind: "descriptionTranslationMissing";
       readonly qn: string;
+      readonly locale: string;
+    }
+  | {
+      readonly kind: "titleTranslationMissing";
+      readonly qn: string;
+      readonly locale: string;
+    }
+  | {
+      readonly kind: "fieldLabelMissing";
+      readonly qn: string;
+      readonly field: string;
       readonly locale: string;
     }
   | {
@@ -37,6 +52,10 @@ export function formatApiDocsProblem(problem: ApiDocsProblem): string {
       return `[docGap] ${formatAgentDocGap(problem.gap)}`;
     case "descriptionTranslationMissing":
       return `[descriptionTranslationMissing] ${problem.qn} has no \`${problem.locale}\` description translation.`;
+    case "titleTranslationMissing":
+      return `[titleTranslationMissing] ${problem.qn} has no \`${problem.locale}\` title translation (key ${handlerTitleKey(problem.qn)}).`;
+    case "fieldLabelMissing":
+      return `[fieldLabelMissing] ${problem.qn} field "${problem.field}" has no \`${problem.locale}\` label (key ${handlerFieldLabelKey(problem.qn, problem.field)}).`;
     case "uiWriteOutsideScopes":
       return `[uiWriteOutsideScopes] ${problem.qn} is used by ${problem.screens.join(", ")} but no token scope grants it. Add it to a scope or list it under apiDocs.uiOnlyWrites.`;
     case "unusedUiOnlyWrite":

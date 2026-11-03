@@ -68,25 +68,22 @@ describe("defineWebhookEvent", () => {
     );
   });
 
-  test("two contracts with the same wire name fail the registry and name both QNs", () => {
-    const declare = (feature: string, name: string, wireName: string) =>
+  test("unreleased events of different features may share a name; the registry still builds", () => {
+    const declare = (feature: string) =>
       defineFeature(feature, (r) => {
         r.defineWebhookEvent({
-          name,
-          wireName,
+          name: "status-changed",
           description: "Something happened.",
           payload: z.object({ id: z.uuid() }),
           version: 1,
         });
       });
-    expect(() =>
-      createRegistry([
-        declare("shop", "paid", "order.paid"),
-        declare("billing", "ok", "order.paid"),
-      ]),
-    ).toThrow(/"order\.paid" is used by both "shop:paid" and "billing:ok"/);
-    expect(() => createRegistry([garage, declare("fleet", "made", "car.created")])).toThrow(
-      /"car\.created" is used by both "fleet:made" and "car\.created"|"car\.created" is used by both "car\.created" and "fleet:made"/,
+    const registry = createRegistry([declare("shop"), declare("billing")]);
+    expect(registry.getWebhookEventContract("shop:status-changed")?.wireName).toBe(
+      "status-changed",
+    );
+    expect(registry.getWebhookEventContract("billing:status-changed")?.wireName).toBe(
+      "status-changed",
     );
   });
 

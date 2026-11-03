@@ -1,3 +1,4 @@
+import type { RateLimitResolver } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { Hono } from "hono";
 import * as z from "zod";
 import type { Registry } from "../../engine/types/index.ts";
@@ -56,7 +57,13 @@ function exportAlreadyRunning(): RateLimitError {
   });
 }
 
-export function createExportRoutes(dispatcher: Dispatcher, registry: Registry) {
+export const EXPORT_RATE_LIMIT = { limit: 60, windowSeconds: 60 } as const;
+
+export function createExportRoutes(
+  dispatcher: Dispatcher,
+  registry: Registry,
+  rateLimitResolver?: RateLimitResolver,
+) {
   const api = new Hono();
   const i18n = createI18n(registry, { defaultLocale: DEFAULT_LOCALE });
   const exportsInFlight = new Set<string>();
@@ -69,6 +76,7 @@ export function createExportRoutes(dispatcher: Dispatcher, registry: Registry) {
     }
     exportsInFlight.add(inFlightKey);
     try {
+      await rateLimitResolver?.enforce(`export-xlsx:${inFlightKey}`, EXPORT_RATE_LIMIT);
       const parsed = exportBodySchema.safeParse(await c.req.json().catch(() => undefined));
       if (!parsed.success) throw exportRejection("export_invalid_request", "body");
       const body = parsed.data;
