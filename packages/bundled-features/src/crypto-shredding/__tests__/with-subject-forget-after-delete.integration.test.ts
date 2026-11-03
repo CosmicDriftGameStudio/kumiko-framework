@@ -198,11 +198,10 @@ describe("crypto-shredding :: subjectForgetAfterDeleteHook", () => {
     const id = await createProbe();
     trailingSubjectIds = ["not-a-uuid"];
 
-    const response = await stack.http.write(DELETE, { id }, owner);
+    const error = await stack.http.writeErr(DELETE, { id }, owner);
 
-    expect(response.status).toBe(400);
-    const body = (await response.json()) as { error?: { code?: string } };
-    expect(body.error?.code).toBe("validation_error");
+    expect(error.httpStatus).toBe(400);
+    expect(error.code).toBe("validation_error");
     expect(await rowCount(id)).toBe(1);
   });
 
