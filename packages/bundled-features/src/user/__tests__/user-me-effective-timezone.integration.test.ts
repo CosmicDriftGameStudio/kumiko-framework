@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { ANONYMOUS_USER_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
@@ -75,5 +76,16 @@ describe("user:me effectiveTimeZone", () => {
     const id = await seedUser("tz-tenant@example.com");
     expect(await effectiveTimeZoneOf(id)).toBe("Asia/Tokyo");
     expect(await effectiveTimeZoneOf(id, "America/New_York")).toBe("America/New_York");
+  });
+});
+
+describe("user:me with a caller id that is no uuid", () => {
+  test("returns null instead of failing the query", async () => {
+    const me = await stack.http.queryOk<unknown>(
+      UserQueries.me,
+      {},
+      createTestUser({ id: ANONYMOUS_USER_ID, roles: ["User"] }),
+    );
+    expect(me).toBeNull();
   });
 });
