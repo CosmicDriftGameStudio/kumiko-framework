@@ -295,7 +295,7 @@ async function replayProjectionIntoShadow(
     // inside the tx would roll the whole replay back.
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     await db.begin(async (tx: DbTx) => {
-      await assertRebuildableRowLevelSecurity(tx, meta.tableName);
+      await assertRebuildableRowLevelSecurity(tx, meta);
       await markProjectionRebuilding(tx, projectionName);
       await assertLiveColumnsMatchMeta(tx, meta, projectionName);
       await buildShadowTable(tx, meta);

@@ -5,16 +5,6 @@ export const REDACTED = "[REDACTED]";
 // Defaults are intentionally conservative — easier to add a header to the
 // list than to explain a PII leak. All matching is case-insensitive.
 export const DEFAULT_SENSITIVE_CONFIG: SensitiveFilterConfig = {
-  redactedHeaders: ["authorization", "cookie", "set-cookie", "x-api-key", "proxy-authorization"],
-  redactedQueryParams: [
-    "token",
-    "access_token",
-    "refresh_token",
-    "password",
-    "secret",
-    "api_key",
-    "apikey",
-  ],
   redactedAttributeKeyPatterns: [
     /password/i,
     /secret/i,
@@ -31,9 +21,6 @@ export function mergeSensitiveConfig(
 ): SensitiveFilterConfig {
   if (!override) return DEFAULT_SENSITIVE_CONFIG;
   return {
-    redactedHeaders: override.redactedHeaders ?? DEFAULT_SENSITIVE_CONFIG.redactedHeaders,
-    redactedQueryParams:
-      override.redactedQueryParams ?? DEFAULT_SENSITIVE_CONFIG.redactedQueryParams,
     redactedAttributeKeyPatterns:
       override.redactedAttributeKeyPatterns ??
       DEFAULT_SENSITIVE_CONFIG.redactedAttributeKeyPatterns,

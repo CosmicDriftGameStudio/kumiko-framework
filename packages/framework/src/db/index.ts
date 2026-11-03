@@ -142,6 +142,7 @@ export {
   type WritableTable,
 } from "./table-builder.ts";
 export { extractTableInfo, type TableInfo } from "./table-info.ts";
+export { isSchemaTable } from "./table-introspection.ts";
 export type {
   ExecutorManagedTenantDb,
   TenantDb,

@@ -1,5 +1,9 @@
 import { collectPiiSubjectFields } from "@cosmicdrift/kumiko-framework/crypto";
-import { deriveEntityTableMeta, physicalColumnName } from "@cosmicdrift/kumiko-framework/db";
+import {
+  deriveEntityTableMeta,
+  isSchemaTable,
+  physicalColumnName,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createBooleanField,
@@ -89,6 +93,9 @@ function ownMailboxOrSharedRead(memberRoles: readonly string[]): OwnershipMap {
   const rule: OwnershipRule = {
     kind: "where",
     where: (user, ctx) => {
+      if (!isSchemaTable(ctx.table)) {
+        throw new Error(`${ctx.tableName}: ownership rule received a table not built by table()`);
+      }
       const owner = `"${ctx.tableName}"."${physicalColumnName(ctx.table, "ownerUserId")}"`;
       return {
         sqlText: `(${owner} IS NULL OR ${owner} = '' OR ${owner} = $${ctx.paramStart})`,

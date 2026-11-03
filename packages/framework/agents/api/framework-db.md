@@ -100,6 +100,7 @@ function insertOne<TRow = AnyRow>(db: ExecutorManagedWriteCapability, table: Ent
 function instant(name: string, opts?: { precision?: 0 | 1 | 2 | 3 | 4 | 5 | 6; }): ColumnBuilder<Temporal.Instant>;
 function instantToTimestamptzParam(instant: Temporal.Instant): string;
 function integer(name: string): ColumnBuilder<number>;
+function isSchemaTable(value: unknown): value is SchemaTable; // True for tables built by table(): all three identity slots are present and well-formed.
 function isTimestamptzType(pgType: string | undefined): boolean;
 function isUndefinedTable(e: unknown): boolean;
 function isUniqueViolation(e: unknown): boolean;
@@ -109,7 +110,7 @@ function listEventTenantIds(db: AnyDb): Promise<string[]>;
 function loadSnapshotJson(path: string): Snapshot | null;
 function nullBlindIndexesForSubject(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, subjectKey: string): Promise<void>;
 function outsideTransactionPoolOptionsFromEnv(env?: Readonly<Record<string, string | undefined>>): DbConnectionOptions;
-function physicalColumnName(table: unknown, field: string): string;
+function physicalColumnName(table: SchemaTable, field: string): string;
 function primaryKey(opts: { columns: ColumnHandle[]; name?: string; }): PrimaryKeyDescriptor;
 function queryDatabaseNow(runner: AnyDb): Promise<Date>;
 function readDatabaseNow(db: TenantDb): Promise<Date>; // Postgres clock; inside a transaction `now()` is the transaction start, so repeated reads agree.

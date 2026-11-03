@@ -43,7 +43,7 @@ export { SOFT_DELETE_LIVE_ROW_PREDICATE } from "./entity-table-indexes.ts";
 
 // Shared by the CRUD executor and the parent-ref read-gate — a field's
 // declared column name if it has one, else its snake_case default.
-export function physicalColumnName(table: unknown, field: string): string {
+export function physicalColumnName(table: SchemaTable, field: string): string {
   return columnHandleName(table, field) ?? toSnakeCase(field);
 }
 

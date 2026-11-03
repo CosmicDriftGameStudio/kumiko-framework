@@ -1873,7 +1873,7 @@ type WriteHandlerDefinition<TName extends string = string, TSchema extends ZodTy
   access: AccessRule;
   description?: string;
   agent?: AgentHandlerHints;
-  excludedFields?: string[]; // Set by the entity convention create/update handlers; see WriteHandlerDef.excludedFields.
+  excludedFields?: string[]; // Set by the entity convention create/update handlers; a hand-written handler may declare it for its form, its own schema still decides what it accepts.
   unsafeSkipTransitionGuard?: boolean;
   rateLimit?: RateLimitDeclaration;
   additionalRateLimits?: PayloadRateLimitOption[];

@@ -91,8 +91,14 @@ function alignedStatement(
 ): Promise<unknown> {
   const desired = activeRowLevelSecurityScope();
   return enqueue(state, async () => {
-    await alignScope(target, state, desired);
-    return run();
+    // The scope and the statement go out back to back; a failing set_config aborts the transaction,
+    // so the statement fails behind it.
+    const scoped = startAlignScope(target, state, desired);
+    const statement = startQuery(run);
+    const [scopeResult, statementResult] = await Promise.allSettled([scoped, statement]);
+    if (scopeResult.status === "rejected") throw scopeResult.reason;
+    if (statementResult.status === "rejected") throw statementResult.reason;
+    return statementResult.value;
   });
 }
 
@@ -142,17 +148,18 @@ function transactionHandleProxy<T extends object>(handle: T, state: TransactionS
   return proxy;
 }
 
-async function alignScope(
+function startAlignScope(
   handle: object,
   state: TransactionScopeState,
   desired: RowLevelSecurityScope | undefined,
-): Promise<void> {
+): Promise<unknown> {
   const key = rowLevelSecurityScopeKey(desired);
   // skip: scope already applied on this connection
-  if (key === state.applied) return;
+  if (key === state.applied) return Promise.resolve();
   state.applied = UNKNOWN_SCOPE_KEY;
-  await applyRowLevelSecurityScope(handle, desired);
-  state.applied = key;
+  return startQuery(() => buildRowLevelSecurityScopeQuery(handle, desired)).then(() => {
+    state.applied = key;
+  });
 }
 
 function newTransactionState(): TransactionScopeState {

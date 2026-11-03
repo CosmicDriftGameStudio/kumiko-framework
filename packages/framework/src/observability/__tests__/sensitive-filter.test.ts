@@ -41,8 +41,7 @@ describe("mergeSensitiveConfig", () => {
   });
 
   it("merges partial overrides", () => {
-    const merged = mergeSensitiveConfig({ redactedHeaders: ["x-custom"] });
-    expect(merged.redactedHeaders).toEqual(["x-custom"]);
-    expect(merged.redactedQueryParams).toBe(DEFAULT_SENSITIVE_CONFIG.redactedQueryParams);
+    const merged = mergeSensitiveConfig({ redactedAttributeKeyPatterns: [/custom/i] });
+    expect(merged.redactedAttributeKeyPatterns).toEqual([/custom/i]);
   });
 });

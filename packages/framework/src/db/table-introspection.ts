@@ -4,6 +4,7 @@ import {
   KUMIKO_COLUMNS_SYMBOL,
   KUMIKO_META_SYMBOL,
   KUMIKO_NAME_SYMBOL,
+  type SchemaTable,
 } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 
@@ -25,6 +26,15 @@ export function isEntityTableMeta(value: unknown): value is EntityTableMeta {
     Array.isArray(value.indexes) &&
     "source" in value &&
     (value.source === "managed" || value.source === "unmanaged")
+  );
+}
+
+/** True for tables built by table(): all three identity slots are present and well-formed. */
+export function isSchemaTable(value: unknown): value is SchemaTable {
+  return (
+    schemaTableName(value) !== undefined &&
+    tableColumnsOf(value) !== undefined &&
+    asEntityTableMeta(value) !== undefined
   );
 }
 

@@ -47,7 +47,7 @@ export type WriteHandlerDefinition<
   readonly access: AccessRule;
   readonly description?: string;
   readonly agent?: AgentHandlerHints;
-  /** Set by the entity convention create/update handlers; see WriteHandlerDef.excludedFields. */
+  /** Set by the entity convention create/update handlers; a hand-written handler may declare it for its form, its own schema still decides what it accepts. See WriteHandlerDef.excludedFields. */
   readonly excludedFields?: readonly string[];
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;

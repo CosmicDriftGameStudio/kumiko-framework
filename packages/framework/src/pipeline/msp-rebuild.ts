@@ -192,7 +192,7 @@ async function replayMultiStreamProjectionIntoShadow(
     if (skipApplyErrors) await createRebuildDeadLetterTable(db);
     const replayedIds: bigint[] = [];
     await db.begin(async (tx: DbTx) => {
-      await assertRebuildableRowLevelSecurity(tx, meta.tableName);
+      await assertRebuildableRowLevelSecurity(tx, meta);
       await resetConsumerForMspRebuild(tx, mspName, SHARED_INSTANCE_SENTINEL);
       await selectConsumerForUpdate(tx, mspName, SHARED_INSTANCE_SENTINEL);
 
