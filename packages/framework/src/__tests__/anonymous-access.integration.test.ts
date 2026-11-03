@@ -582,16 +582,16 @@ describe("anonymous access — resolverTrust: authoritative", () => {
     expect(res.status).toBe(200);
   });
 
-  test("kumiko_tenant cookie disagreeing with the resolver → 400 tenant_mismatch, same as a disagreeing header", async () => {
+  test("kumiko_tenant cookie disagreeing with the resolver → ignored, resolver's tenant wins (no 400)", async () => {
+    // An apex-scoped cookie left over from another tenant must not lock the
+    // visitor out of this subdomain.
     const res = await stack.http.raw(
       "POST",
       "/api/query",
       { type: "anonshop:query:product:list", payload: {} },
       { Cookie: `kumiko_tenant=${OTHER_TENANT_ID}` },
     );
-    expect(res.status).toBe(400);
-    const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("tenant_mismatch");
+    expect(res.status).toBe(200);
   });
 });
 
