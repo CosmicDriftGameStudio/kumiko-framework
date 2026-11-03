@@ -34,10 +34,15 @@ let stack: TestStack;
 beforeAll(async () => {
   stack = await setupTestStack({ features: [] });
   await unsafeCreateEntityTable(stack.db, orderEntity);
-  await seedRows(stack.db, orderTable, [
-    { id: ID_A, tenantId: tenantA, name: "A-Order" },
-    { id: ID_B, tenantId: tenantB, name: "B-Order" },
-  ]);
+  await seedRows(
+    stack.db,
+    orderTable,
+    [
+      { id: ID_A, tenantId: tenantA, name: "A-Order" },
+      { id: ID_B, tenantId: tenantB, name: "B-Order" },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 });
 
 afterAll(async () => {

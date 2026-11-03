@@ -174,10 +174,15 @@ describe("schema migration workflows", () => {
     await unsafePushTables(testDb.db, { project: initialTable });
 
     // Insert a row first (to prove ADD COLUMN with default doesn't break existing rows)
-    await seedRow(testDb.db, initialTable, {
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      name: "Test Project",
-    });
+    await seedRow(
+      testDb.db,
+      initialTable,
+      {
+        tenantId: "00000000-0000-4000-8000-000000000001",
+        name: "Test Project",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     // Developer adds boolean field with default
     const updatedEntity = createEntity({
@@ -210,10 +215,15 @@ describe("schema migration workflows", () => {
     const initialTable = buildEntityTable("user", initialEntity);
     await unsafePushTables(testDb.db, { user: initialTable });
 
-    await seedRow(testDb.db, initialTable, {
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      email: "x@y.z",
-    });
+    await seedRow(
+      testDb.db,
+      initialTable,
+      {
+        tenantId: "00000000-0000-4000-8000-000000000001",
+        email: "x@y.z",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const updatedEntity = createEntity({
       table: "wf3b_users",
@@ -320,10 +330,15 @@ describe("date field — real DATE column, no TZ dependence", () => {
     const table = buildEntityTable("invoice", entity);
     await unsafePushTables(testDb.db, { invoice: table });
 
-    await seedRow(testDb.db, table, {
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      periodFrom: "2026-03-15",
-    });
+    await seedRow(
+      testDb.db,
+      table,
+      {
+        tenantId: "00000000-0000-4000-8000-000000000001",
+        periodFrom: "2026-03-15",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const rows = await selectMany(testDb.db, table);
     expect(rows).toHaveLength(1);
@@ -340,10 +355,15 @@ describe("date field — real DATE column, no TZ dependence", () => {
     const table = buildEntityTable("invoice", entity);
     await unsafePushTables(testDb.db, { invoice: table });
 
-    await seedRow(testDb.db, table, {
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      periodFrom: Temporal.PlainDate.from("2026-12-31"),
-    });
+    await seedRow(
+      testDb.db,
+      table,
+      {
+        tenantId: "00000000-0000-4000-8000-000000000001",
+        periodFrom: Temporal.PlainDate.from("2026-12-31"),
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const rows = await selectMany(testDb.db, table);
     const periodFrom = (rows[0] as { periodFrom: unknown }).periodFrom;

@@ -172,44 +172,59 @@ describe("SQL derived fields: what the viewer must not learn", () => {
       await unsafeCreateEntityTable(stack.db, entity, name);
     }
     const tenantId = admin.tenantId;
-    await seedRows(stack.db, buildEntityTable("dsqa-unit", unitEntity), [
-      { id: A1, tenantId, name: "Alpha-1", teamId: "a", secretCode: "S1" },
-      { id: A2, tenantId, name: "Alpha-2", teamId: "a", secretCode: "S2" },
-      { id: B1, tenantId, name: "Secret-B", teamId: "b", secretCode: "S3" },
-    ]);
-    await seedRows(stack.db, buildEntityTable("dsqa-issue", issueEntity), [
-      {
-        tenantId,
-        unitId: A1,
-        assigneeUnitId: B1,
-        teamId: "a",
-        unitCode: "S1",
-        openedOn: "2026-01-01",
-        internalNote: "x",
-      },
-      {
-        tenantId,
-        unitId: A1,
-        assigneeUnitId: A2,
-        teamId: "a",
-        unitCode: "S1",
-        openedOn: "2025-01-01",
-        internalNote: "y",
-      },
-      {
-        tenantId,
-        unitId: A1,
-        assigneeUnitId: null,
-        teamId: "b",
-        unitCode: "S1",
-        openedOn: "2025-06-01",
-        internalNote: "x",
-      },
-    ]);
-    await seedRows(stack.db, buildEntityTable("dsqa-memo", memoEntity), [
-      { tenantId, unitId: A1 },
-      { tenantId, unitId: A1 },
-    ]);
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsqa-unit", unitEntity),
+      [
+        { id: A1, tenantId, name: "Alpha-1", teamId: "a", secretCode: "S1" },
+        { id: A2, tenantId, name: "Alpha-2", teamId: "a", secretCode: "S2" },
+        { id: B1, tenantId, name: "Secret-B", teamId: "b", secretCode: "S3" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsqa-issue", issueEntity),
+      [
+        {
+          tenantId,
+          unitId: A1,
+          assigneeUnitId: B1,
+          teamId: "a",
+          unitCode: "S1",
+          openedOn: "2026-01-01",
+          internalNote: "x",
+        },
+        {
+          tenantId,
+          unitId: A1,
+          assigneeUnitId: A2,
+          teamId: "a",
+          unitCode: "S1",
+          openedOn: "2025-01-01",
+          internalNote: "y",
+        },
+        {
+          tenantId,
+          unitId: A1,
+          assigneeUnitId: null,
+          teamId: "b",
+          unitCode: "S1",
+          openedOn: "2025-06-01",
+          internalNote: "x",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      stack.db,
+      buildEntityTable("dsqa-memo", memoEntity),
+      [
+        { tenantId, unitId: A1 },
+        { tenantId, unitId: A1 },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
   });
 
   afterAll(async () => {

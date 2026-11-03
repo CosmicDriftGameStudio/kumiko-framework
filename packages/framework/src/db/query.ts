@@ -46,7 +46,10 @@ import { executorManagedWriteDenied } from "./executor-managed-tables.ts";
 import { extractPgError } from "./pg-error.ts";
 import { extractTableInfo, type TableInfo } from "./table-info.ts";
 import { asEntityTableMeta, requireEntityTableMeta } from "./table-introspection.ts";
-import { openSerializedSavepoint } from "./transaction-serialization.ts";
+import {
+  openSerializedSavepoint,
+  runStatementBehindPendingUnits,
+} from "./transaction-serialization.ts";
 import { buildWhereClause } from "./where-clause.ts";
 
 // table() (dialect) stores the canonical, shadow-proof EntityTableMeta under
@@ -319,6 +322,17 @@ function coerceRows<TOut>(
 
 // Write and other non-retried paths: log when a closed-connection error leaves
 // the db layer, rethrow unchanged.
+// A plain statement on a transaction waits for savepoints opened before it, see transaction-serialization.
+function unsafeBehindPendingUnits<TRow>(
+  raw: RawClient,
+  sqlText: string,
+  params: readonly unknown[],
+): Promise<readonly TRow[]> {
+  return Promise.resolve(
+    runStatementBehindPendingUnits(raw, () => raw.unsafe<TRow>(sqlText, params)),
+  );
+}
+
 export async function unsafeLoggingClosedConnection<TRow = unknown>(
   db: AnyDb,
   sqlText: string,
@@ -327,7 +341,7 @@ export async function unsafeLoggingClosedConnection<TRow = unknown>(
 ): Promise<readonly TRow[]> {
   const raw = asRawClient(db);
   try {
-    return await raw.unsafe<TRow>(sqlText, params);
+    return await unsafeBehindPendingUnits<TRow>(raw, sqlText, params);
   } catch (err) {
     logClosedConnection(raw, err, 1, context);
     throw err;
@@ -345,7 +359,7 @@ export async function unsafeReadRetrying<TRow>(
 ): Promise<readonly TRow[]> {
   const raw = asRawClient(db);
   try {
-    return await raw.unsafe<TRow>(sqlText, params);
+    return await unsafeBehindPendingUnits<TRow>(raw, sqlText, params);
   } catch (err) {
     if (!isPooledClient(raw) || !isClosedConnectionError(err)) {
       logClosedConnection(raw, err, 1);
@@ -356,7 +370,7 @@ export async function unsafeReadRetrying<TRow>(
     let lastErr: unknown = err;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        return await raw.unsafe<TRow>(sqlText, params);
+        return await unsafeBehindPendingUnits<TRow>(raw, sqlText, params);
       } catch (retryErr) {
         lastErr = retryErr;
         if (!isClosedConnectionError(retryErr)) {

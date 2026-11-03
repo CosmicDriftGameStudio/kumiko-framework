@@ -128,14 +128,19 @@ function widgetAuditFeature(): FeatureDefinition {
         const db = ctx.systemDb.acknowledgeCrossTenant(
           "widget audit sink is system-wide in this test",
         );
-        await seedRow(db, widgetAuditTable, {
-          id: generateId(),
-          widgetName: name,
-          version: 1,
-          tenantId: SYSTEM_TENANT_ID,
-          createdAt: Temporal.Now.instant(),
-          modifiedAt: Temporal.Now.instant(),
-        });
+        await seedRow(
+          db,
+          widgetAuditTable,
+          {
+            id: generateId(),
+            widgetName: name,
+            version: 1,
+            tenantId: SYSTEM_TENANT_ID,
+            createdAt: Temporal.Now.instant(),
+            modifiedAt: Temporal.Now.instant(),
+          },
+          { projectionOnly: "fixture plants a projection row without its event" },
+        );
       },
     });
   });
@@ -293,12 +298,17 @@ describe("feature-toggles runtime cache", () => {
   });
 
   test("refresh() re-reads the DB snapshot", async () => {
-    await seedRow(stack.db, globalFeatureStateTable, {
-      featureName: "widget",
-      enabled: false,
-      version: 1,
-      updatedBy: "test",
-    });
+    await seedRow(
+      stack.db,
+      globalFeatureStateTable,
+      {
+        featureName: "widget",
+        enabled: false,
+        version: 1,
+        updatedBy: "test",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     await runtime.refresh();
     expect(runtime.effectiveFeatures().has("widget")).toBe(false);
   });

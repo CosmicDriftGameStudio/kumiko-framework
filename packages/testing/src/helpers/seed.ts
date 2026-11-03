@@ -15,15 +15,36 @@ import {
   type WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { AnyDb } from "@cosmicdrift/kumiko-framework/internal/stack-support";
-import { withExecutorManagedWritesForTests } from "@cosmicdrift/kumiko-framework/internal/testing";
+import {
+  executorManagedEntitySourceOf,
+  withExecutorManagedWritesForTests,
+} from "@cosmicdrift/kumiko-framework/internal/testing";
 
 type SeedTable = EntityTable | EntityTableMeta;
+
+export type SeedOptions = {
+  // Plants a projection row of an event-sourced entity without its event, on purpose (legacy,
+  // drift or corrupt-row scenarios). The reason names the scenario.
+  readonly projectionOnly?: string;
+};
+
+// A row seeded on an event-sourced entity table has no event, so a rebuild erases it. The
+// entity-source registry sees tables the guard's file-local scan cannot (imported ones).
+function assertSeedable(table: SeedTable, options: SeedOptions | undefined): void {
+  if (executorManagedEntitySourceOf(table) === undefined) return;
+  if (options?.projectionOnly !== undefined && options.projectionOnly.trim() !== "") return;
+  throw new Error(
+    "seedRow on an event-sourced entity table writes the projection without its event: use seedRowViaEventStore, or pass { projectionOnly: reason } for a deliberate event-less row",
+  );
+}
 
 export function seedRow<TRow = unknown>(
   db: AnyDb,
   table: SeedTable,
   values: Record<string, unknown>,
+  options?: SeedOptions,
 ): Promise<TRow | undefined> {
+  assertSeedable(table, options);
   return insertOne<TRow>(withExecutorManagedWritesForTests(db), table, values);
 }
 
@@ -31,7 +52,9 @@ export function seedRows<TRow = unknown>(
   db: AnyDb,
   table: SeedTable,
   rows: ReadonlyArray<Record<string, unknown>>,
+  options?: SeedOptions,
 ): Promise<readonly TRow[]> {
+  assertSeedable(table, options);
   return insertMany<TRow>(withExecutorManagedWritesForTests(db), table, rows);
 }
 

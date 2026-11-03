@@ -8,6 +8,7 @@ import {
 } from "../connection.ts";
 import { type Migration, runMigrations } from "../migrate-runner.ts";
 import { withSessionAdvisoryLock } from "../queries/session-advisory-lock.ts";
+import { outsideRowLevelSecurityScope } from "../row-level-security-scope.ts";
 import { withoutStatementTimeout } from "../statement-timeout.ts";
 
 const STATEMENT_TIMEOUT_MS = 150;
@@ -107,7 +108,10 @@ describe("withoutStatementTimeout pool lifecycle", () => {
     const queryRan = Promise.withResolvers<void>();
     const run = withoutStatementTimeout(parent.db, async (unbounded) => {
       // A session advisory lock is only released when its session ends.
-      await unbounded.unsafe(`SELECT '${marker}' FROM pg_advisory_lock(hashtext('${marker}'))`);
+      // Outside the scope the statement is not wrapped in a transaction, so its text stays visible in pg_stat_activity.
+      await outsideRowLevelSecurityScope(() =>
+        unbounded.unsafe(`SELECT '${marker}' FROM pg_advisory_lock(hashtext('${marker}'))`),
+      );
       queryRan.resolve();
       await new Promise<never>(() => {});
     });

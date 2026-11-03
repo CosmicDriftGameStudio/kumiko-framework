@@ -231,17 +231,25 @@ beforeEach(async () => {
 
 describe("event-store-executor.list — searchable reference fields", () => {
   test("matches via the reference column's label with no text-field match", async () => {
-    const [acme] = await seedRows(testDb.db, customerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
-    ]);
-    const [order] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "totally unrelated note",
-        customerId: (acme as { id: string }).id,
-      },
-    ]);
+    const [acme] = await seedRows(
+      testDb.db,
+      customerTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [order] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "totally unrelated note",
+          customerId: (acme as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -260,30 +268,40 @@ describe("event-store-executor.list — searchable reference fields", () => {
   });
 
   test("unions a native text-field match with a reference-label match, no duplicates", async () => {
-    const [acme, other] = await seedRows(testDb.db, customerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Some Other Customer" },
-    ]);
-    const [textMatchOrder, refMatchOrder, decoyOrder] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "great acme deal closed",
-        customerId: (other as { id: string }).id,
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "nothing special here",
-        customerId: (acme as { id: string }).id,
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "nothing special here either",
-        customerId: (other as { id: string }).id,
-      },
-    ]);
+    const [acme, other] = await seedRows(
+      testDb.db,
+      customerTable,
+      [
+        { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
+        { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Some Other Customer" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [textMatchOrder, refMatchOrder, decoyOrder] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "great acme deal closed",
+          customerId: (other as { id: string }).id,
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "nothing special here",
+          customerId: (acme as { id: string }).id,
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "nothing special here either",
+          customerId: (other as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -309,17 +327,25 @@ describe("event-store-executor.list — searchable reference fields", () => {
   });
 
   test("a label match on a soft-deleted target never surfaces a row", async () => {
-    const [deleted] = await seedRows(testDb.db, customerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Deleted Co", isDeleted: true },
-    ]);
-    const [order] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "unrelated",
-        customerId: (deleted as { id: string }).id,
-      },
-    ]);
+    const [deleted] = await seedRows(
+      testDb.db,
+      customerTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Deleted Co", isDeleted: true }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [order] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "unrelated",
+          customerId: (deleted as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -338,21 +364,29 @@ describe("event-store-executor.list — searchable reference fields", () => {
   });
 
   test("a target label match in a foreign tenant never surfaces a row (mandatory)", async () => {
-    const [confidential] = await seedRows(testDb.db, customerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Confidential Co" },
-    ]);
+    const [confidential] = await seedRows(
+      testDb.db,
+      customerTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Confidential Co" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     // Reference UUIDs are freely settable (no FK constraint) — a tenant-B
     // row can point at a tenant-A id. If the target lookup weren't
     // tenant-scoped, this order would surface and leak that a
     // "Confidential Co" row exists in another tenant.
-    const [order] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: otherTenantAdmin.tenantId,
-        note: "unrelated",
-        customerId: (confidential as { id: string }).id,
-      },
-    ]);
+    const [order] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: otherTenantAdmin.tenantId,
+          note: "unrelated",
+          customerId: (confidential as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(otherTenantAdmin.tenantId, { searchableFields: ["note"] });
@@ -371,26 +405,39 @@ describe("event-store-executor.list — searchable reference fields", () => {
   });
 
   test("totalCount with a reference hit excludes search ids that fall out of tenant scope", async () => {
-    const [acme] = await seedRows(testDb.db, customerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
-    ]);
-    const [refMatchOrder] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "nothing special here",
-        customerId: (acme as { id: string }).id,
-      },
-    ]);
+    const [acme] = await seedRows(
+      testDb.db,
+      customerTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [refMatchOrder] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "nothing special here",
+          customerId: (acme as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     // Native-search hit that the tenant filter removes afterwards: the id is
     // in tenant A's search index but the row lives in tenant B.
-    const [foreignOrder] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: otherTenantAdmin.tenantId,
-        note: "acme foreign deal",
-      },
-    ]);
+    const [foreignOrder] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: otherTenantAdmin.tenantId,
+          note: "acme foreign deal",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -415,22 +462,29 @@ describe("event-store-executor.list — searchable reference fields", () => {
       tenantId: admin.tenantId,
       name: `Foo Customer ${i}`,
     }));
-    await seedRows(testDb.db, customerTable, fooCustomers);
+    await seedRows(testDb.db, customerTable, fooCustomers, {
+      projectionOnly: "fixture plants a projection row without its event",
+    });
 
-    const [refOnlyOrder, textMatchOrder] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "no keyword here",
-        customerId: fooCustomers[5]?.id,
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "foo appears right here",
-        customerId: fooCustomers[10]?.id,
-      },
-    ]);
+    const [refOnlyOrder, textMatchOrder] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "no keyword here",
+          customerId: fooCustomers[5]?.id,
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "foo appears right here",
+          customerId: fooCustomers[10]?.id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -452,17 +506,25 @@ describe("event-store-executor.list — searchable reference fields", () => {
   });
 
   test("a caller without read access to the reference column gets no reference-match hit", async () => {
-    const [acme] = await seedRows(testDb.db, customerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
-    ]);
-    const [order] = await seedRows(testDb.db, restrictedOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "totally unrelated note",
-        customerId: (acme as { id: string }).id,
-      },
-    ]);
+    const [acme] = await seedRows(
+      testDb.db,
+      customerTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [order] = await seedRows(
+      testDb.db,
+      restrictedOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "totally unrelated note",
+          customerId: (acme as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -481,32 +543,57 @@ describe("event-store-executor.list — searchable reference fields", () => {
   });
 
   test("matches via the implicit tenantId->tenant.name row-meta reference in a system-scoped cross-tenant search", async () => {
-    const [acmeTenant] = await seedRows(testDb.db, tenantMetaTable, [
-      { id: admin.tenantId, tenantId: admin.tenantId, name: "Acme Tenant" },
-    ]);
-    await seedRows(testDb.db, tenantMetaTable, [
-      { id: otherTenantAdmin.tenantId, tenantId: otherTenantAdmin.tenantId, name: "Globex Tenant" },
-    ]);
-    const [someCustomer] = await seedRows(testDb.db, customerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Some Customer" },
-    ]);
+    const [acmeTenant] = await seedRows(
+      testDb.db,
+      tenantMetaTable,
+      [{ id: admin.tenantId, tenantId: admin.tenantId, name: "Acme Tenant" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      tenantMetaTable,
+      [
+        {
+          id: otherTenantAdmin.tenantId,
+          tenantId: otherTenantAdmin.tenantId,
+          name: "Globex Tenant",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [someCustomer] = await seedRows(
+      testDb.db,
+      customerTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Some Customer" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
-    const [tenantAOrder] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "nothing relevant here",
-        customerId: (someCustomer as { id: string }).id,
-      },
-    ]);
-    await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: otherTenantAdmin.tenantId,
-        note: "also nothing relevant",
-        customerId: (someCustomer as { id: string }).id,
-      },
-    ]);
+    const [tenantAOrder] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "nothing relevant here",
+          customerId: (someCustomer as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: otherTenantAdmin.tenantId,
+          note: "also nothing relevant",
+          customerId: (someCustomer as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(TestUsers.systemAdmin.tenantId, { searchableFields: ["note"] });
@@ -528,12 +615,18 @@ describe("event-store-executor.list — searchable reference fields", () => {
   });
 
   test("tenant-mode search never issues the tenantId row-meta lookup (gate)", async () => {
-    await seedRows(testDb.db, tenantMetaTable, [
-      { id: admin.tenantId, tenantId: admin.tenantId, name: "Acme Tenant" },
-    ]);
-    await seedRows(testDb.db, orderTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, note: "nothing relevant" },
-    ]);
+    await seedRows(
+      testDb.db,
+      tenantMetaTable,
+      [{ id: admin.tenantId, tenantId: admin.tenantId, name: "Acme Tenant" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      orderTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, note: "nothing relevant" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -562,22 +655,32 @@ describe("event-store-executor.list — searchable reference fields", () => {
 
 describe("event-store-executor.list — searchable reference to an encrypted/PII labelField via the search index", () => {
   test('matches via the target\'s derived search index when the labelField is PII (find: "fuzzy")', async () => {
-    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: admin.id,
-        name: "Confidential Contact",
-      },
-    ]);
-    const [order] = await seedRows(testDb.db, piiOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "totally unrelated",
-        customerId: (contact as { id: string }).id,
-      },
-    ]);
+    const [contact] = await seedRows(
+      testDb.db,
+      piiCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: admin.id,
+          name: "Confidential Contact",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [order] = await seedRows(
+      testDb.db,
+      piiOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "totally unrelated",
+          customerId: (contact as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     // One shared per-tenant index across every entity type (real Meilisearch
@@ -608,22 +711,29 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
       ownerId: admin.id,
       name: `Foo Contact ${i}`,
     }));
-    await seedRows(testDb.db, piiCustomerTable, fooCustomers);
+    await seedRows(testDb.db, piiCustomerTable, fooCustomers, {
+      projectionOnly: "fixture plants a projection row without its event",
+    });
 
-    const [refOnlyOrder, textMatchOrder] = await seedRows(testDb.db, piiOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "no keyword here",
-        customerId: fooCustomers[5]?.id,
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "foo appears right here",
-        customerId: fooCustomers[10]?.id,
-      },
-    ]);
+    const [refOnlyOrder, textMatchOrder] = await seedRows(
+      testDb.db,
+      piiOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "no keyword here",
+          customerId: fooCustomers[5]?.id,
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "foo appears right here",
+          customerId: fooCustomers[10]?.id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
@@ -653,22 +763,32 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
   });
 
   test("a target label match in a foreign tenant's search index never surfaces a row (mandatory)", async () => {
-    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: otherTenantAdmin.tenantId,
-        ownerId: otherTenantAdmin.id,
-        name: "Foreign Contact",
-      },
-    ]);
-    await seedRows(testDb.db, piiOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: otherTenantAdmin.tenantId,
-        note: "unrelated",
-        customerId: (contact as { id: string }).id,
-      },
-    ]);
+    const [contact] = await seedRows(
+      testDb.db,
+      piiCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: otherTenantAdmin.tenantId,
+          ownerId: otherTenantAdmin.id,
+          name: "Foreign Contact",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      piiOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: otherTenantAdmin.tenantId,
+          note: "unrelated",
+          customerId: (contact as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
@@ -689,23 +809,33 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
   });
 
   test("a stale index document naming a foreign-tenant row never becomes a match, even for a full-access reader", async () => {
-    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: otherTenantAdmin.tenantId,
-        ownerId: otherTenantAdmin.id,
-        name: "Stale Contact",
-      },
-    ]);
+    const [contact] = await seedRows(
+      testDb.db,
+      piiCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: otherTenantAdmin.tenantId,
+          ownerId: otherTenantAdmin.id,
+          name: "Stale Contact",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     // Reference UUIDs carry no FK constraint, so an own-tenant order can point at the foreign row.
-    const [order] = await seedRows(testDb.db, piiOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "unrelated",
-        customerId: (contact as { id: string }).id,
-      },
-    ]);
+    const [order] = await seedRows(
+      testDb.db,
+      piiOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "unrelated",
+          customerId: (contact as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
@@ -726,34 +856,44 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
   });
 
   test("row-level ownership on the target entity intersects the search-index candidates, same as the target's own list would", async () => {
-    const [ownRow, otherRow] = await seedRows(testDb.db, piiCustomerTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: TestUsers.user.id,
-        name: "Shared Label",
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: admin.id,
-        name: "Shared Label",
-      },
-    ]);
-    const [ownOrder, otherOrder] = await seedRows(testDb.db, piiOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "n1",
-        customerId: (ownRow as { id: string }).id,
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "n2",
-        customerId: (otherRow as { id: string }).id,
-      },
-    ]);
+    const [ownRow, otherRow] = await seedRows(
+      testDb.db,
+      piiCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: TestUsers.user.id,
+          name: "Shared Label",
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: admin.id,
+          name: "Shared Label",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [ownOrder, otherOrder] = await seedRows(
+      testDb.db,
+      piiOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "n1",
+          customerId: (ownRow as { id: string }).id,
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "n2",
+          customerId: (otherRow as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
@@ -779,35 +919,50 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
   });
 
   test("totalCount with a reference hit and a native hit counts exactly the rows the ownership filter lets through", async () => {
-    const [ownRow, otherRow] = await seedRows(testDb.db, piiCustomerTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: TestUsers.user.id,
-        name: "Shared Label",
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: admin.id,
-        name: "Shared Label",
-      },
-    ]);
-    const [ownOrder, otherOrder, nativeOrder] = await seedRows(testDb.db, piiOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "n1",
-        customerId: (ownRow as { id: string }).id,
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "n2",
-        customerId: (otherRow as { id: string }).id,
-      },
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, note: "shared note", customerId: null },
-    ]);
+    const [ownRow, otherRow] = await seedRows(
+      testDb.db,
+      piiCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: TestUsers.user.id,
+          name: "Shared Label",
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: admin.id,
+          name: "Shared Label",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    const [ownOrder, otherOrder, nativeOrder] = await seedRows(
+      testDb.db,
+      piiOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "n1",
+          customerId: (ownRow as { id: string }).id,
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "n2",
+          customerId: (otherRow as { id: string }).id,
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "shared note",
+          customerId: null,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
@@ -842,22 +997,32 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
   });
 
   test("a role with no read grant on the target entity gets no reference-match hit at all", async () => {
-    const [contact] = await seedRows(testDb.db, piiCustomerTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: admin.id,
-        name: "Driver Blind Spot",
-      },
-    ]);
-    await seedRows(testDb.db, piiOrderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "unrelated",
-        customerId: (contact as { id: string }).id,
-      },
-    ]);
+    const [contact] = await seedRows(
+      testDb.db,
+      piiCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: admin.id,
+          name: "Driver Blind Spot",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      piiOrderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "unrelated",
+          customerId: (contact as { id: string }).id,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const searchAdapter = createInMemorySearchAdapter();
     await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
@@ -881,32 +1046,42 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
 
 describe("event-store-executor.list — plaintext reference label respects target read access", () => {
   async function seedOrderFor(targetId: string): Promise<string> {
-    const [order] = await seedRows(testDb.db, orderTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        note: "unrelated",
-        customerId: targetId,
-      },
-    ]);
+    const [order] = await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          note: "unrelated",
+          customerId: targetId,
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     return (order as { id: string }).id;
   }
 
   test("row-level ownership on the target filters the ILIKE label match", async () => {
-    const [ownRow, otherRow] = await seedRows(testDb.db, ownedPlainCustomerTable, [
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: TestUsers.user.id,
-        name: "Shared Label",
-      },
-      {
-        id: crypto.randomUUID(),
-        tenantId: admin.tenantId,
-        ownerId: admin.id,
-        name: "Shared Label",
-      },
-    ]);
+    const [ownRow, otherRow] = await seedRows(
+      testDb.db,
+      ownedPlainCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: TestUsers.user.id,
+          name: "Shared Label",
+        },
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: admin.id,
+          name: "Shared Label",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const ownOrderId = await seedOrderFor((ownRow as { id: string }).id);
     await seedOrderFor((otherRow as { id: string }).id);
 
@@ -920,9 +1095,19 @@ describe("event-store-executor.list — plaintext reference label respects targe
   });
 
   test("a role without any read grant on the target gets no ILIKE label match", async () => {
-    const [row] = await seedRows(testDb.db, ownedPlainCustomerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, ownerId: admin.id, name: "Driver Spot" },
-    ]);
+    const [row] = await seedRows(
+      testDb.db,
+      ownedPlainCustomerTable,
+      [
+        {
+          id: crypto.randomUUID(),
+          tenantId: admin.tenantId,
+          ownerId: admin.id,
+          name: "Driver Spot",
+        },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     await seedOrderFor((row as { id: string }).id);
 
     const searchAdapter = createInMemorySearchAdapter();
@@ -935,9 +1120,12 @@ describe("event-store-executor.list — plaintext reference label respects targe
   });
 
   test("a label field with restricted read access is not searchable through the reference", async () => {
-    const [row] = await seedRows(testDb.db, labelRestrictedCustomerTable, [
-      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Confidential Name" },
-    ]);
+    const [row] = await seedRows(
+      testDb.db,
+      labelRestrictedCustomerTable,
+      [{ id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Confidential Name" }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const orderId = await seedOrderFor((row as { id: string }).id);
 
     const searchAdapter = createInMemorySearchAdapter();

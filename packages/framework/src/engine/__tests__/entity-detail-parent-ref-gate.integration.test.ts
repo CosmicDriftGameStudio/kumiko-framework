@@ -84,19 +84,29 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, hostEntity, "host");
   await unsafeCreateEntityTable(stack.db, linkEntity, "link");
-  await seedRows(stack.db, hostTable, [
-    { id: HOST_ID, tenantId: userA.tenantId, teamId: "team-a" },
-    { id: DELETED_HOST_ID, tenantId: userA.tenantId, teamId: "team-a" },
-  ]);
-  await seedRows(stack.db, linkTable, [
-    { id: LINK_ID, tenantId: userA.tenantId, entityType: "host", entityId: HOST_ID },
-    {
-      id: DELETED_HOST_LINK_ID,
-      tenantId: userA.tenantId,
-      entityType: "host",
-      entityId: DELETED_HOST_ID,
-    },
-  ]);
+  await seedRows(
+    stack.db,
+    hostTable,
+    [
+      { id: HOST_ID, tenantId: userA.tenantId, teamId: "team-a" },
+      { id: DELETED_HOST_ID, tenantId: userA.tenantId, teamId: "team-a" },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    linkTable,
+    [
+      { id: LINK_ID, tenantId: userA.tenantId, entityType: "host", entityId: HOST_ID },
+      {
+        id: DELETED_HOST_LINK_ID,
+        tenantId: userA.tenantId,
+        entityType: "host",
+        entityId: DELETED_HOST_ID,
+      },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 });
 
 afterAll(async () => {

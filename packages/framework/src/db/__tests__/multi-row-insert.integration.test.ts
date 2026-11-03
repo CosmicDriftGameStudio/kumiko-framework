@@ -57,11 +57,16 @@ describe("instant() customType is forgiving with ISO strings", () => {
     // would call .toString() on a string and produce a malformed driver
     // value that PG rejects.
     const isoString = "2026-01-15T12:00:00Z";
-    await seedRow(stack.db, tsTable, {
-      name: "x",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-      insertedAt: isoString as unknown as Temporal.Instant,
-    });
+    await seedRow(
+      stack.db,
+      tsTable,
+      {
+        name: "x",
+        tenantId: "00000000-0000-4000-8000-000000000001",
+        insertedAt: isoString as unknown as Temporal.Instant,
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const rows = await selectMany(stack.db, tsTable);
     expect(rows).toHaveLength(1);
     const insertedAt = rows[0]?.["insertedAt"];
@@ -73,16 +78,26 @@ describe("instant() customType is forgiving with ISO strings", () => {
 
 describe("multi-row INSERT", () => {
   test("two rows with no id supplied → both rows persist (PG gen_random_uuid per row)", async () => {
-    await seedRow(stack.db, linkTable, {
-      leftId: "L1",
-      rightId: "R1",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
-    await seedRow(stack.db, linkTable, {
-      leftId: "L2",
-      rightId: "R2",
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
+    await seedRow(
+      stack.db,
+      linkTable,
+      {
+        leftId: "L1",
+        rightId: "R1",
+        tenantId: "00000000-0000-4000-8000-000000000001",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRow(
+      stack.db,
+      linkTable,
+      {
+        leftId: "L2",
+        rightId: "R2",
+        tenantId: "00000000-0000-4000-8000-000000000001",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const rows = await selectMany(stack.db, linkTable);
     expect(rows).toHaveLength(2);
     // Each row got its own id from the PG default.

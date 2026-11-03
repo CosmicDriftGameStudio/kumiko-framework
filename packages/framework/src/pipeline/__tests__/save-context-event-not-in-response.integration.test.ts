@@ -70,6 +70,19 @@ const feature = defineFeature("echo-event", (r) => {
     },
     access: { roles: ["Admin"] },
   });
+  r.writeHandler({
+    name: "item:create-nested",
+    schema: z.object({ name: z.string() }),
+    handler: async (event, ctx) => {
+      const created = await executor().create(event.payload, event.user, ctx.db);
+      if (!created.isSuccess) return created;
+      return {
+        isSuccess: true,
+        data: { wrapped: { created: created.data }, list: [created.data] },
+      };
+    },
+    access: { roles: ["Admin"] },
+  });
   r.hook({
     type: "postSave",
     target: "item:create-enriched",
@@ -140,6 +153,17 @@ describe("SaveContext.event stays out of JSON responses", () => {
     expect(enrichedPostSaveEvents[0]).toBeDefined();
     const projected = await selectMany(stack.db, projectedTable, { itemId: created["id"] });
     expect(projected).toHaveLength(1);
+  });
+
+  test("an executor result nested in the handler's own data loses its event too", async () => {
+    const response = await stack.http.writeOk(
+      "echo-event:write:item:create-nested",
+      { name: "Nested" },
+      TestUsers.admin,
+    );
+    expect(JSON.stringify(response)).not.toContain("eventId");
+    expect(response["wrapped"]).toMatchObject({ created: { kind: "save", isNew: true } });
+    expect(response["wrapped"]).not.toHaveProperty("created.event");
   });
 
   test("dispatcher.write, the entry of websocket writes, agent tools and jobs, strips the event", async () => {

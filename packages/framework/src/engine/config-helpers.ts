@@ -37,6 +37,9 @@ export const access = {
   systemAdmin: ["SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   system: ["system"] as readonly string[], // @cast-boundary schema-walk
   privileged: ["system", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  // Only the built-in user roles, not every signed-in caller: a member holding just an app role
+  // is not covered. For "any signed-in user" declare `anySignedIn: true` (next to the anonymous
+  // role) or `openToAll` instead.
   authenticated: ["User", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
   anonymous: ["anonymous"] as readonly string[], // @cast-boundary schema-walk
   roles: (...roles: string[]): readonly string[] => roles,

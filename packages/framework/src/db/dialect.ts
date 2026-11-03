@@ -445,13 +445,29 @@ function isIndexBuilderWithCols(value: IndexOrPk): value is IndexBuilderWithCols
   return "__index" in value && value.__index === true;
 }
 
+// `read_*` tables are event-fed projections: only the executor-managed projection runner may
+// write them, so the literal prefix withholds the Writable brand and plain-runner writes fail to compile.
+export function table<TCols extends ColumnMap>(
+  tableName: `read_${string}`,
+  cols: TCols,
+  optsFn?: (
+    t: { [K in keyof TCols]: ColumnHandle },
+  ) => Record<string, IndexOrPk> | ReadonlyArray<IndexOrPk>,
+): SchemaTable;
 export function table<TCols extends ColumnMap>(
   tableName: string,
   cols: TCols,
   optsFn?: (
     t: { [K in keyof TCols]: ColumnHandle },
   ) => Record<string, IndexOrPk> | ReadonlyArray<IndexOrPk>,
-): WritableSchemaTable {
+): WritableSchemaTable;
+export function table<TCols extends ColumnMap>(
+  tableName: string,
+  cols: TCols,
+  optsFn?: (
+    t: { [K in keyof TCols]: ColumnHandle },
+  ) => Record<string, IndexOrPk> | ReadonlyArray<IndexOrPk>,
+): SchemaTable {
   // Finalise columns + build the column-handle map.
   const handles: Record<string, ColumnHandle> = {};
   const columnMetas: ColumnMeta[] = [];

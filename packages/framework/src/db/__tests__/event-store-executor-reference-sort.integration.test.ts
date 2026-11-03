@@ -139,16 +139,26 @@ const restrictedOrderExec = createEventStoreExecutor(restrictedOrderTable, restr
 });
 
 async function seedFixture(): Promise<void> {
-  await seedRows(testDb.db, customerTable, [
-    { id: CUSTOMER_MIKE, tenantId: admin.tenantId, name: "Mike" },
-    { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
-    { id: CUSTOMER_ZULU, tenantId: admin.tenantId, name: "Zulu" },
-  ]);
-  await seedRows(testDb.db, orderTable, [
-    { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
-    { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
-    { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
-  ]);
+  await seedRows(
+    testDb.db,
+    customerTable,
+    [
+      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, name: "Mike" },
+      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
+      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, name: "Zulu" },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    testDb.db,
+    orderTable,
+    [
+      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 }
 
 const idsOf = (rows: readonly Record<string, unknown>[]): unknown[] => rows.map((r) => r["id"]);
@@ -205,12 +215,17 @@ describe("event-store-executor.list — sortable reference fields", () => {
   test("sortNulls first puts orders without a reference ahead of the labels, across cursor pages", async () => {
     const noReference = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
     await seedFixture();
-    await seedRows(testDb.db, nullsFirstOrderTable, [
-      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
-      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
-      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
-      { id: noReference, tenantId: admin.tenantId, note: "none" },
-    ]);
+    await seedRows(
+      testDb.db,
+      nullsFirstOrderTable,
+      [
+        { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+        { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+        { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+        { id: noReference, tenantId: admin.tenantId, note: "none" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const ids: unknown[] = [];
     let cursor: string | undefined;
@@ -274,16 +289,24 @@ describe("event-store-executor.list — sortable reference fields", () => {
   test("a target row in a foreign tenant contributes no label and sorts last", async () => {
     await seedFixture();
     const foreignCustomer = "44444444-4444-4444-8444-444444444444";
-    await seedRows(testDb.db, customerTable, [
-      // Reference UUIDs carry no FK constraint, so a tenant-A row can point at
-      // a tenant-B target. The tenant-scoped lookup must not resolve it —
-      // otherwise "AAA Foreign" would sort first and leak its existence.
-      { id: foreignCustomer, tenantId: otherTenantAdmin.tenantId, name: "AAA Foreign" },
-    ]);
+    await seedRows(
+      testDb.db,
+      customerTable,
+      [
+        // Reference UUIDs carry no FK constraint, so a tenant-A row can point at
+        // a tenant-B target. The tenant-scoped lookup must not resolve it —
+        // otherwise "AAA Foreign" would sort first and leak its existence.
+        { id: foreignCustomer, tenantId: otherTenantAdmin.tenantId, name: "AAA Foreign" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const orderD = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
-    await seedRows(testDb.db, orderTable, [
-      { id: orderD, tenantId: admin.tenantId, note: "d", customerId: foreignCustomer },
-    ]);
+    await seedRows(
+      testDb.db,
+      orderTable,
+      [{ id: orderD, tenantId: admin.tenantId, note: "d", customerId: foreignCustomer }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const res = await orderExec.list({ sort: "customerId", sortDirection: "asc" }, admin, tdbA, {
       referenceSort,
@@ -295,13 +318,19 @@ describe("event-store-executor.list — sortable reference fields", () => {
   test("a soft-deleted target row contributes no label and sorts last", async () => {
     await seedFixture();
     const deletedCustomer = "55555555-5555-4555-8555-555555555555";
-    await seedRows(testDb.db, customerTable, [
-      { id: deletedCustomer, tenantId: admin.tenantId, name: "AAA Deleted", isDeleted: true },
-    ]);
+    await seedRows(
+      testDb.db,
+      customerTable,
+      [{ id: deletedCustomer, tenantId: admin.tenantId, name: "AAA Deleted", isDeleted: true }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const orderD = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
-    await seedRows(testDb.db, orderTable, [
-      { id: orderD, tenantId: admin.tenantId, note: "d", customerId: deletedCustomer },
-    ]);
+    await seedRows(
+      testDb.db,
+      orderTable,
+      [{ id: orderD, tenantId: admin.tenantId, note: "d", customerId: deletedCustomer }],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const res = await orderExec.list({ sort: "customerId", sortDirection: "asc" }, admin, tdbA, {
       referenceSort,
@@ -331,16 +360,26 @@ describe("event-store-executor.list — sortable reference fields", () => {
   });
 
   test("a caller without read access to the reference column gets id order, an Admin gets label order", async () => {
-    await seedRows(testDb.db, customerTable, [
-      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, name: "Mike" },
-      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
-      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, name: "Zulu" },
-    ]);
-    await seedRows(testDb.db, restrictedOrderTable, [
-      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
-      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
-      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
-    ]);
+    await seedRows(
+      testDb.db,
+      customerTable,
+      [
+        { id: CUSTOMER_MIKE, tenantId: admin.tenantId, name: "Mike" },
+        { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
+        { id: CUSTOMER_ZULU, tenantId: admin.tenantId, name: "Zulu" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      restrictedOrderTable,
+      [
+        { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+        { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+        { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const asUser = await restrictedOrderExec.list(
       { sort: "customerId", sortDirection: "asc" },
@@ -360,16 +399,26 @@ describe("event-store-executor.list — sortable reference fields", () => {
   });
 
   test("target rows the caller may not read contribute no label and sort last", async () => {
-    await seedRows(testDb.db, ownedCustomerTable, [
-      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, ownerId: TestUsers.user.id, name: "Mike" },
-      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, ownerId: admin.id, name: "Alpha" },
-      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, ownerId: TestUsers.user.id, name: "Zulu" },
-    ]);
-    await seedRows(testDb.db, orderTable, [
-      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
-      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
-      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
-    ]);
+    await seedRows(
+      testDb.db,
+      ownedCustomerTable,
+      [
+        { id: CUSTOMER_MIKE, tenantId: admin.tenantId, ownerId: TestUsers.user.id, name: "Mike" },
+        { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, ownerId: admin.id, name: "Alpha" },
+        { id: CUSTOMER_ZULU, tenantId: admin.tenantId, ownerId: TestUsers.user.id, name: "Zulu" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+        { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+        { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const ownedSort = {
       fields: [
         { fieldName: "customerId", targetEntityName: "refSortOwnedCustomer", labelField: "name" },
@@ -397,16 +446,26 @@ describe("event-store-executor.list — sortable reference fields", () => {
   });
 
   test("a target without any read grant for the caller gets id order", async () => {
-    await seedRows(testDb.db, ownedCustomerTable, [
-      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, ownerId: admin.id, name: "Mike" },
-      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, ownerId: admin.id, name: "Alpha" },
-      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, ownerId: admin.id, name: "Zulu" },
-    ]);
-    await seedRows(testDb.db, orderTable, [
-      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
-      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
-      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
-    ]);
+    await seedRows(
+      testDb.db,
+      ownedCustomerTable,
+      [
+        { id: CUSTOMER_MIKE, tenantId: admin.tenantId, ownerId: admin.id, name: "Mike" },
+        { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, ownerId: admin.id, name: "Alpha" },
+        { id: CUSTOMER_ZULU, tenantId: admin.tenantId, ownerId: admin.id, name: "Zulu" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+        { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+        { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const res = await orderExec.list(
       { sort: "customerId", sortDirection: "asc" },
@@ -429,16 +488,26 @@ describe("event-store-executor.list — sortable reference fields", () => {
   });
 
   test("a label field with restricted read access is not sortable through the reference", async () => {
-    await seedRows(testDb.db, labelRestrictedCustomerTable, [
-      { id: CUSTOMER_MIKE, tenantId: admin.tenantId, name: "Mike" },
-      { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
-      { id: CUSTOMER_ZULU, tenantId: admin.tenantId, name: "Zulu" },
-    ]);
-    await seedRows(testDb.db, orderTable, [
-      { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
-      { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
-      { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
-    ]);
+    await seedRows(
+      testDb.db,
+      labelRestrictedCustomerTable,
+      [
+        { id: CUSTOMER_MIKE, tenantId: admin.tenantId, name: "Mike" },
+        { id: CUSTOMER_ALPHA, tenantId: admin.tenantId, name: "Alpha" },
+        { id: CUSTOMER_ZULU, tenantId: admin.tenantId, name: "Zulu" },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
+    await seedRows(
+      testDb.db,
+      orderTable,
+      [
+        { id: ORDER_A, tenantId: admin.tenantId, note: "a", customerId: CUSTOMER_ZULU },
+        { id: ORDER_B, tenantId: admin.tenantId, note: "b", customerId: CUSTOMER_MIKE },
+        { id: ORDER_C, tenantId: admin.tenantId, note: "c", customerId: CUSTOMER_ALPHA },
+      ],
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const restrictedSort = {
       fields: [
         {

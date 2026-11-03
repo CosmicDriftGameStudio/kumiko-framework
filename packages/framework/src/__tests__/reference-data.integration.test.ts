@@ -292,14 +292,19 @@ describe("seedReferenceData", () => {
 
   test("adopts a row seeded without events, applies the changed value and keeps it through a rebuild", async () => {
     const legacyId = "00000000-0000-4000-8000-0000000000a1";
-    await seedRow(stack.db, statusTable, {
-      id: legacyId,
-      tenantId: SYSTEM_TENANT_ID,
-      version: 1,
-      slug: "legacy",
-      label: "Old label",
-      sortOrder: 42,
-    });
+    await seedRow(
+      stack.db,
+      statusTable,
+      {
+        id: legacyId,
+        tenantId: SYSTEM_TENANT_ID,
+        version: 1,
+        slug: "legacy",
+        label: "Old label",
+        sortOrder: 42,
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
 
     const defs: ReferenceDataDef[] = [
       {

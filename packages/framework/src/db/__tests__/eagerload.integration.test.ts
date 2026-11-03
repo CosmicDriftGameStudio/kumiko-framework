@@ -167,11 +167,16 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, unrestrictedContactEntity);
   dbA = createTenantDb({ db: stack.db, tenantId: tenantA, mode: "tenant" });
 
-  await seedRows(stack.db, authorTable, [
-    { id: A1, tenantId: tenantA, name: "Ada" },
-    { id: A2, tenantId: tenantA, name: "Linus" },
-    { id: BX, tenantId: tenantB, name: "Foreign" },
-  ]);
+  await seedRows(
+    stack.db,
+    authorTable,
+    [
+      { id: A1, tenantId: tenantA, name: "Ada" },
+      { id: A2, tenantId: tenantA, name: "Linus" },
+      { id: BX, tenantId: tenantB, name: "Foreign" },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 
   configureEntityFieldEncryption(cipher);
   configurePiiSubjectKms(kms);
@@ -195,7 +200,9 @@ beforeAll(async () => {
     collectEncryptedFieldNames(contactEntity),
     cipher,
   );
-  await seedRows(stack.db, contactTable, [encrypted]);
+  await seedRows(stack.db, contactTable, [encrypted], {
+    projectionOnly: "fixture plants a projection row without its event",
+  });
 
   const plainOwned = {
     id: OWNED,
@@ -218,24 +225,41 @@ beforeAll(async () => {
     collectEncryptedFieldNames(ownedContactEntity),
     cipher,
   );
-  await seedRows(stack.db, ownedContactTable, [ownedEncrypted]);
+  await seedRows(stack.db, ownedContactTable, [ownedEncrypted], {
+    projectionOnly: "fixture plants a projection row without its event",
+  });
 
   // Legacy/backfilled row: iban never went through encryptEntityFieldValues,
   // so decryptEntityFieldValues throws on it —
   // a single row like this must not 500 the whole eagerload lookup.
-  await seedRows(stack.db, contactTable, [
-    {
-      id: BROKEN,
-      tenantId: tenantA,
-      name: "Broken",
-      email: "broken@acme.test",
-      iban: "not-an-envelope",
-    },
-  ]);
+  await seedRows(
+    stack.db,
+    contactTable,
+    [
+      {
+        id: BROKEN,
+        tenantId: tenantA,
+        name: "Broken",
+        email: "broken@acme.test",
+        iban: "not-an-envelope",
+      },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 
-  await seedRows(stack.db, unrestrictedContactTable, [
-    { id: UNRESTRICTED, tenantId: tenantA, name: "Unrestricted", email: "unrestricted@acme.test" },
-  ]);
+  await seedRows(
+    stack.db,
+    unrestrictedContactTable,
+    [
+      {
+        id: UNRESTRICTED,
+        tenantId: tenantA,
+        name: "Unrestricted",
+        email: "unrestricted@acme.test",
+      },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 });
 
 afterAll(async () => {

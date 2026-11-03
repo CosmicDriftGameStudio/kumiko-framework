@@ -107,7 +107,12 @@ describe("assert-no-unreachable-live-rows / ghost-row guard", () => {
     const ghostId = crypto.randomUUID();
     // The sanctioned test seam writes the entity table WITHOUT going through the executor —
     // the production bug the guard defends against.
-    await seedRow(tdb, userTable, { ...liveRow, id: ghostId, email: "ghost@test.de" });
+    await seedRow(
+      tdb,
+      userTable,
+      { ...liveRow, id: ghostId, email: "ghost@test.de" },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     expect(await snapshotTable()).toHaveLength(2);
 
     await expect(rebuildProjection(projectionName, { db: testDb.db, registry })).rejects.toThrow(

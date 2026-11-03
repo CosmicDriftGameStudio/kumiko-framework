@@ -37,11 +37,16 @@ afterAll(async () => stack?.cleanup());
 
 describe("createNumberField() without integer:true — fractional values round-trip", () => {
   test("INSERT accepts a non-integer value and SELECT returns it unchanged", async () => {
-    await seedRow(stack.db, statsTable, {
-      expectedValue: 77.02269129478736,
-      wholeCount: 3,
-      tenantId: "00000000-0000-4000-8000-000000000001",
-    });
+    await seedRow(
+      stack.db,
+      statsTable,
+      {
+        expectedValue: 77.02269129478736,
+        wholeCount: 3,
+        tenantId: "00000000-0000-4000-8000-000000000001",
+      },
+      { projectionOnly: "fixture plants a projection row without its event" },
+    );
     const rows = await selectMany(stack.db, statsTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.["expectedValue"]).toBe(77.02269129478736);
@@ -52,11 +57,16 @@ describe("createNumberField() without integer:true — fractional values round-t
 describe("createNumberField({ integer: true }) — still rejects fractional values at the DB", () => {
   test("INSERT with a non-integer value into an integer-flagged field throws", async () => {
     await expect(
-      seedRow(stack.db, statsTable, {
-        expectedValue: 1,
-        wholeCount: 3.5,
-        tenantId: "00000000-0000-4000-8000-000000000001",
-      }),
+      seedRow(
+        stack.db,
+        statsTable,
+        {
+          expectedValue: 1,
+          wholeCount: 3.5,
+          tenantId: "00000000-0000-4000-8000-000000000001",
+        },
+        { projectionOnly: "fixture plants a projection row without its event" },
+      ),
     ).rejects.toThrow(/invalid input syntax for type integer/);
   });
 });

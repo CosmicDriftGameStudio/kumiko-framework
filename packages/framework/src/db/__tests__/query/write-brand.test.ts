@@ -44,6 +44,10 @@ const dialectTable = pgTable("brand_dialect", {
   label: pgText("label").notNull(),
 });
 
+const projectionTable = pgTable("read_brand_projection", {
+  id: pgUuid("id").primaryKey(),
+});
+
 const derivedUnmanaged = deriveEntityTableMeta("brandSample", brandSampleEntity, {
   source: "unmanaged",
 });
@@ -55,6 +59,15 @@ async function _writeRejectsManagedEntity(db: AnyDb): Promise<void> {
   await updateMany(db, brandedEntity, { title: "y" }, { id: "1" });
   // @ts-expect-error — direct delete on a managed EntityTable is rejected.
   await deleteMany(db, brandedEntity, { id: "1" });
+}
+
+async function _writeRejectsReadProjectionTable(
+  db: AnyDb,
+  managed: ExecutorManagedTenantDb,
+): Promise<void> {
+  // @ts-expect-error — a read_* projection table is event-fed; a plain runner cannot write it.
+  await insertOne(db, projectionTable, { id: "1" });
+  await insertOne(managed, projectionTable, { id: "1" });
 }
 
 async function _writeAllowsUnmanagedTable(db: AnyDb): Promise<void> {

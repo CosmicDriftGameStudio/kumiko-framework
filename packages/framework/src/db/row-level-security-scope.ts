@@ -50,9 +50,16 @@ export function runInCapturedRowLevelSecurityScope<T>(
   return captured === undefined ? storage.exit(fn) : storage.run(captured, fn);
 }
 
-// DDL such as CREATE INDEX CONCURRENTLY cannot run in the per-statement transaction an enforced pool opens under a scope.
+const outsideScopeStorage = new AsyncLocalStorage<true>();
+
+// DDL such as CREATE INDEX CONCURRENTLY cannot run in the per-statement transaction an enforced pool
+// opens for every statement; only this explicit opt-out sends it straight to the connection.
 export function outsideRowLevelSecurityScope<T>(fn: () => T): T {
-  return storage.exit(fn);
+  return storage.exit(() => outsideScopeStorage.run(true, fn));
+}
+
+export function isOutsideRowLevelSecurityScope(): boolean {
+  return outsideScopeStorage.getStore() === true;
 }
 
 export function rowLevelSecurityScopeKey(scope: RowLevelSecurityScope | undefined): string {

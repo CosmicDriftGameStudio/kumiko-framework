@@ -16,6 +16,7 @@ import {
   rowLevelSecurityModeOf,
 } from "../row-level-security-connection.ts";
 import {
+  outsideRowLevelSecurityScope,
   runInRowLevelSecurityScope,
   runInSystemRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
@@ -223,9 +224,12 @@ describe("transactions", () => {
         }),
       );
       try {
-        expect(await asRawClient(planted).unsafe<{ scope: string }>(SESSION_SCOPE)).toEqual([
-          { scope: "system" },
-        ]);
+        expect(
+          await outsideRowLevelSecurityScope(() =>
+            asRawClient(planted).unsafe<{ scope: string }>(SESSION_SCOPE),
+          ),
+        ).toEqual([{ scope: "system" }]);
+        expect(await labelsOf(planted)).toEqual([]);
         await transaction(planted, async (tx) => {
           expect(await labelsOf(tx)).toEqual([]);
         });

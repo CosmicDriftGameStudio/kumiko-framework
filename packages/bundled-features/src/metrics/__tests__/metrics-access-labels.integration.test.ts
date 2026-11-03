@@ -97,12 +97,19 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, teamEntity, "team");
   await unsafeCreateEntityTable(stack.db, vaultTeamEntity, "vaultTeam");
   await unsafeCreateEntityTable(stack.db, ticketEntity, "ticket");
-  await seedRows(stack.db, teamTable, [
-    { id: TEAM_A_SUPPORT, tenantId: TENANT_A, name: "Support" },
-    { id: TEAM_A_SALES, tenantId: TENANT_A, name: "Sales" },
-    { id: TEAM_B_FOREIGN, tenantId: TENANT_B, name: "Secret B" },
-  ]);
-  await seedRows(stack.db, vaultTeamTable, [{ id: VAULT_A, tenantId: TENANT_A, name: "Vault A" }]);
+  await seedRows(
+    stack.db,
+    teamTable,
+    [
+      { id: TEAM_A_SUPPORT, tenantId: TENANT_A, name: "Support" },
+      { id: TEAM_A_SALES, tenantId: TENANT_A, name: "Sales" },
+      { id: TEAM_B_FOREIGN, tenantId: TENANT_B, name: "Secret B" },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(stack.db, vaultTeamTable, [{ id: VAULT_A, tenantId: TENANT_A, name: "Vault A" }], {
+    projectionOnly: "fixture plants a projection row without its event",
+  });
   await seedRows(
     stack.db,
     ticketTable,
@@ -111,6 +118,7 @@ beforeAll(async () => {
       teamId,
       vaultTeamId: VAULT_A,
     })),
+    { projectionOnly: "fixture plants a projection row without its event" },
   );
 });
 

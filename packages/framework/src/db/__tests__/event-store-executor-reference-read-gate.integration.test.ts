@@ -81,14 +81,24 @@ let testDb: BunTestDb;
 let tdb: TenantDb;
 
 async function seed(customerTable: typeof gatedCustomerTable, orderTable: typeof gatedOrderTable) {
-  await seedRows(testDb.db, customerTable, [
-    { id: ALPHA, tenantId: admin.tenantId, name: "Alpha Corp" },
-    { id: ZULU, tenantId: admin.tenantId, name: "Zulu Corp" },
-  ]);
-  await seedRows(testDb.db, orderTable, [
-    { id: ORDER_A, tenantId: admin.tenantId, note: "first", customerId: ZULU },
-    { id: ORDER_B, tenantId: admin.tenantId, note: "second", customerId: ALPHA },
-  ]);
+  await seedRows(
+    testDb.db,
+    customerTable,
+    [
+      { id: ALPHA, tenantId: admin.tenantId, name: "Alpha Corp" },
+      { id: ZULU, tenantId: admin.tenantId, name: "Zulu Corp" },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    testDb.db,
+    orderTable,
+    [
+      { id: ORDER_A, tenantId: admin.tenantId, note: "first", customerId: ZULU },
+      { id: ORDER_B, tenantId: admin.tenantId, note: "second", customerId: ALPHA },
+    ],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
 }
 
 async function searchAdapterFor(entityType: string) {
