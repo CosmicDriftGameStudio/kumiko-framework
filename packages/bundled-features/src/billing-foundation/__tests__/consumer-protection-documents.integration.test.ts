@@ -44,7 +44,8 @@ import type {
   ConsumerProtectionOptions,
   SubscriptionProviderPlugin,
 } from "../types.ts";
-import { SubscriptionFoundationHandlers } from "../web/constants.ts";
+import { SubscriptionFoundationHandlers, SubscriptionStatuses } from "../web/constants.ts";
+import { openSubscriptionCheckout } from "./ledgered-subscription.ts";
 
 const TERMS_SLUG = "billing-terms";
 
@@ -73,6 +74,7 @@ const catalog: BillingPlanCatalog = {
 };
 
 let checkoutCount = 0;
+let planSwitchCount = 0;
 
 const mockProviderFeature = defineFeature("test-mock-documents-provider", (r) => {
   r.requires({ features: ["billing-foundation"] });
@@ -92,6 +94,16 @@ const mockProviderFeature = defineFeature("test-mock-documents-provider", (r) =>
           active: true,
           metadata: {},
         })),
+    previewPlanSwitch: async () => ({
+      amountDueNow: 667,
+      tax: 106,
+      currency: "eur",
+      credit: 333,
+      effectiveAt: "2030-06-01T00:00:00Z",
+    }),
+    applyPlanSwitch: async () => {
+      planSwitchCount += 1;
+    },
     createCheckoutSession: async (_ctx, options) => {
       checkoutCount += 1;
       return {
@@ -147,6 +159,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   checkoutCount = 0;
+  planSwitchCount = 0;
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
   );
@@ -275,6 +288,89 @@ describe("documentsAcknowledgement on — start-plan-checkout", () => {
       "Refund Policy",
     );
     expect(result.consumerProtection.legalLinks["de"]?.refund).toBe("/legal/refund");
+  });
+});
+
+describe("documentsAcknowledgement on — create-checkout-session", () => {
+  const checkoutBody = {
+    providerName: "mock-documents-provider",
+    priceId: "price_pro",
+    successUrl: "https://app.example.com/billing/success",
+    cancelUrl: "https://app.example.com/billing/cancel",
+  } as const;
+
+  test("rejects a consent without the documents flag and records the flag when given", async () => {
+    const admin = adminFor(8207);
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      { ...checkoutBody, consent: consentWith({}) },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(JSON.stringify(error)).toContain("consent_required");
+    expect(checkoutCount).toBe(0);
+    expect(await consentEvents(8207)).toEqual([]);
+
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      { ...checkoutBody, consent: consentWith({ documentsAcknowledged: true }) },
+      admin,
+    );
+    expect(checkoutCount).toBe(1);
+    const events = await consentEvents(8207);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload).toMatchObject({ documentsAcknowledged: true });
+  });
+});
+
+describe("documentsAcknowledgement on — switch-plan", () => {
+  async function subscribe(tenantNumber: number): Promise<void> {
+    const admin = adminFor(tenantNumber);
+    const providerName = "mock-documents-provider";
+    const providerSubscriptionId = `sub_${tenantNumber}`;
+    const providerCheckoutId = await openSubscriptionCheckout(
+      (handler, payload) => stack.http.writeOk(handler, payload, admin),
+      { providerName, providerSubscriptionId, priceId: "price_starter" },
+    );
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.processEvent,
+      {
+        providerEventId: `evt_${tenantNumber}_create`,
+        providerName,
+        type: "subscription.created",
+        providerCheckoutId,
+        providerCustomerId: `cus_${tenantNumber}`,
+        providerSubscriptionId,
+        status: SubscriptionStatuses.active,
+        tier: "starter",
+        currentPeriodEndIso: "2030-06-01T00:00:00Z",
+      },
+      admin,
+    );
+  }
+
+  test("rejects a consent without the documents flag and records the flag when given", async () => {
+    await subscribe(8208);
+    const admin = adminFor(8208);
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentWith({}) },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expect(JSON.stringify(error)).toContain("consent_required");
+    expect(planSwitchCount).toBe(0);
+
+    const result = await stack.http.writeOk(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentWith({ documentsAcknowledged: true }) },
+      admin,
+    );
+    expect(result).toEqual({ applied: true });
+    expect(planSwitchCount).toBe(1);
+    const events = await consentEvents(8208);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload).toMatchObject({ documentsAcknowledged: true });
   });
 });
 

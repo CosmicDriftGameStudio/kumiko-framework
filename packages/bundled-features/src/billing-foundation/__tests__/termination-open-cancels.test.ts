@@ -4,13 +4,14 @@ import { hasOtherOpenProviderCancel } from "../consumer-protection/termination-o
 import {
   CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
   CONTRACT_TERMINATION_REVOKED_EVENT_QN,
+  type ProviderCancelOutcome,
 } from "../events.ts";
 
 const NOW = Temporal.Instant.from("2026-10-03T00:00:00Z");
 
 function requested(
   requestId: string,
-  providerCancel: "period-end" | "immediately" | "none",
+  providerCancel: ProviderCancelOutcome,
   effectiveAtIso: string | null = null,
 ) {
   return {

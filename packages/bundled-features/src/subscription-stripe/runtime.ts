@@ -35,7 +35,7 @@ import {
 import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import Stripe from "stripe";
-import { assertBillingLive } from "../shared/index.ts";
+import { assertBillingLive, isBillingLive } from "../shared/index.ts";
 import { SUBSCRIPTION_STRIPE_FEATURE } from "./constants.ts";
 
 const API_KEY_HINT =
@@ -144,8 +144,7 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
       assertBillingLive: (ctx, handlerName = "create-checkout-session") =>
         assertBillingLive(ctx, deps.billingLiveHandle, SUBSCRIPTION_STRIPE_FEATURE, handlerName),
       isBillingEnabled: async (ctx) => {
-        const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
-        if (live !== true) return false;
+        if (!(await isBillingLive(ctx, deps.billingLiveHandle))) return false;
         const hasFallbackKey =
           deps.fallback.apiKey !== undefined && deps.fallback.apiKey.length > 0;
         if (hasFallbackKey) return true;

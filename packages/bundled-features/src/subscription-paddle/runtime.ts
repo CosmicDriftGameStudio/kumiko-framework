@@ -19,7 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { assertBillingLive } from "../shared/index.ts";
+import { assertBillingLive, isBillingLive } from "../shared/index.ts";
 import { createPaddleHttp, type PaddleRequest, type PaddleSend } from "./client.ts";
 import {
   PADDLE_BASE_URLS,
@@ -160,8 +160,7 @@ export function createPaddleRuntimes(deps: PaddleRuntimeDeps): PaddleRuntimes {
       assertBillingLive: (ctx, handlerName = "create-checkout-session") =>
         assertBillingLive(ctx, deps.billingLiveHandle, SUBSCRIPTION_PADDLE_FEATURE, handlerName),
       isBillingEnabled: async (ctx) => {
-        const live = ctx.config ? await ctx.config(deps.billingLiveHandle) : undefined;
-        if (live !== true) return false;
+        if (!(await isBillingLive(ctx, deps.billingLiveHandle))) return false;
         return hasSecret(ctx, deps.apiKeyHandle, deps.fallback.apiKey);
       },
     },

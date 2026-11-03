@@ -98,6 +98,7 @@ const emailTransport = createInMemoryTransport();
 const cancelCalls: string[] = [];
 const resumeCalls: string[] = [];
 let resumeFails = false;
+const TEST_NOW = Temporal.Instant.from("2030-06-01T12:00:00Z");
 let clockOffsetDays = 0;
 type ProviderCancelHold = {
   readonly released: Promise<void>;
@@ -153,7 +154,7 @@ beforeAll(async () => {
       createBillingFoundationFeature({
         baseUrl: BASE_URL,
         catalog,
-        now: () => Temporal.Now.instant().add({ hours: clockOffsetDays * 24 }),
+        now: () => TEST_NOW.add({ hours: clockOffsetDays * 24 }),
         consumerProtection,
       }),
       mockProviderFeature,
@@ -237,10 +238,8 @@ async function seedMatchedAdmin(
     providerSubscriptionId: `sub_${tenantNumber}`,
     status: SubscriptionStatuses.active,
     tier: "pro",
-    // Relative to now: a revocation only resumes while the period-end cancellation is still ahead.
-    currentPeriodEnd: Temporal.Now.instant()
-      .add({ hours: 30 * 24 })
-      .toString(),
+    // Relative to the injected clock: a revocation only resumes while the period-end cancellation is still ahead.
+    currentPeriodEnd: TEST_NOW.add({ hours: 30 * 24 }).toString(),
   };
   const res = await stack.app.request(`/api/subscription/webhook/${providerName}`, {
     method: "POST",
@@ -427,7 +426,7 @@ describe("revoke pages", () => {
           requestId,
           declarationType: "termination",
           terminationKind: "ordinary",
-          receivedAtIso: Temporal.Now.instant().toString(),
+          receivedAtIso: TEST_NOW.toString(),
           locale: "de",
         },
         createSystemUser(testTenantId(8305)),
