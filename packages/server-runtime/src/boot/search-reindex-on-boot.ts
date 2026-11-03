@@ -41,12 +41,15 @@ function searchedEntityNames(registry: Registry): string[] {
   );
 }
 
-/** Changes when the search fields of the entity or the document format change. */
+/** Changes when the search fields, the payload extension code or the document format change. */
 export function searchReindexFingerprint(registry: Registry, entityName: string): string {
   const fields = [...registry.getSearchableFields(entityName)].sort();
-  const extensionCount = registry.getSearchPayloadExtensions(entityName).length;
+  // Contributors have no name or version; their source is what decides what they add to a document.
+  const extensions = registry
+    .getSearchPayloadExtensions(entityName)
+    .map((contribute) => createHash("sha256").update(contribute.toString()).digest("hex"));
   return createHash("sha256")
-    .update(`${SEARCH_DOCUMENT_FORMAT_VERSION}|${fields.join(",")}|${extensionCount}`)
+    .update(`${SEARCH_DOCUMENT_FORMAT_VERSION}|${fields.join(",")}|${extensions.join(",")}`)
     .digest("hex")
     .slice(0, 16);
 }

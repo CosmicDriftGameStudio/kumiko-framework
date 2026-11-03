@@ -13,8 +13,6 @@ export type SamplingConfig = {
 };
 
 export type SensitiveFilterConfig = {
-  readonly redactedHeaders: readonly string[];
-  readonly redactedQueryParams: readonly string[];
   readonly redactedAttributeKeyPatterns: readonly RegExp[];
 };
 

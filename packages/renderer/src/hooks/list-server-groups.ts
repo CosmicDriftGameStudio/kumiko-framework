@@ -5,6 +5,7 @@ import {
   relatedListGroupKey,
 } from "@cosmicdrift/kumiko-types/screen";
 import type { DataTableMeasure, DataTableServerGroup } from "../data-table-aggregate-types.ts";
+import { rendererWarn } from "../dev-console.ts";
 import type { Translate } from "../headless/index.ts";
 import {
   groupPageKey,
@@ -73,6 +74,21 @@ function startsCollapsed(declared: ListTableGrouping | undefined, key: string): 
   );
 }
 
+// Groupings declared before the dateField/{lastDate} placeholder was removed still carry it in app texts.
+const REMOVED_LAST_DATE_PLACEHOLDER = "{lastDate}";
+const warnedRemovedPlaceholderKeys = new Set<string>();
+
+function withoutRemovedPlaceholder(text: string, labelKey: string): string {
+  if (!text.includes(REMOVED_LAST_DATE_PLACEHOLDER)) return text;
+  if (!warnedRemovedPlaceholderKeys.has(labelKey)) {
+    warnedRemovedPlaceholderKeys.add(labelKey);
+    rendererWarn(
+      `[kumiko] Translation "${labelKey}" uses ${REMOVED_LAST_DATE_PLACEHOLDER}, which grouping no longer provides; use a max measure in table.totals instead.`,
+    );
+  }
+  return text.replaceAll(REMOVED_LAST_DATE_PLACEHOLDER, "").trim();
+}
+
 function headerLabel(
   input: ServerGroupsInput,
   key: string,
@@ -82,7 +98,10 @@ function headerLabel(
   const labelKey =
     input.declared === undefined ? undefined : relatedListGroupHeaderLabel(input.declared, key);
   if (labelKey === undefined) return serverLabel;
-  return input.translate(labelKey, { count: group.count, value: serverLabel ?? key });
+  return withoutRemovedPlaceholder(
+    input.translate(labelKey, { count: group.count, value: serverLabel ?? key }),
+    labelKey,
+  );
 }
 
 function pageRequests(

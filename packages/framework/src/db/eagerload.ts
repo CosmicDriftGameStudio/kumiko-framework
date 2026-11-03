@@ -127,11 +127,13 @@ async function decryptReferencedRow(
 type RefAccessScope =
   | { readonly kind: "none" }
   | { readonly kind: "unrestricted" }
-  | { readonly kind: "restricted"; readonly readableIds: ReadonlySet<string> };
+  | { readonly kind: "restricted"; readonly readableRows: ReadonlyArray<Record<string, unknown>> };
 
-// One probe query per ref field: the ids the viewer may read on the target
-// entity. Raw SQL because ownership/parentRef clauses are SQL fragments; the
-// table is unaliased since where-rules qualify columns with the table name.
+// One lookup per ref field. Unrestricted targets load rows by id later; for
+// restricted ones the access clause is part of this same SELECT so unreadable
+// rows are never loaded. Raw SQL because ownership/parentRef clauses are SQL
+// fragments; the table is unaliased since where-rules qualify columns with the
+// table name.
 async function resolveRefAccessScope(
   refEntity: EntityDefinition,
   refTable: ReturnType<typeof buildEntityTable>,
@@ -161,12 +163,12 @@ async function resolveRefAccessScope(
   }
   const shifted = shiftParams({ sqlText: access.sqlText, params: access.params }, params.length);
   params.push(...shifted.params);
-  const rows = await executeRawQueryRead<{ id: string }>(
+  const rows = await executeRawQueryRead<Record<string, unknown>>(
     tenantDbRunnerForTable(db, refTable),
-    `SELECT "id" FROM "${refTableName}" WHERE "id" = ANY($1::uuid[])${tenantClause} AND ${shifted.sqlText}`,
+    `SELECT * FROM "${refTableName}" WHERE "id" = ANY($1::uuid[])${tenantClause} AND ${shifted.sqlText}`,
     params,
   );
-  return { kind: "restricted", readableIds: new Set(rows.map((r) => r.id)) };
+  return { kind: "restricted", readableRows: rows };
 }
 
 // Per-row, not Promise.all: a single legacy/backfilled row without a valid
@@ -266,13 +268,10 @@ export async function enrichWithReferences(
         viewer,
       );
       if (scope.kind === "none") return emptyLookup;
-      const lookedUpRows = await selectMany<Record<string, unknown>>(db, refTable, {
-        id: idArray,
-      });
       const rawRefRows =
         scope.kind === "restricted"
-          ? lookedUpRows.filter((r) => scope.readableIds.has(String(r["id"])))
-          : lookedUpRows;
+          ? scope.readableRows
+          : await selectMany<Record<string, unknown>>(db, refTable, { id: idArray });
       const piiFields = collectPiiSubjectFields(refEntity);
       const encryptedFields = collectEncryptedFieldNames(refEntity);
       const kms = configuredPiiSubjectKms();

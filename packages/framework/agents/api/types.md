@@ -4564,8 +4564,6 @@ type SamplingConfig = {
   };
 };
 type SensitiveFilterConfig = {
-  redactedHeaders: string[];
-  redactedQueryParams: string[];
   redactedAttributeKeyPatterns: RegExp[];
 };
 ```

@@ -142,7 +142,7 @@ describe("assertRebuildableRowLevelSecurity", () => {
     });
   }
   const check = (name: string) =>
-    testDb.db.begin((tx: DbTx) => assertRebuildableRowLevelSecurity(tx, name));
+    testDb.db.begin((tx: DbTx) => assertRebuildableRowLevelSecurity(tx, tenantTable(name)));
 
   test("passes for the framework policies, foreign permissive policies and a table without RLS", async () => {
     await pushed("store_guard_ok", "on");
@@ -170,5 +170,13 @@ describe("assertRebuildableRowLevelSecurity", () => {
       `DROP POLICY kumiko_tenant_isolation ON "store_guard_missing"`,
     );
     await expect(check("store_guard_missing")).rejects.toThrow(/public\.store_guard_missing/);
+  });
+
+  test("rejects a tenant isolation policy whose expression lost the system scope branch", async () => {
+    await pushed("store_guard_expr", "on");
+    await asRawClient(testDb.db).unsafe(
+      `ALTER POLICY kumiko_tenant_isolation ON "store_guard_expr" USING (tenant_id = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid)`,
+    );
+    await expect(check("store_guard_expr")).rejects.toThrow(/public\.store_guard_expr/);
   });
 });
