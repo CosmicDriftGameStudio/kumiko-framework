@@ -139,6 +139,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "inbound-mail-foundation:write:attach-message-content expose=false risk=mid",
   "inbound-mail-foundation:write:connect-account expose=false risk=mid",
   "inbound-mail-foundation:write:disconnect-account expose=true risk=high",
+  "inbound-mail-foundation:write:forget-message expose=true risk=high",
   "inbound-mail-foundation:write:ingest-message expose=false risk=mid",
   "inbound-mail-foundation:write:mark-credential-stored expose=false risk=mid",
   "inbound-mail-foundation:write:reactivate-account expose=false risk=mid",

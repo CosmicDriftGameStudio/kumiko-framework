@@ -317,4 +317,15 @@ describe("logout target", () => {
     await waitFor(() => expect(reloadMock).toHaveBeenCalledTimes(1));
     expect(assignMock).not.toHaveBeenCalled();
   });
+
+  test("a loginUrl gate does not redirect while logout reloads", async () => {
+    await signInAndLogout({ loginUrl: "/login" });
+
+    await waitFor(() => expect(reloadMock).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(reloadMock).toHaveBeenCalledTimes(1);
+    expect(assignMock).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("protected")).toBeTruthy();
+  });
 });

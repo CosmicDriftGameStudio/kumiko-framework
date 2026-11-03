@@ -6,6 +6,7 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { ConfigHandlers, configValuesTable } from "../config/index.ts";
 import { HELPDESK_FEATURE } from "./web/constants.ts";
@@ -46,7 +47,7 @@ export async function carryOverLegacyContactConfig(ctx: JobContext): Promise<num
     const row = former.find((candidate) => candidate["userId"] == null);
     const stored = typeof row?.["value"] === "string" ? row["value"] : undefined;
     if (stored === undefined) continue;
-    const value = storedValueSchema.safeParse(JSON.parse(stored));
+    const value = storedValueSchema.safeParse(parseJsonSafe<unknown>(stored, undefined));
     if (!value.success) continue;
     const written = await ctx.dispatch.writeAs(systemAdmin, ConfigHandlers.set, {
       key: current,

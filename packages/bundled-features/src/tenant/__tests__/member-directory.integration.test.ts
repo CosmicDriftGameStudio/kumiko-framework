@@ -100,6 +100,16 @@ describe("tenant:query:member-directory", () => {
     });
   });
 
+  test("a SystemAdmin lookup skips ids that are not uuids, such as the anonymous audit actor", async () => {
+    const userId = await seedMember(ownTenantId, "Anon Lookup", ["User"]);
+    const systemAdmin: SessionUser = { id: userId, tenantId: ownTenantId, roles: ["SystemAdmin"] };
+
+    expect(await queryDirectory(systemAdmin, { ids: [userId, "anonymous"] })).toEqual([
+      { id: userId, label: "Anon Lookup" },
+    ]);
+    expect(await queryDirectory(systemAdmin, { ids: ["anonymous"] })).toEqual([]);
+  });
+
   test("ids resolve exactly those users, a TenantAdmin only within their own tenant", async () => {
     const adminId = await seedMember(ownTenantId, "Ids Admin", ["TenantAdmin"]);
     await seedMember(ownTenantId, "Ids Colleague", ["User"]);

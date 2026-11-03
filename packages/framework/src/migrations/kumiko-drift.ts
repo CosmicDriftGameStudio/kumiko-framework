@@ -181,12 +181,16 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
     );
     for (const t of report.tablesMissingFromSnapshot) lines.push(`    - ${t}`);
   }
-  // Remediation depends on the cause: `bun kumiko-schema apply` handles only pending
-  // migrations. A checksum mismatch causes MigrationChecksumMismatchError during
-  // apply, and baseline's ON CONFLICT DO NOTHING leaves it in alreadyTracked.
-  // A missing table with no pending migration was deleted after apply and cannot be
-  // restored by apply.
-  lines.push("");
+  return [...lines, "", ...driftRemediationLines(report)].join("\n");
+}
+
+// Remediation depends on the cause: `bun kumiko-schema apply` handles only pending
+// migrations. A checksum mismatch causes MigrationChecksumMismatchError during
+// apply, and baseline's ON CONFLICT DO NOTHING leaves it in alreadyTracked.
+// A missing table with no pending migration was deleted after apply and cannot be
+// restored by apply.
+function driftRemediationLines(report: KumikoDriftReport): string[] {
+  const lines: string[] = [];
   if (report.pending.length > 0) {
     lines.push("Run 'bun kumiko-schema apply' to apply the pending migration(s).");
   }
@@ -213,7 +217,7 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
   if (report.pending.length > 0 || report.missingColumns.length > 0) {
     lines.push(PRODUCTION_SCHEMA_COMMAND_HINT);
   }
-  return lines.join("\n");
+  return lines;
 }
 
 /** Throws SchemaDriftError with a human-readable message when the DB is not

@@ -27,10 +27,7 @@ import { createSendReplyMailHandler } from "./handlers/send-reply-mail.write.ts"
 import { createSendTestHandler } from "./handlers/send-test.write.ts";
 import { createSubmitHandler } from "./handlers/submit.write.ts";
 import { createHelpdeskI18n } from "./i18n.ts";
-import {
-  carryOverLegacyContactConfig,
-  LEGACY_CONTACT_CONFIG_JOB,
-} from "./legacy-contact-config.ts";
+import { carryOverLegacyContactConfig } from "./legacy-contact-config.ts";
 import { runLegacyContactRetention } from "./legacy-contact-retention.ts";
 import {
   LEGACY_CONTACT_REQUEST_ENTITY,
@@ -192,7 +189,8 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
       delete: legacyContactDeleteHook,
     });
     r.job({
-      name: LEGACY_CONTACT_CONFIG_JOB,
+      // A literal, not LEGACY_CONTACT_CONFIG_JOB: the feature-AST extractor only reads string literals.
+      name: "legacy-contact-config",
       trigger: { manual: true },
       runOnBoot: true,
       concurrency: "skip",

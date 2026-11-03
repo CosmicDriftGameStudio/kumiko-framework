@@ -50,6 +50,7 @@ export async function sweepAbandonedDispatches(args: SweepAbandonedArgs): Promis
       }
     }
     const last = page.at(-1);
+    // skip: a short page is the last one
     if (page.length < batchSize || last === undefined) return;
     afterId = last.id;
   }

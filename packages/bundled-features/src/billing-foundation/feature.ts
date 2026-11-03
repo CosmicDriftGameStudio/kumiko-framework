@@ -102,10 +102,7 @@ import {
   subscriptionsProjectionTable,
 } from "./projection.ts";
 import { createBillingPlansScreen } from "./screens.ts";
-import {
-  SCRUB_RAW_PAYLOAD_HEADERS_ESCAPE_HATCH_REASON,
-  scrubLegacyRawPayloadHeaders,
-} from "./scrub-raw-payload-headers.ts";
+import { registerScrubRawPayloadHeadersJob } from "./scrub-raw-payload-headers.ts";
 import {
   PAYMENT_TENANT_DESTROY_ARCHIVE_REASON,
   paymentTenantDestroyHook,
@@ -287,21 +284,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
           );
         },
       });
-
-      // Boot-time one-off (runOnBoot is marker-deduped per Redis dataset) and idempotent by itself.
-      r.job({
-        name: "scrub-raw-payload-headers",
-        trigger: { manual: true },
-        runOnBoot: true,
-        escapeHatch: { reason: SCRUB_RAW_PAYLOAD_HEADERS_ESCAPE_HATCH_REASON },
-        handler: async (_payload, ctx) => {
-          const removedKeys = await scrubLegacyRawPayloadHeaders(ctx.db.unsafeRaw());
-          ctx.obs.log.info(
-            `[billing-foundation:scrub-raw-payload-headers] removed ${removedKeys} legacy rawPayload headers`,
-          );
-        },
-      });
-
+      registerScrubRawPayloadHeadersJob(r);
       r.useExtension(EXT_TENANT_DATA, "subscription", {
         destroy: subscriptionTenantDestroyHook,
         escapeHatch: { reason: SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON },

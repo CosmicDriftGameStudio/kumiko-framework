@@ -95,7 +95,7 @@ One entry per feature a package ships: purpose, import of its factory, required 
 - `inbound-mail-foundation`: Plugin host for inbound e-mail (inbox federation) — provider plugins (inbound-provider-imap, later M365 Graph / Gmail REST) register at the `inboundMailProvider` extension point with verify/fetch and optional oauth/watch (live push) and send.
   `import { createInboundMailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation"`; requires `tenant-lifecycle`
 - `inbound-provider-imap`: Registers the `"imap"` provider for `inbound-mail-foundation` using imapflow — password/app-password auth covers classic IMAP hosts without any OAuth (plus an XOAUTH2 fallback consuming an access token from the secret slot).
-  `import { createInboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap"`; requires `inbound-mail-foundation`, `secrets`
+  `import { createInboundProviderImapFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-imap"`; requires `inbound-mail-foundation`, `secrets`, `user`
 - `inbound-provider-inmemory`: Registers a scriptable in-process `"inmemory"` provider for `inbound-mail-foundation`.
   `import { createInboundProviderInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/inbound-provider-inmemory"`; requires `inbound-mail-foundation`
 - `jobs`: Persistence and operator tooling for background jobs registered via `r.job(...)`.

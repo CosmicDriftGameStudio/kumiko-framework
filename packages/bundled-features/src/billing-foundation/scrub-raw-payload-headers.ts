@@ -1,4 +1,5 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { scrubEventHeaderKeys } from "@cosmicdrift/kumiko-framework/migrations";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -8,7 +9,7 @@ import {
   SUBSCRIPTION_UPDATED_EVENT_QN,
 } from "./events.ts";
 
-export const SCRUB_RAW_PAYLOAD_HEADERS_ESCAPE_HATCH_REASON =
+const SCRUB_RAW_PAYLOAD_HEADERS_ESCAPE_HATCH_REASON =
   "removes the legacy rawPayload header from billing events of every tenant";
 
 const RAW_PAYLOAD_HEADER = "rawPayload";
@@ -30,4 +31,20 @@ export async function scrubLegacyRawPayloadHeaders(db: DbRunner): Promise<number
     reason: SCRUB_REASON,
   });
   return removedKeys;
+}
+
+// Boot-time one-off (runOnBoot is marker-deduped per Redis dataset) and idempotent by itself.
+export function registerScrubRawPayloadHeadersJob(r: FeatureRegistrar): void {
+  r.job({
+    name: "scrub-raw-payload-headers",
+    trigger: { manual: true },
+    runOnBoot: true,
+    escapeHatch: { reason: SCRUB_RAW_PAYLOAD_HEADERS_ESCAPE_HATCH_REASON },
+    handler: async (_payload, ctx) => {
+      const removedKeys = await scrubLegacyRawPayloadHeaders(ctx.db.unsafeRaw());
+      ctx.obs.log.info(
+        `[billing-foundation:scrub-raw-payload-headers] removed ${removedKeys} legacy rawPayload headers`,
+      );
+    },
+  });
 }

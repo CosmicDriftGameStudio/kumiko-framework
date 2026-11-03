@@ -429,6 +429,7 @@ async function removeOrphanedNotificationTemplates(
     kind: "mail",
   });
   const orphans = rows.filter((row) => isOrphanedNotificationSlug(registry, row.slug));
+  // skip: nothing orphaned
   if (orphans.length === 0) return;
 
   const tdb = createTenantDb({

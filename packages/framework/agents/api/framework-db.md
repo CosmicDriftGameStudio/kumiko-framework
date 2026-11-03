@@ -109,6 +109,7 @@ function knownTablesOf(features: FeatureDefinition[]): KnownTables;
 function listEventTenantIds(db: AnyDb): Promise<string[]>;
 function loadSnapshotJson(path: string): Snapshot | null;
 function nullBlindIndexesForSubject(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, subjectKey: string): Promise<void>;
+function outsideRowLevelSecurityScope<T>(fn: () => T): T;
 function outsideTransactionPoolOptionsFromEnv(env?: Readonly<Record<string, string | undefined>>): DbConnectionOptions;
 function physicalColumnName(table: SchemaTable, field: string): string;
 function primaryKey(opts: { columns: ColumnHandle[]; name?: string; }): PrimaryKeyDescriptor;

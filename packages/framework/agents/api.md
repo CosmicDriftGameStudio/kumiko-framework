@@ -11,8 +11,8 @@ Format: one line per function or constant, object and options types as property 
 | `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 443 |
 | `@cosmicdrift/kumiko-framework/errors` | `api/framework-errors.md` | 27 |
 | `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 157 |
-| `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 156 |
-| `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 38 |
+| `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 157 |
+| `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 41 |
 | `@cosmicdrift/kumiko-framework/seeding` | `api/framework-seeding.md` | 6 |
 | `@cosmicdrift/kumiko-renderer/web` | `api/renderer-web.md` | 371 |
 | `@cosmicdrift/kumiko-testing/stack` | `api/testing-stack.md` | 22 |
