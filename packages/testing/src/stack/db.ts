@@ -2,6 +2,7 @@
 // Test-DB Factory: CREATE DATABASE → connect → createEventsTable.
 
 import { DEFAULT_OUTSIDE_TRANSACTION_POOL_MAX } from "@cosmicdrift/kumiko-framework/db";
+import { requiredEnvFor } from "@cosmicdrift/kumiko-framework/env";
 import {
   acquireSessionAdvisoryLock,
   createApplicationRole,
@@ -18,15 +19,11 @@ import { ensureTemporalPolyfill } from "@cosmicdrift/kumiko-framework/time";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { DbConnection, PgListenClient } from "@cosmicdrift/kumiko-types/db-connection";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `Missing required env var: ${name}. Copy .env.example to .env and fill in values. Tests also need the test services (Postgres, Redis) running, e.g. "docker compose up -d".`,
-    );
-  }
-  return value;
-}
+const requireEnv = requiredEnvFor(
+  "test stack",
+  process.env,
+  'Copy .env.example to .env and fill in values. Tests also need the test services (Postgres, Redis) running, e.g. "docker compose up -d".',
+);
 
 export const DEFAULT_TEST_DB_POOL_MAX = 10;
 

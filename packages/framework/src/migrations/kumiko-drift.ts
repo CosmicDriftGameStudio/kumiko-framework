@@ -10,18 +10,24 @@
 //      is present in the live schema. A migrated-but-incomplete table (snapshot
 //      richer than the DB — e.g. a ride-along column the generator once missed)
 //      would otherwise surface only as a runtime-500 on the first write.
+//   4. Booted tables covered: with a snapshot, every table the booted features declare
+//      (collectTableMetas, the generator's source) is in it. A tooling feature list that
+//      differs from the boot (includeBundled) would otherwise leave tables out of the
+//      generated schema unnoticed.
 //
 // Contract (unchanged from the legacy gate): boot VALIDATES only, never
 // applies. Apply is the deploy-step `bun /app/kumiko.js schema apply` (runMigrationsFromDir).
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { collectTableMetas } from "../db/collect-table-metas.ts";
 import type { DbConnection } from "../db/connection.ts";
 import type { EntityTableMeta } from "../db/entity-table-meta.ts";
 import { loadSnapshotJson } from "../db/migrate-generator.ts";
 import { fetchAppliedMigrations, loadMigrationsFromDir } from "../db/migrate-runner.ts";
 import { PRODUCTION_SCHEMA_COMMAND_HINT } from "../db/production-schema-command-hint.ts";
 import { columnNamesOf, tableExists } from "../db/schema-inspection.ts";
+import type { FeatureDefinition } from "../engine/types/index.ts";
 
 const SNAPSHOT_FILENAME = ".snapshot.json";
 
@@ -42,6 +48,8 @@ export type KumikoDriftReport = {
   readonly checksumMismatches: readonly ChecksumMismatch[];
   readonly missingTables: readonly string[];
   readonly missingColumns: readonly MissingColumns[];
+  /** Tables the booted features declare that the snapshot lacks. */
+  readonly tablesMissingFromSnapshot: readonly string[];
 };
 
 export class SchemaDriftError extends Error {
@@ -56,6 +64,7 @@ export class SchemaDriftError extends Error {
 export async function detectKumikoDrift(
   db: DbConnection,
   migrationsDir: string,
+  bootedFeatures?: readonly FeatureDefinition[],
 ): Promise<KumikoDriftReport> {
   // A newer framework version may not have generated `./kumiko/migrations` yet
   // (for example, a first upgrade or custom schema setup without `kumiko schema
@@ -64,7 +73,14 @@ export async function detectKumikoDrift(
   // calls `readdirSync`, which throws synchronous ENOENT as a plain Error instead
   // of SchemaDriftError and causes an unhandled boot failure.
   if (!existsSync(migrationsDir)) {
-    return { ok: true, pending: [], checksumMismatches: [], missingTables: [], missingColumns: [] };
+    return {
+      ok: true,
+      pending: [],
+      checksumMismatches: [],
+      missingTables: [],
+      missingColumns: [],
+      tablesMissingFromSnapshot: [],
+    };
   }
   const local = loadMigrationsFromDir(migrationsDir);
   // A fresh database may not have the tracking table because `bun /app/kumiko.js schema apply`
@@ -92,7 +108,14 @@ export async function detectKumikoDrift(
   const snapshot = loadSnapshotJson(join(migrationsDir, SNAPSHOT_FILENAME));
   const missingTables: string[] = [];
   const missingColumns: MissingColumns[] = [];
+  let tablesMissingFromSnapshot: readonly string[] = [];
   if (snapshot) {
+    if (bootedFeatures !== undefined) {
+      const inSnapshot = new Set(snapshot.tables.map((t) => t.tableName));
+      tablesMissingFromSnapshot = collectTableMetas(bootedFeatures)
+        .map((meta) => meta.tableName)
+        .filter((name) => !inSnapshot.has(name));
+    }
     const existence = await Promise.all(
       snapshot.tables.map((t) => tableExists(db, t.tableName).then((exists) => ({ t, exists }))),
     );
@@ -118,11 +141,13 @@ export async function detectKumikoDrift(
       pending.length === 0 &&
       checksumMismatches.length === 0 &&
       missingTables.length === 0 &&
-      missingColumns.length === 0,
+      missingColumns.length === 0 &&
+      tablesMissingFromSnapshot.length === 0,
     pending,
     checksumMismatches,
     missingTables,
     missingColumns,
+    tablesMissingFromSnapshot,
   };
 }
 
@@ -150,6 +175,12 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
       lines.push(`    - ${m.table}: ${m.columns.join(", ")}`);
     }
   }
+  if (report.tablesMissingFromSnapshot.length > 0) {
+    lines.push(
+      `  ${report.tablesMissingFromSnapshot.length} booted table(s) missing from the snapshot:`,
+    );
+    for (const t of report.tablesMissingFromSnapshot) lines.push(`    - ${t}`);
+  }
   // Remediation depends on the cause: `bun kumiko-schema apply` handles only pending
   // migrations. A checksum mismatch causes MigrationChecksumMismatchError during
   // apply, and baseline's ON CONFLICT DO NOTHING leaves it in alreadyTracked.
@@ -175,6 +206,10 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
       "produce an ALTER-TABLE migration for the new column(s), then 'bun kumiko-schema apply'.",
     );
   }
+  if (report.tablesMissingFromSnapshot.length > 0) {
+    lines.push("Booted features declare tables the generated schema lacks — kumiko.config.ts");
+    lines.push("includeBundled/feature list differs from the boot; run 'kumiko schema generate'.");
+  }
   if (report.pending.length > 0 || report.missingColumns.length > 0) {
     lines.push(PRODUCTION_SCHEMA_COMMAND_HINT);
   }
@@ -186,7 +221,8 @@ export function formatKumikoDriftReport(report: KumikoDriftReport): string {
 export async function assertKumikoSchemaCurrent(
   db: DbConnection,
   migrationsDir: string,
+  bootedFeatures?: readonly FeatureDefinition[],
 ): Promise<void> {
-  const report = await detectKumikoDrift(db, migrationsDir);
+  const report = await detectKumikoDrift(db, migrationsDir, bootedFeatures);
   if (!report.ok) throw new SchemaDriftError(formatKumikoDriftReport(report), report);
 }

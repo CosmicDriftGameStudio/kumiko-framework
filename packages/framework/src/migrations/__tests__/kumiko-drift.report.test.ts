@@ -13,6 +13,7 @@ const empty: KumikoDriftReport = {
   checksumMismatches: [],
   missingTables: [],
   missingColumns: [],
+  tablesMissingFromSnapshot: [],
 };
 
 describe("formatKumikoDriftReport", () => {
@@ -102,5 +103,16 @@ describe("formatKumikoDriftReport", () => {
     const out = formatKumikoDriftReport(report);
     expect(out).toContain("Run 'bun kumiko-schema apply'");
     expect(out).toContain("Revert the edited migration");
+  });
+
+  test("booted table missing from the snapshot → names it and points at schema generate", () => {
+    const out = formatKumikoDriftReport({
+      ...empty,
+      ok: false,
+      tablesMissingFromSnapshot: ["user_account"],
+    });
+    expect(out).toContain("user_account");
+    expect(out).toContain("includeBundled/feature list differs from the boot");
+    expect(out).toContain("kumiko schema generate");
   });
 });

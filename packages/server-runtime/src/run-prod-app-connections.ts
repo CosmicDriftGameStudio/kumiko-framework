@@ -1,4 +1,5 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import {
   assertKumikoSchemaCurrent,
@@ -89,12 +90,13 @@ export async function assertProdSchemaCurrent(
   db: DbConnection,
   migrations: RunProdAppOptions["migrations"],
   log: Logger,
+  bootedFeatures: readonly FeatureDefinition[],
 ): Promise<void> {
   if (migrations !== false) {
     const migrationsDir = migrations?.dir ?? "./kumiko/migrations";
     log.info(`checking schema drift (${migrationsDir})`);
     try {
-      await assertKumikoSchemaCurrent(db, migrationsDir);
+      await assertKumikoSchemaCurrent(db, migrationsDir, bootedFeatures);
     } catch (err) {
       if (err instanceof SchemaDriftError) {
         log.error(`BOOT ABORTED — ${err.message}`);

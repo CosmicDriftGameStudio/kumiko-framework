@@ -47,7 +47,7 @@ import {
   TENANT_COLUMN,
 } from "./render-rls-ddl.ts";
 import { findRetiredTableDrops, type RetiredFrameworkTable } from "./retired-framework-tables.ts";
-import { quoteIdent } from "./sql-identifier.ts";
+import { quoteIdent, quoteLiteral } from "./sql-identifier.ts";
 
 const SNAPSHOT_VERSION = 1 as const;
 
@@ -442,6 +442,18 @@ function renderChangedIndex(td: TableDiff, idxChange: IndexChange): string[] {
   ];
 }
 
+// The guard line deliberately lacks the `DESTRUCTIVE:` marker: replay expands that marker up to the
+// first `;`, which would cut the DO block apart.
+function renderDroppedColumn(tableName: string, colName: string): string[] {
+  const table = quoteIdent(tableName);
+  const column = quoteIdent(colName);
+  const message = quoteLiteral(`${tableName}.${colName} is not empty`);
+  return [
+    `-- DO $$ BEGIN IF EXISTS (SELECT 1 FROM ${table} WHERE ${column} IS NOT NULL) THEN RAISE EXCEPTION ${message}; END IF; END $$;  -- guard: uncomment together with the drop below`,
+    `-- DESTRUCTIVE: ALTER TABLE ${table} DROP COLUMN ${column};  -- uncomment + ensure backup`,
+  ];
+}
+
 function renderInPlaceTableChanges(td: TableDiff): string[] {
   return [
     ...td.newColumns.map((col) => renderAddColumn(td.tableName, col)),
@@ -450,10 +462,7 @@ function renderInPlaceTableChanges(td: TableDiff): string[] {
     ...td.newIndexes.map((idx) => renderIndex(td.tableName, idx)),
     ...td.changedIndexes.flatMap((idxChange) => renderChangedIndex(td, idxChange)),
     ...td.droppedIndexes.map((name) => `-- (review) DROP INDEX IF EXISTS ${quoteIdent(name)};`),
-    ...td.droppedColumns.map(
-      (colName) =>
-        `-- DESTRUCTIVE: ALTER TABLE ${quoteIdent(td.tableName)} DROP COLUMN ${quoteIdent(colName)};  -- uncomment + ensure backup`,
-    ),
+    ...td.droppedColumns.flatMap((colName) => renderDroppedColumn(td.tableName, colName)),
     "",
   ];
 }

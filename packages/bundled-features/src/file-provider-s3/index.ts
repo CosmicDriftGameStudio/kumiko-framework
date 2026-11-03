@@ -7,6 +7,7 @@ export {
 export {
   createS3EnvSchema,
   isAcceptableS3Endpoint,
+  s3EndpointEnvRule,
   s3EndpointSchema,
   s3EnvSchema,
 } from "./env-schema.ts";

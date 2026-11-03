@@ -1308,7 +1308,9 @@ export type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (
   ctx: BeforeTransactionContext,
 ) => Promise<BeforeTransactionResult<TPrepared>>;
 
-/** `perCommand`: the handler runs without a transaction of its own. */
+/** `perCommand`: the handler runs without a transaction of its own. Use it for long external calls
+ *  (minutes) that also need writes: no transaction or connection is held while the call runs, and
+ *  `ctx.db.outsideTransaction` stays available for metering/provenance bookings. */
 export type WriteHandlerTransactionMode = "perCommand";
 
 /** `skip`: run as a nested write without the `beforeTransaction` phase. */

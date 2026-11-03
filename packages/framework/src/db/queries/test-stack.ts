@@ -2,6 +2,7 @@ import { extractPgError } from "../pg-error.ts";
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
 import { outsideRowLevelSecurityScope } from "../row-level-security-scope.ts";
+import { quoteLiteral } from "../sql-identifier.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 import { PROJECTION_REBUILD_SCHEMA } from "./shadow-swap.ts";
 import { quoteTableIdent } from "./table-ops.ts";
@@ -88,10 +89,6 @@ export async function createApplicationRole(
   } catch (error) {
     if (!isLostRoleRace(error)) throw error;
   }
-}
-
-function quoteLiteral(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
 }
 
 export async function transferDatabaseOwnership(

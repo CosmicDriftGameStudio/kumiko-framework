@@ -12,6 +12,7 @@ export type ZodDef = {
   readonly innerType?: z.ZodType;
   readonly in?: z.ZodType;
   readonly element?: z.ZodType;
+  readonly options?: readonly z.ZodType[];
   readonly defaultValue?: unknown;
 };
 
