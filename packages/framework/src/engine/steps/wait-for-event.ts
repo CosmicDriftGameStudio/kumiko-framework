@@ -29,6 +29,7 @@ import type {
   StepInstance,
   StepResolver,
 } from "../types/step.ts";
+import { databaseNowIso } from "./_database-clock.ts";
 import { addDuration } from "./_duration-utils.ts";
 import { resolveOptional, resolveRequired } from "./_resolver-utils.ts";
 import {
@@ -59,7 +60,7 @@ defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
     const timeout = resolveRequired(args.timeout, ctx);
     const resolvedMatch = resolveOptional(args.match, ctx);
 
-    const now = Temporal.Now.instant().toString();
+    const now = await databaseNowIso(ctx);
     const timeoutAt =
       timeout.startsWith("P") || timeout.startsWith("PT") ? addDuration(now, timeout) : timeout;
 

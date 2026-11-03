@@ -9,6 +9,7 @@
 // the pipeline are not atomic. A throw from startAndRunWorkflow is recorded
 // as `workflow.run-failed` and swallowed, so the dispatcher moves on.
 
+import { queryDatabaseNow } from "@cosmicdrift/kumiko-framework/db";
 import type {
   FeatureRegistrar,
   MultiStreamProjectionDefinition,
@@ -107,7 +108,7 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
     // replay the historical log and fire every side-effect step retroactively.
     startFrom: "now",
     apply: {
-      [eventType]: async (event, _tx, ctx) => {
+      [eventType]: async (event, tx, ctx) => {
         // skip: unreachable — the guard above already established this, but the
         // closure does not carry that narrowing, and re-narrowing here keeps
         // `trigger.filter` below typed without a cast.
@@ -145,7 +146,10 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             },
             ...(idempotencyKey && { idempotencyKey }),
             // The MSP context is still flat; the runner reads the namespaced shape.
-            handlerCtx: { events: { unsafeAppend: ctx.unsafeAppendEvent } },
+            handlerCtx: {
+              events: { unsafeAppend: ctx.unsafeAppendEvent },
+              db: { databaseNow: () => queryDatabaseNow(tx) },
+            },
           });
         } catch (error) {
           // Failures outside the step loop (run-started append) have no step yet, so 0.

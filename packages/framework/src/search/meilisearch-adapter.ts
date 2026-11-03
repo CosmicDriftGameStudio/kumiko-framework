@@ -67,6 +67,10 @@ const DEFAULT_FILTERABLE_ATTRIBUTES: readonly string[] = [
 ];
 const DEFAULT_SORTABLE_ATTRIBUTES: readonly string[] = ["_weight"];
 
+// Meilisearch has no free-form index metadata, so an explicit configure() leaves this foreign
+// filterable attribute behind; a later lazy default then sees a foreign attribute and keeps it.
+const EXPLICIT_CONFIG_MARKER = "_explicitConfig";
+
 // Filters per deleteDocuments call: one task per call, and the filter string stays short.
 const DELETE_FILTER_BATCH = 100;
 
@@ -80,9 +84,8 @@ function isSubsetOf(stored: readonly unknown[], wanted: readonly string[]): bool
 }
 
 // A stored list that lies inside the current default and misses attributes is an
-// older default that gained fields since; anything with a foreign attribute is
-// an explicit configure() and stays untouched. Known limit: an explicit configure() that
-// narrowed to a strict subset of the default is indistinguishable and gets widened again.
+// older default that gained fields since; anything with a foreign attribute (including the
+// explicit-config marker) is an explicit configure() and stays untouched.
 function isOutdatedDefault(
   stored: {
     searchable: readonly unknown[];
@@ -216,12 +219,22 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     return uid.startsWith(prefix) && /^t[0-9A-Za-z-]+$/.test(uid.slice(prefix.length));
   }
 
-  async function applyConfig(tenantId: TenantId, config: SearchAdapterConfig): Promise<void> {
+  async function applyConfig(
+    tenantId: TenantId,
+    config: SearchAdapterConfig,
+    explicit: boolean,
+  ): Promise<void> {
     const index = client.index(meilisearchTenantIndex(prefix, tenantId));
     await awaitSucceededTask(
       index.updateSearchableAttributes([...defaultSearchableAttributes(config)]),
     );
-    await awaitSucceededTask(index.updateFilterableAttributes([...DEFAULT_FILTERABLE_ATTRIBUTES]));
+    await awaitSucceededTask(
+      index.updateFilterableAttributes(
+        explicit
+          ? [...DEFAULT_FILTERABLE_ATTRIBUTES, EXPLICIT_CONFIG_MARKER]
+          : [...DEFAULT_FILTERABLE_ATTRIBUTES],
+      ),
+    );
     await awaitSucceededTask(index.updateSortableAttributes([...DEFAULT_SORTABLE_ATTRIBUTES]));
     await awaitSucceededTask(index.updateDistinctAttribute(DISTINCT_ATTRIBUTE));
   }
@@ -279,7 +292,8 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
   // The configured-tenants map is process memory only: after a restart a stored explicit
   // configure() must not be overwritten by the registry default, so the default is applied only
   // to an index that is missing, carries Meilisearch's factory settings, or holds an older
-  // default that is a strict subset of the current one (fields were added by a deploy).
+  // default that is a strict subset of the current one (fields were added by a deploy); an
+  // explicit configure() is told apart by EXPLICIT_CONFIG_MARKER.
   // A kept index still gets the default filterable attributes merged in: remove, purge and the
   // stale-piece delete filter on them, and an index without them rejects every delete.
   async function configActionFor(
@@ -330,7 +344,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     const config = defaultConfig;
     await trackConfigure(tenantId, async () => {
       const action = await configActionFor(tenantId, config);
-      if (action.kind === "apply-default") await applyConfig(tenantId, config);
+      if (action.kind === "apply-default") await applyConfig(tenantId, config, false);
       if (action.kind === "add-filterable") {
         await awaitSucceededTask(
           client
@@ -374,7 +388,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async configure(tenantId, config) {
-      await trackConfigure(tenantId, () => applyConfig(tenantId, config));
+      await trackConfigure(tenantId, () => applyConfig(tenantId, config, true));
     },
 
     async index(tenantId, doc) {

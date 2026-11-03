@@ -77,6 +77,8 @@ export type WorkflowRunFailedPayload = {
 
 export type WorkflowRunContext = {
   readonly events: Pick<HandlerContext["events"], "unsafeAppend">;
+  // wait, waitForEvent and retry derive their wake time from the database clock.
+  readonly db: Pick<HandlerContext["db"], "databaseNow">;
 };
 
 export class WorkflowSuspensionUnsupportedError extends Error {

@@ -111,6 +111,7 @@ function nullBlindIndexesForSubject(db: DbRunner, features: ReadonlyMap<string, 
 function outsideTransactionPoolOptionsFromEnv(env?: Readonly<Record<string, string | undefined>>): DbConnectionOptions;
 function physicalColumnName(table: unknown, field: string): string;
 function primaryKey(opts: { columns: ColumnHandle[]; name?: string; }): PrimaryKeyDescriptor;
+function queryDatabaseNow(runner: AnyDb): Promise<Date>;
 function readDatabaseNow(db: TenantDb): Promise<Date>; // Postgres clock; inside a transaction `now()` is the transaction start, so repeated reads agree.
 function recordEventsOwnedExclusivelyByTenant(db: DbRunner, aggregateType: string, aggregateId: string, tenantId: string): Promise<boolean>;
 function recordRowExistsInTenant(db: DbRunner, features: ReadonlyMap<string, FeatureDefinition>, entityName: string, recordId: string, tenantId: string): Promise<boolean>;

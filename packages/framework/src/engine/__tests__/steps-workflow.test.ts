@@ -22,8 +22,13 @@ const asAwaited = (event: string): AwaitedEventType => event as AwaitedEventType
 
 const mockUnsafeAppendEvent = mock();
 
+// Far from the app clock so a step that reads Temporal.Now instead of the database clock is caught.
+const DATABASE_NOW = new Date("2031-03-04T05:06:07.000Z");
+const mockDatabaseNow = mock(async () => DATABASE_NOW);
+
 const workflowCtx = {
   events: { unsafeAppend: mockUnsafeAppendEvent },
+  db: { databaseNow: mockDatabaseNow },
   event: { type: "user.signed-up", payload: { email: "test@example.com" } },
   steps: {},
   scope: {},
@@ -79,7 +84,7 @@ describe("workflow.wait run", () => {
     expect(eventArg.type).toBe(WORKFLOW_WAITING_TYPE);
     expect(eventArg.aggregateId).toBe("wr_abc123");
     expect(eventArg.payload.stepIndex).toBe(0);
-    expect(typeof eventArg.payload.wakeAt).toBe("string");
+    expect(eventArg.payload.wakeAt).toBe("2031-03-04T06:06:07Z");
     expect(eventArg.payload.workflowName).toBe("test-workflow");
   });
 
@@ -155,7 +160,7 @@ describe("workflow.waitForEvent run", () => {
     expect(eventArg.type).toBe(WORKFLOW_WAITING_FOR_EVENT_TYPE);
     expect(eventArg.aggregateId).toBe("wr_abc123");
     expect(eventArg.payload.eventType).toBe("user.confirmed-email");
-    expect(typeof eventArg.payload.timeoutAt).toBe("string");
+    expect(eventArg.payload.timeoutAt).toBe("2031-03-11T05:06:07Z");
     expect(eventArg.payload.workflowName).toBe("test-workflow");
   });
 
@@ -354,6 +359,20 @@ describe("workflow.retry run", () => {
     await expect(
       stepDef!.run({ times: 3, backoff: "exponential", do: [] }, nonWorkflowCtx),
     ).rejects.toThrow(/only allowed inside defineWorkflow/);
+  });
+
+  it("schedules the retry relative to the database clock", async () => {
+    const stepDef = getStep("workflow.retry");
+    expect(stepDef).toBeDefined();
+
+    const result = await stepDef!.run(
+      { times: 3, backoff: "linear", do: [{ kind: "no.such.step", args: {} }] },
+      workflowCtx,
+    );
+
+    expect(result).toBe(SUSPEND_SENTINEL);
+    const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
+    expect(eventArg.payload.wakeAt).toBe("2031-03-04T05:06:17Z");
   });
 
   it("executes the do sub-pipeline and returns undefined on success", async () => {

@@ -83,7 +83,7 @@ export {
   isUniqueViolation,
 } from "./pg-error.ts";
 export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.ts";
-export { readDatabaseNow } from "./queries/database-now.ts";
+export { queryDatabaseNow, readDatabaseNow } from "./queries/database-now.ts";
 export { listEventTenantIds } from "./queries/event-tenants.ts";
 export { toPostgresArrayLiteral } from "./queries/postgres-array-literal.ts";
 export { executeRawQuery } from "./queries/raw-sql.ts";

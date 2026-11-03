@@ -74,6 +74,7 @@ import {
   type JobRunnerScope,
   laneForJob,
 } from "./job-runner-scope.ts";
+import { acquireTenantCapLock } from "./job-runner-tenant-cap-lock.ts";
 import type { JobInvocation, JobMeta, JobRunner, JobRunnerOptions } from "./job-runner-types.ts";
 import { resolveMaxPerTenant } from "./max-per-tenant.ts";
 
@@ -225,13 +226,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // Sequential coordination: BullMQ OSS has no `group`, so we serialise
   // same-name jobs ourselves with a per-name Redis lock. Only built when at
   // least one job actually requested it — keeps the no-sequential boot path
-  // free of the extra Redis client. Scoped under the consumer lane so two
+  // free of the extra Redis client (also built for maxPerTenant "skip" caps). Scoped under the consumer lane so two
   // runners on different lanes cannot collide on the same lock-key for
   // unrelated jobs.
   const hasSequential = [...allJobs.values()].some((def) => def.concurrency === "sequential");
+  const hasSkipCap = [...allJobs.values()].some(
+    (def) => resolveMaxPerTenant(def)?.onLimit === "skip",
+  );
   let lockRedis: Redis | null = null;
   let sequentialLock: DistributedLock | null = null;
-  if (hasSequential) {
+  let tenantCapLock: DistributedLock | null = null;
+  if (hasSequential || hasSkipCap) {
     lockRedis = new Redis({ ...redisOpts, keyPrefix });
     // Without a listener, a post-close 'error' (e.g. a teardown-race
     // "Connection is closed") is unhandled and crashes the process — in
@@ -244,6 +249,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       lockRedis,
       `${RedisKeys.lock}seq:${queueNamePrefix}:${lockScope}:`,
     );
+    // No lane in the prefix: api and worker runners dispatch the same job and must share the lock.
+    tenantCapLock = createDistributedLock(lockRedis, `${RedisKeys.lock}cap:${queueNamePrefix}:`);
   }
 
   // Two queue-clients — one per lane. Every runner holds both, regardless of
@@ -301,6 +308,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     tracer,
     errorLogger,
     sequentialLock,
+    tenantCapLock,
     getActiveTenantIds,
     escapeHatchReportWindow,
     systemCronEscapeHatchDedup,
@@ -696,75 +704,85 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // dispatch). Fan-out children of perTenant jobs land here on their
       // recursive queue.add and DO carry _tenantId.
       const maxPerTenant = resolveMaxPerTenant(jobDef);
-      if (maxPerTenant?.onLimit === "skip") {
-        const tenantId = (payload as { _tenantId?: string } | undefined)?._tenantId; // @cast-boundary dynamic-key
+      const capTenantId =
+        maxPerTenant?.onLimit === "skip"
+          ? (payload as { _tenantId?: string } | undefined)?._tenantId // @cast-boundary dynamic-key
+          : undefined;
+      const releaseCapLock =
+        capTenantId === undefined
+          ? undefined
+          : await acquireTenantCapLock(scope, jobName, capTenantId);
+      try {
         if (
-          tenantId !== undefined &&
-          (await isOverPerTenantLimit(scope, jobName, tenantId, maxPerTenant.limit))
+          maxPerTenant !== undefined &&
+          capTenantId !== undefined &&
+          (await isOverPerTenantLimit(scope, jobName, capTenantId, maxPerTenant.limit))
         ) {
           return "skipped:max-per-tenant";
         }
-      }
 
-      const concurrency = jobDef.concurrency ?? "parallel";
-      const bullOpts: Record<string, unknown> = {};
+        const concurrency = jobDef.concurrency ?? "parallel";
+        const bullOpts: Record<string, unknown> = {};
 
-      switch (concurrency) {
-        case "skip": {
-          const active = await targetQueue.getActive();
-          const waiting = await targetQueue.getWaiting();
-          const isRunning = [...active, ...waiting].some((j) => j.name === jobName);
-          if (isRunning) {
-            return "skipped";
-          }
-          break;
-        }
-        case "replace": {
-          const waiting = await targetQueue.getWaiting();
-          for (const j of waiting) {
-            if (j.name === jobName && j.id) {
-              await j.remove();
-              await announceDropped(scope, jobName, jobDef, j.id, j.data);
+        switch (concurrency) {
+          case "skip": {
+            const active = await targetQueue.getActive();
+            const waiting = await targetQueue.getWaiting();
+            const isRunning = [...active, ...waiting].some((j) => j.name === jobName);
+            if (isRunning) {
+              return "skipped";
             }
+            break;
           }
-          break;
+          case "replace": {
+            const waiting = await targetQueue.getWaiting();
+            for (const j of waiting) {
+              if (j.name === jobName && j.id) {
+                await j.remove();
+                await announceDropped(scope, jobName, jobDef, j.id, j.data);
+              }
+            }
+            break;
+          }
+          // case "sequential" is rejected at boot — see createJobRunner. Once
+          // the OSS-compatible implementation lands (per-name Redis lock),
+          // re-add the dispatch branch here.
+          case "debounce": {
+            const debounceMs = jobDef.debounceMs ?? 5000;
+            bullOpts["debounce"] = { id: jobName, ttl: debounceMs };
+            break;
+          }
+          default:
+            break;
         }
-        // case "sequential" is rejected at boot — see createJobRunner. Once
-        // the OSS-compatible implementation lands (per-name Redis lock),
-        // re-add the dispatch branch here.
-        case "debounce": {
-          const debounceMs = jobDef.debounceMs ?? 5000;
-          bullOpts["debounce"] = { id: jobName, ttl: debounceMs };
-          break;
-        }
-        default:
-          break;
+
+        Object.assign(bullOpts, buildRetryBullOpts(jobDef));
+        if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
+        if (meta?.priority !== undefined) bullOpts["priority"] = meta.priority;
+        if (meta?.jobId !== undefined) bullOpts["jobId"] = meta.jobId;
+
+        // Pack meta into job data with _ prefix
+        const data: Record<string, unknown> = { ...payload };
+        if (meta?.triggeredById !== undefined) data["_triggeredById"] = meta.triggeredById;
+        if (meta?.payload !== undefined) data["_payload"] = meta.payload;
+        // Carry the enqueuing span context into the worker so job.execute shows
+        // as a child of the caller.
+        const traceCtx = captureTraceContext(tracer);
+        if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
+        // Propagate correlation from the scheduling request into the job
+        // execution context. The worker re-enters requestContext.run with
+        // this value so ctx.events.append / executor writes during the job
+        // stamp the same correlation as the HTTP request that scheduled it.
+        const reqCtx = requestContext.get();
+        if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
+        stampGatedWriteOrigin(data);
+
+        const job = await targetQueue.add(jobName, data, bullOpts);
+        await announceQueued(scope, jobName, jobDef, job, data);
+        return job.id ?? "unknown";
+      } finally {
+        await releaseCapLock?.();
       }
-
-      Object.assign(bullOpts, buildRetryBullOpts(jobDef));
-      if (jobDef.timeout) bullOpts["timeout"] = jobDef.timeout;
-      if (meta?.priority !== undefined) bullOpts["priority"] = meta.priority;
-      if (meta?.jobId !== undefined) bullOpts["jobId"] = meta.jobId;
-
-      // Pack meta into job data with _ prefix
-      const data: Record<string, unknown> = { ...payload };
-      if (meta?.triggeredById !== undefined) data["_triggeredById"] = meta.triggeredById;
-      if (meta?.payload !== undefined) data["_payload"] = meta.payload;
-      // Carry the enqueuing span context into the worker so job.execute shows
-      // as a child of the caller.
-      const traceCtx = captureTraceContext(tracer);
-      if (traceCtx) data[TRACE_CONTEXT_KEY] = traceCtx;
-      // Propagate correlation from the scheduling request into the job
-      // execution context. The worker re-enters requestContext.run with
-      // this value so ctx.events.append / executor writes during the job
-      // stamp the same correlation as the HTTP request that scheduled it.
-      const reqCtx = requestContext.get();
-      if (reqCtx?.correlationId) data["_correlationId"] = reqCtx.correlationId;
-      stampGatedWriteOrigin(data);
-
-      const job = await targetQueue.add(jobName, data, bullOpts);
-      await announceQueued(scope, jobName, jobDef, job, data);
-      return job.id ?? "unknown";
     },
 
     ...createJobEventTriggers({ scope, queues, tracer, allJobs }),

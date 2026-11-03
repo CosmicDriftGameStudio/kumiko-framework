@@ -30,7 +30,7 @@
 // resultKey on steps/wait-for-event.ts) — pre-seeded into stepsAcc below so
 // a subsequent step's resolver can read `ctx.steps[awaits.someKey]`.
 
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildPipelineSteps,
   computeDefinitionFingerprint,
@@ -334,7 +334,7 @@ type ResumedPipelineInput = {
   };
 };
 
-async function runResumedPipeline(ctx: HandlerContext, input: ResumedPipelineInput) {
+async function runResumedPipeline(ctx: HandlerContext, db: TenantDb, input: ResumedPipelineInput) {
   const {
     workflow,
     workflowName,
@@ -362,10 +362,11 @@ async function runResumedPipeline(ctx: HandlerContext, input: ResumedPipelineInp
       stepIndex,
     );
 
+    // The handler is system-scoped, so ctx.db is unusable; the steps still read the database clock.
     const outcome = await runStepList(
       steps,
       triggerEvent,
-      ctx,
+      { ...ctx, db: { ...db, outsideTransaction: undefined } },
       stepsAcc,
       {},
       workflowCtx,
@@ -514,7 +515,7 @@ export const resumeRunHandler: WriteHandlerDef = {
     const resumeFrom =
       pending.suspensionEventType === WORKFLOW_RETRY_SCHEDULED_TYPE ? stepIndex : stepIndex + 1;
 
-    return runResumedPipeline(ctx, {
+    return runResumedPipeline(ctx, db, {
       workflow,
       workflowName,
       runId,
