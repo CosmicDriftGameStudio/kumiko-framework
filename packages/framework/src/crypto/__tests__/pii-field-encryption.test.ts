@@ -8,6 +8,7 @@ import {
   subjectIdFromKey,
   subjectIdToKey,
 } from "../kms-adapter.ts";
+import { EncryptionUnavailableError } from "../kms-outage.ts";
 import {
   PII_CIPHERTEXT_CORRUPT_CODE,
   PiiCiphertextCorruptError,
@@ -447,6 +448,26 @@ describe("corrupt PII ciphertext", () => {
 
     expect(error).toBeInstanceOf(PiiCiphertextCorruptError);
     expect(error).toMatchObject({ code: PII_CIPHERTEXT_CORRUPT_CODE, field: "email" });
+  });
+
+  test("a key store returning a wrong-sized DEK is an outage, not a corrupt ciphertext", async () => {
+    const kms = new InMemoryKmsAdapter();
+    const stored = await storedEmail(kms);
+    class ShortDekKms extends InMemoryKmsAdapter {
+      override async getKey(): Promise<Buffer> {
+        return Buffer.alloc(16);
+      }
+    }
+    const brokenKms = new ShortDekKms();
+
+    const error = await decryptPiiFieldValues(
+      { email: stored },
+      ["email"],
+      brokenKms,
+      KMS_CTX,
+    ).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(EncryptionUnavailableError);
   });
 
   test("a ciphertext without a subject/blob separator is corrupt, not a generic error", async () => {

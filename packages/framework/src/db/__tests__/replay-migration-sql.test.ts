@@ -493,6 +493,13 @@ ALTER TABLE "widgets" RENAME "name" TO "label";`,
     expect(replayed.get("mystery")?.columnsUnknown).toBe(true);
   });
 
+  test("CREATE TABLE AS directly after a closing quote needs no whitespace", () => {
+    const replayed = replayOf({
+      "0001_copy.sql": `CREATE TABLE "snap"AS SELECT "id" FROM "src";`,
+    });
+    expect([...(replayed.get("snap")?.columns ?? [])]).toEqual(["id"]);
+  });
+
   test("CREATE TABLE AS with an explicit column list uses that list", () => {
     const replayed = replayOf({
       "0001_copy.sql": `CREATE TABLE "pairs" ("a", "b") AS SELECT 1, 2;`,

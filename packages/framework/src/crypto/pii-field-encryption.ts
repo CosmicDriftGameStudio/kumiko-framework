@@ -33,7 +33,7 @@ import {
   subjectIdFromKey,
   subjectIdToKey,
 } from "./kms-adapter.ts";
-import { classifyKmsOutage } from "./kms-outage.ts";
+import { classifyKmsOutage, EncryptionUnavailableError } from "./kms-outage.ts";
 import { PiiCiphertextCorruptError } from "./pii-ciphertext-corrupt.ts";
 import {
   isPiiCiphertext,
@@ -46,6 +46,7 @@ import { resolveSubjectForField } from "./subject-resolver.ts";
 // Spec value (crypto-shredding.md) — renderers show it verbatim.
 export { isPiiCiphertext, PII_CIPHERTEXT_PREFIX, PII_CIPHERTEXT_PREFIX_JSON, PII_ERASED_SENTINEL };
 
+const DEK_LENGTH = 32;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
@@ -105,6 +106,12 @@ function decryptValue(
   hasAad: boolean,
   isJson: boolean,
 ): string {
+  // A wrong-sized DEK is a key-store fault, not a damaged ciphertext: scrub/export must not wipe intact values for it.
+  if (dek.length !== DEK_LENGTH) {
+    throw new EncryptionUnavailableError(
+      new Error(`DEK has ${dek.length} bytes, expected ${DEK_LENGTH}`),
+    );
+  }
   try {
     const iv = blob.subarray(0, IV_LENGTH);
     const tag = blob.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);

@@ -58,6 +58,23 @@ describe("server statement_timeout", () => {
     expect(await currentStatementTimeout(client)).toBe(`${STATEMENT_TIMEOUT_MS}ms`);
   });
 
+  test("a failing lock call still restores the pool's timeout on the released connection", async () => {
+    const single = createDbConnection({
+      url: testDatabaseUrl(),
+      maxConnections: 1,
+      statementTimeoutMs: STATEMENT_TIMEOUT_MS,
+    });
+    try {
+      const invalidBigintKey = 1.5;
+      await expect(
+        withSessionAdvisoryLock(single.db, invalidBigintKey, async () => undefined),
+      ).rejects.toThrow();
+      expect(await currentStatementTimeout(single.client)).toBe(`${STATEMENT_TIMEOUT_MS}ms`);
+    } finally {
+      await single.close();
+    }
+  });
+
   test("a migration longer than the timeout still applies, and the pool keeps its timeout", async () => {
     const migration: Migration = {
       id: `zz_statement_timeout_${crypto.randomUUID().slice(0, 8)}`,

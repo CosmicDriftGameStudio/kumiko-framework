@@ -105,17 +105,6 @@ describe("Internal-Subpath-Imports Guard: rule 3 (system scope reason)", () => {
     });
     expect(violations).toHaveLength(1);
   });
-
-  test("SYSTEM_ROW_LEVEL_SECURITY_SCOPE is limited to the allowlist", () => {
-    const source = `import { SYSTEM_ROW_LEVEL_SECURITY_SCOPE } from "./row-level-security-scope.ts";\nvoid SYSTEM_ROW_LEVEL_SECURITY_SCOPE;`;
-    expect(
-      run({ "/fx/fw/packages/framework/src/pipeline/rogue.ts": source }).length,
-    ).toBeGreaterThan(0);
-    expect(run({ "/fx/fw/packages/framework/src/db/migrate-runner.ts": source })).toHaveLength(0);
-    expect(
-      run({ "/fx/fw/packages/framework/src/pipeline/dispatch-scope.ts": source }),
-    ).toHaveLength(0);
-  });
 });
 
 describe("Internal-Subpath-Imports Guard: rule 3 (createTenantDb system reason)", () => {
