@@ -4,7 +4,9 @@
 import { describe, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { databaseExists } from "@cosmicdrift/kumiko-framework/internal/stack-support";
+import { createNoopProvider } from "@cosmicdrift/kumiko-framework/observability";
 import { adminUrlOf } from "../db.ts";
 import { setupTestStack } from "../test-stack.ts";
 
@@ -34,5 +36,30 @@ describe("setupTestStack failed setup", () => {
     } finally {
       await admin.close();
     }
+  });
+
+  test("shuts the server's observability down when a job runner boot gate fails", async () => {
+    let shutdowns = 0;
+    const observability = {
+      ...createNoopProvider(),
+      shutdown: async () => {
+        shutdowns++;
+      },
+    };
+    const failingGateFeature = defineFeature("failinggate", (r) => {
+      r.job("gate", { trigger: { manual: true }, bootGate: true }, async () => {
+        throw new Error("boot gate refused");
+      });
+    });
+
+    await expect(
+      setupTestStack({
+        features: [failingGateFeature],
+        jobs: { consumerLane: "worker" },
+        observability,
+      }),
+    ).rejects.toThrow(/boot gate refused/);
+
+    expect(shutdowns).toBe(1);
   });
 });
