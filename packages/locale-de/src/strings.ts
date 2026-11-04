@@ -468,6 +468,15 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "config.secret.channel-telegram.bot-token.hint":
     'Token von @BotFather. Gilt für jeden Telegram-Chat, den der Mandant per route: { telegram: "<Chat-ID>" } anspricht.',
   "config.secret.channel-telegram.bot-token.label": "Telegram-Bot-Token",
+  "config.secret.channel-whatsapp.access-token.hint":
+    "Systembenutzer-Zugriffstoken der Meta-App. Wird zum Senden von Nachrichten und zum Laden von Medien verwendet.",
+  "config.secret.channel-whatsapp.access-token.label": "WhatsApp-Zugriffstoken",
+  "config.secret.channel-whatsapp.app-secret.hint":
+    "App-Secret der Meta-App. Prüft die Signatur jedes eingehenden Webhooks.",
+  "config.secret.channel-whatsapp.app-secret.label": "WhatsApp-App-Secret",
+  "config.secret.channel-whatsapp.verify-token.hint":
+    "Beliebiger Text, den Sie auch in den Meta-Webhook-Einstellungen eintragen; beantwortet den Abonnement-Handshake von Meta.",
+  "config.secret.channel-whatsapp.verify-token.label": "WhatsApp-Verifizierungstoken",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Privater Teil des S3-Schlüsselpaars. Hetzner nennt ihn „Secret Key“, AWS „Secret Access Key“.",
   "config.secret.file-provider-s3.s3-secret-access-key.label": "S3 Secret Access Key",

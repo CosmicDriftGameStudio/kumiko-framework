@@ -131,6 +131,7 @@
     "./channel-slack": "./src/channel-slack/index.ts",
     "./channel-discord": "./src/channel-discord/index.ts",
     "./channel-teams": "./src/channel-teams/index.ts",
+    "./channel-whatsapp": "./src/channel-whatsapp/index.ts",
     "./channel-telegram": "./src/channel-telegram/index.ts",
     "./renderer-pdf": "./src/renderer-pdf/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
@@ -648,6 +649,10 @@
       "./channel-telegram": {
         "types": "./dist/channel-telegram/index.d.ts",
         "default": "./dist/channel-telegram/index.js"
+      },
+      "./channel-whatsapp": {
+        "types": "./dist/channel-whatsapp/index.d.ts",
+        "default": "./dist/channel-whatsapp/index.js"
       },
       "./renderer-pdf": {
         "types": "./dist/renderer-pdf/index.d.ts",

@@ -36,6 +36,7 @@ import {
 import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/channel-slack";
 import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams";
 import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
+import { createChannelWhatsappFeature } from "@cosmicdrift/kumiko-bundled-features/channel-whatsapp";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createComplianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
 import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
@@ -192,6 +193,7 @@ export const APP_FEATURES = [
   createChannelDiscordFeature(),
   createChannelTeamsFeature(),
   createChannelTelegramFeature(),
+  createChannelWhatsappFeature(),
 
   ...composeMailStack({ transports: ["inmemory", "smtp"] }),
 

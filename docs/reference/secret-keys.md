@@ -53,6 +53,8 @@ webhookAuth.keyFor("crm"); // "step-dispatcher:webhook-auth.crm"
 
 The chat channels use it to reject a bad address when it is created: the webhook secrets of `channel-slack`, `channel-discord` and `channel-teams` must pass the channel's host allowlist (Discord also the `/api/webhooks/` path), the Telegram bot token must look like `<bot id>:<secret>`. The same checks are exported for app code: `checkChatWebhookTarget`, `chatWebhookUrlSchema` and `resolveChatWebhookTarget` from `delivery`, `isTelegramChatId` and `isTelegramBotToken` from `channel-telegram`.
 
+The `channel-whatsapp` secrets (`channel-whatsapp:secret:access-token`, `app-secret`, `verify-token`) are plain tenant secrets with a non-empty `valueSchema` and no host check.
+
 ## Chat channel keys
 
 Each chat channel exports its key, so apps do not retype the strings: `SLACK_SECRET_KEYS`, `DISCORD_SECRET_KEYS` and `TEAMS_SECRET_KEYS` with `webhookPrefix` and `webhookKeyFor(connection)`, and `TELEGRAM_SECRET_KEYS.botToken`.

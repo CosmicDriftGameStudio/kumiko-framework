@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 93,
+  "featureCount": 94,
   "features": [
     {
       "name": "account-security",
@@ -610,6 +610,49 @@
       "writeHandlers": [],
       "uiHints": {
         "displayLabel": "Telegram Channel",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "channel-whatsapp",
+      "description": "WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel. Inbound: mount `createWhatsappWebhookRoutes()` via `extraRoutes` (default path `/api/channel-whatsapp/webhook/:tenantId`, the tenant id is part of the URL because the secrets are tenant-scoped); GET answers Meta's `hub.challenge` handshake, POST checks `X-Hub-Signature-256` over the raw body and normalizes each message and status. Events: `channel-whatsapp:event:message-received` (sender, wamid, type text|audio|image|interactive_button|other, text, button payload, `contextWamid`, media id and mime type, `phoneNumberId`), `status-updated` (sent|delivered|read|failed|other) and `throttled` (sender over the per-number limit). Sender number, text, button payload and status recipient are PII, stored as tenant-key ciphertext; read them with `readWhatsappMessagePii`. A redelivered wamid is stored once and answered 200; a failed dispatch answers 500 so Meta redelivers. Outbound: `createWhatsappClient(opts)` gives `sendText`, `sendTemplate`, `sendButtons`, `sendMedia` (each takes the sending `phoneNumberId` and answers `{ ok: true, wamid }` or a typed failure) and `fetchMedia` (media id to bytes and mime type; the URL from the Graph answer is checked against `allowedHosts` before the token is sent). Tenant secrets `channel-whatsapp:secret:access-token`, `app-secret` and `verify-token`. App options of `createChannelWhatsappFeature(opts)`: `apiBaseUrl`, `apiVersion` (default v21.0), `allowedHosts` (default graph.facebook.com and lookaside.fbsbx.com), `requireHttps` (default true; boot fails on a mismatch), `timeoutMs`, `mediaMaxBytes`, `transport` (in-memory Meta for tests), `senderRateLimits` (default 30 per hour and 200 per day per sender and tenant) and `rateLimit` (flood guard of the inbound handlers; cannot be disabled while a sender limit is set). Requires `secrets`. A worker-run job triggered by `message-received` attaches the business process.",
+      "toggleableDefault": null,
+      "requires": [
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [
+        {
+          "qualifiedName": "channel-whatsapp:secret:access-token",
+          "scope": "tenant",
+          "label": "WhatsApp access token",
+          "hint": "System-user access token of the Meta app. Used to send messages and to download media."
+        },
+        {
+          "qualifiedName": "channel-whatsapp:secret:app-secret",
+          "scope": "tenant",
+          "label": "WhatsApp app secret",
+          "hint": "App secret of the Meta app. Verifies the signature of every incoming webhook."
+        },
+        {
+          "qualifiedName": "channel-whatsapp:secret:verify-token",
+          "scope": "tenant",
+          "label": "WhatsApp verify token",
+          "hint": "Any string you also enter in the Meta webhook settings; answers Meta's subscription handshake."
+        }
+      ],
+      "writeHandlers": [
+        "channel-whatsapp:write:receive-message",
+        "channel-whatsapp:write:record-status"
+      ],
+      "uiHints": {
+        "displayLabel": "WhatsApp Channel",
         "category": "notifications",
         "recommended": false
       }
