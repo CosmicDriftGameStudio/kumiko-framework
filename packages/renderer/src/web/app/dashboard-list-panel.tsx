@@ -198,6 +198,7 @@ export function ListPanelBody({
   const { formatPercent, formatNumber, formatDateTime } = useDashboardFormats();
   const narrow = useIsBelowSmViewport() ? panel.narrow : undefined;
   const narrowLimit = narrow?.limit;
+  const narrowLayout = narrow !== undefined ? (narrow.layout ?? "cards") : undefined;
   const resolveScreenLink = useScreenLinkResolver();
   const columns = panel.columns.map((c): DashboardListTableColumn => {
     const normalized = normalizeListColumn(c);
@@ -237,7 +238,7 @@ export function ListPanelBody({
           ? undefined
           : (data) => listSubtitle(panel, limitedEnvelope(data, narrowLimit), translate)
       }
-      {...(narrow?.layout === "cards" && {
+      {...(narrowLayout === "cards" && {
         replaceShell: (data: ListEnvelope) => (
           <NarrowCardsPanel
             panel={panel}
@@ -249,7 +250,7 @@ export function ListPanelBody({
           />
         ),
       })}
-      {...(narrow?.layout === "line" &&
+      {...(narrowLayout === "line" &&
         footerLink !== undefined && {
           replaceShell: (data: ListEnvelope) => (
             <ListLine
@@ -287,7 +288,7 @@ export function ListPanelBody({
           formatNumber={formatNumber}
           formatDateTime={formatDateTime}
           translate={translate}
-          {...(narrow?.layout === "cards" && { narrowCards: true })}
+          {...(narrowLayout === "cards" && { narrowCards: true })}
           {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
           {...(panel.showHeader !== undefined && { showHeader: panel.showHeader })}
         />

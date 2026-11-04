@@ -57,15 +57,20 @@ function validateHintColumn(where: string, column: ListColumn): void {
   }
 }
 
-const NARROW_ONLY_CONFLICTS = ["hideOnNarrow", "hidden", "pinned"] as const;
+// hideOnNarrow and hidden: false are legal alongside showOnNarrowOnly; a pin always conflicts.
+function narrowOnlyConflictOf(column: ListColumn): string | undefined {
+  if (column.hideOnNarrow === true) return "hideOnNarrow";
+  if (column.hidden === true) return "hidden";
+  return column.pinned !== undefined ? "pinned" : undefined;
+}
 
 function validateNarrowOnlyColumn(where: string, column: ListColumn, kind: GuidanceListKind): void {
   // skip: the column shows in the table too
   if (column.showOnNarrowOnly === undefined) return;
   const conflict =
     kind === "dashboard"
-      ? "a dashboard list panel (it draws no narrow-only cards)"
-      : NARROW_ONLY_CONFLICTS.find((option) => column[option] !== undefined);
+      ? "a dashboard list panel (its cards already draw every column)"
+      : narrowOnlyConflictOf(column);
   if (conflict !== undefined) {
     throw bootRuleError(LIST_ROW_GUIDANCE_RULES.narrowOnlyConflict, {
       message: `${where} column "${column.field}" sets showOnNarrowOnly together with ${conflict}. Remove one of them.`,

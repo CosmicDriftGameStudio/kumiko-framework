@@ -19,6 +19,7 @@ import {
   screen,
   waitFor,
 } from "../../__tests__/test-utils.tsx";
+import { ShellFocusProvider } from "../shell-focus.tsx";
 import { ShellHeader } from "../shell-header.tsx";
 
 const user = { id: "u1", roles: ["User"] };
@@ -129,6 +130,34 @@ describe("NotificationBell", () => {
     mount("showcase", makeDispatcher(calls, { count: 3 }), makeLive().subscriber);
     expect(screen.queryByRole("button", { name: /Notifications/ })).toBeNull();
     expect(calls.queries).toEqual([]);
+  });
+
+  test("a focused screen drops the bell but keeps the app's headerActions", () => {
+    const nav = {
+      route: undefined,
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+    renderWithSidebar(
+      <DispatcherProvider dispatcher={makeDispatcher({ queries: [], writes: [] }, { count: 3 })}>
+        <LiveEventsProvider value={makeLive().subscriber}>
+          <NavProvider value={nav}>
+            <ShellFocusProvider value={{ focused: true, register: () => () => {} }}>
+              <ShellHeader
+                schema={featureSchema("channel-in-app")}
+                user={user}
+                headerActions={<button type="button">Assistant</button>}
+              />
+            </ShellFocusProvider>
+          </NavProvider>
+        </LiveEventsProvider>
+      </DispatcherProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Assistant" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Notifications/ })).toBeNull();
   });
 
   test("shows the unread count in a badge and in the accessible name", async () => {

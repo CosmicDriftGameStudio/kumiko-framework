@@ -89,6 +89,12 @@ describe("record guidance on a phone", () => {
     expect(screen.queryByText("Step d")).toBeNull();
   });
 
+  test("a single hidden step reads as one step, not 1 steps", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDetail(detailScreen({ steps: { field: "steps", narrowLimit: 4 } }));
+    await waitFor(() => expect(screen.getByText("1 more step")).toBeTruthy());
+  });
+
   test("all steps show on a wide screen", async () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDetail(detailScreen({ steps: { field: "steps", narrowLimit: 3 } }));

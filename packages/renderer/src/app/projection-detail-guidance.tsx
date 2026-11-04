@@ -234,7 +234,10 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
         reasonLabel={t("kumiko.detail.steps.reason")}
         {...(spec.narrowLimit !== undefined && {
           narrowLimit: spec.narrowLimit,
-          moreLabel: (count: number) => t("kumiko.detail.steps.more", { count }),
+          moreLabel: (count: number) =>
+            count === 1
+              ? t("kumiko.detail.steps.more.one")
+              : t("kumiko.detail.steps.more.other", { count }),
           lessLabel: t("kumiko.detail.steps.less"),
         })}
         items={items}

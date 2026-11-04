@@ -1772,6 +1772,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
             label: "order-desk.action.recordPayment",
             screen: "order-detail",
             icon: "plus",
+            hideIcon: true,
           },
         ],
       },
@@ -1811,6 +1812,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         {
           field: "outstandingAmount",
           label: "order-desk.metric.outstandingAmount",
+          labelField: "outstandingLabel",
           subField: "outstandingNote",
           tone: "warn",
           toneField: "outstandingTone",
@@ -2382,6 +2384,7 @@ export function answerOrderDetail(id: string) {
     totalNote: "2 payments",
     outstandingAmount: "€ 312.00",
     outstandingNote: "14 days overdue",
+    outstandingLabel: "Outstanding since 01.12.",
     outstandingTone: "bad",
     itemCount: "3",
     itemsCount: 3,

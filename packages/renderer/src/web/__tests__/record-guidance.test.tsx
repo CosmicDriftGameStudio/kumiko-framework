@@ -55,6 +55,31 @@ describe("projectionList row guidance", () => {
     expect(screen.getByText("Paid already")).toBeTruthy();
   });
 
+  test("an empty hint in the row-open first cell stays a button that opens the row", () => {
+    const onRowClick = mock();
+    render(
+      <DataTable
+        columns={[
+          {
+            field: "next",
+            label: "Next",
+            type: "text",
+            sortable: false,
+            hint: { emptyLabel: "Nothing open", reasonLabel: "Why?" },
+          },
+        ]}
+        rows={[{ id: "r1", values: { next: "" } }]}
+        testId="dt"
+        onRowClick={onRowClick}
+        rowActions={[{ id: "open", label: "Open", rowClick: true, onTrigger: mock() }]}
+      />,
+    );
+    const opener = screen.getByText("Nothing open");
+    expect(opener.tagName).toBe("BUTTON");
+    fireEvent.click(opener);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+  });
+
   test("a hint in the row-open first cell keeps the reason behind its own toggle", () => {
     const onRowClick = mock();
     render(

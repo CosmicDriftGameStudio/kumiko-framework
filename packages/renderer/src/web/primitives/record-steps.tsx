@@ -80,7 +80,7 @@ export function DefaultRecordSteps({
       className={cn("shrink-0", !insideScreenFormColumn && "px-6 py-2")}
     >
       <div className="rounded-md border bg-card">
-        <header className="flex items-baseline gap-x-3 border-b px-4 py-3">
+        <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-3">
           <h3 className="m-0 text-sm font-semibold text-foreground">{title}</h3>
           {subtitle !== undefined && (
             <span className="text-[13px] text-muted-foreground">{subtitle}</span>

@@ -135,6 +135,14 @@ describe("dashboard panels on a phone", () => {
     expect(screen.getByText("Due 0")).toBeTruthy();
   });
 
+  test("narrow without a layout defaults to cards", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(listPanel({ limit: 2 })), {
+      "demo:query:task:list": listAnswer,
+    });
+    await waitFor(() => expect(screen.getAllByTestId("dashboard-list-card")).toHaveLength(2));
+  });
+
   test("the same list stays a table on a wide screen", async () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDashboard(dashboardOf(listPanel({ layout: "cards", limit: 3 })), {
