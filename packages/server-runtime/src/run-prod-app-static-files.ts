@@ -14,6 +14,7 @@ import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { ASSETS_DIR, collectBuildScriptHashes } from "./build-prod-bundle.ts";
 import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.ts";
 import { CSP_HASHES_FILE, parseCspHashes } from "./csp-hashes.ts";
+import type { PwaShell } from "./pwa.ts";
 import {
   buildRequestBoundSystemQuery,
   type QueryDispatcher,
@@ -209,6 +210,7 @@ export function buildStaticFallback(
   trustedProxyHops = 0,
   /** Build inline-script hashes, passed through to hostDispatch's deps. */
   hostDispatchScriptHashes: readonly string[] = [],
+  pwa?: PwaShell,
 ): (req: Request, socketAddress?: string) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
   const clientIpResolver: ClientIpResolver = createClientIpResolver(
@@ -222,6 +224,13 @@ export function buildStaticFallback(
   async function readHtmlFile(path: string): Promise<HtmlPayload | null> {
     const file = await readStaticFile(path);
     if (!file) return null;
+    if (pwa) {
+      // No mtime: the injected tags come from the boot options, not from the file.
+      const encoded = new TextEncoder().encode(
+        pwa.injectHeadTags(new TextDecoder().decode(file.bytes)),
+      );
+      return { bytes: encoded.buffer, mime: file.mime, etag: computeStrongEtag(encoded) };
+    }
     return {
       bytes: new Uint8Array(file.bytes).buffer,
       mime: file.mime,
@@ -368,6 +377,8 @@ export function buildStaticFallback(
     if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
       return stripNoRouteMatchHeader(await apiHandler(req, socketAddress));
     }
+    const pwaFile = pwa?.respond(req, url.pathname);
+    if (pwaFile) return pwaFile;
 
     // Try Hono before disk lookup so extraRoutes (for example /feed.xml and
     // /sitemap.xml) and r.httpRoute features (for example /legal/*) are handled

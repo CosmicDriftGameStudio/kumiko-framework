@@ -95,6 +95,7 @@ import type { SignalsOption } from "./boot-options/process-signals.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
 import type { SystemWireDeps } from "./extra-routes-deps.ts";
 import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
+import type { PwaOptions } from "./pwa.ts";
 import type { RateLimitOption } from "./rate-limit-defaults.ts";
 import type { UnsubscribeOption } from "./resolve-unsubscribe-wiring.ts";
 import { wireProdAuth } from "./run-prod-app-auth.ts";
@@ -475,6 +476,11 @@ export type RunProdAppOptions = {
    *  anonymous role (not system) — the resolver is reachable by any
    *  public visitor, same access gate as a real anonymous request. */
   readonly resolvePageHead?: PageHeadResolver;
+  /** Installable web app: serves `/manifest.webmanifest` and `/sw.js`, adds the manifest,
+   *  theme-color and apple-touch tags to every HTML shell of `staticDir`, and the web client
+   *  then registers the service worker and offers a one-time install hint. Requires
+   *  `staticDir`. Pass the same value to `runDevApp`. Unset: none of this happens. */
+  readonly pwa?: PwaOptions;
   /** Path to kumiko/migrations for the boot gate. Default "./kumiko/migrations"
    *  relative to the process cwd. Boot throws SchemaDriftError on pending
    *  migrations or missing tables. `false` disables the gate for setups that

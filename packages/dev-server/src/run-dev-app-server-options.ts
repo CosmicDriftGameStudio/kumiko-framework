@@ -30,6 +30,7 @@ function pickDevServiceOptions(options: RunDevAppOptions) {
     ...(options.anonymousAccess !== undefined && { anonymousAccess: options.anonymousAccess }),
     ...(options.files !== undefined && { files: options.files }),
     ...(options.wire !== undefined && { wire: options.wire }),
+    ...(options.pwa !== undefined && { pwa: options.pwa }),
   };
 }
 

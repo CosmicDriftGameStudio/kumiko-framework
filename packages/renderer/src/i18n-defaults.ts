@@ -35,6 +35,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.version.update-available": "A new version is available.",
 
+    "kumiko.pwa.dismiss": "Not now",
+    "kumiko.pwa.install": "Install",
+    "kumiko.pwa.install-hint": "Install this app on your device to open it like any other app.",
+    "kumiko.pwa.install-hint-ios": "To install this app, tap Share and then “Add to Home Screen”.",
+
     "kumiko.toast.learn-more": "Learn more",
 
     "kumiko.field.open-calendar": "Open calendar",

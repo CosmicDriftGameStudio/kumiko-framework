@@ -854,6 +854,12 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.maskedSet": "•••••••••• establecido",
   "kumiko.field.writeOnly.replace": "Reemplazar",
   "kumiko.pii.erased": "Eliminado",
+  "kumiko.pwa.dismiss": "Ahora no",
+  "kumiko.pwa.install": "Instalar",
+  "kumiko.pwa.install-hint":
+    "Instala esta app en tu dispositivo para abrirla como cualquier otra app.",
+  "kumiko.pwa.install-hint-ios":
+    "Para instalar esta app, toca Compartir y luego «Añadir a pantalla de inicio».",
   "kumiko.record.not-found.back": "Volver a la lista",
   "kumiko.record.not-found.hint": "Puede que se haya eliminado o que el enlace ya no sea válido.",
   "kumiko.record.not-found.title": "Registro no encontrado.",

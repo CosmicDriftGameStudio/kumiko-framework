@@ -14,6 +14,7 @@ import {
   type PageHeadSystemQuery,
   resolveAndInjectPageHead,
 } from "@cosmicdrift/kumiko-renderer/headless/apex";
+import type { PwaShell } from "@cosmicdrift/kumiko-server-runtime/pwa";
 import { buildRequestBoundSystemQuery } from "@cosmicdrift/kumiko-server-runtime/request-bound-system-query";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { errorCodeOf } from "@cosmicdrift/kumiko-types/type-guards";
@@ -123,6 +124,7 @@ export type DevHtmlDeps = {
   readonly stylesheetPath: string | undefined;
   readonly resolvePageHead: PageHeadResolver | undefined;
   readonly buildSystemQuery: DevSystemQueryBuilder;
+  readonly pwa: PwaShell | undefined;
 };
 
 // Dev user = TestUsers.admin: demo features are openToAll, but the auth
@@ -171,6 +173,7 @@ export async function respondWithHtmlShell(
   if (deps.autoMintJwt) await appendDevSessionCookies(headers, deps.jwt);
   let html = injectReload(template);
   if (deps.stylesheetPath !== undefined) html = injectStylesheet(html);
+  if (deps.pwa !== undefined) html = deps.pwa.injectHeadTags(html);
   if (deps.resolvePageHead !== undefined) {
     html = await injectDevPageHead(
       html,

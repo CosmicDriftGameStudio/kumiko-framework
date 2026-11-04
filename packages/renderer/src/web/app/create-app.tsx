@@ -76,6 +76,7 @@ import { lastSegment } from "../layout/nav-tree.tsx";
 import { clearFileMetaCache } from "../primitives/file-thumbnail.tsx";
 import { defaultPrimitives, ScreenWidthProvider } from "../primitives/index.tsx";
 import { ToastProvider } from "../primitives/toast.tsx";
+import { PwaSupport } from "../pwa/pwa-support.tsx";
 import { createEventSourceLiveEvents } from "../sse/live-events.ts";
 import { useBrowserTokensApi } from "../tokens.ts";
 import { UpdateChecker } from "../version/update-checker.tsx";
@@ -546,6 +547,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                                       <ToastProvider>
                                         <ToastActionNotifier>
                                           <UpdateChecker />
+                                          <PwaSupport />
                                           <LeaveGuardDialog />
                                           <SessionEndedSignalProvider
                                             signal={props.sessionEndedSignal}

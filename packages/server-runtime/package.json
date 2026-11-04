@@ -82,6 +82,10 @@
       "types": "./src/try-hono-first.ts",
       "default": "./src/try-hono-first.ts"
     },
+    "./pwa": {
+      "types": "./src/pwa.ts",
+      "default": "./src/pwa.ts"
+    },
     "./request-bound-system-query": {
       "types": "./src/request-bound-system-query.ts",
       "default": "./src/request-bound-system-query.ts"
@@ -179,6 +183,10 @@
       "./try-hono-first": {
         "types": "./dist/try-hono-first.d.ts",
         "default": "./dist/try-hono-first.js"
+      },
+      "./pwa": {
+        "types": "./dist/pwa.d.ts",
+        "default": "./dist/pwa.js"
       },
       "./request-bound-system-query": {
         "types": "./dist/request-bound-system-query.d.ts",

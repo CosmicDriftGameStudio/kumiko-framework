@@ -1133,6 +1133,14 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/pwa-shell": {
+      "name": "@cosmicdrift/kumiko-sample-pwa-shell",
+      "dependencies": {
+        "@cosmicdrift/kumiko-dev-server": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "@cosmicdrift/kumiko-server-runtime": "workspace:*",
+      },
+    },
     "samples/recipes/rate-limiting": {
       "name": "@cosmicdrift/kumiko-sample-rate-limiting",
       "dependencies": {
@@ -1625,6 +1633,8 @@
     "@cosmicdrift/kumiko-sample-prod-boot-options": ["@cosmicdrift/kumiko-sample-prod-boot-options@workspace:samples/recipes/prod-boot-options"],
 
     "@cosmicdrift/kumiko-sample-public-share-token": ["@cosmicdrift/kumiko-sample-public-share-token@workspace:samples/recipes/public-share-token"],
+
+    "@cosmicdrift/kumiko-sample-pwa-shell": ["@cosmicdrift/kumiko-sample-pwa-shell@workspace:samples/recipes/pwa-shell"],
 
     "@cosmicdrift/kumiko-sample-rate-limiting": ["@cosmicdrift/kumiko-sample-rate-limiting@workspace:samples/recipes/rate-limiting"],
 

@@ -867,6 +867,12 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.maskedSet": "•••••••••• défini",
   "kumiko.field.writeOnly.replace": "Remplacer",
   "kumiko.pii.erased": "Supprimé",
+  "kumiko.pwa.dismiss": "Pas maintenant",
+  "kumiko.pwa.install": "Installer",
+  "kumiko.pwa.install-hint":
+    "Installez cette app sur votre appareil pour l’ouvrir comme n’importe quelle autre app.",
+  "kumiko.pwa.install-hint-ios":
+    "Pour installer cette app, touchez Partager, puis « Sur l’écran d’accueil ».",
   "kumiko.record.not-found.back": "Retour à la liste",
   "kumiko.record.not-found.hint": "Il a peut-être été supprimé, ou le lien n'est plus valide.",
   "kumiko.record.not-found.title": "Cet enregistrement est introuvable.",

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-26
+verified: 2026-11-04
 evidence: "packages/framework/src/db/cross-tenant-reads.ts, packages/types/src/handlers.ts, packages/server-runtime/src/security-headers.ts, csp-hashes.ts, rate-limit-defaults.ts; packages/server-runtime/src/__tests__/security-headers.test.ts, csp-hashes.test.ts, run-prod-app.integration.test.ts; packages/framework/src/db/render-rls-ddl.ts, row-level-security-connection.ts, row-level-security-boot-check.ts; packages/framework/src/db/__tests__/row-level-security-scope.integration.test.ts, row-level-security-boot-check.integration.test.ts"
 ---
 
@@ -43,6 +43,8 @@ await runProdApp({
 A `hostDispatch` result with `csp` (kinds `html` and `not-found`) wins over the default for that response. It replaces the whole policy, so include your own hashes.
 
 Check it on a running app: `curl -sI https://host/ | grep -i content-security-policy` shows the header with the `sha256-` entries. In the browser, the console reports `Refused to execute inline script` for a script whose hash is missing; the message includes the hash to compare with `dist/csp-hashes.json`.
+
+A `hostDispatch` CSP that drops `'self'` from `default-src` must allow `worker-src 'self'` and `manifest-src 'self'` again when the app uses the `pwa` option. The default needs nothing extra: the manifest and `/sw.js` are same-origin and the worker is registered from the client bundle, not an inline script ([PWA shell recipe](../../samples/recipes/pwa-shell/)).
 
 ## Rate limits
 

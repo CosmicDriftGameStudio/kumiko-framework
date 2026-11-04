@@ -62,6 +62,7 @@
 | `pipeline-basics` | M.1 Tier-1 step-vocabulary showcase: every step in one inventory-management feature (aggregate.{create,update,appendEvent}, read.{findOne,findMany}, branch, forEach, compute, return, unsafeProjection{Upsert,Delete}). | `examples/pipeline-basics.md` |
 | `prod-boot-options` | runProdApp boot options: mail, kmsMode, fileStorage, demoMode and signal handling declared as options instead of hand-wired in bin/main.ts. | `examples/prod-boot-options.md` |
 | `public-share-token` | Generic share-token entity: mint hash-stored token, anonymous read-by-token with IP rate-limit. | `examples/public-share-token.md` |
+| `pwa-shell` | pwa option on runProdApp and the dev server: web manifest, generated service worker with an offline app shell and a one-time install hint. | `examples/pwa-shell.md` |
 | `rate-limiting` | End-to-end rate limiting: L1 global-IP + L2 auth-endpoints + L3 handler opt-in. | `examples/rate-limiting.md` |
 | `realtime-sse` | Server-sent events demo. Goodbye F5. | `examples/realtime-sse.md` |
 | `record-detail-layout` | projectionDetail record header, metrics band, and layout.mode: "tabs" — an order screen with two relatedList tabs and a fields tab. | `examples/record-detail-layout.md` |
