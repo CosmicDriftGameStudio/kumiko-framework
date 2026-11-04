@@ -195,6 +195,12 @@ describe("template-resolver :: overview", () => {
     const { rows } = await overview(adminB);
     expect(rows.find((row) => row.id === `mail|${REMINDER_SLUG}`)).toBeUndefined();
     expect(rows.find((row) => row.id === `mail|${MAIL_SLUG}`)?.origin).toBe("system");
+
+    const bySlug = await overview(adminB, {
+      filters: [{ field: "slug", op: "in", value: [REMINDER_SLUG] }],
+    });
+    expect(bySlug.rows).toEqual([]);
+    expect(bySlug.total).toBe(0);
   });
 
   test("search, facets and paging narrow the list", async () => {
@@ -208,6 +214,15 @@ describe("template-resolver :: overview", () => {
       ],
     });
     expect(faceted.rows.map((row) => row.id)).toEqual([`mail|${REMINDER_SLUG}`]);
+
+    const bySlug = await overview(adminA, {
+      filters: [
+        { field: "kind", op: "in", value: ["mail"] },
+        { field: "slug", op: "in", value: [REMINDER_SLUG] },
+      ],
+    });
+    expect(bySlug.rows.map((row) => row.id)).toEqual([`mail|${REMINDER_SLUG}`]);
+    expect(bySlug.total).toBe(1);
 
     const first = await overview(adminA, { limit: 1, sort: "slug", sortDirection: "asc" });
     const second = await overview(adminA, {
