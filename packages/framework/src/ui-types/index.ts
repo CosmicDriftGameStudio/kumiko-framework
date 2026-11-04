@@ -136,6 +136,7 @@ export type {
   ListColumnSpec,
   ListEmptyStateSpec,
   ListFacetSpec,
+  ListRowDecoration,
   ListSortSpec,
   ListTableOptions,
   MetricNavigate,

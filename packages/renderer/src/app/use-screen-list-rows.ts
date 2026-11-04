@@ -1,3 +1,4 @@
+import type { ListRowDecoration } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DispatcherError } from "../headless/index.ts";
 import type { ListAggregates } from "../hooks/use-list-aggregates.ts";
@@ -6,8 +7,11 @@ import { useQuery } from "../hooks/use-query.ts";
 import type { DataTableProps } from "../primitives.tsx";
 import { refetchAfterWrite } from "./row-actions.ts";
 import { type PagedRows, pageSizeOptionsFor } from "./screen-shared.tsx";
+import { useRowDecoration } from "./use-row-decoration.ts";
 
 type Row = Readonly<Record<string, unknown>>;
+
+const NO_ROWS: readonly Row[] = [];
 
 type InfiniteState = {
   readonly resetKey: string;
@@ -49,12 +53,14 @@ export function useScreenListRows({
   payload,
   infinite,
   aggregates,
+  rowDecoration,
   restoring = false,
 }: {
   readonly queryType: string;
   readonly payload: Readonly<Record<string, unknown>>;
   readonly infinite: boolean;
   readonly aggregates: ListAggregates;
+  readonly rowDecoration?: ListRowDecoration | undefined;
   readonly restoring?: boolean;
 }): ScreenListRows {
   const { grouped, refresh: refreshAggregates } = aggregates;
@@ -118,9 +124,14 @@ export function useScreenListRows({
     else await refetch();
   }, [grouped, refreshAggregates, refetch]);
 
+  const loadedRows = grouped ? aggregates.rows : infinite ? state.rows : (data?.rows ?? NO_ROWS);
+  // Grouped rows are rebuilt on every render, so only a group refresh counts as a new answer.
+  const answerToken = grouped ? aggregates.groupPages.refreshNonce : loadedRows;
+  const rows = useRowDecoration(rowDecoration, loadedRows, answerToken);
+
   if (grouped) {
     return {
-      rows: aggregates.rows,
+      rows,
       page: null,
       firstLoad: aggregates.loading,
       error: aggregates.error,
@@ -130,7 +141,7 @@ export function useScreenListRows({
     };
   }
   return {
-    rows: infinite ? state.rows : (data?.rows ?? []),
+    rows,
     page: data,
     firstLoad: restoring || (loading && data === null),
     error: rowsQuery.error,

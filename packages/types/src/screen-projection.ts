@@ -8,6 +8,7 @@ import type { EditLayout, ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type {
   ListColumnSpec,
   ListPaginationMode,
+  ListRowDecoration,
   ListSortSpec,
   RowAction,
   RowActionMode,
@@ -108,6 +109,8 @@ export type ProjectionListScreenDefinition = {
   readonly columns: readonly ListColumnSpec[];
   /** Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned. */
   readonly rowToneField?: string;
+  /** Computed row fields from an app query, merged into the query rows; see `ListRowDecoration`. */
+  readonly rowDecoration?: ListRowDecoration;
   readonly rowRenderer?: PlatformComponent;
   readonly cardRenderer?: PlatformComponent;
   readonly rowActions?: readonly RowAction[];
@@ -223,6 +226,8 @@ export type MetricSpec = {
   readonly navigate?: MetricNavigate;
   /** Tile color as on dashboard stat panels; not applied while the value is 0. */
   readonly tone?: DashboardStatTone;
+  /** Record field of the detail query holding a SelectOptionTone; a valid value overrides `tone`, also at value 0. Empty or unknown values fall back to `tone`. */
+  readonly toneField?: string;
   /** Icon chip of the tile; only drawn with `metricsStyle: "tiles"`. */
   readonly icon?: NavIconKey;
   /** Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value. */

@@ -95,16 +95,31 @@ function resolveListRowShape(
   });
 }
 
+// Row fields a projectionList may name: its list rows plus the rowDecoration rows. An
+// undeclared decoration outputSchema could add any field, so then nothing can be pinned.
+function listRowShapeWithDecoration(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  rowShape: ShapeLookup | undefined,
+  decoration: ProjectionListScreenDefinition["rowDecoration"],
+  usage: string,
+): ShapeLookup | undefined {
+  if (rowShape === undefined || decoration === undefined) return rowShape;
+  const decorationShape = resolveListRowShape(queryHandlers, decoration.query, usage);
+  return decorationShape === undefined ? undefined : { ...rowShape, ...decorationShape };
+}
+
 function checkProjectionListOutputColumns(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
   screenId: string,
   screen: ProjectionListScreenDefinition,
 ): void {
-  const rowShape = resolveListRowShape(
+  const usage = `[Feature ${featureName}] Screen "${screenId}" (projectionList)`;
+  const rowShape = listRowShapeWithDecoration(
     queryHandlers,
-    screen.query,
-    `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
+    resolveListRowShape(queryHandlers, screen.query, usage),
+    screen.rowDecoration,
+    `${usage} rowDecoration`,
   );
   for (const column of screen.columns) {
     checkColumnField(

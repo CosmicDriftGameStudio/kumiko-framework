@@ -19,12 +19,28 @@ const tilesScreen: ProjectionDetailScreenDefinition = {
   layout: { sections: [{ title: "Run", fields: ["okCount"] }] },
 };
 
-function renderTiles(data: Readonly<Record<string, unknown>>): void {
+const toneFieldScreen: ProjectionDetailScreenDefinition = {
+  ...tilesScreen,
+  metrics: [
+    {
+      field: "openCount",
+      label: "Open",
+      tone: "ok",
+      toneField: "openTone",
+      icon: "check-circle",
+    },
+  ],
+};
+
+function renderTiles(
+  data: Readonly<Record<string, unknown>>,
+  detail: ProjectionDetailScreenDefinition = tilesScreen,
+): void {
   const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
   render(
     <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
       <KumikoScreen
-        schema={{ featureName: "checks", entities: {}, screens: [tilesScreen] }}
+        schema={{ featureName: "checks", entities: {}, screens: [detail] }}
         qn="checks:screen:check-detail"
         entityId="run-1"
       />
@@ -60,5 +76,23 @@ describe("KumikoScreen / projectionDetail — metric tiles", () => {
     const chipClass = chipOf("kumiko-screen-projection-detail-metric-failedCount")?.className;
     expect(chipClass).toContain("bg-muted");
     expect(chipClass).not.toContain("text-status-bad");
+  });
+
+  test("a valid toneField value paints the tile, also at value 0", async () => {
+    renderTiles({ openCount: 0, openTone: "bad" }, toneFieldScreen);
+
+    await waitFor(() => screen.getByTestId("kumiko-screen-projection-detail-metric-openCount"));
+    expect(chipOf("kumiko-screen-projection-detail-metric-openCount")?.className).toContain(
+      "text-status-bad",
+    );
+  });
+
+  test("an unknown or empty toneField value falls back to the static tone", async () => {
+    renderTiles({ openCount: 3, openTone: "purple" }, toneFieldScreen);
+
+    await waitFor(() => screen.getByTestId("kumiko-screen-projection-detail-metric-openCount"));
+    expect(chipOf("kumiko-screen-projection-detail-metric-openCount")?.className).toContain(
+      "text-status-ok",
+    );
   });
 });

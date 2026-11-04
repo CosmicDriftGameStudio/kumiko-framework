@@ -13,6 +13,11 @@ import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListRowGuidance } from "./list-row-guidance.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import {
+  acceptsRowDecorationField,
+  type RowDecorationFields,
+  resolveRowDecorationFields,
+} from "./row-decoration.ts";
+import {
   assertWriteHandlerRegistered,
   resolveRowActionNavigateTarget,
   resolveScreenTargetQn,
@@ -64,6 +69,7 @@ function validateEntityListColumns(
   screenId: string,
   screen: EntityListScreenDefinition,
   fields: EntityListFields,
+  decoration: RowDecorationFields | undefined,
 ): void {
   const featureName = ctx.feature.name;
   rejectEmptyColumns(featureName, screenId, "entityList", screen.columns.length);
@@ -85,6 +91,7 @@ function validateEntityListColumns(
     if (
       !fields.columnFieldNames.has(normalized.field) &&
       !LIST_ROW_META_COLUMN_NAMES.has(normalized.field) &&
+      !acceptsRowDecorationField(decoration, normalized.field) &&
       !(normalized.label !== undefined && normalized.renderer !== undefined)
     ) {
       throw bootRuleError(SCREEN_KIND_RULES.unknownFieldReference, {
@@ -229,6 +236,7 @@ function validateEntityListRowAction(
   screenId: string,
   screen: EntityListScreenDefinition,
   fields: EntityListFields,
+  decoration: RowDecorationFields | undefined,
   action: RowAction,
 ): void {
   const featureName = ctx.feature.name;
@@ -245,13 +253,17 @@ function validateEntityListRowAction(
     (navigateAction, target) =>
       rejectCrossFeatureEditTargetWithoutEntityId(featureName, screenId, navigateAction, target),
   );
+  // skip: an undeclared decoration outputSchema leaves the action's field names unpinnable
+  if (decoration?.kind === "opaque") return;
   validateActionFieldRefs(
     featureName,
     screenId,
     "rowAction",
     action.id,
     action,
-    fields.fieldNames,
+    decoration === undefined
+      ? fields.fieldNames
+      : new Set([...fields.fieldNames, ...decoration.names]),
     fields.rowMeta,
   );
 }
@@ -360,10 +372,12 @@ export function validateEntityListScreen(
 ): void {
   const featureName = ctx.feature.name;
   const fields = resolveEntityListFields(ctx, screenId, screen.entity);
-  validateEntityListColumns(ctx, screenId, screen, fields);
+  const decoration = resolveRowDecorationFields(ctx.featureMap.values(), screen.rowDecoration);
+  validateEntityListColumns(ctx, screenId, screen, fields, decoration);
   validateListRowGuidance(featureName, screenId, "entityList", screen, {
     entityName: screen.entity,
     fieldNames: new Set([...fields.columnFieldNames, ...LIST_ROW_META_COLUMN_NAMES]),
+    rowDecorationFields: decoration,
   });
   // Validate pagination, sorting, and search at boot so authoring errors
   // fail before runtime debugging of empty or incorrectly sorted lists.
@@ -396,7 +410,7 @@ export function validateEntityListScreen(
   }
   if (screen.rowActions !== undefined) {
     for (const action of screen.rowActions) {
-      validateEntityListRowAction(ctx, screenId, screen, fields, action);
+      validateEntityListRowAction(ctx, screenId, screen, fields, decoration, action);
     }
     validateAtMostOneRowClick(featureName, screenId, "entityList", screen.rowActions);
   }

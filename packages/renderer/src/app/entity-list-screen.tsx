@@ -270,6 +270,7 @@ function EntityListBody({
     payload: queryPayload,
     infinite: useInfinite,
     aggregates: listTable.aggregates,
+    rowDecoration: screen.rowDecoration,
     restoring: listTable.restoring,
   });
   const { refreshAfterWrite: refreshListAfterWrite } = listRows;

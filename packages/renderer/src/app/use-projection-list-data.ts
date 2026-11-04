@@ -48,6 +48,7 @@ export function useProjectionListData(input: ProjectionListDataInput) {
     payload: queryPayload,
     infinite: false,
     aggregates: listTable.aggregates,
+    rowDecoration: screen.rowDecoration,
     restoring: listTable.restoring,
   });
 

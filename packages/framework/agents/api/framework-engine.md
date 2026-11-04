@@ -649,6 +649,7 @@ type EntityListScreenDefinition = {
   allowCreate?: boolean; // `false` hides this list's "+ New" button (and the empty-state create CTA) while the entity's edit screen keeps its create branch for other entry points, e.g. a prefilled action.
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
+  rowDecoration?: ListRowDecoration; // Computed row fields from an app query, readable by `rowToneField`, column `hint`, `linkScreenField`/`linkParamsField` and rowAction `visible`/`params`/`payload`; a column may name a decoration field.
   rowRenderer?: PlatformComponent;
   cardRenderer?: PlatformComponent;
   rowActions?: RowAction[]; // Per-row actions, rendered as an actions column on the right.
@@ -1387,6 +1388,7 @@ type ProjectionListScreenDefinition = {
   query: string;
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
+  rowDecoration?: ListRowDecoration; // Computed row fields from an app query, merged into the query rows; see `ListRowDecoration`.
   rowRenderer?: PlatformComponent;
   cardRenderer?: PlatformComponent;
   rowActions?: RowAction[];

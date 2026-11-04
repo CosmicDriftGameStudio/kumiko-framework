@@ -102,6 +102,12 @@ export type ListColumnHint = {
   readonly emptyLabel?: string;
 };
 
+/** Computed fields for the loaded rows: one `query` call per page answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`. Fields are merged into the rows and win over same-named row fields. */
+export type ListRowDecoration = {
+  readonly query: string;
+  readonly params?: Readonly<Record<string, unknown>>;
+};
+
 export type ListColumnDisplay = "bar" | "badge" | "datetime";
 export type ListBadgeTone = "positive" | "warn" | "negative" | "neutral";
 
@@ -530,6 +536,8 @@ export type EntityListScreenDefinition = {
   readonly columns: readonly ListColumnSpec[];
   /** Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned. */
   readonly rowToneField?: string;
+  /** Computed row fields from an app query, readable by `rowToneField`, column `hint`, `linkScreenField`/`linkParamsField` and rowAction `visible`/`params`/`payload`; a column may name a decoration field. */
+  readonly rowDecoration?: ListRowDecoration;
   // Row renderer (Desktop) — when omitted, renderer draws the default table
   // from `columns`. cardRenderer fills the same role on compact layouts.
   readonly rowRenderer?: PlatformComponent;

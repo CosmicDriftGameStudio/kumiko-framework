@@ -27,4 +27,15 @@ export const LIST_ROW_GUIDANCE_RULES = {
     summary: "rowToneField, linkParamsField and the hint field names are non-empty strings.",
     fix: "Name a row field or remove the option.",
   },
+  rowDecorationQueryEmpty: {
+    id: "list/row-decoration-query-empty",
+    summary: "rowDecoration.query is a non-empty query QN.",
+    fix: "Name the decoration query or remove rowDecoration.",
+  },
+  rowDecorationIdsMissing: {
+    id: "list/row-decoration-ids-missing",
+    summary:
+      "The rowDecoration query's input schema declares `ids`, the row ids the list sends with every call.",
+    fix: "Add `ids: z.array(z.string())` to the decoration query's schema.",
+  },
 } as const satisfies BootRuleTable;

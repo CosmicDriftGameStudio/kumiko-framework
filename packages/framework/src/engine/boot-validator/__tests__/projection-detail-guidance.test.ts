@@ -134,4 +134,28 @@ describe("projectionDetail record guidance blocks", () => {
     ]);
     expect(ruleIdsOf([feature])).toContain("query/output-field-missing");
   });
+
+  test("a metrics toneField missing from the outputSchema is query/output-field-missing", () => {
+    const feature = detailFeature(
+      { metrics: [{ field: "title", label: "shop:metric:title", toneField: "tone" }] },
+      ["title"],
+    );
+    expect(ruleIdsOf([feature])).toContain("query/output-field-missing");
+  });
+
+  test("an empty metrics toneField is projection-detail/guidance-field-empty", () => {
+    const feature = detailFeature({
+      metrics: [{ field: "title", label: "shop:metric:title", toneField: "" }],
+    });
+    expect(ruleIdsOf([feature])).toContain("projection-detail/guidance-field-empty");
+  });
+
+  test("a metrics toneField present in the outputSchema raises neither rule", () => {
+    const feature = detailFeature({
+      metrics: [{ field: "title", label: "shop:metric:title", toneField: "tone" }],
+    });
+    const ids = ruleIdsOf([feature]);
+    expect(ids).not.toContain("query/output-field-missing");
+    expect(ids).not.toContain("projection-detail/guidance-field-empty");
+  });
 });

@@ -8,8 +8,10 @@ import type {
 import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
 import { QUERY_RULES } from "./query-rules.ts";
+import { getZodObjectShape } from "./zod-shape.ts";
 
 const NOT_REGISTERED_SUFFIX =
   "is not a registered query-handler. Check the QN spelling (expected " +
@@ -229,6 +231,26 @@ function checkEditFormScreenQueryRefs(
   }
 }
 
+// The list always sends `ids`; a closed input object without it would reject every decoration call.
+function checkRowDecorationQueryRef(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screen: Extract<ScreenDefinition, { readonly type: "projectionList" | "entityList" }>,
+): void {
+  const decoration = screen.rowDecoration;
+  // skip: no rowDecoration declared
+  if (decoration === undefined) return;
+  const prefix = `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) rowDecoration`;
+  checkQueryRef(queryHandlers, decoration.query, () => prefix);
+  const inputShape = getZodObjectShape(queryHandlers.get(decoration.query)?.schema);
+  // skip: unregistered or non-introspectable input schema, nothing to pin
+  if (inputShape === undefined || "ids" in inputShape) return;
+  throw bootRuleError(LIST_ROW_GUIDANCE_RULES.rowDecorationIdsMissing, {
+    message: `${prefix} query "${decoration.query}" does not declare "ids" in its input schema. The list sends the loaded row ids as "ids"; add ids: z.array(z.string()).`,
+  });
+}
+
 function checkToolbarVisibleWhenQueryRefs(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -275,8 +297,10 @@ function checkScreenQueryRefs(
       () => `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
     );
     checkToolbarVisibleWhenQueryRefs(queryHandlers, featureName, screenId, screen);
+    checkRowDecorationQueryRef(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "entityList") {
     checkToolbarVisibleWhenQueryRefs(queryHandlers, featureName, screenId, screen);
+    checkRowDecorationQueryRef(queryHandlers, featureName, screenId, screen);
     if (screen.expandableRow !== undefined) {
       checkQueryRef(
         queryHandlers,

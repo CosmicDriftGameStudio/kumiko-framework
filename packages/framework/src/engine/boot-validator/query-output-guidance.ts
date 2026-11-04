@@ -24,6 +24,10 @@ export function detailGuidanceFieldRefs(
     { option: "banner.field", field: screen.banner?.field },
     { option: "steps.field", field: screen.steps?.field },
     { option: "steps.subtitleField", field: screen.steps?.subtitleField },
+    ...(screen.metrics ?? []).map((metric) => ({
+      option: "metrics.toneField",
+      field: metric.toneField,
+    })),
   ]);
 }
 
