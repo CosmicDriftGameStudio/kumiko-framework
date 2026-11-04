@@ -20,6 +20,7 @@
 //     eraseSubjectKeys makes both the event log and projection unreadable
 //     (crypto-shredding, the billing-foundation pattern).
 
+import { piiCiphertextMaxLengthFor } from "@cosmicdrift/kumiko-framework/crypto";
 import * as z from "zod";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants.ts";
 import { senderAuthenticationFieldSchema } from "./sender-auth.ts";
@@ -135,8 +136,8 @@ const inboundMessageContentShape = {
 // aggregateId = inboundMessageAggregateId(accountId, providerMessageId)
 // → deterministic, so provider replays collide on the same stream.
 //
-// PII fields (from/to/cc/subject/snippet): ciphertext with generous
-// maximum lengths. to/cc are JSON-stringified string[] BEFORE encryption;
+// PII fields (from/to/cc/subject/snippet): the maxima are the ciphertext
+// size of the plaintext limits in ingest-message-schema.ts. to/cc are JSON-stringified string[] BEFORE encryption;
 // the payload contains the ciphertext string, not the array (primitives only,
 // upcaster-safe).
 export const inboundMessageEventPayloadSchema = z.object({
@@ -149,13 +150,13 @@ export const inboundMessageEventPayloadSchema = z.object({
   /** Normalized thread key (References-chain root or provider thread ID,
    *  prefixed by the provider). */
   threadKey: z.string().min(1).max(500),
-  from: z.string().min(1).max(2000),
+  from: z.string().min(1).max(piiCiphertextMaxLengthFor(2000)),
   /** JSON-stringified string[], dann PII-encrypted. */
-  to: z.string().max(8000),
+  to: z.string().max(piiCiphertextMaxLengthFor(8000)),
   /** JSON-stringified string[], dann PII-encrypted. */
-  cc: z.string().max(8000),
-  subject: z.string().max(4000),
-  snippet: z.string().max(4000),
+  cc: z.string().max(piiCiphertextMaxLengthFor(8000)),
+  subject: z.string().max(piiCiphertextMaxLengthFor(4000)),
+  snippet: z.string().max(piiCiphertextMaxLengthFor(4000)),
   /** ISO instant — receipt time reported by the provider (INTERNALDATE or
    *  receivedDateTime), not ingest time. */
   receivedAtIso: z.string().min(1),
@@ -193,7 +194,7 @@ export type InboundMessageContentFetchedEventPayload = z.infer<
 // ============================================================================
 export const mailThreadEventPayloadSchema = z.object({
   threadKey: z.string().min(1).max(500),
-  subject: z.string().max(4000),
+  subject: z.string().max(piiCiphertextMaxLengthFor(4000)),
   lastMessageAtIso: z.string().min(1),
   messageCount: z.number().int().min(1),
 });

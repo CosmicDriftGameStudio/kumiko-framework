@@ -50,6 +50,18 @@ const DEK_LENGTH = 32;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
+// A zod `max` counts UTF-16 units, each of which is at most 3 UTF-8 bytes (a surrogate pair is 2 units, 4 bytes).
+const MAX_UTF8_BYTES_PER_UTF16_UNIT = 3;
+// "tenant:<uuid>" / "user:<uuid>" are 43 / 41 chars; record keys carry a free-form entity name, so leave headroom.
+const SUBJECT_KEY_MAX_LENGTH = 128;
+
+/** Upper bound for the stored length of a PII value whose plaintext is at most `plaintextMax` characters. */
+export function piiCiphertextMaxLengthFor(plaintextMax: number): number {
+  const blobBytes = IV_LENGTH + AUTH_TAG_LENGTH + plaintextMax * MAX_UTF8_BYTES_PER_UTF16_UNIT;
+  const base64Length = Math.ceil(blobBytes / 3) * 4;
+  return PII_CIPHERTEXT_PREFIX_JSON.length + SUBJECT_KEY_MAX_LENGTH + 1 + base64Length;
+}
+
 function buildAad(subject: SubjectId, field: string, isJson: boolean): Buffer {
   return Buffer.from(`${subjectIdToKey(subject)}|${field}${isJson ? "|json" : ""}`, "utf8");
 }
