@@ -42,6 +42,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams"`; requires `delivery`, `secrets`
 - `channel-telegram`: Sends delivery notifications through the Telegram Bot API (`sendMessage`, plain text), registered as the `telegram` channel in the delivery system.
   `import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram"`; requires `delivery`, `secrets`; secrets `channel-telegram:secret:bot-token`
+- `channel-whatsapp`: WhatsApp Business (Meta Cloud API) as a two-way channel, not a delivery channel.
+  `import { createChannelWhatsappFeature } from "@cosmicdrift/kumiko-bundled-features/channel-whatsapp"`; requires `secrets`; secrets `channel-whatsapp:secret:access-token`, `channel-whatsapp:secret:app-secret`, `channel-whatsapp:secret:verify-token`
 - `compliance-profiles`: Lets each tenant select a compliance regime (e.g. `eu-dsgvo`, `swiss-dsg`, `de-hr-dsgvo-hgb`) that bundles user-rights grace periods, breach-disclosure deadlines, sub-processor requirements, and audit-retention rules into a single named profile.
   `import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles"`
 - `compliance-profiles-ops`: Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant.

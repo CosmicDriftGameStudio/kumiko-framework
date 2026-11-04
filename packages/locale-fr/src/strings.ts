@@ -476,6 +476,15 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "config.secret.channel-telegram.bot-token.hint":
     'Jeton de @BotFather. Utilisé pour chaque chat Telegram que l\'organisation adresse via route: { telegram: "<chat id>" }.',
   "config.secret.channel-telegram.bot-token.label": "Jeton du bot Telegram",
+  "config.secret.channel-whatsapp.access-token.hint":
+    "Jeton d'accès de l'utilisateur système de l'app Meta. Sert à envoyer des messages et à télécharger des médias.",
+  "config.secret.channel-whatsapp.access-token.label": "Jeton d'accès WhatsApp",
+  "config.secret.channel-whatsapp.app-secret.hint":
+    "Secret de l'app Meta. Vérifie la signature de chaque webhook entrant.",
+  "config.secret.channel-whatsapp.app-secret.label": "Secret d'app WhatsApp",
+  "config.secret.channel-whatsapp.verify-token.hint":
+    "Chaîne libre que vous saisissez aussi dans les réglages webhook de Meta ; répond au handshake d'abonnement de Meta.",
+  "config.secret.channel-whatsapp.verify-token.label": "Jeton de vérification WhatsApp",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Moitié privée de la paire de clés S3. Hetzner l'appelle « Secret Key », AWS « Secret Access Key ».",
   "config.secret.file-provider-s3.s3-secret-access-key.label": "Clé d'accès secrète S3",

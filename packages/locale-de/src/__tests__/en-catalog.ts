@@ -449,6 +449,15 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.secret.channel-telegram.bot-token.hint":
     'Token from @BotFather. Used for every Telegram chat the tenant addresses via route: { telegram: "<chat id>" }.',
   "config.secret.channel-telegram.bot-token.label": "Telegram bot token",
+  "config.secret.channel-whatsapp.access-token.hint":
+    "System-user access token of the Meta app. Used to send messages and to download media.",
+  "config.secret.channel-whatsapp.access-token.label": "WhatsApp access token",
+  "config.secret.channel-whatsapp.app-secret.hint":
+    "App secret of the Meta app. Verifies the signature of every incoming webhook.",
+  "config.secret.channel-whatsapp.app-secret.label": "WhatsApp app secret",
+  "config.secret.channel-whatsapp.verify-token.hint":
+    "Any string you also enter in the Meta webhook settings; answers Meta's subscription handshake.",
+  "config.secret.channel-whatsapp.verify-token.label": "WhatsApp verify token",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'.",
   "config.secret.file-provider-s3.s3-secret-access-key.label": "S3 secret access key",

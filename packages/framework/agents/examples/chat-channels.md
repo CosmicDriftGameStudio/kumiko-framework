@@ -22,6 +22,8 @@ Shows how a feature posts to a tenant's Slack channel without ever handling the 
 
 The same shape works for `channel-discord`, `channel-teams` (connection name + webhook secret) and `channel-telegram` (one `botToken` secret, the address is the chat id).
 
+WhatsApp is two-way and not a delivery channel; `channel-whatsapp` is covered in `docs/guides/whatsapp-channel.md` and its own integration test.
+
 ## Run
 
 ```bash

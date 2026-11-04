@@ -465,6 +465,15 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "config.secret.channel-telegram.bot-token.hint":
     'Token di @BotFather. Usato per ogni chat Telegram a cui l\'organizzazione scrive tramite route: { telegram: "<chat id>" }.',
   "config.secret.channel-telegram.bot-token.label": "Token del bot Telegram",
+  "config.secret.channel-whatsapp.access-token.hint":
+    "Token di accesso dell'utente di sistema dell'app Meta. Serve per inviare messaggi e scaricare media.",
+  "config.secret.channel-whatsapp.access-token.label": "Token di accesso WhatsApp",
+  "config.secret.channel-whatsapp.app-secret.hint":
+    "Segreto dell'app Meta. Verifica la firma di ogni webhook in arrivo.",
+  "config.secret.channel-whatsapp.app-secret.label": "Segreto app WhatsApp",
+  "config.secret.channel-whatsapp.verify-token.hint":
+    "Qualsiasi stringa che inserisci anche nelle impostazioni webhook di Meta; risponde all'handshake di iscrizione di Meta.",
+  "config.secret.channel-whatsapp.verify-token.label": "Token di verifica WhatsApp",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Metà privata della coppia di chiavi S3. Hetzner la chiama «Secret Key», AWS «Secret Access Key».",
   "config.secret.file-provider-s3.s3-secret-access-key.label": "Chiave di accesso segreta S3",

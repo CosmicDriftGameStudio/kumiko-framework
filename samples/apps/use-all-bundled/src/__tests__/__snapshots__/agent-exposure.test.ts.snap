@@ -54,6 +54,8 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "channel-in-app:query:unreadCount expose=true risk=low",
   "channel-in-app:write:markAllRead expose=true risk=mid",
   "channel-in-app:write:markRead expose=true risk=mid",
+  "channel-whatsapp:write:receive-message expose=false risk=mid",
+  "channel-whatsapp:write:record-status expose=false risk=mid",
   "compliance-profiles-ops:query:tenants-missing-profile expose=true risk=low",
   "compliance-profiles:query:for-tenant expose=true risk=low",
   "compliance-profiles:query:list-profiles expose=true risk=low",
