@@ -1,5 +1,4 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
-import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-types/kms-adapter-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Check } from "lucide-react";
@@ -10,6 +9,7 @@ import type {
   CellLink,
   CellLinkItem,
   ListColumnFileDisplay,
+  ListColumnHintViewModel,
   ListRowViewModel,
   RuntimeCellLink,
   RuntimeCellLinkItems,
@@ -22,8 +22,10 @@ import {
   useColumnRenderer,
   useOptionalPrimitives,
 } from "../../index.ts";
+import { isSelectOptionTone } from "../../status-tone.ts";
 import { Badge } from "../ui/badge.tsx";
 import { StatusBadge } from "../widgets/status-badge.tsx";
+import { HintCell } from "./data-table/hint-cell.tsx";
 import { FileDisplayCell } from "./file-thumbnail.tsx";
 import { FileViewAction } from "./file-view-action.tsx";
 import { currencyDecimals, formatMoney } from "./money-input.tsx";
@@ -320,10 +322,6 @@ export function selectPill(
   );
 }
 
-function isSelectOptionTone(value: unknown): value is SelectOptionTone {
-  return SELECT_OPTION_TONES.some((tone) => tone === value);
-}
-
 // enumOption's `tones` arrive with the untyped spec, so each entry is checked here.
 function enumOptionTones(
   spec: Readonly<Record<string, unknown>>,
@@ -355,6 +353,7 @@ type DataTableCellProps = {
   readonly compactFile?: boolean;
   readonly link?: CellLink;
   readonly linkItems?: readonly CellLinkItem[];
+  readonly hint?: ListColumnHintViewModel;
 };
 
 // A multi reference may list the same id twice; the occurrence count keeps React keys unique.
@@ -465,10 +464,12 @@ export function DataTableCell({
   compactFile = false,
   link,
   linkItems,
+  hint,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
   const RegisteredStatusBadge = useOptionalPrimitives()?.StatusBadge;
+  if (hint !== undefined) return <HintCell value={value} row={row} hint={hint} />;
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">

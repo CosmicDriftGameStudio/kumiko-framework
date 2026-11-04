@@ -27,7 +27,7 @@ function panelIds(panels: readonly DashboardPanelDefinition[]): readonly string[
 function panelQueries(panels: readonly DashboardPanelDefinition[]): readonly string[] {
   return panels.flatMap((panel) => {
     if (panel.kind === "stat-group") return panel.stats.map((stat) => stat.query);
-    return "query" in panel ? [panel.query] : [];
+    return "query" in panel && panel.query !== undefined ? [panel.query] : [];
   });
 }
 

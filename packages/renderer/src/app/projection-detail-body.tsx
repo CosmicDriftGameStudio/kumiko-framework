@@ -13,6 +13,7 @@ import { useClientActionRuntime } from "./client-actions.tsx";
 import type { ErrorNotice } from "./error-reference.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { useNav } from "./nav.tsx";
+import { hasRecordGuidance } from "./projection-detail-guidance-data.ts";
 import {
   type DetailRegionModel,
   deriveDetailRegionPieces,
@@ -26,6 +27,7 @@ import {
 } from "./projection-detail-states.tsx";
 import { renderProjectionDrawerHost } from "./projection-drawer-host.tsx";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
+import { useReferenceLinkResolver } from "./reference-link.ts";
 import { useReturnHost, useReturnTarget } from "./return-to.tsx";
 import { useProjectionDetailActions } from "./use-projection-detail-actions.ts";
 import { useProjectionDetailData } from "./use-projection-detail-data.ts";
@@ -82,13 +84,14 @@ export function ProjectionDetailBody({
   const userRoles = useUserRoles();
   const dispatcher = useOptionalDispatcher();
   const clientActions = useClientActionRuntime();
+  const resolveReference = useReferenceLinkResolver();
   const host = useReturnHost();
   const returnTargetParam = useReturnTarget(screen.id);
   // A singleton has no record route to come back to — same as entityEdit.
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
   const drawer = useDrawerAction(schema);
   const { openDrawer } = drawer;
-  const { buildSectionActions, headerActions } = useProjectionDetailActions({
+  const { buildSectionActions, buildItemActions, headerActions } = useProjectionDetailActions({
     schema,
     screen,
     effectiveTranslate,
@@ -152,6 +155,8 @@ export function ProjectionDetailBody({
     hasTabs,
     tabCounts,
     activeSection,
+    resolveReference,
+    buildItemActions,
   };
   const regionPieces = deriveDetailRegionPieces(regionModel);
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode =>
@@ -175,6 +180,7 @@ export function ProjectionDetailBody({
         {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
         {...((hasHeaderCard ||
           hasTabs ||
+          hasRecordGuidance(screen) ||
           screen.slots?.header !== undefined ||
           screen.recordTitleField !== undefined) && {
           headerRegion: renderHeaderContent,

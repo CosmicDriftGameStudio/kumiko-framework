@@ -30,6 +30,7 @@ import { HANDLER_FIELD_REFERENCE_RULES } from "./handler-field-references-rules.
 import { I18N_RULES } from "./i18n-keys-rules.ts";
 import { LIST_BULK_ACTION_RULES } from "./list-bulk-actions-rules.ts";
 import { LIST_QUERY_RULES } from "./list-query-rules.ts";
+import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
 import { LIST_TABLE_AGGREGATE_RULES } from "./list-table-aggregate-rules.ts";
 import { LIST_TABLE_RULES } from "./list-table-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
@@ -61,6 +62,7 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   DASHBOARD_CHART_RULES,
   FORM_FIELD_RULES,
   FORM_LAYOUT_RULES,
+  LIST_ROW_GUIDANCE_RULES,
   LIST_SCREEN_RULES,
   SCREEN_KIND_RULES,
   PROJECTION_DETAIL_RULES,

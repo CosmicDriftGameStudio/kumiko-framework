@@ -1,4 +1,6 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
+import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 
 export type StatusTone = "ok" | "warn" | "bad" | "critical" | "muted";
 
@@ -58,4 +60,8 @@ export function statusToneForValue(value: string): StatusTone | undefined {
   // Own-key check: the value comes from row data, and a plain object lookup
   // would hand back `Object.prototype.constructor` & friends as a "tone".
   return Object.hasOwn(STATUS_TONE_BY_VALUE, slug) ? STATUS_TONE_BY_VALUE[slug] : undefined;
+}
+
+export function isSelectOptionTone(value: unknown): value is SelectOptionTone {
+  return isOneOf(SELECT_OPTION_TONES, value);
 }

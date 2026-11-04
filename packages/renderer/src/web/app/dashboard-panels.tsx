@@ -3,15 +3,11 @@ import type {
   DashboardChartPanel,
   DashboardCustomPanel,
   DashboardFeedPanel,
-  DashboardListPanel,
   DashboardProgressListPanel,
   DashboardProgressTone,
   DashboardStatGroupPanel,
   DashboardStatPanel,
-  DashboardTextBlock,
-  DashboardTextPanel,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
@@ -25,7 +21,6 @@ import {
   useAppFeatures,
   useExtensionSectionComponent,
   useNav,
-  usePrimitives,
   useTranslation,
   useUserRoles,
 } from "../../index.ts";
@@ -59,13 +54,11 @@ import {
   type StatTone,
 } from "../widgets/stat.tsx";
 import { EmptyState, LoadingState } from "../widgets/states.tsx";
-import { DashboardReferenceListTable } from "./dashboard-reference-list-table.tsx";
 import {
   DAY_MS,
   type DashboardFormats,
   HOUR_MS,
   PanelError,
-  PanelShell,
   panelPayload,
   QueryPanel,
   type ScreenParams,
@@ -232,10 +225,13 @@ function statNavigationLink(
 ): StatLink | undefined {
   if (navigate === undefined) return undefined;
   const target = { screenId: lastSegment(navigate.screen) };
-  const options =
-    navigate.namedFilter === undefined
-      ? undefined
-      : { searchParams: { [listNamedFilterUrlKey(target.screenId)]: navigate.namedFilter } };
+  const searchParams: Record<string, string> = {
+    ...navigate.params,
+    ...(navigate.namedFilter !== undefined && {
+      [listNamedFilterUrlKey(target.screenId)]: navigate.namedFilter,
+    }),
+  };
+  const options = Object.keys(searchParams).length === 0 ? undefined : { searchParams };
   return {
     href: nav.hrefFor(target, options),
     onPress: () => nav.navigate(target, options),
@@ -579,65 +575,6 @@ export function ChartPanelBody({
   );
 }
 
-type ListEnvelope = { readonly rows?: readonly Readonly<Record<string, unknown>>[] };
-
-export function ListPanelBody({
-  panel,
-  label,
-  featureName,
-  screenParams,
-  translate,
-}: {
-  readonly panel: DashboardListPanel;
-  readonly label: string;
-  readonly featureName: string;
-  readonly screenParams: ScreenParams;
-  readonly translate: Translate;
-}): ReactNode {
-  const { formatPercent, formatNumber, formatDateTime } = useDashboardFormats();
-  const columns = panel.columns.map((c) => {
-    const normalized = normalizeListColumn(c);
-    return {
-      field: normalized.field,
-      label: translate(normalized.label ?? normalized.field),
-      ...(normalized.display !== undefined && { display: normalized.display }),
-      ...(normalized.badgeToneField !== undefined && {
-        badgeToneField: normalized.badgeToneField,
-      }),
-      ...(normalized.refEntity !== undefined && {
-        reference: {
-          refEntity: normalized.refEntity,
-          ...(normalized.refLabelField !== undefined && {
-            refLabelField: normalized.refLabelField,
-          }),
-        },
-      }),
-    };
-  });
-  return (
-    <QueryPanel<ListEnvelope>
-      panel={panel}
-      label={label}
-      screenParams={screenParams}
-      translate={translate}
-      skeleton="rows"
-      isEmpty={(data) => (data.rows ?? []).length === 0}
-    >
-      {(data) => (
-        <DashboardReferenceListTable
-          columns={columns}
-          rows={data.rows ?? []}
-          featureName={featureName}
-          formatPercent={formatPercent}
-          formatNumber={formatNumber}
-          formatDateTime={formatDateTime}
-          translate={translate}
-        />
-      )}
-    </QueryPanel>
-  );
-}
-
 type FeedEnvelope = {
   readonly rows?: readonly { readonly primary: unknown; readonly trailing?: unknown }[];
 };
@@ -764,142 +701,6 @@ export function ProgressListPanelBody({
         return <ProgressList rows={rows} />;
       }}
     </QueryPanel>
-  );
-}
-
-function TextBlockView({
-  block,
-  translate,
-}: {
-  readonly block: DashboardTextBlock;
-  readonly translate: Translate;
-}): ReactNode {
-  switch (block.kind) {
-    case "heading":
-      return (
-        <h3 data-block="heading" className="text-sm font-semibold text-foreground">
-          {translate(block.text)}
-        </h3>
-      );
-    case "paragraph":
-      return (
-        <p
-          data-block="paragraph"
-          className={
-            block.emphasis === "strong"
-              ? "text-sm font-medium text-foreground"
-              : "text-sm text-muted-foreground"
-          }
-        >
-          {translate(block.text)}
-        </p>
-      );
-    case "list":
-      return (
-        <ul data-block="list" className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          {withOccurrenceKeys(block.items, (item) => item).map(({ entry, key }) => (
-            <li key={key}>{translate(entry)}</li>
-          ))}
-        </ul>
-      );
-    case "code":
-      return (
-        <pre data-block="code" className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
-          <code>{block.code}</code>
-        </pre>
-      );
-    case "hint":
-      return (
-        <p data-block="hint" className="text-xs text-muted-foreground">
-          {translate(block.text)}
-        </p>
-      );
-    case "link":
-      return <TextBlockLink block={block} translate={translate} />;
-  }
-}
-
-function TextBlockLink({
-  block,
-  translate,
-}: {
-  readonly block: Extract<DashboardTextBlock, { readonly kind: "link" }>;
-  readonly translate: Translate;
-}): ReactNode {
-  const { Link } = usePrimitives();
-  const nav = useNav();
-  const userRoles = useUserRoles();
-  if (block.roles !== undefined && !block.roles.some((role) => userRoles?.includes(role))) {
-    return null;
-  }
-  const target = { screenId: lastSegment(block.screen) };
-  return (
-    <Link
-      href={nav.hrefFor(target)}
-      onPress={() => nav.navigate(target)}
-      testId={`dashboard-text-link-${target.screenId}`}
-    >
-      {translate(block.text)}
-    </Link>
-  );
-}
-
-// Content-derived keys collide for identical entries; the occurrence count keeps them unique.
-function withOccurrenceKeys<T>(
-  entries: readonly T[],
-  contentKey: (entry: T) => string,
-): { readonly entry: T; readonly key: string }[] {
-  const seen = new Map<string, number>();
-  return entries.map((entry) => {
-    const content = contentKey(entry);
-    const occurrence = seen.get(content) ?? 0;
-    seen.set(content, occurrence + 1);
-    return { entry, key: `${content}#${occurrence}` };
-  });
-}
-
-function textBlockKey(block: DashboardTextBlock): string {
-  switch (block.kind) {
-    case "list":
-      return `list:${block.items.join("|")}`;
-    case "code":
-      return `code:${block.code}`;
-    default:
-      return `${block.kind}:${block.text}`;
-  }
-}
-
-export function TextPanelBody({
-  panel,
-  label,
-  translate,
-}: {
-  readonly panel: DashboardTextPanel;
-  readonly label: string | undefined;
-  readonly translate: Translate;
-}): ReactNode {
-  const blocks = (
-    <div className="flex flex-col gap-3">
-      {withOccurrenceKeys(panel.blocks, textBlockKey).map(({ entry, key }) => (
-        <TextBlockView key={key} block={entry} translate={translate} />
-      ))}
-    </div>
-  );
-  const testId = `dashboard-panel-${panel.id}`;
-  if (label !== undefined) {
-    return (
-      <PanelShell testId={testId} title={label}>
-        {blocks}
-      </PanelShell>
-    );
-  }
-  return (
-    <section
-      data-testid={testId}
-      className="h-full rounded-lg border border-border bg-card p-4 text-card-foreground"
-    >
-      {blocks}
-    </section>
   );
 }
 

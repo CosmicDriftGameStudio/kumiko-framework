@@ -44,8 +44,7 @@ function panelVisibilityGate(
 ): VisibilityGate | undefined {
   if (panel.kind === "custom" || panel.visibleWhen === undefined) return undefined;
   if (panel.kind === "screen") return visibilityGate(panel.visibleWhen.query, NO_GATE_PAYLOAD);
-  const dropsFilter =
-    panel.kind !== "stat-group" && panel.kind !== "text" && panel.ignoreScreenFilter === true;
+  const dropsFilter = panel.kind !== "stat-group" && panel.ignoreScreenFilter === true;
   return visibilityGate(panel.visibleWhen.query, {
     ...(dropsFilter ? {} : screenParams.filterParams),
     ...screenParams.rangeParams,

@@ -22,6 +22,7 @@ import type {
   ScreenDefinition,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { validateListRowGuidance } from "./list-row-guidance.ts";
 import {
   assertWriteHandlerRegistered,
   isRowClickAction,
@@ -419,14 +420,20 @@ function validateDashboardTextPanel(
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) text-panel "${panel.id}"`;
-  if (panel.blocks.length === 0) {
+  const blocks = panel.blocks ?? [];
+  if (panel.query === "") {
+    throw bootRuleError(DASHBOARD_RULES.panelQueryEmpty, {
+      message: `${context} has an empty query. Set query to a registered query name or remove it.`,
+    });
+  }
+  if (blocks.length === 0 && panel.query === undefined) {
     throw bootRuleError(DASHBOARD_RULES.textPanelEmpty, {
-      message: `${context} has an empty blocks list. Add at least one block.`,
+      message: `${context} has no blocks and no query. Add at least one block or set query.`,
     });
   }
   validateDashboardPanelSpan(featureName, screenId, panel);
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
-  for (const block of panel.blocks) {
+  for (const block of blocks) {
     if (block.kind === "list" && block.items.length === 0) {
       throw bootRuleError(DASHBOARD_RULES.textListBlockEmpty, {
         message: `${context} has a list block without items. Add items or remove the block.`,
@@ -796,6 +803,7 @@ function validateDashboardQueryPanel(
         message: `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" has an empty columns list. Add at least one column.`,
       });
     }
+    validateListRowGuidance(featureName, screenId, "dashboard", panel, undefined, panel.id);
     for (const col of panel.columns) {
       const normalized = normalizeListColumn(col);
       validateColumnRendererForm(featureName, screenId, normalized);

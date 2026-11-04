@@ -189,7 +189,7 @@ describe("tenant overview query allowlist", () => {
       throw new Error("expected tenant-overview to be a dashboard screen");
     const queries = screen.panels.flatMap((panel) => {
       if (panel.kind === "stat-group") return panel.stats.map((stat) => stat.query);
-      return "query" in panel ? [panel.query] : [];
+      return "query" in panel && panel.query !== undefined ? [panel.query] : [];
     });
     expect(queries.length).toBeGreaterThan(0);
     for (const query of queries) {

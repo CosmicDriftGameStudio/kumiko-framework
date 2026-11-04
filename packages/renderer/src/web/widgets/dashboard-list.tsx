@@ -1,6 +1,14 @@
+import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
-import { EMPTY_VALUE_PLACEHOLDER, type RuntimeCellLink } from "../../headless/index.ts";
-import { CellTextLink } from "../primitives/data-table-cell.tsx";
+import {
+  EMPTY_VALUE_PLACEHOLDER,
+  type ListColumnHintViewModel,
+  type RuntimeCellLink,
+} from "../../headless/index.ts";
+import { isSelectOptionTone } from "../../status-tone.ts";
+import { cn } from "../lib/cn.ts";
+import { HintCell } from "../primitives/data-table/hint-cell.tsx";
+import { CellTextLink, rowToneClass } from "../primitives/data-table-cell.tsx";
 import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
 
 export type DashboardListColumn = {
@@ -13,6 +21,8 @@ export type DashboardListColumn = {
   readonly renderValue?: (value: unknown, row: Readonly<Record<string, unknown>>) => string;
   /** Links the rendered text to its target, e.g. a reference cell to the record's detail. */
   readonly linkFor?: RuntimeCellLink;
+  /** "To do" cell; owns the rendering, `toneField` already defaulted by the caller. */
+  readonly hint?: ListColumnHintViewModel;
 };
 
 const BADGE_TONE: Readonly<Record<string, StatusBadgeTone>> = {
@@ -47,6 +57,7 @@ function Cell({
   readonly translate: (key: string) => string;
 }): ReactNode {
   const raw = row[column.field];
+  if (column.hint !== undefined) return <HintCell value={raw} row={row} hint={column.hint} />;
   if (column.display === "bar") {
     const fraction = fractionOf(raw);
     return (
@@ -87,10 +98,20 @@ function Cell({
     const link = column.linkFor?.(raw, row);
     return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
   }
-  if (typeof raw === "number") return <span className="tabular-nums">{formatNumber(raw)}</span>;
+  const link = column.linkFor?.(raw, row);
+  if (typeof raw === "number") {
+    const number = <span className="tabular-nums">{formatNumber(raw)}</span>;
+    return link === undefined ? number : <CellTextLink link={link}>{number}</CellTextLink>;
+  }
   if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
   const text = String(raw);
-  return I18N_KEY_SHAPE.test(text) ? translate(text) : text;
+  const shown = I18N_KEY_SHAPE.test(text) ? translate(text) : text;
+  return link === undefined ? shown : <CellTextLink link={link}>{shown}</CellTextLink>;
+}
+
+function rowToneOf(row: Row, rowToneField: string | undefined): SelectOptionTone | undefined {
+  const value = rowToneField === undefined ? undefined : row[rowToneField];
+  return isSelectOptionTone(value) ? value : undefined;
 }
 
 /** Compact 40px-row table for dashboard lists with optional bar/badge
@@ -103,6 +124,7 @@ export function DashboardListTable({
   formatDateTime,
   translate,
   testId,
+  rowToneField,
 }: {
   readonly columns: readonly DashboardListColumn[];
   readonly rows: readonly Row[];
@@ -111,6 +133,8 @@ export function DashboardListTable({
   readonly formatDateTime: (atMs: number) => string;
   readonly translate: (key: string) => string;
   readonly testId?: string;
+  /** Row field holding a SelectOptionTone; tints the row. */
+  readonly rowToneField?: string;
 }): ReactNode {
   return (
     <div className="overflow-x-auto">
@@ -128,7 +152,10 @@ export function DashboardListTable({
           {rows.map((row, index) => (
             <tr
               key={typeof row["id"] === "string" ? row["id"] : index}
-              className="h-10 border-b border-border-row last:border-b-0"
+              className={cn(
+                "h-10 border-b border-border-row last:border-b-0",
+                rowToneClass(rowToneOf(row, rowToneField)),
+              )}
             >
               {columns.map((column) => (
                 <td key={column.field} className="px-4">

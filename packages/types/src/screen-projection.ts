@@ -18,6 +18,12 @@ import type {
 import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
 import type { ListTableOptions } from "./screen-list-table.ts";
+import type {
+  RecordBannerSpec,
+  RecordBreadcrumbSpec,
+  RecordStepsSpec,
+  RecordSummarySpec,
+} from "./screen-record-guidance.ts";
 
 // --- projectionList ---
 
@@ -100,6 +106,8 @@ export type ProjectionListScreenDefinition = {
   readonly fallback?: ScreenFallback;
   readonly query: string;
   readonly columns: readonly ListColumnSpec[];
+  /** Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned. */
+  readonly rowToneField?: string;
   readonly rowRenderer?: PlatformComponent;
   readonly cardRenderer?: PlatformComponent;
   readonly rowActions?: readonly RowAction[];
@@ -275,6 +283,14 @@ export type ProjectionDetailScreenDefinition = {
   readonly metrics?: readonly MetricSpec[];
   /** "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band. */
   readonly metricsStyle?: "band" | "tiles";
+  /** Path above the header (query column holding items). */
+  readonly breadcrumb?: RecordBreadcrumbSpec;
+  /** One emphasized sentence below the header. */
+  readonly summary?: RecordSummarySpec;
+  /** Notice below the summary. Its `actions` are evaluated against the notice like a list row (`visible`, `params`, `payload` read the notice); a writeHandler without `payload` sends the shown record's id; `rowClick` and `showOnTabs` are rejected. */
+  readonly banner?: RecordBannerSpec;
+  /** "Next steps" panel. Its `actions` are evaluated against the step like a list row (`visible`, `params`, `payload` read the step); a writeHandler without `payload` sends the shown record's id; `rowClick` and `showOnTabs` are rejected. */
+  readonly steps?: RecordStepsSpec;
   /** Parent list screen (short id) for a "back" navigation. */
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;

@@ -365,6 +365,9 @@ type CorePrimitives = {
   FillContainer?: ComponentType<FillContainerProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
   PageHeader?: ComponentType<PageHeaderProps>; // Optional — additive rollout, see StickyActionBar.
   MetricBand?: ComponentType<MetricBandProps>; // Optional — additive rollout, see StickyActionBar.
+  RecordBreadcrumb?: ComponentType<RecordBreadcrumbProps>; // Optional — without it the detail screen renders the path as plain links.
+  RecordSummary?: ComponentType<RecordSummaryProps>; // Optional — without it the summary renders as plain text.
+  RecordSteps?: ComponentType<RecordStepsProps>; // Optional — without it the steps render as a plain card.
   ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>; // Optional: without an implementation, callers with >2 header/row actions fall back to today's all-buttons-inline rendering.
   SecretReveal?: ComponentType<SecretRevealProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
   StickyActionBar?: ComponentType<StickyActionBarProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.

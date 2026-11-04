@@ -50,6 +50,16 @@ export function synthesizeProjectionEntity(
   return { fields };
 }
 
+function rowPresentation(
+  screen: ProjectionListScreenDefinition,
+): Pick<EntityListScreenDefinition, "rowToneField" | "rowRenderer" | "cardRenderer"> {
+  return {
+    ...(screen.rowToneField !== undefined && { rowToneField: screen.rowToneField }),
+    ...(screen.rowRenderer !== undefined && { rowRenderer: screen.rowRenderer }),
+    ...(screen.cardRenderer !== undefined && { cardRenderer: screen.cardRenderer }),
+  };
+}
+
 /** Converts a ProjectionListScreenDefinition to the EntityListScreen shape
  *  expected by RenderList. `type` = "entityList" plus a pseudo-entity satisfy
  *  the type constraint; RenderList does not branch on `type` and reads `entity`
@@ -62,8 +72,7 @@ export function synthesizeProjectionScreen(
     type: "entityList",
     entity: PROJECTION_PSEUDO_ENTITY,
     columns: screen.columns,
-    ...(screen.rowRenderer !== undefined && { rowRenderer: screen.rowRenderer }),
-    ...(screen.cardRenderer !== undefined && { cardRenderer: screen.cardRenderer }),
+    ...rowPresentation(screen),
     ...(screen.rowActions !== undefined && { rowActions: screen.rowActions }),
     ...(screen.toolbarActions !== undefined && { toolbarActions: screen.toolbarActions }),
     ...(screen.pagination !== undefined && { pagination: screen.pagination }),

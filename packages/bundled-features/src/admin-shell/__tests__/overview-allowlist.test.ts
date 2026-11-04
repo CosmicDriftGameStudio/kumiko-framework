@@ -25,7 +25,7 @@ function panelQueries(screenId: string): readonly string[] {
   if (screen?.type !== "dashboard") throw new Error(`expected dashboard screen: ${screenId}`);
   return screen.panels.flatMap((panel) => {
     if (panel.kind === "stat-group") return panel.stats.map((stat) => stat.query);
-    return "query" in panel ? [panel.query] : [];
+    return "query" in panel && panel.query !== undefined ? [panel.query] : [];
   });
 }
 

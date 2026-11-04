@@ -17,6 +17,10 @@
 //      button next to it where the page header would otherwise fold it into the menu.
 //
 //   6. `showOnTabs` limits the record-payment action to the payments tab.
+//   7. Guidance: the `orders` projectionList tints rows via `rowToneField`, shows a
+//      "to do" hint column (sentence, detail, tone, a "Why?" reason) and offers a
+//      next-step action per row. The detail screen adds `breadcrumb`, `summary`,
+//      `banner` and `steps`, each reading a query field; empty values drop out.
 //
 // projectionDetail has no entity — it binds to an explicit query instead, so
 // every field name below (header, metrics, fields) is a column of that
@@ -30,6 +34,37 @@ const rowIdSchema = z.object({ id: z.string() });
 export function createOrderDeskFeature(): FeatureDefinition {
   return defineFeature("order-desk", (r) => {
     r.systemScope();
+
+    r.queryHandler({
+      name: "order:list",
+      schema: z.object({}),
+      handler: async () => ({
+        rows: [
+          {
+            id: "o1",
+            orderNumber: "SO-10482",
+            customerName: "Aiko Tanaka",
+            tone: "bad",
+            nextStep: "Send payment reminder",
+            nextStepDue: "by Friday",
+            nextStepReason: "312 EUR is 14 days overdue",
+            canRemind: true,
+          },
+          {
+            id: "o2",
+            orderNumber: "SO-10483",
+            customerName: "Jonas Weber",
+            tone: "ok",
+            nextStep: "",
+            nextStepDue: "",
+            nextStepReason: "",
+            canRemind: false,
+          },
+        ],
+        nextCursor: null,
+      }),
+      access: { roles: ["Support", "Admin"] },
+    });
 
     r.queryHandler({
       name: "order:detail",
@@ -46,6 +81,20 @@ export function createOrderDeskFeature(): FeatureDefinition {
         shippingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
         billingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
         salesRep: "Jonas Weber",
+        path: [{ label: "Orders" }, { label: "SO-10482" }],
+        summaryLine: "Waiting for the second payment",
+        summaryTone: "warn",
+        notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
+        steps: [
+          {
+            id: "remind",
+            title: "Send payment reminder",
+            detail: "by Friday",
+            tone: "warn",
+            why: "The invoice is 14 days overdue",
+          },
+          { id: "escalate", title: "Escalate to accounting" },
+        ],
       }),
       access: { roles: ["Support", "Admin"] },
     });
@@ -76,6 +125,43 @@ export function createOrderDeskFeature(): FeatureDefinition {
     });
 
     r.screen({
+      id: "orders",
+      type: "projectionList",
+      query: "order-desk:query:order:list",
+      rowToneField: "tone",
+      columns: [
+        { field: "orderNumber" },
+        { field: "customerName" },
+        {
+          field: "nextStep",
+          hint: {
+            detailField: "nextStepDue",
+            reasonField: "nextStepReason",
+            emptyLabel: "order-desk.orders.nothing-open",
+          },
+        },
+      ],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "open",
+          label: "order-desk.action.open",
+          screen: "order-detail",
+          rowClick: true,
+        },
+        {
+          kind: "navigate",
+          id: "remind",
+          label: "order-desk.action.remind",
+          screen: "order-detail",
+          display: "link",
+          visible: { field: "canRemind", eq: true },
+        },
+      ],
+      access: { roles: ["Support", "Admin"] },
+    });
+
+    r.screen({
       id: "order-detail",
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
@@ -87,6 +173,34 @@ export function createOrderDeskFeature(): FeatureDefinition {
           { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
         ],
         status: "status",
+      },
+      breadcrumb: { field: "path" },
+      summary: { field: "summaryLine", toneField: "summaryTone" },
+      banner: {
+        field: "notice",
+        actions: [
+          {
+            kind: "navigate",
+            id: "banner-open",
+            label: "order-desk.action.recordPayment",
+            screen: "order-detail",
+            icon: "plus",
+          },
+        ],
+      },
+      steps: {
+        field: "steps",
+        title: "order-desk.steps.title",
+        emptyLabel: "order-desk.steps.empty",
+        actions: [
+          {
+            kind: "navigate",
+            id: "step-open",
+            label: "order-desk.action.refreshOrder",
+            screen: "order-detail",
+            icon: "refresh",
+          },
+        ],
       },
       metrics: [
         { field: "totalAmount", label: "order-desk.metric.totalAmount" },

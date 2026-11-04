@@ -1182,7 +1182,7 @@ describe("validateBoot — dashboard screen-panel fallback and text panels", () 
 
   test("rejects a text panel with empty blocks", () => {
     const feature = dashboardFeature([STAT_PANEL, { ...TEXT, blocks: [] }]);
-    expect(() => validateBoot([feature])).toThrow(/text-panel "help" has an empty blocks list/);
+    expect(() => validateBoot([feature])).toThrow(/text-panel "help" has no blocks and no query/);
   });
 
   test("rejects a list block without items", () => {

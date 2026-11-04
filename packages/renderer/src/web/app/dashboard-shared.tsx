@@ -260,7 +260,7 @@ export function PanelError({
 
 type SkeletonShape = "bars" | "segments" | "rows";
 
-function PanelSkeleton({ shape }: { readonly shape: SkeletonShape }): ReactNode {
+export function PanelSkeleton({ shape }: { readonly shape: SkeletonShape }): ReactNode {
   const t = useTranslation();
   if (shape === "rows") return <LoadingState rows={3} />;
   if (shape === "segments") {

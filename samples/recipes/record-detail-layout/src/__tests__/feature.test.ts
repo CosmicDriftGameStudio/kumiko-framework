@@ -86,6 +86,25 @@ describe("record-detail-layout showcase — registration", () => {
   });
 });
 
+describe("record-detail-layout showcase — guidance", () => {
+  test("the orders list carries rowToneField and a hint column", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    expect(screen.rowToneField).toBe("tone");
+    const hint = screen.columns.map((c) => normalizeListColumn(c)).find((c) => c.hint);
+    expect(hint?.hint?.detailField).toBe("nextStepDue");
+  });
+
+  test("the detail screen declares breadcrumb, summary, banner and steps from query fields", () => {
+    const screen = registry.getScreen("order-desk:screen:order-detail");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(screen.breadcrumb).toEqual({ field: "path" });
+    expect(screen.summary).toEqual({ field: "summaryLine", toneField: "summaryTone" });
+    expect(screen.banner?.field).toBe("notice");
+    expect(screen.steps?.field).toBe("steps");
+  });
+});
+
 describe("record-detail-layout showcase — empty states", () => {
   test("the payments tab declares a record-dependent empty text ahead of its default", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
@@ -119,6 +138,24 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
       });
     });
     expect(() => validateBoot([broken])).toThrow(/metric "totalAmount" has no "label"/);
+  });
+
+  test("a hint column naming an empty detail field fails boot", () => {
+    const broken = defineFeature("broken-order-desk-hint", (r) => {
+      r.queryHandler({
+        name: "order:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [] }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "orders",
+        type: "projectionList",
+        query: "broken-order-desk-hint:query:order:list",
+        columns: [{ field: "nextStep", hint: { detailField: "" } }],
+      });
+    });
+    expect(() => validateBoot([broken])).toThrow(/list\/guidance-field-empty/);
   });
 
   test("tabs with only one section fails boot", () => {

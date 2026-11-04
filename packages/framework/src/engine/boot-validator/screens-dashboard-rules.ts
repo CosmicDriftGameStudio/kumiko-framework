@@ -138,8 +138,13 @@ export const DASHBOARD_RULES = {
   },
   textPanelEmpty: {
     id: "dashboard/text-panel-empty",
-    summary: "A text panel declares at least one block.",
-    fix: "Add at least one block.",
+    summary: "A text panel declares at least one block or a query.",
+    fix: "Add at least one block or set query.",
+  },
+  statNavigateParamsInvalid: {
+    id: "dashboard/stat-navigate-params-invalid",
+    summary: "A stat's navigate.params has non-empty keys and string values.",
+    fix: "Use { key: 'value' } with non-empty keys and string values, or remove params.",
   },
   textListBlockEmpty: {
     id: "dashboard/text-list-block-empty",

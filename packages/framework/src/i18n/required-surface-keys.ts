@@ -4,6 +4,7 @@ import type {
   DashboardFilterDefinition,
   DashboardPanelDefinition,
   DashboardScreenDefinition,
+  DashboardText,
   DashboardTextPanel,
   EditFieldSpec,
   EditRelatedListSection,
@@ -29,6 +30,7 @@ import type { FieldDefinition } from "../engine/types/fields.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";
 
 import type { TranslationValue } from "../ui-types/plural.ts";
+import { pushDetailGuidanceKeys } from "./required-surface-guidance-keys.ts";
 
 /** Pseudo-entity for actionForm field labels (renderer action-form-shim). */
 export const ACTION_FORM_ENTITY = "__action-form__";
@@ -223,14 +225,18 @@ function pushDashboardChildLabelKeys(out: Set<string>, panel: DashboardPanelDefi
   }
 }
 
+function pushDashboardTextKey(out: Set<string>, text: DashboardText): void {
+  pushKey(out, typeof text === "string" ? text : text.i18nKey);
+}
+
 function pushDashboardTextBlockKeys(out: Set<string>, panel: DashboardTextPanel): void {
-  for (const block of panel.blocks) {
+  for (const block of panel.blocks ?? []) {
     // skip: code is shown verbatim, not translated
     if (block.kind === "code") continue;
     if (block.kind === "list") {
-      for (const item of block.items) pushKey(out, item);
+      for (const item of block.items) pushDashboardTextKey(out, item);
     } else {
-      pushKey(out, block.text);
+      pushDashboardTextKey(out, block.text);
     }
   }
 }
@@ -330,6 +336,7 @@ function pushListChromeKeys(
   out: Set<string>,
   list: ScreenOfKind["entityList"] | ScreenOfKind["projectionList"],
 ): void {
+  for (const col of list.columns) pushKey(out, normalizeListColumn(col).hint?.emptyLabel);
   pushKey(out, list.createLabel);
   pushKey(out, list.searchPlaceholder);
   pushKey(out, list.description);
@@ -513,6 +520,11 @@ function collectProjectionDetailKeys(
   detail: ScreenOfKind["projectionDetail"],
 ): void {
   for (const metric of detail.metrics ?? []) pushKey(ctx.out, metric.label);
+  pushDetailGuidanceKeys(
+    detail,
+    (value) => pushKey(ctx.out, value),
+    (action) => pushRowActionKeys(ctx.out, action),
+  );
   for (const section of detail.layout.sections) {
     if (isExtensionEditSection(section)) {
       pushKey(ctx.out, section.title);

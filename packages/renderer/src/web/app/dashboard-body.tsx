@@ -81,15 +81,14 @@ import {
   renderRecordMissing,
   renderTitleRow,
 } from "./dashboard-header.tsx";
+import { ListPanelBody } from "./dashboard-list-panel.tsx";
 import {
   ChartPanelBody,
   CustomPanelBody,
   FeedPanelBody,
-  ListPanelBody,
   ProgressListPanelBody,
   StatGroupPanelBody,
   StatPanelBody,
-  TextPanelBody,
 } from "./dashboard-panels.tsx";
 import { ScreenPanelTile } from "./dashboard-screen-tiles.tsx";
 import {
@@ -100,6 +99,7 @@ import {
   useDashboardFormats,
   WIDE_PANEL,
 } from "./dashboard-shared.tsx";
+import { TextPanelBody } from "./dashboard-text-panel.tsx";
 import {
   GatedGridCell,
   useDashboardVisibility,
@@ -200,7 +200,14 @@ function PanelBody({
     );
   }
   if (panel.kind === "text") {
-    return <TextPanelBody panel={panel} label={label} translate={translate} />;
+    return (
+      <TextPanelBody
+        panel={panel}
+        label={label}
+        screenParams={screenParams}
+        translate={translate}
+      />
+    );
   }
   return (
     <ProgressListPanelBody

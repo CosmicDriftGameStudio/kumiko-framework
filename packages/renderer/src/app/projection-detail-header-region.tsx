@@ -4,6 +4,11 @@ import { resolveRecordTitle } from "../components/render-edit-helpers.tsx";
 import { requestLeave } from "../leave-guard.ts";
 import type { ErrorNotice } from "./error-reference.tsx";
 import {
+  type DetailGuidanceModel,
+  renderDetailBreadcrumb,
+  renderDetailGuidance,
+} from "./projection-detail-guidance.tsx";
+import {
   buildMetricItems,
   type DetailHeaderModel,
   renderActionErrorBanner,
@@ -16,7 +21,7 @@ import {
 } from "./projection-detail-header.tsx";
 import { buildDetailTabItems } from "./projection-detail-header-model.ts";
 
-export type DetailRegionModel = DetailHeaderModel & {
+export type DetailRegionModel = DetailGuidanceModel & {
   readonly actionError: ErrorNotice | null;
   readonly pageHeaderSlotAvailable: boolean;
   readonly pageHeaderCompactContext: boolean;
@@ -180,9 +185,11 @@ export function renderDetailHeaderContent(
   const { Tabs } = model.primitives;
   return (
     <>
+      {renderDetailBreadcrumb(model)}
       {PageHeader !== undefined
         ? renderPageHeaderBranch(model, pieces, headerSlot, PageHeader)
         : renderHeaderCardBranch(model, pieces, headerSlot)}
+      {renderDetailGuidance(model)}
       {hasTabs &&
         activeSection !== undefined &&
         Tabs !== undefined &&

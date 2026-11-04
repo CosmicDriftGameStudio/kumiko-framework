@@ -215,6 +215,16 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
       id: "detail",
       type: "projectionDetail",
       query: "host:query:record:detail",
+      banner: {
+        field: "label",
+        actions: [
+          { kind: "navigate", id: "banner-nav", label: "Banner", screen: SECRET_SCREEN_ID },
+        ],
+      },
+      steps: {
+        field: "label",
+        actions: [{ kind: "navigate", id: "steps-nav", label: "Steps", screen: SECRET_SCREEN_ID }],
+      },
       layout: {
         sections: [
           { fields: ["label"] },
@@ -350,6 +360,8 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     ]);
     expect(detail.actions).toHaveLength(1);
     expect(detail.listScreenId).toBe(SECRET_SCREEN_ID);
+    expect(detail.banner?.actions).toHaveLength(1);
+    expect(detail.steps?.actions).toHaveLength(1);
     const relatedList = detail.layout.sections.find((s) => s.kind === "relatedList");
     expect(relatedList?.kind).toBe("relatedList");
     if (relatedList?.kind !== "relatedList") throw new Error("unreachable");
@@ -449,6 +461,8 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     expect(detail.header?.subtitle).toEqual(["label"]);
     expect(detail.actions).toBeUndefined();
     expect(detail.listScreenId).toBeUndefined();
+    expect(detail.banner).toEqual({ field: "label" });
+    expect(detail.steps).toEqual({ field: "label" });
     const relatedList = detail.layout.sections.find((s) => s.kind === "relatedList");
     expect(relatedList?.kind).toBe("relatedList");
     if (relatedList?.kind !== "relatedList") throw new Error("unreachable");

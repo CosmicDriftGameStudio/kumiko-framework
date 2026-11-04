@@ -54,6 +54,7 @@ function countOverflow(
       type,
       renderer: col.renderer,
       hideOnNarrow: col.hideOnNarrow,
+      hint: col.hint,
       ...(fileKind !== undefined && { fileDisplay: { kind: fileKind } }),
     };
   });

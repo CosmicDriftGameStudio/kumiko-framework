@@ -15,6 +15,7 @@ import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { buildQueryHandlerMap } from "./projection-list-screens.ts";
+import { detailGuidanceFieldRefs, listGuidanceFieldRefs } from "./query-output-guidance.ts";
 import { QUERY_RULES } from "./query-rules.ts";
 import { validateActionFieldRefs } from "./screens.ts";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape.ts";
@@ -113,6 +114,14 @@ function checkProjectionListOutputColumns(
         `[Feature ${featureName}] Screen "${screenId}" (projectionList) column "${field}" is not present in query "${screen.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
     );
   }
+  for (const { option, field } of listGuidanceFieldRefs(screen)) {
+    checkFieldExists(
+      rowShape,
+      field,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (projectionList) ${option} references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
+  }
 }
 
 function checkEditLayoutOutputColumns(
@@ -200,6 +209,14 @@ function checkProjectionDetailOutputFields(
       field,
       () =>
         `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
+  }
+  for (const { option, field } of detailGuidanceFieldRefs(screen)) {
+    checkFieldExists(
+      recordShape,
+      field,
+      () =>
+        `${prefix} ${option} references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
   }
   checkDetailSectionFields(recordShape, prefix, screen);
@@ -347,6 +364,14 @@ function checkDashboardOutputFields(
           column,
           (field) =>
             `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
+        );
+      }
+      for (const { option, field } of listGuidanceFieldRefs(panel)) {
+        checkFieldExists(
+          rowShape,
+          field,
+          () =>
+            `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" ${option} references field "${field}" which is not present in query "${panel.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
         );
       }
     }

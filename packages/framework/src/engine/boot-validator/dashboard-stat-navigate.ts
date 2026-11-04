@@ -9,6 +9,7 @@ import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { resolveScreenTargetQn } from "./screens-actions.ts";
+import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 
 type ListTarget = {
   readonly feature: FeatureDefinition;
@@ -55,6 +56,13 @@ function validateStatNavigate(
   const navigate = stat.navigate;
   // skip: stat has no navigate target to validate
   if (navigate === undefined) return;
+  for (const [key, value] of Object.entries(navigate.params ?? {})) {
+    if (key === "" || typeof value !== "string") {
+      throw bootRuleError(DASHBOARD_RULES.statNavigateParamsInvalid, {
+        message: `${context} navigate.params entry ${JSON.stringify(key)} must have a non-empty key and a string value (got ${JSON.stringify(value)}).`,
+      });
+    }
+  }
   const target = resolveListTarget(featureName, navigate.screen, featureMap);
   if ("qn" in target) {
     throw bootRuleError(NAMED_FILTER_RULES.statNavigateTarget, {

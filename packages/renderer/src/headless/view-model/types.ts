@@ -121,6 +121,17 @@ export type ListColumnViewModel = {
    *  `{ format: "image" | "file" }` renderer. The cell shows a thumbnail or the
    *  file name instead of the FileRef UUID. */
   readonly fileDisplay?: ListColumnFileDisplay;
+  /** "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated. */
+  readonly hint?: ListColumnHintViewModel;
+};
+
+export type ListColumnHintViewModel = {
+  readonly detailField?: string;
+  readonly toneField?: string;
+  readonly reasonField?: string;
+  readonly emptyLabel: string;
+  /** Label of the reason toggle, already translated. */
+  readonly reasonLabel: string;
 };
 
 export type ListRowViewModel = {

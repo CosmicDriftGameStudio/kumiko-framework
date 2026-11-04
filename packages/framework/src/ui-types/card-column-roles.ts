@@ -7,6 +7,8 @@ export type CardRoleColumn = {
   readonly renderer?: unknown;
   readonly hideOnNarrow?: boolean;
   readonly fileDisplay?: { readonly kind: string };
+  /** A "to do" hint column: never the default card title. */
+  readonly hint?: unknown;
 };
 
 export type CardColumnRoles<C extends CardRoleColumn> = {
@@ -43,7 +45,10 @@ export function cardColumnRoles<C extends CardRoleColumn>(
   const textColumns = columns.filter(
     (col) => col !== image && !(isImage(col) && col.hideOnNarrow === true),
   );
-  const title = textColumns.find((col) => col.highlighted === true) ?? textColumns[0];
+  const title =
+    textColumns.find((col) => col.highlighted === true) ??
+    textColumns.find((col) => col.hint === undefined) ??
+    textColumns[0];
   const status = textColumns.find(
     (col) => col !== title && col.type === "select" && col.renderer === undefined,
   );

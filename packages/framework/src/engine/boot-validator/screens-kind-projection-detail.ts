@@ -30,6 +30,7 @@ import {
   validateFormSelectOptions,
   validateTabSections,
 } from "./screens-forms.ts";
+import { validateProjectionDetailGuidance } from "./screens-kind-projection-detail-guidance.ts";
 import { PROJECTION_DETAIL_RULES } from "./screens-kind-projection-detail-rules.ts";
 import {
   assertExtensionSectionHasComponent,
@@ -499,4 +500,5 @@ export function validateProjectionDetailScreen(
     validateRecordHeaderAction(ctx, screenId, "projectionDetail", screen.detailFor, action);
     validateHeaderActionShowOnTabs(featureName, screenId, screen, action);
   }
+  validateProjectionDetailGuidance(ctx, screenId, screen);
 }

@@ -292,6 +292,7 @@ export type {
   EntityListScreenDefinition,
   ListBadgeTone,
   ListColumnDisplay,
+  ListColumnHint,
   ListColumnSpec,
   ListPaginationMode,
   ListSortDir,
@@ -349,3 +350,12 @@ export type {
   RecordHeaderSpec,
   RecordHeaderSubtitlePart,
 } from "./screen-projection.ts";
+export type {
+  RecordBannerSpec,
+  RecordBreadcrumbItem,
+  RecordBreadcrumbSpec,
+  RecordNotice,
+  RecordStep,
+  RecordStepsSpec,
+  RecordSummarySpec,
+} from "./screen-record-guidance.ts";

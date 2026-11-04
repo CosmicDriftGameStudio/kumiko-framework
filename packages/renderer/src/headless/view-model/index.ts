@@ -38,6 +38,7 @@ export type {
   FieldConditionCtx,
   FieldRenderer,
   ListColumnFileDisplay,
+  ListColumnHintViewModel,
   ListColumnSpec,
   ListColumnViewModel,
   ListRowViewModel,
