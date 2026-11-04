@@ -31,6 +31,7 @@ import {
   resolveDerivedMaxRequestBodySize,
 } from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
 import type { SystemWireDeps } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
+import type { PwaOptions } from "@cosmicdrift/kumiko-server-runtime/pwa";
 import { stripNoRouteMatchHeader } from "@cosmicdrift/kumiko-server-runtime/try-hono-first";
 import type { TestStack, TestStackOptions } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -236,6 +237,8 @@ export type CreateKumikoServerOptions = {
    *  ships unchanged with status 200 — never a 500. `systemQuery` inside
    *  the resolver runs as the anonymous role, same as prod. */
   readonly resolvePageHead?: PageHeadResolver;
+  /** Installable web app, same option and same served files as `runProdApp`'s `pwa`. */
+  readonly pwa?: PwaOptions;
   /** Wraps the request handler before it reaches Bun.serve and `handle.fetch`, e.g. the demo read-only gate. */
   readonly wrapFetch?: (
     handler: (req: Request, socketAddress?: string) => Promise<Response>,

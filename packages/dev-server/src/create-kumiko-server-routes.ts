@@ -1,6 +1,7 @@
 /// <reference types="bun-types" preserve="true" />
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createPwaShell, type PwaShell } from "@cosmicdrift/kumiko-server-runtime/pwa";
 import {
   RENDERER_WEB_FONT_FILE_PATTERN,
   RENDERER_WEB_FONTS_URL_PREFIX,
@@ -127,6 +128,10 @@ async function serveStylesheet({ req, url }: DevRouteRequest, deps: DevRouteDeps
   return new Response(css, { headers: { "Content-Type": "text/css; charset=utf-8" } });
 }
 
+function servePwaFile({ req, url }: DevRouteRequest, deps: DevRouteDeps) {
+  return deps.html.pwa?.respond(req, url.pathname);
+}
+
 function serveReloadStream({ req, url }: DevRouteRequest, deps: DevRouteDeps) {
   if (url.pathname !== "/_reload" || req.method !== "GET") return undefined;
   return openReloadStream(deps.reloadHub);
@@ -220,6 +225,7 @@ const DEV_ROUTES: readonly DevRoute[] = [
   serveBundleSourceMap,
   serveRendererWebFont,
   serveStylesheet,
+  servePwaFile,
   serveReloadStream,
   serveSpaShell,
   servePublicAsset,
@@ -240,6 +246,19 @@ function createDevRouteFetch(deps: DevRouteDeps): DevFetchHandler {
   };
 }
 
+// Dev bundles keep their names across rebuilds, so the token changes per boot instead.
+function createDevPwaShell(
+  options: CreateKumikoServerOptions,
+  bundleByAssetPath: ReadonlyMap<string, string>,
+  stylesheetPath: string | undefined,
+): PwaShell | undefined {
+  if (options.pwa === undefined) return undefined;
+  return createPwaShell(options.pwa, {
+    appShellUrls: [...bundleByAssetPath.keys(), ...(stylesheetPath ? ["/styles.css"] : [])],
+    buildToken: `dev-${Date.now()}`,
+  });
+}
+
 export function createDevFetchHandler(input: {
   readonly options: CreateKumikoServerOptions;
   readonly stack: TestStack;
@@ -251,10 +270,11 @@ export function createDevFetchHandler(input: {
 }): DevFetchHandler {
   const { options, stack } = input;
   const buildSystemQuery = createDevSystemQueryBuilder(stack.dispatcher, options.trustedProxyHops);
+  const bundleByAssetPath = indexBundlesByAssetPath(input.entries);
   const routeFetch = createDevRouteFetch({
     app: stack.app,
     clientBundles: input.clientBundles,
-    bundleByAssetPath: indexBundlesByAssetPath(input.entries),
+    bundleByAssetPath,
     publicDir: resolveDevPublicDir(),
     // The app's cwd first, this package's own location as fallback (the cwd
     // may not have renderer/web installed, e.g. a fixture dir).
@@ -268,6 +288,7 @@ export function createDevFetchHandler(input: {
       stylesheetPath: input.stylesheetPath,
       resolvePageHead: options.resolvePageHead,
       buildSystemQuery,
+      pwa: createDevPwaShell(options, bundleByAssetPath, input.stylesheetPath),
     },
   });
   return options.wrapFetch ? options.wrapFetch(routeFetch) : routeFetch;

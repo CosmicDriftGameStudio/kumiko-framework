@@ -187,6 +187,8 @@ export type RunDevAppOptions = {
    *  through `runDevApp` show the same resolved head prod does. See
    *  `CreateKumikoServerOptions.resolvePageHead` for the full contract. */
   readonly resolvePageHead?: PageHeadResolver;
+  /** Installable web app, same option as `runProdApp`'s `pwa`; pass the same value to both. */
+  readonly pwa?: CreateKumikoServerOptions["pwa"];
   /** CSS entry. Defaults to the package export
    *  `@cosmicdrift/kumiko-renderer/web/styles.css` when a client entry is set.
    *  `false` disables the CSS pipeline. */

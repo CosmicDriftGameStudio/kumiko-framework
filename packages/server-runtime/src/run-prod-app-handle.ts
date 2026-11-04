@@ -14,6 +14,7 @@ import type { ProdAppHandle, RunProdAppOptions } from "./run-prod-app.ts";
 import type { ProdBootConfig, ProdComposedFeatures } from "./run-prod-app-config.ts";
 import type { ProdConnections } from "./run-prod-app-connections.ts";
 import type { ProdEntrypoint } from "./run-prod-app-entrypoint.ts";
+import { loadProdPwaShell } from "./run-prod-app-pwa.ts";
 import {
   buildStaticFallback,
   resolveCspScriptHashes,
@@ -60,6 +61,7 @@ export async function buildProdFetchHandler(
           cspScriptHashes,
         )
       : [];
+  const pwaShell = await loadProdPwaShell(options.pwa, options.staticDir);
   const fetchHandler = withSecurityHeaders(
     config.bootOptionWiring.wrapFetch(
       options.staticDir
@@ -73,6 +75,7 @@ export async function buildProdFetchHandler(
             entrypoint.dispatcher,
             config.trustedProxyHops ?? 0,
             hostDispatchScriptHashes,
+            pwaShell,
           )
         : // No staticDir (split-deploy / API-only container) → app.fetch's
           // response goes straight to the client, bypassing buildStaticFallback

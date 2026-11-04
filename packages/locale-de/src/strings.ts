@@ -859,6 +859,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.writeOnly.maskedSet": "•••••••••• gesetzt",
   "kumiko.field.writeOnly.replace": "Ersetzen",
   "kumiko.pii.erased": "Gelöscht",
+  "kumiko.pwa.dismiss": "Nicht jetzt",
+  "kumiko.pwa.install": "Installieren",
+  "kumiko.pwa.install-hint":
+    "Installiere diese App auf deinem Gerät, dann öffnet sie sich wie jede andere App.",
+  "kumiko.pwa.install-hint-ios":
+    "Zum Installieren tippe auf Teilen und dann auf „Zum Home-Bildschirm“.",
   "kumiko.record.not-found.back": "Zurück zur Liste",
   "kumiko.record.not-found.hint":
     "Er wurde möglicherweise gelöscht, oder der Link ist nicht mehr gültig.",

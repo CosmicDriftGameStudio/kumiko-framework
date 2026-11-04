@@ -1,0 +1,13 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-pwa-shell",
+  "description": "pwa option on runProdApp and the dev server: web manifest, generated service worker with an offline app shell and a one-time install hint.",
+  "private": true,
+  "scripts": {
+    "start": "bun bin/server.ts"
+  },
+  "dependencies": {
+    "@cosmicdrift/kumiko-dev-server": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "@cosmicdrift/kumiko-server-runtime": "workspace:*"
+  }
+}
