@@ -24,7 +24,7 @@ export function hintViewModel(
   };
 }
 
-// Only the cell styles that list tables draw; "bar" and "datetime" stay dashboard-only.
+// Only "badge" is drawn by list tables; "button" is boot-rejected there (a row button is a rowAction) and "bar"/"datetime" are dashboard-only.
 export function withDisplayColumns(
   columns: readonly ListColumnViewModel[],
   screen: EntityListScreenDefinition,
@@ -34,7 +34,7 @@ export function withDisplayColumns(
   );
   return columns.map((col) => {
     const spec = specs.get(col.field);
-    if (spec?.display !== "badge" && spec?.display !== "button") return col;
+    if (spec?.display !== "badge") return col;
     return {
       ...col,
       display: spec.display,

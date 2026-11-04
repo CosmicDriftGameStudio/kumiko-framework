@@ -81,23 +81,35 @@ export function buildNamedFilterFacet(
   };
 }
 
-/** One count query per offered filter plus one for "all", on top of the list's own search and filters. */
+/** The list payload of one named filter reduced to a count: no sort and no paging, one row, the total. */
+export function namedFilterCountPayload(
+  listPayload: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = { ...listPayload, limit: 1, totalCount: true };
+  for (const pagingOrSortKey of ["sort", "sortDirection", "offset", "cursor"]) {
+    delete payload[pagingOrSortKey];
+  }
+  return payload;
+}
+
+/** One count query per offered filter plus one for "all"; each takes the very payload the list would send for that filter. */
 export function buildNamedFilterCountQueries(
   allRefs: readonly NamedListFilterRef[] | undefined,
   userRoles: readonly string[] | undefined,
   options: NamedFilterFacetOptions | undefined,
-  basePayload: Readonly<Record<string, unknown>>,
+  listPayloadFor: (namedFilter: string | undefined) => Readonly<Record<string, unknown>>,
 ): FacetCountQuery[] {
   if (options?.showCounts !== true) return [];
   const refs = offeredRefs(allRefs, userRoles);
   if (refs.length === 0) return [];
-  return [
-    { key: namedFilterCountKey(undefined), payload: basePayload },
-    ...refs.map((ref) => ({
-      key: namedFilterCountKey(ref.id),
-      payload: { ...basePayload, namedFilter: ref.id },
-    })),
+  const ids: readonly (string | undefined)[] = [
+    ...(options.display === "select" ? [undefined] : []),
+    ...refs.map((ref) => ref.id),
   ];
+  return ids.map((id) => ({
+    key: namedFilterCountKey(id),
+    payload: namedFilterCountPayload(listPayloadFor(id)),
+  }));
 }
 
 export function withNamedFilterValues(
@@ -130,6 +142,16 @@ export function namedFilterSort(
   activeNamedFilter: string | undefined,
 ): NamedListFilterRef["sort"] {
   return allRefs?.find((ref) => ref.id === activeNamedFilter)?.sort;
+}
+
+/** URL sort, else the named filter's sort, else the screen default. */
+export function resolveListSort(
+  urlSort: ListUrlStateApi["sort"],
+  allRefs: readonly NamedListFilterRef[] | undefined,
+  namedFilter: string | undefined,
+  defaultSort: ListUrlStateApi["sort"] | undefined,
+): ListUrlStateApi["sort"] {
+  return urlSort ?? namedFilterSort(allRefs, namedFilter) ?? defaultSort ?? null;
 }
 
 /** Only while the filter alone explains the empty list: a search term or another narrowing would make the sentence wrong. */

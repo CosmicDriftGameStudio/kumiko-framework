@@ -24,7 +24,26 @@ describe("DataTableCell display", () => {
 
   test("badge draws an empty value as the placeholder, not as an empty pill", () => {
     render(<DataTableCell value={null} row={{}} field="state" type="string" display="badge" />);
-    expect(screen.getByText(EMPTY_VALUE_PLACEHOLDER)).toBeTruthy();
+    expect(screen.getByText(EMPTY_VALUE_PLACEHOLDER).className).not.toContain("bg-status-");
+  });
+
+  test("badge and button with a column renderer and an empty value draw the placeholder, not a pill", () => {
+    for (const display of ["badge", "button"] as const) {
+      const { unmount } = render(
+        <DataTableCell
+          value=""
+          row={{}}
+          field="state"
+          type="string"
+          renderer={() => null}
+          display={display}
+          link={{ href: "/x", onPress: () => {} }}
+        />,
+      );
+      expect(screen.getByText(EMPTY_VALUE_PLACEHOLDER).className).not.toContain("bg-status-");
+      expect(screen.queryByRole("link")).toBeNull();
+      unmount();
+    }
   });
 
   test("badge of a select field shows the option label, not the raw value", () => {

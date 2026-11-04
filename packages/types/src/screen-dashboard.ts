@@ -90,7 +90,7 @@ export type DashboardPanelGate = {
 
 // Grid width of stat-group/chart/list/feed/progress-list panels. Default:
 // stat-groups, charts and lists span the full row, feed and progress-list half of it.
-// "third" and "two-thirds" divide the row into twelfths on wide screens; below that every panel is one column.
+// "third" and "two-thirds" divide the row into twelfths on wide screens; on sm (two columns) "third" is half a row, "two-thirds" a full one, below sm every panel is one column.
 export type DashboardPanelSpan = "half" | "full" | "third" | "two-thirds";
 
 // Empty state of chart/list/feed/progress-list panels (i18n keys).

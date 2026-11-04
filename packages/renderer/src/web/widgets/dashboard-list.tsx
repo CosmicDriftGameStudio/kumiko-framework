@@ -154,7 +154,7 @@ export function DashboardListTable({
     <div className="overflow-x-auto">
       <table data-testid={testId} className="w-full text-sm">
         {showHeader && (
-          <thead className="max-sm:hidden">
+          <thead>
             <tr className="h-9 border-b border-border-row text-left text-xs text-muted-foreground">
               {columns.map((column) => (
                 <th key={column.field} scope="col" className="px-4 font-medium">
@@ -170,12 +170,14 @@ export function DashboardListTable({
               key={typeof row["id"] === "string" ? row["id"] : index}
               className={cn(
                 "h-10 border-b border-border-row last:border-b-0",
-                "max-sm:grid max-sm:h-auto max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-2",
+                // Without a header row nothing labels the columns, so narrow screens stack them.
+                !showHeader &&
+                  "max-sm:grid max-sm:h-auto max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-2",
                 rowToneClass(rowToneOf(row, rowToneField)),
               )}
             >
               {columns.map((column) => (
-                <td key={column.field} className="px-4 max-sm:block">
+                <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
                   <Cell
                     column={column}
                     row={row}

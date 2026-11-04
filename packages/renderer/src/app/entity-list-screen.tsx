@@ -6,7 +6,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ListGroupPageBridges } from "../components/list-group-page-bridges.tsx";
 import { RenderList } from "../components/render-list.tsx";
@@ -67,12 +66,13 @@ import {
 } from "./row-actions.ts";
 import { findEditScreenFor } from "./screen-access.ts";
 import {
-  buildListQueryPayload,
   entityQueryCommand,
   isEntityEditScreenOfEntity,
   useNavigateToCreateFor,
 } from "./screen-shared.tsx";
+import { useEntityListPayload } from "./use-entity-list-payload.ts";
 import { useEntityRangeFacets } from "./use-entity-range-facets.ts";
+import { useFacetCounts } from "./use-facet-counts.ts";
 import { useGatedToolbarActions } from "./use-gated-toolbar-actions.tsx";
 import { useNamedFilterQueue } from "./use-named-filter-queue.ts";
 import { listPager, useScreenListRows } from "./use-screen-list-rows.ts";
@@ -189,21 +189,17 @@ function EntityListBody({
     urlState,
   });
 
-  // User-selected faceted filters from the URL state -> payload.filters.
-  // typeOf reads the field type straight from entity.fields (not gated on
-  // filterable, deliberately permissive; see the buildFilterPayload doc).
-  const filterPayload = useMemo(
-    () =>
-      buildFilterPayload(urlState.filters, (field) => {
-        // entity.fields is weakly typed at the renderer layer (deserialized from
-        // the schema); boundary cast like buildInitialValues.
-        const type = propertyOf(entity.fields[field], "type");
-        return typeof type === "string" ? type : undefined;
-      }),
-    [urlState.filters, entity.fields],
-  );
-
-  const { effectiveSort, namedFilterCountQueries, namedFilterEmpty } = useNamedFilterQueue({
+  const { filterPayload, listPayloadFor, queryPayload, effectiveSort } = useEntityListPayload({
+    screen,
+    entity,
+    urlState,
+    rangeFilters: range.rangeFilters,
+    activeNamedFilter,
+    limit,
+    usePager,
+    useInfinite,
+  });
+  const { namedFilterCountQueries, namedFilterEmpty } = useNamedFilterQueue({
     screen,
     urlState,
     userRoles,
@@ -211,43 +207,8 @@ function EntityListBody({
     filterPayload,
     rangeFilters: range.rangeFilters,
     activeNamedFilter,
+    listPayloadFor,
   });
-
-  // Entity-only additions (screen.filter, faceted filters) layer on top of
-  // the shared buildListQueryPayload — projectionList has neither.
-  const queryPayload = useMemo(() => {
-    const payload = buildListQueryPayload({
-      limit,
-      search: urlState.q,
-      sort: effectiveSort,
-      usePager,
-      page: urlState.page,
-      useInfinite,
-      cursor: undefined,
-    });
-    // Screen filter (tier 2.7c), declared by the author on the schema and
-    // independent of the user's q search. Several buckets of the same entity
-    // ("Upcoming" / "Active" / "Past") use different filters with the same
-    // query handler.
-    if (screen.filter !== undefined) {
-      payload["filter"] = screen.filter;
-    }
-    const filters = [...filterPayload, ...range.rangeFilters];
-    if (filters.length > 0) payload["filters"] = filters;
-    if (activeNamedFilter !== undefined) payload["namedFilter"] = activeNamedFilter;
-    return payload;
-  }, [
-    activeNamedFilter,
-    limit,
-    urlState.q,
-    effectiveSort,
-    screen.filter,
-    filterPayload,
-    range.rangeFilters,
-    usePager,
-    urlState.page,
-    useInfinite,
-  ]);
 
   // Facet counts come from their own queries, which a write leaves untouched.
   const [facetCountRefreshNonce, setFacetCountRefreshNonce] = useState(0);
@@ -296,12 +257,7 @@ function EntityListBody({
       setEntityReferenceFacetOptions((prev) => withReferenceFacetState(prev, field, state)),
     [],
   );
-  const [facetCounts, setFacetCounts] = useState<Record<string, number>>({});
-  const handleFacetCount = useCallback(
-    (key: string, count: number) =>
-      setFacetCounts((prev) => (prev[key] === count ? prev : { ...prev, [key]: count })),
-    [],
-  );
+  const { facetCounts, handleFacetCount } = useFacetCounts();
   const filterFacets = useMemo<DataTableFacet[]>(() => {
     const namedFacet = buildNamedFilterFacet(
       screen.namedFilters,

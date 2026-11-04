@@ -65,13 +65,46 @@ describe("select display with counts", () => {
     expect(facet?.chips?.[0]?.count).toBeUndefined();
   });
 
-  test("asks one count query per offered filter plus one for all", () => {
-    const queries = buildNamedFilterCountQueries([OPEN, AUDIT], ["User"], SELECT, { limit: 1 });
+  // Stands in for the list payload builder: defaultFilters apply only without a named filter.
+  const listPayloadFor = (namedFilter: string | undefined): Record<string, unknown> => ({
+    limit: 25,
+    sort: "due",
+    sortDirection: "asc",
+    offset: 50,
+    cursor: "c1",
+    search: "acme",
+    filters: namedFilter === undefined ? [{ field: "status", value: "default" }] : [],
+    ...(namedFilter === undefined ? {} : { namedFilter }),
+  });
+
+  test("the count payload is the list payload minus sort and paging, with limit 1 and totalCount", () => {
+    const queries = buildNamedFilterCountQueries([OPEN, AUDIT], ["User"], SELECT, listPayloadFor);
     expect(queries).toEqual([
-      { key: namedFilterCountKey(undefined), payload: { limit: 1 } },
-      { key: namedFilterCountKey("open"), payload: { limit: 1, namedFilter: "open" } },
+      {
+        key: namedFilterCountKey(undefined),
+        payload: {
+          limit: 1,
+          totalCount: true,
+          search: "acme",
+          filters: [{ field: "status", value: "default" }],
+        },
+      },
+      {
+        key: namedFilterCountKey("open"),
+        payload: { limit: 1, totalCount: true, search: "acme", filters: [], namedFilter: "open" },
+      },
     ]);
-    expect(buildNamedFilterCountQueries([OPEN], [], { display: "select" }, {})).toEqual([]);
+  });
+
+  test("chips display asks no all count; nothing offered, nothing asked", () => {
+    const queries = buildNamedFilterCountQueries(
+      [OPEN],
+      [],
+      { display: "chips", showCounts: true },
+      listPayloadFor,
+    );
+    expect(queries.map((query) => query.key)).toEqual([namedFilterCountKey("open")]);
+    expect(buildNamedFilterCountQueries([AUDIT], [], SELECT, listPayloadFor)).toEqual([]);
   });
 });
 

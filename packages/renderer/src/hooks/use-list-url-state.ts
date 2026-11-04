@@ -48,6 +48,10 @@ export type ListUrlState = {
   readonly filters: Readonly<Record<string, readonly string[]>>;
   /** Id of the active named list filter; undefined when none is set. */
   readonly namedFilter: string | undefined;
+  /** The facet filters the list sends while `namedFilter` is the active named filter: author defaults apply only without one. */
+  readonly filtersFor: (
+    namedFilter: string | undefined,
+  ) => Readonly<Record<string, readonly string[]>>;
 };
 
 export type ListUrlStateApi = ListUrlState & {
@@ -137,7 +141,7 @@ export function useListUrlState(
   const effectiveDefaultFilters = namedFilter === undefined ? defaultFilters : undefined;
 
   const filterPrefix = listFilterUrlKey(screenId, "");
-  const filters = useMemo<Readonly<Record<string, readonly string[]>>>(() => {
+  const urlFilters = useMemo<Record<string, readonly string[]>>(() => {
     const out: Record<string, readonly string[]> = {};
     for (const [k, v] of Object.entries(params)) {
       if (!k.startsWith(filterPrefix) || v === "") continue;
@@ -147,11 +151,21 @@ export function useListUrlState(
       // commas; use repeated keys if comma-containing values are ever needed.
       out[field] = v === NO_FILTER_URL_VALUE ? [] : v.split(",").filter((s) => s !== "");
     }
-    for (const [field, values] of Object.entries(effectiveDefaultFilters ?? {})) {
+    return out;
+  }, [params, filterPrefix]);
+  const filtersWithDefaults = useMemo<Readonly<Record<string, readonly string[]>>>(() => {
+    const out = { ...urlFilters };
+    for (const [field, values] of Object.entries(defaultFilters ?? {})) {
       if (!Object.hasOwn(out, field)) out[field] = values;
     }
     return out;
-  }, [params, filterPrefix, effectiveDefaultFilters]);
+  }, [urlFilters, defaultFilters]);
+  const filtersFor = useCallback(
+    (forNamedFilter: string | undefined) =>
+      forNamedFilter === undefined ? filtersWithDefaults : urlFilters,
+    [filtersWithDefaults, urlFilters],
+  );
+  const filters = filtersFor(namedFilter);
 
   const clearedFilterValue = useCallback(
     (field: string): string | null =>
@@ -256,6 +270,7 @@ export function useListUrlState(
     pageSize,
     filters,
     namedFilter,
+    filtersFor,
     setSort,
     setQ,
     setPage,

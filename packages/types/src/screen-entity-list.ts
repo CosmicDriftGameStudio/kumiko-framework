@@ -77,13 +77,15 @@ export type ListColumnSpec =
       readonly width?: number;
       /** Smallest width in px the user can resize to. Only valid together with `table.resizing`. */
       readonly minWidth?: number;
-      /** "bar": field holds a 0..1 fraction, drawn as bar + percent (dashboard list
-       *  panels only). "badge": field holds a label, drawn as a pill whose tone comes
-       *  from `badgeToneField`. "datetime": field holds an ISO string or epoch ms,
-       *  shown in the user's locale and time zone (dashboard list panels only).
-       *  "button": a column with a screen link (linkScreenField or refEntity) draws the
-       *  link as a small outline button. "badge" and "button" also work in
-       *  projectionList tables; other list renderers ignore `display`. */
+      /** One of "bar" | "badge" | "datetime" | "button". "bar": field holds a 0..1 fraction,
+       *  drawn as bar + percent (dashboard list panels only). "badge": field holds a label,
+       *  drawn as a pill whose tone comes from `badgeToneField` (dashboard list panels and the
+       *  RenderList tables of entityList and projectionList). "datetime": field holds an ISO
+       *  string or epoch ms, shown in the user's locale and time zone (dashboard list panels
+       *  only). "button": a column with a screen link (linkScreenField or refEntity) draws the
+       *  link as a small outline button, in dashboard list panels only; a row button in an
+       *  entityList or projectionList table is a rowAction with display "button" (boot-rejected
+       *  on columns there). Other list renderers ignore `display`. */
       readonly display?: ListColumnDisplay;
       /** Row field naming the badge tone; only with `display: "badge"`. */
       readonly badgeToneField?: string;

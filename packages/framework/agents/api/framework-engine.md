@@ -1046,7 +1046,7 @@ type ListColumnSpec =
     pinned?: ListColumnPin; // Start pin for the column: it sticks to this edge while the table scrolls horizontally.
     width?: number; // Start width in px.
     minWidth?: number; // Smallest width in px the user can resize to.
-    display?: ListColumnDisplay; // "bar": field holds a 0..1 fraction, drawn as bar + percent (dashboard list panels only).
+    display?: ListColumnDisplay; // One of "bar" | "badge" | "datetime" | "button".
     badgeToneField?: string; // Row field naming the badge tone; only with `display: "badge"`.
     linkScreenField?: string; // Row field holding a screen QN (`<feature>:screen:<id>`): the cell links to that screen when the row sets it and the user may open it.
     linkParamsField?: string; // Row field holding a params object for the linkScreenField target: `entityId` opens that record, the other keys become search params (e.g. actionForm prefill).

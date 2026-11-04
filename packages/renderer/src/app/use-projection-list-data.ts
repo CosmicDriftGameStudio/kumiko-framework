@@ -5,6 +5,7 @@ import type { Translate } from "../headless/index.ts";
 import type { DataTableFacet } from "../primitives.tsx";
 import { buildFilterFacets, type ResolvedFacetSpec } from "./list-facets.ts";
 import { buildNamedFilterCountQueries, buildNamedFilterFacet } from "./named-filter-facet.ts";
+import { useFacetCounts } from "./use-facet-counts.ts";
 import { useScreenListRows } from "./use-screen-list-rows.ts";
 import { useScreenListTable } from "./use-screen-list-table.ts";
 
@@ -16,7 +17,7 @@ type ProjectionListDataInput = {
   readonly usePager: boolean;
   readonly effectiveTranslate: Translate;
   readonly resolvedFacetSpecs: readonly ResolvedFacetSpec[];
-  readonly namedFilterCountBase: Readonly<Record<string, unknown>>;
+  readonly listPayloadFor: (namedFilter: string | undefined) => Readonly<Record<string, unknown>>;
 };
 
 export function useProjectionListData(input: ProjectionListDataInput) {
@@ -28,7 +29,7 @@ export function useProjectionListData(input: ProjectionListDataInput) {
     usePager,
     effectiveTranslate,
     resolvedFacetSpecs,
-    namedFilterCountBase,
+    listPayloadFor,
   } = input;
   const userRoles = useUserRoles();
   const facetFilterFields = useMemo(
@@ -61,21 +62,16 @@ export function useProjectionListData(input: ProjectionListDataInput) {
     setCountRefreshNonce((n) => n + 1);
     await refreshListAfterWrite();
   }, [refreshListAfterWrite]);
-  const [facetCounts, setFacetCounts] = useState<Record<string, number>>({});
-  const handleFacetCount = useCallback(
-    (key: string, count: number) =>
-      setFacetCounts((prev) => (prev[key] === count ? prev : { ...prev, [key]: count })),
-    [],
-  );
+  const { facetCounts, handleFacetCount } = useFacetCounts();
   const namedFilterCountQueries = useMemo(
     () =>
       buildNamedFilterCountQueries(
         screen.namedFilters,
         userRoles,
         screen.namedFilterFacet,
-        namedFilterCountBase,
+        listPayloadFor,
       ),
-    [screen.namedFilters, screen.namedFilterFacet, userRoles, namedFilterCountBase],
+    [screen.namedFilters, screen.namedFilterFacet, userRoles, listPayloadFor],
   );
 
   const filterFacets = useMemo<DataTableFacet[]>(() => {

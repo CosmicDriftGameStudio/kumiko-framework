@@ -253,11 +253,54 @@ describe("validateBoot — named list filters", () => {
       expect(() => validateBoot([feature])).not.toThrow();
     });
 
-    test("rejects a button column without a link option", () => {
-      const feature = ledgerFeature({
-        columns: [{ field: "description", display: "button" }],
-      });
-      expect(() => validateBoot([feature])).toThrow(/display "button" without linkScreenField/);
+    test("rejects a button column in a list table, with or without a link option", () => {
+      for (const column of [
+        { field: "description", display: "button" },
+        { field: "description", display: "button", linkScreenField: "target" },
+      ] as const) {
+        const feature = ledgerFeature({ columns: [column] });
+        expect(() => validateBoot([feature])).toThrow(/only dashboard list panels draw/);
+      }
+    });
+
+    test("rejects a button column without a link option on a dashboard list panel", () => {
+      const dashboardWith = (column: ListColumnSpec) =>
+        defineFeature("shop", (r) => {
+          r.crud("ticket", ticketEntity, {
+            write: { access: { roles: ["Admin"] } },
+            read: {
+              access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            },
+          });
+          r.screen({
+            id: "overview",
+            type: "dashboard",
+            panels: [
+              {
+                kind: "list",
+                id: "open-tickets",
+                label: "shop:dashboard:open",
+                query: LIST_QUERY,
+                columns: [column],
+              },
+            ],
+          });
+          r.translations({
+            keys: {
+              "screen:overview.title": { de: "Übersicht", en: "Overview" },
+              "shop:dashboard:open": { de: "Offen", en: "Open" },
+              "shop:entity:ticket:field:status": { de: "Status", en: "Status" },
+            },
+          });
+        });
+      expect(() => validateBoot([dashboardWith({ field: "status", display: "button" })])).toThrow(
+        /display "button" without linkScreenField/,
+      );
+      expect(() =>
+        validateBoot([
+          dashboardWith({ field: "status", display: "button", linkScreenField: "target" }),
+        ]),
+      ).not.toThrow(/display "button"/);
     });
   });
 
@@ -292,6 +335,43 @@ describe("validateBoot — named list filters", () => {
       });
     });
     expect(() => validateBoot([feature])).toThrow(/namedFilters "open" sort\.field "ghost"/);
+    expect(() => validateBoot([feature])).toThrow(/list\/named-filter-sort-not-listed/);
+  });
+
+  test("entityList rejects a filter sort on a column that is listed but not sortable", () => {
+    const unsortable = createEntity({
+      fields: {
+        status: createTextField({ personal: false, reason: "test_fixture", sortable: true }),
+        note: createTextField({ personal: false, reason: "test_fixture" }),
+      },
+      namedFilters: { open: { filters: () => [{ field: "status", op: "eq", value: "open" }] } },
+    });
+    const feature = defineFeature("shop", (r) => {
+      r.crud("ticket", unsortable, {
+        write: { access: { roles: ["Admin"] } },
+        read: {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        },
+      });
+      r.screen({
+        id: "ticket-list",
+        type: "entityList",
+        entity: "ticket",
+        columns: ["status", "note"],
+        namedFilters: [
+          { id: "open", label: "ticket.namedFilter.open", sort: { field: "note", dir: "asc" } },
+        ],
+      });
+      r.translations({
+        keys: {
+          "screen:ticket-list.title": { de: "Tickets", en: "Tickets" },
+          "shop:entity:ticket:field:status": { de: "Status", en: "Status" },
+          "shop:entity:ticket:field:note": { de: "Notiz", en: "Note" },
+          "ticket.namedFilter.open": { de: "Offen", en: "Open" },
+        },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/list\/named-filter-sort-not-sortable/);
   });
 
   describe("dashboard stat navigate", () => {

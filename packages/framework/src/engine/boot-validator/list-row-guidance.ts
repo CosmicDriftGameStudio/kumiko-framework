@@ -57,7 +57,14 @@ function validateHintColumn(where: string, column: ListColumn): void {
   }
 }
 
-function validateButtonColumn(where: string, column: ListColumn): void {
+function validateButtonColumn(where: string, column: ListColumn, kind: GuidanceListKind): void {
+  if (column.display === "button" && kind !== "dashboard") {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.buttonColumnInListTable, {
+      message:
+        `${where} column "${column.field}" sets display "button", which only dashboard list panels draw. ` +
+        `A row button in a list table is a rowAction with display "button".`,
+    });
+  }
   const hasLink = column.linkScreenField !== undefined || column.refEntity !== undefined;
   if (column.display === "button" && !hasLink) {
     throw bootRuleError(LIST_ROW_GUIDANCE_RULES.buttonColumnWithoutLink, {
@@ -116,7 +123,7 @@ export function validateListRowGuidance(
   for (const col of screen.columns) {
     const column = normalizeListColumn(col);
     validateHintColumn(where, column);
-    validateButtonColumn(where, column);
+    validateButtonColumn(where, column, kind);
   }
   validateNamedFilterOptions(where, screen);
   for (const { option, field } of listGuidanceFieldRefs(screen)) {

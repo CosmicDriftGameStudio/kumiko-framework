@@ -3,14 +3,10 @@ import { useMemo } from "react";
 import type { Translate } from "../headless/index.ts";
 import type { ListUrlStateApi } from "../hooks/use-list-url-state.ts";
 import type { FacetCountQuery } from "./facet-count-bridge.tsx";
-import {
-  buildNamedFilterCountQueries,
-  buildNamedFilterEmpty,
-  namedFilterSort,
-} from "./named-filter-facet.ts";
+import { buildNamedFilterCountQueries, buildNamedFilterEmpty } from "./named-filter-facet.ts";
 import type { RangeFilter } from "./use-entity-range-facets.ts";
 
-/** Everything an entityList derives from its named filters: the sort that applies, the count requests and the empty text. */
+/** The count requests and the empty text an entityList derives from its named filters. */
 export function useNamedFilterQueue({
   screen,
   urlState,
@@ -19,6 +15,7 @@ export function useNamedFilterQueue({
   filterPayload,
   rangeFilters,
   activeNamedFilter,
+  listPayloadFor,
 }: {
   readonly screen: EntityListScreenDefinition;
   readonly urlState: ListUrlStateApi;
@@ -27,36 +24,21 @@ export function useNamedFilterQueue({
   readonly filterPayload: readonly unknown[];
   readonly rangeFilters: readonly RangeFilter[];
   readonly activeNamedFilter: string | undefined;
+  readonly listPayloadFor: (namedFilter: string | undefined) => Readonly<Record<string, unknown>>;
 }): {
-  readonly effectiveSort: ListUrlStateApi["sort"];
   readonly namedFilterCountQueries: FacetCountQuery[];
   readonly namedFilterEmpty: ReturnType<typeof buildNamedFilterEmpty>;
 } {
-  const effectiveSort =
-    urlState.sort ??
-    namedFilterSort(screen.namedFilters, activeNamedFilter) ??
-    screen.defaultSort ??
-    null;
   const otherNarrowing = filterPayload.length + rangeFilters.length > 0;
   const namedFilterCountQueries = useMemo(
     () =>
-      buildNamedFilterCountQueries(screen.namedFilters, userRoles, screen.namedFilterFacet, {
-        limit: 1,
-        totalCount: true,
-        ...(urlState.q !== "" && { search: urlState.q }),
-        ...(screen.filter !== undefined && { filter: screen.filter }),
-        ...(otherNarrowing && { filters: [...filterPayload, ...rangeFilters] }),
-      }),
-    [
-      screen.namedFilters,
-      screen.namedFilterFacet,
-      screen.filter,
-      userRoles,
-      urlState.q,
-      filterPayload,
-      rangeFilters,
-      otherNarrowing,
-    ],
+      buildNamedFilterCountQueries(
+        screen.namedFilters,
+        userRoles,
+        screen.namedFilterFacet,
+        listPayloadFor,
+      ),
+    [screen.namedFilters, screen.namedFilterFacet, userRoles, listPayloadFor],
   );
   const namedFilterEmpty = buildNamedFilterEmpty(
     screen.namedFilters,
@@ -66,5 +48,5 @@ export function useNamedFilterQueue({
     translate,
     () => urlState.setNamedFilter(undefined),
   );
-  return { effectiveSort, namedFilterCountQueries, namedFilterEmpty };
+  return { namedFilterCountQueries, namedFilterEmpty };
 }

@@ -43,7 +43,8 @@ function resolveActiveSort(
 }
 
 export function useProjectionListQuery(input: ProjectionListQueryInput) {
-  const { screen, featureName, effectiveTranslate, searchable, paginated } = input;
+  const { screen, featureName, effectiveTranslate, entity, searchable, sortable, paginated } =
+    input;
   const urlState = useListUrlState(screen.id);
   const activeNamedFilter = screen.namedFilters === undefined ? undefined : urlState.namedFilter;
   // Gated on the derived capability, not just on whether URL-state happens to
@@ -77,13 +78,14 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     () => mergeReferenceFacetOptions(facetSpecs, projectionReferenceFacetOptions),
     [facetSpecs, projectionReferenceFacetOptions],
   );
+  const facetFiltersFor = useCallback(
+    (filters: ListUrlStateApi["filters"]) =>
+      buildFilterPayload(filters, (field) => facetSpecs.find((spec) => spec.field === field)?.type),
+    [facetSpecs],
+  );
   const filterPayload = useMemo(
-    () =>
-      buildFilterPayload(
-        urlState.filters,
-        (field) => facetSpecs.find((spec) => spec.field === field)?.type,
-      ),
-    [urlState.filters, facetSpecs],
+    () => facetFiltersFor(urlState.filters),
+    [facetFiltersFor, urlState.filters],
   );
 
   const { dateRangePayload, dateRangeFacets, handleDateRangeChange } = useProjectionDateRange(
@@ -92,53 +94,56 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     urlState,
   );
 
-  const queryPayload = useMemo(() => {
-    const payload = buildListQueryPayload({
+  const { sort: urlSort, page, filtersFor } = urlState;
+  const listPayloadFor = useCallback(
+    (namedFilter: string | undefined): Record<string, unknown> => {
+      const payload = buildListQueryPayload({
+        limit,
+        search: activeSearch,
+        sort: resolveActiveSort(urlSort, { screen, entity, sortable }, namedFilter),
+        usePager,
+        page,
+        useInfinite: false,
+        cursor: undefined,
+      });
+      // Gated on screen.filter/screen.facets being declared (not just on
+      // urlState/filterPayload happening to carry a value) — same rule as
+      // activeSearch/activeSort above: a stale URL must not smuggle a param
+      // the bound query's Zod schema doesn't accept.
+      if (screen.filter !== undefined) {
+        payload["filter"] = screen.filter;
+      }
+      const filters = facetFiltersFor(filtersFor(namedFilter));
+      if (screen.facets !== undefined && filters.length > 0) {
+        payload["filters"] = filters;
+      }
+      if (namedFilter !== undefined) payload["namedFilter"] = namedFilter;
+      Object.assign(payload, dateRangePayload);
+      return payload;
+    },
+    [
       limit,
-      search: activeSearch,
-      sort: activeSort,
+      activeSearch,
+      urlSort,
+      screen,
+      entity,
+      sortable,
       usePager,
-      page: urlState.page,
-      useInfinite: false,
-      cursor: undefined,
-    });
-    // Gated on screen.filter/screen.facets being declared (not just on
-    // urlState/filterPayload happening to carry a value) — same rule as
-    // activeSearch/activeSort above: a stale URL must not smuggle a param
-    // the bound query's Zod schema doesn't accept.
-    if (screen.filter !== undefined) {
-      payload["filter"] = screen.filter;
-    }
-    if (screen.facets !== undefined && filterPayload.length > 0) {
-      payload["filters"] = filterPayload;
-    }
-    if (activeNamedFilter !== undefined) payload["namedFilter"] = activeNamedFilter;
-    Object.assign(payload, dateRangePayload);
-    return payload;
-  }, [
-    activeNamedFilter,
-    limit,
-    activeSearch,
-    activeSort,
-    usePager,
-    urlState.page,
-    screen.filter,
-    screen.facets,
-    filterPayload,
-    dateRangePayload,
-  ]);
-
-  // Counts ignore sort and paging and the active named filter: each count adds its own.
-  const namedFilterCountBase = useMemo(() => {
-    const base: Record<string, unknown> = { limit: 1, totalCount: true };
-    if (activeSearch !== "") base["search"] = activeSearch;
-    if (screen.filter !== undefined) base["filter"] = screen.filter;
-    if (screen.facets !== undefined && filterPayload.length > 0) base["filters"] = filterPayload;
-    return Object.assign(base, dateRangePayload);
-  }, [activeSearch, screen.filter, screen.facets, filterPayload, dateRangePayload]);
+      page,
+      screen.filter,
+      screen.facets,
+      filtersFor,
+      facetFiltersFor,
+      dateRangePayload,
+    ],
+  );
+  const queryPayload = useMemo(
+    () => listPayloadFor(activeNamedFilter),
+    [listPayloadFor, activeNamedFilter],
+  );
 
   return {
-    namedFilterCountBase,
+    listPayloadFor,
     urlState,
     activeSearch,
     activeSort,

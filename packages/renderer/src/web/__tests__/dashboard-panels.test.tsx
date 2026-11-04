@@ -716,7 +716,10 @@ describe("dashboard list columns", () => {
     expect(screen.queryByRole("columnheader")).toBeNull();
   });
 
-  test("below sm the list stacks: header hidden, rows as one-column grids, cells as blocks", async () => {
+  test.each([
+    { showHeader: false, stacks: true },
+    { showHeader: undefined, stacks: false },
+  ])("showHeader $showHeader: stacking below sm is $stacks", async ({ showHeader, stacks }) => {
     renderDashboard(
       {
         id: "lists",
@@ -728,6 +731,7 @@ describe("dashboard list columns", () => {
             label: "demo:todo",
             query: "demo:query:todo:list",
             columns: [{ field: "name", label: "demo:col-name" }],
+            ...(showHeader !== undefined && { showHeader }),
           },
         ],
       },
@@ -738,10 +742,11 @@ describe("dashboard list columns", () => {
     );
     const cell = await screen.findByText("Invoice 1");
     const row = cell.closest("tr");
-    expect(row?.className).toContain("max-sm:grid");
-    expect(row?.className).toContain("max-sm:grid-cols-1");
-    expect(cell.closest("td")?.className).toContain("max-sm:block");
-    expect(row?.closest("table")?.querySelector("thead")?.className).toContain("max-sm:hidden");
+    expect(row?.className.includes("max-sm:grid")).toBe(stacks);
+    expect(cell.closest("td")?.className.includes("max-sm:block")).toBe(stacks);
+    expect(row?.closest("table")?.querySelector("thead")?.className ?? "").not.toContain(
+      "max-sm:hidden",
+    );
   });
 
   test("datetime columns format ISO strings via the locale instead of showing them raw", async () => {

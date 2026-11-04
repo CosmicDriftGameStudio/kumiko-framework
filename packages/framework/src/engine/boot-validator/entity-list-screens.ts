@@ -3,9 +3,10 @@ import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { collectBootRuleViolations } from "./boot-report.ts";
-import { bootRuleError } from "./boot-rule.ts";
+import { type BootRule, bootRuleError } from "./boot-rule.ts";
 import { isSortableSqlDerivedField } from "./derived-sql-fields.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
+import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
 export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap-list"]);
@@ -64,7 +65,10 @@ function checkDefaultSortColumn(
 ): void {
   // skip: a missing defaultSort is reported by checkDefaultSortRequired
   if (screen.defaultSort === undefined) return;
-  checkSortSpecColumn(feature, screen, "defaultSort", screen.defaultSort.field);
+  checkSortSpecColumn(feature, screen, "defaultSort", screen.defaultSort.field, {
+    notListed: ENTITY_LIST_RULES.defaultSortNotListed,
+    notSortable: ENTITY_LIST_RULES.defaultSortNotSortable,
+  });
 }
 
 function checkNamedFilterSortColumns(
@@ -73,7 +77,10 @@ function checkNamedFilterSortColumns(
 ): void {
   for (const ref of screen.namedFilters ?? []) {
     if (ref.sort === undefined) continue;
-    checkSortSpecColumn(feature, screen, `namedFilters "${ref.id}" sort`, ref.sort.field);
+    checkSortSpecColumn(feature, screen, `namedFilters "${ref.id}" sort`, ref.sort.field, {
+      notListed: NAMED_FILTER_RULES.filterSortNotListed,
+      notSortable: NAMED_FILTER_RULES.filterSortNotSortable,
+    });
   }
 }
 
@@ -82,11 +89,12 @@ function checkSortSpecColumn(
   screen: EntityListScreenDefinition,
   label: string,
   sortField: string,
+  rules: { readonly notListed: BootRule; readonly notSortable: BootRule },
 ): void {
   const prefix = screenPrefix(feature, screen);
   const col = screen.columns.find((c) => normalizeListColumn(c).field === sortField);
   if (col === undefined) {
-    throw bootRuleError(ENTITY_LIST_RULES.defaultSortNotListed, {
+    throw bootRuleError(rules.notListed, {
       message: `${prefix}: ${label}.field "${sortField}" is not a listed column. Pick a field from columns or add it there.`,
     });
   }
@@ -96,7 +104,7 @@ function checkSortSpecColumn(
     (entityDef !== undefined && isSortableSqlDerivedField(entityDef, sortField)) ||
     (fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true);
   if (!isSortable) {
-    throw bootRuleError(ENTITY_LIST_RULES.defaultSortNotSortable, {
+    throw bootRuleError(rules.notSortable, {
       message: `${prefix}: ${label} column "${sortField}" must be sortable`,
     });
   }

@@ -81,7 +81,7 @@ export function ProjectionListBody({
     usePager: query.usePager,
     effectiveTranslate,
     resolvedFacetSpecs: query.resolvedFacetSpecs,
-    namedFilterCountBase: query.namedFilterCountBase,
+    listPayloadFor: query.listPayloadFor,
   });
   const { listRows } = data;
   const refreshRows = data.refreshAfterWrite;

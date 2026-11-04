@@ -16,7 +16,17 @@ export const NAMED_FILTER_RULES = {
     id: "named-filter/projection-query-accepts-sort",
     summary:
       "A projectionList whose namedFilter sets a sort binds a query whose schema has sort and sortDirection keys.",
-    fix: "Add sort: z.string().optional() and sortDirection to the query schema and order by them, or remove sort from the named filter.",
+    fix: "Add sort: z.enum([...sortable fields]) and sortDirection to the query schema and order by them, or remove sort from the named filter.",
+  },
+  filterSortNotListed: {
+    id: "list/named-filter-sort-not-listed",
+    summary: "A named filter's sort.field is one of the listed columns.",
+    fix: "Pick a field from columns or add it there.",
+  },
+  filterSortNotSortable: {
+    id: "list/named-filter-sort-not-sortable",
+    summary: "A named filter's sort column is sortable.",
+    fix: "Mark the field sortable or pick another sort field.",
   },
   facetWithoutFilters: {
     id: "list/named-filter-facet-without-filters",

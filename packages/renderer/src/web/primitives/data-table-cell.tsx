@@ -460,17 +460,27 @@ export function CellTextLink({
 // A list column's `display` (badge pill, outline link button); undefined = fall through to the normal paths.
 function renderDisplayCell({
   display,
+  value,
   text,
   row,
   badgeToneField,
   link,
 }: {
   readonly display: DataTableCellProps["display"];
+  readonly value: unknown;
   readonly text: string;
   readonly row: Readonly<Record<string, unknown>>;
   readonly badgeToneField: string | undefined;
   readonly link: DataTableCellProps["link"];
 }): ReactNode | undefined {
+  // A column renderer skips the generic empty-cell path, so a pill or button would otherwise wrap nothing.
+  if ((display === "badge" || display === "button") && isEmptyCellValue(value)) {
+    return (
+      <span data-empty-cell="true" className="text-muted-foreground">
+        {EMPTY_VALUE_PLACEHOLDER}
+      </span>
+    );
+  }
   if (display === "badge") {
     const toneKey = badgeToneField === undefined ? undefined : row[badgeToneField];
     const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
@@ -561,6 +571,7 @@ export function DataTableCell({
   }
   const displayCell = renderDisplayCell({
     display,
+    value,
     text: defaultCellRender(value, type, optionLabels, locale, field, grouping),
     row,
     badgeToneField,

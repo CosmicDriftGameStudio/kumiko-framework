@@ -23,6 +23,12 @@ export const LIST_ROW_GUIDANCE_RULES = {
       'A column with display "button" has a link (linkScreenField or refEntity) to draw as the button.',
     fix: 'Set linkScreenField or refEntity on the column, or remove display: "button".',
   },
+  buttonColumnInListTable: {
+    id: "list/button-column-in-list-table",
+    summary:
+      'display "button" is drawn only in dashboard list panels; entityList and projectionList tables (RenderList) keep a row button as a rowAction.',
+    fix: 'Declare the button as a rowAction with display: "button" or remove display: "button" from the column.',
+  },
   linkParamsWithoutScreenField: {
     id: "list/link-params-without-screen-field",
     summary: "linkParamsField only parametrizes the linkScreenField target.",

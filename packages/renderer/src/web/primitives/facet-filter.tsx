@@ -78,8 +78,11 @@ function FacetSelect({
   dense: boolean;
 }): ReactNode {
   const chips = facet.chips ?? [];
-  const active = chips.find((chip) => sameValueSet(selected, chip.values)) ?? chips[0];
   const isFiltered = selected.length > 0;
+  // A stale URL can name an entry the facet does not offer; showing "all" then would misstate the list.
+  const active =
+    chips.find((chip) => sameValueSet(selected, chip.values)) ??
+    (isFiltered ? undefined : chips[0]);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
