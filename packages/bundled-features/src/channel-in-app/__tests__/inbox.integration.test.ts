@@ -5,8 +5,12 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import { createSseBroker } from "@cosmicdrift/kumiko-framework/api";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import {
+  createSystemUser,
+  defineFeature,
+  defineWriteHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
@@ -30,6 +34,7 @@ import { inAppMessagesTable } from "../tables.ts";
 const reader = createTestUser({ id: 21, roles: ["User"] });
 const stranger = createTestUser({ id: 22, roles: ["User"] });
 const systemAdmin = createTestUser({ id: 23, roles: ["SystemAdmin"] });
+const otherTenantReader = createTestUser({ id: 24, roles: ["User"], tenantId: testTenantId(924) });
 
 let brokerForProbe: SseBroker | undefined;
 
@@ -100,11 +105,12 @@ async function deliver(
   userId: string,
   title: string,
   extra: { data?: Record<string, unknown>; count?: number; idempotencyKey?: string } = {},
+  sender: typeof reader = reader,
 ): Promise<readonly string[]> {
   const result = await stack.http.writeOk<{ statuses: string[] }>(
     "inapp-probe:write:deliver",
     { userId, title, ...extra },
-    reader,
+    sender,
   );
   return result.statuses;
 }
@@ -238,6 +244,26 @@ describe("channel-in-app read state by idempotency key", () => {
     expect(read.rows).toHaveLength(1);
     expect(read.rows[0]?.readAt).not.toBeNull();
     expect(JSON.stringify(read)).not.toContain("Keyed");
+  });
+
+  test("a job's system user reads the keys of its own tenant and none of another tenant", async () => {
+    const ownKey = "read-state:system:own";
+    const foreignKey = "read-state:system:foreign";
+    await deliver(reader.id, "Own", { idempotencyKey: ownKey });
+    await deliver(
+      otherTenantReader.id,
+      "Foreign",
+      { idempotencyKey: foreignKey },
+      otherTenantReader,
+    );
+
+    const jobUser = createSystemUser(reader.tenantId);
+    const seen = await stack.dispatcher.query(
+      "channel-in-app:query:read-state-by-keys",
+      { keys: [ownKey, foreignKey] },
+      jobUser,
+    );
+    expect(seen).toEqual({ rows: [{ key: ownKey, readAt: null }] });
   });
 
   test("a user without the SystemAdmin role is refused", async () => {

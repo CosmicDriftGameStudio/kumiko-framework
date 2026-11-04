@@ -25,6 +25,7 @@ export const DeliveryQueries = {
   log: "delivery:query:log",
   preferences: "delivery:query:preferences",
   attemptsByKeys: "delivery:query:attempts-by-keys",
+  optedInUserIds: "delivery:query:opted-in-user-ids",
   unsubscribePageChrome: "delivery:query:unsubscribe-page-chrome",
 } as const;
 
