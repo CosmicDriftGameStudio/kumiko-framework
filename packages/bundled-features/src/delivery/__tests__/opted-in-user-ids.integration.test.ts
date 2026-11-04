@@ -1,10 +1,11 @@
 // delivery:query:opted-in-user-ids over the real stack: preference rows are written through the
-// event store (upsertPreference), the query is called over HTTP as a tenant's job system user.
+// event store (upsertPreference), the query is called in-process as a tenant's job system user (JWT verification strips the system
+// role, so system identities cannot reach a handler over HTTP).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
   setupTestStack,
   type TestStack,
@@ -12,6 +13,9 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
+import { seedTenantMembership } from "../../tenant/seeding.ts";
+import { TenantHandlers } from "../../tenant/web/constants.ts";
+import { userTable } from "../../user/index.ts";
 import { DeliveryQueries } from "../constants.ts";
 import { createDeliveryFeature } from "../feature.ts";
 import { notificationPreferencesTable } from "../tables.ts";
@@ -38,7 +42,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createConfigFeature(), createTenantFeature(), createDeliveryFeature(), appFeature],
   });
-  await unsafePushTables(stack.db, { notificationPreferencesTable });
+  await unsafePushTables(stack.db, { notificationPreferencesTable, userTable });
 });
 
 afterAll(async () => {
@@ -52,6 +56,7 @@ async function setPreference(
   channel: string,
   enabled: boolean,
 ): Promise<void> {
+  await seedTenantMembership(stack.db, { userId, tenantId, roles: ["User"] });
   const result = await upsertPreference(
     createTenantDb({ db: stack.db, tenantId }),
     createTestUser({ id: 930, roles: ["User"], tenantId }),
@@ -102,6 +107,22 @@ describe("delivery:query:opted-in-user-ids", () => {
     await setPreference(tenantA, "rename-exact-on", DIGEST_TYPE, "chat", true);
     const result = await optedIn(DIGEST_TYPE, "chat");
     expect(result.userIds).toEqual(["rename-exact-on"]);
+  });
+
+  test("a removed member keeps the preference row but is no longer listed, a remaining member is", async () => {
+    const stayingId = "00000000-0000-4000-8000-000000000931";
+    const removedId = "00000000-0000-4000-8000-000000000932";
+    await setPreference(tenantA, stayingId, INVOICE_TYPE, "webhook", true);
+    await setPreference(tenantA, removedId, INVOICE_TYPE, "webhook", true);
+    expect((await optedIn(INVOICE_TYPE, "webhook")).userIds).toEqual([stayingId, removedId]);
+
+    await stack.http.writeOk(
+      TenantHandlers.removeMember,
+      { userId: removedId, tenantId: tenantA },
+      TestUsers.systemAdmin,
+    );
+
+    expect((await optedIn(INVOICE_TYPE, "webhook")).userIds).toEqual([stayingId]);
   });
 
   test("a TenantAdmin is refused, the query is job-only", async () => {

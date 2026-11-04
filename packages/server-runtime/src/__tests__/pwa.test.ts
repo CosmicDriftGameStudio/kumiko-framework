@@ -3,6 +3,7 @@ import { createPwaShell, type PwaOptions } from "../pwa.ts";
 import { PWA_CACHE_NAME_PREFIX } from "../pwa-service-worker-script.ts";
 import {
   basicResponse,
+  redirectedBasicResponse,
   runServiceWorkerScript,
   SANDBOX_ORIGIN,
   type ServiceWorkerSandbox,
@@ -39,6 +40,8 @@ describe("createPwaShell — options", () => {
     "https://evil.example/icon.png",
     "icons/192.png",
     "/\\evil.example/icon.png",
+    "/\t/evil.example/i.png",
+    "/\n/evil.example/i.png",
   ]) {
     test(`rejects icon src ${src} at boot`, () => {
       expect(() => createPwaShell({ ...pwa, icons: [{ src, sizes: "192x192" }] }, build)).toThrow(
@@ -224,6 +227,20 @@ describe("service worker — install and activate", () => {
     expect(cached).not.toContain("/");
     expect(cached).toContain("/assets/client-abc.js");
     expect(worker.calls.skipWaiting).toBe(1);
+  });
+
+  test("a redirected response is not cached, a navigation offline then has no stale redirect", async () => {
+    const shell = createPwaShell(pwa, build);
+    const worker = await serviceWorkerOf(shell);
+    worker.setNetwork((url) =>
+      new URL(url).pathname === "/" ? redirectedBasicResponse("moved") : basicResponse("ok"),
+    );
+    await worker.install();
+    const cached = [...(worker.cacheStore.get(shell.cacheName)?.keys() ?? [])].map(
+      (url) => new URL(url).pathname,
+    );
+    expect(cached).not.toContain("/");
+    expect(cached).toContain("/assets/client-abc.js");
   });
 
   test("activate drops older kumiko caches, keeps foreign ones and claims the clients", async () => {

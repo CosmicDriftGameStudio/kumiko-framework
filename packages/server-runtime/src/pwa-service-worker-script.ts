@@ -21,10 +21,12 @@ function isPassThrough(request, url) {
   return PASS_THROUGH_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
 }
 
+// A redirected response served to a navigation request makes the browser reject it.
 function isCacheable(response) {
   return (
     response.ok &&
     response.type === "basic" &&
+    !response.redirected &&
     !(response.headers.get("cache-control") || "").includes("no-store")
   );
 }
