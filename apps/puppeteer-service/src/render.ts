@@ -1,9 +1,11 @@
 // Render pipeline: HTML → PDF or image via Puppeteer.
 //
-// **Browser lifecycle:** a single long-running browser per service
-// instance. Pages are created and closed per render-call — no page
-// pool (page reuse has memory-leak issues on long-lived browsers,
-// no OOM risk with fresh-page-per-call).
+// **Browser lifecycle:** one browser per service instance, launched lazily on
+// the first render and closed after `browserIdleTimeoutMs` without a render
+// (idle Chromium holds ~480 MiB, renders are rare). The first render after an
+// idle close pays a cold start; that is accepted. Pages are created and closed
+// per render-call — no page pool (page reuse has memory-leak issues on
+// long-lived browsers, no OOM risk with fresh-page-per-call).
 //
 // **Crash recovery:** if `browser.newPage()` throws (browser dead),
 // re-launch automatically. Most common cause: chromium process killed
@@ -18,6 +20,7 @@ import puppeteer, {
 } from "puppeteer";
 import { z } from "zod";
 import { isBlockedRequestUrl } from "./egress-guard";
+import { createIdleCloser } from "./idle-closer";
 
 // Browser cache + mutex. Single-thread JS makes the critical section
 // trivial: no await runs between the `browser?.connected` check and the
@@ -28,8 +31,24 @@ import { isBlockedRequestUrl } from "./egress-guard";
 let browser: Browser | null = null;
 let launchingPromise: Promise<Browser> | null = null;
 
+// browser is nulled before close() so a render starting meanwhile launches a
+// fresh browser instead of picking up the dying one.
+export function closeIdleBrowser(): void {
+  if (launchingPromise) return;
+  const idle = browser;
+  browser = null;
+  void idle?.close().catch(() => {});
+}
+
+const idleCloser = createIdleCloser(closeIdleBrowser);
+
+export function isBrowserRunning(): boolean {
+  return browser?.connected === true;
+}
+
 export type RenderOptions = {
   readonly timeoutMs: number;
+  readonly browserIdleTimeoutMs: number;
   readonly executablePath?: string;
 };
 
@@ -110,28 +129,34 @@ export async function attachEgressRequestGuard(page: EgressGuardPage): Promise<v
 }
 
 export async function render(req: RenderRequest, opts: RenderOptions): Promise<RenderResult> {
-  const browser = await getBrowser(opts.executablePath);
-  const page = await browser.newPage();
+  // Before getBrowser so an in-flight launch counts as a running render.
+  idleCloser.begin();
   try {
-    await attachEgressRequestGuard(page);
-    // Template HTML for PDF/screenshot does not need JS; disabling it also
-    // closes window.open / targetcreated SSRF vectors (enterprise#272).
-    await page.setJavaScriptEnabled(false);
-    // setContent accepts only "load"/"domcontentloaded" (puppeteer@25);
-    // "networkidle0" exists only for page.goto. For static HTML renders
-    // "load" is enough (DOM + all sub-resources done).
-    await page.setContent(req.html, { waitUntil: "load", timeout: opts.timeoutMs });
-    if (req.kind === "document-pdf") {
-      const pdfOptions = mapPdfOptions(req.options);
-      const pdfBytes = await page.pdf({ ...pdfOptions, timeout: opts.timeoutMs });
-      return { contentType: "application/pdf", bytes: new Uint8Array(pdfBytes) };
+    const browser = await getBrowser(opts.executablePath);
+    const page = await browser.newPage();
+    try {
+      await attachEgressRequestGuard(page);
+      // Template HTML for PDF/screenshot does not need JS; disabling it also
+      // closes window.open / targetcreated SSRF vectors (enterprise#272).
+      await page.setJavaScriptEnabled(false);
+      // setContent accepts only "load"/"domcontentloaded" (puppeteer@25);
+      // "networkidle0" exists only for page.goto. For static HTML renders
+      // "load" is enough (DOM + all sub-resources done).
+      await page.setContent(req.html, { waitUntil: "load", timeout: opts.timeoutMs });
+      if (req.kind === "document-pdf") {
+        const pdfOptions = mapPdfOptions(req.options);
+        const pdfBytes = await page.pdf({ ...pdfOptions, timeout: opts.timeoutMs });
+        return { contentType: "application/pdf", bytes: new Uint8Array(pdfBytes) };
+      }
+      return await renderImage(page, req.options);
+    } finally {
+      await page.close().catch(() => {
+        // Do not escalate page.close failures during cleanup — the real render
+        // error (if any) was already thrown before we got here.
+      });
     }
-    return await renderImage(page, req.options);
   } finally {
-    await page.close().catch(() => {
-      // Do not escalate page.close failures during cleanup — the real render
-      // error (if any) was already thrown before we got here.
-    });
+    idleCloser.end(opts.browserIdleTimeoutMs);
   }
 }
 
@@ -221,6 +246,7 @@ async function getBrowser(executablePath?: string): Promise<Browser> {
 }
 
 export async function shutdownBrowser(): Promise<void> {
+  idleCloser.cancel();
   const current = browser ?? (launchingPromise ? await launchingPromise.catch(() => null) : null);
   if (current) {
     await current.close().catch(() => {

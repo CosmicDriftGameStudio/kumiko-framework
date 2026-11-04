@@ -40,11 +40,14 @@ K8s liveness/readiness probe. Returnt `200 "ok"`. Kein Auth.
 
 Prometheus-text-format. Kein Auth — relies on K8s NetworkPolicy.
 
+`puppeteer_browser_running` ist 1, solange Chromium läuft, und 0 nach dem Idle-Close.
+
 ```
 puppeteer_renders_total{kind="document-pdf"} 42
 puppeteer_renders_total{kind="image-snapshot"} 7
 puppeteer_render_errors_total 0
 puppeteer_render_duration_ms_mean 1240
+puppeteer_browser_running 1
 ```
 
 ## Egress: keine Netzabrufe
@@ -59,6 +62,7 @@ Der Service lädt nichts aus dem Netz. Erlaubt sind nur `data:`, `about:` und `b
 | `PUPPETEER_AUTH_TOKEN` | **required** | Shared Secret mit Plugin (>=16 chars) |
 | `RENDER_TIMEOUT_MS` | `30000` | Per-Render-Timeout |
 | `MAX_HTML_BYTES` | `2000000` | Maximum HTML-Größe (2 MB default) |
+| `BROWSER_IDLE_TIMEOUT_MS` | `300000` | Chromium wird nach so vielen ms ohne Render geschlossen (spart ~460 MiB RAM im Leerlauf); der nächste Render startet ihn neu und zahlt den Kaltstart |
 | `PUPPETEER_EXECUTABLE_PATH` | undefined | Custom Chromium-Pfad (z.B. system-chromium statt prebuilt) |
 
 **Tier-Profile** (gesetzt via Helm-Values pro Deployment):

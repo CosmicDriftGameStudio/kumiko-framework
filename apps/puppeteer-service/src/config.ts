@@ -8,6 +8,8 @@
 //
 // MAX_CONCURRENT_RENDERS (default 4) caps in-flight renders per pod; beyond it
 // /render answers 503 busy and the client retries. Size it to the pod memory limit.
+// BROWSER_IDLE_TIMEOUT_MS (default 300000) closes Chromium after that long without a render;
+// the next render relaunches it.
 //
 // Memory limit is set via K8s resources.limits.memory, not here — the
 // service itself has no memory-cap mechanism (puppeteer crash on OOM is
@@ -19,6 +21,7 @@ export type ServiceConfig = {
   readonly renderTimeoutMs: number;
   readonly maxHtmlBytes: number;
   readonly maxConcurrentRenders: number;
+  readonly browserIdleTimeoutMs: number;
   readonly puppeteerExecutablePath: string | undefined;
 };
 
@@ -35,15 +38,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig 
     renderTimeoutMs: parseIntEnv(env["RENDER_TIMEOUT_MS"], 30_000),
     maxHtmlBytes: parseIntEnv(env["MAX_HTML_BYTES"], 2_000_000),
     maxConcurrentRenders: parseIntEnv(env["MAX_CONCURRENT_RENDERS"], 4),
+    browserIdleTimeoutMs: parseIntEnv(env["BROWSER_IDLE_TIMEOUT_MS"], 300_000, MAX_TIMER_MS),
     puppeteerExecutablePath: env["PUPPETEER_EXECUTABLE_PATH"],
   };
 }
 
-function parseIntEnv(raw: string | undefined, fallback: number): number {
+// setTimeout fires after ~1 ms for delays above the signed 32-bit range.
+const MAX_TIMER_MS = 2_147_483_647;
+
+function parseIntEnv(raw: string | undefined, fallback: number, max?: number): number {
   if (!raw) return fallback;
   const parsed = Number.parseInt(raw, 10);
   if (Number.isNaN(parsed) || parsed <= 0) {
     throw new Error(`Invalid integer env-var: "${raw}" — expected positive int.`);
+  }
+  if (max !== undefined && parsed > max) {
+    throw new Error(`Invalid integer env-var: "${raw}" — must be <= ${max}.`);
   }
   return parsed;
 }

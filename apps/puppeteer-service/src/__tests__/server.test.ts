@@ -13,6 +13,7 @@ const CONFIG: ServiceConfig = {
   renderTimeoutMs: 5000,
   maxHtmlBytes: 100_000,
   maxConcurrentRenders: 4,
+  browserIdleTimeoutMs: 300_000,
   puppeteerExecutablePath: undefined,
 };
 
@@ -45,6 +46,13 @@ describe("GET /metrics", () => {
     expect(body).toContain('kind="document-pdf"} 0');
     expect(body).toContain('kind="image-snapshot"} 0');
     expect(body).toContain("puppeteer_render_errors_total 0");
+  });
+
+  test("exposes the browser-running gauge (0 without a launched browser)", async () => {
+    const { app } = createApp(CONFIG);
+    const body = await (await app.request("/metrics")).text();
+    expect(body).toContain("# TYPE puppeteer_browser_running gauge");
+    expect(body).toContain("puppeteer_browser_running 0");
   });
 
   test("Content-Type is text/plain with Prometheus version", async () => {

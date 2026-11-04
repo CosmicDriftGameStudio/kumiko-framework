@@ -5,13 +5,13 @@
 //
 // Auth: Bearer token in the Authorization header. /healthz and /metrics are
 // unauthenticated — K8s probes carry no token, the Prometheus scraper runs in
-// the same namespace via NetworkPolicy.
+// the monitoring namespace, allowed via NetworkPolicy.
 
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { TimeoutError } from "puppeteer";
 import type { ServiceConfig } from "./config";
-import { type RenderRequest, render, renderRequestSchema } from "./render";
+import { isBrowserRunning, type RenderRequest, render, renderRequestSchema } from "./render";
 
 // Hashing first gives timingSafeEqual equal-length inputs without leaking the token length.
 function isAuthorized(authHeader: string | undefined, authToken: string): boolean {
@@ -64,6 +64,9 @@ export function createApp(
         "# HELP puppeteer_render_duration_ms_mean Mean render-duration in ms over last N calls.",
         "# TYPE puppeteer_render_duration_ms_mean gauge",
         `puppeteer_render_duration_ms_mean ${meanMs.toFixed(0)}`,
+        "# HELP puppeteer_browser_running 1 while Chromium is running, 0 after the idle close.",
+        "# TYPE puppeteer_browser_running gauge",
+        `puppeteer_browser_running ${isBrowserRunning() ? 1 : 0}`,
         "",
       ].join("\n"),
       200,
@@ -116,6 +119,7 @@ export function createApp(
     try {
       const result = await deps.render(body, {
         timeoutMs: config.renderTimeoutMs,
+        browserIdleTimeoutMs: config.browserIdleTimeoutMs,
         executablePath: config.puppeteerExecutablePath,
       });
       const ms = performance.now() - t0;

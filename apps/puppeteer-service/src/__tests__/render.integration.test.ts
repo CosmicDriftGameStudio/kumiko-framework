@@ -5,7 +5,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { countPdfPages } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import type { ServiceConfig } from "../config";
-import { shutdownBrowser } from "../render";
+import { closeIdleBrowser, isBrowserRunning, shutdownBrowser } from "../render";
 import { createApp } from "../server";
 
 const CONFIG: ServiceConfig = {
@@ -14,6 +14,7 @@ const CONFIG: ServiceConfig = {
   renderTimeoutMs: 15_000,
   maxHtmlBytes: 100_000,
   maxConcurrentRenders: 4,
+  browserIdleTimeoutMs: 300_000,
   puppeteerExecutablePath: undefined,
 };
 
@@ -209,5 +210,29 @@ describe("Document with letterhead", () => {
     expect(res.status).toBe(200);
     const bytes = new Uint8Array(await res.arrayBuffer());
     expect(bytes[0]).toBe(0x25);
+  });
+});
+
+describe("Idle browser close", () => {
+  test("after the idle close the next render relaunches the browser", async () => {
+    const { app } = createApp(CONFIG);
+    const renderOnce = () =>
+      app.request("/render", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${CONFIG.authToken}`,
+        },
+        body: JSON.stringify({ kind: "document-pdf", html: "<p>x</p>" }),
+      });
+
+    expect((await renderOnce()).status).toBe(200);
+    expect(isBrowserRunning()).toBe(true);
+
+    closeIdleBrowser();
+    expect(isBrowserRunning()).toBe(false);
+
+    expect((await renderOnce()).status).toBe(200);
+    expect(isBrowserRunning()).toBe(true);
   });
 });
