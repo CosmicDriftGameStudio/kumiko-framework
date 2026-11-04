@@ -53,6 +53,7 @@ export {
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
+  piiCiphertextMaxLengthFor,
 } from "./pii-field-encryption.ts";
 export {
   collectPiiEncryptedFields,
