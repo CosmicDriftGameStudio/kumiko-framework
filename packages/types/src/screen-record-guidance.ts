@@ -15,6 +15,7 @@ export type RecordNotice = {
   readonly title: string;
   readonly text?: string;
   readonly tone?: SelectOptionTone;
+  // Extra row fields feed the banner actions' show/enabled predicates only; they are never rendered.
   readonly [field: string]: unknown;
 };
 
@@ -25,6 +26,7 @@ export type RecordStep = {
   readonly tone?: SelectOptionTone;
   /** Explanation behind a toggle next to the step. */
   readonly why?: string;
+  // Extra row fields feed the step actions' show/enabled predicates only; they are never rendered.
   readonly [field: string]: unknown;
 };
 

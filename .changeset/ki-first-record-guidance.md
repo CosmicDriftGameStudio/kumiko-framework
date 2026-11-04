@@ -1,7 +1,7 @@
 ---
-"@cosmicdrift/kumiko-types": patch
-"@cosmicdrift/kumiko-framework": patch
-"@cosmicdrift/kumiko-renderer": patch
+"@cosmicdrift/kumiko-types": minor
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-renderer": minor
 "@cosmicdrift/kumiko-locale-de": patch
 "@cosmicdrift/kumiko-locale-es": patch
 "@cosmicdrift/kumiko-locale-fr": patch

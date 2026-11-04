@@ -44,6 +44,8 @@ export function useReferenceLinkResolver(): ReferenceLinkResolver {
  *  `entityId` opens that record, every other key becomes a search param. */
 export type ScreenLinkResolver = (screenQn: string, params?: unknown) => CellLink | undefined;
 
+// Row values become search params as-is (except returnTo), so a row can overwrite reserved
+// keys such as `tab`, `page` or `<screenId>.filter` of the target screen; only trusted query output may feed them.
 export function useScreenLinkResolver(): ScreenLinkResolver {
   const nav = useOptionalNav();
   const appFeatures = useAppFeatures();

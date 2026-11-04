@@ -1,18 +1,9 @@
 import { Fragment, type ReactNode, useContext } from "react";
+import { uniqueLabelKeys } from "../../app/unique-label-keys.ts";
 import type { RecordBreadcrumbProps } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { DefaultLink } from "./layout-elements.tsx";
 import { InsideScreenFormColumnContext } from "./metric.tsx";
-
-// Labels may repeat along a path; the occurrence count keeps React keys unique.
-function uniqueLabelKeys(labels: readonly string[]): readonly string[] {
-  const seen = new Map<string, number>();
-  return labels.map((label) => {
-    const occurrence = seen.get(label) ?? 0;
-    seen.set(label, occurrence + 1);
-    return `${label}#${occurrence}`;
-  });
-}
 
 export function DefaultRecordBreadcrumb({
   items,
