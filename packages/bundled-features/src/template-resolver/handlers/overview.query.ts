@@ -226,8 +226,9 @@ function isSortField(value: string): value is SortField {
 }
 
 type OverviewDraft = Omit<OverviewRow, "usedBy" | "usedByCount">;
+const OVERVIEW_FILTER_FIELDS = ["kindGroup", "kind", "origin", "status", "slug"] as const;
 type OverviewFilter = {
-  readonly field: "kindGroup" | "kind" | "origin" | "status";
+  readonly field: (typeof OVERVIEW_FILTER_FIELDS)[number];
   readonly value: readonly string[];
 };
 
@@ -381,7 +382,7 @@ function filterRows(
 }
 
 const filterSchema = z.object({
-  field: z.enum(["kindGroup", "kind", "origin", "status"]),
+  field: z.enum(OVERVIEW_FILTER_FIELDS),
   op: z.literal("in"),
   value: z.array(z.string()),
 });
