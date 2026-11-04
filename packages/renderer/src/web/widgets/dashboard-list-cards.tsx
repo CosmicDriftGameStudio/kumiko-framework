@@ -19,6 +19,8 @@ type CardsProps = {
   readonly translate: (key: string) => string;
   readonly testId?: string;
   readonly rowToneField?: string;
+  /** Row field replacing the hint sentence as card title. */
+  readonly titleField?: string;
 };
 
 type HintColumn = DashboardListColumn & { readonly hint: NonNullable<DashboardListColumn["hint"]> };
@@ -37,12 +39,16 @@ function hasValue(value: unknown): boolean {
 function CardHeadline({
   column,
   row,
+  titleField,
 }: {
   readonly column: HintColumn;
   readonly row: DashboardListRow;
+  readonly titleField: string | undefined;
 }): ReactNode {
   const { hint } = column;
-  const sentence = nonEmptyText(row[column.field]);
+  const sentence =
+    (titleField === undefined ? undefined : nonEmptyText(row[titleField])) ??
+    nonEmptyText(row[column.field]);
   const toneValue = hint.toneField === undefined ? undefined : row[hint.toneField];
   const tone = isSelectOptionTone(toneValue) ? toneValue : undefined;
   if (sentence === undefined) {
@@ -76,6 +82,7 @@ export function DashboardListCards({
   rows,
   testId,
   rowToneField,
+  titleField,
   ...cellProps
 }: CardsProps): ReactNode {
   const hintColumn = columns.find((column): column is HintColumn => column.hint !== undefined);
@@ -117,7 +124,9 @@ export function DashboardListCards({
                 )}
               </div>
             )}
-            {hintColumn !== undefined && <CardHeadline column={hintColumn} row={row} />}
+            {hintColumn !== undefined && (
+              <CardHeadline column={hintColumn} row={row} titleField={titleField} />
+            )}
             {(others.length > 0 || buttons.length > 0) && (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col text-xs text-muted-foreground">

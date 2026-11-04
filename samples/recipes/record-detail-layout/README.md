@@ -40,6 +40,9 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   `icon: "chevron"` for a date list), `hint.narrowDetailField` on cards, summary row items placed
   under their `column`, and on the detail `header.narrowSubtitle`, a banner action `narrowLabel`,
   `RecordStep.narrowDetail` and a `hideOnNarrow` metric. Phone cards leave out the reason toggle
+- round 6 (board gaps): `rowLink.screenField` / `paramsField` (target screen from a query field),
+  list panel `icon`, `narrow.moreText`, `narrow.field` as any query output field,
+  `footerLink.narrowOnly`, `narrow.titleField` on cards and `rowToneMarker: "dot"`
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections

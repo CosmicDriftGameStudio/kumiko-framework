@@ -97,7 +97,7 @@ function resolveBlockText(
 const PARAGRAPH_CLASS_NAMES = {
   muted: "text-sm text-muted-foreground",
   strong: "text-sm font-medium text-foreground",
-  lead: "font-heading text-[17px] leading-relaxed text-foreground",
+  lead: "font-heading text-base leading-relaxed sm:text-[17px] text-foreground",
 } as const satisfies Record<NonNullable<ParagraphBlock["emphasis"]>, string>;
 
 function TextBlockView({
@@ -282,7 +282,7 @@ function QueryTextPanelBody({
     query,
     panelPayload(panel, screenParams),
   );
-  useReportPanelLoaded(data);
+  useReportPanelLoaded(data, loading);
   const narrow = useIsBelowSmViewport();
   const queriedNarrow = narrow ? readQueryBlocks(data, "narrowBlocks") : [];
   const queriedWide = readQueryBlocks(data, "blocks");

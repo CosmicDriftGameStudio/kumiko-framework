@@ -7,6 +7,9 @@ import { FIT_CONTENT_CELL_CLASS } from "../data-table-cell.tsx";
 
 export const COMPACT_HEADER_CLASS = "text-xs font-semibold";
 
+/** Small-caps look of column headers from sm up: 11px keeps dense tables inside 1280px. */
+const SMALL_CAPS_HEADER_CLASS = "sm:text-[11px] sm:uppercase sm:tracking-[0.05em]";
+
 // SortableHeader: renders the th header per column, with or without
 // click-sort. Three paths:
 //   (a) sortable=false OR no onSortChange -> plain label, no cursor
@@ -22,6 +25,7 @@ export function SortableHeader({
   sortable,
   highlighted,
   numeric,
+  actionColumn,
   fitContent,
   compact,
   className,
@@ -36,6 +40,8 @@ export function SortableHeader({
   readonly sortable: boolean;
   readonly highlighted?: boolean;
   readonly numeric?: boolean;
+  /** Per-row action column: from sm right-aligned and without visible header text. */
+  readonly actionColumn?: boolean;
   readonly fitContent?: boolean;
   readonly compact?: boolean;
   readonly className?: string;
@@ -63,7 +69,9 @@ export function SortableHeader({
         data-highlighted={highlighted === true ? "true" : undefined}
         className={cn(
           "font-medium whitespace-normal text-muted-foreground",
+          SMALL_CAPS_HEADER_CLASS,
           numeric === true && "text-right",
+          actionColumn === true && "sm:text-right",
           fitContent === true && FIT_CONTENT_CELL_CLASS,
           highlighted === true && "bg-accent/40",
           trailing !== undefined && "group/header relative",
@@ -72,7 +80,7 @@ export function SortableHeader({
         )}
         {...cellExtras}
       >
-        {label}
+        {actionColumn === true ? <span className="sm:sr-only">{label}</span> : label}
         {trailing}
       </TableHead>
     );
@@ -92,6 +100,7 @@ export function SortableHeader({
           ? "font-semibold text-foreground"
           : "font-medium text-muted-foreground",
         "whitespace-normal",
+        SMALL_CAPS_HEADER_CLASS,
         numeric === true && "text-right",
         fitContent === true && FIT_CONTENT_CELL_CLASS,
         highlighted === true && "bg-accent/40",
@@ -106,6 +115,7 @@ export function SortableHeader({
         onClick={() => onSortChange(next)}
         className={cn(
           "group/sort inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-sm [font-weight:inherit]",
+          SMALL_CAPS_HEADER_CLASS,
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           active !== undefined && "text-foreground",

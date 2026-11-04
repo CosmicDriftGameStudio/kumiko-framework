@@ -48,6 +48,9 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   `icon: "chevron"` for a date list), `hint.narrowDetailField` on cards, summary row items placed
   under their `column`, and on the detail `header.narrowSubtitle`, a banner action `narrowLabel`,
   `RecordStep.narrowDetail` and a `hideOnNarrow` metric. Phone cards leave out the reason toggle
+- round 6 (board gaps): `rowLink.screenField` / `paramsField` (target screen from a query field),
+  list panel `icon`, `narrow.moreText`, `narrow.field` as any query output field,
+  `footerLink.narrowOnly`, `narrow.titleField` on cards and `rowToneMarker: "dot"`
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -339,6 +342,15 @@ function OrderInboxIcon(): ReactNode {
   );
 }
 
+function DeadlinesIcon(): ReactNode {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2 7h12M5 1.5v3M11 1.5v3" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function Shell({
   schema,
   children,
@@ -360,7 +372,7 @@ function Shell({
       schema={schema}
       user={{ id: "u1", roles: ["Admin"] }}
     >
-      <ExtensionSectionsProvider value={{ OrderInboxIcon, OrderInternalNote }}>
+      <ExtensionSectionsProvider value={{ OrderInboxIcon, DeadlinesIcon, OrderInternalNote }}>
         {isPinnedRecord && feature !== undefined ? (
           <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
         ) : (
@@ -1223,8 +1235,15 @@ describe("record-detail-layout showcase — phone variants", () => {
     const deadlines = panel("deadlines");
     if (now?.kind !== "list" || deadlines?.kind !== "list") throw new Error("expected lists");
     expect(now.narrow).toEqual({ layout: "cards", limit: 3 });
-    expect(deadlines.narrow).toEqual({ layout: "line", field: "title" });
-    expect(deadlines.rowLink?.icon).toBe("chevron");
+    expect(deadlines.narrow?.field).toBe("title");
+    expect(deadlines.narrow?.moreText).toBe("order-desk.today.deadlines-more-narrow");
+    expect(deadlines.icon).toEqual({ react: { __component: "DeadlinesIcon" } });
+    expect(deadlines.footerLink?.narrowOnly).toBe(true);
+    expect(deadlines.rowLink).toEqual({
+      screenField: "screen",
+      paramsField: "params",
+      icon: "chevron",
+    });
     expect(panel("customers")?.kind === "list" && panel("customers")).toBeTruthy();
     expect(panel("customers")?.hideOnNarrow).toBe(true);
     expect(panel("money")?.hideOnNarrow).toBe(true);
@@ -1244,6 +1263,7 @@ describe("record-detail-layout showcase — phone variants", () => {
     const customers = today.panels.find((candidate) => candidate.id === "customers");
     if (customers?.kind !== "list") throw new Error("expected the customers list");
     expect(customers.rowLink).toEqual({ screen: "order-detail", paramField: "params" });
+    expect(customers.rowToneMarker).toBe("dot");
     expect(today.panels.find((candidate) => candidate.id === "briefing")?.narrowOrder).toBe(1);
     expect(answerOrderSummary(orderSummarySchema.parse({})).items.map((i) => i.column)).toEqual([
       "orderNumber",
@@ -1425,6 +1445,17 @@ export function createOrderDeskFeature(): FeatureDefinition {
       name: "order:deadlines",
       schema: noPayloadSchema,
       handler: async () => answerDeadlines(),
+      outputSchema: z.object({
+        rows: z.array(
+          z.object({
+            id: z.string(),
+            due: z.string(),
+            title: z.string(),
+            screen: z.string(),
+            params: z.object({ entityId: z.string() }),
+          }),
+        ),
+      }),
       access: accessRoles,
     });
 
@@ -1732,9 +1763,15 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.deadlines",
           span: "third",
           showHeader: false,
-          narrow: { layout: "line", field: "title" },
-          rowLink: { screen: "order-detail", paramField: "params", icon: "chevron" },
+          icon: { react: { __component: "DeadlinesIcon" } },
+          narrow: {
+            layout: "line",
+            field: "title",
+            moreText: "order-desk.today.deadlines-more-narrow",
+          },
+          rowLink: { screenField: "screen", paramsField: "params", icon: "chevron" },
           footerLink: {
+            narrowOnly: true,
             label: "order-desk.today.deadlines-all",
             moreText: "order-desk.today.deadlines-more",
             narrowMoreText: "order-desk.today.deadlines-more-narrow",
@@ -1753,6 +1790,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           rowLink: { screen: "order-detail", paramField: "params" },
           query: "order-desk:query:order:customers",
           rowToneField: "tone",
+          rowToneMarker: "dot",
           columns: [
             { field: "customerName" },
             { field: "openCount", display: "badge", badgeToneField: "openTone" },

@@ -148,11 +148,11 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
           <p className="text-xs text-muted-foreground max-sm:hidden">{translate(panel.subtitle)}</p>
         )}
       </div>
-      <div className="flex min-w-0 grow items-stretch gap-3 max-sm:block max-sm:truncate max-sm:text-sm">
+      <div className="flex min-w-0 items-stretch gap-3 max-sm:block max-sm:grow max-sm:truncate max-sm:text-sm">
         {panel.stats.map((stat) => (
           <div
             key={stat.id}
-            className={`flex min-w-0 sm:flex-1 max-sm:inline max-sm:[&_a]:inline max-sm:[&:not(:last-child)]:after:mx-1.5 max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·'] [&>*]:min-w-0 sm:[&>*]:w-full${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
+            className={`flex min-w-0 max-sm:inline max-sm:[&_a]:inline max-sm:[&:not(:last-child)]:after:mx-1.5 max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·'] [&>*]:min-w-0${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
           >
             <StatPanelBody
               panel={stat}
@@ -182,6 +182,17 @@ export function StatGroupPanelBody(props: StatGroupProps): ReactNode {
       <TitledStatStrip {...props} label={label} />
     );
   }
+  const cells = (
+    <section
+      className={
+        panel.columns === undefined
+          ? STAT_CARD_GRID_CLASSES
+          : STAT_CARD_COLUMN_CLASSES[panel.columns]
+      }
+    >
+      <StatCells {...props} variant="card" />
+    </section>
+  );
   return (
     <SectionCard
       {...(label !== undefined && { title: label })}
@@ -191,15 +202,7 @@ export function StatGroupPanelBody(props: StatGroupProps): ReactNode {
       })}
       testId={`dashboard-panel-${panel.id}`}
     >
-      <section
-        className={
-          panel.columns === undefined
-            ? STAT_CARD_GRID_CLASSES
-            : STAT_CARD_COLUMN_CLASSES[panel.columns]
-        }
-      >
-        <StatCells {...props} variant="card" />
-      </section>
+      {cells}
     </SectionCard>
   );
 }

@@ -238,6 +238,7 @@ export type {
   DashboardListNarrow,
   DashboardListPanel,
   DashboardListRowLink,
+  DashboardListRowToneMarker,
   DashboardMoneyParam,
   DashboardPanelDefinition,
   DashboardPanelEmptyState,

@@ -87,6 +87,17 @@ export function createOrderDeskFeature(): FeatureDefinition {
       name: "order:deadlines",
       schema: noPayloadSchema,
       handler: async () => answerDeadlines(),
+      outputSchema: z.object({
+        rows: z.array(
+          z.object({
+            id: z.string(),
+            due: z.string(),
+            title: z.string(),
+            screen: z.string(),
+            params: z.object({ entityId: z.string() }),
+          }),
+        ),
+      }),
       access: accessRoles,
     });
 
@@ -394,9 +405,15 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.deadlines",
           span: "third",
           showHeader: false,
-          narrow: { layout: "line", field: "title" },
-          rowLink: { screen: "order-detail", paramField: "params", icon: "chevron" },
+          icon: { react: { __component: "DeadlinesIcon" } },
+          narrow: {
+            layout: "line",
+            field: "title",
+            moreText: "order-desk.today.deadlines-more-narrow",
+          },
+          rowLink: { screenField: "screen", paramsField: "params", icon: "chevron" },
           footerLink: {
+            narrowOnly: true,
             label: "order-desk.today.deadlines-all",
             moreText: "order-desk.today.deadlines-more",
             narrowMoreText: "order-desk.today.deadlines-more-narrow",
@@ -415,6 +432,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           rowLink: { screen: "order-detail", paramField: "params" },
           query: "order-desk:query:order:customers",
           rowToneField: "tone",
+          rowToneMarker: "dot",
           columns: [
             { field: "customerName" },
             { field: "openCount", display: "badge", badgeToneField: "openTone" },

@@ -233,7 +233,8 @@ test("report form, list, tile, detail, reply drawer and forwarding", async ({
   await expect(openChip).toHaveCount(1);
   const openCount = Number((await openChip.textContent())?.match(/\d+/)?.[0]);
   expect(openCount).toBeGreaterThanOrEqual(openBefore + OPEN_REQUESTS_FROM_THIS_SPEC);
-  await expect(page.getByRole("button", { name: "Alle" })).toBeVisible();
+  // Select filters read "<label>: Alle" too, so the role name alone no longer singles out the chip.
+  await expect(page.getByTestId("facet-status-all")).toBeVisible();
   await captureScreenshot(page, "b03-list");
 
   const maintenanceCheckbox = page

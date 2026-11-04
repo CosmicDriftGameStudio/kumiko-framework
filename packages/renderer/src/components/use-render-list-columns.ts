@@ -59,6 +59,7 @@ export function withScreenLinks(
     if (linkFieldNames === undefined) return col;
     return {
       ...col,
+      rowActionLink: true,
       linkFor: screenLinkFor(
         resolveScreenLink,
         linkFieldNames.screenField,

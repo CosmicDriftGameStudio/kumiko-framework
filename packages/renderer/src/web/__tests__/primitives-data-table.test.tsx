@@ -439,17 +439,22 @@ describe("DataTable", () => {
       expect(onPageChange).toHaveBeenCalledWith(2);
     });
 
-    test("no numbered page list: only Prev/Next buttons", () => {
+    test("numbered pages: current page marked, gaps elided, click jumps", () => {
+      const onPageChange = mock();
       render(
         <DataTable
           columns={cols}
           rows={oneRow}
           testId="dt"
-          pager={{ page: 30, limit: 50, total: 3000, onPageChange: mock() }}
+          pager={{ page: 30, limit: 50, total: 3000, onPageChange }}
         />,
       );
-      expect(screen.getByTestId("dt-pager").querySelectorAll("button")).toHaveLength(2);
-      expect(screen.queryByText("…")).toBeNull();
+      expect(screen.getByTestId("dt-pager-page-30").getAttribute("aria-current")).toBe("page");
+      expect(screen.getByTestId("dt-pager-page-1")).toBeDefined();
+      expect(screen.getByTestId("dt-pager-page-60")).toBeDefined();
+      expect(screen.queryByTestId("dt-pager-page-15")).toBeNull();
+      fireEvent.click(screen.getByTestId("dt-pager-page-31"));
+      expect(onPageChange).toHaveBeenCalledWith(31);
     });
 
     test("Default locale (en): status, page X of Y, and aria labels from i18n fallback", () => {
@@ -462,7 +467,7 @@ describe("DataTable", () => {
         />,
       );
       expect(screen.getByTestId("dt-pager-status").textContent).toBe("51–100 of 3,000");
-      expect(screen.getByTestId("dt-pager").textContent).toContain("Page 2 of 60");
+      expect(screen.getByTestId("dt-pager-page-2").getAttribute("aria-current")).toBe("page");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe("Previous page");
       expect(screen.getByTestId("dt-pager-next").getAttribute("aria-label")).toBe("Next page");
     });
@@ -487,7 +492,7 @@ describe("DataTable", () => {
       // toLocaleString() without a locale arg stays runtime-default (not the
       // resolver locale) — this only addresses the untranslated word/aria-labels.
       expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 von 3,000");
-      expect(screen.getByTestId("dt-pager").textContent).toContain("Seite 1 von 60");
+      expect(screen.getByTestId("dt-pager-page-1").getAttribute("aria-label")).toBe("Seite 1");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe(
         "Vorherige Seite",
       );

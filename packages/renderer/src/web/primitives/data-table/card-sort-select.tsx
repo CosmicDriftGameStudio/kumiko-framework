@@ -33,8 +33,12 @@ type CardSortSelectProps = {
 // Screen-declared sortOptions replace the per-column entries.
 export function CardSortSelect({
   sortOptions,
+  summary,
   ...props
-}: CardSortSelectProps & { readonly sortOptions?: DataTableProps["sortOptions"] }): ReactNode {
+}: CardSortSelectProps & {
+  readonly sortOptions?: DataTableProps["sortOptions"];
+  readonly summary?: string | undefined;
+}): ReactNode {
   const { sort, onSortChange, testId } = props;
   if (onSortChange !== undefined && hasSortOptionsSelect(sortOptions, onSortChange)) {
     return (
@@ -44,6 +48,7 @@ export function CardSortSelect({
         onSortChange={onSortChange}
         testId={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
         className="px-4"
+        {...(summary !== undefined && { summary })}
       />
     );
   }

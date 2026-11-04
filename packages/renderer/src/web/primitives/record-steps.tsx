@@ -43,11 +43,13 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
         <div className="flex min-w-0 items-start gap-2">
           <span className="font-medium text-foreground">{item.title}</span>
           {item.reason !== undefined && (
-            <ReasonInfoButton
-              label={reasonLabel}
-              open={reasonOpen}
-              onToggle={() => setReasonOpen((open) => !open)}
-            />
+            <span className="flex max-sm:hidden">
+              <ReasonInfoButton
+                label={reasonLabel}
+                open={reasonOpen}
+                onToggle={() => setReasonOpen((open) => !open)}
+              />
+            </span>
           )}
         </div>
         <div className="flex shrink-0 items-center gap-3">

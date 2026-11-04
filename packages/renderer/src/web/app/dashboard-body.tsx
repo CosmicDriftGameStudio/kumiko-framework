@@ -202,6 +202,7 @@ function PanelBody({
         panel={panel}
         label={text}
         featureName={featureName}
+        screenId={screenId}
         screenParams={screenParams}
         translate={translate}
       />

@@ -165,6 +165,7 @@ type DashboardListFooterLink = { // Link to a screen from a panel; `label` is an
   label: string;
   moreText?: string; // i18n key of the text before the link when more rows exist than shown; `{count}` is the rest.
   narrowMoreText?: string; // i18n key used instead of `moreText` below `sm`.
+  narrowOnly?: boolean; // Draw the link only below `sm`, where it is the target of the "line" layout; from `sm` up the panel shows no footer link.
   screen: string;
   namedFilter?: string;
   params?: Readonly<Record<string, string>>;
@@ -172,7 +173,9 @@ type DashboardListFooterLink = { // Link to a screen from a panel; `label` is an
 type DashboardListNarrow = { // "cards": one card per row (tone stripe; badge column and `hint.detailField` on top, the hint sentence bold, button column bottom right, `showOnNarrowOnly` columns bottom left; the button column bottom right).
   limit?: number;
   layout?: "cards" | "line";
-  field?: string; // Column whose value of the first row stands behind the label in the "line" layout.
+  field?: string; // Query output field whose value of the first row stands behind the label in the "line" layout; it need not be a column of the panel.
+  moreText?: string; // i18n key replacing "k more" in the "line" layout; `{count}` is the total minus the first row.
+  titleField?: string; // Row field replacing the card title (the hint sentence) in the "cards" layout, e.g. a shorter sentence for the phone.
 };
 type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & DashboardPanelNarrow & {
   kind: "list";
@@ -181,6 +184,8 @@ type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   query: string;
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns.
+  rowToneMarker?: DashboardListRowToneMarker; // How `rowToneField` marks a table row from `sm` up: "bar" (default) draws a stripe at the left edge, "dot" a small dot in front of the first cell.
+  icon?: PlatformComponent; // Icon left of the one-line phone variant (`narrow.layout: "line"`); not drawn from `sm` up.
   showHeader?: boolean; // `false` drops the column header row; default true.
   subtitle?: string; // i18n key, a line under `label`; with `showTotal` it stands before the count.
   showTotal?: true | DashboardListShowTotal; // Adds "n of m" to the subtitle from the rows shown and the query's `total`.
@@ -188,6 +193,7 @@ type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   narrow?: DashboardListNarrow; // Phone layout below `sm`; the table stays from `sm` up.
   rowLink?: DashboardListRowLink; // Makes each table row a link to a screen; a small icon at the right edge marks it.
 };
+type DashboardListRowToneMarker = "bar" | "dot"; // "bar": stripe at the left edge of the row.
 type DashboardMoneyParam = { // Minor units (like Money fields), formatted with the user locale.
   kind: "money";
   amountMinor: number;

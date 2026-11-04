@@ -53,6 +53,8 @@ function cardCell(
       {...(onCellChange !== undefined && {
         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
       })}
+      {...(col.rowActionLink === true &&
+        col.display === undefined && { display: "button" as const })}
       {...cellLinkProp(col, row, linksAllowed || !opensRow)}
     />
   );
