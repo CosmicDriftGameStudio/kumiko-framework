@@ -36,7 +36,7 @@ const TONE_STRIPE: Record<StatTone, string> = {
   default: "",
   positive: "border-l-[3px] border-l-primary",
   ok: "border-l-[3px] border-l-status-ok",
-  warn: "border-l-[3px] border-l-destructive",
+  warn: "border-l-[3px] border-l-status-warn",
   negative: "border-l-[3px] border-l-status-bad",
 };
 

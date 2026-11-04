@@ -5043,10 +5043,6 @@ type ListTableGrouping = {
   userChoice?: boolean; // Shows "Group by" in the view menu (needs `fields` or `field`) and remembers the choice per session.
   fields?: string[]; // Fields offered under "Group by"; `field` is always offered.
 };
-type ListTableSummaryRow = { // The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label, value, tone?
-  query: string; // Qualified query name, e.g. `feature:query:order:summary`.
-  params?: Readonly<Record<string, unknown>>; // Extra payload keys merged over the list's own.
-};
 type ListTableTotal = {
   field: string;
   kind: ListAggregateMeasureKind; // sum and avg on number, decimal, money and bigInt; min and max also on date and timestamp.

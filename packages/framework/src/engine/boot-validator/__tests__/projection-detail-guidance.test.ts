@@ -73,10 +73,10 @@ describe("projectionDetail record guidance blocks", () => {
     );
   });
 
-  test('progress.placement "beside-steps" without steps is record/progress-beside-steps-without-steps', () => {
+  test('progress.placement "beside-steps" without steps is projection-detail/progress-beside-steps-without-steps', () => {
     const besideSteps = { progress: { field: "steps", placement: "beside-steps" } };
     expect(ruleIdsOf([detailFeature(besideSteps)])).toContain(
-      "record/progress-beside-steps-without-steps",
+      "projection-detail/progress-beside-steps-without-steps",
     );
     expect(ruleIdsOf([detailFeature({ ...besideSteps, steps: { field: "steps" } })])).toEqual([]);
   });

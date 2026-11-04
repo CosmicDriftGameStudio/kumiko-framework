@@ -156,12 +156,14 @@ type RelatedListSectionValidation = {
 // both render a relatedList whose rows come from an arbitrary query.
 function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): void {
   const { featureName, where, section } = args;
+  // Before the grouping rules: an expandableRow's "only table.grouping" rule would otherwise
+  // swallow a summaryRow with a less specific message.
+  rejectSummaryRowOnRelatedList(`[Feature ${featureName}] ${where}`, section.table);
   validateRelatedListGroupingRules(
     `[Feature ${featureName}] ${where}`,
     section,
     args.screenType === "entityList expandableRow",
   );
-  rejectSummaryRowOnRelatedList(`[Feature ${featureName}] ${where}`, section.table);
   validateListTableOptions(`[Feature ${featureName}] ${where}`, section.table, section.columns);
   if (section.rowActions !== undefined) validateRelatedListRowActions(args, section.rowActions);
   validateListBulkActions(

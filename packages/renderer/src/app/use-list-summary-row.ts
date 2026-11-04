@@ -16,7 +16,8 @@ export function summaryRowPayload(
     totalCount: _totalCount,
     ...narrowing
   } = namedFilterCountPayload(listPayload);
-  return { ...narrowing, ...params };
+  // The list's own keys win: a param must not widen the numbers beyond what the list shows.
+  return { ...params, ...narrowing };
 }
 
 function isSummaryItem(value: unknown): value is DataTableSummaryItem {

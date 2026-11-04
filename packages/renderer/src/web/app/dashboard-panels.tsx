@@ -10,7 +10,7 @@ import type {
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
-import { namedFilterNavigateAllows } from "../../app/screen-access.ts";
+import { namedFilterNavigateAllows, navigateTargetAllows } from "../../app/screen-access.ts";
 import { rendererWarn } from "../../dev-console.ts";
 import { EMPTY_VALUE_PLACEHOLDER, type Translate } from "../../headless/index.ts";
 import {
@@ -108,7 +108,13 @@ export function StatPanelBody(props: StatPanelBodyProps): ReactNode {
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
   const { navigate } = props.panel;
-  if (navigate !== undefined && !namedFilterNavigateAllows(navigate, appFeatures, userRoles)) {
+  if (
+    navigate !== undefined &&
+    !(
+      navigateTargetAllows({ screen: navigate.screen }, appFeatures, userRoles) &&
+      namedFilterNavigateAllows(navigate, appFeatures, userRoles)
+    )
+  ) {
     return null;
   }
   return <StatPanelContent {...props} />;

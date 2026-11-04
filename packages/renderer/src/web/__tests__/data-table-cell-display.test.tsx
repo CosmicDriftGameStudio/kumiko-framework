@@ -107,7 +107,8 @@ describe("DataTable row tone", () => {
       />,
     );
     const row = container.querySelector('tr[data-tone="bad"]');
-    expect(row?.className).toContain("inset_3px_0_0_var(--color-status-bad)");
+    expect(row?.className).toContain("inset_3px_0_0_var(--row-stripe)");
+    expect(row?.className).toContain("[--row-stripe:var(--color-status-bad)]");
     expect(row?.className).not.toContain("bg-status-bad");
   });
 

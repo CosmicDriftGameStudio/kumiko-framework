@@ -954,7 +954,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.detail.steps.reason": "Perché?",
   "kumiko.detail.breadcrumb": "Percorso",
   "kumiko.list.sort.by": "Ordinato per {column}",
-  "kumiko.list.sort-by": "Ordinato per",
+  "kumiko.list.sort.prefix": "Ordinato per",
   "kumiko.list.sort.label": "Ordina",
   "kumiko.list.sort.unsorted": "Non ordinato",
   "kumiko.list.reset-all": "Reimposta",

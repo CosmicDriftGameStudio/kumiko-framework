@@ -149,6 +149,83 @@ describe("DataTable card buttons", () => {
   });
 });
 
+describe("DataTable sortOptions without a matching option", () => {
+  test("shows only the prefix and never claims an order the list is not in", () => {
+    render(
+      <DataTable
+        columns={COLUMNS}
+        rows={ROWS}
+        sort={{ field: "name", dir: "desc" }}
+        onSortChange={mock()}
+        sortOptions={SORT_OPTIONS}
+      />,
+    );
+    const label = screen.getByTestId("render-list-sort-options-label").textContent ?? "";
+    expect(label).not.toContain("Customer");
+    expect(label).not.toContain(":");
+  });
+});
+
+describe("DataTable footer", () => {
+  test("summary row and totals row share one tfoot", () => {
+    render(
+      <DataTable
+        columns={COLUMNS}
+        rows={ROWS}
+        summaryRow={{ items: [{ label: "Orders", value: "8" }] }}
+        totals={{ measures: [{ field: "due", kind: "count", value: 2 }] }}
+      />,
+    );
+    expect(document.querySelectorAll("tfoot")).toHaveLength(1);
+    const footer = document.querySelector("tfoot");
+    expect(footer?.contains(screen.getByTestId("list-summary"))).toBe(true);
+    expect(footer?.contains(screen.getByTestId("list-totals"))).toBe(true);
+  });
+});
+
+describe("DataTable row tone on a pinned first column", () => {
+  test("the stripe survives the pin's own box-shadow", () => {
+    render(
+      <DataTable
+        columns={COLUMNS}
+        rows={ROWS}
+        rowTone={() => "warn"}
+        view={{
+          density: "comfortable",
+          viewIsDefault: true,
+          onViewReset: () => {},
+          pins: { name: "left" },
+          onPinsChange: () => {},
+        }}
+      />,
+    );
+    const cell = screen.getByTestId("cell-r1-name");
+    expect(cell.style.boxShadow).toContain("var(--row-stripe");
+    expect(cell.parentElement?.className).toContain("[--row-stripe:var(--color-status-warn)]");
+  });
+});
+
+describe("DataTable card clicks", () => {
+  test("a card button does not open the row", () => {
+    const onRowClick = mock();
+    const onTrigger = mock();
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          onRowClick={onRowClick}
+          rowActions={[{ id: "pay", label: "Pay", display: "button", onTrigger }]}
+          testId="t"
+        />,
+      );
+      fireEvent.click(within(screen.getByTestId("row-r1-card-buttons")).getByText("Pay"));
+      expect(onTrigger).toHaveBeenCalledTimes(1);
+      expect(onRowClick).not.toHaveBeenCalled();
+    });
+  });
+});
+
 describe("StepBar stacked", () => {
   test("lists every step with its subtitle", () => {
     render(

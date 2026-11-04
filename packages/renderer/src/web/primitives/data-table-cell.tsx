@@ -404,13 +404,15 @@ export function cellLinkProp(
 
 // Tone is a left stripe, not a fill: a tinted row reads as selected or disabled and fights the
 // opaque sticky actions cell. Rows draw it as an inset shadow on the first cell (a border on a
-// <tr> collapses away), cards as a real border.
+// <tr> collapses away), cards as a real border. The colour also lands in --row-stripe because a
+// pinned cell sets its own inline box-shadow, which would otherwise replace the stripe.
+const ROW_STRIPE_SHADOW_CLASS = "[&>td:first-child]:shadow-[inset_3px_0_0_var(--row-stripe)]";
 const ROW_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
-  bad: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-bad)]",
-  warn: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-warn)]",
-  ok: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-ok)]",
-  critical: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-critical)]",
-  accent: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  bad: `${ROW_STRIPE_SHADOW_CLASS} [&>td:first-child]:[--row-stripe:var(--color-status-bad)]`,
+  warn: `${ROW_STRIPE_SHADOW_CLASS} [&>td:first-child]:[--row-stripe:var(--color-status-warn)]`,
+  ok: `${ROW_STRIPE_SHADOW_CLASS} [&>td:first-child]:[--row-stripe:var(--color-status-ok)]`,
+  critical: `${ROW_STRIPE_SHADOW_CLASS} [&>td:first-child]:[--row-stripe:var(--color-status-critical)]`,
+  accent: `${ROW_STRIPE_SHADOW_CLASS} [&>td:first-child]:[--row-stripe:var(--color-primary)]`,
   neutral: "",
 };
 

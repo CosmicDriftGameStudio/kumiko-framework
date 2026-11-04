@@ -156,11 +156,11 @@ export const DASHBOARD_RULES = {
     summary: "A stat navigating to a custom screen does not set namedFilter.",
     fix: "Remove navigate.namedFilter; a custom screen has no namedFilters.",
   },
-  listFooterLinkUnknownScreen: {
-    id: "dashboard/list-footer-link-unknown-screen",
+  panelLinkTarget: {
+    id: "dashboard/panel-link-target",
     summary:
-      "A list panel footerLink or stat-group link targets a registered screen; namedFilter only on a list screen that declares it.",
-    fix: "Point screen at a registered screen and drop namedFilter unless the target list declares it.",
+      "A list panel footerLink or stat-group link targets a registered screen, sets string-valued params, and uses namedFilter only on a list screen that declares it.",
+    fix: "Point screen at a registered screen, give params string values, and drop namedFilter unless the target list declares it.",
   },
   textLinkUnresolved: {
     id: "dashboard/text-link-unresolved",

@@ -240,6 +240,7 @@ function assembleTestStack(
     sseBroker: services.sseBroker,
     dispatcher: server.dispatcher,
     context: server.context,
+    ...(services.clock !== undefined && { clock: services.clock }),
     ...(eventDispatcher ? { eventDispatcher } : {}),
     ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
     ...(jobRunner ? { jobRunner } : {}),

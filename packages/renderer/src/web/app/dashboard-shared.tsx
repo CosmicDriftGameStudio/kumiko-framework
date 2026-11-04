@@ -298,19 +298,24 @@ export function PanelSkeleton({ shape }: { readonly shape: SkeletonShape }): Rea
   );
 }
 
-function deriveSubtitle<TData>(
-  derive: (data: TData) => string | undefined,
+// Without loaded data the derived line cannot be computed; the static line keeps the header height
+// from jumping when the data arrives.
+function resolveSubtitle<TData>(
+  subtitle: string | ((data: TData) => string | undefined) | undefined,
+  fallback: string | undefined,
   data: TData | undefined,
 ): string | undefined {
-  return data === undefined ? undefined : derive(data);
+  if (typeof subtitle !== "function") return subtitle;
+  return data === undefined ? fallback : subtitle(data);
 }
 
 type QueryPanelProps<TData> = {
   readonly panel: DashboardPanelQueryOptions &
     DashboardPanelEmptyState & { readonly id: string; readonly query: string };
   readonly label: string;
-  /** A function derives the line from the loaded data (e.g. "n of m"). */
+  /** A function derives the line from the loaded data (e.g. "n of m"); `staticSubtitle` stands in until then. */
   readonly subtitle?: string | ((data: TData) => string | undefined);
+  readonly staticSubtitle?: string;
   readonly action?: ReactNode;
   /** Rendered under the body, only once data is shown. */
   readonly footer?: (data: TData) => ReactNode;
@@ -327,6 +332,7 @@ export function QueryPanel<TData>({
   panel,
   label,
   subtitle,
+  staticSubtitle,
   action,
   footer,
   screenParams,
@@ -362,7 +368,7 @@ export function QueryPanel<TData>({
     <PanelShell
       testId={`dashboard-panel-${panel.id}`}
       title={label}
-      subtitle={typeof subtitle === "function" ? deriveSubtitle(subtitle, shown) : subtitle}
+      subtitle={resolveSubtitle(subtitle, staticSubtitle, shown)}
       action={action}
       footer={shown !== undefined ? footer?.(shown) : undefined}
     >

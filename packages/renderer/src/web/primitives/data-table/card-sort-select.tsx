@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import type { ReactNode } from "react";
 import type { DataTableProps, DataTableSort, DataTableSortDir } from "../../../index.ts";
 import { useOptionalTranslation } from "../../../index.ts";
-import { SortOptionsSelect } from "./sort-options-select.tsx";
+import { hasSortOptionsSelect, SortOptionsSelect } from "./sort-options-select.tsx";
 
 type SortableColumn = {
   readonly field: string;
@@ -36,7 +36,7 @@ export function CardSortSelect({
   ...props
 }: CardSortSelectProps & { readonly sortOptions?: DataTableProps["sortOptions"] }): ReactNode {
   const { sort, onSortChange, testId } = props;
-  if (onSortChange !== undefined && sortOptions !== undefined && sortOptions.length > 0) {
+  if (onSortChange !== undefined && hasSortOptionsSelect(sortOptions, onSortChange)) {
     return (
       <SortOptionsSelect
         options={sortOptions}

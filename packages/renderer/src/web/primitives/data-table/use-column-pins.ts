@@ -88,6 +88,10 @@ function pinnedStyle(
 ): CSSProperties {
   const edgeLine = placement.side === "left" ? "inset -1px 0 0" : "inset 1px 0 0";
   const shadows: string[] = [];
+  // Keeps the row-tone stripe: this inline box-shadow would replace the class-based one.
+  if (part === "body" && placement.side === "left") {
+    shadows.push("inset 3px 0 0 var(--row-stripe, transparent)");
+  }
   if (placement.onInnerEdge) shadows.push(`${edgeLine} var(--color-border)`);
   if (part === "header" && fillsHeight) shadows.push("inset 0 -1px 0 var(--color-border)");
   return {

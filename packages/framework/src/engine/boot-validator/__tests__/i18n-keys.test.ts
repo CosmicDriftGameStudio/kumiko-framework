@@ -496,3 +496,47 @@ describe("requiredLocales", () => {
     expect(() => validateBoot([shop], { requiredLocales: ["en"] })).not.toThrow();
   });
 });
+
+describe("validateI18nSurfaceKeys — board-gap label fields", () => {
+  function sortOptionsFeature(translated: boolean) {
+    return defineFeature("shopsort", (r) => {
+      r.queryHandler({
+        name: "order:list",
+        schema: z.object({ sort: z.string().optional(), sortDirection: z.string().optional() }),
+        handler: async () => ({ rows: [], nextCursor: null }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "orders",
+        type: "projectionList",
+        query: "shopsort:query:order:list",
+        columns: [{ field: "number", label: "shopsort:col:number" }],
+        defaultSort: { field: "number", dir: "asc" },
+        sortOptions: [{ field: "number", dir: "asc", label: "shopsort:sort:number" }],
+      } as never);
+      r.translations({
+        keys: {
+          "shopsort:col:number": { en: "Number" },
+          "screen:orders.title": { en: "Orders" },
+          ...(translated && { "shopsort:sort:number": { en: "Number" } }),
+        },
+      });
+    });
+  }
+
+  test("a sortOptions label without a translation fails boot naming the key", () => {
+    expect(() => validateBoot([sortOptionsFeature(false)])).toThrow(
+      /required translation key missing: "shopsort:sort:number"/,
+    );
+  });
+
+  test("a translated sortOptions label does not trip the translation gate", () => {
+    let message = "";
+    try {
+      validateBoot([sortOptionsFeature(true)]);
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    }
+    expect(message).not.toContain("shopsort:sort:number");
+  });
+});

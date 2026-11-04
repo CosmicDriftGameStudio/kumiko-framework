@@ -17,6 +17,13 @@ export function activeSortOption(
   return options.find((option) => option.field === sort.field && option.dir === sort.dir);
 }
 
+export function hasSortOptionsSelect(
+  options: DataTableProps["sortOptions"],
+  onSortChange: DataTableProps["onSortChange"],
+): options is SortOptions {
+  return onSortChange !== undefined && options !== undefined && options.length > 0;
+}
+
 // "Sorted by: <active label>" over a native select; with no matching option only the prefix shows
 // so the control never claims an order the list is not in.
 export function SortOptionsSelect({
@@ -34,7 +41,7 @@ export function SortOptionsSelect({
 }): ReactNode {
   const translate = useOptionalTranslation();
   const active = activeSortOption(options, sort);
-  const prefix = translate?.("kumiko.list.sort-by") ?? "Sorted by";
+  const prefix = translate?.("kumiko.list.sort.prefix") ?? "Sorted by";
   return (
     <div
       className={`relative flex h-9 items-center gap-1.5 text-[13px] text-foreground-secondary ${className ?? ""}`}

@@ -91,6 +91,7 @@ type TestStack = {
   sseBroker: SseBroker;
   dispatcher: Dispatcher;
   context: AppContext;
+  clock?: ManualClock; // The manual clock created from `options.now`; absent without `now`.
   eventDispatcher?: EventDispatcher;
   lifecycle?: Lifecycle;
   jobRunner?: JobRunner;

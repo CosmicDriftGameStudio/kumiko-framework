@@ -84,11 +84,13 @@ function FlatStatStrip(props: StatGroupProps): ReactNode {
   return (
     <div
       data-testid={`dashboard-panel-${panel.id}`}
-      className="grid grid-cols-2 gap-y-2 rounded-lg border border-border bg-card py-1 lg:auto-cols-fr lg:grid-flow-col lg:divide-x lg:divide-border-row"
+      className="rounded-lg border border-border bg-card py-1 lg:flex lg:items-center"
     >
-      <StatCells {...props} variant="strip" />
+      <div className="grid grow grid-cols-2 gap-y-2 lg:auto-cols-fr lg:grid-flow-col lg:divide-x lg:divide-border-row">
+        <StatCells {...props} variant="strip" />
+      </div>
       {panel.link !== undefined && (
-        <div className="col-span-full flex px-4 lg:col-span-1 lg:items-center">
+        <div className="flex px-4 max-lg:pt-1 lg:shrink-0">
           <StatGroupLink link={panel.link} translate={translate} stretchOnNarrow={false} />
         </div>
       )}
@@ -113,11 +115,8 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
         {panel.stats.map((stat) => (
           <div
             key={stat.id}
-            className="flex min-w-0 max-sm:items-baseline max-sm:gap-x-2 max-sm:whitespace-nowrap"
+            className={`flex min-w-0 max-sm:items-baseline max-sm:gap-x-2 max-sm:whitespace-nowrap max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·']${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
           >
-            <span aria-hidden="true" className="text-muted-foreground sm:hidden">
-              ·
-            </span>
             <StatPanelBody
               panel={stat}
               label={translate(stat.label)}
@@ -138,11 +137,17 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
 
 export function StatGroupPanelBody(props: StatGroupProps): ReactNode {
   const { panel, label, translate } = props;
-  if (label === undefined) return <FlatStatStrip {...props} />;
-  if (panel.layout === "strip") return <TitledStatStrip {...props} label={label} />;
+  const layout = panel.layout ?? (label === undefined ? "strip" : "cards");
+  if (layout === "strip") {
+    return label === undefined ? (
+      <FlatStatStrip {...props} />
+    ) : (
+      <TitledStatStrip {...props} label={label} />
+    );
+  }
   return (
     <SectionCard
-      title={label}
+      {...(label !== undefined && { title: label })}
       {...(panel.subtitle !== undefined && { subtitle: translate(panel.subtitle) })}
       {...(panel.link !== undefined && {
         action: <StatGroupLink link={panel.link} translate={translate} stretchOnNarrow={false} />,

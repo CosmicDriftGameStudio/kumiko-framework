@@ -4,7 +4,7 @@ import { UNIFORM_BAR_CONTROLS_CLASSES } from "../../layout/uniform-bar-controls.
 import { cn } from "../../lib/cn.ts";
 import { Button as UiButton } from "../../ui/button.tsx";
 import { buildFacetCluster } from "./facet-cluster.tsx";
-import { SortOptionsSelect } from "./sort-options-select.tsx";
+import { hasSortOptionsSelect, SortOptionsSelect } from "./sort-options-select.tsx";
 import { ToolbarEndCluster, toolbarEndHasContent } from "./toolbar-end-cluster.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
@@ -28,13 +28,15 @@ export function hasToolbarContent(m: DataTableModel, facetCluster: ReactNode): b
   return (
     m.toolbarStart !== undefined ||
     facetCluster !== undefined ||
-    hasSortOptionsSelect(m) ||
+    hasVisibleSortOptions(m) ||
     toolbarEndHasContent(m.view, m.exportList, m.toolbarEnd)
   );
 }
 
-function hasSortOptionsSelect(m: DataTableModel): boolean {
-  return m.onSortChange !== undefined && m.sortOptions !== undefined && m.sortOptions.length > 0;
+// The toolbar select is max-md:hidden; below md the card sort bar owns sorting, so a toolbar
+// holding only the hidden select would render an empty row.
+function hasVisibleSortOptions(m: DataTableModel): boolean {
+  return !m.isNarrow && hasSortOptionsSelect(m.sortOptions, m.onSortChange);
 }
 
 function toolbarClassName({ fillsHeight, isNarrow }: DataTableModel): string {
@@ -101,7 +103,7 @@ export function toolbarMergesDescription(m: DataTableModel, facetCluster: ReactN
 
 function renderSortOptions(m: DataTableModel): ReactNode {
   const { sortOptions, onSortChange, testId } = m;
-  if (onSortChange === undefined || sortOptions === undefined || sortOptions.length === 0) {
+  if (onSortChange === undefined || !hasSortOptionsSelect(sortOptions, onSortChange)) {
     return null;
   }
   return (

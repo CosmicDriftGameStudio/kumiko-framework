@@ -122,14 +122,16 @@ function renderBanner(model: DetailGuidanceModel): ReactNode {
   const { Banner } = model.primitives;
   const actions = renderItemActions(model, spec.actions, notice);
   return (
-    <Banner
-      variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
-      title={notice.title}
-      {...(actions !== undefined && { actions })}
-      testId="kumiko-screen-projection-detail-banner"
-    >
-      {notice.text}
-    </Banner>
+    <div className={GUIDANCE_INSET}>
+      <Banner
+        variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
+        title={notice.title}
+        {...(actions !== undefined && { actions })}
+        testId="kumiko-screen-projection-detail-banner"
+      >
+        {notice.text}
+      </Banner>
+    </div>
   );
 }
 
@@ -194,15 +196,15 @@ function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode
     return undefined;
   }
   const t = model.effectiveTranslate;
-  return chains.map((chain, index) => {
-    if (chain.steps.length === 0) return undefined;
+  const cards = chains.flatMap((chain, index) => {
+    if (chain.steps.length === 0) return [];
     const currentIndex = Math.min(
       Math.max(Math.trunc(chain.currentIndex), 0),
       chain.steps.length - 1,
     );
     const current = chain.steps[currentIndex];
     const testId = `record-progress-${index}`;
-    return (
+    return [
       <Card key={testId} slots={{ title: chain.title }} testId={testId}>
         <StepBar
           steps={chain.steps.map((step) => step.label)}
@@ -226,12 +228,14 @@ function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode
             {current.detail !== undefined ? ` · ${current.detail}` : ""}
           </Text>
         )}
-      </Card>
-    );
+      </Card>,
+    ];
   });
+  return cards.length === 0 ? undefined : cards;
 }
 
-// RecordSteps and the summary carry their own px-6; the progress cards are bare, so they need the same inset to line up with the metric tiles.
+// RecordSteps and the summary carry their own px-6; the progress cards and the banner are bare, so they need the same inset to line up with the metric tiles.
+const GUIDANCE_INSET = "px-6";
 const PROGRESS_INSET = "flex min-w-0 flex-col gap-4 px-6 py-2";
 
 /** Summary, banner, progress and steps in reading order; blocks whose record field holds nothing drop out. */

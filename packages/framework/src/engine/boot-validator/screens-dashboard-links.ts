@@ -1,11 +1,13 @@
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
-import { resolveScreenTargetQn } from "./screens-actions.ts";
+import { declaredNamedFilterIds, resolveDashboardScreenTarget } from "./dashboard-screen-target.ts";
+import { validateNavigateParams } from "./dashboard-stat-navigate.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 
 export type DashboardPanelLinkTarget = {
   readonly screen: string;
   readonly namedFilter?: string;
+  readonly params?: Readonly<Record<string, unknown>>;
 };
 
 // `where` names the option ("... list-panel "x" footerLink") so the one rule reads right for
@@ -16,24 +18,24 @@ export function validateDashboardPanelLink(
   featureName: string,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
+  // skip: the panel declares no link
   if (link === undefined) return;
-  const qn = resolveScreenTargetQn(featureName, link.screen);
-  const [targetFeatureName = "", , targetShortId = ""] = qn.split(":");
-  const target = featureMap.get(targetFeatureName)?.screens[targetShortId];
-  if (target === undefined) {
-    throw bootRuleError(DASHBOARD_RULES.listFooterLinkUnknownScreen, {
-      message: `${where} screen "${link.screen}" does not resolve to a registered screen (checked "${qn}"). Use a same-feature short id or a cross-feature QN "<feature>:screen:<id>".`,
+  validateNavigateParams(where, link.params);
+  const resolved = resolveDashboardScreenTarget(featureName, link.screen, featureMap);
+  if (resolved.kind === "unresolved") {
+    throw bootRuleError(DASHBOARD_RULES.panelLinkTarget, {
+      message: `${where} screen "${link.screen}" does not resolve to a registered screen (checked "${resolved.qn}"). Use a same-feature short id or a cross-feature QN "<feature>:screen:<id>".`,
     });
   }
   if (link.namedFilter === undefined) return;
-  if (target.type !== "entityList" && target.type !== "projectionList") {
-    throw bootRuleError(DASHBOARD_RULES.listFooterLinkUnknownScreen, {
-      message: `${where} sets namedFilter "${link.namedFilter}" but screen "${target.id}" is not a list screen. Remove namedFilter.`,
+  if (resolved.kind !== "list") {
+    throw bootRuleError(DASHBOARD_RULES.panelLinkTarget, {
+      message: `${where} sets namedFilter "${link.namedFilter}" but screen "${resolved.screenId}" is not a list screen. Remove namedFilter.`,
     });
   }
-  if (!(target.namedFilters ?? []).some((ref) => ref.id === link.namedFilter)) {
-    throw bootRuleError(DASHBOARD_RULES.listFooterLinkUnknownScreen, {
-      message: `${where} namedFilter "${link.namedFilter}" is not declared in namedFilters of screen "${target.id}". Add { id, label } to that screen.`,
+  if (!declaredNamedFilterIds(resolved.target).has(link.namedFilter)) {
+    throw bootRuleError(DASHBOARD_RULES.panelLinkTarget, {
+      message: `${where} namedFilter "${link.namedFilter}" is not declared in namedFilters of screen "${resolved.target.screen.id}". Add { id, label } to that screen.`,
     });
   }
 }

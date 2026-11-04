@@ -326,3 +326,44 @@ describe("requiredKeysFromScreen — record guidance and dashboard text", () => 
     expect(keys).toContain("shop:help:item-two");
   });
 });
+
+describe("requiredKeysFromScreen — board-gap labels", () => {
+  test("sortOptions labels of a list are required", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "orders",
+      type: "projectionList",
+      query: "shop:query:order:list",
+      columns: ["number"],
+      sortOptions: [{ field: "number", dir: "asc", label: "shop:sort:number" }],
+    });
+    expect(keys).toContain("shop:sort:number");
+  });
+
+  test("list panel subtitle and footerLink label and stat-group link label are required", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "overview",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "list",
+          id: "now",
+          label: "shop:today:now",
+          subtitle: "shop:today:now-sub",
+          query: "shop:query:order:now",
+          columns: [{ field: "number" }],
+          footerLink: { label: "shop:today:all", screen: "orders" },
+        },
+        {
+          kind: "stat-group",
+          id: "inbox",
+          label: "shop:today:inbox",
+          link: { label: "shop:today:inbox-link", screen: "orders" },
+          stats: [],
+        },
+      ],
+    });
+    expect(keys).toContain("shop:today:now-sub");
+    expect(keys).toContain("shop:today:all");
+    expect(keys).toContain("shop:today:inbox-link");
+  });
+});

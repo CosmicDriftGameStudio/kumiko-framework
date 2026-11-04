@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.ts";
-import { Table } from "../../ui/table.tsx";
+import { Table, TableFooter } from "../../ui/table.tsx";
 import { ColumnWidthGroup } from "./column-resize-handle.tsx";
 import { renderTableBody } from "./table-body.tsx";
 import { FILL_TABLE_CLASS, FlushTable } from "./table-chrome.tsx";
@@ -48,6 +48,19 @@ function renderTotalsRow(m: DataTableModel): ReactNode {
   );
 }
 
+// Both rows share one tfoot; a second tfoot is invalid HTML.
+function renderTableFooter(m: DataTableModel): ReactNode {
+  const summary = renderSummaryRow(m);
+  const totals = renderTotalsRow(m);
+  if (summary === null && totals === null) return null;
+  return (
+    <TableFooter>
+      {summary}
+      {totals}
+    </TableFooter>
+  );
+}
+
 export function renderTableView(m: DataTableModel): ReactNode {
   const { fillsHeight, chromeless, sizing, testId } = m;
   const TableRoot = fillsHeight ? FlushTable : Table;
@@ -75,8 +88,7 @@ export function renderTableView(m: DataTableModel): ReactNode {
         {renderColumnWidths(m)}
         {renderTableHeader(m)}
         {renderTableBody(m)}
-        {renderSummaryRow(m)}
-        {renderTotalsRow(m)}
+        {renderTableFooter(m)}
       </TableRoot>
     </div>
   );

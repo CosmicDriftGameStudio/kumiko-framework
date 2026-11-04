@@ -136,6 +136,7 @@ export function ListPanelBody({
           ? undefined
           : (data) => listSubtitle(panel, data, translate)
       }
+      {...(panel.subtitle !== undefined && { staticSubtitle: translate(panel.subtitle) })}
       footer={
         footerLink === undefined
           ? undefined

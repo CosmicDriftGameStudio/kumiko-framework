@@ -925,7 +925,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.pwa.install-hint": "Install this app on your device to open it like any other app.",
   "kumiko.pwa.install-hint-ios": "To install this app, tap Share and then “Add to Home Screen”.",
   "kumiko.list.sort.by": "Sorted by {column}",
-  "kumiko.list.sort-by": "Sorted by",
+  "kumiko.list.sort.prefix": "Sorted by",
   "kumiko.list.sort.label": "Sort",
   "kumiko.list.sort.unsorted": "Unsorted",
   "kumiko.list.reset-all": "Reset",

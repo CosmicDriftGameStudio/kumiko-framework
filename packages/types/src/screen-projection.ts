@@ -297,7 +297,7 @@ export type ProjectionDetailScreenDefinition = {
   readonly metrics?: readonly MetricSpec[];
   /** "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band. */
   readonly metricsStyle?: "band" | "tiles";
-  /** `narrow: "after-guidance"` moves the metrics below the summary, banner and steps on screens under md, ahead of the tabs. Needs the page-header slot; the head card keeps its metrics. */
+  /** `narrow: "after-guidance"` moves the metrics below the summary, banner and steps on screens under md, ahead of the tabs. Works with the page header and the head card; only the metric tiles move, the subtitle and status line stay under the title. */
   readonly metricsPlacement?: { readonly narrow?: "after-guidance" };
   /** Path above the header (query column holding items). */
   readonly breadcrumb?: RecordBreadcrumbSpec;

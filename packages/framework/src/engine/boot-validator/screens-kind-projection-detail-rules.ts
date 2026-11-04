@@ -69,7 +69,7 @@ export const PROJECTION_DETAIL_RULES = {
     fix: "Name a query output field or remove the block.",
   },
   progressBesideStepsWithoutSteps: {
-    id: "record/progress-beside-steps-without-steps",
+    id: "projection-detail/progress-beside-steps-without-steps",
     summary: 'progress.placement "beside-steps" needs a steps block to sit next to.',
     fix: "Add steps to the projectionDetail or remove progress.placement.",
   },

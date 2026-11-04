@@ -2113,3 +2113,134 @@ describe("dashboard list showTotal, footer link and stat-group link", () => {
     expect(screen.queryByTestId("dashboard-list-more")).toBeNull();
   });
 });
+
+describe("dashboard board gaps: cards layout, subtitle fallback, gated tiles", () => {
+  const kpiStats = [
+    { kind: "stat" as const, id: "a", label: "demo:a", query: "demo:query:kpi:a", valueField: "v" },
+  ];
+
+  test("a stat-group with layout cards and no label renders the cards without a heading", async () => {
+    renderDashboard(
+      {
+        id: "cards",
+        type: "dashboard",
+        panels: [{ kind: "stat-group", id: "plain", layout: "cards", stats: kpiStats }],
+      },
+      { "demo:query:kpi:a": () => ok({ v: "7" }) },
+    );
+    await waitFor(() => expect(screen.getByText("7")).toBeTruthy());
+    const panel = screen.getByTestId("dashboard-panel-plain");
+    expect(panel.querySelector("h2")).toBeNull();
+    expect(panel.querySelector("section.grid")?.className).toContain("auto-fit");
+  });
+
+  test("a list panel shows its static subtitle while the query is loading, and no footer link", async () => {
+    renderDashboard(
+      {
+        id: "loading",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "list",
+            id: "now",
+            label: "demo:now",
+            subtitle: "demo:now-sub",
+            query: "demo:query:jobs:list",
+            columns: ["name"],
+            footerLink: { label: "demo:all-jobs", screen: "jobs" },
+          },
+        ],
+      },
+      { "demo:query:jobs:list": () => new Promise(() => {}) },
+    );
+    await waitFor(() => expect(screen.getByText("demo:now-sub")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-list-footer-link")).toBeNull();
+  });
+
+  test("a stat tile whose navigate target the user may not open is hidden", async () => {
+    const gated: FeatureSchema = {
+      featureName: FEATURE,
+      entities: {},
+      screens: [
+        {
+          id: "demo:screen:secret",
+          type: "custom",
+          renderer: { react: "Secret" },
+          access: { roles: ["Admin"] },
+        },
+      ],
+    };
+    renderDashboard(
+      {
+        id: "gate",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat",
+            id: "locked",
+            label: "demo:locked",
+            query: "demo:query:kpi:a",
+            valueField: "v",
+            navigate: { screen: "secret" },
+          },
+          {
+            kind: "stat",
+            id: "open",
+            label: "demo:open",
+            query: "demo:query:kpi:a",
+            valueField: "v",
+          },
+        ],
+      },
+      { "demo:query:kpi:a": () => ok({ v: "7" }) },
+      { appFeatures: [gated] },
+    );
+    await waitFor(() => expect(screen.getByTestId("dashboard-panel-open")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-panel-locked")).toBeNull();
+  });
+});
+
+describe("dashboard stat-group strip with a group link and a navigating tile", () => {
+  test("the tile with its own navigate sits above the group link's overlay", async () => {
+    renderDashboard(
+      {
+        id: "strip-link",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat-group",
+            id: "counts",
+            label: "demo:counts",
+            layout: "strip",
+            link: { label: "demo:open-jobs", screen: "jobs" },
+            stats: [
+              {
+                kind: "stat",
+                id: "late",
+                label: "demo:late",
+                query: "demo:query:kpi:late",
+                valueField: "v",
+                navigate: { screen: "jobs" },
+              },
+              {
+                kind: "stat",
+                id: "open",
+                label: "demo:open",
+                query: "demo:query:kpi:late",
+                valueField: "v",
+              },
+            ],
+          },
+        ],
+      },
+      { "demo:query:kpi:late": () => ok({ v: "3" }) },
+    );
+    const link = await screen.findByTestId("dashboard-stat-group-link");
+    expect(link.className).toContain("max-sm:after:absolute");
+    const group = screen.getByTestId("dashboard-panel-counts");
+    const raised = group.querySelectorAll(".max-sm\\:z-10");
+    expect(raised).toHaveLength(1);
+    expect(within(raised[0] as HTMLElement).getByText("demo:late")).toBeTruthy();
+    expect(within(raised[0] as HTMLElement).queryByText("demo:open")).toBeNull();
+  });
+});

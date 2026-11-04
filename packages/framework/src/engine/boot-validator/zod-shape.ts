@@ -2,8 +2,10 @@ import {
   ZodArray,
   ZodCatch,
   ZodDefault,
+  ZodEnum,
   ZodIntersection,
   ZodLazy,
+  ZodLiteral,
   ZodMap,
   ZodNever,
   ZodNonOptional,
@@ -17,7 +19,7 @@ import {
   ZodRecord,
   ZodSet,
   ZodTuple,
-  type ZodType,
+  ZodType,
   ZodUnion,
   ZodXor,
 } from "zod";
@@ -46,6 +48,25 @@ function unwrapZodType(schema: ZodType): ZodType {
     break;
   }
   return current;
+}
+
+// The closed set of string values a schema accepts (enum, literal, union of those), or undefined
+// when it accepts anything else (plain z.string(), refinements, ...) and cannot be enumerated.
+export function getZodStringLiterals(schema: ZodType | undefined): readonly string[] | undefined {
+  if (schema === undefined) return undefined;
+  const unwrapped = unwrapZodType(schema);
+  if (unwrapped instanceof ZodEnum) return Object.values(unwrapped.enum).map(String);
+  if (unwrapped instanceof ZodLiteral) {
+    const values = [...unwrapped.values];
+    return values.every((value) => typeof value === "string") ? values.map(String) : undefined;
+  }
+  if (unwrapped instanceof ZodUnion) {
+    const parts = unwrapped.options.map((option) =>
+      option instanceof ZodType ? getZodStringLiterals(option) : undefined,
+    );
+    return parts.every((part) => part !== undefined) ? parts.flat() : undefined;
+  }
+  return undefined;
 }
 
 // Non-ZodObject schemas (e.g. a z.union across payload shapes) and an

@@ -49,6 +49,28 @@ describe("setupTestStack now option (integration)", () => {
     expect(res.now).toBe("2032-01-02T03:04:05Z");
   });
 
+  test("stack.clock is the manual clock behind ctx.tz.now()", async () => {
+    stack = await setupTestStack({ features: [nowFeature], now: "2031-05-06T07:08:09Z" });
+    stack.clock?.advance({ hours: 1 });
+    const res = await stack.http.writeOk<{ now: string }>(
+      "stnow:write:read-now",
+      {},
+      TestUsers.admin,
+    );
+    expect(res.now).toBe("2031-05-06T08:08:09Z");
+  });
+
+  test("without now there is no stack.clock", async () => {
+    stack = await setupTestStack({ features: [nowFeature] });
+    expect(stack.clock).toBeUndefined();
+  });
+
+  test("an invalid now string fails with the option name", async () => {
+    await expect(setupTestStack({ features: [nowFeature], now: "not-a-date" })).rejects.toThrow(
+      /option "now" must be an ISO instant/,
+    );
+  });
+
   test("extraContext.clock wins over now", async () => {
     stack = await setupTestStack({
       features: [nowFeature],
@@ -61,5 +83,6 @@ describe("setupTestStack now option (integration)", () => {
       TestUsers.admin,
     );
     expect(res.now).toBe("2040-09-09T09:09:09Z");
+    expect(stack.clock?.now().toString()).toBe("2040-09-09T09:09:09Z");
   });
 });

@@ -19,7 +19,7 @@ export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap
 // because the renderer's LIST_ROW_META_COLUMNS doesn't know them.
 export const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
 
-function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
+export function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
   const entities = feature.entities;
   if (!entities) return false;
   const entity = entities[entityName];

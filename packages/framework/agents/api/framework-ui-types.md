@@ -459,6 +459,10 @@ type ListSortSpec = {
   field: string;
   dir: ListSortDir;
 };
+type ListTableSummaryRow = { // The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label, value, tone?
+  query: string; // Qualified query name, e.g. `feature:query:order:summary`.
+  params?: Readonly<Record<string, unknown>>; // Extra payload keys merged over the list's own.
+};
 type OptionsQueryPayload = Readonly<Record<string, OptionsQueryPayloadValue>>;
 type ParsedRefTarget = {
   featureName: string;

@@ -180,16 +180,16 @@ describe("dashboard list footerLink and stat-group link", () => {
         },
       ]),
     ]);
-    expect(ids).not.toContain("dashboard/list-footer-link-unknown-screen");
+    expect(ids).not.toContain("dashboard/panel-link-target");
   });
 
-  test("a footerLink to an unknown screen is dashboard/list-footer-link-unknown-screen", () => {
+  test("a footerLink to an unknown screen is dashboard/panel-link-target", () => {
     const ids = ruleIdsOf([
       dashboardFeature([
         { ...NOW_LIST, footerLink: { label: "shop:today:all", screen: "nowhere" } },
       ]),
     ]);
-    expect(ids).toContain("dashboard/list-footer-link-unknown-screen");
+    expect(ids).toContain("dashboard/panel-link-target");
   });
 
   test("a footerLink namedFilter the target does not declare is rejected", () => {
@@ -201,7 +201,7 @@ describe("dashboard list footerLink and stat-group link", () => {
         },
       ]),
     ]);
-    expect(ids).toContain("dashboard/list-footer-link-unknown-screen");
+    expect(ids).toContain("dashboard/panel-link-target");
   });
 
   test("a stat-group link to an unknown screen reuses the rule", () => {
@@ -217,7 +217,7 @@ describe("dashboard list footerLink and stat-group link", () => {
         },
       ]),
     ]);
-    expect(ids).toContain("dashboard/list-footer-link-unknown-screen");
+    expect(ids).toContain("dashboard/panel-link-target");
   });
 });
 

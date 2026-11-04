@@ -78,6 +78,53 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     expect(screen.getByTestId("record-progress-0-up-next")).toBeTruthy();
   });
 
+  test("a chain without steps renders no progress and the steps take the full width", async () => {
+    const emptyChain = { ...record, chains: [{ title: "Order", currentIndex: 0, steps: [] }] };
+    const query = (async () => ({
+      isSuccess: true,
+      data: emptyChain,
+    })) as unknown as Dispatcher["query"];
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <KumikoScreen
+          schema={{ featureName: "orders", entities: {}, screens: [baseScreen] }}
+          qn="orders:screen:order-detail"
+          entityId="o-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-projection-detail-steps"));
+    expect(screen.queryByTestId("record-progress-0")).toBeNull();
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-steps").closest(".lg\\:col-span-12"),
+    ).not.toBeNull();
+  });
+
+  test("the banner sits in the same px-6 inset as the other guidance blocks", async () => {
+    const withBanner = { ...record, notice: { title: "Heads up", text: "Check this" } };
+    const query = (async () => ({
+      isSuccess: true,
+      data: withBanner,
+    })) as unknown as Dispatcher["query"];
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <KumikoScreen
+          schema={{
+            featureName: "orders",
+            entities: {},
+            screens: [{ ...baseScreen, banner: { field: "notice" } }],
+          }}
+          qn="orders:screen:order-detail"
+          entityId="o-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("kumiko-screen-projection-detail-banner"));
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-banner").closest(".px-6"),
+    ).not.toBeNull();
+  });
+
   test("a metric subField renders its value under the metric", async () => {
     renderDetail(baseScreen);
     await waitFor(() => screen.getByTestId("kumiko-screen-projection-detail-metric-total"));

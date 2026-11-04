@@ -4,8 +4,18 @@ export const LIST_SORT_SUMMARY_RULES = {
   sortOptionNotSortable: {
     id: "list/sort-option-not-sortable",
     summary:
-      "Every sortOptions field is a listed, sortable column (entityList) or one the query sorts by (projectionList).",
-    fix: "Mark the field sortable and list it as a column, or give the projectionList's query sort and sortDirection parameters.",
+      "Every sortOptions field is a listed, sortable column (entityList); a projectionList's query takes sort and sortDirection and, when sort is an enum, lists every option field.",
+    fix: "Mark the field sortable and list it as a column, or give the projectionList's query sort and sortDirection parameters that accept the option fields.",
+  },
+  sortOptionsInvalid: {
+    id: "list/sort-options-invalid",
+    summary: "sortOptions is not empty and lists each field and dir once.",
+    fix: "Remove sortOptions, or list each field and dir pair once.",
+  },
+  sortOptionsDefaultNotListed: {
+    id: "list/sort-options-default-not-listed",
+    summary: "A defaultSort is one of the sortOptions, so the select opens on an entry.",
+    fix: "Add the defaultSort field and dir to sortOptions or change defaultSort.",
   },
   summaryRowShape: {
     id: "list/summary-row-shape",

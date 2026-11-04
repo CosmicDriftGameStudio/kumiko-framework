@@ -205,7 +205,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.bulk.result.not-started": "Not run: {count}",
     "kumiko.list.bulk.result.dismiss": "Dismiss",
     "kumiko.list.sort.by": "Sorted by {column}",
-    "kumiko.list.sort-by": "Sorted by",
+    "kumiko.list.sort.prefix": "Sorted by",
     "kumiko.form.changed": "changed",
     "kumiko.form.on-this-page": "On this page",
     "kumiko.form.noUnsavedChanges": "No unsaved changes",
