@@ -67,13 +67,14 @@ export {
   type KillSwitchResolver,
   type RateLimitConfig,
 } from "./delivery-service.ts";
-export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature.ts";
+export { createDeliveryFeature } from "./feature.ts";
 export {
   type UnsubscribeAddressPayload,
   unsubscribeAddressPayloadSchema,
 } from "./handlers/unsubscribe-address.write.ts";
 export { currentNotificationType } from "./notification-type-aliases.ts";
 export { createDeliveryNotifyFactory } from "./notify-factory.ts";
+export type { DeliveryFeatureOptions } from "./options.ts";
 export {
   buildSystemChannelContext,
   type SystemChannelContextDeps,

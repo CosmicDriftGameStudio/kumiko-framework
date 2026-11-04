@@ -187,6 +187,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "kumiko.drawer.discard.body": "Ihre Eingaben in diesem Formular gehen verloren.",
   "kumiko.field.reference-created-no-id":
     "Der Eintrag wurde angelegt, aber nicht automatisch ausgewählt. Bitte wählen Sie ihn manuell aus.",
+  "kumiko.pwa.install-hint":
+    "Installieren Sie diese App auf Ihrem Gerät, dann öffnet sie sich wie jede andere App.",
+  "kumiko.pwa.install-hint-ios":
+    "Zum Installieren tippen Sie auf Teilen und dann auf „Zum Home-Bildschirm“.",
   "kumiko.form.draft.resume-multiple":
     "Mehrere offene Entwürfe für dieses Formular gefunden. Welchen möchten Sie fortsetzen?",
   "kumiko.form.draft.resume-single":
