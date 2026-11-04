@@ -6,11 +6,11 @@ import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNav } from "../../app/nav.tsx";
-import { useScreenLinkResolver } from "../../app/reference-link.ts";
+import { type ScreenLinkResolver, useScreenLinkResolver } from "../../app/reference-link.ts";
 import { namedFilterNavigateAllows, navigateTargetAllows } from "../../app/screen-access.ts";
 import { hintViewModel } from "../../components/render-list-hint-columns.ts";
 import { screenLinkFor } from "../../components/use-render-list-columns.ts";
-import type { Translate } from "../../headless/index.ts";
+import type { CellLink, Translate } from "../../headless/index.ts";
 import { useAppFeatures, usePrimitives, useUserRoles } from "../../index.ts";
 import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
@@ -41,22 +41,42 @@ function listSubtitle(
   translate: Translate,
 ): string | undefined {
   const own = panel.subtitle !== undefined ? translate(panel.subtitle) : undefined;
+  const count = totalText(panel, data, false, translate);
+  if (count === undefined) return own;
+  return own === undefined ? count : `${own} · ${count}`;
+}
+
+/** The "{shown} of {total}" text; a `showTotal.text` / `narrowText` replaces the default key. */
+function totalText(
+  panel: DashboardListPanel,
+  data: ListEnvelope,
+  narrow: boolean,
+  translate: Translate,
+): string | undefined {
+  const { showTotal } = panel;
   const total = knownTotal(data);
-  if (panel.showTotal !== true || total === undefined) return own;
-  const count = translate("kumiko.dashboard.list.shown-of-total", {
+  if (showTotal === undefined || total === undefined) return undefined;
+  const custom =
+    showTotal === true
+      ? undefined
+      : narrow
+        ? (showTotal.narrowText ?? showTotal.text)
+        : showTotal.text;
+  return translate(custom ?? "kumiko.dashboard.list.shown-of-total", {
     shown: (data.rows ?? []).length,
     total,
   });
-  return own === undefined ? count : `${own} · ${count}`;
 }
 
 function ListFooter({
   link,
   data,
+  narrow,
   translate,
 }: {
   readonly link: DashboardListFooterLink;
   readonly data: ListEnvelope;
+  readonly narrow: boolean;
   readonly translate: Translate;
 }): ReactNode {
   const { Link } = usePrimitives();
@@ -73,7 +93,11 @@ function ListFooter({
     <>
       {remaining > 0 && (
         <span data-testid="dashboard-list-more">
-          {translate("kumiko.dashboard.list.more", { count: remaining })}
+          {translate(
+            (narrow ? (link.narrowMoreText ?? link.moreText) : link.moreText) ??
+              "kumiko.dashboard.list.more",
+            { count: remaining },
+          )}
           {allowed && " · "}
         </span>
       )}
@@ -89,6 +113,14 @@ function ListFooter({
       )}
     </>
   );
+}
+
+function rowLinkResolverOf(
+  rowLink: NonNullable<DashboardListPanel["rowLink"]>,
+  resolveScreenLink: ScreenLinkResolver,
+): (row: Readonly<Record<string, unknown>>) => CellLink | undefined {
+  const { paramField, screen } = rowLink;
+  return (row) => resolveScreenLink(screen, paramField === undefined ? undefined : row[paramField]);
 }
 
 function ListLine({
@@ -108,9 +140,14 @@ function ListLine({
   const nav = useNav();
   const rows = data.rows ?? [];
   const firstRow = rows[0];
-  const textField = panel.columns
-    .map((column) => normalizeListColumn(column))
-    .find((column) => column.display === undefined && typeof firstRow?.[column.field] === "string");
+  const columns = panel.columns.map((column) => normalizeListColumn(column));
+  const lineField = panel.narrow?.field;
+  const textField =
+    lineField !== undefined
+      ? columns.find((column) => column.field === lineField)
+      : columns.find(
+          (column) => column.display === undefined && typeof firstRow?.[column.field] === "string",
+        );
   const firstText = textField === undefined ? undefined : firstRow?.[textField.field];
   const more = (knownTotal(data) ?? rows.length) - 1;
   const target = dashboardNavigationLink(nav, link);
@@ -148,18 +185,13 @@ function NarrowCardsPanel({
 }): ReactNode {
   const { formatPercent, formatNumber, formatDateTime } = useDashboardFormats();
   const { footerLink } = panel;
-  const total = knownTotal(data);
+  const totalLabel = totalText(panel, data, true, translate);
   return (
     <section data-testid={`dashboard-panel-${panel.id}`} className="flex flex-col gap-2">
       <header className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold">{label}</h2>
-        {panel.showTotal === true && total !== undefined && (
-          <span className="text-xs text-muted-foreground">
-            {translate("kumiko.dashboard.list.shown-of-total", {
-              shown: (data.rows ?? []).length,
-              total,
-            })}
-          </span>
+        {totalLabel !== undefined && (
+          <span className="text-xs text-muted-foreground">{totalLabel}</span>
         )}
       </header>
       <DashboardReferenceListTable
@@ -175,7 +207,7 @@ function NarrowCardsPanel({
       />
       {footerLink !== undefined && (
         <footer className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
-          <ListFooter link={footerLink} data={data} translate={translate} />
+          <ListFooter link={footerLink} data={data} narrow translate={translate} />
         </footer>
       )}
     </section>
@@ -225,6 +257,7 @@ export function ListPanelBody({
           normalized.linkParamsField,
         ),
       }),
+      ...(normalized.showOnNarrowOnly === true && { narrowOnly: true as const }),
       ...(hint !== undefined && { hint: hintViewModel(hint, panel.rowToneField, translate) }),
     };
   });
@@ -234,7 +267,7 @@ export function ListPanelBody({
       panel={panel}
       label={label}
       subtitle={
-        panel.subtitle === undefined && panel.showTotal !== true
+        panel.subtitle === undefined && panel.showTotal === undefined
           ? undefined
           : (data) => listSubtitle(panel, limitedEnvelope(data, narrowLimit), translate)
       }
@@ -270,6 +303,7 @@ export function ListPanelBody({
               <ListFooter
                 link={footerLink}
                 data={limitedEnvelope(data, narrowLimit)}
+                narrow={narrow !== undefined}
                 translate={translate}
               />
             )
@@ -289,6 +323,12 @@ export function ListPanelBody({
           formatDateTime={formatDateTime}
           translate={translate}
           {...(narrowLayout === "cards" && { narrowCards: true })}
+          {...(panel.rowLink !== undefined && {
+            rowLink: {
+              linkFor: rowLinkResolverOf(panel.rowLink, resolveScreenLink),
+              icon: panel.rowLink.icon ?? "arrow",
+            },
+          })}
           {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
           {...(panel.showHeader !== undefined && { showHeader: panel.showHeader })}
         />

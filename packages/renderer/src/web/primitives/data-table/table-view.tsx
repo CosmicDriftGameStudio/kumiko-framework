@@ -29,6 +29,10 @@ function renderSummaryRow(m: DataTableModel): ReactNode {
       summary={m.summaryRow}
       colSpan={m.fullColSpan}
       cellClassName={m.density.cell}
+      columns={m.columns}
+      cellPin={m.pins.bodyCell}
+      leadingCells={{ select: m.selection.active, expand: m.expansion !== undefined }}
+      actionsCell={m.hasTableActions ? { fillsHeight: m.fillsHeight } : undefined}
     />
   );
 }

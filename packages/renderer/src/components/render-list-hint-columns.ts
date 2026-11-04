@@ -20,6 +20,7 @@ export function hintViewModel(
     reasonLabel: translate(HINT_REASON_LABEL_KEY),
     ...(hint.reasonField !== undefined && { reasonField: hint.reasonField }),
     ...(hint.detailField !== undefined && { detailField: hint.detailField }),
+    ...(hint.narrowDetailField !== undefined && { narrowDetailField: hint.narrowDetailField }),
     ...(hint.plainSentence === true && { plainSentence: true }),
     ...(toneField !== undefined && { toneField }),
   };

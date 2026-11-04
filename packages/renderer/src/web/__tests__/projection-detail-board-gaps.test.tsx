@@ -5,7 +5,13 @@ import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-frame
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
 import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.ts";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
+import {
+  createMockDispatcher,
+  render,
+  renderWithPrimitivesOverride,
+  screen,
+  waitFor,
+} from "./test-utils.tsx";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "order-detail",
@@ -176,6 +182,72 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
       expect(button?.querySelector("svg") === null).toBe(hideIcon);
       unmount();
     }
+  });
+
+  describe("narrowLabel and narrowSubtitle", () => {
+    const action = {
+      id: "refresh-order",
+      label: "Refresh order",
+      narrowLabel: "Refresh",
+      handler: "orders:write:order:refresh",
+    } as const;
+    const withBannerAction: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      banner: { field: "notice", actions: [action] },
+    };
+    const notice = { ...record, notice: { title: "Heads up" } };
+
+    function renderNotice(
+      detail: ProjectionDetailScreenDefinition,
+      data: Record<string, unknown>,
+      primitives?: Parameters<typeof renderWithPrimitivesOverride>[1],
+    ): void {
+      const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
+      const ui = (
+        <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+          <KumikoScreen
+            schema={{ featureName: "orders", entities: {}, screens: [detail] }}
+            qn="orders:screen:order-detail"
+            entityId="o-1"
+          />
+        </DispatcherProvider>
+      );
+      if (primitives === undefined) render(ui);
+      else renderWithPrimitivesOverride(ui, primitives);
+    }
+
+    test("a narrowLabel draws both labels, one per breakpoint", async () => {
+      renderNotice(withBannerAction, notice);
+      await waitFor(() => screen.getByText("Refresh order"));
+      expect(screen.getByText("Refresh")).toBeTruthy();
+    });
+
+    test("without FillContainer the host gets the one button, not both stacked", async () => {
+      renderNotice(withBannerAction, notice, { FillContainer: undefined });
+      await waitFor(() => screen.getByText("Refresh order"));
+      expect(screen.queryByText("Refresh")).toBeNull();
+    });
+
+    const withSubtitle = (narrowSubtitle: string): ProjectionDetailScreenDefinition => ({
+      ...baseScreen,
+      header: { title: "total", subtitle: "totalNote", narrowSubtitle },
+    });
+
+    test("narrowSubtitle draws a second subtitle next to the full one", async () => {
+      renderNotice(withSubtitle("shortNote"), { ...record, shortNote: "2 pay." });
+      const narrow = await screen.findByTestId("kumiko-screen-projection-detail-narrow-subtitle");
+      expect(narrow.textContent).toBe("2 pay.");
+      expect(screen.getByTestId("kumiko-screen-projection-detail-subtitle").textContent).toBe(
+        "2 payments",
+      );
+    });
+
+    test("an empty narrow value leaves the full subtitle without a breakpoint wrapper", async () => {
+      renderNotice(withSubtitle("shortNote"), { ...record, shortNote: "" });
+      const full = await screen.findByTestId("kumiko-screen-projection-detail-subtitle");
+      expect(screen.queryByTestId("kumiko-screen-projection-detail-narrow-subtitle")).toBeNull();
+      expect(full.closest(".max-sm\\:hidden")).toBeNull();
+    });
   });
 
   describe.each([

@@ -17,6 +17,13 @@ const STEP_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
 
 type StepItem = RecordStepsProps["items"][number];
 
+function StepDetail({ item }: { item: StepItem }): ReactNode {
+  const narrow = useIsBelowSmViewport();
+  const detail = narrow ? (item.narrowDetail ?? item.detail) : item.detail;
+  if (detail === undefined) return null;
+  return <small className="text-xs text-muted-foreground">{detail}</small>;
+}
+
 function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string }): ReactNode {
   const [reasonOpen, setReasonOpen] = useState(false);
   return (
@@ -43,12 +50,14 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
             />
           )}
         </div>
-        {item.actions !== undefined && <div className="shrink-0">{item.actions}</div>}
+        <div className="flex shrink-0 items-center gap-3">
+          {item.moreActions !== undefined && (
+            <div className="max-sm:hidden">{item.moreActions}</div>
+          )}
+          {item.actions}
+        </div>
       </div>
-      {item.detail !== undefined && (
-        <small className="text-xs text-muted-foreground">{item.detail}</small>
-      )}
-      {item.moreActions !== undefined && <div className="pt-0.5">{item.moreActions}</div>}
+      <StepDetail item={item} />
       {item.reason !== undefined && reasonOpen && (
         <ReasonBox testId={`record-step-${item.id}-reason`}>{item.reason}</ReasonBox>
       )}
@@ -66,7 +75,7 @@ function StepsHeader({
     <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-3">
       <h3 className="m-0 text-sm font-semibold text-foreground">{title}</h3>
       {subtitle !== undefined && (
-        <span className="text-[13px] text-muted-foreground">{subtitle}</span>
+        <span className="text-[13px] text-muted-foreground max-sm:hidden">{subtitle}</span>
       )}
       {count !== undefined && (
         <span

@@ -7,7 +7,13 @@ import type { ReactNode } from "react";
 import { useNav } from "../../app/nav.tsx";
 import { navigateTargetAllows } from "../../app/screen-access.ts";
 import type { Translate } from "../../headless/index.ts";
-import { useAppFeatures, usePrimitives, useUserRoles } from "../../index.ts";
+import {
+  extensionSectionName,
+  useAppFeatures,
+  useExtensionSectionComponent,
+  usePrimitives,
+  useUserRoles,
+} from "../../index.ts";
 import { SectionCard } from "../widgets/section-card.tsx";
 import { STAT_CARD_GRID_CLASSES } from "../widgets/stat.tsx";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
@@ -105,13 +111,35 @@ function FlatStatStrip(props: StatGroupProps): ReactNode {
   );
 }
 
+function PhoneStripIcon({
+  panel,
+  screenId,
+  screenParams,
+}: Pick<StatGroupProps, "panel" | "screenId" | "screenParams">): ReactNode {
+  const Icon = useExtensionSectionComponent(
+    panel.icon !== undefined ? extensionSectionName(panel.icon) : undefined,
+  );
+  if (Icon === undefined) return null;
+  return (
+    <span className="flex shrink-0 items-center self-center sm:hidden">
+      <Icon
+        entityName={screenId}
+        entityId={null}
+        screenId={screenId}
+        filterParams={screenParams.filterParams}
+      />
+    </span>
+  );
+}
+
 function TitledStatStrip(props: StatGroupProps & { readonly label: string }): ReactNode {
   const { panel, label, translate } = props;
   return (
     <div
       data-testid={`dashboard-panel-${panel.id}`}
-      className="relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-2 max-sm:items-baseline max-sm:gap-x-2 max-sm:overflow-hidden"
+      className="relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-3 max-sm:items-baseline max-sm:gap-x-2 max-sm:overflow-hidden max-sm:py-2"
     >
+      <PhoneStripIcon panel={panel} screenId={props.screenId} screenParams={props.screenParams} />
       <div className="flex min-w-0 shrink-0 flex-col max-sm:flex-row max-sm:items-baseline">
         <h2 className="text-sm font-semibold max-sm:after:ml-2 max-sm:after:font-normal max-sm:after:text-muted-foreground max-sm:after:content-['·']">
           {label}
@@ -120,11 +148,11 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
           <p className="text-xs text-muted-foreground max-sm:hidden">{translate(panel.subtitle)}</p>
         )}
       </div>
-      <div className="flex min-w-0 grow flex-wrap items-center sm:divide-x sm:divide-border-row max-sm:contents">
+      <div className="flex min-w-0 grow items-stretch gap-3 max-sm:block max-sm:truncate max-sm:text-sm">
         {panel.stats.map((stat) => (
           <div
             key={stat.id}
-            className={`flex min-w-0 max-sm:overflow-hidden max-sm:text-ellipsis max-sm:items-baseline max-sm:gap-x-2 max-sm:whitespace-nowrap max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·']${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
+            className={`flex min-w-0 sm:flex-1 max-sm:inline max-sm:[&_a]:inline max-sm:[&:not(:last-child)]:after:mx-1.5 max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·'] [&>*]:min-w-0 sm:[&>*]:w-full${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
           >
             <StatPanelBody
               panel={stat}

@@ -59,10 +59,10 @@ test("the sort select reorders the list by the chosen option", async ({ page }) 
 
 test("the summary row follows the filter", async ({ page }) => {
   await page.goto("/orders");
-  await expect(page.getByTestId("list-summary")).toContainText("Orders 8");
+  await expect(page.getByTestId("list-summary")).toContainText(/^8€/);
   await page.getByTestId(FILTER_FACET).click();
   await page.getByTestId(`${FILTER_FACET}-action-needed`).click();
-  await expect(page.getByTestId("list-summary")).toContainText("Orders 5");
+  await expect(page.getByTestId("list-summary")).toContainText(/^5€/);
 });
 
 test("a stat tile on the dashboard links into the filtered list", async ({ page }) => {

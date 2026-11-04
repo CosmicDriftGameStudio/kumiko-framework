@@ -163,13 +163,16 @@ type DashboardFilterDefinition = {
 };
 type DashboardListFooterLink = { // Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens.
   label: string;
+  moreText?: string; // i18n key of the text before the link when more rows exist than shown; `{count}` is the rest.
+  narrowMoreText?: string; // i18n key used instead of `moreText` below `sm`.
   screen: string;
   namedFilter?: string;
   params?: Readonly<Record<string, string>>;
 };
-type DashboardListNarrow = { // "cards": one card per row (tone stripe; badge column and `hint.detailField` on top, the hint sentence bold, button column bottom right, other columns below).
+type DashboardListNarrow = { // "cards": one card per row (tone stripe; badge column and `hint.detailField` on top, the hint sentence bold, button column bottom right, `showOnNarrowOnly` columns bottom left; the button column bottom right).
   limit?: number;
   layout?: "cards" | "line";
+  field?: string; // Column whose value of the first row stands behind the label in the "line" layout.
 };
 type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & DashboardPanelNarrow & {
   kind: "list";
@@ -180,9 +183,10 @@ type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   rowToneField?: string; // Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns.
   showHeader?: boolean; // `false` drops the column header row; default true.
   subtitle?: string; // i18n key, a line under `label`; with `showTotal` it stands before the count.
-  showTotal?: true; // Adds "n of m" to the subtitle from the rows shown and the query's `total`.
+  showTotal?: true | DashboardListShowTotal; // Adds "n of m" to the subtitle from the rows shown and the query's `total`.
   footerLink?: DashboardListFooterLink; // Link under the table to the full list; with a known `total` above the rows shown, "k more" stands before it.
   narrow?: DashboardListNarrow; // Phone layout below `sm`; the table stays from `sm` up.
+  rowLink?: DashboardListRowLink; // Makes each table row a link to a screen; a small icon at the right edge marks it.
 };
 type DashboardMoneyParam = { // Minor units (like Money fields), formatted with the user locale.
   kind: "money";
@@ -197,6 +201,7 @@ type DashboardPanelEmptyState = {
 };
 type DashboardPanelNarrow = { // Phone layout switch shared by every panel kind.
   hideOnNarrow?: true; // Leaves the panel out below the `sm` breakpoint (phone).
+  narrowOrder?: number; // Position below `sm`, like CSS `order`: panels are laid out by ascending value, a panel without one counts as 0, equal values keep the declared order.
 };
 type DashboardPanelQueryOptions = {
   params?: Readonly<Record<string, unknown>>; // Static, author-set query parameters merged on top of the screen's dynamic filterParams — lets a panel pin a value (e.g. a status facet) the screen-wide filter doesn't cover, without needing its own query.
@@ -248,7 +253,7 @@ type DashboardScreenDefinition = {
   filter?: DashboardFilterDefinition;
   timeRange?: DashboardTimeRangeDefinition; // Segmented control in the toolbar; the value lives in URL search param `id` and is merged into EVERY panel query (also ignoreScreenFilter ones).
   scope?: DashboardScopeDefinition; // Marks the screen as spanning more than the caller's own scope.
-  showUpdatedAt?: boolean; // Show the "Updated at" timestamp in the toolbar.
+  showUpdatedAt?: boolean; // Show today's date (server clock, weekday and day, no time) in the top bar next to the title; hidden below `sm`.
   slots?: ScreenSlots;
   access?: AccessRule;
 };
@@ -274,6 +279,7 @@ type DashboardStatGroupPanel = DashboardPanelGate & DashboardPanelNarrow & {
   subtitle?: string; // i18n key, a line under `label`; the boot validator requires `label`.
   span?: DashboardPanelSpan;
   layout?: DashboardStatGroupLayout; // Default: "strip" without `label`, "cards" with.
+  icon?: PlatformComponent; // Icon left of the one-line phone strip (below `sm`); not drawn on wider screens.
   link?: DashboardStatGroupLink; // Link at the right edge of the panel (label + chevron).
   columns?: 2 | 3 | 4; // Tiles per row from `md` up, only with `layout: "cards"`; one column below `sm`.
   stats: DashboardStatPanel[];
@@ -285,6 +291,7 @@ type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & Dash
   query: string;
   valueField: string;
   labelField?: string; // Field of the query answer holding the label text, e.g. "Contracts ending by 31.01.2027"; it replaces the static `label` while it holds a non-empty string.
+  narrowLabel?: string; // i18n key shown instead of the label in the one-line phone strip of a titled stat-group ("2 requests").
   subField?: string;
   toneField?: string;
   valueFormat?: DashboardValueFormat; // Formats a numeric value as currency (minor units) or, with `relativeTime`, as a ticking "5 minutes ago" from epoch ms; ignored for string values.
@@ -450,6 +457,7 @@ type ListBulkAction = { // An action that runs a writeHandler row action once pe
 };
 type ListColumnHint = {
   detailField?: string; // Row field with a second, muted line (e.g. the due date as text).
+  narrowDetailField?: string; // Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider").
   toneField?: string; // Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`.
   reasonField?: string; // Row field with a longer reason, shown behind a "Why?" toggle in the cell.
   emptyLabel?: string; // i18n key for an empty sentence; default `kumiko.list.hint.empty`.
@@ -471,7 +479,7 @@ type ListSortSpec = {
   field: string;
   dir: ListSortDir;
 };
-type ListTableSummaryRow = { // The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label?, value, tone?
+type ListTableSummaryRow = { // The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label?, value, tone?, column?
   query: string; // Qualified query name, e.g. `feature:query:order:summary`.
   params?: Readonly<Record<string, unknown>>; // Extra payload keys merged over the list's own.
 };
@@ -533,6 +541,7 @@ type RecordStep = {
   id: string;
   title: string;
   detail?: string;
+  narrowDetail?: string; // Shown instead of `detail` below `sm`.
   tone?: SelectOptionTone;
   why?: string; // Explanation behind a toggle next to the step.
   [field: string]: unknown;

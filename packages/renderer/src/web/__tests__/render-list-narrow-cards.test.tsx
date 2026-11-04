@@ -130,7 +130,7 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("meta values sit in one wrapping row with a separator per item, all values stay in the DOM", () => {
+  test("each meta value sits on its own line, all values stay in the DOM", () => {
     atViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
@@ -146,18 +146,12 @@ describe("DataTable — cards below 768px", () => {
       const values = ["cell-u1-from", "cell-u1-to", "cell-u1-city"].map((id) =>
         screen.getByTestId(id),
       );
-      expect(metaRow.className).toContain("flex-wrap");
+      expect(metaRow.className).toContain("flex-col");
       expect(metaRow.children).toHaveLength(3);
       expect(Array.from(metaRow.children).map((item) => item.lastElementChild)).toEqual(values);
       expect(values.map((value) => value.textContent)).toEqual(["4. Okt. 2026", "5. Okt.", "Köln"]);
-      for (const item of Array.from(metaRow.children)) {
-        expect(item.firstElementChild?.textContent).toBe("·");
-        expect(item.firstElementChild?.getAttribute("aria-hidden")).toBe("true");
-      }
       expect(metaRow.className).not.toContain("max-h-");
       expect(metaRow.className).not.toContain("overflow-hidden");
-      expect(metaRow.className).toContain("-ms-3");
-      expect(metaRow.parentElement?.className).toContain("overflow-x-clip");
       expect(metaRow.parentElement?.className).not.toContain("overflow-hidden");
       expect(container.querySelector("[class*='max-h-']")).toBeNull();
     });

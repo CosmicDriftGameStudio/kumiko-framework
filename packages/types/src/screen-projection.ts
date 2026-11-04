@@ -193,9 +193,13 @@ export type RecordHeaderSubtitlePart =
 
 export type RecordHeaderSpec = {
   readonly title: string;
+  /** Field holding a short title for the desktop top bar ("Orders › SO-10482 ● processing"); the body keeps the full `title` as the h1. Default: the title. */
+  readonly shortTitle?: string;
   /** Field name, or several parts (field name or `{ field, navigate }`)
    *  joined by a separator; parts with an empty value are dropped. */
   readonly subtitle?: string | readonly RecordHeaderSubtitlePart[];
+  /** Field holding a plain-text subtitle shown instead of `subtitle` below `sm` (e.g. "Main St 12, Berlin · 3 rooms"). */
+  readonly narrowSubtitle?: string;
   readonly status?: string;
   /** Formats the badge text (typically `enumOption` with a `keyPrefix`); tones still resolve on the raw value. Needs `status`. Without it, the `status` field's layout renderer is used when it is `enumOption` or `i18nText`. */
   readonly statusFormat?: FormatSpec;
@@ -231,6 +235,8 @@ export type MetricSpec = {
   /** Record field of the detail query holding the label text, e.g. "Rent from 01.12."; it replaces the static `label` while it holds a non-empty string. The static `label` stays the fallback. */
   readonly labelField?: string;
   readonly navigate?: MetricNavigate;
+  /** Leaves the metric out below `sm`. */
+  readonly hideOnNarrow?: true;
   /** Tile color as on dashboard stat panels; not applied while the value is 0. */
   readonly tone?: DashboardStatTone;
   /** Record field of the detail query holding a SelectOptionTone; a valid value overrides `tone`, also at value 0. Empty or unknown values fall back to `tone`. */

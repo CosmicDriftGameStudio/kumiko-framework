@@ -378,20 +378,18 @@ describe("compact shell header with a projection detail", () => {
       ).toBeNull();
     });
 
-    test("on desktop the badge sits beside the title in the body, not in the shell header", async () => {
+    test("on desktop the shell header carries the badge, the body title block the only h1 without a chip", async () => {
       setViewportWidth(DESKTOP);
       renderStatusDetail();
-      const row = await waitFor(() =>
-        screen.getByTestId("kumiko-screen-projection-detail-title-block"),
-      );
-      expect(within(row).getByText("user-42")).toBeTruthy();
+      const shellHeader = await waitFor(() => {
+        const found = document.querySelector("header") as HTMLElement;
+        within(found).getByText("Aktiv, Änderungen nicht veröffentlicht");
+        return found;
+      });
+      expect(within(shellHeader).queryByRole("heading", { level: 1 })).toBeNull();
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-      expect(within(row).getByText("Aktiv, Änderungen nicht veröffentlicht")).toBeTruthy();
-      expect(
-        within(document.querySelector("header") as HTMLElement).queryByText(
-          "Aktiv, Änderungen nicht veröffentlicht",
-        ),
-      ).toBeNull();
+      const titleBlock = screen.getByTestId("kumiko-screen-projection-detail-title-block");
+      expect(within(titleBlock).queryByText("Aktiv, Änderungen nicht veröffentlicht")).toBeNull();
     });
   });
 

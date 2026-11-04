@@ -63,11 +63,13 @@ function BannerText({
   children,
   parts,
   actionsBelow,
+  inline,
 }: Pick<BannerProps, "title" | "titleTestId" | "children" | "parts"> & {
   readonly compact: boolean;
+  readonly inline: boolean;
   readonly actionsBelow: ReactNode;
 }): ReactNode {
-  if (compact) {
+  if (compact || inline) {
     return (
       <div className="min-w-0 grow">
         {title !== undefined && (
@@ -77,8 +79,10 @@ function BannerText({
             </strong>{" "}
           </>
         )}
-        {children}
-        <BannerParts parts={parts} />
+        <span className={cn(inline && "max-sm:hidden")}>
+          {children}
+          <BannerParts parts={parts} />
+        </span>
       </div>
     );
   }
@@ -125,6 +129,7 @@ export function DefaultBanner({
   actions,
   actionsPlacement = "end",
   padded,
+  inline = false,
   testId,
   id,
 }: BannerProps): ReactNode {
@@ -151,6 +156,7 @@ export function DefaultBanner({
       )}
       <BannerText
         compact={compact}
+        inline={inline}
         title={title}
         titleTestId={titleTestId}
         parts={parts}

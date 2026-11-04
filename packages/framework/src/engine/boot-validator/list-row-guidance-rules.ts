@@ -31,9 +31,13 @@ export const LIST_ROW_GUIDANCE_RULES = {
   },
   narrowOnlyConflict: {
     id: "list/narrow-only-conflict",
-    summary:
-      "A showOnNarrowOnly column sets none of hideOnNarrow: true, hidden: true or pinned, and is not in a dashboard list panel (dashboard list cards already draw every column, so showOnNarrowOnly is the only option rejected there).",
+    summary: "A showOnNarrowOnly column sets none of hideOnNarrow: true, hidden: true or pinned.",
     fix: "Remove the conflicting option or showOnNarrowOnly.",
+  },
+  narrowDetailFieldWithoutDetailField: {
+    id: "list/narrow-detail-field-without-detail-field",
+    summary: "hint.narrowDetailField replaces hint.detailField below sm, so it needs detailField.",
+    fix: "Set hint.detailField or remove narrowDetailField.",
   },
   linkParamsWithoutScreenField: {
     id: "list/link-params-without-screen-field",

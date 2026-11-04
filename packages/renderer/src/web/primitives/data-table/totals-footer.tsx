@@ -78,16 +78,76 @@ function SummaryItems({ summary }: { readonly summary: DataTableSummaryRow }): R
   );
 }
 
-/** Full-width row above the totals row, inside the same tfoot; the summary query's "label value · label value" pairs. */
+function SummaryCellValues({ items }: { readonly items: DataTableSummaryRow["items"] }): ReactNode {
+  return items.map((item) => (
+    <span
+      key={`${item.column ?? ""}-${item.label ?? ""}-${item.value}`}
+      data-testid="list-summary-item"
+      className={cn(
+        "me-2 font-medium tabular-nums text-foreground",
+        item.tone !== undefined && HINT_TONE_TEXT_CLASS[item.tone],
+      )}
+    >
+      {item.value}
+    </span>
+  ));
+}
+
+/** Full-width row above the totals row, inside the same tfoot; the summary query's "label value · label value" pairs.
+ *  When an item names a `column`, the row is drawn as table cells under their columns instead, without labels. */
 export function SummaryFooterRow({
   summary,
   colSpan,
   cellClassName,
+  columns,
+  cellPin,
+  leadingCells,
+  actionsCell,
 }: {
   readonly summary: DataTableSummaryRow;
   readonly colSpan: number;
   readonly cellClassName?: string;
+  readonly columns: readonly ListColumnViewModel[];
+  readonly cellPin: (field: string) => PinnedCellProps;
+  readonly leadingCells: { readonly select: boolean; readonly expand: boolean };
+  readonly actionsCell: { readonly fillsHeight: boolean } | undefined;
 }): ReactNode {
+  if (summary.items.some((item) => item.column !== undefined) && columns.length > 0) {
+    const fields = new Set(columns.map((column) => column.field));
+    const firstField = columns[0]?.field;
+    // An item naming a column that is not shown lands in the first column instead of vanishing.
+    const columnOf = (item: DataTableSummaryRow["items"][number]): string | undefined =>
+      item.column !== undefined && fields.has(item.column) ? item.column : firstField;
+    return (
+      <TableRow data-testid="list-summary" className="hover:bg-transparent">
+        {leadingCellKeys(leadingCells).map((key) => {
+          const pin = cellPin(key);
+          return <TableCell key={key} className={pin.className} style={pin.style} />;
+        })}
+        {columns.map((column) => {
+          const pin = cellPin(column.field);
+          const items = summary.items.filter((item) => columnOf(item) === column.field);
+          return (
+            <TableCell
+              key={column.field}
+              data-testid={`list-summary-${column.field}`}
+              className={cn(
+                NUMERIC_COLUMN_TYPES.has(column.type) && "text-right",
+                cellClassName,
+                pin.className,
+              )}
+              style={pin.style}
+            >
+              <SummaryCellValues items={items} />
+            </TableCell>
+          );
+        })}
+        {actionsCell !== undefined && (
+          <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight)} />
+        )}
+      </TableRow>
+    );
+  }
   return (
     <TableRow data-testid="list-summary" className="hover:bg-transparent">
       <TableCell colSpan={colSpan} className={cn("text-left", cellClassName)}>

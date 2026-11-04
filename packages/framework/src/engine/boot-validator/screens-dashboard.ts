@@ -35,7 +35,10 @@ import {
 } from "./screens-actions.ts";
 import { DASHBOARD_CHART_RULES } from "./screens-dashboard-chart-rules.ts";
 import { validateDashboardPanelLink } from "./screens-dashboard-links.ts";
-import { validateDashboardPanelNarrow } from "./screens-dashboard-narrow.ts";
+import {
+  validateDashboardPanelNarrow,
+  validateListRowLinkShape,
+} from "./screens-dashboard-narrow.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 import { assertRefTargetRegistered, validateColumnRendererForm } from "./screens-lists.ts";
 
@@ -817,6 +820,16 @@ function validateDashboardQueryPanel(
       panel.footerLink,
       featureName,
       featureMap,
+    );
+    validateDashboardPanelLink(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" rowLink`,
+      panel.rowLink,
+      featureName,
+      featureMap,
+    );
+    validateListRowLinkShape(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}"`,
+      panel,
     );
     if (panel.columns.length === 0) {
       throw bootRuleError(DASHBOARD_RULES.listPanelColumnsEmpty, {

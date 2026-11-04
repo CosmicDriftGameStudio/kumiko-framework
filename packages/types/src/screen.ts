@@ -237,6 +237,7 @@ export type {
   DashboardListFooterLink,
   DashboardListNarrow,
   DashboardListPanel,
+  DashboardListRowLink,
   DashboardMoneyParam,
   DashboardPanelDefinition,
   DashboardPanelEmptyState,

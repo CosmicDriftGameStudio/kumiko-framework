@@ -44,6 +44,11 @@ const HINT_CONFLICTS: readonly {
 ];
 
 function validateHintColumn(where: string, column: ListColumn): void {
+  if (column.hint?.narrowDetailField !== undefined && column.hint.detailField === undefined) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.narrowDetailFieldWithoutDetailField, {
+      message: `${where} column "${column.field}" sets hint.narrowDetailField without hint.detailField. Set detailField or remove narrowDetailField.`,
+    });
+  }
   const conflict =
     column.hint === undefined
       ? undefined
@@ -64,13 +69,10 @@ function narrowOnlyConflictOf(column: ListColumn): string | undefined {
   return column.pinned !== undefined ? "pinned" : undefined;
 }
 
-function validateNarrowOnlyColumn(where: string, column: ListColumn, kind: GuidanceListKind): void {
+function validateNarrowOnlyColumn(where: string, column: ListColumn): void {
   // skip: the column shows in the table too
   if (column.showOnNarrowOnly === undefined) return;
-  const conflict =
-    kind === "dashboard"
-      ? "a dashboard list panel (its cards already draw every column)"
-      : narrowOnlyConflictOf(column);
+  const conflict = narrowOnlyConflictOf(column);
   if (conflict !== undefined) {
     throw bootRuleError(LIST_ROW_GUIDANCE_RULES.narrowOnlyConflict, {
       message: `${where} column "${column.field}" sets showOnNarrowOnly together with ${conflict}. Remove one of them.`,
@@ -144,7 +146,7 @@ export function validateListRowGuidance(
   for (const col of screen.columns) {
     const column = normalizeListColumn(col);
     validateHintColumn(where, column);
-    validateNarrowOnlyColumn(where, column, kind);
+    validateNarrowOnlyColumn(where, column);
     validateButtonColumn(where, column, kind);
   }
   validateNamedFilterOptions(where, screen);

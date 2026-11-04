@@ -102,13 +102,14 @@ export function renderHeaderTitleSlot(model: DetailHeaderModel): ReactNode {
   ) : undefined;
 }
 
-// Body title block under the breadcrumb: record title with the status chip on one line, the
-// grey subtitle below. Mirrors the shell header title so the head reads the same on phone and desktop.
+// Body title block under the breadcrumb: record title (the h1) and the grey subtitle. The status chip sits
+// beside it only where the shell bar does not carry it (phone); on desktop the bar shows it.
 export function renderRecordTitleBlock(
   model: DetailHeaderModel,
   titleText: string,
   statusBadge: ReactNode,
   subtitle: ReactNode,
+  chipInBar: boolean,
 ): ReactNode {
   const { Grid, Heading, FillContainer } = model.primitives;
   const block = (
@@ -117,7 +118,7 @@ export function renderRecordTitleBlock(
         <Heading variant="page" testId="kumiko-screen-projection-detail-title">
           {titleText}
         </Heading>
-        {statusBadge}
+        {!chipInBar && statusBadge}
       </Grid>
       {subtitle}
     </>
@@ -162,24 +163,47 @@ function renderSubtitleParts(model: DetailHeaderModel, subtitleParts: SubtitlePa
   );
 }
 
-function renderSubtitleField(model: DetailHeaderModel, subtitleField: string): ReactNode {
+function renderSubtitleField(
+  model: DetailHeaderModel,
+  subtitleField: string,
+  testId = "kumiko-screen-projection-detail-subtitle",
+): ReactNode {
   const { screen, record, primitives } = model;
   const { Text, Link } = primitives;
   const subtitleText = String(record[subtitleField] ?? "");
   if (subtitleText === "") return undefined;
   const subtitleHref = resolveSubtitleHref(screen.header, record);
   return subtitleHref !== undefined ? (
-    <Link href={subtitleHref} target="_blank" testId="kumiko-screen-projection-detail-subtitle">
+    <Link href={subtitleHref} target="_blank" testId={testId}>
       {subtitleText}
     </Link>
   ) : (
-    <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
+    <Text variant="muted" testId={testId}>
       {subtitleText}
     </Text>
   );
 }
 
 export function renderHeaderSubtitleSlot(model: DetailHeaderModel): ReactNode {
+  const full = renderFullSubtitle(model);
+  const narrowField = model.screen.header?.narrowSubtitle;
+  if (narrowField === undefined) return full;
+  const narrow = renderSubtitleField(
+    model,
+    narrowField,
+    "kumiko-screen-projection-detail-narrow-subtitle",
+  );
+  const { FillContainer } = model.primitives;
+  if (narrow === undefined || FillContainer === undefined) return full;
+  return (
+    <>
+      {full !== undefined && <FillContainer className="max-sm:hidden">{full}</FillContainer>}
+      {narrow !== undefined && <FillContainer className="sm:hidden">{narrow}</FillContainer>}
+    </>
+  );
+}
+
+function renderFullSubtitle(model: DetailHeaderModel): ReactNode {
   const { screen, record, nav, appFeatures, userRoles, host } = model;
   const header = screen.header;
   const subtitleParts =
@@ -279,25 +303,34 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const sub = metricSubline(metric.subField, record);
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
     const onPress = metricPressHandler(model, metric);
-    return Metric !== undefined ? (
-      <Metric
-        key={field}
-        label={label}
-        value={value}
-        testId={testId}
-        {...(onPress !== undefined && { onPress })}
-        {...(tiles && { tile: true })}
-        {...(tone !== undefined && { tone })}
-        {...(metric.icon !== undefined && { icon: metric.icon })}
-        {...(sub !== undefined && { sub })}
-      />
+    const item =
+      Metric !== undefined ? (
+        <Metric
+          key={field}
+          label={label}
+          value={value}
+          testId={testId}
+          {...(onPress !== undefined && { onPress })}
+          {...(tiles && { tile: true })}
+          {...(tone !== undefined && { tone })}
+          {...(metric.icon !== undefined && { icon: metric.icon })}
+          {...(sub !== undefined && { sub })}
+        />
+      ) : (
+        <GridCell key={field}>
+          <Text variant="small" testId={`${testId}-label`}>
+            {label}
+          </Text>
+          <Text testId={`${testId}-value`}>{value}</Text>
+        </GridCell>
+      );
+    const { FillContainer } = primitives;
+    return metric.hideOnNarrow === true && FillContainer !== undefined ? (
+      <FillContainer key={field} className="max-sm:hidden">
+        {item}
+      </FillContainer>
     ) : (
-      <GridCell key={field}>
-        <Text variant="small" testId={`${testId}-label`}>
-          {label}
-        </Text>
-        <Text testId={`${testId}-value`}>{value}</Text>
-      </GridCell>
+      item
     );
   });
 }

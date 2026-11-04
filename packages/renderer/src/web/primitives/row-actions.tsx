@@ -171,7 +171,13 @@ function RowActionButton({
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const resolvedIcon = actionIconFor(action.icon);
-  const display = effectiveRowActionDisplay(action.display, resolvedIcon !== undefined, compact);
+  const resolvedDisplay = effectiveRowActionDisplay(
+    action.display,
+    resolvedIcon !== undefined,
+    compact,
+  );
+  // A card's small row action is always an outlined button, also when the author asked for a link.
+  const display = small && resolvedDisplay === "link" ? "button" : resolvedDisplay;
   const isBorderedButton = display === "button";
   const showIconOnly =
     display === "icon" || (display === undefined && iconOnly && resolvedIcon !== undefined);

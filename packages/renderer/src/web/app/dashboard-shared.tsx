@@ -129,6 +129,8 @@ export type DashboardFormats = {
   readonly formatMonth: (atMs: number) => string;
   readonly formatHour: (atMs: number) => string;
   readonly formatDateTime: (atMs: number) => string;
+  /** Weekday and full date, no time: "Tuesday, 3 November 2026". */
+  readonly formatLongDate: (atMs: number) => string;
   readonly formatMedium: (atMs: number) => string;
   readonly formatMinor: (amountMinor: number, currency: string, fractionDigits?: number) => string;
   /** "5 minutes ago"; the component that called `useDashboardFormats` redraws on a
@@ -170,6 +172,7 @@ export function useDashboardFormats(): DashboardFormats {
     timeStyle: "short",
     timeZone,
   });
+  const longDate = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone });
   const medium = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone });
   const formatMinor = (amountMinor: number, currency: string, fractionDigits?: number): string =>
     formatMoney(amountMinor, currency, locale, fractionDigits);
@@ -200,6 +203,7 @@ export function useDashboardFormats(): DashboardFormats {
     formatMonth: (atMs) => month.format(atMs),
     formatHour: (atMs) => hour.format(atMs),
     formatDateTime: (atMs) => dateTime.format(atMs),
+    formatLongDate: (atMs) => longDate.format(atMs),
   };
 }
 
@@ -384,7 +388,7 @@ export function QueryPanel<TData>({
 
 // Starts at render time and restarts whenever the merged query params change;
 // panels additionally report each successful (re)load, so live refetches and
-// retries keep the stamp current.
+// retries keep the stamp current. An older report never replaces a newer stamp.
 export function useLoadedAt(screenParams: ScreenParams): {
   readonly loadedAtMs: number;
   readonly reportLoaded: (atMs: number) => void;

@@ -1,9 +1,8 @@
-import { Fragment, type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { isSelectOptionTone } from "../../status-tone.ts";
 import { cn } from "../lib/cn.ts";
 import { HINT_TONE_TEXT_CLASS } from "../primitives/data-table/hint-cell.tsx";
 import { cardToneClass } from "../primitives/data-table-cell.tsx";
-import { ReasonBox, ReasonInfoButton } from "../primitives/reason-box.tsx";
 import {
   DashboardListCell,
   type DashboardListColumn,
@@ -22,6 +21,8 @@ type CardsProps = {
   readonly rowToneField?: string;
 };
 
+type HintColumn = DashboardListColumn & { readonly hint: NonNullable<DashboardListColumn["hint"]> };
+
 function nonEmptyText(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -32,21 +33,18 @@ function hasValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
 }
 
+// The reason toggle of the table is left out on purpose: a phone card shows its facts, not a hidden explanation.
 function CardHeadline({
   column,
   row,
 }: {
-  readonly column: DashboardListColumn & {
-    readonly hint: NonNullable<DashboardListColumn["hint"]>;
-  };
+  readonly column: HintColumn;
   readonly row: DashboardListRow;
 }): ReactNode {
-  const [reasonOpen, setReasonOpen] = useState(false);
   const { hint } = column;
   const sentence = nonEmptyText(row[column.field]);
   const toneValue = hint.toneField === undefined ? undefined : row[hint.toneField];
   const tone = isSelectOptionTone(toneValue) ? toneValue : undefined;
-  const reason = hint.reasonField === undefined ? undefined : nonEmptyText(row[hint.reasonField]);
   if (sentence === undefined) {
     return (
       <span data-hint-empty="true" className="text-sm text-muted-foreground">
@@ -55,33 +53,24 @@ function CardHeadline({
     );
   }
   return (
-    <span className="flex min-w-0 flex-col gap-1">
-      <span className="flex items-start gap-2">
-        <span
-          className={cn(
-            "text-sm font-semibold",
-            hint.plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
-          )}
-        >
-          {sentence}
-        </span>
-        {reason !== undefined && (
-          <ReasonInfoButton
-            label={hint.reasonLabel}
-            open={reasonOpen}
-            onToggle={() => setReasonOpen((open) => !open)}
-            data-hint-reason-toggle="true"
-          />
-        )}
-      </span>
-      {reason !== undefined && reasonOpen && (
-        <ReasonBox data-hint-reason="true">{reason}</ReasonBox>
+    <span
+      className={cn(
+        "text-sm font-semibold",
+        hint.plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
       )}
+    >
+      {sentence}
     </span>
   );
 }
 
-/** One card per row for the phone layout of a dashboard list: badge and detail on top, the hint sentence, other columns, buttons at the bottom right. */
+function detailOf(hint: HintColumn["hint"] | undefined, row: DashboardListRow): string | undefined {
+  if (hint === undefined) return undefined;
+  const field = hint.narrowDetailField ?? hint.detailField;
+  return field === undefined ? undefined : nonEmptyText(row[field]);
+}
+
+/** One card per row for the phone layout of a dashboard list. Row 1: badges and a one-line detail, row 2: the hint sentence, row 3: `showOnNarrowOnly` columns left and the small buttons right. */
 export function DashboardListCards({
   columns,
   rows,
@@ -89,22 +78,12 @@ export function DashboardListCards({
   rowToneField,
   ...cellProps
 }: CardsProps): ReactNode {
-  const hintColumn = columns.find(
-    (
-      column,
-    ): column is DashboardListColumn & {
-      readonly hint: NonNullable<DashboardListColumn["hint"]>;
-    } => column.hint !== undefined,
-  );
-  const badgeColumns = columns.filter(
-    (column) => column.hint === undefined && column.display === "badge",
-  );
-  const buttonColumns = columns.filter(
-    (column) => column.hint === undefined && column.display === "button",
-  );
-  const otherColumns = columns.filter(
-    (column) =>
-      column.hint === undefined && column.display !== "badge" && column.display !== "button",
+  const hintColumn = columns.find((column): column is HintColumn => column.hint !== undefined);
+  const plain = columns.filter((column) => column.hint === undefined);
+  const badgeColumns = plain.filter((column) => column.display === "badge");
+  const buttonColumns = plain.filter((column) => column.display === "button");
+  const otherColumns = plain.filter(
+    (column) => column.display !== "badge" && column.display !== "button",
   );
   const cell = (column: DashboardListColumn, row: DashboardListRow): ReactNode => (
     <DashboardListCell key={column.field} column={column} row={row} {...cellProps} />
@@ -112,10 +91,7 @@ export function DashboardListCards({
   return (
     <ul data-testid={testId} className="m-0 flex list-none flex-col gap-2 p-0">
       {rows.map((row, index) => {
-        const detail =
-          hintColumn?.hint.detailField === undefined
-            ? undefined
-            : nonEmptyText(row[hintColumn.hint.detailField]);
+        const detail = detailOf(hintColumn?.hint, row);
         const badges = badgeColumns.filter((column) => hasValue(row[column.field]));
         const buttons = buttonColumns.filter((column) => hasValue(row[column.field]));
         const others = otherColumns.filter((column) => hasValue(row[column.field]));
@@ -129,20 +105,26 @@ export function DashboardListCards({
             )}
           >
             {(badges.length > 0 || detail !== undefined) && (
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                 {badges.map((column) => cell(column, row))}
-                {detail !== undefined && <small className="text-xs">{detail}</small>}
+                {detail !== undefined && (
+                  <small
+                    data-testid="dashboard-list-card-detail"
+                    className="min-w-0 truncate text-xs"
+                  >
+                    {detail}
+                  </small>
+                )}
               </div>
             )}
             {hintColumn !== undefined && <CardHeadline column={hintColumn} row={row} />}
             {(others.length > 0 || buttons.length > 0) && (
-              <div className="flex items-end justify-between gap-3">
-                <div className="min-w-0 text-xs text-muted-foreground">
-                  {others.map((column, position) => (
-                    <Fragment key={column.field}>
-                      {position > 0 && " · "}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-col text-xs text-muted-foreground">
+                  {others.map((column) => (
+                    <span key={column.field} className="truncate">
                       {cell(column, row)}
-                    </Fragment>
+                    </span>
                   ))}
                 </div>
                 {buttons.length > 0 && (

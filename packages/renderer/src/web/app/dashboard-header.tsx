@@ -30,7 +30,8 @@ export type DashboardHeaderModel = {
   readonly picker: ReactNode;
   readonly rangeControl: ReactNode;
   readonly loadedAtMs: ReturnType<typeof useLoadedAt>["loadedAtMs"];
-  readonly formatDateTime: ReturnType<typeof useDashboardFormats>["formatDateTime"];
+  readonly formatLongDate: ReturnType<typeof useDashboardFormats>["formatLongDate"];
+  readonly belowSm: boolean;
 };
 
 export function recordTitleText(
@@ -105,14 +106,24 @@ export function renderPageHeaderSlot(
 ): ReactNode {
   const { PageHeader } = model.primitives;
   const { recordTitle, scopeBadge, usesPageHeaderSlot } = model;
+  // The stamp is hidden below sm; counting it there would leave an empty header bar.
+  const dateStamp = usesPageHeaderSlot && !model.belowSm ? renderDateStamp(model) : null;
   const showPageHeader =
-    usesPageHeaderSlot && (badgeInHeader || recordTitle !== undefined || headerActionsBar !== null);
+    usesPageHeaderSlot &&
+    (badgeInHeader || dateStamp !== null || recordTitle !== undefined || headerActionsBar !== null);
   return (
     showPageHeader &&
     PageHeader !== undefined && (
       <PageHeader
         {...(recordTitle !== undefined && { title: recordTitle })}
-        {...(badgeInHeader && { status: scopeBadge })}
+        {...((badgeInHeader || dateStamp !== null) && {
+          status: (
+            <>
+              {badgeInHeader && scopeBadge}
+              {dateStamp}
+            </>
+          ),
+        })}
         {...(headerActionsBar !== null && { actions: headerActionsBar })}
       />
     )
@@ -139,16 +150,7 @@ export function renderTitleRow(
       </div>
       <div className="flex flex-wrap items-center gap-3">
         {!usesPageHeaderSlot && headerActionsBar}
-        {screen.showUpdatedAt !== false && hasDataPanel(screen.panels) && (
-          <span
-            data-testid={`dashboard-${screen.id}-updated-at`}
-            className="text-xs tabular-nums text-muted-foreground"
-          >
-            {model.t("kumiko.dashboard.updated-at", {
-              time: model.formatDateTime(model.loadedAtMs),
-            })}
-          </span>
-        )}
+        {!usesPageHeaderSlot && renderDateStamp(model)}
         {rangeControl}
       </div>
     </div>
@@ -194,7 +196,21 @@ export function renderRecordError(
   );
 }
 
-// A dashboard that only embeds screens loads no data of its own, so "Stand" would say nothing.
+// The server clock's day, not the device's: it moves with the answers the panels load.
+// A dashboard that only embeds screens loads no data of its own, so a date would say nothing.
+function renderDateStamp(model: DashboardHeaderModel): ReactNode {
+  const { screen } = model;
+  if (screen.showUpdatedAt === false || !hasDataPanel(screen.panels)) return null;
+  return (
+    <span
+      data-testid={`dashboard-${screen.id}-updated-at`}
+      className="whitespace-nowrap text-sm text-muted-foreground max-sm:hidden"
+    >
+      {model.formatLongDate(model.loadedAtMs)}
+    </span>
+  );
+}
+
 function hasDataPanel(panels: readonly DashboardPanelDefinition[]): boolean {
   return panels.some((panel) =>
     panel.kind === "text"

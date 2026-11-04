@@ -15,7 +15,11 @@ export type RecordBreadcrumbItem = {
  * A banner or step action. `hideIcon` keeps the icon out of the drawn button (text only); it
  * stays registered for the `screen/action-icon` rule and for icon-only or menu renderings.
  */
-export type RecordGuidanceAction = RowAction & { readonly hideIcon?: true };
+export type RecordGuidanceAction = RowAction & {
+  readonly hideIcon?: true;
+  /** i18n key shown as the button label below `sm` (a shorter word, e.g. "Plan" for "Plan handover"). */
+  readonly narrowLabel?: string;
+};
 
 export type RecordNotice = {
   readonly title: string;
@@ -29,6 +33,8 @@ export type RecordStep = {
   readonly id: string;
   readonly title: string;
   readonly detail?: string;
+  /** Shown instead of `detail` below `sm`. */
+  readonly narrowDetail?: string;
   readonly tone?: SelectOptionTone;
   /** Explanation behind a toggle next to the step. */
   readonly why?: string;

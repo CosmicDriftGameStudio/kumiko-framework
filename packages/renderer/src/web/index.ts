@@ -153,6 +153,7 @@ export {
 } from "./layout/filter-app-schema-navs.ts";
 export type { HeaderActionGroupProps } from "./layout/header-action-group.tsx";
 export { HeaderActionGroup } from "./layout/header-action-group.tsx";
+export { HeaderActionPinned } from "./layout/header-action-pinned.tsx";
 export type { LanguageMenuItemsProps } from "./layout/language-menu-items.tsx";
 export { LanguageMenuItems } from "./layout/language-menu-items.tsx";
 export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher.tsx";

@@ -17,7 +17,9 @@ import {
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
 import {
+  cleanup,
   createMockDispatcher,
+  fireEvent,
   render,
   restoreViewportWidthAfterEach,
   screen,
@@ -49,7 +51,17 @@ function renderDashboard(
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
+      fallbackBundles={[
+        kumikoDefaultTranslations,
+        {
+          "en-US": {
+            "demo.total": "{shown} urgent of {total}",
+            "demo.total-short": "{shown}/{total}",
+            "demo.more": "plus {count} further",
+            "demo.more-short": "+{count}",
+          },
+        },
+      ]}
     >
       <AppFeaturesProvider features={[]}>
         <BrowserNav>
@@ -196,6 +208,120 @@ describe("dashboard panels on a phone", () => {
     );
     await waitFor(() => expect(screen.getByText("Short help")).toBeTruthy());
     expect(screen.queryByText("Long help")).toBeNull();
+  });
+});
+
+describe("dashboard list texts and row link", () => {
+  restoreViewportWidthAfterEach();
+
+  const textList = (overrides: Record<string, unknown>) =>
+    ({
+      ...(listPanel({}) as unknown as Record<string, unknown>),
+      ...overrides,
+    }) as unknown as DashboardScreenDefinition["panels"][number];
+
+  test("showTotal and moreText texts apply on a wide screen, the narrow variants below sm", async () => {
+    const panel = textList({
+      showTotal: { text: "demo.total", narrowText: "demo.total-short" },
+      footerLink: {
+        screen: "demo:screen:all",
+        label: "Show all",
+        moreText: "demo.more",
+        narrowMoreText: "demo.more-short",
+      },
+      narrow: { layout: "cards", limit: 3 },
+    });
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": listAnswer });
+    await waitFor(() => expect(screen.getByText("5 urgent of 11")).toBeTruthy());
+    expect(screen.getByText(/plus 6 further/)).toBeTruthy();
+  });
+
+  test("the narrow showTotal and moreText replace the wide ones on a phone", async () => {
+    const panel = textList({
+      showTotal: { text: "demo.total", narrowText: "demo.total-short" },
+      footerLink: {
+        screen: "demo:screen:all",
+        label: "Show all",
+        moreText: "demo.more",
+        narrowMoreText: "demo.more-short",
+      },
+      narrow: { layout: "cards", limit: 3 },
+    });
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": listAnswer });
+    await waitFor(() => expect(screen.getByText("3/11")).toBeTruthy());
+    expect(screen.getByText(/\+8/)).toBeTruthy();
+  });
+
+  test("narrow.field picks the column behind the label in the line layout", async () => {
+    const panel = textList({
+      columns: [{ field: "title" }, { field: "due" }],
+      narrow: { layout: "line", field: "due" },
+    });
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": listAnswer });
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("Due 0"),
+    );
+    expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain("Task 0");
+  });
+
+  test("narrow.field with a non-text value draws no text instead of [object Object]", async () => {
+    const panel = textList({
+      columns: [{ field: "title" }, { field: "nested" }],
+      narrow: { layout: "line", field: "nested" },
+    });
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel), {
+      "demo:query:task:list": () => ok({ rows: [{ id: "t0", title: "Task 0", nested: {} }] }),
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("Open tasks"),
+    );
+    expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain("object");
+  });
+
+  const rowLinkRows = [
+    { id: "t0", title: "Task 0", target: { entityId: "e0" } },
+    { id: "t1", title: "Task 1", target: "not-an-object" },
+  ];
+  const rowLinkPanel = (narrow?: Record<string, unknown>) =>
+    textList({
+      columns: [{ field: "title" }],
+      rowLink: { screen: "demo:screen:all", paramField: "target" },
+      ...(narrow !== undefined && { narrow }),
+    });
+
+  test("a row link makes the row clickable and keeps the icon as a real link", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(rowLinkPanel()), {
+      "demo:query:task:list": () => ok({ rows: rowLinkRows }),
+    });
+    await waitFor(() => expect(screen.getByText("Task 0")).toBeTruthy());
+    const iconLinks = screen.getAllByRole("link", { name: "Open" });
+    expect(iconLinks).toHaveLength(2);
+    const target = iconLinks[0]?.getAttribute("href");
+    expect(target).toContain("e0");
+    const row = screen.getByText("Task 0").closest("tr");
+    expect(row?.className).toContain("cursor-pointer");
+    fireEvent.click(screen.getByText("Task 0"));
+    expect(window.location.href).toContain("e0");
+  });
+
+  test("a cards phone layout keeps the table row link on wide screens and draws none itself", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(rowLinkPanel({ layout: "cards" })), {
+      "demo:query:task:list": () => ok({ rows: rowLinkRows }),
+    });
+    await waitFor(() => expect(screen.getAllByRole("link", { name: "Open" })).toHaveLength(2));
+    cleanup();
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(rowLinkPanel({ layout: "cards" })), {
+      "demo:query:task:list": () => ok({ rows: rowLinkRows }),
+    });
+    await waitFor(() => expect(screen.getAllByTestId("dashboard-list-card")).toHaveLength(2));
+    expect(screen.queryAllByRole("link", { name: "Open" })).toHaveLength(0);
   });
 });
 

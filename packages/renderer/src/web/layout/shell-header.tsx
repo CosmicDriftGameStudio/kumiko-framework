@@ -8,7 +8,7 @@
 // that Drawer's `belowHeader` prop also reads.
 
 import { IN_APP_NOTIFICATION_FEATURE } from "@cosmicdrift/kumiko-types/in-app-notification-types";
-import { MoreHorizontal } from "lucide-react";
+import { ChevronLeft, MoreHorizontal } from "lucide-react";
 import {
   Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -39,6 +39,7 @@ import {
   BreadcrumbSeparator,
 } from "../ui/breadcrumb.tsx";
 import { SidebarTrigger } from "../ui/sidebar.tsx";
+import { collectPinnedHeaderActions, isOnlyPinnedHeaderActions } from "./header-action-pinned.tsx";
 import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.ts";
 import { buildNavRegistrySliceForApp } from "./nav-tree.tsx";
 import { NotificationBell } from "./notification-bell.tsx";
@@ -121,7 +122,12 @@ export function ShellHeader({
   const recordTitle = slot?.recordTitle;
   const compact = usePageHeaderCompact();
   const overflowItems = slot?.overflowItems ?? [];
-  const hasOverflow = compact && (overflowItems.length > 0 || headerActions !== undefined);
+  // On a phone the app's headerActions fold into the menu, except the ones wrapped in HeaderActionPinned.
+  const pinnedActions = compact ? collectPinnedHeaderActions(headerActions) : [];
+  const hasOverflow =
+    compact &&
+    (overflowItems.length > 0 ||
+      (headerActions !== undefined && !isOnlyPinnedHeaderActions(headerActions)));
   // A stand-in without a translated title must not surface the raw i18n key.
   const standInUntitled =
     standInScreenId !== undefined && crumbs?.at(-1)?.label === screenTitleKey(standInScreenId);
@@ -137,8 +143,21 @@ export function ShellHeader({
   // The screen's own title block is the h1, so the bar names the list the record belongs to. It is
   // picked from the nav crumbs, not from visibleCrumbs: a record title inserted there must not
   // take the parent's place.
-  const parentOnly = bodyTitle && baseCrumbs !== undefined && baseCrumbs.length > 1;
-  const shownCrumbs = parentOnly ? baseCrumbs.slice(-2, -1) : visibleCrumbs;
+  // Phone: only "‹ parent", never the screen's own title (the body shows it). Desktop: "parent › record title".
+  // A screen that draws its own breadcrumb hides the bar's crumbs, but its parent link stays.
+  const titleCrumbs = standInUntitled ? undefined : crumbs;
+  const parentCrumb =
+    titleCrumbs !== undefined && titleCrumbs.length > 1 ? titleCrumbs.at(-2) : undefined;
+  const parentOnly = bodyTitle && compact && parentCrumb !== undefined;
+  const bodyTitleCrumbs = (): readonly BreadcrumbCrumb[] => {
+    if (compact) return parentCrumb === undefined ? [] : [parentCrumb];
+    const ownTitle = recordTitle ?? titleCrumbs?.at(-1)?.label;
+    return [
+      ...(parentCrumb === undefined ? [] : [parentCrumb]),
+      ...(ownTitle === undefined ? [] : [{ label: ownTitle }]),
+    ];
+  };
+  const shownCrumbs = bodyTitle ? bodyTitleCrumbs() : visibleCrumbs;
 
   return (
     <header
@@ -181,6 +200,12 @@ export function ShellHeader({
                               nav.navigate({ screenId });
                             }}
                           >
+                            {parentOnly && (
+                              <ChevronLeft
+                                className="me-0.5 inline size-4 align-text-bottom"
+                                aria-hidden="true"
+                              />
+                            )}
                             {crumb.label}
                           </BreadcrumbLink>
                         ) : isLast && bodyTitle ? (
@@ -238,6 +263,11 @@ export function ShellHeader({
         {!compact && headerActions !== undefined && (
           <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
             {headerActions}
+          </div>
+        )}
+        {pinnedActions.length > 0 && (
+          <div data-kumiko-layout="header-actions-pinned" className="flex items-center gap-2">
+            {pinnedActions}
           </div>
         )}
         {hasOverflow && <HeaderOverflow items={overflowItems} headerActions={headerActions} />}

@@ -41,9 +41,9 @@ const BANNER_ICON: Record<SelectOptionTone, NonNullable<BannerProps["icon"]>> = 
   neutral: "info",
   accent: "info",
   ok: "info",
-  warn: "alert-triangle",
-  bad: "alert-triangle",
-  critical: "alert-triangle",
+  warn: "info",
+  bad: "info",
+  critical: "info",
 };
 
 // The app layer may not render DOM tags, so layout classes ride on FillContainer; hosts without it (native) fall back to plain stacking.
@@ -63,22 +63,44 @@ export function wrapLayout(
 function renderActionButtons(
   model: DetailGuidanceModel,
   resolved: readonly RenderEditAction[],
-  hiddenIconIds: ReadonlySet<string>,
+  specs: GuidanceActions | undefined,
 ): ReactNode {
   const { Button, Dialog, Grid } = model.primitives;
+  const hiddenIconIds = hiddenIconIdsOf(specs);
+  const button = (action: RenderEditAction): ReactNode => (
+    <RenderEditActionButton
+      key={action.id}
+      action={action}
+      size="sm"
+      hideIcon={hiddenIconIds.has(action.id)}
+      Button={Button}
+      Dialog={Dialog}
+      onError={model.setActionError}
+    />
+  );
   return (
     <Grid columns="auto">
-      {resolved.map((action) => (
-        <RenderEditActionButton
-          key={action.id}
-          action={action}
-          size="sm"
-          hideIcon={hiddenIconIds.has(action.id)}
-          Button={Button}
-          Dialog={Dialog}
-          onError={model.setActionError}
-        />
-      ))}
+      {resolved.map((action) => {
+        const narrowLabel = specs?.find((spec) => spec.id === action.id)?.narrowLabel;
+        if (narrowLabel === undefined || model.primitives.FillContainer === undefined) {
+          return button(action);
+        }
+        // The viewport is a CSS matter in this layer: both labels render, one is hidden per breakpoint.
+        return (
+          <Fragment key={action.id}>
+            {wrapLayout(model.primitives, "max-sm:hidden", button(action))}
+            {wrapLayout(
+              model.primitives,
+              "sm:hidden",
+              button({
+                ...action,
+                id: `${action.id}-narrow`,
+                label: model.effectiveTranslate(narrowLabel),
+              }),
+            )}
+          </Fragment>
+        );
+      })}
     </Grid>
   );
 }
@@ -102,9 +124,7 @@ function renderItemActions(
   item: Readonly<Record<string, unknown>>,
 ): ReactNode {
   const resolved = resolveItemActions(model, actions, item);
-  return resolved.length === 0
-    ? undefined
-    : renderActionButtons(model, resolved, hiddenIconIdsOf(actions));
+  return resolved.length === 0 ? undefined : renderActionButtons(model, resolved, actions);
 }
 
 export function renderDetailBreadcrumb(model: DetailGuidanceModel): ReactNode {
@@ -124,7 +144,11 @@ export function renderDetailBreadcrumb(model: DetailGuidanceModel): ReactNode {
   const ariaLabel = model.effectiveTranslate("kumiko.detail.breadcrumb");
   const testId = "kumiko-screen-projection-detail-breadcrumb";
   if (RecordBreadcrumb !== undefined) {
-    return <RecordBreadcrumb items={items} ariaLabel={ariaLabel} testId={testId} />;
+    return wrapLayout(
+      model.primitives,
+      "max-sm:hidden",
+      <RecordBreadcrumb items={items} ariaLabel={ariaLabel} testId={testId} />,
+    );
   }
   return (
     <Text testId={testId}>
@@ -189,6 +213,7 @@ function renderBanner(model: DetailGuidanceModel): ReactNode {
       variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
       icon={BANNER_ICON[notice.tone ?? "neutral"]}
       title={notice.title}
+      inline
       {...(actions !== undefined && { actions })}
       testId="kumiko-screen-projection-detail-banner"
     >
@@ -207,19 +232,19 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
   const subtitle = typeof subtitleRaw === "string" && subtitleRaw !== "" ? subtitleRaw : undefined;
   const emptyLabel = t(spec.emptyLabel ?? "kumiko.detail.steps.empty");
   const items = steps.map((step) => {
-    const hiddenIconIds = hiddenIconIdsOf(spec.actions);
     const [mainAction, ...otherActions] = resolveItemActions(model, spec.actions, step);
     return {
       id: step.id,
       title: step.title,
       ...(step.detail !== undefined && { detail: step.detail }),
+      ...(step.narrowDetail !== undefined && { narrowDetail: step.narrowDetail }),
       ...(step.tone !== undefined && { tone: step.tone }),
       ...(step.why !== undefined && { reason: step.why }),
       ...(mainAction !== undefined && {
-        actions: renderActionButtons(model, [mainAction], hiddenIconIds),
+        actions: renderActionButtons(model, [mainAction], spec.actions),
       }),
       ...(otherActions.length > 0 && {
-        moreActions: renderActionButtons(model, otherActions, hiddenIconIds),
+        moreActions: renderActionButtons(model, otherActions, spec.actions),
       }),
     };
   });

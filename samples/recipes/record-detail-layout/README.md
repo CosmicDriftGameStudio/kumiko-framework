@@ -34,6 +34,12 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   `narrow` (`cards` with a `limit`, or a one-line `line` link), `narrowBlocks` on the briefing,
   `hint.plainSentence`, `showOnNarrowOnly` list columns, stat-group `columns`, and on the detail
   `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle
+- round 5 (board gaps): a titled `stat-group` strip with a panel `icon` and per-stat `narrowLabel`,
+  `narrowOrder` on a panel, `showTotal: { text, narrowText }`, `footerLink.moreText` and
+  `narrowMoreText`, `narrow: { layout: "line", field }`, `rowLink` on a list panel (arrow, or
+  `icon: "chevron"` for a date list), `hint.narrowDetailField` on cards, summary row items placed
+  under their `column`, and on the detail `header.narrowSubtitle`, a banner action `narrowLabel`,
+  `RecordStep.narrowDetail` and a `hideOnNarrow` metric. Phone cards leave out the reason toggle
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections

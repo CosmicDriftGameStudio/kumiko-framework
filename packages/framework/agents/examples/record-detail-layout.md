@@ -42,6 +42,12 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   `narrow` (`cards` with a `limit`, or a one-line `line` link), `narrowBlocks` on the briefing,
   `hint.plainSentence`, `showOnNarrowOnly` list columns, stat-group `columns`, and on the detail
   `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle
+- round 5 (board gaps): a titled `stat-group` strip with a panel `icon` and per-stat `narrowLabel`,
+  `narrowOrder` on a panel, `showTotal: { text, narrowText }`, `footerLink.moreText` and
+  `narrowMoreText`, `narrow: { layout: "line", field }`, `rowLink` on a list panel (arrow, or
+  `icon: "chevron"` for a date list), `hint.narrowDetailField` on cards, summary row items placed
+  under their `column`, and on the detail `header.narrowSubtitle`, a banner action `narrowLabel`,
+  `RecordStep.narrowDetail` and a `hideOnNarrow` metric. Phone cards leave out the reason toggle
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -81,7 +87,7 @@ async function openFilterSelect(page: Page): Promise<void> {
 
 test("board: today dashboard", async ({ page }, testInfo) => {
   await page.goto("/today");
-  await expect(page.getByText("Need action")).toBeVisible();
+  await expect(page.getByText("Inbox")).toBeVisible();
   await expect(page.getByText("Send payment reminder").first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("today.png"), fullPage: true });
 });
@@ -97,10 +103,12 @@ test("board: orders list in its states", async ({ page }, testInfo) => {
   await expect(page.getByText("SO-10483")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("orders-filtered.png"), fullPage: true });
 
-  // The reason sits behind its toggle in the table and on the phone cards alike.
+  // The reason sits behind its toggle in the table; the phone cards leave it out.
   const reasonToggle = page.locator("[data-hint-reason-toggle]").first();
-  if (await reasonToggle.isVisible()) await reasonToggle.click();
-  await expect(page.locator("[data-hint-reason]").first()).toBeVisible();
+  if (await reasonToggle.isVisible()) {
+    await reasonToggle.click();
+    await expect(page.locator("[data-hint-reason]").first()).toBeVisible();
+  }
   await page.screenshot({ path: testInfo.outputPath("orders-reason-open.png"), fullPage: true });
 
   await openFilterSelect(page);
@@ -110,7 +118,7 @@ test("board: orders list in its states", async ({ page }, testInfo) => {
 });
 
 test("board: order detail with a step reason open", async ({ page }, testInfo) => {
-  await page.goto("/?guidance=1");
+  await page.goto("/order-detail/o1?guidance=1");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
   await page.getByRole("button", { name: /why/i }).first().click();
   // The shell scrolls inside <main>, so fullPage alone would cut a phone capture at the viewport.
@@ -323,6 +331,14 @@ function OrderInternalNote(): ReactNode {
   );
 }
 
+function OrderInboxIcon(): ReactNode {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 9h3l1 2h4l1-2h3v4H2z" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function Shell({
   schema,
   children,
@@ -344,7 +360,7 @@ function Shell({
       schema={schema}
       user={{ id: "u1", roles: ["Admin"] }}
     >
-      <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+      <ExtensionSectionsProvider value={{ OrderInboxIcon, OrderInternalNote }}>
         {isPinnedRecord && feature !== undefined ? (
           <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
         ) : (
@@ -950,10 +966,10 @@ test("the sort select reorders the list by the chosen option", async ({ page }) 
 
 test("the summary row follows the filter", async ({ page }) => {
   await page.goto("/orders");
-  await expect(page.getByTestId("list-summary")).toContainText("Orders 8");
+  await expect(page.getByTestId("list-summary")).toContainText(/^8€/);
   await page.getByTestId(FILTER_FACET).click();
   await page.getByTestId(`${FILTER_FACET}-action-needed`).click();
-  await expect(page.getByTestId("list-summary")).toContainText("Orders 5");
+  await expect(page.getByTestId("list-summary")).toContainText(/^5€/);
 });
 
 test("a stat tile on the dashboard links into the filtered list", async ({ page }) => {
@@ -1017,6 +1033,8 @@ describe("record-detail-layout showcase — registration", () => {
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(screen.header).toEqual({
       title: "customerName",
+      shortTitle: "shortTitle",
+      narrowSubtitle: "narrowSubtitle",
       subtitle: [
         "orderNumber",
         { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
@@ -1181,7 +1199,7 @@ describe("record-detail-layout showcase — board gaps", () => {
   test("the today board links its list and stat group and the detail places progress beside the steps", () => {
     const today = registry.getScreen("order-desk:screen:today");
     if (today?.type !== "dashboard") throw new Error("expected dashboard");
-    const now = today.panels.find((panel) => panel.kind === "list" && panel.showTotal === true);
+    const now = today.panels.find((panel) => panel.id === "now");
     if (now?.kind !== "list") throw new Error("expected the now list");
     expect(now.footerLink?.namedFilter).toBe("action-needed");
     const counts = today.panels.find((panel) => panel.id === "queue-counts");
@@ -1205,7 +1223,9 @@ describe("record-detail-layout showcase — phone variants", () => {
     const deadlines = panel("deadlines");
     if (now?.kind !== "list" || deadlines?.kind !== "list") throw new Error("expected lists");
     expect(now.narrow).toEqual({ layout: "cards", limit: 3 });
-    expect(deadlines.narrow).toEqual({ layout: "line" });
+    expect(deadlines.narrow).toEqual({ layout: "line", field: "title" });
+    expect(deadlines.rowLink?.icon).toBe("chevron");
+    expect(panel("customers")?.kind === "list" && panel("customers")).toBeTruthy();
     expect(panel("customers")?.hideOnNarrow).toBe(true);
     expect(panel("money")?.hideOnNarrow).toBe(true);
   });
@@ -1216,6 +1236,20 @@ describe("record-detail-layout showcase — phone variants", () => {
     expect(detail.steps?.narrowLimit).toBe(3);
     expect(detail.progress?.hideOnNarrow).toBe(true);
     expect(answerOrderDetail("o1").steps.length).toBeGreaterThan(3);
+  });
+
+  test("the board uses the round-5 phone and row options", () => {
+    const today = registry.getScreen("order-desk:screen:today");
+    if (today?.type !== "dashboard") throw new Error("expected dashboard");
+    const customers = today.panels.find((candidate) => candidate.id === "customers");
+    if (customers?.kind !== "list") throw new Error("expected the customers list");
+    expect(customers.rowLink).toEqual({ screen: "order-detail", paramField: "params" });
+    expect(today.panels.find((candidate) => candidate.id === "briefing")?.narrowOrder).toBe(1);
+    expect(answerOrderSummary(orderSummarySchema.parse({})).items.map((i) => i.column)).toEqual([
+      "orderNumber",
+      "openAmount",
+      "urgencyLabel",
+    ]);
   });
 
   test("the briefing answers a shorter variant for phones", () => {
@@ -1488,6 +1522,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.today.stat.action-needed": { en: "Need action" },
         "order-desk.today.stat.reminder-due": { en: "Reminders due" },
         "order-desk.today.stat.ending-soon": { en: "Ending soon" },
+        "order-desk.today.now-total": { en: "The {shown} most urgent of {total} orders" },
+        "order-desk.today.now-total-narrow": { en: "{shown} of {total}" },
+        "order-desk.today.deadlines-more": { en: "{count} more deadlines" },
+        "order-desk.today.deadlines-more-narrow": { en: "{count} more" },
+        "order-desk.action.record-short": { en: "Record" },
         "order-desk.today.stat.open": { en: "Open" },
         "order-desk.today.stat.overdue": { en: "Overdue" },
         "order-desk.today.stat.collected": { en: "Collected" },
@@ -1532,6 +1571,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.col.todo",
           hint: {
             detailField: "nextStepDue",
+            narrowDetailField: "nextStepShort",
             reasonField: "nextStepReason",
             emptyLabel: "order-desk.orders.nothing-open",
           },
@@ -1605,6 +1645,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           kind: "text",
           id: "briefing",
           span: "two-thirds",
+          narrowOrder: 1,
           query: "order-desk:query:order:briefing",
         },
         {
@@ -1614,6 +1655,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           subtitle: "order-desk.today.inbox-sub",
           span: "full",
           layout: "strip",
+          icon: { react: { __component: "OrderInboxIcon" } },
           link: { label: "order-desk.today.inbox-link", screen: "orders" },
           stats: [
             {
@@ -1653,7 +1695,10 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.now",
           span: "two-thirds",
           showHeader: false,
-          showTotal: true,
+          showTotal: {
+            text: "order-desk.today.now-total",
+            narrowText: "order-desk.today.now-total-narrow",
+          },
           narrow: { layout: "cards", limit: 3 },
           footerLink: {
             label: "order-desk.today.now-all",
@@ -1668,6 +1713,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               field: "nextStep",
               hint: {
                 detailField: "nextStepDue",
+                narrowDetailField: "nextStepShort",
                 reasonField: "nextStepReason",
                 plainSentence: true,
               },
@@ -1686,13 +1732,16 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.deadlines",
           span: "third",
           showHeader: false,
-          narrow: { layout: "line" },
-          footerLink: { label: "order-desk.today.deadlines-all", screen: "orders" },
+          narrow: { layout: "line", field: "title" },
+          rowLink: { screen: "order-detail", paramField: "params", icon: "chevron" },
+          footerLink: {
+            label: "order-desk.today.deadlines-all",
+            moreText: "order-desk.today.deadlines-more",
+            narrowMoreText: "order-desk.today.deadlines-more-narrow",
+            screen: "orders",
+          },
           query: "order-desk:query:order:deadlines",
-          columns: [
-            { field: "due", display: "datetime" },
-            { field: "title", linkScreenField: "screen", linkParamsField: "params" },
-          ],
+          columns: [{ field: "due", display: "datetime" }, { field: "title" }],
         },
         {
           kind: "list",
@@ -1701,10 +1750,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
           span: "third",
           showHeader: false,
           hideOnNarrow: true,
+          rowLink: { screen: "order-detail", paramField: "params" },
           query: "order-desk:query:order:customers",
           rowToneField: "tone",
           columns: [
-            { field: "customerName", linkScreenField: "screen", linkParamsField: "params" },
+            { field: "customerName" },
             { field: "openCount", display: "badge", badgeToneField: "openTone" },
           ],
         },
@@ -1752,9 +1802,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
       focus: true,
+      listScreenId: "orders",
       header: {
         title: "customerName",
+        shortTitle: "shortTitle",
         // Parts are joined by a separator; `format` formats the raw field value.
+        narrowSubtitle: "narrowSubtitle",
         subtitle: [
           "orderNumber",
           { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
@@ -1773,6 +1826,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
             screen: "order-detail",
             icon: "plus",
             hideIcon: true,
+            narrowLabel: "order-desk.action.record-short",
           },
         ],
       },
@@ -1823,7 +1877,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.metric.itemCount",
           navigate: { tab: "items" },
         },
-        { field: "placedAt", label: "order-desk.metric.placedAt" },
+        { field: "placedAt", label: "order-desk.metric.placedAt", hideOnNarrow: true },
       ],
       layout: {
         mode: "tabs",
@@ -2213,6 +2267,7 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   const rows = ordered.slice(offset, offset + (payload.limit ?? DEFAULT_PAGE_SIZE)).map((row) => ({
     ...row,
     narrowMeta: `${euro(row.openAmount)} open · ${row.status}`,
+    nextStepShort: row.nextStepDue === "" ? "" : `${row.nextStepDue} · ${euro(row.openAmount)}`,
     ...(row.nextStep !== "" && {
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
@@ -2230,12 +2285,17 @@ export function answerOrderSummary(payload: OrderSummaryPayload) {
   const overdue = matching.filter((row) => row.urgencyTone === "negative");
   return {
     items: [
-      { label: "Orders", value: matching.length },
-      { label: "Open", value: euro(matching.reduce((total, row) => total + row.openAmount, 0)) },
+      { label: "Orders", value: matching.length, column: "orderNumber" },
+      {
+        label: "Open",
+        value: euro(matching.reduce((total, row) => total + row.openAmount, 0)),
+        column: "openAmount",
+      },
       {
         label: "Overdue",
         value: euro(overdue.reduce((total, row) => total + row.openAmount, 0)),
         tone: "bad",
+        column: "urgencyLabel",
       },
     ],
   };
@@ -2253,6 +2313,7 @@ export function answerNowList() {
   return {
     rows: actionNeededRows(NOW_LIST_LIMIT).map((row) => ({
       ...row,
+      nextStepShort: `${row.nextStepDue} · ${euro(row.openAmount)}`,
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
     })),
@@ -2379,6 +2440,7 @@ export function answerOrderDetail(id: string) {
     id,
     customerName: "Aiko Tanaka",
     orderNumber: "SO-10482",
+    shortTitle: "SO-10482",
     status: "processing",
     totalAmount: "€ 1,248.00",
     totalNote: "2 payments",
@@ -2397,12 +2459,14 @@ export function answerOrderDetail(id: string) {
     summaryLine: "Waiting for the second payment",
     summaryShort: "Second payment open.",
     summaryTone: "warn",
+    narrowSubtitle: "SO-10482 · placed 21 Aug",
     notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
     steps: [
       {
         id: "remind",
         title: "Send payment reminder",
         detail: "by Friday",
+        narrowDetail: "Fri",
         tone: "warn",
         why: "The invoice is 14 days overdue.\nTwo earlier mails stayed unanswered.\nThe credit limit is 1,500 EUR.",
         canPrepare: true,

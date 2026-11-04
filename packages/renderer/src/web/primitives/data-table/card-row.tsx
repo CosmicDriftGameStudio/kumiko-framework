@@ -79,9 +79,11 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
   const { rowTone } = m;
   const allActions = m.menuActions ?? [];
   const buttonActions = allActions.filter(
-    (a) => a.display === "button" && (a.isVisible === undefined || a.isVisible(row)),
+    (a) =>
+      (a.display === "button" || a.display === "link") &&
+      (a.isVisible === undefined || a.isVisible(row)),
   );
-  const menuActions = allActions.filter((a) => a.display !== "button");
+  const menuActions = allActions.filter((a) => a.display !== "button" && a.display !== "link");
   const hasMenu = menuActions.length > 0;
   const hasButtons = buttonActions.length > 0;
   const openRow = m.rowOpener(row);

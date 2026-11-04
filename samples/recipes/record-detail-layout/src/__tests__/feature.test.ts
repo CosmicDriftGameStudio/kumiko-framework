@@ -48,6 +48,8 @@ describe("record-detail-layout showcase — registration", () => {
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(screen.header).toEqual({
       title: "customerName",
+      shortTitle: "shortTitle",
+      narrowSubtitle: "narrowSubtitle",
       subtitle: [
         "orderNumber",
         { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
@@ -212,7 +214,7 @@ describe("record-detail-layout showcase — board gaps", () => {
   test("the today board links its list and stat group and the detail places progress beside the steps", () => {
     const today = registry.getScreen("order-desk:screen:today");
     if (today?.type !== "dashboard") throw new Error("expected dashboard");
-    const now = today.panels.find((panel) => panel.kind === "list" && panel.showTotal === true);
+    const now = today.panels.find((panel) => panel.id === "now");
     if (now?.kind !== "list") throw new Error("expected the now list");
     expect(now.footerLink?.namedFilter).toBe("action-needed");
     const counts = today.panels.find((panel) => panel.id === "queue-counts");
@@ -236,7 +238,9 @@ describe("record-detail-layout showcase — phone variants", () => {
     const deadlines = panel("deadlines");
     if (now?.kind !== "list" || deadlines?.kind !== "list") throw new Error("expected lists");
     expect(now.narrow).toEqual({ layout: "cards", limit: 3 });
-    expect(deadlines.narrow).toEqual({ layout: "line" });
+    expect(deadlines.narrow).toEqual({ layout: "line", field: "title" });
+    expect(deadlines.rowLink?.icon).toBe("chevron");
+    expect(panel("customers")?.kind === "list" && panel("customers")).toBeTruthy();
     expect(panel("customers")?.hideOnNarrow).toBe(true);
     expect(panel("money")?.hideOnNarrow).toBe(true);
   });
@@ -247,6 +251,20 @@ describe("record-detail-layout showcase — phone variants", () => {
     expect(detail.steps?.narrowLimit).toBe(3);
     expect(detail.progress?.hideOnNarrow).toBe(true);
     expect(answerOrderDetail("o1").steps.length).toBeGreaterThan(3);
+  });
+
+  test("the board uses the round-5 phone and row options", () => {
+    const today = registry.getScreen("order-desk:screen:today");
+    if (today?.type !== "dashboard") throw new Error("expected dashboard");
+    const customers = today.panels.find((candidate) => candidate.id === "customers");
+    if (customers?.kind !== "list") throw new Error("expected the customers list");
+    expect(customers.rowLink).toEqual({ screen: "order-detail", paramField: "params" });
+    expect(today.panels.find((candidate) => candidate.id === "briefing")?.narrowOrder).toBe(1);
+    expect(answerOrderSummary(orderSummarySchema.parse({})).items.map((i) => i.column)).toEqual([
+      "orderNumber",
+      "openAmount",
+      "urgencyLabel",
+    ]);
   });
 
   test("the briefing answers a shorter variant for phones", () => {
