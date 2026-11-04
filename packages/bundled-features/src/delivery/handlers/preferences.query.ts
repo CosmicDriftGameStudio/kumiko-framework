@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { currentNotificationType } from "../notification-type-aliases.ts";
+import { collapsePreferenceRows } from "../preference-rows.ts";
 import { notificationPreferencesTable } from "../tables.ts";
 
 export const preferencesQuery = defineQueryHandler({
@@ -38,24 +38,6 @@ export const preferencesQuery = defineQueryHandler({
       userId: query.user.id,
     });
 
-    // Rows stored under a former notification name are reported under the current
-    // one, collapsed with the same precedence as delivery: an exact row wins,
-    // otherwise any disabled former-name row disables.
-    const collapsed = new Map<string, { row: (typeof rows)[number]; isExact: boolean }>();
-    for (const row of rows) {
-      const notificationType = currentNotificationType(ctx.registry, row.notificationType);
-      const key = `${notificationType}\u0000${row.channel}`;
-      const isExact = row.notificationType === notificationType;
-      const existing = collapsed.get(key);
-      if (existing?.isExact) continue;
-      const formerNameRowDisablesAlready =
-        existing !== undefined &&
-        !isExact &&
-        (existing.row.enabled === false || row.enabled !== false);
-      if (formerNameRowDisablesAlready) continue;
-      collapsed.set(key, { row: { ...row, notificationType }, isExact });
-    }
-
-    return { rows: [...collapsed.values()].map((entry) => entry.row) };
+    return { rows: collapsePreferenceRows(ctx.registry, rows) };
   },
 });

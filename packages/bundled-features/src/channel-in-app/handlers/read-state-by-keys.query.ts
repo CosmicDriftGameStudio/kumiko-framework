@@ -14,9 +14,9 @@ type MessageRow = {
 export const readStateByKeysQuery = defineQueryHandler({
   name: "readStateByKeys",
   schema: z.object({ keys: z.array(z.string().min(1).max(256)).min(1).max(MAX_KEYS) }).strict(),
-  access: { roles: access.systemAdmin },
+  access: { roles: access.privileged },
   description:
-    "Returns when the in-app message sent under each given notify() idempotency key was read (null while unread), within the caller's tenant and without any message content; a SystemAdmin queries the recipient's tenant by acting as a system user of it. Use it to show whether a recipient has seen a notification a feature sent under a known key.",
+    "Returns when the in-app message sent under each given notify() idempotency key was read (null while unread), within the caller's tenant and without any message content; a job's system user reads its own tenant directly, a SystemAdmin queries the recipient's tenant by acting as a system user of it. Use it to show whether a recipient has seen a notification a feature sent under a known key.",
   handler: async (query, ctx) => {
     const rows = await selectMany<MessageRow>(
       ctx.db,
