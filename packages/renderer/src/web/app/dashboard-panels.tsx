@@ -48,6 +48,7 @@ import {
   StatStripCell,
   type StatTone,
 } from "../widgets/stat.tsx";
+import { StatBoxCell } from "../widgets/stat-box-cell.tsx";
 import { EmptyState, LoadingState } from "../widgets/states.tsx";
 import { optionalDashboardNavigationLink } from "./dashboard-navigation-link.ts";
 import {
@@ -167,17 +168,7 @@ function StatPanelContent({
   const dynamicLabel = panel.labelField !== undefined ? record[panel.labelField] : undefined;
   const shownLabel = typeof dynamicLabel === "string" && dynamicLabel !== "" ? dynamicLabel : label;
   const delta = readDelta(panel, record);
-  const valueFormat = panel.valueFormat;
-  let value: string;
-  if (typeof rawValue !== "number") {
-    value =
-      resolveDashboardText(rawValue, translate, formats) ??
-      fallbackText(rawValue, EMPTY_VALUE_PLACEHOLDER);
-  } else if (valueFormat?.kind === "relativeTime") {
-    value = formats.formatRelative(rawValue);
-  } else {
-    value = formats.formatPanelValue(valueFormat)(rawValue);
-  }
+  const value = statValueText(rawValue, panel.valueFormat, translate, formats);
   const spark = readSparkline(panel, record);
   const testId = `dashboard-panel-${panel.id}`;
   const subText = resolveDashboardText(sub, translate, formats) ?? fallbackText(sub, undefined);
@@ -191,37 +182,70 @@ function StatPanelContent({
       />
     ) : undefined;
 
-  if (variant !== "card") {
-    return (
-      <StatStripCell
-        {...(variant === "strip-compact" && { compact: true })}
-        icon={icon}
-        label={shownLabel}
-        value={value}
-        tone={tone ?? "default"}
-        {...(Icon !== undefined && { accentColor: panel.accentColor })}
-        {...(subText !== undefined && { sub: subText })}
-        {...(delta !== undefined && { delta })}
-        {...(spark !== undefined && { spark })}
-        testId={testId}
-        {...(link !== undefined && { link })}
-      />
-    );
-  }
+  const narrowLabel = panel.narrowLabel !== undefined ? translate(panel.narrowLabel) : undefined;
   return (
-    <StatCard
-      icon={icon}
-      label={shownLabel}
-      value={value}
-      tone={tone ?? "default"}
-      {...(Icon !== undefined && { accentColor: panel.accentColor })}
-      {...(subText !== undefined && { sub: subText })}
-      {...(delta !== undefined && { delta })}
-      {...(spark !== undefined && { spark })}
-      testId={testId}
-      {...(link !== undefined && { link })}
+    <StatVariantCell
+      variant={variant}
+      cell={{
+        icon,
+        label: shownLabel,
+        value,
+        tone: tone ?? "default",
+        testId,
+        ...(narrowLabel !== undefined && { narrowLabel }),
+        ...(Icon !== undefined && { accentColor: panel.accentColor }),
+        ...(subText !== undefined && { sub: subText }),
+        ...(delta !== undefined && { delta }),
+        ...(spark !== undefined && { spark }),
+        ...(link !== undefined && { link }),
+      }}
     />
   );
+}
+
+type StatCellProps = {
+  readonly icon: ReactNode;
+  readonly label: string;
+  readonly narrowLabel?: string;
+  readonly value: string;
+  readonly tone: StatTone;
+  readonly accentColor?: string;
+  readonly sub?: string;
+  readonly delta?: StatDelta;
+  readonly spark?: readonly number[];
+  readonly testId: string;
+  readonly link?: StatLink;
+};
+
+function StatVariantCell({
+  variant,
+  cell,
+}: {
+  readonly variant: StatPanelBodyProps["variant"];
+  readonly cell: StatCellProps;
+}): ReactNode {
+  if (variant === "strip-compact") {
+    const { accentColor: _unused, ...boxCell } = cell;
+    return <StatBoxCell {...boxCell} />;
+  }
+  const { narrowLabel: _narrow, ...tileCell } = cell;
+  return variant === "strip" ? <StatStripCell {...tileCell} /> : <StatCard {...tileCell} />;
+}
+
+function statValueText(
+  rawValue: unknown,
+  valueFormat: DashboardStatPanel["valueFormat"],
+  translate: Translate,
+  formats: DashboardFormats,
+): string {
+  if (typeof rawValue !== "number") {
+    return (
+      resolveDashboardText(rawValue, translate, formats) ??
+      fallbackText(rawValue, EMPTY_VALUE_PLACEHOLDER)
+    );
+  }
+  if (valueFormat?.kind === "relativeTime") return formats.formatRelative(rawValue);
+  return formats.formatPanelValue(valueFormat)(rawValue);
 }
 
 function readDelta(

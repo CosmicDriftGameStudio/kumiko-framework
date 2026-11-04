@@ -6,7 +6,13 @@ import {
   NavProvider,
   PageHeaderCompactProvider,
 } from "../../../index.ts";
-import { fireEvent, render, renderWithSidebar, screen } from "../../__tests__/test-utils.tsx";
+import {
+  atViewportWidth,
+  fireEvent,
+  render,
+  renderWithSidebar,
+  screen,
+} from "../../__tests__/test-utils.tsx";
 import { DefaultPageHeader } from "../../primitives/page-header.tsx";
 import { PageHeaderSlotProvider } from "../page-header-slot.tsx";
 import { ShellHeader } from "../shell-header.tsx";
@@ -215,20 +221,33 @@ describe("ShellHeader", () => {
       );
     }
 
-    test("the bar shows the parent list as a working link and no h1", () => {
+    test("on a phone the bar shows the parent list as a working link and no h1", () => {
       const navigate = mock((_to: unknown) => {});
-      renderBodyTitle(false, navigate);
-      expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
-      fireEvent.click(screen.getByRole("link", { name: /item-list/ }));
+      atViewportWidth(500, () => {
+        renderBodyTitle(false, navigate);
+        expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+        fireEvent.click(screen.getByRole("link", { name: /item-list/ }));
+      });
       expect(navigate).toHaveBeenCalledWith({ screenId: "item-list" });
     });
 
-    test("together with recordTitle the parent still wins over the record title", () => {
+    test("on a phone the parent still wins over the record title", () => {
+      atViewportWidth(500, () => {
+        renderBodyTitle(true, () => {});
+        const items = Array.from(document.querySelectorAll("[data-slot='breadcrumb-item']"));
+        expect(items).toHaveLength(1);
+        expect(items[0]?.textContent).toContain("item-list");
+        expect(screen.queryByText("VW Golf")).toBeNull();
+      });
+    });
+
+    test("on desktop the bar names the record as a plain crumb behind the parent, the body owns the h1", () => {
       renderBodyTitle(true, () => {});
       const items = Array.from(document.querySelectorAll("[data-slot='breadcrumb-item']"));
-      expect(items).toHaveLength(1);
+      expect(items).toHaveLength(2);
       expect(items[0]?.textContent).toContain("item-list");
-      expect(screen.queryByText("VW Golf")).toBeNull();
+      expect(items[1]?.textContent).toBe("VW Golf");
+      expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
     });
   });
 

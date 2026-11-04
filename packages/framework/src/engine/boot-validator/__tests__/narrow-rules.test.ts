@@ -151,11 +151,143 @@ describe("list and detail narrow rules", () => {
     );
   });
 
-  test("showOnNarrowOnly is rejected in a dashboard list panel", () => {
+  test("showOnNarrowOnly boots in a dashboard list panel", () => {
     const ids = ruleIdsOf([
       dashboard([{ ...LIST, columns: [{ field: "number", showOnNarrowOnly: true }] }]),
     ]);
-    expect(ids).toContain("list/narrow-only-conflict");
+    expect(ids).toEqual([]);
+  });
+
+  test("narrow.field needs the line layout and a column of the panel", () => {
+    const line = { ...LIST, footerLink: FOOTER_LINK };
+    expect(
+      ruleIdsOf([dashboard([{ ...line, narrow: { layout: "line", field: "number" } }])]),
+    ).toEqual([]);
+    expect(
+      ruleIdsOf([dashboard([{ ...line, narrow: { layout: "line", field: "nope" } }])]),
+    ).toContain("dashboard/list-narrow-field-unknown");
+    expect(
+      ruleIdsOf([dashboard([{ ...line, narrow: { layout: "cards", field: "number" } }])]),
+    ).toContain("dashboard/list-narrow-field-unknown");
+  });
+
+  test("narrowOrder must be a non-negative integer", () => {
+    expect(ruleIdsOf([dashboard([{ ...LIST, narrowOrder: 2 }])])).toEqual([]);
+    expect(ruleIdsOf([dashboard([{ ...LIST, narrowOrder: -1 }])])).toContain(
+      "dashboard/narrow-order-invalid",
+    );
+    expect(ruleIdsOf([dashboard([{ ...LIST, narrowOrder: 1.5 }])])).toContain(
+      "dashboard/narrow-order-invalid",
+    );
+  });
+
+  test("narrowLabel on a stat outside a group is rejected", () => {
+    expect(ruleIdsOf([dashboard([{ ...STAT, narrowLabel: "shop:today:open-short" }])])).toContain(
+      "dashboard/stat-narrow-label-outside-group",
+    );
+  });
+
+  test("a stat-group icon needs a label and the strip layout", () => {
+    const group = { kind: "stat-group", id: "inbox", stats: [STAT, { ...STAT, id: "late" }] };
+    expect(ruleIdsOf([dashboard([{ ...group, icon: "inbox" }])])).toContain(
+      "dashboard/stat-group-icon-without-titled-strip",
+    );
+    expect(
+      ruleIdsOf([
+        dashboard([{ ...group, label: "shop:today:inbox", layout: "strip", icon: "inbox" }]),
+      ]),
+    ).toEqual([]);
+    for (const layout of ["cards", undefined]) {
+      expect(
+        ruleIdsOf([dashboard([{ ...group, label: "shop:today:inbox", layout, icon: "inbox" }])]),
+      ).toContain("dashboard/stat-group-icon-without-titled-strip");
+    }
+  });
+
+  test("narrowLabel on a group child needs a titled group with the strip layout", () => {
+    const group = (extra: Record<string, unknown>, narrowLabel: string) => ({
+      kind: "stat-group",
+      id: "inbox",
+      stats: [{ ...STAT, narrowLabel }],
+      ...extra,
+    });
+    const titledStrip = { label: "shop:today:inbox", layout: "strip" };
+    expect(ruleIdsOf([dashboard([group(titledStrip, "shop:today:open-short")])])).toEqual([]);
+    expect(ruleIdsOf([dashboard([group({}, "shop:today:open-short")])])).toContain(
+      "dashboard/stat-narrow-label-outside-group",
+    );
+    expect(
+      ruleIdsOf([
+        dashboard([group({ label: "shop:today:inbox", layout: "cards" }, "shop:today:open-short")]),
+      ]),
+    ).toContain("dashboard/stat-narrow-label-outside-group");
+    expect(ruleIdsOf([dashboard([group(titledStrip, " ")])])).toContain(
+      "dashboard/stat-narrow-label-outside-group",
+    );
+  });
+
+  test("narrowOrder on a group child is rejected, the group itself may set it", () => {
+    const group = {
+      kind: "stat-group",
+      id: "inbox",
+      label: "shop:today:inbox",
+      layout: "cards",
+      stats: [{ ...STAT, narrowOrder: 1 }],
+    };
+    expect(ruleIdsOf([dashboard([group])])).toContain("dashboard/narrow-order-invalid");
+    expect(ruleIdsOf([dashboard([{ ...group, stats: [STAT], narrowOrder: 1 }])])).toEqual([]);
+  });
+
+  test("hint.narrowDetailField needs hint.detailField", () => {
+    const listWithHint = (hint: Record<string, unknown>) =>
+      dashboard([{ ...LIST, columns: [{ field: "number", hint }] }]);
+    expect(ruleIdsOf([listWithHint({ narrowDetailField: "number" })])).toContain(
+      "list/narrow-detail-field-without-detail-field",
+    );
+    expect(
+      ruleIdsOf([listWithHint({ detailField: "number", narrowDetailField: "number" })]),
+    ).toEqual([]);
+  });
+
+  test("rowLink.paramField must be a field of the query output", () => {
+    const withOutput = (rowLink: Record<string, unknown>) =>
+      defineFeature("shop", (r) => {
+        r.queryHandler({
+          name: "order:now",
+          schema: z.object({}),
+          handler: async () => ({ rows: [] }),
+          access: OPEN_TO_ALL,
+          outputSchema: z.object({ rows: z.array(z.object({ number: z.string() })) }),
+        });
+        r.screen({
+          id: "orders",
+          type: "projectionList",
+          query: "shop:query:order:now",
+          columns: ["number"],
+        } as never);
+        r.screen({
+          id: "overview",
+          type: "dashboard",
+          panels: [{ ...LIST, rowLink }],
+        } as never);
+      });
+    expect(ruleIdsOf([withOutput({ screen: "orders", paramField: "number" })])).toEqual([]);
+    expect(ruleIdsOf([withOutput({ screen: "orders", paramField: "nope" })])).toContain(
+      "query/output-field-missing",
+    );
+  });
+
+  test("rowLink needs an existing screen, a non-empty paramField and a known icon", () => {
+    expect(
+      ruleIdsOf([dashboard([{ ...LIST, rowLink: { screen: "orders", icon: "chevron" } }])]),
+    ).toEqual([]);
+    expect(ruleIdsOf([dashboard([{ ...LIST, rowLink: { screen: "missing" } }])]).length).toBe(1);
+    expect(
+      ruleIdsOf([dashboard([{ ...LIST, rowLink: { screen: "orders", paramField: " " } }])]),
+    ).toContain("dashboard/list-row-link-invalid");
+    expect(
+      ruleIdsOf([dashboard([{ ...LIST, rowLink: { screen: "orders", icon: "star" } }])]),
+    ).toContain("dashboard/list-row-link-invalid");
   });
 
   test("steps.narrowLimit must be a positive integer", () => {

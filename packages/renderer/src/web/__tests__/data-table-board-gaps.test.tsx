@@ -81,6 +81,23 @@ describe("DataTable summaryRow", () => {
     expect(screen.getByTestId("list-summary").textContent).toBe("7 open");
   });
 
+  test("items with a column sit under that column, unknown columns fall back to the first", () => {
+    render(
+      <DataTable
+        columns={COLUMNS}
+        rows={ROWS}
+        summaryRow={{
+          items: [
+            { column: "due", value: "2 overdue" },
+            { column: "hidden-column", value: "9 open" },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByTestId("list-summary-due").textContent).toBe("2 overdue");
+    expect(screen.getByTestId("list-summary-name").textContent).toBe("9 open");
+  });
+
   test("narrow viewport: renders as a card", () => {
     atViewportWidth(500, () => {
       render(
@@ -301,12 +318,12 @@ describe("DataTable showOnNarrowOnly and plainSentence", () => {
     expect(screen.getByText("Ship it").className).not.toContain("text-status-bad");
   });
 
-  test("on cards the reason stays behind its toggle", () => {
+  test("cards drop the reason and its toggle", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={reasonHint(false)} rows={hintRows} testId="cards" />);
+      expect(screen.getByText("Ship it")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
       expect(screen.queryByText("Paid")).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Why?" }));
-      expect(screen.getByText("Paid")).toBeTruthy();
     });
   });
 });

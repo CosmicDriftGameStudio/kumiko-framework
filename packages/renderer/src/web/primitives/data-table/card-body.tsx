@@ -1,7 +1,11 @@
 import type { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
-import type { ListColumnViewModel, ListRowViewModel } from "../../../headless/index.ts";
+import type {
+  ListColumnHintViewModel,
+  ListColumnViewModel,
+  ListRowViewModel,
+} from "../../../headless/index.ts";
 import {
   cellLinkProp,
   DataTableCell,
@@ -16,6 +20,13 @@ import { showFullTextOnHover } from "./table-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 export type CardRoles = ReturnType<typeof cardColumnRoles<ListColumnViewModel>>;
+
+// The phone card shows the sentence and its (narrow) detail; the reason toggle stays a table feature.
+function cardHint(hint: ListColumnHintViewModel): ListColumnHintViewModel {
+  const { reasonField: _reason, detailField: _detail, narrowDetailField, ...rest } = hint;
+  const detailField = narrowDetailField ?? _detail;
+  return { ...rest, ...(detailField !== undefined && { detailField }) };
+}
 
 function cardCell(
   m: DataTableModel,
@@ -37,6 +48,7 @@ function cardCell(
       translate={m.tableTranslate}
       locale={m.tableLocale}
       {...columnCellPresentationProps(col)}
+      {...(col.hint !== undefined && { hint: cardHint(col.hint) })}
       {...(col.fileDisplay !== undefined && { fileDisplay: col.fileDisplay, compactFile: true })}
       {...(onCellChange !== undefined && {
         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
@@ -56,16 +68,11 @@ function hasCardLink(row: ListRowViewModel, col: ListColumnViewModel): boolean {
   );
 }
 
-function hasHintReason(row: ListRowViewModel, col: ListColumnViewModel): boolean {
-  const { reasonField } = col.hint ?? {};
-  return reasonField !== undefined && !isEmptyCellValue(row.values[reasonField]);
-}
-
 function needsControlOutsideOpener(row: ListRowViewModel, col: ListColumnViewModel): boolean {
-  return hasCardLink(row, col) || hasHintReason(row, col);
+  return hasCardLink(row, col);
 }
 
-// A link or a reason toggle inside the row's opener button would be an <a> or <button> in a
+// A link inside the row's opener button would be an <a> or <button> in a
 // <button>, so such columns of an openable card move out of the body and render below it.
 export function splitLinkColumns(
   m: DataTableModel,
@@ -114,20 +121,14 @@ function renderCardMeta(
   metaColumns: readonly ListColumnViewModel[],
 ): ReactNode {
   return (
-    // The separator is a real element, not CSS `content`. The row is shifted by one
-    // separator width via logical `-ms-3` (RTL-safe); the wrapper clips only
-    // horizontally (`overflow-x-clip`), so the separator vanishes at each line
-    // start while nothing is hidden vertically.
-    <div className="min-w-0 overflow-x-clip">
+    // One column per line, truncated on its own line.
+    <div className="min-w-0">
       <div
         data-testid={`card-meta-${row.id}`}
-        className="-ms-3 flex min-w-0 flex-wrap items-center text-[13px] leading-5 tabular-nums text-foreground-secondary"
+        className="flex min-w-0 flex-col text-[13px] leading-5 tabular-nums text-foreground-secondary"
       >
         {metaColumns.map((col) => (
           <div key={col.field} className="flex h-5 min-w-0 max-w-full items-center">
-            <span aria-hidden="true" className="w-3 shrink-0 text-center">
-              ·
-            </span>
             <div
               data-testid={cellTestIdOf(m, row, col.field)}
               className="min-w-0 truncate leading-5"

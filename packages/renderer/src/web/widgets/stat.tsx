@@ -1,4 +1,5 @@
 import type { DashboardStatTone } from "@cosmicdrift/kumiko-types/screen";
+import { ArrowUpRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { usePrimitives } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
@@ -24,7 +25,7 @@ const TONE_CHIP: Record<StatTone, string> = {
   negative: "bg-status-bad-surface text-status-bad",
 };
 
-const TONE_VALUE: Record<StatTone, string> = {
+export const TONE_VALUE: Record<StatTone, string> = {
   default: "text-foreground",
   positive: "text-primary",
   ok: "text-status-ok",
@@ -46,7 +47,7 @@ export type StatLink = {
   readonly onPress: () => void;
 };
 
-function StatLinkFrame({
+export function StatLinkFrame({
   link,
   testId,
   children,
@@ -161,11 +162,13 @@ export function StatCard({
   spark,
   testId,
   link,
+  navigable = false,
   children,
 }: {
   readonly icon?: ReactNode;
   readonly label: string;
   readonly value: string;
+  /** Small text on the baseline right behind the value. */
   readonly sub?: string;
   readonly tone?: StatTone;
   readonly accentColor?: string;
@@ -174,19 +177,39 @@ export function StatCard({
   readonly spark?: readonly number[];
   readonly testId?: string;
   readonly link?: StatLink;
+  /** Draws a small arrow top right: the tile leads somewhere. Implied by `link`. */
+  readonly navigable?: boolean;
   /** Extra content below the built-in fields (e.g. a usage meter) — kept
    *  inside the same card chrome instead of stacking a second bordered box. */
   readonly children?: ReactNode;
 }): ReactNode {
   const { Card } = usePrimitives();
+  const leadsSomewhere = navigable || link !== undefined;
   // StatCard is a reusable small-tile widget (a metrics dashboard grid, not
   // a whole-section frame) — an extension section mounting several of
   // these renders a grid of tiles inside its own host Card, not a
   // duplicate outer frame around the section's full content.
   const tile = (
     // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
-    <Card options={{ padded: false }} className={cn("p-4", TONE_STRIPE[tone])} testId={testId}>
-      <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+    <Card
+      options={{ padded: false }}
+      className={cn("relative p-4", TONE_STRIPE[tone])}
+      testId={testId}
+    >
+      {leadsSomewhere && (
+        // Pinned to the corner so a wrapping label never pushes it into the text flow.
+        <ArrowUpRight
+          className="absolute right-3 top-3 size-3.5 text-muted-foreground"
+          aria-hidden="true"
+          data-kumiko-layout="stat-card-arrow"
+        />
+      )}
+      <div
+        className={cn(
+          "flex flex-wrap items-start justify-between gap-x-2 gap-y-1",
+          leadsSomewhere && "pr-5",
+        )}
+      >
         <div className="flex min-w-0 flex-1 basis-[7rem] items-center gap-2 text-muted-foreground">
           {icon !== undefined && <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />}
           <span title={label} className="min-w-0 line-clamp-2 text-xs font-medium">
@@ -205,8 +228,10 @@ export function StatCard({
           </span>
         )}
       </div>
-      <div className={cn("mt-2 text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>{value}</div>
-      {sub !== undefined && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
+      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
+        <span className={cn("text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>{value}</span>
+        {sub !== undefined && <span className="text-xs text-muted-foreground">{sub}</span>}
+      </div>
       {trend !== undefined && (
         <div className="mt-0.5 text-xs font-medium text-foreground/80">{trend}</div>
       )}
@@ -236,7 +261,6 @@ export function StatStripCell({
   spark,
   testId,
   link,
-  compact = false,
 }: {
   /** Chip before the label, colored like StatCard's (`accentColor` or the tone). */
   readonly icon?: ReactNode;
@@ -249,34 +273,12 @@ export function StatStripCell({
   readonly spark?: readonly number[];
   readonly testId?: string;
   readonly link?: StatLink;
-  /** Dense cell for a strip beside a panel title: the number stands left of its label on one
-   *  line, and the sub line drops under sm. */
-  readonly compact?: boolean;
 }): ReactNode {
   return (
     <StatLinkFrame link={link} testId={testId}>
-      <div
-        data-testid={testId}
-        className={cn(
-          "flex min-w-0 flex-col gap-1 px-4 py-3",
-          compact &&
-            "flex-row-reverse items-baseline justify-end gap-1.5 whitespace-nowrap px-0 py-0 sm:px-3 sm:py-1",
-        )}
-      >
-        <div
-          className={cn(
-            "flex flex-wrap items-center justify-between gap-x-2 gap-y-1",
-            compact && "max-sm:min-w-0 max-sm:flex-nowrap",
-          )}
-        >
-          <span
-            className={cn(
-              "flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground",
-              // A block with truncate is what lets text-overflow ellipsis apply inside the flex chain.
-              compact &&
-                "max-sm:block max-sm:truncate max-sm:text-sm max-sm:font-normal max-sm:text-foreground",
-            )}
-          >
+      <div data-testid={testId} className="flex min-w-0 flex-col gap-1 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
             {icon !== undefined && (
               <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />
             )}
@@ -295,24 +297,14 @@ export function StatStripCell({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <span
-            className={cn(
-              "text-xl font-semibold tabular-nums",
-              compact && "max-sm:text-sm",
-              TONE_VALUE[tone],
-            )}
-          >
+          <span className={cn("text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>
             {value}
           </span>
           {spark !== undefined && (
             <Sparkline points={spark} className={cn("h-7 w-20 shrink-0", TONE_VALUE[tone])} />
           )}
         </div>
-        {sub !== undefined && (
-          <div className={cn("text-xs text-muted-foreground", compact && "max-sm:hidden")}>
-            {sub}
-          </div>
-        )}
+        {sub !== undefined && <div className="text-xs text-muted-foreground">{sub}</div>}
       </div>
     </StatLinkFrame>
   );

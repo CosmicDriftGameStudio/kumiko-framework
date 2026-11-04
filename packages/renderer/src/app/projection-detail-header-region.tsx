@@ -146,6 +146,14 @@ function renderBandWithNarrowMetrics(
   );
 }
 
+function shortTitleOf(
+  header: ProjectionDetailScreenDefinition["header"],
+  record: Readonly<Record<string, unknown>>,
+): string | undefined {
+  const value = header?.shortTitle === undefined ? undefined : record[header.shortTitle];
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
 function renderPageHeaderBranch(
   model: DetailRegionModel,
   pieces: DetailRegionPieces,
@@ -166,9 +174,10 @@ function renderPageHeaderBranch(
     <>
       <PageHeader
         {...(hasTitleBlock && { bodyTitle: true })}
+        {...(hasTitleBlock &&
+          !pageHeaderCompact && { recordTitle: shortTitleOf(header, record) ?? titleText })}
         {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
-        {...(!hasTitleBlock &&
-          !pageHeaderCompact &&
+        {...(!pageHeaderCompact &&
           statusBadge !== undefined && {
             status: statusBadge,
           })}
@@ -177,7 +186,13 @@ function renderPageHeaderBranch(
         })}
       />
       {titleText !== undefined &&
-        renderRecordTitleBlock(model, titleText, statusBadge, pieces.headerSubtitleSlot)}
+        renderRecordTitleBlock(
+          model,
+          titleText,
+          statusBadge,
+          pieces.headerSubtitleSlot,
+          !pageHeaderCompact,
+        )}
       {/* The band owns the horizontal inset; the slot is its unstyled lead
           row so it lines up with the metrics below. */}
       {MetricBand === undefined && bandSubtitle}

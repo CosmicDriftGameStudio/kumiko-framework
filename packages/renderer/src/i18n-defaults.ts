@@ -235,6 +235,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dashboard.filter.all": "All",
     "kumiko.dashboard.list.line-more": "{count} more",
     "kumiko.dashboard.list.more": "{count} more",
+    "kumiko.dashboard.list.open-row": "Open",
     "kumiko.dashboard.list.shown-of-total": "{shown} of {total}",
     "kumiko.dashboard.panel.error.isolated": "The other panels are not affected.",
     "kumiko.dashboard.panel.error.retry": "Try again",
@@ -248,7 +249,6 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dashboard.brush-end": "Window end",
     "kumiko.dashboard.brush-start": "Window start",
     "kumiko.dashboard.today": "Today",
-    "kumiko.dashboard.updated-at": "As of {time}",
 
     "kumiko.app-boot.loading": "Loading…",
     "kumiko.app-boot.unauthorized": "You need to sign in to see this.",

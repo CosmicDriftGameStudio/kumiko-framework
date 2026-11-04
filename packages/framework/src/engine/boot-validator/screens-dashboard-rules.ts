@@ -173,6 +173,12 @@ export const DASHBOARD_RULES = {
     summary: 'A list panel with narrow.layout "line" declares footerLink, the target of the line.',
     fix: 'Add footerLink or use narrow.layout "cards".',
   },
+  listRowLinkInvalid: {
+    id: "dashboard/list-row-link-invalid",
+    summary:
+      'A list panel rowLink names a registered screen, a non-empty paramField and an icon of "arrow" or "chevron".',
+    fix: 'Set rowLink.screen to a registered screen, paramField to the row field holding the params object and icon to "arrow" or "chevron".',
+  },
   statGroupColumnsInvalid: {
     id: "dashboard/stat-group-columns-invalid",
     summary: 'A stat-group\'s columns is 2, 3 or 4 and needs layout "cards".',
@@ -182,6 +188,30 @@ export const DASHBOARD_RULES = {
     id: "dashboard/stat-group-child-hide-on-narrow",
     summary: "Stat-group children do not set hideOnNarrow.",
     fix: "Set hideOnNarrow on the whole group instead.",
+  },
+  listNarrowFieldUnknown: {
+    id: "dashboard/list-narrow-field-unknown",
+    summary:
+      "A list panel's narrow.field is set only with narrow.layout \"line\" and names one of the panel's columns.",
+    fix: 'Set narrow.layout "line" and name a column field of the panel, or remove narrow.field.',
+  },
+  narrowOrderInvalid: {
+    id: "dashboard/narrow-order-invalid",
+    summary:
+      "A panel's narrowOrder is an integer of at least 0 and is not set on a stat-group child.",
+    fix: "Set narrowOrder to a whole number from 0 up on the panel (or the whole stat-group).",
+  },
+  statNarrowLabelOutsideGroup: {
+    id: "dashboard/stat-narrow-label-outside-group",
+    summary:
+      "A stat's narrowLabel is non-empty and only set on a stat-group child (the one-line phone strip is the only place it is drawn).",
+    fix: "Move the stat into a titled stat-group or remove narrowLabel.",
+  },
+  statGroupIconWithoutTitledStrip: {
+    id: "dashboard/stat-group-icon-without-titled-strip",
+    summary:
+      'A stat-group\'s icon needs a label and layout "strip" (the icon stands in the one-line phone strip).',
+    fix: 'Give the group a label and layout "strip", or remove icon.',
   },
   textNarrowBlocksWithoutBlocks: {
     id: "dashboard/text-narrow-blocks-without-blocks",

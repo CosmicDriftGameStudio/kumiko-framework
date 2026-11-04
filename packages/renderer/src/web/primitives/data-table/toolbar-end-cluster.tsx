@@ -27,8 +27,17 @@ export function ToolbarEndCluster({
   const showsViewMenu = viewHasMenu(view);
   return (
     <div className="flex flex-wrap items-center gap-2 ml-auto">
-      {showsViewMenu && <ViewMenu view={view} columnLabels={columnLabels} />}
-      {exportList !== undefined && <ExportButton source={exportList} />}
+      {/* Column picker and export are desktop tools; a phone list shows the cards as they are. */}
+      {showsViewMenu && (
+        <div className="max-sm:hidden">
+          <ViewMenu view={view} columnLabels={columnLabels} />
+        </div>
+      )}
+      {exportList !== undefined && (
+        <div className="max-sm:hidden">
+          <ExportButton source={exportList} />
+        </div>
+      )}
       {toolbarEnd}
     </div>
   );

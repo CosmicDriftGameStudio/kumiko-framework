@@ -138,6 +138,8 @@ export type ListColumnCellDisplay = "badge" | "button";
 
 export type ListColumnHintViewModel = {
   readonly detailField?: string;
+  /** `ListColumnHint.narrowDetailField`: replaces `detailField` in the phone card. */
+  readonly narrowDetailField?: string;
   readonly toneField?: string;
   readonly reasonField?: string;
   /** `ListColumnHint.plainSentence`: the sentence keeps the normal text color. */

@@ -1,7 +1,7 @@
 // @runtime test
 // Shots of the list table options on the workboard task list: view menu,
 // hidden/reordered columns, compact density, the reset-all button and the
-// compact card layout. Runs only with SCREENSHOT_DIR set.
+// phone card layout. Runs only with SCREENSHOT_DIR set.
 
 import {
   captureScreenshot,
@@ -76,11 +76,9 @@ test.describe("docs images", () => {
 test.describe("phone", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test("compact card layout", async ({ page }) => {
+  test("card layout without the view menu", async ({ page }) => {
     await openTaskList(page);
-    await page.getByRole("button", { name: "View", exact: true }).click();
-    await page.getByRole("radio", { name: "Compact" }).click();
-    await page.keyboard.press("Escape");
-    await captureScreenshot(page, "list-table-cards-compact");
+    await expect(page.getByRole("button", { name: "View", exact: true })).toBeHidden();
+    await captureScreenshot(page, "list-table-cards-phone");
   });
 });

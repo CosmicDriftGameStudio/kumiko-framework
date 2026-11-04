@@ -388,7 +388,7 @@ describe("dashboard panel states", () => {
     expect(screen.queryByText("The other panels are not affected.")).toBeNull();
   });
 
-  test("a retry that loads a panel moves the updated-at stamp past the initial render time", async () => {
+  test("a retry that loads a panel moves the date stamp to the server day", async () => {
     const clock = spyOn(Date, "now");
     clock.mockReturnValue(Date.UTC(2026, 0, 1, 8, 0, 0));
     try {
@@ -404,7 +404,7 @@ describe("dashboard panel states", () => {
       const stampTestId = `dashboard-${twoPanels.id}-updated-at`;
       const stampAtRender = screen.getByTestId(stampTestId).textContent;
 
-      clock.mockReturnValue(Date.UTC(2026, 0, 1, 14, 30, 0));
+      clock.mockReturnValue(Date.UTC(2026, 0, 2, 14, 30, 0));
       await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
       await waitFor(() => expect(screen.getByText("Recovered")).toBeTruthy());
       await waitFor(() =>
@@ -507,7 +507,9 @@ describe("dashboard timeRange, filter and scope", () => {
     expect(screen.getByTestId("dashboard-ranged-scope-notice").textContent).toContain(
       "demo:scope-notice",
     );
-    expect(screen.getByTestId("dashboard-ranged-updated-at").textContent).toMatch(/^As of /);
+    expect(screen.getByTestId("dashboard-ranged-updated-at").textContent).toMatch(
+      /^[A-Za-z]+day, /,
+    );
   });
 });
 

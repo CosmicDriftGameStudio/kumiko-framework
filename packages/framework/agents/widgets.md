@@ -54,6 +54,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `FloatingPanel` | Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered. |
 | `FormScreenShell` |  |
 | `HeaderActionGroup` |  |
+| `HeaderActionPinned` | Marks an app header action (e.g. the assistant trigger) that stays in the bar on a phone, next to the bell; the rest of `headerActions` folds into the "…" menu. |
 | `HtmlMailFrame` | Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content. |
 | `Icon` |  |
 | `InfinityList` | Cursor-paginated scroll list (mail inbox, activity feeds) — loads the next page when the end sentinel becomes visible (IntersectionObserver), instead of a pager bar like QueryTable/entityList. |

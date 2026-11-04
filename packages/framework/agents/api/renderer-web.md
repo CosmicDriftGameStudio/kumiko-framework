@@ -50,6 +50,7 @@ function FileViewAction(props: { fileId: string; }): ReactNode; // "View" action
 function FloatingPanel(props: FloatingPanelProps): ReactNode; // Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered.
 function FormScreenShell(props: { children: ReactNode; className?: string; testId?: string; maxWidth?: FormScreenShellWidth; fillHeight?: boolean; }): ReactNode;
 function HeaderActionGroup(props: HeaderActionGroupProps): ReactNode;
+function HeaderActionPinned(props: { children: ReactNode; }): ReactNode; // Marks an app header action (e.g. the assistant trigger) that stays in the bar on a phone, next to the bell; the rest of `headerActions` folds into the "…" menu.
 function HtmlMailFrame(props: { html: string; title: string; allowRemoteImages: boolean; testId?: string; }): ReactNode; // Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content.
 function Icon(props: { name: NavIconKey; className?: string; }): ReactNode;
 function InfinityList<TData = unknown, TRow = Readonly<Record<string, unknown>>>(props: InfinityListProps<TData, TRow>): ReactNode; // Cursor-paginated scroll list (mail inbox, activity feeds) — loads the next page when the end sentinel becomes visible (IntersectionObserver), instead of a pager bar like QueryTable/entityList.
@@ -113,7 +114,7 @@ function SidebarProvider(props: React.ComponentProps<"div"> & { defaultOpen?: bo
 function SidebarUser(props: SidebarUserProps): ReactNode;
 function Sparkline(props: { points: number[]; className?: string; }): ReactNode;
 function Stack(props: StackProps): ReactNode;
-function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?: string; tone?: StatTone; accentColor?: string; delta?: StatDelta; trend?: string; spark?: number[]; testId?: string; link?: StatLink; children?: ReactNode; }): ReactNode; // Icon-bearing metric tile with an optional delta chip, trend line, and sparkline.
+function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?: string; tone?: StatTone; accentColor?: string; delta?: StatDelta; trend?: string; spark?: number[]; testId?: string; link?: StatLink; navigable?: boolean; children?: ReactNode; }): ReactNode; // Icon-bearing metric tile with an optional delta chip, trend line, and sparkline.
 function StatusBadge(props: { tone: StatusBadgeTone; children: ReactNode; className?: string; testId?: string; }): ReactNode; // Pill badge with a status dot.
 function StatusBarChart(props: { entries: StatusBarEntry[]; ariaLabel: string; startLabel?: string; endLabel?: string; highlightLast?: boolean; dense?: boolean; testId?: string; }): ReactNode; // Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe.
 function StepBar(props: { steps: string[]; currentIndex: number; compactLabel: string; onStepSelect?: (index: number) => void; doneSteps?: boolean[]; selectableSteps?: "done" | "all"; narrowLayout?: "label" | "steps"; orientation?: "horizontal" | "vertical" | "stacked"; heading?: string; description?: string; subtitles?: (string | undefined)[]; upNext?: { heading: string; title: string; subtitle?: string; }; testId?: string; compactTestId?: string; }): ReactNode; // Wizard step overview — numbered chips with a connector line between them.
@@ -254,7 +255,8 @@ type AvatarProps = {
 type AvatarShape = "square" | "round";
 type AvatarSize = "xs" | "sm" | "md" | "lg";
 type BannerProps = { // Banner for an inline message or page state (for example, "Loading…" or "Screen not found").
-  variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done, nothing left to do here").
+  variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done").
+  inline?: boolean; // Title and text run on one line (text right behind the bold title); the text is dropped below sm, so a phone shows title and actions only.
   density?: "default" | "compact"; // "compact" is one line: the title reads inline before the text.
   icon?: NavIconKey; // Icon left of the text.
   title?: ReactNode; // Bold heading above `children`, inside the text column.

@@ -1863,6 +1863,7 @@ type DataTableSummaryItem = {
   label?: string; // Absent: the cell shows the value alone, for values that carry their own meaning ("7 need action").
   value: string | number;
   tone?: SelectOptionTone;
+  column?: string; // Column field the value stands under when the table draws the row as cells; absent goes to the first column.
 };
 type DataTableSummaryRow = { // One line of "label value" pairs (the label is optional) under the rows, answered by the screen's summaryRow query.
   items: DataTableSummaryItem[];
@@ -2274,6 +2275,7 @@ type ListColumnFileDisplay = // How a list cell shows a FileRef value (id or id 
 ;
 type ListColumnHintViewModel = {
   detailField?: string;
+  narrowDetailField?: string; // `ListColumnHint.narrowDetailField`: replaces `detailField` in the phone card.
   toneField?: string;
   reasonField?: string;
   plainSentence?: boolean; // `ListColumnHint.plainSentence`: the sentence keeps the normal text color.
@@ -2358,7 +2360,7 @@ type RecordStepsProps = { // "Next steps" panel; an item's `reason` sits behind 
   narrowLimit?: number; // Below the sm breakpoint only this many steps show; the rest sits behind a toggle.
   moreLabel?: (hiddenCount: number) => string; // Toggle label for the hidden steps; receives their count.
   lessLabel?: string;
-  items: { id: string; title: string; detail?: string; tone?: SelectOptionTone; reason?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
+  items: { id: string; title: string; detail?: string; narrowDetail?: string; tone?: SelectOptionTone; reason?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
   count?: number; // Total number of steps, shown small beside the heading even when `narrowLimit` shortens the list.
   testId?: string;
 };
@@ -4934,6 +4936,15 @@ type DashboardChartRanges = {
   default: string;
 };
 type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
+type DashboardListRowLink = { // Row link of a list panel.
+  screen: string; // Target screen, `feature:screen:name` or the short id in the same feature.
+  paramField?: string; // Row field holding the params object of the target (`entityId` opens that record, other keys become search params).
+  icon?: "arrow" | "chevron"; // "arrow" (default) draws ↗ for a jump to another place, "chevron" draws › for opening the row.
+};
+type DashboardListShowTotal = { // Texts of the "n of m" count in a list panel's subtitle; without `text` the default i18n text stands.
+  text?: string; // i18n key, placeholders `{shown}` and `{total}`.
+  narrowText?: string; // i18n key used instead of `text` below `sm`.
+};
 type DashboardPanelGate = {
   visibleWhen?: DashboardPanelVisibility;
 };
@@ -5066,6 +5077,7 @@ type MetricSpec = {
   label: string;
   labelField?: string; // Record field of the detail query holding the label text, e.g. "Rent from 01.12."; it replaces the static `label` while it holds a non-empty string.
   navigate?: MetricNavigate;
+  hideOnNarrow?: true; // Leaves the metric out below `sm`.
   tone?: DashboardStatTone; // Tile color as on dashboard stat panels; not applied while the value is 0.
   toneField?: string; // Record field of the detail query holding a SelectOptionTone; a valid value overrides `tone`, also at value 0.
   subField?: string; // Record field of the detail query shown as a small line under the value; the value stays the number.
@@ -5074,7 +5086,9 @@ type MetricSpec = {
 };
 type RecordHeaderSpec = {
   title: string;
+  shortTitle?: string; // Field holding a short title for the desktop top bar ("Orders › SO-10482 ● processing"); the body keeps the full `title` as the h1.
   subtitle?: string | RecordHeaderSubtitlePart[]; // Field name, or several parts (field name or `{ field, navigate }`) joined by a separator; parts with an empty value are dropped.
+  narrowSubtitle?: string; // Field holding a plain-text subtitle shown instead of `subtitle` below `sm` (e.g. "Main St 12, Berlin · 3 rooms").
   status?: string;
   statusFormat?: FormatSpec; // Formats the badge text (typically `enumOption` with a `keyPrefix`); tones still resolve on the raw value.
   subtitleHref?: string; // Record field holding an absolute http(s) URL.
@@ -5090,6 +5104,7 @@ type RecordHeaderSpec = {
 ```ts
 type RecordGuidanceAction = RowAction & { // A banner or step action.
   hideIcon?: true;
+  narrowLabel?: string; // i18n key shown as the button label below `sm` (a shorter word, e.g. "Plan" for "Plan handover").
 };
 ```
 

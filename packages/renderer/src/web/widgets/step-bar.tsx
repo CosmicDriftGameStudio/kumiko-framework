@@ -146,6 +146,26 @@ function stepStateAt(
   return { isCurrent, isDone, isSelectable };
 }
 
+function ChainMarker({ state }: { readonly state: StepState }): ReactNode {
+  const { isCurrent, isDone } = state;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "z-10 mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-2 bg-card",
+        isDone && "border-status-ok bg-status-ok text-primary-foreground",
+        isCurrent && "border-status-warn",
+        !isDone && !isCurrent && "border-input",
+      )}
+    >
+      {isDone && <Check className="size-3" strokeWidth={3} />}
+      {isCurrent && <span className="size-2 rounded-full bg-status-warn" />}
+    </span>
+  );
+}
+
+// Chain look: a vertical connector joins the markers; done is a filled check, current a ring with
+// a dot (title in the warn tone), open an empty ring. No numbers, no box around the current step.
 function StackedStageList({
   steps,
   subtitles,
@@ -163,21 +183,68 @@ function StackedStageList({
 }): ReactNode {
   const keyed = steps.map((label, index) => ({ label, index, key: `${index}-${label}` }));
   return (
-    <ol data-testid={testId} className="m-0 flex list-none flex-col gap-0.5 p-0">
-      {keyed.map(({ label, index, key }) => (
-        <li key={key}>
-          <StepRailRow
-            index={index}
-            label={label}
-            subtitle={subtitles?.[index]}
-            subtitleTestId={testId !== undefined ? `${testId}-subtitle-${index}` : undefined}
-            rowTestId={chipTestId(testId, index)}
-            state={stepState(index)}
-            onSelect={onSelect}
-            doneLabel={doneLabel}
-          />
-        </li>
-      ))}
+    <ol data-testid={testId} className="m-0 flex list-none flex-col p-0">
+      {keyed.map(({ label, index, key }) => {
+        const state = stepState(index);
+        const subtitle = subtitles?.[index];
+        const body = (
+          <>
+            <span className="relative flex flex-col items-center self-stretch">
+              <ChainMarker state={state} />
+              {index < keyed.length - 1 && (
+                // From the marker's bottom edge to the next marker's top edge (its mt-0.5 gap included).
+                <span
+                  aria-hidden="true"
+                  data-kumiko-layout="step-chain-connector"
+                  className="absolute -bottom-0.5 left-1/2 top-5 w-px -translate-x-1/2 bg-input"
+                />
+              )}
+            </span>
+            {state.isDone && <span className="sr-only">{doneLabel}</span>}
+            <span className="flex min-w-0 flex-col pb-3">
+              <span
+                className={cn(
+                  "text-sm",
+                  state.isCurrent ? "font-semibold text-status-warn" : "text-foreground",
+                  !state.isCurrent && !state.isDone && "text-foreground-secondary",
+                )}
+              >
+                {label}
+              </span>
+              {subtitle !== undefined && (
+                <span
+                  data-testid={testId !== undefined ? `${testId}-subtitle-${index}` : undefined}
+                  className="text-xs text-foreground-secondary"
+                >
+                  {subtitle}
+                </span>
+              )}
+            </span>
+          </>
+        );
+        return (
+          <li key={key}>
+            {state.isSelectable ? (
+              <button
+                type="button"
+                onClick={() => onSelect?.(index)}
+                data-testid={chipTestId(testId, index)}
+                className="flex w-full items-stretch gap-2.5 text-left hover:opacity-80"
+              >
+                {body}
+              </button>
+            ) : (
+              <span
+                aria-current={state.isCurrent ? "step" : undefined}
+                data-testid={chipTestId(testId, index)}
+                className="flex w-full items-stretch gap-2.5"
+              >
+                {body}
+              </span>
+            )}
+          </li>
+        );
+      })}
     </ol>
   );
 }

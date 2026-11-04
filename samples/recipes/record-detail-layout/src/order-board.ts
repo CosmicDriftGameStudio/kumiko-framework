@@ -291,6 +291,7 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   const rows = ordered.slice(offset, offset + (payload.limit ?? DEFAULT_PAGE_SIZE)).map((row) => ({
     ...row,
     narrowMeta: `${euro(row.openAmount)} open · ${row.status}`,
+    nextStepShort: row.nextStepDue === "" ? "" : `${row.nextStepDue} · ${euro(row.openAmount)}`,
     ...(row.nextStep !== "" && {
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
@@ -308,12 +309,17 @@ export function answerOrderSummary(payload: OrderSummaryPayload) {
   const overdue = matching.filter((row) => row.urgencyTone === "negative");
   return {
     items: [
-      { label: "Orders", value: matching.length },
-      { label: "Open", value: euro(matching.reduce((total, row) => total + row.openAmount, 0)) },
+      { label: "Orders", value: matching.length, column: "orderNumber" },
+      {
+        label: "Open",
+        value: euro(matching.reduce((total, row) => total + row.openAmount, 0)),
+        column: "openAmount",
+      },
       {
         label: "Overdue",
         value: euro(overdue.reduce((total, row) => total + row.openAmount, 0)),
         tone: "bad",
+        column: "urgencyLabel",
       },
     ],
   };
@@ -331,6 +337,7 @@ export function answerNowList() {
   return {
     rows: actionNeededRows(NOW_LIST_LIMIT).map((row) => ({
       ...row,
+      nextStepShort: `${row.nextStepDue} · ${euro(row.openAmount)}`,
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
     })),
@@ -457,6 +464,7 @@ export function answerOrderDetail(id: string) {
     id,
     customerName: "Aiko Tanaka",
     orderNumber: "SO-10482",
+    shortTitle: "SO-10482",
     status: "processing",
     totalAmount: "€ 1,248.00",
     totalNote: "2 payments",
@@ -475,12 +483,14 @@ export function answerOrderDetail(id: string) {
     summaryLine: "Waiting for the second payment",
     summaryShort: "Second payment open.",
     summaryTone: "warn",
+    narrowSubtitle: "SO-10482 · placed 21 Aug",
     notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
     steps: [
       {
         id: "remind",
         title: "Send payment reminder",
         detail: "by Friday",
+        narrowDetail: "Fri",
         tone: "warn",
         why: "The invoice is 14 days overdue.\nTwo earlier mails stayed unanswered.\nThe credit limit is 1,500 EUR.",
         canPrepare: true,

@@ -52,6 +52,14 @@ function OrderInternalNote(): ReactNode {
   );
 }
 
+function OrderInboxIcon(): ReactNode {
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path d="M2 9h3l1 2h4l1-2h3v4H2z" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 function Shell({
   schema,
   children,
@@ -73,7 +81,7 @@ function Shell({
       schema={schema}
       user={{ id: "u1", roles: ["Admin"] }}
     >
-      <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+      <ExtensionSectionsProvider value={{ OrderInboxIcon, OrderInternalNote }}>
         {isPinnedRecord && feature !== undefined ? (
           <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
         ) : (

@@ -157,7 +157,7 @@ export function renderToolbarDescription(
     <p
       data-testid={testId !== undefined ? `${testId}-description` : "render-list-description"}
       className={cn(
-        "m-0 text-sm text-muted-foreground",
+        "m-0 text-sm text-muted-foreground max-sm:hidden",
         // min-w-48 lets the actions wrap below the text instead of squeezing it.
         inToolbarRow ? "min-w-48 flex-1" : "pb-2",
         !inToolbarRow && fillsHeight && (isNarrow ? "px-3" : "px-6"),

@@ -184,6 +184,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.today.stat.action-needed": { en: "Need action" },
         "order-desk.today.stat.reminder-due": { en: "Reminders due" },
         "order-desk.today.stat.ending-soon": { en: "Ending soon" },
+        "order-desk.today.now-total": { en: "The {shown} most urgent of {total} orders" },
+        "order-desk.today.now-total-narrow": { en: "{shown} of {total}" },
+        "order-desk.today.deadlines-more": { en: "{count} more deadlines" },
+        "order-desk.today.deadlines-more-narrow": { en: "{count} more" },
+        "order-desk.action.record-short": { en: "Record" },
         "order-desk.today.stat.open": { en: "Open" },
         "order-desk.today.stat.overdue": { en: "Overdue" },
         "order-desk.today.stat.collected": { en: "Collected" },
@@ -228,6 +233,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.col.todo",
           hint: {
             detailField: "nextStepDue",
+            narrowDetailField: "nextStepShort",
             reasonField: "nextStepReason",
             emptyLabel: "order-desk.orders.nothing-open",
           },
@@ -301,6 +307,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           kind: "text",
           id: "briefing",
           span: "two-thirds",
+          narrowOrder: 1,
           query: "order-desk:query:order:briefing",
         },
         {
@@ -310,6 +317,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           subtitle: "order-desk.today.inbox-sub",
           span: "full",
           layout: "strip",
+          icon: { react: { __component: "OrderInboxIcon" } },
           link: { label: "order-desk.today.inbox-link", screen: "orders" },
           stats: [
             {
@@ -349,7 +357,10 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.now",
           span: "two-thirds",
           showHeader: false,
-          showTotal: true,
+          showTotal: {
+            text: "order-desk.today.now-total",
+            narrowText: "order-desk.today.now-total-narrow",
+          },
           narrow: { layout: "cards", limit: 3 },
           footerLink: {
             label: "order-desk.today.now-all",
@@ -364,6 +375,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               field: "nextStep",
               hint: {
                 detailField: "nextStepDue",
+                narrowDetailField: "nextStepShort",
                 reasonField: "nextStepReason",
                 plainSentence: true,
               },
@@ -382,13 +394,16 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.deadlines",
           span: "third",
           showHeader: false,
-          narrow: { layout: "line" },
-          footerLink: { label: "order-desk.today.deadlines-all", screen: "orders" },
+          narrow: { layout: "line", field: "title" },
+          rowLink: { screen: "order-detail", paramField: "params", icon: "chevron" },
+          footerLink: {
+            label: "order-desk.today.deadlines-all",
+            moreText: "order-desk.today.deadlines-more",
+            narrowMoreText: "order-desk.today.deadlines-more-narrow",
+            screen: "orders",
+          },
           query: "order-desk:query:order:deadlines",
-          columns: [
-            { field: "due", display: "datetime" },
-            { field: "title", linkScreenField: "screen", linkParamsField: "params" },
-          ],
+          columns: [{ field: "due", display: "datetime" }, { field: "title" }],
         },
         {
           kind: "list",
@@ -397,10 +412,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
           span: "third",
           showHeader: false,
           hideOnNarrow: true,
+          rowLink: { screen: "order-detail", paramField: "params" },
           query: "order-desk:query:order:customers",
           rowToneField: "tone",
           columns: [
-            { field: "customerName", linkScreenField: "screen", linkParamsField: "params" },
+            { field: "customerName" },
             { field: "openCount", display: "badge", badgeToneField: "openTone" },
           ],
         },
@@ -448,9 +464,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
       focus: true,
+      listScreenId: "orders",
       header: {
         title: "customerName",
+        shortTitle: "shortTitle",
         // Parts are joined by a separator; `format` formats the raw field value.
+        narrowSubtitle: "narrowSubtitle",
         subtitle: [
           "orderNumber",
           { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
@@ -469,6 +488,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
             screen: "order-detail",
             icon: "plus",
             hideIcon: true,
+            narrowLabel: "order-desk.action.record-short",
           },
         ],
       },
@@ -519,7 +539,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.metric.itemCount",
           navigate: { tab: "items" },
         },
-        { field: "placedAt", label: "order-desk.metric.placedAt" },
+        { field: "placedAt", label: "order-desk.metric.placedAt", hideOnNarrow: true },
       ],
       layout: {
         mode: "tabs",

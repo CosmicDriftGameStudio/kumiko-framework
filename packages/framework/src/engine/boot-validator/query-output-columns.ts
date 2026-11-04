@@ -181,7 +181,14 @@ function checkProjectionDetailOutputFields(
   const recordShape = getZodObjectShape(queryHandlers.get(screen.query)?.outputSchema);
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (projectionDetail)`;
   const checkHeaderField = (
-    part: "title" | "subtitle" | "subtitleHref" | "status" | "statusToneField",
+    part:
+      | "title"
+      | "shortTitle"
+      | "subtitle"
+      | "narrowSubtitle"
+      | "subtitleHref"
+      | "status"
+      | "statusToneField",
     field: string,
   ): void => {
     checkFieldExists(
@@ -207,12 +214,16 @@ function checkProjectionDetailOutputFields(
         }
       }
     }
-    if (screen.header.subtitleHref !== undefined) {
-      checkHeaderField("subtitleHref", screen.header.subtitleHref);
-    }
-    if (screen.header.status !== undefined) checkHeaderField("status", screen.header.status);
-    if (screen.header.statusToneField !== undefined) {
-      checkHeaderField("statusToneField", screen.header.statusToneField);
+    const { shortTitle, narrowSubtitle, subtitleHref, status, statusToneField } = screen.header;
+    const optionalParts = [
+      ["shortTitle", shortTitle],
+      ["narrowSubtitle", narrowSubtitle],
+      ["subtitleHref", subtitleHref],
+      ["status", status],
+      ["statusToneField", statusToneField],
+    ] as const;
+    for (const [part, field] of optionalParts) {
+      if (field !== undefined) checkHeaderField(part, field);
     }
   }
   if (screen.recordTitleField !== undefined) {
@@ -389,7 +400,11 @@ function checkDashboardOutputFields(
             `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
         );
       }
-      for (const { option, field } of listGuidanceFieldRefs(panel)) {
+      const rowLinkRefs =
+        panel.rowLink?.paramField === undefined
+          ? []
+          : [{ option: "rowLink.paramField", field: panel.rowLink.paramField }];
+      for (const { option, field } of [...listGuidanceFieldRefs(panel), ...rowLinkRefs]) {
         checkFieldExists(
           rowShape,
           field,

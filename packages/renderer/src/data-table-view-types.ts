@@ -75,6 +75,8 @@ export type DataTableSummaryItem = {
   readonly label?: string;
   readonly value: string | number;
   readonly tone?: SelectOptionTone;
+  /** Column field the value stands under when the table draws the row as cells; absent goes to the first column. */
+  readonly column?: string;
 };
 
 /** One line of "label value" pairs (the label is optional) under the rows, answered by the screen's summaryRow query. */

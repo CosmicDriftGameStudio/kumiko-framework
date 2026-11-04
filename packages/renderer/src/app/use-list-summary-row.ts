@@ -24,6 +24,7 @@ function isSummaryItem(value: unknown): value is DataTableSummaryItem {
   return (
     isPlainObject(value) &&
     (value["label"] === undefined || typeof value["label"] === "string") &&
+    (value["column"] === undefined || typeof value["column"] === "string") &&
     (typeof value["value"] === "string" || typeof value["value"] === "number") &&
     (value["tone"] === undefined || isOneOf(SELECT_OPTION_TONES, value["tone"]))
   );

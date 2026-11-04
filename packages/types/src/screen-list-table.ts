@@ -71,7 +71,9 @@ export type ListTableOptions = {
   readonly summaryRow?: ListTableSummaryRow;
 };
 
-/** The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label?, value, tone? }] }`. */
+/** The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label?, value, tone?, column? }] }`.
+ *  When an item names a `column` (a column field of the list), the table draws the row as a table row: the values stand in the cells under their columns, without labels; items without `column` go to the first column.
+ *  Without any `column` the row stays one line "label value · label value". */
 export type ListTableSummaryRow = {
   /** Qualified query name, e.g. `feature:query:order:summary`. Its Zod schema accepts every list key the screen sends (search, filters, namedFilter, ...). */
   readonly query: string;

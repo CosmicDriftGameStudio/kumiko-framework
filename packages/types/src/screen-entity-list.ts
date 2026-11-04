@@ -107,6 +107,8 @@ export type ListColumnSpec =
 export type ListColumnHint = {
   /** Row field with a second, muted line (e.g. the due date as text). */
   readonly detailField?: string;
+  /** Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider"). Needs `detailField`. */
+  readonly narrowDetailField?: string;
   /** Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`. */
   readonly toneField?: string;
   /** Row field with a longer reason, shown behind a "Why?" toggle in the cell. */

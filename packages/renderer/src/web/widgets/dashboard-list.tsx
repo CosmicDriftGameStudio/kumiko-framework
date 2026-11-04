@@ -1,6 +1,8 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { ReactNode } from "react";
+import { ArrowUpRight, ChevronRight } from "lucide-react";
+import type { MouseEvent, ReactNode } from "react";
 import {
+  type CellLink,
   EMPTY_VALUE_PLACEHOLDER,
   type ListColumnHintViewModel,
   type RuntimeCellLink,
@@ -28,6 +30,8 @@ export type DashboardListColumn = {
   readonly linkFor?: RuntimeCellLink;
   /** "To do" cell; owns the rendering, `toneField` already defaulted by the caller. */
   readonly hint?: ListColumnHintViewModel;
+  /** `showOnNarrowOnly`: drawn in the phone cards only, never as a table column. */
+  readonly narrowOnly?: true;
 };
 
 export type DashboardListRow = Readonly<Record<string, unknown>>;
@@ -129,10 +133,39 @@ export function rowToneOf(
   return isSelectOptionTone(value) ? value : undefined;
 }
 
+function RowLinkIcon({
+  link,
+  icon,
+  label,
+}: {
+  readonly label: string;
+  readonly link: CellLink | undefined;
+  readonly icon: "arrow" | "chevron";
+}): ReactNode {
+  if (link === undefined) return null;
+  const Glyph = icon === "chevron" ? ChevronRight : ArrowUpRight;
+  return (
+    <CellTextLink link={link} className="inline-flex text-muted-foreground hover:text-foreground">
+      <Glyph className="size-4" aria-hidden="true" />
+      <span className="sr-only">{label}</span>
+    </CellTextLink>
+  );
+}
+
+const INTERACTIVE_DESCENDANT_SELECTOR = "a, button";
+
+function pressRowLink(event: MouseEvent<HTMLElement>, link: CellLink | undefined): void {
+  if (link === undefined) return;
+  if (event.target instanceof Element && event.target.closest(INTERACTIVE_DESCENDANT_SELECTOR)) {
+    return;
+  }
+  link.onPress();
+}
+
 /** Compact 40px-row table for dashboard lists with optional bar/badge
  *  columns. */
 export function DashboardListTable({
-  columns,
+  columns: allColumns,
   rows,
   formatPercent,
   formatNumber,
@@ -141,6 +174,7 @@ export function DashboardListTable({
   testId,
   rowToneField,
   showHeader = true,
+  rowLink,
 }: {
   readonly columns: readonly DashboardListColumn[];
   readonly rows: readonly Row[];
@@ -153,7 +187,13 @@ export function DashboardListTable({
   readonly rowToneField?: string;
   /** `false` drops the column header row. */
   readonly showHeader?: boolean;
+  /** Row is a link: `linkFor` resolves the target per row, the icon sits in an extra last cell. */
+  readonly rowLink?: {
+    readonly linkFor: (row: Row) => CellLink | undefined;
+    readonly icon: "arrow" | "chevron";
+  };
 }): ReactNode {
+  const columns = allColumns.filter((column) => column.narrowOnly !== true);
   return (
     <div className="overflow-x-auto">
       <table data-testid={testId} className="w-full text-sm">
@@ -165,35 +205,52 @@ export function DashboardListTable({
                   {column.label}
                 </th>
               ))}
+              {rowLink !== undefined && <th scope="col" className="w-8" />}
             </tr>
           </thead>
         )}
         <tbody>
-          {rows.map((row, index) => (
-            <tr
-              key={typeof row["id"] === "string" ? row["id"] : index}
-              className={cn(
-                "h-10 border-b border-border-row last:border-b-0",
-                // Without a header row nothing labels the columns, so narrow screens stack them.
-                !showHeader &&
-                  "max-sm:grid max-sm:h-auto max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-2",
-                rowToneClass(rowToneOf(row, rowToneField)),
-              )}
-            >
-              {columns.map((column) => (
-                <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
-                  <DashboardListCell
-                    column={column}
-                    row={row}
-                    formatPercent={formatPercent}
-                    formatNumber={formatNumber}
-                    formatDateTime={formatDateTime}
-                    translate={translate}
-                  />
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row, index) => {
+            const rowTarget = rowLink?.linkFor(row);
+            return (
+              <tr
+                key={typeof row["id"] === "string" ? row["id"] : index}
+                {...(rowTarget !== undefined && {
+                  onClick: (event: MouseEvent<HTMLElement>) => pressRowLink(event, rowTarget),
+                })}
+                className={cn(
+                  "h-10 border-b border-border-row last:border-b-0",
+                  rowTarget !== undefined && "cursor-pointer",
+                  // Without a header row nothing labels the columns, so narrow screens stack them.
+                  !showHeader &&
+                    "max-sm:grid max-sm:h-auto max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-2",
+                  rowToneClass(rowToneOf(row, rowToneField)),
+                )}
+              >
+                {columns.map((column) => (
+                  <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
+                    <DashboardListCell
+                      column={column}
+                      row={row}
+                      formatPercent={formatPercent}
+                      formatNumber={formatNumber}
+                      formatDateTime={formatDateTime}
+                      translate={translate}
+                    />
+                  </td>
+                ))}
+                {rowLink !== undefined && (
+                  <td className="w-8 px-2 text-right">
+                    <RowLinkIcon
+                      link={rowTarget}
+                      icon={rowLink.icon}
+                      label={translate("kumiko.dashboard.list.open-row")}
+                    />
+                  </td>
+                )}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

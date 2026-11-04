@@ -1,0 +1,18 @@
+---
+"@cosmicdrift/kumiko-types": minor
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-renderer": minor
+"@cosmicdrift/kumiko-locale-de": patch
+"@cosmicdrift/kumiko-locale-es": patch
+"@cosmicdrift/kumiko-locale-fr": patch
+"@cosmicdrift/kumiko-locale-it": patch
+---
+
+Board gaps round 5: remaining differences between the boards and the apps, desktop and phone.
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: board gaps round 5, phone and desktop details
+detail: Dashboard "As of" is now the server date and hidden below sm (i18n `kumiko.dashboard.updated-at` is removed). A titled `stat-group` strip draws one box per stat from sm up; below sm one line "<title> · <n> <narrowLabel ?? label>" with the new `DashboardStatPanel.narrowLabel` (stats inside a group only) and `DashboardStatGroupPanel.icon`. Stat value and sub line share one baseline; metrics with `navigate` get a small arrow; `MetricSpec.hideOnNarrow`. Every panel takes `narrowOrder` (integer of at least 0, stable sort below sm). `DashboardListPanel.showTotal` is `true | { text?, narrowText? }` (`{shown}`, `{total}`); `footerLink.moreText` and `narrowMoreText` (`{count}`); `narrow: { layout: "line", field? }`; `rowLink: { screen, paramField?, icon?: "arrow" | "chevron" }` makes table rows links with a small icon at the right edge (cards get none; i18n `kumiko.dashboard.list.open-row`). `showOnNarrowOnly` is now allowed in dashboard lists; `ListColumnHint.narrowDetailField` replaces the detail on cards. Dashboard list cards below sm: badge plus one-line detail, bold sentence, `showOnNarrowOnly` columns left and a small button right, no info toggle. Entity and projection list cards: description, column picker and export are hidden below sm, a hint reason has no toggle on cards, each text column sits on its own line, row actions are small outlined buttons bottom left (also `display: "link"`). Visible change: the reason of a hint is no longer reachable on cards. `table.summaryRow` items take `column` and draw as a table row with the values under their columns. Shell below sm: app `headerActions` wrapped in `HeaderActionPinned` (new, from renderer/web) stay next to the bell; the other actions fold into the "…" menu. The record file shows "<parent> › <short title> + status chip" in the top bar from md (`header.shortTitle`, a query field, falls back to the record title); below sm the focus top bar reads "‹ <parent>" (the parent list title replaces the record title as the back label) and the breadcrumb line is gone. `header.narrowSubtitle` (query field) replaces the subtitle below sm. `RecordGuidanceAction.narrowLabel` (button text below sm), banners draw on one line (title, text, button right; title and button only below sm), `RecordStep.narrowDetail`, step subtitle hidden below sm, the main step action honors `display: "link"` and `hideIcon`, further actions sit as text links on the title row (hidden below sm). StepBar stage list gets a chain look (vertical connector, filled check when done, ring with dot for the current step in the warn tone, empty ring when open, no numbers). New boot rules `dashboard/list-narrow-field-unknown`, `dashboard/narrow-order-invalid`, `dashboard/stat-narrow-label-outside-group`, `dashboard/stat-group-icon-without-titled-strip`, `dashboard/list-row-link-invalid`, `list/narrow-detail-field-without-detail-field`; the rule that rejected `showOnNarrowOnly` in dashboards is gone. Visible change: banner icons are now "info" for every tone. Breaking: `StatStripCell.compact` is removed (public export of renderer/web). `StatCard` shows the arrow for every `link`, dashboard stats included. The `moreActions` of a step are not reachable below sm.
+-->

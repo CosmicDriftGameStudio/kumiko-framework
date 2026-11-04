@@ -43,7 +43,7 @@ export function DefaultCard({
                 <h3 className="text-base font-semibold leading-none tracking-tight">{s.title}</h3>
               )}
               {s.subtitle !== undefined && (
-                <p className="text-sm text-muted-foreground">{s.subtitle}</p>
+                <div className="text-sm text-muted-foreground">{s.subtitle}</div>
               )}
             </div>
             {s.headerActions}

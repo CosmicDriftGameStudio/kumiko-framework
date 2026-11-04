@@ -41,7 +41,11 @@ function FocusedScreenFrame({
       {/* Only inside a shell that hides its own header: without one the bar would double it. */}
       {focused && (
         <MobileTopBar
-          label={slot?.recordTitle ?? slot?.title ?? t(screenTitleKey(shortId))}
+          label={
+            parentScreenId !== undefined
+              ? t(screenTitleKey(parentScreenId))
+              : (slot?.recordTitle ?? slot?.title ?? t(screenTitleKey(shortId)))
+          }
           back={{
             label: t("kumiko.actions.back"),
             onClick: () =>

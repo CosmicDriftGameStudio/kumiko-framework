@@ -74,11 +74,12 @@ describe("declarative screen focus", () => {
     navigate.mockClear();
   });
 
-  test("narrow: the top bar carries the record title, a back arrow to the list and the overflow menu", () => {
+  test("narrow: the top bar names the parent list with a back arrow and carries the overflow menu", () => {
     atViewportWidth(500, () => {
       render(<Harness screenDef={detailScreen} />);
       const bar = screen.getByTestId("mobile-top-bar");
-      expect(bar.textContent).toContain("Anna Beispiel");
+      expect(bar.textContent).toContain("client-list");
+      expect(bar.textContent).not.toContain("Anna Beispiel");
       expect(screen.getByRole("banner").className).toContain("max-md:hidden");
       fireEvent.click(screen.getByTestId("mobile-top-bar-back"));
       expect(navigate).toHaveBeenCalledWith({ screenId: "client-list" });

@@ -92,6 +92,8 @@ export type DashboardPanelGate = {
 export type DashboardPanelNarrow = {
   /** Leaves the panel out below the `sm` breakpoint (phone). Not valid on a stat-group child: hide the group. */
   readonly hideOnNarrow?: true;
+  /** Position below `sm`, like CSS `order`: panels are laid out by ascending value, a panel without one counts as 0, equal values keep the declared order. Integer ≥ 0. Desktop keeps the declared order. */
+  readonly narrowOrder?: number;
 };
 
 // Grid width of stat-group/chart/list/feed/progress-list panels. Default:
@@ -128,6 +130,8 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     readonly valueField: string;
     /** Field of the query answer holding the label text, e.g. "Contracts ending by 31.01.2027"; it replaces the static `label` while it holds a non-empty string. The static `label` stays the fallback and the loading/error title. */
     readonly labelField?: string;
+    /** i18n key shown instead of the label in the one-line phone strip of a titled stat-group ("2 requests"). Only used for stats inside a stat-group. */
+    readonly narrowLabel?: string;
     readonly subField?: string;
     readonly toneField?: string;
     /** Formats a numeric value as currency (minor units) or, with `relativeTime`, as
@@ -278,25 +282,52 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly showHeader?: boolean;
     /** i18n key, a line under `label`; with `showTotal` it stands before the count. */
     readonly subtitle?: string;
-    /** Adds "n of m" to the subtitle from the rows shown and the query's `total`. */
-    readonly showTotal?: true;
+    /** Adds "n of m" to the subtitle from the rows shown and the query's `total`. An object sets the text: `text` is an i18n key with `{shown}` and `{total}` ("the {shown} most urgent of {total} items"), `narrowText` replaces it below `sm`. */
+    readonly showTotal?: true | DashboardListShowTotal;
     /** Link under the table to the full list; with a known `total` above the rows shown, "k more" stands before it. */
     readonly footerLink?: DashboardListFooterLink;
     /** Phone layout below `sm`; the table stays from `sm` up. */
     readonly narrow?: DashboardListNarrow;
+    /** Makes each table row a link to a screen; a small icon at the right edge marks it. The cards below `sm` get no extra icon. */
+    readonly rowLink?: DashboardListRowLink;
   };
 
+/** Row link of a list panel. */
+export type DashboardListRowLink = {
+  /** Target screen, `feature:screen:name` or the short id in the same feature. */
+  readonly screen: string;
+  /** Row field holding the params object of the target (`entityId` opens that record, other keys become search params). */
+  readonly paramField?: string;
+  /** "arrow" (default) draws ↗ for a jump to another place, "chevron" draws › for opening the row. */
+  readonly icon?: "arrow" | "chevron";
+};
+
+/** Texts of the "n of m" count in a list panel's subtitle; without `text` the default i18n text stands. */
+export type DashboardListShowTotal = {
+  /** i18n key, placeholders `{shown}` and `{total}`. */
+  readonly text?: string;
+  /** i18n key used instead of `text` below `sm`. */
+  readonly narrowText?: string;
+};
+
 /** "cards": one card per row (tone stripe; badge column and `hint.detailField` on top, the hint sentence bold, button column bottom right,
- *  other columns below). "line": a single clickable line "<label> · <first text of the first row> · k more" to `footerLink`, which it needs.
+ *  `showOnNarrowOnly` columns bottom left; the button column bottom right). "line": a single clickable line "<label> · <value of the first row> · k more" to `footerLink`, which it needs;
+ *  k is the total of the list (the query's `total`, else the rows loaded) minus one.
  *  Default "cards". `limit` shows only the first n rows; subtitle count and footer follow it. */
 export type DashboardListNarrow = {
   readonly limit?: number;
   readonly layout?: "cards" | "line";
+  /** Column whose value of the first row stands behind the label in the "line" layout. Default: the first text column. */
+  readonly field?: string;
 };
 
 /** Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens. */
 export type DashboardListFooterLink = {
   readonly label: string;
+  /** i18n key of the text before the link when more rows exist than shown; `{count}` is the rest. Default "k more". */
+  readonly moreText?: string;
+  /** i18n key used instead of `moreText` below `sm`. */
+  readonly narrowMoreText?: string;
   readonly screen: string;
   readonly namedFilter?: string;
   readonly params?: Readonly<Record<string, string>>;
@@ -325,8 +356,11 @@ export type DashboardStatGroupPanel = DashboardPanelGate &
     readonly subtitle?: string;
     readonly span?: DashboardPanelSpan;
     /** Default: "strip" without `label`, "cards" with. "strip" with a `label` puts label and subtitle
-     *  left and compact tiles beside them; under sm with a `link` it collapses to one clickable line. */
+     *  left, then one box per stat (number large, label bold, sub line small) and the link at the right edge; under sm it collapses to
+     *  one line "<title> · <n> <narrowLabel ?? label> · …" with a chevron, clickable to the `link`. */
     readonly layout?: DashboardStatGroupLayout;
+    /** Icon left of the one-line phone strip (below `sm`); not drawn on wider screens. Resolved like `DashboardStatPanel.icon`. */
+    readonly icon?: PlatformComponent;
     /** Link at the right edge of the panel (label + chevron). */
     readonly link?: DashboardStatGroupLink;
     /** Tiles per row from `md` up, only with `layout: "cards"`; one column below `sm`. Default: follows the number of tiles. */
@@ -559,9 +593,8 @@ export type DashboardScreenDefinition = {
   readonly timeRange?: DashboardTimeRangeDefinition;
   /** Marks the screen as spanning more than the caller's own scope. */
   readonly scope?: DashboardScopeDefinition;
-  /** Show the "Updated at" timestamp in the toolbar. Default true; turn off for
-   *  dashboards that host forms rather than live metrics, where a load time
-   *  next to the form reads as stale data. */
+  /** Show today's date (server clock, weekday and day, no time) in the top bar next to the title; hidden below `sm`.
+   *  Default true; turn off for dashboards that host forms rather than live metrics. */
   readonly showUpdatedAt?: boolean;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;

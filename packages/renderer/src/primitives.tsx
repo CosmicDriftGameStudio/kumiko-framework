@@ -189,15 +189,15 @@ export type LinkProps = {
  *  touch the main border edge to edge, which matters because `<main>` no
  *  longer provides its own padding. */
 export type BannerProps = {
-  /** "error" for alerts (conflict, network error), "info" for neutral
-   *  placeholders (not-found, loading), "loading" for load states, "warning"
-   *  for a non-blocking but attention-grabbing notice (e.g. secretMint's
-   *  "this is shown only once"), "primary" for a call-to-action notice (neutral
-   *  background, accent in the primary color; pair it with `title` and `actions`),
-   *  "hint" for a quiet aside on a muted background (e.g. per-entry results of
-   *  a submit, with an "Open" link in `actions`), "ok" for a completed state
-   *  (e.g. "Done, nothing left to do here"). */
+  /** "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found,
+   *  loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing
+   *  notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action
+   *  notice (neutral background, accent in the primary color; pair it with `title` and
+   *  `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a
+   *  submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done"). */
   readonly variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok";
+  /** Title and text run on one line (text right behind the bold title); the text is dropped below sm, so a phone shows title and actions only. */
+  readonly inline?: boolean;
   /** "compact" is one line: the title reads inline before the text. */
   readonly density?: "default" | "compact";
   /** Icon left of the text. */

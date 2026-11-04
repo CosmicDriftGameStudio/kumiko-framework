@@ -69,6 +69,7 @@ import {
   useTranslation,
 } from "../../index.ts";
 import { PageSection } from "../primitives/layout.tsx";
+import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import {
   buildScopeBadge,
   type DashboardHeaderModel,
@@ -84,6 +85,7 @@ import {
 } from "./dashboard-header.tsx";
 import { ListPanelBody } from "./dashboard-list-panel.tsx";
 import { HiddenOnNarrow } from "./dashboard-narrow-gate.tsx";
+import { panelsInNarrowOrder } from "./dashboard-narrow-order.ts";
 import {
   ChartPanelBody,
   CustomPanelBody,
@@ -283,7 +285,8 @@ export function WebDashboardBody({
   const nav = useNav();
   const headerSlotAvailable = usePageHeaderSlotAvailable();
   const headerCompactContext = usePageHeaderCompact();
-  const { formatDateTime } = useDashboardFormats();
+  const { formatLongDate } = useDashboardFormats();
+  const belowSm = useIsBelowSmViewport();
 
   const params = useDashboardScreenParams(screen, effectiveTranslate, nav);
   const { screenParams } = params;
@@ -323,7 +326,8 @@ export function WebDashboardBody({
     picker: params.picker,
     rangeControl: params.rangeControl,
     loadedAtMs: params.loadedAtMs,
-    formatDateTime,
+    formatLongDate,
+    belowSm,
   };
   const headerActionsBar = renderHeaderActionsBar(model);
   // The shell header owns the title; the badge and the actions sit in it there.
@@ -344,7 +348,7 @@ export function WebDashboardBody({
               onForget={visibility.gateResults.forget}
             />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
-              {screen.panels.map((panel) =>
+              {panelsInNarrowOrder(screen.panels, belowSm).map((panel) =>
                 renderDashboardPanel(
                   panel,
                   featureName,

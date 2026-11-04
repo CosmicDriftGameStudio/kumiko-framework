@@ -54,6 +54,7 @@ function MetricTile({ label, value, testId, onPress, tone, icon, sub }: MetricPr
       label={label}
       value={value}
       {...(sub !== undefined && { sub })}
+      {...(onPress !== undefined && { navigable: true })}
       {...(icon !== undefined && { icon: <Icon name={icon} className="size-4" /> })}
       {...(tone !== undefined && { tone })}
       {...(testId !== undefined && { testId })}
