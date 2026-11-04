@@ -221,6 +221,7 @@ function pushDashboardChildLabelKeys(out: Set<string>, panel: DashboardPanelDefi
     for (const col of panel.columns) {
       const normalized = normalizeListColumn(col);
       if (normalized.label !== undefined) pushKey(out, normalized.label);
+      pushKey(out, normalized.hint?.emptyLabel);
     }
   }
 }
