@@ -6,6 +6,7 @@ import { collectBootRuleViolations } from "./boot-report.ts";
 import { type BootRule, bootRuleError } from "./boot-rule.ts";
 import { isSortableSqlDerivedField } from "./derived-sql-fields.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
+import { LIST_SORT_SUMMARY_RULES } from "./list-sort-summary-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
@@ -18,7 +19,7 @@ export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap
 // because the renderer's LIST_ROW_META_COLUMNS doesn't know them.
 export const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
 
-function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
+export function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
   const entities = feature.entities;
   if (!entities) return false;
   const entity = entities[entityName];
@@ -80,6 +81,18 @@ function checkNamedFilterSortColumns(
     checkSortSpecColumn(feature, screen, `namedFilters "${ref.id}" sort`, ref.sort.field, {
       notListed: NAMED_FILTER_RULES.filterSortNotListed,
       notSortable: NAMED_FILTER_RULES.filterSortNotSortable,
+    });
+  }
+}
+
+function checkSortOptionColumns(
+  feature: FeatureDefinition,
+  screen: EntityListScreenDefinition,
+): void {
+  for (const option of screen.sortOptions ?? []) {
+    checkSortSpecColumn(feature, screen, `sortOptions "${option.label}"`, option.field, {
+      notListed: LIST_SORT_SUMMARY_RULES.sortOptionNotSortable,
+      notSortable: LIST_SORT_SUMMARY_RULES.sortOptionNotSortable,
     });
   }
 }
@@ -158,6 +171,7 @@ const ENTITY_LIST_CHECKS: readonly EntityListCheck[] = [
   checkDefaultSortRequired,
   checkDefaultSortColumn,
   checkNamedFilterSortColumns,
+  checkSortOptionColumns,
   checkDetailNavigate,
   checkColumns,
   checkNamedFilters,

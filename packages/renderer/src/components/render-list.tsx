@@ -75,6 +75,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     onSearchChange,
     sort,
     onSortChange,
+    sortOptions,
     pager,
     onReachEnd,
     loadingMore,
@@ -213,7 +214,15 @@ export function RenderList(props: RenderListProps): ReactNode {
           toolbarEnd,
           itemNoun,
         })}
-        {...tableSortPagingProps({ sort, onSortChange, pager, onReachEnd, loadingMore, hasMore })}
+        {...tableSortPagingProps({
+          sort,
+          onSortChange,
+          sortOptions,
+          pager,
+          onReachEnd,
+          loadingMore,
+          hasMore,
+        })}
         {...tableRowProps({ rowActions, rowActionMode, bulk, rowTone: effectiveRowTone })}
         {...tableFilterProps({
           filterFacets,

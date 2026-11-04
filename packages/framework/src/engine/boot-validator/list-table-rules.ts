@@ -94,7 +94,8 @@ export const LIST_TABLE_RULES = {
   },
   columnWidthWithoutResizing: {
     id: "list-table/column-width-without-resizing",
-    summary: "A column's width or minWidth needs table.resizing, otherwise it has no effect.",
+    summary:
+      "A column's width or minWidth needs table.resizing, otherwise it has no effect; a hint column is exempt.",
     fix: "Set table: { resizing: true } or remove width and minWidth from the column.",
   },
   columnMinWidthExceedsWidth: {
@@ -120,8 +121,8 @@ export const LIST_TABLE_RULES = {
   bundledListsScreenOnlyKey: {
     id: "bundled-lists/screen-only-table-key",
     summary:
-      "bundledLists.table leaves out grouping and totals, which depend on one list's fields.",
-    fix: "Set grouping and totals in the table block of the individual screen.",
+      "bundledLists.table leaves out grouping, totals and summaryRow, which depend on one list's fields or query.",
+    fix: "Set grouping, totals and summaryRow in the table block of the individual screen.",
   },
   bundledListsPinFirstColumnNotBoolean: {
     id: "bundled-lists/pin-first-column-not-boolean",

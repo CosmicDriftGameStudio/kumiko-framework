@@ -4,7 +4,11 @@ import { defineFeature } from "../../define-feature.ts";
 import { listQuery, OPEN_TO_ALL, ruleIdsOf } from "./record-guidance-fixtures.ts";
 
 describe("relatedList section guidance", () => {
-  function relatedListFeature(columns: readonly unknown[], rowFields = ["name", "next", "due"]) {
+  function relatedListFeature(
+    columns: readonly unknown[],
+    rowFields = ["name", "next", "due"],
+    sectionExtras: Record<string, unknown> = {},
+  ) {
     return defineFeature("shop", (r) => {
       listQuery(r, rowFields);
       r.queryHandler({
@@ -21,7 +25,13 @@ describe("relatedList section guidance", () => {
         layout: {
           sections: [
             { title: "s", fields: ["title"] },
-            { kind: "relatedList", title: "Open", query: "shop:query:order:list", columns },
+            {
+              kind: "relatedList",
+              title: "Open",
+              query: "shop:query:order:list",
+              columns,
+              ...sectionExtras,
+            },
           ],
         },
       } as never);
@@ -31,6 +41,13 @@ describe("relatedList section guidance", () => {
   test("a valid hint column in a relatedList boots", () => {
     const feature = relatedListFeature(["name", { field: "next", hint: { detailField: "due" } }]);
     expect(ruleIdsOf([feature])).toEqual([]);
+  });
+
+  test("table.summaryRow on a relatedList is list/summary-row-on-related-list", () => {
+    const feature = relatedListFeature(["name"], undefined, {
+      table: { summaryRow: { query: "shop:query:order:list" } },
+    });
+    expect(ruleIdsOf([feature])).toContain("list/summary-row-on-related-list");
   });
 
   test("hint together with a renderer is list/hint-column-renderer", () => {

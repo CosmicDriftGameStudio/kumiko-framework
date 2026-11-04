@@ -97,7 +97,7 @@ function ResizablePanelGroup(props: ResizablePrimitive.GroupProps): JSX.Element;
 function ResultPanel(props: { title: string; subtitle?: string; empty?: boolean; emptyText?: ReactNode; rows?: { label: string; value: ReactNode; emphasize?: boolean; }[]; footer?: ReactNode; children?: ReactNode; testId?: string; }): ReactNode; // Result section for a calculator: SectionCard with an empty state (Banner) or a metric list (DetailList) plus optional extras (table, notes).
 function ResultTable<Row>(props: { columns: ResultColumn<Row>[]; rows: Row[]; rowKey: (row: Row, index: number) => string; testId?: string; className?: string; card?: boolean; footer?: ResultTableFooterRow[]; compactHeader?: boolean; }): ReactNode; // Static, prop-driven result table for calculated rows (tranches, scenarios).
 function ScreenWidthProvider(props: { width: FormWidth | undefined; children: ReactNode; }): ReactNode;
-function SectionCard(props: { title: string; subtitle?: string; action?: ReactNode; footer?: ReactNode; children: ReactNode; testId?: string; }): ReactNode; // Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens.
+function SectionCard(props: { title?: string; subtitle?: string; action?: ReactNode; footer?: ReactNode; children: ReactNode; testId?: string; }): ReactNode; // Section with a title and optional action slot (range switcher, filter) — replaces repeated `<section className={CARD}>…<h2>` blocks in custom screens.
 function SectionNavLayout(props: SectionNavLayoutProps): ReactNode; // Content column plus an "On this page" navigation in a right column (from xl), for custom screens.
 function SelectField(props: SelectFieldProps): ReactNode; // Select field = Field + Input(kind:"select").
 function SenderFrame(props: { children: ReactNode; label?: string; testId?: string; }): ReactNode; // Sand frame with one white sheet inside, for content that mimics a letter or mail.
@@ -116,7 +116,7 @@ function Stack(props: StackProps): ReactNode;
 function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?: string; tone?: StatTone; accentColor?: string; delta?: StatDelta; trend?: string; spark?: number[]; testId?: string; link?: StatLink; children?: ReactNode; }): ReactNode; // Icon-bearing metric tile with an optional delta chip, trend line, and sparkline.
 function StatusBadge(props: { tone: StatusBadgeTone; children: ReactNode; className?: string; testId?: string; }): ReactNode; // Pill badge with a status dot.
 function StatusBarChart(props: { entries: StatusBarEntry[]; ariaLabel: string; startLabel?: string; endLabel?: string; highlightLast?: boolean; dense?: boolean; testId?: string; }): ReactNode; // Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe.
-function StepBar(props: { steps: string[]; currentIndex: number; compactLabel: string; onStepSelect?: (index: number) => void; doneSteps?: boolean[]; selectableSteps?: "done" | "all"; narrowLayout?: "label" | "steps"; orientation?: "horizontal" | "vertical"; heading?: string; description?: string; subtitles?: (string | undefined)[]; upNext?: { heading: string; title: string; subtitle?: string; }; testId?: string; compactTestId?: string; }): ReactNode; // Wizard step overview — numbered chips with a connector line between them.
+function StepBar(props: { steps: string[]; currentIndex: number; compactLabel: string; onStepSelect?: (index: number) => void; doneSteps?: boolean[]; selectableSteps?: "done" | "all"; narrowLayout?: "label" | "steps"; orientation?: "horizontal" | "vertical" | "stacked"; heading?: string; description?: string; subtitles?: (string | undefined)[]; upNext?: { heading: string; title: string; subtitle?: string; }; testId?: string; compactTestId?: string; }): ReactNode; // Wizard step overview — numbered chips with a connector line between them.
 function StepList(props: StepListProps): ReactNode; // Ordered plan of steps with status icons, progress header and per-step actions.
 function TextField(props: TextFieldProps): ReactNode; // Text field = Field + Input(kind:"text").
 function TextareaField(props: TextareaFieldProps): ReactNode; // Multi-line text field = Field + Input(kind:"textarea").
@@ -434,7 +434,8 @@ type DataTableProps = DataTableTableBlock & {
   rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined; // Tints a row.
   onRowClick?: (row: ListRowViewModel) => void;
   sort?: DataTableSort | null; // Current sorting, or null when unsorted.
-  onSortChange?: (next: DataTableSort | null) => void; // Called with the next sort state after a header click.
+  onSortChange?: (next: DataTableSort | null) => void; // Called with the next sort state after a header click (asc → desc → null); the caller updates URL state or the query parameter and refetches.
+  sortOptions?: (DataTableSort & { label: string; })[];
   rowActions?: DataTableRowAction[]; // Per-row actions rendered in a right-hand column as inline buttons (≤2 actions) or a kebab dropdown (>2).
   rowActionMode?: DataTableRowActionMode; // How the row-action column renders: - `"adaptive"` (default): with `onRowClick` all actions except the `rowClick` one go in the kebab (no kebab or column if none remain); without it the primary action is a link button and the rest go in the kebab (a single action gets no kebab).
   bulk?: DataTableBulk; // Present: row checkboxes plus a selection bar that runs these actions once per selected row.
@@ -1396,6 +1397,7 @@ type RenderListProps = DataTableTableBlockProps & {
   onSearchChange?: (next: string) => void; // Called when the debounced search term changes.
   sort?: ListSort | null; // Current sorting, or null for the server's default order.
   onSortChange?: (next: ListSort | null) => void; // Called with the next sort state after a header click.
+  sortOptions?: DataTableProps["sortOptions"]; // Labelled sort choices (labels already translated) for the "Sorted by" select.
   pager?: {
     page: number;
     limit: number;

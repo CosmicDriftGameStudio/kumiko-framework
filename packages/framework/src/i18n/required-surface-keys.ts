@@ -195,7 +195,11 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
   // skip: custom panels translate themselves, so no key is collected here
   if (panel.kind === "custom") return;
   pushKey(out, panel.label);
-  if (panel.kind === "chart" || panel.kind === "stat-group") pushKey(out, panel.subtitle);
+  if (panel.kind === "chart" || panel.kind === "stat-group" || panel.kind === "list") {
+    pushKey(out, panel.subtitle);
+  }
+  if (panel.kind === "list") pushKey(out, panel.footerLink?.label);
+  if (panel.kind === "stat-group") pushKey(out, panel.link?.label);
   if (panel.kind === "text") pushDashboardTextBlockKeys(out, panel);
   if (panel.kind === "chart") {
     pushKey(out, panel.unit);
@@ -338,6 +342,7 @@ function pushListChromeKeys(
   list: ScreenOfKind["entityList"] | ScreenOfKind["projectionList"],
 ): void {
   for (const col of list.columns) pushKey(out, normalizeListColumn(col).hint?.emptyLabel);
+  for (const option of list.sortOptions ?? []) pushKey(out, option.label);
   pushKey(out, list.createLabel);
   pushKey(out, list.searchPlaceholder);
   pushKey(out, list.description);

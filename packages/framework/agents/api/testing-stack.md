@@ -91,6 +91,7 @@ type TestStack = {
   sseBroker: SseBroker;
   dispatcher: Dispatcher;
   context: AppContext;
+  clock?: ManualClock; // The effective manual clock behind `ctx.tz.now()`: `extraContext.clock` when it is one, else the clock created from `options.now`; absent when neither is manual.
   eventDispatcher?: EventDispatcher;
   lifecycle?: Lifecycle;
   jobRunner?: JobRunner;
@@ -108,6 +109,7 @@ type TestStackOptions = {
   }; // Search config per tenant — defaults to tenant 1 with all text fields
   jwtSecret?: string;
   defaultLocale?: string; // Boot default locale (BCP-47) merged into AppContext before extraContext.
+  now?: string | Temporal.Instant; // Fixed wall clock for `ctx.tz.now()`: becomes a manual clock merged into the AppContext as `clock`; an `extraContext.clock` wins.
   extraContext?: Record<string, unknown> | ((deps: { registry: Registry; db: DbConnection; sseBroker: SseBroker; redis: Redis; }) => Record<string, unknown>);
   authConfig?: AuthRoutesConfig; // Wire up auth routes (login, tenant-switch).
   files?: {

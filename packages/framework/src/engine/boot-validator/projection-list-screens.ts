@@ -41,7 +41,7 @@ export function buildQueryHandlerMap(
 // Non-ZodObject schemas (e.g. a z.union across payload shapes) and
 // unresolved query handlers both fall through to "capability absent" —
 // consistent with buildAppSchema's derivation, no throw either way.
-function schemaAccepts(schema: QueryHandlerDef["schema"] | undefined, key: string): boolean {
+export function schemaAccepts(schema: QueryHandlerDef["schema"] | undefined, key: string): boolean {
   const shape = getZodObjectShape(schema);
   return shape !== undefined && key in shape;
 }

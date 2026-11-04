@@ -5,7 +5,7 @@ import { isSelectOptionTone } from "../../../status-tone.ts";
 import { cn } from "../../lib/cn.ts";
 import { ReasonBox, ReasonInfoButton } from "../reason-box.tsx";
 
-const HINT_TONE_TEXT_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+export const HINT_TONE_TEXT_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   bad: "text-status-bad",
   warn: "text-status-warn",
   critical: "text-status-critical",

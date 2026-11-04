@@ -2,19 +2,17 @@ import { isDeepStrictEqual } from "node:util";
 import type {
   DashboardStatPanel,
   EntityListScreenDefinition,
-  ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-types/screen";
 import { toKebab } from "../qualified-name.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import {
+  declaredNamedFilterIds,
+  type ListTarget,
+  resolveDashboardScreenTarget,
+} from "./dashboard-screen-target.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
-import { resolveScreenTargetQn } from "./screens-actions.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
-
-type ListTarget = {
-  readonly feature: FeatureDefinition;
-  readonly screen: EntityListScreenDefinition | ProjectionListScreenDefinition;
-};
 
 function entityListQueryName(
   feature: FeatureDefinition,
@@ -29,22 +27,18 @@ function listQueryOf(target: ListTarget): string {
     : target.screen.query;
 }
 
-function declaredNamedFilterIds(target: ListTarget): ReadonlySet<string> {
-  return new Set((target.screen.namedFilters ?? []).map((ref) => ref.id));
-}
-
-function resolveListTarget(
-  featureName: string,
-  screenRef: string,
-  featureMap: ReadonlyMap<string, FeatureDefinition>,
-): ListTarget | { readonly qn: string } {
-  const qn = resolveScreenTargetQn(featureName, screenRef);
-  const [targetFeatureName = "", , targetShortId = ""] = qn.split(":");
-  const feature = featureMap.get(targetFeatureName);
-  const screen = feature?.screens[targetShortId];
-  if (feature === undefined || screen === undefined) return { qn };
-  if (screen.type !== "entityList" && screen.type !== "projectionList") return { qn };
-  return { feature, screen };
+// `where` names the option holding the params ("... stat "x" navigate", "... footerLink").
+export function validateNavigateParams(
+  where: string,
+  params: Readonly<Record<string, unknown>> | undefined,
+): void {
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (key === "" || typeof value !== "string") {
+      throw bootRuleError(DASHBOARD_RULES.statNavigateParamsInvalid, {
+        message: `${where} params entry ${JSON.stringify(key)} must have a non-empty key and a string value (got ${JSON.stringify(value)}).`,
+      });
+    }
+  }
 }
 
 function validateStatNavigate(
@@ -56,19 +50,23 @@ function validateStatNavigate(
   const navigate = stat.navigate;
   // skip: stat has no navigate target to validate
   if (navigate === undefined) return;
-  for (const [key, value] of Object.entries(navigate.params ?? {})) {
-    if (key === "" || typeof value !== "string") {
-      throw bootRuleError(DASHBOARD_RULES.statNavigateParamsInvalid, {
-        message: `${context} navigate.params entry ${JSON.stringify(key)} must have a non-empty key and a string value (got ${JSON.stringify(value)}).`,
-      });
-    }
-  }
-  const target = resolveListTarget(featureName, navigate.screen, featureMap);
-  if ("qn" in target) {
+  validateNavigateParams(`${context} navigate`, navigate.params);
+  const resolved = resolveDashboardScreenTarget(featureName, navigate.screen, featureMap);
+  if (resolved.kind === "unresolved" || resolved.kind === "other") {
     throw bootRuleError(NAMED_FILTER_RULES.statNavigateTarget, {
-      message: `${context} navigate.screen "${navigate.screen}" does not resolve to a registered entityList or projectionList screen (checked "${target.qn}").`,
+      message: `${context} navigate.screen "${navigate.screen}" does not resolve to a registered entityList, projectionList or custom screen (checked "${resolved.qn}").`,
     });
   }
+  if (resolved.kind === "custom") {
+    // A custom screen has no list query to count with, so the tile keeps its own query.
+    if (navigate.namedFilter !== undefined) {
+      throw bootRuleError(DASHBOARD_RULES.statNavigateCustomWithFilter, {
+        message: `${context} navigate.screen "${resolved.screenId}" is a custom screen, which has no namedFilters. Remove navigate.namedFilter.`,
+      });
+    }
+    return;
+  }
+  const target = resolved.target;
   if (
     navigate.namedFilter !== undefined &&
     !declaredNamedFilterIds(target).has(navigate.namedFilter)

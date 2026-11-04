@@ -30,6 +30,14 @@ export const orderListSchema = z.object({
 
 export type OrderListPayload = z.infer<typeof orderListSchema>;
 
+// The list sends its narrowing (named filter, search) to the summary query as well; limit and paging never reach it.
+export const orderSummarySchema = z.object({
+  namedFilter: z.enum(NAMED_FILTER_IDS).optional(),
+  search: z.string().optional(),
+});
+
+export type OrderSummaryPayload = z.infer<typeof orderSummarySchema>;
+
 type RowTone = "ok" | "warn" | "bad" | "critical" | "neutral";
 type UrgencyTone = "negative" | "warn" | "neutral" | "positive";
 
@@ -293,19 +301,38 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   };
 }
 
+export function answerOrderSummary(payload: OrderSummaryPayload) {
+  const matching = filteredRows(payload);
+  const overdue = matching.filter((row) => row.urgencyTone === "negative");
+  return {
+    items: [
+      { label: "Orders", value: matching.length },
+      { label: "Open", value: euro(matching.reduce((total, row) => total + row.openAmount, 0)) },
+      {
+        label: "Overdue",
+        value: euro(overdue.reduce((total, row) => total + row.openAmount, 0)),
+        tone: "bad",
+      },
+    ],
+  };
+}
+
 function actionNeededRows(limit: number): readonly OrderRow[] {
   return ORDER_ROWS.filter(NAMED_FILTER_PREDICATES["action-needed"])
     .sort(compareRows("urgency", "desc"))
     .slice(0, limit);
 }
 
+const NOW_LIST_LIMIT = 4;
+
 export function answerNowList() {
   return {
-    rows: actionNeededRows(4).map((row) => ({
+    rows: actionNeededRows(NOW_LIST_LIMIT).map((row) => ({
       ...row,
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
     })),
+    total: actionNeededRows(ORDER_ROWS.length).length,
   };
 }
 
@@ -426,7 +453,9 @@ export function answerOrderDetail(id: string) {
     orderNumber: "SO-10482",
     status: "processing",
     totalAmount: "€ 1,248.00",
+    totalNote: "2 payments",
     outstandingAmount: "€ 312.00",
+    outstandingNote: "14 days overdue",
     outstandingTone: "bad",
     itemCount: "3",
     itemsCount: 3,
@@ -455,7 +484,7 @@ export function answerOrderDetail(id: string) {
         title: "Order to cash",
         currentIndex: 1,
         steps: [
-          { id: "placed", label: "Placed", done: true },
+          { id: "placed", label: "Placed", done: true, detail: "21 Aug" },
           { id: "paid", label: "Paid", done: false, detail: "312 EUR open" },
           { id: "shipped", label: "Shipped", done: false },
         ],

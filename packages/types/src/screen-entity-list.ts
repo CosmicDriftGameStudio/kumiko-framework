@@ -2,6 +2,7 @@ import type { FieldCondition } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type {
   ListSortDir,
+  ListSortOption,
   ListSortSpec,
   NamedFilterFacetOptions,
   NamedListFilterRef,
@@ -73,9 +74,9 @@ export type ListColumnSpec =
       /** Start pin for the column: it sticks to this edge while the table scrolls
        *  horizontally. Only valid together with `table.pinning`. */
       readonly pinned?: ListColumnPin;
-      /** Start width in px. Only valid together with `table.resizing`. */
+      /** Start width in px. Needs `table.resizing`, except on a hint column, which sizes itself. */
       readonly width?: number;
-      /** Smallest width in px the user can resize to. Only valid together with `table.resizing`. */
+      /** Smallest width in px the user can resize to. Needs `table.resizing`, except on a hint column. */
       readonly minWidth?: number;
       /** One of "bar" | "badge" | "datetime" | "button". "bar": field holds a 0..1 fraction,
        *  drawn as bar + percent (dashboard list panels only). "badge": field holds a label,
@@ -135,7 +136,7 @@ export type ListPaginationMode = "pages" | "infinite" | false;
 
 // Sort state on the wire — the field name must match the entity definition
 // AND be marked sortable: true. Otherwise the validator rejects at boot.
-export type { ListSortDir, ListSortSpec };
+export type { ListSortDir, ListSortOption, ListSortSpec };
 
 // Screen-level filter — the author declares a fixed filter per list screen
 // that is applied to every query. Use case: three buckets of the same entity
@@ -583,6 +584,8 @@ export type EntityListScreenDefinition = {
   // wins; otherwise RenderList uses this default. `field` must be
   // sortable: true in the entity — the boot validator pins that.
   readonly defaultSort?: ListSortSpec;
+  /** Choices of the "Sorted by" select in the toolbar (and the narrow-width sort control) instead of one entry per column; every field must be sortable. */
+  readonly sortOptions?: readonly ListSortOption[];
   /** Initial facet selection, per filterable field: option values (string
    *  facets) or a boolean. Applies only while the URL carries no value for
    *  that field, so a link or the user's own choice wins; picking "no filter"

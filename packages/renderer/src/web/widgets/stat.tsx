@@ -32,6 +32,14 @@ const TONE_VALUE: Record<StatTone, string> = {
   negative: "text-status-bad",
 };
 
+const TONE_STRIPE: Record<StatTone, string> = {
+  default: "",
+  positive: "border-l-[3px] border-l-primary",
+  ok: "border-l-[3px] border-l-status-ok",
+  warn: "border-l-[3px] border-l-status-warn",
+  negative: "border-l-[3px] border-l-status-bad",
+};
+
 /** Makes a tile a link; `onPress` is the SPA navigation, `href` serves modified clicks and a11y. */
 export type StatLink = {
   readonly href: string;
@@ -177,7 +185,7 @@ export function StatCard({
   // duplicate outer frame around the section's full content.
   const tile = (
     // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
-    <Card options={{ padded: false }} className="p-4" testId={testId}>
+    <Card options={{ padded: false }} className={cn("p-4", TONE_STRIPE[tone])} testId={testId}>
       <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
         <div className="flex min-w-0 flex-1 basis-[7rem] items-center gap-2 text-muted-foreground">
           {icon !== undefined && <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />}
@@ -197,7 +205,7 @@ export function StatCard({
           </span>
         )}
       </div>
-      <div className="mt-2 text-xl font-semibold tabular-nums text-foreground">{value}</div>
+      <div className={cn("mt-2 text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>{value}</div>
       {sub !== undefined && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
       {trend !== undefined && (
         <div className="mt-0.5 text-xs font-medium text-foreground/80">{trend}</div>
@@ -228,6 +236,7 @@ export function StatStripCell({
   spark,
   testId,
   link,
+  compact = false,
 }: {
   /** Chip before the label, colored like StatCard's (`accentColor` or the tone). */
   readonly icon?: ReactNode;
@@ -240,10 +249,20 @@ export function StatStripCell({
   readonly spark?: readonly number[];
   readonly testId?: string;
   readonly link?: StatLink;
+  /** Dense cell for a strip beside a panel title: the number stands left of its label on one
+   *  line, and the sub line drops under sm. */
+  readonly compact?: boolean;
 }): ReactNode {
   return (
     <StatLinkFrame link={link} testId={testId}>
-      <div data-testid={testId} className="flex min-w-0 flex-col gap-1 px-4 py-3">
+      <div
+        data-testid={testId}
+        className={cn(
+          "flex min-w-0 flex-col gap-1 px-4 py-3",
+          compact &&
+            "flex-row-reverse items-baseline justify-end gap-1.5 whitespace-nowrap px-0 py-0 sm:px-3 sm:py-1",
+        )}
+      >
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
             {icon !== undefined && (
@@ -271,7 +290,11 @@ export function StatStripCell({
             <Sparkline points={spark} className={cn("h-7 w-20 shrink-0", TONE_VALUE[tone])} />
           )}
         </div>
-        {sub !== undefined && <div className="text-xs text-muted-foreground">{sub}</div>}
+        {sub !== undefined && (
+          <div className={cn("text-xs text-muted-foreground", compact && "max-sm:hidden")}>
+            {sub}
+          </div>
+        )}
       </div>
     </StatLinkFrame>
   );

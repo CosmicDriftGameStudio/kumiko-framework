@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.ts";
-import { Table } from "../../ui/table.tsx";
+import { Table, TableFooter } from "../../ui/table.tsx";
 import { ColumnWidthGroup } from "./column-resize-handle.tsx";
 import { renderTableBody } from "./table-body.tsx";
 import { FILL_TABLE_CLASS, FlushTable } from "./table-chrome.tsx";
 import { renderTableHeader } from "./table-header-row.tsx";
-import { TotalsFooterRow } from "./totals-footer.tsx";
+import { SummaryFooterRow, TotalsFooterRow } from "./totals-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 function renderColumnWidths(m: DataTableModel): ReactNode {
@@ -22,6 +22,17 @@ function renderColumnWidths(m: DataTableModel): ReactNode {
   );
 }
 
+function renderSummaryRow(m: DataTableModel): ReactNode {
+  if (m.summaryRow === undefined) return null;
+  return (
+    <SummaryFooterRow
+      summary={m.summaryRow}
+      colSpan={m.fullColSpan}
+      cellClassName={m.density.cell}
+    />
+  );
+}
+
 function renderTotalsRow(m: DataTableModel): ReactNode {
   const { totals } = m;
   if (totals === undefined) return null;
@@ -34,6 +45,19 @@ function renderTotalsRow(m: DataTableModel): ReactNode {
       actionsCell={m.hasTableActions ? { fillsHeight: m.fillsHeight } : undefined}
       cellClassName={m.density.cell}
     />
+  );
+}
+
+// Both rows share one tfoot; a second tfoot is invalid HTML.
+function renderTableFooter(m: DataTableModel): ReactNode {
+  const summary = renderSummaryRow(m);
+  const totals = renderTotalsRow(m);
+  if (summary === null && totals === null) return null;
+  return (
+    <TableFooter>
+      {summary}
+      {totals}
+    </TableFooter>
   );
 }
 
@@ -64,7 +88,7 @@ export function renderTableView(m: DataTableModel): ReactNode {
         {renderColumnWidths(m)}
         {renderTableHeader(m)}
         {renderTableBody(m)}
-        {renderTotalsRow(m)}
+        {renderTableFooter(m)}
       </TableRoot>
     </div>
   );

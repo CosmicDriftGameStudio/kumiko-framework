@@ -12,7 +12,7 @@ export function SectionCard({
   children,
   testId,
 }: {
-  readonly title: string;
+  readonly title?: string;
   readonly subtitle?: string;
   readonly action?: ReactNode;
   readonly footer?: ReactNode;

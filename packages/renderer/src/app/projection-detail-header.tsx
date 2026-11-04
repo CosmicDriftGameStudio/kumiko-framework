@@ -195,6 +195,15 @@ function metricFieldTone(
   return isSelectOptionTone(fieldTone) ? METRIC_TONE_BY_SELECT_TONE[fieldTone] : undefined;
 }
 
+function metricSubline(
+  subField: string | undefined,
+  record: Readonly<Record<string, unknown>>,
+): string | undefined {
+  const raw = subField === undefined ? undefined : record[subField];
+  if (typeof raw === "string") return raw === "" ? undefined : raw;
+  return typeof raw === "number" ? String(raw) : undefined;
+}
+
 // slots.header shares the header card with the actions (one card, actions
 // top right) instead of rendering as an unframed block above it.
 export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefined {
@@ -210,6 +219,7 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     // Same rule as the dashboard stat panels: a fixed tone must not paint an all-clear 0.
     const tone =
       metricFieldTone(metric.toneField, record) ?? (rawValue === 0 ? undefined : metric.tone);
+    const sub = metricSubline(metric.subField, record);
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
     const navigate = metric.navigate;
     const onPress =
@@ -228,6 +238,7 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
         {...(tiles && { tile: true })}
         {...(tone !== undefined && { tone })}
         {...(metric.icon !== undefined && { icon: metric.icon })}
+        {...(sub !== undefined && { sub })}
       />
     ) : (
       <GridCell key={field}>

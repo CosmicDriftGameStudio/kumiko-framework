@@ -40,8 +40,8 @@ export const NAMED_FILTER_RULES = {
   },
   statNavigateTarget: {
     id: "named-filter/stat-navigate-target",
-    summary: "A stat navigate.screen resolves to an entityList or projectionList screen.",
-    fix: "Point navigate.screen at a registered list screen.",
+    summary: "A stat navigate.screen resolves to an entityList, projectionList or custom screen.",
+    fix: "Point navigate.screen at a registered list or custom screen.",
   },
   statNavigateFilterDeclared: {
     id: "named-filter/stat-navigate-filter-declared",

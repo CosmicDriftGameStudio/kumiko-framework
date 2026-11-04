@@ -21,6 +21,7 @@ import {
   validateRequiredLocales,
   validateTranslationLocaleConsistency,
 } from "./i18n-keys.ts";
+import { validateListSortAndSummary } from "./list-sort-summary.ts";
 import { validateNavCycles } from "./nav.ts";
 import {
   validateProjectionListScreens,
@@ -65,6 +66,10 @@ const APP_CHECKS_AFTER_I18N: readonly AppCheck[] = [
   {
     check: "validateProjectionListScreens",
     run: (c) => validateProjectionListScreens(c.features),
+  },
+  {
+    check: "validateListSortAndSummary",
+    run: (c) => validateListSortAndSummary(c.features),
   },
   {
     check: "validateDashboardStatNavigate",

@@ -830,10 +830,10 @@ export type DataTableProps = {
    *  `onSortChange`, header clicks remain disabled and `columns.sortable` is
    *  only semantic metadata. */
   readonly sort?: DataTableSort | null;
-  /** Called with the next sort state after a header click.
-   *  The conventional three-state cycle is asc → desc → null. The caller
-   *  uses it to update URL state or a query parameter and refetch. */
+  /** Called with the next sort state after a header click (asc → desc → null);
+   *  the caller updates URL state or the query parameter and refetches. */
   readonly onSortChange?: (next: DataTableSort | null) => void;
+  readonly sortOptions?: readonly (DataTableSort & { readonly label: string })[];
   /** Per-row actions rendered in a right-hand column as inline buttons
    *  (≤2 actions) or a kebab dropdown (>2). The caller supplies the resolved
    *  form, with translated labels and wired `onTrigger`; DataTable handles
@@ -1085,16 +1085,16 @@ export type SectionProps = {
  *  just a container that sizes to its content and, once the ancestor chain
  *  is height-constrained, shrinks so one scrolling child can scroll
  *  internally instead of the page growing. Web:
- *  `<div className="flex min-h-0 flex-col">`. Native: Views are
- *  already flex-column and the parent is already a bounded viewport there,
- *  so a native impl may render this as a bare Fragment. Used only as the
- *  terminal link in `RenderEdit`'s `fillHeight` chain (`RelatedListSection`'s
- *  `hideTitle` branch) — `Section`/`Card` were rejected here because both
- *  carry title/padding/border chrome this spot doesn't want and would double
- *  up with the table's own padding. */
+ *  `<div className="flex min-h-0 flex-col">`. Native: Views are already
+ *  flex-column in a bounded viewport, so a native impl may render a bare
+ *  Fragment. Used as the terminal link in `RenderEdit`'s `fillHeight` chain
+ *  (`RelatedListSection`'s `hideTitle` branch) and as the app layer's only
+ *  class-carrying layout wrapper, since it must not render DOM tags itself. */
 export type FillContainerProps = {
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Layout extras, merged via cn(). */
+  readonly className?: string;
   /** Claims the remaining height of the flex chain (`flex-1`) instead of
    *  sizing to its content, so a footer inside the child sits at the bottom
    *  edge even with few rows. Set only when the screen fills the shell
@@ -1395,12 +1395,12 @@ export type StepBarProps = {
    *  labels fit a phone and whose done steps must stay tappable. */
   readonly narrowLayout?: "label" | "steps";
   /** "vertical" renders a step rail (from `lg`, with `compactLabel` as the
-   *  single line below it) instead of the chip row. Default "horizontal". */
-  readonly orientation?: "horizontal" | "vertical";
+   *  single line below it); "stacked": plain stage list at every width. Default "horizontal". */
+  readonly orientation?: "horizontal" | "vertical" | "stacked";
   /** Vertical only: rail heading ("Step 4 of 6") and optional description. */
   readonly heading?: string;
   readonly description?: string;
-  /** Vertical only: line under each step label, same order as `steps`. */
+  /** Vertical and stacked only: line under each step label, same order as `steps`. */
   readonly subtitles?: readonly (string | undefined)[];
   /** Vertical only: box under the rail announcing the next step. */
   readonly upNext?: {

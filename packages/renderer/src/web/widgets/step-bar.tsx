@@ -86,6 +86,102 @@ function StepRailRow({
   );
 }
 
+function RailHeading({
+  heading,
+  description,
+}: {
+  readonly heading: string;
+  readonly description: string | undefined;
+}): ReactNode {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-semibold text-foreground">{heading}</span>
+      {description !== undefined && (
+        <span className="text-[13px] text-foreground-secondary">{description}</span>
+      )}
+    </div>
+  );
+}
+
+function UpNextBox({
+  upNext,
+  testId,
+}: {
+  readonly upNext: { readonly heading: string; readonly title: string; readonly subtitle?: string };
+  readonly testId: string | undefined;
+}): ReactNode {
+  return (
+    <div
+      data-testid={testId !== undefined ? `${testId}-up-next` : undefined}
+      className="mt-2 flex flex-col gap-1 rounded-md border border-border bg-card px-3 py-2.5"
+    >
+      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {upNext.heading}
+      </span>
+      <span className="text-sm font-medium text-foreground">{upNext.title}</span>
+      {upNext.subtitle !== undefined && (
+        <span className="text-xs text-foreground-secondary">{upNext.subtitle}</span>
+      )}
+    </div>
+  );
+}
+
+// `selectable` is false without an onStepSelect handler, else the selectableSteps mode.
+function stepStateAt(
+  index: number,
+  {
+    currentIndex,
+    doneSteps,
+    selectable,
+  }: {
+    readonly currentIndex: number;
+    readonly doneSteps: readonly boolean[] | undefined;
+    readonly selectable: false | "done" | "all";
+  },
+): StepState {
+  const isCurrent = index === currentIndex;
+  const isDone =
+    !isCurrent && (doneSteps !== undefined ? doneSteps[index] === true : index < currentIndex);
+  const isSelectable = selectable !== false && !isCurrent && (selectable === "all" || isDone);
+  return { isCurrent, isDone, isSelectable };
+}
+
+function StackedStageList({
+  steps,
+  subtitles,
+  stepState,
+  onSelect,
+  doneLabel,
+  testId,
+}: {
+  readonly steps: readonly string[];
+  readonly subtitles: readonly (string | undefined)[] | undefined;
+  readonly stepState: (index: number) => StepState;
+  readonly onSelect: ((index: number) => void) | undefined;
+  readonly doneLabel: string;
+  readonly testId: string | undefined;
+}): ReactNode {
+  const keyed = steps.map((label, index) => ({ label, index, key: `${index}-${label}` }));
+  return (
+    <ol data-testid={testId} className="m-0 flex list-none flex-col gap-0.5 p-0">
+      {keyed.map(({ label, index, key }) => (
+        <li key={key}>
+          <StepRailRow
+            index={index}
+            label={label}
+            subtitle={subtitles?.[index]}
+            subtitleTestId={testId !== undefined ? `${testId}-subtitle-${index}` : undefined}
+            rowTestId={chipTestId(testId, index)}
+            state={stepState(index)}
+            onSelect={onSelect}
+            doneLabel={doneLabel}
+          />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function CompactStepPicker({
   steps,
   compactLabel,
@@ -198,7 +294,7 @@ export function StepBar({
   readonly doneSteps?: readonly boolean[];
   readonly selectableSteps?: "done" | "all";
   readonly narrowLayout?: "label" | "steps";
-  readonly orientation?: "horizontal" | "vertical";
+  readonly orientation?: "horizontal" | "vertical" | "stacked";
   readonly heading?: string;
   readonly description?: string;
   readonly subtitles?: readonly (string | undefined)[];
@@ -211,14 +307,12 @@ export function StepBar({
   readonly compactTestId?: string;
 }): ReactNode {
   const t = useTranslation();
-  const stepState = (i: number): StepState => {
-    const isCurrent = i === currentIndex;
-    const isDone =
-      !isCurrent && (doneSteps !== undefined ? doneSteps[i] === true : i < currentIndex);
-    const isSelectable =
-      onStepSelect !== undefined && !isCurrent && (selectableSteps === "all" || isDone);
-    return { isCurrent, isDone, isSelectable };
-  };
+  const stepState = (i: number): StepState =>
+    stepStateAt(i, {
+      currentIndex,
+      doneSteps,
+      selectable: onStepSelect !== undefined && selectableSteps,
+    });
   const compactPicker = onStepSelect !== undefined && selectableSteps === "all";
   const pickerElement = compactPicker ? (
     <CompactStepPicker
@@ -231,18 +325,23 @@ export function StepBar({
       doneLabel={t("kumiko.widget.step-bar.done")}
     />
   ) : null;
+  if (orientation === "stacked") {
+    return (
+      <StackedStageList
+        steps={steps}
+        subtitles={subtitles}
+        stepState={stepState}
+        onSelect={onStepSelect}
+        doneLabel={t("kumiko.widget.step-bar.done")}
+        testId={testId}
+      />
+    );
+  }
   if (orientation === "vertical") {
     return (
       <>
         <nav className="hidden w-[280px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-muted px-6 py-7 lg:flex">
-          {heading !== undefined && (
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-semibold text-foreground">{heading}</span>
-              {description !== undefined && (
-                <span className="text-[13px] text-foreground-secondary">{description}</span>
-              )}
-            </div>
-          )}
+          {heading !== undefined && <RailHeading heading={heading} description={description} />}
           <ol data-testid={testId} className="m-0 flex list-none flex-col gap-0.5 p-0">
             {steps.map((label, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: steps is a static, positional list — index is stable identity, no reorder/DnD.
@@ -260,20 +359,7 @@ export function StepBar({
               </li>
             ))}
           </ol>
-          {upNext !== undefined && (
-            <div
-              data-testid={testId !== undefined ? `${testId}-up-next` : undefined}
-              className="mt-2 flex flex-col gap-1 rounded-md border border-border bg-card px-3 py-2.5"
-            >
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {upNext.heading}
-              </span>
-              <span className="text-sm font-medium text-foreground">{upNext.title}</span>
-              {upNext.subtitle !== undefined && (
-                <span className="text-xs text-foreground-secondary">{upNext.subtitle}</span>
-              )}
-            </div>
-          )}
+          {upNext !== undefined && <UpNextBox upNext={upNext} testId={testId} />}
         </nav>
         {compactPicker ? (
           <div className="px-4 pt-3 lg:hidden">{pickerElement}</div>

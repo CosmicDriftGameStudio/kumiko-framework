@@ -1,32 +1,43 @@
 import { Fragment, type ReactNode } from "react";
 import type { ListRowViewModel } from "../../../headless/index.ts";
+import type { DataTableRowAction } from "../../../index.ts";
 import { cn } from "../../lib/cn.ts";
-import { rowToneClass } from "../data-table-cell.tsx";
+import { cardToneClass } from "../data-table-cell.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import { type CardRoles, renderCardBody, renderCardLinks, splitLinkColumns } from "./card-body.tsx";
 import { renderExpandToggle, renderExpansion } from "./row-render-parts.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
+
+// The card's <li> opens the row on click; controls inside must not reach it.
+function renderStopPropagation(className: string, testId: string | undefined, children: ReactNode) {
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
+    <div
+      className={className}
+      data-testid={testId}
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
+  );
+}
 
 function renderCardMenu(
   m: DataTableModel,
   row: ListRowViewModel,
   menuActions: NonNullable<DataTableModel["menuActions"]>,
 ): ReactNode {
-  return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
-    <div
-      className="shrink-0"
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
-      <RowActionsCell
-        row={row}
-        actions={menuActions}
-        mode={m.rowActionMode}
-        rowIsLink={m.onRowClick !== undefined}
-        compact
-      />
-    </div>
+  return renderStopPropagation(
+    "shrink-0",
+    undefined,
+    <RowActionsCell
+      row={row}
+      actions={menuActions}
+      mode={m.rowActionMode}
+      rowIsLink={m.onRowClick !== undefined}
+      compact
+    />,
   );
 }
 
@@ -47,13 +58,37 @@ function renderCardOpenButton(openRow: () => void, body: ReactNode): ReactNode {
   );
 }
 
+function renderCardButtons(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  buttonActions: readonly DataTableRowAction[],
+): ReactNode {
+  return renderStopPropagation(
+    "flex justify-end",
+    `row-${row.id}-card-buttons`,
+    <RowActionsCell row={row} actions={buttonActions} mode={m.rowActionMode} compact />,
+  );
+}
+
+function cardLeftPadding(compact: boolean, toned: boolean): string {
+  if (compact) return toned ? "pl-[5px]" : "pl-2";
+  return toned ? "pl-[13px]" : "pl-4";
+}
+
 export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
-  const { rowTone, menuActions } = m;
-  const hasMenu = menuActions !== undefined && menuActions.length > 0;
+  const { rowTone } = m;
+  const allActions = m.menuActions ?? [];
+  const buttonActions = allActions.filter(
+    (a) => a.display === "button" && (a.isVisible === undefined || a.isVisible(row)),
+  );
+  const menuActions = allActions.filter((a) => a.display !== "button");
+  const hasMenu = menuActions.length > 0;
+  const hasButtons = buttonActions.length > 0;
   const openRow = m.rowOpener(row);
   const { bodyRoles, linkColumns } = splitLinkColumns(m, row, roles);
   const body = renderCardBody(m, row, bodyRoles);
   const main = openRow !== undefined ? renderCardOpenButton(openRow, body) : body;
+  const toned = cardToneClass(rowTone?.(row)) !== "";
   const rowItem = (
     <li
       key={row.id}
@@ -61,8 +96,9 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
       data-tone={rowTone?.(row)}
       className={cn(
         "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3",
-        rowToneClass(rowTone?.(row)),
-        m.expansion !== undefined || m.selection.active ? "pl-2" : "pl-4",
+        cardToneClass(rowTone?.(row)),
+        // The 3px tone border sits inside the box, so the inner padding gives it up to keep the content aligned.
+        cardLeftPadding(m.expansion !== undefined || m.selection.active, toned),
         hasMenu ? "pr-2" : "pr-4",
         m.density.card,
       )}
@@ -70,10 +106,11 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
     >
       {m.selection.cardCheckbox(row)}
       {renderExpandToggle(m, row)}
-      {linkColumns.length > 0 ? (
+      {linkColumns.length > 0 || hasButtons ? (
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           {main}
-          {renderCardLinks(m, row, linkColumns)}
+          {linkColumns.length > 0 && renderCardLinks(m, row, linkColumns)}
+          {hasButtons && renderCardButtons(m, row, buttonActions)}
         </div>
       ) : (
         main

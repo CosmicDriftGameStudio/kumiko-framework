@@ -40,6 +40,7 @@ import {
   mergeReferenceFacetOptions,
   normalizeDefaultFilters,
 } from "./list-facets.ts";
+import { translatedSortOptionProps } from "./list-sort-options.ts";
 import {
   buildNamedFilterFacet,
   routeFacetChange,
@@ -644,6 +645,7 @@ function EntityListBody({
         onSearchChange={urlState.setQ}
         sort={effectiveSort}
         onSortChange={urlState.setSort}
+        {...translatedSortOptionProps(screen.sortOptions, effectiveTranslate)}
         {...(isEmbeddedScreen
           ? { screenPadding: false, chromeless: true }
           : { screenPadding: true })}

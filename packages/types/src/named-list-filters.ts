@@ -29,6 +29,9 @@ export type ListSortSpec = {
   readonly dir: ListSortDir;
 };
 
+/** One entry of a list's "Sorted by" select; `label` is an i18n key. */
+export type ListSortOption = ListSortSpec & { readonly label: string };
+
 /** Screen-side reference to an entity-defined named filter; `label` is an i18n key. */
 export type NamedListFilterRef = {
   readonly id: string;

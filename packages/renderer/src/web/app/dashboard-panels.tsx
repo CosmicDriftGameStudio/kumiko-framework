@@ -5,19 +5,16 @@ import type {
   DashboardFeedPanel,
   DashboardProgressListPanel,
   DashboardProgressTone,
-  DashboardStatGroupPanel,
   DashboardStatPanel,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DASHBOARD_STAT_TONES } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useState } from "react";
-import { namedFilterNavigateAllows } from "../../app/screen-access.ts";
+import { namedFilterNavigateAllows, navigateTargetAllows } from "../../app/screen-access.ts";
 import { rendererWarn } from "../../dev-console.ts";
 import { EMPTY_VALUE_PLACEHOLDER, type Translate } from "../../headless/index.ts";
-import { listNamedFilterUrlKey } from "../../hooks/use-list-url-state.ts";
 import {
   extensionSectionName,
-  lastSegment,
   useAppFeatures,
   useExtensionSectionComponent,
   useNav,
@@ -44,9 +41,7 @@ import {
 import { FeedList, type FeedRow } from "../widgets/feed-list.tsx";
 import { ModeSwitch } from "../widgets/mode-switch.tsx";
 import { ProgressList, type ProgressListRow } from "../widgets/progress-list.tsx";
-import { SectionCard } from "../widgets/section-card.tsx";
 import {
-  STAT_CARD_GRID_CLASSES,
   StatCard,
   type StatDelta,
   type StatLink,
@@ -54,6 +49,7 @@ import {
   type StatTone,
 } from "../widgets/stat.tsx";
 import { EmptyState, LoadingState } from "../widgets/states.tsx";
+import { optionalDashboardNavigationLink } from "./dashboard-navigation-link.ts";
 import {
   DAY_MS,
   type DashboardFormats,
@@ -104,7 +100,7 @@ type StatPanelBodyProps = {
   readonly screenId: string;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
-  readonly variant: "card" | "strip";
+  readonly variant: "card" | "strip" | "strip-compact";
 };
 
 // Hidden before any query hook runs: the tile's own count query would be refused for this user.
@@ -112,7 +108,13 @@ export function StatPanelBody(props: StatPanelBodyProps): ReactNode {
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
   const { navigate } = props.panel;
-  if (navigate !== undefined && !namedFilterNavigateAllows(navigate, appFeatures, userRoles)) {
+  if (
+    navigate !== undefined &&
+    !(
+      navigateTargetAllows({ screen: navigate.screen }, appFeatures, userRoles) &&
+      namedFilterNavigateAllows(navigate, appFeatures, userRoles)
+    )
+  ) {
     return null;
   }
   return <StatPanelContent {...props} />;
@@ -128,7 +130,7 @@ function StatPanelContent({
 }: StatPanelBodyProps): ReactNode {
   const formats = useDashboardFormats();
   const nav = useNav();
-  const link = statNavigationLink(nav, panel.navigate);
+  const link: StatLink | undefined = optionalDashboardNavigationLink(nav, panel.navigate);
   // Resolved HERE (not in a separate always-rendered child) so `icon` on
   // <StatCard> is `undefined` — not a React element that renders empty —
   // when the icon name isn't registered. StatCard gates its accent chip on
@@ -187,9 +189,10 @@ function StatPanelContent({
       />
     ) : undefined;
 
-  if (variant === "strip") {
+  if (variant !== "card") {
     return (
       <StatStripCell
+        {...(variant === "strip-compact" && { compact: true })}
         icon={icon}
         label={label}
         value={value}
@@ -219,25 +222,6 @@ function StatPanelContent({
   );
 }
 
-function statNavigationLink(
-  nav: ReturnType<typeof useNav>,
-  navigate: DashboardStatPanel["navigate"],
-): StatLink | undefined {
-  if (navigate === undefined) return undefined;
-  const target = { screenId: lastSegment(navigate.screen) };
-  const searchParams: Record<string, string> = {
-    ...navigate.params,
-    ...(navigate.namedFilter !== undefined && {
-      [listNamedFilterUrlKey(target.screenId)]: navigate.namedFilter,
-    }),
-  };
-  const options = Object.keys(searchParams).length === 0 ? undefined : { searchParams };
-  return {
-    href: nav.hrefFor(target, options),
-    onPress: () => nav.navigate(target, options),
-  };
-}
-
 function readDelta(
   panel: DashboardStatPanel,
   record: Readonly<Record<string, unknown>>,
@@ -251,63 +235,6 @@ function readDelta(
     panel.deltaToneField !== undefined ? record[panel.deltaToneField] : undefined,
   );
   return { value: String(value), direction, ...(tone !== undefined && { tone }) };
-}
-
-export function StatGroupPanelBody({
-  panel,
-  label,
-  screenId,
-  screenParams,
-  translate,
-}: {
-  readonly panel: DashboardStatGroupPanel;
-  readonly label: string | undefined;
-  readonly screenId: string;
-  readonly screenParams: ScreenParams;
-  readonly translate: Translate;
-}): ReactNode {
-  const testId = `dashboard-panel-${panel.id}`;
-  if (label === undefined) {
-    return (
-      <div
-        data-testid={testId}
-        className="grid grid-cols-2 gap-y-2 rounded-lg border border-border bg-card py-1 lg:auto-cols-fr lg:grid-flow-col lg:divide-x lg:divide-border-row"
-      >
-        {panel.stats.map((stat) => (
-          <StatPanelBody
-            key={stat.id}
-            panel={stat}
-            label={translate(stat.label)}
-            screenId={screenId}
-            screenParams={screenParams}
-            translate={translate}
-            variant="strip"
-          />
-        ))}
-      </div>
-    );
-  }
-  return (
-    <SectionCard
-      title={label}
-      {...(panel.subtitle !== undefined && { subtitle: translate(panel.subtitle) })}
-      testId={testId}
-    >
-      <section className={STAT_CARD_GRID_CLASSES}>
-        {panel.stats.map((stat) => (
-          <StatPanelBody
-            key={stat.id}
-            panel={stat}
-            label={translate(stat.label)}
-            screenId={screenId}
-            screenParams={screenParams}
-            translate={translate}
-            variant="card"
-          />
-        ))}
-      </section>
-    </SectionCard>
-  );
 }
 
 type MarkerEnvelope = { readonly atMs: number; readonly label: unknown; readonly kind?: unknown };

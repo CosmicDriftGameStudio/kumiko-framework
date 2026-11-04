@@ -74,7 +74,7 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("narrow viewport: rowTone tints only matching cards", () => {
+  test("narrow viewport: rowTone draws the tone stripe only on matching cards", () => {
     atViewportWidth(500, () => {
       const rows = [
         { id: "a1", values: { name: "A1", role: "late" } },
@@ -90,7 +90,7 @@ describe("DataTable — cards below 768px", () => {
       );
       const late = screen.getByTestId("row-a1");
       expect(late.getAttribute("data-tone")).toBe("bad");
-      expect(late.className).toContain("bg-status-bad/10");
+      expect(late.className).toContain("border-l-status-bad");
       expect(screen.getByTestId("row-a2").getAttribute("data-tone")).toBeNull();
     });
   });

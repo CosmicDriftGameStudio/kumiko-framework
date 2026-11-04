@@ -62,6 +62,8 @@ export type RenderListProps = {
   readonly sort?: ListSort | null;
   /** Called with the next sort state after a header click. */
   readonly onSortChange?: (next: ListSort | null) => void;
+  /** Labelled sort choices (labels already translated) for the "Sorted by" select. */
+  readonly sortOptions?: DataTableProps["sortOptions"];
   /** Pager props for pagination="pages". If undefined, no pager UI is
    *  rendered; the default or infinite mode is used. KumikoScreen supplies
    *  this according to screen.pagination. */

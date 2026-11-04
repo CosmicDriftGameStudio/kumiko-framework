@@ -5,6 +5,7 @@
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
+const PHONE_FULL_HEIGHT = 2600;
 const FILTER_FACET = "facet-__namedFilter";
 
 // Phones keep the facets behind a "Filters" button.
@@ -48,5 +49,10 @@ test("board: order detail with a step reason open", async ({ page }, testInfo) =
   await page.goto("/?guidance=1");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
   await page.getByRole("button", { name: /why/i }).first().click();
+  // The shell scrolls inside <main>, so fullPage alone would cut a phone capture at the viewport.
+  const viewport = page.viewportSize();
+  if (viewport !== null && viewport.width < 768) {
+    await page.setViewportSize({ width: viewport.width, height: PHONE_FULL_HEIGHT });
+  }
   await page.screenshot({ path: testInfo.outputPath("order-detail.png"), fullPage: true });
 });

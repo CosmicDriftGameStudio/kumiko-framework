@@ -18,7 +18,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { ClosableCacheSyncBus } from "@cosmicdrift/kumiko-framework/redis";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Hono } from "hono";
+import type { ManualClock } from "../helpers/manual-clock.ts";
 import { createJobFailureTracker } from "./drain-jobs.ts";
 import type { EventCollector } from "./event-collector.ts";
 import type { TestRedis } from "./redis.ts";
@@ -68,6 +70,8 @@ export type TestStack = {
   // `{ db, registry }` literal — that's the drift, and it makes an
   // event-triggered job reaching for ctx.services.files die where the request path works.
   context: AppContext;
+  /** The effective manual clock behind `ctx.tz.now()`: `extraContext.clock` when it is one, else the clock created from `options.now`; absent when neither is manual. */
+  clock?: ManualClock;
   // Present whenever a system consumer (SSE, Search) or
   // r.multiStreamProjection is wired. Tests drain it via runOnce() (or the
   // drainEventConsumers helper for a named-consumer backlog) for
@@ -110,6 +114,8 @@ export type TestStackOptions = {
    *  Can be a function receiving (registry, db, sseBroker) for late binding. */
   /** Boot default locale (BCP-47) merged into AppContext before extraContext. */
   defaultLocale?: string;
+  /** Fixed wall clock for `ctx.tz.now()`: becomes a manual clock merged into the AppContext as `clock`; an `extraContext.clock` wins. */
+  now?: string | Temporal.Instant;
   extraContext?:
     | Record<string, unknown>
     | ((deps: {

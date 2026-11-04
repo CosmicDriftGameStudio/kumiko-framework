@@ -75,4 +75,6 @@ export type RecordProgress = {
 export type RecordProgressSpec = {
   /** Holds `RecordProgress[]`; an empty array shows no block. */
   readonly field: string;
+  /** "beside-steps": the chains sit as a vertical stage list in a 4/12 column next to the steps panel (8/12) from lg, stacked below it under lg. Needs `steps`; without it the chains keep their own row. */
+  readonly placement?: "beside-steps";
 };

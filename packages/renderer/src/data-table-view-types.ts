@@ -1,3 +1,4 @@
+import type { SelectOptionTone } from "@cosmicdrift/kumiko-types/fields";
 import type { ListColumnPin, ListTableDensity } from "@cosmicdrift/kumiko-types/screen";
 import type {
   DataTableListNotice,
@@ -69,6 +70,17 @@ export type DataTableExport = {
   readonly columns: readonly string[];
 };
 
+export type DataTableSummaryItem = {
+  readonly label: string;
+  readonly value: string | number;
+  readonly tone?: SelectOptionTone;
+};
+
+/** One line of "label value" pairs under the rows, answered by the screen's summaryRow query. */
+export type DataTableSummaryRow = {
+  readonly items: readonly DataTableSummaryItem[];
+};
+
 /** The DataTable props a screen's `table` block feeds. */
 export type DataTableTableBlock = {
   /** View menu (column picker, density); absent = no menu. */
@@ -81,6 +93,8 @@ export type DataTableTableBlock = {
   readonly compactHeader?: boolean;
   /** Present: the rows are grouped on the server; replaces pager and infinite scroll. */
   readonly serverGroups?: DataTableServerGroups;
+  /** Present: a footer line above the totals row with the summary query's items. */
+  readonly summaryRow?: DataTableSummaryRow;
   /** Present: a footer row with the server-computed totals of the filtered list. */
   readonly totals?: DataTableTotals;
   /** Present: the toolbar says the answer is incomplete and asks to narrow the list. */

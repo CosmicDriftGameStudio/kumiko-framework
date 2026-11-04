@@ -39,6 +39,13 @@ export function validateProjectionDetailGuidance(
       });
     }
   }
+  if (screen.progress?.placement === "beside-steps" && screen.steps === undefined) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.progressBesideStepsWithoutSteps, {
+      message:
+        `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) sets progress.placement ` +
+        `"beside-steps" without steps. Add steps or remove the placement.`,
+    });
+  }
   for (const action of screen.banner?.actions ?? []) {
     validateGuidanceAction(ctx, screenId, screen, "banner", action);
   }

@@ -662,6 +662,7 @@ type EntityListScreenDefinition = {
   pageSize?: number;
   table?: ListTableOptions; // Opt-in table behaviour: remembered state, reset, column picker, density.
   defaultSort?: ListSortSpec;
+  sortOptions?: ListSortOption[]; // Choices of the "Sorted by" select in the toolbar (and the narrow-width sort control) instead of one entry per column; every field must be sortable.
   defaultFilters?: Readonly<Record<string, string[] | boolean>>; // Initial facet selection, per filterable field: option values (string facets) or a boolean.
   facets?: Readonly<Record<string, EntityListFacetConfig | false>>; // Per-facet display options for the entity's `filterable` fields, keyed by field name.
   namedFilters?: NamedListFilterRef[]; // Named work-queue rules offered on this list: ids declared in `EntityDefinition.namedFilters`, `label` an i18n key.
@@ -1099,6 +1100,7 @@ type ListTableOptions = { // Opt-in table behaviour of a list.
   export?: ListTableExportOptions; // Shows an export button; the server reads the whole filtered list (not just the visible page).
   grouping?: ListTableGrouping; // Server-side grouping: group headers with count and the `totals` measures over all matching rows; each open group loads its own rows.
   totals?: ListTableTotal[]; // Footer row under the rows, computed by the server over all rows matching the current filters and search.
+  summaryRow?: ListTableSummaryRow; // One line under the rows (above `totals`), computed by a query of your own: "label value · label value".
 };
 type ManifestConfigKey = {
   key: string;
@@ -1364,6 +1366,9 @@ type ProjectionDetailScreenDefinition = {
   header?: RecordHeaderSpec; // Record header above the layout — title/subtitle/status name columns in the query row (not literals).
   metrics?: MetricSpec[]; // Metric band above the layout — column names in the query row, each with its own i18n `label`.
   metricsStyle?: "band" | "tiles"; // "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band.
+  metricsPlacement?: {
+    narrow?: "after-guidance";
+  }; // `narrow: "after-guidance"` moves the metrics below the summary, banner and steps on screens under md, ahead of the tabs.
   breadcrumb?: RecordBreadcrumbSpec; // Path above the header (query column holding items).
   summary?: RecordSummarySpec; // One emphasized sentence below the header.
   banner?: RecordBannerSpec; // Notice below the summary.
@@ -1401,6 +1406,7 @@ type ProjectionListScreenDefinition = {
   pageSize?: number;
   table?: ListTableOptions; // Opt-in table behaviour: remembered state, reset, column picker, density.
   defaultSort?: ListSortSpec;
+  sortOptions?: ListSortOption[]; // Choices of the "Sorted by" select in the toolbar (and the narrow-width sort control) instead of one entry per column; every field must be sortable.
   emptyState?: ListEmptyStateSpec; // Replaces the default empty-list title/hint; the create button stays when the list can create.
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).

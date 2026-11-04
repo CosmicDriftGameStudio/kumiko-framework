@@ -7,6 +7,7 @@ import {
   type DetailGuidanceModel,
   renderDetailBreadcrumb,
   renderDetailGuidance,
+  wrapLayout,
 } from "./projection-detail-guidance.tsx";
 import {
   buildMetricItems,
@@ -91,6 +92,59 @@ export function deriveDetailRegionPieces(model: DetailRegionModel): DetailRegion
   };
 }
 
+// Tailwind needs the literal class strings.
+const NARROW_METRICS_ORDER = "max-md:order-1";
+// The split band keeps the padding of the single band: the lead part drops its bottom, the tiles
+// part trades its top for the band's gap-3.
+const LEAD_BAND_SHARED_PADDING = "[&>*]:pb-0";
+const TILES_BAND_SHARED_PADDING = "[&>*]:pt-3";
+const NARROW_TABS_ORDER = "max-md:order-2";
+
+function usesNarrowMetricsOrder(model: DetailRegionModel): boolean {
+  return model.screen.metricsPlacement?.narrow === "after-guidance";
+}
+
+function wrapNarrowOrder(model: DetailRegionModel, orderClass: string, node: ReactNode): ReactNode {
+  return usesNarrowMetricsOrder(model) ? wrapLayout(model.primitives, orderClass, node) : node;
+}
+
+// Only the metric tiles move below the guidance on narrow screens; the lead and the
+// subtitle/status line stay under the title, so they get their own tile-less band.
+function renderBandWithNarrowMetrics(
+  model: DetailRegionModel,
+  metricItems: ReactNode[] | undefined,
+  subtitle: ReactNode,
+  lead: ReactNode,
+): ReactNode {
+  const { hasMetrics, primitives } = model;
+  const { MetricBand } = primitives;
+  if (!usesNarrowMetricsOrder(model) || !hasMetrics) {
+    return renderMetricsBlock(model, metricItems, subtitle, lead);
+  }
+  const splitsBand = MetricBand !== undefined && (subtitle !== undefined || lead !== undefined);
+  return (
+    <>
+      {splitsBand &&
+        wrapLayout(
+          primitives,
+          LEAD_BAND_SHARED_PADDING,
+          <MetricBand
+            testId="kumiko-screen-projection-detail-metrics-lead"
+            subtitle={subtitle}
+            {...(lead !== undefined && { lead })}
+          >
+            {undefined}
+          </MetricBand>,
+        )}
+      {wrapNarrowOrder(
+        model,
+        splitsBand ? `${NARROW_METRICS_ORDER} ${TILES_BAND_SHARED_PADDING}` : NARROW_METRICS_ORDER,
+        renderMetricsBlock(model, metricItems, MetricBand !== undefined ? undefined : subtitle),
+      )}
+    </>
+  );
+}
+
 function renderPageHeaderBranch(
   model: DetailRegionModel,
   pieces: DetailRegionPieces,
@@ -117,7 +171,7 @@ function renderPageHeaderBranch(
       {MetricBand === undefined && headerSlot}
       {(hasMetrics || bandSubtitle !== undefined || headerSlot !== undefined) &&
         (MetricBand !== undefined || hasMetrics) &&
-        renderMetricsBlock(
+        renderBandWithNarrowMetrics(
           model,
           metricItems,
           bandSubtitle,
@@ -136,21 +190,28 @@ function renderHeaderCardBranch(
   const { primitives, hasHeaderActions, hasMetrics, hasHeaderCard } = model;
   const { Card } = primitives;
   const { recordTitle, headerTitleSlot, headerSubtitleSlot, headerActionsContent } = pieces;
+  // Metrics must leave the head card to take part in the narrow reordering.
+  const metricsOutsideCard = usesNarrowMetricsOrder(model) && hasMetrics;
   return (
-    (hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined) && (
-      <Card
-        slots={{
-          ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
-          ...(headerTitleSlot === undefined && recordTitle !== undefined && { title: recordTitle }),
-          ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
-          ...(headerSlot !== undefined && { headerContent: headerSlot }),
-          ...(hasHeaderActions && { headerActions: headerActionsContent }),
-        }}
-      >
-        {hasMetrics && renderMetricsBlock(model, pieces.metricItems)}
-        {pieces.actionErrorBanner}
-      </Card>
-    )
+    <>
+      {(hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined) && (
+        <Card
+          slots={{
+            ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
+            ...(headerTitleSlot === undefined &&
+              recordTitle !== undefined && { title: recordTitle }),
+            ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
+            ...(headerSlot !== undefined && { headerContent: headerSlot }),
+            ...(hasHeaderActions && { headerActions: headerActionsContent }),
+          }}
+        >
+          {hasMetrics && !metricsOutsideCard && renderMetricsBlock(model, pieces.metricItems)}
+          {pieces.actionErrorBanner}
+        </Card>
+      )}
+      {metricsOutsideCard &&
+        wrapNarrowOrder(model, NARROW_METRICS_ORDER, renderMetricsBlock(model, pieces.metricItems))}
+    </>
   );
 }
 
@@ -193,7 +254,7 @@ export function renderDetailHeaderContent(
       {hasTabs &&
         activeSection !== undefined &&
         Tabs !== undefined &&
-        renderDetailTabs(model, activeSection, Tabs)}
+        wrapNarrowOrder(model, NARROW_TABS_ORDER, renderDetailTabs(model, activeSection, Tabs))}
     </>
   );
 }

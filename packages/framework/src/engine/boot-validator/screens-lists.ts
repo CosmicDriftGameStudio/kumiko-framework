@@ -23,6 +23,7 @@ import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListRowGuidance } from "./list-row-guidance.ts";
 import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
+import { rejectSummaryRowOnRelatedList } from "./list-sort-summary.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import { validateRelatedListGroupingRules } from "./related-list-table-rules.ts";
 import type { NavigateSourceScreenType, NavigateTargetLookups } from "./screens-actions.ts";
@@ -155,6 +156,9 @@ type RelatedListSectionValidation = {
 // both render a relatedList whose rows come from an arbitrary query.
 function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): void {
   const { featureName, where, section } = args;
+  // Before the grouping rules: an expandableRow's "only table.grouping" rule would otherwise
+  // swallow a summaryRow with a less specific message.
+  rejectSummaryRowOnRelatedList(`[Feature ${featureName}] ${where}`, section.table);
   validateRelatedListGroupingRules(
     `[Feature ${featureName}] ${where}`,
     section,

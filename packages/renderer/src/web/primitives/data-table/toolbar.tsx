@@ -4,6 +4,7 @@ import { UNIFORM_BAR_CONTROLS_CLASSES } from "../../layout/uniform-bar-controls.
 import { cn } from "../../lib/cn.ts";
 import { Button as UiButton } from "../../ui/button.tsx";
 import { buildFacetCluster } from "./facet-cluster.tsx";
+import { hasSortOptionsSelect, SortOptionsSelect } from "./sort-options-select.tsx";
 import { ToolbarEndCluster, toolbarEndHasContent } from "./toolbar-end-cluster.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
@@ -27,8 +28,15 @@ export function hasToolbarContent(m: DataTableModel, facetCluster: ReactNode): b
   return (
     m.toolbarStart !== undefined ||
     facetCluster !== undefined ||
+    hasVisibleSortOptions(m) ||
     toolbarEndHasContent(m.view, m.exportList, m.toolbarEnd)
   );
+}
+
+// The toolbar select is max-md:hidden; below md the card sort bar owns sorting, so a toolbar
+// holding only the hidden select would render an empty row.
+function hasVisibleSortOptions(m: DataTableModel): boolean {
+  return !m.isNarrow && hasSortOptionsSelect(m.sortOptions, m.onSortChange);
 }
 
 function toolbarClassName({ fillsHeight, isNarrow }: DataTableModel): string {
@@ -93,6 +101,22 @@ export function toolbarMergesDescription(m: DataTableModel, facetCluster: ReactN
   );
 }
 
+function renderSortOptions(m: DataTableModel): ReactNode {
+  const { sortOptions, onSortChange, testId } = m;
+  if (onSortChange === undefined || !hasSortOptionsSelect(sortOptions, onSortChange)) {
+    return null;
+  }
+  return (
+    <SortOptionsSelect
+      options={sortOptions}
+      sort={m.sort}
+      onSortChange={onSortChange}
+      testId={testId !== undefined ? `${testId}-sort-options` : "render-list-sort-options"}
+      className="max-md:hidden"
+    />
+  );
+}
+
 export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): ReactNode {
   const { testId, toolbarStart } = m;
   const collapsesFacetsBehindButton = m.isNarrow && m.fillsHeight && facetCluster !== undefined;
@@ -111,6 +135,7 @@ export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): React
       {mergesDescription && renderToolbarDescription(m, true, true)}
       {toolbarStart !== undefined && renderToolbarStart(m, toolbarStart)}
       {collapsesFacetsBehindButton ? renderFacetToggle(m, facetCluster) : facetCluster}
+      {renderSortOptions(m)}
       <ToolbarEndCluster
         view={m.view}
         columnLabels={new Map(m.schemaColumns.map((col) => [col.field, col.label]))}

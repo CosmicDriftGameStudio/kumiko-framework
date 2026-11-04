@@ -30,7 +30,7 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   the title and a `hideOnNarrow` one stays out of the card
 - a work queue on that list: named filters as one select with hit counts (`namedFilterFacet`),
   a per-filter `sort` and `emptyState` with a reset button, a badge column, per-row button
-  actions (a write "Send reminder" or a link "Open order", shown by `visible`) and a totals footer
+  actions (a write "Send reminder" or a link "Open order", shown by `visible`) and a summary row footer
 - a `today` dashboard on the 12-column grid: a `lead` briefing (two thirds), count tiles that
   use the list's own query and link into the filtered list, a headerless "Now" list, two third
   width lists and a money group. List and dashboard answer from `src/order-board.ts`, which the
@@ -65,6 +65,7 @@ bun test
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
+const PHONE_FULL_HEIGHT = 2600;
 const FILTER_FACET = "facet-__namedFilter";
 
 // Phones keep the facets behind a "Filters" button.
@@ -108,6 +109,11 @@ test("board: order detail with a step reason open", async ({ page }, testInfo) =
   await page.goto("/?guidance=1");
   await expect(page.getByTestId("render-edit-form")).toBeVisible();
   await page.getByRole("button", { name: /why/i }).first().click();
+  // The shell scrolls inside <main>, so fullPage alone would cut a phone capture at the viewport.
+  const viewport = page.viewportSize();
+  if (viewport !== null && viewport.width < 768) {
+    await page.setViewportSize({ width: viewport.width, height: PHONE_FULL_HEIGHT });
+  }
   await page.screenshot({ path: testInfo.outputPath("order-detail.png"), fullPage: true });
 });
 ```
@@ -409,10 +415,13 @@ import {
   answerNowList,
   answerOrderDetail,
   answerOrderList,
+  answerOrderSummary,
   orderListSchema,
+  orderSummarySchema,
 } from "../../src/order-board";
 
 const QUERY_ORDER_LIST = "order-desk:query:order:list";
+const QUERY_ORDER_SUMMARY = "order-desk:query:order:summary";
 const QUERY_ORDER_NOW = "order-desk:query:order:now";
 const QUERY_ORDER_BRIEFING = "order-desk:query:order:briefing";
 const QUERY_ORDER_DEADLINES = "order-desk:query:order:deadlines";
@@ -470,6 +479,10 @@ export function createMockDispatcher(): Dispatcher {
     }
     if (type === QUERY_ORDER_LIST) {
       const answer = answerOrderList(orderListSchema.parse(payload ?? {}));
+      return { isSuccess: true, data: answer as unknown as TData };
+    }
+    if (type === QUERY_ORDER_SUMMARY) {
+      const answer = answerOrderSummary(orderSummarySchema.parse(payload ?? {}));
       return { isSuccess: true, data: answer as unknown as TData };
     }
     if (type === QUERY_ORDER_NOW) {
@@ -865,7 +878,7 @@ export default defineConfig({
 
 ```ts
 // The orders work queue: named filters in one select with hit counts, a filter-owned sort,
-// a filter-owned empty state with a reset button, and the totals footer.
+// a filter-owned empty state with a reset button, and the summary row footer.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -902,10 +915,33 @@ test("a filter without hits shows its own empty state, and its reset button brin
   await expect(page.getByTestId("render-list-empty-reset-filter")).toHaveCount(0);
 });
 
-test("the footer totals the open amount over the whole list", async ({ page }) => {
+test("the summary row is the only footer and carries the open amount", async ({ page }) => {
   await page.goto("/orders");
-  await expect(page.getByTestId("list-totals")).toBeVisible();
-  await expect(page.getByTestId("list-totals")).toContainText("2497");
+  await expect(page.getByTestId("list-summary")).toContainText("2,497.00");
+  await expect(page.getByTestId("list-totals")).toHaveCount(0);
+});
+
+test("the sort select reorders the list by the chosen option", async ({ page }) => {
+  await page.goto("/orders");
+  const select = page.getByTestId("render-list-table-sort-options");
+  await expect(page.getByTestId("render-list-table-sort-options-label")).toContainText("Sorted by");
+  await select.selectOption({ label: "Customer A-Z" });
+  await expect(page.getByTestId("render-list-table-sort-options-label")).toContainText(
+    "Customer A-Z",
+  );
+  const rowTexts = await page.locator("tbody tr").allInnerTexts();
+  const customers = rowTexts.map(
+    (text) => /Aiko|Emma|Jonas|Kenji|Lars|Maria|Priya|Tom/.exec(text)?.[0],
+  );
+  expect(customers).toEqual([...customers].sort());
+});
+
+test("the summary row follows the filter", async ({ page }) => {
+  await page.goto("/orders");
+  await expect(page.getByTestId("list-summary")).toContainText("Orders 8");
+  await page.getByTestId(FILTER_FACET).click();
+  await page.getByTestId(`${FILTER_FACET}-action-needed`).click();
+  await expect(page.getByTestId("list-summary")).toContainText("Orders 5");
 });
 
 test("a stat tile on the dashboard links into the filtered list", async ({ page }) => {
@@ -938,7 +974,12 @@ import {
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
-import { answerOrderList, orderListSchema } from "../order-board";
+import {
+  answerOrderList,
+  answerOrderSummary,
+  orderListSchema,
+  orderSummarySchema,
+} from "../order-board";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -1052,10 +1093,7 @@ describe("record-detail-layout showcase — work queue", () => {
     ]);
     expect(screen.namedFilters?.[0]?.sort).toEqual({ field: "urgency", dir: "desc" });
     expect(screen.namedFilters?.[0]?.emptyState?.title).toBe("order-desk.orders.all-done");
-    expect(screen.table?.totals).toEqual([
-      { field: "orderNumber", kind: "count" },
-      { field: "openAmount", kind: "sum" },
-    ]);
+    expect(screen.table?.totals).toBeUndefined();
   });
 
   test("the list query filters, sorts, counts and aggregates like the screen asks", () => {
@@ -1098,6 +1136,45 @@ describe("record-detail-layout showcase — work queue", () => {
       "reminder-due",
       "ending-soon",
     ]);
+  });
+});
+
+describe("record-detail-layout showcase — board gaps", () => {
+  test("the orders list declares sort options, a summary query and a self-sizing hint column", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    expect(screen.sortOptions?.map((option) => [option.field, option.dir])).toEqual([
+      ["urgency", "desc"],
+      ["customerName", "asc"],
+    ]);
+    expect(screen.table?.summaryRow?.query).toBe("order-desk:query:order:summary");
+    const hint = screen.columns.map((c) => normalizeListColumn(c)).find((c) => c.hint);
+    expect([hint?.width, hint?.minWidth]).toEqual([320, 240]);
+  });
+
+  test("the summary query follows the named filter", () => {
+    const all = answerOrderSummary(orderSummarySchema.parse({}));
+    const open = answerOrderSummary(orderSummarySchema.parse({ namedFilter: "action-needed" }));
+    expect(all.items[0]?.value).toBe(8);
+    expect(open.items[0]?.value).toBe(5);
+    expect(all.items.map((item) => item.label)).toEqual(["Orders", "Open", "Overdue"]);
+  });
+
+  test("the today board links its list and stat group and the detail places progress beside the steps", () => {
+    const today = registry.getScreen("order-desk:screen:today");
+    if (today?.type !== "dashboard") throw new Error("expected dashboard");
+    const now = today.panels.find((panel) => panel.kind === "list" && panel.showTotal === true);
+    if (now?.kind !== "list") throw new Error("expected the now list");
+    expect(now.footerLink?.namedFilter).toBe("action-needed");
+    const counts = today.panels.find((panel) => panel.id === "queue-counts");
+    if (counts?.kind !== "stat-group") throw new Error("expected stat-group");
+    expect([counts.layout, counts.link?.screen]).toEqual(["strip", "orders"]);
+
+    const detail = registry.getScreen("order-desk:screen:order-detail");
+    if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(detail.progress?.placement).toBe("beside-steps");
+    expect(detail.metricsPlacement).toEqual({ narrow: "after-guidance" });
+    expect(detail.metrics?.map((metric) => metric.subField)).toContain("totalNote");
   });
 });
 
@@ -1199,7 +1276,7 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //   7. Guidance: the `orders` projectionList tints rows via `rowToneField`, shows a
 //      "to do" hint column (sentence, detail, tone, a "Why?" reason), a badge column and
 //      per-row button actions (send a reminder, or open the record). Named filters sit in one select with hit counts,
-//      each with its own sort and empty state; the footer totals the rows. The detail screen adds
+//      each with its own sort and empty state; the summary row totals the rows. The detail screen adds
 //      `breadcrumb`, `summary`, `banner` and `steps`, each reading a query field; empty values drop out.
 //   8. The `today` dashboard composes a lead briefing, count tiles that link into the filtered
 //      list, a headerless "Now" list and two narrow lists on a 12-column grid.
@@ -1219,7 +1296,9 @@ import {
   answerNowList,
   answerOrderDetail,
   answerOrderList,
+  answerOrderSummary,
   orderListSchema,
+  orderSummarySchema,
 } from "./order-board.ts";
 
 const rowIdSchema = z.object({ id: z.string() });
@@ -1236,6 +1315,13 @@ export function createOrderDeskFeature(): FeatureDefinition {
       name: "order:list",
       schema: orderListSchema,
       handler: async (query) => answerOrderList(query.payload),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:summary",
+      schema: orderSummarySchema,
+      handler: async (query) => answerOrderSummary(query.payload),
       access: accessRoles,
     });
 
@@ -1338,7 +1424,13 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.col.amount": { en: "Amount" },
         "order-desk.col.method": { en: "Method" },
         "order-desk.col.status": { en: "Status" },
+        "order-desk.sort.urgency": { en: "Urgency" },
+        "order-desk.sort.customer": { en: "Customer A-Z" },
         "order-desk.today.now": { en: "Now" },
+        "order-desk.today.now-all": { en: "All orders needing action" },
+        "order-desk.today.inbox": { en: "Inbox" },
+        "order-desk.today.inbox-sub": { en: "Orders waiting for you" },
+        "order-desk.today.inbox-link": { en: "All orders" },
         "order-desk.today.deadlines": { en: "Deadlines" },
         "order-desk.today.customers": { en: "Customers" },
         "order-desk.today.money": { en: "Money" },
@@ -1393,10 +1485,16 @@ export function createOrderDeskFeature(): FeatureDefinition {
             reasonField: "nextStepReason",
             emptyLabel: "order-desk.orders.nothing-open",
           },
+          width: 320,
+          minWidth: 240,
         },
         { field: "openAmount", label: "order-desk.col.open-amount", hideOnNarrow: true },
       ],
-      defaultSort: { field: "orderNumber", dir: "asc" },
+      defaultSort: { field: "urgency", dir: "desc" },
+      sortOptions: [
+        { field: "urgency", dir: "desc", label: "order-desk.sort.urgency" },
+        { field: "customerName", dir: "asc", label: "order-desk.sort.customer" },
+      ],
       namedFilters: [
         {
           id: "action-needed",
@@ -1419,10 +1517,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       ],
       namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
       table: {
-        totals: [
-          { field: "orderNumber", kind: "count" },
-          { field: "openAmount", kind: "sum" },
-        ],
+        summaryRow: { query: "order-desk:query:order:summary" },
       },
       rowActions: [
         {
@@ -1464,7 +1559,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
         {
           kind: "stat-group",
           id: "queue-counts",
+          label: "order-desk.today.inbox",
+          subtitle: "order-desk.today.inbox-sub",
           span: "full",
+          layout: "strip",
+          link: { label: "order-desk.today.inbox-link", screen: "orders" },
           stats: [
             {
               kind: "stat",
@@ -1473,6 +1572,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               query: ORDER_LIST_QUERY,
               valueField: "total",
               params: { namedFilter: "action-needed", limit: 1, totalCount: true },
+              tone: "negative",
               navigate: { screen: "orders", namedFilter: "action-needed" },
             },
             {
@@ -1482,6 +1582,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               query: ORDER_LIST_QUERY,
               valueField: "total",
               params: { namedFilter: "reminder-due", limit: 1, totalCount: true },
+              tone: "warn",
               navigate: { screen: "orders", namedFilter: "reminder-due" },
             },
             {
@@ -1501,6 +1602,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.now",
           span: "two-thirds",
           showHeader: false,
+          showTotal: true,
+          footerLink: {
+            label: "order-desk.today.now-all",
+            screen: "orders",
+            namedFilter: "action-needed",
+          },
           query: "order-desk:query:order:now",
           rowToneField: "tone",
           columns: [
@@ -1606,7 +1713,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
-      progress: { field: "progress" },
+      progress: { field: "progress", placement: "beside-steps" },
       steps: {
         field: "steps",
         title: "order-desk.steps.title",
@@ -1630,11 +1737,18 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
+      metricsStyle: "tiles",
+      metricsPlacement: { narrow: "after-guidance" },
       metrics: [
-        { field: "totalAmount", label: "order-desk.metric.totalAmount" },
+        {
+          field: "totalAmount",
+          label: "order-desk.metric.totalAmount",
+          subField: "totalNote",
+        },
         {
           field: "outstandingAmount",
           label: "order-desk.metric.outstandingAmount",
+          subField: "outstandingNote",
           tone: "warn",
           toneField: "outstandingTone",
           navigate: { tab: "payments" },
@@ -1772,6 +1886,14 @@ export const orderListSchema = z.object({
 });
 
 export type OrderListPayload = z.infer<typeof orderListSchema>;
+
+// The list sends its narrowing (named filter, search) to the summary query as well; limit and paging never reach it.
+export const orderSummarySchema = z.object({
+  namedFilter: z.enum(NAMED_FILTER_IDS).optional(),
+  search: z.string().optional(),
+});
+
+export type OrderSummaryPayload = z.infer<typeof orderSummarySchema>;
 
 type RowTone = "ok" | "warn" | "bad" | "critical" | "neutral";
 type UrgencyTone = "negative" | "warn" | "neutral" | "positive";
@@ -2036,19 +2158,38 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   };
 }
 
+export function answerOrderSummary(payload: OrderSummaryPayload) {
+  const matching = filteredRows(payload);
+  const overdue = matching.filter((row) => row.urgencyTone === "negative");
+  return {
+    items: [
+      { label: "Orders", value: matching.length },
+      { label: "Open", value: euro(matching.reduce((total, row) => total + row.openAmount, 0)) },
+      {
+        label: "Overdue",
+        value: euro(overdue.reduce((total, row) => total + row.openAmount, 0)),
+        tone: "bad",
+      },
+    ],
+  };
+}
+
 function actionNeededRows(limit: number): readonly OrderRow[] {
   return ORDER_ROWS.filter(NAMED_FILTER_PREDICATES["action-needed"])
     .sort(compareRows("urgency", "desc"))
     .slice(0, limit);
 }
 
+const NOW_LIST_LIMIT = 4;
+
 export function answerNowList() {
   return {
-    rows: actionNeededRows(4).map((row) => ({
+    rows: actionNeededRows(NOW_LIST_LIMIT).map((row) => ({
       ...row,
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
     })),
+    total: actionNeededRows(ORDER_ROWS.length).length,
   };
 }
 
@@ -2169,7 +2310,9 @@ export function answerOrderDetail(id: string) {
     orderNumber: "SO-10482",
     status: "processing",
     totalAmount: "€ 1,248.00",
+    totalNote: "2 payments",
     outstandingAmount: "€ 312.00",
+    outstandingNote: "14 days overdue",
     outstandingTone: "bad",
     itemCount: "3",
     itemsCount: 3,
@@ -2198,7 +2341,7 @@ export function answerOrderDetail(id: string) {
         title: "Order to cash",
         currentIndex: 1,
         steps: [
-          { id: "placed", label: "Placed", done: true },
+          { id: "placed", label: "Placed", done: true, detail: "21 Aug" },
           { id: "paid", label: "Paid", done: false, detail: "312 EUR open" },
           { id: "shipped", label: "Shipped", done: false },
         ],

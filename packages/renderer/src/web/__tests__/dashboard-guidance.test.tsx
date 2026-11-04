@@ -106,10 +106,10 @@ function listDashboard(panelExtras: Record<string, unknown>): DashboardScreenDef
 const taskRows = () => ok({ rows: [TASK_ROW, { ...TASK_ROW, id: "t2", title: "", tone: "bad" }] });
 
 describe("dashboard list panel row guidance", () => {
-  test("rowToneField tints the row", async () => {
+  test("rowToneField draws the row tone stripe", async () => {
     renderDashboard(listDashboard({ rowToneField: "tone" }), { "demo:query:task:list": taskRows });
     const cell = await screen.findByText("Send reminder");
-    expect(cell.closest("tr")?.className).toContain("bg-status-warn/10");
+    expect(cell.closest("tr")?.className).toContain("--color-status-warn");
   });
 
   test("a hint column shows sentence and detail, the empty label for a blank sentence", async () => {

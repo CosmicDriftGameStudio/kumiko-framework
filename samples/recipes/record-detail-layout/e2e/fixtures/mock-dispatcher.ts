@@ -32,10 +32,13 @@ import {
   answerNowList,
   answerOrderDetail,
   answerOrderList,
+  answerOrderSummary,
   orderListSchema,
+  orderSummarySchema,
 } from "../../src/order-board";
 
 const QUERY_ORDER_LIST = "order-desk:query:order:list";
+const QUERY_ORDER_SUMMARY = "order-desk:query:order:summary";
 const QUERY_ORDER_NOW = "order-desk:query:order:now";
 const QUERY_ORDER_BRIEFING = "order-desk:query:order:briefing";
 const QUERY_ORDER_DEADLINES = "order-desk:query:order:deadlines";
@@ -93,6 +96,10 @@ export function createMockDispatcher(): Dispatcher {
     }
     if (type === QUERY_ORDER_LIST) {
       const answer = answerOrderList(orderListSchema.parse(payload ?? {}));
+      return { isSuccess: true, data: answer as unknown as TData };
+    }
+    if (type === QUERY_ORDER_SUMMARY) {
+      const answer = answerOrderSummary(orderSummarySchema.parse(payload ?? {}));
       return { isSuccess: true, data: answer as unknown as TData };
     }
     if (type === QUERY_ORDER_NOW) {

@@ -33,12 +33,12 @@ function renderList(rows: readonly Record<string, unknown>[]): void {
 }
 
 describe("projectionList row guidance", () => {
-  test("rowToneField tints the row, the hint cell shows sentence, detail and tone", async () => {
+  test("rowToneField draws the tone stripe, the hint cell shows sentence, detail and tone", async () => {
     renderList([
       { id: "o1", name: "Order 1", next: "Call customer", due: "today", why: "Late", tone: "bad" },
     ]);
     await waitFor(() => expect(screen.getByText("Order 1")).toBeTruthy());
-    expect(screen.getByText("Order 1").closest("tr")?.className).toContain("bg-status-bad/10");
+    expect(screen.getByText("Order 1").closest("tr")?.className).toContain("--color-status-bad");
     const sentence = screen.getByText("Call customer");
     expect(sentence.closest("[data-hint-tone]")?.getAttribute("data-hint-tone")).toBe("bad");
     expect(screen.getByText("today")).toBeTruthy();

@@ -25,10 +25,10 @@ export function detailGuidanceFieldRefs(
     { option: "steps.field", field: screen.steps?.field },
     { option: "steps.subtitleField", field: screen.steps?.subtitleField },
     { option: "progress.field", field: screen.progress?.field },
-    ...(screen.metrics ?? []).map((metric) => ({
-      option: "metrics.toneField",
-      field: metric.toneField,
-    })),
+    ...(screen.metrics ?? []).flatMap((metric) => [
+      { option: "metrics.toneField", field: metric.toneField },
+      { option: "metrics.subField", field: metric.subField },
+    ]),
   ]);
 }
 

@@ -31,6 +31,7 @@ import { I18N_RULES } from "./i18n-keys-rules.ts";
 import { LIST_BULK_ACTION_RULES } from "./list-bulk-actions-rules.ts";
 import { LIST_QUERY_RULES } from "./list-query-rules.ts";
 import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
+import { LIST_SORT_SUMMARY_RULES } from "./list-sort-summary-rules.ts";
 import { LIST_TABLE_AGGREGATE_RULES } from "./list-table-aggregate-rules.ts";
 import { LIST_TABLE_RULES } from "./list-table-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
@@ -78,6 +79,7 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   LIST_TABLE_RULES,
   LIST_TABLE_AGGREGATE_RULES,
   LIST_QUERY_RULES,
+  LIST_SORT_SUMMARY_RULES,
   LIST_BULK_ACTION_RULES,
   QUERY_RULES,
   BOOT_ENVIRONMENT_RULES,

@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
+import { uniqueLabelKeys } from "../../../app/unique-label-keys.ts";
 import type { DataTableMeasure, DataTableTotals } from "../../../data-table-aggregate-types.ts";
+import type { DataTableSummaryRow } from "../../../data-table-view-types.ts";
 import type { ListColumnViewModel } from "../../../headless/index.ts";
 import { useOptionalTranslation } from "../../../index.ts";
 import { cn } from "../../lib/cn.ts";
-import { TableCell, TableFooter, TableRow } from "../../ui/table.tsx";
+import { TableCell, TableRow } from "../../ui/table.tsx";
 import { NUMERIC_COLUMN_TYPES } from "../data-table-cell.tsx";
 import { stickyActionsCellClass } from "./actions-column.tsx";
+import { HINT_TONE_TEXT_CLASS } from "./hint-cell.tsx";
 import { MeasureValue, measureKindLabel, measureLabel } from "./measure-value.tsx";
 import { EXPAND_COLUMN_KEY, type PinnedCellProps, SELECT_COLUMN_KEY } from "./use-column-pins.ts";
 
@@ -53,6 +56,58 @@ function FooterMeasures({
   );
 }
 
+function SummaryItems({ summary }: { readonly summary: DataTableSummaryRow }): ReactNode {
+  const keys = uniqueLabelKeys(summary.items.map((item) => item.label));
+  return (
+    <span className="text-sm text-muted-foreground">
+      {summary.items.map((item, index) => (
+        <span key={keys[index]} data-testid="list-summary-item">
+          {index > 0 && " · "}
+          {item.label}{" "}
+          <span
+            className={cn(
+              "font-medium tabular-nums text-foreground",
+              item.tone !== undefined && HINT_TONE_TEXT_CLASS[item.tone],
+            )}
+          >
+            {item.value}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Full-width row above the totals row, inside the same tfoot; the summary query's "label value · label value" pairs. */
+export function SummaryFooterRow({
+  summary,
+  colSpan,
+  cellClassName,
+}: {
+  readonly summary: DataTableSummaryRow;
+  readonly colSpan: number;
+  readonly cellClassName?: string;
+}): ReactNode {
+  return (
+    <TableRow data-testid="list-summary" className="hover:bg-transparent">
+      <TableCell colSpan={colSpan} className={cn("text-left", cellClassName)}>
+        <SummaryItems summary={summary} />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+export function SummaryCard({ summary }: { readonly summary: DataTableSummaryRow }): ReactNode {
+  return (
+    <div
+      data-testid="list-summary"
+      className="border-b border-border-row bg-muted/50 px-4 py-3 text-left"
+    >
+      <SummaryItems summary={summary} />
+    </div>
+  );
+}
+
 /** Footer row under the table body, one cell per visible column. */
 export function TotalsFooterRow({
   totals,
@@ -72,47 +127,45 @@ export function TotalsFooterRow({
 }): ReactNode {
   const translate = useOptionalTranslation();
   return (
-    <TableFooter data-testid="list-totals">
-      <TableRow className="hover:bg-transparent">
-        {leadingCellKeys(leadingCells).map((key) => {
-          const pin = cellPin(key);
-          return (
-            <TableCell
-              key={key}
-              data-testid={`list-totals-${key}`}
-              className={pin.className}
-              style={pin.style}
-            />
-          );
-        })}
-        {columns.map((column, index) => {
-          const measures = measuresOf(totals, column.field);
-          const pin = cellPin(column.field);
-          return (
-            <TableCell
-              key={column.field}
-              data-testid={`list-totals-${column.field}`}
-              className={cn(
-                "tabular-nums",
-                NUMERIC_COLUMN_TYPES.has(column.type) && "text-right",
-                cellClassName,
-                pin.className,
-              )}
-              style={pin.style}
-            >
-              {measures.length > 0 ? (
-                <FooterMeasures measures={measures} column={column} />
-              ) : index === 0 ? (
-                totalsLabel(translate)
-              ) : null}
-            </TableCell>
-          );
-        })}
-        {actionsCell !== undefined && (
-          <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight)} />
-        )}
-      </TableRow>
-    </TableFooter>
+    <TableRow data-testid="list-totals" className="hover:bg-transparent">
+      {leadingCellKeys(leadingCells).map((key) => {
+        const pin = cellPin(key);
+        return (
+          <TableCell
+            key={key}
+            data-testid={`list-totals-${key}`}
+            className={pin.className}
+            style={pin.style}
+          />
+        );
+      })}
+      {columns.map((column, index) => {
+        const measures = measuresOf(totals, column.field);
+        const pin = cellPin(column.field);
+        return (
+          <TableCell
+            key={column.field}
+            data-testid={`list-totals-${column.field}`}
+            className={cn(
+              "tabular-nums",
+              NUMERIC_COLUMN_TYPES.has(column.type) && "text-right",
+              cellClassName,
+              pin.className,
+            )}
+            style={pin.style}
+          >
+            {measures.length > 0 ? (
+              <FooterMeasures measures={measures} column={column} />
+            ) : index === 0 ? (
+              totalsLabel(translate)
+            ) : null}
+          </TableCell>
+        );
+      })}
+      {actionsCell !== undefined && (
+        <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight)} />
+      )}
+    </TableRow>
   );
 }
 

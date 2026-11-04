@@ -1859,12 +1859,21 @@ type DataTableResetAll = {
   active: boolean; // True while something deviates from the screen default.
   onReset: () => void;
 };
+type DataTableSummaryItem = {
+  label: string;
+  value: string | number;
+  tone?: SelectOptionTone;
+};
+type DataTableSummaryRow = { // One line of "label value" pairs under the rows, answered by the screen's summaryRow query.
+  items: DataTableSummaryItem[];
+};
 type DataTableTableBlock = { // The DataTable props a screen's `table` block feeds.
   view?: DataTableViewOptions; // View menu (column picker, density); absent = no menu.
   resetAll?: DataTableResetAll; // Replaces the facet reset with one that also covers sort, search and page size.
   exportList?: DataTableExport; // Present: the toolbar has an export button (web only).
   compactHeader?: boolean; // Smaller (12px) semibold header row.
   serverGroups?: DataTableServerGroups; // Present: the rows are grouped on the server; replaces pager and infinite scroll.
+  summaryRow?: DataTableSummaryRow; // Present: a footer line above the totals row with the summary query's items.
   totals?: DataTableTotals; // Present: a footer row with the server-computed totals of the filtered list.
   notice?: DataTableListNotice; // Present: the toolbar says the answer is incomplete and asks to narrow the list.
   rangeFacets?: DataTableRangeFacet[];
@@ -2288,6 +2297,8 @@ type ListColumnViewModel = {
   grouping?: boolean; // Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default `true`).
   fileDisplay?: ListColumnFileDisplay; // Set for file/image columns: from the entity field type, or from a `{ format: "image" | "file" }` renderer.
   hint?: ListColumnHintViewModel; // "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated.
+  width?: number; // Start width and floor in px of a hint column; unlike other columns they apply without `table.resizing`.
+  minWidth?: number;
   display?: ListColumnCellDisplay; // `ListColumnSpec.display` for list tables: a status pill or a link drawn as a button.
   badgeToneField?: string; // Row field naming the pill tone; only with `display: "badge"`.
 };
@@ -2325,6 +2336,7 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
   tile?: boolean; // Draw as a KPI tile (the dashboard StatCard) instead of a band entry.
   tone?: DashboardStatTone;
   icon?: NavIconKey;
+  sub?: string; // Small muted line under the value (see `MetricSpec.subField`).
 };
 ```
 
@@ -2475,6 +2487,7 @@ type FileValueListProps = { // Read-only list of stored files (FileRef ids): nam
 type FillContainerProps = { // Chromeless flex-fill layout host — no title, no card frame, no padding, just a container that sizes to its content and, once the ancestor chain is height-constrained, shrinks so one scrolling child can scroll internally instead of the page growing.
   children: ReactNode;
   testId?: string;
+  className?: string; // Layout extras, merged via cn().
   grow?: boolean; // Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a footer inside the child sits at the bottom edge even with few rows.
 };
 type FormSectionNavItem = { // One entry of a form's "on this page" navigation: `id` matches the `SectionProps.id` of the section it scrolls to.
@@ -2602,10 +2615,10 @@ type StepBarProps = { // Wizard step overview — numbered chips, one per step l
   doneSteps?: boolean[]; // Explicit done state per step index.
   selectableSteps?: "done" | "all"; // "done" (default): only done steps are jump targets.
   narrowLayout?: "label" | "steps"; // "label" (default) swaps the step row for `compactLabel` on narrow viewports; "steps" keeps the row there too — for short wizards whose labels fit a phone and whose done steps must stay tappable.
-  orientation?: "horizontal" | "vertical"; // "vertical" renders a step rail (from `lg`, with `compactLabel` as the single line below it) instead of the chip row.
+  orientation?: "horizontal" | "vertical" | "stacked"; // "vertical" renders a step rail (from `lg`, with `compactLabel` as the single line below it); "stacked": plain stage list at every width.
   heading?: string; // Vertical only: rail heading ("Step 4 of 6") and optional description.
   description?: string;
-  subtitles?: (string | undefined)[]; // Vertical only: line under each step label, same order as `steps`.
+  subtitles?: (string | undefined)[]; // Vertical and stacked only: line under each step label, same order as `steps`.
   upNext?: {
     heading: string;
     title: string;
@@ -5046,6 +5059,7 @@ type MetricSpec = {
   navigate?: MetricNavigate;
   tone?: DashboardStatTone; // Tile color as on dashboard stat panels; not applied while the value is 0.
   toneField?: string; // Record field of the detail query holding a SelectOptionTone; a valid value overrides `tone`, also at value 0.
+  subField?: string; // Record field of the detail query shown as a small line under the value; the value stays the number.
   icon?: NavIconKey; // Icon chip of the tile; only drawn with `metricsStyle: "tiles"`.
   format?: FormatSpec; // Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value.
 };
