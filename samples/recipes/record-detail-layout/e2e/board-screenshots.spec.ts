@@ -18,7 +18,7 @@ async function openFilterSelect(page: Page): Promise<void> {
 test("board: today dashboard", async ({ page }, testInfo) => {
   await page.goto("/today");
   await expect(page.getByText("Need action")).toBeVisible();
-  await expect(page.getByText("SO-10482").first()).toBeVisible();
+  await expect(page.getByText("Send payment reminder").first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("today.png"), fullPage: true });
 });
 
@@ -33,7 +33,7 @@ test("board: orders list in its states", async ({ page }, testInfo) => {
   await expect(page.getByText("SO-10483")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("orders-filtered.png"), fullPage: true });
 
-  // Phone cards show the reason open; only the table has the toggle.
+  // The reason sits behind its toggle in the table and on the phone cards alike.
   const reasonToggle = page.locator("[data-hint-reason-toggle]").first();
   if (await reasonToggle.isVisible()) await reasonToggle.click();
   await expect(page.locator("[data-hint-reason]").first()).toBeVisible();

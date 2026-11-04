@@ -480,10 +480,11 @@ type ContentCollectionDefinition = {
     actions?: TreeAction[];
   };
 };
-type DashboardCustomPanel = {
+type DashboardCustomPanel = DashboardPanelNarrow & {
   kind: "custom";
   id: string;
   component: PlatformComponent;
+  span?: DashboardPanelSpan; // Grid width like the other panels; default is the full row.
   params?: Readonly<Record<string, unknown>>; // Static author values laid over the screen's filterParams, like `DashboardPanelQueryOptions.params`; the panel wins on a name clash.
 };
 type DashboardI18nText = { // Text a query handler can send untranslated: the renderer translates it.
@@ -1043,6 +1044,7 @@ type ListColumnSpec =
     sortable?: boolean; // Marks this column as sortable via a clickable header — for relatedList columns, which have no `EntityDefinition` field to carry `sortable` on.
     valueType?: "number" | "decimal" | "bigInt" | "money"; // Value type of a relatedList column, which has no `EntityDefinition` field to derive it from.
     hideOnNarrow?: boolean; // Leaves the column out of the compact card layout used below the `md` breakpoint (tables keep it).
+    showOnNarrowOnly?: true; // Counterpart of `hideOnNarrow`: the column shows only in the compact card layout and not in the table.
     hidden?: boolean; // Start state for the column picker: the column begins hidden and the user can show it.
     pinned?: ListColumnPin; // Start pin for the column: it sticks to this edge while the table scrolls horizontally.
     width?: number; // Start width in px.
@@ -1100,7 +1102,7 @@ type ListTableOptions = { // Opt-in table behaviour of a list.
   export?: ListTableExportOptions; // Shows an export button; the server reads the whole filtered list (not just the visible page).
   grouping?: ListTableGrouping; // Server-side grouping: group headers with count and the `totals` measures over all matching rows; each open group loads its own rows.
   totals?: ListTableTotal[]; // Footer row under the rows, computed by the server over all rows matching the current filters and search.
-  summaryRow?: ListTableSummaryRow; // One line under the rows (above `totals`), computed by a query of your own: "label value · label value".
+  summaryRow?: ListTableSummaryRow; // One line under the rows (above `totals`), computed by a query of your own: "label value · label value"; an item without `label` shows its value alone.
 };
 type ManifestConfigKey = {
   key: string;

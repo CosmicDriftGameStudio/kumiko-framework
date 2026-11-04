@@ -113,6 +113,8 @@ export type ListColumnViewModel = {
   readonly highlighted?: boolean;
   /** Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column. */
   readonly hideOnNarrow?: boolean;
+  /** Mirrors `ListColumnSpec.showOnNarrowOnly`: the table layout skips the column. */
+  readonly showOnNarrowOnly?: boolean;
   /** Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default
    *  `true`). `false` renders without thousands-separators (e.g. a model
    *  year). */
@@ -138,6 +140,8 @@ export type ListColumnHintViewModel = {
   readonly detailField?: string;
   readonly toneField?: string;
   readonly reasonField?: string;
+  /** `ListColumnHint.plainSentence`: the sentence keeps the normal text color. */
+  readonly plainSentence?: boolean;
   readonly emptyLabel: string;
   /** Label of the reason toggle, already translated. */
   readonly reasonLabel: string;

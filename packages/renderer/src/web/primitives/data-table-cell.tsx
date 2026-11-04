@@ -358,7 +358,7 @@ type DataTableCellProps = {
   readonly hint?: ListColumnHintViewModel;
   readonly display?: ListColumnCellDisplay;
   readonly badgeToneField?: string;
-  readonly insideRowOpener?: boolean;
+  readonly onOpenRow?: () => void;
 };
 
 /** `display: "button"` draws a cell link as a small outline button. */
@@ -569,13 +569,20 @@ export function DataTableCell({
   hint,
   display,
   badgeToneField,
-  insideRowOpener = false,
+  onOpenRow,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
   const RegisteredStatusBadge = useOptionalPrimitives()?.StatusBadge;
   if (hint !== undefined) {
-    return <HintCell value={value} row={row} hint={hint} insideRowOpener={insideRowOpener} />;
+    return (
+      <HintCell
+        value={value}
+        row={row}
+        hint={hint}
+        {...(onOpenRow !== undefined && { onOpen: onOpenRow })}
+      />
+    );
   }
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
     return (

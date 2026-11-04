@@ -86,12 +86,12 @@ describe("declarative screen focus", () => {
     });
   });
 
-  test("wide: the header stays, app header actions are gone, the focus rail shows", () => {
+  test("wide: the header stays with the app header actions, the focus rail shows", () => {
     window.localStorage.setItem("kumiko.sidebar.open", "false");
     setViewportWidth(1200);
     render(<Harness screenDef={detailScreen} />);
     expect(screen.getByRole("banner")).toBeTruthy();
-    expect(screen.queryByText("Global action")).toBeNull();
+    expect(screen.getByText("Global action")).toBeTruthy();
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).not.toBeNull();
   });
 

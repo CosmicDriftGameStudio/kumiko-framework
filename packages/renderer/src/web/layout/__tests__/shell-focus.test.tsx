@@ -77,7 +77,7 @@ describe("shell focus mode", () => {
     expect(window.localStorage.getItem("kumiko.sidebar.open")).toBe("false");
   });
 
-  test("a focused screen shows one icon per top-level node, no search and no header chrome", () => {
+  test("a focused screen shows one icon per top-level node, no search, the app header actions stay and the sidebar trigger goes", () => {
     collapseSidebarLikeTheUser();
     render(<Harness />);
     const rail = document.querySelector('[data-kumiko-layout="focus-rail"]');
@@ -87,7 +87,7 @@ describe("shell focus mode", () => {
     expect(screen.getByRole("button", { name: "Bestand" })).toBeTruthy();
     expect(screen.queryByPlaceholderText("Search navigation…")).toBeNull();
     expect(screen.queryByText("Einheiten")).toBeNull();
-    expect(screen.queryByText("Global action")).toBeNull();
+    expect(screen.getByText("Global action")).toBeTruthy();
     const header = screen.getByRole("banner");
     expect(header.querySelector('button[data-sidebar="trigger"]')).toBeNull();
   });

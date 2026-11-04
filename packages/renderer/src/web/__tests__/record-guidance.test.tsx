@@ -55,7 +55,7 @@ describe("projectionList row guidance", () => {
     expect(screen.getByText("Paid already")).toBeTruthy();
   });
 
-  test("a hint in the row-open first cell shows the reason open instead of nesting a toggle", () => {
+  test("a hint in the row-open first cell keeps the reason behind its own toggle", () => {
     const onRowClick = mock();
     render(
       <DataTable
@@ -75,10 +75,11 @@ describe("projectionList row guidance", () => {
       />,
     );
     const sentence = screen.getByText("Ship it");
-    expect(sentence.closest("button")).not.toBeNull();
-    expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
-    expect(screen.getByText("Paid already").closest("button")).toBe(sentence.closest("button"));
+    expect(screen.queryByText("Paid already")).toBeNull();
     fireEvent.click(sentence);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Why?" }));
+    expect(screen.getByText("Paid already")).toBeTruthy();
     expect(onRowClick).toHaveBeenCalledTimes(1);
   });
 });

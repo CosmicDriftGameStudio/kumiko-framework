@@ -74,6 +74,7 @@ describe("UI-Store Verdrahtung: Dispatcher → statusStore → useDispatcherStat
       }
       return {
         ok: true,
+        headers: new Headers(),
         status: 200,
         async json() {
           return { isSuccess: true, data: {} };

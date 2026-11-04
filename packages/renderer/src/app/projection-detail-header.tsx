@@ -102,12 +102,39 @@ export function renderHeaderTitleSlot(model: DetailHeaderModel): ReactNode {
   ) : undefined;
 }
 
+// Body title block under the breadcrumb: record title with the status chip on one line, the
+// grey subtitle below. Mirrors the shell header title so the head reads the same on phone and desktop.
+export function renderRecordTitleBlock(
+  model: DetailHeaderModel,
+  titleText: string,
+  statusBadge: ReactNode,
+  subtitle: ReactNode,
+): ReactNode {
+  const { Grid, Heading, FillContainer } = model.primitives;
+  const block = (
+    <>
+      <Grid columns="auto" testId="kumiko-screen-projection-detail-title-block">
+        <Heading variant="page" testId="kumiko-screen-projection-detail-title">
+          {titleText}
+        </Heading>
+        {statusBadge}
+      </Grid>
+      {subtitle}
+    </>
+  );
+  return FillContainer !== undefined ? (
+    <FillContainer className="flex flex-col gap-1 px-6 pt-2">{block}</FillContainer>
+  ) : (
+    block
+  );
+}
+
 type SubtitlePartList = ReturnType<typeof buildSubtitleParts>;
 
 function renderSubtitleParts(model: DetailHeaderModel, subtitleParts: SubtitlePartList): ReactNode {
   const { Text, Link } = model.primitives;
   return (
-    <Text testId="kumiko-screen-projection-detail-subtitle">
+    <Text variant="muted" testId="kumiko-screen-projection-detail-subtitle">
       {subtitleParts.map((part, index) => (
         <Fragment key={part.field}>
           {index > 0 && (
@@ -212,7 +239,11 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
   const { Metric, GridCell, Text } = primitives;
   return screen.metrics?.map((metric) => {
     const field = metric.field;
-    const label = effectiveTranslate(metric.label);
+    const dynamicLabel = metric.labelField === undefined ? undefined : record[metric.labelField];
+    const label =
+      typeof dynamicLabel === "string" && dynamicLabel !== ""
+        ? dynamicLabel
+        : effectiveTranslate(metric.label);
     const rawValue = record[field];
     const value = formatOrRaw(metric.format, rawValue, effectiveTranslate);
     const tiles = screen.metricsStyle === "tiles";

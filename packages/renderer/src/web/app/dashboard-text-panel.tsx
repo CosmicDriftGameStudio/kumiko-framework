@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { navigateTargetAllows } from "../../app/screen-access.ts";
 import type { Translate } from "../../headless/index.ts";
 import { lastSegment, useAppFeatures, useNav, usePrimitives, useUserRoles } from "../../index.ts";
+import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import {
   type DashboardFormats,
   PanelError,
@@ -71,8 +72,11 @@ function readQueryBlock(raw: unknown): DashboardTextBlock | undefined {
   return QUERY_BLOCK_READERS[raw["kind"]](raw);
 }
 
-function readQueryBlocks(data: unknown): readonly DashboardTextBlock[] {
-  const blocks = isRecord(data) ? data["blocks"] : undefined;
+function readQueryBlocks(
+  data: unknown,
+  key: "blocks" | "narrowBlocks",
+): readonly DashboardTextBlock[] {
+  const blocks = isRecord(data) ? data[key] : undefined;
   if (!Array.isArray(blocks)) return [];
   return blocks.flatMap((raw) => {
     const block = readQueryBlock(raw);
@@ -251,10 +255,14 @@ type TextPanelBodyProps = {
 
 export function TextPanelBody(props: TextPanelBodyProps): ReactNode {
   const { panel, label, translate } = props;
+  const narrow = useIsBelowSmViewport();
   if (panel.query === undefined) {
     return (
       <TextPanelFrame panel={panel} label={label}>
-        <TextBlockList blocks={panel.blocks ?? []} translate={translate} />
+        <TextBlockList
+          blocks={(narrow ? panel.narrowBlocks : undefined) ?? panel.blocks ?? []}
+          translate={translate}
+        />
       </TextPanelFrame>
     );
   }
@@ -275,8 +283,12 @@ function QueryTextPanelBody({
     panelPayload(panel, screenParams),
   );
   useReportPanelLoaded(data);
-  const queried = readQueryBlocks(data);
-  const blocks = queried.length > 0 ? queried : (panel.blocks ?? []);
+  const narrow = useIsBelowSmViewport();
+  const queriedNarrow = narrow ? readQueryBlocks(data, "narrowBlocks") : [];
+  const queriedWide = readQueryBlocks(data, "blocks");
+  const queried = queriedNarrow.length > 0 ? queriedNarrow : queriedWide;
+  const staticBlocks = (narrow ? panel.narrowBlocks : undefined) ?? panel.blocks ?? [];
+  const blocks = queried.length > 0 ? queried : staticBlocks;
   let body: ReactNode;
   if (blocks.length > 0) {
     body = <TextBlockList blocks={blocks} translate={translate} />;

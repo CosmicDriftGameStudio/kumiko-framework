@@ -228,6 +228,8 @@ export type MetricNavigate = {
 export type MetricSpec = {
   readonly field: string;
   readonly label: string;
+  /** Record field of the detail query holding the label text, e.g. "Rent from 01.12."; it replaces the static `label` while it holds a non-empty string. The static `label` stays the fallback. */
+  readonly labelField?: string;
   readonly navigate?: MetricNavigate;
   /** Tile color as on dashboard stat panels; not applied while the value is 0. */
   readonly tone?: DashboardStatTone;

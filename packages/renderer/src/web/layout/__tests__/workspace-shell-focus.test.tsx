@@ -53,7 +53,7 @@ describe("WorkspaceShell focus mode", () => {
     expect(screen.getByText("Global action")).toBeTruthy();
   });
 
-  test("a focused screen collapses to the icon rail without labels or header actions, the footer pinned below", () => {
+  test("a focused screen collapses to the icon rail without labels, the app header actions stay, the footer pinned below", () => {
     render(<Harness focused />);
     const rail = document.querySelector('[data-kumiko-layout="focus-rail"]');
     expect(rail).not.toBeNull();
@@ -63,7 +63,7 @@ describe("WorkspaceShell focus mode", () => {
       "Footer row",
     );
     expect(screen.queryByRole("button", { name: "More" })).toBeNull();
-    expect(screen.queryByText("Global action")).toBeNull();
+    expect(screen.getByText("Global action")).toBeTruthy();
     expect(screen.queryByText("Posteingang")).toBeNull();
     expect(document.querySelector('[data-kumiko-layout="sidebar-footer"]')).toBeNull();
     expect(screen.getByRole("banner").querySelector('button[data-sidebar="trigger"]')).toBeNull();

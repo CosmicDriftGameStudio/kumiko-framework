@@ -57,6 +57,22 @@ function validateHintColumn(where: string, column: ListColumn): void {
   }
 }
 
+const NARROW_ONLY_CONFLICTS = ["hideOnNarrow", "hidden", "pinned"] as const;
+
+function validateNarrowOnlyColumn(where: string, column: ListColumn, kind: GuidanceListKind): void {
+  // skip: the column shows in the table too
+  if (column.showOnNarrowOnly === undefined) return;
+  const conflict =
+    kind === "dashboard"
+      ? "a dashboard list panel (it draws no narrow-only cards)"
+      : NARROW_ONLY_CONFLICTS.find((option) => column[option] !== undefined);
+  if (conflict !== undefined) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.narrowOnlyConflict, {
+      message: `${where} column "${column.field}" sets showOnNarrowOnly together with ${conflict}. Remove one of them.`,
+    });
+  }
+}
+
 function validateButtonColumn(where: string, column: ListColumn, kind: GuidanceListKind): void {
   if (column.display === "button" && kind !== "dashboard") {
     throw bootRuleError(LIST_ROW_GUIDANCE_RULES.buttonColumnInListTable, {
@@ -123,6 +139,7 @@ export function validateListRowGuidance(
   for (const col of screen.columns) {
     const column = normalizeListColumn(col);
     validateHintColumn(where, column);
+    validateNarrowOnlyColumn(where, column, kind);
     validateButtonColumn(where, column, kind);
   }
   validateNamedFilterOptions(where, screen);

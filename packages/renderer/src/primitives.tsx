@@ -1496,6 +1496,9 @@ export type PageHeaderProps = {
   readonly recordTitle?: string;
   readonly status?: ReactNode;
   readonly actions?: ReactNode;
+  /** The screen renders its own title block (the document's h1): the shell header then shows the
+   *  parent crumb as plain text instead of an h1 with the record title. */
+  readonly bodyTitle?: boolean;
   /** Land in the shell header's overflow menu at phone width. */
   readonly overflowItems?: readonly ActionMenuItemSpec[];
   /** Hide the shell header's breadcrumb while mounted, for a screen that stands in

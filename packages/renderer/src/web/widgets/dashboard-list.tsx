@@ -30,7 +30,8 @@ export type DashboardListColumn = {
   readonly hint?: ListColumnHintViewModel;
 };
 
-type Row = Readonly<Record<string, unknown>>;
+export type DashboardListRow = Readonly<Record<string, unknown>>;
+type Row = DashboardListRow;
 
 function fractionOf(raw: unknown): number {
   return typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.min(1, raw)) : 0;
@@ -39,7 +40,7 @@ function fractionOf(raw: unknown): number {
 // Rows may carry i18n keys (quota labels, failure reasons); translate falls back to the key itself.
 const I18N_KEY_SHAPE = /^[a-z][\w-]*(?:[:.][\w-]+)+$/i;
 
-function Cell({
+export function DashboardListCell({
   column,
   row,
   formatPercent,
@@ -120,7 +121,10 @@ function Cell({
   return link === undefined ? shown : <CellTextLink link={link}>{shown}</CellTextLink>;
 }
 
-function rowToneOf(row: Row, rowToneField: string | undefined): SelectOptionTone | undefined {
+export function rowToneOf(
+  row: Row,
+  rowToneField: string | undefined,
+): SelectOptionTone | undefined {
   const value = rowToneField === undefined ? undefined : row[rowToneField];
   return isSelectOptionTone(value) ? value : undefined;
 }
@@ -178,7 +182,7 @@ export function DashboardListTable({
             >
               {columns.map((column) => (
                 <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
-                  <Cell
+                  <DashboardListCell
                     column={column}
                     row={row}
                     formatPercent={formatPercent}

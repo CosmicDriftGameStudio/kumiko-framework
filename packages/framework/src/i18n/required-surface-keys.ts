@@ -235,7 +235,7 @@ function pushDashboardTextKey(out: Set<string>, text: DashboardText): void {
 }
 
 function pushDashboardTextBlockKeys(out: Set<string>, panel: DashboardTextPanel): void {
-  for (const block of panel.blocks ?? []) {
+  for (const block of [...(panel.blocks ?? []), ...(panel.narrowBlocks ?? [])]) {
     // skip: code is shown verbatim, not translated
     if (block.kind === "code") continue;
     if (block.kind === "list") {

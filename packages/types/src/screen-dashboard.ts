@@ -88,6 +88,12 @@ export type DashboardPanelGate = {
   readonly visibleWhen?: DashboardPanelVisibility;
 };
 
+/** Phone layout switch shared by every panel kind. */
+export type DashboardPanelNarrow = {
+  /** Leaves the panel out below the `sm` breakpoint (phone). Not valid on a stat-group child: hide the group. */
+  readonly hideOnNarrow?: true;
+};
+
 // Grid width of stat-group/chart/list/feed/progress-list panels. Default:
 // stat-groups, charts and lists span the full row, feed and progress-list half of it.
 // "third" and "two-thirds" divide the row into twelfths on wide screens; on sm (two columns) "third" is half a row, "two-thirds" a full one, below sm every panel is one column.
@@ -111,7 +117,8 @@ export const DASHBOARD_STAT_TONES = ["default", "positive", "ok", "warn", "negat
 export type DashboardStatTone = (typeof DASHBOARD_STAT_TONES)[number];
 
 export type DashboardStatPanel = DashboardPanelQueryOptions &
-  DashboardPanelGate & {
+  DashboardPanelGate &
+  DashboardPanelNarrow & {
     readonly kind: "stat";
     /** Stable id: kebab-case, unique within the panel set. */
     readonly id: string;
@@ -119,6 +126,8 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     readonly label: string;
     readonly query: string;
     readonly valueField: string;
+    /** Field of the query answer holding the label text, e.g. "Contracts ending by 31.01.2027"; it replaces the static `label` while it holds a non-empty string. The static `label` stays the fallback and the loading/error title. */
+    readonly labelField?: string;
     readonly subField?: string;
     readonly toneField?: string;
     /** Formats a numeric value as currency (minor units) or, with `relativeTime`, as
@@ -209,7 +218,8 @@ export type DashboardChartRanges = {
 //                   (value=null leaves a gap).
 export type DashboardChartPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState &
-  DashboardPanelGate & {
+  DashboardPanelGate &
+  DashboardPanelNarrow & {
     readonly kind: "chart";
     readonly id: string;
     readonly label: string;
@@ -255,7 +265,8 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
 // (`{ rows, nextCursor, total? }`), rendered without pager/toolbar.
 export type DashboardListPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState &
-  DashboardPanelGate & {
+  DashboardPanelGate &
+  DashboardPanelNarrow & {
     readonly kind: "list";
     readonly id: string;
     readonly label: string;
@@ -271,7 +282,17 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly showTotal?: true;
     /** Link under the table to the full list; with a known `total` above the rows shown, "k more" stands before it. */
     readonly footerLink?: DashboardListFooterLink;
+    /** Phone layout below `sm`; the table stays from `sm` up. */
+    readonly narrow?: DashboardListNarrow;
   };
+
+/** "cards": one card per row (tone stripe; badge column and `hint.detailField` on top, the hint sentence bold, button column bottom right,
+ *  other columns below). "line": a single clickable line "<label> · <first text of the first row> · k more" to `footerLink`, which it needs.
+ *  Default "cards". `limit` shows only the first n rows; subtitle count and footer follow it. */
+export type DashboardListNarrow = {
+  readonly limit?: number;
+  readonly layout?: "cards" | "line";
+};
 
 /** Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens. */
 export type DashboardListFooterLink = {
@@ -295,26 +316,30 @@ export type DashboardStatGroupLayout = "cards" | "strip";
 // DashboardStatPanel with its own query/id/label. With `label` it sits under a
 // section title; without `label` it renders as a flat KPI strip (dividers, no card).
 // The gate query of a group always receives the screen filter.
-export type DashboardStatGroupPanel = DashboardPanelGate & {
-  readonly kind: "stat-group";
-  readonly id: string;
-  readonly label?: string;
-  /** i18n key, a line under `label`; the boot validator requires `label`. */
-  readonly subtitle?: string;
-  readonly span?: DashboardPanelSpan;
-  /** Default: "strip" without `label`, "cards" with. "strip" with a `label` puts label and subtitle
-   *  left and compact tiles beside them; under sm with a `link` it collapses to one clickable line. */
-  readonly layout?: DashboardStatGroupLayout;
-  /** Link at the right edge of the panel (label + chevron). */
-  readonly link?: DashboardStatGroupLink;
-  readonly stats: readonly DashboardStatPanel[];
-};
+export type DashboardStatGroupPanel = DashboardPanelGate &
+  DashboardPanelNarrow & {
+    readonly kind: "stat-group";
+    readonly id: string;
+    readonly label?: string;
+    /** i18n key, a line under `label`; the boot validator requires `label`. */
+    readonly subtitle?: string;
+    readonly span?: DashboardPanelSpan;
+    /** Default: "strip" without `label`, "cards" with. "strip" with a `label` puts label and subtitle
+     *  left and compact tiles beside them; under sm with a `link` it collapses to one clickable line. */
+    readonly layout?: DashboardStatGroupLayout;
+    /** Link at the right edge of the panel (label + chevron). */
+    readonly link?: DashboardStatGroupLink;
+    /** Tiles per row from `md` up, only with `layout: "cards"`; one column below `sm`. Default: follows the number of tiles. */
+    readonly columns?: 2 | 3 | 4;
+    readonly stats: readonly DashboardStatPanel[];
+  };
 
 // Non-tabular short list (e.g. "upcoming appointments"). Query result
 // contract: `{ rows: { primary: DashboardText; trailing?: DashboardText }[] }`.
 export type DashboardFeedPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState &
-  DashboardPanelGate & {
+  DashboardPanelGate &
+  DashboardPanelNarrow & {
     readonly kind: "feed";
     readonly id: string;
     readonly label: string;
@@ -336,7 +361,8 @@ export type DashboardProgressTone = "default" | "danger";
 // once `used >= limit`, fraction rows never get a tone automatically.
 export type DashboardProgressListPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState &
-  DashboardPanelGate & {
+  DashboardPanelGate &
+  DashboardPanelNarrow & {
     readonly kind: "progress-list";
     readonly id: string;
     readonly label: string;
@@ -348,10 +374,12 @@ export type DashboardProgressListPanel = DashboardPanelQueryOptions &
 // to a separate slot). No `query`, no `label`: the renderer resolves
 // `component` through the same extensionSectionComponents registry as
 // entityEdit extension sections and list-header slots.
-export type DashboardCustomPanel = {
+export type DashboardCustomPanel = DashboardPanelNarrow & {
   readonly kind: "custom";
   readonly id: string;
   readonly component: PlatformComponent;
+  /** Grid width like the other panels; default is the full row. */
+  readonly span?: DashboardPanelSpan;
   /** Static author values laid over the screen's filterParams, like
    *  `DashboardPanelQueryOptions.params`; the panel wins on a name clash. */
   readonly params?: Readonly<Record<string, unknown>>;
@@ -383,16 +411,20 @@ export type DashboardTextBlock =
     };
 
 export type DashboardTextPanel = DashboardPanelGate &
-  DashboardPanelQueryOptions & {
+  DashboardPanelQueryOptions &
+  DashboardPanelNarrow & {
     readonly kind: "text";
     readonly id: string;
     /** Panel title (i18n key). */
     readonly label?: string;
     readonly span?: DashboardPanelSpan;
     /** Query answering `{ blocks: DashboardTextBlock[] }`; its blocks replace the static ones.
-     *  Static blocks show while it loads, on error and when it answers empty. */
+     *  Static blocks show while it loads, on error and when it answers empty. It may add
+     *  `narrowBlocks`, which the renderer shows below `sm` instead of `blocks`. */
     readonly query?: string;
     readonly blocks?: readonly DashboardTextBlock[];
+    /** Shown instead of `blocks` below `sm`; a query answering `{ blocks, narrowBlocks }` replaces both. Needs `blocks`. */
+    readonly narrowBlocks?: readonly DashboardTextBlock[];
   };
 
 // Live query, so a write that flips `field` swaps panels without reload; hidden while loading.
@@ -411,7 +443,7 @@ export type ScreenVisibility = DashboardPanelVisibility & {
 };
 
 // Embedded redirect/cancelTarget navigate away from the dashboard — targets meant for tiles omit both.
-export type DashboardScreenPanel = {
+export type DashboardScreenPanel = DashboardPanelNarrow & {
   readonly kind: "screen";
   readonly id: string;
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>`. */

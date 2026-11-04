@@ -12,7 +12,7 @@ export function ReasonBox({
   readonly "data-hint-reason"?: "true";
 }): ReactNode {
   return (
-    // A span: the box also sits inside the phone card's row-open button, where only phrasing content is valid.
+    // A span: the box can sit inside a hint cell's inline flow, where only phrasing content is valid.
     <span
       data-testid={testId}
       {...dataAttributes}

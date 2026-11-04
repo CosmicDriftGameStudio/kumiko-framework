@@ -166,4 +166,9 @@ export const LOCALE_HEADER_NAME = "X-Locale";
 // denying routes deliberately collapse into one status code.
 export const NO_ROUTE_MATCH_HEADER_NAME = "X-Kumiko-No-Route-Match";
 
+// Every query answer carries the app clock (`ctx.clock`, a fixed clock in tests and screenshot
+// runs) as an ISO instant, so the UI's "As of" and relative times follow the app, not the device.
+// The renderer reads it by the same name (renderer/src/server-clock.ts).
+export const APP_NOW_HEADER_NAME = "X-Kumiko-Now";
+
 export type Route = (typeof Routes)[keyof typeof Routes];

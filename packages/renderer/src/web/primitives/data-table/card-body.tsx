@@ -42,7 +42,6 @@ function cardCell(
         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
       })}
       {...cellLinkProp(col, row, linksAllowed || !opensRow)}
-      insideRowOpener={opensRow && !linksAllowed}
     />
   );
 }
@@ -57,8 +56,17 @@ function hasCardLink(row: ListRowViewModel, col: ListColumnViewModel): boolean {
   );
 }
 
-// A link inside the row's opener button would be an <a> in a <button>, so link columns
-// of an openable card move out of the body and render below it.
+function hasHintReason(row: ListRowViewModel, col: ListColumnViewModel): boolean {
+  const { reasonField } = col.hint ?? {};
+  return reasonField !== undefined && !isEmptyCellValue(row.values[reasonField]);
+}
+
+function needsControlOutsideOpener(row: ListRowViewModel, col: ListColumnViewModel): boolean {
+  return hasCardLink(row, col) || hasHintReason(row, col);
+}
+
+// A link or a reason toggle inside the row's opener button would be an <a> or <button> in a
+// <button>, so such columns of an openable card move out of the body and render below it.
 export function splitLinkColumns(
   m: DataTableModel,
   row: ListRowViewModel,
@@ -66,8 +74,8 @@ export function splitLinkColumns(
 ): { readonly bodyRoles: CardRoles; readonly linkColumns: readonly ListColumnViewModel[] } {
   if (m.rowOpener(row) === undefined) return { bodyRoles: roles, linkColumns: [] };
   const lead = roles.lead;
-  const leadColumn = lead !== undefined && hasCardLink(row, lead) ? lead : undefined;
-  const linkMeta = roles.meta.filter((col) => hasCardLink(row, col));
+  const leadColumn = lead !== undefined && needsControlOutsideOpener(row, lead) ? lead : undefined;
+  const linkMeta = roles.meta.filter((col) => needsControlOutsideOpener(row, col));
   if (leadColumn === undefined && linkMeta.length === 0) {
     return { bodyRoles: roles, linkColumns: [] };
   }

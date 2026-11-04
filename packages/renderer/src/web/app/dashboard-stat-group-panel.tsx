@@ -24,6 +24,13 @@ type StatGroupProps = {
 
 type StatVariant = "card" | "strip" | "strip-compact";
 
+// Literal class strings: Tailwind only emits classes it can read in the source.
+const STAT_CARD_COLUMN_CLASSES = {
+  2: "grid grid-cols-1 gap-3 sm:grid-cols-2",
+  3: "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3",
+  4: "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4",
+} as const satisfies Record<NonNullable<DashboardStatGroupPanel["columns"]>, string>;
+
 function StatGroupLink({
   link,
   translate,
@@ -103,10 +110,12 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
   return (
     <div
       data-testid={`dashboard-panel-${panel.id}`}
-      className="relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-2 max-sm:flex-wrap max-sm:items-baseline max-sm:gap-x-2 max-sm:gap-y-0.5"
+      className="relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-2 max-sm:items-baseline max-sm:gap-x-2 max-sm:overflow-hidden"
     >
       <div className="flex min-w-0 shrink-0 flex-col max-sm:flex-row max-sm:items-baseline">
-        <h2 className="text-sm font-semibold">{label}</h2>
+        <h2 className="text-sm font-semibold max-sm:after:ml-2 max-sm:after:font-normal max-sm:after:text-muted-foreground max-sm:after:content-['·']">
+          {label}
+        </h2>
         {panel.subtitle !== undefined && (
           <p className="text-xs text-muted-foreground max-sm:hidden">{translate(panel.subtitle)}</p>
         )}
@@ -115,7 +124,7 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
         {panel.stats.map((stat) => (
           <div
             key={stat.id}
-            className={`flex min-w-0 max-sm:items-baseline max-sm:gap-x-2 max-sm:whitespace-nowrap max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·']${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
+            className={`flex min-w-0 max-sm:overflow-hidden max-sm:text-ellipsis max-sm:items-baseline max-sm:gap-x-2 max-sm:whitespace-nowrap max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·']${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
           >
             <StatPanelBody
               panel={stat}
@@ -154,7 +163,13 @@ export function StatGroupPanelBody(props: StatGroupProps): ReactNode {
       })}
       testId={`dashboard-panel-${panel.id}`}
     >
-      <section className={STAT_CARD_GRID_CLASSES}>
+      <section
+        className={
+          panel.columns === undefined
+            ? STAT_CARD_GRID_CLASSES
+            : STAT_CARD_COLUMN_CLASSES[panel.columns]
+        }
+      >
         <StatCells {...props} variant="card" />
       </section>
     </SectionCard>

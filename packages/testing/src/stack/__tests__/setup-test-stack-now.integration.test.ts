@@ -7,6 +7,12 @@ import { createManualClock } from "../../helpers/manual-clock.ts";
 import { setupTestStack, type TestStack } from "../test-stack.ts";
 
 const nowFeature = defineFeature("stnow", (r) => {
+  r.queryHandler({
+    name: "ping",
+    schema: z.object({}),
+    handler: async () => ({ ok: true }),
+    access: { openToAll: { reason: "test query callable by any signed-in test user" } },
+  });
   r.writeHandler({
     name: "read-now",
     schema: z.object({}),
@@ -58,6 +64,12 @@ describe("setupTestStack now option (integration)", () => {
       TestUsers.admin,
     );
     expect(res.now).toBe("2031-05-06T08:08:09Z");
+  });
+
+  test("query answers carry the pinned clock in x-kumiko-now", async () => {
+    stack = await setupTestStack({ features: [nowFeature], now: "2031-05-06T07:08:09Z" });
+    const res = await stack.http.query("stnow:query:ping", {}, TestUsers.admin);
+    expect(res.headers.get("x-kumiko-now")).toBe("2031-05-06T07:08:09Z");
   });
 
   test("without now there is no stack.clock", async () => {

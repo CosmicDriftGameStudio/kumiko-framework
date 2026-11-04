@@ -116,7 +116,7 @@ type DashboardChartMarkerKind = { // Look of the markers whose `kind` matches: a
   color?: string;
   label?: string; // i18n key; with `markerLegend: "legend"` the chart legend lists the markers of this kind under it.
 };
-type DashboardChartPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & {
+type DashboardChartPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & DashboardPanelNarrow & {
   kind: "chart";
   id: string;
   label: string;
@@ -146,7 +146,7 @@ type DashboardDateParam = { // Epoch ms, rendered as a medium date in the user t
   kind: "date";
   atMs: number;
 };
-type DashboardFeedPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & {
+type DashboardFeedPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & DashboardPanelNarrow & {
   kind: "feed";
   id: string;
   label: string;
@@ -167,7 +167,11 @@ type DashboardListFooterLink = { // Link to a screen from a panel; `label` is an
   namedFilter?: string;
   params?: Readonly<Record<string, string>>;
 };
-type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & {
+type DashboardListNarrow = { // "cards": one card per row (tone stripe; badge column and `hint.detailField` on top, the hint sentence bold, button column bottom right, other columns below).
+  limit?: number;
+  layout?: "cards" | "line";
+};
+type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & DashboardPanelNarrow & {
   kind: "list";
   id: string;
   label: string;
@@ -178,6 +182,7 @@ type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   subtitle?: string; // i18n key, a line under `label`; with `showTotal` it stands before the count.
   showTotal?: true; // Adds "n of m" to the subtitle from the rows shown and the query's `total`.
   footerLink?: DashboardListFooterLink; // Link under the table to the full list; with a known `total` above the rows shown, "k more" stands before it.
+  narrow?: DashboardListNarrow; // Phone layout below `sm`; the table stays from `sm` up.
 };
 type DashboardMoneyParam = { // Minor units (like Money fields), formatted with the user locale.
   kind: "money";
@@ -190,6 +195,9 @@ type DashboardPanelEmptyState = {
   emptyLabel?: string;
   emptyHint?: string; // Second line under `emptyLabel`.
 };
+type DashboardPanelNarrow = { // Phone layout switch shared by every panel kind.
+  hideOnNarrow?: true; // Leaves the panel out below the `sm` breakpoint (phone).
+};
 type DashboardPanelQueryOptions = {
   params?: Readonly<Record<string, unknown>>; // Static, author-set query parameters merged on top of the screen's dynamic filterParams — lets a panel pin a value (e.g. a status facet) the screen-wide filter doesn't cover, without needing its own query.
   ignoreScreenFilter?: boolean; // The screen `filter` value is NOT merged into this panel's query (a tenant picker must not hit sources without a tenant column).
@@ -200,7 +208,7 @@ type DashboardPanelVisibility = {
   field: string;
   eq: string | number | boolean | null;
 };
-type DashboardProgressListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & {
+type DashboardProgressListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & DashboardPanelNarrow & {
   kind: "progress-list";
   id: string;
   label: string;
@@ -244,7 +252,7 @@ type DashboardScreenDefinition = {
   slots?: ScreenSlots;
   access?: AccessRule;
 };
-type DashboardScreenPanel = {
+type DashboardScreenPanel = DashboardPanelNarrow & {
   kind: "screen";
   id: string;
   screen: string; // Same-feature short id or cross-feature QN `<feature>:screen:<id>`.
@@ -259,7 +267,7 @@ type DashboardStatGroupLink = { // Link at the right edge of a stat-group panel;
   screen: string;
   params?: Readonly<Record<string, string>>;
 };
-type DashboardStatGroupPanel = DashboardPanelGate & {
+type DashboardStatGroupPanel = DashboardPanelGate & DashboardPanelNarrow & {
   kind: "stat-group";
   id: string;
   label?: string;
@@ -267,14 +275,16 @@ type DashboardStatGroupPanel = DashboardPanelGate & {
   span?: DashboardPanelSpan;
   layout?: DashboardStatGroupLayout; // Default: "strip" without `label`, "cards" with.
   link?: DashboardStatGroupLink; // Link at the right edge of the panel (label + chevron).
+  columns?: 2 | 3 | 4; // Tiles per row from `md` up, only with `layout: "cards"`; one column below `sm`.
   stats: DashboardStatPanel[];
 };
-type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & {
+type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & DashboardPanelNarrow & {
   kind: "stat";
   id: string; // Stable id: kebab-case, unique within the panel set.
   label: string; // Display text (i18n key).
   query: string;
   valueField: string;
+  labelField?: string; // Field of the query answer holding the label text, e.g. "Contracts ending by 31.01.2027"; it replaces the static `label` while it holds a non-empty string.
   subField?: string;
   toneField?: string;
   valueFormat?: DashboardValueFormat; // Formats a numeric value as currency (minor units) or, with `relativeTime`, as a ticking "5 minutes ago" from epoch ms; ignored for string values.
@@ -321,13 +331,14 @@ type DashboardTextBlock =
     roles?: string[]; // Show the link only to users holding one of these roles.
   }
 ;
-type DashboardTextPanel = DashboardPanelGate & DashboardPanelQueryOptions & {
+type DashboardTextPanel = DashboardPanelGate & DashboardPanelQueryOptions & DashboardPanelNarrow & {
   kind: "text";
   id: string;
   label?: string; // Panel title (i18n key).
   span?: DashboardPanelSpan;
   query?: string; // Query answering `{ blocks: DashboardTextBlock[] }`; its blocks replace the static ones.
   blocks?: DashboardTextBlock[];
+  narrowBlocks?: DashboardTextBlock[]; // Shown instead of `blocks` below `sm`; a query answering `{ blocks, narrowBlocks }` replaces both.
 };
 type DashboardTextParam = string | number | DashboardI18nText | DashboardMoneyParam | DashboardDateParam | DashboardRelativeTimeParam; // Nested DashboardI18nText params resolve first (e.g. a duration "{years} {months}" with one plural key each); numbers stay raw so plural rules can read `count`.
 type DashboardTimeRangeDefinition = {
@@ -442,6 +453,7 @@ type ListColumnHint = {
   toneField?: string; // Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`.
   reasonField?: string; // Row field with a longer reason, shown behind a "Why?" toggle in the cell.
   emptyLabel?: string; // i18n key for an empty sentence; default `kumiko.list.hint.empty`.
+  plainSentence?: true; // The sentence keeps the normal text color (still bold); the tone stays on the row stripe, a badge and the detail line.
 };
 type ListEmptyStateSpec = { // Replacement for the default "no rows" box of a list.
   title: string;
@@ -459,7 +471,7 @@ type ListSortSpec = {
   field: string;
   dir: ListSortDir;
 };
-type ListTableSummaryRow = { // The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label, value, tone?
+type ListTableSummaryRow = { // The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label?, value, tone?
   query: string; // Qualified query name, e.g. `feature:query:order:summary`.
   params?: Readonly<Record<string, unknown>>; // Extra payload keys merged over the list's own.
 };
@@ -477,7 +489,7 @@ type QualifiedContentCollection = ContentCollectionDefinition & {
 };
 type RecordBannerSpec = {
   field: string; // Holds `RecordNotice | null`; null shows no banner.
-  actions?: RowAction[];
+  actions?: RecordGuidanceAction[];
 };
 type RecordBreadcrumbItem = {
   label: string;
@@ -509,6 +521,7 @@ type RecordProgress = { // A process chain the record is part of.
 type RecordProgressSpec = {
   field: string; // Holds `RecordProgress[]`; an empty array shows no block.
   placement?: "beside-steps"; // "beside-steps": the chains sit as a vertical stage list in a 4/12 column next to the steps panel (8/12) from lg, stacked below it under lg.
+  hideOnNarrow?: true; // Leaves the chains out below `sm`.
 };
 type RecordProgressStep = {
   id: string;
@@ -529,11 +542,13 @@ type RecordStepsSpec = {
   title?: string; // i18n key, default `kumiko.detail.steps.title`.
   subtitleField?: string; // Record field with a plain-text subtitle.
   emptyLabel?: string; // i18n key for an empty list, default `kumiko.detail.steps.empty`.
-  actions?: RowAction[];
+  narrowLimit?: number; // Below `sm` only the first n steps show; the rest sits behind a "k more steps" toggle.
+  actions?: RecordGuidanceAction[];
 };
 type RecordSummarySpec = { // One emphasized sentence below the header; `field` holds a string.
   field: string;
   toneField?: string; // Row field holding a SelectOptionTone for the sentence's accent.
+  narrowField?: string; // Row field with a shorter sentence shown instead of `field` below `sm`.
 };
 type RelatedListEmptyStateSpec = ListEmptyStateSpec & { // The first `variants` entry whose `when` holds for the parent record replaces `title` and `description`; `action` stays.
   variants?: RelatedListEmptyStateVariant[];

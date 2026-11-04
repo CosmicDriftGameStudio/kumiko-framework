@@ -38,6 +38,10 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - on the detail screen: a second step action as a link button, metric tiles with `tone`,
   `toneField` and `navigate: { tab }`, and tab counts via `countField`; the breadcrumb stays
   unlinked because the recipe has no entity with a `detailFor` screen to link to
+- phone variants: `hideOnNarrow` on dashboard panels and the progress chain, a list panel's
+  `narrow` (`cards` with a `limit`, or a one-line `line` link), `narrowBlocks` on the briefing,
+  `hint.plainSentence`, `showOnNarrowOnly` list columns, stat-group `columns`, and on the detail
+  `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -78,7 +82,7 @@ async function openFilterSelect(page: Page): Promise<void> {
 test("board: today dashboard", async ({ page }, testInfo) => {
   await page.goto("/today");
   await expect(page.getByText("Need action")).toBeVisible();
-  await expect(page.getByText("SO-10482").first()).toBeVisible();
+  await expect(page.getByText("Send payment reminder").first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("today.png"), fullPage: true });
 });
 
@@ -93,7 +97,7 @@ test("board: orders list in its states", async ({ page }, testInfo) => {
   await expect(page.getByText("SO-10483")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("orders-filtered.png"), fullPage: true });
 
-  // Phone cards show the reason open; only the table has the toggle.
+  // The reason sits behind its toggle in the table and on the phone cards alike.
   const reasonToggle = page.locator("[data-hint-reason-toggle]").first();
   if (await reasonToggle.isVisible()) await reasonToggle.click();
   await expect(page.locator("[data-hint-reason]").first()).toBeVisible();
@@ -434,11 +438,19 @@ const QUERY_ORDER_PAYMENTS = "order-desk:query:order:payments";
 // The guidance blocks (breadcrumb, summary, banner, progress, steps) stack tall above the tabs;
 // the height specs measure the tab panel and run without them, `?guidance=1` turns them on.
 function orderDetailForUrl(id: string): Record<string, unknown> {
-  const { path, summaryLine, summaryTone, notice, steps, progress, ...withoutGuidance } =
-    answerOrderDetail(id);
+  const {
+    path,
+    summaryLine,
+    summaryShort,
+    summaryTone,
+    notice,
+    steps,
+    progress,
+    ...withoutGuidance
+  } = answerOrderDetail(id);
   const withGuidance = new URLSearchParams(window.location.search).has("guidance");
   return withGuidance
-    ? { ...withoutGuidance, path, summaryLine, summaryTone, notice, steps, progress }
+    ? { ...withoutGuidance, path, summaryLine, summaryShort, summaryTone, notice, steps, progress }
     : withoutGuidance;
 }
 
@@ -975,6 +987,8 @@ import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
 import {
+  answerBriefing,
+  answerOrderDetail,
   answerOrderList,
   answerOrderSummary,
   orderListSchema,
@@ -1065,7 +1079,11 @@ describe("record-detail-layout showcase — guidance", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(screen.breadcrumb).toEqual({ field: "path" });
-    expect(screen.summary).toEqual({ field: "summaryLine", toneField: "summaryTone" });
+    expect(screen.summary).toEqual({
+      field: "summaryLine",
+      narrowField: "summaryShort",
+      toneField: "summaryTone",
+    });
     expect(screen.banner?.field).toBe("notice");
     expect(screen.steps?.field).toBe("steps");
     expect(screen.progress?.field).toBe("progress");
@@ -1178,6 +1196,33 @@ describe("record-detail-layout showcase — board gaps", () => {
   });
 });
 
+describe("record-detail-layout showcase — phone variants", () => {
+  test("the today board limits, collapses and hides panels under sm", () => {
+    const today = registry.getScreen("order-desk:screen:today");
+    if (today?.type !== "dashboard") throw new Error("expected dashboard");
+    const panel = (id: string) => today.panels.find((candidate) => candidate.id === id);
+    const now = panel("now");
+    const deadlines = panel("deadlines");
+    if (now?.kind !== "list" || deadlines?.kind !== "list") throw new Error("expected lists");
+    expect(now.narrow).toEqual({ layout: "cards", limit: 3 });
+    expect(deadlines.narrow).toEqual({ layout: "line" });
+    expect(panel("customers")?.hideOnNarrow).toBe(true);
+    expect(panel("money")?.hideOnNarrow).toBe(true);
+  });
+
+  test("the detail shortens summary and steps and drops the chain under sm", () => {
+    const detail = registry.getScreen("order-desk:screen:order-detail");
+    if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(detail.steps?.narrowLimit).toBe(3);
+    expect(detail.progress?.hideOnNarrow).toBe(true);
+    expect(answerOrderDetail("o1").steps.length).toBeGreaterThan(3);
+  });
+
+  test("the briefing answers a shorter variant for phones", () => {
+    expect(answerBriefing().narrowBlocks.length).toBeGreaterThan(0);
+  });
+});
+
 describe("record-detail-layout showcase — empty states", () => {
   test("the payments tab declares a record-dependent empty text ahead of its default", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
@@ -1280,7 +1325,10 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //      `breadcrumb`, `summary`, `banner` and `steps`, each reading a query field; empty values drop out.
 //   8. The `today` dashboard composes a lead briefing, count tiles that link into the filtered
 //      list, a headerless "Now" list and two narrow lists on a 12-column grid.
-//   9. `focus: true` gives the detail a focused shell; phones get a top bar with the
+//   9. Phone variants: `hideOnNarrow` drops panels, a list panel's `narrow` turns it into limited cards or a
+//      one-line link, `narrowBlocks` shortens the briefing, `showOnNarrowOnly` adds card-only meta, and the
+//      detail shows `summary.narrowField`, `steps.narrowLimit` and no `progress` chain under sm.
+//  10. `focus: true` gives the detail a focused shell; phones get a top bar with the
 //      record title, a back arrow to the list and the page-header overflow menu.
 //
 // projectionDetail binds to an explicit query, not an entity: every field name below
@@ -1432,6 +1480,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.today.inbox-sub": { en: "Orders waiting for you" },
         "order-desk.today.inbox-link": { en: "All orders" },
         "order-desk.today.deadlines": { en: "Deadlines" },
+        "order-desk.today.deadlines-all": { en: "All deadlines" },
+        "order-desk.col.narrow-meta": { en: "Details" },
         "order-desk.today.customers": { en: "Customers" },
         "order-desk.today.money": { en: "Money" },
         "order-desk.today.money-sub": { en: "Across all open orders" },
@@ -1489,6 +1539,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           minWidth: 240,
         },
         { field: "openAmount", label: "order-desk.col.open-amount", hideOnNarrow: true },
+        { field: "narrowMeta", label: "order-desk.col.narrow-meta", showOnNarrowOnly: true },
       ],
       defaultSort: { field: "urgency", dir: "desc" },
       sortOptions: [
@@ -1603,6 +1654,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           span: "two-thirds",
           showHeader: false,
           showTotal: true,
+          narrow: { layout: "cards", limit: 3 },
           footerLink: {
             label: "order-desk.today.now-all",
             screen: "orders",
@@ -1614,7 +1666,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
             { field: "urgencyLabel", display: "badge", badgeToneField: "urgencyTone" },
             {
               field: "nextStep",
-              hint: { detailField: "nextStepDue", reasonField: "nextStepReason" },
+              hint: {
+                detailField: "nextStepDue",
+                reasonField: "nextStepReason",
+                plainSentence: true,
+              },
             },
             {
               field: "actionLabel",
@@ -1630,6 +1686,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.deadlines",
           span: "third",
           showHeader: false,
+          narrow: { layout: "line" },
+          footerLink: { label: "order-desk.today.deadlines-all", screen: "orders" },
           query: "order-desk:query:order:deadlines",
           columns: [
             { field: "due", display: "datetime" },
@@ -1642,6 +1700,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.customers",
           span: "third",
           showHeader: false,
+          hideOnNarrow: true,
           query: "order-desk:query:order:customers",
           rowToneField: "tone",
           columns: [
@@ -1655,6 +1714,9 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.money",
           subtitle: "order-desk.today.money-sub",
           span: "two-thirds",
+          layout: "cards",
+          columns: 3,
+          hideOnNarrow: true,
           stats: [
             {
               kind: "stat",
@@ -1700,7 +1762,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         status: "status",
       },
       breadcrumb: { field: "path" },
-      summary: { field: "summaryLine", toneField: "summaryTone" },
+      summary: { field: "summaryLine", narrowField: "summaryShort", toneField: "summaryTone" },
       banner: {
         field: "notice",
         actions: [
@@ -1713,9 +1775,10 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
-      progress: { field: "progress", placement: "beside-steps" },
+      progress: { field: "progress", placement: "beside-steps", hideOnNarrow: true },
       steps: {
         field: "steps",
+        narrowLimit: 3,
         title: "order-desk.steps.title",
         emptyLabel: "order-desk.steps.empty",
         actions: [
@@ -2119,6 +2182,7 @@ export type OrderListAnswer =
     }
   | {
       readonly rows: readonly (OrderRow & {
+        readonly narrowMeta: string;
         readonly actionScreen?: string;
         readonly actionParams?: { readonly entityId: string };
       })[];
@@ -2146,6 +2210,7 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   const offset = payload.offset ?? 0;
   const rows = ordered.slice(offset, offset + (payload.limit ?? DEFAULT_PAGE_SIZE)).map((row) => ({
     ...row,
+    narrowMeta: `${euro(row.openAmount)} open · ${row.status}`,
     ...(row.nextStep !== "" && {
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
@@ -2211,6 +2276,10 @@ export function answerBriefing() {
         kind: "hint",
         text: "Sorted by urgency. Open an order and let the assistant prepare the step.",
       },
+    ],
+    narrowBlocks: [
+      { kind: "paragraph", emphasis: "lead", text: `${open.length} orders need you today.` },
+      { kind: "hint", text: "Tuesday, 3 November · as of 06:00" },
     ],
   };
 }
@@ -2323,6 +2392,7 @@ export function answerOrderDetail(id: string) {
     salesRep: "Jonas Weber",
     path: [{ label: "Orders" }, { label: "Aiko Tanaka" }, { label: "SO-10482" }],
     summaryLine: "Waiting for the second payment",
+    summaryShort: "Second payment open.",
     summaryTone: "warn",
     notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
     steps: [
@@ -2335,6 +2405,9 @@ export function answerOrderDetail(id: string) {
         canPrepare: true,
       },
       { id: "escalate", title: "Escalate to accounting", canPrepare: false },
+      { id: "credit", title: "Review the credit limit", canPrepare: false },
+      { id: "handover", title: "Plan the handover", canPrepare: false },
+      { id: "close", title: "Close the order", canPrepare: false },
     ],
     progress: [
       {

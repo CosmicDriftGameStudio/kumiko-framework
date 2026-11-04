@@ -21,6 +21,7 @@ import {
   useQuery,
   useTranslation,
 } from "../../index.ts";
+import { serverNowMs } from "../../server-clock.ts";
 import { resolveSafeLocale } from "../primitives/locale-number.ts";
 import { formatMoney } from "../primitives/money-input.tsx";
 import { Skeleton } from "../ui/skeleton.tsx";
@@ -319,6 +320,8 @@ type QueryPanelProps<TData> = {
   readonly action?: ReactNode;
   /** Rendered under the body, only once data is shown. */
   readonly footer?: (data: TData) => ReactNode;
+  /** Replaces the whole panel shell once data is shown, e.g. a one-line summary on phones. */
+  readonly replaceShell?: (data: TData) => ReactNode;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
   readonly skeleton: SkeletonShape;
@@ -335,6 +338,7 @@ export function QueryPanel<TData>({
   staticSubtitle,
   action,
   footer,
+  replaceShell,
   screenParams,
   translate,
   skeleton,
@@ -364,6 +368,7 @@ export function QueryPanel<TData>({
     shown = data;
     body = children(data, formats);
   }
+  if (shown !== undefined && replaceShell !== undefined) return replaceShell(shown);
   return (
     <PanelShell
       testId={`dashboard-panel-${panel.id}`}
@@ -389,8 +394,8 @@ export function useLoadedAt(screenParams: ScreenParams): {
     screenParams.rangeParams,
     screenParams.recordParams,
   ]);
-  const [loaded, setLoaded] = useState(() => ({ paramsKey, atMs: Date.now() }));
-  if (loaded.paramsKey !== paramsKey) setLoaded({ paramsKey, atMs: Date.now() });
+  const [loaded, setLoaded] = useState(() => ({ paramsKey, atMs: serverNowMs() }));
+  if (loaded.paramsKey !== paramsKey) setLoaded({ paramsKey, atMs: serverNowMs() });
   const reportLoaded = useCallback(
     (atMs: number) => setLoaded((prev) => (prev.atMs >= atMs ? prev : { ...prev, atMs })),
     [],
@@ -403,6 +408,6 @@ export const PanelLoadedContext = createContext<(atMs: number) => void>(() => {}
 export function useReportPanelLoaded(data: unknown): void {
   const reportLoaded = useContext(PanelLoadedContext);
   useEffect(() => {
-    if (data !== null) reportLoaded(Date.now());
+    if (data !== null) reportLoaded(serverNowMs());
   }, [data, reportLoaded]);
 }

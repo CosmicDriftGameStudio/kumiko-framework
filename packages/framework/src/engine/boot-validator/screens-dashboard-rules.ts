@@ -162,6 +162,32 @@ export const DASHBOARD_RULES = {
       "A list panel footerLink or stat-group link targets a registered screen, sets string-valued params, and uses namedFilter only on a list screen that declares it.",
     fix: "Point screen at a registered screen, give params string values, and drop namedFilter unless the target list declares it.",
   },
+  listNarrowInvalid: {
+    id: "dashboard/list-narrow-invalid",
+    summary:
+      'A list panel\'s narrow.limit is a positive integer and narrow.layout is "cards" or "line".',
+    fix: 'Set narrow.limit to a whole number of at least 1 and narrow.layout to "cards" or "line".',
+  },
+  listNarrowLineWithoutFooterLink: {
+    id: "dashboard/list-narrow-line-without-footer-link",
+    summary: 'A list panel with narrow.layout "line" declares footerLink, the target of the line.',
+    fix: 'Add footerLink or use narrow.layout "cards".',
+  },
+  statGroupColumnsInvalid: {
+    id: "dashboard/stat-group-columns-invalid",
+    summary: 'A stat-group\'s columns is 2, 3 or 4 and needs layout "cards".',
+    fix: 'Set columns to 2, 3 or 4 and give the group a label or layout: "cards", or remove columns.',
+  },
+  statGroupChildHideOnNarrow: {
+    id: "dashboard/stat-group-child-hide-on-narrow",
+    summary: "Stat-group children do not set hideOnNarrow.",
+    fix: "Set hideOnNarrow on the whole group instead.",
+  },
+  textNarrowBlocksWithoutBlocks: {
+    id: "dashboard/text-narrow-blocks-without-blocks",
+    summary: "A text panel with narrowBlocks also declares blocks, and narrowBlocks is non-empty.",
+    fix: "Add blocks (the wide variant) or remove narrowBlocks.",
+  },
   textLinkUnresolved: {
     id: "dashboard/text-link-unresolved",
     summary: "A text link block's screen resolves to a registered screen.",

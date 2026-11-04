@@ -72,7 +72,9 @@ export function ShellHeader({
   const nav = useNav();
   const t = useTranslation();
   const focused = useShellFocused();
-  const headerActions = focused ? undefined : appHeaderActions;
+  // The app's headerActions (the assistant button) stay in focus mode: they are not navigation,
+  // and a focused screen must not cut the user off from them. Sidebar trigger and bell do leave.
+  const headerActions = appHeaderActions;
   const appSchema = toAppSchema(schema);
   const tree = useMemo(() => {
     const source = buildNavRegistrySliceForApp(appSchema);
@@ -122,12 +124,18 @@ export function ShellHeader({
   // A stand-in without a translated title must not surface the raw i18n key.
   const standInUntitled =
     standInScreenId !== undefined && crumbs?.at(-1)?.label === screenTitleKey(standInScreenId);
-  const shownCrumbs =
+  const bodyTitle = slot?.bodyTitle === true;
+  const visibleCrumbs =
     (slot?.breadcrumbHidden === true && standInScreenId === undefined) || standInUntitled
       ? undefined
       : crumbs !== undefined && recordTitle !== undefined && crumbs.length > 0
         ? [...crumbs.slice(0, -1), { label: recordTitle }, ...crumbs.slice(-1)]
         : crumbs;
+  // The screen's own title block is the h1, so the bar names the list the record belongs to.
+  const shownCrumbs =
+    bodyTitle && visibleCrumbs !== undefined && visibleCrumbs.length > 1
+      ? visibleCrumbs.slice(-2, -1)
+      : visibleCrumbs;
 
   return (
     <header
@@ -172,6 +180,10 @@ export function ShellHeader({
                           >
                             {crumb.label}
                           </BreadcrumbLink>
+                        ) : isLast && bodyTitle ? (
+                          <span className="truncate text-lg font-semibold text-foreground">
+                            {crumb.label}
+                          </span>
                         ) : isLast ? (
                           <h1
                             aria-current="page"

@@ -1,3 +1,4 @@
+import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 import { type Context, Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
@@ -18,7 +19,7 @@ import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import { wrapToKumiko } from "../pipeline/dispatcher-utils.ts";
 import { isPlainObject } from "../utils/is-plain-object.ts";
 import { stringifyJson } from "../utils/safe-json.ts";
-import { Routes } from "./api-constants.ts";
+import { APP_NOW_HEADER_NAME, Routes } from "./api-constants.ts";
 import { getAuthTokenExpiry, getUser } from "./auth-middleware.ts";
 import { patAllows } from "./pat-scope.ts";
 import { requestContext } from "./request-context.ts";
@@ -43,6 +44,8 @@ export type ApiRoutesOptions = {
   // Deployment-tunable for proxies with different idle timeouts — also used
   // by tests with a short value to exercise the pre-pull race + ping path.
   readonly sseHeartbeatMs?: number;
+  // The app clock stamped on every query answer; absent means the system clock.
+  readonly clock?: Clock;
 };
 
 export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOptions = {}) {
@@ -133,6 +136,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
   api.post(Routes.query, async (c) => {
     const user = getUser(c);
     const body = await readDispatchBody(c);
+    c.header(APP_NOW_HEADER_NAME, options.clock?.now().toString() ?? new Date().toISOString());
 
     try {
       assertPayloadDepthAllowed(body.payload);

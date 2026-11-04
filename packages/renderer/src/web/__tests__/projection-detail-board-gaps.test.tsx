@@ -22,6 +22,7 @@ const baseScreen: ProjectionDetailScreenDefinition = {
 const record = {
   total: 120,
   totalNote: "2 payments",
+  totalLabel: "Rent from 01.12.",
   todo: [{ id: "s1", title: "Send reminder" }],
   chains: [
     {
@@ -131,6 +132,50 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     expect(
       screen.getByTestId("kumiko-screen-projection-detail-metric-total").textContent,
     ).toContain("2 payments");
+  });
+
+  test("a metric labelField replaces the static label", async () => {
+    const labelled = {
+      ...baseScreen,
+      metrics: [{ field: "total", label: "Total", labelField: "totalLabel" }],
+    };
+    renderDetail(labelled);
+    await waitFor(() => screen.getByTestId("kumiko-screen-projection-detail-metric-total"));
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-metric-total").textContent,
+    ).toContain("Rent from 01.12.");
+  });
+
+  test("hideIcon keeps the icon out of a banner action button, without it the icon is drawn", async () => {
+    const action = {
+      id: "refresh-order",
+      label: "Refresh order",
+      handler: "orders:write:order:refresh",
+    } as const;
+    const withBanner = (hideIcon: boolean): ProjectionDetailScreenDefinition => ({
+      ...baseScreen,
+      banner: { field: "notice", actions: [hideIcon ? { ...action, hideIcon: true } : action] },
+    });
+    const notice = { ...record, notice: { title: "Heads up" } };
+    const query = (async () => ({
+      isSuccess: true,
+      data: notice,
+    })) as unknown as Dispatcher["query"];
+    for (const hideIcon of [true, false]) {
+      const { unmount } = render(
+        <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+          <KumikoScreen
+            schema={{ featureName: "orders", entities: {}, screens: [withBanner(hideIcon)] }}
+            qn="orders:screen:order-detail"
+            entityId="o-1"
+          />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => screen.getByText("Refresh order"));
+      const button = screen.getByText("Refresh order").closest("button");
+      expect(button?.querySelector("svg") === null).toBe(hideIcon);
+      unmount();
+    }
   });
 
   describe.each([

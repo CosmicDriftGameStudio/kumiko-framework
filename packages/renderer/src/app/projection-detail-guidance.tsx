@@ -1,4 +1,8 @@
-import type { RowAction, SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  RecordBannerSpec,
+  RowAction,
+  SelectOptionTone,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { Fragment, type ReactNode } from "react";
 import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
@@ -13,6 +17,8 @@ import {
 import type { DetailHeaderModel } from "./projection-detail-header.tsx";
 import type { ReferenceLinkResolver } from "./reference-link.ts";
 import { uniqueLabelKeys } from "./unique-label-keys.ts";
+
+type GuidanceActions = NonNullable<RecordBannerSpec["actions"]>;
 
 export type DetailGuidanceModel = DetailHeaderModel & {
   readonly resolveReference: ReferenceLinkResolver;
@@ -31,6 +37,15 @@ const BANNER_VARIANT: Record<SelectOptionTone, NonNullable<BannerProps["variant"
   critical: "error",
 };
 
+const BANNER_ICON: Record<SelectOptionTone, NonNullable<BannerProps["icon"]>> = {
+  neutral: "info",
+  accent: "info",
+  ok: "info",
+  warn: "alert-triangle",
+  bad: "alert-triangle",
+  critical: "alert-triangle",
+};
+
 // The app layer may not render DOM tags, so layout classes ride on FillContainer; hosts without it (native) fall back to plain stacking.
 export function wrapLayout(
   primitives: DetailGuidanceModel["primitives"],
@@ -45,14 +60,11 @@ export function wrapLayout(
   );
 }
 
-function renderItemActions(
+function renderActionButtons(
   model: DetailGuidanceModel,
-  actions: readonly RowAction[] | undefined,
-  item: Readonly<Record<string, unknown>>,
+  resolved: readonly RenderEditAction[],
+  hiddenIconIds: ReadonlySet<string>,
 ): ReactNode {
-  if (actions === undefined || actions.length === 0) return undefined;
-  const resolved = model.buildItemActions(actions, item);
-  if (resolved === undefined || resolved.length === 0) return undefined;
   const { Button, Dialog, Grid } = model.primitives;
   return (
     <Grid columns="auto">
@@ -60,6 +72,8 @@ function renderItemActions(
         <RenderEditActionButton
           key={action.id}
           action={action}
+          size="sm"
+          hideIcon={hiddenIconIds.has(action.id)}
           Button={Button}
           Dialog={Dialog}
           onError={model.setActionError}
@@ -67,6 +81,30 @@ function renderItemActions(
       ))}
     </Grid>
   );
+}
+
+function hiddenIconIdsOf(actions: GuidanceActions | undefined): ReadonlySet<string> {
+  return new Set((actions ?? []).filter((action) => action.hideIcon === true).map((a) => a.id));
+}
+
+function resolveItemActions(
+  model: DetailGuidanceModel,
+  actions: GuidanceActions | undefined,
+  item: Readonly<Record<string, unknown>>,
+): readonly RenderEditAction[] {
+  if (actions === undefined || actions.length === 0) return [];
+  return model.buildItemActions(actions, item) ?? [];
+}
+
+function renderItemActions(
+  model: DetailGuidanceModel,
+  actions: GuidanceActions | undefined,
+  item: Readonly<Record<string, unknown>>,
+): ReactNode {
+  const resolved = resolveItemActions(model, actions, item);
+  return resolved.length === 0
+    ? undefined
+    : renderActionButtons(model, resolved, hiddenIconIdsOf(actions));
 }
 
 export function renderDetailBreadcrumb(model: DetailGuidanceModel): ReactNode {
@@ -118,12 +156,21 @@ function renderSummary(model: DetailGuidanceModel): ReactNode {
   if (spec === undefined) return undefined;
   const text = model.record[spec.field];
   if (typeof text !== "string" || text === "") return undefined;
+  const narrowRaw = spec.narrowField !== undefined ? model.record[spec.narrowField] : undefined;
+  const narrowText = typeof narrowRaw === "string" && narrowRaw !== "" ? narrowRaw : undefined;
   const toneRaw = spec.toneField !== undefined ? model.record[spec.toneField] : undefined;
   const tone = readTone(toneRaw);
   const { RecordSummary, Text } = model.primitives;
   const testId = "kumiko-screen-projection-detail-summary";
   if (RecordSummary !== undefined) {
-    return <RecordSummary text={text} {...(tone !== undefined && { tone })} testId={testId} />;
+    return (
+      <RecordSummary
+        text={text}
+        {...(narrowText !== undefined && { narrowText })}
+        {...(tone !== undefined && { tone })}
+        testId={testId}
+      />
+    );
   }
   return <Text testId={testId}>{text}</Text>;
 }
@@ -140,6 +187,7 @@ function renderBanner(model: DetailGuidanceModel): ReactNode {
     GUIDANCE_INSET,
     <Banner
       variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
+      icon={BANNER_ICON[notice.tone ?? "neutral"]}
       title={notice.title}
       {...(actions !== undefined && { actions })}
       testId="kumiko-screen-projection-detail-banner"
@@ -159,14 +207,20 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
   const subtitle = typeof subtitleRaw === "string" && subtitleRaw !== "" ? subtitleRaw : undefined;
   const emptyLabel = t(spec.emptyLabel ?? "kumiko.detail.steps.empty");
   const items = steps.map((step) => {
-    const actions = renderItemActions(model, spec.actions, step);
+    const hiddenIconIds = hiddenIconIdsOf(spec.actions);
+    const [mainAction, ...otherActions] = resolveItemActions(model, spec.actions, step);
     return {
       id: step.id,
       title: step.title,
       ...(step.detail !== undefined && { detail: step.detail }),
       ...(step.tone !== undefined && { tone: step.tone }),
       ...(step.why !== undefined && { reason: step.why }),
-      ...(actions !== undefined && { actions }),
+      ...(mainAction !== undefined && {
+        actions: renderActionButtons(model, [mainAction], hiddenIconIds),
+      }),
+      ...(otherActions.length > 0 && {
+        moreActions: renderActionButtons(model, otherActions, hiddenIconIds),
+      }),
     };
   });
   const { RecordSteps, Card, Text } = model.primitives;
@@ -178,7 +232,13 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
         {...(subtitle !== undefined && { subtitle })}
         emptyLabel={emptyLabel}
         reasonLabel={t("kumiko.detail.steps.reason")}
+        {...(spec.narrowLimit !== undefined && {
+          narrowLimit: spec.narrowLimit,
+          moreLabel: (count: number) => t("kumiko.detail.steps.more", { count }),
+          lessLabel: t("kumiko.detail.steps.less"),
+        })}
         items={items}
+        count={items.length}
         testId={testId}
       />
     );
@@ -194,6 +254,7 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
             {item.detail !== undefined && <Text variant="muted">{item.detail}</Text>}
             {item.reason !== undefined && <Text variant="muted">{item.reason}</Text>}
             {item.actions}
+            {item.moreActions}
           </Fragment>
         ))
       )}
@@ -219,7 +280,19 @@ function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode
     const current = chain.steps[currentIndex];
     const testId = `record-progress-${index}`;
     return [
-      <Card key={testId} slots={{ title: chain.title }} testId={testId}>
+      <Card
+        key={testId}
+        slots={{
+          title: chain.title,
+          ...(stacked && {
+            subtitle: t("kumiko.detail.progress.step-of", {
+              current: currentIndex + 1,
+              total: chain.steps.length,
+            }),
+          }),
+        }}
+        testId={testId}
+      >
         <StepBar
           steps={chain.steps.map((step) => step.label)}
           currentIndex={currentIndex}
@@ -257,6 +330,8 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
   const { progress, steps } = model.screen;
   const beside = progress?.placement === "beside-steps" && steps !== undefined;
   const progressNode = renderProgress(model, beside);
+  const progressInset =
+    progress?.hideOnNarrow === true ? `${PROGRESS_INSET} max-sm:hidden` : PROGRESS_INSET;
   return (
     <>
       {renderSummary(model)}
@@ -272,12 +347,12 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
               renderSteps(model),
             )}
             {progressNode !== undefined &&
-              wrapLayout(model.primitives, `${PROGRESS_INSET} lg:col-span-4 lg:pl-0`, progressNode)}
+              wrapLayout(model.primitives, `${progressInset} lg:col-span-4 lg:pl-0`, progressNode)}
           </>,
         )
       ) : (
         <>
-          {progressNode !== undefined && wrapLayout(model.primitives, PROGRESS_INSET, progressNode)}
+          {progressNode !== undefined && wrapLayout(model.primitives, progressInset, progressNode)}
           {renderSteps(model)}
         </>
       )}

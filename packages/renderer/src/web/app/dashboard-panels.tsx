@@ -164,6 +164,8 @@ function StatPanelContent({
     // A fixed tone must not paint an all-clear "0" as an alarm.
     (rawValue === 0 ? undefined : panel.tone);
   const sub = panel.subField !== undefined ? record[panel.subField] : undefined;
+  const dynamicLabel = panel.labelField !== undefined ? record[panel.labelField] : undefined;
+  const shownLabel = typeof dynamicLabel === "string" && dynamicLabel !== "" ? dynamicLabel : label;
   const delta = readDelta(panel, record);
   const valueFormat = panel.valueFormat;
   let value: string;
@@ -194,7 +196,7 @@ function StatPanelContent({
       <StatStripCell
         {...(variant === "strip-compact" && { compact: true })}
         icon={icon}
-        label={label}
+        label={shownLabel}
         value={value}
         tone={tone ?? "default"}
         {...(Icon !== undefined && { accentColor: panel.accentColor })}
@@ -209,7 +211,7 @@ function StatPanelContent({
   return (
     <StatCard
       icon={icon}
-      label={label}
+      label={shownLabel}
       value={value}
       tone={tone ?? "default"}
       {...(Icon !== undefined && { accentColor: panel.accentColor })}

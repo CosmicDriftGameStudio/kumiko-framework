@@ -71,12 +71,13 @@ export type DataTableExport = {
 };
 
 export type DataTableSummaryItem = {
-  readonly label: string;
+  /** Absent: the cell shows the value alone, for values that carry their own meaning ("7 need action"). */
+  readonly label?: string;
   readonly value: string | number;
   readonly tone?: SelectOptionTone;
 };
 
-/** One line of "label value" pairs under the rows, answered by the screen's summaryRow query. */
+/** One line of "label value" pairs (the label is optional) under the rows, answered by the screen's summaryRow query. */
 export type DataTableSummaryRow = {
   readonly items: readonly DataTableSummaryItem[];
 };

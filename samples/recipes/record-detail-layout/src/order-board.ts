@@ -262,6 +262,7 @@ export type OrderListAnswer =
     }
   | {
       readonly rows: readonly (OrderRow & {
+        readonly narrowMeta: string;
         readonly actionScreen?: string;
         readonly actionParams?: { readonly entityId: string };
       })[];
@@ -289,6 +290,7 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   const offset = payload.offset ?? 0;
   const rows = ordered.slice(offset, offset + (payload.limit ?? DEFAULT_PAGE_SIZE)).map((row) => ({
     ...row,
+    narrowMeta: `${euro(row.openAmount)} open · ${row.status}`,
     ...(row.nextStep !== "" && {
       actionScreen: ORDER_DETAIL_SCREEN_QN,
       actionParams: { entityId: row.id },
@@ -354,6 +356,10 @@ export function answerBriefing() {
         kind: "hint",
         text: "Sorted by urgency. Open an order and let the assistant prepare the step.",
       },
+    ],
+    narrowBlocks: [
+      { kind: "paragraph", emphasis: "lead", text: `${open.length} orders need you today.` },
+      { kind: "hint", text: "Tuesday, 3 November · as of 06:00" },
     ],
   };
 }
@@ -456,6 +462,7 @@ export function answerOrderDetail(id: string) {
     totalNote: "2 payments",
     outstandingAmount: "€ 312.00",
     outstandingNote: "14 days overdue",
+    outstandingLabel: "Outstanding since 01.12.",
     outstandingTone: "bad",
     itemCount: "3",
     itemsCount: 3,
@@ -466,6 +473,7 @@ export function answerOrderDetail(id: string) {
     salesRep: "Jonas Weber",
     path: [{ label: "Orders" }, { label: "Aiko Tanaka" }, { label: "SO-10482" }],
     summaryLine: "Waiting for the second payment",
+    summaryShort: "Second payment open.",
     summaryTone: "warn",
     notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
     steps: [
@@ -478,6 +486,9 @@ export function answerOrderDetail(id: string) {
         canPrepare: true,
       },
       { id: "escalate", title: "Escalate to accounting", canPrepare: false },
+      { id: "credit", title: "Review the credit limit", canPrepare: false },
+      { id: "handover", title: "Plan the handover", canPrepare: false },
+      { id: "close", title: "Close the order", canPrepare: false },
     ],
     progress: [
       {

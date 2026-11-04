@@ -263,8 +263,20 @@ export function StatStripCell({
             "flex-row-reverse items-baseline justify-end gap-1.5 whitespace-nowrap px-0 py-0 sm:px-3 sm:py-1",
         )}
       >
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-x-2 gap-y-1",
+            compact && "max-sm:min-w-0 max-sm:flex-nowrap",
+          )}
+        >
+          <span
+            className={cn(
+              "flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground",
+              // A block with truncate is what lets text-overflow ellipsis apply inside the flex chain.
+              compact &&
+                "max-sm:block max-sm:truncate max-sm:text-sm max-sm:font-normal max-sm:text-foreground",
+            )}
+          >
             {icon !== undefined && (
               <StatIconChip icon={icon} tone={tone} accentColor={accentColor} />
             )}
@@ -282,8 +294,14 @@ export function StatStripCell({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <span className={cn("text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>
+        <div className="flex shrink-0 items-center gap-3">
+          <span
+            className={cn(
+              "text-xl font-semibold tabular-nums",
+              compact && "max-sm:text-sm",
+              TONE_VALUE[tone],
+            )}
+          >
             {value}
           </span>
           {spark !== undefined && (

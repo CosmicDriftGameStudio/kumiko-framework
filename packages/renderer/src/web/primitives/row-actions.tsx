@@ -49,12 +49,15 @@ export function RowActionsCell({
   mode = "adaptive",
   rowIsLink = false,
   compact = false,
+  small = false,
 }: {
   readonly row: ListRowViewModel;
   readonly actions: readonly DataTableRowAction[];
   readonly mode?: DataTableRowActionMode;
   readonly rowIsLink?: boolean;
   readonly compact?: boolean;
+  /** Small bordered buttons without the phone touch height; for buttons sitting inside a card. */
+  readonly small?: boolean;
 }): ReactNode {
   const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
   if (visible.length === 0) return null;
@@ -78,7 +81,7 @@ export function RowActionsCell({
     return (
       <div className="inline-flex flex-nowrap items-center gap-1 justify-end whitespace-nowrap">
         {inline.map((a) => (
-          <RowActionButton key={a.id} row={row} action={a} compact={compact} />
+          <RowActionButton key={a.id} row={row} action={a} compact={compact} small={small} />
         ))}
         {rest.length > 0 && <RowActionsKebab row={row} actions={rest} />}
       </div>
@@ -152,11 +155,13 @@ function RowActionButton({
   iconOnly = false,
   asLink = false,
   compact = false,
+  small = false,
 }: {
   readonly row: ListRowViewModel;
   readonly action: DataTableRowAction;
   readonly asLink?: boolean;
   readonly compact?: boolean;
+  readonly small?: boolean;
   /** Group-level collapse (see `shouldRenderActionsIconOnly`) — only takes
    *  effect when this action actually resolved an icon. */
   readonly iconOnly?: boolean;
@@ -203,7 +208,9 @@ function RowActionButton({
         className={cn(
           "inline-flex items-center justify-center gap-1.5 text-sm",
           isBorderedButton
-            ? "h-8 rounded-md px-3 font-medium max-md:h-11"
+            ? small
+              ? "relative h-8 rounded-md px-2.5 text-xs font-medium before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']"
+              : "h-8 rounded-md px-3 font-medium max-md:h-11"
             : linkLike
               ? "h-7 rounded-md px-2.5 max-md:h-11"
               : "h-8 rounded-sm max-md:h-11",

@@ -21,6 +21,7 @@ export function detailGuidanceFieldRefs(
     { option: "breadcrumb.field", field: screen.breadcrumb?.field },
     { option: "summary.field", field: screen.summary?.field },
     { option: "summary.toneField", field: screen.summary?.toneField },
+    { option: "summary.narrowField", field: screen.summary?.narrowField },
     { option: "banner.field", field: screen.banner?.field },
     { option: "steps.field", field: screen.steps?.field },
     { option: "steps.subtitleField", field: screen.steps?.subtitleField },
@@ -28,6 +29,7 @@ export function detailGuidanceFieldRefs(
     ...(screen.metrics ?? []).flatMap((metric) => [
       { option: "metrics.toneField", field: metric.toneField },
       { option: "metrics.subField", field: metric.subField },
+      { option: "metrics.labelField", field: metric.labelField },
     ]),
   ]);
 }

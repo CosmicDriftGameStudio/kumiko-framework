@@ -83,6 +83,7 @@ import {
   renderTitleRow,
 } from "./dashboard-header.tsx";
 import { ListPanelBody } from "./dashboard-list-panel.tsx";
+import { HiddenOnNarrow } from "./dashboard-narrow-gate.tsx";
 import {
   ChartPanelBody,
   CustomPanelBody,
@@ -238,34 +239,36 @@ function renderDashboardPanel(
 ): ReactNode {
   if (panel.kind === "screen") {
     return (
-      <ScreenPanelTile
-        key={panel.id}
-        panel={panel}
-        featureName={featureName}
-        recordId={screenParams.recordId}
-        translate={translate}
-      />
+      <HiddenOnNarrow key={panel.id} hide={panel.hideOnNarrow === true}>
+        <ScreenPanelTile
+          panel={panel}
+          featureName={featureName}
+          recordId={screenParams.recordId}
+          translate={translate}
+        />
+      </HiddenOnNarrow>
     );
   }
   const label =
     panel.kind === "custom" || panel.label === undefined ? undefined : translate(panel.label);
   return (
-    <GatedGridCell
-      key={panel.id}
-      panel={panel}
-      screenParams={screenParams}
-      label={label ?? panel.id}
-      className={panelSpanClassName(panel)}
-    >
-      <PanelBody
+    <HiddenOnNarrow key={panel.id} hide={panel.hideOnNarrow === true}>
+      <GatedGridCell
         panel={panel}
-        label={label}
-        featureName={featureName}
-        screenId={screenId}
         screenParams={screenParams}
-        translate={translate}
-      />
-    </GatedGridCell>
+        label={label ?? panel.id}
+        className={panelSpanClassName(panel)}
+      >
+        <PanelBody
+          panel={panel}
+          label={label}
+          featureName={featureName}
+          screenId={screenId}
+          screenParams={screenParams}
+          translate={translate}
+        />
+      </GatedGridCell>
+    </HiddenOnNarrow>
   );
 }
 
