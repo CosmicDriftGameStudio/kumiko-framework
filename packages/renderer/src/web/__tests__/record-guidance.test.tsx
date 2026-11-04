@@ -97,6 +97,7 @@ const detailScreen: ProjectionDetailScreenDefinition = {
   breadcrumb: { field: "path" },
   summary: { field: "line", toneField: "tone" },
   banner: { field: "notice", actions: [{ ...archive, icon: "archive" }] },
+  progress: { field: "progress" },
   steps: {
     field: "steps",
     actions: [{ ...archive, id: "close", label: "Close it", icon: "archive" }],
@@ -191,5 +192,41 @@ describe("projectionDetail record guidance blocks", () => {
     expect(screen.queryByTestId("kumiko-screen-projection-detail-summary")).toBeNull();
     expect(screen.queryByTestId("kumiko-screen-projection-detail-breadcrumb")).toBeNull();
     expect(screen.getByTestId("kumiko-screen-projection-detail-steps")).toBeTruthy();
+  });
+
+  const CHAIN = {
+    title: "Order to cash",
+    currentIndex: 1,
+    steps: [
+      { id: "placed", label: "Placed", done: true },
+      { id: "paid", label: "Paid", done: false, detail: "312 EUR open" },
+    ],
+  };
+
+  test("progress chains render one step bar each with heading, done steps and the current step up next", async () => {
+    renderDetail({ ...FULL, progress: [CHAIN, { ...CHAIN, title: "Fulfilment" }] });
+    await waitFor(() => expect(screen.getByTestId("record-progress-0")).toBeTruthy());
+    expect(screen.getByTestId("record-progress-1")).toBeTruthy();
+    expect(screen.getByTestId("record-progress-0").textContent).toContain("Order to cash");
+    const bar = screen.getByTestId("record-progress-0-bar");
+    expect(bar.textContent).toContain("DonePlaced");
+    expect(bar.querySelector("[aria-current='step']")?.textContent).toContain("Paid");
+    const upNext = screen.getByTestId("record-progress-0-up-next");
+    expect(upNext.textContent).toContain("Up next");
+    expect(upNext.textContent).toContain("Paid");
+    expect(upNext.textContent).toContain("312 EUR open");
+    expect(screen.getByText("Fulfilment")).toBeTruthy();
+  });
+
+  test("an empty progress array drops the block", async () => {
+    renderDetail({ ...FULL, progress: [] });
+    await waitFor(() => expect(screen.getByText("Waiting for payment")).toBeTruthy());
+    expect(screen.queryByTestId("record-progress-0")).toBeNull();
+  });
+
+  test("a progress value that is not a chain list drops the block", async () => {
+    renderDetail({ ...FULL, progress: "not a list" });
+    await waitFor(() => expect(screen.getByText("Waiting for payment")).toBeTruthy());
+    expect(screen.queryByTestId("record-progress-0")).toBeNull();
   });
 });

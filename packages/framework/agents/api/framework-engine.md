@@ -1366,6 +1366,7 @@ type ProjectionDetailScreenDefinition = {
   summary?: RecordSummarySpec; // One emphasized sentence below the header.
   banner?: RecordBannerSpec; // Notice below the summary.
   steps?: RecordStepsSpec; // "Next steps" panel.
+  progress?: RecordProgressSpec; // Process chains the record is part of, drawn as step bars between the banner and the steps panel.
   listScreenId?: string; // Parent list screen (short id) for a "back" navigation.
   slots?: ScreenSlots;
   access?: AccessRule;

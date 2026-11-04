@@ -67,6 +67,12 @@ describe("projectionDetail record guidance blocks", () => {
     );
   });
 
+  test("an empty progress field name is projection-detail/guidance-field-empty", () => {
+    expect(ruleIdsOf([detailFeature({ progress: { field: " " } })])).toContain(
+      "projection-detail/guidance-field-empty",
+    );
+  });
+
   test("rowClick on a steps action is screen/header-action-row-click", () => {
     const feature = defineFeature("shop", (r) => {
       r.queryHandler({

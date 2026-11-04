@@ -57,3 +57,22 @@ export type RecordStepsSpec = {
   readonly emptyLabel?: string;
   readonly actions?: readonly RowAction[];
 };
+
+export type RecordProgressStep = {
+  readonly id: string;
+  readonly label: string;
+  readonly done: boolean;
+  readonly detail?: string;
+};
+
+/** A process chain the record is part of. `currentIndex` points at the first open step. */
+export type RecordProgress = {
+  readonly title: string;
+  readonly steps: readonly RecordProgressStep[];
+  readonly currentIndex: number;
+};
+
+export type RecordProgressSpec = {
+  /** Holds `RecordProgress[]`; an empty array shows no block. */
+  readonly field: string;
+};
