@@ -1,7 +1,8 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { ReactNode } from "react";
-import type { DataTableSort, DataTableSortDir } from "../../../index.ts";
+import type { DataTableProps, DataTableSort, DataTableSortDir } from "../../../index.ts";
 import { useOptionalTranslation } from "../../../index.ts";
+import { SortOptionsSelect } from "./sort-options-select.tsx";
 
 type SortableColumn = {
   readonly field: string;
@@ -22,17 +23,34 @@ type SortOption = {
 // columns marked sortable in the ViewModel. Options carry the resolved
 // {field, dir} directly so onChange can look the pick up by value instead
 // of parsing/casting the option string back apart.
-export function CardSortSelect({
-  columns,
-  sort,
-  onSortChange,
-  testId,
-}: {
+type CardSortSelectProps = {
   readonly columns: readonly SortableColumn[];
   readonly sort: DataTableSort | null | undefined;
   readonly onSortChange: ((next: DataTableSort | null) => void) | undefined;
   readonly testId: string | undefined;
-}): ReactNode {
+};
+
+// Screen-declared sortOptions replace the per-column entries.
+export function CardSortSelect({
+  sortOptions,
+  ...props
+}: CardSortSelectProps & { readonly sortOptions?: DataTableProps["sortOptions"] }): ReactNode {
+  const { sort, onSortChange, testId } = props;
+  if (onSortChange !== undefined && sortOptions !== undefined && sortOptions.length > 0) {
+    return (
+      <SortOptionsSelect
+        options={sortOptions}
+        sort={sort}
+        onSortChange={onSortChange}
+        testId={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
+        className="px-4"
+      />
+    );
+  }
+  return <ColumnSortSelect {...props} />;
+}
+
+function ColumnSortSelect({ columns, sort, onSortChange, testId }: CardSortSelectProps): ReactNode {
   const translate = useOptionalTranslation();
   const sortableColumns = columns.filter((col) => col.sortable);
   if (onSortChange === undefined || sortableColumns.length === 0) return null;

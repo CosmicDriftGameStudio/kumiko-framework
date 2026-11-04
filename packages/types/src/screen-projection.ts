@@ -9,6 +9,7 @@ import type {
   ListColumnSpec,
   ListPaginationMode,
   ListRowDecoration,
+  ListSortOption,
   ListSortSpec,
   RowAction,
   RowActionMode,
@@ -124,6 +125,8 @@ export type ProjectionListScreenDefinition = {
   /** Opt-in table behaviour: remembered state, reset, column picker, density. */
   readonly table?: ListTableOptions;
   readonly defaultSort?: ListSortSpec;
+  /** Choices of the "Sorted by" select in the toolbar (and the narrow-width sort control) instead of one entry per column; every field must be sortable. */
+  readonly sortOptions?: readonly ListSortOption[];
   /** Replaces the default empty-list title/hint; the create button stays when the list can create. */
   readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
@@ -230,6 +233,8 @@ export type MetricSpec = {
   readonly tone?: DashboardStatTone;
   /** Record field of the detail query holding a SelectOptionTone; a valid value overrides `tone`, also at value 0. Empty or unknown values fall back to `tone`. */
   readonly toneField?: string;
+  /** Record field of the detail query shown as a small line under the value; the value stays the number. Same name as `DashboardStatPanel.subField`. */
+  readonly subField?: string;
   /** Icon chip of the tile; only drawn with `metricsStyle: "tiles"`. */
   readonly icon?: NavIconKey;
   /** Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value. */
@@ -292,6 +297,8 @@ export type ProjectionDetailScreenDefinition = {
   readonly metrics?: readonly MetricSpec[];
   /** "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band. */
   readonly metricsStyle?: "band" | "tiles";
+  /** `narrow: "after-guidance"` moves the metrics below the summary, banner and steps on screens under md, ahead of the tabs. Needs the page-header slot; the head card keeps its metrics. */
+  readonly metricsPlacement?: { readonly narrow?: "after-guidance" };
   /** Path above the header (query column holding items). */
   readonly breadcrumb?: RecordBreadcrumbSpec;
   /** One emphasized sentence below the header. */

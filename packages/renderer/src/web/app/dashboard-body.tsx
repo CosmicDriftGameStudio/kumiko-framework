@@ -88,7 +88,6 @@ import {
   CustomPanelBody,
   FeedPanelBody,
   ProgressListPanelBody,
-  StatGroupPanelBody,
   StatPanelBody,
 } from "./dashboard-panels.tsx";
 import { ScreenPanelTile } from "./dashboard-screen-tiles.tsx";
@@ -103,6 +102,7 @@ import {
   useDashboardFormats,
   WIDE_PANEL,
 } from "./dashboard-shared.tsx";
+import { StatGroupPanelBody } from "./dashboard-stat-group-panel.tsx";
 import { TextPanelBody } from "./dashboard-text-panel.tsx";
 import {
   GatedGridCell,

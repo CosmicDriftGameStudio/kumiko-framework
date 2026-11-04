@@ -207,12 +207,14 @@ export function PanelShell({
   title,
   subtitle,
   action,
+  footer,
   children,
 }: {
   readonly testId: string;
   readonly title: string;
   readonly subtitle?: string;
   readonly action?: ReactNode;
+  readonly footer?: ReactNode;
   readonly children: ReactNode;
 }): ReactNode {
   return (
@@ -228,6 +230,11 @@ export function PanelShell({
         {action !== undefined && <div className="shrink-0">{action}</div>}
       </header>
       <div className="grow p-4">{children}</div>
+      {footer !== undefined && (
+        <footer className="flex shrink-0 flex-wrap items-center gap-x-1 border-t border-border-row px-4 py-2 text-xs text-muted-foreground">
+          {footer}
+        </footer>
+      )}
     </section>
   );
 }
@@ -291,12 +298,22 @@ export function PanelSkeleton({ shape }: { readonly shape: SkeletonShape }): Rea
   );
 }
 
+function deriveSubtitle<TData>(
+  derive: (data: TData) => string | undefined,
+  data: TData | undefined,
+): string | undefined {
+  return data === undefined ? undefined : derive(data);
+}
+
 type QueryPanelProps<TData> = {
   readonly panel: DashboardPanelQueryOptions &
     DashboardPanelEmptyState & { readonly id: string; readonly query: string };
   readonly label: string;
-  readonly subtitle?: string;
+  /** A function derives the line from the loaded data (e.g. "n of m"). */
+  readonly subtitle?: string | ((data: TData) => string | undefined);
   readonly action?: ReactNode;
+  /** Rendered under the body, only once data is shown. */
+  readonly footer?: (data: TData) => ReactNode;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
   readonly skeleton: SkeletonShape;
@@ -311,6 +328,7 @@ export function QueryPanel<TData>({
   label,
   subtitle,
   action,
+  footer,
   screenParams,
   translate,
   skeleton,
@@ -324,6 +342,7 @@ export function QueryPanel<TData>({
   );
   useReportPanelLoaded(data);
   let body: ReactNode;
+  let shown: TData | undefined;
   if (loading && data === null) {
     body = <PanelSkeleton shape={skeleton} />;
   } else if (error !== null) {
@@ -336,14 +355,16 @@ export function QueryPanel<TData>({
       />
     );
   } else {
+    shown = data;
     body = children(data, formats);
   }
   return (
     <PanelShell
       testId={`dashboard-panel-${panel.id}`}
       title={label}
-      subtitle={subtitle}
+      subtitle={typeof subtitle === "function" ? deriveSubtitle(subtitle, shown) : subtitle}
       action={action}
+      footer={shown !== undefined ? footer?.(shown) : undefined}
     >
       {body}
     </PanelShell>

@@ -5,7 +5,7 @@ import { renderCard } from "./card-row.tsx";
 import { CardSortSelect } from "./card-sort-select.tsx";
 import { bandClassName, bandReactKey, bandTestId } from "./group-band.tsx";
 import { renderBand } from "./row-render-parts.tsx";
-import { TotalsCard } from "./totals-footer.tsx";
+import { SummaryCard, TotalsCard } from "./totals-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 export function renderCardsView(m: DataTableModel): ReactNode {
@@ -22,6 +22,7 @@ export function renderCardsView(m: DataTableModel): ReactNode {
           sort={m.sort}
           onSortChange={m.onSortChange}
           testId={testId}
+          {...(m.sortOptions !== undefined && { sortOptions: m.sortOptions })}
         />
         <ul className="m-0 list-none border-t border-border-row p-0">
           {m.tableItems.map((item) =>
@@ -38,6 +39,7 @@ export function renderCardsView(m: DataTableModel): ReactNode {
             ),
           )}
         </ul>
+        {m.summaryRow !== undefined && <SummaryCard summary={m.summaryRow} />}
         {totals !== undefined && <TotalsCard totals={totals} columnOf={m.columnOf} />}
       </div>
     </div>

@@ -1,5 +1,7 @@
+import type { SelectOptionTone } from "@cosmicdrift/kumiko-types/fields";
 import type { ReactNode } from "react";
 import type { DataTableMeasure, DataTableTotals } from "../../../data-table-aggregate-types.ts";
+import type { DataTableSummaryRow } from "../../../data-table-view-types.ts";
 import type { ListColumnViewModel } from "../../../headless/index.ts";
 import { useOptionalTranslation } from "../../../index.ts";
 import { cn } from "../../lib/cn.ts";
@@ -50,6 +52,68 @@ function FooterMeasures({
         </span>
       ))}
     </span>
+  );
+}
+
+const SUMMARY_VALUE_TONE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  bad: "text-status-bad",
+  warn: "text-status-warn",
+  ok: "text-status-ok",
+  critical: "text-status-critical",
+  accent: "text-primary",
+  neutral: "",
+};
+
+function SummaryItems({ summary }: { readonly summary: DataTableSummaryRow }): ReactNode {
+  return (
+    <span className="text-sm text-muted-foreground">
+      {summary.items.map((item, index) => (
+        <span key={item.label} data-testid="list-summary-item">
+          {index > 0 && " · "}
+          {item.label}{" "}
+          <span
+            className={cn(
+              "font-medium tabular-nums text-foreground",
+              item.tone !== undefined && SUMMARY_VALUE_TONE_CLASS[item.tone],
+            )}
+          >
+            {item.value}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Full-width line above the totals row; the summary query's "value label · value label" pairs. */
+export function SummaryFooterRow({
+  summary,
+  colSpan,
+  cellClassName,
+}: {
+  readonly summary: DataTableSummaryRow;
+  readonly colSpan: number;
+  readonly cellClassName?: string;
+}): ReactNode {
+  return (
+    <TableFooter data-testid="list-summary">
+      <TableRow className="hover:bg-transparent">
+        <TableCell colSpan={colSpan} className={cn("text-left", cellClassName)}>
+          <SummaryItems summary={summary} />
+        </TableCell>
+      </TableRow>
+    </TableFooter>
+  );
+}
+
+export function SummaryCard({ summary }: { readonly summary: DataTableSummaryRow }): ReactNode {
+  return (
+    <div
+      data-testid="list-summary"
+      className="border-b border-border-row bg-muted/50 px-4 py-3 text-left"
+    >
+      <SummaryItems summary={summary} />
+    </div>
   );
 }
 

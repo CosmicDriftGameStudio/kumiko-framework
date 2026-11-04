@@ -50,14 +50,23 @@ export function withHintColumns(
   translate: Translate,
 ): readonly ListColumnViewModel[] {
   const hints = new Map<string, NonNullable<ReturnType<typeof normalizeListColumn>["hint"]>>();
+  const normalized = new Map<string, ReturnType<typeof normalizeListColumn>>();
   for (const spec of screen.columns) {
-    const normalized = normalizeListColumn(spec);
-    if (normalized.hint !== undefined) hints.set(normalized.field, normalized.hint);
+    const column = normalizeListColumn(spec);
+    if (column.hint === undefined) continue;
+    hints.set(column.field, column.hint);
+    normalized.set(column.field, column);
   }
   if (hints.size === 0) return columns;
   return columns.map((col) => {
     const hint = hints.get(col.field);
     if (hint === undefined) return col;
-    return { ...col, hint: hintViewModel(hint, screen.rowToneField, translate) };
+    const { width, minWidth } = normalized.get(col.field) ?? {};
+    return {
+      ...col,
+      hint: hintViewModel(hint, screen.rowToneField, translate),
+      ...(width !== undefined && { width }),
+      ...(minWidth !== undefined && { minWidth }),
+    };
   });
 }

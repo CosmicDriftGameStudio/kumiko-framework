@@ -161,6 +161,12 @@ type DashboardFilterDefinition = {
   options?: { value: string; label: string; }[];
   optionsQuery?: string; // Query-Result-Contract: `{ rows: { value: string; label: string }[] }`.
 };
+type DashboardListFooterLink = { // Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens.
+  label: string;
+  screen: string;
+  namedFilter?: string;
+  params?: Readonly<Record<string, string>>;
+};
 type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState & DashboardPanelGate & {
   kind: "list";
   id: string;
@@ -169,6 +175,9 @@ type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns.
   showHeader?: boolean; // `false` drops the column header row; default true.
+  subtitle?: string; // i18n key, a line under `label`; with `showTotal` it stands before the count.
+  showTotal?: true; // Adds "n of m" to the subtitle from the rows shown and the query's `total`.
+  footerLink?: DashboardListFooterLink; // Link under the table to the full list; with a known `total` above the rows shown, "k more" stands before it.
 };
 type DashboardMoneyParam = { // Minor units (like Money fields), formatted with the user locale.
   kind: "money";
@@ -244,12 +253,20 @@ type DashboardScreenPanel = {
   fallback?: string; // Same-feature short id or cross-feature QN `<feature>:screen:<id>` embedded in this panel's place when `visibleWhen` is unmet or its query fails (nothing while it loads).
   chromeless?: boolean; // Render the embedded form without its own card frame and padding, aligned to the dashboard's page grid like a standalone settings screen.
 };
+type DashboardStatGroupLayout = "cards" | "strip";
+type DashboardStatGroupLink = { // Link at the right edge of a stat-group panel; `label` is an i18n key.
+  label: string;
+  screen: string;
+  params?: Readonly<Record<string, string>>;
+};
 type DashboardStatGroupPanel = DashboardPanelGate & {
   kind: "stat-group";
   id: string;
   label?: string;
   subtitle?: string; // i18n key, a line under `label`; the boot validator requires `label`.
   span?: DashboardPanelSpan;
+  layout?: DashboardStatGroupLayout; // Default: "strip" without `label`, "cards" with.
+  link?: DashboardStatGroupLink; // Link at the right edge of the panel (label + chevron).
   stats: DashboardStatPanel[];
 };
 type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & {
@@ -435,6 +452,9 @@ type ListRowDecoration = { // Computed fields for the loaded rows: one `query` c
   query: string;
   params?: Readonly<Record<string, unknown>>;
 };
+type ListSortOption = ListSortSpec & { // One entry of a list's "Sorted by" select; `label` is an i18n key.
+  label: string;
+};
 type ListSortSpec = {
   field: string;
   dir: ListSortDir;
@@ -484,6 +504,7 @@ type RecordProgress = { // A process chain the record is part of.
 };
 type RecordProgressSpec = {
   field: string; // Holds `RecordProgress[]`; an empty array shows no block.
+  placement?: "beside-steps"; // "beside-steps": the chains sit as a vertical stage list in a 4/12 column next to the steps panel (8/12) from lg, stacked below it under lg.
 };
 type RecordProgressStep = {
   id: string;

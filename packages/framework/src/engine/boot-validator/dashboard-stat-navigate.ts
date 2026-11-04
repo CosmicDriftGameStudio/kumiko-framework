@@ -33,18 +33,37 @@ function declaredNamedFilterIds(target: ListTarget): ReadonlySet<string> {
   return new Set((target.screen.namedFilters ?? []).map((ref) => ref.id));
 }
 
-function resolveListTarget(
+type StatNavigateTarget =
+  | ListTarget
+  | { readonly customScreenId: string }
+  | { readonly qn: string };
+
+function resolveStatNavigateTarget(
   featureName: string,
   screenRef: string,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
-): ListTarget | { readonly qn: string } {
+): StatNavigateTarget {
   const qn = resolveScreenTargetQn(featureName, screenRef);
   const [targetFeatureName = "", , targetShortId = ""] = qn.split(":");
   const feature = featureMap.get(targetFeatureName);
   const screen = feature?.screens[targetShortId];
   if (feature === undefined || screen === undefined) return { qn };
+  if (screen.type === "custom") return { customScreenId: screen.id };
   if (screen.type !== "entityList" && screen.type !== "projectionList") return { qn };
   return { feature, screen };
+}
+
+function validateNavigateParams(
+  context: string,
+  params: Readonly<Record<string, unknown>> | undefined,
+): void {
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (key === "" || typeof value !== "string") {
+      throw bootRuleError(DASHBOARD_RULES.statNavigateParamsInvalid, {
+        message: `${context} navigate.params entry ${JSON.stringify(key)} must have a non-empty key and a string value (got ${JSON.stringify(value)}).`,
+      });
+    }
+  }
 }
 
 function validateStatNavigate(
@@ -56,18 +75,21 @@ function validateStatNavigate(
   const navigate = stat.navigate;
   // skip: stat has no navigate target to validate
   if (navigate === undefined) return;
-  for (const [key, value] of Object.entries(navigate.params ?? {})) {
-    if (key === "" || typeof value !== "string") {
-      throw bootRuleError(DASHBOARD_RULES.statNavigateParamsInvalid, {
-        message: `${context} navigate.params entry ${JSON.stringify(key)} must have a non-empty key and a string value (got ${JSON.stringify(value)}).`,
-      });
-    }
-  }
-  const target = resolveListTarget(featureName, navigate.screen, featureMap);
+  validateNavigateParams(context, navigate.params);
+  const target = resolveStatNavigateTarget(featureName, navigate.screen, featureMap);
   if ("qn" in target) {
     throw bootRuleError(NAMED_FILTER_RULES.statNavigateTarget, {
-      message: `${context} navigate.screen "${navigate.screen}" does not resolve to a registered entityList or projectionList screen (checked "${target.qn}").`,
+      message: `${context} navigate.screen "${navigate.screen}" does not resolve to a registered entityList, projectionList or custom screen (checked "${target.qn}").`,
     });
+  }
+  if ("customScreenId" in target) {
+    // A custom screen has no list query to count with, so the tile keeps its own query.
+    if (navigate.namedFilter !== undefined) {
+      throw bootRuleError(DASHBOARD_RULES.statNavigateCustomWithFilter, {
+        message: `${context} navigate.screen "${target.customScreenId}" is a custom screen, which has no namedFilters. Remove navigate.namedFilter.`,
+      });
+    }
+    return;
   }
   if (
     navigate.namedFilter !== undefined &&

@@ -91,6 +91,18 @@ export function deriveDetailRegionPieces(model: DetailRegionModel): DetailRegion
   };
 }
 
+// Tailwind needs the literal class strings.
+const NARROW_METRICS_ORDER = "max-md:order-1";
+const NARROW_TABS_ORDER = "max-md:order-2";
+
+function usesNarrowMetricsOrder(model: DetailRegionModel): boolean {
+  return model.screen.metricsPlacement?.narrow === "after-guidance";
+}
+
+function wrapNarrowOrder(model: DetailRegionModel, orderClass: string, node: ReactNode): ReactNode {
+  return usesNarrowMetricsOrder(model) ? <div className={orderClass}>{node}</div> : node;
+}
+
 function renderPageHeaderBranch(
   model: DetailRegionModel,
   pieces: DetailRegionPieces,
@@ -117,11 +129,15 @@ function renderPageHeaderBranch(
       {MetricBand === undefined && headerSlot}
       {(hasMetrics || bandSubtitle !== undefined || headerSlot !== undefined) &&
         (MetricBand !== undefined || hasMetrics) &&
-        renderMetricsBlock(
+        wrapNarrowOrder(
           model,
-          metricItems,
-          bandSubtitle,
-          MetricBand !== undefined ? headerSlot : undefined,
+          NARROW_METRICS_ORDER,
+          renderMetricsBlock(
+            model,
+            metricItems,
+            bandSubtitle,
+            MetricBand !== undefined ? headerSlot : undefined,
+          ),
         )}
       {pieces.actionErrorBanner}
     </>
@@ -136,21 +152,28 @@ function renderHeaderCardBranch(
   const { primitives, hasHeaderActions, hasMetrics, hasHeaderCard } = model;
   const { Card } = primitives;
   const { recordTitle, headerTitleSlot, headerSubtitleSlot, headerActionsContent } = pieces;
+  // Metrics must leave the head card to take part in the narrow reordering.
+  const metricsOutsideCard = usesNarrowMetricsOrder(model) && hasMetrics;
   return (
-    (hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined) && (
-      <Card
-        slots={{
-          ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
-          ...(headerTitleSlot === undefined && recordTitle !== undefined && { title: recordTitle }),
-          ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
-          ...(headerSlot !== undefined && { headerContent: headerSlot }),
-          ...(hasHeaderActions && { headerActions: headerActionsContent }),
-        }}
-      >
-        {hasMetrics && renderMetricsBlock(model, pieces.metricItems)}
-        {pieces.actionErrorBanner}
-      </Card>
-    )
+    <>
+      {(hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined) && (
+        <Card
+          slots={{
+            ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
+            ...(headerTitleSlot === undefined &&
+              recordTitle !== undefined && { title: recordTitle }),
+            ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
+            ...(headerSlot !== undefined && { headerContent: headerSlot }),
+            ...(hasHeaderActions && { headerActions: headerActionsContent }),
+          }}
+        >
+          {hasMetrics && !metricsOutsideCard && renderMetricsBlock(model, pieces.metricItems)}
+          {pieces.actionErrorBanner}
+        </Card>
+      )}
+      {metricsOutsideCard &&
+        wrapNarrowOrder(model, NARROW_METRICS_ORDER, renderMetricsBlock(model, pieces.metricItems))}
+    </>
   );
 }
 
@@ -183,7 +206,7 @@ export function renderDetailHeaderContent(
   const { hasTabs, activeSection } = model;
   const { PageHeader } = pieces;
   const { Tabs } = model.primitives;
-  return (
+  const content = (
     <>
       {renderDetailBreadcrumb(model)}
       {PageHeader !== undefined
@@ -193,7 +216,8 @@ export function renderDetailHeaderContent(
       {hasTabs &&
         activeSection !== undefined &&
         Tabs !== undefined &&
-        renderDetailTabs(model, activeSection, Tabs)}
+        wrapNarrowOrder(model, NARROW_TABS_ORDER, renderDetailTabs(model, activeSection, Tabs))}
     </>
   );
+  return usesNarrowMetricsOrder(model) ? <div className="flex flex-col">{content}</div> : content;
 }

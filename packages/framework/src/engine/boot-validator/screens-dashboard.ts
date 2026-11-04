@@ -34,6 +34,7 @@ import {
   validateRowActionNavigateParams,
 } from "./screens-actions.ts";
 import { DASHBOARD_CHART_RULES } from "./screens-dashboard-chart-rules.ts";
+import { validateDashboardPanelLink } from "./screens-dashboard-links.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 import { assertRefTargetRegistered, validateColumnRendererForm } from "./screens-lists.ts";
 
@@ -66,7 +67,7 @@ export function validateDashboardScreen(
   for (const panel of screen.panels) {
     addPanelId(panel.id, panel.kind);
     if (panel.kind === "stat-group") {
-      validateDashboardStatGroupPanel(featureName, screenId, panel, addPanelId);
+      validateDashboardStatGroupPanel(featureName, screenId, panel, addPanelId, featureMap);
     } else if (panel.kind === "custom") {
       validateDashboardCustomPanel(featureName, screenId, panel);
     } else if (panel.kind === "screen") {
@@ -504,8 +505,10 @@ function validateDashboardStatGroupPanel(
   screenId: string,
   panel: DashboardStatGroupPanel,
   addPanelId: (id: string, context: string) => void,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   const context = `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}"`;
+  validateDashboardPanelLink(`${context} link`, panel.link, featureName, featureMap);
   if (panel.stats.length === 0) {
     throw bootRuleError(DASHBOARD_RULES.statGroupEmpty, {
       message: `${context} has an empty stats list. Add at least one stat.`,
@@ -806,6 +809,12 @@ function validateDashboardQueryPanel(
   );
   if (panel.kind === "chart") validateDashboardChartDisplay(featureName, screenId, panel);
   if (panel.kind === "list") {
+    validateDashboardPanelLink(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" footerLink`,
+      panel.footerLink,
+      featureName,
+      featureMap,
+    );
     if (panel.columns.length === 0) {
       throw bootRuleError(DASHBOARD_RULES.listPanelColumnsEmpty, {
         message: `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" has an empty columns list. Add at least one column.`,

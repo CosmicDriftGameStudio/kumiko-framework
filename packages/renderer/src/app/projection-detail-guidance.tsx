@@ -185,7 +185,7 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
   );
 }
 
-function renderProgress(model: DetailGuidanceModel): ReactNode {
+function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode {
   const spec = model.screen.progress;
   if (spec === undefined) return undefined;
   const chains = model.record[spec.field];
@@ -209,6 +209,10 @@ function renderProgress(model: DetailGuidanceModel): ReactNode {
           currentIndex={currentIndex}
           doneSteps={chain.steps.map((step) => step.done)}
           narrowLayout="steps"
+          {...(stacked && {
+            orientation: "stacked" as const,
+            subtitles: chain.steps.map((step) => step.detail),
+          })}
           compactLabel={t("kumiko.wizard.step-with-title", {
             current: currentIndex + 1,
             total: chain.steps.length,
@@ -216,7 +220,7 @@ function renderProgress(model: DetailGuidanceModel): ReactNode {
           })}
           testId={`${testId}-bar`}
         />
-        {current !== undefined && (
+        {!stacked && current !== undefined && (
           <Text variant="muted" testId={`${testId}-up-next`}>
             {t("kumiko.wizard.up-next")}: {current.label}
             {current.detail !== undefined ? ` · ${current.detail}` : ""}
@@ -227,14 +231,37 @@ function renderProgress(model: DetailGuidanceModel): ReactNode {
   });
 }
 
+// RecordSteps and the summary carry their own px-6; the progress cards are bare, so they need the same inset to line up with the metric tiles.
+const PROGRESS_INSET = "flex min-w-0 flex-col gap-4 px-6 py-2";
+
 /** Summary, banner, progress and steps in reading order; blocks whose record field holds nothing drop out. */
 export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
+  const { progress, steps } = model.screen;
+  const beside = progress?.placement === "beside-steps" && steps !== undefined;
+  const progressNode = renderProgress(model, beside);
   return (
     <>
       {renderSummary(model)}
       {renderBanner(model)}
-      {renderProgress(model)}
-      {renderSteps(model)}
+      {beside ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <div
+            className={
+              progressNode !== undefined ? "min-w-0 lg:col-span-8" : "min-w-0 lg:col-span-12"
+            }
+          >
+            {renderSteps(model)}
+          </div>
+          {progressNode !== undefined && (
+            <div className={`${PROGRESS_INSET} lg:col-span-4 lg:pl-0`}>{progressNode}</div>
+          )}
+        </div>
+      ) : (
+        <>
+          {progressNode !== undefined && <div className={PROGRESS_INSET}>{progressNode}</div>}
+          {renderSteps(model)}
+        </>
+      )}
     </>
   );
 }

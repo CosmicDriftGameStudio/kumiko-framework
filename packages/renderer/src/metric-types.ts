@@ -16,6 +16,8 @@ export type MetricProps = {
   readonly tile?: boolean;
   readonly tone?: DashboardStatTone;
   readonly icon?: NavIconKey;
+  /** Small muted line under the value (see `MetricSpec.subField`). */
+  readonly sub?: string;
 };
 
 /** Band above the tabs of a record detail: optional subtitle line plus the

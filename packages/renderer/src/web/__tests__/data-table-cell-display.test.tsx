@@ -3,7 +3,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
-import { DataTableCell, LINK_BUTTON_CLASS, rowToneClass } from "../primitives/data-table-cell.tsx";
+import {
+  cardToneClass,
+  DataTableCell,
+  LINK_BUTTON_CLASS,
+  rowToneClass,
+} from "../primitives/data-table-cell.tsx";
 import { DataTable } from "./_primitives-helpers.tsx";
 import { render, screen } from "./test-utils.tsx";
 
@@ -86,12 +91,27 @@ describe("DataTableCell display", () => {
   });
 });
 
-describe("DataTable actions cell under a toned row", () => {
+describe("DataTable row tone", () => {
   const columns = [{ field: "name", label: "Name", type: "string" as const, sortable: false }];
   const rows = [{ id: "r1", values: { name: "Ada" } }];
   const rowActions = [{ id: "archive", label: "Archive", onTrigger: () => {} }];
 
-  test("mixes the row's tint into an opaque surface instead of the page background", () => {
+  test("a toned row draws a left stripe on its first cell and no background tint", () => {
+    const { container } = render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        testId="t"
+        rowTone={() => "bad"}
+        rowActions={rowActions}
+      />,
+    );
+    const row = container.querySelector('tr[data-tone="bad"]');
+    expect(row?.className).toContain("inset_3px_0_0_var(--color-status-bad)");
+    expect(row?.className).not.toContain("bg-status-bad");
+  });
+
+  test("the sticky actions cell stays an opaque surface under a toned row", () => {
     render(
       <DataTable
         columns={columns}
@@ -102,31 +122,18 @@ describe("DataTable actions cell under a toned row", () => {
       />,
     );
     const cell = screen.getByTestId("cell-r1-actions");
-    expect(cell.className).toContain(
-      "color-mix(in_srgb,var(--row-tone)_10%,var(--color-background))",
-    );
-    expect(cell.style.getPropertyValue("--row-tone")).toBe("var(--color-status-bad)");
-    expect(cell.className).not.toContain(rowToneClass("bad").split(" ")[0] ?? "");
-    expect(cell.className).not.toContain("md:bg-background");
-  });
-
-  test("a neutral tone keeps the opaque background without a tint variable", () => {
-    render(
-      <DataTable
-        columns={columns}
-        rows={rows}
-        testId="t"
-        rowTone={() => "neutral"}
-        rowActions={rowActions}
-      />,
-    );
-    const cell = screen.getByTestId("cell-r1-actions");
     expect(cell.className).toContain("md:bg-background");
-    expect(cell.style.getPropertyValue("--row-tone")).toBe("");
+    expect(cell.className).not.toContain("color-mix");
   });
 
-  test("an untoned row keeps the opaque background", () => {
-    render(<DataTable columns={columns} rows={rows} testId="t" rowActions={rowActions} />);
-    expect(screen.getByTestId("cell-r1-actions").className).toContain("md:bg-background");
+  test("a neutral tone draws no stripe", () => {
+    expect(rowToneClass("neutral")).toBe("");
+    expect(cardToneClass("neutral")).toBe("");
+    expect(rowToneClass(undefined)).toBe("");
+  });
+
+  test("cards use a real left border in the tone color", () => {
+    expect(cardToneClass("warn")).toContain("border-l-[3px]");
+    expect(cardToneClass("warn")).toContain("border-l-status-warn");
   });
 });

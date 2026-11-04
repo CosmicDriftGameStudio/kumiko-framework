@@ -53,11 +53,11 @@ export function validateColumnLayout(
       const value = col[key];
       if (value === undefined) continue;
       validatePixelWidth(where, col.field, key, value);
-      if (!flags.resizing) {
+      if (!flags.resizing && col.hint === undefined) {
         throw bootRuleError(LIST_TABLE_RULES.columnWidthWithoutResizing, {
           message:
             `${where} column "${col.field}" sets ${key} but table.resizing is not enabled, ` +
-            `so it would have no effect. Set table: { resizing: true } or remove "${key}".`,
+            `so it would have no effect (only a hint column sizes itself). Set table: { resizing: true } or remove "${key}".`,
         });
       }
     }

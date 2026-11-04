@@ -20,8 +20,10 @@ export const LIST_TABLE_OPTION_KEYS = [
   "export",
   "grouping",
   "totals",
+  "summaryRow",
   "compactHeader",
 ] as const;
+export const LIST_TABLE_SUMMARY_ROW_KEYS = ["query", "params"] as const;
 export const LIST_TABLE_GROUPING_KEYS = [
   "field",
   "label",
@@ -65,6 +67,16 @@ export type ListTableOptions = {
   readonly grouping?: ListTableGrouping;
   /** Footer row under the rows, computed by the server over all rows matching the current filters and search. In grouped mode the same measures show in each group header. */
   readonly totals?: readonly ListTableTotal[];
+  /** One line under the rows (above `totals`), computed by a query of your own: "label value · label value". */
+  readonly summaryRow?: ListTableSummaryRow;
+};
+
+/** The query receives the list's current search, filters and named filter (no paging, no sort) plus `params`, and answers `{ items: [{ label, value, tone? }] }`. */
+export type ListTableSummaryRow = {
+  /** Qualified query name, e.g. `feature:query:order:summary`. Its Zod schema accepts every list key the screen sends (search, filters, namedFilter, ...). */
+  readonly query: string;
+  /** Extra payload keys merged over the list's own. */
+  readonly params?: Readonly<Record<string, unknown>>;
 };
 
 export type ListTableGrouping = {

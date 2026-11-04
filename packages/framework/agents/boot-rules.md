@@ -59,7 +59,7 @@
 | <a id="bundled-lists-not-object"></a>`bundled-lists/not-object` | The bundledLists option is an object. | Write bundledLists as an object such as { table: { columnPicker: true } }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-pin-first-column-not-boolean"></a>`bundled-lists/pin-first-column-not-boolean` | bundledLists.pinFirstColumn is a boolean. | Set pinFirstColumn to true or false. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-pin-first-column-without-pinning"></a>`bundled-lists/pin-first-column-without-pinning` | bundledLists.pinFirstColumn needs bundledLists.table.pinning. | Set bundledLists.table.pinning: true or remove pinFirstColumn. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-| <a id="bundled-lists-screen-only-table-key"></a>`bundled-lists/screen-only-table-key` | bundledLists.table leaves out grouping and totals, which depend on one list's fields. | Set grouping and totals in the table block of the individual screen. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="bundled-lists-screen-only-table-key"></a>`bundled-lists/screen-only-table-key` | bundledLists.table leaves out grouping, totals and summaryRow, which depend on one list's fields or query. | Set grouping, totals and summaryRow in the table block of the individual screen. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-table-not-object"></a>`bundled-lists/table-not-object` | bundledLists.table is an object. | Write bundledLists.table as an object such as { columnPicker: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="bundled-lists-unknown-key"></a>`bundled-lists/unknown-key` | bundledLists uses only the allowed keys. | Remove the unknown keys or rename them to one of the allowed keys. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 
@@ -166,6 +166,7 @@
 | <a id="dashboard-filter-options-empty"></a>`dashboard/filter-options-empty` | Static filter options are non-empty. | Declare at least one option or use optionsQuery. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-filter-options-query-empty"></a>`dashboard/filter-options-query-empty` | filter.optionsQuery is non-empty when set. | Set optionsQuery to a query name or remove it. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-filter-options-xor"></a>`dashboard/filter-options-xor` | The dashboard filter sets exactly one of options and optionsQuery. | Keep either options or optionsQuery. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
+| <a id="dashboard-list-footer-link-unknown-screen"></a>`dashboard/list-footer-link-unknown-screen` | A list panel footerLink or stat-group link targets a registered screen; namedFilter only on a list screen that declares it. | Point screen at a registered screen and drop namedFilter unless the target list declares it. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-list-panel-columns-empty"></a>`dashboard/list-panel-columns-empty` | A list panel declares at least one column. | Add at least one column. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-panel-fallback-gated"></a>`dashboard/panel-fallback-gated` | A panel fallback screen has no visibleWhen of its own. | Embed a fallback screen without visibleWhen. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-panel-fallback-without-visible-when"></a>`dashboard/panel-fallback-without-visible-when` | A screen panel with a fallback also declares visibleWhen. | Add visibleWhen or remove fallback. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
@@ -184,6 +185,7 @@
 | <a id="dashboard-stat-group-child-visible-when"></a>`dashboard/stat-group-child-visible-when` | Stat-group children do not set visibleWhen. | Gate the whole group with visibleWhen instead. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-stat-group-empty"></a>`dashboard/stat-group-empty` | A stat-group declares at least one stat. | Add at least one stat. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-stat-group-subtitle-without-label"></a>`dashboard/stat-group-subtitle-without-label` | A stat-group with a subtitle also has a label. | Set a label or remove subtitle. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
+| <a id="dashboard-stat-navigate-custom-with-filter"></a>`dashboard/stat-navigate-custom-with-filter` | A stat navigating to a custom screen does not set namedFilter. | Remove navigate.namedFilter; a custom screen has no namedFilters. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-stat-navigate-params-invalid"></a>`dashboard/stat-navigate-params-invalid` | A stat's navigate.params has non-empty keys and string values. | Use { key: 'value' } with non-empty keys and string values, or remove params. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-stat-value-field-empty"></a>`dashboard/stat-value-field-empty` | A stat panel and stat-group child has a non-empty valueField. | Set valueField to a field of the query result. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
 | <a id="dashboard-text-link-roles-empty"></a>`dashboard/text-link-roles-empty` | A text link block's roles list is non-empty when set. | List the roles or omit roles. | `packages/framework/src/engine/boot-validator/screens-dashboard-rules.ts` |
@@ -661,6 +663,11 @@
 | <a id="list-row-decoration-query-empty"></a>`list/row-decoration-query-empty` | rowDecoration.query is a non-empty query QN. | Name the decoration query or remove rowDecoration. | `packages/framework/src/engine/boot-validator/list-row-guidance-rules.ts` |
 | <a id="list-screen-id-unresolved"></a>`list/screen-id-unresolved` | listScreenId names a mounted screen. | Fix the listScreenId or mount the list screen. | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
 | <a id="list-screen-unreachable"></a>`list/screen-unreachable` | A screen without a nav entry has a resolvable list, or is marked dormant. | Declare listScreenId, add a standalone r.nav() pointing at it, or set dormant: true. | `packages/framework/src/engine/boot-validator/screens-lists-rules.ts` |
+| <a id="list-sort-option-not-sortable"></a>`list/sort-option-not-sortable` | Every sortOptions field is a listed, sortable column (entityList) or one the query sorts by (projectionList). | Mark the field sortable and list it as a column, or give the projectionList's query sort and sortDirection parameters. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
+| <a id="list-summary-row-on-related-list"></a>`list/summary-row-on-related-list` | A relatedList section or expandableRow sets no table.summaryRow; only entityList and projectionList screens have a list payload to carry it. | Remove summaryRow from the relatedList, or put the summary on the list screen itself. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
+| <a id="list-summary-row-query-accepts-list-keys"></a>`list/summary-row-query-accepts-list-keys` | The summaryRow query's Zod schema accepts every list key the screen sends (search, namedFilter, filters). | Add the missing keys to the query schema (or reuse the list query's filter shape) and apply them, or drop the feature on the screen. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
+| <a id="list-summary-row-query-unknown"></a>`list/summary-row-query-unknown` | table.summaryRow.query names a registered query handler. | Use the qualified name of a query handler (feature:query:name) or remove summaryRow. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
+| <a id="list-summary-row-shape"></a>`list/summary-row-shape` | table.summaryRow is an object with a query string and optional params object. | Write table.summaryRow as { query: "feature:query:order:summary" }. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
 
 ## list-bulk
 
@@ -709,7 +716,7 @@
 | <a id="list-table-column-pinned-invalid"></a>`list-table/column-pinned-invalid` | A column's pinned value is one of the known pin sides. | Use one of the listed pin values. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-column-pinned-without-pinning"></a>`list-table/column-pinned-without-pinning` | A pinned column needs table.pinning, otherwise the pin has no effect. | Set table: { pinning: true } or remove pinned from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-column-width-invalid"></a>`list-table/column-width-invalid` | A column's width and minWidth are finite pixel counts greater than 0 and at most 2000. | Set a positive finite number up to 2000 or remove the option. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
-| <a id="list-table-column-width-without-resizing"></a>`list-table/column-width-without-resizing` | A column's width or minWidth needs table.resizing, otherwise it has no effect. | Set table: { resizing: true } or remove width and minWidth from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
+| <a id="list-table-column-width-without-resizing"></a>`list-table/column-width-without-resizing` | A column's width or minWidth needs table.resizing, otherwise it has no effect; a hint column is exempt. | Set table: { resizing: true } or remove width and minWidth from the column. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-density-default-invalid"></a>`list-table/density-default-invalid` | table.density.default is one of the known densities. | Use one of the listed density values. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-density-empty"></a>`list-table/density-empty` | table.density sets default and/or userChoice. | Set default and/or userChoice, or remove table.density. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
 | <a id="list-table-density-not-object"></a>`list-table/density-not-object` | table.density is an object. | Write table.density as { default: "compact", userChoice: true }. | `packages/framework/src/engine/boot-validator/list-table-rules.ts` |
@@ -781,7 +788,7 @@
 | <a id="named-filter-stat-navigate-same-named-filter"></a>`named-filter/stat-navigate-same-named-filter` | A stat's params.namedFilter equals navigate.namedFilter. | Set params.namedFilter to the same id as navigate.namedFilter. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
 | <a id="named-filter-stat-navigate-same-query"></a>`named-filter/stat-navigate-same-query` | A stat with navigate counts with the target list's own query. | Set the stat query to the target list's query. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
 | <a id="named-filter-stat-navigate-static-filter"></a>`named-filter/stat-navigate-static-filter` | A stat repeats the target screen's static filter in params.filter. | Set params.filter to the target screen's filter. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
-| <a id="named-filter-stat-navigate-target"></a>`named-filter/stat-navigate-target` | A stat navigate.screen resolves to an entityList or projectionList screen. | Point navigate.screen at a registered list screen. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
+| <a id="named-filter-stat-navigate-target"></a>`named-filter/stat-navigate-target` | A stat navigate.screen resolves to an entityList, projectionList or custom screen. | Point navigate.screen at a registered list or custom screen. | `packages/framework/src/engine/boot-validator/named-filter-rules.ts` |
 
 ## nav
 
@@ -968,6 +975,12 @@
 | --- | --- | --- | --- |
 | <a id="readiness-probe-fix-screen-unknown"></a>`readiness/probe-fix-screen-unknown` | A probe fixScreen names a screen of a mounted feature. | Use a <feature>:screen:<id> qualified name of a mounted screen. | `packages/bundled-features/src/readiness/boot-rules.ts` |
 | <a id="readiness-probe-translation-missing"></a>`readiness/probe-translation-missing` | Probe area and label keys are defined by a mounted feature. | Add the key via r.translations(...). | `packages/bundled-features/src/readiness/boot-rules.ts` |
+
+## record
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="record-progress-beside-steps-without-steps"></a>`record/progress-beside-steps-without-steps` | progress.placement "beside-steps" needs a steps block to sit next to. | Add steps to the projectionDetail or remove progress.placement. | `packages/framework/src/engine/boot-validator/screens-kind-projection-detail-rules.ts` |
 
 ## reference
 

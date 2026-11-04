@@ -17,7 +17,12 @@ import {
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
-import { answerOrderList, orderListSchema } from "../order-board";
+import {
+  answerOrderList,
+  answerOrderSummary,
+  orderListSchema,
+  orderSummarySchema,
+} from "../order-board";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -177,6 +182,45 @@ describe("record-detail-layout showcase — work queue", () => {
       "reminder-due",
       "ending-soon",
     ]);
+  });
+});
+
+describe("record-detail-layout showcase — board gaps", () => {
+  test("the orders list declares sort options, a summary query and a self-sizing hint column", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    expect(screen.sortOptions?.map((option) => [option.field, option.dir])).toEqual([
+      ["urgency", "desc"],
+      ["customerName", "asc"],
+    ]);
+    expect(screen.table?.summaryRow?.query).toBe("order-desk:query:order:summary");
+    const hint = screen.columns.map((c) => normalizeListColumn(c)).find((c) => c.hint);
+    expect([hint?.width, hint?.minWidth]).toEqual([320, 240]);
+  });
+
+  test("the summary query follows the named filter", () => {
+    const all = answerOrderSummary(orderSummarySchema.parse({}));
+    const open = answerOrderSummary(orderSummarySchema.parse({ namedFilter: "action-needed" }));
+    expect(all.items[0]?.value).toBe(8);
+    expect(open.items[0]?.value).toBe(5);
+    expect(all.items.map((item) => item.label)).toEqual(["Orders", "Open", "Overdue"]);
+  });
+
+  test("the today board links its list and stat group and the detail places progress beside the steps", () => {
+    const today = registry.getScreen("order-desk:screen:today");
+    if (today?.type !== "dashboard") throw new Error("expected dashboard");
+    const now = today.panels.find((panel) => panel.kind === "list" && panel.showTotal === true);
+    if (now?.kind !== "list") throw new Error("expected the now list");
+    expect(now.footerLink?.namedFilter).toBe("action-needed");
+    const counts = today.panels.find((panel) => panel.id === "queue-counts");
+    if (counts?.kind !== "stat-group") throw new Error("expected stat-group");
+    expect([counts.layout, counts.link?.screen]).toEqual(["strip", "orders"]);
+
+    const detail = registry.getScreen("order-desk:screen:order-detail");
+    if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(detail.progress?.placement).toBe("beside-steps");
+    expect(detail.metricsPlacement).toEqual({ narrow: "after-guidance" });
+    expect(detail.metrics?.map((metric) => metric.subField)).toContain("totalNote");
   });
 });
 

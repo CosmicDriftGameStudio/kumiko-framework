@@ -8,6 +8,7 @@ import {
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { validateColumnLayout } from "./list-column-layout.ts";
+import { validateSummaryRowShape } from "./list-sort-summary.ts";
 import { validateListTableAggregateShape } from "./list-table-aggregate-options.ts";
 import { validateExportOptions } from "./list-table-export-options.ts";
 import { rejectUnknownKeys } from "./list-table-reject-unknown-keys.ts";
@@ -112,6 +113,7 @@ export function validateListTableOptions(
   if (table["density"] !== undefined) validateDensity(where, table["density"]);
   if (table["export"] !== undefined) validateExportOptions(where, table["export"], exportAllowed);
   validateListTableAggregateShape(where, table, columns);
+  if (table["summaryRow"] !== undefined) validateSummaryRowShape(where, table["summaryRow"]);
   validateHiddenColumns(where, table["columnPicker"] === true, columns);
   validateColumnLayout(
     where,

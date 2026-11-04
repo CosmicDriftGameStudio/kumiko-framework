@@ -402,17 +402,33 @@ export function cellLinkProp(
   };
 }
 
-const ROW_TONE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
-  bad: "bg-status-bad/10 hover:bg-status-bad/15",
-  warn: "bg-status-warn/10 hover:bg-status-warn/15",
-  ok: "bg-status-ok/10 hover:bg-status-ok/15",
-  critical: "bg-status-critical/10 hover:bg-status-critical/15",
-  accent: "bg-primary/10 hover:bg-primary/15",
+// Tone is a left stripe, not a fill: a tinted row reads as selected or disabled and fights the
+// opaque sticky actions cell. Rows draw it as an inset shadow on the first cell (a border on a
+// <tr> collapses away), cards as a real border.
+const ROW_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  bad: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-bad)]",
+  warn: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-warn)]",
+  ok: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-ok)]",
+  critical: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-status-critical)]",
+  accent: "[&>td:first-child]:shadow-[inset_3px_0_0_var(--color-primary)]",
+  neutral: "",
+};
+
+const CARD_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  bad: "border-l-[3px] border-l-status-bad",
+  warn: "border-l-[3px] border-l-status-warn",
+  ok: "border-l-[3px] border-l-status-ok",
+  critical: "border-l-[3px] border-l-status-critical",
+  accent: "border-l-[3px] border-l-primary",
   neutral: "",
 };
 
 export function rowToneClass(tone: SelectOptionTone | undefined): string {
-  return tone === undefined ? "" : ROW_TONE_CLASS[tone];
+  return tone === undefined ? "" : ROW_TONE_STRIPE_CLASS[tone];
+}
+
+export function cardToneClass(tone: SelectOptionTone | undefined): string {
+  return tone === undefined ? "" : CARD_TONE_STRIPE_CLASS[tone];
 }
 
 export const NUMERIC_COLUMN_TYPES: ReadonlySet<string> = new Set([

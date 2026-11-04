@@ -10,7 +10,9 @@ import {
   createRedisCacheSyncBus,
 } from "@cosmicdrift/kumiko-framework/redis";
 import { createInMemorySearchAdapter } from "@cosmicdrift/kumiko-framework/search";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
+import { createManualClock } from "../helpers/manual-clock.ts";
 import type { createJobFailureTracker } from "./drain-jobs.ts";
 import { createEventCollector } from "./event-collector.ts";
 import { queueNamePrefixForTestRedis, type TestRedis } from "./redis.ts";
@@ -98,6 +100,12 @@ export async function buildStackServices(
   // index.ts). Putting it here would reintroduce the exact test-vs-prod
   // drift fixed: a job/handler reading `ctx.services.effectiveFeatures` would pass in
   // tests and break in prod.
+  const manualClock =
+    options.now === undefined
+      ? undefined
+      : createManualClock(
+          typeof options.now === "string" ? Temporal.Instant.from(options.now) : options.now,
+        );
   const extraContext =
     typeof options.extraContext === "function"
       ? options.extraContext({
@@ -121,13 +129,14 @@ export async function buildStackServices(
       ...(options.masterKeyProvider ? { masterKeyProvider: options.masterKeyProvider } : {}),
       ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
       ...(options.defaultLocale !== undefined && { defaultLocale: options.defaultLocale }),
+      ...(manualClock !== undefined && { clock: manualClock }),
       ...extraContext,
     },
     // Same bus buildServer gets: the resolver built here is the one it reuses, so config and
     // secret writes must reach its per-tenant provider cache through it.
     cacheSync,
   );
-  extraContextClock.current = extraContext?.["clock"];
+  extraContextClock.current = extraContext?.["clock"] ?? manualClock;
   return { searchAdapter, events, registry, sseBroker, entityCache, observability, appContext };
 }
 

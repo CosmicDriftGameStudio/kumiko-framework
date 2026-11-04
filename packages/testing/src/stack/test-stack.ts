@@ -110,6 +110,8 @@ export type TestStackOptions = {
    *  Can be a function receiving (registry, db, sseBroker) for late binding. */
   /** Boot default locale (BCP-47) merged into AppContext before extraContext. */
   defaultLocale?: string;
+  /** Fixed wall clock for `ctx.tz.now()`: becomes a manual clock merged into the AppContext as `clock`; an `extraContext.clock` wins. */
+  now?: string | import("@cosmicdrift/kumiko-types/temporal").Temporal.Instant;
   extraContext?:
     | Record<string, unknown>
     | ((deps: {

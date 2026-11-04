@@ -6,8 +6,8 @@ import { LIST_TABLE_RULES } from "./list-table-rules.ts";
 
 export const BUNDLED_LISTS_OPTION_KEYS = ["table", "pinFirstColumn"] as const;
 
-// grouping and totals name fields of one list, so they cannot be shared across lists
-const SCREEN_ONLY_TABLE_KEYS = ["grouping", "totals"] as const;
+// grouping and totals name fields; summaryRow names a query of one list, so they cannot be shared across lists
+const SCREEN_ONLY_TABLE_KEYS = ["grouping", "totals", "summaryRow"] as const;
 
 export function validateBundledListsOptions(options: unknown): void {
   if (!isPlainObject(options)) {

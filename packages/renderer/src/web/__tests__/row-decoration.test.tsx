@@ -86,7 +86,7 @@ function decorateOrders(): unknown {
 }
 
 describe("projectionList rowDecoration", () => {
-  test("one call with the page ids and params merges fields, tone and collisions into the rows", async () => {
+  test("one call with the page ids and params merges fields, tone stripe and collisions into the rows", async () => {
     const { query, calls } = mockQueries(ORDER_ROWS, decorateOrders, LIST_QUERY);
     renderProjection(query);
     await waitFor(() => expect(screen.getByText("Call customer")).toBeTruthy());
@@ -95,8 +95,8 @@ describe("projectionList rowDecoration", () => {
     expect(decorationCalls).toHaveLength(1);
     expect(decorationCalls[0]?.payload).toEqual({ scope: "mine", ids: ["o1", "o2"] });
     expect(screen.getByText("today")).toBeTruthy();
-    expect(screen.getByText("Order 1").closest("tr")?.className).toContain("bg-status-bad/10");
-    expect(screen.getByText("Order 2").closest("tr")?.className).toContain("bg-status-ok/10");
+    expect(screen.getByText("Order 1").closest("tr")?.className).toContain("--color-status-bad");
+    expect(screen.getByText("Order 2").closest("tr")?.className).toContain("--color-status-ok");
     expect(screen.getByTestId("cell-o1-stage").textContent).toBe("overdue");
     expect(screen.getByTestId("cell-o2-stage").textContent).toBe("raw");
   });
@@ -129,7 +129,7 @@ describe("entityList rowDecoration", () => {
 
     expect(screen.getByText("Stage")).toBeTruthy();
     expect(screen.getByText("Write report").closest("tr")?.className).toContain(
-      "bg-status-warn/10",
+      "--color-status-warn",
     );
     const decorationCalls = calls.filter((call) => call.type === "shop:query:task:decorate");
     expect(decorationCalls).toHaveLength(1);

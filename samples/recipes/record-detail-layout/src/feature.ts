@@ -37,7 +37,9 @@ import {
   answerNowList,
   answerOrderDetail,
   answerOrderList,
+  answerOrderSummary,
   orderListSchema,
+  orderSummarySchema,
 } from "./order-board.ts";
 
 const rowIdSchema = z.object({ id: z.string() });
@@ -54,6 +56,13 @@ export function createOrderDeskFeature(): FeatureDefinition {
       name: "order:list",
       schema: orderListSchema,
       handler: async (query) => answerOrderList(query.payload),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:summary",
+      schema: orderSummarySchema,
+      handler: async (query) => answerOrderSummary(query.payload),
       access: accessRoles,
     });
 
@@ -156,7 +165,13 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.col.amount": { en: "Amount" },
         "order-desk.col.method": { en: "Method" },
         "order-desk.col.status": { en: "Status" },
+        "order-desk.sort.urgency": { en: "Urgency" },
+        "order-desk.sort.customer": { en: "Customer A-Z" },
         "order-desk.today.now": { en: "Now" },
+        "order-desk.today.now-all": { en: "All orders needing action" },
+        "order-desk.today.inbox": { en: "Inbox" },
+        "order-desk.today.inbox-sub": { en: "Orders waiting for you" },
+        "order-desk.today.inbox-link": { en: "All orders" },
         "order-desk.today.deadlines": { en: "Deadlines" },
         "order-desk.today.customers": { en: "Customers" },
         "order-desk.today.money": { en: "Money" },
@@ -211,10 +226,16 @@ export function createOrderDeskFeature(): FeatureDefinition {
             reasonField: "nextStepReason",
             emptyLabel: "order-desk.orders.nothing-open",
           },
+          width: 320,
+          minWidth: 240,
         },
         { field: "openAmount", label: "order-desk.col.open-amount", hideOnNarrow: true },
       ],
-      defaultSort: { field: "orderNumber", dir: "asc" },
+      defaultSort: { field: "urgency", dir: "desc" },
+      sortOptions: [
+        { field: "urgency", dir: "desc", label: "order-desk.sort.urgency" },
+        { field: "customerName", dir: "asc", label: "order-desk.sort.customer" },
+      ],
       namedFilters: [
         {
           id: "action-needed",
@@ -237,6 +258,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       ],
       namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
       table: {
+        summaryRow: { query: "order-desk:query:order:summary" },
         totals: [
           { field: "orderNumber", kind: "count" },
           { field: "openAmount", kind: "sum" },
@@ -282,7 +304,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
         {
           kind: "stat-group",
           id: "queue-counts",
+          label: "order-desk.today.inbox",
+          subtitle: "order-desk.today.inbox-sub",
           span: "full",
+          layout: "strip",
+          link: { label: "order-desk.today.inbox-link", screen: "orders" },
           stats: [
             {
               kind: "stat",
@@ -291,6 +317,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               query: ORDER_LIST_QUERY,
               valueField: "total",
               params: { namedFilter: "action-needed", limit: 1, totalCount: true },
+              tone: "negative",
               navigate: { screen: "orders", namedFilter: "action-needed" },
             },
             {
@@ -300,6 +327,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               query: ORDER_LIST_QUERY,
               valueField: "total",
               params: { namedFilter: "reminder-due", limit: 1, totalCount: true },
+              tone: "warn",
               navigate: { screen: "orders", namedFilter: "reminder-due" },
             },
             {
@@ -319,6 +347,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.now",
           span: "two-thirds",
           showHeader: false,
+          showTotal: true,
+          footerLink: {
+            label: "order-desk.today.now-all",
+            screen: "orders",
+            namedFilter: "action-needed",
+          },
           query: "order-desk:query:order:now",
           rowToneField: "tone",
           columns: [
@@ -424,7 +458,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
-      progress: { field: "progress" },
+      progress: { field: "progress", placement: "beside-steps" },
       steps: {
         field: "steps",
         title: "order-desk.steps.title",
@@ -448,11 +482,18 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
+      metricsStyle: "tiles",
+      metricsPlacement: { narrow: "after-guidance" },
       metrics: [
-        { field: "totalAmount", label: "order-desk.metric.totalAmount" },
+        {
+          field: "totalAmount",
+          label: "order-desk.metric.totalAmount",
+          subField: "totalNote",
+        },
         {
           field: "outstandingAmount",
           label: "order-desk.metric.outstandingAmount",
+          subField: "outstandingNote",
           tone: "warn",
           toneField: "outstandingTone",
           navigate: { tab: "payments" },

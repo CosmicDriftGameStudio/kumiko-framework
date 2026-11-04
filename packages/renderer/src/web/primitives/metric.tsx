@@ -44,11 +44,12 @@ export function DefaultMetricBand({
   );
 }
 
-function MetricTile({ label, value, testId, onPress, tone, icon }: MetricProps): ReactNode {
+function MetricTile({ label, value, testId, onPress, tone, icon, sub }: MetricProps): ReactNode {
   const card = (
     <StatCard
       label={label}
       value={value}
+      {...(sub !== undefined && { sub })}
       {...(icon !== undefined && { icon: <Icon name={icon} className="size-4" /> })}
       {...(tone !== undefined && { tone })}
       {...(testId !== undefined && { testId })}
@@ -66,7 +67,7 @@ function MetricTile({ label, value, testId, onPress, tone, icon }: MetricProps):
 export function DefaultMetric(props: MetricProps): ReactNode {
   const insideBand = useContext(InsideMetricBandContext);
   if (props.tile === true) return <MetricTile {...props} />;
-  const { label, value, testId, onPress } = props;
+  const { label, value, testId, onPress, sub } = props;
   const item = (
     <div
       data-testid={testId}
@@ -89,6 +90,14 @@ export function DefaultMetric(props: MetricProps): ReactNode {
           </button>
         ) : (
           value
+        )}
+        {sub !== undefined && (
+          <span
+            className="block text-xs font-normal text-muted-foreground"
+            data-testid={testId !== undefined ? `${testId}-sub` : undefined}
+          >
+            {sub}
+          </span>
         )}
       </dd>
     </div>

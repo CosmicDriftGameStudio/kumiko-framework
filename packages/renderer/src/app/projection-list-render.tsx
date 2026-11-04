@@ -5,6 +5,7 @@ import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import type { usePrimitives } from "../primitives.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { isListNarrowed } from "./list-empty-content.ts";
+import { translatedSortOptionProps } from "./list-sort-options.ts";
 import { buildNamedFilterEmpty } from "./named-filter-facet.ts";
 import {
   projectionActionProps,
@@ -86,6 +87,7 @@ export function renderProjectionList(model: ProjectionListRenderModel): ReactNod
       onSearchChange={urlState.setQ}
       sort={query.activeSort}
       onSortChange={urlState.setSort}
+      {...translatedSortOptionProps(screen.sortOptions, effectiveTranslate)}
       {...projectionLayoutProps(
         isEmbeddedScreen,
         screen,

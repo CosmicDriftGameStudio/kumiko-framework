@@ -11,6 +11,7 @@ import { type ListTableProps, useListTable } from "../hooks/use-list-table.ts";
 import { listViewSchemaColumns } from "../hooks/use-list-view-state.ts";
 import { useRememberedListParams } from "../hooks/use-remembered-list-params.ts";
 import type { DataTableTableBlockProps } from "../primitives.tsx";
+import { useListSummaryRow } from "./use-list-summary-row.ts";
 
 type ScreenListTableArgs = {
   readonly screen: EntityListScreenDefinition | ProjectionListScreenDefinition;
@@ -26,7 +27,7 @@ type ScreenListTableArgs = {
 
 export type ScreenListTable = {
   readonly props: ListTableProps &
-    Pick<DataTableTableBlockProps, "serverGroups" | "totals" | "notice">;
+    Pick<DataTableTableBlockProps, "serverGroups" | "totals" | "summaryRow" | "notice">;
   readonly aggregates: ListAggregates;
   /** The remembered params are still on their way into the URL; list queries wait. */
   readonly restoring: boolean;
@@ -78,9 +79,15 @@ export function useScreenListTable({
     paused: restoring,
   });
   const { serverGroups, totals, notice } = aggregates;
+  const summaryRow = useListSummaryRow({
+    summaryRow: table?.summaryRow,
+    payload,
+    paused: restoring,
+  });
   return {
     props: {
       ...props,
+      ...(summaryRow !== undefined && { summaryRow }),
       ...(serverGroups !== undefined && { serverGroups }),
       ...(totals !== undefined && { totals }),
       ...(notice !== undefined && { notice }),

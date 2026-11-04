@@ -123,6 +123,9 @@ export type ListColumnViewModel = {
   readonly fileDisplay?: ListColumnFileDisplay;
   /** "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated. */
   readonly hint?: ListColumnHintViewModel;
+  /** Start width and floor in px of a hint column; unlike other columns they apply without `table.resizing`. */
+  readonly width?: number;
+  readonly minWidth?: number;
   /** `ListColumnSpec.display` for list tables: a status pill or a link drawn as a button. */
   readonly display?: ListColumnCellDisplay;
   /** Row field naming the pill tone; only with `display: "badge"`. */

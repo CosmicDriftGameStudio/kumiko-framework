@@ -68,6 +68,11 @@ export const PROJECTION_DETAIL_RULES = {
       "The field names of breadcrumb, summary, banner, steps and progress are non-empty strings.",
     fix: "Name a query output field or remove the block.",
   },
+  progressBesideStepsWithoutSteps: {
+    id: "record/progress-beside-steps-without-steps",
+    summary: 'progress.placement "beside-steps" needs a steps block to sit next to.',
+    fix: "Add steps to the projectionDetail or remove progress.placement.",
+  },
   guidanceActionShowOnTabs: {
     id: "projection-detail/guidance-action-show-on-tabs",
     summary: "Banner and steps actions set no showOnTabs.",

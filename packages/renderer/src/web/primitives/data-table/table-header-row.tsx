@@ -6,6 +6,7 @@ import { NUMERIC_COLUMN_TYPES } from "../data-table-cell.tsx";
 import { ActionsHeaderCell } from "./actions-column.tsx";
 import { ColumnResizeHandle } from "./column-resize-handle.tsx";
 import { COLUMN_ROLE_ATTRIBUTE } from "./column-role.ts";
+import { hintColumnWidthStyle } from "./hint-column-width.ts";
 import { SortableHeader } from "./sortable-header.tsx";
 import { EXPAND_TOGGLE_CELL_CLASS } from "./table-chrome.tsx";
 import { EXPAND_COLUMN_KEY, SELECT_COLUMN_KEY } from "./use-column-pins.ts";
@@ -25,7 +26,7 @@ function renderColumnHeader(m: DataTableModel, col: ListColumnViewModel): ReactN
       fitContent={col.fileDisplay !== undefined}
       compact={m.compactHeader === true}
       className={cn(m.density.header, headerPin.className)}
-      style={headerPin.style}
+      style={{ ...headerPin.style, ...hintColumnWidthStyle(col, sizing !== undefined) }}
       columnField={headerPin.columnField}
       trailing={
         sizing && <ColumnResizeHandle field={col.field} label={col.label} sizing={sizing} />

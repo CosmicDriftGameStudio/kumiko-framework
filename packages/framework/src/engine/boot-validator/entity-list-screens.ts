@@ -6,6 +6,7 @@ import { collectBootRuleViolations } from "./boot-report.ts";
 import { type BootRule, bootRuleError } from "./boot-rule.ts";
 import { isSortableSqlDerivedField } from "./derived-sql-fields.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
+import { LIST_SORT_SUMMARY_RULES } from "./list-sort-summary-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
@@ -84,6 +85,18 @@ function checkNamedFilterSortColumns(
   }
 }
 
+function checkSortOptionColumns(
+  feature: FeatureDefinition,
+  screen: EntityListScreenDefinition,
+): void {
+  for (const option of screen.sortOptions ?? []) {
+    checkSortSpecColumn(feature, screen, `sortOptions "${option.label}"`, option.field, {
+      notListed: LIST_SORT_SUMMARY_RULES.sortOptionNotSortable,
+      notSortable: LIST_SORT_SUMMARY_RULES.sortOptionNotSortable,
+    });
+  }
+}
+
 function checkSortSpecColumn(
   feature: FeatureDefinition,
   screen: EntityListScreenDefinition,
@@ -158,6 +171,7 @@ const ENTITY_LIST_CHECKS: readonly EntityListCheck[] = [
   checkDefaultSortRequired,
   checkDefaultSortColumn,
   checkNamedFilterSortColumns,
+  checkSortOptionColumns,
   checkDetailNavigate,
   checkColumns,
   checkNamedFilters,

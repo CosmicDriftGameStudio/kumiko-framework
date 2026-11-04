@@ -42,6 +42,29 @@ test("the footer totals the open amount over the whole list", async ({ page }) =
   await expect(page.getByTestId("list-totals")).toContainText("2497");
 });
 
+test("the sort select reorders the list by the chosen option", async ({ page }) => {
+  await page.goto("/orders");
+  const select = page.getByTestId("render-list-table-sort-options");
+  await expect(page.getByTestId("render-list-table-sort-options-label")).toContainText("Sorted by");
+  await select.selectOption({ label: "Customer A-Z" });
+  await expect(page.getByTestId("render-list-table-sort-options-label")).toContainText(
+    "Customer A-Z",
+  );
+  const rowTexts = await page.locator("tbody tr").allInnerTexts();
+  const customers = rowTexts.map(
+    (text) => /Aiko|Emma|Jonas|Kenji|Lars|Maria|Priya|Tom/.exec(text)?.[0],
+  );
+  expect(customers).toEqual([...customers].sort());
+});
+
+test("the summary row follows the filter", async ({ page }) => {
+  await page.goto("/orders");
+  await expect(page.getByTestId("list-summary")).toContainText("Orders 8");
+  await page.getByTestId(FILTER_FACET).click();
+  await page.getByTestId(`${FILTER_FACET}-action-needed`).click();
+  await expect(page.getByTestId("list-summary")).toContainText("Orders 5");
+});
+
 test("a stat tile on the dashboard links into the filtered list", async ({ page }) => {
   await page.goto("/today");
   await page.getByText("Need action").click();

@@ -265,7 +265,30 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly rowToneField?: string;
     /** `false` drops the column header row; default true. */
     readonly showHeader?: boolean;
+    /** i18n key, a line under `label`; with `showTotal` it stands before the count. */
+    readonly subtitle?: string;
+    /** Adds "n of m" to the subtitle from the rows shown and the query's `total`. */
+    readonly showTotal?: true;
+    /** Link under the table to the full list; with a known `total` above the rows shown, "k more" stands before it. */
+    readonly footerLink?: DashboardListFooterLink;
   };
+
+/** Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens. */
+export type DashboardListFooterLink = {
+  readonly label: string;
+  readonly screen: string;
+  readonly namedFilter?: string;
+  readonly params?: Readonly<Record<string, string>>;
+};
+
+/** Link at the right edge of a stat-group panel; `label` is an i18n key. */
+export type DashboardStatGroupLink = {
+  readonly label: string;
+  readonly screen: string;
+  readonly params?: Readonly<Record<string, string>>;
+};
+
+export type DashboardStatGroupLayout = "cards" | "strip";
 
 // Section of several stat panels (e.g. "Net Worth": Assets/Debts/Net). One
 // nesting level, no group-of-groups: each child stays a full
@@ -279,6 +302,11 @@ export type DashboardStatGroupPanel = DashboardPanelGate & {
   /** i18n key, a line under `label`; the boot validator requires `label`. */
   readonly subtitle?: string;
   readonly span?: DashboardPanelSpan;
+  /** Default: "strip" without `label`, "cards" with. "strip" with a `label` puts label and subtitle
+   *  left and compact tiles beside them; under sm with a `link` it collapses to one clickable line. */
+  readonly layout?: DashboardStatGroupLayout;
+  /** Link at the right edge of the panel (label + chevron). */
+  readonly link?: DashboardStatGroupLink;
   readonly stats: readonly DashboardStatPanel[];
 };
 

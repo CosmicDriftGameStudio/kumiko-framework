@@ -13,6 +13,7 @@ import {
   TABULAR_COLUMN_TYPES,
 } from "../data-table-cell.tsx";
 import { columnCellPresentationProps } from "./data-cell-props.ts";
+import { hintColumnWidthStyle } from "./hint-column-width.ts";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 // Text wraps instead of truncating: nowrap cells keep their
@@ -46,6 +47,8 @@ function autoLayoutCellClassName(
   colIndex: number,
 ): string {
   if (m.sizing !== undefined && isDateColumn(col)) return "whitespace-nowrap";
+  // max-w-xs would cap a hint column that states a wider width.
+  if (col.hint !== undefined && col.width !== undefined) return "whitespace-normal break-words";
   return colIndex === 0 && m.sizing !== undefined
     ? "whitespace-normal [overflow-wrap:anywhere]"
     : "max-w-xs whitespace-normal break-words";
@@ -88,7 +91,7 @@ export function renderDataCell(
       data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
       data-highlighted={col.highlighted === true ? "true" : undefined}
       className={dataCellClassName(m, col, colIndex, bodyPin.className)}
-      style={bodyPin.style}
+      style={{ ...bodyPin.style, ...hintColumnWidthStyle(col, m.sizing !== undefined) }}
       title={cellTitle(row.values[col.field])}
     >
       <FirstCellLink

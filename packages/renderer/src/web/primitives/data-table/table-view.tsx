@@ -5,7 +5,7 @@ import { ColumnWidthGroup } from "./column-resize-handle.tsx";
 import { renderTableBody } from "./table-body.tsx";
 import { FILL_TABLE_CLASS, FlushTable } from "./table-chrome.tsx";
 import { renderTableHeader } from "./table-header-row.tsx";
-import { TotalsFooterRow } from "./totals-footer.tsx";
+import { SummaryFooterRow, TotalsFooterRow } from "./totals-footer.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 function renderColumnWidths(m: DataTableModel): ReactNode {
@@ -18,6 +18,17 @@ function renderColumnWidths(m: DataTableModel): ReactNode {
       hasExpandColumn={m.expansion !== undefined}
       hasSelectColumn={m.selection.active}
       hasActionsColumn={m.hasTableActions}
+    />
+  );
+}
+
+function renderSummaryRow(m: DataTableModel): ReactNode {
+  if (m.summaryRow === undefined) return null;
+  return (
+    <SummaryFooterRow
+      summary={m.summaryRow}
+      colSpan={m.fullColSpan}
+      cellClassName={m.density.cell}
     />
   );
 }
@@ -64,6 +75,7 @@ export function renderTableView(m: DataTableModel): ReactNode {
         {renderColumnWidths(m)}
         {renderTableHeader(m)}
         {renderTableBody(m)}
+        {renderSummaryRow(m)}
         {renderTotalsRow(m)}
       </TableRoot>
     </div>

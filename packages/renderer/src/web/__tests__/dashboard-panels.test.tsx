@@ -2059,3 +2059,57 @@ describe("dashboard text panel", () => {
     }
   });
 });
+
+describe("dashboard list showTotal, footer link and stat-group link", () => {
+  const listScreen: DashboardScreenDefinition = {
+    id: "board",
+    type: "dashboard",
+    panels: [
+      {
+        kind: "list",
+        id: "now",
+        label: "demo:now",
+        query: "demo:query:jobs:list",
+        columns: ["name"],
+        showTotal: true,
+        footerLink: { label: "demo:all-jobs", screen: "jobs" },
+      },
+      {
+        kind: "stat-group",
+        id: "counts",
+        label: "demo:counts",
+        layout: "strip",
+        link: { label: "demo:open-jobs", screen: "jobs" },
+        stats: [
+          {
+            kind: "stat",
+            id: "late",
+            label: "demo:late",
+            query: "demo:query:kpi:late",
+            valueField: "value",
+          },
+        ],
+      },
+    ],
+  };
+
+  test("shows 'n of m', the remaining count and both links", async () => {
+    renderDashboard(listScreen, {
+      "demo:query:jobs:list": () => ok({ rows: [{ name: "A" }, { name: "B" }], total: 5 }),
+      "demo:query:kpi:late": () => ok({ value: "3" }),
+    });
+    await waitFor(() => expect(screen.getByTestId("dashboard-list-more")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-list-more").textContent).toContain("3");
+    expect(screen.getByTestId("dashboard-list-footer-link").textContent).toBe("demo:all-jobs");
+    expect(screen.getByTestId("dashboard-stat-group-link").textContent).toContain("demo:open-jobs");
+  });
+
+  test("without a total no remaining count is shown", async () => {
+    renderDashboard(listScreen, {
+      "demo:query:jobs:list": () => ok({ rows: [{ name: "A" }] }),
+      "demo:query:kpi:late": () => ok({ value: "3" }),
+    });
+    await waitFor(() => expect(screen.getByTestId("dashboard-list-footer-link")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-list-more")).toBeNull();
+  });
+});

@@ -234,6 +234,7 @@ export type {
   DashboardFeedPanel,
   DashboardFilterDefinition,
   DashboardI18nText,
+  DashboardListFooterLink,
   DashboardListPanel,
   DashboardMoneyParam,
   DashboardPanelDefinition,
@@ -251,6 +252,8 @@ export type {
   DashboardScopeDefinition,
   DashboardScreenDefinition,
   DashboardScreenPanel,
+  DashboardStatGroupLayout,
+  DashboardStatGroupLink,
   DashboardStatGroupPanel,
   DashboardStatPanel,
   DashboardStatTone,
@@ -298,6 +301,7 @@ export type {
   ListPaginationMode,
   ListRowDecoration,
   ListSortDir,
+  ListSortOption,
   ListSortSpec,
   RelatedListToolbarAction,
   RowAction,
@@ -329,6 +333,7 @@ export type {
   ListTableExportOptions,
   ListTableGrouping,
   ListTableOptions,
+  ListTableSummaryRow,
   ListTableTotal,
 } from "./screen-list-table.ts";
 export {
@@ -340,6 +345,7 @@ export {
   LIST_TABLE_EXPORT_KEYS,
   LIST_TABLE_GROUPING_KEYS,
   LIST_TABLE_OPTION_KEYS,
+  LIST_TABLE_SUMMARY_ROW_KEYS,
   LIST_TABLE_TOTAL_KEYS,
   MAX_EXPORT_MAX_ROWS,
 } from "./screen-list-table.ts";
