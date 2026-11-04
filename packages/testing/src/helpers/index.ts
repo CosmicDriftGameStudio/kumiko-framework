@@ -47,6 +47,7 @@ export {
   deleteRowViaEventStore,
   type EventStoreWriteScope,
   type EventStoreWriteTarget,
+  seedRowsViaEventStore,
   seedRowViaEventStore,
   updateRowViaEventStore,
 } from "./event-store-writes.ts";

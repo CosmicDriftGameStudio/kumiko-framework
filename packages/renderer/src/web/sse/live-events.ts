@@ -101,7 +101,6 @@ function hasErrorCode(body: unknown): body is { readonly error: { readonly code:
 async function isSessionEndedRejection(url: string): Promise<boolean> {
   const controller = new AbortController();
   try {
-    // kumiko-lint-ignore direct-fetch url is the app's own SSE endpoint, probed with same-origin credentials
     const res = await fetch(url, {
       credentials: "same-origin",
       headers: { Accept: "text/event-stream" },

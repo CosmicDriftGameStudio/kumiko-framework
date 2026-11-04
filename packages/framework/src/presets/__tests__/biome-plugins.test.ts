@@ -132,7 +132,6 @@ describe("raw-html-in-web plugin", () => {
       '    <a href="/x">link</a>',
       "    <Button onClick={go}>Go</Button>",
       '    <span className="bg-card">x</span>',
-      '    <span className="mx-auto max-w-3xl">x</span>',
       '    <span className="text-muted md:text-sm">x</span>',
       "  </div>",
       ");",
@@ -140,8 +139,27 @@ describe("raw-html-in-web plugin", () => {
     ].join("\n"),
   });
 
-  test("flags raw layout elements, hand-rolled cards and containers, and alert", () => {
-    expect(lineNumbers(findings, "a.tsx")).toEqual([3, 7, 8, 12]);
+  test("flags raw layout elements, hand-rolled cards and alert", () => {
+    expect(lineNumbers(findings, "a.tsx")).toEqual([3, 7, 11]);
+  });
+});
+
+describe("no-screen-container-classes plugin", () => {
+  const findings = lintWithPlugin("no-screen-container-classes", {
+    "a.tsx": [
+      "export const Screen = () => (",
+      "  <div>",
+      '    <span className="mx-auto max-w-3xl">x</span>',
+      '    <span className="max-w-xl p-2 mx-auto">x</span>',
+      '    <span className="mx-auto">x</span>',
+      '    <span className="max-w-3xl">x</span>',
+      "  </div>",
+      ");",
+    ].join("\n"),
+  });
+
+  test("flags mx-auto combined with max-w-* in either order", () => {
+    expect(lineNumbers(findings, "a.tsx")).toEqual([3, 4]);
   });
 });
 
@@ -184,6 +202,15 @@ describe("raw-ui-in-app plugin", () => {
   test("flags a, details and summary only in files that can reach the primitives", () => {
     expect(lineNumbers(findings, "with-primitives.tsx")).toEqual([2, 3, 3]);
     expect(lineNumbers(findings, "with-use-primitives.tsx")).toEqual([2]);
+  });
+
+  test("raw interactive elements only warn, every other branch is an error", () => {
+    const severityOf = (file: string, line: number) =>
+      findings.find((f) => f.file === file && f.line === line)?.severity;
+    expect(severityOf("with-primitives.tsx", 2)).toBe("warning");
+    expect(severityOf("plain.tsx", 3)).toBe("error");
+    expect(severityOf("plain.tsx", 7)).toBe("error");
+    expect(severityOf("plain.tsx", 13)).toBe("error");
   });
 });
 
@@ -263,6 +290,10 @@ describe("test-title plugin", () => {
 
   test("flags German titles and issue references", () => {
     expect(lineNumbers(findings, "a.test.ts")).toEqual([2, 3, 4, 5, 6, 7, 10]);
+  });
+
+  test("reports warnings, not errors", () => {
+    expect(new Set(findings.map((f) => f.severity))).toEqual(new Set(["warning"]));
   });
 });
 

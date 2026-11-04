@@ -52,6 +52,11 @@ describe("biome-rules preset in an app-shaped repo", () => {
     "src/types.ts": "export type Style = CSSProperties;",
     "src/web/Screen.tsx": "export const Screen = () => <button>Go</button>;",
     "src/public/Page.tsx": "export const Page = () => <button>Go</button>;",
+    "src/web/Container.tsx":
+      'export const Container = () => <div className="mx-auto max-w-3xl">x</div>;',
+    "src/public/Container.tsx":
+      'export const Container = () => <div className="mx-auto max-w-3xl">x</div>;',
+    "src/client/Screen.tsx": "export const Screen = () => <button>Go</button>;",
     "src/web/Screen.test.tsx": "export const T = () => <button>Go</button>;",
     "src/screens/Other.tsx": [
       "export const Other = () => (",
@@ -117,10 +122,16 @@ describe("biome-rules preset in an app-shaped repo", () => {
     expect(findingsFor(findings, "src/types.ts")).toEqual([1]);
   });
 
-  test("raw layout HTML only in web and public, raw form tags and palette classes in any tsx", () => {
+  test("raw layout HTML only in web, client and public, raw form tags and palette classes in any tsx", () => {
     expect(findingsFor(findings, "src/web/Screen.tsx")).toEqual([1]);
+    expect(findingsFor(findings, "src/client/Screen.tsx")).toEqual([1]);
     expect(findingsFor(findings, "src/public/Page.tsx")).toEqual([1]);
     expect(findingsFor(findings, "src/screens/Other.tsx")).toEqual([4, 5]);
+  });
+
+  test("screen container classes are caught in web but not under public", () => {
+    expect(findingsFor(findings, "src/web/Container.tsx")).toEqual([1]);
+    expect(findingsFor(findings, "src/public/Container.tsx")).toEqual([]);
   });
 
   test("inline styles are caught in every tsx", () => {

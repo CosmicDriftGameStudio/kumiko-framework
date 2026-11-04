@@ -169,7 +169,6 @@ export function useBrowserTokensApi(): TokensApi {
     () => "dark" as const,
   );
 
-  // kumiko-lint-ignore no-raw-hooks listener lifecycle, no data fetching
   useEffect(() => {
     // skip: without matchMedia, auto keeps the mode resolved at apply time
     if (typeof window.matchMedia !== "function") return;
