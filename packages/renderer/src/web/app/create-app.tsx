@@ -73,6 +73,7 @@ import {
 } from "../../index.ts";
 import { createLiveDispatcher } from "../../live/index.ts";
 import { lastSegment } from "../layout/nav-tree.tsx";
+import { ScreenFocus } from "../layout/screen-focus.tsx";
 import { clearFileMetaCache } from "../primitives/file-thumbnail.tsx";
 import { defaultPrimitives, ScreenWidthProvider } from "../primitives/index.tsx";
 import { ToastProvider } from "../primitives/toast.tsx";
@@ -977,6 +978,8 @@ function RoutedScreen({
     };
   }, [nav.route, app, fallbackQn]);
 
+  const allScreens = useMemo(() => app.features.flatMap((f) => f.screens), [app.features]);
+
   const effectiveOnRowClick = useMemo<
     ((row: ListRowViewModel, entityName: string) => void) | undefined
   >(() => {
@@ -1056,14 +1059,16 @@ function RoutedScreen({
         <ScreenErrorFallback screen={qn} error={error} errorId={errorId} onReset={reset} />
       )}
     >
-      <KumikoScreen
-        schema={schemaForScreen}
-        qn={qn}
-        {...(translate !== undefined && { translate })}
-        {...(entityId !== undefined && { entityId })}
-        onRowClick={effectiveOnRowClick}
-        {...(effectiveOnCopyLink !== undefined && { onCopyLink: effectiveOnCopyLink })}
-      />
+      <ScreenFocus screen={activeScreen} screens={allScreens}>
+        <KumikoScreen
+          schema={schemaForScreen}
+          qn={qn}
+          {...(translate !== undefined && { translate })}
+          {...(entityId !== undefined && { entityId })}
+          onRowClick={effectiveOnRowClick}
+          {...(effectiveOnCopyLink !== undefined && { onCopyLink: effectiveOnCopyLink })}
+        />
+      </ScreenFocus>
     </ErrorBoundary>
   );
 }

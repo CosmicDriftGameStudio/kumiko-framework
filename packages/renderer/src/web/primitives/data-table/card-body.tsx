@@ -83,6 +83,19 @@ function renderCardMeta(
   );
 }
 
+function renderCardLead(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  lead: ListColumnViewModel | undefined,
+): ReactNode {
+  if (lead === undefined || isEmptyCellValue(row.values[lead.field])) return null;
+  return (
+    <div data-testid={cellTestIdOf(m, row, lead.field)} className="min-w-0 text-[13px] leading-5">
+      {cardCell(m, row, lead)}
+    </div>
+  );
+}
+
 function renderCardHeading(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
   const { title: cardTitleColumn, status: cardStatusColumn } = roles;
   const showStatus =
@@ -129,6 +142,7 @@ export function renderCardBody(
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
+        {renderCardLead(m, row, roles.lead)}
         {renderCardHeading(m, row, roles)}
         {metaColumns.length > 0 && renderCardMeta(m, row, metaColumns)}
       </div>

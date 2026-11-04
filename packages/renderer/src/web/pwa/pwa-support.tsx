@@ -59,8 +59,10 @@ function rememberInstallHintDismissed(): void {
 function registerServiceWorker(serviceWorkerUrl: string): void {
   if (!("serviceWorker" in navigator)) return;
   // Fails on insecure origins and in some private modes; the app works without the worker.
+  // The worker may only control its own directory, so the scope follows the worker's URL.
+  const scope = new URL("./", new URL(serviceWorkerUrl, window.location.href)).pathname;
   navigator.serviceWorker
-    .register(serviceWorkerUrl, { scope: "/", updateViaCache: "none" })
+    .register(serviceWorkerUrl, { scope, updateViaCache: "none" })
     .catch(() => undefined);
 }
 

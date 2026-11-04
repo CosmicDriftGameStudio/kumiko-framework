@@ -1,16 +1,20 @@
 // The worker is plain JS in a string because the server hands it out as is: no bundler step,
 // no workbox, nothing loaded from outside the app's own origin.
 
+// CacheStorage is shared by the whole origin, so each base path gets its own prefix to keep one
+// app's activation from deleting the precache of another app on the same origin.
 export const PWA_CACHE_NAME_PREFIX = "kumiko-pwa-";
 
 export type PwaServiceWorkerScriptInput = {
   readonly cacheName: string;
+  readonly cacheScopePrefix: string;
   readonly precacheUrls: readonly string[];
   readonly shellUrl: string;
+  readonly serviceWorkerPath: string;
 };
 
 const SERVICE_WORKER_BODY = `
-const PASS_THROUGH_PATHS = ["/api", "/sse", "/auth", "/health", "/build-info.json", "/sw.js", "/_reload"];
+const PASS_THROUGH_PATHS = ["/api", "/sse", "/auth", "/health", "/build-info.json", SERVICE_WORKER_PATH, "/_reload"];
 const PASS_THROUGH_PREFIXES = ["/api/", "/sse/", "/auth/"];
 
 function isPassThrough(request, url) {
@@ -55,7 +59,7 @@ async function deleteOldCaches() {
   const names = await caches.keys();
   await Promise.all(
     names
-      .filter((name) => name.startsWith(CACHE_NAME_PREFIX) && name !== CACHE_NAME)
+      .filter((name) => name.startsWith(CACHE_SCOPE_PREFIX) && name !== CACHE_NAME)
       .map((name) => caches.delete(name)),
   );
 }
@@ -116,9 +120,10 @@ self.addEventListener("fetch", (event) => {
 
 export function buildPwaServiceWorkerScript(input: PwaServiceWorkerScriptInput): string {
   return [
-    `const CACHE_NAME_PREFIX = ${JSON.stringify(PWA_CACHE_NAME_PREFIX)};`,
+    `const CACHE_SCOPE_PREFIX = ${JSON.stringify(input.cacheScopePrefix)};`,
     `const CACHE_NAME = ${JSON.stringify(input.cacheName)};`,
     `const SHELL_URL = ${JSON.stringify(input.shellUrl)};`,
+    `const SERVICE_WORKER_PATH = ${JSON.stringify(input.serviceWorkerPath)};`,
     `const PRECACHE_URLS = ${JSON.stringify(input.precacheUrls)};`,
     SERVICE_WORKER_BODY,
   ].join("\n");

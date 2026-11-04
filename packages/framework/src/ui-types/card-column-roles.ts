@@ -13,6 +13,8 @@ export type CardRoleColumn = {
 
 export type CardColumnRoles<C extends CardRoleColumn> = {
   readonly image: C | undefined;
+  /** The "to do" sentence shown above the title. */
+  readonly lead: C | undefined;
   readonly title: C | undefined;
   readonly status: C | undefined;
   readonly meta: readonly C[];
@@ -52,8 +54,11 @@ export function cardColumnRoles<C extends CardRoleColumn>(
   const status = textColumns.find(
     (col) => col !== title && col.type === "select" && col.renderer === undefined,
   );
-  const meta = textColumns.filter(
-    (col) => col !== title && col !== status && col.hideOnNarrow !== true,
+  const lead = textColumns.find(
+    (col) => col !== title && col !== status && col.hint !== undefined && col.hideOnNarrow !== true,
   );
-  return { image, title, status, meta };
+  const meta = textColumns.filter(
+    (col) => col !== title && col !== status && col !== lead && col.hideOnNarrow !== true,
+  );
+  return { image, lead, title, status, meta };
 }

@@ -113,7 +113,6 @@ export type ProjectionListScreenDefinition = {
   /** Computed row fields from an app query, merged into the query rows; see `ListRowDecoration`. */
   readonly rowDecoration?: ListRowDecoration;
   readonly rowRenderer?: PlatformComponent;
-  readonly cardRenderer?: PlatformComponent;
   readonly rowActions?: readonly RowAction[];
   /** Layout of the row-action column — see `RowActionMode`. */
   readonly rowActionMode?: RowActionMode;
@@ -257,6 +256,8 @@ export type ProjectionDetailScreenDefinition = {
   readonly query: string;
   /** Query output field whose value titles the page header (breadcrumb) when no `header` is set. */
   readonly recordTitleField?: string;
+  /** Focused shell while the record is open: the app header actions leave the shell header, and on phones a top bar with the record title, a back arrow to the parent list and the page-header overflow menu replaces it. Default off. */
+  readonly focus?: boolean;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
   /** The server determines the shown row from the caller's session/context

@@ -617,6 +617,7 @@ type EntityEditScreenDefinition = {
   writeExcludedFields?: EntityWriteExcludedFields; // Derived by buildAppSchema from the entity's create/update write handlers (`excludeFields`): create hides these fields, update shows them read-only.
   entity: string;
   recordTitleField?: string; // Entity field whose value names the loaded record in the header breadcrumb (edit mode only).
+  focus?: boolean; // Focused shell while the record is open: the app header actions leave the shell header, and on phones a top bar with the record title, a back arrow to the parent list and the page-header overflow menu replaces it.
   titleTemplate?: string; // Screen title (i18n key) with `{field}` placeholders filled from the current form values, so the title follows what the user types (create wizard: "Add {make} {model}").
   readOnly?: FieldCondition; // Shows a saved record read-only while the condition holds for the loaded record (not for unsaved form values): all fields disabled, no save, discard or delete button; record `actions` stay.
   layout: EditLayout;
@@ -651,7 +652,6 @@ type EntityListScreenDefinition = {
   rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
   rowDecoration?: ListRowDecoration; // Computed row fields from an app query, readable by `rowToneField`, column `hint`, `linkScreenField`/`linkParamsField` and rowAction `visible`/`params`/`payload`; a column may name a decoration field.
   rowRenderer?: PlatformComponent;
-  cardRenderer?: PlatformComponent;
   rowActions?: RowAction[]; // Per-row actions, rendered as an actions column on the right.
   rowActionMode?: RowActionMode; // Layout of the row-action column — see `RowActionMode`.
   bulkActions?: ListBulkAction[]; // Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action.
@@ -1354,6 +1354,7 @@ type ProjectionDetailScreenDefinition = {
   fallback?: ScreenFallback; // Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice).
   query: string;
   recordTitleField?: string; // Query output field whose value titles the page header (breadcrumb) when no `header` is set.
+  focus?: boolean; // Focused shell while the record is open: the app header actions leave the shell header, and on phones a top bar with the record title, a back arrow to the parent list and the page-header overflow menu replaces it.
   idParam?: string; // Query-payload key for the row-id.
   singleton?: boolean; // The server determines the shown row from the caller's session/context instead of a row id in the path — a self-service screen ("my profile", "my data") that has no row to link to (unlike `EntityEditScreenDefinition.
   live?: boolean; // Refetches the record and its relatedList sections when their entity changes (live SSE), for a screen that shows work a background job is still doing.
@@ -1391,7 +1392,6 @@ type ProjectionListScreenDefinition = {
   rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
   rowDecoration?: ListRowDecoration; // Computed row fields from an app query, merged into the query rows; see `ListRowDecoration`.
   rowRenderer?: PlatformComponent;
-  cardRenderer?: PlatformComponent;
   rowActions?: RowAction[];
   rowActionMode?: RowActionMode; // Layout of the row-action column — see `RowActionMode`.
   bulkActions?: ListBulkAction[]; // Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action.

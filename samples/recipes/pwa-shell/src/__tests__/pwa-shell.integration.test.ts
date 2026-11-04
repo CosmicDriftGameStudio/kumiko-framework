@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createKumikoServer, type KumikoServerHandle } from "@cosmicdrift/kumiko-dev-server";
-import { notesFeature, pwa } from "../app";
+import { notesFeature, pwa, pwaUnderBasePath } from "../app";
 
 let handle: KumikoServerHandle;
 
@@ -45,5 +45,43 @@ describe("pwa-shell recipe", () => {
     const script = await res.text();
     expect(script).toContain("kumiko-pwa-");
     expect(script).toContain('"/api/"');
+  });
+});
+
+describe("pwa-shell recipe under a base path", () => {
+  let underBasePath: KumikoServerHandle;
+
+  beforeAll(async () => {
+    underBasePath = await createKumikoServer({
+      features: [notesFeature],
+      port: 0,
+      installSignalHandlers: false,
+      pwa: pwaUnderBasePath,
+    });
+  });
+
+  afterAll(async () => {
+    await underBasePath.stop();
+  });
+
+  const getUnder = (path: string) => underBasePath.fetch(new Request(`http://localhost${path}`));
+
+  test("manifest and worker are answered under /a/ only", async () => {
+    expect(await (await getUnder("/a/manifest.webmanifest")).json()).toMatchObject({
+      start_url: "/a/",
+      scope: "/a/",
+    });
+    const worker = await getUnder("/a/sw.js");
+    expect(worker.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
+    expect(await worker.text()).toContain('"/a/"');
+    expect((await getUnder("/sw.js")).headers.get("content-type")).not.toBe(
+      "text/javascript; charset=utf-8",
+    );
+  });
+
+  test("the shell points at the prefixed manifest and worker", async () => {
+    const html = await (await getUnder("/a/notes/42")).text();
+    expect(html).toContain('<link rel="manifest" href="/a/manifest.webmanifest" />');
+    expect(html).toContain('<meta name="kumiko-pwa-sw" content="/a/sw.js" />');
   });
 });

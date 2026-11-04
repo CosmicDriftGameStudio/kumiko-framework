@@ -42,6 +42,7 @@ describe("cardColumnRoles", () => {
     expect(roles.meta).toEqual([]);
     expect(cardColumnRoles([])).toEqual({
       image: undefined,
+      lead: undefined,
       title: undefined,
       status: undefined,
       meta: [],
@@ -76,6 +77,35 @@ describe("cardColumnRoles", () => {
     ]);
     expect(onlyHidden.image).toBeUndefined();
     expect(onlyHidden.title?.field).toBe("name");
+  });
+
+  test("the first hint column is the lead and drops out of meta", () => {
+    const roles = cardColumnRoles([
+      { field: "name" },
+      { field: "next", hint: {} },
+      { field: "other", hint: {} },
+      { field: "stage" },
+    ]);
+    expect(roles.title?.field).toBe("name");
+    expect(roles.lead?.field).toBe("next");
+    expect(roles.meta.map((c) => c.field)).toEqual(["other", "stage"]);
+  });
+
+  test("a hideOnNarrow hint column is no lead, a title hint column is no lead either", () => {
+    const hidden = cardColumnRoles([
+      { field: "name" },
+      { field: "next", hint: {}, hideOnNarrow: true },
+    ]);
+    expect(hidden.lead).toBeUndefined();
+    expect(hidden.meta).toEqual([]);
+
+    const highlighted = cardColumnRoles([{ field: "next", hint: {}, highlighted: true }]);
+    expect(highlighted.title?.field).toBe("next");
+    expect(highlighted.lead).toBeUndefined();
+  });
+
+  test("without a hint column there is no lead", () => {
+    expect(cardColumnRoles([{ field: "a" }, { field: "b" }]).lead).toBeUndefined();
   });
 
   test("cardFileDisplayKind: a format renderer wins over the field type", () => {

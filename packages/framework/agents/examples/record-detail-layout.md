@@ -22,6 +22,12 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   a `hint` column (sentence, detail, tone, "Why?" reason) and a row action shown
   only when `visible` holds; on the detail screen `breadcrumb`, `summary`, `banner`
   and `steps`, each filled from a query field and dropped when the value is empty
+- `focus: true` on the detail screen: the app header actions leave the shell header and the
+  sidebar shows the focus rail; below 768 px a top bar replaces the header with the record
+  title, a back arrow to the list screen and the page-header overflow menu
+- on phones the `orders` list draws cards in the order lead sentence (the hint column, with
+  detail and "Why?"), title, up to three values, then the row action; a hint column is never
+  the title and a `hideOnNarrow` one stays out of the card
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -941,29 +947,26 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 // "Akte" (case file) layout:
 //   1. `header` renders the query row's customer/order/status columns above
 //      the layout — the identity a support agent scans first.
-//   2. `metrics` renders a labeled band of key numbers from the same row —
-//      each metric carries its own i18n `label`, there is no fallback to the
-//      raw column name.
-//   3. `layout.mode: "tabs"` splits the record into four tabs: two
-//      `relatedList` sections (own query, own pagination, mounts only when
-//      active), one `fields` section (master data from the detail row), and
-//      one `extension` section (a plugin-mounted component, fw#3234 padding-
-//      parity check — every tab kind must sit in the same Card padding, no
-//      section carries extra chrome of its own).
+//   2. `metrics` renders a labeled band of key numbers from the same row; each metric
+//      carries its own i18n `label`, there is no fallback to the raw column name.
+//   3. `layout.mode: "tabs"` splits the record into four tabs: two `relatedList`
+//      sections (own query, own pagination, mounts only when active), one `fields`
+//      section (master data) and one `extension` section (plugin-mounted component;
+//      every tab kind sits in the same Card padding, no extra chrome).
 //   4. The payments tab's emptyState picks its text from the order record through `variants`.
 //   5. A screen-level `actions` entry (fw#3234) renders next to the header,
 //      not inside any tab's Card. `inlineActions` keeps download-invoice a visible
 //      button next to it where the page header would otherwise fold it into the menu.
-//
 //   6. `showOnTabs` limits the record-payment action to the payments tab.
 //   7. Guidance: the `orders` projectionList tints rows via `rowToneField`, shows a
 //      "to do" hint column (sentence, detail, tone, a "Why?" reason) and offers a
 //      next-step action per row. The detail screen adds `breadcrumb`, `summary`,
 //      `banner` and `steps`, each reading a query field; empty values drop out.
+//   8. `focus: true` gives the detail a focused shell; phones get a top bar with the
+//      record title, a back arrow to the list and the page-header overflow menu.
 //
-// projectionDetail has no entity — it binds to an explicit query instead, so
-// every field name below (header, metrics, fields) is a column of that
-// query's row, not an entity field.
+// projectionDetail binds to an explicit query, not an entity: every field name below
+// (header, metrics, fields) is a column of that query's row.
 
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -1115,6 +1118,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       id: "order-detail",
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
+      focus: true,
       header: {
         title: "customerName",
         // Parts are joined by a separator; `format` formats the raw field value.

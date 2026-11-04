@@ -55,9 +55,11 @@ export type ServiceWorkerSandbox = {
   setNetwork: (handler: NetworkHandler) => void;
 };
 
-export function runServiceWorkerScript(script: string): ServiceWorkerSandbox {
+export function runServiceWorkerScript(
+  script: string,
+  cacheStore = new Map<string, Map<string, Response>>(),
+): ServiceWorkerSandbox {
   const listeners = new Map<string, (event: unknown) => void>();
-  const cacheStore = new Map<string, Map<string, Response>>();
   const networkRequests: string[] = [];
   const calls = { skipWaiting: 0, claim: 0 };
   let network: NetworkHandler = (url) => basicResponse(`network:${new URL(url).pathname}`);

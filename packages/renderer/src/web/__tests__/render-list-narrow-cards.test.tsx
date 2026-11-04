@@ -644,3 +644,49 @@ describe("DataTable card with an image column", () => {
     });
   });
 });
+
+describe("DataTable — card lead line", () => {
+  const hint = { emptyLabel: "", reasonLabel: "Why?", detailField: "due" };
+  const columns = [
+    { field: "name", label: "Name", type: "string", sortable: false },
+    { field: "next", label: "Next", type: "string", sortable: false, hint },
+    { field: "role", label: "Role", type: "string", sortable: false },
+  ] as const;
+
+  test("the sentence comes before the title and its detail line is shown", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={columns}
+          rows={[
+            {
+              id: "l1",
+              values: { name: "Anna", next: "Send reminder", due: "by Friday", role: "Admin" },
+            },
+          ]}
+          testId="t"
+        />,
+      );
+      const card = screen.getByTestId("row-l1");
+      const lead = within(card).getByTestId("cell-l1-next");
+      const title = card.querySelector(".font-semibold") as HTMLElement;
+      expect(lead.textContent).toContain("Send reminder");
+      expect(lead.textContent).toContain("by Friday");
+      expect(lead.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(within(card).getAllByTestId("cell-l1-next")).toHaveLength(1);
+    });
+  });
+
+  test("an empty sentence leaves no lead line", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={columns}
+          rows={[{ id: "l2", values: { name: "Anna", next: "", role: "Admin" } }]}
+          testId="t"
+        />,
+      );
+      expect(within(screen.getByTestId("row-l2")).queryByTestId("cell-l2-next")).toBeNull();
+    });
+  });
+});

@@ -1523,6 +1523,7 @@ type RunEventStoreSeedOptions<TId extends string | number = string, TExisting ex
 ```ts
 type CardColumnRoles<C extends CardRoleColumn> = {
   image: C | undefined;
+  lead: C | undefined; // The "to do" sentence shown above the title.
   title: C | undefined;
   status: C | undefined;
   meta: C[];

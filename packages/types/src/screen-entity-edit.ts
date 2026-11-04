@@ -508,6 +508,8 @@ export type EntityEditScreenDefinition = {
   readonly entity: string;
   /** Entity field whose value names the loaded record in the header breadcrumb (edit mode only). */
   readonly recordTitleField?: string;
+  /** Focused shell while the record is open: the app header actions leave the shell header, and on phones a top bar with the record title, a back arrow to the parent list and the page-header overflow menu replaces it. Default off. */
+  readonly focus?: boolean;
   /** Screen title (i18n key) with `{field}` placeholders filled from the
    *  current form values, so the title follows what the user types (create
    *  wizard: "Add {make} {model}"). Falls back to the plain title while the

@@ -52,11 +52,10 @@ export function synthesizeProjectionEntity(
 
 function rowPresentation(
   screen: ProjectionListScreenDefinition,
-): Pick<EntityListScreenDefinition, "rowToneField" | "rowRenderer" | "cardRenderer"> {
+): Pick<EntityListScreenDefinition, "rowToneField" | "rowRenderer"> {
   return {
     ...(screen.rowToneField !== undefined && { rowToneField: screen.rowToneField }),
     ...(screen.rowRenderer !== undefined && { rowRenderer: screen.rowRenderer }),
-    ...(screen.cardRenderer !== undefined && { cardRenderer: screen.cardRenderer }),
   };
 }
 
