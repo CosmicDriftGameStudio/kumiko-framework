@@ -9,6 +9,7 @@ import {
   render,
   screen,
   setViewportWidth,
+  within,
 } from "../../__tests__/test-utils.tsx";
 import { DefaultPageHeader } from "../../primitives/page-header.tsx";
 import { DefaultAppShell } from "../default-app-shell.tsx";
@@ -92,6 +93,15 @@ describe("declarative screen focus", () => {
     expect(screen.getByRole("banner")).toBeTruthy();
     expect(screen.queryByText("Global action")).toBeNull();
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).not.toBeNull();
+  });
+
+  test("narrow: the shell's header actions sit in the top bar next to the overflow menu", () => {
+    atViewportWidth(500, () => {
+      render(<Harness screenDef={detailScreen} />);
+      const bar = screen.getByTestId("mobile-top-bar");
+      expect(within(bar).getByText("Global action")).toBeTruthy();
+      expect(within(bar).getByTestId("mobile-top-bar-actions")).toBeTruthy();
+    });
   });
 
   test("without focus nothing changes: no top bar, header actions stay", () => {

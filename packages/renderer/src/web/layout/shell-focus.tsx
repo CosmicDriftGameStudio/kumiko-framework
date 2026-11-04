@@ -5,11 +5,20 @@
 // Why register/unregister instead of a prop: the shell sits above every screen and cannot
 // know which one wants the focused chrome; the screen opts in by mounting the hook.
 
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type ShellFocusContextValue = {
   readonly focused: boolean;
   readonly register: () => () => void;
+  readonly topbarActions?: ReactNode;
 };
 
 const ShellFocusContext = createContext<ShellFocusContextValue | null>(null);
@@ -22,7 +31,7 @@ export type ShellFocusHost = {
 };
 
 /** Shell side: holds the focus counter. */
-export function useShellFocusHost(): ShellFocusHost {
+export function useShellFocusHost(topbarActions?: ReactNode): ShellFocusHost {
   const [holders, setHolders] = useState(0);
 
   const register = useCallback(() => {
@@ -31,13 +40,21 @@ export function useShellFocusHost(): ShellFocusHost {
   }, []);
 
   const focused = holders > 0;
-  const value = useMemo(() => ({ focused, register }), [focused, register]);
+  const value = useMemo(
+    () => ({ focused, register, topbarActions }),
+    [focused, register, topbarActions],
+  );
   return { focused, value };
 }
 
 /** True while any mounted screen holds focus mode (always false outside DefaultAppShell). */
 export function useShellFocused(): boolean {
   return useContext(ShellFocusContext)?.focused ?? false;
+}
+
+/** The shell's topbarActions, for focused screens whose MobileTopBar replaces the shell header. */
+export function useShellTopbarActions(): ReactNode | undefined {
+  return useContext(ShellFocusContext)?.topbarActions;
 }
 
 /** Screen side: call while the screen is mounted to get the focused shell. No-op without a DefaultAppShell. */

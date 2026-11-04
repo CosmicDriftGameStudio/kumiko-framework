@@ -245,7 +245,7 @@ export function WorkspaceShell({
   // The second column appears only when a screen fills it (sidebar-09 pattern);
   // otherwise every other screen would have an empty strip beside the navigation.
   const panel = useSidebarPanelHost();
-  const focus = useShellFocusHost();
+  const focus = useShellFocusHost(topbarActions);
   const sidebarOpen = usePersistedSidebarOpen();
   return (
     <ScreenFocusProvider>

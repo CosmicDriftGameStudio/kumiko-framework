@@ -100,7 +100,7 @@ export function DefaultAppShell({
   // Second column only when a screen fills it (sidebar-09 pattern) — otherwise
   // every other screen would carry an empty strip next to the navigation.
   const panel = useSidebarPanelHost();
-  const focus = useShellFocusHost();
+  const focus = useShellFocusHost(headerActions);
   const sidebarOpen = usePersistedSidebarOpen();
   return (
     <ScreenFocusProvider>
