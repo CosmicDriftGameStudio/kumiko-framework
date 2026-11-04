@@ -17,6 +17,7 @@ import {
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
+import { answerOrderList, orderListSchema } from "../order-board";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -77,12 +78,15 @@ describe("record-detail-layout showcase — registration", () => {
     expect(screen.inlineActions).toEqual(["download-invoice"]);
   });
 
-  test("relatedList columns collapse string shorthand into the object form", () => {
+  test("relatedList columns carry their own header label, there is no entity to resolve it from", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     const itemsSection = screen.layout.sections[0];
     if (itemsSection?.kind !== "relatedList") throw new Error("expected relatedList");
-    expect(normalizeListColumn(itemsSection.columns[0]!)).toEqual({ field: "sku" });
+    expect(normalizeListColumn(itemsSection.columns[0]!)).toEqual({
+      field: "sku",
+      label: "order-desk.col.sku",
+    });
   });
 });
 
@@ -103,6 +107,76 @@ describe("record-detail-layout showcase — guidance", () => {
     expect(screen.banner?.field).toBe("notice");
     expect(screen.steps?.field).toBe("steps");
     expect(screen.progress?.field).toBe("progress");
+  });
+});
+
+describe("record-detail-layout showcase — work queue", () => {
+  test("the orders list offers named filters as a counted select, with sort and empty state", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    expect(screen.namedFilters?.map((filter) => filter.id)).toEqual([
+      "action-needed",
+      "reminder-due",
+      "ending-soon",
+    ]);
+    expect(screen.namedFilterFacet).toEqual({
+      display: "select",
+      showCounts: true,
+      label: "order-desk.orders.todo",
+    });
+    const buttons = (screen.rowActions ?? []).filter((action) => action.display === "button");
+    expect(buttons.map((action) => [action.id, action.visible])).toEqual([
+      ["remind", { field: "canRemind", eq: true }],
+      ["open-order", { field: "canRemind", eq: false }],
+    ]);
+    expect(screen.namedFilters?.[0]?.sort).toEqual({ field: "urgency", dir: "desc" });
+    expect(screen.namedFilters?.[0]?.emptyState?.title).toBe("order-desk.orders.all-done");
+    expect(screen.table?.totals).toEqual([
+      { field: "orderNumber", kind: "count" },
+      { field: "openAmount", kind: "sum" },
+    ]);
+  });
+
+  test("the list query filters, sorts, counts and aggregates like the screen asks", () => {
+    const ask = (payload: object) => answerOrderList(orderListSchema.parse(payload));
+    const open = ask({ namedFilter: "action-needed", sort: "urgency", sortDirection: "desc" });
+    if (!("rows" in open)) throw new Error("expected rows");
+    expect(open.rows.map((row) => row.id)).toEqual(["o1", "o7", "o3", "o4", "o5"]);
+
+    const counted = ask({ namedFilter: "action-needed", limit: 1, totalCount: true });
+    if (!("rows" in counted)) throw new Error("expected rows");
+    expect(counted.rows).toHaveLength(1);
+    expect(counted.total).toBe(5);
+
+    const none = ask({ namedFilter: "reminder-due", totalCount: true });
+    if (!("rows" in none)) throw new Error("expected rows");
+    expect(none.rows).toHaveLength(0);
+
+    const totals = ask({
+      aggregate: { measures: [{ field: "openAmount", kind: "sum" }] },
+    });
+    if (!("groups" in totals)) throw new Error("expected groups");
+    expect(totals.groups[0]?.measures).toEqual([2497]);
+  });
+
+  test("the today dashboard counts through the list query and links into the filtered list", () => {
+    const screen = registry.getScreen("order-desk:screen:today");
+    if (screen?.type !== "dashboard") throw new Error("expected dashboard");
+    expect(screen.panels.map((panel) => panel.kind)).toEqual([
+      "text",
+      "stat-group",
+      "list",
+      "list",
+      "list",
+      "stat-group",
+    ]);
+    const counts = screen.panels.find((panel) => panel.id === "queue-counts");
+    if (counts?.kind !== "stat-group") throw new Error("expected stat-group");
+    expect(counts.stats.map((stat) => stat.navigate?.namedFilter)).toEqual([
+      "action-needed",
+      "reminder-due",
+      "ending-soon",
+    ]);
   });
 });
 

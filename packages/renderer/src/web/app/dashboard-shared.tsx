@@ -29,9 +29,16 @@ import { useRelativeTimeFormatter } from "./relative-time.ts";
 
 const SKELETON_SEGMENT_WIDTHS = ["100%", "72%", "48%"] as const;
 
-export const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";
+// The dashboard grid has twelve columns on wide screens, so a stat tile is a quarter of the row.
+export const STAT_PANEL = "lg:col-span-3";
 
-export const HALF_PANEL = "sm:col-span-2 lg:col-span-2";
+export const WIDE_PANEL = "sm:col-span-2 lg:col-span-12";
+
+export const HALF_PANEL = "sm:col-span-2 lg:col-span-6";
+
+export const THIRD_PANEL = "lg:col-span-4";
+
+export const TWO_THIRDS_PANEL = "sm:col-span-2 lg:col-span-8";
 
 const CURRENCY_CODE_PATTERN = /^[A-Za-z]{3}$/;
 

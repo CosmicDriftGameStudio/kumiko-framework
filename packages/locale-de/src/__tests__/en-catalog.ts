@@ -870,6 +870,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.empty.defaultFiltered":
     "No entries match the default filter. Show all to include entries outside it.",
   "kumiko.list.empty.showAll": "Show all",
+  "kumiko.list.empty.resetFilter": "Reset filter",
+  "kumiko.list.named-filter.all": "All",
   "kumiko.list.empty.hint": "Create the first one to get started.",
   "kumiko.list.empty.title": "No entries yet.",
   "kumiko.list.end-of-list": "— End of list —",

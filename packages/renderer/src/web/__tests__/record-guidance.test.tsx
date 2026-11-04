@@ -40,7 +40,7 @@ describe("projectionList row guidance", () => {
     await waitFor(() => expect(screen.getByText("Order 1")).toBeTruthy());
     expect(screen.getByText("Order 1").closest("tr")?.className).toContain("bg-status-bad/10");
     const sentence = screen.getByText("Call customer");
-    expect(sentence.parentElement?.getAttribute("data-hint-tone")).toBe("bad");
+    expect(sentence.closest("[data-hint-tone]")?.getAttribute("data-hint-tone")).toBe("bad");
     expect(screen.getByText("today")).toBeTruthy();
   });
 

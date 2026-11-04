@@ -64,12 +64,30 @@ function checkDefaultSortColumn(
 ): void {
   // skip: a missing defaultSort is reported by checkDefaultSortRequired
   if (screen.defaultSort === undefined) return;
+  checkSortSpecColumn(feature, screen, "defaultSort", screen.defaultSort.field);
+}
+
+function checkNamedFilterSortColumns(
+  feature: FeatureDefinition,
+  screen: EntityListScreenDefinition,
+): void {
+  for (const ref of screen.namedFilters ?? []) {
+    if (ref.sort === undefined) continue;
+    checkSortSpecColumn(feature, screen, `namedFilters "${ref.id}" sort`, ref.sort.field);
+  }
+}
+
+function checkSortSpecColumn(
+  feature: FeatureDefinition,
+  screen: EntityListScreenDefinition,
+  label: string,
+  sortField: string,
+): void {
   const prefix = screenPrefix(feature, screen);
-  const sortField = screen.defaultSort.field;
   const col = screen.columns.find((c) => normalizeListColumn(c).field === sortField);
   if (col === undefined) {
     throw bootRuleError(ENTITY_LIST_RULES.defaultSortNotListed, {
-      message: `${prefix}: defaultSort.field "${sortField}" is not a listed column. Pick a field from columns or add it there.`,
+      message: `${prefix}: ${label}.field "${sortField}" is not a listed column. Pick a field from columns or add it there.`,
     });
   }
   const entityDef = feature.entities?.[screen.entity];
@@ -79,7 +97,7 @@ function checkDefaultSortColumn(
     (fieldDef !== undefined && "sortable" in fieldDef && fieldDef.sortable === true);
   if (!isSortable) {
     throw bootRuleError(ENTITY_LIST_RULES.defaultSortNotSortable, {
-      message: `${prefix}: defaultSort column "${sortField}" must be sortable`,
+      message: `${prefix}: ${label} column "${sortField}" must be sortable`,
     });
   }
 }
@@ -131,6 +149,7 @@ const ENTITY_LIST_CHECKS: readonly EntityListCheck[] = [
   checkSearchable,
   checkDefaultSortRequired,
   checkDefaultSortColumn,
+  checkNamedFilterSortColumns,
   checkDetailNavigate,
   checkColumns,
   checkNamedFilters,

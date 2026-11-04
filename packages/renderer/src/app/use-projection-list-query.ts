@@ -7,6 +7,7 @@ import {
   mergeReferenceFacetOptions,
   resolveProjectionFacetSpecs,
 } from "./list-facets.ts";
+import { namedFilterSort } from "./named-filter-facet.ts";
 import type { synthesizeProjectionEntity } from "./projection-list-shim.ts";
 import { type ReferenceFacetState, withReferenceFacetState } from "./reference-facet-bridge.tsx";
 import { buildListQueryPayload } from "./screen-shared.tsx";
@@ -29,12 +30,16 @@ type ActiveSort = ListUrlStateApi["sort"];
 function resolveActiveSort(
   urlSort: ActiveSort,
   input: Pick<ProjectionListQueryInput, "screen" | "entity" | "sortable">,
+  activeNamedFilter: string | undefined,
 ): ActiveSort {
   const { screen, entity, sortable } = input;
   const urlSortField = urlSort === null ? undefined : entity.fields[urlSort.field];
   const urlSortAllowed =
     urlSortField !== undefined && "sortable" in urlSortField && urlSortField.sortable === true;
-  return sortable ? ((urlSortAllowed ? urlSort : null) ?? screen.defaultSort ?? null) : null;
+  const filterSort = namedFilterSort(screen.namedFilters, activeNamedFilter);
+  return sortable
+    ? ((urlSortAllowed ? urlSort : null) ?? filterSort ?? screen.defaultSort ?? null)
+    : null;
 }
 
 export function useProjectionListQuery(input: ProjectionListQueryInput) {
@@ -45,7 +50,7 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
   // carry a value — a stale/hand-crafted URL (?…q=x on a non-searchable
   // screen) must not smuggle a param the query's Zod schema doesn't accept.
   const activeSearch = searchable ? urlState.q : "";
-  const activeSort = resolveActiveSort(urlState.sort, input);
+  const activeSort = resolveActiveSort(urlState.sort, input, activeNamedFilter);
   const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   // Pages-mode only (see header comment) — an author-set pagination:
   // "infinite" on a paginated projectionList is silently a no-op today.
@@ -123,7 +128,17 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     dateRangePayload,
   ]);
 
+  // Counts ignore sort and paging and the active named filter: each count adds its own.
+  const namedFilterCountBase = useMemo(() => {
+    const base: Record<string, unknown> = { limit: 1, totalCount: true };
+    if (activeSearch !== "") base["search"] = activeSearch;
+    if (screen.filter !== undefined) base["filter"] = screen.filter;
+    if (screen.facets !== undefined && filterPayload.length > 0) base["filters"] = filterPayload;
+    return Object.assign(base, dateRangePayload);
+  }, [activeSearch, screen.filter, screen.facets, filterPayload, dateRangePayload]);
+
   return {
+    namedFilterCountBase,
     urlState,
     activeSearch,
     activeSort,
@@ -136,5 +151,6 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     handleDateRangeChange,
     queryPayload,
     activeNamedFilter,
+    facetNarrowing: filterPayload.length > 0 || Object.keys(dateRangePayload).length > 0,
   };
 }

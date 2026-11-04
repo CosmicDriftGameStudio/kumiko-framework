@@ -16,9 +16,11 @@ const TestButton: ComponentType<ButtonProps> = ({
   size,
   ariaLabel,
   title,
+  variant,
 }) => (
   <button
     type={type ?? "button"}
+    data-variant={variant}
     data-testid={testId}
     data-icon={icon}
     data-size={size ?? "md"}
@@ -82,6 +84,24 @@ function renderAction(
     />,
   );
 }
+
+describe("RenderEditActionButton variant", () => {
+  const variantOf = (action: Partial<RenderEditAction>): string | null => {
+    const view = renderAction({ id: "go", label: "Go", onPress: () => {}, ...action });
+    const variant = view.getByTestId("render-edit-action-go").getAttribute("data-variant");
+    view.unmount();
+    return variant;
+  };
+
+  test("display link draws the link variant, no display stays secondary", () => {
+    expect(variantOf({ display: "link" })).toBe("link");
+    expect(variantOf({})).toBe("secondary");
+  });
+
+  test("an explicit style wins over display link", () => {
+    expect(variantOf({ display: "link", style: "danger", confirm: "sure" })).toBe("danger");
+  });
+});
 
 describe("RenderEditActionButton", () => {
   test("secondary action without confirm runs onPress immediately", async () => {

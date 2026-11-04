@@ -136,7 +136,10 @@ const statusEntity: EntityDefinition = {
 const QN = "tasks:screen:task-list";
 
 function taskSchema(
-  extra: Pick<EntityListScreenDefinition, "facets" | "defaultFilters" | "namedFilters">,
+  extra: Pick<
+    EntityListScreenDefinition,
+    "facets" | "defaultFilters" | "namedFilters" | "namedFilterFacet"
+  >,
 ): FeatureSchema {
   const screen: EntityListScreenDefinition = {
     id: "task-list",
@@ -247,6 +250,46 @@ describe("entityList namedFilters", () => {
     expect(
       withRole.filterFacets?.find((f) => f.field === "__namedFilter")?.chips?.map((c) => c.id),
     ).toEqual(["overdue", "audit"]);
+  });
+
+  test("namedFilterFacet select adds an all entry, counts every filter and takes the filter's sort", async () => {
+    reset();
+    renderScreen(
+      taskSchema({
+        namedFilters: [
+          { id: "overdue", label: "Überfällig", sort: { field: "status", dir: "desc" } },
+        ],
+        namedFilterFacet: { display: "select", showCounts: true },
+      }),
+      QN,
+      { "task-list.filter": "overdue" },
+    );
+    const props = await capturedTable();
+    const facet = props.filterFacets?.find((f) => f.field === "__namedFilter");
+    expect(facet?.display).toBe("select");
+    expect(facet?.chips?.map((chip) => chip.id)).toEqual(["all", "overdue"]);
+    await waitFor(() =>
+      expect(queryCalls.some((call) => (call.payload as { limit?: number }).limit === 1)).toBe(
+        true,
+      ),
+    );
+    const listCall = queryCalls.find((call) => (call.payload as { limit?: number }).limit !== 1);
+    expect(listCall?.payload).toMatchObject({ sort: "status", sortDirection: "desc" });
+  });
+
+  test("the URL's own sort wins over the filter's sort", async () => {
+    reset();
+    renderScreen(
+      taskSchema({
+        namedFilters: [
+          { id: "overdue", label: "Überfällig", sort: { field: "status", dir: "desc" } },
+        ],
+      }),
+      QN,
+      { "task-list.filter": "overdue", "task-list.sort": "status", "task-list.dir": "asc" },
+    );
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+    expect(queryCalls[0]?.payload).toMatchObject({ sortDirection: "asc" });
   });
 
   test("the .filter key does not collide with a field facet key and resets with the list", () => {

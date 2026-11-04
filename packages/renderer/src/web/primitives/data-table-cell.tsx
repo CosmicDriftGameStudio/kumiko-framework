@@ -8,6 +8,7 @@ import { fileIdsOf } from "../../file-ids-of.ts";
 import type {
   CellLink,
   CellLinkItem,
+  ListColumnCellDisplay,
   ListColumnFileDisplay,
   ListColumnHintViewModel,
   ListRowViewModel,
@@ -24,7 +25,8 @@ import {
 } from "../../index.ts";
 import { isSelectOptionTone } from "../../status-tone.ts";
 import { Badge } from "../ui/badge.tsx";
-import { StatusBadge } from "../widgets/status-badge.tsx";
+import { buttonVariants } from "../ui/button.tsx";
+import { StatusBadge, type StatusBadgeTone } from "../widgets/status-badge.tsx";
 import { HintCell } from "./data-table/hint-cell.tsx";
 import { FileDisplayCell } from "./file-thumbnail.tsx";
 import { FileViewAction } from "./file-view-action.tsx";
@@ -354,7 +356,20 @@ type DataTableCellProps = {
   readonly link?: CellLink;
   readonly linkItems?: readonly CellLinkItem[];
   readonly hint?: ListColumnHintViewModel;
+  readonly display?: ListColumnCellDisplay;
+  readonly badgeToneField?: string;
   readonly insideRowOpener?: boolean;
+};
+
+/** `display: "button"` draws a cell link as a small outline button. */
+export const LINK_BUTTON_CLASS = buttonVariants({ variant: "outline", size: "sm" });
+
+/** Badge tones by the list-wide ListBadgeTone words. */
+export const LIST_BADGE_TONE: Readonly<Record<string, StatusBadgeTone>> = {
+  positive: "ok",
+  warn: "warn",
+  negative: "bad",
+  neutral: "muted",
 };
 
 // A multi reference may list the same id twice; the occurrence count keeps React keys unique.
@@ -420,14 +435,16 @@ export const TABULAR_COLUMN_TYPES: ReadonlySet<string> = new Set([
 export function CellTextLink({
   link,
   children,
+  className = "text-primary underline-offset-4 hover:underline",
 }: {
   readonly link: CellLink;
   readonly children: ReactNode;
+  readonly className?: string;
 }): ReactNode {
   return (
     <a
       href={isSafeHref(link.href) ? link.href : "#"}
-      className="text-primary underline-offset-4 hover:underline"
+      className={className}
       onClick={(event) => {
         event.stopPropagation();
         if (!isPlainPrimaryClick(event)) return;
@@ -437,6 +454,62 @@ export function CellTextLink({
     >
       {children}
     </a>
+  );
+}
+
+// A list column's `display` (badge pill, outline link button); undefined = fall through to the normal paths.
+function renderDisplayCell({
+  display,
+  text,
+  row,
+  badgeToneField,
+  link,
+}: {
+  readonly display: DataTableCellProps["display"];
+  readonly text: string;
+  readonly row: Readonly<Record<string, unknown>>;
+  readonly badgeToneField: string | undefined;
+  readonly link: DataTableCellProps["link"];
+}): ReactNode | undefined {
+  if (display === "badge") {
+    const toneKey = badgeToneField === undefined ? undefined : row[badgeToneField];
+    const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
+    return <StatusBadge tone={tone}>{text}</StatusBadge>;
+  }
+  if (display === "button" && link !== undefined) {
+    return (
+      <CellTextLink link={link} className={LINK_BUTTON_CLASS}>
+        {text}
+      </CellTextLink>
+    );
+  }
+  return undefined;
+}
+
+function renderFileCell({
+  value,
+  fileDisplay,
+  compactFile,
+  translate,
+}: {
+  readonly value: unknown;
+  readonly fileDisplay: NonNullable<DataTableCellProps["fileDisplay"]>;
+  readonly compactFile: boolean;
+  readonly translate: DataTableCellProps["translate"];
+}): ReactNode {
+  const [firstFileId] = fileIdsOf(value);
+  return (
+    <span className="inline-flex items-center gap-3">
+      <FileDisplayCell
+        value={value}
+        display={fileDisplay}
+        compact={compactFile}
+        fallbackLabel={translate?.("kumiko.field.file-upload.attached") ?? "File attached"}
+      />
+      {fileDisplay.kind === "file" &&
+        fileDisplay.viewInDrawer === true &&
+        firstFileId !== undefined && <FileViewAction fileId={firstFileId} />}
+    </span>
   );
 }
 
@@ -466,6 +539,8 @@ export function DataTableCell({
   link,
   linkItems,
   hint,
+  display,
+  badgeToneField,
   insideRowOpener = false,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
@@ -484,6 +559,14 @@ export function DataTableCell({
   if (value === PII_ERASED_SENTINEL && translate !== undefined) {
     return translate("kumiko.pii.erased");
   }
+  const displayCell = renderDisplayCell({
+    display,
+    text: defaultCellRender(value, type, optionLabels, locale, field, grouping),
+    row,
+    badgeToneField,
+    link,
+  });
+  if (displayCell !== undefined) return displayCell;
   if (
     typeof value === "boolean" &&
     isBooleanColumn(type, renderer) &&
@@ -499,20 +582,7 @@ export function DataTableCell({
     );
   }
   if (fileDisplay !== undefined) {
-    const [firstFileId] = fileIdsOf(value);
-    return (
-      <span className="inline-flex items-center gap-3">
-        <FileDisplayCell
-          value={value}
-          display={fileDisplay}
-          compact={compactFile}
-          fallbackLabel={translate?.("kumiko.field.file-upload.attached") ?? "File attached"}
-        />
-        {fileDisplay.kind === "file" &&
-          fileDisplay.viewInDrawer === true &&
-          firstFileId !== undefined && <FileViewAction fileId={firstFileId} />}
-      </span>
-    );
+    return renderFileCell({ value, fileDisplay, compactFile, translate });
   }
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
     const spec = renderer as { format: string; locale?: string } & Record<string, unknown>;

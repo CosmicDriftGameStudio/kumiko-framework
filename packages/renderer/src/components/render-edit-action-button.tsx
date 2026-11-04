@@ -78,7 +78,7 @@ export function RenderEditActionButton({
     }
   };
 
-  const variant = action.style ?? "secondary";
+  const variant = action.style ?? (action.display === "link" ? "link" : "secondary");
   const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (

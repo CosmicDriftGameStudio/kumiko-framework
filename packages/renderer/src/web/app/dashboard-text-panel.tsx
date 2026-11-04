@@ -28,6 +28,8 @@ function isRoleList(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((role) => typeof role === "string");
 }
 
+type ParagraphBlock = Extract<DashboardTextBlock, { readonly kind: "paragraph" }>;
+
 type RawBlock = Readonly<Record<string, unknown>>;
 
 function readParagraphBlock(raw: RawBlock): DashboardTextBlock | undefined {
@@ -36,7 +38,7 @@ function readParagraphBlock(raw: RawBlock): DashboardTextBlock | undefined {
   return {
     kind: "paragraph",
     text,
-    ...((emphasis === "muted" || emphasis === "strong") && { emphasis }),
+    ...((emphasis === "muted" || emphasis === "strong" || emphasis === "lead") && { emphasis }),
   };
 }
 
@@ -88,6 +90,12 @@ function resolveBlockText(
     : (resolveDashboardText(text, translate, formats) ?? "");
 }
 
+const PARAGRAPH_CLASS_NAMES = {
+  muted: "text-sm text-muted-foreground",
+  strong: "text-sm font-medium text-foreground",
+  lead: "font-heading text-[17px] leading-relaxed text-foreground",
+} as const satisfies Record<NonNullable<ParagraphBlock["emphasis"]>, string>;
+
 function TextBlockView({
   block,
   translate,
@@ -106,14 +114,7 @@ function TextBlockView({
       );
     case "paragraph":
       return (
-        <p
-          data-block="paragraph"
-          className={
-            block.emphasis === "strong"
-              ? "text-sm font-medium text-foreground"
-              : "text-sm text-muted-foreground"
-          }
-        >
+        <p data-block="paragraph" className={PARAGRAPH_CLASS_NAMES[block.emphasis ?? "muted"]}>
           {resolve(block.text)}
         </p>
       );

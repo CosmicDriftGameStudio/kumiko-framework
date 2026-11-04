@@ -1,7 +1,12 @@
+import type {
+  NamedFilterFacetOptions,
+  NamedListFilterRef,
+} from "@cosmicdrift/kumiko-types/named-list-filters";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { ListColumnSpec } from "../types/screen.ts";
 import { type BootRule, bootRuleError } from "./boot-rule.ts";
 import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
+import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { listGuidanceFieldRefs } from "./query-output-guidance.ts";
 import { acceptsRowDecorationField, type RowDecorationFields } from "./row-decoration.ts";
 import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
@@ -9,6 +14,8 @@ import { buildUnknownFieldMessage } from "./screens-kind-shared.ts";
 
 type RowGuidanceScreen = {
   readonly columns: readonly ListColumnSpec[];
+  readonly namedFilters?: readonly NamedListFilterRef[];
+  readonly namedFilterFacet?: NamedFilterFacetOptions;
   readonly rowToneField?: string;
   readonly rowDecoration?: { readonly query: string };
 };
@@ -50,6 +57,32 @@ function validateHintColumn(where: string, column: ListColumn): void {
   }
 }
 
+function validateButtonColumn(where: string, column: ListColumn): void {
+  const hasLink = column.linkScreenField !== undefined || column.refEntity !== undefined;
+  if (column.display === "button" && !hasLink) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.buttonColumnWithoutLink, {
+      message:
+        `${where} column "${column.field}" sets display "button" without linkScreenField or refEntity ` +
+        `— the button is the link. Set a link option or remove display.`,
+    });
+  }
+}
+
+function validateNamedFilterOptions(where: string, screen: RowGuidanceScreen): void {
+  if (screen.namedFilterFacet !== undefined && (screen.namedFilters ?? []).length === 0) {
+    throw bootRuleError(NAMED_FILTER_RULES.facetWithoutFilters, {
+      message: `${where} sets namedFilterFacet without namedFilters — there is nothing to present. Declare namedFilters or remove namedFilterFacet.`,
+    });
+  }
+  for (const ref of screen.namedFilters ?? []) {
+    if (ref.emptyState !== undefined && ref.emptyState.title.trim().length === 0) {
+      throw bootRuleError(NAMED_FILTER_RULES.emptyStateTitleEmpty, {
+        message: `${where} namedFilters "${ref.id}" sets emptyState with an empty title. Name the i18n key or remove emptyState.`,
+      });
+    }
+  }
+}
+
 type GuidanceListKind = "entityList" | "projectionList" | "dashboard" | "relatedList";
 
 function guidanceLocation(
@@ -81,8 +114,11 @@ export function validateListRowGuidance(
     });
   }
   for (const col of screen.columns) {
-    validateHintColumn(where, normalizeListColumn(col));
+    const column = normalizeListColumn(col);
+    validateHintColumn(where, column);
+    validateButtonColumn(where, column);
   }
+  validateNamedFilterOptions(where, screen);
   for (const { option, field } of listGuidanceFieldRefs(screen)) {
     if (field.trim().length === 0) {
       throw bootRuleError(LIST_ROW_GUIDANCE_RULES.guidanceFieldEmpty, {

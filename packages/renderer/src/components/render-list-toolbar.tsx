@@ -2,7 +2,11 @@ import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/u
 import type { ReactNode } from "react";
 import type { Translate } from "../headless/index.ts";
 import type { ActionMenuItemSpec, usePrimitives } from "../primitives.tsx";
-import { ListEmptyStateBody, type ListEmptyStateContent } from "./list-empty-state.tsx";
+import {
+  ListEmptyStateBody,
+  type ListEmptyStateContent,
+  type NamedFilterEmptyContent,
+} from "./list-empty-state.tsx";
 import { ListHeaderSlotMount } from "./render-list-header-slot.tsx";
 import { ToolbarActionView } from "./render-list-toolbar-action.tsx";
 import type { ToolbarActionSplit } from "./render-list-toolbar-model.ts";
@@ -117,6 +121,7 @@ type EmptyStateModel = {
   readonly onCreate: (() => void) | undefined;
   readonly emptyContent: ListEmptyStateContent | undefined;
   readonly narrowed: boolean;
+  readonly namedFilterEmpty: NamedFilterEmptyContent | undefined;
   readonly defaultFilterActive: boolean;
   readonly onFilterReset: (() => void) | undefined;
   readonly translate: Translate;
@@ -135,6 +140,7 @@ export function composeEmptyState(model: EmptyStateModel): ReactNode {
     onCreate,
     emptyContent,
     narrowed,
+    namedFilterEmpty,
     defaultFilterActive,
     onFilterReset,
     translate,
@@ -147,6 +153,7 @@ export function composeEmptyState(model: EmptyStateModel): ReactNode {
       <ListEmptyStateBody
         content={emptyContent}
         narrowed={narrowed}
+        namedFilterEmpty={namedFilterEmpty}
         defaultFilterActive={defaultFilterActive}
         {...(onFilterReset !== undefined && { onShowAll: onFilterReset })}
         translate={translate}

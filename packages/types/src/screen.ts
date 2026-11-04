@@ -197,6 +197,7 @@ export type ScreenDefinition =
   | SecretMintScreenDefinition
   | CustomScreenDefinition;
 
+export type { NamedFilterFacetOptions } from "./named-list-filters.ts";
 export type {
   ActionFormFooterAction,
   ActionFormLoad,

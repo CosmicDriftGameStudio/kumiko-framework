@@ -28,6 +28,16 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - on phones the `orders` list draws cards in the order lead sentence (the hint column, with
   detail and "Why?"), title, up to three values, then the row action; a hint column is never
   the title and a `hideOnNarrow` one stays out of the card
+- a work queue on that list: named filters as one select with hit counts (`namedFilterFacet`),
+  a per-filter `sort` and `emptyState` with a reset button, a badge column, per-row button
+  actions (a write "Send reminder" or a link "Open order", shown by `visible`) and a totals footer
+- a `today` dashboard on the 12-column grid: a `lead` briefing (two thirds), count tiles that
+  use the list's own query and link into the filtered list, a headerless "Now" list, two third
+  width lists and a money group. List and dashboard answer from `src/order-board.ts`, which the
+  e2e mock dispatcher shares
+- on the detail screen: a second step action as a link button, metric tiles with `tone`,
+  `toneField` and `navigate: { tab }`, and tab counts via `countField`; the breadcrumb stays
+  unlinked because the recipe has no entity with a `detailFor` screen to link to
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -44,6 +54,63 @@ bun test
 ```
 
 ## Source files
+
+### e2e/board-screenshots.spec.ts
+
+```ts
+// Manual visual evidence for the board blocks (dashboard, work queue, case file), desktop and
+// phone via the screenshot projects in playwright.config.ts (PADDING_PARITY_SCREENSHOTS=1).
+// Captures only; the behaviour is asserted in work-queue.spec.ts.
+
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+import type { Page } from "@playwright/test";
+
+const FILTER_FACET = "facet-__namedFilter";
+
+// Phones keep the facets behind a "Filters" button.
+async function openFilterSelect(page: Page): Promise<void> {
+  const facet = page.getByTestId(FILTER_FACET);
+  if (!(await facet.isVisible())) await page.getByRole("button", { name: "Filters" }).click();
+  await facet.click();
+}
+
+test("board: today dashboard", async ({ page }, testInfo) => {
+  await page.goto("/today");
+  await expect(page.getByText("Need action")).toBeVisible();
+  await expect(page.getByText("SO-10482").first()).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("today.png"), fullPage: true });
+});
+
+test("board: orders list in its states", async ({ page }, testInfo) => {
+  await page.goto("/orders");
+  await expect(page.getByText("SO-10483")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("orders.png"), fullPage: true });
+
+  await openFilterSelect(page);
+  await page.screenshot({ path: testInfo.outputPath("orders-select-open.png"), fullPage: true });
+  await page.getByTestId(`${FILTER_FACET}-action-needed`).click();
+  await expect(page.getByText("SO-10483")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("orders-filtered.png"), fullPage: true });
+
+  // Phone cards show the reason open; only the table has the toggle.
+  const reasonToggle = page.locator("[data-hint-reason-toggle]").first();
+  if (await reasonToggle.isVisible()) await reasonToggle.click();
+  await expect(page.locator("[data-hint-reason]").first()).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("orders-reason-open.png"), fullPage: true });
+
+  await openFilterSelect(page);
+  await page.getByTestId(`${FILTER_FACET}-reminder-due`).click();
+  await expect(page.getByTestId("render-list-empty-reset-filter")).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("orders-empty.png"), fullPage: true });
+});
+
+test("board: order detail with a step reason open", async ({ page }, testInfo) => {
+  await page.goto("/?guidance=1");
+  await expect(page.getByTestId("render-edit-form")).toBeVisible();
+  await page.getByRole("button", { name: /why/i }).first().click();
+  await page.screenshot({ path: testInfo.outputPath("order-detail.png"), fullPage: true });
+});
+```
 
 ### e2e/build-server.ts
 
@@ -248,11 +315,14 @@ function OrderInternalNote(): ReactNode {
 
 function Shell({
   schema,
+  children,
 }: {
   readonly children: ReactNode;
   readonly schema: AppSchema;
 }): ReactNode {
   const feature = schema.features[0];
+  // Only the root path pins the record; other paths (/today, /orders) render the routed screen.
+  const isPinnedRecord = window.location.pathname === "/";
   // KumikoScreen sits directly under DefaultAppShell's <main> — same as the
   // real RoutedScreen (create-app.tsx) — so RenderEdit's `fillHeight` chain
   // (h-full all the way down) resolves against `main`'s own, genuinely
@@ -264,11 +334,13 @@ function Shell({
       schema={schema}
       user={{ id: "u1", roles: ["Admin"] }}
     >
-      {feature !== undefined && (
-        <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+      <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+        {isPinnedRecord && feature !== undefined ? (
           <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
-        </ExtensionSectionsProvider>
-      )}
+        ) : (
+          children
+        )}
+      </ExtensionSectionsProvider>
     </DefaultAppShell>
   );
 }
@@ -329,20 +401,37 @@ import type {
   WriteOpts,
   WriteResult,
 } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  answerBriefing,
+  answerCustomers,
+  answerDeadlines,
+  answerMoney,
+  answerNowList,
+  answerOrderDetail,
+  answerOrderList,
+  orderListSchema,
+} from "../../src/order-board";
 
+const QUERY_ORDER_LIST = "order-desk:query:order:list";
+const QUERY_ORDER_NOW = "order-desk:query:order:now";
+const QUERY_ORDER_BRIEFING = "order-desk:query:order:briefing";
+const QUERY_ORDER_DEADLINES = "order-desk:query:order:deadlines";
+const QUERY_ORDER_CUSTOMERS = "order-desk:query:order:customers";
+const QUERY_ORDER_MONEY = "order-desk:query:order:money";
 const QUERY_ORDER_DETAIL = "order-desk:query:order:detail";
 const QUERY_ORDER_ITEMS = "order-desk:query:order:items";
 const QUERY_ORDER_PAYMENTS = "order-desk:query:order:payments";
 
-const ORDER_DETAIL_FIELDS = {
-  customerName: "Aiko Tanaka",
-  orderNumber: "SO-10482",
-  status: "processing",
-  totalAmount: "€ 1,248.00",
-  outstandingAmount: "€ 312.00",
-  itemCount: "3",
-  placedAt: "2026-08-21",
-};
+// The guidance blocks (breadcrumb, summary, banner, progress, steps) stack tall above the tabs;
+// the height specs measure the tab panel and run without them, `?guidance=1` turns them on.
+function orderDetailForUrl(id: string): Record<string, unknown> {
+  const { path, summaryLine, summaryTone, notice, steps, progress, ...withoutGuidance } =
+    answerOrderDetail(id);
+  const withGuidance = new URLSearchParams(window.location.search).has("guidance");
+  return withGuidance
+    ? { ...withoutGuidance, path, summaryLine, summaryTone, notice, steps, progress }
+    : withoutGuidance;
+}
 
 function itemsCountFromUrl(): number {
   const raw = new URLSearchParams(window.location.search).get("items");
@@ -377,7 +466,26 @@ export function createMockDispatcher(): Dispatcher {
     if (type === QUERY_ORDER_DETAIL) {
       const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
       const id = (data["id"] as string | undefined) ?? "order-1";
-      return { isSuccess: true, data: { id, ...ORDER_DETAIL_FIELDS } as unknown as TData };
+      return { isSuccess: true, data: orderDetailForUrl(id) as unknown as TData };
+    }
+    if (type === QUERY_ORDER_LIST) {
+      const answer = answerOrderList(orderListSchema.parse(payload ?? {}));
+      return { isSuccess: true, data: answer as unknown as TData };
+    }
+    if (type === QUERY_ORDER_NOW) {
+      return { isSuccess: true, data: answerNowList() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_BRIEFING) {
+      return { isSuccess: true, data: answerBriefing() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_DEADLINES) {
+      return { isSuccess: true, data: answerDeadlines() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_CUSTOMERS) {
+      return { isSuccess: true, data: answerCustomers() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_MONEY) {
+      return { isSuccess: true, data: answerMoney() as unknown as TData };
     }
     if (type === QUERY_ORDER_ITEMS) {
       return { isSuccess: true, data: { rows: buildItemRows(itemsCountFromUrl()) } as TData };
@@ -584,20 +692,20 @@ test.describe("record-detail-layout — tall tab panel scrolls", () => {
 });
 
 test.describe("record-detail-layout — header action per tab", () => {
-  const recordPayment = "order-desk.action.recordPayment";
+  const recordPayment = "Record payment";
 
   test("record-payment shows on the payments tab only", async ({ page }) => {
     await page.goto("/?tab=payments");
     await expect(page.getByTestId("kumiko-screen-projection-detail-tabs")).toBeVisible();
     // The third header action lands in the overflow menu.
     await page.getByRole("button", { name: "More actions" }).last().click();
-    await expect(page.getByText(recordPayment)).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: recordPayment })).toBeVisible();
 
     await page.goto("/?tab=items");
     await expect(page.getByTestId("render-list-table")).toBeVisible();
     // Only two actions remain, so no overflow menu is rendered.
     await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(0);
-    await expect(page.getByText(recordPayment)).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: recordPayment })).toHaveCount(0);
   });
 });
 ```
@@ -711,7 +819,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/,
+      testIgnore: /(phone-viewport|padding-parity-screenshots|board-screenshots)\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     // Desktop copy of padding-parity-screenshots.spec.ts, distinct from the
@@ -722,7 +830,7 @@ export default defineConfig({
       ? [
           {
             name: "chromium-desktop-screenshots",
-            testMatch: /padding-parity-screenshots\.spec\.ts$/,
+            testMatch: /(padding-parity-screenshots|board-screenshots)\.spec\.ts$/,
             use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
           },
         ]
@@ -735,7 +843,7 @@ export default defineConfig({
     {
       name: "chromium-phone",
       testMatch: WITH_PARITY_SCREENSHOTS
-        ? /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/
+        ? /(phone-viewport|padding-parity-screenshots|board-screenshots)\.spec\.ts$/
         : /phone-viewport\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
@@ -750,6 +858,61 @@ export default defineConfig({
     stdout: "pipe",
     stderr: "pipe",
   },
+});
+```
+
+### e2e/work-queue.spec.ts
+
+```ts
+// The orders work queue: named filters in one select with hit counts, a filter-owned sort,
+// a filter-owned empty state with a reset button, and the totals footer.
+
+import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
+
+const FILTER_FACET = "facet-__namedFilter";
+
+test("picking a named filter narrows the list and sorts it by the filter's own order", async ({
+  page,
+}) => {
+  await page.goto("/orders");
+  await expect(page.getByText("SO-10483")).toBeVisible();
+
+  await page.getByTestId(FILTER_FACET).click();
+  await expect(page.getByTestId(`${FILTER_FACET}-action-needed`)).toContainText("5");
+  await page.getByTestId(`${FILTER_FACET}-action-needed`).click();
+
+  await expect(page.getByText("SO-10483")).toHaveCount(0);
+  const rowTexts = await page.locator("tbody tr").allInnerTexts();
+  const orderNumbers = rowTexts.map((text) => /SO-\d+/.exec(text)?.[0]);
+  expect(orderNumbers).toEqual(["SO-10482", "SO-10488", "SO-10484", "SO-10485", "SO-10486"]);
+});
+
+test("a filter without hits shows its own empty state, and its reset button brings the list back", async ({
+  page,
+}) => {
+  await page.goto("/orders");
+  await page.getByTestId(FILTER_FACET).click();
+  await page.getByTestId(`${FILTER_FACET}-reminder-due`).click();
+
+  await expect(page.getByTestId("render-list-empty-reset-filter")).toBeVisible();
+  await expect(page.getByText("SO-10482")).toHaveCount(0);
+
+  await page.getByTestId("render-list-empty-reset-filter").click();
+  await expect(page.getByText("SO-10482")).toBeVisible();
+  await expect(page.getByTestId("render-list-empty-reset-filter")).toHaveCount(0);
+});
+
+test("the footer totals the open amount over the whole list", async ({ page }) => {
+  await page.goto("/orders");
+  await expect(page.getByTestId("list-totals")).toBeVisible();
+  await expect(page.getByTestId("list-totals")).toContainText("2497");
+});
+
+test("a stat tile on the dashboard links into the filtered list", async ({ page }) => {
+  await page.goto("/today");
+  await page.getByText("Need action").click();
+  await expect(page).toHaveURL(/orders/);
+  await expect(page.getByText("SO-10483")).toHaveCount(0);
 });
 ```
 
@@ -775,6 +938,7 @@ import {
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
+import { answerOrderList, orderListSchema } from "../order-board";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -835,12 +999,15 @@ describe("record-detail-layout showcase — registration", () => {
     expect(screen.inlineActions).toEqual(["download-invoice"]);
   });
 
-  test("relatedList columns collapse string shorthand into the object form", () => {
+  test("relatedList columns carry their own header label, there is no entity to resolve it from", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     const itemsSection = screen.layout.sections[0];
     if (itemsSection?.kind !== "relatedList") throw new Error("expected relatedList");
-    expect(normalizeListColumn(itemsSection.columns[0]!)).toEqual({ field: "sku" });
+    expect(normalizeListColumn(itemsSection.columns[0]!)).toEqual({
+      field: "sku",
+      label: "order-desk.col.sku",
+    });
   });
 });
 
@@ -861,6 +1028,76 @@ describe("record-detail-layout showcase — guidance", () => {
     expect(screen.banner?.field).toBe("notice");
     expect(screen.steps?.field).toBe("steps");
     expect(screen.progress?.field).toBe("progress");
+  });
+});
+
+describe("record-detail-layout showcase — work queue", () => {
+  test("the orders list offers named filters as a counted select, with sort and empty state", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    expect(screen.namedFilters?.map((filter) => filter.id)).toEqual([
+      "action-needed",
+      "reminder-due",
+      "ending-soon",
+    ]);
+    expect(screen.namedFilterFacet).toEqual({
+      display: "select",
+      showCounts: true,
+      label: "order-desk.orders.todo",
+    });
+    const buttons = (screen.rowActions ?? []).filter((action) => action.display === "button");
+    expect(buttons.map((action) => [action.id, action.visible])).toEqual([
+      ["remind", { field: "canRemind", eq: true }],
+      ["open-order", { field: "canRemind", eq: false }],
+    ]);
+    expect(screen.namedFilters?.[0]?.sort).toEqual({ field: "urgency", dir: "desc" });
+    expect(screen.namedFilters?.[0]?.emptyState?.title).toBe("order-desk.orders.all-done");
+    expect(screen.table?.totals).toEqual([
+      { field: "orderNumber", kind: "count" },
+      { field: "openAmount", kind: "sum" },
+    ]);
+  });
+
+  test("the list query filters, sorts, counts and aggregates like the screen asks", () => {
+    const ask = (payload: object) => answerOrderList(orderListSchema.parse(payload));
+    const open = ask({ namedFilter: "action-needed", sort: "urgency", sortDirection: "desc" });
+    if (!("rows" in open)) throw new Error("expected rows");
+    expect(open.rows.map((row) => row.id)).toEqual(["o1", "o7", "o3", "o4", "o5"]);
+
+    const counted = ask({ namedFilter: "action-needed", limit: 1, totalCount: true });
+    if (!("rows" in counted)) throw new Error("expected rows");
+    expect(counted.rows).toHaveLength(1);
+    expect(counted.total).toBe(5);
+
+    const none = ask({ namedFilter: "reminder-due", totalCount: true });
+    if (!("rows" in none)) throw new Error("expected rows");
+    expect(none.rows).toHaveLength(0);
+
+    const totals = ask({
+      aggregate: { measures: [{ field: "openAmount", kind: "sum" }] },
+    });
+    if (!("groups" in totals)) throw new Error("expected groups");
+    expect(totals.groups[0]?.measures).toEqual([2497]);
+  });
+
+  test("the today dashboard counts through the list query and links into the filtered list", () => {
+    const screen = registry.getScreen("order-desk:screen:today");
+    if (screen?.type !== "dashboard") throw new Error("expected dashboard");
+    expect(screen.panels.map((panel) => panel.kind)).toEqual([
+      "text",
+      "stat-group",
+      "list",
+      "list",
+      "list",
+      "stat-group",
+    ]);
+    const counts = screen.panels.find((panel) => panel.id === "queue-counts");
+    if (counts?.kind !== "stat-group") throw new Error("expected stat-group");
+    expect(counts.stats.map((stat) => stat.navigate?.namedFilter)).toEqual([
+      "action-needed",
+      "reminder-due",
+      "ending-soon",
+    ]);
   });
 });
 
@@ -943,15 +1180,16 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 ### src/feature.ts
 
 ```ts
-// Record Detail Layout Showcase — a projectionDetail screen with the
-// "Akte" (case file) layout:
+// Record Detail Layout Showcase — a work queue, a briefing dashboard and a
+// projectionDetail screen with the "Akte" (case file) layout:
 //   1. `header` renders the query row's customer/order/status columns above
 //      the layout — the identity a support agent scans first.
 //   2. `metrics` renders a labeled band of key numbers from the same row; each metric
-//      carries its own i18n `label`, there is no fallback to the raw column name.
+//      carries its own i18n `label`, there is no fallback to the raw column name. Tiles take a
+//      fixed `tone` or a per-record `toneField` and can jump to a tab with `navigate`.
 //   3. `layout.mode: "tabs"` splits the record into four tabs: two `relatedList`
-//      sections (own query, own pagination, mounts only when active), one `fields`
-//      section (master data) and one `extension` section (plugin-mounted component;
+//      sections (own query, own pagination, mounts only when active, badge via `countField`),
+//      one `fields` section (master data) and one `extension` section (plugin-mounted component;
 //      every tab kind sits in the same Card padding, no extra chrome).
 //   4. The payments tab's emptyState picks its text from the order record through `variants`.
 //   5. A screen-level `actions` entry (fw#3234) renders next to the header,
@@ -959,10 +1197,13 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //      button next to it where the page header would otherwise fold it into the menu.
 //   6. `showOnTabs` limits the record-payment action to the payments tab.
 //   7. Guidance: the `orders` projectionList tints rows via `rowToneField`, shows a
-//      "to do" hint column (sentence, detail, tone, a "Why?" reason) and offers a
-//      next-step action per row. The detail screen adds `breadcrumb`, `summary`,
-//      `banner` and `steps`, each reading a query field; empty values drop out.
-//   8. `focus: true` gives the detail a focused shell; phones get a top bar with the
+//      "to do" hint column (sentence, detail, tone, a "Why?" reason), a badge column and
+//      per-row button actions (send a reminder, or open the record). Named filters sit in one select with hit counts,
+//      each with its own sort and empty state; the footer totals the rows. The detail screen adds
+//      `breadcrumb`, `summary`, `banner` and `steps`, each reading a query field; empty values drop out.
+//   8. The `today` dashboard composes a lead briefing, count tiles that link into the filtered
+//      list, a headerless "Now" list and two narrow lists on a 12-column grid.
+//   9. `focus: true` gives the detail a focused shell; phones get a top bar with the
 //      record title, a back arrow to the list and the page-header overflow menu.
 //
 // projectionDetail binds to an explicit query, not an entity: every field name below
@@ -970,8 +1211,22 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import {
+  answerBriefing,
+  answerCustomers,
+  answerDeadlines,
+  answerMoney,
+  answerNowList,
+  answerOrderDetail,
+  answerOrderList,
+  orderListSchema,
+} from "./order-board.ts";
 
 const rowIdSchema = z.object({ id: z.string() });
+const noPayloadSchema = z.object({});
+const accessRoles = { roles: ["Support", "Admin"] } as const;
+
+export const ORDER_LIST_QUERY = "order-desk:query:order:list";
 
 export function createOrderDeskFeature(): FeatureDefinition {
   return defineFeature("order-desk", (r) => {
@@ -979,77 +1234,51 @@ export function createOrderDeskFeature(): FeatureDefinition {
 
     r.queryHandler({
       name: "order:list",
-      schema: z.object({}),
-      handler: async () => ({
-        rows: [
-          {
-            id: "o1",
-            orderNumber: "SO-10482",
-            customerName: "Aiko Tanaka",
-            tone: "bad",
-            nextStep: "Send payment reminder",
-            nextStepDue: "by Friday",
-            nextStepReason: "312 EUR is 14 days overdue",
-            canRemind: true,
-          },
-          {
-            id: "o2",
-            orderNumber: "SO-10483",
-            customerName: "Jonas Weber",
-            tone: "ok",
-            nextStep: "",
-            nextStepDue: "",
-            nextStepReason: "",
-            canRemind: false,
-          },
-        ],
-        nextCursor: null,
-      }),
-      access: { roles: ["Support", "Admin"] },
+      schema: orderListSchema,
+      handler: async (query) => answerOrderList(query.payload),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:now",
+      schema: noPayloadSchema,
+      handler: async () => answerNowList(),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:briefing",
+      schema: noPayloadSchema,
+      handler: async () => answerBriefing(),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:deadlines",
+      schema: noPayloadSchema,
+      handler: async () => answerDeadlines(),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:customers",
+      schema: noPayloadSchema,
+      handler: async () => answerCustomers(),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:money",
+      schema: noPayloadSchema,
+      handler: async () => answerMoney(),
+      access: accessRoles,
     });
 
     r.queryHandler({
       name: "order:detail",
       schema: rowIdSchema,
-      handler: async (query) => ({
-        id: query.payload.id,
-        customerName: "Aiko Tanaka",
-        orderNumber: "SO-10482",
-        status: "processing",
-        totalAmount: "€ 1,248.00",
-        outstandingAmount: "€ 312.00",
-        itemCount: "3",
-        placedAt: "2026-08-21",
-        shippingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
-        billingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
-        salesRep: "Jonas Weber",
-        path: [{ label: "Orders" }, { label: "SO-10482" }],
-        summaryLine: "Waiting for the second payment",
-        summaryTone: "warn",
-        notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
-        steps: [
-          {
-            id: "remind",
-            title: "Send payment reminder",
-            detail: "by Friday",
-            tone: "warn",
-            why: "The invoice is 14 days overdue",
-          },
-          { id: "escalate", title: "Escalate to accounting" },
-        ],
-        progress: [
-          {
-            title: "Order to cash",
-            currentIndex: 1,
-            steps: [
-              { id: "placed", label: "Placed", done: true },
-              { id: "paid", label: "Paid", done: false, detail: "312 EUR open" },
-              { id: "shipped", label: "Shipped", done: false },
-            ],
-          },
-        ],
-      }),
-      access: { roles: ["Support", "Admin"] },
+      handler: async (query) => answerOrderDetail(query.payload.id),
+      access: accessRoles,
     });
 
     r.queryHandler({
@@ -1062,7 +1291,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           { sku: "PAD-01", description: "Desk mat", quantity: 1, unitPrice: 22 },
         ],
       }),
-      access: { roles: ["Support", "Admin"] },
+      access: accessRoles,
     });
 
     r.queryHandler({
@@ -1074,26 +1303,127 @@ export function createOrderDeskFeature(): FeatureDefinition {
           { paidAt: "2026-08-25", amount: 312, method: "invoice", status: "pending" },
         ],
       }),
-      access: { roles: ["Support", "Admin"] },
+      access: accessRoles,
+    });
+
+    r.writeHandler({
+      name: "order:remind",
+      schema: rowIdSchema,
+      handler: async (event) => ({ isSuccess: true as const, data: { id: event.payload.id } }),
+      access: accessRoles,
+    });
+
+    r.translations({
+      keys: {
+        "screen:orders.title": { en: "Orders" },
+        "screen:order-detail.title": { en: "Order" },
+        "screen:today.title": { en: "Today" },
+        "order-desk.orders.todo": { en: "To do" },
+        "order-desk.orders.nothing-open": { en: "Nothing to do" },
+        "order-desk.orders.all-done": { en: "All done" },
+        "order-desk.orders.all-done-hint": { en: "No order needs you right now." },
+        "order-desk.filter.action-needed": { en: "Needs action" },
+        "order-desk.filter.reminder-due": { en: "Reminder due" },
+        "order-desk.filter.ending-soon": { en: "Ending soon" },
+        "order-desk.col.order": { en: "Order" },
+        "order-desk.col.customer": { en: "Customer" },
+        "order-desk.col.urgency": { en: "Urgency" },
+        "order-desk.col.todo": { en: "To do" },
+        "order-desk.col.open-amount": { en: "Open" },
+        "order-desk.col.sku": { en: "SKU" },
+        "order-desk.col.description": { en: "Description" },
+        "order-desk.col.quantity": { en: "Quantity" },
+        "order-desk.col.unit-price": { en: "Unit price" },
+        "order-desk.col.paid-at": { en: "Paid on" },
+        "order-desk.col.amount": { en: "Amount" },
+        "order-desk.col.method": { en: "Method" },
+        "order-desk.col.status": { en: "Status" },
+        "order-desk.today.now": { en: "Now" },
+        "order-desk.today.deadlines": { en: "Deadlines" },
+        "order-desk.today.customers": { en: "Customers" },
+        "order-desk.today.money": { en: "Money" },
+        "order-desk.today.money-sub": { en: "Across all open orders" },
+        "order-desk.today.stat.action-needed": { en: "Need action" },
+        "order-desk.today.stat.reminder-due": { en: "Reminders due" },
+        "order-desk.today.stat.ending-soon": { en: "Ending soon" },
+        "order-desk.today.stat.open": { en: "Open" },
+        "order-desk.today.stat.overdue": { en: "Overdue" },
+        "order-desk.today.stat.collected": { en: "Collected" },
+        "order-desk.action.open": { en: "Open" },
+        "order-desk.action.remind": { en: "Send reminder" },
+        "order-desk.action.open-order": { en: "Open order" },
+        "order-desk.action.prepare": { en: "Let the assistant prepare" },
+        "order-desk.action.recordPayment": { en: "Record payment" },
+        "order-desk.action.refreshOrder": { en: "Refresh" },
+        "order-desk.action.downloadInvoice": { en: "Download invoice" },
+        "order-desk.steps.title": { en: "Next steps" },
+        "order-desk.steps.empty": { en: "Nothing left to do" },
+        "order-desk.metric.totalAmount": { en: "Total" },
+        "order-desk.metric.outstandingAmount": { en: "Outstanding" },
+        "order-desk.metric.itemCount": { en: "Items" },
+        "order-desk.metric.placedAt": { en: "Placed" },
+        "order-desk.tab.items": { en: "Items" },
+        "order-desk.tab.payments": { en: "Payments" },
+        "order-desk.tab.details": { en: "Details" },
+        "order-desk.tab.internalNote": { en: "Internal note" },
+        "order-desk.payments.empty": { en: "No payments yet" },
+        "order-desk.payments.empty-pending": { en: "A payment is pending" },
+      },
     });
 
     r.screen({
       id: "orders",
       type: "projectionList",
-      query: "order-desk:query:order:list",
+      query: ORDER_LIST_QUERY,
       rowToneField: "tone",
       columns: [
-        { field: "orderNumber" },
-        { field: "customerName" },
+        { field: "orderNumber", label: "order-desk.col.order" },
+        { field: "customerName", label: "order-desk.col.customer" },
+        {
+          field: "urgencyLabel",
+          label: "order-desk.col.urgency",
+          display: "badge",
+          badgeToneField: "urgencyTone",
+        },
         {
           field: "nextStep",
+          label: "order-desk.col.todo",
           hint: {
             detailField: "nextStepDue",
             reasonField: "nextStepReason",
             emptyLabel: "order-desk.orders.nothing-open",
           },
         },
+        { field: "openAmount", label: "order-desk.col.open-amount", hideOnNarrow: true },
       ],
+      defaultSort: { field: "orderNumber", dir: "asc" },
+      namedFilters: [
+        {
+          id: "action-needed",
+          label: "order-desk.filter.action-needed",
+          sort: { field: "urgency", dir: "desc" },
+          emptyState: {
+            title: "order-desk.orders.all-done",
+            description: "order-desk.orders.all-done-hint",
+          },
+        },
+        {
+          id: "reminder-due",
+          label: "order-desk.filter.reminder-due",
+          emptyState: {
+            title: "order-desk.orders.all-done",
+            description: "order-desk.orders.all-done-hint",
+          },
+        },
+        { id: "ending-soon", label: "order-desk.filter.ending-soon" },
+      ],
+      namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
+      table: {
+        totals: [
+          { field: "orderNumber", kind: "count" },
+          { field: "openAmount", kind: "sum" },
+        ],
+      },
       rowActions: [
         {
           kind: "navigate",
@@ -1103,15 +1433,149 @@ export function createOrderDeskFeature(): FeatureDefinition {
           rowClick: true,
         },
         {
-          kind: "navigate",
           id: "remind",
           label: "order-desk.action.remind",
-          screen: "order-detail",
-          display: "link",
+          handler: "order-desk:write:order:remind",
+          display: "button",
           visible: { field: "canRemind", eq: true },
         },
+        {
+          kind: "navigate",
+          id: "open-order",
+          label: "order-desk.action.open-order",
+          screen: "order-detail",
+          display: "button",
+          visible: { field: "canRemind", eq: false },
+        },
       ],
-      access: { roles: ["Support", "Admin"] },
+      access: accessRoles,
+    });
+
+    r.screen({
+      id: "today",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "text",
+          id: "briefing",
+          span: "two-thirds",
+          query: "order-desk:query:order:briefing",
+        },
+        {
+          kind: "stat-group",
+          id: "queue-counts",
+          span: "full",
+          stats: [
+            {
+              kind: "stat",
+              id: "action-needed",
+              label: "order-desk.today.stat.action-needed",
+              query: ORDER_LIST_QUERY,
+              valueField: "total",
+              params: { namedFilter: "action-needed", limit: 1, totalCount: true },
+              navigate: { screen: "orders", namedFilter: "action-needed" },
+            },
+            {
+              kind: "stat",
+              id: "reminder-due",
+              label: "order-desk.today.stat.reminder-due",
+              query: ORDER_LIST_QUERY,
+              valueField: "total",
+              params: { namedFilter: "reminder-due", limit: 1, totalCount: true },
+              navigate: { screen: "orders", namedFilter: "reminder-due" },
+            },
+            {
+              kind: "stat",
+              id: "ending-soon",
+              label: "order-desk.today.stat.ending-soon",
+              query: ORDER_LIST_QUERY,
+              valueField: "total",
+              params: { namedFilter: "ending-soon", limit: 1, totalCount: true },
+              navigate: { screen: "orders", namedFilter: "ending-soon" },
+            },
+          ],
+        },
+        {
+          kind: "list",
+          id: "now",
+          label: "order-desk.today.now",
+          span: "two-thirds",
+          showHeader: false,
+          query: "order-desk:query:order:now",
+          rowToneField: "tone",
+          columns: [
+            { field: "urgencyLabel", display: "badge", badgeToneField: "urgencyTone" },
+            {
+              field: "nextStep",
+              hint: { detailField: "nextStepDue", reasonField: "nextStepReason" },
+            },
+            {
+              field: "actionLabel",
+              display: "button",
+              linkScreenField: "actionScreen",
+              linkParamsField: "actionParams",
+            },
+          ],
+        },
+        {
+          kind: "list",
+          id: "deadlines",
+          label: "order-desk.today.deadlines",
+          span: "third",
+          showHeader: false,
+          query: "order-desk:query:order:deadlines",
+          columns: [
+            { field: "due", display: "datetime" },
+            { field: "title", linkScreenField: "screen", linkParamsField: "params" },
+          ],
+        },
+        {
+          kind: "list",
+          id: "customers",
+          label: "order-desk.today.customers",
+          span: "third",
+          showHeader: false,
+          query: "order-desk:query:order:customers",
+          rowToneField: "tone",
+          columns: [
+            { field: "customerName", linkScreenField: "screen", linkParamsField: "params" },
+            { field: "openCount", display: "badge", badgeToneField: "openTone" },
+          ],
+        },
+        {
+          kind: "stat-group",
+          id: "money",
+          label: "order-desk.today.money",
+          subtitle: "order-desk.today.money-sub",
+          span: "two-thirds",
+          stats: [
+            {
+              kind: "stat",
+              id: "open",
+              label: "order-desk.today.stat.open",
+              query: "order-desk:query:order:money",
+              valueField: "open",
+            },
+            {
+              kind: "stat",
+              id: "overdue",
+              label: "order-desk.today.stat.overdue",
+              query: "order-desk:query:order:money",
+              valueField: "overdue",
+              tone: "negative",
+            },
+            {
+              kind: "stat",
+              id: "collected",
+              label: "order-desk.today.stat.collected",
+              query: "order-desk:query:order:money",
+              valueField: "collected",
+              tone: "positive",
+            },
+          ],
+        },
+      ],
+      access: accessRoles,
     });
 
     r.screen({
@@ -1155,12 +1619,31 @@ export function createOrderDeskFeature(): FeatureDefinition {
             screen: "order-detail",
             icon: "refresh",
           },
+          {
+            kind: "navigate",
+            id: "prepare",
+            label: "order-desk.action.prepare",
+            screen: "order-detail",
+            display: "link",
+            icon: "sparkles",
+            visible: { field: "canPrepare", eq: true },
+          },
         ],
       },
       metrics: [
         { field: "totalAmount", label: "order-desk.metric.totalAmount" },
-        { field: "outstandingAmount", label: "order-desk.metric.outstandingAmount" },
-        { field: "itemCount", label: "order-desk.metric.itemCount" },
+        {
+          field: "outstandingAmount",
+          label: "order-desk.metric.outstandingAmount",
+          tone: "warn",
+          toneField: "outstandingTone",
+          navigate: { tab: "payments" },
+        },
+        {
+          field: "itemCount",
+          label: "order-desk.metric.itemCount",
+          navigate: { tab: "items" },
+        },
         { field: "placedAt", label: "order-desk.metric.placedAt" },
       ],
       layout: {
@@ -1170,24 +1653,34 @@ export function createOrderDeskFeature(): FeatureDefinition {
             id: "items",
             kind: "relatedList",
             title: "order-desk.tab.items",
+            countField: "itemsCount",
             query: "order-desk:query:order:items",
             columns: [
-              "sku",
-              "description",
-              "quantity",
-              { field: "unitPrice", renderer: { format: "currency", symbol: "€" } },
+              { field: "sku", label: "order-desk.col.sku" },
+              { field: "description", label: "order-desk.col.description" },
+              { field: "quantity", label: "order-desk.col.quantity" },
+              {
+                field: "unitPrice",
+                label: "order-desk.col.unit-price",
+                renderer: { format: "currency", symbol: "€" },
+              },
             ],
           },
           {
             id: "payments",
             kind: "relatedList",
             title: "order-desk.tab.payments",
+            countField: "paymentsCount",
             query: "order-desk:query:order:payments",
             columns: [
-              "paidAt",
-              { field: "amount", renderer: { format: "currency", symbol: "€" } },
-              "method",
-              "status",
+              { field: "paidAt", label: "order-desk.col.paid-at" },
+              {
+                field: "amount",
+                label: "order-desk.col.amount",
+                renderer: { format: "currency", symbol: "€" },
+              },
+              { field: "method", label: "order-desk.col.method" },
+              { field: "status", label: "order-desk.col.status" },
             ],
             emptyState: {
               title: "order-desk.payments.empty",
@@ -1239,8 +1732,478 @@ export function createOrderDeskFeature(): FeatureDefinition {
         },
       ],
       inlineActions: ["download-invoice"],
-      access: { roles: ["Support", "Admin"] },
+      access: accessRoles,
     });
   });
+}
+```
+
+### src/order-board.ts
+
+```ts
+// In-memory order data shared by the real query handlers (feature.ts) and the e2e
+// mock dispatcher, so the browser fixture answers exactly what the server would.
+
+import { z } from "zod";
+
+export const ORDER_DETAIL_SCREEN_QN = "order-desk:screen:order-detail";
+
+export const NAMED_FILTER_IDS = ["action-needed", "reminder-due", "ending-soon"] as const;
+export type OrderNamedFilterId = (typeof NAMED_FILTER_IDS)[number];
+
+const AGGREGATE_MEASURE_KINDS = ["sum", "avg", "count", "min", "max"] as const;
+
+export const orderListSchema = z.object({
+  namedFilter: z.enum(NAMED_FILTER_IDS).optional(),
+  search: z.string().optional(),
+  sort: z.string().optional(),
+  sortDirection: z.enum(["asc", "desc"]).optional(),
+  limit: z.number().int().positive().max(200).optional(),
+  offset: z.number().int().nonnegative().optional(),
+  totalCount: z.boolean().optional(),
+  aggregate: z
+    .object({
+      groupBy: z.string().optional(),
+      measures: z
+        .array(z.object({ field: z.string(), kind: z.enum(AGGREGATE_MEASURE_KINDS) }))
+        .default([]),
+    })
+    .optional(),
+});
+
+export type OrderListPayload = z.infer<typeof orderListSchema>;
+
+type RowTone = "ok" | "warn" | "bad" | "critical" | "neutral";
+type UrgencyTone = "negative" | "warn" | "neutral" | "positive";
+
+export type OrderRow = {
+  readonly id: string;
+  readonly orderNumber: string;
+  readonly customerName: string;
+  readonly tone: RowTone;
+  readonly urgency: number;
+  readonly urgencyLabel: string;
+  readonly urgencyTone: UrgencyTone;
+  readonly nextStep: string;
+  readonly nextStepDue: string;
+  readonly nextStepReason: string;
+  readonly openAmount: number;
+  readonly status: "processing" | "shipped" | "closing" | "delivered";
+  readonly actionLabel: string;
+  readonly canRemind: boolean;
+};
+
+const ORDER_ROWS: readonly OrderRow[] = [
+  {
+    id: "o1",
+    orderNumber: "SO-10482",
+    customerName: "Aiko Tanaka",
+    tone: "bad",
+    urgency: 92,
+    urgencyLabel: "Critical",
+    urgencyTone: "negative",
+    nextStep: "Send payment reminder",
+    nextStepDue: "by Friday",
+    nextStepReason: "312 EUR is 14 days overdue.\nTwo earlier mails stayed unanswered.",
+    openAmount: 312,
+    status: "processing",
+    actionLabel: "Send reminder",
+    canRemind: true,
+  },
+  {
+    id: "o2",
+    orderNumber: "SO-10483",
+    customerName: "Jonas Weber",
+    tone: "ok",
+    urgency: 0,
+    urgencyLabel: "",
+    urgencyTone: "neutral",
+    nextStep: "",
+    nextStepDue: "",
+    nextStepReason: "",
+    openAmount: 0,
+    status: "delivered",
+    actionLabel: "",
+    canRemind: false,
+  },
+  {
+    id: "o3",
+    orderNumber: "SO-10484",
+    customerName: "Maria Lopez",
+    tone: "warn",
+    urgency: 74,
+    urgencyLabel: "Overdue",
+    urgencyTone: "negative",
+    nextStep: "Confirm the delivery slot",
+    nextStepDue: "Tuesday",
+    nextStepReason: "The carrier asked twice for a date.",
+    openAmount: 180,
+    status: "shipped",
+    actionLabel: "Open order",
+    canRemind: false,
+  },
+  {
+    id: "o4",
+    orderNumber: "SO-10485",
+    customerName: "Tom Becker",
+    tone: "warn",
+    urgency: 61,
+    urgencyLabel: "Urgent",
+    urgencyTone: "warn",
+    nextStep: "Call about the backorder",
+    nextStepDue: "tomorrow",
+    nextStepReason: "Two of five items are backordered.\nThe customer expects a full delivery.",
+    openAmount: 540,
+    status: "processing",
+    actionLabel: "Open order",
+    canRemind: false,
+  },
+  {
+    id: "o5",
+    orderNumber: "SO-10486",
+    customerName: "Priya Nair",
+    tone: "neutral",
+    urgency: 35,
+    urgencyLabel: "Due",
+    urgencyTone: "neutral",
+    nextStep: "Review the credit limit",
+    nextStepDue: "next week",
+    nextStepReason: "The open balance grew past the agreed limit.",
+    openAmount: 1190,
+    status: "closing",
+    actionLabel: "Open order",
+    canRemind: false,
+  },
+  {
+    id: "o6",
+    orderNumber: "SO-10487",
+    customerName: "Lars Hansen",
+    tone: "ok",
+    urgency: 0,
+    urgencyLabel: "",
+    urgencyTone: "neutral",
+    nextStep: "",
+    nextStepDue: "",
+    nextStepReason: "",
+    openAmount: 0,
+    status: "delivered",
+    actionLabel: "",
+    canRemind: false,
+  },
+  {
+    id: "o7",
+    orderNumber: "SO-10488",
+    customerName: "Emma Rossi",
+    tone: "bad",
+    urgency: 80,
+    urgencyLabel: "Overdue",
+    urgencyTone: "negative",
+    nextStep: "Send payment reminder",
+    nextStepDue: "Thursday",
+    nextStepReason: "180 EUR is 9 days overdue.",
+    openAmount: 180,
+    status: "processing",
+    actionLabel: "Send reminder",
+    canRemind: true,
+  },
+  {
+    id: "o8",
+    orderNumber: "SO-10489",
+    customerName: "Kenji Mori",
+    tone: "ok",
+    urgency: 0,
+    urgencyLabel: "",
+    urgencyTone: "neutral",
+    nextStep: "",
+    nextStepDue: "",
+    nextStepReason: "",
+    openAmount: 95,
+    status: "closing",
+    actionLabel: "",
+    canRemind: false,
+  },
+];
+
+const NAMED_FILTER_PREDICATES: Readonly<Record<OrderNamedFilterId, (row: OrderRow) => boolean>> = {
+  "action-needed": (row) => row.nextStep !== "",
+  "reminder-due": (row) => row.canRemind && row.nextStepDue === "today",
+  "ending-soon": (row) => row.status === "closing",
+};
+
+const DEFAULT_PAGE_SIZE = 50;
+
+function matchesSearch(row: OrderRow, search: string | undefined): boolean {
+  if (search === undefined || search === "") return true;
+  const needle = search.toLowerCase();
+  return (
+    row.orderNumber.toLowerCase().includes(needle) ||
+    row.customerName.toLowerCase().includes(needle)
+  );
+}
+
+function fieldValue(row: OrderRow, field: string): unknown {
+  return Object.entries(row).find(([key]) => key === field)?.[1];
+}
+
+function compareRows(
+  field: string,
+  direction: "asc" | "desc",
+): (a: OrderRow, b: OrderRow) => number {
+  const sign = direction === "asc" ? 1 : -1;
+  return (a, b) => {
+    const left = fieldValue(a, field);
+    const right = fieldValue(b, field);
+    if (typeof left === "number" && typeof right === "number") return sign * (left - right);
+    return sign * String(left).localeCompare(String(right));
+  };
+}
+
+function filteredRows(payload: OrderListPayload): readonly OrderRow[] {
+  const predicate =
+    payload.namedFilter === undefined ? undefined : NAMED_FILTER_PREDICATES[payload.namedFilter];
+  return ORDER_ROWS.filter(
+    (row) => (predicate === undefined || predicate(row)) && matchesSearch(row, payload.search),
+  );
+}
+
+function numericValues(rows: readonly OrderRow[], field: string): number[] {
+  return rows.flatMap((row) => {
+    const value = fieldValue(row, field);
+    return typeof value === "number" ? [value] : [];
+  });
+}
+
+function measureOf(
+  kind: (typeof AGGREGATE_MEASURE_KINDS)[number],
+  rows: readonly OrderRow[],
+  field: string,
+): number | null {
+  if (kind === "count") return rows.length;
+  const values = numericValues(rows, field);
+  if (values.length === 0) return null;
+  const sum = values.reduce((total, value) => total + value, 0);
+  if (kind === "sum") return sum;
+  if (kind === "avg") return sum / values.length;
+  return kind === "min" ? Math.min(...values) : Math.max(...values);
+}
+
+export type OrderListAnswer =
+  | {
+      readonly groups: readonly {
+        readonly key: null;
+        readonly count: number;
+        readonly measures: readonly (number | null)[];
+      }[];
+    }
+  | {
+      readonly rows: readonly (OrderRow & {
+        readonly actionScreen?: string;
+        readonly actionParams?: { readonly entityId: string };
+      })[];
+      readonly nextCursor: null;
+      readonly total?: number;
+    };
+
+export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
+  const matching = filteredRows(payload);
+  if (payload.aggregate !== undefined) {
+    return {
+      groups: [
+        {
+          key: null,
+          count: matching.length,
+          measures: payload.aggregate.measures.map((m) => measureOf(m.kind, matching, m.field)),
+        },
+      ],
+    };
+  }
+  const ordered =
+    payload.sort === undefined
+      ? matching
+      : [...matching].sort(compareRows(payload.sort, payload.sortDirection ?? "asc"));
+  const offset = payload.offset ?? 0;
+  const rows = ordered.slice(offset, offset + (payload.limit ?? DEFAULT_PAGE_SIZE)).map((row) => ({
+    ...row,
+    ...(row.nextStep !== "" && {
+      actionScreen: ORDER_DETAIL_SCREEN_QN,
+      actionParams: { entityId: row.id },
+    }),
+  }));
+  return {
+    rows,
+    nextCursor: null,
+    ...(payload.totalCount === true && { total: matching.length }),
+  };
+}
+
+function actionNeededRows(limit: number): readonly OrderRow[] {
+  return ORDER_ROWS.filter(NAMED_FILTER_PREDICATES["action-needed"])
+    .sort(compareRows("urgency", "desc"))
+    .slice(0, limit);
+}
+
+export function answerNowList() {
+  return {
+    rows: actionNeededRows(4).map((row) => ({
+      ...row,
+      actionScreen: ORDER_DETAIL_SCREEN_QN,
+      actionParams: { entityId: row.id },
+    })),
+  };
+}
+
+export function answerBriefing() {
+  const open = actionNeededRows(ORDER_ROWS.length);
+  const [first] = open;
+  return {
+    blocks: [
+      {
+        kind: "paragraph",
+        emphasis: "lead",
+        text: `${open.length} orders need you today.${
+          first === undefined
+            ? ""
+            : ` Most pressing is ${first.orderNumber} from ${first.customerName}.`
+        }`,
+      },
+      {
+        kind: "hint",
+        text: "Sorted by urgency. Open an order and let the assistant prepare the step.",
+      },
+    ],
+  };
+}
+
+const DEADLINES = [
+  { id: "d1", due: "2026-11-06T09:00:00Z", title: "Reminder SO-10482", orderId: "o1" },
+  { id: "d2", due: "2026-11-05T14:00:00Z", title: "Call Tom Becker", orderId: "o4" },
+  { id: "d3", due: "2026-11-10T10:30:00Z", title: "Credit review SO-10486", orderId: "o5" },
+  { id: "d4", due: "2026-11-12T08:00:00Z", title: "Delivery slot SO-10484", orderId: "o3" },
+] as const;
+
+export function answerDeadlines() {
+  return {
+    rows: [...DEADLINES]
+      .sort((a, b) => a.due.localeCompare(b.due))
+      .map((deadline) => ({
+        id: deadline.id,
+        due: deadline.due,
+        title: deadline.title,
+        screen: ORDER_DETAIL_SCREEN_QN,
+        params: { entityId: deadline.orderId },
+      })),
+  };
+}
+
+const CUSTOMERS = [
+  {
+    id: "c1",
+    customerName: "Aiko Tanaka",
+    openCount: 3,
+    openTone: "negative",
+    tone: "bad",
+    orderId: "o1",
+  },
+  {
+    id: "c2",
+    customerName: "Priya Nair",
+    openCount: 2,
+    openTone: "warn",
+    tone: "warn",
+    orderId: "o5",
+  },
+  {
+    id: "c3",
+    customerName: "Tom Becker",
+    openCount: 1,
+    openTone: "neutral",
+    tone: "neutral",
+    orderId: "o4",
+  },
+  {
+    id: "c4",
+    customerName: "Jonas Weber",
+    openCount: 0,
+    openTone: "positive",
+    tone: "ok",
+    orderId: "o2",
+  },
+] as const;
+
+export function answerCustomers() {
+  return {
+    rows: CUSTOMERS.map((customer) => ({
+      id: customer.id,
+      customerName: customer.customerName,
+      openCount: customer.openCount,
+      openTone: customer.openTone,
+      tone: customer.tone,
+      screen: ORDER_DETAIL_SCREEN_QN,
+      params: { entityId: customer.orderId },
+    })),
+  };
+}
+
+function euro(amount: number): string {
+  return `€ ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+export function answerMoney() {
+  const open = ORDER_ROWS.reduce((total, row) => total + row.openAmount, 0);
+  const overdue = ORDER_ROWS.filter((row) => row.urgencyTone === "negative").reduce(
+    (total, row) => total + row.openAmount,
+    0,
+  );
+  return {
+    open: euro(open),
+    overdue: euro(overdue),
+    collected: euro(1860),
+    openOrders: String(ORDER_ROWS.filter((row) => row.openAmount > 0).length),
+  };
+}
+
+export function answerOrderDetail(id: string) {
+  return {
+    id,
+    customerName: "Aiko Tanaka",
+    orderNumber: "SO-10482",
+    status: "processing",
+    totalAmount: "€ 1,248.00",
+    outstandingAmount: "€ 312.00",
+    outstandingTone: "bad",
+    itemCount: "3",
+    itemsCount: 3,
+    paymentsCount: 2,
+    placedAt: "2026-08-21",
+    shippingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
+    billingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
+    salesRep: "Jonas Weber",
+    path: [{ label: "Orders" }, { label: "Aiko Tanaka" }, { label: "SO-10482" }],
+    summaryLine: "Waiting for the second payment",
+    summaryTone: "warn",
+    notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
+    steps: [
+      {
+        id: "remind",
+        title: "Send payment reminder",
+        detail: "by Friday",
+        tone: "warn",
+        why: "The invoice is 14 days overdue.\nTwo earlier mails stayed unanswered.\nThe credit limit is 1,500 EUR.",
+        canPrepare: true,
+      },
+      { id: "escalate", title: "Escalate to accounting", canPrepare: false },
+    ],
+    progress: [
+      {
+        title: "Order to cash",
+        currentIndex: 1,
+        steps: [
+          { id: "placed", label: "Placed", done: true },
+          { id: "paid", label: "Paid", done: false, detail: "312 EUR open" },
+          { id: "shipped", label: "Shipped", done: false },
+        ],
+      },
+    ],
+  };
 }
 ```

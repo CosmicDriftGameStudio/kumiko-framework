@@ -37,6 +37,7 @@ export type {
   EmbeddedListCellViewModel,
   FieldConditionCtx,
   FieldRenderer,
+  ListColumnCellDisplay,
   ListColumnFileDisplay,
   ListColumnHintViewModel,
   ListColumnSpec,

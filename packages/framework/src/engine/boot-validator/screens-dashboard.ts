@@ -9,6 +9,7 @@ import type {
   DashboardCustomPanel,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
+  DashboardPanelSpan,
   DashboardPanelVisibility,
   DashboardRecordBinding,
   DashboardRefresh,
@@ -479,14 +480,21 @@ export function validateDashboardPanelVisibleWhen(
   }
 }
 
+const DASHBOARD_PANEL_SPANS: readonly unknown[] = [
+  "half",
+  "full",
+  "third",
+  "two-thirds",
+] satisfies readonly DashboardPanelSpan[];
+
 function validateDashboardPanelSpan(
   featureName: string,
   screenId: string,
   panel: { readonly id: string; readonly span?: unknown },
 ): void {
-  if (panel.span !== undefined && panel.span !== "half" && panel.span !== "full") {
+  if (panel.span !== undefined && !DASHBOARD_PANEL_SPANS.includes(panel.span)) {
     throw bootRuleError(DASHBOARD_RULES.panelSpanInvalid, {
-      message: `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has span "${String(panel.span)}" — expected "half" or "full".`,
+      message: `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has span "${String(panel.span)}" — expected "half", "full", "third" or "two-thirds".`,
     });
   }
 }

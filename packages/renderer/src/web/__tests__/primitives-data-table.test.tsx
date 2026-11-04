@@ -53,6 +53,38 @@ describe("DataTable", () => {
     expect(onFilterChange).toHaveBeenCalledWith("status", []);
   });
 
+  test("select facet: choosing the active entry again keeps the filter", async () => {
+    const onFilterChange = mock();
+    render(
+      <DataTable
+        columns={[{ field: "name", label: "Name", type: "string", sortable: false }]}
+        rows={[{ id: "r1", values: { name: "A" } }]}
+        testId="t"
+        filterFacets={[
+          {
+            field: "status",
+            label: "Status",
+            options: [],
+            display: "select",
+            chips: [
+              { id: "all", label: "All", values: [] },
+              { id: "open", label: "Open", values: ["open"] },
+            ],
+          },
+        ]}
+        filterValues={{ status: ["open"] }}
+        onFilterChange={onFilterChange}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("facet-status"));
+    await user.click(await screen.findByTestId("facet-status-open"));
+    expect(onFilterChange).not.toHaveBeenCalled();
+    await user.click(screen.getByTestId("facet-status"));
+    await user.click(await screen.findByTestId("facet-status-all"));
+    expect(onFilterChange).toHaveBeenCalledWith("status", []);
+  });
+
   test("empty rows render empty-state slot with derived testId", () => {
     render(
       <DataTable

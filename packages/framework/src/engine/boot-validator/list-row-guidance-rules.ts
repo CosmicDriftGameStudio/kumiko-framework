@@ -17,6 +17,12 @@ export const LIST_ROW_GUIDANCE_RULES = {
       "A hint column owns its cell rendering and sets no linkScreenField, linkParamsField, refEntity or badgeToneField.",
     fix: "Remove the link or badge option, or move the hint to its own column.",
   },
+  buttonColumnWithoutLink: {
+    id: "list/button-column-without-link",
+    summary:
+      'A column with display "button" has a link (linkScreenField or refEntity) to draw as the button.',
+    fix: 'Set linkScreenField or refEntity on the column, or remove display: "button".',
+  },
   linkParamsWithoutScreenField: {
     id: "list/link-params-without-screen-field",
     summary: "linkParamsField only parametrizes the linkScreenField target.",

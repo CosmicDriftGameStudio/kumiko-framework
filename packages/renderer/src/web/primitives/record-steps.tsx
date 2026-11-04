@@ -1,9 +1,9 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
-import { Info } from "lucide-react";
 import { type ReactNode, useContext, useState } from "react";
 import type { RecordStepsProps } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { InsideScreenFormColumnContext } from "./metric.tsx";
+import { ReasonBox, ReasonInfoButton } from "./reason-box.tsx";
 
 const STEP_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   bad: "bg-status-bad",
@@ -31,36 +31,30 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
           STEP_STRIPE_CLASS[item.tone ?? "neutral"],
         )}
       />
-      <div className="flex items-start gap-3">
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="font-medium text-foreground">{item.title}</span>
+          <div className="flex items-start gap-2">
+            <span className="font-medium text-foreground">{item.title}</span>
+            {item.reason !== undefined && (
+              <ReasonInfoButton
+                label={reasonLabel}
+                open={reasonOpen}
+                onToggle={() => setReasonOpen((open) => !open)}
+              />
+            )}
+          </div>
           {item.detail !== undefined && (
             <small className="text-xs text-muted-foreground">{item.detail}</small>
           )}
         </div>
-        {item.reason !== undefined && (
-          <button
-            type="button"
-            aria-expanded={reasonOpen}
-            aria-label={reasonLabel}
-            title={reasonLabel}
-            className="shrink-0 text-muted-foreground hover:text-foreground"
-            onClick={() => setReasonOpen((open) => !open)}
-          >
-            <Info className="size-4" aria-hidden="true" />
-          </button>
-        )}
         {item.actions !== undefined && (
-          <div className="flex shrink-0 items-center gap-2">{item.actions}</div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 max-sm:basis-full max-sm:justify-start">
+            {item.actions}
+          </div>
         )}
       </div>
       {item.reason !== undefined && reasonOpen && (
-        <p
-          data-testid={`record-step-${item.id}-reason`}
-          className="m-0 text-sm text-foreground-secondary"
-        >
-          {item.reason}
-        </p>
+        <ReasonBox testId={`record-step-${item.id}-reason`}>{item.reason}</ReasonBox>
       )}
     </li>
   );

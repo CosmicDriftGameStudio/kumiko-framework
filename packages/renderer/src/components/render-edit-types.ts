@@ -5,6 +5,7 @@ import type {
   FormDerivationScreen,
   IconKey,
   RowAction,
+  RowActionDisplay,
   RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
@@ -264,6 +265,8 @@ export type RenderEditAction = {
   readonly label: string;
   readonly onPress: () => void | Promise<void>;
   readonly style?: "primary" | "secondary" | "danger";
+  /** `"link"` draws the action as a text link; `style: "danger"` keeps its colour. */
+  readonly display?: RowActionDisplay;
   readonly confirm?: string;
   readonly confirmLabel?: string;
   /** Overrides the default "danger implies a confirm dialog" rule. Schema-driven

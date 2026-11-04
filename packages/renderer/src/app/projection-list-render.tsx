@@ -5,6 +5,7 @@ import type { ListRowViewModel, Translate } from "../headless/index.ts";
 import type { usePrimitives } from "../primitives.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { isListNarrowed } from "./list-empty-content.ts";
+import { buildNamedFilterEmpty } from "./named-filter-facet.ts";
 import {
   projectionActionProps,
   projectionFacetProps,
@@ -72,6 +73,14 @@ export function renderProjectionList(model: ProjectionListRenderModel): ReactNod
         query.activeNamedFilter !== undefined ||
         isListNarrowed(query.activeSearch, urlState.filters)
       }
+      namedFilterEmpty={buildNamedFilterEmpty(
+        screen.namedFilters,
+        query.activeNamedFilter,
+        query.activeSearch,
+        query.facetNarrowing,
+        effectiveTranslate,
+        () => urlState.setNamedFilter(undefined),
+      )}
       {...projectionLeadProps(screen, effectiveTranslate, actions.emptyContent, isEmbeddedScreen)}
       searchValue={urlState.q}
       onSearchChange={urlState.setQ}

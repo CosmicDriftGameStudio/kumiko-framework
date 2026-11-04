@@ -19,6 +19,7 @@ import {
 } from "../../index.ts";
 import { WebDashboardBody } from "../app/dashboard-body.tsx";
 import { useBrowserNavApi } from "../app/nav.tsx";
+import { LINK_BUTTON_CLASS } from "../primitives/data-table-cell.tsx";
 import {
   act,
   createMockDispatcher,
@@ -305,15 +306,33 @@ describe("dashboard panel states", () => {
             query: "demo:query:list:plain",
             columns: ["name"],
           },
+          {
+            kind: "list",
+            id: "third",
+            label: "demo:third",
+            query: "demo:query:list:third",
+            columns: ["name"],
+            span: "third",
+          },
+          {
+            kind: "list",
+            id: "twothirds",
+            label: "demo:twothirds",
+            query: "demo:query:list:twothirds",
+            columns: ["name"],
+            span: "two-thirds",
+          },
         ],
       },
       {},
     );
     const cell = (id: string) =>
       screen.getByTestId(`dashboard-panel-${id}`).parentElement?.className ?? "";
-    await waitFor(() => expect(cell("right")).toContain("lg:col-span-2"));
-    expect(cell("left")).toContain("lg:col-span-4");
-    expect(cell("plain")).toContain("lg:col-span-4");
+    await waitFor(() => expect(cell("right")).toContain("lg:col-span-6"));
+    expect(cell("left")).toContain("lg:col-span-12");
+    expect(cell("plain")).toContain("lg:col-span-12");
+    expect(cell("third")).toContain("lg:col-span-4");
+    expect(cell("twothirds")).toContain("lg:col-span-8");
   });
 
   test("a raw description is not rendered", async () => {
@@ -648,6 +667,81 @@ describe("dashboard list columns", () => {
     expect(screen.getByText("50%")).toBeTruthy();
     const badge = screen.getByText("Failed");
     expect(badge.className).toContain("bg-status-bad-surface");
+  });
+
+  test("button columns draw the cell link as a button and showHeader false drops the header row", async () => {
+    renderDashboard(
+      {
+        id: "lists",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "list",
+            id: "todo",
+            label: "demo:todo",
+            query: "demo:query:todo:list",
+            showHeader: false,
+            columns: [
+              { field: "name", label: "demo:col-name" },
+              {
+                field: "action",
+                label: "demo:col-action",
+                display: "button",
+                linkScreenField: "actionScreen",
+                linkParamsField: "actionParams",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        "demo:query:todo:list": () =>
+          ok({
+            rows: [
+              {
+                id: "t1",
+                name: "Invoice 1",
+                action: "Remind",
+                actionScreen: "invoice-detail",
+                actionParams: { entityId: "t1" },
+              },
+            ],
+            nextCursor: null,
+          }),
+      },
+    );
+    await waitFor(() => expect(screen.getByText("Invoice 1")).toBeTruthy());
+    const link = screen.getByRole("link", { name: "Remind" });
+    for (const token of LINK_BUTTON_CLASS.split(" ")) expect(link.className).toContain(token);
+    expect(screen.queryByRole("columnheader")).toBeNull();
+  });
+
+  test("below sm the list stacks: header hidden, rows as one-column grids, cells as blocks", async () => {
+    renderDashboard(
+      {
+        id: "lists",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "list",
+            id: "todo",
+            label: "demo:todo",
+            query: "demo:query:todo:list",
+            columns: [{ field: "name", label: "demo:col-name" }],
+          },
+        ],
+      },
+      {
+        "demo:query:todo:list": () =>
+          ok({ rows: [{ id: "t1", name: "Invoice 1" }], nextCursor: null }),
+      },
+    );
+    const cell = await screen.findByText("Invoice 1");
+    const row = cell.closest("tr");
+    expect(row?.className).toContain("max-sm:grid");
+    expect(row?.className).toContain("max-sm:grid-cols-1");
+    expect(cell.closest("td")?.className).toContain("max-sm:block");
+    expect(row?.closest("table")?.querySelector("thead")?.className).toContain("max-sm:hidden");
   });
 
   test("datetime columns format ISO strings via the locale instead of showing them raw", async () => {
@@ -1261,8 +1355,8 @@ describe("dashboard stat-group subtitle, strip icons and progress sub line", () 
     );
     const cell = (id: string) =>
       screen.getByTestId(`dashboard-panel-${id}`).parentElement?.className ?? "";
-    await waitFor(() => expect(cell("narrow")).toContain("lg:col-span-2"));
-    expect(cell("wide")).toContain("lg:col-span-4");
+    await waitFor(() => expect(cell("narrow")).toContain("lg:col-span-6"));
+    expect(cell("wide")).toContain("lg:col-span-12");
   });
 
   test("a labeled stat-group wraps its tiles by available width", async () => {
@@ -1857,6 +1951,27 @@ describe("dashboard text panel", () => {
       "demo.help.hint": "Takes a minute.",
     },
   };
+
+  test("a lead paragraph renders larger than the muted default", async () => {
+    renderDashboard(
+      {
+        id: "help",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "text",
+            id: "intro",
+            label: "demo.help.title",
+            blocks: [{ kind: "paragraph", text: "demo.help.body", emphasis: "lead" }],
+          },
+        ],
+      },
+      {},
+      { locale: "en", translations },
+    );
+    const lead = await screen.findByText("Create a key.");
+    expect(lead.className).toContain("text-[17px]");
+  });
 
   test("identical blocks and list entries render once each without duplicate-key warnings", async () => {
     const consoleError = spyOn(console, "error").mockImplementation(() => {});

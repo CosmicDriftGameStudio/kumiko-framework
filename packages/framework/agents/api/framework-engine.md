@@ -665,6 +665,7 @@ type EntityListScreenDefinition = {
   defaultFilters?: Readonly<Record<string, string[] | boolean>>; // Initial facet selection, per filterable field: option values (string facets) or a boolean.
   facets?: Readonly<Record<string, EntityListFacetConfig | false>>; // Per-facet display options for the entity's `filterable` fields, keyed by field name.
   namedFilters?: NamedListFilterRef[]; // Named work-queue rules offered on this list: ids declared in `EntityDefinition.namedFilters`, `label` an i18n key.
+  namedFilterFacet?: NamedFilterFacetOptions; // Presentation of `namedFilters` in the toolbar; needs `namedFilters`.
   emptyState?: ListEmptyStateSpec; // Replaces the default empty-list title/hint; the create button stays when the list can create.
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
@@ -1045,7 +1046,7 @@ type ListColumnSpec =
     pinned?: ListColumnPin; // Start pin for the column: it sticks to this edge while the table scrolls horizontally.
     width?: number; // Start width in px.
     minWidth?: number; // Smallest width in px the user can resize to.
-    display?: ListColumnDisplay; // Dashboard list panels only.
+    display?: ListColumnDisplay; // "bar": field holds a 0..1 fraction, drawn as bar + percent (dashboard list panels only).
     badgeToneField?: string; // Row field naming the badge tone; only with `display: "badge"`.
     linkScreenField?: string; // Row field holding a screen QN (`<feature>:screen:<id>`): the cell links to that screen when the row sets it and the user may open it.
     linkParamsField?: string; // Row field holding a params object for the linkScreenField target: `entityId` opens that record, the other keys become search params (e.g. actionForm prefill).
@@ -1409,6 +1410,7 @@ type ProjectionListScreenDefinition = {
   filter?: ScreenFilter; // Server-side filter, fixed on the screen — see `ScreenFilter` doc above (entityList).
   facets?: ListFacetSpec[]; // User-toggleable facet dropdowns — see `ListFacetSpec` doc.
   namedFilters?: NamedListFilterRef[]; // Named work-queue rules the bound query understands: its Zod schema must have a `namedFilter` key (boot-checked) and is sent the selected id in every list and count query.
+  namedFilterFacet?: NamedFilterFacetOptions; // Presentation of `namedFilters` in the toolbar; needs `namedFilters`.
   slots?: ScreenSlots;
   access?: AccessRule;
 };

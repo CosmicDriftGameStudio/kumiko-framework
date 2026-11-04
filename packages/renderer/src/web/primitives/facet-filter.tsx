@@ -8,6 +8,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "./dropdown-menu.tsx";
 import "../react-css-custom-properties.ts";
@@ -62,6 +64,69 @@ function FacetChips({
   );
 }
 
+// Single-choice dropdown for a chips facet with display "select": the trigger names the
+// active entry, and turns primary-bordered once a chip other than the empty selection is on.
+function FacetSelect({
+  facet,
+  selected,
+  onChange,
+  dense,
+}: {
+  facet: DataTableFacet;
+  selected: readonly string[];
+  onChange: (field: string, values: readonly string[]) => void;
+  dense: boolean;
+}): ReactNode {
+  const chips = facet.chips ?? [];
+  const active = chips.find((chip) => sameValueSet(selected, chip.values)) ?? chips[0];
+  const isFiltered = selected.length > 0;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <UiButton
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-9",
+            dense && "border-border-strong px-2.5",
+            isFiltered && "border-primary text-foreground",
+          )}
+          data-testid={`facet-${facet.field}`}
+        >
+          {active === undefined ? facet.label : `${facet.label}: ${active.label}`}
+          <ChevronDown className="text-muted-foreground" />
+        </UiButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-56 overflow-y-auto"
+      >
+        <DropdownMenuRadioGroup
+          value={active?.id ?? ""}
+          onValueChange={(id: string) => {
+            if (id === active?.id) return;
+            const chip = chips.find((candidate) => candidate.id === id);
+            if (chip !== undefined) onChange(facet.field, chip.values);
+          }}
+        >
+          {chips.map((chip) => (
+            <DropdownMenuRadioItem
+              key={chip.id}
+              value={chip.id}
+              data-testid={`facet-${facet.field}-${chip.id}`}
+            >
+              <span className="flex-1">{chip.label}</span>
+              {facet.showCounts === true && chip.count !== undefined && (
+                <span className="ml-4 tabular-nums text-muted-foreground">{chip.count}</span>
+              )}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // Faceted filter dropdown: outline button (like shadcn's "Columns" toggle) +
 // multi-select checkboxes. Active selection -> count badge on the button.
 export function FacetFilter({
@@ -80,6 +145,9 @@ export function FacetFilter({
     const next = checked ? [...selected, value] : selected.filter((v) => v !== value);
     onChange(facet.field, next);
   };
+  if (facet.chips !== undefined && facet.display === "select") {
+    return <FacetSelect facet={facet} selected={selected} onChange={onChange} dense={dense} />;
+  }
   if (facet.chips !== undefined) {
     return <FacetChips facet={facet} selected={selected} onChange={onChange} />;
   }

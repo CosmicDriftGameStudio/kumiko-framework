@@ -168,6 +168,7 @@ type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   query: string;
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns.
+  showHeader?: boolean; // `false` drops the column header row; default true.
 };
 type DashboardMoneyParam = { // Minor units (like Money fields), formatted with the user locale.
   kind: "money";
@@ -184,7 +185,7 @@ type DashboardPanelQueryOptions = {
   params?: Readonly<Record<string, unknown>>; // Static, author-set query parameters merged on top of the screen's dynamic filterParams — lets a panel pin a value (e.g. a status facet) the screen-wide filter doesn't cover, without needing its own query.
   ignoreScreenFilter?: boolean; // The screen `filter` value is NOT merged into this panel's query (a tenant picker must not hit sources without a tenant column).
 };
-type DashboardPanelSpan = "half" | "full";
+type DashboardPanelSpan = "half" | "full" | "third" | "two-thirds";
 type DashboardPanelVisibility = {
   query: string;
   field: string;
@@ -282,7 +283,7 @@ type DashboardTextBlock =
   | {
     kind: "paragraph";
     text: DashboardText;
-    emphasis?: "muted" | "strong"; // Default "muted", like body copy inside panels.
+    emphasis?: "muted" | "strong" | "lead"; // Default "muted", like body copy inside panels.
   }
   | {
     kind: "list";

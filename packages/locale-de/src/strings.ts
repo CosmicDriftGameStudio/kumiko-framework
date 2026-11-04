@@ -902,6 +902,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.list.empty.defaultFiltered":
     "Keine Einträge im Standardfilter. Mit „Alle anzeigen“ erscheinen auch Einträge außerhalb davon.",
   "kumiko.list.empty.showAll": "Alle anzeigen",
+  "kumiko.list.empty.resetFilter": "Filter zurücksetzen",
+  "kumiko.list.named-filter.all": "Alle",
   "kumiko.list.empty.hint": "Lege den ersten an, um loszulegen.",
   "kumiko.list.empty.title": "Noch keine Einträge.",
   "kumiko.list.end-of-list": "— Ende der Liste —",

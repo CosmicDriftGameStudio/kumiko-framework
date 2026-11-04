@@ -12,6 +12,8 @@ export type DataTableFacet = {
   /** Present: render the facet as a row of single-choice toggle chips instead
    *  of a dropdown. A chip is pressed while the selection equals its values. */
   readonly chips?: readonly DataTableFacetChip[];
+  /** Chips only: "select" renders the chips as one single-choice dropdown instead of a row of toggles. */
+  readonly display?: "select";
   /** Chips only: show each chip's `count` next to its label. */
   readonly showCounts?: boolean;
   /** Chips only: hide chips whose `count` is 0 (unless pressed). */

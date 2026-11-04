@@ -24,20 +24,37 @@ import type {
   WriteOpts,
   WriteResult,
 } from "@cosmicdrift/kumiko-renderer/headless";
+import {
+  answerBriefing,
+  answerCustomers,
+  answerDeadlines,
+  answerMoney,
+  answerNowList,
+  answerOrderDetail,
+  answerOrderList,
+  orderListSchema,
+} from "../../src/order-board";
 
+const QUERY_ORDER_LIST = "order-desk:query:order:list";
+const QUERY_ORDER_NOW = "order-desk:query:order:now";
+const QUERY_ORDER_BRIEFING = "order-desk:query:order:briefing";
+const QUERY_ORDER_DEADLINES = "order-desk:query:order:deadlines";
+const QUERY_ORDER_CUSTOMERS = "order-desk:query:order:customers";
+const QUERY_ORDER_MONEY = "order-desk:query:order:money";
 const QUERY_ORDER_DETAIL = "order-desk:query:order:detail";
 const QUERY_ORDER_ITEMS = "order-desk:query:order:items";
 const QUERY_ORDER_PAYMENTS = "order-desk:query:order:payments";
 
-const ORDER_DETAIL_FIELDS = {
-  customerName: "Aiko Tanaka",
-  orderNumber: "SO-10482",
-  status: "processing",
-  totalAmount: "€ 1,248.00",
-  outstandingAmount: "€ 312.00",
-  itemCount: "3",
-  placedAt: "2026-08-21",
-};
+// The guidance blocks (breadcrumb, summary, banner, progress, steps) stack tall above the tabs;
+// the height specs measure the tab panel and run without them, `?guidance=1` turns them on.
+function orderDetailForUrl(id: string): Record<string, unknown> {
+  const { path, summaryLine, summaryTone, notice, steps, progress, ...withoutGuidance } =
+    answerOrderDetail(id);
+  const withGuidance = new URLSearchParams(window.location.search).has("guidance");
+  return withGuidance
+    ? { ...withoutGuidance, path, summaryLine, summaryTone, notice, steps, progress }
+    : withoutGuidance;
+}
 
 function itemsCountFromUrl(): number {
   const raw = new URLSearchParams(window.location.search).get("items");
@@ -72,7 +89,26 @@ export function createMockDispatcher(): Dispatcher {
     if (type === QUERY_ORDER_DETAIL) {
       const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary mock-dispatcher wire payload
       const id = (data["id"] as string | undefined) ?? "order-1";
-      return { isSuccess: true, data: { id, ...ORDER_DETAIL_FIELDS } as unknown as TData };
+      return { isSuccess: true, data: orderDetailForUrl(id) as unknown as TData };
+    }
+    if (type === QUERY_ORDER_LIST) {
+      const answer = answerOrderList(orderListSchema.parse(payload ?? {}));
+      return { isSuccess: true, data: answer as unknown as TData };
+    }
+    if (type === QUERY_ORDER_NOW) {
+      return { isSuccess: true, data: answerNowList() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_BRIEFING) {
+      return { isSuccess: true, data: answerBriefing() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_DEADLINES) {
+      return { isSuccess: true, data: answerDeadlines() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_CUSTOMERS) {
+      return { isSuccess: true, data: answerCustomers() as unknown as TData };
+    }
+    if (type === QUERY_ORDER_MONEY) {
+      return { isSuccess: true, data: answerMoney() as unknown as TData };
     }
     if (type === QUERY_ORDER_ITEMS) {
       return { isSuccess: true, data: { rows: buildItemRows(itemsCountFromUrl()) } as TData };

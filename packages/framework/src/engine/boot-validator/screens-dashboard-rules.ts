@@ -168,8 +168,8 @@ export const DASHBOARD_RULES = {
   },
   panelSpanInvalid: {
     id: "dashboard/panel-span-invalid",
-    summary: 'A panel\'s span is "half" or "full".',
-    fix: 'Set span to "half" or "full".',
+    summary: 'A panel\'s span is "half", "full", "third" or "two-thirds".',
+    fix: 'Set span to "half", "full", "third" or "two-thirds".',
   },
   statGroupEmpty: {
     id: "dashboard/stat-group-empty",

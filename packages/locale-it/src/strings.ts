@@ -897,6 +897,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.list.empty.defaultFiltered":
     "Nessuna voce corrisponde al filtro predefinito. Mostra tutto per includere le voci fuori dal filtro.",
   "kumiko.list.empty.showAll": "Mostra tutto",
+  "kumiko.list.empty.resetFilter": "Reimposta filtro",
+  "kumiko.list.named-filter.all": "Tutti",
   "kumiko.list.empty.hint": "Crea la prima per iniziare.",
   "kumiko.list.empty.title": "Ancora nessuna voce.",
   "kumiko.list.end-of-list": "— Fine dell'elenco —",

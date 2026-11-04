@@ -90,7 +90,8 @@ export type DashboardPanelGate = {
 
 // Grid width of stat-group/chart/list/feed/progress-list panels. Default:
 // stat-groups, charts and lists span the full row, feed and progress-list half of it.
-export type DashboardPanelSpan = "half" | "full";
+// "third" and "two-thirds" divide the row into twelfths on wide screens; below that every panel is one column.
+export type DashboardPanelSpan = "half" | "full" | "third" | "two-thirds";
 
 // Empty state of chart/list/feed/progress-list panels (i18n keys).
 export type DashboardPanelEmptyState = {
@@ -262,6 +263,8 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly columns: readonly ListColumnSpec[];
     /** Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns. */
     readonly rowToneField?: string;
+    /** `false` drops the column header row; default true. */
+    readonly showHeader?: boolean;
   };
 
 // Section of several stat panels (e.g. "Net Worth": Assets/Debts/Net). One
@@ -334,8 +337,8 @@ export type DashboardTextBlock =
   | {
       readonly kind: "paragraph";
       readonly text: DashboardText;
-      /** Default "muted", like body copy inside panels. */
-      readonly emphasis?: "muted" | "strong";
+      /** Default "muted", like body copy inside panels. "lead" is the larger serif opening sentence of a briefing. */
+      readonly emphasis?: "muted" | "strong" | "lead";
     }
   | { readonly kind: "list"; readonly items: readonly DashboardText[] }
   | { readonly kind: "code"; readonly code: string }

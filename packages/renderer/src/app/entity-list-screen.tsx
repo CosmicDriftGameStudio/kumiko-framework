@@ -74,6 +74,7 @@ import {
 } from "./screen-shared.tsx";
 import { useEntityRangeFacets } from "./use-entity-range-facets.ts";
 import { useGatedToolbarActions } from "./use-gated-toolbar-actions.tsx";
+import { useNamedFilterQueue } from "./use-named-filter-queue.ts";
 import { listPager, useScreenListRows } from "./use-screen-list-rows.ts";
 import { useScreenListTable } from "./use-screen-list-table.ts";
 
@@ -167,7 +168,6 @@ function EntityListBody({
   const urlState = useListUrlState(screen.id, defaultFilters);
   // Gated on the screen offering named filters, so a stale URL cannot send a param the list rejects.
   const activeNamedFilter = screen.namedFilters === undefined ? undefined : urlState.namedFilter;
-  const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
   const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   const paginationMode = screen.pagination ?? "pages";
   const usePager = paginationMode === "pages";
@@ -202,6 +202,16 @@ function EntityListBody({
       }),
     [urlState.filters, entity.fields],
   );
+
+  const { effectiveSort, namedFilterCountQueries, namedFilterEmpty } = useNamedFilterQueue({
+    screen,
+    urlState,
+    userRoles,
+    translate: effectiveTranslate,
+    filterPayload,
+    rangeFilters: range.rangeFilters,
+    activeNamedFilter,
+  });
 
   // Entity-only additions (screen.filter, faceted filters) layer on top of
   // the shared buildListQueryPayload — projectionList has neither.
@@ -293,7 +303,13 @@ function EntityListBody({
     [],
   );
   const filterFacets = useMemo<DataTableFacet[]>(() => {
-    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate, userRoles);
+    const namedFacet = buildNamedFilterFacet(
+      screen.namedFilters,
+      effectiveTranslate,
+      userRoles,
+      screen.namedFilterFacet,
+      facetCounts,
+    );
     return [
       ...(namedFacet !== undefined ? [namedFacet] : []),
       ...buildEntityFilterFacets(
@@ -308,6 +324,7 @@ function EntityListBody({
     entityReferenceFacetOptions,
     screen.facets,
     screen.namedFilters,
+    screen.namedFilterFacet,
     effectiveTranslate,
     userRoles,
     facetCounts,
@@ -352,6 +369,10 @@ function EntityListBody({
       entity.fields,
       range.rangeFilters,
     ],
+  );
+  const allFacetCountQueries = useMemo(
+    () => [...namedFilterCountQueries, ...facetCountQueries],
+    [namedFilterCountQueries, facetCountQueries],
   );
 
   // Soft dispatcher: in tests that mount without a DispatcherProvider,
@@ -645,7 +666,7 @@ function EntityListBody({
       />
       <FacetCountBridges
         queryType={queryType}
-        queries={facetCountQueries}
+        queries={allFacetCountQueries}
         onCount={handleFacetCount}
         refreshNonce={facetCountRefreshNonce}
       />
@@ -659,6 +680,7 @@ function EntityListBody({
           activeNamedFilter !== undefined ||
           isListNarrowed(urlState.q, urlState.filters, defaultFilters)
         }
+        namedFilterEmpty={namedFilterEmpty}
         defaultFilterActive={isDefaultFilterActive(urlState.q, urlState.filters, defaultFilters)}
         {...(toolbarDescription !== undefined && { description: toolbarDescription })}
         {...(emptyContent !== undefined && { emptyContent })}
