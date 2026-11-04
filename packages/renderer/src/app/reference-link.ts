@@ -1,3 +1,4 @@
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { useCallback } from "react";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { CellLink } from "../headless/index.ts";
@@ -5,6 +6,7 @@ import { useAppFeatures } from "./app-features-context.tsx";
 import { useOptionalNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { navigateWithReturnTo, useReturnHost } from "./return-to.tsx";
+import { stringifyNavParams } from "./row-actions.ts";
 import { navigateTargetAllows } from "./screen-access.ts";
 
 /** Link to a referenced record's detail screen, or undefined when there is no
@@ -38,8 +40,9 @@ export function useReferenceLinkResolver(): ReferenceLinkResolver {
 }
 
 /** Link to a screen named by its QN, or undefined when there is no navigation
- *  or the user may not open that screen. */
-export type ScreenLinkResolver = (screenQn: string) => CellLink | undefined;
+ *  or the user may not open that screen. `params` is a row-supplied object:
+ *  `entityId` opens that record, every other key becomes a search param. */
+export type ScreenLinkResolver = (screenQn: string, params?: unknown) => CellLink | undefined;
 
 export function useScreenLinkResolver(): ScreenLinkResolver {
   const nav = useOptionalNav();
@@ -47,12 +50,22 @@ export function useScreenLinkResolver(): ScreenLinkResolver {
   const userRoles = useUserRoles();
   const host = useReturnHost();
   return useCallback(
-    (screenQn) => {
+    (screenQn, params) => {
       const screenId = lastSegment(screenQn);
       if (nav === undefined || screenId === "") return undefined;
       if (!navigateTargetAllows({ screen: screenId }, appFeatures, userRoles)) return undefined;
-      const target = { screenId };
-      return { href: nav.hrefFor(target), onPress: () => navigateWithReturnTo(nav, target, host) };
+      const { entityId, ...rest } = isPlainObject(params) ? params : {};
+      const target =
+        typeof entityId === "string" && entityId !== "" ? { screenId, entityId } : { screenId };
+      const searchParams = stringifyNavParams(rest);
+      const hrefParams: Record<string, string> = {};
+      for (const [key, value] of Object.entries(searchParams)) {
+        if (value !== null) hrefParams[key] = value;
+      }
+      return {
+        href: nav.hrefFor(target, { searchParams: hrefParams }),
+        onPress: () => navigateWithReturnTo(nav, target, host, searchParams),
+      };
     },
     [nav, appFeatures, userRoles, host],
   );

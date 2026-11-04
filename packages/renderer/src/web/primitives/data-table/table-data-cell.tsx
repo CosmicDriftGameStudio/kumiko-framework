@@ -94,7 +94,7 @@ export function renderDataCell(
       <FirstCellLink
         enabled={linksFirstCell}
         onOpen={() => onRowClick?.(row)}
-        empty={isEmptyCellValue(row.values[col.field])}
+        empty={col.hint === undefined && isEmptyCellValue(row.values[col.field])}
         emptyLabel={m.rowClickLabel}
       >
         <DataTableCell

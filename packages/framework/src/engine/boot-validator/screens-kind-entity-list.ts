@@ -10,6 +10,7 @@ import { validateEntityListAggregateOptions } from "./entity-list-aggregate-opti
 import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
+import { validateListRowGuidance } from "./list-row-guidance.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import {
   assertWriteHandlerRegistered,
@@ -360,6 +361,10 @@ export function validateEntityListScreen(
   const featureName = ctx.feature.name;
   const fields = resolveEntityListFields(ctx, screenId, screen.entity);
   validateEntityListColumns(ctx, screenId, screen, fields);
+  validateListRowGuidance(featureName, screenId, "entityList", screen, {
+    entityName: screen.entity,
+    fieldNames: new Set([...fields.columnFieldNames, ...LIST_ROW_META_COLUMN_NAMES]),
+  });
   // Validate pagination, sorting, and search at boot so authoring errors
   // fail before runtime debugging of empty or incorrectly sorted lists.
   if (screen.pageSize !== undefined && screen.pageSize <= 0) {

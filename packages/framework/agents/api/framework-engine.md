@@ -648,6 +648,7 @@ type EntityListScreenDefinition = {
   createUnavailable?: boolean; // Set by the role projection when `createScreen` is not reachable for the role: the renderer then shows no create button instead of falling back to the entity's edit screen.
   allowCreate?: boolean; // `false` hides this list's "+ New" button (and the empty-state create CTA) while the entity's edit screen keeps its create branch for other entry points, e.g. a prefilled action.
   columns: ListColumnSpec[];
+  rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
   rowRenderer?: PlatformComponent;
   cardRenderer?: PlatformComponent;
   rowActions?: RowAction[]; // Per-row actions, rendered as an actions column on the right.
@@ -1046,6 +1047,8 @@ type ListColumnSpec =
     display?: ListColumnDisplay; // Dashboard list panels only.
     badgeToneField?: string; // Row field naming the badge tone; only with `display: "badge"`.
     linkScreenField?: string; // Row field holding a screen QN (`<feature>:screen:<id>`): the cell links to that screen when the row sets it and the user may open it.
+    linkParamsField?: string; // Row field holding a params object for the linkScreenField target: `entityId` opens that record, the other keys become search params (e.g. actionForm prefill).
+    hint?: ListColumnHint; // "To do" cell: the column's field holds a sentence, shown emphasized in the row tone; an empty value shows `emptyLabel`.
   }
 ;
 type ListFacetSpec =
@@ -1358,6 +1361,10 @@ type ProjectionDetailScreenDefinition = {
   header?: RecordHeaderSpec; // Record header above the layout — title/subtitle/status name columns in the query row (not literals).
   metrics?: MetricSpec[]; // Metric band above the layout — column names in the query row, each with its own i18n `label`.
   metricsStyle?: "band" | "tiles"; // "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band.
+  breadcrumb?: RecordBreadcrumbSpec; // Path above the header (query column holding items).
+  summary?: RecordSummarySpec; // One emphasized sentence below the header.
+  banner?: RecordBannerSpec; // Notice below the summary.
+  steps?: RecordStepsSpec; // "Next steps" panel.
   listScreenId?: string; // Parent list screen (short id) for a "back" navigation.
   slots?: ScreenSlots;
   access?: AccessRule;
@@ -1379,6 +1386,7 @@ type ProjectionListScreenDefinition = {
   fallback?: ScreenFallback; // Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice).
   query: string;
   columns: ListColumnSpec[];
+  rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
   rowRenderer?: PlatformComponent;
   cardRenderer?: PlatformComponent;
   rowActions?: RowAction[];

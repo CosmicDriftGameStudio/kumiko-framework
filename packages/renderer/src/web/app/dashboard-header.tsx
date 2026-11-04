@@ -196,8 +196,10 @@ export function renderRecordError(
 
 // A dashboard that only embeds screens loads no data of its own, so "Stand" would say nothing.
 function hasDataPanel(panels: readonly DashboardPanelDefinition[]): boolean {
-  return panels.some(
-    (panel) => panel.kind !== "screen" && panel.kind !== "text" && panel.kind !== "custom",
+  return panels.some((panel) =>
+    panel.kind === "text"
+      ? panel.query !== undefined
+      : panel.kind !== "screen" && panel.kind !== "custom",
   );
 }
 

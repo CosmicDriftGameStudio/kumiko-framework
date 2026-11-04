@@ -167,6 +167,7 @@ type DashboardListPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   label: string;
   query: string;
   columns: ListColumnSpec[];
+  rowToneField?: string; // Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns.
 };
 type DashboardMoneyParam = { // Minor units (like Money fields), formatted with the user locale.
   kind: "money";
@@ -269,22 +270,23 @@ type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & {
   navigate?: {
     screen: string;
     namedFilter?: string;
+    params?: Readonly<Record<string, string>>; // Search params for the target list, e.g. { tab: "failed" }; merged with the namedFilter param.
   }; // Makes the tile a link to a list screen (qualified screen id).
 };
 type DashboardText = string | DashboardI18nText; // Plain string is displayed as-is; DashboardI18nText is translated by the renderer.
 type DashboardTextBlock =
   | {
     kind: "heading";
-    text: string;
+    text: DashboardText;
   }
   | {
     kind: "paragraph";
-    text: string;
+    text: DashboardText;
     emphasis?: "muted" | "strong"; // Default "muted", like body copy inside panels.
   }
   | {
     kind: "list";
-    items: string[];
+    items: DashboardText[];
   }
   | {
     kind: "code";
@@ -292,21 +294,22 @@ type DashboardTextBlock =
   }
   | {
     kind: "hint";
-    text: string;
+    text: DashboardText;
   }
   | {
     kind: "link";
-    text: string; // Link label (i18n key).
+    text: DashboardText; // Link label (i18n key or DashboardI18nText).
     screen: string; // Same-feature short id or cross-feature QN `<feature>:screen:<id>`.
     roles?: string[]; // Show the link only to users holding one of these roles.
   }
 ;
-type DashboardTextPanel = DashboardPanelGate & {
+type DashboardTextPanel = DashboardPanelGate & DashboardPanelQueryOptions & {
   kind: "text";
   id: string;
   label?: string; // Panel title (i18n key).
   span?: DashboardPanelSpan;
-  blocks: DashboardTextBlock[];
+  query?: string; // Query answering `{ blocks: DashboardTextBlock[] }`; its blocks replace the static ones.
+  blocks?: DashboardTextBlock[];
 };
 type DashboardTextParam = string | number | DashboardI18nText | DashboardMoneyParam | DashboardDateParam | DashboardRelativeTimeParam; // Nested DashboardI18nText params resolve first (e.g. a duration "{years} {months}" with one plural key each); numbers stay raw so plural rules can read `count`.
 type DashboardTimeRangeDefinition = {
@@ -416,6 +419,12 @@ type ListBulkAction = { // An action that runs a writeHandler row action once pe
   rowAction: string; // Id of a writeHandler entry in the same screen's `rowActions`; it supplies handler, payload, label, style and `visible`.
   confirm?: string; // i18n key of the one confirm dialog for the whole selection; gets `{count}` and `{action}`.
 };
+type ListColumnHint = {
+  detailField?: string; // Row field with a second, muted line (e.g. the due date as text).
+  toneField?: string; // Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`.
+  reasonField?: string; // Row field with a longer reason, shown behind a "Why?" toggle in the cell.
+  emptyLabel?: string; // i18n key for an empty sentence; default `kumiko.list.hint.empty`.
+};
 type ListEmptyStateSpec = { // Replacement for the default "no rows" box of a list.
   title: string;
   description?: string;
@@ -437,6 +446,18 @@ type PlatformComponent = {
 type QualifiedContentCollection = ContentCollectionDefinition & {
   navQn: string;
 };
+type RecordBannerSpec = {
+  field: string; // Holds `RecordNotice | null`; null shows no banner.
+  actions?: RowAction[];
+};
+type RecordBreadcrumbItem = {
+  label: string;
+  entity?: string; // With `id`, the item links to that record's detail screen when the user may open it.
+  id?: string;
+};
+type RecordBreadcrumbSpec = { // Path above the header; `field` holds `RecordBreadcrumbItem[]`.
+  field: string;
+};
 type RecordHeaderSubtitlePart =
   | string
   | {
@@ -445,6 +466,31 @@ type RecordHeaderSubtitlePart =
     format?: FormatSpec; // Formats the raw field value (e.g. `timestamp`); an empty value is still dropped.
   }
 ;
+type RecordNotice = {
+  title: string;
+  text?: string;
+  tone?: SelectOptionTone;
+  [field: string]: unknown;
+};
+type RecordStep = {
+  id: string;
+  title: string;
+  detail?: string;
+  tone?: SelectOptionTone;
+  why?: string; // Explanation behind a toggle next to the step.
+  [field: string]: unknown;
+};
+type RecordStepsSpec = {
+  field: string; // Holds `RecordStep[]`.
+  title?: string; // i18n key, default `kumiko.detail.steps.title`.
+  subtitleField?: string; // Record field with a plain-text subtitle.
+  emptyLabel?: string; // i18n key for an empty list, default `kumiko.detail.steps.empty`.
+  actions?: RowAction[];
+};
+type RecordSummarySpec = { // One emphasized sentence below the header; `field` holds a string.
+  field: string;
+  toneField?: string; // Row field holding a SelectOptionTone for the sentence's accent.
+};
 type RelatedListEmptyStateSpec = ListEmptyStateSpec & { // The first `variants` entry whose `when` holds for the parent record replaces `title` and `description`; `action` stays.
   variants?: RelatedListEmptyStateVariant[];
 };

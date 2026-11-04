@@ -6,5 +6,6 @@ export function columnCellPresentationProps(col: ListColumnViewModel) {
     ...(col.optionLabels !== undefined && { optionLabels: col.optionLabels }),
     ...(col.optionTones !== undefined && { optionTones: col.optionTones }),
     ...(col.grouping !== undefined && { grouping: col.grouping }),
+    ...(col.hint !== undefined && { hint: col.hint }),
   };
 }

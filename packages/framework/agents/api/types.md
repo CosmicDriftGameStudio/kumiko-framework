@@ -1536,6 +1536,7 @@ type CardRoleColumn = {
   fileDisplay?: {
     kind: string;
   };
+  hint?: unknown; // A "to do" hint column: never the default card title.
 };
 ```
 
@@ -2253,6 +2254,13 @@ type ListColumnFileDisplay = // How a list cell shows a FileRef value (id or id 
     viewInDrawer?: true;
   }
 ;
+type ListColumnHintViewModel = {
+  detailField?: string;
+  toneField?: string;
+  reasonField?: string;
+  emptyLabel: string;
+  reasonLabel: string; // Label of the reason toggle, already translated.
+};
 type ListColumnViewModel = {
   field: string;
   label: string;
@@ -2270,6 +2278,7 @@ type ListColumnViewModel = {
   hideOnNarrow?: boolean; // Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column.
   grouping?: boolean; // Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default `true`).
   fileDisplay?: ListColumnFileDisplay; // Set for file/image columns: from the entity field type, or from a `{ format: "image" | "file" }` renderer.
+  hint?: ListColumnHintViewModel; // "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated.
 };
 type ListRowViewModel = {
   id: string;
@@ -2305,6 +2314,29 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
   tile?: boolean; // Draw as a KPI tile (the dashboard StatCard) instead of a band entry.
   tone?: DashboardStatTone;
   icon?: NavIconKey;
+};
+```
+
+## packages/renderer/src/primitives-record-guidance.ts
+
+```ts
+type RecordBreadcrumbProps = { // Path above a record header; an item with a `link` is a link, the last item without one names the current record.
+  items: { label: string; link?: CellLink; }[];
+  ariaLabel: string;
+  testId?: string;
+};
+type RecordStepsProps = { // "Next steps" panel; an item's `reason` sits behind a toggle labelled `reasonLabel`.
+  title: string;
+  subtitle?: string;
+  emptyLabel: string; // Shown instead of the list when there are no items.
+  reasonLabel: string;
+  items: { id: string; title: string; detail?: string; tone?: SelectOptionTone; reason?: string; actions?: ReactNode; }[];
+  testId?: string;
+};
+type RecordSummaryProps = { // One emphasized sentence below a record header; `tone` sets the accent color.
+  text: string;
+  tone?: SelectOptionTone;
+  testId?: string;
 };
 ```
 

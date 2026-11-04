@@ -60,6 +60,11 @@ import type {
   RuntimeRenderer,
 } from "./headless/index.ts";
 import type { MetricBandProps, MetricProps } from "./metric-types.ts";
+import type {
+  RecordBreadcrumbProps,
+  RecordStepsProps,
+  RecordSummaryProps,
+} from "./primitives-record-guidance.ts";
 import type { StatusBadgeOptionTone, StatusTone } from "./status-tone.ts";
 
 export type {
@@ -807,6 +812,11 @@ export type {
   DataTableFacetChip,
 } from "./data-table-facet-types.ts";
 export type { MetricBandProps, MetricProps } from "./metric-types.ts";
+export type {
+  RecordBreadcrumbProps,
+  RecordStepsProps,
+  RecordSummaryProps,
+} from "./primitives-record-guidance.ts";
 
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
@@ -1661,6 +1671,12 @@ export type CorePrimitives = {
   readonly PageHeader?: ComponentType<PageHeaderProps>;
   /** Optional — additive rollout, see StickyActionBar. */
   readonly MetricBand?: ComponentType<MetricBandProps>;
+  /** Optional — without it the detail screen renders the path as plain links. */
+  readonly RecordBreadcrumb?: ComponentType<RecordBreadcrumbProps>;
+  /** Optional — without it the summary renders as plain text. */
+  readonly RecordSummary?: ComponentType<RecordSummaryProps>;
+  /** Optional — without it the steps render as a plain card. */
+  readonly RecordSteps?: ComponentType<RecordStepsProps>;
   /** Optional: without an implementation, callers with >2 header/row
    *  actions fall back to today's all-buttons-inline rendering. */
   readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;

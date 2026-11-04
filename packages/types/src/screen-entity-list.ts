@@ -85,7 +85,22 @@ export type ListColumnSpec =
        *  query-backed lists (projectionList, relatedList), whose rows can point
        *  at a different screen each. */
       readonly linkScreenField?: string;
+      /** Row field holding a params object for the linkScreenField target: `entityId` opens that record, the other keys become search params (e.g. actionForm prefill). Only with linkScreenField. */
+      readonly linkParamsField?: string;
+      /** "To do" cell: the column's field holds a sentence, shown emphasized in the row tone; an empty value shows `emptyLabel`. Owns the cell rendering, so no `renderer`. */
+      readonly hint?: ListColumnHint;
     };
+
+export type ListColumnHint = {
+  /** Row field with a second, muted line (e.g. the due date as text). */
+  readonly detailField?: string;
+  /** Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`. */
+  readonly toneField?: string;
+  /** Row field with a longer reason, shown behind a "Why?" toggle in the cell. */
+  readonly reasonField?: string;
+  /** i18n key for an empty sentence; default `kumiko.list.hint.empty`. */
+  readonly emptyLabel?: string;
+};
 
 export type ListColumnDisplay = "bar" | "badge" | "datetime";
 export type ListBadgeTone = "positive" | "warn" | "negative" | "neutral";
@@ -513,6 +528,8 @@ export type EntityListScreenDefinition = {
   /** `false` hides this list's "+ New" button (and the empty-state create CTA) while the entity's edit screen keeps its create branch for other entry points, e.g. a prefilled action. Default `true`. */
   readonly allowCreate?: boolean;
   readonly columns: readonly ListColumnSpec[];
+  /** Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned. */
+  readonly rowToneField?: string;
   // Row renderer (Desktop) — when omitted, renderer draws the default table
   // from `columns`. cardRenderer fills the same role on compact layouts.
   readonly rowRenderer?: PlatformComponent;

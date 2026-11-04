@@ -273,3 +273,56 @@ describe("requiredKeysFromScreen — field texts and success links", () => {
     ]);
   });
 });
+
+describe("requiredKeysFromScreen — record guidance and dashboard text", () => {
+  test("projectionDetail steps title, empty label and action labels are required", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "order-detail",
+      type: "projectionDetail",
+      query: "shop:query:order:detail",
+      layout: { sections: [] },
+      steps: {
+        field: "steps",
+        title: "shop:order:steps-title",
+        emptyLabel: "shop:order:steps-empty",
+        actions: [{ kind: "navigate", id: "edit", label: "shop:order:edit", screen: "order-edit" }],
+      },
+    });
+    expect(keys).toContain("shop:order:steps-title");
+    expect(keys).toContain("shop:order:steps-empty");
+    expect(keys).toContain("shop:order:edit");
+  });
+
+  test("a list hint emptyLabel is required", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "orders",
+      type: "projectionList",
+      query: "shop:query:order:list",
+      columns: [{ field: "hint", hint: { emptyLabel: "shop:orders:nothing-open" } }],
+    });
+    expect(keys).toContain("shop:orders:nothing-open");
+  });
+
+  test("text panel blocks require string keys and the i18nKey of DashboardI18nText", () => {
+    const keys = requiredKeysFromScreen("shop", {
+      id: "overview",
+      type: "dashboard",
+      panels: [
+        {
+          kind: "text",
+          id: "help",
+          query: "shop:query:help:blocks",
+          blocks: [
+            { kind: "heading", text: "shop:help:heading" },
+            { kind: "paragraph", text: { i18nKey: "shop:help:paragraph" } },
+            { kind: "list", items: ["shop:help:item", { i18nKey: "shop:help:item-two" }] },
+          ],
+        },
+      ],
+    });
+    expect(keys).toContain("shop:help:heading");
+    expect(keys).toContain("shop:help:paragraph");
+    expect(keys).toContain("shop:help:item");
+    expect(keys).toContain("shop:help:item-two");
+  });
+});

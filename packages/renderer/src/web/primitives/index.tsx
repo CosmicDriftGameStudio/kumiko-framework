@@ -18,6 +18,9 @@ import { DefaultMetric, DefaultMetricBand } from "./metric.tsx";
 import { DefaultModal } from "./modal.tsx";
 import { DefaultPageHeader } from "./page-header.tsx";
 import { PromoPanel } from "./promo-panel.tsx";
+import { DefaultRecordBreadcrumb } from "./record-breadcrumb.tsx";
+import { DefaultRecordSteps } from "./record-steps.tsx";
+import { DefaultRecordSummary } from "./record-summary.tsx";
 import { CopyButton, ShareButton } from "./share-actions.tsx";
 import { DefaultStatusBadge } from "./status-badge.tsx";
 import { StickyActionBar } from "./sticky-action-bar.tsx";
@@ -85,6 +88,9 @@ export const defaultPrimitives: CorePrimitives = {
   StatusBadge: DefaultStatusBadge,
   Metric: DefaultMetric,
   MetricBand: DefaultMetricBand,
+  RecordBreadcrumb: DefaultRecordBreadcrumb,
+  RecordSummary: DefaultRecordSummary,
+  RecordSteps: DefaultRecordSteps,
   PageHeader: DefaultPageHeader,
   JsonView: DefaultJsonView,
   FileValueList,

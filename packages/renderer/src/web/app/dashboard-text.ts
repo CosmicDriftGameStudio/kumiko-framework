@@ -14,7 +14,7 @@ export function isRecord(value: unknown): value is Readonly<Record<string, unkno
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isDashboardI18nText(value: unknown): value is DashboardI18nText {
+export function isDashboardI18nText(value: unknown): value is DashboardI18nText {
   return isRecord(value) && typeof value["i18nKey"] === "string";
 }
 

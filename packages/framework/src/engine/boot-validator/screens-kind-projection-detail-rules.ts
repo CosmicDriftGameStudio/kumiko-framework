@@ -62,6 +62,16 @@ export const PROJECTION_DETAIL_RULES = {
     summary: "A header.subtitle part navigate names a screen or an entity.",
     fix: "Set screen or entity on the part's navigate.",
   },
+  guidanceFieldEmpty: {
+    id: "projection-detail/guidance-field-empty",
+    summary: "The field names of breadcrumb, summary, banner and steps are non-empty strings.",
+    fix: "Name a query output field or remove the block.",
+  },
+  guidanceActionShowOnTabs: {
+    id: "projection-detail/guidance-action-show-on-tabs",
+    summary: "Banner and steps actions set no showOnTabs.",
+    fix: "Remove showOnTabs.",
+  },
   extensionContributesToFormSubmit: {
     id: "projection-detail/extension-contributes-to-form-submit",
     summary: "A projectionDetail extension section does not set contributesToFormSubmit.",

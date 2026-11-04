@@ -1,6 +1,7 @@
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { ProjectionListScreenDefinition } from "../types/screen.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
+import { validateListRowGuidance } from "./list-row-guidance.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import {
   assertWriteHandlerRegistered,
@@ -96,6 +97,7 @@ export function validateProjectionListScreen(
   for (const col of screen.columns) {
     validateListColumnRendering(ctx, screenId, "projectionList", normalizeListColumn(col));
   }
+  validateListRowGuidance(featureName, screenId, "projectionList", screen);
   validateListTableOptions(
     `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
     screen.table,

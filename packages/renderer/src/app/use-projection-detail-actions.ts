@@ -193,6 +193,39 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
       sameEntityScreenId,
     ],
   );
+  const buildItemActions = useCallback(
+    (
+      actions: readonly RowAction[],
+      item: Readonly<Record<string, unknown>>,
+    ): readonly RenderEditAction[] | undefined =>
+      buildRecordActions({
+        actions,
+        record: item,
+        translate: effectiveTranslate,
+        nav,
+        host,
+        dispatcher,
+        openDrawer,
+        onWriteSuccess: reloadDetail,
+        onRecordLeft: handleRecordLeft,
+        sameEntityScreenId,
+        clientActions,
+        defaultWritePayloadId: effectiveEntityId ?? stringId(detailQuery.data?.["id"]),
+      }),
+    [
+      detailQuery.data,
+      effectiveEntityId,
+      reloadDetail,
+      effectiveTranslate,
+      nav,
+      host,
+      dispatcher,
+      clientActions,
+      openDrawer,
+      handleRecordLeft,
+      sameEntityScreenId,
+    ],
+  );
   const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
     const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
     const resolved = buildRecordActions({
@@ -226,5 +259,9 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     handleRecordLeft,
     sameEntityScreenId,
   ]);
-  return { buildSectionActions, headerActions };
+  return { buildSectionActions, buildItemActions, headerActions };
+}
+
+function stringId(value: unknown): string | undefined {
+  return typeof value === "string" && value !== "" ? value : undefined;
 }

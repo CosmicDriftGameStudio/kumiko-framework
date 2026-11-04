@@ -152,7 +152,12 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     /** Makes the tile a link to a list screen (qualified screen id). Count tiles use the
      *  list's own query with `params.namedFilter`; the boot validator pins that the tile and
      *  the target list select the same rows. The click sets `<screenId>.filter`. */
-    readonly navigate?: { readonly screen: string; readonly namedFilter?: string };
+    readonly navigate?: {
+      readonly screen: string;
+      readonly namedFilter?: string;
+      /** Search params for the target list, e.g. { tab: "failed" }; merged with the namedFilter param. */
+      readonly params?: Readonly<Record<string, string>>;
+    };
   };
 
 export type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
@@ -255,6 +260,8 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly label: string;
     readonly query: string;
     readonly columns: readonly ListColumnSpec[];
+    /** Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns. */
+    readonly rowToneField?: string;
   };
 
 // Section of several stat panels (e.g. "Net Worth": Assets/Debts/Net). One
@@ -319,23 +326,24 @@ export type DashboardCustomPanel = {
   readonly params?: Readonly<Record<string, unknown>>;
 };
 
-// Static text panel without a query. Every `text` and `items` entry is an i18n key
-// (a missing translation falls back to the literal); only `code` is shown verbatim.
+// Text panel of static blocks, optionally replaced by a query's blocks. A string
+// `text`/`items` entry is an i18n key (a missing translation falls back to the
+// literal); a DashboardI18nText is translated by the renderer; only `code` is shown verbatim.
 export type DashboardTextBlock =
-  | { readonly kind: "heading"; readonly text: string }
+  | { readonly kind: "heading"; readonly text: DashboardText }
   | {
       readonly kind: "paragraph";
-      readonly text: string;
+      readonly text: DashboardText;
       /** Default "muted", like body copy inside panels. */
       readonly emphasis?: "muted" | "strong";
     }
-  | { readonly kind: "list"; readonly items: readonly string[] }
+  | { readonly kind: "list"; readonly items: readonly DashboardText[] }
   | { readonly kind: "code"; readonly code: string }
-  | { readonly kind: "hint"; readonly text: string }
+  | { readonly kind: "hint"; readonly text: DashboardText }
   | {
       readonly kind: "link";
-      /** Link label (i18n key). */
-      readonly text: string;
+      /** Link label (i18n key or DashboardI18nText). */
+      readonly text: DashboardText;
       /** Same-feature short id or cross-feature QN `<feature>:screen:<id>`. */
       readonly screen: string;
       /** Show the link only to users holding one of these roles. Display
@@ -343,14 +351,18 @@ export type DashboardTextBlock =
       readonly roles?: readonly string[];
     };
 
-export type DashboardTextPanel = DashboardPanelGate & {
-  readonly kind: "text";
-  readonly id: string;
-  /** Panel title (i18n key). */
-  readonly label?: string;
-  readonly span?: DashboardPanelSpan;
-  readonly blocks: readonly DashboardTextBlock[];
-};
+export type DashboardTextPanel = DashboardPanelGate &
+  DashboardPanelQueryOptions & {
+    readonly kind: "text";
+    readonly id: string;
+    /** Panel title (i18n key). */
+    readonly label?: string;
+    readonly span?: DashboardPanelSpan;
+    /** Query answering `{ blocks: DashboardTextBlock[] }`; its blocks replace the static ones.
+     *  Static blocks show while it loads, on error and when it answers empty. */
+    readonly query?: string;
+    readonly blocks?: readonly DashboardTextBlock[];
+  };
 
 // Live query, so a write that flips `field` swaps panels without reload; hidden while loading.
 export type DashboardPanelVisibility = {

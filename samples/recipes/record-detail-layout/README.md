@@ -10,6 +10,10 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - `layout.mode: "tabs"` with two `relatedList` tabs (order items, payments)
   and one `fields` tab (master data) — each `relatedList` runs its own query
 - a header action with `showOnTabs: ["payments"]`, shown only while that tab is active
+- guidance for a non-expert reader: a `projectionList` with `rowToneField` (row tint),
+  a `hint` column (sentence, detail, tone, "Why?" reason) and a row action shown
+  only when `visible` holds; on the detail screen `breadcrumb`, `summary`, `banner`
+  and `steps`, each filled from a query field and dropped when the value is empty
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections

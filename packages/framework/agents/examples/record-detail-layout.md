@@ -18,6 +18,10 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - `layout.mode: "tabs"` with two `relatedList` tabs (order items, payments)
   and one `fields` tab (master data) — each `relatedList` runs its own query
 - a header action with `showOnTabs: ["payments"]`, shown only while that tab is active
+- guidance for a non-expert reader: a `projectionList` with `rowToneField` (row tint),
+  a `hint` column (sentence, detail, tone, "Why?" reason) and a row action shown
+  only when `visible` holds; on the detail screen `breadcrumb`, `summary`, `banner`
+  and `steps`, each filled from a query field and dropped when the value is empty
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -834,6 +838,25 @@ describe("record-detail-layout showcase — registration", () => {
   });
 });
 
+describe("record-detail-layout showcase — guidance", () => {
+  test("the orders list carries rowToneField and a hint column", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    expect(screen.rowToneField).toBe("tone");
+    const hint = screen.columns.map((c) => normalizeListColumn(c)).find((c) => c.hint);
+    expect(hint?.hint?.detailField).toBe("nextStepDue");
+  });
+
+  test("the detail screen declares breadcrumb, summary, banner and steps from query fields", () => {
+    const screen = registry.getScreen("order-desk:screen:order-detail");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(screen.breadcrumb).toEqual({ field: "path" });
+    expect(screen.summary).toEqual({ field: "summaryLine", toneField: "summaryTone" });
+    expect(screen.banner?.field).toBe("notice");
+    expect(screen.steps?.field).toBe("steps");
+  });
+});
+
 describe("record-detail-layout showcase — empty states", () => {
   test("the payments tab declares a record-dependent empty text ahead of its default", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
@@ -867,6 +890,24 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
       });
     });
     expect(() => validateBoot([broken])).toThrow(/metric "totalAmount" has no "label"/);
+  });
+
+  test("a hint column naming an empty detail field fails boot", () => {
+    const broken = defineFeature("broken-order-desk-hint", (r) => {
+      r.queryHandler({
+        name: "order:list",
+        schema: z.object({}),
+        handler: async () => ({ rows: [] }),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "orders",
+        type: "projectionList",
+        query: "broken-order-desk-hint:query:order:list",
+        columns: [{ field: "nextStep", hint: { detailField: "" } }],
+      });
+    });
+    expect(() => validateBoot([broken])).toThrow(/list\/guidance-field-empty/);
   });
 
   test("tabs with only one section fails boot", () => {
@@ -914,6 +955,10 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //      button next to it where the page header would otherwise fold it into the menu.
 //
 //   6. `showOnTabs` limits the record-payment action to the payments tab.
+//   7. Guidance: the `orders` projectionList tints rows via `rowToneField`, shows a
+//      "to do" hint column (sentence, detail, tone, a "Why?" reason) and offers a
+//      next-step action per row. The detail screen adds `breadcrumb`, `summary`,
+//      `banner` and `steps`, each reading a query field; empty values drop out.
 //
 // projectionDetail has no entity — it binds to an explicit query instead, so
 // every field name below (header, metrics, fields) is a column of that
@@ -927,6 +972,37 @@ const rowIdSchema = z.object({ id: z.string() });
 export function createOrderDeskFeature(): FeatureDefinition {
   return defineFeature("order-desk", (r) => {
     r.systemScope();
+
+    r.queryHandler({
+      name: "order:list",
+      schema: z.object({}),
+      handler: async () => ({
+        rows: [
+          {
+            id: "o1",
+            orderNumber: "SO-10482",
+            customerName: "Aiko Tanaka",
+            tone: "bad",
+            nextStep: "Send payment reminder",
+            nextStepDue: "by Friday",
+            nextStepReason: "312 EUR is 14 days overdue",
+            canRemind: true,
+          },
+          {
+            id: "o2",
+            orderNumber: "SO-10483",
+            customerName: "Jonas Weber",
+            tone: "ok",
+            nextStep: "",
+            nextStepDue: "",
+            nextStepReason: "",
+            canRemind: false,
+          },
+        ],
+        nextCursor: null,
+      }),
+      access: { roles: ["Support", "Admin"] },
+    });
 
     r.queryHandler({
       name: "order:detail",
@@ -943,6 +1019,20 @@ export function createOrderDeskFeature(): FeatureDefinition {
         shippingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
         billingAddress: "Karl-Marx-Straße 12, 12043 Berlin",
         salesRep: "Jonas Weber",
+        path: [{ label: "Orders" }, { label: "SO-10482" }],
+        summaryLine: "Waiting for the second payment",
+        summaryTone: "warn",
+        notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },
+        steps: [
+          {
+            id: "remind",
+            title: "Send payment reminder",
+            detail: "by Friday",
+            tone: "warn",
+            why: "The invoice is 14 days overdue",
+          },
+          { id: "escalate", title: "Escalate to accounting" },
+        ],
       }),
       access: { roles: ["Support", "Admin"] },
     });
@@ -973,6 +1063,43 @@ export function createOrderDeskFeature(): FeatureDefinition {
     });
 
     r.screen({
+      id: "orders",
+      type: "projectionList",
+      query: "order-desk:query:order:list",
+      rowToneField: "tone",
+      columns: [
+        { field: "orderNumber" },
+        { field: "customerName" },
+        {
+          field: "nextStep",
+          hint: {
+            detailField: "nextStepDue",
+            reasonField: "nextStepReason",
+            emptyLabel: "order-desk.orders.nothing-open",
+          },
+        },
+      ],
+      rowActions: [
+        {
+          kind: "navigate",
+          id: "open",
+          label: "order-desk.action.open",
+          screen: "order-detail",
+          rowClick: true,
+        },
+        {
+          kind: "navigate",
+          id: "remind",
+          label: "order-desk.action.remind",
+          screen: "order-detail",
+          display: "link",
+          visible: { field: "canRemind", eq: true },
+        },
+      ],
+      access: { roles: ["Support", "Admin"] },
+    });
+
+    r.screen({
       id: "order-detail",
       type: "projectionDetail",
       query: "order-desk:query:order:detail",
@@ -984,6 +1111,34 @@ export function createOrderDeskFeature(): FeatureDefinition {
           { field: "placedAt", format: { format: "date", dateStyle: "medium" } },
         ],
         status: "status",
+      },
+      breadcrumb: { field: "path" },
+      summary: { field: "summaryLine", toneField: "summaryTone" },
+      banner: {
+        field: "notice",
+        actions: [
+          {
+            kind: "navigate",
+            id: "banner-open",
+            label: "order-desk.action.recordPayment",
+            screen: "order-detail",
+            icon: "plus",
+          },
+        ],
+      },
+      steps: {
+        field: "steps",
+        title: "order-desk.steps.title",
+        emptyLabel: "order-desk.steps.empty",
+        actions: [
+          {
+            kind: "navigate",
+            id: "step-open",
+            label: "order-desk.action.refreshOrder",
+            screen: "order-detail",
+            icon: "refresh",
+          },
+        ],
       },
       metrics: [
         { field: "totalAmount", label: "order-desk.metric.totalAmount" },

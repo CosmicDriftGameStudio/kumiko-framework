@@ -92,6 +92,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.multiSelect.deselect-all": "Deselect all",
 
     "kumiko.list.search-placeholder": "Search…",
+    "kumiko.list.hint.empty": "Nothing open",
+    "kumiko.list.hint.reason": "Why?",
+    "kumiko.detail.steps.title": "Next steps",
+    "kumiko.detail.steps.empty": "Nothing to do",
+    "kumiko.detail.steps.reason": "Why?",
+    "kumiko.detail.breadcrumb": "Path",
     "kumiko.list.empty.title": "No entries yet.",
     "kumiko.list.empty.filtered": "No entries match the current search or filters.",
     "kumiko.list.empty.defaultFiltered":

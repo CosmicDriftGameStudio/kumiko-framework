@@ -21,6 +21,7 @@ import type {
 import { bootRuleError } from "./boot-rule.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
+import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
 import { validateRelatedListGroupingRules } from "./related-list-table-rules.ts";
 import type { NavigateSourceScreenType, NavigateTargetLookups } from "./screens-actions.ts";
@@ -485,9 +486,22 @@ export function rejectInertColumnSortable(
 export function validateColumnRendererForm(
   featureName: string,
   screenId: string,
-  column: { readonly field: string; readonly renderer?: unknown },
+  column: {
+    readonly field: string;
+    readonly renderer?: unknown;
+    readonly linkScreenField?: string;
+    readonly linkParamsField?: string;
+  },
 ): void {
   validateEnumOptionTones(`[Feature ${featureName}] Screen "${screenId}"`, column);
+  if (column.linkParamsField !== undefined && column.linkScreenField === undefined) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.linkParamsWithoutScreenField, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" column "${column.field}" sets linkParamsField ` +
+        `without linkScreenField — the params belong to the linkScreenField target. ` +
+        `Set linkScreenField or remove linkParamsField.`,
+    });
+  }
   const renderer = column.renderer;
   // skip: only the PlatformComponent form ({ react: { __component: "..." } })
   // is validated structurally. Function, string-QN and null/undefined

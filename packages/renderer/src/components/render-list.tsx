@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { renderReferenceLookupBridges } from "./render-list-reference-bridge.tsx";
+import { rowToneFromField } from "./render-list-row-tone.ts";
 import {
   tableChromeProps,
   tableFilterProps,
@@ -109,6 +110,10 @@ export function RenderList(props: RenderListProps): ReactNode {
   // their own, so their busy and error state lives here.
   const [menuActionBusyId, setMenuActionBusyId] = useState<string | null>(null);
   const [menuActionError, setMenuActionError] = useState<string | null>(null);
+  const effectiveRowTone = useMemo(
+    () => rowTone ?? rowToneFromField(screen.rowToneField),
+    [rowTone, screen.rowToneField],
+  );
   const { localQ, setLocalQ } = useRenderListSearch(searchValue, onSearchChange);
   const { referenceRequests, handleLookupMap, enrichedVm } = useRenderListColumns({
     screen,
@@ -207,7 +212,7 @@ export function RenderList(props: RenderListProps): ReactNode {
           itemNoun,
         })}
         {...tableSortPagingProps({ sort, onSortChange, pager, onReachEnd, loadingMore, hasMore })}
-        {...tableRowProps({ rowActions, rowActionMode, bulk, rowTone })}
+        {...tableRowProps({ rowActions, rowActionMode, bulk, rowTone: effectiveRowTone })}
         {...tableFilterProps({
           filterFacets,
           filterValues,
