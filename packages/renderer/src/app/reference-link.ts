@@ -5,7 +5,7 @@ import type { CellLink } from "../headless/index.ts";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useOptionalNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
-import { navigateWithReturnTo, useReturnHost } from "./return-to.tsx";
+import { navigateWithReturnTo, RETURN_TO_PARAM, useReturnHost } from "./return-to.tsx";
 import { stringifyNavParams } from "./row-actions.ts";
 import { navigateTargetAllows } from "./screen-access.ts";
 
@@ -54,7 +54,12 @@ export function useScreenLinkResolver(): ScreenLinkResolver {
       const screenId = lastSegment(screenQn);
       if (nav === undefined || screenId === "") return undefined;
       if (!navigateTargetAllows({ screen: screenId }, appFeatures, userRoles)) return undefined;
-      const { entityId, ...rest } = isPlainObject(params) ? params : {};
+      // returnTo belongs to the navigation itself; a row must not choose where "back" leads.
+      const {
+        entityId,
+        [RETURN_TO_PARAM]: _rowReturnTo,
+        ...rest
+      } = isPlainObject(params) ? params : {};
       const target =
         typeof entityId === "string" && entityId !== "" ? { screenId, entityId } : { screenId };
       const searchParams = stringifyNavParams(rest);

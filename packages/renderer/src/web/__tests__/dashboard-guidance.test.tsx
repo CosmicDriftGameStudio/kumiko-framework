@@ -83,7 +83,7 @@ const TASK_ROW = {
   why: "The invoice is 14 days overdue.",
   tone: "warn",
   target: "demo:screen:task-form",
-  targetParams: { entityId: "t1", prefill: "late", count: 3 },
+  targetParams: { entityId: "t1", prefill: "late", count: 3, returnTo: "row-chosen-back" },
 };
 
 function listDashboard(panelExtras: Record<string, unknown>): DashboardScreenDefinition {
@@ -160,6 +160,7 @@ describe("dashboard list panel row guidance", () => {
     expect(href).toContain("prefill=late");
     expect(href).toContain("count=3");
     expect(href).not.toContain("entityId");
+    expect(href).not.toContain("row-chosen-back");
   });
 });
 
