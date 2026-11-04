@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type { AppSchema, FeatureSchema } from "../../../index.ts";
 import {
   createStaticLocaleResolver,
@@ -6,7 +6,7 @@ import {
   NavProvider,
   PageHeaderCompactProvider,
 } from "../../../index.ts";
-import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.tsx";
+import { fireEvent, render, renderWithSidebar, screen } from "../../__tests__/test-utils.tsx";
 import { DefaultPageHeader } from "../../primitives/page-header.tsx";
 import { PageHeaderSlotProvider } from "../page-header-slot.tsx";
 import { ShellHeader } from "../shell-header.tsx";
@@ -180,6 +180,55 @@ describe("ShellHeader", () => {
 
     test("falls back to the unfiltered tree when the allowed navs do not cover the screen", () => {
       expect(crumbLabel(new Set())).toBe("Plans and limits");
+    });
+  });
+
+  describe("bodyTitle: the screen's title block is the h1", () => {
+    const editSchema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "item-list", type: "entityList", entity: "item", columns: [] },
+        { id: "item-edit", type: "entityEdit", entity: "item", listScreenId: "item-list" },
+      ],
+      navs: [{ id: "item-list", label: "Items", screen: "item-list", order: 10 }],
+    } as unknown as FeatureSchema;
+
+    function renderBodyTitle(withRecordTitle: boolean, navigate: (to: unknown) => void): void {
+      renderWithSidebar(
+        <NavProvider
+          value={{
+            ...routedNav,
+            navigate,
+            route: { screenId: "item-edit", entityId: "item-1" },
+          }}
+        >
+          <PageHeaderSlotProvider>
+            <ShellHeader schema={editSchema} />
+            <DefaultPageHeader
+              title="Edit vehicle"
+              bodyTitle
+              {...(withRecordTitle && { recordTitle: "VW Golf" })}
+            />
+          </PageHeaderSlotProvider>
+        </NavProvider>,
+      );
+    }
+
+    test("the bar shows the parent list as a working link and no h1", () => {
+      const navigate = mock((_to: unknown) => {});
+      renderBodyTitle(false, navigate);
+      expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+      fireEvent.click(screen.getByRole("link", { name: /item-list/ }));
+      expect(navigate).toHaveBeenCalledWith({ screenId: "item-list" });
+    });
+
+    test("together with recordTitle the parent still wins over the record title", () => {
+      renderBodyTitle(true, () => {});
+      const items = Array.from(document.querySelectorAll("[data-slot='breadcrumb-item']"));
+      expect(items).toHaveLength(1);
+      expect(items[0]?.textContent).toContain("item-list");
+      expect(screen.queryByText("VW Golf")).toBeNull();
     });
   });
 

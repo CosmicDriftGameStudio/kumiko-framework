@@ -52,6 +52,15 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
   const heartbeatMs = options.sseHeartbeatMs ?? SSE_HEARTBEAT_INTERVAL_MS;
   const api = new Hono();
 
+  // Before any body is read, so even an answer to a broken body carries the app clock. Whole
+  // milliseconds in ISO form: Temporal's toString() can run to nanoseconds, which Date.parse on
+  // Hermes/JSC does not define.
+  api.use("*", async (c, next) => {
+    const nowMs = options.clock?.now().epochMilliseconds ?? Date.now();
+    c.header(APP_NOW_HEADER_NAME, new Date(nowMs).toISOString());
+    await next();
+  });
+
   api.post(Routes.write, async (c) => {
     const user = getUser(c);
     const body = await readDispatchBody(c);
@@ -136,7 +145,6 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
   api.post(Routes.query, async (c) => {
     const user = getUser(c);
     const body = await readDispatchBody(c);
-    c.header(APP_NOW_HEADER_NAME, options.clock?.now().toString() ?? new Date().toISOString());
 
     try {
       assertPayloadDepthAllowed(body.payload);

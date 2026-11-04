@@ -1,6 +1,7 @@
 import type { RowActionDisplay } from "@cosmicdrift/kumiko-framework/ui-types";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import { type ReactNode, useState } from "react";
+import { COMPACT_TAP_CLASSES } from "../../compact-tap-classes.ts";
 import type { ListRowViewModel } from "../../headless/index.ts";
 import type { DataTableRowAction, DataTableRowActionMode } from "../../index.ts";
 import {
@@ -209,7 +210,7 @@ function RowActionButton({
           "inline-flex items-center justify-center gap-1.5 text-sm",
           isBorderedButton
             ? small
-              ? "relative h-8 rounded-md px-2.5 text-xs font-medium before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']"
+              ? cn("rounded-md font-medium", COMPACT_TAP_CLASSES)
               : "h-8 rounded-md px-3 font-medium max-md:h-11"
             : linkLike
               ? "h-7 rounded-md px-2.5 max-md:h-11"

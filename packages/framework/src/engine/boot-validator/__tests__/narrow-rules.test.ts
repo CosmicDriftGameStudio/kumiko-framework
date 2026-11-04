@@ -142,6 +142,15 @@ describe("list and detail narrow rules", () => {
     );
   });
 
+  test("hideOnNarrow: false and hidden: false do not conflict, a pin does", () => {
+    expect(
+      ruleIdsOf([listWith({ showOnNarrowOnly: true, hideOnNarrow: false, hidden: false })]),
+    ).toEqual([]);
+    expect(ruleIdsOf([listWith({ showOnNarrowOnly: true, pinned: "left" })])).toContain(
+      "list/narrow-only-conflict",
+    );
+  });
+
   test("showOnNarrowOnly is rejected in a dashboard list panel", () => {
     const ids = ruleIdsOf([
       dashboard([{ ...LIST, columns: [{ field: "number", showOnNarrowOnly: true }] }]),

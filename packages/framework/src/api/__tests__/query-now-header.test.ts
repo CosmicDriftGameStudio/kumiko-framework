@@ -1,57 +1,111 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { Hono } from "hono";
-import type { Dispatcher } from "../../pipeline/dispatcher.ts";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
 import { createTestUser } from "../../seeding/seed-users.ts";
 import { createApiRoutes } from "../routes.ts";
 
 const user = createTestUser({ roles: ["Admin"] });
 type TestApp = Hono<{ Variables: { pipelineUser: typeof user } }>;
 
+const PINNED = "2031-05-06T07:08:09.123Z";
+const clock = { now: () => Temporal.Instant.from("2031-05-06T07:08:09.123456789Z") };
+
+function stubDispatcher(query: Dispatcher["query"]): Dispatcher {
+  return {
+    async write(): Promise<WriteResult> {
+      return { isSuccess: true, data: {} };
+    },
+    query,
+    async *stream() {},
+    async command(): Promise<void> {},
+    async batch(): Promise<BatchResult> {
+      return { isSuccess: true, results: [] };
+    },
+    async resolveAuthClaims(): Promise<Record<string, unknown>> {
+      return {};
+    },
+    async resolveActiveMembership() {
+      return { kind: "rejected", reason: "not_a_member" };
+    },
+    createMemberReader() {
+      return async () => {
+        throw new Error("createMemberReader not available in this stub");
+      };
+    },
+  };
+}
+
 function mount(
   options: Parameters<typeof createApiRoutes>[1],
   query: Dispatcher["query"],
 ): TestApp {
-  const dispatcher = { query } as unknown as Dispatcher;
   const app: TestApp = new Hono();
   app.use("/api/*", async (c, next) => {
     c.set("pipelineUser", user);
     await next();
   });
-  app.route("/api", createApiRoutes(dispatcher, options));
+  app.route("/api", createApiRoutes(stubDispatcher(query), options));
   return app;
 }
 
-async function postQuery(app: TestApp): Promise<Response> {
-  return app.request("/api/query", {
+async function post(app: TestApp, path: string, body: string): Promise<Response> {
+  return app.request(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "x:query:y", payload: {} }),
+    body,
   });
 }
 
-describe("POST /api/query x-kumiko-now", () => {
-  test("a fixed app clock shows up as an ISO instant on the answer", async () => {
-    const clock = { now: () => Temporal.Instant.from("2031-05-06T07:08:09Z") };
-    const res = await postQuery(mount({ clock }, async () => ({ rows: [] })));
+const okQuery: Dispatcher["query"] = async () => ({ rows: [] });
+
+describe("x-kumiko-now on the dispatcher routes", () => {
+  test("a query answer carries the app clock as ISO with whole milliseconds", async () => {
+    const res = await post(
+      mount({ clock }, okQuery),
+      "/api/query",
+      JSON.stringify({ type: "x:query:y", payload: {} }),
+    );
     expect(res.status).toBe(200);
-    expect(res.headers.get("x-kumiko-now")).toBe("2031-05-06T07:08:09Z");
+    expect(res.headers.get("x-kumiko-now")).toBe(PINNED);
   });
 
-  test("a failing query still carries the header", async () => {
-    const clock = { now: () => Temporal.Instant.from("2031-05-06T07:08:09Z") };
-    const res = await postQuery(
+  test("a write answer carries it too", async () => {
+    const res = await post(
+      mount({ clock }, okQuery),
+      "/api/write",
+      JSON.stringify({ type: "x:write:y", payload: {} }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-kumiko-now")).toBe(PINNED);
+  });
+
+  test("a query with an invalid JSON body still carries it", async () => {
+    const res = await post(mount({ clock }, okQuery), "/api/query", "{not json");
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.headers.get("x-kumiko-now")).toBe(PINNED);
+  });
+
+  test("a failing query still carries it", async () => {
+    const res = await post(
       mount({ clock }, async () => {
         throw new Error("boom");
       }),
+      "/api/query",
+      JSON.stringify({ type: "x:query:y", payload: {} }),
     );
     expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.headers.get("x-kumiko-now")).toBe("2031-05-06T07:08:09Z");
+    expect(res.headers.get("x-kumiko-now")).toBe(PINNED);
   });
 
   test("without a clock the header holds the system time", async () => {
-    const res = await postQuery(mount({}, async () => ({})));
-    const stamped = Date.parse(res.headers.get("x-kumiko-now") ?? "");
-    expect(Math.abs(stamped - Date.now())).toBeLessThan(5_000);
+    const res = await post(
+      mount({}, okQuery),
+      "/api/query",
+      JSON.stringify({ type: "x:query:y", payload: {} }),
+    );
+    expect(Math.abs(Date.parse(res.headers.get("x-kumiko-now") ?? "") - Date.now())).toBeLessThan(
+      5_000,
+    );
   });
 });

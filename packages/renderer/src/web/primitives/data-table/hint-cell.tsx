@@ -39,10 +39,24 @@ export function HintCell({
   const [reasonOpen, setReasonOpen] = useState(false);
   const sentence = nonEmptyText(value);
   if (sentence === undefined) {
-    return (
+    // Without a sentence the empty label is the only element of the first cell, so it must stay
+    // the keyboard opener of a clickable row.
+    return onOpen === undefined ? (
       <span data-hint-empty="true" className="text-muted-foreground">
         {hint.emptyLabel}
       </span>
+    ) : (
+      <button
+        type="button"
+        data-hint-empty="true"
+        className={cn(OPEN_SENTENCE_CLASS, "font-normal text-muted-foreground")}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpen();
+        }}
+      >
+        {hint.emptyLabel}
+      </button>
     );
   }
   const toneValue = hint.toneField === undefined ? undefined : row[hint.toneField];

@@ -69,7 +69,7 @@ describe("setupTestStack now option (integration)", () => {
   test("query answers carry the pinned clock in x-kumiko-now", async () => {
     stack = await setupTestStack({ features: [nowFeature], now: "2031-05-06T07:08:09Z" });
     const res = await stack.http.query("stnow:query:ping", {}, TestUsers.admin);
-    expect(res.headers.get("x-kumiko-now")).toBe("2031-05-06T07:08:09Z");
+    expect(res.headers.get("x-kumiko-now")).toBe("2031-05-06T07:08:09.000Z");
   });
 
   test("without now there is no stack.clock", async () => {

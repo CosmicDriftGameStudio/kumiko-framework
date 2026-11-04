@@ -32,7 +32,7 @@ export const LIST_ROW_GUIDANCE_RULES = {
   narrowOnlyConflict: {
     id: "list/narrow-only-conflict",
     summary:
-      "A showOnNarrowOnly column sets neither hideOnNarrow, hidden nor pinned, and is not in a dashboard list panel (its table has no narrow-only cards).",
+      "A showOnNarrowOnly column sets none of hideOnNarrow: true, hidden: true or pinned, and is not in a dashboard list panel (dashboard list cards already draw every column, so showOnNarrowOnly is the only option rejected there).",
     fix: "Remove the conflicting option or showOnNarrowOnly.",
   },
   linkParamsWithoutScreenField: {
