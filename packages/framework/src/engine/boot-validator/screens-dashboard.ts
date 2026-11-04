@@ -34,7 +34,10 @@ import {
   validateRowActionNavigateParams,
 } from "./screens-actions.ts";
 import { DASHBOARD_CHART_RULES } from "./screens-dashboard-chart-rules.ts";
-import { validateDashboardPanelLink } from "./screens-dashboard-links.ts";
+import {
+  validateDashboardPanelLink,
+  validateListRowLinkTarget,
+} from "./screens-dashboard-links.ts";
 import {
   validateDashboardPanelNarrow,
   validateListRowLinkShape,
@@ -821,7 +824,7 @@ function validateDashboardQueryPanel(
       featureName,
       featureMap,
     );
-    validateDashboardPanelLink(
+    validateListRowLinkTarget(
       `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" rowLink`,
       panel.rowLink,
       featureName,

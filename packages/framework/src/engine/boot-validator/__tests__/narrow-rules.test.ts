@@ -51,6 +51,27 @@ const LIST = {
   columns: [{ field: "number" }],
 };
 
+// A dashboard whose list query declares its output shape (number, extra), so fields beyond the columns can be checked.
+const withOutput = (panel: Record<string, unknown>) =>
+  defineFeature("shop", (r) => {
+    r.queryHandler({
+      name: "order:now",
+      schema: z.object({}),
+      handler: async () => ({ rows: [] }),
+      access: OPEN_TO_ALL,
+      outputSchema: z.object({
+        rows: z.array(z.object({ number: z.string(), extra: z.string() })),
+      }),
+    });
+    r.screen({
+      id: "orders",
+      type: "projectionList",
+      query: "shop:query:order:now",
+      columns: ["number"],
+    } as never);
+    r.screen({ id: "overview", type: "dashboard", panels: [panel] } as never);
+  });
+
 const FOOTER_LINK = { label: "shop:today:all", screen: "orders" };
 
 const STAT = {
@@ -158,17 +179,94 @@ describe("list and detail narrow rules", () => {
     expect(ids).toEqual([]);
   });
 
-  test("narrow.field needs the line layout and a column of the panel", () => {
+  test("narrow.field needs the line layout, any field of the query output may be named", () => {
     const line = { ...LIST, footerLink: FOOTER_LINK };
     expect(
       ruleIdsOf([dashboard([{ ...line, narrow: { layout: "line", field: "number" } }])]),
     ).toEqual([]);
     expect(
-      ruleIdsOf([dashboard([{ ...line, narrow: { layout: "line", field: "nope" } }])]),
+      ruleIdsOf([withOutput({ ...line, narrow: { layout: "line", field: "extra" } })]),
+    ).toEqual([]);
+    expect(
+      ruleIdsOf([withOutput({ ...line, narrow: { layout: "line", field: "nope" } })]),
+    ).toContain("query/output-field-missing");
+    expect(
+      ruleIdsOf([dashboard([{ ...line, narrow: { layout: "line", field: "notAColumn" } }])]),
     ).toContain("dashboard/list-narrow-field-unknown");
     expect(
       ruleIdsOf([dashboard([{ ...line, narrow: { layout: "cards", field: "number" } }])]),
     ).toContain("dashboard/list-narrow-field-unknown");
+  });
+
+  test("footerLink.narrowOnly satisfies the line layout's footerLink", () => {
+    const narrowOnlyLink = { ...FOOTER_LINK, narrowOnly: true };
+    expect(
+      ruleIdsOf([dashboard([{ ...LIST, footerLink: narrowOnlyLink, narrow: { layout: "line" } }])]),
+    ).toEqual([]);
+    expect(ruleIdsOf([dashboard([{ ...LIST, narrow: { layout: "line" } }])])).toContain(
+      "dashboard/list-narrow-line-without-footer-link",
+    );
+    expect(ruleIdsOf([dashboard([{ ...LIST, footerLink: narrowOnlyLink }])])).toContain(
+      "dashboard/list-narrow-invalid",
+    );
+    expect(
+      ruleIdsOf([
+        dashboard([{ ...LIST, footerLink: narrowOnlyLink, narrow: { layout: "cards" } }]),
+      ]),
+    ).toContain("dashboard/list-narrow-invalid");
+  });
+
+  test("narrow.titleField needs the cards layout and a hint column", () => {
+    const hinted = {
+      ...LIST,
+      columns: [{ field: "number", hint: { detailField: "number" } }],
+    };
+    expect(ruleIdsOf([dashboard([{ ...hinted, narrow: { titleField: "number" } }])])).toEqual([]);
+    expect(ruleIdsOf([dashboard([{ ...LIST, narrow: { titleField: "number" } }])])).toContain(
+      "dashboard/list-narrow-field-unknown",
+    );
+    expect(
+      ruleIdsOf([
+        dashboard([
+          { ...hinted, footerLink: FOOTER_LINK, narrow: { layout: "line", titleField: "number" } },
+        ]),
+      ]),
+    ).toContain("dashboard/list-narrow-field-unknown");
+  });
+
+  test("narrow.titleField must be a field of the query output", () => {
+    const hinted = {
+      ...LIST,
+      columns: [{ field: "number", hint: { detailField: "number" } }],
+    };
+    expect(ruleIdsOf([withOutput({ ...hinted, narrow: { titleField: "extra" } })])).toEqual([]);
+    expect(ruleIdsOf([withOutput({ ...hinted, narrow: { titleField: "nope" } })])).toContain(
+      "query/output-field-missing",
+    );
+  });
+
+  test("narrow.moreText and icon need the line layout", () => {
+    const line = { ...LIST, footerLink: FOOTER_LINK };
+    expect(
+      ruleIdsOf([
+        dashboard([
+          { ...line, icon: "clock", narrow: { layout: "line", moreText: "shop:today:more" } },
+        ]),
+      ]),
+    ).toEqual([]);
+    expect(
+      ruleIdsOf([dashboard([{ ...LIST, narrow: { moreText: "shop:today:more" } }])]),
+    ).toContain("dashboard/list-narrow-invalid");
+    expect(ruleIdsOf([dashboard([{ ...LIST, icon: "clock" }])])).toContain(
+      "dashboard/list-narrow-invalid",
+    );
+  });
+
+  test("rowToneMarker is bar or dot", () => {
+    expect(ruleIdsOf([dashboard([{ ...LIST, rowToneMarker: "dot" }])])).toEqual([]);
+    expect(ruleIdsOf([dashboard([{ ...LIST, rowToneMarker: "star" }])])).toContain(
+      "dashboard/list-row-tone-marker-invalid",
+    );
   });
 
   test("narrowOrder must be a non-negative integer", () => {
@@ -250,31 +348,37 @@ describe("list and detail narrow rules", () => {
   });
 
   test("rowLink.paramField must be a field of the query output", () => {
-    const withOutput = (rowLink: Record<string, unknown>) =>
-      defineFeature("shop", (r) => {
-        r.queryHandler({
-          name: "order:now",
-          schema: z.object({}),
-          handler: async () => ({ rows: [] }),
-          access: OPEN_TO_ALL,
-          outputSchema: z.object({ rows: z.array(z.object({ number: z.string() })) }),
-        });
-        r.screen({
-          id: "orders",
-          type: "projectionList",
-          query: "shop:query:order:now",
-          columns: ["number"],
-        } as never);
-        r.screen({
-          id: "overview",
-          type: "dashboard",
-          panels: [{ ...LIST, rowLink }],
-        } as never);
-      });
-    expect(ruleIdsOf([withOutput({ screen: "orders", paramField: "number" })])).toEqual([]);
-    expect(ruleIdsOf([withOutput({ screen: "orders", paramField: "nope" })])).toContain(
+    const withRowLink = (rowLink: Record<string, unknown>) => withOutput({ ...LIST, rowLink });
+    expect(ruleIdsOf([withRowLink({ screen: "orders", paramField: "number" })])).toEqual([]);
+    expect(ruleIdsOf([withRowLink({ screen: "orders", paramField: "nope" })])).toContain(
       "query/output-field-missing",
     );
+    expect(ruleIdsOf([withRowLink({ screenField: "number", paramsField: "number" })])).toEqual([]);
+    expect(ruleIdsOf([withRowLink({ screenField: "nope" })])).toContain(
+      "query/output-field-missing",
+    );
+    expect(ruleIdsOf([withRowLink({ screenField: "number", paramsField: "nope" })])).toContain(
+      "query/output-field-missing",
+    );
+  });
+
+  test("rowLink names screen xor screenField", () => {
+    expect(ruleIdsOf([dashboard([{ ...LIST, rowLink: { screenField: "number" } }])])).toEqual([]);
+    expect(
+      ruleIdsOf([dashboard([{ ...LIST, rowLink: { screen: "orders", screenField: "number" } }])]),
+    ).toContain("dashboard/list-row-link-invalid");
+    expect(ruleIdsOf([dashboard([{ ...LIST, rowLink: { icon: "arrow" } }])])).toContain(
+      "dashboard/list-row-link-invalid",
+    );
+    expect(ruleIdsOf([dashboard([{ ...LIST, rowLink: { paramsField: "number" } }])])).toContain(
+      "dashboard/list-row-link-invalid",
+    );
+    expect(ruleIdsOf([dashboard([{ ...LIST, rowLink: { screenField: "notAColumn" } }])])).toContain(
+      "dashboard/list-row-link-invalid",
+    );
+    expect(
+      ruleIdsOf([dashboard([{ ...LIST, rowLink: { screen: "orders", paramsField: "number" } }])]),
+    ).toContain("dashboard/list-row-link-invalid");
   });
 
   test("rowLink needs an existing screen, a non-empty paramField and a known icon", () => {

@@ -87,6 +87,8 @@ export type ListColumnViewModel = {
   readonly type: string; // field-type ("text", "number", "money", ...)
   readonly renderer?: FieldRenderer | RuntimeRenderer;
   readonly linkFor?: RuntimeCellLink;
+  /** Per-row action link column: a text link right-aligned without header text from sm, a small outline button on cards. */
+  readonly rowActionLink?: boolean;
   readonly linkItemsFor?: RuntimeCellLinkItems;
   readonly sortable: boolean;
   /** Only for `type: "select"` or `type: "multiSelect"` — translated option

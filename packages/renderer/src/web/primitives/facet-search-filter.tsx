@@ -51,7 +51,7 @@ export function FacetSearchFilter({
           className={cn("h-9", dense && "border-border-strong px-2.5")}
           data-testid={`facet-${facet.field}`}
         >
-          {facet.label}
+          {selected.length === 0 ? `${facet.label}: ${t("kumiko.list.filter.all")}` : facet.label}
           {selected.length > 0 && (
             <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
               {selected.length}

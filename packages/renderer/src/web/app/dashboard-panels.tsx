@@ -153,7 +153,7 @@ function StatPanelContent({
     // A navigate tile counts exactly what its target list can reproduce from the URL.
     panel.navigate === undefined ? panelPayload(panel, screenParams) : (panel.params ?? {}),
   );
-  useReportPanelLoaded(data);
+  useReportPanelLoaded(data, loading);
   if (loading && data === null) return <LoadingState rows={2} />;
   if (error !== null) {
     return <PanelError label={label} error={error} onRetry={() => void refetch()} />;

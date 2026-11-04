@@ -184,6 +184,42 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     }
   });
 
+  test("hideIcon holds for both label variants of a step action and the reason (i) hides below sm", async () => {
+    const stepScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      steps: {
+        field: "todo",
+        actions: [
+          {
+            id: "send-reminder",
+            label: "Send reminder",
+            narrowLabel: "Send",
+            handler: "orders:write:order:remind",
+            hideIcon: true,
+          },
+        ],
+      },
+    };
+    const query = (async () => ({
+      isSuccess: true,
+      data: { ...record, todo: [{ id: "s1", title: "Remind", why: "Because" }] },
+    })) as unknown as Dispatcher["query"];
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <KumikoScreen
+          schema={{ featureName: "orders", entities: {}, screens: [stepScreen] }}
+          qn="orders:screen:order-detail"
+          entityId="o-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByText("Send reminder"));
+    for (const label of ["Send reminder", "Send"]) {
+      expect(screen.getByText(label).closest("button")?.querySelector("svg")).toBeNull();
+    }
+    expect(document.body.querySelector("span.flex.max-sm\\:hidden button")).not.toBeNull();
+  });
+
   describe("narrowLabel and narrowSubtitle", () => {
     const action = {
       id: "refresh-order",

@@ -26,6 +26,8 @@ type Props = Omit<ComponentProps<typeof DashboardListTable>, "columns"> & {
   readonly translate: Translate;
   /** Phone layout: one card per row instead of the table. */
   readonly narrowCards?: boolean;
+  /** Row field whose text replaces the card title in the phone layout. */
+  readonly titleField?: string;
 };
 
 function toReferenceViewColumn(
@@ -53,6 +55,7 @@ export function DashboardReferenceListTable({
   featureName,
   translate,
   narrowCards = false,
+  titleField,
   ...tableProps
 }: Props): ReactNode {
   const viewColumns = useMemo(
@@ -108,6 +111,7 @@ export function DashboardReferenceListTable({
           formatDateTime={tableProps.formatDateTime}
           {...(tableProps.testId !== undefined && { testId: tableProps.testId })}
           {...(tableProps.rowToneField !== undefined && { rowToneField: tableProps.rowToneField })}
+          {...(titleField !== undefined && { titleField })}
         />
       ) : (
         <DashboardListTable

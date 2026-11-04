@@ -278,6 +278,10 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly columns: readonly ListColumnSpec[];
     /** Row field holding a SelectOptionTone; tints the row and is the default tone of `hint` columns. */
     readonly rowToneField?: string;
+    /** How `rowToneField` marks a table row from `sm` up: "bar" (default) draws a stripe at the left edge, "dot" a small dot in front of the first cell. Cards below `sm` always get the stripe. */
+    readonly rowToneMarker?: DashboardListRowToneMarker;
+    /** Icon left of the one-line phone variant (`narrow.layout: "line"`); not drawn from `sm` up. Resolved like `DashboardStatGroupPanel.icon`. */
+    readonly icon?: PlatformComponent;
     /** `false` drops the column header row; default true. */
     readonly showHeader?: boolean;
     /** i18n key, a line under `label`; with `showTotal` it stands before the count. */
@@ -292,15 +296,31 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly rowLink?: DashboardListRowLink;
   };
 
-/** Row link of a list panel. */
+/** "bar": stripe at the left edge of the row. "dot": small tone dot in front of the first cell. */
+export type DashboardListRowToneMarker = "bar" | "dot";
+
+/** Row link of a list panel: one fixed target screen (`screen`) or, when the rows point to different places, the screen named by each row (`screenField`). */
 export type DashboardListRowLink = {
-  /** Target screen, `feature:screen:name` or the short id in the same feature. */
-  readonly screen: string;
-  /** Row field holding the params object of the target (`entityId` opens that record, other keys become search params). */
-  readonly paramField?: string;
   /** "arrow" (default) draws ↗ for a jump to another place, "chevron" draws › for opening the row. */
   readonly icon?: "arrow" | "chevron";
-};
+} & (
+  | {
+      /** Target screen, `feature:screen:name` or the short id in the same feature. */
+      readonly screen: string;
+      /** Row field holding the params object of the target (`entityId` opens that record, other keys become search params). */
+      readonly paramField?: string;
+      readonly screenField?: never;
+      readonly paramsField?: never;
+    }
+  | {
+      /** Row field holding the qualified screen name of the target; a row without one is no link. */
+      readonly screenField: string;
+      /** Row field holding the params object of the target, like `paramField`. */
+      readonly paramsField?: string;
+      readonly screen?: never;
+      readonly paramField?: never;
+    }
+);
 
 /** Texts of the "n of m" count in a list panel's subtitle; without `text` the default i18n text stands. */
 export type DashboardListShowTotal = {
@@ -317,8 +337,12 @@ export type DashboardListShowTotal = {
 export type DashboardListNarrow = {
   readonly limit?: number;
   readonly layout?: "cards" | "line";
-  /** Column whose value of the first row stands behind the label in the "line" layout. Default: the first text column. */
+  /** Query output field whose value of the first row stands behind the label in the "line" layout; it need not be a column of the panel. Default: the first text column. */
   readonly field?: string;
+  /** i18n key replacing "k more" in the "line" layout; `{count}` is the total minus the first row. */
+  readonly moreText?: string;
+  /** Row field replacing the card title (the hint sentence) in the "cards" layout, e.g. a shorter sentence for the phone. Needs a hint column. */
+  readonly titleField?: string;
 };
 
 /** Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens. */
@@ -328,6 +352,8 @@ export type DashboardListFooterLink = {
   readonly moreText?: string;
   /** i18n key used instead of `moreText` below `sm`. */
   readonly narrowMoreText?: string;
+  /** Draw the link only below `sm`, where it is the target of the "line" layout; from `sm` up the panel shows no footer link. */
+  readonly narrowOnly?: boolean;
   readonly screen: string;
   readonly namedFilter?: string;
   readonly params?: Readonly<Record<string, string>>;

@@ -238,8 +238,15 @@ describe("record-detail-layout showcase — phone variants", () => {
     const deadlines = panel("deadlines");
     if (now?.kind !== "list" || deadlines?.kind !== "list") throw new Error("expected lists");
     expect(now.narrow).toEqual({ layout: "cards", limit: 3 });
-    expect(deadlines.narrow).toEqual({ layout: "line", field: "title" });
-    expect(deadlines.rowLink?.icon).toBe("chevron");
+    expect(deadlines.narrow?.field).toBe("title");
+    expect(deadlines.narrow?.moreText).toBe("order-desk.today.deadlines-more-narrow");
+    expect(deadlines.icon).toEqual({ react: { __component: "DeadlinesIcon" } });
+    expect(deadlines.footerLink?.narrowOnly).toBe(true);
+    expect(deadlines.rowLink).toEqual({
+      screenField: "screen",
+      paramsField: "params",
+      icon: "chevron",
+    });
     expect(panel("customers")?.kind === "list" && panel("customers")).toBeTruthy();
     expect(panel("customers")?.hideOnNarrow).toBe(true);
     expect(panel("money")?.hideOnNarrow).toBe(true);
@@ -259,6 +266,7 @@ describe("record-detail-layout showcase — phone variants", () => {
     const customers = today.panels.find((candidate) => candidate.id === "customers");
     if (customers?.kind !== "list") throw new Error("expected the customers list");
     expect(customers.rowLink).toEqual({ screen: "order-detail", paramField: "params" });
+    expect(customers.rowToneMarker).toBe("dot");
     expect(today.panels.find((candidate) => candidate.id === "briefing")?.narrowOrder).toBe(1);
     expect(answerOrderSummary(orderSummarySchema.parse({})).items.map((i) => i.column)).toEqual([
       "orderNumber",

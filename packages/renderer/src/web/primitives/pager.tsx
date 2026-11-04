@@ -93,8 +93,8 @@ export function InfiniteSentinel({
   );
 }
 
-// Pager — status text on the left ("X – Y of Z"), "Page X of Y" and the
-// prev/next arrows on the right. No numbered page list: the board shows none.
+// Pager — left "X – Y of Z · N per page" (the page size is a select in text
+// style), right "‹ 1 2 3 ›" from sm; below sm only the arrows.
 // `pinned` renders the footer bar of a scrollBody table (fixed height, top
 // border); unpinned it sits as a plain row below the table.
 //
@@ -137,48 +137,45 @@ export function Pager({
           : "mt-3 flex items-center gap-4 text-[13px] tabular-nums text-foreground-secondary"
       }
     >
-      <div data-testid={testId !== undefined ? `${testId}-status` : undefined} className="flex-1">
-        {itemNoun !== undefined
-          ? t("kumiko.pager.status.noun", {
-              from: from.toLocaleString(),
-              to: to.toLocaleString(),
-              total: total.toLocaleString(),
-              noun: itemNoun(total),
-            })
-          : t("kumiko.pager.status", {
-              from: from.toLocaleString(),
-              to: to.toLocaleString(),
-              total: total.toLocaleString(),
-            })}
-      </div>
-      {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
-        <div className="relative hidden md:block">
-          <select
-            aria-label={t("kumiko.pager.pageSizeLabel")}
-            data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
-            value={limit}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="h-7 appearance-none rounded-md border border-input bg-card pl-2 pr-7 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            {pageSizeOptions.map((size) => (
-              <option key={size} value={size}>
-                {t("kumiko.pager.pageSize", { size: size.toLocaleString() })}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 opacity-50"
-            aria-hidden="true"
-          />
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
+          {itemNoun !== undefined
+            ? t("kumiko.pager.status.noun", {
+                from: from.toLocaleString(),
+                to: to.toLocaleString(),
+                total: total.toLocaleString(),
+                noun: itemNoun(total),
+              })
+            : t("kumiko.pager.status", {
+                from: from.toLocaleString(),
+                to: to.toLocaleString(),
+                total: total.toLocaleString(),
+              })}
         </div>
-      )}
-      <div className="hidden md:block">
-        {t("kumiko.pager.pageOf", {
-          page: safePage.toLocaleString(),
-          pages: totalPages.toLocaleString(),
-        })}
+        {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
+          <div className="relative hidden items-center sm:flex">
+            <span aria-hidden="true">·</span>
+            <select
+              aria-label={t("kumiko.pager.pageSizeLabel")}
+              data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
+              value={limit}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              className="h-7 cursor-pointer appearance-none rounded-md border-0 bg-transparent pl-1.5 pr-5 text-[13px] text-foreground-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {pageSizeOptions.map((size) => (
+                <option key={size} value={size}>
+                  {t("kumiko.pager.pageSize", { size: size.toLocaleString() })}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-0.5 top-1/2 size-3.5 -translate-y-1/2 opacity-50"
+              aria-hidden="true"
+            />
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <PagerButton
           ariaLabel={t("kumiko.pager.previousPage")}
           disabled={safePage <= 1}
@@ -187,6 +184,24 @@ export function Pager({
         >
           <ChevronLeft className="size-3.5" aria-hidden="true" />
         </PagerButton>
+        <div className="hidden items-center gap-1 sm:flex">
+          {pageNumbersAround(safePage, totalPages).map((entry) =>
+            typeof entry !== "number" ? (
+              <span key={`gap-${entry.gapBefore}`} aria-hidden="true" className="px-1">
+                …
+              </span>
+            ) : (
+              <PageNumberButton
+                key={entry}
+                page={entry}
+                current={entry === safePage}
+                label={t("kumiko.pager.goToPage", { page: entry.toLocaleString() })}
+                onClick={() => onPageChange(entry)}
+                testId={testId !== undefined ? `${testId}-page-${entry}` : undefined}
+              />
+            ),
+          )}
+        </div>
         <PagerButton
           ariaLabel={t("kumiko.pager.nextPage")}
           disabled={safePage >= totalPages}
@@ -197,6 +212,50 @@ export function Pager({
         </PagerButton>
       </div>
     </div>
+  );
+}
+
+type PageEntry = number | { readonly gapBefore: number };
+
+// All pages up to 7, else first, last and the neighbours of the current page, gaps in between.
+function pageNumbersAround(current: number, totalPages: number): readonly PageEntry[] {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const wanted = new Set([1, current - 1, current, current + 1, totalPages]);
+  const pages = [...wanted].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  return pages.flatMap((page, index) => {
+    const previous = pages[index - 1];
+    return previous !== undefined && page - previous > 1 ? [{ gapBefore: page }, page] : [page];
+  });
+}
+
+function PageNumberButton({
+  page,
+  current,
+  label,
+  onClick,
+  testId,
+}: {
+  readonly page: number;
+  readonly current: boolean;
+  readonly label: string;
+  readonly onClick: () => void;
+  readonly testId?: string;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-current={current ? "page" : undefined}
+      data-testid={testId}
+      className={cn(
+        "inline-flex h-7 min-w-7 items-center justify-center rounded-md px-1.5",
+        "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        current && "bg-muted font-semibold text-foreground",
+      )}
+    >
+      {page.toLocaleString()}
+    </button>
   );
 }
 
@@ -221,7 +280,7 @@ function PagerButton({
       aria-label={ariaLabel}
       data-testid={testId}
       className={cn(
-        "inline-flex size-11 items-center justify-center rounded-md border border-border md:size-7",
+        "inline-flex size-11 items-center justify-center rounded-md border border-border sm:size-7",
         "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "disabled:pointer-events-none disabled:text-foreground-disabled",
       )}

@@ -28,6 +28,8 @@ export function FlushTable({
 export const FILL_TABLE_CLASS = cn(
   "[&>thead>tr>th]:sticky [&>thead>tr>th]:top-0 [&>thead>tr>th]:z-10 [&>thead>tr>th]:h-9 [&>thead>tr>th]:bg-muted [&>thead>tr>th]:px-2 [&>thead>tr>th]:text-[13px]",
   "[&>thead>tr>th]:shadow-[inset_0_-1px_0_var(--color-border)] [&>thead>tr>th_button]:text-[13px] [&>tbody>tr>td]:px-2 [&>tbody>tr>td]:py-0",
+  // The small-caps header size of SortableHeader; the child selectors above would outrank it.
+  "sm:[&>thead>tr>th]:text-[11px] sm:[&>thead>tr>th_button]:text-[11px]",
   "[&>*>tr>:first-child]:pl-6 [&>*>tr>:last-child]:pr-6",
 );
 

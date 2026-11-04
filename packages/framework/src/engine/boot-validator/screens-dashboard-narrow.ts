@@ -11,9 +11,54 @@ import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 
 const STAT_GROUP_COLUMN_COUNTS: readonly unknown[] = [2, 3, 4];
 const LIST_NARROW_LAYOUTS: readonly unknown[] = ["cards", "line"];
+const ROW_TONE_MARKERS: readonly unknown[] = ["bar", "dot"];
+
+function validateListNarrowTexts(
+  context: string,
+  panel: DashboardListPanel,
+  narrow: NonNullable<DashboardListPanel["narrow"]>,
+): void {
+  if (narrow.titleField !== undefined) {
+    const hasHintColumn = panel.columns.some(
+      (column) => normalizeListColumn(column).hint !== undefined,
+    );
+    if (narrow.layout === "line" || !hasHintColumn || narrow.titleField.trim().length === 0) {
+      throw bootRuleError(DASHBOARD_RULES.listNarrowFieldUnknown, {
+        message: `${context} sets narrow.titleField "${narrow.titleField}", which needs a non-empty field name, the "cards" layout and a hint column whose sentence it replaces.`,
+      });
+    }
+  }
+  if (
+    narrow.moreText !== undefined &&
+    (narrow.layout !== "line" || narrow.moreText.trim().length === 0)
+  ) {
+    throw bootRuleError(DASHBOARD_RULES.listNarrowInvalid, {
+      message: `${context} sets narrow.moreText, which needs a non-empty i18n key and narrow.layout "line" (the only layout that draws it).`,
+    });
+  }
+}
+
+function validateListLook(context: string, panel: DashboardListPanel): void {
+  if (panel.icon !== undefined && panel.narrow?.layout !== "line") {
+    throw bootRuleError(DASHBOARD_RULES.listNarrowInvalid, {
+      message: `${context} sets icon, which only the narrow.layout "line" draws. Set narrow.layout "line" or remove icon.`,
+    });
+  }
+  if (panel.footerLink?.narrowOnly === true && panel.narrow?.layout !== "line") {
+    throw bootRuleError(DASHBOARD_RULES.listNarrowInvalid, {
+      message: `${context} sets footerLink.narrowOnly, which only serves the narrow.layout "line". Set narrow.layout "line" or remove narrowOnly (the footer link would never be drawn).`,
+    });
+  }
+  if (panel.rowToneMarker !== undefined && !ROW_TONE_MARKERS.includes(panel.rowToneMarker)) {
+    throw bootRuleError(DASHBOARD_RULES.listRowToneMarkerInvalid, {
+      message: `${context} rowToneMarker "${String(panel.rowToneMarker)}" is not "bar" or "dot".`,
+    });
+  }
+}
 
 function validateListNarrow(context: string, panel: DashboardListPanel): void {
   const { narrow } = panel;
+  validateListLook(context, panel);
   // skip: the list keeps its table on a phone
   if (narrow === undefined) return;
   if (narrow.limit !== undefined && (!Number.isInteger(narrow.limit) || narrow.limit < 1)) {
@@ -27,13 +72,13 @@ function validateListNarrow(context: string, panel: DashboardListPanel): void {
     });
   }
   if (narrow.field !== undefined) {
-    const columnFields = panel.columns.map((column) => normalizeListColumn(column).field);
-    if (narrow.layout !== "line" || !columnFields.includes(narrow.field)) {
+    if (narrow.layout !== "line" || narrow.field.trim().length === 0) {
       throw bootRuleError(DASHBOARD_RULES.listNarrowFieldUnknown, {
-        message: `${context} sets narrow.field "${narrow.field}", which needs narrow.layout "line" and a column of the panel (${columnFields.join(", ")}).`,
+        message: `${context} sets narrow.field "${narrow.field}", which needs narrow.layout "line" and a non-empty name of a field of the query output.`,
       });
     }
   }
+  validateListNarrowTexts(context, panel, narrow);
   if (narrow.layout === "line" && panel.footerLink === undefined) {
     throw bootRuleError(DASHBOARD_RULES.listNarrowLineWithoutFooterLink, {
       message: `${context} sets narrow.layout "line" without footerLink — the line links to it. Add footerLink or use "cards".`,
@@ -48,10 +93,31 @@ export function validateListRowLinkShape(context: string, panel: DashboardListPa
   const { rowLink } = panel;
   // skip: the rows are not links
   if (rowLink === undefined) return;
-  if (rowLink.paramField !== undefined && rowLink.paramField.trim().length === 0) {
+  if ((rowLink.screen === undefined) === (rowLink.screenField === undefined)) {
     throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
-      message: `${context} rowLink.paramField is empty. Name the row field holding the params object or remove it.`,
+      message: `${context} rowLink sets ${rowLink.screen === undefined ? "neither screen nor screenField" : "both screen and screenField"}. Name one target screen with screen, or the row field holding it with screenField.`,
     });
+  }
+  if (rowLink.screen !== undefined && rowLink.paramsField !== undefined) {
+    throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
+      message: `${context} rowLink combines screen with paramsField. Use paramField with screen, paramsField with screenField.`,
+    });
+  }
+  if (rowLink.screenField !== undefined && rowLink.paramField !== undefined) {
+    throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
+      message: `${context} rowLink combines screenField with paramField. Use paramsField with screenField, paramField with screen.`,
+    });
+  }
+  for (const [option, field] of [
+    ["paramField", rowLink.paramField],
+    ["screenField", rowLink.screenField],
+    ["paramsField", rowLink.paramsField],
+  ] as const) {
+    if (field !== undefined && field.trim().length === 0) {
+      throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {
+        message: `${context} rowLink.${option} is empty. Name the row field or remove it.`,
+      });
+    }
   }
   if (rowLink.icon !== undefined && !ROW_LINK_ICONS.includes(rowLink.icon)) {
     throw bootRuleError(DASHBOARD_RULES.listRowLinkInvalid, {

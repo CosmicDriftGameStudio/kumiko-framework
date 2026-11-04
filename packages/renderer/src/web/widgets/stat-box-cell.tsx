@@ -43,7 +43,7 @@ export function StatBoxCell({
     <StatLinkFrame link={link} testId={testId}>
       {belowSm ? (
         <span data-testid={testId} className="whitespace-nowrap text-sm">
-          <span className={cn("font-semibold tabular-nums", TONE_VALUE[tone])}>{value}</span>{" "}
+          <span className="font-semibold tabular-nums text-foreground">{value}</span>{" "}
           <span className="text-foreground">{narrowLabel ?? label}</span>
         </span>
       ) : (

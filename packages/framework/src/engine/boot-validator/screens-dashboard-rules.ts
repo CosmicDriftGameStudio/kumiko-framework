@@ -165,8 +165,8 @@ export const DASHBOARD_RULES = {
   listNarrowInvalid: {
     id: "dashboard/list-narrow-invalid",
     summary:
-      'A list panel\'s narrow.limit is a positive integer and narrow.layout is "cards" or "line".',
-    fix: 'Set narrow.limit to a whole number of at least 1 and narrow.layout to "cards" or "line".',
+      'A list panel\'s narrow.limit is a positive integer, narrow.layout is "cards" or "line", and narrow.moreText and icon appear only with the "line" layout.',
+    fix: 'Set narrow.limit to a whole number of at least 1 and narrow.layout to "cards" or "line"; use narrow.moreText and icon only with "line".',
   },
   listNarrowLineWithoutFooterLink: {
     id: "dashboard/list-narrow-line-without-footer-link",
@@ -176,8 +176,13 @@ export const DASHBOARD_RULES = {
   listRowLinkInvalid: {
     id: "dashboard/list-row-link-invalid",
     summary:
-      'A list panel rowLink names a registered screen, a non-empty paramField and an icon of "arrow" or "chevron".',
-    fix: 'Set rowLink.screen to a registered screen, paramField to the row field holding the params object and icon to "arrow" or "chevron".',
+      'A list panel rowLink names exactly one target (a registered screen, or the row field screenField holding it), takes the matching params field (paramField with screen, paramsField with screenField), non-empty field names and an icon of "arrow" or "chevron".',
+    fix: 'Set either rowLink.screen to a registered screen (params from paramField) or rowLink.screenField to the row field holding the screen name (params from paramsField), and icon to "arrow" or "chevron".',
+  },
+  listRowToneMarkerInvalid: {
+    id: "dashboard/list-row-tone-marker-invalid",
+    summary: 'A list panel rowToneMarker is "bar" or "dot".',
+    fix: 'Set rowToneMarker to "bar" or "dot", or remove it.',
   },
   statGroupColumnsInvalid: {
     id: "dashboard/stat-group-columns-invalid",
@@ -192,8 +197,8 @@ export const DASHBOARD_RULES = {
   listNarrowFieldUnknown: {
     id: "dashboard/list-narrow-field-unknown",
     summary:
-      "A list panel's narrow.field is set only with narrow.layout \"line\" and names one of the panel's columns.",
-    fix: 'Set narrow.layout "line" and name a column field of the panel, or remove narrow.field.',
+      'A list panel\'s narrow.field is set only with narrow.layout "line" and names a non-empty query output field; narrow.titleField needs the cards layout and a hint column.',
+    fix: 'Set narrow.layout "line" and name a field of the query output, or remove narrow.field. For narrow.titleField keep the cards layout and a hint column.',
   },
   narrowOrderInvalid: {
     id: "dashboard/narrow-order-invalid",

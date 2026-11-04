@@ -2288,6 +2288,7 @@ type ListColumnViewModel = {
   type: string;
   renderer?: FieldRenderer | RuntimeRenderer;
   linkFor?: RuntimeCellLink;
+  rowActionLink?: boolean; // Per-row action link column: a text link right-aligned without header text from sm, a small outline button on cards.
   linkItemsFor?: RuntimeCellLinkItems;
   sortable: boolean;
   optionLabels?: Readonly<Record<string, string>>; // Only for `type: "select"` or `type: "multiSelect"` — translated option labels keyed by raw value.
@@ -4936,9 +4937,7 @@ type DashboardChartRanges = {
   default: string;
 };
 type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
-type DashboardListRowLink = { // Row link of a list panel.
-  screen: string; // Target screen, `feature:screen:name` or the short id in the same feature.
-  paramField?: string; // Row field holding the params object of the target (`entityId` opens that record, other keys become search params).
+type DashboardListRowLink = ({ screen: string; paramField?: string; screenField?: never; paramsField?: never; } | { screenField: string; paramsField?: string; screen?: never; paramField?: never; }) & { // Row link of a list panel: one fixed target screen (`screen`) or, when the rows point to different places, the screen named by each row (`screenField`).
   icon?: "arrow" | "chevron"; // "arrow" (default) draws ↗ for a jump to another place, "chevron" draws › for opening the row.
 };
 type DashboardListShowTotal = { // Texts of the "n of m" count in a list panel's subtitle; without `text` the default i18n text stands.

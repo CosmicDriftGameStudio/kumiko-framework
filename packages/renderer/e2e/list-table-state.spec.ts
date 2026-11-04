@@ -119,10 +119,13 @@ test.describe("view menu", () => {
   });
 
   function headerNames(page: Page): Promise<string[]> {
-    return page
-      .getByRole("columnheader")
-      .allInnerTexts()
-      .then((texts) => texts.filter((text) => text !== ""));
+    return (
+      page
+        .getByRole("columnheader")
+        // textContent: innerText would return the CSS-uppercased header look.
+        .allTextContents()
+        .then((texts) => texts.map((text) => text.trim()).filter((text) => text !== ""))
+    );
   }
 
   test("hidden and reordered columns survive navigation and reload, reset restores them", async ({

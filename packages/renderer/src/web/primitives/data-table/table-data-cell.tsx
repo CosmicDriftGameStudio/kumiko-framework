@@ -14,6 +14,7 @@ import {
 } from "../data-table-cell.tsx";
 import { columnCellPresentationProps } from "./data-cell-props.ts";
 import { hintColumnWidthStyle } from "./hint-column-width.ts";
+import { isRowActionColumn } from "./row-action-column.ts";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 // Text wraps instead of truncating: nowrap cells keep their
@@ -68,6 +69,7 @@ function dataCellClassName(
       : FIT_CONTENT_CELL_CLASS,
     colIndex === 0 ? "font-medium text-foreground" : "text-foreground-secondary",
     NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
+    isRowActionColumn(col) && "sm:text-right",
     TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
     col.highlighted === true && "bg-accent/40",
     m.density.cell,

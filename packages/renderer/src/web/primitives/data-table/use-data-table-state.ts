@@ -2,7 +2,7 @@ import { type Dispatch, type SetStateAction, useId, useMemo, useState } from "re
 import { useIsEmbeddedScreen } from "../../../context/embedded-screen-context.tsx";
 import type { ListColumnViewModel, ListRowViewModel } from "../../../headless/index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../../index.ts";
-import { useIsNarrowViewport } from "../use-narrow-viewport.ts";
+import { useIsBelowSmViewport, useIsNarrowViewport } from "../use-narrow-viewport.ts";
 import { isPinningActive, isResizingActive } from "./column-layout-mode.ts";
 import { densityClasses } from "./density.ts";
 import { buildDataTableItems } from "./group-band.tsx";
@@ -24,6 +24,7 @@ export type DataTableModel = Omit<DataTableProps, "columns"> & {
   readonly tableTranslate: ReturnType<typeof useOptionalTranslation>;
   readonly tableLocale: ReturnType<typeof useOptionalLocale>;
   readonly isNarrow: boolean;
+  readonly belowSm: boolean;
   readonly density: ReturnType<typeof densityClasses>;
   readonly facetsOpenNarrow: boolean;
   readonly setFacetsOpenNarrow: Dispatch<SetStateAction<boolean>>;
@@ -96,6 +97,7 @@ export function useDataTableState(props: DataTableProps): DataTableModel {
   // affordance. Cards replace the table entirely below the breakpoint — same
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
+  const belowSm = useIsBelowSmViewport();
   const schemaColumns = useMemo(
     () => (isNarrow ? allColumns : allColumns.filter((col) => col.showOnNarrowOnly !== true)),
     [allColumns, isNarrow],
@@ -158,6 +160,7 @@ export function useDataTableState(props: DataTableProps): DataTableModel {
     tableTranslate,
     tableLocale,
     isNarrow,
+    belowSm,
     density,
     facetsOpenNarrow,
     setFacetsOpenNarrow,

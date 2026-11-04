@@ -67,12 +67,12 @@ function renderActionButtons(
 ): ReactNode {
   const { Button, Dialog, Grid } = model.primitives;
   const hiddenIconIds = hiddenIconIdsOf(specs);
-  const button = (action: RenderEditAction): ReactNode => (
+  const button = (action: RenderEditAction, hideIcon = hiddenIconIds.has(action.id)): ReactNode => (
     <RenderEditActionButton
       key={action.id}
       action={action}
       size="sm"
-      hideIcon={hiddenIconIds.has(action.id)}
+      hideIcon={hideIcon}
       Button={Button}
       Dialog={Dialog}
       onError={model.setActionError}
@@ -92,11 +92,14 @@ function renderActionButtons(
             {wrapLayout(
               model.primitives,
               "sm:hidden",
-              button({
-                ...action,
-                id: `${action.id}-narrow`,
-                label: model.effectiveTranslate(narrowLabel),
-              }),
+              button(
+                {
+                  ...action,
+                  id: `${action.id}-narrow`,
+                  label: model.effectiveTranslate(narrowLabel),
+                },
+                hiddenIconIds.has(action.id),
+              ),
             )}
           </Fragment>
         );

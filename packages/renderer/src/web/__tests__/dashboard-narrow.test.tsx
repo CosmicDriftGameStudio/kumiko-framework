@@ -282,6 +282,28 @@ describe("dashboard list texts and row link", () => {
     expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain("object");
   });
 
+  test("narrow.field on a number or datetime value is formatted like the cells", async () => {
+    const panel = textList({
+      columns: [{ field: "title" }, { field: "amount" }, { field: "due", display: "datetime" }],
+      narrow: { layout: "line", field: "amount" },
+    });
+    setViewportWidth(PHONE_WIDTH);
+    const answer = () =>
+      ok({ rows: [{ id: "t0", title: "Task 0", amount: 1234.5, due: "2026-11-03T10:00:00Z" }] });
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": answer });
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("1,234.5"),
+    );
+    cleanup();
+    renderDashboard(dashboardOf(textList({ ...panel, narrow: { layout: "line", field: "due" } })), {
+      "demo:query:task:list": answer,
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toMatch(/2026/),
+    );
+    expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain("T10:00");
+  });
+
   const rowLinkRows = [
     { id: "t0", title: "Task 0", target: { entityId: "e0" } },
     { id: "t1", title: "Task 1", target: "not-an-object" },
@@ -322,6 +344,147 @@ describe("dashboard list texts and row link", () => {
     });
     await waitFor(() => expect(screen.getAllByTestId("dashboard-list-card")).toHaveLength(2));
     expect(screen.queryAllByRole("link", { name: "Open" })).toHaveLength(0);
+  });
+});
+
+describe("dashboard board gaps (round 6)", () => {
+  restoreViewportWidthAfterEach();
+
+  const panelOf = (overrides: Record<string, unknown>) =>
+    ({
+      ...(listPanel({}) as unknown as Record<string, unknown>),
+      ...overrides,
+    }) as unknown as DashboardScreenDefinition["panels"][number];
+
+  test("the panel head puts title and description on one line from sm", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(panelOf({ subtitle: "demo.more" })), {
+      "demo:query:task:list": listAnswer,
+    });
+    const title = await screen.findByText("Open tasks");
+    expect(title.parentElement?.className).toContain("sm:flex-row");
+  });
+
+  test("a titled stat strip bundles its boxes on the left instead of spreading them", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(
+      dashboardOf({
+        kind: "stat-group",
+        id: "numbers",
+        label: "Numbers",
+        layout: "strip",
+        stats: [{ kind: "stat", id: "a", label: "A", query: "demo:query:a", valueField: "total" }],
+      } as unknown as DashboardScreenDefinition["panels"][number]),
+      { "demo:query:a": () => ok({ total: 1 }) },
+    );
+    const panel = await screen.findByTestId("dashboard-panel-numbers");
+    const container = panel.querySelector(".items-stretch");
+    if (container === null) throw new Error("stat strip container missing");
+    const containerClasses = container.className.split(" ");
+    expect(containerClasses).toContain("gap-3");
+    for (const spread of ["grow", "flex-1", "justify-between", "sm:grow", "sm:flex-1"]) {
+      expect(containerClasses).not.toContain(spread);
+      expect(panel.className.split(" ")).not.toContain(spread);
+    }
+    expect(container.children.length).toBeGreaterThan(0);
+    for (const box of Array.from(container.children)) {
+      expect(box.className.split(" ")).not.toContain("sm:flex-1");
+      expect(box.className.split(" ")).not.toContain("flex-1");
+    }
+  });
+
+  test("a leading badge column renders inline before the title, in the same cell", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(
+      dashboardOf(
+        panelOf({
+          columns: [
+            { field: "tone", display: "badge" },
+            { field: "title", hint: { detailField: "due", plainSentence: true } },
+          ],
+        }),
+      ),
+      { "demo:query:task:list": listAnswer },
+    );
+    await waitFor(() => expect(screen.getAllByText("Task 0").length).toBeGreaterThan(0));
+    const cell = screen.getByText("Task 0").closest("td");
+    expect(cell?.textContent).toContain("warn");
+    expect(cell?.textContent).toContain("Due 0");
+  });
+
+  test("rowToneMarker dot draws a tone dot instead of the bar", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(panelOf({ rowToneMarker: "dot" })), {
+      "demo:query:task:list": listAnswer,
+    });
+    await waitFor(() => expect(screen.getAllByTestId("dashboard-list-tone-dot")).toHaveLength(5));
+  });
+
+  test("rowLink.screenField takes the target screen and params from the row", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(
+      dashboardOf(
+        panelOf({
+          columns: [{ field: "title" }],
+          rowLink: { screenField: "targetScreen", paramsField: "target" },
+        }),
+      ),
+      {
+        "demo:query:task:list": () =>
+          ok({
+            rows: [
+              {
+                id: "t0",
+                title: "Task 0",
+                targetScreen: "demo:screen:all",
+                target: { entityId: "e0" },
+              },
+              { id: "t1", title: "Task 1", target: { entityId: "e1" } },
+            ],
+          }),
+      },
+    );
+    await waitFor(() => expect(screen.getByText("Task 0")).toBeTruthy());
+    expect(screen.getAllByRole("link", { name: "Open" })).toHaveLength(1);
+    fireEvent.click(screen.getByText("Task 0"));
+    expect(window.location.href).toContain("e0");
+  });
+
+  test("narrow.titleField replaces the card title below sm", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panelOf({ narrow: { layout: "cards", titleField: "short" } })), {
+      "demo:query:task:list": () =>
+        ok({
+          rows: [
+            { id: "t0", title: "A very long desktop sentence", short: "Short title", due: "Due 0" },
+          ],
+        }),
+    });
+    await waitFor(() => expect(screen.getByText("Short title")).toBeTruthy());
+    expect(screen.queryByText("A very long desktop sentence")).toBeNull();
+  });
+
+  test("narrowOnly footer link serves the line below sm and is not drawn on wide screens", async () => {
+    const panel = panelOf({
+      columns: [{ field: "title" }],
+      footerLink: { screen: "demo:screen:all", label: "Show all", narrowOnly: true },
+      narrow: { layout: "line", field: "extra", moreText: "demo.more" },
+    });
+    const rows = [
+      { id: "t0", title: "Task 0", extra: "Not a column" },
+      { id: "t1", title: "Task 1", extra: "x" },
+    ];
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": () => ok({ rows }) });
+    await waitFor(() => expect(screen.getByText("Task 0")).toBeTruthy());
+    expect(screen.queryByText("Show all")).toBeNull();
+    cleanup();
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": () => ok({ rows }) });
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("Not a column"),
+    );
+    expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("plus 1 further");
   });
 });
 

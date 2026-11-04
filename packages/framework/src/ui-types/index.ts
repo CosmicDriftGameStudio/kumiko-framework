@@ -95,6 +95,7 @@ export type {
   DashboardListFooterLink,
   DashboardListNarrow,
   DashboardListPanel,
+  DashboardListRowToneMarker,
   DashboardMoneyParam,
   DashboardPanelDefinition,
   DashboardPanelEmptyState,

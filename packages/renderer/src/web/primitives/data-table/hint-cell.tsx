@@ -23,16 +23,49 @@ function nonEmptyText(value: unknown): string | undefined {
 const OPEN_SENTENCE_CLASS =
   "min-w-0 cursor-pointer bg-transparent p-0 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
+function SentenceText({
+  text,
+  className,
+  onOpen,
+}: {
+  readonly text: string;
+  readonly className: string;
+  readonly onOpen: (() => void) | undefined;
+}): ReactNode {
+  if (onOpen === undefined) return <span className={className}>{text}</span>;
+  return (
+    <button
+      type="button"
+      className={cn(OPEN_SENTENCE_CLASS, className)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onOpen();
+      }}
+    >
+      {text}
+    </button>
+  );
+}
+
 /** "To do" cell: an emphasized sentence in the row tone with an optional muted second line. */
 export function HintCell({
   value,
   row,
   hint,
   onOpen,
+  leading,
 }: {
   readonly value: unknown;
   readonly row: Readonly<Record<string, unknown>>;
   readonly hint: ListColumnHintViewModel;
+  /** Drawn in front of the sentence on its line (a badge or tone dot); the detail line starts below it, at the left edge. */
+  readonly leading?: ReactNode;
   // The first cell of a clickable row opens it from the sentence only: a wrapping button could not hold the reason toggle.
   readonly onOpen?: () => void;
 }): ReactNode {
@@ -70,26 +103,8 @@ export function HintCell({
   return (
     <span data-hint-tone={tone} className="flex min-w-0 flex-col gap-0.5">
       <span className="flex items-start gap-2">
-        {onOpen === undefined ? (
-          <span className={sentenceClass}>{sentence}</span>
-        ) : (
-          <button
-            type="button"
-            className={cn(OPEN_SENTENCE_CLASS, sentenceClass)}
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpen();
-            }}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              event.stopPropagation();
-              onOpen();
-            }}
-          >
-            {sentence}
-          </button>
-        )}
+        {leading !== undefined && <span className="flex shrink-0 items-center">{leading}</span>}
+        <SentenceText text={sentence} className={sentenceClass} onOpen={onOpen} />
         {reason !== undefined && (
           <ReasonInfoButton
             label={hint.reasonLabel}

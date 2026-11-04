@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { LINK_BUTTON_CLASS } from "../primitives/data-table-cell.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { StepBar } from "../widgets/step-bar.tsx";
 import { atViewportWidth, fireEvent, render, screen, within } from "./test-utils.tsx";
@@ -14,6 +15,14 @@ const ROWS = [
   { id: "r1", values: { name: "Alpha", due: "2026-01-01" } },
   { id: "r2", values: { name: "Beta", due: "2026-02-01" } },
 ];
+
+function hasAllClasses(element: Element | null | undefined, classes: string): boolean {
+  return (
+    element !== null &&
+    element !== undefined &&
+    classes.split(" ").every((token) => element.classList.contains(token))
+  );
+}
 
 const SORT_OPTIONS = [
   { field: "due", dir: "desc", label: "Urgency" },
@@ -52,6 +61,82 @@ describe("DataTable sortOptions", () => {
         />,
       );
       expect(within(screen.getByTestId("t-sort")).getByText("Customer")).toBeTruthy();
+    });
+  });
+});
+
+describe("DataTable header styles", () => {
+  test("headers use small caps from sm; an action column is right-aligned with a screen-reader-only label", () => {
+    render(
+      <DataTable
+        columns={[
+          { field: "name", label: "Name", type: "string", sortable: false },
+          {
+            field: "act",
+            label: "Action",
+            type: "string",
+            sortable: false,
+            rowActionLink: true,
+            linkFor: () => ({ href: "/x", onPress: () => {} }),
+          },
+        ]}
+        rows={[{ id: "r1", values: { name: "Alpha", act: "Reply" } }]}
+      />,
+    );
+    const nameHead = screen.getByTestId("column-name");
+    expect(nameHead.className).toContain("sm:uppercase");
+    const actionHead = screen.getByTestId("column-act");
+    expect(actionHead.className).toContain("sm:text-right");
+    expect(within(actionHead).getByText("Action").className).toContain("sm:sr-only");
+    const tableLink = screen.getByText("Reply").closest("a");
+    expect(tableLink).not.toBeNull();
+    expect(hasAllClasses(tableLink, LINK_BUTTON_CLASS)).toBe(false);
+    expect(screen.getByText("Reply").closest("td")?.className).toContain("sm:text-right");
+  });
+
+  test("a display: button column is an action column too", () => {
+    render(
+      <DataTable
+        columns={[
+          { field: "name", label: "Name", type: "string", sortable: false },
+          {
+            field: "act",
+            label: "Action",
+            type: "string",
+            sortable: false,
+            display: "button",
+            linkFor: () => ({ href: "/x", onPress: () => {} }),
+          },
+        ]}
+        rows={[{ id: "r1", values: { name: "Alpha", act: "Reply" } }]}
+      />,
+    );
+    expect(within(screen.getByTestId("column-act")).getByText("Action").className).toContain(
+      "sm:sr-only",
+    );
+    expect(screen.getByText("Reply").closest("td")?.className).toContain("sm:text-right");
+  });
+
+  test("on cards the action link is a small outline button", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            { field: "name", label: "Name", type: "string", sortable: false },
+            {
+              field: "act",
+              label: "Action",
+              type: "string",
+              sortable: false,
+              rowActionLink: true,
+              linkFor: () => ({ href: "/x", onPress: () => {} }),
+            },
+          ]}
+          rows={[{ id: "r1", values: { name: "Alpha", act: "Reply" } }]}
+          testId="t"
+        />,
+      );
+      expect(hasAllClasses(screen.getByText("Reply").closest("a"), LINK_BUTTON_CLASS)).toBe(true);
     });
   });
 });

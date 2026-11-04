@@ -1,4 +1,7 @@
-import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  DashboardListRowToneMarker,
+  SelectOptionTone,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { ArrowUpRight, ChevronRight } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import {
@@ -15,6 +18,7 @@ import {
   LINK_BUTTON_CLASS,
   LIST_BADGE_TONE,
   rowToneClass,
+  toneDotClass,
 } from "../primitives/data-table-cell.tsx";
 import { StatusBadge } from "./status-badge.tsx";
 
@@ -51,7 +55,10 @@ export function DashboardListCell({
   formatNumber,
   formatDateTime,
   translate,
+  leading,
 }: {
+  /** Only a `hint` column takes it: it stands on the sentence's line, in front of it. */
+  readonly leading?: ReactNode;
   readonly column: DashboardListColumn;
   readonly row: Row;
   readonly formatPercent: (fraction: number) => string;
@@ -60,7 +67,9 @@ export function DashboardListCell({
   readonly translate: (key: string) => string;
 }): ReactNode {
   const raw = row[column.field];
-  if (column.hint !== undefined) return <HintCell value={raw} row={row} hint={column.hint} />;
+  if (column.hint !== undefined) {
+    return <HintCell value={raw} row={row} hint={column.hint} leading={leading} />;
+  }
   if (column.display === "bar") {
     const fraction = fractionOf(raw);
     return (
@@ -162,8 +171,26 @@ function pressRowLink(event: MouseEvent<HTMLElement>, link: CellLink | undefined
   link.onPress();
 }
 
-/** Compact 40px-row table for dashboard lists with optional bar/badge
- *  columns. */
+function ToneDot({ tone }: { readonly tone: SelectOptionTone }): ReactNode {
+  return (
+    <span
+      aria-hidden="true"
+      data-testid="dashboard-list-tone-dot"
+      className={cn("inline-block size-2 shrink-0 rounded-full", toneDotClass(tone))}
+    />
+  );
+}
+
+// Badges in front of the "to do" column belong to its line: they sit inline before the sentence.
+function leadingBadgeColumnsOf(
+  columns: readonly DashboardListColumn[],
+): readonly DashboardListColumn[] {
+  const hintIndex = columns.findIndex((column) => column.hint !== undefined);
+  return columns.slice(0, Math.max(hintIndex, 0)).filter((column) => column.display === "badge");
+}
+
+/** Compact table for dashboard lists with optional bar/badge columns. Badge columns in front of a
+ *  `hint` column join the hint's first line; rows with a tone get 12px of padding above and below. */
 export function DashboardListTable({
   columns: allColumns,
   rows,
@@ -173,6 +200,7 @@ export function DashboardListTable({
   translate,
   testId,
   rowToneField,
+  rowToneMarker = "bar",
   showHeader = true,
   rowLink,
 }: {
@@ -185,6 +213,8 @@ export function DashboardListTable({
   readonly testId?: string;
   /** Row field holding a SelectOptionTone; tints the row. */
   readonly rowToneField?: string;
+  /** "bar" (default): stripe at the row's left edge; "dot": small dot in front of the first cell. */
+  readonly rowToneMarker?: DashboardListRowToneMarker;
   /** `false` drops the column header row. */
   readonly showHeader?: boolean;
   /** Row is a link: `linkFor` resolves the target per row, the icon sits in an extra last cell. */
@@ -193,7 +223,12 @@ export function DashboardListTable({
     readonly icon: "arrow" | "chevron";
   };
 }): ReactNode {
-  const columns = allColumns.filter((column) => column.narrowOnly !== true);
+  const visibleColumns = allColumns.filter((column) => column.narrowOnly !== true);
+  const leadingBadgeColumns = leadingBadgeColumnsOf(visibleColumns);
+  const columns = visibleColumns.filter((column) => !leadingBadgeColumns.includes(column));
+  const hintColumn = columns.find((column) => column.hint !== undefined);
+  const padded = rowToneField !== undefined || leadingBadgeColumns.length > 0;
+  const cellProps = { formatPercent, formatNumber, formatDateTime, translate };
   return (
     <div className="overflow-x-auto">
       <table data-testid={testId} className="w-full text-sm">
@@ -212,6 +247,22 @@ export function DashboardListTable({
         <tbody>
           {rows.map((row, index) => {
             const rowTarget = rowLink?.linkFor(row);
+            const tone = rowToneOf(row, rowToneField);
+            const dot =
+              rowToneMarker === "dot" && tone !== undefined ? <ToneDot tone={tone} /> : null;
+            const leadingFor = (column: DashboardListColumn, columnIndex: number): ReactNode => {
+              const badges = column === hintColumn ? leadingBadgeColumns : [];
+              const front = columnIndex === 0 ? dot : null;
+              if (front === null && badges.length === 0) return undefined;
+              return (
+                <>
+                  {front}
+                  {badges.map((badge) => (
+                    <DashboardListCell key={badge.field} column={badge} row={row} {...cellProps} />
+                  ))}
+                </>
+              );
+            };
             return (
               <tr
                 key={typeof row["id"] === "string" ? row["id"] : index}
@@ -221,24 +272,36 @@ export function DashboardListTable({
                 className={cn(
                   "h-10 border-b border-border-row last:border-b-0",
                   rowTarget !== undefined && "cursor-pointer",
+                  padded && "sm:[&>td]:py-3",
                   // Without a header row nothing labels the columns, so narrow screens stack them.
                   !showHeader &&
                     "max-sm:grid max-sm:h-auto max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-2",
-                  rowToneClass(rowToneOf(row, rowToneField)),
+                  rowToneMarker === "bar" && rowToneClass(tone),
                 )}
               >
-                {columns.map((column) => (
-                  <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
+                {columns.map((column, columnIndex) => {
+                  const leading = leadingFor(column, columnIndex);
+                  const cell = (
                     <DashboardListCell
                       column={column}
                       row={row}
-                      formatPercent={formatPercent}
-                      formatNumber={formatNumber}
-                      formatDateTime={formatDateTime}
-                      translate={translate}
+                      {...cellProps}
+                      {...(column.hint !== undefined && { leading })}
                     />
-                  </td>
-                ))}
+                  );
+                  return (
+                    <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
+                      {column.hint === undefined && dot !== null && columnIndex === 0 ? (
+                        <span className="flex items-center gap-2">
+                          {dot}
+                          {cell}
+                        </span>
+                      ) : (
+                        cell
+                      )}
+                    </td>
+                  );
+                })}
                 {rowLink !== undefined && (
                   <td className="w-8 px-2 text-right">
                     <RowLinkIcon

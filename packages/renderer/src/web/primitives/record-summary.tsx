@@ -28,7 +28,7 @@ export function DefaultRecordSummary({
         data-testid={testId}
         data-tone={tone}
         className={cn(
-          "m-0 rounded-md border border-l-[3px] bg-card px-4 py-3 font-heading text-[17px] leading-relaxed text-foreground",
+          "m-0 rounded-md border border-l-[3px] bg-card px-4 py-3 font-heading text-base leading-relaxed sm:text-[17px] text-foreground",
           tone === undefined ? "border-l-primary" : SUMMARY_BORDER_CLASS[tone],
         )}
       >

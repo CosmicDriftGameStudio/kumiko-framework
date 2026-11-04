@@ -13,4 +13,11 @@ describe("useLoadedAt", () => {
     act(() => result.current.reportLoaded(start + 1_000));
     expect(result.current.loadedAtMs).toBe(start + 5_000);
   });
+
+  test("the first answer wins even when the app clock is pinned behind the device clock", () => {
+    const { result } = renderHook(() => useLoadedAt(PARAMS));
+    const pinnedBehindDevice = result.current.loadedAtMs - 24 * 3_600_000;
+    act(() => result.current.reportLoaded(pinnedBehindDevice));
+    expect(result.current.loadedAtMs).toBe(pinnedBehindDevice);
+  });
 });

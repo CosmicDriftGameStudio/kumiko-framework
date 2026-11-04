@@ -11,7 +11,13 @@ import { namedFilterNavigateAllows, navigateTargetAllows } from "../../app/scree
 import { hintViewModel } from "../../components/render-list-hint-columns.ts";
 import { screenLinkFor } from "../../components/use-render-list-columns.ts";
 import type { CellLink, Translate } from "../../headless/index.ts";
-import { useAppFeatures, usePrimitives, useUserRoles } from "../../index.ts";
+import {
+  extensionSectionName,
+  useAppFeatures,
+  useExtensionSectionComponent,
+  usePrimitives,
+  useUserRoles,
+} from "../../index.ts";
 import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
 import {
@@ -119,8 +125,27 @@ function rowLinkResolverOf(
   rowLink: NonNullable<DashboardListPanel["rowLink"]>,
   resolveScreenLink: ScreenLinkResolver,
 ): (row: Readonly<Record<string, unknown>>) => CellLink | undefined {
+  if (rowLink.screenField !== undefined) {
+    const link = screenLinkFor(resolveScreenLink, rowLink.screenField, rowLink.paramsField);
+    return (row) => link(undefined, row);
+  }
   const { paramField, screen } = rowLink;
   return (row) => resolveScreenLink(screen, paramField === undefined ? undefined : row[paramField]);
+}
+
+// The same number and date formatting the list cells use, so the phone line agrees with the table.
+function lineValueText(
+  raw: unknown,
+  display: string | undefined,
+  formats: Pick<ReturnType<typeof useDashboardFormats>, "formatNumber" | "formatDateTime">,
+): string | undefined {
+  if (display === "datetime") {
+    const atMs =
+      typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
+    return Number.isFinite(atMs) ? formats.formatDateTime(atMs) : undefined;
+  }
+  if (typeof raw === "number") return formats.formatNumber(raw);
+  return typeof raw === "string" && raw !== "" ? raw : undefined;
 }
 
 function ListLine({
@@ -129,7 +154,11 @@ function ListLine({
   data,
   link,
   translate,
+  screenId,
+  screenParams,
 }: {
+  readonly screenId: string;
+  readonly screenParams: ScreenParams;
   readonly panel: DashboardListPanel;
   readonly label: string;
   readonly data: ListEnvelope;
@@ -138,17 +167,26 @@ function ListLine({
 }): ReactNode {
   const { Link } = usePrimitives();
   const nav = useNav();
+  const Icon = useExtensionSectionComponent(
+    panel.icon !== undefined ? extensionSectionName(panel.icon) : undefined,
+  );
   const rows = data.rows ?? [];
   const firstRow = rows[0];
   const columns = panel.columns.map((column) => normalizeListColumn(column));
-  const lineField = panel.narrow?.field;
-  const textField =
-    lineField !== undefined
-      ? columns.find((column) => column.field === lineField)
-      : columns.find(
-          (column) => column.display === undefined && typeof firstRow?.[column.field] === "string",
+  const lineField =
+    panel.narrow?.field ??
+    columns.find(
+      (column) => column.display === undefined && typeof firstRow?.[column.field] === "string",
+    )?.field;
+  const formats = useDashboardFormats();
+  const firstText =
+    lineField === undefined
+      ? undefined
+      : lineValueText(
+          firstRow?.[lineField],
+          columns.find((column) => column.field === lineField)?.display,
+          formats,
         );
-  const firstText = textField === undefined ? undefined : firstRow?.[textField.field];
   const more = (knownTotal(data) ?? rows.length) - 1;
   const target = dashboardNavigationLink(nav, link);
   return (
@@ -158,10 +196,21 @@ function ListLine({
       testId={`dashboard-panel-${panel.id}`}
       className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-card-foreground"
     >
+      {Icon !== undefined && (
+        <span className="flex shrink-0 items-center">
+          <Icon
+            entityName={screenId}
+            entityId={null}
+            screenId={screenId}
+            filterParams={screenParams.filterParams}
+          />
+        </span>
+      )}
       <span className="min-w-0 flex-1 truncate">
         <span className="font-semibold">{label}</span>
-        {typeof firstText === "string" && ` · ${firstText}`}
-        {more > 0 && ` · ${translate("kumiko.dashboard.list.line-more", { count: more })}`}
+        {firstText !== undefined && ` · ${firstText}`}
+        {more > 0 &&
+          ` · ${translate(panel.narrow?.moreText ?? "kumiko.dashboard.list.line-more", { count: more })}`}
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
@@ -203,6 +252,7 @@ function NarrowCardsPanel({
         formatDateTime={formatDateTime}
         translate={translate}
         narrowCards
+        {...(panel.narrow?.titleField !== undefined && { titleField: panel.narrow.titleField })}
         {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
       />
       {footerLink !== undefined && (
@@ -218,12 +268,14 @@ export function ListPanelBody({
   panel,
   label,
   featureName,
+  screenId,
   screenParams,
   translate,
 }: {
   readonly panel: DashboardListPanel;
   readonly label: string;
   readonly featureName: string;
+  readonly screenId: string;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
@@ -292,12 +344,14 @@ export function ListPanelBody({
               data={data}
               link={footerLink}
               translate={translate}
+              screenId={screenId}
+              screenParams={screenParams}
             />
           ),
         })}
       {...(panel.subtitle !== undefined && { staticSubtitle: translate(panel.subtitle) })}
       footer={
-        footerLink === undefined
+        footerLink === undefined || (footerLink.narrowOnly === true && narrow === undefined)
           ? undefined
           : (data) => (
               <ListFooter
@@ -330,6 +384,7 @@ export function ListPanelBody({
             },
           })}
           {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
+          {...(panel.rowToneMarker !== undefined && { rowToneMarker: panel.rowToneMarker })}
           {...(panel.showHeader !== undefined && { showHeader: panel.showHeader })}
         />
       )}

@@ -82,7 +82,9 @@ export function RenderEditActionButton({
     }
   };
 
-  const variant = action.style ?? (action.display === "link" ? "link" : "secondary");
+  // `display: "link"` wins over a plain style; only a danger style keeps its look.
+  const variant =
+    action.display === "link" && action.style !== "danger" ? "link" : (action.style ?? "secondary");
   const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (

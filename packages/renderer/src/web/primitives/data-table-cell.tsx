@@ -429,6 +429,20 @@ export function rowToneClass(tone: SelectOptionTone | undefined): string {
   return tone === undefined ? "" : ROW_TONE_STRIPE_CLASS[tone];
 }
 
+const TONE_DOT_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  bad: "bg-status-bad",
+  warn: "bg-status-warn",
+  ok: "bg-status-ok",
+  critical: "bg-status-critical",
+  accent: "bg-primary",
+  neutral: "bg-status-neutral",
+};
+
+/** Background class of the small tone dot that `rowToneMarker: "dot"` draws in front of a row. */
+export function toneDotClass(tone: SelectOptionTone): string {
+  return TONE_DOT_CLASS[tone];
+}
+
 export function cardToneClass(tone: SelectOptionTone | undefined): string {
   return tone === undefined ? "" : CARD_TONE_STRIPE_CLASS[tone];
 }

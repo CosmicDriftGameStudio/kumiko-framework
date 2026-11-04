@@ -1,5 +1,6 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import type {
+  DashboardListPanel,
   DashboardPanelVisibility,
   DashboardScreenDefinition,
   DashboardStatPanel,
@@ -18,6 +19,7 @@ import { buildQueryHandlerMap } from "./projection-list-screens.ts";
 import { detailGuidanceFieldRefs, listGuidanceFieldRefs } from "./query-output-guidance.ts";
 import { QUERY_RULES } from "./query-rules.ts";
 import { validateActionFieldRefs } from "./screens.ts";
+import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 import { getZodObjectShape, getZodRowShape } from "./zod-shape.ts";
 
 // Query handlers can now declare `outputSchema` (the Zod shape of
@@ -366,6 +368,28 @@ function checkVisibleWhenField(
   );
 }
 
+// Without an introspectable output shape the only fields known to exist are the panel's own columns.
+function checkRowFieldsAreColumns(
+  featureName: string,
+  screenId: string,
+  panel: DashboardListPanel,
+  refs: readonly { readonly option: string; readonly field: string }[],
+): void {
+  const columnFields = new Set(panel.columns.map((column) => normalizeListColumn(column).field));
+  for (const { option, field } of refs) {
+    if (columnFields.has(field)) continue;
+    const isNarrow = option.startsWith("narrow.");
+    const isNewRowLink = option === "rowLink.screenField" || option === "rowLink.paramsField";
+    if (!isNarrow && !isNewRowLink) continue;
+    throw bootRuleError(
+      isNarrow ? DASHBOARD_RULES.listNarrowFieldUnknown : DASHBOARD_RULES.listRowLinkInvalid,
+      {
+        message: `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}" ${option} names "${field}", but query "${panel.query}" declares no outputSchema, so only a column of the panel can be checked. Declare the outputSchema or use a column.`,
+      },
+    );
+  }
+}
+
 function checkDashboardOutputFields(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -400,10 +424,17 @@ function checkDashboardOutputFields(
             `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" column "${field}" is not present in query "${panel.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
         );
       }
-      const rowLinkRefs =
-        panel.rowLink?.paramField === undefined
-          ? []
-          : [{ option: "rowLink.paramField", field: panel.rowLink.paramField }];
+      const { rowLink, narrow } = panel;
+      const rowLinkRefs = [
+        { option: "rowLink.paramField", field: rowLink?.paramField },
+        { option: "rowLink.screenField", field: rowLink?.screenField },
+        { option: "rowLink.paramsField", field: rowLink?.paramsField },
+        { option: "narrow.titleField", field: narrow?.titleField },
+        { option: "narrow.field", field: narrow?.field },
+      ].flatMap(({ option, field }) => (field === undefined ? [] : [{ option, field }]));
+      if (rowShape === undefined) {
+        checkRowFieldsAreColumns(featureName, screenId, panel, rowLinkRefs);
+      }
       for (const { option, field } of [...listGuidanceFieldRefs(panel), ...rowLinkRefs]) {
         checkFieldExists(
           rowShape,

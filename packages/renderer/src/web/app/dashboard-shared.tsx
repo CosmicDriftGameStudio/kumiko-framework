@@ -228,7 +228,7 @@ export function PanelShell({
       className="flex h-full flex-col rounded-lg border border-border bg-card text-card-foreground"
     >
       <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border-row px-4 py-2">
-        <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3">
           <h2 className="text-sm font-semibold break-words">{title}</h2>
           {subtitle !== undefined && <p className="text-xs text-muted-foreground">{subtitle}</p>}
         </div>
@@ -354,7 +354,7 @@ export function QueryPanel<TData>({
     panel.query,
     panelPayload(panel, screenParams),
   );
-  useReportPanelLoaded(data);
+  useReportPanelLoaded(data, loading);
   let body: ReactNode;
   let shown: TData | undefined;
   if (loading && data === null) {
@@ -388,7 +388,9 @@ export function QueryPanel<TData>({
 
 // Starts at render time and restarts whenever the merged query params change;
 // panels additionally report each successful (re)load, so live refetches and
-// retries keep the stamp current. An older report never replaces a newer stamp.
+// retries keep the stamp current. An older report never replaces a newer answer-based stamp;
+// the render-time stamp is only a guess from the device clock until the first answer, so
+// that answer wins even when the app clock is pinned behind the device.
 export function useLoadedAt(screenParams: ScreenParams): {
   readonly loadedAtMs: number;
   readonly reportLoaded: (atMs: number) => void;
@@ -398,10 +400,19 @@ export function useLoadedAt(screenParams: ScreenParams): {
     screenParams.rangeParams,
     screenParams.recordParams,
   ]);
-  const [loaded, setLoaded] = useState(() => ({ paramsKey, atMs: serverNowMs() }));
-  if (loaded.paramsKey !== paramsKey) setLoaded({ paramsKey, atMs: serverNowMs() });
+  const [loaded, setLoaded] = useState(() => ({
+    paramsKey,
+    atMs: serverNowMs(),
+    answered: false,
+  }));
+  if (loaded.paramsKey !== paramsKey) {
+    setLoaded({ paramsKey, atMs: serverNowMs(), answered: false });
+  }
   const reportLoaded = useCallback(
-    (atMs: number) => setLoaded((prev) => (prev.atMs >= atMs ? prev : { ...prev, atMs })),
+    (atMs: number) =>
+      setLoaded((prev) =>
+        prev.answered && prev.atMs >= atMs ? prev : { ...prev, atMs, answered: true },
+      ),
     [],
   );
   return { loadedAtMs: loaded.atMs, reportLoaded };
@@ -409,9 +420,11 @@ export function useLoadedAt(screenParams: ScreenParams): {
 
 export const PanelLoadedContext = createContext<(atMs: number) => void>(() => {});
 
-export function useReportPanelLoaded(data: unknown): void {
+// While `loading`, `data` still holds the answer to the previous params (useQuery keeps it
+// until the new one lands), so only a settled answer may stamp the header.
+export function useReportPanelLoaded(data: unknown, loading: boolean): void {
   const reportLoaded = useContext(PanelLoadedContext);
   useEffect(() => {
-    if (data !== null) reportLoaded(serverNowMs());
-  }, [data, reportLoaded]);
+    if (data !== null && !loading) reportLoaded(serverNowMs());
+  }, [data, loading, reportLoaded]);
 }

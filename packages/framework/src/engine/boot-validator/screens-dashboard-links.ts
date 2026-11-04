@@ -10,6 +10,17 @@ export type DashboardPanelLinkTarget = {
   readonly params?: Readonly<Record<string, unknown>>;
 };
 
+// A rowLink naming its target per row (screenField) has nothing to resolve at boot.
+export function validateListRowLinkTarget(
+  where: string,
+  rowLink: { readonly screen?: string | undefined } | undefined,
+  featureName: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  if (rowLink?.screen === undefined) return;
+  validateDashboardPanelLink(where, { screen: rowLink.screen }, featureName, featureMap);
+}
+
 // `where` names the option ("... list-panel "x" footerLink") so the one rule reads right for
 // both the list footer and the stat-group link.
 export function validateDashboardPanelLink(

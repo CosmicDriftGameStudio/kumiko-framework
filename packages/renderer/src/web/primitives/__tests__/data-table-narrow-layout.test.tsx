@@ -25,7 +25,50 @@ const statusFacet = {
 };
 
 describe("DataTable narrow layout parts", () => {
-  test("a full-height narrow table hides its facets behind a toggle that opens them", () => {
+  const sortedTableProps = {
+    columns,
+    rows,
+    testId: "t",
+    scrollBody: true,
+    filterFacets: [statusFacet],
+    filterValues: {},
+    onFilterChange: mock(),
+    sortOptions: [{ field: "amount", dir: "desc", label: "Urgency" }],
+    onSortChange: mock(),
+    sort: { field: "amount", dir: "desc" },
+    pager: { page: 1, limit: 10, total: 26, onPageChange: mock() },
+    itemNoun: (count: number) => (count === 1 ? "contract" : "contracts"),
+  } as const;
+
+  test("below sm select filters are inline chips under the search and the one sort line names the list size", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable {...sortedTableProps} />);
+      expect(screen.queryByTestId("t-filter-toggle")).toBeNull();
+      const chip = screen.getByTestId("facet-status-open");
+      expect(chip.getAttribute("aria-haspopup")).toBeNull();
+      expect(chip.getAttribute("aria-pressed")).toBe("false");
+      expect(screen.getByTestId("t-sort-label").textContent).toBe(
+        "Sorted by Urgency ↓ · 26 contracts",
+      );
+      expect(screen.queryByTestId("t-sorted-by")).toBeNull();
+    });
+  });
+
+  test("between sm and md the toolbar and the plain sort label stay as before", () => {
+    atViewportWidth(700, () => {
+      render(
+        <DataTable
+          {...sortedTableProps}
+          dateRangeFacets={[{ field: "createdAt", label: "When", from: "", to: "" }]}
+        />,
+      );
+      expect(screen.queryByTestId("t-filter-toggle")).toBeNull();
+      expect(screen.getByTestId("facet-status-open")).toBeDefined();
+      expect(screen.getByTestId("t-sort-label").textContent).toBe("Sorted by: Urgency");
+    });
+  });
+
+  test("a full-height narrow table with a date range facet hides its facets behind a toggle that opens them", () => {
     atViewportWidth(500, () => {
       render(
         <DataTable
@@ -34,6 +77,7 @@ describe("DataTable narrow layout parts", () => {
           testId="t"
           scrollBody
           filterFacets={[statusFacet]}
+          dateRangeFacets={[{ field: "createdAt", label: "When", from: "", to: "" }]}
           filterValues={{}}
           onFilterChange={mock()}
         />,

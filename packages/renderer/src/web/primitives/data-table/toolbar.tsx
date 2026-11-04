@@ -117,9 +117,24 @@ function renderSortOptions(m: DataTableModel): ReactNode {
   );
 }
 
+function hasOnlySelectFacets(m: DataTableModel): boolean {
+  return (
+    (m.filterFacets?.length ?? 0) > 0 &&
+    (m.dateRangeFacets?.length ?? 0) === 0 &&
+    (m.rangeFacets?.length ?? 0) === 0
+  );
+}
+
+function renderFacetArea(m: DataTableModel, facetCluster: ReactNode): ReactNode {
+  if (!m.belowSm || facetCluster === undefined) return facetCluster;
+  if (hasOnlySelectFacets(m)) {
+    return <div className="flex w-full flex-wrap gap-2">{facetCluster}</div>;
+  }
+  return m.fillsHeight ? renderFacetToggle(m, facetCluster) : facetCluster;
+}
+
 export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): ReactNode {
   const { testId, toolbarStart } = m;
-  const collapsesFacetsBehindButton = m.isNarrow && m.fillsHeight && facetCluster !== undefined;
   const mergesDescription = toolbarMergesDescription(m, facetCluster);
   return (
     <div
@@ -134,7 +149,7 @@ export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): React
     >
       {mergesDescription && renderToolbarDescription(m, true, true)}
       {toolbarStart !== undefined && renderToolbarStart(m, toolbarStart)}
-      {collapsesFacetsBehindButton ? renderFacetToggle(m, facetCluster) : facetCluster}
+      {renderFacetArea(m, facetCluster)}
       {renderSortOptions(m)}
       <ToolbarEndCluster
         view={m.view}

@@ -1,6 +1,10 @@
 import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
-import type { DataTableDateRangeFacet, DataTableFacet } from "../../index.ts";
+import {
+  type DataTableDateRangeFacet,
+  type DataTableFacet,
+  useOptionalTranslation,
+} from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { Badge } from "../ui/badge.tsx";
 import { Button as UiButton } from "../ui/button.tsx";
@@ -144,6 +148,8 @@ export function FacetFilter({
   /** Toolbar of a scrollBody table: h32 with the stronger border. */
   dense?: boolean;
 }): ReactNode {
+  const translate = useOptionalTranslation();
+  const allLabel = translate?.("kumiko.list.filter.all") ?? "All";
   const toggle = (value: string, checked: boolean): void => {
     const next = checked ? [...selected, value] : selected.filter((v) => v !== value);
     onChange(facet.field, next);
@@ -174,7 +180,7 @@ export function FacetFilter({
           className={cn("h-9", dense && "border-border-strong px-2.5")}
           data-testid={`facet-${facet.field}`}
         >
-          {facet.label}
+          {selected.length === 0 ? `${facet.label}: ${allLabel}` : facet.label}
           {selected.length > 0 && (
             <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
               {selected.length}
