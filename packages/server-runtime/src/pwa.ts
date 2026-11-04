@@ -43,10 +43,11 @@ export type PwaShell = {
   readonly respond: (req: Request, pathname: string) => Response | undefined;
 };
 
-// "/x" only: "//host/x" and "/\host" are protocol-relative to browsers, and the worker
-// precaches every icon, so a foreign URL would be fetched from the user's browser.
+// "/x" only: "//host/x" and "/\host" are protocol-relative to browsers (which also strip tab and
+// newline before parsing), and the worker precaches every icon, so a foreign URL would be fetched
+// from the user's browser.
 function isSameOriginPath(src: string): boolean {
-  return /^\/(?![/\\])/.test(src) && !src.includes("\\");
+  return /^\/(?![/\\])/.test(src) && !src.includes("\\") && !/[\s\p{Cc}]/u.test(src);
 }
 
 function assertValidPwaOptions(options: PwaOptions): void {

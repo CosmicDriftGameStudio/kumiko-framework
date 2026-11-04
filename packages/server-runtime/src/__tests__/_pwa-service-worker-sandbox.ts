@@ -31,6 +31,12 @@ function markBasic(response: Response): Response {
   return response;
 }
 
+export function redirectedBasicResponse(body: string): Response {
+  const response = basicResponse(body);
+  Object.defineProperty(response, "redirected", { value: true });
+  return response;
+}
+
 export function basicResponse(body: string, init: ResponseInit = {}): Response {
   return markBasic(new Response(body, init));
 }

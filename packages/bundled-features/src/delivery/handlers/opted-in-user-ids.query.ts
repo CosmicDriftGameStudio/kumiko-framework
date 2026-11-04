@@ -2,6 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { notificationTypeNames } from "../notification-type-aliases.ts";
 import { collapsePreferenceRows } from "../preference-rows.ts";
 import { notificationPreferencesTable } from "../tables.ts";
@@ -31,6 +32,14 @@ export const optedInUserIdsQuery = defineQueryHandler({
     const userIds = collapsePreferenceRows(ctx.registry, rows)
       .filter((row) => row.notificationType === notificationType && row.enabled === true)
       .map((row) => row.userId);
-    return { userIds: [...new Set(userIds)].sort() };
+    const candidateIds = [...new Set(userIds)];
+    if (candidateIds.length === 0) return { userIds: [] };
+
+    // Removed members keep their preference rows; only live memberships may receive tenant data.
+    const memberships = await selectMany<{ userId: string }>(db, tenantMembershipsTable, {
+      tenantId: query.user.tenantId,
+      userId: { in: candidateIds },
+    });
+    return { userIds: memberships.map((membership) => membership.userId).sort() };
   },
 });
