@@ -1,7 +1,7 @@
-// createUncheckedSystemDb's grantedUnsafeRawRunner (db/tenant-db.ts) hands out a
-// raw runner without a grant check. Under a resolved member principal that door
-// is closed only because applyMemberResolutionReadOnly drops systemDb and
-// dbOutsideTransaction — this pins that, plus the write surfaces it neutralizes.
+// crossTenantReads and db.outsideTransaction escape the READ ONLY transaction, so
+// applyMemberResolutionReadOnly drops them — this pins that, plus the write surfaces it
+// neutralizes. systemDb stays: for a member it is a createSystemDbView (no raw-runner handout,
+// no outside-transaction source), covered by query-as-member-system-scope.integration.test.ts.
 import { describe, expect, test } from "bun:test";
 import { stubHandlerContext } from "../../engine/__tests__/handler-context-stub.ts";
 import type { HandlerContext } from "../../engine/types/index.ts";
@@ -63,10 +63,9 @@ function readOnlyContext(): HandlerContext {
 }
 
 describe("applyMemberResolutionReadOnly", () => {
-  test("drops every surface that could reach an unchecked system-scope db", () => {
+  test("drops every surface that could escape the READ ONLY transaction", () => {
     const readOnly = readOnlyContext();
 
-    expect(readOnly.systemDb).toBeUndefined();
     expect(readOnly.crossTenantReads).toBeUndefined();
     expect(readOnly.lifecycle.runPreSave).toBeUndefined();
     expect(readOnly.tenants.writeTarget).toBeUndefined();

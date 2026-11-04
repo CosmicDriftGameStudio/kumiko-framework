@@ -4,7 +4,12 @@ import { isAgentToolCallScope } from "../api/request-context-scopes.ts";
 
 import type { DbConnection, DbTx } from "../db/connection.ts";
 import { createHandlerCrossTenantReads } from "../db/cross-tenant-reads.ts";
-import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db.ts";
+import {
+  createSystemDbView,
+  createTenantDb,
+  createUncheckedSystemDb,
+  type TenantDb,
+} from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import { mayOverrideTenant } from "../engine/cross-tenant.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
@@ -102,9 +107,13 @@ export function buildHandlerDbFacet(scope: HandlerContextScope) {
   const rawDbOutsideTransaction = outsideTxSource
     ? buildTenantScopedDb(scope, outsideTxSource, undefined)
     : undefined;
+  // A resolved member gets the view: its unsafeRaw follows db's memberReadOnly denial and it has no
+  // outside-transaction source, whereas the unchecked variant would hand out a raw runner.
   const systemDb =
     isSystem && db
-      ? createUncheckedSystemDb(db, rawDbOutsideTransaction, scope.reportEscapeHatch)
+      ? isMemberResolutionPrincipal(scope.user)
+        ? createSystemDbView(db, undefined, scope.reportEscapeHatch)
+        : createUncheckedSystemDb(db, rawDbOutsideTransaction, scope.reportEscapeHatch)
       : undefined;
   const crossTenantReads = buildHandlerCrossTenantReads(scope);
   // Same fail-closed treatment as `exposedDb` — a system handler reaching

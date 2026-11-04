@@ -97,13 +97,15 @@ function readOnlyServices(services: HandlerContext["services"]): HandlerContext[
 
 // Every write/side-effect surface throws, so "no writeAsMember" holds even
 // if a handler tries ctx.dispatch.write directly on a resolved member principal.
-// Deliberately open: `db` (guarded by the READ ONLY transaction + memberReadOnly grant),
-// and read-only methods of searchAdapter / redis / entityCache (allowlisted).
+// Deliberately open: `db` and, for r.systemScope() handlers, `systemDb` (both ride the READ ONLY
+// transaction; the systemDb is a view whose unsafeRaw follows db's memberReadOnly denial and that has
+// no outside-transaction source), plus read-only methods of searchAdapter / redis / entityCache.
 export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
-  // `db` stays open — executeQuery runs the whole handler in a Postgres READ ONLY
-  // transaction, and its `memberReadOnly` grant denies every raw-runner handout.
+  // executeQuery runs the whole handler in a Postgres READ ONLY transaction, and `db`'s
+  // `memberReadOnly` grant denies every raw-runner handout. crossTenantReads and the
+  // outside-transaction door would escape that transaction, so they are dropped.
   dropOutsideTransaction(handlerContext);
-  const { systemDb: _systemDb, crossTenantReads: _crossTenantReads, ...kept } = handlerContext;
+  const { crossTenantReads: _crossTenantReads, ...kept } = handlerContext;
   return {
     ...kept,
     dispatch: {
@@ -125,7 +127,7 @@ export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): H
       snapshot: denyMemberResolutionWrite,
     },
     auth: { ...handlerContext.auth, resolveActiveMembership: denyMemberResolutionWrite },
-    // A read as a member gets no system-scope DB, preSave pipeline or file storage.
+    // A read as a member gets no preSave pipeline or file storage.
     lifecycle: {
       afterCommit: throwMemberResolutionDenied,
       afterRollback: throwMemberResolutionDenied,
