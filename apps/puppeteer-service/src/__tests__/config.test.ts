@@ -17,6 +17,17 @@ describe("loadConfig", () => {
     expect(config.port).toBe(3000);
     expect(config.renderTimeoutMs).toBe(30_000);
     expect(config.maxHtmlBytes).toBe(2_000_000);
+    expect(config.browserIdleTimeoutMs).toBe(300_000);
+  });
+
+  test("BROWSER_IDLE_TIMEOUT_MS above the setTimeout limit is rejected", () => {
+    expect(() =>
+      loadConfig({ PUPPETEER_AUTH_TOKEN: VALID_TOKEN, BROWSER_IDLE_TIMEOUT_MS: "2147483648" }),
+    ).toThrow(/<= 2147483647/);
+    expect(
+      loadConfig({ PUPPETEER_AUTH_TOKEN: VALID_TOKEN, BROWSER_IDLE_TIMEOUT_MS: "2147483647" })
+        .browserIdleTimeoutMs,
+    ).toBe(2_147_483_647);
   });
 
   test("env-overrides", () => {
@@ -25,9 +36,11 @@ describe("loadConfig", () => {
       PORT: "8080",
       RENDER_TIMEOUT_MS: "10000",
       MAX_HTML_BYTES: "500000",
+      BROWSER_IDLE_TIMEOUT_MS: "60000",
     });
     expect(config.port).toBe(8080);
     expect(config.renderTimeoutMs).toBe(10_000);
+    expect(config.browserIdleTimeoutMs).toBe(60_000);
     expect(config.maxHtmlBytes).toBe(500_000);
   });
 
