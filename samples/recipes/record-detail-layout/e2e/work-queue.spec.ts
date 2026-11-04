@@ -1,5 +1,5 @@
 // The orders work queue: named filters in one select with hit counts, a filter-owned sort,
-// a filter-owned empty state with a reset button, and the totals footer.
+// a filter-owned empty state with a reset button, and the summary row footer.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -36,10 +36,10 @@ test("a filter without hits shows its own empty state, and its reset button brin
   await expect(page.getByTestId("render-list-empty-reset-filter")).toHaveCount(0);
 });
 
-test("the footer totals the open amount over the whole list", async ({ page }) => {
+test("the summary row is the only footer and carries the open amount", async ({ page }) => {
   await page.goto("/orders");
-  await expect(page.getByTestId("list-totals")).toBeVisible();
-  await expect(page.getByTestId("list-totals")).toContainText("2497");
+  await expect(page.getByTestId("list-summary")).toContainText("2,497.00");
+  await expect(page.getByTestId("list-totals")).toHaveCount(0);
 });
 
 test("the sort select reorders the list by the chosen option", async ({ page }) => {

@@ -33,6 +33,12 @@ export const LIST_SORT_SUMMARY_RULES = {
       "The summaryRow query's Zod schema accepts every list key the screen sends (search, namedFilter, filters).",
     fix: "Add the missing keys to the query schema (or reuse the list query's filter shape) and apply them, or drop the feature on the screen.",
   },
+  summaryRowWithTotals: {
+    id: "list/summary-row-with-totals",
+    summary:
+      "A table sets summaryRow or totals, not both; two footers under one table read as two answers.",
+    fix: "Drop totals and put the figures into the summary query, or drop summaryRow.",
+  },
   summaryRowOnRelatedList: {
     id: "list/summary-row-on-related-list",
     summary:

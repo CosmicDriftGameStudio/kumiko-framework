@@ -9,6 +9,7 @@ import {
 import { bootRuleError } from "./boot-rule.ts";
 import { validateColumnLayout } from "./list-column-layout.ts";
 import { validateSummaryRowShape } from "./list-sort-summary.ts";
+import { LIST_SORT_SUMMARY_RULES } from "./list-sort-summary-rules.ts";
 import { validateListTableAggregateShape } from "./list-table-aggregate-options.ts";
 import { validateExportOptions } from "./list-table-export-options.ts";
 import { rejectUnknownKeys } from "./list-table-reject-unknown-keys.ts";
@@ -114,6 +115,11 @@ export function validateListTableOptions(
   if (table["export"] !== undefined) validateExportOptions(where, table["export"], exportAllowed);
   validateListTableAggregateShape(where, table, columns);
   if (table["summaryRow"] !== undefined) validateSummaryRowShape(where, table["summaryRow"]);
+  if (table["summaryRow"] !== undefined && table["totals"] !== undefined) {
+    throw bootRuleError(LIST_SORT_SUMMARY_RULES.summaryRowWithTotals, {
+      message: `${where} sets table.summaryRow and table.totals; a table has one footer. Keep one of them.`,
+    });
+  }
   validateHiddenColumns(where, table["columnPicker"] === true, columns);
   validateColumnLayout(
     where,

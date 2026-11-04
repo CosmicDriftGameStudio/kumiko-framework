@@ -22,7 +22,7 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   the title and a `hideOnNarrow` one stays out of the card
 - a work queue on that list: named filters as one select with hit counts (`namedFilterFacet`),
   a per-filter `sort` and `emptyState` with a reset button, a badge column, per-row button
-  actions (a write "Send reminder" or a link "Open order", shown by `visible`) and a totals footer
+  actions (a write "Send reminder" or a link "Open order", shown by `visible`) and a summary row footer
 - a `today` dashboard on the 12-column grid: a `lead` briefing (two thirds), count tiles that
   use the list's own query and link into the filtered list, a headerless "Now" list, two third
   width lists and a money group. List and dashboard answer from `src/order-board.ts`, which the

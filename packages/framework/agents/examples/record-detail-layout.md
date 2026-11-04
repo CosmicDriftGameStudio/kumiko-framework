@@ -30,7 +30,7 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
   the title and a `hideOnNarrow` one stays out of the card
 - a work queue on that list: named filters as one select with hit counts (`namedFilterFacet`),
   a per-filter `sort` and `emptyState` with a reset button, a badge column, per-row button
-  actions (a write "Send reminder" or a link "Open order", shown by `visible`) and a totals footer
+  actions (a write "Send reminder" or a link "Open order", shown by `visible`) and a summary row footer
 - a `today` dashboard on the 12-column grid: a `lead` briefing (two thirds), count tiles that
   use the list's own query and link into the filtered list, a headerless "Now" list, two third
   width lists and a money group. List and dashboard answer from `src/order-board.ts`, which the
@@ -878,7 +878,7 @@ export default defineConfig({
 
 ```ts
 // The orders work queue: named filters in one select with hit counts, a filter-owned sort,
-// a filter-owned empty state with a reset button, and the totals footer.
+// a filter-owned empty state with a reset button, and the summary row footer.
 
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
@@ -915,10 +915,10 @@ test("a filter without hits shows its own empty state, and its reset button brin
   await expect(page.getByTestId("render-list-empty-reset-filter")).toHaveCount(0);
 });
 
-test("the footer totals the open amount over the whole list", async ({ page }) => {
+test("the summary row is the only footer and carries the open amount", async ({ page }) => {
   await page.goto("/orders");
-  await expect(page.getByTestId("list-totals")).toBeVisible();
-  await expect(page.getByTestId("list-totals")).toContainText("2497");
+  await expect(page.getByTestId("list-summary")).toContainText("2,497.00");
+  await expect(page.getByTestId("list-totals")).toHaveCount(0);
 });
 
 test("the sort select reorders the list by the chosen option", async ({ page }) => {
@@ -1093,10 +1093,7 @@ describe("record-detail-layout showcase — work queue", () => {
     ]);
     expect(screen.namedFilters?.[0]?.sort).toEqual({ field: "urgency", dir: "desc" });
     expect(screen.namedFilters?.[0]?.emptyState?.title).toBe("order-desk.orders.all-done");
-    expect(screen.table?.totals).toEqual([
-      { field: "orderNumber", kind: "count" },
-      { field: "openAmount", kind: "sum" },
-    ]);
+    expect(screen.table?.totals).toBeUndefined();
   });
 
   test("the list query filters, sorts, counts and aggregates like the screen asks", () => {
@@ -1279,7 +1276,7 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //   7. Guidance: the `orders` projectionList tints rows via `rowToneField`, shows a
 //      "to do" hint column (sentence, detail, tone, a "Why?" reason), a badge column and
 //      per-row button actions (send a reminder, or open the record). Named filters sit in one select with hit counts,
-//      each with its own sort and empty state; the footer totals the rows. The detail screen adds
+//      each with its own sort and empty state; the summary row totals the rows. The detail screen adds
 //      `breadcrumb`, `summary`, `banner` and `steps`, each reading a query field; empty values drop out.
 //   8. The `today` dashboard composes a lead briefing, count tiles that link into the filtered
 //      list, a headerless "Now" list and two narrow lists on a 12-column grid.
@@ -1521,10 +1518,6 @@ export function createOrderDeskFeature(): FeatureDefinition {
       namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
       table: {
         summaryRow: { query: "order-desk:query:order:summary" },
-        totals: [
-          { field: "orderNumber", kind: "count" },
-          { field: "openAmount", kind: "sum" },
-        ],
       },
       rowActions: [
         {

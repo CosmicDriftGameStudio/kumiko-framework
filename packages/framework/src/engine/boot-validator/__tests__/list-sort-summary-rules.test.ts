@@ -123,6 +123,22 @@ describe("table.summaryRow shape", () => {
   test("an unknown key is rejected", () => {
     expect(shapeIds({ query: SUMMARY_QUERY, extra: 1 })).not.toEqual([]);
   });
+
+  test("summaryRow together with totals is list/summary-row-with-totals", () => {
+    const feature = projectionListFeature({
+      screen: {
+        table: {
+          summaryRow: { query: SUMMARY_QUERY },
+          totals: [{ field: "number", kind: "count" }],
+        },
+      },
+    });
+    expect(ruleIdsOf([feature])).toContain("list/summary-row-with-totals");
+  });
+
+  test("a summaryRow without totals does not trip list/summary-row-with-totals", () => {
+    expect(shapeIds({ query: SUMMARY_QUERY })).not.toContain("list/summary-row-with-totals");
+  });
 });
 
 describe("sortOptions list rules", () => {

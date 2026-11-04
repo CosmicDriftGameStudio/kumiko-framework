@@ -17,7 +17,7 @@
 //   7. Guidance: the `orders` projectionList tints rows via `rowToneField`, shows a
 //      "to do" hint column (sentence, detail, tone, a "Why?" reason), a badge column and
 //      per-row button actions (send a reminder, or open the record). Named filters sit in one select with hit counts,
-//      each with its own sort and empty state; the footer totals the rows. The detail screen adds
+//      each with its own sort and empty state; the summary row totals the rows. The detail screen adds
 //      `breadcrumb`, `summary`, `banner` and `steps`, each reading a query field; empty values drop out.
 //   8. The `today` dashboard composes a lead briefing, count tiles that link into the filtered
 //      list, a headerless "Now" list and two narrow lists on a 12-column grid.
@@ -259,10 +259,6 @@ export function createOrderDeskFeature(): FeatureDefinition {
       namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
       table: {
         summaryRow: { query: "order-desk:query:order:summary" },
-        totals: [
-          { field: "orderNumber", kind: "count" },
-          { field: "openAmount", kind: "sum" },
-        ],
       },
       rowActions: [
         {

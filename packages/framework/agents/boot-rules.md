@@ -670,6 +670,7 @@
 | <a id="list-summary-row-query-accepts-list-keys"></a>`list/summary-row-query-accepts-list-keys` | The summaryRow query's Zod schema accepts every list key the screen sends (search, namedFilter, filters). | Add the missing keys to the query schema (or reuse the list query's filter shape) and apply them, or drop the feature on the screen. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
 | <a id="list-summary-row-query-unknown"></a>`list/summary-row-query-unknown` | table.summaryRow.query names a registered query handler. | Use the qualified name of a query handler (feature:query:name) or remove summaryRow. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
 | <a id="list-summary-row-shape"></a>`list/summary-row-shape` | table.summaryRow is an object with a query string and optional params object. | Write table.summaryRow as { query: "feature:query:order:summary" }. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
+| <a id="list-summary-row-with-totals"></a>`list/summary-row-with-totals` | A table sets summaryRow or totals, not both; two footers under one table read as two answers. | Drop totals and put the figures into the summary query, or drop summaryRow. | `packages/framework/src/engine/boot-validator/list-sort-summary-rules.ts` |
 
 ## list-bulk
 

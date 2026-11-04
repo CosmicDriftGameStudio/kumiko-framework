@@ -136,10 +136,7 @@ describe("record-detail-layout showcase — work queue", () => {
     ]);
     expect(screen.namedFilters?.[0]?.sort).toEqual({ field: "urgency", dir: "desc" });
     expect(screen.namedFilters?.[0]?.emptyState?.title).toBe("order-desk.orders.all-done");
-    expect(screen.table?.totals).toEqual([
-      { field: "orderNumber", kind: "count" },
-      { field: "openAmount", kind: "sum" },
-    ]);
+    expect(screen.table?.totals).toBeUndefined();
   });
 
   test("the list query filters, sorts, counts and aggregates like the screen asks", () => {
