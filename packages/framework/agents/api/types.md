@@ -1692,6 +1692,11 @@ type ListEmptyStateContent = {
   description?: string;
   action?: RenderEditAction;
 };
+type NamedFilterEmptyContent = {
+  title: string;
+  description?: string;
+  onReset: () => void;
+};
 ```
 
 ## packages/renderer/src/components/render-edit-types.ts
@@ -1702,6 +1707,7 @@ type RenderEditAction = {
   label: string;
   onPress: () => void | Promise<void>;
   style?: "primary" | "secondary" | "danger";
+  display?: RowActionDisplay; // `"link"` draws the action as a text link; `style: "danger"` keeps its colour.
   confirm?: string;
   confirmLabel?: string;
   confirmRequired?: boolean; // Overrides the default "danger implies a confirm dialog" rule.
@@ -1817,6 +1823,7 @@ type DataTableFacet = {
   label: string; // Translated Button-Label ("Status", "Active").
   options: { value: string; label: string; }[]; // Selectable values with display labels.
   chips?: DataTableFacetChip[]; // Present: render the facet as a row of single-choice toggle chips instead of a dropdown.
+  display?: "select"; // Chips only: "select" renders the chips as one single-choice dropdown instead of a row of toggles.
   showCounts?: boolean; // Chips only: show each chip's `count` next to its label.
   hideEmpty?: boolean; // Chips only: hide chips whose `count` is 0 (unless pressed).
   onSearchChange?: (query: string) => void; // Present: the options come from a server-side search (reference facets), so the dropdown shows a search field and reports the typed term instead of filtering `options` itself.
@@ -2245,6 +2252,7 @@ type EmbeddedListCellViewModel = {
   refOptionsQuery?: string;
   scale?: number; // Only for `type: "decimal"`.
 };
+type ListColumnCellDisplay = "badge" | "button";
 type ListColumnFileDisplay = // How a list cell shows a FileRef value (id or id array).
   | {
     kind: "image";
@@ -2280,6 +2288,8 @@ type ListColumnViewModel = {
   grouping?: boolean; // Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default `true`).
   fileDisplay?: ListColumnFileDisplay; // Set for file/image columns: from the entity field type, or from a `{ format: "image" | "file" }` renderer.
   hint?: ListColumnHintViewModel; // "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated.
+  display?: ListColumnCellDisplay; // `ListColumnSpec.display` for list tables: a status pill or a link drawn as a button.
+  badgeToneField?: string; // Row field naming the pill tone; only with `display: "badge"`.
 };
 type ListRowViewModel = {
   id: string;
@@ -4508,6 +4518,12 @@ type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = {
 ## packages/types/src/named-list-filters.ts
 
 ```ts
+type ListSortDir = "asc" | "desc";
+type NamedFilterFacetOptions = { // How the named filters appear in the toolbar: toggle chips (default) or one single-choice select.
+  display?: "chips" | "select";
+  showCounts?: boolean; // Ask the list query for each filter's hit count and show it next to the label.
+  label?: string; // i18n key for the select's label, e.g. "To do".
+};
 type NamedListFilterCondition = {
   field: string;
   op: NamedListFilterOp;
@@ -4521,6 +4537,11 @@ type NamedListFilterOp = "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
 type NamedListFilterRef = { // Screen-side reference to an entity-defined named filter; `label` is an i18n key.
   id: string;
   label: string;
+  sort?: ListSortSpec; // Order while this filter is active and the URL carries no sort of its own; wins over `defaultSort`.
+  emptyState?: {
+    title: string;
+    description?: string;
+  }; // Shown instead of the generic "no matches" text when this filter yields an empty list and no search term is set; both are i18n keys.
   roles?: string[]; // Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them.
 };
 type NamedListFilterScope = {
@@ -4954,9 +4975,8 @@ type EntityListFacetExtraOption = { // An extra choice on a facet next to the fi
   values: string[]; // Option values this choice selects; `[]` selects nothing, i.e. no filter.
   position?: "start" | "end"; // Where the chip sits relative to the field's own options.
 };
-type ListColumnDisplay = "bar" | "badge" | "datetime";
+type ListColumnDisplay = "bar" | "badge" | "datetime" | "button";
 type ListPaginationMode = "pages" | "infinite" | false;
-type ListSortDir = "asc" | "desc";
 type RowActionNavigateBase = {
   kind: "navigate";
   id: string;

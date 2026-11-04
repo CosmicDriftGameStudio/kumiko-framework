@@ -136,7 +136,10 @@ const statusEntity: EntityDefinition = {
 const QN = "tasks:screen:task-list";
 
 function taskSchema(
-  extra: Pick<EntityListScreenDefinition, "facets" | "defaultFilters" | "namedFilters">,
+  extra: Pick<
+    EntityListScreenDefinition,
+    "facets" | "defaultFilters" | "namedFilters" | "namedFilterFacet"
+  >,
 ): FeatureSchema {
   const screen: EntityListScreenDefinition = {
     id: "task-list",
@@ -249,6 +252,46 @@ describe("entityList namedFilters", () => {
     ).toEqual(["overdue", "audit"]);
   });
 
+  test("namedFilterFacet select adds an all entry, counts every filter and takes the filter's sort", async () => {
+    reset();
+    renderScreen(
+      taskSchema({
+        namedFilters: [
+          { id: "overdue", label: "Überfällig", sort: { field: "status", dir: "desc" } },
+        ],
+        namedFilterFacet: { display: "select", showCounts: true },
+      }),
+      QN,
+      { "task-list.filter": "overdue" },
+    );
+    const props = await capturedTable();
+    const facet = props.filterFacets?.find((f) => f.field === "__namedFilter");
+    expect(facet?.display).toBe("select");
+    expect(facet?.chips?.map((chip) => chip.id)).toEqual(["all", "overdue"]);
+    await waitFor(() =>
+      expect(queryCalls.some((call) => (call.payload as { limit?: number }).limit === 1)).toBe(
+        true,
+      ),
+    );
+    const listCall = queryCalls.find((call) => (call.payload as { limit?: number }).limit !== 1);
+    expect(listCall?.payload).toMatchObject({ sort: "status", sortDirection: "desc" });
+  });
+
+  test("the URL's own sort wins over the filter's sort", async () => {
+    reset();
+    renderScreen(
+      taskSchema({
+        namedFilters: [
+          { id: "overdue", label: "Überfällig", sort: { field: "status", dir: "desc" } },
+        ],
+      }),
+      QN,
+      { "task-list.filter": "overdue", "task-list.sort": "status", "task-list.dir": "asc" },
+    );
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+    expect(queryCalls[0]?.payload).toMatchObject({ sortDirection: "asc" });
+  });
+
   test("the .filter key does not collide with a field facet key and resets with the list", () => {
     const params = { "task-list.filter": "overdue", "task-list.f.status": "open" };
     expect(listResetUpdates(params, "task-list")).toEqual({
@@ -290,5 +333,73 @@ describe("projectionList namedFilters", () => {
     });
     await waitFor(() => expect(queryCalls.length).toBeGreaterThan(before));
     expect(namedFilterOf(queryCalls[queryCalls.length - 1]?.payload)).toBeUndefined();
+  });
+
+  test("select display counts every filter, sends the filter's sort and shows the filter's empty state", async () => {
+    reset();
+    renderScreen(
+      {
+        featureName: "leases",
+        entities: {},
+        screens: [
+          {
+            id: "lease-list",
+            type: "projectionList",
+            query: "leases:query:lease:list",
+            columns: ["name"],
+            sortable: true,
+            paginated: true,
+            namedFilters: [
+              {
+                id: "overdue",
+                label: "Überfällig",
+                sort: { field: "name", dir: "desc" },
+                emptyState: { title: "nothing.overdue" },
+              },
+            ],
+            namedFilterFacet: { display: "select", showCounts: true },
+          },
+        ],
+      } as FeatureSchema,
+      "leases:screen:lease-list",
+      { "lease-list.filter": "overdue" },
+    );
+    const props = await capturedTable();
+    expect(
+      props.filterFacets?.find((f) => f.field === "__namedFilter")?.chips?.map((c) => c.id),
+    ).toEqual(["all", "overdue"]);
+    await waitFor(() => expect(queryCalls.filter((c) => isCountCall(c.payload))).toHaveLength(2));
+    const counts = queryCalls.filter((c) => isCountCall(c.payload));
+    expect(counts.map((c) => namedFilterOf(c.payload)).sort()).toEqual(["overdue", undefined]);
+    for (const count of counts) expect(count.payload).not.toHaveProperty("sort");
+    const listCall = queryCalls.find((c) => !isCountCall(c.payload));
+    expect(listCall?.payload).toMatchObject({ sort: "name", sortDirection: "desc" });
+    expect(props.emptyState).toBeDefined();
+  });
+});
+
+function isCountCall(payload: unknown): boolean {
+  return (payload as { limit?: unknown }).limit === 1;
+}
+
+describe("entityList named filter counts", () => {
+  test("a count asks what the list asks: same filters, defaultFilters only without a named filter", async () => {
+    reset();
+    renderScreen(
+      taskSchema({
+        namedFilters: OVERDUE,
+        defaultFilters: { status: ["open"] },
+        namedFilterFacet: { display: "select", showCounts: true },
+      }),
+      QN,
+      {},
+    );
+    await waitFor(() => expect(queryCalls.filter((c) => isCountCall(c.payload))).toHaveLength(2));
+    const counts = queryCalls.filter((c) => isCountCall(c.payload));
+    const all = counts.find((c) => namedFilterOf(c.payload) === undefined);
+    const overdue = counts.find((c) => namedFilterOf(c.payload) === "overdue");
+    expect(all?.payload).toHaveProperty("filters");
+    expect(overdue?.payload).not.toHaveProperty("filters");
+    expect(all?.payload).toMatchObject({ limit: 1, totalCount: true });
   });
 });

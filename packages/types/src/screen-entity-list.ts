@@ -1,6 +1,11 @@
 import type { FieldCondition } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
-import type { NamedListFilterRef } from "./named-list-filters.ts";
+import type {
+  ListSortDir,
+  ListSortSpec,
+  NamedFilterFacetOptions,
+  NamedListFilterRef,
+} from "./named-list-filters.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
@@ -72,11 +77,15 @@ export type ListColumnSpec =
       readonly width?: number;
       /** Smallest width in px the user can resize to. Only valid together with `table.resizing`. */
       readonly minWidth?: number;
-      /** Dashboard list panels only. "bar": field holds a 0..1 fraction, drawn
-       *  as bar + percent. "badge": field holds a label, drawn as a pill whose
-       *  tone comes from `badgeToneField`. "datetime": field holds an ISO string or
-       *  epoch ms, shown in the user's locale and time zone. Other list renderers
-       *  ignore it. */
+      /** One of "bar" | "badge" | "datetime" | "button". "bar": field holds a 0..1 fraction,
+       *  drawn as bar + percent (dashboard list panels only). "badge": field holds a label,
+       *  drawn as a pill whose tone comes from `badgeToneField` (dashboard list panels and the
+       *  RenderList tables of entityList and projectionList). "datetime": field holds an ISO
+       *  string or epoch ms, shown in the user's locale and time zone (dashboard list panels
+       *  only). "button": a column with a screen link (linkScreenField or refEntity) draws the
+       *  link as a small outline button, in dashboard list panels only; a row button in an
+       *  entityList or projectionList table is a rowAction with display "button" (boot-rejected
+       *  on columns there). Other list renderers ignore `display`. */
       readonly display?: ListColumnDisplay;
       /** Row field naming the badge tone; only with `display: "badge"`. */
       readonly badgeToneField?: string;
@@ -108,7 +117,7 @@ export type ListRowDecoration = {
   readonly params?: Readonly<Record<string, unknown>>;
 };
 
-export type ListColumnDisplay = "bar" | "badge" | "datetime";
+export type ListColumnDisplay = "bar" | "badge" | "datetime" | "button";
 export type ListBadgeTone = "positive" | "warn" | "negative" | "neutral";
 
 // Pagination modes for entityList:
@@ -126,11 +135,7 @@ export type ListPaginationMode = "pages" | "infinite" | false;
 
 // Sort state on the wire — the field name must match the entity definition
 // AND be marked sortable: true. Otherwise the validator rejects at boot.
-export type ListSortDir = "asc" | "desc";
-export type ListSortSpec = {
-  readonly field: string;
-  readonly dir: ListSortDir;
-};
+export type { ListSortDir, ListSortSpec };
 
 // Screen-level filter — the author declares a fixed filter per list screen
 // that is applied to every query. Use case: three buckets of the same entity
@@ -593,6 +598,8 @@ export type EntityListScreenDefinition = {
    *  `label` an i18n key. Selected through the `<screenId>.filter` URL key; a dashboard stat's
    *  `navigate.namedFilter` links here. While one is active `defaultFilters` are not applied. */
   readonly namedFilters?: readonly NamedListFilterRef[];
+  /** Presentation of `namedFilters` in the toolbar; needs `namedFilters`. */
+  readonly namedFilterFacet?: NamedFilterFacetOptions;
   /** Replaces the default empty-list title/hint; the create button stays when the list can create. */
   readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */

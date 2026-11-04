@@ -113,7 +113,10 @@ describe("validateBoot — dashboard screens", () => {
       ]);
     expect(() => validateBoot([list("half")])).not.toThrow();
     expect(() => validateBoot([list("full")])).not.toThrow();
-    expect(() => validateBoot([list("third")])).toThrow(/expected "half" or "full"/);
+    expect(() => validateBoot([list("two-thirds")])).not.toThrow();
+    expect(() => validateBoot([list("quarter")])).toThrow(
+      /expected "half", "full", "third" or "two-thirds"/,
+    );
   });
 
   test("accepts span on a stat-group and rejects anything but half/full", () => {
@@ -128,7 +131,10 @@ describe("validateBoot — dashboard screens", () => {
         },
       ]);
     expect(() => validateBoot([group("half")])).not.toThrow();
-    expect(() => validateBoot([group("third")])).toThrow(/expected "half" or "full"/);
+    expect(() => validateBoot([group("third")])).not.toThrow();
+    expect(() => validateBoot([group("quarter")])).toThrow(
+      /expected "half", "full", "third" or "two-thirds"/,
+    );
   });
 
   test("rejects a stat panel with empty valueField", () => {

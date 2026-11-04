@@ -75,6 +75,7 @@ export function ListPanelBody({
           formatDateTime={formatDateTime}
           translate={translate}
           {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
+          {...(panel.showHeader !== undefined && { showHeader: panel.showHeader })}
         />
       )}
     </QueryPanel>

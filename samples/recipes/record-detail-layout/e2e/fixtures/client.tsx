@@ -54,11 +54,14 @@ function OrderInternalNote(): ReactNode {
 
 function Shell({
   schema,
+  children,
 }: {
   readonly children: ReactNode;
   readonly schema: AppSchema;
 }): ReactNode {
   const feature = schema.features[0];
+  // Only the root path pins the record; other paths (/today, /orders) render the routed screen.
+  const isPinnedRecord = window.location.pathname === "/";
   // KumikoScreen sits directly under DefaultAppShell's <main> — same as the
   // real RoutedScreen (create-app.tsx) — so RenderEdit's `fillHeight` chain
   // (h-full all the way down) resolves against `main`'s own, genuinely
@@ -70,11 +73,13 @@ function Shell({
       schema={schema}
       user={{ id: "u1", roles: ["Admin"] }}
     >
-      {feature !== undefined && (
-        <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+      <ExtensionSectionsProvider value={{ OrderInternalNote }}>
+        {isPinnedRecord && feature !== undefined ? (
           <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
-        </ExtensionSectionsProvider>
-      )}
+        ) : (
+          children
+        )}
+      </ExtensionSectionsProvider>
     </DefaultAppShell>
   );
 }

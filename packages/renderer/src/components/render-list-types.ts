@@ -13,7 +13,7 @@ import type {
   DataTableRowActionMode,
   DataTableTableBlockProps,
 } from "../primitives.tsx";
-import type { ListEmptyStateContent } from "./list-empty-state.tsx";
+import type { ListEmptyStateContent, NamedFilterEmptyContent } from "./list-empty-state.tsx";
 import type { ToolbarActionButton } from "./render-list-toolbar-action.tsx";
 
 export type RenderListProps = {
@@ -45,6 +45,8 @@ export type RenderListProps = {
   readonly emptyContent?: ListEmptyStateContent;
   /** Search or filters changed the result; the empty box then says "no matches". */
   readonly narrowed?: boolean;
+  /** Empty sentence of the active named filter (already translated) with its reset; shown instead of "no matches" when no search term is set. */
+  readonly namedFilterEmpty?: NamedFilterEmptyContent;
   /** Nothing was narrowed by the user, but a default filter is still on; the empty box then offers "show all" instead of "create the first one". */
   readonly defaultFilterActive?: boolean;
   /** Plural-forms key for the footer count noun; default is the entity's `:noun` convention key. */

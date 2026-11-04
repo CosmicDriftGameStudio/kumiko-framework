@@ -8,14 +8,19 @@ import {
 import { isSelectOptionTone } from "../../status-tone.ts";
 import { cn } from "../lib/cn.ts";
 import { HintCell } from "../primitives/data-table/hint-cell.tsx";
-import { CellTextLink, rowToneClass } from "../primitives/data-table-cell.tsx";
-import { StatusBadge, type StatusBadgeTone } from "./status-badge.tsx";
+import {
+  CellTextLink,
+  LINK_BUTTON_CLASS,
+  LIST_BADGE_TONE,
+  rowToneClass,
+} from "../primitives/data-table-cell.tsx";
+import { StatusBadge } from "./status-badge.tsx";
 
 export type DashboardListColumn = {
   readonly field: string;
   /** Translated by the caller. */
   readonly label: string;
-  readonly display?: "bar" | "badge" | "datetime";
+  readonly display?: "bar" | "badge" | "datetime" | "button";
   readonly badgeToneField?: string;
   /** Resolves the raw cell value to display text, e.g. a reference id to its label. */
   readonly renderValue?: (value: unknown, row: Readonly<Record<string, unknown>>) => string;
@@ -23,13 +28,6 @@ export type DashboardListColumn = {
   readonly linkFor?: RuntimeCellLink;
   /** "To do" cell; owns the rendering, `toneField` already defaulted by the caller. */
   readonly hint?: ListColumnHintViewModel;
-};
-
-const BADGE_TONE: Readonly<Record<string, StatusBadgeTone>> = {
-  positive: "ok",
-  warn: "warn",
-  negative: "bad",
-  neutral: "muted",
 };
 
 type Row = Readonly<Record<string, unknown>>;
@@ -84,7 +82,7 @@ function Cell({
   if (column.display === "badge") {
     if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
     const toneKey = column.badgeToneField !== undefined ? row[column.badgeToneField] : undefined;
-    const tone = (typeof toneKey === "string" ? BADGE_TONE[toneKey] : undefined) ?? "muted";
+    const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
     return <StatusBadge tone={tone}>{String(raw)}</StatusBadge>;
   }
   if (column.display === "datetime") {
@@ -92,6 +90,19 @@ function Cell({
       typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
     if (!Number.isFinite(atMs)) return EMPTY_VALUE_PLACEHOLDER;
     return <span className="tabular-nums">{formatDateTime(atMs)}</span>;
+  }
+  if (column.display === "button") {
+    const link = column.linkFor?.(raw, row);
+    if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
+    const text = column.renderValue?.(raw, row) ?? String(raw);
+    const label = I18N_KEY_SHAPE.test(text) ? translate(text) : text;
+    return link === undefined ? (
+      label
+    ) : (
+      <CellTextLink link={link} className={LINK_BUTTON_CLASS}>
+        {label}
+      </CellTextLink>
+    );
   }
   if (column.renderValue !== undefined) {
     const text = column.renderValue(raw, row);
@@ -125,6 +136,7 @@ export function DashboardListTable({
   translate,
   testId,
   rowToneField,
+  showHeader = true,
 }: {
   readonly columns: readonly DashboardListColumn[];
   readonly rows: readonly Row[];
@@ -135,30 +147,37 @@ export function DashboardListTable({
   readonly testId?: string;
   /** Row field holding a SelectOptionTone; tints the row. */
   readonly rowToneField?: string;
+  /** `false` drops the column header row. */
+  readonly showHeader?: boolean;
 }): ReactNode {
   return (
     <div className="overflow-x-auto">
       <table data-testid={testId} className="w-full text-sm">
-        <thead>
-          <tr className="h-9 border-b border-border-row text-left text-xs text-muted-foreground">
-            {columns.map((column) => (
-              <th key={column.field} scope="col" className="px-4 font-medium">
-                {column.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
+        {showHeader && (
+          <thead>
+            <tr className="h-9 border-b border-border-row text-left text-xs text-muted-foreground">
+              {columns.map((column) => (
+                <th key={column.field} scope="col" className="px-4 font-medium">
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+        )}
         <tbody>
           {rows.map((row, index) => (
             <tr
               key={typeof row["id"] === "string" ? row["id"] : index}
               className={cn(
                 "h-10 border-b border-border-row last:border-b-0",
+                // Without a header row nothing labels the columns, so narrow screens stack them.
+                !showHeader &&
+                  "max-sm:grid max-sm:h-auto max-sm:grid-cols-1 max-sm:gap-1 max-sm:py-2",
                 rowToneClass(rowToneOf(row, rowToneField)),
               )}
             >
               {columns.map((column) => (
-                <td key={column.field} className="px-4">
+                <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
                   <Cell
                     column={column}
                     row={row}

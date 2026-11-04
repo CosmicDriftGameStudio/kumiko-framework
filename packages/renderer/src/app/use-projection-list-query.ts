@@ -7,6 +7,7 @@ import {
   mergeReferenceFacetOptions,
   resolveProjectionFacetSpecs,
 } from "./list-facets.ts";
+import { namedFilterSort } from "./named-filter-facet.ts";
 import type { synthesizeProjectionEntity } from "./projection-list-shim.ts";
 import { type ReferenceFacetState, withReferenceFacetState } from "./reference-facet-bridge.tsx";
 import { buildListQueryPayload } from "./screen-shared.tsx";
@@ -29,23 +30,28 @@ type ActiveSort = ListUrlStateApi["sort"];
 function resolveActiveSort(
   urlSort: ActiveSort,
   input: Pick<ProjectionListQueryInput, "screen" | "entity" | "sortable">,
+  activeNamedFilter: string | undefined,
 ): ActiveSort {
   const { screen, entity, sortable } = input;
   const urlSortField = urlSort === null ? undefined : entity.fields[urlSort.field];
   const urlSortAllowed =
     urlSortField !== undefined && "sortable" in urlSortField && urlSortField.sortable === true;
-  return sortable ? ((urlSortAllowed ? urlSort : null) ?? screen.defaultSort ?? null) : null;
+  const filterSort = namedFilterSort(screen.namedFilters, activeNamedFilter);
+  return sortable
+    ? ((urlSortAllowed ? urlSort : null) ?? filterSort ?? screen.defaultSort ?? null)
+    : null;
 }
 
 export function useProjectionListQuery(input: ProjectionListQueryInput) {
-  const { screen, featureName, effectiveTranslate, searchable, paginated } = input;
+  const { screen, featureName, effectiveTranslate, entity, searchable, sortable, paginated } =
+    input;
   const urlState = useListUrlState(screen.id);
   const activeNamedFilter = screen.namedFilters === undefined ? undefined : urlState.namedFilter;
   // Gated on the derived capability, not just on whether URL-state happens to
   // carry a value — a stale/hand-crafted URL (?…q=x on a non-searchable
   // screen) must not smuggle a param the query's Zod schema doesn't accept.
   const activeSearch = searchable ? urlState.q : "";
-  const activeSort = resolveActiveSort(urlState.sort, input);
+  const activeSort = resolveActiveSort(urlState.sort, input, activeNamedFilter);
   const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   // Pages-mode only (see header comment) — an author-set pagination:
   // "infinite" on a paginated projectionList is silently a no-op today.
@@ -72,13 +78,14 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     () => mergeReferenceFacetOptions(facetSpecs, projectionReferenceFacetOptions),
     [facetSpecs, projectionReferenceFacetOptions],
   );
+  const facetFiltersFor = useCallback(
+    (filters: ListUrlStateApi["filters"]) =>
+      buildFilterPayload(filters, (field) => facetSpecs.find((spec) => spec.field === field)?.type),
+    [facetSpecs],
+  );
   const filterPayload = useMemo(
-    () =>
-      buildFilterPayload(
-        urlState.filters,
-        (field) => facetSpecs.find((spec) => spec.field === field)?.type,
-      ),
-    [urlState.filters, facetSpecs],
+    () => facetFiltersFor(urlState.filters),
+    [facetFiltersFor, urlState.filters],
   );
 
   const { dateRangePayload, dateRangeFacets, handleDateRangeChange } = useProjectionDateRange(
@@ -87,43 +94,56 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     urlState,
   );
 
-  const queryPayload = useMemo(() => {
-    const payload = buildListQueryPayload({
+  const { sort: urlSort, page, filtersFor } = urlState;
+  const listPayloadFor = useCallback(
+    (namedFilter: string | undefined): Record<string, unknown> => {
+      const payload = buildListQueryPayload({
+        limit,
+        search: activeSearch,
+        sort: resolveActiveSort(urlSort, { screen, entity, sortable }, namedFilter),
+        usePager,
+        page,
+        useInfinite: false,
+        cursor: undefined,
+      });
+      // Gated on screen.filter/screen.facets being declared (not just on
+      // urlState/filterPayload happening to carry a value) — same rule as
+      // activeSearch/activeSort above: a stale URL must not smuggle a param
+      // the bound query's Zod schema doesn't accept.
+      if (screen.filter !== undefined) {
+        payload["filter"] = screen.filter;
+      }
+      const filters = facetFiltersFor(filtersFor(namedFilter));
+      if (screen.facets !== undefined && filters.length > 0) {
+        payload["filters"] = filters;
+      }
+      if (namedFilter !== undefined) payload["namedFilter"] = namedFilter;
+      Object.assign(payload, dateRangePayload);
+      return payload;
+    },
+    [
       limit,
-      search: activeSearch,
-      sort: activeSort,
+      activeSearch,
+      urlSort,
+      screen,
+      entity,
+      sortable,
       usePager,
-      page: urlState.page,
-      useInfinite: false,
-      cursor: undefined,
-    });
-    // Gated on screen.filter/screen.facets being declared (not just on
-    // urlState/filterPayload happening to carry a value) — same rule as
-    // activeSearch/activeSort above: a stale URL must not smuggle a param
-    // the bound query's Zod schema doesn't accept.
-    if (screen.filter !== undefined) {
-      payload["filter"] = screen.filter;
-    }
-    if (screen.facets !== undefined && filterPayload.length > 0) {
-      payload["filters"] = filterPayload;
-    }
-    if (activeNamedFilter !== undefined) payload["namedFilter"] = activeNamedFilter;
-    Object.assign(payload, dateRangePayload);
-    return payload;
-  }, [
-    activeNamedFilter,
-    limit,
-    activeSearch,
-    activeSort,
-    usePager,
-    urlState.page,
-    screen.filter,
-    screen.facets,
-    filterPayload,
-    dateRangePayload,
-  ]);
+      page,
+      screen.filter,
+      screen.facets,
+      filtersFor,
+      facetFiltersFor,
+      dateRangePayload,
+    ],
+  );
+  const queryPayload = useMemo(
+    () => listPayloadFor(activeNamedFilter),
+    [listPayloadFor, activeNamedFilter],
+  );
 
   return {
+    listPayloadFor,
     urlState,
     activeSearch,
     activeSort,
@@ -136,5 +156,6 @@ export function useProjectionListQuery(input: ProjectionListQueryInput) {
     handleDateRangeChange,
     queryPayload,
     activeNamedFilter,
+    facetNarrowing: filterPayload.length > 0 || Object.keys(dateRangePayload).length > 0,
   };
 }

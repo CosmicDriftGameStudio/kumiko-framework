@@ -23,10 +23,29 @@ export type NamedListFilterDef = {
   ) => readonly NamedListFilterCondition[] | Promise<readonly NamedListFilterCondition[]>;
 };
 
+export type ListSortDir = "asc" | "desc";
+export type ListSortSpec = {
+  readonly field: string;
+  readonly dir: ListSortDir;
+};
+
 /** Screen-side reference to an entity-defined named filter; `label` is an i18n key. */
 export type NamedListFilterRef = {
   readonly id: string;
   readonly label: string;
+  /** Order while this filter is active and the URL carries no sort of its own; wins over `defaultSort`. */
+  readonly sort?: ListSortSpec;
+  /** Shown instead of the generic "no matches" text when this filter yields an empty list and no search term is set; both are i18n keys. */
+  readonly emptyState?: { readonly title: string; readonly description?: string };
   /** Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them. */
   readonly roles?: readonly string[];
+};
+
+/** How the named filters appear in the toolbar: toggle chips (default) or one single-choice select. */
+export type NamedFilterFacetOptions = {
+  readonly display?: "chips" | "select";
+  /** Ask the list query for each filter's hit count and show it next to the label. */
+  readonly showCounts?: boolean;
+  /** i18n key for the select's label, e.g. "To do". */
+  readonly label?: string;
 };

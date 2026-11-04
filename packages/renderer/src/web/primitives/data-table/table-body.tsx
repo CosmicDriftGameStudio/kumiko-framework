@@ -44,6 +44,7 @@ function renderActionsCell(
     <ActionsBodyCell
       testId={m.getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
       fillsHeight={m.fillsHeight}
+      rowTone={m.rowTone?.(row)}
       measureContent={m.sizing !== undefined}
     >
       <RowActionsCell

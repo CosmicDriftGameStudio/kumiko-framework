@@ -55,6 +55,7 @@
 
 import type {
   DashboardPanelDefinition,
+  DashboardPanelSpan,
   DashboardScreenPanel,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
@@ -96,6 +97,9 @@ import {
   HALF_PANEL,
   PanelLoadedContext,
   type ScreenParams,
+  STAT_PANEL,
+  THIRD_PANEL,
+  TWO_THIRDS_PANEL,
   useDashboardFormats,
   WIDE_PANEL,
 } from "./dashboard-shared.tsx";
@@ -112,10 +116,16 @@ import {
   useDashboardScreenParams,
 } from "./use-dashboard-screen-state.ts";
 
-function panelSpanClassName(panel: DashboardPanelDefinition): string | undefined {
-  if (panel.kind === "stat") return undefined;
-  if ("span" in panel && panel.span !== undefined)
-    return panel.span === "half" ? HALF_PANEL : WIDE_PANEL;
+const SPAN_CLASS_NAMES: Readonly<Record<DashboardPanelSpan, string>> = {
+  half: HALF_PANEL,
+  full: WIDE_PANEL,
+  third: THIRD_PANEL,
+  "two-thirds": TWO_THIRDS_PANEL,
+};
+
+function panelSpanClassName(panel: DashboardPanelDefinition): string {
+  if (panel.kind === "stat") return STAT_PANEL;
+  if ("span" in panel && panel.span !== undefined) return SPAN_CLASS_NAMES[panel.span];
   if (panel.kind === "feed" || panel.kind === "progress-list") return HALF_PANEL;
   return WIDE_PANEL;
 }
@@ -330,7 +340,7 @@ export function WebDashboardBody({
               onResult={visibility.gateResults.report}
               onForget={visibility.gateResults.forget}
             />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
               {screen.panels.map((panel) =>
                 renderDashboardPanel(
                   panel,

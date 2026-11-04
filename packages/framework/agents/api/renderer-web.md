@@ -1389,6 +1389,7 @@ type RenderListProps = DataTableTableBlockProps & {
   description?: string; // Hint at the left of the toolbar (already translated).
   emptyContent?: ListEmptyStateContent; // Author-declared replacement for the default empty box (already translated).
   narrowed?: boolean; // Search or filters changed the result; the empty box then says "no matches".
+  namedFilterEmpty?: NamedFilterEmptyContent; // Empty sentence of the active named filter (already translated) with its reset; shown instead of "no matches" when no search term is set.
   defaultFilterActive?: boolean; // Nothing was narrowed by the user, but a default filter is still on; the empty box then offers "show all" instead of "create the first one".
   itemNounKey?: string; // Plural-forms key for the footer count noun; default is the entity's `:noun` convention key.
   searchValue?: string; // Current search term (from URL state / the parent).

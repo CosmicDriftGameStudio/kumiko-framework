@@ -10,6 +10,7 @@ import { usePrimitives } from "../primitives.tsx";
 import { useDrawerAction } from "./action-form-body.tsx";
 import { useAppFeatures } from "./app-features-context.tsx";
 import { useClientActionRuntime } from "./client-actions.tsx";
+import { FacetCountBridges } from "./facet-count-bridge.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { NamedFilterRemove } from "./named-filter-remove.tsx";
 import { useNav } from "./nav.tsx";
@@ -80,9 +81,10 @@ export function ProjectionListBody({
     usePager: query.usePager,
     effectiveTranslate,
     resolvedFacetSpecs: query.resolvedFacetSpecs,
+    listPayloadFor: query.listPayloadFor,
   });
   const { listRows } = data;
-  const refreshRows = listRows.refreshAfterWrite;
+  const refreshRows = data.refreshAfterWrite;
   const actions = useProjectionListActions({
     screen,
     effectiveTranslate,
@@ -151,6 +153,12 @@ export function ProjectionListBody({
         specs={query.facetSpecs}
         selected={query.urlState.filters}
         onState={query.handleProjectionFacetOptions}
+      />
+      <FacetCountBridges
+        queryType={screen.query}
+        queries={data.namedFilterCountQueries}
+        onCount={data.handleFacetCount}
+        refreshNonce={data.countRefreshNonce}
       />
       {renderProjectionList({
         schema,

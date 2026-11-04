@@ -117,6 +117,8 @@ function validateOneProjectionListScreen(
   validateProjectionListFilterSchemaAcceptance(prefix, screen, schema);
   validateProjectionListFacetsSchemaAcceptance(prefix, screen, schema);
   validateProjectionListNamedFilterSchemaAcceptance(prefix, screen, schema);
+  validateProjectionListNamedFilterSortAcceptance(prefix, screen, schema);
+  validateProjectionListNamedFilterCountAcceptance(prefix, screen, schema);
   validateListTableAggregateQuery({ prefix, ...screen, handler, featureMap });
 }
 
@@ -149,6 +151,46 @@ function validateProjectionListNamedFilterSchemaAcceptance(
     message:
       `${prefix}: declares namedFilters but query "${screen.query}" has no "namedFilter" parameter in its ` +
       `Zod schema — add namedFilter: z.string().optional() to the handler's schema and resolve it with resolveNamedListFilters.`,
+  });
+}
+
+// showCounts asks the query once per filter with { limit: 1, totalCount: true, namedFilter }; a schema
+// without those keys 422s every count request.
+function validateProjectionListNamedFilterCountAcceptance(
+  prefix: string,
+  screen: ProjectionListScreenDefinition,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  if (screen.namedFilterFacet?.showCounts !== true) return;
+  const missing = ["limit", "totalCount"].filter((key) => !schemaAccepts(schema, key));
+  if (missing.length === 0) return;
+  throw bootRuleError(NAMED_FILTER_RULES.projectionQueryAcceptsCount, {
+    message:
+      `${prefix}: namedFilterFacet.showCounts needs query "${screen.query}" to accept ${missing.map((key) => `"${key}"`).join(" and ")} in its Zod schema ` +
+      `- add them or drop showCounts.`,
+  });
+}
+
+// A filter's own sort travels as `payload.sort`/`sortDirection`; without them in the schema it 422s
+// the moment the filter is picked. The field itself is not checked: a projection row has no entity,
+// and the query may order by a column it does not list.
+function validateProjectionListNamedFilterSortAcceptance(
+  prefix: string,
+  screen: ProjectionListScreenDefinition,
+  schema: QueryHandlerDef["schema"] | undefined,
+): void {
+  const sorted = (screen.namedFilters ?? []).find((ref) => ref.sort !== undefined);
+  // skip: no filter sorts, or the schema already accepts both keys — nothing to reject.
+  if (
+    sorted === undefined ||
+    (schemaAccepts(schema, "sort") && schemaAccepts(schema, "sortDirection"))
+  ) {
+    return;
+  }
+  throw bootRuleError(NAMED_FILTER_RULES.projectionQueryAcceptsSort, {
+    message:
+      `${prefix}: namedFilters "${sorted.id}" sets sort but query "${screen.query}" has no ` +
+      `"sort" and "sortDirection" parameters in its Zod schema — add them or remove sort from the filter.`,
   });
 }
 

@@ -6,7 +6,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ListGroupPageBridges } from "../components/list-group-page-bridges.tsx";
 import { RenderList } from "../components/render-list.tsx";
@@ -67,13 +66,15 @@ import {
 } from "./row-actions.ts";
 import { findEditScreenFor } from "./screen-access.ts";
 import {
-  buildListQueryPayload,
   entityQueryCommand,
   isEntityEditScreenOfEntity,
   useNavigateToCreateFor,
 } from "./screen-shared.tsx";
+import { useEntityListPayload } from "./use-entity-list-payload.ts";
 import { useEntityRangeFacets } from "./use-entity-range-facets.ts";
+import { useFacetCounts } from "./use-facet-counts.ts";
 import { useGatedToolbarActions } from "./use-gated-toolbar-actions.tsx";
+import { useNamedFilterQueue } from "./use-named-filter-queue.ts";
 import { listPager, useScreenListRows } from "./use-screen-list-rows.ts";
 import { useScreenListTable } from "./use-screen-list-table.ts";
 
@@ -167,7 +168,6 @@ function EntityListBody({
   const urlState = useListUrlState(screen.id, defaultFilters);
   // Gated on the screen offering named filters, so a stale URL cannot send a param the list rejects.
   const activeNamedFilter = screen.namedFilters === undefined ? undefined : urlState.namedFilter;
-  const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
   const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   const paginationMode = screen.pagination ?? "pages";
   const usePager = paginationMode === "pages";
@@ -189,55 +189,26 @@ function EntityListBody({
     urlState,
   });
 
-  // User-selected faceted filters from the URL state -> payload.filters.
-  // typeOf reads the field type straight from entity.fields (not gated on
-  // filterable, deliberately permissive; see the buildFilterPayload doc).
-  const filterPayload = useMemo(
-    () =>
-      buildFilterPayload(urlState.filters, (field) => {
-        // entity.fields is weakly typed at the renderer layer (deserialized from
-        // the schema); boundary cast like buildInitialValues.
-        const type = propertyOf(entity.fields[field], "type");
-        return typeof type === "string" ? type : undefined;
-      }),
-    [urlState.filters, entity.fields],
-  );
-
-  // Entity-only additions (screen.filter, faceted filters) layer on top of
-  // the shared buildListQueryPayload — projectionList has neither.
-  const queryPayload = useMemo(() => {
-    const payload = buildListQueryPayload({
-      limit,
-      search: urlState.q,
-      sort: effectiveSort,
-      usePager,
-      page: urlState.page,
-      useInfinite,
-      cursor: undefined,
-    });
-    // Screen filter (tier 2.7c), declared by the author on the schema and
-    // independent of the user's q search. Several buckets of the same entity
-    // ("Upcoming" / "Active" / "Past") use different filters with the same
-    // query handler.
-    if (screen.filter !== undefined) {
-      payload["filter"] = screen.filter;
-    }
-    const filters = [...filterPayload, ...range.rangeFilters];
-    if (filters.length > 0) payload["filters"] = filters;
-    if (activeNamedFilter !== undefined) payload["namedFilter"] = activeNamedFilter;
-    return payload;
-  }, [
+  const { filterPayload, listPayloadFor, queryPayload, effectiveSort } = useEntityListPayload({
+    screen,
+    entity,
+    urlState,
+    rangeFilters: range.rangeFilters,
     activeNamedFilter,
     limit,
-    urlState.q,
-    effectiveSort,
-    screen.filter,
-    filterPayload,
-    range.rangeFilters,
     usePager,
-    urlState.page,
     useInfinite,
-  ]);
+  });
+  const { namedFilterCountQueries, namedFilterEmpty } = useNamedFilterQueue({
+    screen,
+    urlState,
+    userRoles,
+    translate: effectiveTranslate,
+    filterPayload,
+    rangeFilters: range.rangeFilters,
+    activeNamedFilter,
+    listPayloadFor,
+  });
 
   // Facet counts come from their own queries, which a write leaves untouched.
   const [facetCountRefreshNonce, setFacetCountRefreshNonce] = useState(0);
@@ -286,14 +257,15 @@ function EntityListBody({
       setEntityReferenceFacetOptions((prev) => withReferenceFacetState(prev, field, state)),
     [],
   );
-  const [facetCounts, setFacetCounts] = useState<Record<string, number>>({});
-  const handleFacetCount = useCallback(
-    (key: string, count: number) =>
-      setFacetCounts((prev) => (prev[key] === count ? prev : { ...prev, [key]: count })),
-    [],
-  );
+  const { facetCounts, handleFacetCount } = useFacetCounts();
   const filterFacets = useMemo<DataTableFacet[]>(() => {
-    const namedFacet = buildNamedFilterFacet(screen.namedFilters, effectiveTranslate, userRoles);
+    const namedFacet = buildNamedFilterFacet(
+      screen.namedFilters,
+      effectiveTranslate,
+      userRoles,
+      screen.namedFilterFacet,
+      facetCounts,
+    );
     return [
       ...(namedFacet !== undefined ? [namedFacet] : []),
       ...buildEntityFilterFacets(
@@ -308,6 +280,7 @@ function EntityListBody({
     entityReferenceFacetOptions,
     screen.facets,
     screen.namedFilters,
+    screen.namedFilterFacet,
     effectiveTranslate,
     userRoles,
     facetCounts,
@@ -352,6 +325,10 @@ function EntityListBody({
       entity.fields,
       range.rangeFilters,
     ],
+  );
+  const allFacetCountQueries = useMemo(
+    () => [...namedFilterCountQueries, ...facetCountQueries],
+    [namedFilterCountQueries, facetCountQueries],
   );
 
   // Soft dispatcher: in tests that mount without a DispatcherProvider,
@@ -645,7 +622,7 @@ function EntityListBody({
       />
       <FacetCountBridges
         queryType={queryType}
-        queries={facetCountQueries}
+        queries={allFacetCountQueries}
         onCount={handleFacetCount}
         refreshNonce={facetCountRefreshNonce}
       />
@@ -659,6 +636,7 @@ function EntityListBody({
           activeNamedFilter !== undefined ||
           isListNarrowed(urlState.q, urlState.filters, defaultFilters)
         }
+        namedFilterEmpty={namedFilterEmpty}
         defaultFilterActive={isDefaultFilterActive(urlState.q, urlState.filters, defaultFilters)}
         {...(toolbarDescription !== undefined && { description: toolbarDescription })}
         {...(emptyContent !== undefined && { emptyContent })}

@@ -113,6 +113,7 @@ export type {
   EmbeddedListIssueGroups,
   FieldConditionCtx,
   FieldRenderer,
+  ListColumnCellDisplay,
   ListColumnFileDisplay,
   ListColumnHintViewModel,
   ListColumnSpec,

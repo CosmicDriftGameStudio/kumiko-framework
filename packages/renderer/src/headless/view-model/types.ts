@@ -123,7 +123,13 @@ export type ListColumnViewModel = {
   readonly fileDisplay?: ListColumnFileDisplay;
   /** "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated. */
   readonly hint?: ListColumnHintViewModel;
+  /** `ListColumnSpec.display` for list tables: a status pill or a link drawn as a button. */
+  readonly display?: ListColumnCellDisplay;
+  /** Row field naming the pill tone; only with `display: "badge"`. */
+  readonly badgeToneField?: string;
 };
+
+export type ListColumnCellDisplay = "badge" | "button";
 
 export type ListColumnHintViewModel = {
   readonly detailField?: string;

@@ -24,6 +24,25 @@ export function hintViewModel(
   };
 }
 
+// Only "badge" is drawn by list tables; "button" is boot-rejected there (a row button is a rowAction) and "bar"/"datetime" are dashboard-only.
+export function withDisplayColumns(
+  columns: readonly ListColumnViewModel[],
+  screen: EntityListScreenDefinition,
+): readonly ListColumnViewModel[] {
+  const specs = new Map(
+    screen.columns.map((spec) => [normalizeListColumn(spec).field, normalizeListColumn(spec)]),
+  );
+  return columns.map((col) => {
+    const spec = specs.get(col.field);
+    if (spec?.display !== "badge") return col;
+    return {
+      ...col,
+      display: spec.display,
+      ...(spec.badgeToneField !== undefined && { badgeToneField: spec.badgeToneField }),
+    };
+  });
+}
+
 // The hint cell owns its rendering: DataTableCell ignores the column's renderer and links once a hint is set.
 export function withHintColumns(
   columns: readonly ListColumnViewModel[],

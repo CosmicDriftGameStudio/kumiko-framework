@@ -121,7 +121,7 @@ describe("dashboard list panel row guidance", () => {
       { "demo:query:task:list": taskRows },
     );
     const sentence = await screen.findByText("Send reminder");
-    expect(sentence.parentElement?.getAttribute("data-hint-tone")).toBe("warn");
+    expect(sentence.closest("[data-hint-tone]")?.getAttribute("data-hint-tone")).toBe("warn");
     expect(screen.getByText("until Friday")).toBeTruthy();
     expect(screen.getByText("Nothing open")).toBeTruthy();
   });

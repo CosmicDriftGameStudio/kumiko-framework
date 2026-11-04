@@ -44,7 +44,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/,
+      testIgnore: /(phone-viewport|padding-parity-screenshots|board-screenshots)\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
     },
     // Desktop copy of padding-parity-screenshots.spec.ts, distinct from the
@@ -55,7 +55,7 @@ export default defineConfig({
       ? [
           {
             name: "chromium-desktop-screenshots",
-            testMatch: /padding-parity-screenshots\.spec\.ts$/,
+            testMatch: /(padding-parity-screenshots|board-screenshots)\.spec\.ts$/,
             use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
           },
         ]
@@ -68,7 +68,7 @@ export default defineConfig({
     {
       name: "chromium-phone",
       testMatch: WITH_PARITY_SCREENSHOTS
-        ? /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/
+        ? /(phone-viewport|padding-parity-screenshots|board-screenshots)\.spec\.ts$/
         : /phone-viewport\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },

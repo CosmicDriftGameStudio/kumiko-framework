@@ -910,6 +910,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.list.empty.defaultFiltered":
     "Aucune entrée ne correspond au filtre par défaut. Affichez tout pour inclure les entrées hors filtre.",
   "kumiko.list.empty.showAll": "Tout afficher",
+  "kumiko.list.empty.resetFilter": "Réinitialiser le filtre",
+  "kumiko.list.named-filter.all": "Tous",
   "kumiko.list.empty.hint": "Créez la première pour commencer.",
   "kumiko.list.empty.title": "Aucune entrée pour l'instant.",
   "kumiko.list.end-of-list": "— Fin de la liste —",
