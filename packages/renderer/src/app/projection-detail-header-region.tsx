@@ -7,6 +7,7 @@ import {
   type DetailGuidanceModel,
   renderDetailBreadcrumb,
   renderDetailGuidance,
+  wrapLayout,
 } from "./projection-detail-guidance.tsx";
 import {
   buildMetricItems,
@@ -104,7 +105,7 @@ function usesNarrowMetricsOrder(model: DetailRegionModel): boolean {
 }
 
 function wrapNarrowOrder(model: DetailRegionModel, orderClass: string, node: ReactNode): ReactNode {
-  return usesNarrowMetricsOrder(model) ? <div className={orderClass}>{node}</div> : node;
+  return usesNarrowMetricsOrder(model) ? wrapLayout(model.primitives, orderClass, node) : node;
 }
 
 // Only the metric tiles move below the guidance on narrow screens; the lead and the
@@ -123,17 +124,18 @@ function renderBandWithNarrowMetrics(
   const splitsBand = MetricBand !== undefined && (subtitle !== undefined || lead !== undefined);
   return (
     <>
-      {splitsBand && (
-        <div className={LEAD_BAND_SHARED_PADDING}>
+      {splitsBand &&
+        wrapLayout(
+          primitives,
+          LEAD_BAND_SHARED_PADDING,
           <MetricBand
             testId="kumiko-screen-projection-detail-metrics-lead"
             subtitle={subtitle}
             {...(lead !== undefined && { lead })}
           >
             {undefined}
-          </MetricBand>
-        </div>
-      )}
+          </MetricBand>,
+        )}
       {wrapNarrowOrder(
         model,
         splitsBand ? `${NARROW_METRICS_ORDER} ${TILES_BAND_SHARED_PADDING}` : NARROW_METRICS_ORDER,
@@ -242,7 +244,7 @@ export function renderDetailHeaderContent(
   const { hasTabs, activeSection } = model;
   const { PageHeader } = pieces;
   const { Tabs } = model.primitives;
-  const content = (
+  return (
     <>
       {renderDetailBreadcrumb(model)}
       {PageHeader !== undefined
@@ -255,5 +257,4 @@ export function renderDetailHeaderContent(
         wrapNarrowOrder(model, NARROW_TABS_ORDER, renderDetailTabs(model, activeSection, Tabs))}
     </>
   );
-  return usesNarrowMetricsOrder(model) ? <div className="flex flex-col">{content}</div> : content;
 }

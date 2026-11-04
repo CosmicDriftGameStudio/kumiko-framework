@@ -1085,16 +1085,16 @@ export type SectionProps = {
  *  just a container that sizes to its content and, once the ancestor chain
  *  is height-constrained, shrinks so one scrolling child can scroll
  *  internally instead of the page growing. Web:
- *  `<div className="flex min-h-0 flex-col">`. Native: Views are
- *  already flex-column and the parent is already a bounded viewport there,
- *  so a native impl may render this as a bare Fragment. Used only as the
- *  terminal link in `RenderEdit`'s `fillHeight` chain (`RelatedListSection`'s
- *  `hideTitle` branch) — `Section`/`Card` were rejected here because both
- *  carry title/padding/border chrome this spot doesn't want and would double
- *  up with the table's own padding. */
+ *  `<div className="flex min-h-0 flex-col">`. Native: Views are already
+ *  flex-column in a bounded viewport, so a native impl may render a bare
+ *  Fragment. Used as the terminal link in `RenderEdit`'s `fillHeight` chain
+ *  (`RelatedListSection`'s `hideTitle` branch) and as the app layer's only
+ *  class-carrying layout wrapper, since it must not render DOM tags itself. */
 export type FillContainerProps = {
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Layout extras, merged via cn(). */
+  readonly className?: string;
   /** Claims the remaining height of the flex chain (`flex-1`) instead of
    *  sizing to its content, so a footer inside the child sits at the bottom
    *  edge even with few rows. Set only when the screen fills the shell

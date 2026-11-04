@@ -1,3 +1,4 @@
+// @runtime dev
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
 

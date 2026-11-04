@@ -31,6 +31,20 @@ const BANNER_VARIANT: Record<SelectOptionTone, NonNullable<BannerProps["variant"
   critical: "error",
 };
 
+// The app layer may not render DOM tags, so layout classes ride on FillContainer; hosts without it (native) fall back to plain stacking.
+export function wrapLayout(
+  primitives: DetailGuidanceModel["primitives"],
+  className: string,
+  node: ReactNode,
+): ReactNode {
+  const { FillContainer } = primitives;
+  return FillContainer !== undefined ? (
+    <FillContainer className={className}>{node}</FillContainer>
+  ) : (
+    node
+  );
+}
+
 function renderItemActions(
   model: DetailGuidanceModel,
   actions: readonly RowAction[] | undefined,
@@ -121,17 +135,17 @@ function renderBanner(model: DetailGuidanceModel): ReactNode {
   if (notice === undefined) return undefined;
   const { Banner } = model.primitives;
   const actions = renderItemActions(model, spec.actions, notice);
-  return (
-    <div className={GUIDANCE_INSET}>
-      <Banner
-        variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
-        title={notice.title}
-        {...(actions !== undefined && { actions })}
-        testId="kumiko-screen-projection-detail-banner"
-      >
-        {notice.text}
-      </Banner>
-    </div>
+  return wrapLayout(
+    model.primitives,
+    GUIDANCE_INSET,
+    <Banner
+      variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
+      title={notice.title}
+      {...(actions !== undefined && { actions })}
+      testId="kumiko-screen-projection-detail-banner"
+    >
+      {notice.text}
+    </Banner>,
   );
 }
 
@@ -248,21 +262,22 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
       {renderSummary(model)}
       {renderBanner(model)}
       {beside ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          <div
-            className={
-              progressNode !== undefined ? "min-w-0 lg:col-span-8" : "min-w-0 lg:col-span-12"
-            }
-          >
-            {renderSteps(model)}
-          </div>
-          {progressNode !== undefined && (
-            <div className={`${PROGRESS_INSET} lg:col-span-4 lg:pl-0`}>{progressNode}</div>
-          )}
-        </div>
+        wrapLayout(
+          model.primitives,
+          "grid grid-cols-1 gap-4 lg:grid-cols-12",
+          <>
+            {wrapLayout(
+              model.primitives,
+              progressNode !== undefined ? "min-w-0 lg:col-span-8" : "min-w-0 lg:col-span-12",
+              renderSteps(model),
+            )}
+            {progressNode !== undefined &&
+              wrapLayout(model.primitives, `${PROGRESS_INSET} lg:col-span-4 lg:pl-0`, progressNode)}
+          </>,
+        )
       ) : (
         <>
-          {progressNode !== undefined && <div className={PROGRESS_INSET}>{progressNode}</div>}
+          {progressNode !== undefined && wrapLayout(model.primitives, PROGRESS_INSET, progressNode)}
           {renderSteps(model)}
         </>
       )}

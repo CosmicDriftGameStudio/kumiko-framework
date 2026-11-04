@@ -2487,6 +2487,7 @@ type FileValueListProps = { // Read-only list of stored files (FileRef ids): nam
 type FillContainerProps = { // Chromeless flex-fill layout host — no title, no card frame, no padding, just a container that sizes to its content and, once the ancestor chain is height-constrained, shrinks so one scrolling child can scroll internally instead of the page growing.
   children: ReactNode;
   testId?: string;
+  className?: string; // Layout extras, merged via cn().
   grow?: boolean; // Claims the remaining height of the flex chain (`flex-1`) instead of sizing to its content, so a footer inside the child sits at the bottom edge even with few rows.
 };
 type FormSectionNavItem = { // One entry of a form's "on this page" navigation: `id` matches the `SectionProps.id` of the section it scrolls to.
