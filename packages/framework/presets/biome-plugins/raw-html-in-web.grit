@@ -1,0 +1,45 @@
+language js
+
+or {
+  JsxOpeningElement(name=$tag) as $element where {
+    $tag <: or {
+      `table`,
+      `thead`,
+      `tbody`,
+      `tr`,
+      `td`,
+      `th`,
+      `form`,
+      `button`,
+      `dialog`
+    },
+    register_diagnostic(span=$tag, message="Raw HTML element in web code: use the framework primitives (usePrimitives(): DataTable, Form, Button, DefaultDialog) instead of table/form/button/dialog.", severity="error")
+  },
+  JsxSelfClosingElement(name=$tag) as $element where {
+    $tag <: or {
+      `table`,
+      `thead`,
+      `tbody`,
+      `tr`,
+      `td`,
+      `th`,
+      `form`,
+      `button`,
+      `dialog`
+    },
+    register_diagnostic(span=$tag, message="Raw HTML element in web code: use the framework primitives (usePrimitives(): DataTable, Form, Button, DefaultDialog) instead of table/form/button/dialog.", severity="error")
+  },
+  JsxAttribute(name=`className`, initializer=$classes) where {
+    $classes <: includes "bg-card",
+    $classes <: r"(?s).*(?:(?:^|[ \t\n\r\"'`:])bg-card(?:$|[ \t\n\r\"'`}])).*",
+    register_diagnostic(span=$classes, message="bg-card in a className is a hand-rolled card: use <Card> from the framework primitives (slots/options).", severity="error")
+  },
+  JsxAttribute(name=`className`, initializer=$classes) where {
+    $classes <: includes "mx-auto",
+    $classes <: r"(?s).*(?:(?:^|[ \t\n\r\"'`:])mx-auto[ \t\n\r\"'`}](?:.*[ \t\n\r\"'`:])?max-w-|(?:^|[ \t\n\r\"'`:])max-w-.*[ \t\n\r\"'`:]mx-auto(?:$|[ \t\n\r\"'`}])).*",
+    register_diagnostic(span=$classes, message="Screen container classes (mx-auto + max-w-*) belong in <PageSection maxWidth> (3xl/4xl/full), not in screen code.", severity="error")
+  },
+  `alert($...)` as $call where {
+    register_diagnostic(span=$call, message="alert() in web code: use <DefaultDialog> from @cosmicdrift/kumiko-renderer/web.", severity="error")
+  }
+}

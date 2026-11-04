@@ -22,79 +22,51 @@ import { acquireGuardRunSlot } from "./_lib/run-slots";
 import { writeSecurityBaselines } from "./_lib/security-baseline-cli";
 import { guard as asCasts } from "./check-as-casts";
 import { guard as complexity } from "./check-complexity";
-import { guard as predicateExtraction } from "./check-predicates";
-import { guard as adminApi } from "./guard-admin-api";
 import { guard as appFeatureStructure } from "./guard-app-feature-structure";
 import { guard as commentIssueRefOnly } from "./guard-comment-issue-ref-only";
 import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
 import { guard as directEntityWrites } from "./guard-direct-entity-writes";
-import { guard as directFetch } from "./guard-direct-fetch";
-import { guard as errorReasons } from "./guard-error-reasons";
-import { guard as eventStoreWrites } from "./guard-event-store-writes";
 import { guard as fakeTests } from "./guard-fake-tests";
 import { guard as fileSize } from "./guard-file-size";
 import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
 import { guard as i18nLocaleMount } from "./guard-i18n-locale-mount";
-import { guard as i18nLocaleTerminology } from "./guard-i18n-locale-terminology";
 import { guard as ignoreTagReason } from "./guard-ignore-tag-reason";
 import { guard as importExtensions } from "./guard-import-extensions";
 import { guard as internalSubpathImports } from "./guard-internal-subpath-imports";
 import { guard as libTestCoverage } from "./guard-lib-test-coverage";
-import { guard as noDateApi } from "./guard-no-date-api";
-import { guard as noDirectFs } from "./guard-no-direct-fs";
 import { guard as noLogicInViews } from "./guard-no-logic-in-views";
-import { guard as noTemporalPolyfillImport } from "./guard-no-temporal-polyfill-import";
-import { guard as restrictedSymbols } from "./guard-restricted-symbols";
 import { guard as rlsSessionSettings } from "./guard-rls-session-settings";
 import { guard as screenConventions } from "./guard-screen-conventions";
-import { guard as silentSkip } from "./guard-silent-skip";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
-import { guard as testEsFixtures } from "./guard-test-es-fixtures";
 import { guard as testEsRowWrites } from "./guard-test-es-row-writes";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
 import { guard as testTimeouts } from "./guard-test-timeouts";
-import { guard as testTitle } from "./guard-test-title";
-import { guard as unsafeJsonParse } from "./guard-unsafe-json-parse";
 import { guard as writeHandlerQns } from "./guard-write-handler-qns";
 
 export const GUARDS = [
-  adminApi,
   directEntityWrites,
-  directFetch,
-  noDirectFs,
   tenantEscalation,
-  unsafeJsonParse,
-  silentSkip,
   htmlEscape,
   importExtensions,
   crossFeatureImports,
-  noDateApi,
-  noTemporalPolyfillImport,
-  restrictedSymbols,
   internalSubpathImports,
   rlsSessionSettings,
   fakeTests,
   noLogicInViews,
-  errorReasons,
   i18nKeys,
   i18nLocaleMount,
-  i18nLocaleTerminology,
   complexity,
-  predicateExtraction,
   screenConventions,
   writeHandlerQns,
   asCasts,
-  eventStoreWrites,
   appFeatureStructure,
   libTestCoverage,
   testTimeouts,
-  testEsFixtures,
   testEsRowWrites,
   testTemplateDrift,
   fileSize,
   commentIssueRefOnly,
-  testTitle,
   ignoreTagReason,
 ];
 

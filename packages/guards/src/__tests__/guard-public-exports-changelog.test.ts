@@ -496,7 +496,7 @@ describe("writeBaseline", () => {
 
   test("loadPendingBreakingChanges loads the real parser from the framework root", async () => {
     const pending = await loadPendingBreakingChanges(REAL_FRAMEWORK_ROOT);
-    expect(pending.has("guards")).toBe(false);
+    expect(pending.has("feature-without-changeset")).toBe(false);
   });
 
   test("loadPendingBreakingChanges fails loudly when the parser module is missing", async () => {

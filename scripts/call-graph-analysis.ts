@@ -171,16 +171,16 @@ function bodyMeta(node: FnNode): {
 
 // ── Wrapper detection ─────────────────────────────────────────────────────────
 
-function isThinWrapper(fn: FnInfo): { verdict: boolean; reason: string } {
-  if (fn.statementCount > 1) return { verdict: false, reason: "" };
-  if (fn.isSwitchBody) return { verdict: false, reason: "" };        // switch ≠ wrapper
-  if (fn.returnsFunction) return { verdict: false, reason: "" };     // factory ≠ wrapper
-  if (!fn.isDirectDelegation) return { verdict: false, reason: "" }; // call in Template/Objekt ≠ wrapper
-  if (fn.callees.length !== 1) return { verdict: false, reason: "" };
-  if (BUILTIN_NAMES.has(fn.callees[0])) return { verdict: false, reason: "" };
-  if (fn.callees[0] === fn.name) return { verdict: false, reason: "" }; // Delegation-FP / recursion
+function isThinWrapper(fn: FnInfo): { verdict: boolean; detail: string } {
+  if (fn.statementCount > 1) return { verdict: false, detail: "" };
+  if (fn.isSwitchBody) return { verdict: false, detail: "" };        // switch ≠ wrapper
+  if (fn.returnsFunction) return { verdict: false, detail: "" };     // factory ≠ wrapper
+  if (!fn.isDirectDelegation) return { verdict: false, detail: "" }; // call in Template/Objekt ≠ wrapper
+  if (fn.callees.length !== 1) return { verdict: false, detail: "" };
+  if (BUILTIN_NAMES.has(fn.callees[0])) return { verdict: false, detail: "" };
+  if (fn.callees[0] === fn.name) return { verdict: false, detail: "" }; // Delegation-FP / recursion
 
-  return { verdict: true, reason: `delegiert zu \`${fn.callees[0]}\`` };
+  return { verdict: true, detail: `delegiert zu \`${fn.callees[0]}\`` };
 }
 
 // ── Load project ─────────────────────────────────────────────────────────────
@@ -315,7 +315,7 @@ if (SHOW_WRAPPERS) {
     for (const { fn, check } of wrappers) {
       console.log(`  ${fn.name}`);
       console.log(`    ${fn.file}:${fn.line}`);
-      console.log(`    ${check.reason}\n`);
+      console.log(`    ${check.detail}\n`);
     }
     console.log(`  Gesamt: ${wrappers.length} Thin-Wrapper.\n`);
   }

@@ -180,7 +180,7 @@ describe("verifyAndParseMollieWebhook — payment-event happy path", () => {
   });
 });
 
-describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-paid OHNE existierende sub)", () => {
+describe("verifyAndParseMollieWebhook — mandate-setup-flow (= first-payment-paid without an existing sub)", () => {
   const verify = (client: MollieClientShape) =>
     verifyAndParseMollieWebhook(client, {
       priceToTier: { plan_pro: "pro" },

@@ -91,7 +91,6 @@ async function runSeedMigrations(
     seedsDir,
     appliedBy: "boot",
     registry: run.composed.registry, // The dry-run validator catches handler QN typos before writing.
-    // @wrapper-known semantic-alias
     createContext: (dbRunner: DbRunner) =>
       createSeedMigrationContext({ dispatcher: seedDispatcher, dbRunner }),
   });

@@ -24,7 +24,7 @@ export function runExclusivePerAccount(
   run: () => Promise<void>,
 ): Promise<void> {
   const running = inFlight.get(accountId);
-  if (running) return running;
+  if (running !== undefined) return running;
   const started = run().finally(() => {
     inFlight.delete(accountId);
   });

@@ -7,16 +7,10 @@ import { resolveRepoRoots } from "../_lib/roots";
 import { scanFiles } from "../_lib/scan-scope";
 import { GUARDS } from "../run-guards";
 
-const SECURITY_GUARD_NAMES = [
-  "Admin-API Guard",
-  "Direct-Entity-Writes Guard",
-  "Direct-Fetch Guard",
-  "No-Direct-Fs Guard",
-  "Tenant-Escalation Guard",
-];
+const SECURITY_GUARD_NAMES = ["Direct-Entity-Writes Guard", "Tenant-Escalation Guard"];
 
 describe("security guards", () => {
-  test("all five named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
+  test("all named guards are security:true and name every repo kind explicitly (the unset default skips tooling)", () => {
     for (const name of SECURITY_GUARD_NAMES) {
       const guard = GUARDS.find((g) => g.name === name);
       expect(guard).toBeDefined();

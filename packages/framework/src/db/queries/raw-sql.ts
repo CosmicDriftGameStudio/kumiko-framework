@@ -14,7 +14,6 @@ export async function executeRawQuery<T = Record<string, unknown>>(
 
 /** SELECT-only escape hatch with the closed-connection retry. Do not pass
  *  INSERT/UPDATE/DELETE — retry re-executes the statement. */
-// @wrapper-known semantic-alias
 export async function executeRawQueryRead<T = Record<string, unknown>>(
   db: AnyDb,
   sqlText: string,

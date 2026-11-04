@@ -95,7 +95,7 @@ export function createMailTransportInMemoryFeature() {
           // Returns the per-tenant buffer. Identity-stable across calls so the
           // demo inbox keeps accumulating.
           return getOrCreateTransportForTenant(tenantId);
-        }, // @wrapper-known semantic-alias
+        },
       };
       r.useExtension(MAIL_TRANSPORT_EXTENSION, "inmemory", plugin);
       r.translations({

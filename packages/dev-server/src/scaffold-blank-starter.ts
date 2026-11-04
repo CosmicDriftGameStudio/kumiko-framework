@@ -55,7 +55,8 @@ export function renderBlankMain(appName: string): string {
     { specifier: "../kumiko.config", names: [], defaultName: "appConfig" },
     { specifier: "./env-schema", names: ["envSchema"] },
   ]);
-  return `// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
+  return `// biome-ignore-all lint/style/noProcessEnv: KMS wiring and the demo admin password are read before runProdApp parses the env contract, and the scaffold has no bin/env.ts
+// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
 // composeFeatures + validateBoot + createRegistry without DB/Redis-connect
 // (see @cosmicdrift/kumiko-server-runtime runProdApp).
 

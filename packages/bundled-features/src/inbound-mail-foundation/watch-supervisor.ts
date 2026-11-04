@@ -484,7 +484,7 @@ export function createInboundMailSupervisor(
         clearTimeout(pollTimer);
         pollTimer = null;
       }
-      if (pollInFlight) await pollInFlight;
+      if (pollInFlight !== null) await pollInFlight;
       await Promise.allSettled([...inFlightSyncs.values(), watchCatchUp.settled()]);
       for (const accountId of [...watchers.keys()]) {
         await stopWatcher(accountId);

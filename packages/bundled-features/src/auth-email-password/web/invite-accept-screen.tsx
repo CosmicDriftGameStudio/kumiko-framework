@@ -112,7 +112,7 @@ export function InviteAcceptScreen({
   const postInviteAccept = async (path: string, body: Record<string, string>): Promise<void> => {
     setSubmitting(true);
     setError(null);
-    // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
+    // biome-ignore lint/plugin: not yet converted to the framework hook set
     const res = await fetch(path, {
       method: "POST",
       credentials: "same-origin",

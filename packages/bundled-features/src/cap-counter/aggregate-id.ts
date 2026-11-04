@@ -18,7 +18,6 @@ const CAP_COUNTER_ROLLING_NAMESPACE = "8b2ad0c6-1f3e-4f7c-9b8a-3c4d5e6f7a8b";
  * Parallel bookings for the same triple share one stream; the event store's
  * optimistic lock serializes them and bookCapUsage retries the loser.
  */
-// @wrapper-known uuid-domain
 export function capCounterAggregateId(
   tenantId: string,
   capName: string,
@@ -42,7 +41,6 @@ export function capCounterAggregateId(
  * this with tenantId + capName and appends increment events to the stream.
  * Race-free because the event store appends with an auto-incrementing version.
  */
-// @wrapper-known uuid-domain
 export function rollingCapAggregateId(tenantId: string, capName: string): string {
   return uuidv5(`${tenantId}|${capName}`, CAP_COUNTER_ROLLING_NAMESPACE);
 }

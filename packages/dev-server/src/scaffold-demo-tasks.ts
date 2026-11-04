@@ -21,6 +21,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 const taskEntity = createEntity({
+  description: "A to-do item with a title, status, priority and urgency flag.",
   fields: {
     title: createTextField({
       required: true,
@@ -61,6 +62,8 @@ const open = {
   },
 } as const;
 
+const described = (description: string) => ({ ...open, description });
+
 const TASKS_I18N = {
   "screen:task-list.title": { de: "Aufgaben", en: "Tasks" },
   "screen:task-edit.title": { de: "Aufgabe", en: "Task" },
@@ -77,11 +80,11 @@ export function createDemoTasksFeature(): FeatureDefinition {
   return defineFeature("tasks", (r) => {
     r.translations({ keys: TASKS_I18N });
     r.entity({ name: "task", ...taskEntity });
-    r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
-    r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
-    r.writeHandler(defineEntityDeleteHandler("task", taskEntity, open));
-    r.queryHandler(defineEntityListHandler("task", taskEntity, open));
-    r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
+    r.writeHandler(defineEntityCreateHandler("task", taskEntity, described("Creates a task.")));
+    r.writeHandler(defineEntityUpdateHandler("task", taskEntity, described("Updates a task.")));
+    r.writeHandler(defineEntityDeleteHandler("task", taskEntity, described("Deletes a task.")));
+    r.queryHandler(defineEntityListHandler("task", taskEntity, described("Lists all tasks.")));
+    r.queryHandler(defineEntityDetailHandler("task", taskEntity, described("Returns one task.")));
     r.screen(listScreen);
     r.screen(editScreen);
     r.nav({ id: "tasks", label: "tasks:nav.tasks", order: 10, screen: "tasks:screen:task-list" });
@@ -118,6 +121,7 @@ import type {
 import { tasksTranslationKeys } from "./i18n";
 
 const taskEntity = createEntity({
+  description: "A to-do item with a title, status, priority and urgency flag.",
   fields: {
     title: createTextField({
       required: true,
@@ -158,14 +162,16 @@ const open = {
   },
 } as const;
 
+const described = (description: string) => ({ ...open, description });
+
 export const tasksFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: tasksTranslationKeys });
   r.entity({ name: "task", ...taskEntity });
-  r.writeHandler(defineEntityCreateHandler("task", taskEntity, open));
-  r.writeHandler(defineEntityUpdateHandler("task", taskEntity, open));
-  r.writeHandler(defineEntityDeleteHandler("task", taskEntity, open));
-  r.queryHandler(defineEntityListHandler("task", taskEntity, open));
-  r.queryHandler(defineEntityDetailHandler("task", taskEntity, open));
+  r.writeHandler(defineEntityCreateHandler("task", taskEntity, described("Creates a task.")));
+  r.writeHandler(defineEntityUpdateHandler("task", taskEntity, described("Updates a task.")));
+  r.writeHandler(defineEntityDeleteHandler("task", taskEntity, described("Deletes a task.")));
+  r.queryHandler(defineEntityListHandler("task", taskEntity, described("Lists all tasks.")));
+  r.queryHandler(defineEntityDetailHandler("task", taskEntity, described("Returns one task.")));
   r.screen(listScreen);
   r.screen(editScreen);
   r.nav({ id: "tasks", label: "tasks:nav.tasks", order: 10, screen: "tasks:screen:task-list" });

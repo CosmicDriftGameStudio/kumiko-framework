@@ -437,6 +437,10 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
           return c.json({ error: "forbidden: no write access to this record" }, 403);
         case RecordWriteDecisions.locked:
           return c.json({ error: "record_locked: the record is locked" }, 409);
+        default: {
+          const exhaustiveCheck: never = decision;
+          return exhaustiveCheck;
+        }
       }
     }
 

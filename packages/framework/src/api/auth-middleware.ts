@@ -170,7 +170,6 @@ export type MiddlewareRejectCode =
   | "invalid_tenant_format"
   | "tenant_unavailable";
 
-// @wrapper-known error-helper
 function middlewareReject(
   c: Context,
   opts: {

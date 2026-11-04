@@ -17,7 +17,7 @@ export const RAW_SQL_MESSAGE =
   "raw DELETE/UPDATE on an event-sourced table in a test: reset with resetTestTables(db, [table, eventsTable]), " +
   "change rows through the real command or updateRowViaEventStore/deleteRowViaEventStore";
 
-// kumiko_events UPDATEs are reported by the test-es-fixtures guard already.
+// kumiko_events UPDATEs are reported by the es-literal-writes-tests Biome plugin already.
 const LITERAL_WRITE_RE =
   /\b(?:DELETE\s+FROM\s+"?(?:read_\w+|kumiko_events)|UPDATE\s+"?read_\w+)\b/i;
 const TEMPLATE_WRITE_RE = /\b(?:DELETE\s+FROM|UPDATE)\s+"?\$\{\s*(\w+)(?:\.tableName)?\s*\}/gi;

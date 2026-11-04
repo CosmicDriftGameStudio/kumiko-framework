@@ -86,7 +86,7 @@ export function createLoginRoute(
       readonly accountLabel: string;
     } | null>(null);
 
-    // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
+    // biome-ignore lint/plugin: not yet converted to the framework hook set
     useEffect(() => {
       if (status === "authenticated") onAuthenticated?.();
     }, [status]);
@@ -238,7 +238,7 @@ export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
       [status, locale, origin, pathname, search, hash],
     );
     const redirectUrl = loginRedirect?.kind === "redirect" ? loginRedirect.url : null;
-    // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
+    // biome-ignore lint/plugin: not yet converted to the framework hook set
     useEffect(() => {
       if (redirectUrl !== null) window.location.replace(redirectUrl);
     }, [redirectUrl]);

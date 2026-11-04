@@ -107,7 +107,7 @@ describe("request-export :: happy path", () => {
 });
 
 describe("request-export :: App-side-Idempotency (primaerer Pfad)", () => {
-  test("2nd Klick sieht existing Job → isExisting=true, KEIN neuer Job, KEIN neues Event", async () => {
+  test("2nd click sees the existing job → isExisting=true, no new job, no new event", async () => {
     const first = await stack.http.writeOk<RequestExportResponse>(REQUEST_EXPORT, {}, aliceUser);
     expect(first.isExisting).toBe(false);
 
@@ -227,7 +227,7 @@ describe("export-status :: User-Polling", () => {
     expect(result.job.errorMessage).toBeNull();
   });
 
-  test("Cross-User-Isolation: Bob sieht Alice's Job NICHT", async () => {
+  test("cross-user isolation: Bob does not see Alice's job", async () => {
     await stack.http.writeOk(REQUEST_EXPORT, {}, aliceUser);
 
     const bobResult = await stack.http.queryOk<StatusResponse>(EXPORT_STATUS, {}, bobUser);

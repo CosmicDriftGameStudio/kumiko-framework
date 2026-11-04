@@ -10,7 +10,6 @@ export type VerifyResult =
   | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
 
-// @wrapper-known semantic-alias
 export function signResetToken(
   userId: string,
   ttlMinutes: number,
@@ -20,7 +19,6 @@ export function signResetToken(
   return signToken(userId, TokenPurpose.passwordReset, ttlMinutes, secret, now);
 }
 
-// @wrapper-known semantic-alias
 export function verifyResetToken(
   token: string,
   secret: string,

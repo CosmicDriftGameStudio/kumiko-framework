@@ -31,7 +31,6 @@ const TERMINATION_UNMATCHED_NAMESPACE = "7e2f4b9a-3c1d-4a68-8d05-b6c9e1f27a34";
  * Stripe→Mollie migration, appends a new event to the same stream because
  * the tenant and aggregate stream remain the same.
  */
-// @wrapper-known uuid-domain
 export function subscriptionAggregateId(tenantId: string): string {
   return uuidv5(tenantId, SUBSCRIPTION_NAMESPACE);
 }
@@ -43,7 +42,6 @@ export function subscriptionAggregateId(tenantId: string): string {
  * stream); the read_payments-projection creates its own row per event
  * (PK = paymentRowId(...), not aggregateId).
  */
-// @wrapper-known uuid-domain
 export function paymentAggregateId(tenantId: string): string {
   return uuidv5(tenantId, PAYMENT_NAMESPACE);
 }
@@ -51,7 +49,6 @@ export function paymentAggregateId(tenantId: string): string {
 /** Deterministic `read_payments` row-id — keyed off `(tenantId, providerName,
  *  providerEventId)` rather than the event-store's bigserial `event.id` (not
  *  a UUID) or the shared per-tenant aggregateId (one row per payment). */
-// @wrapper-known uuid-domain
 export function paymentRowId(
   tenantId: string,
   providerName: string,
@@ -67,7 +64,6 @@ export function paymentRowId(
 }
 
 /** Stream id of one unmatched termination declaration, derived from its request id. */
-// @wrapper-known uuid-domain
 export function terminationUnmatchedAggregateId(requestId: string): string {
   return uuidv5(requestId, TERMINATION_UNMATCHED_NAMESPACE);
 }

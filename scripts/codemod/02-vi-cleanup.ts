@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { extname, join, relative } from "node:path";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { extname, join, } from "node:path";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const INCLUDE_DIRS = ["packages", "samples"];

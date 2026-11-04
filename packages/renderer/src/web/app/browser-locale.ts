@@ -79,7 +79,7 @@ export function createBrowserLocaleResolver(
 
   return {
     translate: (key) => key,
-    locale: () => store.getSnapshot(), // @wrapper-known semantic-alias
+    locale: () => store.getSnapshot(),
     timeZone: () => timeZone,
     subscribe: store.subscribe,
     setLocale: (next) => {

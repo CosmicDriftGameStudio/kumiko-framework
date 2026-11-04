@@ -151,7 +151,7 @@ function flushPendingMetaIds(): void {
 
 function loadFileMeta(fileId: string): Promise<FileMeta | null> {
   const cached = metaCache.get(fileId);
-  if (cached) return cached;
+  if (cached !== undefined) return cached;
   const promise = new Promise<FileMeta | null>((resolve) => {
     if (pendingMetaIds.size === 0) queueMicrotask(flushPendingMetaIds);
     pendingMetaIds.set(fileId, resolve);

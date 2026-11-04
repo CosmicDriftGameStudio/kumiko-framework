@@ -22,18 +22,30 @@ function manifest(overrides: Partial<RepoManifest> = {}): RepoManifest {
   };
 }
 
-function plan(m: RepoManifest, hasAppSchema = true, manifestSource: "file" | "derived" = "file") {
-  return resolveCheckSteps(m, { hasAppSchema, manifestSource });
+function plan(
+  m: RepoManifest,
+  hasAppSchema = true,
+  manifestSource: "file" | "derived" = "file",
+  hasAppConfig = true,
+  hasBiomeConfig = false,
+) {
+  return resolveCheckSteps(m, { hasAppSchema, hasAppConfig, hasBiomeConfig, manifestSource });
 }
 
-function stepsOf(m: RepoManifest, hasAppSchema = true) {
-  const resolved = plan(m, hasAppSchema);
+function stepsOf(m: RepoManifest, hasAppSchema = true, hasAppConfig = true) {
+  const resolved = plan(m, hasAppSchema, "file", hasAppConfig);
   if (resolved.kind === "error") throw new Error(resolved.message);
   return resolved;
 }
 
-function stepIds(m: RepoManifest, hasAppSchema = true): string[] {
-  return stepsOf(m, hasAppSchema).steps.map((s) => s.id);
+function stepsOf2(m: RepoManifest) {
+  const resolved = plan(m, true, "file", true, true);
+  if (resolved.kind === "error") throw new Error(resolved.message);
+  return resolved.steps;
+}
+
+function stepIds(m: RepoManifest, hasAppSchema = true, hasAppConfig = true): string[] {
+  return stepsOf(m, hasAppSchema, hasAppConfig).steps.map((s) => s.id);
 }
 
 type Calls = {
@@ -42,6 +54,8 @@ type Calls = {
   readonly checks: string[][];
   readonly schema: string[][];
   readonly schemaCwd: string[];
+  readonly lint: string[];
+  readonly agent: string[];
   readonly managed: string[];
   readonly scripts: string[];
 };
@@ -64,9 +78,11 @@ afterEach(() => {
 
 // The repo the stubbed findLocalRepo points at — runCheck reads kumiko/schema.ts
 // from it to decide whether the boot step applies.
-function tmpRepo(withAppSchema: boolean): string {
+function tmpRepo(withAppSchema: boolean, withAppConfig: boolean, withBiomeConfig: boolean): string {
   const dir = mkdtempSync(join(tmpdir(), "kumiko-check-"));
   tmpRepos.push(dir);
+  if (withBiomeConfig) writeFileSync(join(dir, "biome.json"), "{}\n");
+  if (withAppConfig) writeFileSync(join(dir, "kumiko.config.ts"), "export default {};\n");
   if (withAppSchema) {
     mkdirSync(join(dir, "kumiko"), { recursive: true });
     writeFileSync(join(dir, "kumiko", "schema.ts"), "export const ENTITY_METAS = [];\n");
@@ -80,10 +96,15 @@ function harness(
     readonly repoMissing?: boolean;
     readonly manifestSource?: "file" | "derived";
     readonly appSchemaMissing?: boolean;
+    readonly appConfigMissing?: boolean;
+    readonly biomeConfigMissing?: boolean;
     readonly guardsLoadError?: Error;
     readonly schemaLoadError?: Error;
     readonly exitCodes?: Partial<
-      Record<"guards" | "ui" | "checks" | "schema" | "managed" | "scripts", number>
+      Record<
+        "guards" | "ui" | "checks" | "schema" | "lint" | "agent" | "managed" | "scripts",
+        number
+      >
     >;
   } = {},
 ): Harness {
@@ -93,13 +114,19 @@ function harness(
     checks: [],
     schema: [],
     schemaCwd: [],
+    lint: [],
+    agent: [],
     managed: [],
     scripts: [],
   };
   const logs: string[] = [];
   const errs: string[] = [];
   const codes = options.exitCodes ?? {};
-  const repoDir = tmpRepo(options.appSchemaMissing !== true);
+  const repoDir = tmpRepo(
+    options.appSchemaMissing !== true,
+    options.appConfigMissing !== true,
+    options.biomeConfigMissing !== true,
+  );
 
   const guardsCli: GuardsCli = {
     cliFlagsError: (subcommand, argv, known) => {
@@ -157,6 +184,14 @@ function harness(
         return schemaCli;
       },
       loadAppSteps: async () => ({
+        runLintCheckStep: async (_out, repoRoot) => {
+          calls.lint.push(repoRoot);
+          return codes.lint ?? 0;
+        },
+        runAgentLint: async (_out, repoRoot) => {
+          calls.agent.push(repoRoot);
+          return codes.agent ?? 0;
+        },
         runManagedCheckStep: async (_out, repoRoot) => {
           calls.managed.push(repoRoot);
           return codes.managed ?? 0;
@@ -177,6 +212,7 @@ describe("resolveCheckSteps", () => {
       "guards",
       "ui",
       "checks",
+      "agent",
       "managed",
       "scripts",
     ]);
@@ -200,6 +236,7 @@ describe("resolveCheckSteps", () => {
       "boot",
       "guards",
       "checks",
+      "agent",
       "managed",
       "scripts",
     ]);
@@ -231,7 +268,41 @@ describe("resolveCheckSteps", () => {
   });
 
   test('a kind "app" repo without kumiko/schema.ts gets no boot step', () => {
-    expect(stepIds(manifest(), false)).toEqual(["guards", "checks", "managed", "scripts"]);
+    expect(stepIds(manifest(), false)).toEqual(["guards", "checks", "agent", "managed", "scripts"]);
+  });
+
+  test('a kind "app" repo without kumiko.config.ts gets no agent step — agent lint would fail on it', () => {
+    expect(stepIds(manifest(), true, false)).toEqual([
+      "boot",
+      "guards",
+      "checks",
+      "managed",
+      "scripts",
+    ]);
+  });
+
+  test("a repo with a Biome config gets a lint step after the repo checks, whatever its kind", () => {
+    const ids = (m: RepoManifest) => stepsOf2(m).map((s) => s.id);
+    expect(ids(manifest({ kind: "library" }))).toEqual(["guards", "checks", "lint"]);
+    expect(ids(manifest({ kind: "app" }))).toEqual([
+      "boot",
+      "guards",
+      "checks",
+      "lint",
+      "agent",
+      "managed",
+      "scripts",
+    ]);
+    expect(ids(manifest({ kind: "tooling" }))).toEqual([]);
+  });
+
+  test("a repo without a Biome config gets no lint step", () => {
+    expect(stepIds(manifest({ kind: "library" }))).not.toContain("lint");
+  });
+
+  test('kind "library" and "framework" get no agent step', () => {
+    expect(stepIds(manifest({ kind: "library" }))).not.toContain("agent");
+    expect(stepIds(manifest({ kind: "framework" }))).not.toContain("agent");
   });
 
   test("every step states why it was selected", () => {
@@ -251,8 +322,35 @@ describe("kumiko check", () => {
     expect(h.calls.guards).toEqual([[]]);
     expect(h.calls.ui).toEqual([[]]);
     expect(h.calls.checks).toEqual([[]]);
+    expect(h.calls.lint).toEqual([h.repoDir]);
+    expect(h.calls.agent).toEqual([h.repoDir]);
     expect(h.calls.managed).toEqual([h.repoDir]);
     expect(h.calls.scripts).toEqual([h.repoDir]);
+  });
+
+  test("a failing lint step fails the command and the later steps still run", async () => {
+    const h = harness({ exitCodes: { lint: 1 } });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(1);
+    expect(h.calls.agent).toEqual([h.repoDir]);
+    expect(h.calls.scripts).toEqual([h.repoDir]);
+  });
+
+  test("a repo without a Biome config stays green and skips the lint step", async () => {
+    const h = harness({ biomeConfigMissing: true });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(0);
+    expect(h.calls.lint).toEqual([]);
+  });
+
+  test("a failing agent lint fails the command and the later steps still run", async () => {
+    const h = harness({ exitCodes: { agent: 1 } });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(1);
+    expect(h.calls.scripts).toEqual([h.repoDir]);
+  });
+
+  test("an app without kumiko.config.ts stays green and skips agent lint", async () => {
+    const h = harness({ appConfigMissing: true });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(0);
+    expect(h.calls.agent).toEqual([]);
   });
 
   test("positional step ids run only those steps", async () => {
@@ -348,7 +446,7 @@ describe("kumiko check", () => {
     expect(h.calls.checks).toEqual([]);
     expect(h.calls.schema).toEqual([]);
     const printed = h.logs.join("\n");
-    for (const id of ["boot", "guards", "ui", "checks", "managed", "scripts"]) {
+    for (const id of ["boot", "guards", "ui", "checks", "lint", "agent", "managed", "scripts"]) {
       expect(printed).toContain(id);
     }
     expect(h.calls.managed).toEqual([]);

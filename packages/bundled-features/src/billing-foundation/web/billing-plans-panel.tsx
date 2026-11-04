@@ -52,7 +52,7 @@ function manageOrReactivateAction(
   canManage: boolean,
   subscription: BillingPlansResult["subscription"],
   t: UseTranslation,
-  onManage: () => void,
+  onManage: () => Promise<void>,
   redirecting: boolean,
 ): PlanCardActionSlot | undefined {
   if (!canManage) return undefined;
@@ -62,7 +62,9 @@ function manageOrReactivateAction(
         ? "billing-foundation.plans.reactivate"
         : "billing-foundation.plans.manage",
     ),
-    onClick: onManage,
+    onClick: () => {
+      void onManage();
+    },
     disabled: redirecting,
   };
 }
@@ -76,7 +78,7 @@ function planCta(
   plan: BillingPlanView,
   result: BillingPlansResult,
   t: UseTranslation,
-  onAction: (tier: string, kind: "checkout" | "switch") => void,
+  onAction: (tier: string, kind: "checkout" | "switch") => Promise<void>,
   redirecting: boolean,
 ): PlanCardActionSlot | undefined {
   if (plan.action === BillingPlanActions.current) return undefined;
@@ -96,7 +98,9 @@ function planCta(
   }
   return {
     label,
-    onClick: () => onAction(plan.tier, kind),
+    onClick: () => {
+      void onAction(plan.tier, kind);
+    },
     disabled: redirecting,
   };
 }

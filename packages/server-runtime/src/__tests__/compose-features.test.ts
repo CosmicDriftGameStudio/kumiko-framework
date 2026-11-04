@@ -210,7 +210,7 @@ describe("composeFeatures", () => {
     }
   });
 
-  test("OHNE authOptions → KEINE reset/verify-handlers (anti-default-deploy-bug)", () => {
+  test("without authOptions → no reset/verify handlers (anti-default-deploy-bug)", () => {
     // The exact bug caught by the review agent: composeFeatures without
     // authOptions does not register the handlers. If someone accidentally
     // wires only the routes (auth-routes-config), requests fail in production.

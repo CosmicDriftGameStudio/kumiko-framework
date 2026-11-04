@@ -37,7 +37,6 @@ type PreferenceLookupRow = {
   readonly enabled: boolean;
 };
 
-// @wrapper-known semantic-alias
 async function lookup(
   db: TenantDb,
   tenantId: TenantId,

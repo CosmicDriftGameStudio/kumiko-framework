@@ -520,7 +520,7 @@ describe("scenario 6: notification-wiring (calendar)", () => {
     expect(recordedNotifications).toHaveLength(1); // unchanged
   });
 
-  test("ok-Bereich → notifier feuert NICHT", async () => {
+  test("ok range → notifier does not fire", async () => {
     recordedNotifications.length = 0;
     const admin = adminFor(1002);
     await increment(admin, "cap-notify-quiet", 100);

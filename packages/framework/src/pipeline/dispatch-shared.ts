@@ -741,7 +741,7 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
   const identitySwitch = createGatedIdentitySwitch("r.authClaims hook", user, false, {
     // Login is itself the root operation; the hook context is read-only.
     queryAs: (asUser: SessionUser, qn: string, payload: unknown) =>
-      executeQuery(ctx, qn, payload, asUser, rootWriteOrigin(ctx.registry, qn, asUser)), // @wrapper-known semantic-alias
+      executeQuery(ctx, qn, payload, asUser, rootWriteOrigin(ctx.registry, qn, asUser)),
     writeAs: async () => {
       throw new InternalError({
         message: "r.authClaims hook context has no writeAs — auth-claims hooks are read-only.",

@@ -1,0 +1,7 @@
+language js
+
+TsReferenceType() as $reference where {
+  $reference <: includes "CSSProperties",
+  $reference <: r"^(?:React\.)?CSSProperties\b.*",
+  register_diagnostic(span=$reference, message="CSSProperties style objects bypass theme tokens and dark mode. Use widgets and theme tokens.", severity="error")
+}

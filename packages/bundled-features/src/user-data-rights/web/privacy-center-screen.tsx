@@ -100,7 +100,7 @@ export function ExportSection(): ReactNode {
 
   // While the job is running: poll until Done/Failed, then auto-stop.
   const refetch = statusQuery.refetch;
-  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
+  // biome-ignore lint/plugin: not yet converted to the framework hook set
   useEffect(() => {
     if (!inProgress || !refetch) return;
     const id = setInterval(() => void refetch(), EXPORT_POLL_MS);

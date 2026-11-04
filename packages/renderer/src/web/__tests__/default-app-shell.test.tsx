@@ -51,7 +51,7 @@ describe("DefaultAppShell user-prop forwarding", () => {
     expect(screen.queryByText("Sysadmin")).toBeNull();
   });
 
-  test("MIT user-prop SystemAdmin → sysadmin-nav sichtbar", () => {
+  test("with user prop SystemAdmin → sysadmin nav visible", () => {
     render(
       <DefaultAppShell
         brand={<span>Brand</span>}

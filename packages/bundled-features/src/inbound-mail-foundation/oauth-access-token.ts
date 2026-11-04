@@ -166,7 +166,7 @@ export function createOAuthAccessTokenManager(
       const hit = cachedValid(account.id);
       if (hit !== undefined) return hit;
       const running = inFlight.get(account.id);
-      if (running) return running;
+      if (running !== undefined) return running;
       const started = refresh(account, plugin)
         .catch((err: unknown) => {
           cache.delete(account.id);

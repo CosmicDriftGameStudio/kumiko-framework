@@ -8,7 +8,6 @@ export type VerifyResult =
   | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
 
-// @wrapper-known semantic-alias
 export function signUnlockToken(
   userId: string,
   ttlMinutes: number,
@@ -18,7 +17,6 @@ export function signUnlockToken(
   return signToken(userId, TokenPurpose.accountUnlock, ttlMinutes, secret, now);
 }
 
-// @wrapper-known semantic-alias
 export function verifyUnlockToken(
   token: string,
   secret: string,

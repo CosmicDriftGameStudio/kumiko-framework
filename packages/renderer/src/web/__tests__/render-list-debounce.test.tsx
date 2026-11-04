@@ -72,7 +72,7 @@ describe("RenderList — Search-Debounce", () => {
     jest.useRealTimers();
   });
 
-  test("Tippen unter 300ms feuert NICHT mehrfach onSearchChange", () => {
+  test("typing under 300ms does not fire onSearchChange repeatedly", () => {
     const onSearchChange = mock();
     renderRL({ searchValue: "", onSearchChange });
 

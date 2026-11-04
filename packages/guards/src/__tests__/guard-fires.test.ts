@@ -17,7 +17,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import type { AstGuard, GuardOutcome } from "../_lib/guard-kit";
-import { createGuard as createRawInteractiveGuard } from "../guard-raw-interactive-elements";
 import { createGuard as createTailwindScanSurfaceGuard } from "../guard-tailwind-scan-surface";
 import { GUARDS } from "../run-guards";
 import { UI_GUARDS } from "../run-ui-guards";
@@ -100,26 +99,11 @@ const ENFORCING: Record<string, Violating> = {
     code: "declare const xTable: unknown;\ndeclare function createEventStoreExecutor(table: unknown, entity: unknown): unknown;\ndeclare const someEntityDef: unknown;\nexport const executor = createEventStoreExecutor(xTable, someEntityDef);\n\nexport function directWrite(db: any) {\n\tdb.insert(xTable);\n}\n",
     expectedMessage: /\[non-tx-receiver\] db\.insert\(xTable\)/,
   },
-  "Direct-Fetch Guard": {
-    path: `${PKG}/features/x/outbound.ts`,
-    code: 'export const load = () => fetch("https://example.com");',
-    expectedMessage: /raw fetch\(\) call/,
-  },
   "Import-Extensions Guard": {
     path: `${PKG}/features/x/imports.ts`,
     code: 'import { helper } from "./helper.js";\nexport const run = helper;',
     expectedMessage: /relative import "\.\/helper\.js"/,
     extraFiles: { [`${PKG}/features/x/helper.ts`]: "export const helper = 1;" },
-  },
-  "Unsafe-JSON-Parse Guard": {
-    path: `${PKG}/x/parse.ts`,
-    code: "export function p(s: string) { return JSON.parse(s); }",
-    expectedMessage: /unguarded JSON\.parse/,
-  },
-  "Silent-Skip Guard": {
-    path: `${PKG}/features/x/hooks.ts`,
-    code: 'export function onEvent(e: { ok: boolean }) {\n\tif (!e.ok) {\n\t\treturn;\n\t}\n\tconsole.log("done");\n}',
-    expectedMessage: /\[function\] in onEvent/,
   },
   "HTML-Escape Guard": {
     path: `${PKG}/mail/tpl.ts`,
@@ -132,35 +116,10 @@ const ENFORCING: Record<string, Violating> = {
     code: 'import { thing } from "../beta/internal";\nexport const v = thing;',
     expectedMessage: /feature "alpha" → "beta"/,
   },
-  "No-Date-API Guard": {
-    path: `${PKG}/features/x/time.ts`,
-    code: "export const now = () => new Date().getTime();",
-    expectedMessage: /\[new Date\]|\[\.getTime\]/,
-  },
-  "No-Direct-Fs Guard": {
-    path: `${PKG}/features/x/io.ts`,
-    code: 'import { readFileSync } from "node:fs";\nexport const r = () => readFileSync("/tmp/x");',
-    expectedMessage: /\[node:fs\] direct fs import outside allowlist/,
-  },
-  "No-Temporal-Polyfill-Import Guard": {
-    path: `${PKG}/features/x/clock.ts`,
-    code: 'import { Temporal } from "temporal-polyfill";\nexport const now = () => Temporal.Now.instant();',
-    expectedMessage: /\[temporal-polyfill\] direct temporal-polyfill import/,
-  },
-  "Error-Reasons Guard": {
-    path: `${PKG}/features/x/err.ts`,
-    code: 'export const fail = () => ({ reason: "something went wrong" });',
-    expectedMessage: /details\.reason "something went wrong"/,
-  },
   "i18n-Keys Guard": {
     path: `${PKG}/features/x/web/screen.tsx`,
     code: 'export const S = () => t("x:missing.key.that.does.not.exist");',
     expectedMessage: /"x:missing\.key\.that\.does\.not\.exist"/,
-  },
-  "i18n-Locale-Terminology Guard": {
-    path: `${CWD}/packages/locale-de/src/strings.ts`,
-    code: 'export const localeDeBundle = { "x.y": "Bitte Tenant wählen" };',
-    expectedMessage: /forbidden term "Tenant"/,
   },
   "i18n-Locale-Mount Guard": {
     path: `${APP}/web/mount.tsx`,
@@ -173,11 +132,6 @@ const ENFORCING: Record<string, Violating> = {
       }),
     },
   },
-  "Restricted-Symbols Guard": {
-    path: `${PKG}/features/x/read.ts`,
-    code: 'import { getUnscopedAggregateStreamMaxVersion } from "k";\nexport const v = () => getUnscopedAggregateStreamMaxVersion("a");',
-    expectedMessage: /\[getUnscopedAggregateStreamMaxVersion\]/,
-  },
   "Internal-Subpath-Imports Guard": {
     path: `${PKG}/features/x/scope.ts`,
     code: 'import { runInSystemRowLevelSecurityScope } from "k";\nexport const run = (why: string) => runInSystemRowLevelSecurityScope(why, async () => 1);',
@@ -188,11 +142,6 @@ const ENFORCING: Record<string, Violating> = {
     path: `${PKG}/features/x/scope.ts`,
     code: `export const q = "${["SET", "SESSION", "kumiko.tenant_id", "=", "'t'"].join(" ")}";`,
     expectedMessage: /\[rls-session-setting\] SET \/ SET SESSION/,
-  },
-  "Admin-API Guard": {
-    path: `${PKG}/features/x/admin.ts`,
-    code: 'import { appendRaw } from "k";\nexport async function run(ctx: any) { await appendRaw(ctx, { type: "x" }); }',
-    expectedMessage: /appendRaw\(\.\.\.\) in run/,
   },
   "Fake-Test Guard": {
     path: `${PKG}/features/x/thing.test.ts`,
@@ -219,30 +168,10 @@ const ENFORCING: Record<string, Violating> = {
     code: "export function addFees(base: number): number { return base * 1.02; }",
     expectedMessage: /No test imports this lib module/,
   },
-  "Raw-ClassName Guard (App-Repos)": {
-    path: `${APP}/features/x/web/card.tsx`,
-    code: 'export const C = () => <div className="bg-red-500">x</div>;',
-    expectedMessage: /design-bearing Tailwind classes/,
-  },
-  "No-Inline-Styles Guard (App-Repos)": {
-    path: `${APP}/features/x/web/box.tsx`,
-    code: "export const B = () => <div style={{ padding: 8 }}>x</div>;",
-    expectedMessage: /style= prop in app code/,
-  },
-  "No-Custom-Primitives Guard (App-Repos)": {
-    path: `${APP}/features/x/web/table.tsx`,
-    code: "const StatCard = () => <div>x</div>;\nexport const T = () => <StatCard />;",
-    expectedMessage: /App-local UI primitive "StatCard"/,
-  },
   "No-Framed-Extension-Sections Guard": {
     path: `${FEAT}/x/web/client-plugin.tsx`,
     code: 'function NotesSection() { return <Card slots={{ title: "Notes" }}>x</Card>; }\nexport function demoClient() {\n\treturn { extensionSectionComponents: { notes: NotesSection } };\n}',
     expectedMessage: /Extension-section component "NotesSection" renders its own <Card>/,
-  },
-  "No-Raw-Hooks Guard (App-Repos)": {
-    path: `${APP}/features/x/web/screen.tsx`,
-    code: 'import { useEffect } from "react";\nexport const S = () => { useEffect(() => {}, []); return null; };',
-    expectedMessage: /useEffect in App-Screen/,
   },
   "Screen-Conventions Guard": {
     path: `${PKG}/features/x/screens.ts`,
@@ -259,11 +188,6 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare const dispatcher: { write: (qn: string, payload?: unknown) => unknown };\nexport const run = () => dispatcher.write("bad-qn-format");',
     expectedMessage: /invalid QN format/,
   },
-  "Event-Store-Writes Guard": {
-    path: `${PKG}/features/x/move.ts`,
-    code: 'export const sql = "UPDATE kumiko_events SET tenant_id = $1 WHERE aggregate_id = $2";',
-    expectedMessage: /UPDATE kumiko_events/,
-  },
   "Tailwind-Scan-Surface Guard": {
     path: `${PKG}/features/x/noop.ts`,
     code: "export const noop = 1;",
@@ -279,11 +203,6 @@ const ENFORCING: Record<string, Violating> = {
     path: `${PKG}/features/x/__tests__/x.test.ts`,
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
     expectedMessage: /while loop polls with sleep/,
-  },
-  "Test-ES-Fixtures Guard": {
-    path: `${PKG}/features/x/__tests__/x.integration.test.ts`,
-    code: 'declare function run(sql: string): unknown;\nexport const seed = () => run("INSERT INTO kumiko_events (id) VALUES (1)");',
-    expectedMessage: /raw INSERT INTO kumiko_events/,
   },
   "Test-ES-Row-Writes Guard": {
     path: `${PKG}/features/x/__tests__/x.integration.test.ts`,
@@ -310,23 +229,14 @@ const ENFORCING: Record<string, Violating> = {
     code: "// kumiko-lint-ignore raw-sql legacy\nexport const value = 1;\n",
     expectedMessage: /ignore tag\(s\) without a real reason over baseline/,
   },
-  "test-title": {
-    path: `${PKG}/features/x/__tests__/title.test.ts`,
-    code: 'declare const test: (title: string, fn: () => void) => void;\ntest("lehnt ab, wenn der Wert nicht gesetzt ist", () => {});\n',
-    expectedMessage: /German or issue-referencing test title\(s\) over baseline/,
-  },
 };
 
 // These guards can't produce a violation by construction — they report
 // their findings via console and always return `violations: []`. The entry
 // here is bookkeeping about what does NOT block, not a free pass.
 const WARNING_ONLY: Record<string, string> = {
-  "Raw-Interactive-Elements Guard (App-Repos)":
-    "baseline-ratchet pattern (infra#654) — findings become violations as soon as a baseline file exists; without one (a repo that has not bootstrapped it with --write-baseline) it stays warning-only",
   "Complexity Check":
-    "same baseline-ratchet pattern as Raw-Interactive-Elements Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
-  "Predicate Extraction Check":
-    "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
+    "baseline-ratchet pattern — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
 };
 
 describe("every registered guard catches its own violation", () => {
@@ -382,33 +292,4 @@ describe("every registered guard catches its own violation", () => {
     );
     expect(guard?.run([screen]).violations).toEqual([]);
   });
-
-  // A fixture per WARNING_ONLY guard that would be a finding under the
-  // underlying rule — proves `violations: []` holds even when the guard has
-  // something to report (console-only), not just on a clean tree where "no
-  // violations" would be true either way.
-  const WARNING_ONLY_FIXTURES: Record<string, Violating> = {
-    "Raw-Interactive-Elements Guard (App-Repos)": {
-      path: `${APP}/features/x/web/link.tsx`,
-      code: 'import { StatusBadge } from "@cosmicdrift/kumiko-renderer/web";\nexport const X = () => <a href="/x">go</a>;',
-      expectedMessage: /.*/,
-      execute: (sf) =>
-        withTmpDir("fires-raw-interactive-baseline-", (baselineRoot) =>
-          createRawInteractiveGuard({ baselineRoot }).run([sf]),
-        ),
-    },
-  };
-
-  for (const guard of ALL) {
-    const fixture = Object.hasOwn(WARNING_ONLY_FIXTURES, guard.name)
-      ? WARNING_ONLY_FIXTURES[guard.name]
-      : undefined;
-    if (fixture === undefined) continue;
-    test(`${guard.name} (warning-only: never blocks even on a real finding)`, () => {
-      const project = new Project({ useInMemoryFileSystem: true });
-      const sf = project.createSourceFile(fixture.path, fixture.code);
-      const outcome = fixture.execute ? fixture.execute(sf) : guard.run([sf]);
-      expect(outcome.violations).toEqual([]);
-    });
-  }
 });

@@ -13,6 +13,8 @@
  * Breaking entries are listed but never auto-written (need real migration).
  */
 
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -55,14 +57,6 @@ function isNoisyTitle(title: string): boolean {
 // gh only, never git: inherits the full env so GH_TOKEN/GITHUB_TOKEN survive gitEnv()'s allowlist.
 function sh(cmd: string, cwd = process.cwd()): string {
   return execSync(cmd, { encoding: "utf-8", cwd, maxBuffer: 16 * 1024 * 1024 }).trim();
-}
-
-function shOk(cmd: string, cwd = process.cwd()): string | null {
-  try {
-    return sh(cmd, cwd);
-  } catch {
-    return null;
-  }
 }
 
 // pkgJsonRel comes from a package directory name (readdirSync over
@@ -280,14 +274,14 @@ type VersionPr = {
 };
 
 function fetchVersionPrs(days: number, cwd: string): VersionPr[] {
-  const sinceDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-  const sinceIso = sinceDate.toISOString();
+  const sinceDate = Temporal.Now.instant().subtract({ hours: days * 24 });
+  const sinceIso = sinceDate.toString();
   const sinceDay = sinceIso.slice(0, 10); // YYYY-MM-DD for gh search
   const raw = sh(
     `gh pr list --state merged --search "chore: version packages merged:>=${sinceDay}" --limit 100 --json number,title,mergedAt,body,mergeCommit`,
     cwd,
   );
-  const prs = JSON.parse(raw) as Array<{
+  const prs = parseJsonOrThrow<unknown>(raw, "gh pr list output") as Array<{
     number: number;
     title: string;
     mergedAt: string;

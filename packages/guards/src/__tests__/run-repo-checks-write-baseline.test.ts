@@ -29,7 +29,10 @@ describe("runRepoChecksCli — --write-baseline", () => {
   });
 
   test("a check without writeBaseline is rejected", async () => {
-    await expectError(["--write-baseline", "--guard=Thin-Wrappers Guard"], "no ratchet baseline");
+    await expectError(
+      ["--write-baseline", "--guard=Test-Stack-Drift Guard"],
+      "no ratchet baseline",
+    );
   });
 
   test("--write-baseline --guard=guard-raw-sql writes the baseline file", async () => {

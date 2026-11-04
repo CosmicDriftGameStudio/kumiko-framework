@@ -1,0 +1,53 @@
+language js
+
+or {
+  `$callee($reason, $...)` where {
+    $callee <: or {
+      `UnprocessableError`,
+      `failUnprocessable`,
+      `$_.failUnprocessable`
+    },
+    $reason <: or {
+      JsStringLiteralExpression(),
+      JsTemplateExpression()
+    },
+    $reason <: r"^[\"'`][^$]*[\"'`]$",
+    not $reason <: r"^[\"'`][a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*[\"'`]$",
+    register_diagnostic(span=$reason, message="Error reason must be snake_case ASCII with optional dot namespaces (^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$): clients key off it across wire, logs and i18n. Reusable? Add a const to FrameworkReasons/<Feature>Reasons.", severity="error")
+  },
+  `new UnprocessableError($reason, $...)` where {
+    $reason <: or {
+      JsStringLiteralExpression(),
+      JsTemplateExpression()
+    },
+    $reason <: r"^[\"'`][^$]*[\"'`]$",
+    not $reason <: r"^[\"'`][a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*[\"'`]$",
+    register_diagnostic(span=$reason, message="Error reason must be snake_case ASCII with optional dot namespaces (^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$): clients key off it across wire, logs and i18n. Reusable? Add a const to FrameworkReasons/<Feature>Reasons.", severity="error")
+  },
+  JsPropertyObjectMember(name=`reason`, value=$reason) as $member where {
+    $reason <: or {
+      JsStringLiteralExpression(),
+      JsTemplateExpression()
+    },
+    $reason <: r"^[\"'`][^$]*[\"'`]$",
+    not $reason <: r"^[\"'`][a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*[\"'`]$",
+    not $member <: within JsPropertyObjectMember(name=or {
+      `openToAll`,
+      `escapeHatch`,
+      `unsafeAllTenants`,
+      `systemIdentity`,
+      `globalWrites`,
+      `unsafeRaw`,
+      `crossTenantReads`
+    }),
+    not $member <: within `$callee($...)` where {
+      $callee <: or {
+        `declareEscapeHatch`,
+        `withUnsafeRawGrant`,
+        `createTenantDb`,
+        `subjectForgetAfterDeleteHook`
+      }
+    },
+    register_diagnostic(span=$reason, message="Error reason must be snake_case ASCII with optional dot namespaces (^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$): clients key off it across wire, logs and i18n. Reusable? Add a const to FrameworkReasons/<Feature>Reasons.", severity="error")
+  }
+}

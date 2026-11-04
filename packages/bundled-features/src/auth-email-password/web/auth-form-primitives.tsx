@@ -52,7 +52,7 @@ export type AuthCardProps = {
   readonly children: ReactNode;
 };
 
-// kumiko-lint-ignore no-custom-primitives Wraps usePrimitives().Card, pure domain name for the auth-screen chrome, not a primitive reimplementation
+// biome-ignore lint/plugin: Wraps usePrimitives().Card, pure domain name for the auth-screen chrome, not a primitive reimplementation
 export function AuthCard({
   title,
   subtitle,
@@ -113,7 +113,7 @@ export function parseUrlToken(paramName = "token"): string {
 // (server-injected token) short-circuits both the URL read and the scrub.
 export function useUrlToken(override?: string, paramName = "token"): string {
   const [token] = useState(() => override ?? parseUrlToken(paramName));
-  // kumiko-lint-ignore no-raw-hooks DOM integration: history.replaceState scrubs the token from browser history once, no framework query/mutation equivalent
+  // biome-ignore lint/plugin: DOM integration: history.replaceState scrubs the token from browser history once, no framework query/mutation equivalent
   useEffect(() => {
     if (override !== undefined) return;
     if (typeof window === "undefined") return;

@@ -197,7 +197,7 @@ export function ensureTestDbTemplate(
   options: { readonly applicationRole?: boolean } = {},
 ): Promise<void> {
   const known = testDbTemplates.get(templateDbName);
-  if (known) return known;
+  if (known !== undefined) return known;
   const pending = buildTestDbTemplate(templateDbName, buildSchema, options);
   testDbTemplates.set(templateDbName, pending);
   pending.catch(() => testDbTemplates.delete(templateDbName));

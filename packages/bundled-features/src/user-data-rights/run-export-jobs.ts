@@ -302,7 +302,6 @@ interface JobRow {
   readonly requestedFromTenantId: TenantId;
 }
 
-// @wrapper-known semantic-alias
 async function fetchPendingJobs(db: DbRunner): Promise<readonly JobRow[]> {
   return selectMany<JobRow>(
     db,
@@ -725,7 +724,6 @@ function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant):
 // `crud.update` requires a TenantDb for event-store stream lookup. Export jobs are tenant-agnostic
 // (one job per userId), so system mode bypasses the automatic tenant filter while
 // `requestedFromTenantId` preserves stream identity and keeps the stream counter consistent.
-// @wrapper-known semantic-alias
 function systemTenantDb(db: DbConnection, tenantId: TenantId) {
   return createTenantDb({
     db,

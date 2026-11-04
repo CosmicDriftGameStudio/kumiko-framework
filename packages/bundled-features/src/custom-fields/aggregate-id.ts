@@ -23,7 +23,6 @@ const FIELD_DEFINITION_NAMESPACE = "f1d3b2c7-4e5a-4b9c-8d1f-2a3b4c5d6e7f";
  *   define its own `customer.internalNumber` (422 `fieldKey_conflict`). This
  *   prevents ambiguity when resolving the field during reads.
  */
-// @wrapper-known uuid-domain
 export function fieldDefinitionAggregateId(
   tenantId: string,
   entityName: string,

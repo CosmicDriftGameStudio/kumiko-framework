@@ -1,0 +1,10 @@
+language js
+
+JsPropertyObjectMember(value=$text) as $member where {
+  $text <: includes or {
+    "enant",
+    "ENANT"
+  },
+  $text <: r"(?i)(?s).*(?:(?-u:\b)tenants?(?-u:\b)).*",
+  register_diagnostic(span=$member, message="Locale terminology: use Organización (es), organisation (fr) or organizzazione (it) instead of the tenant loanword (fw#2200). Role names like TenantAdmin are fine.", severity="error")
+}

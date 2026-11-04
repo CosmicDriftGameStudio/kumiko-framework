@@ -398,7 +398,6 @@ export async function loadAggregateAsOf(
 // the next CRUD write to fail with version_conflict. Indexed lookup on the
 // existing (aggregate_id, version) unique index. Returns 0 for empty/unknown
 // streams (matches create()'s expectedVersion=0 convention).
-// @wrapper-known semantic-alias
 export async function getStreamVersion(
   db: DbRunner,
   aggregateId: string,
@@ -420,7 +419,6 @@ export async function getStreamVersions(
  *  membership. Only call from seed/system-internal paths (idempotency checks
  *  against a known aggregateId) — never from a handler reachable with
  *  caller-controlled input. */
-// @wrapper-known semantic-alias
 export async function getUnscopedAggregateStreamMaxVersion(
   db: DbRunner,
   aggregateId: string,
@@ -432,7 +430,6 @@ export async function getUnscopedAggregateStreamMaxVersion(
 // projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
 // the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
 // (boot, fresh tenant, post-archive).
-// @wrapper-known semantic-alias
 /** Seed/orphan helper — prefer this over importing the restricted existence-oracle by name. */
 export async function getUnscopedStreamMaxVersionForSeed(
   ...args: Parameters<typeof getUnscopedAggregateStreamMaxVersion>

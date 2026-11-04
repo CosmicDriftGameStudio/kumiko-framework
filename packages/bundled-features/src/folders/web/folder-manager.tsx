@@ -113,7 +113,7 @@ export function FolderManager({
   const [pendingDelete, setPendingDelete] = useState<FolderNode | null>(null);
 
   // Persist expand/collapse so a reload (F5) doesn't re-expand everything.
-  // kumiko-lint-ignore no-raw-hooks DOM integration: writes to window.localStorage, no framework query/mutation equivalent
+  // biome-ignore lint/plugin: DOM integration: writes to window.localStorage, no framework query/mutation equivalent
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -283,7 +283,7 @@ export function FolderManager({
     onClick: () => void,
     danger?: boolean,
   ): ReactNode => (
-    // kumiko-lint-ignore primitives-discipline: compact icon action for the Finder-style tree row; the full Button primitive would break the dense single-row layout
+    // biome-ignore lint/plugin: compact icon action for the Finder-style tree row; the full Button primitive would break the dense single-row layout
     <button
       type="button"
       disabled={busy}
@@ -308,7 +308,7 @@ export function FolderManager({
     expandable: boolean,
   ): ReactNode =>
     expandable ? (
-      // kumiko-lint-ignore primitives-discipline: dense Finder-row toggle (chevron + name); the Button primitive would break the single-row layout
+      // biome-ignore lint/plugin: dense Finder-row toggle (chevron + name); the Button primitive would break the single-row layout
       <button
         type="button"
         aria-expanded={expanded}
@@ -335,7 +335,7 @@ export function FolderManager({
     );
 
   const draftRow = (depth: number, key: string, stripe: boolean): ReactNode => (
-    // kumiko-lint-ignore primitives-discipline: native form only to capture Enter-to-submit on the inline draft field
+    // biome-ignore lint/plugin: native form only to capture Enter-to-submit on the inline draft field
     <form
       key={key}
       className={rowClass(stripe, false)}
@@ -374,7 +374,7 @@ export function FolderManager({
   const leafRow = (leaf: FolderLeaf, depth: number, stripe: boolean): ReactNode => {
     const LeafIcon = filing?.leafIcon ?? File;
     return (
-      // kumiko-lint-ignore primitives-discipline: draggable Finder-style leaf row; the Button primitive can't be a dense, full-row drag source
+      // biome-ignore lint/plugin: draggable Finder-style leaf row; the Button primitive can't be a dense, full-row drag source
       <button
         key={`leaf-${leaf.id}`}
         type="button"
@@ -448,7 +448,7 @@ export function FolderManager({
   // Subtle in-tree row to add a root folder (replaces the old floating toolbar
   // button, which caused an ugly header jump in hosts with their own actions).
   const newRootRow = (): ReactNode => (
-    // kumiko-lint-ignore primitives-discipline: dense Finder-row action (add root folder); the Button primitive would break the row layout
+    // biome-ignore lint/plugin: dense Finder-row action (add root folder); the Button primitive would break the row layout
     <button
       type="button"
       disabled={busy}

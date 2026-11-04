@@ -103,5 +103,9 @@ export function GroupBand({
       );
     case "groupMore":
       return <GroupLoadMore item={item} />;
+    default: {
+      const exhaustiveCheck: never = item;
+      return exhaustiveCheck;
+    }
   }
 }

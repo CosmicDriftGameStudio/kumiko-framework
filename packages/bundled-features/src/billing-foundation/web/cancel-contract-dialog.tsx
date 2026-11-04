@@ -30,7 +30,7 @@ const DECLARATION_TYPES: readonly ContractTerminationDeclarationType[] = [
 ];
 const TERMINATION_KINDS: readonly ContractTerminationKind[] = ["ordinary", "extraordinary"];
 
-// kumiko-lint-ignore no-custom-primitives Uses usePrimitives().Modal internally, name is a billing domain action, not a primitive reimplementation
+// biome-ignore lint/plugin: Uses usePrimitives().Modal internally, name is a billing domain action, not a primitive reimplementation
 export function CancelContractDialog({
   open,
   onOpenChange,

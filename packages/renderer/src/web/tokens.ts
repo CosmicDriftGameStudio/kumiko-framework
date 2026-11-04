@@ -99,12 +99,10 @@ function readCurrentPreference(): ThemePreference {
   return currentPreference;
 }
 
-// @wrapper-known semantic-alias
 function notifyThemeChange(): void {
   themeTick.setState((t) => t + 1);
 }
 
-// @wrapper-known semantic-alias
 function persistPreference(preference: ThemePreference): void {
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, preference);

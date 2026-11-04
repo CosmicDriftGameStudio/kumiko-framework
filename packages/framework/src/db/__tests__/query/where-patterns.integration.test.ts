@@ -208,7 +208,7 @@ describe("where — date column", () => {
 });
 
 describe("where — multi-field AND", () => {
-  test("zwei Felder kombiniert (UND-Semantik)", async () => {
+  test("two fields combined (AND semantics)", async () => {
     await withTable(strNumCols, async ({ db, meta }) => {
       await insertMany(db, meta, [
         { label: "target", score: 7 },

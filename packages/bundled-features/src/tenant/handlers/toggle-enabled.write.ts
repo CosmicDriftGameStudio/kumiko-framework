@@ -30,7 +30,7 @@ function createToggleTenantHandler(enable: boolean) {
       );
       return crud.update({ id: event.payload.id, changes: { isEnabled: enable } }, event.user, db, {
         skipOptimisticLock: true,
-      }); // @wrapper-known semantic-alias
+      });
     },
   });
 }

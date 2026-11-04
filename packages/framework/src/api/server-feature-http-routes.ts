@@ -44,7 +44,6 @@ function mountFeatureHttpRoute(
   sessionOnlyHttpRouteGuards: readonly MiddlewareHandler[],
 ): void {
   const { dispatcher, clientIpResolver, rateLimitResolver, observability } = wiring;
-  // @wrapper-known semantic-alias
   const honoHandler = async (c: import("hono").Context): Promise<Response> =>
     route.handler(c, {
       app,

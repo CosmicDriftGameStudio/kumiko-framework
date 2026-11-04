@@ -12,7 +12,7 @@ This runbook lists the tools that exist and when to use which. It does not delet
 event.
 
 Never write to `kumiko_events`, `kumiko_snapshots` or `kumiko_archived_streams` with SQL. The
-guard `packages/guards/src/guard-event-store-writes.ts` exists because those writes bypass the
+Biome plugins `es-literal-writes` and `restricted-event-store-symbols` exist because those writes bypass the
 version-unique index, archive markers and tenant boundary.
 
 ## 1. Look before you rebuild (read-only)

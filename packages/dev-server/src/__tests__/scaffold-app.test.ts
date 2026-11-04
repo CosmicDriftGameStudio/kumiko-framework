@@ -309,7 +309,7 @@ describe("scaffoldApp", () => {
     expect(preset.vcs.useIgnoreFile).toBe(false);
   });
 
-  test("src/seed.ts bare return has a skip comment directly above it (kumiko-guard-silent-skip)", async () => {
+  test("src/seed.ts bare return has a skip comment directly above it (skip-comment convention)", async () => {
     const dest = join(tmp, "my-shop");
     await scaffoldApp({ name: "my-shop", destination: dest });
 

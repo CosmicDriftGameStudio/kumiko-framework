@@ -313,7 +313,7 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
     profile: "burstable" as const,
   };
 
-  test("ok → notifier NICHT aufgerufen", async () => {
+  test("ok → notifier not called", async () => {
     const ctx = stubCalendarCtx([{ value: 100, lastSoftWarnedAt: null }]);
     const notify = mock();
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
@@ -325,7 +325,7 @@ describe("enforceCapAndMaybeNotify — calendar", () => {
   // event-store executor, so it lives in cap-counter.integration.test.ts
   // scenario 6 instead of a mock-ctx test here.
 
-  test("soft-hit, crossed=false (already warned) → notifier NICHT erneut aufgerufen", async () => {
+  test("soft-hit, crossed=false (already warned) → notifier not called again", async () => {
     const ctx = stubCalendarCtx([{ value: 1150, lastSoftWarnedAt: "2026-05-15T12:00:00Z" }]);
     const notify = mock();
     const result = await enforceCapAndMaybeNotify(ctx, { ...baseOpts, notify });
@@ -355,7 +355,7 @@ describe("enforceRollingCapAndMaybeNotify — rolling", () => {
     profile: "burstable" as const,
   };
 
-  test("ok → notifier NICHT aufgerufen", async () => {
+  test("ok → notifier not called", async () => {
     const ctx = stubRollingCtx([{ amount: 100 }]);
     const notify = mock();
     const result = await enforceRollingCapAndMaybeNotify(ctx, { ...baseOpts, notify });

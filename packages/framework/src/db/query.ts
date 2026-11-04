@@ -275,7 +275,6 @@ function tenantDbDelegate(db: unknown): TenantDbDelegate | undefined {
 
 // Fails loudly for helpers that don't delegate to TenantDb (upsert/increment/insertMany) —
 // passing one here would otherwise reach asRawClient and throw with a less specific message.
-// @wrapper-known semantic-alias
 function assertNotTenantScoped(db: unknown, fnName: string): void {
   if (tenantDbDelegate(db) !== undefined) {
     throw new Error(

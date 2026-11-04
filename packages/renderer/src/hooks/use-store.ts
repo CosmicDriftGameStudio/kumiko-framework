@@ -15,7 +15,6 @@ import type { Store } from "../headless/index.ts";
 // a re-render loop. The `equals` argument handles this case: when the
 // selection is equal, the cached identity is returned and no re-render occurs.
 
-// @wrapper-known semantic-alias
 export function useStore<T>(store: Store<T>): T {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }

@@ -15,7 +15,6 @@ export type ExportJobCleanupCandidate = {
   readonly startedAt: Temporal.Instant | null;
 };
 
-// @wrapper-known semantic-alias
 export async function selectExportJobsForStorageCleanup(
   db: DbConnection,
   doneStatus: string,

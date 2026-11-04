@@ -3,9 +3,9 @@
 // Specification and behavior: docs/plans/features/event-store-admin-api.md
 //
 // Guard rail: this module is NOT re-exported from event-store/index.ts. Import only via the deep
-// path `@cosmicdrift/kumiko-framework/event-store/admin-api`. The guard script
-// `scripts/guard-admin-api.ts` blocks calls from application code. Allowlist: samples/*/migration/,
-// scripts/migrations/, this definition, and the guard script itself.
+// path `@cosmicdrift/kumiko-framework/event-store/admin-api`. The Biome plugin
+// `restricted-event-store-symbols` blocks calls from application code. Allowlist: samples/*/migration/,
+// scripts/migrations/, and this definition.
 
 import { instantToTimestamptzParam } from "../db/driver-value-preparation.ts";
 import type { DbRunner } from "../db/index.ts";

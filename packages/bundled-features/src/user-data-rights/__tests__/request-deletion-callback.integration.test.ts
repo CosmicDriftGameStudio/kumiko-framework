@@ -121,7 +121,7 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
     expect(call?.gracePeriodEnd).toBe(result.gracePeriodEnd);
   });
 
-  test("best-effort: send-throw killt Status-Flip NICHT (DB-State + Response success)", async () => {
+  test("best-effort: send-throw does not kill the status flip (DB state + response success)", async () => {
     state.shouldThrow = true;
     await seedAlice();
 
@@ -144,13 +144,13 @@ describe("request-deletion :: sendDeletionRequestedEmail callback", () => {
     expect(rows[0]?.status).toBe(USER_STATUS.DeletionRequested);
   });
 
-  test("422 user_not_found → callback NICHT gefeuert", async () => {
+  test("422 user_not_found → callback not fired", async () => {
     // Alice was not seeded, so the pre-check fails.
     await stack.http.writeErr(REQUEST_DELETION, {}, aliceUser);
     expect(state.calls).toHaveLength(0);
   });
 
-  test("422 user_not_in_active_state → callback NICHT gefeuert", async () => {
+  test("422 user_not_in_active_state → callback not fired", async () => {
     await seedRowViaEventStore(stack.db, userTable, {
       id: aliceUser.id,
       email: "alice@example.com",

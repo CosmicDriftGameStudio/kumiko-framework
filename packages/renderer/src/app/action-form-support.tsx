@@ -121,6 +121,10 @@ export function ActionFormLoadStatus({
           the path or the clicked row.
         </Banner>
       );
+    default: {
+      const exhaustiveCheck: never = state;
+      return exhaustiveCheck;
+    }
   }
 }
 

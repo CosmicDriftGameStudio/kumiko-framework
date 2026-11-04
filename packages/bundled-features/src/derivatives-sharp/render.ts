@@ -249,15 +249,15 @@ const SOURCE_FORMAT_ENCODERS: Record<string, (pipeline: Sharp, quality?: number)
 function applyEncoder(pipeline: Sharp, spec: VariantSpec, sourceMimeType: string): Sharp {
   const quality = spec.quality;
 
-  if (spec.format) {
-    switch (spec.format) {
-      case "webp":
-        return pipeline.webp(quality !== undefined ? { quality } : undefined);
-      case "avif":
-        return pipeline.avif(quality !== undefined ? { quality } : undefined);
-      case "jpeg":
-        return pipeline.jpeg(quality !== undefined ? { quality } : undefined);
-    }
+  switch (spec.format) {
+    case "webp":
+      return pipeline.webp(quality !== undefined ? { quality } : undefined);
+    case "avif":
+      return pipeline.avif(quality !== undefined ? { quality } : undefined);
+    case "jpeg":
+      return pipeline.jpeg(quality !== undefined ? { quality } : undefined);
+    case undefined:
+      break;
   }
 
   const encode = SOURCE_FORMAT_ENCODERS[sourceMimeType];

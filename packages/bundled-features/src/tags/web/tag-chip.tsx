@@ -5,7 +5,7 @@
 // styles (pattern from config-source-badge.tsx) so it renders the same in the
 // picker, on cards and in screenshots without depending on Tailwind tokens.
 
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 // YIQ perceived brightness → black text on light backgrounds, white on dark.
 // Returns null for anything that isn't a #rgb/#rrggbb hex so the caller can use
@@ -33,8 +33,7 @@ function hexToRgb(color: string): { r: number; g: number; b: number } | null {
   };
 }
 
-// kumiko-lint-ignore no-inline-styles Tag color is user-defined (hex from the DB), no finite token palette possible
-const BASE_STYLE: CSSProperties = {
+const BASE_STYLE = {
   display: "inline-flex",
   alignItems: "center",
   padding: "0 8px",
@@ -43,7 +42,7 @@ const BASE_STYLE: CSSProperties = {
   lineHeight: "20px",
   borderRadius: "9999px",
   whiteSpace: "nowrap",
-};
+} as const;
 
 const NEUTRAL = { backgroundColor: "#e5e7eb", color: "#374151" } as const;
 
@@ -71,7 +70,7 @@ export function TagChip({
   const fg = color != null && color !== "" ? contrastText(color) : null;
   const palette = fg !== null && color != null ? { backgroundColor: color, color: fg } : NEUTRAL;
   return (
-    // kumiko-lint-ignore no-inline-styles Tag color is user-defined (hex from the DB), no finite token palette possible
+    // biome-ignore lint/style/noInlineStyles: Tag color is user-defined (hex from the DB), no finite token palette possible
     <span data-testid="tag-chip" style={{ ...BASE_STYLE, ...palette }}>
       {name}
     </span>

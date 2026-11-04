@@ -23,6 +23,6 @@ export const listQuery = defineQueryHandler({
       "tenant:query:list",
       "SystemAdmin lists tenants platform-wide",
     );
-    return crud.list(query.payload, query.user, db); // @wrapper-known semantic-alias
+    return crud.list(query.payload, query.user, db);
   },
 });

@@ -1,0 +1,142 @@
+language js
+
+or {
+  JsxOpeningElement(name=$tag) as $element where {
+    $tag <: or {
+      `input`,
+      `select`,
+      `textarea`,
+      `label`
+    },
+    register_diagnostic(span=$tag, message="Raw form element in app code: use the framework primitives (usePrimitives(): Input via Field, ComboboxInput) instead of input/select/textarea/label.", severity="error")
+  },
+  JsxSelfClosingElement(name=$tag) as $element where {
+    $tag <: or {
+      `input`,
+      `select`,
+      `textarea`,
+      `label`
+    },
+    register_diagnostic(span=$tag, message="Raw form element in app code: use the framework primitives (usePrimitives(): Input via Field, ComboboxInput) instead of input/select/textarea/label.", severity="error")
+  },
+  JsxOpeningElement(name=$tag) as $element where {
+    $tag <: or {
+      `a`,
+      `details`,
+      `summary`
+    },
+    $element <: within JsModule() as $module,
+    $module <: contains or {
+      `import $_ from "@cosmicdrift/kumiko-renderer/web"`,
+      `import $_ from "@cosmicdrift/kumiko-renderer-web"`,
+      `usePrimitives`
+    },
+    register_diagnostic(span=$tag, message="Raw interactive element in a file that has the primitives: use usePrimitives().Link for a, CollapsibleSection (@cosmicdrift/kumiko-renderer/web) for details/summary.", severity="error")
+  },
+  JsxSelfClosingElement(name=$tag) as $element where {
+    $tag <: or {
+      `a`,
+      `details`,
+      `summary`
+    },
+    $element <: within JsModule() as $module,
+    $module <: contains or {
+      `import $_ from "@cosmicdrift/kumiko-renderer/web"`,
+      `import $_ from "@cosmicdrift/kumiko-renderer-web"`,
+      `usePrimitives`
+    },
+    register_diagnostic(span=$tag, message="Raw interactive element in a file that has the primitives: use usePrimitives().Link for a, CollapsibleSection (@cosmicdrift/kumiko-renderer/web) for details/summary.", severity="error")
+  },
+  JsxAttribute(name=`className`, initializer=$classes) where {
+    $classes <: includes or {
+      "bg-",
+      "text-",
+      "border-",
+      "ring-",
+      "fill-",
+      "stroke-",
+      "from-",
+      "via-",
+      "to-",
+      "outline-",
+      "decoration-",
+      "divide-",
+      "accent-",
+      "caret-",
+      "shadow"
+    },
+    $classes <: r"(?s).*(?:(?:^|[ \t\n\r\"'`:])(?:(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|divide|accent|caret)-(?:red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|slate|gray|zinc|neutral|stone)-[0-9]+(?:/[0-9]+)?|(?:bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|divide|accent|caret)-\[(?:#|rgb|hsl|oklch|color-mix)[^ \t\n\r\"'`}]*|shadow(?:-[^ \t\n\r\"'`}]+)?)(?:$|[ \t\n\r\"'`}])).*",
+    register_diagnostic(span=$classes, message="Design-bearing Tailwind classes (palette colours, arbitrary colours, shadow) belong in widgets and theme tokens (--color-status-*), not in screen code.", severity="error")
+  },
+  JsFunctionDeclaration(id=$name) where {
+    $name <: includes or {
+      "Card",
+      "Table",
+      "Badge",
+      "Button",
+      "Chart",
+      "Modal",
+      "Dialog",
+      "Tooltip",
+      "Spinner",
+      "Sparkline",
+      "ProgressBar",
+      "MiniStat",
+      "EmptyState",
+      "LoadingState",
+      "ErrorState",
+      "ModeSwitch",
+      "Collapsible",
+      "DetailList",
+      "MessageThread",
+      "MessageReader",
+      "StepList",
+      "MobileTopBar",
+      "ClampedText",
+      "AttachmentChip",
+      "AttachmentCard",
+      "HtmlMailFrame",
+      "SenderSheet",
+      "SenderFrame",
+      "AiSurface"
+    },
+    $name <: r"^[A-Z][A-Za-z0-9_]*(?:Card|Table|Badge|Button|Chart|Modal|Dialog|Tooltip|Spinner|Sparkline)$|^(?:ProgressBar|MiniStat|StatCard|EmptyState|LoadingState|ErrorState|ModeSwitch|Collapsible[A-Za-z0-9_]*|DetailList|MessageThread|MessageReader|StepList|MobileTopBar|ClampedText|AttachmentChip|AttachmentCard|HtmlMailFrame|SenderSheet|SenderFrame|AiSurface)$",
+    register_diagnostic(span=$name, message="App-local UI primitive: use a framework widget or primitive (@cosmicdrift/kumiko-renderer/web: StatCard, SectionCard, StatusBadge, QueryTable, Charts, ...) or usePrimitives().", severity="error")
+  },
+  JsVariableDeclarator(id=$name, initializer=$init) where {
+    $name <: includes or {
+      "Card",
+      "Table",
+      "Badge",
+      "Button",
+      "Chart",
+      "Modal",
+      "Dialog",
+      "Tooltip",
+      "Spinner",
+      "Sparkline",
+      "ProgressBar",
+      "MiniStat",
+      "EmptyState",
+      "LoadingState",
+      "ErrorState",
+      "ModeSwitch",
+      "Collapsible",
+      "DetailList",
+      "MessageThread",
+      "MessageReader",
+      "StepList",
+      "MobileTopBar",
+      "ClampedText",
+      "AttachmentChip",
+      "AttachmentCard",
+      "HtmlMailFrame",
+      "SenderSheet",
+      "SenderFrame",
+      "AiSurface"
+    },
+    $init <: contains JsArrowFunctionExpression(),
+    $name <: r"^[A-Z][A-Za-z0-9_]*(?:Card|Table|Badge|Button|Chart|Modal|Dialog|Tooltip|Spinner|Sparkline)$|^(?:ProgressBar|MiniStat|StatCard|EmptyState|LoadingState|ErrorState|ModeSwitch|Collapsible[A-Za-z0-9_]*|DetailList|MessageThread|MessageReader|StepList|MobileTopBar|ClampedText|AttachmentChip|AttachmentCard|HtmlMailFrame|SenderSheet|SenderFrame|AiSurface)$",
+    register_diagnostic(span=$name, message="App-local UI primitive: use a framework widget or primitive (@cosmicdrift/kumiko-renderer/web: StatCard, SectionCard, StatusBadge, QueryTable, Charts, ...) or usePrimitives().", severity="error")
+  }
+}

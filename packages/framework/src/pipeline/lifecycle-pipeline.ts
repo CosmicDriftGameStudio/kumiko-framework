@@ -287,8 +287,8 @@ export function createLifecycleHooks(
         payload: result,
         context,
         entityName: result.entityName,
-        getHandlerHooks: (n) => registry.getPostSaveHooks(n, phase, eff), // @wrapper-known semantic-alias
-        getEntityHooks: (n) => registry.getEntityPostSaveHooks(n, phase, eff), // @wrapper-known semantic-alias
+        getHandlerHooks: (n) => registry.getPostSaveHooks(n, phase, eff),
+        getEntityHooks: (n) => registry.getEntityPostSaveHooks(n, phase, eff),
         systemHookDefs: systemHooks.postSave,
         phaseLabel: `postSave:${phase}`,
         hookPhase: phase,
@@ -329,8 +329,8 @@ export function createLifecycleHooks(
         payload,
         context,
         entityName: payload.entityName,
-        getHandlerHooks: (n) => registry.getPostDeleteHooks(n, phase, eff), // @wrapper-known semantic-alias
-        getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase, eff), // @wrapper-known semantic-alias
+        getHandlerHooks: (n) => registry.getPostDeleteHooks(n, phase, eff),
+        getEntityHooks: (n) => registry.getEntityPostDeleteHooks(n, phase, eff),
         systemHookDefs: systemHooks.postDelete,
         phaseLabel: `postDelete:${phase}`,
         hookPhase: phase,

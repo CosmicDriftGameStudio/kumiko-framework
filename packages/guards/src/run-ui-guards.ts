@@ -9,24 +9,10 @@ import {
   runGuards,
 } from "./_lib/guard-kit";
 import { guard as i18nUiStrings } from "./guard-i18n-ui-strings";
-import { guard as noCustomPrimitives } from "./guard-no-custom-primitives";
 import { guard as noFramedExtensionSections } from "./guard-no-framed-extension-sections";
-import { guard as noInlineStyles } from "./guard-no-inline-styles";
-import { guard as noRawHooks } from "./guard-no-raw-hooks";
-import { guard as rawClassname } from "./guard-raw-classname";
-import { guard as rawInteractiveElements } from "./guard-raw-interactive-elements";
 import { guard as tailwindScanSurface } from "./guard-tailwind-scan-surface";
 
-export const UI_GUARDS = [
-  rawClassname,
-  noInlineStyles,
-  noCustomPrimitives,
-  noFramedExtensionSections,
-  noRawHooks,
-  tailwindScanSurface,
-  rawInteractiveElements,
-  i18nUiStrings,
-];
+export const UI_GUARDS = [noFramedExtensionSections, tailwindScanSurface, i18nUiStrings];
 
 // No flags today — the array stays so an unknown flag still fails loud
 // instead of silently doing nothing, and so a future flag has one place to land.

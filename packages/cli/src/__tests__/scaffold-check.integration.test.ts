@@ -98,6 +98,8 @@ const STEP_EXPECTATIONS: readonly (readonly [CheckStepId, string | undefined])[]
   ["guards", undefined],
   ["ui", undefined],
   ["checks", undefined],
+  ["lint", undefined],
+  ["agent", undefined],
   ["managed", "managed file(s) match the installed template"],
   ["scripts", "all standard scripts present"],
 ];

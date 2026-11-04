@@ -300,7 +300,7 @@ describe("Form = one Card, Sections as inner sections", () => {
 });
 
 describe("DefaultSection Card-Standard (subtitle + title-row actions)", () => {
-  test("standalone: subtitle rendert muted, KEIN Divider unterm Titel", () => {
+  test("standalone: subtitle renders muted, no divider under the title", () => {
     render(
       <Section testId="sc" title="Ergebnis" subtitle="Kontext-Zeile">
         <div>x</div>

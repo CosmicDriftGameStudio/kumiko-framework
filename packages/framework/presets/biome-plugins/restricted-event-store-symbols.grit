@@ -1,0 +1,18 @@
+language js
+
+or {
+  JsReferenceIdentifier(),
+  JsIdentifierBinding(),
+  JsLiteralExportName(),
+  JsName()
+} as $symbol where {
+  $symbol <: or {
+    "getUnscopedAggregateStreamMaxVersion",
+    "getUnscopedAggregateStreamTenant",
+    "appendEventInTenantDb",
+    "getStreamVersionInTenantDb",
+    "createTenantDataDestroyDb",
+    "withExecutorManagedWritesForTests"
+  },
+  register_diagnostic(span=$symbol, message="Restricted event-store primitive. The getUnscoped* readers are an existence oracle for foreign tenants, appendEventInTenantDb/getStreamVersionInTenantDb skip the feature-ownership check of ctx.events.append, createTenantDataDestroyDb belongs to the tenant-destroy stage and withExecutorManagedWritesForTests is a test seam. Only seed-/system-internal framework code may reference them.", severity="error")
+}

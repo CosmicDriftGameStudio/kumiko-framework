@@ -28,8 +28,9 @@ const SCAN: ScanSpec = { scope: "tests", extensions: ["ts"], kinds: ["framework"
 const ALLOWLIST: readonly RegExp[] = [
   // Home of the helpers.
   /^packages\/testing\/src\//,
-  // The guard's own fixtures.
+  // The guard's own fixtures and the Biome plugin fixtures of the same rule.
   /^packages\/guards\/src\/__tests__\//,
+  /^packages\/framework\/src\/presets\/__tests__\//,
   // Simulates event-less legacy rows for the backfill.
   /^packages\/bundled-features\/src\/user-data-rights\/__tests__\/read-users-rebuild-survives-lifecycle\.integration\.test\.ts$/,
   // Stands in for the handover move, which itself writes directly.

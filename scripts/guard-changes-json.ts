@@ -11,7 +11,7 @@
  * Exit 1 on violations, 0 when clean.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Glob } from "bun";
 import { gitEnv } from "@cosmicdrift/kumiko-guards";

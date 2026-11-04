@@ -185,7 +185,7 @@ export function SessionProvider({
     }
   }, []);
 
-  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
+  // biome-ignore lint/plugin: not yet converted to the framework hook set
   useEffect(() => {
     void doRefresh();
   }, [doRefresh]);
@@ -193,7 +193,7 @@ export function SessionProvider({
   const sessionEndedSignal = useSessionEndedSignal();
   // Only an authenticated session can "end": an anonymous 401 on a public
   // surface must not show the hint.
-  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
+  // biome-ignore lint/plugin: not yet converted to the framework hook set
   useEffect(() => {
     return sessionEndedSignal?.subscribe(() => {
       setState((prev) =>

@@ -336,7 +336,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     // skip: no registry-derived default — callers configure tenants explicitly.
     if (!defaultConfig) return;
     const existing = configuredTenants.get(tenantId);
-    if (existing) {
+    if (existing !== undefined) {
       await existing;
       // skip: configured (or in flight) already for this tenant.
       return;

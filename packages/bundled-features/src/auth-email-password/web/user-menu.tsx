@@ -122,7 +122,7 @@ export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNo
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* kumiko-lint-ignore primitives-discipline radix-asChild requires a DOM element as the trigger; the native version in .native.tsx uses ActionSheet */}
+        {/* biome-ignore lint/plugin: radix-asChild requires a DOM element as the trigger; the native version in .native.tsx uses ActionSheet */}
         <button
           type="button"
           className={cn(

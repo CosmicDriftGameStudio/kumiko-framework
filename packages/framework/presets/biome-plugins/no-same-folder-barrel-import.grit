@@ -1,0 +1,11 @@
+language js
+
+or {
+  `import $_ from "./index"`,
+  `import $_ from "./index.ts"`,
+  `import $_ from "."`,
+  `import $_ from "./"`
+} as $import where {
+  not $import <: r"(?s)^import[ \t\n\r]+type[ \t\n\r].*",
+  register_diagnostic(span=$import, message="Import siblings directly (./Component), not through the folder's own barrel: barrel-importing from inside the same folder creates require cycles.", severity="error")
+}

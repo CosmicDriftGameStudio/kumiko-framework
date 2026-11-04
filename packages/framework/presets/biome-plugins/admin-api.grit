@@ -1,0 +1,10 @@
+language js
+
+or {
+  `$target.appendRaw($...)`,
+  `$target.appendRawBatch($...)`,
+  `appendRaw($...)`,
+  `appendRawBatch($...)`
+} as $call where {
+  register_diagnostic(span=$call, message="Admin API (appendRaw/appendRawBatch) bypasses the pipeline and is only allowed in samples/*/migration/, scripts/migrations/ and the event-store admin-api itself. For domain events use ctx.events.append or a write handler.", severity="error")
+}

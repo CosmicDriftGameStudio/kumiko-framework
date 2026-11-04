@@ -64,13 +64,14 @@ function ColorPicker({
     <div className="flex items-center gap-2">
       <div className="flex flex-wrap gap-1">
         {PRESET_COLORS.map((c) => (
-          // kumiko-lint-ignore primitives-discipline color swatch needs a raw colored button — Button is variant-styled. kumiko-lint-ignore no-inline-styles Preset swatch color is user-defined (hex), no finite token palette possible
+          // biome-ignore lint/plugin: color swatch needs a raw colored button — Button is variant-styled.
           <button
             key={c}
             type="button"
             aria-label={c}
             data-testid={`${idPrefix}-swatch-${c}`}
             onClick={() => onChange(c)}
+            // biome-ignore lint/style/noInlineStyles: Preset swatch color is user-defined (hex), no finite token palette possible
             style={{
               width: 22,
               height: 22,

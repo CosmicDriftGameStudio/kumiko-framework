@@ -37,7 +37,7 @@ export function expandCliPreset(
 
   const command = interpolate(preset.template, merged);
 
-  let waitMs = preset.waitMs;
+  const waitMs = preset.waitMs;
   let waitForPort: number | undefined;
   if (preset.wait === "port" && preset.waitForPort !== undefined) {
     const portStr = interpolate(String(preset.waitForPort), merged);

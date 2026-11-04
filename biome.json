@@ -11,6 +11,9 @@
       "packages/**",
       "samples/**",
       "app/**",
+      "scripts/**",
+      "bin/**",
+      "apps/**",
       "!**/drizzle/migrations",
       "!**/dist",
       "!**/dist-server",
@@ -62,30 +65,6 @@
     "parser": {
       "cssModules": false,
       "tailwindDirectives": true
-    }
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "preset": "recommended",
-      "correctness": {
-        "noUnusedVariables": "error",
-        "noUnusedImports": "error"
-      },
-      "suspicious": {
-        "noExplicitAny": "error",
-        "noDebugger": "error",
-        "noConsole": "warn"
-      },
-      "complexity": {
-        "useLiteralKeys": "off"
-      },
-      "style": {
-        "useConst": "error"
-      },
-      "nursery": {
-        "noFloatingPromises": "error"
-      }
     }
   },
   "overrides": [
@@ -164,6 +143,9 @@
                   "temporal-polyfill": {
                     "importNames": ["Temporal"],
                     "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+                  },
+                  "temporal-polyfill/global": {
+                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
                   }
                 }
               }
@@ -171,6 +153,12 @@
           }
         }
       }
+    },
+    {
+      "includes": ["scripts/**", "bin/**", "apps/**"],
+      "formatter": { "enabled": false },
+      "linter": { "rules": { "recommended": false } },
+      "assist": { "enabled": false }
     },
     {
       "includes": ["packages/types/src/temporal.ts"],
@@ -182,5 +170,6 @@
         }
       }
     }
-  ]
+  ],
+  "extends": ["./packages/framework/presets/biome-rules.json"]
 }

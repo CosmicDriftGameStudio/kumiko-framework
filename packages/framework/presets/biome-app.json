@@ -1,5 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "extends": ["./biome-rules.json"],
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -31,7 +32,10 @@
     "lineEnding": "lf"
   },
   "css": {
-    "parser": { "cssModules": false, "tailwindDirectives": true }
+    "parser": {
+      "cssModules": false,
+      "tailwindDirectives": true
+    }
   },
   "javascript": {
     "formatter": {
@@ -42,23 +46,10 @@
       "arrowParentheses": "always"
     }
   },
-  "json": { "formatter": { "indentWidth": 2, "lineWidth": 80 } },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "preset": "recommended",
-      "correctness": {
-        "noUnusedVariables": "error",
-        "noUnusedImports": "error"
-      },
-      "suspicious": {
-        "noExplicitAny": "error",
-        "noDebugger": "error",
-        "noConsole": "warn"
-      },
-      "complexity": { "useLiteralKeys": "off" },
-      "style": { "useConst": "error" },
-      "nursery": { "noFloatingPromises": "error" }
+  "json": {
+    "formatter": {
+      "indentWidth": 2,
+      "lineWidth": 80
     }
   },
   "overrides": [
@@ -66,7 +57,9 @@
       "includes": ["bin/**", "scripts/**", "**/bin/**", "**/scripts/**"],
       "linter": {
         "rules": {
-          "suspicious": { "noConsole": "off" }
+          "suspicious": {
+            "noConsole": "off"
+          }
         }
       }
     },
@@ -79,8 +72,33 @@
       ],
       "linter": {
         "rules": {
-          "suspicious": { "noConsole": "off" },
-          "style": { "noNonNullAssertion": "off" }
+          "suspicious": {
+            "noConsole": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/bin/**/*.ts",
+        "**/src/**/*.ts",
+        "!**/bin/env.ts",
+        "!**/bin/server.ts",
+        "!**/bin/kumiko.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.integration.ts",
+        "!**/*.d.ts",
+        "!**/node_modules/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "error"
+          }
         }
       }
     }

@@ -1,0 +1,34 @@
+language js
+
+or {
+  `$callee.skip($title, $...)` where {
+    $callee <: or {
+      `test`,
+      `it`,
+      `describe`
+    },
+    $title <: or {
+      JsStringLiteralExpression(),
+      JsTemplateExpression()
+    },
+    register_diagnostic(span=$callee, message="Unconditionally skipped test. Fix or delete it; an environment gate belongs in skipIf(condition) with the reason in the title.", severity="error")
+  },
+  `$callee($title, $fn, { $..., retry: $count, $... })` where {
+    $callee <: or {
+      `test`,
+      `it`,
+      `describe`
+    },
+    $count <: not `0`,
+    register_diagnostic(span=$count, message="A retry count hides a flaky test. Find the shared state or missing wait behind the flake instead.", severity="error")
+  },
+  `$callee($title, { $..., retry: $count, $... }, $fn)` where {
+    $callee <: or {
+      `test`,
+      `it`,
+      `describe`
+    },
+    $count <: not `0`,
+    register_diagnostic(span=$count, message="A retry count hides a flaky test. Find the shared state or missing wait behind the flake instead.", severity="error")
+  }
+}

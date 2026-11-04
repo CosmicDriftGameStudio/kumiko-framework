@@ -193,7 +193,7 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
   deps.cacheSync?.onResync(() => cache.clear());
   const resolveProvider = (tenantId: TenantId): Promise<FileStorageProvider> => {
     const cached = cache.get(tenantId);
-    if (cached) return cached;
+    if (cached !== undefined) return cached;
     const built = (async () => {
       if (!deps.registry || !deps.configAccessorFactory || !deps.db) {
         throw new Error(

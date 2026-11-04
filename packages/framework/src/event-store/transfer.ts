@@ -1,6 +1,6 @@
 // The event store's own tenant-transfer primitive: the ONE place allowed to
 // move a stream across the tenant boundary (enforced by
-// guard-event-store-writes' allowlist). Each move leaves an audit event in
+// the es-literal-writes plugin allowlist). Each move leaves an audit event in
 // the destination tenant.
 //
 // Runs entirely on the caller-supplied DbRunner, so the move rides whatever

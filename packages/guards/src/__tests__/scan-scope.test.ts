@@ -7,8 +7,7 @@ import { type AstGuard, checkRootFloor, runGuards } from "../_lib/guard-kit";
 import { findLocalRepo, type RepoRoot } from "../_lib/roots";
 import { keepsRootKind, type ScanSpec, scanFiles, scanRoots } from "../_lib/scan-scope";
 import { guard as htmlEscape } from "../guard-html-escape";
-import { guard as restrictedSymbols } from "../guard-restricted-symbols";
-import { guard as unsafeJsonParse } from "../guard-unsafe-json-parse";
+import { guard as internalSubpathImports } from "../guard-internal-subpath-imports";
 import { loadRepoManifest, type RepoManifest, RepoManifestError } from "../repo-manifest/index.ts";
 import { GUARDS } from "../run-guards";
 
@@ -250,11 +249,10 @@ describe("kinds filter excludes roots (g)", () => {
 
     const securityShaped = [
       ...GUARDS.filter((guard) => guard.security === true),
-      unsafeJsonParse,
       htmlEscape,
-      restrictedSymbols,
+      internalSubpathImports,
     ];
-    expect(securityShaped.length).toBeGreaterThanOrEqual(8);
+    expect(securityShaped.length).toBeGreaterThanOrEqual(4);
     for (const guard of securityShaped) {
       expect({ guard: guard.name, scanned: keepsRootKind(guard.scan, root) }).toEqual({
         guard: guard.name,

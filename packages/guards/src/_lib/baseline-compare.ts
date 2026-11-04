@@ -34,8 +34,7 @@ export function compareToBaseline(
   return { regressions, reduced, reductions };
 }
 
-// Shared by the import/symbol-restriction guards (guard-no-direct-fs,
-// guard-restricted-symbols): relativize an absolute file path against the
+// Shared by the path-allowlist guards: relativize an absolute file path against the
 // real repo root so ALLOWLIST/EXCLUDE regexes match a stable, anchored path
 // instead of an arbitrary substring. resolveRepoRoots() finds the repo the
 // path actually lives under; the marker-slice below is a fallback ONLY for

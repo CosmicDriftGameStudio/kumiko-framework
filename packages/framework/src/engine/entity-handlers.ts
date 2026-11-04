@@ -707,7 +707,6 @@ export function defineEntityQueryHandler(
 // would need a Branded-EntityDefinition with `softDelete: true` literal
 // — feasible but not yet wired; the runtime guard catches misuse.
 
-// @wrapper-known semantic-alias
 export function defineEntityCreateHandler(
   entityName: string,
   entity: EntityDefinition,
@@ -716,7 +715,6 @@ export function defineEntityCreateHandler(
   return defineEntityWriteHandler(`${entityName}:create`, entity, options);
 }
 
-// @wrapper-known semantic-alias
 export function defineEntityUpdateHandler(
   entityName: string,
   entity: EntityDefinition,
@@ -725,7 +723,6 @@ export function defineEntityUpdateHandler(
   return defineEntityWriteHandler(`${entityName}:update`, entity, options);
 }
 
-// @wrapper-known semantic-alias
 export function defineEntityDeleteHandler(
   entityName: string,
   entity: EntityDefinition,
@@ -734,7 +731,6 @@ export function defineEntityDeleteHandler(
   return defineEntityWriteHandler(`${entityName}:delete`, entity, options);
 }
 
-// @wrapper-known semantic-alias
 export function defineEntityRestoreHandler(
   entityName: string,
   entity: EntityDefinition,
@@ -743,7 +739,6 @@ export function defineEntityRestoreHandler(
   return defineEntityWriteHandler(`${entityName}:restore`, entity, options);
 }
 
-// @wrapper-known semantic-alias
 export function defineEntityListHandler(
   entityName: string,
   entity: EntityDefinition,
@@ -752,7 +747,6 @@ export function defineEntityListHandler(
   return defineEntityQueryHandler(`${entityName}:list`, entity, options);
 }
 
-// @wrapper-known semantic-alias
 export function defineEntityDetailHandler(
   entityName: string,
   entity: EntityDefinition,
@@ -822,7 +816,7 @@ export function defineProjectionQueryHandler(
       ctx.dispatch.queryProjection(
         projectionQualifiedName,
         options.unsafeAllTenants ? { unsafeAllTenants: true } : undefined,
-      ), // @wrapper-known semantic-alias
+      ),
     access: options.access,
     ...(escapeHatch && { escapeHatch }),
   };
