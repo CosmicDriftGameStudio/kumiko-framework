@@ -1,17 +1,30 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { REPO_MANIFEST_FILE, type RepoManifest } from "@cosmicdrift/kumiko-guards/repo-manifest";
+import type { Output } from "../output";
 import type { CliCommand, CliCommandContext } from "./types";
 
 const APP_SCHEMA_FILE = "kumiko/schema.ts";
+const APP_CONFIG_FILE = "kumiko.config.ts";
+const BIOME_CONFIG_FILES = ["biome.json", "biome.jsonc"] as const;
 
-export type CheckStepId = "boot" | "guards" | "ui" | "checks" | "managed" | "scripts";
+export type CheckStepId =
+  | "boot"
+  | "guards"
+  | "ui"
+  | "checks"
+  | "lint"
+  | "agent"
+  | "managed"
+  | "scripts";
 
 const CHECK_STEP_IDS: readonly CheckStepId[] = [
   "boot",
   "guards",
   "ui",
   "checks",
+  "lint",
+  "agent",
   "managed",
   "scripts",
 ];
@@ -29,6 +42,10 @@ export type RepoFacts = {
   /** A `kind: "app"` repo without one is an app by role only (an Astro site, a
    *  docs repo) — there is no composed feature set for validateBoot to check. */
   readonly hasAppSchema: boolean;
+  /** `kumiko agent lint` loads kumiko.config.ts and fails without it. */
+  readonly hasAppConfig: boolean;
+  /** The repo lints with Biome (builtin rules plus the biome-rules plugins); without a config there is nothing to run. */
+  readonly hasBiomeConfig: boolean;
   readonly manifestSource: "file" | "derived";
 };
 
@@ -82,21 +99,40 @@ export function resolveCheckSteps(manifest: RepoManifest, facts: RepoFacts): Che
     label: "Repo checks",
     why: `kind "${manifest.kind}" — testGlobs ${manifest.testGlobs.join(", ")}`,
   });
-  if (manifest.kind === "app") {
-    steps.push(
-      {
-        id: "managed",
-        label: "Managed files",
-        why: 'kind "app" — framework-owned files against the installed template',
-      },
-      {
-        id: "scripts",
-        label: "Standard scripts",
-        why: 'kind "app" — package.json scripts against the script standard',
-      },
-    );
-  }
+  steps.push(...resolveLintAndAppSteps(manifest, facts));
   return { kind: "steps", steps, waivers };
+}
+
+function resolveLintAndAppSteps(manifest: RepoManifest, facts: RepoFacts): readonly CheckStep[] {
+  const steps: CheckStep[] = [];
+  if (facts.hasBiomeConfig) {
+    steps.push({
+      id: "lint",
+      label: "Biome lint",
+      why: `${BIOME_CONFIG_FILES.join(" or ")} present — biome lint over the repo (builtin rules and the biome-rules plugins that replaced single-file guards)`,
+    });
+  }
+  if (manifest.kind !== "app") return steps;
+  if (facts.hasAppConfig) {
+    steps.push({
+      id: "agent",
+      label: "Agent docs",
+      why: `kind "app" with ${APP_CONFIG_FILE} — kumiko agent lint over its composed features`,
+    });
+  }
+  steps.push(
+    {
+      id: "managed",
+      label: "Managed files",
+      why: 'kind "app" — framework-owned files against the installed template',
+    },
+    {
+      id: "scripts",
+      label: "Standard scripts",
+      why: 'kind "app" — package.json scripts against the script standard',
+    },
+  );
+  return steps;
 }
 
 export type GuardsCli = Pick<
@@ -112,6 +148,8 @@ export type SchemaCli = Pick<
 export type AppCheckSteps = {
   readonly runManagedCheckStep: typeof import("./check-managed").runManagedCheckStep;
   readonly runScriptsCheckStep: typeof import("./check-scripts").runScriptsCheckStep;
+  readonly runLintCheckStep: typeof import("./check-lint").runLintCheckStep;
+  readonly runAgentLint: (out: Output, repoRoot: string) => Promise<number>;
 };
 
 export type CheckDeps = {
@@ -127,6 +165,9 @@ const DEFAULT_DEPS: CheckDeps = {
   loadAppSteps: async () => ({
     runManagedCheckStep: (await import("./check-managed")).runManagedCheckStep,
     runScriptsCheckStep: (await import("./check-scripts")).runScriptsCheckStep,
+    runLintCheckStep: (await import("./check-lint")).runLintCheckStep,
+    runAgentLint: async (out, repoRoot) =>
+      (await import("./agent")).agentCommand.run({ argv: ["lint"], cwd: repoRoot, out }),
   }),
 };
 
@@ -239,6 +280,8 @@ function findCheckedRepo(ctx: CliCommandContext, guards: GuardsCli): LocalRepo |
 function printCheckPlan(ctx: CliCommandContext, repo: LocalRepo): readonly CheckStep[] | undefined {
   const plan = resolveCheckSteps(repo.manifest, {
     hasAppSchema: existsSync(join(repo.absPath, APP_SCHEMA_FILE)),
+    hasAppConfig: existsSync(join(repo.absPath, APP_CONFIG_FILE)),
+    hasBiomeConfig: BIOME_CONFIG_FILES.some((file) => existsSync(join(repo.absPath, file))),
     manifestSource: repo.manifestSource,
   });
   if (plan.kind === "error") {
@@ -287,6 +330,10 @@ async function runStep(
       // findLocalRepo walks upwards, so ctx.cwd may be a subdirectory without kumiko/schema.ts.
       return await runSchemaCli(["validate"], repo.absPath, ctx.out);
     }
+    case "lint":
+      return (await deps.loadAppSteps()).runLintCheckStep(ctx.out, repo.absPath);
+    case "agent":
+      return (await deps.loadAppSteps()).runAgentLint(ctx.out, repo.absPath);
     case "managed":
       return (await deps.loadAppSteps()).runManagedCheckStep(
         ctx.out,
@@ -319,6 +366,8 @@ export const checkCommand: CliCommand = {
     "  ui       uiRoots declared      UI guards (App-Mounting 2.0)",
     '           kind "app" must declare uiRoots; uiRoots: [] skips the UI guards on purpose',
     '  checks   kind != "tooling"     repo checks over sourceRoots + testGlobs',
+    "  lint     biome.json present     biome lint (builtin rules and the biome-rules GritQL plugins)",
+    `  agent    kind "app" + ${APP_CONFIG_FILE}  kumiko agent lint (AI-agent doc gaps in the composed features)`,
     '  managed  kind "app"            framework-owned files against the installed template',
     '  scripts  kind "app"            package.json scripts against the script standard',
     "",

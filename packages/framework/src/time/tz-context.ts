@@ -32,7 +32,7 @@ export type {
 } from "@cosmicdrift/kumiko-types/tz-context";
 
 const SYSTEM_CLOCK: Clock = {
-  now: () => Temporal.Now.instant(), // @wrapper-known semantic-alias
+  now: () => Temporal.Now.instant(),
 };
 
 /**

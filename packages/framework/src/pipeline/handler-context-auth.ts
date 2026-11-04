@@ -39,7 +39,7 @@ export function buildAuthFacet(
     // handler surface just forwards the call so both entry points (login
     // handler via ctx.auth.resolveClaims, switch-tenant route via
     // dispatcher.resolveAuthClaims) cannot drift.
-    resolveClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(ctx, claimsUser), // @wrapper-known semantic-alias
+    resolveClaims: (claimsUser: SessionUser) => resolveAuthClaimsFn(ctx, claimsUser),
 
     // Thin pass-through, same reasoning as resolveClaims above — one
     // resolve impl lives on the dispatcher so callers can't drift apart.
@@ -47,7 +47,7 @@ export function buildAuthFacet(
     // as a SYSTEM queryAs/writeAs (r.systemScope() or escapeHatch).
     resolveActiveMembership: (userId: string, tenantId: TenantId) => {
       if (!hasIdentitySwitchGrant) throw systemIdentitySwitchDenied(`handler "${type}"`);
-      return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY); // @wrapper-known semantic-alias
+      return resolveActiveMembershipFn(ctx, userId, tenantId, INTERACTIVE_SIGN_IN_POLICY);
     },
   };
   return {

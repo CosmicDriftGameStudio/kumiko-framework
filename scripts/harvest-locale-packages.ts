@@ -6,8 +6,8 @@
  * of truth afterwards.
  */
 import { $ } from "bun";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { gitEnv } from "@cosmicdrift/kumiko-guards";
 
 const ROOT = join(import.meta.dir, "..");

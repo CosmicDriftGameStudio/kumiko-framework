@@ -28,12 +28,10 @@ export function writeFailure(err: KumikoError): WriteFailure {
 // over a same-named key in `details`, so passing an unrelated `reason` there
 // by mistake can't shadow the slug). Reach for the concrete classes when you
 // need richer payload — these two cover the bulk of handler code.
-// @wrapper-known error-helper
 export function failNotFound(entity: string, id?: number | string): WriteFailure {
   return writeFailure(new NotFoundError(entity, id));
 }
 
-// @wrapper-known error-helper
 export function failUnprocessable(
   reason: string,
   details?: Readonly<Record<string, unknown>> & { readonly reason?: never },

@@ -432,6 +432,10 @@ function dispatchClient(
       return dispatchClientOpenForm(descriptor, input);
     case "ask_user":
       return dispatchClientAskUser(input);
+    default: {
+      const exhaustiveCheck: never = descriptor;
+      return exhaustiveCheck;
+    }
   }
 }
 

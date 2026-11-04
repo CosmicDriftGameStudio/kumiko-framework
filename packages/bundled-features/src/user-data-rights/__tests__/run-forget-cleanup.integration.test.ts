@@ -602,7 +602,7 @@ describe("runForgetCleanup :: sendDeletionExecutedEmail callback (Atom 5b)", () 
     expect(result.errors).toEqual([]);
   });
 
-  test("failed Sub-Tx (synthetic Hook-Throw) → callback NICHT gefeuert", async () => {
+  test("failed sub-tx (synthetic hook throw) → callback not fired", async () => {
     await seedUser(ALICE_ID, {
       status: USER_STATUS.DeletionRequested,
       gracePeriodEnd: instantFromOffsetMs(-60 * 1000),

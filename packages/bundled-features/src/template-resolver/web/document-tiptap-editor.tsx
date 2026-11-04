@@ -63,14 +63,14 @@ export default function DocumentTiptapEditor({
   // editor earlier in the same commit (a late validate result in the layout
   // editor does that); reading it then throws and unmounts the whole app. The
   // replacement editor re-renders and syncs `value` itself.
-  // kumiko-lint-ignore no-raw-hooks DOM integration: syncs the controlled value into the imperative tiptap editor
+  // biome-ignore lint/plugin: DOM integration: syncs the controlled value into the imperative tiptap editor
   useEffect(() => {
     if (editor && !editor.isDestroyed && value !== editor.getHTML()) {
       editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [value, editor]);
 
-  // kumiko-lint-ignore no-raw-hooks DOM integration: tiptap exposes editability only imperatively via setEditable
+  // biome-ignore lint/plugin: DOM integration: tiptap exposes editability only imperatively via setEditable
   useEffect(() => {
     // setEditable emits "update" by default, which would report the mount as an edit.
     if (editor && !editor.isDestroyed) editor.setEditable(!readOnly, false);

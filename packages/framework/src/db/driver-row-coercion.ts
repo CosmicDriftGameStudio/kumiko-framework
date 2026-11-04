@@ -42,7 +42,7 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
   if (value === null || value === undefined) return null;
   if (isTemporalInstant(value)) return value;
   // Number coercion via +date — equivalent to .getTime() without a Date-API
-  // method (guard-no-date-api). Date → epoch milliseconds, then to Temporal.Instant.
+  // method (no-date-api plugin). Date → epoch milliseconds, then to Temporal.Instant.
   if (value instanceof Date) return Temporal.Instant.fromEpochMilliseconds(+value);
   if (typeof value === "string") {
     try {
@@ -62,7 +62,7 @@ function instantFromDriver(value: unknown): Temporal.Instant | null {
 // (e.g. America/Los_Angeles reads back the 14th for a stored 15th). Routing
 // through Instant→ZonedDateTimeISO("UTC")→PlainDate reads the calendar day
 // back deterministically without ever touching a local Date getter — the
-// same +value idiom instantFromDriver uses (guard-no-date-api: no
+// same +value idiom instantFromDriver uses (no-date-api plugin: no
 // `.getTime()`), just anchored to a fixed zone instead of process-local.
 // A real `date` column always arrives as a UTC-midnight Date. Anything else means the column is
 // still timestamptz (declared `date` before its ALTER ran); the UTC anchor then silently shifts

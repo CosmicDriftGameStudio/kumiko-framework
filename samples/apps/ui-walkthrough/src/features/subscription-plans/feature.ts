@@ -4,6 +4,7 @@ import {
   type SubscriptionProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { toKeyFirst } from "../translations";
 import { subscriptionPlansTranslations } from "./i18n";
 
@@ -36,7 +37,7 @@ const PRICES: readonly ProviderPrice[] = [
 
 // The sample talks to no payment provider: prices are fixed and checkout just returns to the plans screen.
 const mockProvider: SubscriptionProviderPlugin = {
-  verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody),
+  verifyAndParseWebhook: async (rawBody) => parseJsonOrThrow(rawBody, "mock provider webhook body"),
   priceToTier: { [PRICE_IDS.starter]: "starter", [PRICE_IDS.pro]: "pro" },
   retrievePrices: async (_ctx, priceIds) => PRICES.filter((p) => priceIds.includes(p.priceId)),
   createCheckoutSession: async (_ctx, options) => ({

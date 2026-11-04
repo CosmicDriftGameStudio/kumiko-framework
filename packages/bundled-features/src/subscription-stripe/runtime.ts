@@ -139,7 +139,6 @@ export function createStripeRuntimes(deps: StripeRuntimeDeps): StripeRuntimes {
 
   return {
     ctx: {
-      // @wrapper-known semantic-alias
       clientForCtx: async (ctx) => clientFor(await ctxApiKey(ctx)),
       assertBillingLive: (ctx, handlerName = "create-checkout-session") =>
         assertBillingLive(ctx, deps.billingLiveHandle, SUBSCRIPTION_STRIPE_FEATURE, handlerName),

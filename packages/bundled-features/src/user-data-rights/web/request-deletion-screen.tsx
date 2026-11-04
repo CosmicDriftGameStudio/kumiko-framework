@@ -50,7 +50,7 @@ export function RequestAccountDeletionScreen({
 
   return (
     <Card
-      // kumiko-lint-ignore primitives-discipline narrow centered confirmation card, not a screen container
+      // biome-ignore lint/plugin: narrow centered confirmation card, not a screen container
       className="w-full max-w-sm mx-auto"
       options={{ padded: false }}
       slots={{

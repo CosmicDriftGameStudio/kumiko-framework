@@ -2544,7 +2544,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("defaultSort.field: existiert NICHT → Throw", () => {
+    test("defaultSort.field: does not exist → throw", () => {
       expect(() =>
         validateBoot([makeFeature({ defaultSort: { field: "ghost", dir: "asc" } })]),
       ).toThrow(/defaultSort references unknown field "ghost"/);

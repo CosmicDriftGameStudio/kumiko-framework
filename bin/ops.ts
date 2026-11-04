@@ -7,6 +7,7 @@
 //
 // Called from bin/kumiko.ts under `commands.ops`.
 
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve as resolvePath } from "node:path";
 
@@ -14,7 +15,7 @@ const SEEDS_DIR_DEFAULT = "./seeds";
 
 function todayDate(): string {
   // YYYY-MM-DD sorts chronologically as a filename prefix.
-  return new Date().toISOString().slice(0, 10);
+  return Temporal.Now.instant().toString().slice(0, 10);
 }
 
 function sanitizeSlug(input: string): string {

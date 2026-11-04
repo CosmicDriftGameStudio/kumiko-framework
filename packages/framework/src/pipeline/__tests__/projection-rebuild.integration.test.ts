@@ -881,7 +881,7 @@ describe("rebuildProjection — live-tail catch-up", () => {
       });
       await swapShadowIntoLive(atx, "read_rebuild_items_per_group");
     });
-    if (bDone) await bDone; // A committed → B unblocks and resolves
+    if (bDone !== null) await bDone; // A committed → B unblocks and resolves
 
     console.log(`[#363 cutover] blocked writer outcome: ${bOutcome}`);
 

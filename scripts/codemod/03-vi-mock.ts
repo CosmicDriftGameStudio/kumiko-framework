@@ -23,18 +23,18 @@ const TS_CONFIG = resolve(PROJECT_ROOT, "tsconfig.json");
 
 type Verdict =
   | { kind: "safe-rename"; call: CallExpression }
-  | { kind: "warn-hoisting"; call: CallExpression; reason: string }
+  | { kind: "warn-hoisting"; call: CallExpression; detail: string }
   | { kind: "warn-importactual"; call: CallExpression }
   | { kind: "warn-hoisted-vars"; call: CallExpression };
 
 function analyzeViMock(sf: SourceFile, call: CallExpression): Verdict {
   // Is the call expression in an ExpressionStatement that is at top level?
   const stmt = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
-  if (!stmt) return { kind: "warn-hoisting", call, reason: "not in ExpressionStatement" };
+  if (!stmt) return { kind: "warn-hoisting", call, detail: "not in ExpressionStatement" };
 
   const parent = stmt.getParent();
   if (!parent || !Node.isSourceFile(parent)) {
-    return { kind: "warn-hoisting", call, reason: "vi.mock not at top-level (nested in block/function)" };
+    return { kind: "warn-hoisting", call, detail: "vi.mock not at top-level (nested in block/function)" };
   }
 
   // Check whether vi.importActual is referenced in the factory
@@ -51,7 +51,7 @@ function analyzeViMock(sf: SourceFile, call: CallExpression): Verdict {
 
   // Position: stmt should come BEFORE all non-import-statements
   const stmtIdx = sf.getStatements().indexOf(stmt);
-  if (stmtIdx === -1) return { kind: "warn-hoisting", call, reason: "stmt not in source statements" };
+  if (stmtIdx === -1) return { kind: "warn-hoisting", call, detail: "stmt not in source statements" };
 
   // All statements BEFORE this stmt may only be ImportDeclarations
   for (let i = 0; i < stmtIdx; i++) {
@@ -61,7 +61,7 @@ function analyzeViMock(sf: SourceFile, call: CallExpression): Verdict {
     return {
       kind: "warn-hoisting",
       call,
-      reason: `vi.mock at idx ${stmtIdx} but stmt at idx ${i} is ${earlier.getKindName()}`,
+      detail: `vi.mock at idx ${stmtIdx} but stmt at idx ${i} is ${earlier.getKindName()}`,
     };
   }
 
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
           touched = true;
           break;
         case "warn-hoisting":
-          warnings.push(`HOISTING: ${path}:${call.getStartLineNumber()} — ${verdict.reason}`);
+          warnings.push(`HOISTING: ${path}:${call.getStartLineNumber()} — ${verdict.detail}`);
           break;
         case "warn-importactual":
           warnings.push(

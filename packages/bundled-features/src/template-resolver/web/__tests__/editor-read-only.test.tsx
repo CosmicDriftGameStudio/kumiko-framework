@@ -117,7 +117,7 @@ describe("TextContentEditor — role-based write-access", () => {
     expect(screen.queryByText(/Read-only/)).toBeNull();
   });
 
-  test("Editor-Role sieht Read-only-Banner + KEIN Save-Button", () => {
+  test("editor role sees the read-only banner and no save button", () => {
     // biome-ignore lint/suspicious/noExplicitAny: Bun mock function
     (useShellUser as any).mockReturnValue({ id: "u1", roles: ["Editor"] });
     const Editor = getEditor();

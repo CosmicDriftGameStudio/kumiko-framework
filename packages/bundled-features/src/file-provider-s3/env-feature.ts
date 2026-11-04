@@ -55,7 +55,7 @@ export function createFileProviderS3EnvFeature() {
         // tenant-prefixed / UUID keys). Built fresh per call like file-provider-s3;
         // the S3 client opens no connection at construction.
         build: async (_ctx: FileProviderContext, _tenantId: string): Promise<FileStorageProvider> =>
-          createS3ProviderFromEnv(), // @wrapper-known semantic-alias
+          createS3ProviderFromEnv(),
       };
       r.useExtension("fileProvider", "s3-env", plugin);
     },

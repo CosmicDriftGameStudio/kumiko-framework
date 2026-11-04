@@ -18,7 +18,7 @@ export type MfaRegenerateRecoveryDialogProps = {
   readonly onError: (i18nKey: string) => void;
 };
 
-// kumiko-lint-ignore no-custom-primitives Uses usePrimitives().Dialog internally, name is an MFA domain action, not a primitive reimplementation
+// biome-ignore lint/plugin: Uses usePrimitives().Dialog internally, name is an MFA domain action, not a primitive reimplementation
 export function MfaRegenerateRecoveryDialog({
   open,
   onOpenChange,

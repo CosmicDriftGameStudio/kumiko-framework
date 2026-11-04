@@ -15,7 +15,6 @@ export const LEDGER_BACKFILL_AGGREGATE_TYPE = "paddle-ledger-backfill" as const;
 // Set in stone: changing it would orphan the marker and restart the takeover window.
 const LEDGER_BACKFILL_NAMESPACE = "b4c1e7a2-5d38-4f6b-9a0e-2c7d8e1f3a59";
 
-// @wrapper-known uuid-domain
 export const LEDGER_BACKFILL_AGGREGATE_ID = uuidv5(
   "paddle-ledger-backfill",
   LEDGER_BACKFILL_NAMESPACE,

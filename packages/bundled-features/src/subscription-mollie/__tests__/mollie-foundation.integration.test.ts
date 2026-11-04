@@ -288,7 +288,7 @@ describe("scenario 1: Mollie-event → DB happy path", () => {
   });
 });
 
-describe("scenario 2: mandate-setup-flow — first-payment-paid OHNE existing sub → Plugin erstellt sub on-the-fly", () => {
+describe("scenario 2: mandate-setup-flow — first-payment-paid without existing sub → plugin creates sub on-the-fly", () => {
   test("Plugin ruft customerSubscriptions.create + emit Created-Event → subscription-row in DB", async () => {
     const tenantStringId = testTenantId(5002);
 

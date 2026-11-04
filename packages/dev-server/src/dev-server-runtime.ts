@@ -10,9 +10,7 @@ export const hasBun = typeof Bun !== "undefined";
 // falls back to `unknown`.
 export type BunServer = typeof Bun extends undefined ? unknown : ReturnType<typeof Bun.serve>;
 
-// @wrapper-known semantic-alias
 // biome-ignore lint/suspicious/noConsole: dev-server status logging
 export const logInfo = (msg: string): void => console.log(msg);
-// @wrapper-known semantic-alias
 // biome-ignore lint/suspicious/noConsole: dev-server error logging
 export const logError = (...args: unknown[]): void => console.error(...args);

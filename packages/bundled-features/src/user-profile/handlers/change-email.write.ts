@@ -13,7 +13,6 @@ import { UserProfileErrors } from "../web/constants.ts";
 // Same failure shape as auth-email-password (anti-enumeration):
 // its errors.ts is not part of the feature barrel, but the reason code
 // and i18nKey are stable public API.
-// @wrapper-known error-helper
 function invalidCredentials() {
   return unprocessable(AuthErrors.invalidCredentials, "auth.errors.invalidCredentials");
 }

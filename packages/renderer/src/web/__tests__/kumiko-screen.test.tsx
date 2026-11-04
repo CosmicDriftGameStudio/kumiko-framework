@@ -1038,7 +1038,7 @@ describe("KumikoScreen", () => {
   // navigate must run first, then setSearchParams. pushState does not preserve the query,
   // so setting parameters first would leave them attached to the old URL and break
   // action-form prefilling.
-  test("entityList rowActions kind=navigate: Click → nav.navigate, DANN setSearchParams", async () => {
+  test("entityList rowActions kind=navigate: click → nav.navigate, then setSearchParams", async () => {
     const calls: { kind: "navigate" | "setSearchParams"; value: unknown }[] = [];
     const navigateCalls: { screenId: string }[] = [];
     const searchParamUpdates: Record<string, string | null>[] = [];

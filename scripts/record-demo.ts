@@ -232,11 +232,6 @@ const BROWSER_PROCESS_NAMES = [
   "Google Chrome",
 ] as const;
 
-function tmux(args: readonly string[]): void {
-  const r = spawnSync("tmux", [...args], { stdio: "inherit" });
-  if (r.status !== 0) throw new Error(`tmux ${args.join(" ")} failed`);
-}
-
 /** Opens a visible left-pane terminal attached to the demo tmux session. */
 function tmuxStart(): void {
   spawnSync("tmux", ["kill-session", "-t", SESSION], { stdio: "ignore" });

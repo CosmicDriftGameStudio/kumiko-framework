@@ -1,0 +1,445 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error",
+        "noNestedComponentDefinitions": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noDebugger": "error",
+        "noConsole": "warn",
+        "noTsIgnore": "error"
+      },
+      "complexity": {
+        "useLiteralKeys": "off"
+      },
+      "style": {
+        "useConst": "error",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "temporal-polyfill": {
+                "importNames": ["Temporal"],
+                "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+              },
+              "temporal-polyfill/global": {
+                "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+              }
+            }
+          }
+        }
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useExhaustiveSwitchCases": "error"
+      }
+    }
+  },
+  "plugins": [
+    {
+      "path": "./biome-plugins/no-date-api.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/src/**/*.ts",
+        "**/bin/**/*.ts",
+        "**/scripts/**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/packages/framework/src/time/**",
+        "!**/packages/framework/src/db/**",
+        "!**/packages/framework/src/event-store/**",
+        "!**/packages/framework/src/pipeline/**",
+        "!**/packages/framework/src/errors/**",
+        "!**/packages/framework/src/jobs/**",
+        "!**/packages/framework/src/api/**",
+        "!**/packages/framework/src/logging/**",
+        "!**/packages/framework/src/i18n/**",
+        "!**/packages/framework/src/observability/**",
+        "!**/packages/framework/src/engine/{types,registry,config-helpers,create-app,define-feature,state-machine,access,field-access,boot-validator,qualified-name}.ts",
+        "!**/packages/testing/src/helpers/**",
+        "!**/packages/framework/src/search/**",
+        "!**/packages/framework/src/files/**",
+        "!**/packages/server-runtime/src/run-prod-app-static-files.ts",
+        "!**/packages/publish/src/rollback.ts",
+        "!**/samples/showcases/beammycar/src/migration/**",
+        "!**/*.g.ts",
+        "!**/packages/*/scripts/**",
+        "!**/samples/**/scripts/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/unsafe-json-parse.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/src/**/*.ts",
+        "**/bin/**/*.ts",
+        "**/scripts/**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/safe-json.ts",
+        "!**/packages/*/scripts/**",
+        "!**/samples/**/scripts/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/error-reasons.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/src/**/*.ts",
+        "**/bin/**/*.ts",
+        "**/scripts/**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/errors/classes.ts",
+        "!**/errors/reasons.ts",
+        "!**/packages/*/scripts/**",
+        "!**/samples/**/scripts/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/i18n-locale-terminology-de.grit",
+      "resolutionKind": "config",
+      "includes": ["**/packages/locale-de/src/strings.ts"]
+    },
+    {
+      "path": "./biome-plugins/i18n-locale-terminology-romance.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/packages/locale-es/src/strings.ts",
+        "**/packages/locale-fr/src/strings.ts",
+        "**/packages/locale-it/src/strings.ts"
+      ]
+    },
+    {
+      "path": "./biome-plugins/admin-api.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/scripts/migrations/**",
+        "!**/samples/*/src/migration/**",
+        "!**/event-store/admin-api.ts"
+      ]
+    },
+    {
+      "path": "./biome-plugins/test-title.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/__tests__/**/*.ts",
+        "**/__tests__/**/*.tsx",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.integration.ts",
+        "**/*.e2e.ts",
+        "**/e2e/**/*.ts",
+        "!**/*.d.ts"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-skipped-or-retried-tests.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/__tests__/**/*.ts",
+        "**/__tests__/**/*.tsx",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/*.spec.ts",
+        "**/*.integration.ts",
+        "**/e2e/**/*.ts",
+        "!**/*.d.ts"
+      ]
+    },
+    {
+      "path": "./biome-plugins/es-literal-writes.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/src/**/*.ts",
+        "**/bin/**/*.ts",
+        "**/scripts/**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/packages/framework/src/event-store/**",
+        "!**/packages/framework/src/db/queries/event-store*.ts",
+        "!**/packages/framework/src/db/queries/backfill-pii.ts",
+        "!**/packages/bundled-features/src/shared/stream-tenant-backfill.ts",
+        "!**/packages/*/scripts/**",
+        "!**/samples/**/scripts/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/es-literal-writes-tests.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/__tests__/**/*.ts",
+        "**/*.test.ts",
+        "**/*.integration.ts",
+        "!**/*.d.ts",
+        "!**/packages/framework/src/event-store/__tests__/perf.integration.test.ts",
+        "!**/packages/framework/src/pipeline/__tests__/perf-rebuild.integration.test.ts",
+        "!**/packages/framework/src/pipeline/__tests__/event-dispatcher-commit-order.integration.test.ts",
+        "!**/packages/framework/src/pipeline/__tests__/event-dispatcher-start-from.integration.test.ts",
+        "!**/packages/framework/src/pipeline/__tests__/msp-rebuild.integration.test.ts",
+        "!**/packages/framework/src/pipeline/__tests__/projection-rebuild.integration.test.ts",
+        "!**/packages/guards/src/__tests__/**",
+        "!**/packages/framework/src/presets/__tests__/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/restricted-event-store-symbols.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/src/**/*.ts",
+        "**/bin/**/*.ts",
+        "**/scripts/**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.integration.ts",
+        "!**/*.d.ts",
+        "!**/packages/framework/src/event-store/event-store.ts",
+        "!**/packages/framework/src/event-store/index.ts",
+        "!**/packages/framework/src/event-store/tenant-db-append.ts",
+        "!**/packages/framework/src/internal/testing.ts",
+        "!**/packages/bundled-features/src/cap-counter/cap-reservation.ts",
+        "!**/packages/bundled-features/src/document-ingest-foundation/append-missing-extract-event.ts",
+        "!**/packages/bundled-features/src/user-data-rights-defaults/hooks/delivery-attempt.userdata-hook.ts",
+        "!**/packages/framework/src/db/tenant-db.ts",
+        "!**/packages/framework/src/db/index.ts",
+        "!**/packages/bundled-features/src/tenant-lifecycle/stages.ts",
+        "!**/packages/testing/src/helpers/seed.ts",
+        "!**/packages/testing/src/helpers/db-cleanup.ts",
+        "!**/packages/bundled-features/src/tenant/seeding.ts",
+        "!**/packages/bundled-features/src/tier-engine/feature.ts",
+        "!**/packages/*/scripts/**",
+        "!**/samples/**/scripts/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/raw-html-in-web.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/web/**/*.tsx",
+        "**/public/**/*.tsx",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/packages/renderer/**",
+        "!**/packages/document-designer/**",
+        "!**/samples/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/raw-ui-in-app.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/*.tsx",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/packages/renderer/**",
+        "!**/packages/document-designer/**",
+        "!**/samples/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-css-properties-type.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/*.ts",
+        "**/*.tsx",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.d.ts",
+        "!**/packages/renderer/**",
+        "!**/packages/document-designer/**",
+        "!**/samples/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-raw-hooks.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/web/**/*.tsx",
+        "**/public/**/*.tsx",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/packages/renderer/**",
+        "!**/packages/document-designer/**",
+        "!**/samples/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-direct-fs.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/src/**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/scripts/**",
+        "!**/e2e/**",
+        "!**/tools/**",
+        "!**/bin/**",
+        "!**/packages/framework/src/files/local-provider.ts",
+        "!**/packages/dev-server/src/**",
+        "!**/packages/guards/src/**",
+        "!**/packages/cli/src/**",
+        "!**/packages/framework/src/migrations/kumiko-drift.ts",
+        "!**/packages/framework/src/schema-cli.ts",
+        "!**/packages/framework/src/schema-cli/*.ts",
+        "!**/packages/framework/src/upgrade-cli.ts",
+        "!**/packages/framework/src/upgrade-cli-internals.ts",
+        "!**/packages/framework/src/es-ops/runner.ts",
+        "!**/packages/framework/src/db/migrate-generator.ts",
+        "!**/packages/framework/src/db/migrate-runner.ts",
+        "!**/packages/framework/src/db/rebuild-marker.ts",
+        "!**/packages/framework/src/engine/boot-validator/custom-screen-write-qns.ts",
+        "!**/packages/feature-ast/src/codemod/pipeline-codemod.ts",
+        "!**/packages/server-runtime/src/build-prod-bundle.ts",
+        "!**/packages/server-runtime/src/bundled-assets.ts",
+        "!**/packages/server-runtime/src/run-prod-app-static-files.ts",
+        "!**/packages/server-runtime/src/static-html-pages.ts",
+        "!**/packages/server-runtime/src/resolve-installed-package.ts",
+        "!**/packages/create-kumiko-app/src/manifest.ts",
+        "!**/packages/testing/src/integration-runner.ts",
+        "!**/samples/apps/showcase/src/app/mount-public-screenshots.ts"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-create-test-dispatcher.grit",
+      "resolutionKind": "config",
+      "includes": ["**/*.integration.ts", "**/*.integration.test.ts"]
+    },
+    {
+      "path": "./biome-plugins/no-same-folder-barrel-import.grit",
+      "resolutionKind": "config",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/*.d.ts"]
+    },
+    {
+      "path": "./biome-plugins/no-external-font-cdn.grit",
+      "resolutionKind": "config",
+      "includes": ["**/src/**/*.ts", "**/src/**/*.tsx", "!**/*.d.ts"]
+    },
+    {
+      "path": "./biome-plugins/no-external-font-cdn-css.grit",
+      "resolutionKind": "config",
+      "includes": ["**/*.css"]
+    },
+    {
+      "path": "./biome-plugins/no-direct-fetch.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/src/**/*.ts",
+        "**/bin/**/*.ts",
+        "**/scripts/**/*.ts",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.integration.ts",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/web/**",
+        "!**/public/**",
+        "!**/packages/framework/src/http/egress.ts",
+        "!**/packages/*/scripts/**",
+        "!**/samples/**/scripts/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-direct-fetch.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/web/**/*.tsx",
+        "**/public/**/*.tsx",
+        "!**/__tests__/**",
+        "!**/*.test.tsx",
+        "!**/*.integration.tsx",
+        "!**/packages/renderer/**",
+        "!**/packages/document-designer/**",
+        "!**/samples/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-temporal-polyfill-require.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/*.ts",
+        "**/*.tsx",
+        "!**/*.d.ts",
+        "!**/packages/types/src/temporal.ts"
+      ]
+    }
+  ],
+  "overrides": [
+    {
+      "includes": [
+        "**/*.tsx",
+        "!**/__tests__/**",
+        "!**/*.test.tsx",
+        "!**/*.integration.tsx",
+        "!**/packages/renderer/**",
+        "!**/packages/document-designer/**",
+        "!**/samples/**"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noInlineStyles": "error"
+          }
+        }
+      }
+    }
+  ]
+}

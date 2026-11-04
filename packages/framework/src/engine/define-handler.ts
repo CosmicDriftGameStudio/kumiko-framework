@@ -131,7 +131,6 @@ export function defineWriteHandler<
 
   if ("perform" in def && def.perform !== undefined) {
     const performDef = def.perform;
-    // @wrapper-known semantic-alias
     const compiledHandler = async (
       event: WriteEvent<z.infer<TSchema>>,
       ctx: HandlerContext<TMap>,

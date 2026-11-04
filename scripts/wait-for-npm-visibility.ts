@@ -11,6 +11,7 @@
 // — not `versions` — until every package published in this run is current.
 
 import { readFileSync } from "node:fs";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { Glob } from "bun";
 
 const PACKAGES_DIR = "packages";
@@ -61,10 +62,8 @@ export function withoutNonLatestPackages(
 ): PublishablePackage[] {
   const nonLatestNames = new Set<string>();
   for (const relPath of new Glob("*/package.json").scanSync(packagesDir)) {
-    const pkg = JSON.parse(readFileSync(`${packagesDir}/${relPath}`, "utf-8")) as Record<
-      string,
-      unknown
-    >;
+    const pkgPath = `${packagesDir}/${relPath}`;
+    const pkg = parseJsonOrThrow<Record<string, unknown>>(readFileSync(pkgPath, "utf-8"), pkgPath);
     if (typeof pkg.name === "string" && publishesUnderNonLatestTag(pkg)) {
       nonLatestNames.add(pkg.name);
     }
@@ -75,10 +74,8 @@ export function withoutNonLatestPackages(
 export function collectPublishablePackages(packagesDir: string): PublishablePackage[] {
   const packages: PublishablePackage[] = [];
   for (const relPath of new Glob("*/package.json").scanSync(packagesDir)) {
-    const pkg = JSON.parse(readFileSync(`${packagesDir}/${relPath}`, "utf-8")) as Record<
-      string,
-      unknown
-    >;
+    const pkgPath = `${packagesDir}/${relPath}`;
+    const pkg = parseJsonOrThrow<Record<string, unknown>>(readFileSync(pkgPath, "utf-8"), pkgPath);
     if (pkg.private === true) continue;
     if (publishesUnderNonLatestTag(pkg)) continue;
     if (typeof pkg.name === "string" && typeof pkg.version === "string") {

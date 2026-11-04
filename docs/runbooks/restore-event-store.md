@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-19
-evidence: "event-store/events-schema.ts, snapshot.ts, archive.ts, pipeline/event-consumer-state.ts, projection-state.ts, migrations/kumiko-drift.ts, server-runtime/src/run-prod-app.ts (schema-drift gate), schema-cli.ts, guards/src/guard-event-store-writes.ts; backup side checked against infra docs/runbooks/restore.md (2026-10-19)"
+evidence: "event-store/events-schema.ts, snapshot.ts, archive.ts, pipeline/event-consumer-state.ts, projection-state.ts, migrations/kumiko-drift.ts, server-runtime/src/run-prod-app.ts (schema-drift gate), schema-cli.ts, framework/presets/biome-plugins/es-literal-writes.grit; backup side checked against infra docs/runbooks/restore.md (2026-10-19)"
 ---
 
 # Restoring the event store
@@ -80,10 +80,10 @@ rebuild every projection, one at a time. The replay needs the full log: events r
 ## What must not be done
 
 - No `INSERT`, `UPDATE` or `DELETE` on `kumiko_events`, `kumiko_snapshots` or
-  `kumiko_archived_streams`. The guard `guard-event-store-writes.ts` blocks it in code, and a
+  `kumiko_archived_streams`. The Biome plugin `es-literal-writes` blocks it in code, and a
   hand-written row skips the version-unique index, archive markers and tenant boundary.
 - Do not use `event-store/admin-api` to refill a restored store. It is the import path for legacy
-  data from other systems and is guarded against app code.
+  data from other systems and is blocked in app code by the `restricted-event-store-symbols` plugin.
 - Do not move a consumer cursor by hand. `consumer skip` and `consumer restart` are the supported
   ways.
 - `restore` in the code (`restoreStream`, the `<entity>:restore` handler) means undeleting a

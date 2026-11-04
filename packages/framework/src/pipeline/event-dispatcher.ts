@@ -421,7 +421,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   ): Promise<{ processed: number; failed: number }> {
     const key = `${consumer.name}:${consumerInstanceId(consumer, options.instanceId)}`;
     const existing = inFlightTurns.get(key);
-    if (existing) return existing;
+    if (existing !== undefined) return existing;
 
     // Feature-gate, backoff-gate and idle-gate are resolved synchronously,
     // before any promise is registered — a gated consumer must resolve

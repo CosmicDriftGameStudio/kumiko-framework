@@ -22,7 +22,6 @@ const MAIL_THREAD_NAMESPACE = "b48d1e72-5c9a-4f36-8e0d-6a3f9b2c7e15";
  * the same tenant can receive the same email (CC'd to both inboxes); these
  * are two distinct inbound messages.
  */
-// @wrapper-known uuid-domain
 export function inboundMessageAggregateId(accountId: string, providerMessageId: string): string {
   return uuidv5(`${accountId}:${providerMessageId}`, INBOUND_MESSAGE_NAMESPACE);
 }
@@ -34,7 +33,6 @@ export function inboundMessageAggregateId(accountId: string, providerMessageId: 
  * normalized by the provider (References/In-Reply-To chain or provider
  * thread ID).
  */
-// @wrapper-known uuid-domain
 export function mailThreadAggregateId(tenantId: string, threadKey: string): string {
   return uuidv5(`${tenantId}:${threadKey}`, MAIL_THREAD_NAMESPACE);
 }

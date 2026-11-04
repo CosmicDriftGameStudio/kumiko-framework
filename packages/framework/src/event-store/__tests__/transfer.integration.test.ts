@@ -203,7 +203,7 @@ describe("transferAggregateStreams", () => {
     // aggregateId, so a real "widget" stream can't coexist with a real
     // "counter" stream under the same id/tenant — fabricate the archived
     // marker directly (the primary verifier of the event-store primitive,
-    // same reasoning as guard-event-store-writes' own __tests__ exclusion)
+    // same reasoning as the es-literal-writes plugin excluding __tests__)
     // to prove the WHERE clause's aggregate_type filter, not the stream's
     // version-numbering.
     await asRawClient(bun.db).unsafe(

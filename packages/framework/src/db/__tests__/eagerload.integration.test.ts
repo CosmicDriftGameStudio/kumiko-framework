@@ -339,7 +339,7 @@ describe("enrichWithReferences", () => {
     expect(many(row, "tags")).toEqual([]);
   });
 
-  test("multiple-ref null → [] (leeres Array, NICHT undefined)", async () => {
+  test("multiple-ref null → [] (empty array, not undefined)", async () => {
     const row = await enrichA({ id: "p1", tags: null });
     expect(many(row, "tags")).toEqual([]);
   });

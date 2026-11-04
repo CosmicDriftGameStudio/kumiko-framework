@@ -1,0 +1,22 @@
+language js
+
+or {
+  JsStringLiteralExpression(),
+  JsTemplateExpression()
+} as $literal where {
+  $literal <: includes or {
+    "kumiko_events",
+    "kumiko_snapshots",
+    "kumiko_archived_streams",
+    "read_tenant_memberships",
+    "KUMIKO_EVENTS",
+    "KUMIKO_SNAPSHOTS",
+    "KUMIKO_ARCHIVED_STREAMS",
+    "READ_TENANT_MEMBERSHIPS"
+  },
+  or {
+    $literal <: r"(?is).*(?:(?-u:\b)(?:UPDATE|DELETE[ \t\n\r]+FROM|INSERT[ \t\n\r]+INTO)(?-u:\b).*?[\"'`]?(?:kumiko_events|kumiko_snapshots|kumiko_archived_streams)).*",
+    $literal <: r"(?is).*(?:(?-u:\b)CREATE[ \t\n\r]+TABLE(?-u:\b)[^;]*?(?-u:\b)read_tenant_memberships(?-u:\b)).*"
+  },
+  register_diagnostic(span=$literal, message="Raw SQL write on an event-store table (kumiko_events, kumiko_snapshots, kumiko_archived_streams) or hand-written read_tenant_memberships DDL. Only packages/framework/src/event-store/** may write these tables; use transferAggregateStreams for a tenant move or add an event-store primitive. In tests seed with append() (runSeedWritesAt for backdating) and unsafeCreateEntityTable(db, tenantMembershipEntity).", severity="error")
+}

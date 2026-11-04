@@ -1,0 +1,10 @@
+language js
+
+or {
+  `require($source)`,
+  `import($source)`
+} as $call where {
+  $source <: includes "temporal-polyfill",
+  $source <: r"^[\"'`]temporal-polyfill(?:/[^\"'`]*)?[\"'`]$",
+  register_diagnostic(span=$call, message="temporal-polyfill loaded by require()/import(): import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes.", severity="error")
+}

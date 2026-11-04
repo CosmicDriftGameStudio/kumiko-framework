@@ -342,7 +342,6 @@ export async function selectEventsHighWaterMark(db: AnyDb): Promise<bigint> {
 }
 
 /** Head event id for lag metrics — alias for selectEventsHighWaterMark. */
-// @wrapper-known semantic-alias
 export async function selectEventsHeadId(db: AnyDb): Promise<bigint> {
   return selectEventsHighWaterMark(db);
 }

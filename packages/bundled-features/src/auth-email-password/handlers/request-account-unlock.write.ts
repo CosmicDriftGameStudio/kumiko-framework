@@ -13,7 +13,6 @@ export type RequestAccountUnlockOptions = TokenRequestOptions;
 // the dispatcher (bypassing the framework's auth-routes).
 export type RequestUnlockData = TokenRequestData<"unlock-requested">;
 
-// @wrapper-known semantic-alias
 // guard:dup-ok thin config wrapper over createTokenRequestHandler; only the per-flow config literals match request-password-reset
 export function createRequestAccountUnlockHandler(opts: RequestAccountUnlockOptions) {
   return createTokenRequestHandler(

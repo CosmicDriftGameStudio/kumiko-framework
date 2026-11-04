@@ -11,12 +11,8 @@
 import type * as z from "zod";
 import { zodShape } from "./_zod-introspect.ts";
 import type { DryRunOptions } from "./dry-run-internals.ts";
-import {
-  type ComposedEnvSchema,
-  classifyField,
-  type EnvFieldInspection,
-  readKumikoMeta,
-} from "./index.ts";
+import { classifyField, readKumikoMeta } from "./field-meta.ts";
+import type { ComposedEnvSchema, EnvFieldInspection } from "./index.ts";
 import type { EnvFieldClass } from "./internals.ts";
 import { getDefaultValue, getFieldDescription, pulumiConfigKey } from "./internals.ts";
 

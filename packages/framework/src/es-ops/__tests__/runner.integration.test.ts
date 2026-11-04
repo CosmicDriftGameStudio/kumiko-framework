@@ -309,7 +309,7 @@ describe("runPendingSeedMigrations (integration)", () => {
     }
   });
 
-  test("WriteResult{isSuccess:false} → throw + Marker NICHT geschrieben", async () => {
+  test("WriteResult{isSuccess:false} → throw + marker not written", async () => {
     // Without this guarantee, a silently failed Write would mark the seed as
     // "applied", preventing a retry on the next boot and leaving database drift
     // undetected.

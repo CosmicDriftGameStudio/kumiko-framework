@@ -1,3 +1,4 @@
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
@@ -179,7 +180,7 @@ function renderChangeset(packageName: string, change: PendingChange, bump: "mino
 }
 
 function readStatus(raw: string): ChangesetStatus {
-  const value: unknown = JSON.parse(raw);
+  const value: unknown = parseJsonOrThrow<unknown>(raw, "changes file");
   if (typeof value !== "object" || value === null) throw new Error("changeset status must be an object");
   const record = value as { changesets?: unknown; releases?: unknown };
   if (!Array.isArray(record.changesets) || !Array.isArray(record.releases)) {
@@ -218,7 +219,7 @@ function readEntries(path: string): ChangelogEntry[] {
   const raw = readFileSync(path, "utf-8");
   const parsed = parseFeatureChangelog(raw, path);
   if (!parsed) throw new Error(`${path}: invalid changelog`);
-  const decoded: unknown = JSON.parse(raw);
+  const decoded: unknown = parseJsonOrThrow<unknown>(raw, "changes file");
   if (!Array.isArray(decoded) || decoded.length !== parsed.entries.length) {
     throw new Error(`${path}: changelog contains an invalid entry`);
   }

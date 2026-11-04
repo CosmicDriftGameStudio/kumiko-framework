@@ -28,7 +28,6 @@ import { CUSTOM_FIELDS_EXTENSION, FIELD_DEFINITION_AGGREGATE_TYPE } from "./web/
 //
 // `customFields` follows the same contract as regular fields: default `{}` and
 // NOT NULL, like embedded columns.
-// @wrapper-known semantic-alias
 export function customFieldsField(): JsonbFieldDef {
   return createJsonbField();
 }

@@ -70,7 +70,7 @@ export function renderParagraphStyleSelect(c: TiptapContext): ReactNode {
   ];
   return (
     <div
-      // kumiko-lint-ignore raw-classname the toolbar paragraph select sits flush in the editor toolbar; ComboboxInput has no flat trigger variant
+      // biome-ignore lint/plugin: the toolbar paragraph select sits flush in the editor toolbar; ComboboxInput has no flat trigger variant
       className={cn(
         !canvas && (compact ? "w-24" : "w-40"),
         canvas &&

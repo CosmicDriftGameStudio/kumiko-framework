@@ -24,6 +24,7 @@
 //   devDependencies:
 //     remove "vitest", "@vitest/coverage-v8" (manually — codemod only warns)
 
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { Glob } from "bun";
 import { resolve, relative } from "node:path";
 
@@ -43,7 +44,7 @@ const SCRIPT_REPLACEMENTS: ReadonlyArray<readonly [RegExp, string]> = [
 
 async function transformPackageJson(path: string): Promise<{ changed: boolean; warnings: string[] }> {
   const text = await Bun.file(path).text();
-  const pkg = JSON.parse(text) as Record<string, unknown>;
+  const pkg = parseJsonOrThrow<unknown>(text, "package.json") as Record<string, unknown>;
   const warnings: string[] = [];
   let changed = false;
 

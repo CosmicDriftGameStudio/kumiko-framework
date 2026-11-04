@@ -38,6 +38,7 @@
 // Exits non-zero if any sample produces tsc diagnostics; errors are grouped
 // per-workspace with a totals summary.
 
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
@@ -116,8 +117,9 @@ function isPackagePath(key: string): boolean {
 // path. Package `paths` that point at `src` are dropped so resolution falls to
 // package exports and tsc redirects to the referenced projects' .d.ts.
 function writeSampleTsconfig(ws: SampleWorkspace): string {
-  const base = JSON.parse(
+  const base = parseJsonOrThrow<unknown>(
     readFileSync(ws.ownTsconfig ?? RECIPE_TSCONFIG_BASE, "utf8"),
+    "tsconfig base",
   ) as TsconfigShape;
   const baseOptions = base.compilerOptions ?? {};
 

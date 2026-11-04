@@ -1,8 +1,8 @@
 import * as z from "zod";
 import type { FeatureDefinition } from "../engine/types/feature.ts";
 import { zodDef, zodDescription } from "./_zod-introspect.ts";
+import { readKumikoMeta } from "./field-meta.ts";
 import type { EnvFieldRule } from "./field-rules.ts";
-import { readKumikoMeta } from "./index.ts";
 
 // --- Per-env-var metadata (attach via Zod's `.meta()`) ---
 export type KumikoEnvMeta = {
@@ -51,7 +51,6 @@ export function getDefaultValue(field: z.ZodType): unknown {
   return undefined;
 }
 
-// @wrapper-known semantic-alias
 export function getFieldDescription(field: z.ZodType): string | undefined {
   return zodDescription(field);
 }

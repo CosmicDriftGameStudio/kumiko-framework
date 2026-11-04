@@ -1,0 +1,18 @@
+language js
+
+or {
+  JsStringLiteralExpression(),
+  JsTemplateExpression()
+} as $literal where {
+  $literal <: includes or {
+    "kumiko_events",
+    "read_tenant_memberships",
+    "KUMIKO_EVENTS",
+    "READ_TENANT_MEMBERSHIPS"
+  },
+  or {
+    $literal <: r"(?is).*(?:(?-u:\b)(?:INSERT[ \t\n\r]+INTO|UPDATE)[ \t\n\r]+.{0,2}kumiko_events(?-u:\b)).*",
+    $literal <: r"(?is).*(?:(?-u:\b)CREATE[ \t\n\r]+TABLE(?-u:\b)[^;]*?(?-u:\b)read_tenant_memberships(?-u:\b)).*"
+  },
+  register_diagnostic(span=$literal, message="Raw INSERT/UPDATE on kumiko_events or hand-written read_tenant_memberships DDL in a test. Seed events with append() (runSeedWritesAt for backdating) and membership rows with unsafeCreateEntityTable(db, tenantMembershipEntity) plus seedRow.", severity="error")
+}

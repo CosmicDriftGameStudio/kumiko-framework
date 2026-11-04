@@ -1,10 +1,12 @@
 # @cosmicdrift/kumiko-guards
 
-AST-based security guards for a single Kumiko repo: direct filesystem
-access, direct fetch, direct entity writes, admin-API misuse, tenant
-escalation, undeclared escape hatches, `openToAll` without a reason, and
-missing access-denied tests. Every finding must clear the repo's own
-security baseline — there is no per-guard skip flag.
+AST guards and repo checks for a single Kumiko repo that need more than one
+file: direct entity writes, tenant escalation, undeclared escape hatches,
+`openToAll` without a reason, missing access-denied tests and the repo checks.
+Single-file checks (direct fs/fetch, date API, test titles, raw HTML, ...) live in
+the Biome preset `@cosmicdrift/kumiko-framework/biome-rules` as builtins and
+GritQL plugins. Every finding must clear the repo's own security baseline;
+there is no per-guard skip flag.
 
 ```
 bun node_modules/@cosmicdrift/kumiko-guards/src/run-guards.ts [--explain|--write-security-baseline]

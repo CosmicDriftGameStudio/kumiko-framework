@@ -136,7 +136,7 @@ export function createLifecycle(opts: LifecycleOptions = {}): Lifecycle {
 
       // Re-entrant drain: concurrent calls share the in-flight promise.
       // Post-stop calls are a no-op so double-SIGTERM doesn't double-run hooks.
-      if (drainPromise) return drainPromise;
+      if (drainPromise !== null) return drainPromise;
       // skip: already fully stopped (e.g. SIGTERM arrives after drain finished).
       // Returning without action keeps the post-drain state pristine.
       if (current === "stopped") return;

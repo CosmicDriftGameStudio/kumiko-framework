@@ -258,7 +258,7 @@ function buildLoadAggregateWithSnapshot(scope: HandlerContextScope) {
       {
         ...loadOptions,
         entityEventVersionOf: (aggregateType) => registry.getEntity(aggregateType)?.eventVersion,
-        upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx), // @wrapper-known semantic-alias
+        upcastEvent: (event) => upcastStoredEvent(event, upcasters, upcastCtx),
       },
     );
   };

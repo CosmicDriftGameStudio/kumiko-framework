@@ -13,22 +13,16 @@ import { check as appDockerfile } from "./guard-app-dockerfile";
 import { check as docStatus } from "./guard-doc-status";
 import { check as featureIntegrationTests } from "./guard-feature-integration-tests";
 import { check as guardsDocDrift } from "./guard-guards-doc-drift";
-import { check as noDirectProcessEnv } from "./guard-no-direct-process-env";
-import { check as primitivesDiscipline } from "./guard-primitives-discipline";
 import { check as rawSql } from "./guard-raw-sql";
 import { check as rendererBoundaries } from "./guard-renderer-boundaries";
 import { check as schemaCliFeatures } from "./guard-schema-cli-features";
 import { check as testStackDrift } from "./guard-test-stack-drift";
-import { check as thinWrappers } from "./guard-thin-wrappers";
 import { check as unsafeArrayParam } from "./guard-unsafe-array-param";
 import { check as upgradeState } from "./guard-upgrade-state";
 
 export const REPO_CHECKS = [
   rawSql,
-  noDirectProcessEnv,
   rendererBoundaries,
-  primitivesDiscipline,
-  thinWrappers,
   secretLiterals,
   featureIntegrationTests,
   testStackDrift,

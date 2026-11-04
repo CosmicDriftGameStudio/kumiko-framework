@@ -224,7 +224,9 @@ export function startDevFileWatchers(deps: DevFileWatcherDeps): void {
   for (const dir of dirs) {
     void watchDir(
       dir,
-      (filename) => handleWatchedChange(deps, dir, filename, entrySourceFiles, watchStartedAtMs),
+      (filename) => {
+        void handleWatchedChange(deps, dir, filename, entrySourceFiles, watchStartedAtMs);
+      },
       deps.signal,
       deps.watchDirectory ?? watch,
     );

@@ -8,7 +8,6 @@ export type NotificationPreferenceRow = {
   readonly enabled: boolean;
 };
 
-// @wrapper-known semantic-alias
 export async function selectNotificationPreferences(
   db: DbConnection,
   tenantId: TenantId,

@@ -39,6 +39,7 @@
       "default": "./src/config/index.ts"
     },
     "./biome": "./presets/biome-app.json",
+    "./biome-rules": "./presets/biome-rules.json",
     "./tsconfig.app.json": "./presets/tsconfig.app.json",
     "./es-ops": {
       "types": "./src/es-ops/index.ts",
@@ -244,6 +245,7 @@
         "default": "./dist/config/index.js"
       },
       "./biome": "./presets/biome-app.json",
+      "./biome-rules": "./presets/biome-rules.json",
       "./tsconfig.app.json": "./presets/tsconfig.app.json",
       "./es-ops": {
         "types": "./dist/es-ops/index.d.ts",

@@ -1,0 +1,16 @@
+language js
+
+or {
+  `import $_ from $source`,
+  `import $source`,
+  `export { $_ } from $source`,
+  `export { $_, $... } from $source`,
+  `export * as $_ from $source`,
+  `import $_ = require($source)`,
+  `export * from $source`,
+  `require($source)`,
+  `import($source)`
+} as $hit where {
+  $source <: r"^[\"'`](?:node:)?fs(?:/promises)?[\"'`]$",
+  register_diagnostic(span=$hit, message="Direct fs import: request-derived paths passed straight to fs caused path-traversal bugs. Use FileStorageProvider (resolveContainedPath) or readBundledAsset; build/CLI/script tooling belongs under scripts/, bin/, tools/ or e2e/.", severity="error")
+}

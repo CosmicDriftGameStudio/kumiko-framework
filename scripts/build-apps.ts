@@ -9,6 +9,7 @@
 //
 // CI: `bun build:apps` invokes this; same locally.
 
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -25,7 +26,7 @@ type RootPackageJson = {
 };
 
 async function readWorkspacePatterns(): Promise<readonly string[]> {
-  const pkg = JSON.parse(await readFile("package.json", "utf8")) as RootPackageJson;
+  const pkg = parseJsonOrThrow<unknown>(await readFile("package.json", "utf8"), "package.json") as RootPackageJson;
   const ws = pkg.workspaces;
   if (Array.isArray(ws)) return ws;
   if (ws && typeof ws === "object" && Array.isArray(ws.packages)) return ws.packages;
@@ -60,7 +61,7 @@ async function findBuildableWorkspaces(): Promise<Workspace[]> {
     for (const path of paths) {
       const pkgPath = join(path, "package.json");
       if (!existsSync(pkgPath)) continue;
-      const pkg = JSON.parse(await readFile(pkgPath, "utf8")) as {
+      const pkg = parseJsonOrThrow<unknown>(await readFile(pkgPath, "utf8"), pkgPath) as {
         name?: string;
         scripts?: Record<string, string>;
       };

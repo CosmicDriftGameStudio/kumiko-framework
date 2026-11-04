@@ -143,7 +143,6 @@ export async function pushTableIfMissing(
   await unsafePushTables(db, tables);
 }
 
-// @wrapper-known semantic-alias
 function renderColumnType(col: ColumnMeta): string {
   return pgTypeToSqlType(col.pgType);
 }

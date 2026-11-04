@@ -328,12 +328,10 @@ function makeIndex(name: string, unique: boolean): IndexBuilder {
   };
 }
 
-// @wrapper-known semantic-alias
 export function index(name: string): IndexBuilder {
   return makeIndex(name, false);
 }
 
-// @wrapper-known semantic-alias
 export function uniqueIndex(name: string): IndexBuilder {
   return makeIndex(name, true);
 }
@@ -476,7 +474,7 @@ export function table<TCols extends ColumnMap>(
     const handle: ColumnHandle = {
       name: final.sqlName,
       pgType: final.pgType,
-      getSQLType: () => pgTypeToSqlType(final.pgType), // @wrapper-known semantic-alias
+      getSQLType: () => pgTypeToSqlType(final.pgType),
     };
     handles[field] = handle;
     const meta: ColumnMeta = {

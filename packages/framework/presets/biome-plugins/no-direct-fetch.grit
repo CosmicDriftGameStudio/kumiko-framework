@@ -1,0 +1,16 @@
+language js
+
+or {
+  `fetch($url, $...)`,
+  `globalThis.fetch($url, $...)`,
+  `window.fetch($url, $...)`
+} as $call where {
+  not {
+    $url <: or {
+      JsStringLiteralExpression(),
+      JsTemplateExpression()
+    },
+    $url <: r"(?s)^[\"'`]/[^/$\\].*"
+  },
+  register_diagnostic(span=$call, message="Raw fetch() skips the SSRF policy in server code: use egress(policy)(...) from @cosmicdrift/kumiko-framework/http. In web screens use useQuery/useMutation or an API client (*.ts). A same-origin path literal (\"/api/...\") is allowed; any other exception needs a biome-ignore with a specific reason.", severity="error")
+}

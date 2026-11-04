@@ -814,7 +814,7 @@ describe("runExportJobs :: Atom 4a download-tokens", () => {
     expect(allTokens).toHaveLength(0);
   });
 
-  test("Token-create UNIQUE-violation → Job=failed (NICHT done) — Sequencing-Pin", async () => {
+  test("token-create UNIQUE violation → job=failed (not done) — sequencing pin", async () => {
     // The token is created before the job is marked done. If token creation fails,
     // the worker marks the job failed rather than first committing done and then
     // reverting it.

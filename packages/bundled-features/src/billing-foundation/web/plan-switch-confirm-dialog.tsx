@@ -38,7 +38,7 @@ export type PlanSwitchConfirmDialogProps = {
   readonly onConsentTextOutdated: () => void;
 };
 
-// kumiko-lint-ignore no-custom-primitives Uses usePrimitives().Modal internally, name is a billing domain action, not a primitive reimplementation
+// biome-ignore lint/plugin: Uses usePrimitives().Modal internally, name is a billing domain action, not a primitive reimplementation
 export function PlanSwitchConfirmDialog({
   open,
   onOpenChange,

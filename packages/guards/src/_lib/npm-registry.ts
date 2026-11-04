@@ -92,14 +92,14 @@ export function memoizeRegistryClient(client: RegistryClient): RegistryClient {
     deprecation(name, version) {
       const key = `${name}@${version}`;
       const cached = deprecation.get(key);
-      if (cached) return cached;
+      if (cached !== undefined) return cached;
       const pending = client.deprecation(name, version);
       deprecation.set(key, pending);
       return pending;
     },
     latestRelease(name) {
       const cached = latest.get(name);
-      if (cached) return cached;
+      if (cached !== undefined) return cached;
       const pending = client.latestRelease(name);
       latest.set(name, pending);
       return pending;

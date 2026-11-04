@@ -8,6 +8,7 @@
  * Output: Markdown document listing all breaking changes across features.
  */
 
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -214,7 +215,7 @@ function main() {
   }
 
   const changelogs = collectChangelogs(fromVersion);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = Temporal.Now.instant().toString().slice(0, 10);
   // Keep the committed `verified` date when only the date would change:
   // the CI step regenerates and then runs `git diff --exit-code`, so a
   // fresh stamp on unchanged content turns every day after the last commit

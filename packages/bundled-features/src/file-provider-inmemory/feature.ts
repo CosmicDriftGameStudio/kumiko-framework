@@ -83,7 +83,7 @@ export function createFileProviderInMemoryFeature() {
           // Returns the per-tenant storage. Identity-stable across calls so
           // accumulated state is kept.
           return getOrCreateProviderForTenant(tenantId);
-        }, // @wrapper-known semantic-alias
+        },
       };
       r.useExtension("fileProvider", "inmemory", plugin);
     },

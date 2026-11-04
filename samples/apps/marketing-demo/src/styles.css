@@ -16,11 +16,6 @@
 
 @import "@cosmicdrift/kumiko-renderer/web/styles.css";
 
-/* Inter + JetBrains Mono — Marketing-Familie. Google Fonts CDN ist
-   für DACH-on-prem-Kunden suboptimal (DSGVO-Scoring); Self-Host-
-   Variante via @fontsource kommt wenn der erste Pilot-Kunde fragt. */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
-
 @source "./**/*.{ts,tsx}";
 
 /* Only brand-neutral tokens here: @theme is the dark default of the renderer,

@@ -1,9 +1,9 @@
 ---
 status: in-progress
-verified: 2026-06-21
-evidence: Mehrere Guards in infra/guards/ existieren (guard-cross-feature-imports.ts, guard-no-date-api.ts, guard-direct-entity-writes.ts etc.); aber doc-spezifische scripts/lint-*.ts + biome-Custom-Rules nicht implementiert — andere Architektur (kumiko-guards statt biome)
+verified: 2026-11-04
+evidence: Einzeldatei-Guards laufen als Biome-Builtins und GritQL-Plugins im Preset packages/framework/presets/biome-rules.json (Plugins in presets/biome-plugins/); kumiko-guards behaelt nur Regeln mit Cross-File- oder Registry-Wissen
 issue: kumiko-framework#274
-next: Biome-Plugin-Migration evaluieren (R2/R3/R8 nach Biome-Custom-Rules falls Plugin-System reif) — R6 (Secret<>-Response-Guard) implementiert in kumiko-framework#556, R8 (no-broker-subscribe) in infra#145
+next: R2/R3/R8 gegen die vorhandenen Plugins pruefen; R6 in kumiko-framework#556, R8 in infra#145
 ---
 
 # Kumiko Lint-Regeln (Implementierungs-Plan)
@@ -297,7 +297,6 @@ yarn kumiko check
   → tsx scripts/lint-new-date.ts    (falls nicht als Biome-Rule)
   → vitest run                      (bestehende Tests)
   → vitest run integration          (bestehende Integration-Tests)
-  → tsx scripts/guard-silent-skip.ts (bestehend)
   → boot-validation-test            (R4 als Teil vom Boot)
 ```
 
@@ -311,7 +310,6 @@ scripts/
   lint-new-date.ts              ← R2 (falls Biome-Rule zu schwach)
   lint-redis-direct.ts          ← R3 (ditto)
   lint-broker-subscribe.ts      ← R8 (ditto)
-  guard-silent-skip.ts          ← existiert bereits
   test-helpers/
     ast-utils.ts                ← geteilter ts-morph-Kram (TS-Projekt laden, etc.)
 ```
@@ -324,23 +322,13 @@ Jedes Script:
 
 ## Biome-Regel-Variante
 
-Falls Biome Custom-Rules unterstuetzt (via JS-Plugin-System — pruefen ob schon in eurem Biome-Release):
+Umgesetzt: `packages/framework/presets/biome-rules.json` (Export `@cosmicdrift/kumiko-framework/biome-rules`) buendelt `linter.rules` und `plugins`. Die Plugins liegen als GritQL-Dateien in `packages/framework/presets/biome-plugins/*.grit`, `biome-app.json` und das Root-`biome.json` erweitern das Preset. Plugin-Funde werden mit `biome-ignore lint/plugin: <Grund>` unterdrueckt. Tests: `packages/framework/src/presets/__tests__/`.
 
-```jsonc
-// biome.json
-{
-  "linter": {
-    "rules": {
-      "kumiko/no-new-date": "error",
-      "kumiko/no-redis-publish": "error",
-      "kumiko/no-broker-subscribe": "error",
-      "kumiko/no-cross-feature-import": "error",
-    }
-  }
-}
-```
+Laufzeit (`biome lint`, ganzes Repo, Stand 2026-11-04): ohne Plugins etwa 2,1 s, mit allen 23 Plugin-Registrierungen etwa 7,0 s (3,2x; die Grenze 1,5x ist nicht erreicht). Jedes Plugin bekommt einen billigen Vorfilter (`includes`, exakter Text) vor jeder Regex; die Trefferzahlen blieben je Plugin identisch (vorher etwa 17,5 s). Rest: Biome fuehrt pro Plugin-Registrierung einen AST-Durchlauf aus; am teuersten sind test-title (+1,2 s), no-skipped-or-retried-tests (+0,9 s) und no-same-folder-barrel-import (+0,5 s), weil sie jeden Call oder Import pruefen. Plugins mit gleichem Scope zusammenzulegen scheitert an unterschiedlichen include/exclude-Listen.
 
-Besser als Scripts, weil IDE sofort anzeigt. Wenn Biome noch nicht soweit ist: Scripts als Uebergang, spaeter Biome-Migration.
+Unterdrueckungen: `biome-ignore lint/plugin` setzt nur noch, wer eine bestehende `kumiko-lint-ignore`-Stelle uebernimmt. Die Scaffold-`bin/main.ts` traegt `biome-ignore-all lint/style/noProcessEnv`, weil sie KMS-Wiring und Demo-Passwort vor `runProdApp` (und damit vor dem Env-Contract) liest und keine `bin/env.ts` hat.
+
+Abweichungen vom Plan: `noImportCycles` bleibt aus (253 Funde im Framework-Repo). `noRestrictedImports` kennt kein `allowTypeImports`, daher meldet der Preset auch Typ-Imports von `temporal-polyfill` (der alte Guard erlaubte sie); Ersatz ist `@cosmicdrift/kumiko-types/temporal`. Die Guards `silent-skip`, `thin-wrappers` und `check-predicates` entfallen ersatzlos. Die Server-Plugins decken `src`, `bin` und `scripts` ab; Repo-Root-`scripts/` und `bin/` liegen ausserhalb von `files.includes` des Root-`biome.json`.
 
 ## IDE-Integration
 

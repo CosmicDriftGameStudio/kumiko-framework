@@ -62,7 +62,6 @@ export function defineTransitions<const TMap extends Record<string, readonly str
  * form. Both are supported; the graph method is the idiomatic API for new
  * code.
  */
-// @wrapper-known semantic-alias
 export function guardTransition<TStates extends string>(
   transitions: TransitionGraph<TStates>,
   from: TStates,

@@ -85,7 +85,6 @@ export function stepsPipeline<
 
 // Internal: invoked by run-pipeline.ts to materialise the step list.
 // Not exported from the engine barrel — pipeline-internal plumbing.
-// @wrapper-known semantic-alias
 //
 // `awaits` comes off pipelineDef itself (set by defineWorkflow), not a
 // function argument — every existing buildPipelineSteps caller (runner.ts,

@@ -68,7 +68,7 @@ export function TenantSwitcher({ tenantName }: TenantSwitcherProps): ReactNode {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {/* kumiko-lint-ignore primitives-discipline radix-asChild requires a DOM element as the trigger; Native has its own .native.tsx variant with ActionSheet */}
+        {/* biome-ignore lint/plugin: radix-asChild requires a DOM element as the trigger; Native has its own .native.tsx variant with ActionSheet */}
         <button
           type="button"
           className={cn(

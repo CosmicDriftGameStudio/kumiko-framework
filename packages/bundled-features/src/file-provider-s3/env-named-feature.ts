@@ -33,7 +33,7 @@ export function createFileProviderS3NamedEnvFeature(options: NamedS3EnvProviderO
       r.envSchema(envSchema);
       const plugin: FileProviderPlugin = {
         build: async (_ctx: FileProviderContext, _tenantId: string): Promise<FileStorageProvider> =>
-          createS3ProviderFromEnv(options.envPrefix), // @wrapper-known semantic-alias
+          createS3ProviderFromEnv(options.envPrefix),
       };
       r.useExtension("fileProvider", options.name, plugin);
     },

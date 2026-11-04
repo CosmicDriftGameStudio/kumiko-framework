@@ -97,11 +97,11 @@ dem Pfad, ein `// @runtime client`-Marker ist unnötig und wird von
   Screens leben unter `web/`.
 - **UI aus dem Framework**: Widgets (`StatCard`, `SectionCard`, `StatusBadge`,
   `QueryTable`, Charts, …) + `usePrimitives()` statt eigener Card/Table/Badge-
-  Nachbauten (`guard-no-custom-primitives`), Theme-Tokens statt raw Tailwind-
-  Farben (`guard-raw-classname`), kein Inline-CSS (`guard-no-inline-styles`).
+  Nachbauten (Biome plugin `raw-ui-in-app`), Theme-Tokens statt raw Tailwind-
+  Farben (Biome plugin `raw-ui-in-app`), kein Inline-CSS (Biome rule `noInlineStyles`).
 - **Daten über den Hook-Satz**: `useQuery` (SSE via `live: true`),
   `useMutation`, `useDisclosure`, `useReportStepComplete` (Wizard-Extension-Steps) — kein rohes `useEffect`/`fetch()` in Screens
-  (`guard-no-raw-hooks`).
+  (Biome plugin `no-raw-hooks`).
 - **Text über i18n**: JSX-Text und Label-Props laufen über `t("…")`-Keys
   (`guard-i18n-ui-strings`); der Boot-Validator erzwingt die Key-Abdeckung.
 - **Logik nach `lib/` (mit Test)**: Berechnung/Parsing/Aggregation gehört als

@@ -199,7 +199,7 @@ export const inMemoryInboundMailPlugin: InboundMailProviderPlugin = {
   fetch: async (ctx, account, cursor, opts): Promise<InboundFetchResult> => {
     const state = stateFor(account.id);
     state.lastFetchSignal = opts.signal;
-    if (state.hangingFetch) await state.hangingFetch;
+    if (state.hangingFetch !== null) await state.hangingFetch;
     if (state.nextFetchError) {
       const err = state.nextFetchError;
       state.nextFetchError = null;

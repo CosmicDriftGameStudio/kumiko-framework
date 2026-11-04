@@ -104,7 +104,7 @@ function createTenantConfigFileProviderS3Feature() {
       // Plugin registration. The entityName "s3" is what tenants set in
       // file-foundation's `provider` config key.
       const plugin: FileProviderPlugin = {
-        build: async (ctx: FileProviderContext, tenantId: string) => buildS3Provider(ctx, tenantId), // @wrapper-known semantic-alias
+        build: async (ctx: FileProviderContext, tenantId: string) => buildS3Provider(ctx, tenantId),
       };
       r.useExtension("fileProvider", "s3", plugin);
 

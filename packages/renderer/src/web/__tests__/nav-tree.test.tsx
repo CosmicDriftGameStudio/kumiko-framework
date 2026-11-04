@@ -217,7 +217,7 @@ describe("NavTree", () => {
     expect(screen.getByText("Backlog")).toBeTruthy();
   });
 
-  test("Section-Header collapst NICHT — children bleiben sichtbar", () => {
+  test("section header does not collapse — children stay visible", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 
     // There is no section toggle: "Data" is not inside a button, so there is
@@ -435,7 +435,7 @@ describe("NavTree", () => {
     );
   });
 
-  test("bekannter icon-Key warnt NICHT", () => {
+  test("known icon key does not warn", () => {
     const schema = {
       featureName: "showcase",
       entities: {},

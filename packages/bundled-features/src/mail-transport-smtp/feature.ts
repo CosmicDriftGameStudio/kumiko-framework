@@ -118,7 +118,7 @@ export function createMailTransportSmtpFeature() {
       // `provider` config-key to pick this transport.
       const plugin: MailTransportPlugin = {
         build: async (ctx: MailTransportContext, tenantId: string) =>
-          buildSmtpTransport(ctx, tenantId), // @wrapper-known semantic-alias
+          buildSmtpTransport(ctx, tenantId),
       };
       r.useExtension(MAIL_TRANSPORT_EXTENSION, "smtp", plugin);
 

@@ -94,7 +94,7 @@ describe("subscription-mollie — plugin-registration", () => {
     ).toBe(true);
   });
 
-  test("plugin has verifyAndParseWebhook + createCheckoutSession; KEIN portal/cancel (Mollie-Limit)", () => {
+  test("plugin has verifyAndParseWebhook + createCheckoutSession; no portal/cancel (Mollie limit)", () => {
     // Keep Mollie's plugin shape intentionally narrower than Stripe.
     // Adding a createPortalSession stub that throws "not-supported" would
     // change the foundation error behavior, so the optional fields are

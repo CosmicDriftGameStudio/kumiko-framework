@@ -17,6 +17,12 @@ describe("ignore-tag-reason guard", () => {
     "// kumiko-lint-ignore cross-feature-import two words",
     "/* kumiko-lint-ignore raw-sql short */",
     "const a = 1; // kumiko-lint-ignore raw-sql,comment-lang tmp",
+    "// biome-ignore lint/plugin: legacy",
+    "// biome-ignore lint/plugin: todo later",
+    "// biome-ignore lint/plugin: demo",
+    "// biome-ignore lint/plugin:",
+    "// biome-ignore-all lint/style/noProcessEnv: tmp",
+    "/* biome-ignore-start lint/plugin: later */",
   ])("flags a missing, generic or too short reason: %s", (comment) => {
     expect(weakLines(`${comment}\nexport const value = 1;\n`)).toEqual([1]);
   });
@@ -28,6 +34,10 @@ describe("ignore-tag-reason guard", () => {
     "// kumiko-lint-ignore comment-issue-ref-only <reason>",
     "// Opt-out: add kumiko-lint-ignore anywhere in the sentence",
     "// kumiko-lint-ignore",
+    "// biome-ignore lint/plugin: the demo app serves its fonts from its own public folder",
+    "// biome-ignore-all lint/style/noProcessEnv: wiring is read before the env contract is parsed",
+    "// biome-ignore lint/plugin: <reason>",
+    "// biome-ignore format: generated table keeps its column layout for review",
   ])("leaves a real reason, a documentation placeholder and prose alone: %s", (comment) => {
     expect(weakLines(`${comment}\nexport const value = 1;\n`)).toEqual([]);
   });

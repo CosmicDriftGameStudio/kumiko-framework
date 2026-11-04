@@ -13,7 +13,6 @@ const FOLDER_ASSIGNMENT_NAMESPACE = "b2e1f4a7-3c9d-4e8b-a1f6-5d2c8b3e7a9f";
  * creating a second row. This is the single-membership counterpart to tags'
  * many-to-many aggregate-id (which includes the tagId).
  */
-// @wrapper-known uuid-domain
 export function folderAssignmentAggregateId(
   tenantId: string,
   entityType: string,

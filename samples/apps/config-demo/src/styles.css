@@ -1,7 +1,5 @@
 @import "@cosmicdrift/kumiko-renderer/web/styles.css";
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
-
 @source "./**/*.{ts,tsx}";
 
 /* Colour tokens come from renderer/web (dark default + light override); redefining

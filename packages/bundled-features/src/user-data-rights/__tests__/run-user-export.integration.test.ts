@@ -210,7 +210,7 @@ describe("runUserExport :: alle Daten enthalten + Cross-Tenant", () => {
 });
 
 describe("runUserExport :: PII-Surface (Datenschutz-Audit)", () => {
-  test("Bundle enthaelt KEIN passwordHash + KEIN roles + KEIN status", async () => {
+  test("bundle contains no passwordHash, no roles and no status", async () => {
     await seedUser(ALICE_ID, {
       roles: '["Member","SecretAdmin","HiddenRole"]',
     });

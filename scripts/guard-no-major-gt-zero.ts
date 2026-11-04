@@ -16,6 +16,7 @@
  * Exit 1 on violations, 0 when clean.
  */
 
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -74,7 +75,7 @@ export function findMajorViolations(repoRoot: string): MajorFinding[] {
 		for (const dir of readdirSync(packagesDir)) {
 			const pkgPath = join(packagesDir, dir, "package.json");
 			if (!existsSync(pkgPath)) continue;
-			const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+			const pkg = parseJsonOrThrow<unknown>(readFileSync(pkgPath, "utf8"), pkgPath) as {
 				name?: string;
 				version?: string;
 				private?: boolean;

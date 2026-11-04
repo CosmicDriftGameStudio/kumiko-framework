@@ -291,7 +291,6 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   return { destination, files, appName: options.name };
 }
 
-// @wrapper-known semantic-alias
 function write(path: string, content: string): void {
   writeFileSync(path, content);
 }
@@ -532,7 +531,8 @@ function renderMain(appName: string): string {
 
   // Subject-key KMS is optional locally (plaintext + loud warning) but required
   // under NODE_ENV=production.
-  return `// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
+  return `// biome-ignore-all lint/style/noProcessEnv: KMS wiring and the demo admin password are read before runProdApp parses the env contract, and the scaffold has no bin/env.ts
+// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
 // composeFeatures + validateBoot + createRegistry without DB/Redis-connect
 // (see @cosmicdrift/kumiko-server-runtime runProdApp).
 

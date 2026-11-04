@@ -21,7 +21,6 @@ const TIER_ASSIGNMENT_NAMESPACE = "8e91d2fc-8b7a-4d3e-9f4a-1c5d6e7f8a9b";
  * Standard CRUD handlers instead generate UUIDs via `gen_random_uuid()`.
  * This utility is exported for use by the `stripe-sync` feature.
  */
-// @wrapper-known uuid-domain
 export function tierAssignmentAggregateId(tenantId: string): string {
   return uuidv5(tenantId, TIER_ASSIGNMENT_NAMESPACE);
 }

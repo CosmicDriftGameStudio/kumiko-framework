@@ -900,7 +900,7 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
 // active target (from nav.searchParams) replaces RoutedScreen with EditorPanel.
 // ---------------------------------------------------------------------------
 
-describe("WorkspaceShell — EINE Nav", () => {
+describe("WorkspaceShell — single nav", () => {
   test("workspace rendert NavTree", () => {
     const schema = {
       featureName: "demo",

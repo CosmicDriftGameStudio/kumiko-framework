@@ -100,7 +100,7 @@ export function createMemberReaderFn(
 
   function resolve(userId: string): Promise<SessionUser> {
     const cached = cache.get(userId);
-    if (cached) return cached;
+    if (cached !== undefined) return cached;
     const pending = resolveMember(ctx, tenantId, userId);
     cache.set(userId, pending);
     pending.catch(() => {

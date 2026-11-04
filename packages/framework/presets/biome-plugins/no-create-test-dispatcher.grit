@@ -1,0 +1,5 @@
+language js
+
+`createTestDispatcher($...)` as $call where {
+  register_diagnostic(span=$call, message="Integration tests run through the real stack: use setupTestStack from @cosmicdrift/kumiko-testing/stack and stack.http.writeOk/queryOk, never createTestDispatcher.", severity="error")
+}

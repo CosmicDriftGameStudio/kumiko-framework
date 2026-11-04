@@ -1,0 +1,10 @@
+language js
+
+or {
+  `useEffect($...)`,
+  `useLayoutEffect($...)`,
+  `$namespace.useEffect($...)`,
+  `$namespace.useLayoutEffect($...)`
+} as $hit where {
+  register_diagnostic(span=$hit, message="Raw useEffect/useLayoutEffect in web screens is the source of endless-rerender bugs and bypasses the framework hooks. Use useQuery (live: true for SSE), useMutation, useDisclosure or useReportStepComplete; a real DOM-integration case needs a biome-ignore with a reason.", severity="error")
+}

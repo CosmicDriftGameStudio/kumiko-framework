@@ -272,5 +272,10 @@ async function applyEntityEventInScope(
       await deleteMany(tx, table, { id: event.aggregateId });
       return { kind: "applied", verb, row: null };
     }
+
+    default: {
+      const exhaustiveCheck: never = verb;
+      return exhaustiveCheck;
+    }
   }
 }

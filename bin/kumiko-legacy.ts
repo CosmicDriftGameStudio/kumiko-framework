@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { $ } from "bun";
 import { createWriteStream, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
@@ -126,7 +127,6 @@ const BIN_PATH = (() => {
   return rootBin; // Fallback
 })();
 const BIOME = join(BIN_PATH, "biome");
-const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
 const KUMIKO_CLI = resolvePath(import.meta.dir, "..", "packages", "cli", "bin", "cli.ts");
 
 // Shared list of CPU-bound, short-running steps. `kumiko check` appends
@@ -242,15 +242,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // check` (packages/cli), step list derived from the scanned repo's kumiko.json.
   const guardCwd = guardScanRoot();
   steps.push({ name: "kumiko check (boot + guard suites)", cmd: `cd "${guardCwd}" && bun "${KUMIKO_CLI}" check` });
-  // Warn-only (exit 0): run-config preset names vs composeStacks fingerprints.
-  // Parent-workspace only until kumiko-guard-compose-stacks-parity is published.
-  const composeStacksParityGuard = join(REPO_ROOT, "infra/guards/guard-compose-stacks-parity.ts");
-  if (existsSync(composeStacksParityGuard)) {
-    steps.push({
-      name: "Compose-Stacks-Parity Guard",
-      cmd: `bun "${composeStacksParityGuard}"`,
-    });
-  }
   // Runtime-isolation runs inside the `kumiko check` step above (checks bundle).
   // Guards living in the parent workspace's infra/ are optional: without the file
   // (standalone CI checkout) the step is skipped loudly, never through a bunx fallback
@@ -267,28 +258,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   // a standalone CI checkout lacks. Skip loudly; the drift check runs in the local
   // parent context, where `bun run check` is mandatory before every push.
   if (existsSync(join(REPO_ROOT, "kumiko-platform"))) {
-    pushInfraGuardStep("Doc-Status Guard", "guard-doc-status.ts");
     pushInfraGuardStep("Doc-Status-Index Drift", "docs-status-index.ts");
-    // Concept pages must start with "## In plain words" (docs standard,
-    // kumiko-platform docs/reference/doku-standard.md).
-    pushInfraGuardStep("Docs-Plain-Words Guard", "guard-docs-plain-words.ts", " --strict");
-    // Needs the legal-templates source (kumiko-platform/tools/legal-templates)
-    // to verify committed app JSONs against a fresh compilation.
-    pushInfraGuardStep("Legal-Template-Drift Guard", "guard-legal-template-drift.ts");
   } else {
-    console.log("Doc-Status steps skipped: kumiko-platform not in workspace (CI-standalone).");
+    console.log("Doc-Status-Index step skipped: kumiko-platform not in workspace (CI-standalone).");
   }
   // TODO(2026-07-03): re-enable as-Cast Audit — coverage extended to all repos
   // (enterprise, platform, solon, .tsx) in check-as-casts.ts; baseline must be
   // regenerated with `--write-baseline` from framework repo after validation.
-  // App-Dockerfile Guard needs the app-repo siblings in the parent workspace,
-  // hence loud-skip in a standalone checkout (infra#514).
-  const appDockerfileGuard = join(REPO_ROOT, "infra/guards/guard-app-dockerfile.ts");
-  if (existsSync(appDockerfileGuard)) {
-    steps.push({ name: "App-Dockerfile Guard", cmd: `bun ${appDockerfileGuard}` });
-  } else {
-    console.log("App-Dockerfile Guard skipped: infra/guards not in workspace (CI-standalone).");
-  }
   // Baseline regression guard (infra#295): fails only on NEW DE comments,
   // existing hits are frozen via .kumiko-comment-lang-baseline.json.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guards comment-lang" });
@@ -296,14 +272,9 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "Public-Exports-Changelog Guard",
     cmd: "bunx kumiko-guards public-exports-changelog --base=origin/main",
   });
-  // Agent-Manifest Guard (infra#702). The parent workspace's cross-repo guard also
-  // flags apps without a kumiko.config.ts. A standalone checkout lints this repo's own
-  // sample configs with `kumiko agent lint` (same findAgentDocGaps rule); finding none
-  // fails instead of passing vacuously.
-  const agentManifestGuard = join(REPO_ROOT, "infra/guards/guard-agent-manifest.ts");
-  if (existsSync(agentManifestGuard)) {
-    steps.push({ name: "Agent-Manifest Guard", cmd: `bun "${agentManifestGuard}"` });
-  } else {
+  // Lints this repo's own sample configs with `kumiko agent lint` (findAgentDocGaps);
+  // finding none fails instead of passing vacuously.
+  {
     const sampleConfigDirs = ["samples/apps", "samples/recipes"].flatMap((sampleRoot) => {
       const samplesDir = join(FRAMEWORK_REPO_ROOT, sampleRoot);
       if (!existsSync(samplesDir)) return [];
@@ -363,32 +334,8 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "Integration-Mock Guard",
     cmd: `cd "${FRAMEWORK_REPO_ROOT}" && bun integration.guard.ts`,
   });
-  // Local override only; the "kumiko check" step above already covers
-  // raw-sql detection via the public package when this file is absent.
-  const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
-  if (existsSync(rawSqlGuard)) {
-    steps.push({ name: "Raw-SQL Guard", cmd: `bun ${rawSqlGuard}` });
-  } else {
-    console.log('Raw-SQL guard skipped: already covered by "kumiko check".');
-  }
   steps.push({ name: "License Check", cmd: "bunx kumiko-guards licenses" });
   steps.push({ name: "Security Audit", cmd: "bunx kumiko-guards security" });
-  // Cross-repo scan: gates on the guard file (parent workspace) and LAUT-skips
-  // standalone — no bunx fallback, the pinned guards version doesn't ship this bin.
-  const secretLiteralGuard = join(REPO_ROOT, "infra/guards/check-secret-literals.ts");
-  if (existsSync(secretLiteralGuard)) {
-    steps.push({ name: "Secret-Literal Guard", cmd: `bun ${secretLiteralGuard}` });
-  } else {
-    console.log("Secret-Literal guard skipped: infra/guards not in workspace (CI-standalone).");
-  }
-  const processEnvGuard = join(REPO_ROOT, "infra/guards/guard-no-direct-process-env.ts");
-  if (existsSync(processEnvGuard)) {
-    steps.push({ name: "No-Direct-Process-Env Guard", cmd: `bun ${processEnvGuard}` });
-  } else {
-    console.log(
-      "No-Direct-Process-Env guard skipped: infra/guards not in workspace (CI-standalone).",
-    );
-  }
   // No bunx fallback here on purpose: the guard checks GUARD_REPO_PRESETS (the
   // required repo list), not just whatever siblings happen to exist — a
   // standalone run with missing siblings would fail for a reason unrelated to
@@ -398,21 +345,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     steps.push({ name: "Renovate-Presets Guard", cmd: `bun ${renovatePresetsGuard}` });
   } else {
     console.log("Renovate-Presets guard skipped: infra/guards not in workspace (CI-standalone).");
-  }
-  const subpathExportsGuard = join(REPO_ROOT, "infra/guards/check-subpath-exports.ts");
-  if (existsSync(subpathExportsGuard)) {
-    steps.push({ name: "Subpath-Exports Guard", cmd: `bun ${subpathExportsGuard}` });
-  } else {
-    console.log("Subpath-Exports guard skipped: infra/guards not in workspace (CI-standalone).");
-  }
-  // No bunx fallback here on purpose (infra#538): the guard reads the parent's
-  // own `workspaces` array, not just whatever siblings happen to exist — it
-  // only makes sense from the parent workspace.
-  const workspaceDriftGuard = join(REPO_ROOT, "infra/guards/check-workspace-drift.ts");
-  if (existsSync(workspaceDriftGuard)) {
-    steps.push({ name: "Workspace-Drift Guard", cmd: `bun ${workspaceDriftGuard}` });
-  } else {
-    console.log("Workspace-Drift guard skipped: infra/guards not in workspace (CI-standalone).");
   }
   steps.push({ name: "Deprecated Deps", cmd: "bunx kumiko-guards outdated" });
 
@@ -874,7 +806,7 @@ const commands = {
           console.log("\n  Registered projections:\n");
           for (const e of entries) {
             const when = e.lastRebuildAt
-              ? e.lastRebuildAt.toISOString()
+              ? Temporal.Instant.fromEpochMilliseconds(+e.lastRebuildAt).toString()
               : `${dim}never${reset}`;
             console.log(
               `    ${e.name.padEnd(40)} ${colorStatus(e.status).padEnd(25)} source=${e.sources.join(
@@ -908,7 +840,7 @@ const commands = {
           console.log(
             `    last rebuild:  ${state.lastRebuildAt?.toISOString() ?? `${dim}never${reset}`}`,
           );
-          console.log(`    updated at:    ${state.updatedAt.toISOString()}`);
+          console.log(`    updated at:    ${Temporal.Instant.fromEpochMilliseconds(+state.updatedAt).toString()}`);
           if (state.lastError) {
             console.log(`    last error:    ${red}${state.lastError}${reset}`);
           }
@@ -1014,7 +946,7 @@ const commands = {
         const mark = dryRun ? yellow : green;
         console.log(
           `\n  ${mark}✓${reset} ${verb} ${result.deletedCount} event(s) ` +
-            `older than ${result.cutoff.toISOString()} ` +
+            `older than ${Temporal.Instant.fromEpochMilliseconds(+result.cutoff).toString()} ` +
             `(aggregateType=${result.aggregateTypes.join(",")})\n`,
         );
         if (result.dryRun) {
@@ -1147,7 +1079,7 @@ const commands = {
             console.log(`    status:        ${colorStatus(state.status)}`);
             console.log(`    last event id: ${state.lastProcessedEventId}`);
             console.log(`    attempts:      ${state.attempts}`);
-            console.log(`    updated at:    ${state.updatedAt.toISOString()}`);
+            console.log(`    updated at:    ${Temporal.Instant.fromEpochMilliseconds(+state.updatedAt).toString()}`);
             if (state.lastError) {
               console.log(`    last error:    ${red}${state.lastError}${reset}`);
             }

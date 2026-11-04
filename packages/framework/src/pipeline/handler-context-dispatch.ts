@@ -144,7 +144,7 @@ export function buildDispatchFacet(
     {
       // Inherits the caller's origin, so switching to SYSTEM cannot shed an anonymous root.
       queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-        executeQuery(ctx, targetType, payload, asUser, origin, tx, sinks.notifyCommitSink), // @wrapper-known semantic-alias
+        executeQuery(ctx, targetType, payload, asUser, origin, tx, sinks.notifyCommitSink),
       writeAs: writeAsUser,
     },
     identitySwitchAudit,
@@ -153,7 +153,7 @@ export function buildDispatchFacet(
     dispatch: {
       ...readers,
       query: (targetType: string, payload: unknown) =>
-        executeQuery(ctx, targetType, payload, user, origin, tx, sinks.notifyCommitSink), // @wrapper-known semantic-alias
+        executeQuery(ctx, targetType, payload, user, origin, tx, sinks.notifyCommitSink),
       queryAs: identitySwitch.queryAs,
       write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
       writeAs: identitySwitch.writeAs,

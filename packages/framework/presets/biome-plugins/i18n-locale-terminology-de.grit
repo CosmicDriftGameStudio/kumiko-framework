@@ -1,0 +1,15 @@
+language js
+
+JsPropertyObjectMember(value=$text) as $member where {
+  $text <: includes or {
+    "enant",
+    "ENANT",
+    "rganisation",
+    "RGANISATION"
+  },
+  $text <: or {
+    r"(?i)(?s).*(?:(?-u:\b)Tenants?(?-u:\b)).*",
+    r"(?i)(?s).*(?:(?-u:\b)organisation(?:en|s)?).*"
+  },
+  register_diagnostic(span=$member, message="German locale terminology: use Mandant instead of Tenant/Organisation (fw#2200). Role names like TenantAdmin are fine.", severity="error")
+}

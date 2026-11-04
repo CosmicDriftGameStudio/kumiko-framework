@@ -11,7 +11,7 @@ import {
   runGuards,
 } from "../_lib/guard-kit";
 import type { ScanSpec } from "../_lib/scan-scope";
-import { guard as adminApi } from "../guard-admin-api";
+import { guard as importExtensions } from "../guard-import-extensions";
 import type { RepoManifest } from "../repo-manifest/index.ts";
 import { GUARDS } from "../run-guards";
 import { fixtureRoot, writeRepo } from "./parent-workspace-fixture";
@@ -61,14 +61,14 @@ describe("Vacuity-Floor against real paths", () => {
       };
       writeRepo(dir, { name: "vacuity-fixture", layout: { manifest } });
       const roots = [fixtureRoot("vacuity-fixture", dir, manifest)];
-      const project = buildSharedProject([throwingGuard, adminApi], roots);
-      expect(filesForGuard(project, adminApi, roots).length).toBeGreaterThanOrEqual(0);
+      const project = buildSharedProject([throwingGuard, importExtensions], roots);
+      expect(filesForGuard(project, importExtensions, roots).length).toBeGreaterThanOrEqual(0);
 
-      const results = runGuards([throwingGuard, adminApi], project, { roots });
+      const results = runGuards([throwingGuard, importExtensions], project, { roots });
       const thrown = results.find((r) => r.name === throwingGuard.name);
       expect(thrown?.ok).toBe(false);
       expect(thrown?.error).toContain("scan resolution boom");
-      const sibling = results.find((r) => r.name === adminApi.name);
+      const sibling = results.find((r) => r.name === importExtensions.name);
       expect(sibling?.error).toBeUndefined();
     } finally {
       rmSync(dir, { recursive: true, force: true });

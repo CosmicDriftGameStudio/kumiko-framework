@@ -1,0 +1,9 @@
+language css
+
+CssString() as $literal where {
+  $literal <: includes or {
+    "fonts.googleapis.com",
+    "fonts.gstatic.com"
+  },
+  register_diagnostic(span=$literal, message="No external font CDNs (fonts.googleapis.com, fonts.gstatic.com): self-host fonts so no visitor data leaves for a third party.", severity="error")
+}
