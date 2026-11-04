@@ -231,34 +231,54 @@ function metricSubline(
   return typeof raw === "number" ? String(raw) : undefined;
 }
 
+type MetricSpec = NonNullable<DetailHeaderModel["screen"]["metrics"]>[number];
+
+function metricLabel(
+  metric: MetricSpec,
+  record: Readonly<Record<string, unknown>>,
+  translate: DetailHeaderModel["effectiveTranslate"],
+): string {
+  const fromRecord = metric.labelField === undefined ? undefined : record[metric.labelField];
+  return typeof fromRecord === "string" && fromRecord !== "" ? fromRecord : translate(metric.label);
+}
+
+function metricPressHandler(
+  model: DetailHeaderModel,
+  metric: MetricSpec,
+): (() => void) | undefined {
+  const { record, nav, appFeatures, userRoles, host } = model;
+  const navigate = metric.navigate;
+  return navigate !== undefined &&
+    metricNavigateResolves(navigate, record) &&
+    navigateTargetAllows(navigate, appFeatures, userRoles)
+    ? () => runMetricNavigate(nav, navigate, record, host)
+    : undefined;
+}
+
+// Same rule as the dashboard stat panels: a fixed tone must not paint an all-clear 0.
+function metricTone(
+  metric: MetricSpec,
+  record: Readonly<Record<string, unknown>>,
+  rawValue: unknown,
+): DashboardStatTone | undefined {
+  return metricFieldTone(metric.toneField, record) ?? (rawValue === 0 ? undefined : metric.tone);
+}
+
 // slots.header shares the header card with the actions (one card, actions
 // top right) instead of rendering as an unframed block above it.
 export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefined {
-  const { screen, record, primitives, effectiveTranslate, nav, appFeatures, userRoles, host } =
-    model;
+  const { screen, record, primitives, effectiveTranslate } = model;
   const { Metric, GridCell, Text } = primitives;
   return screen.metrics?.map((metric) => {
     const field = metric.field;
-    const dynamicLabel = metric.labelField === undefined ? undefined : record[metric.labelField];
-    const label =
-      typeof dynamicLabel === "string" && dynamicLabel !== ""
-        ? dynamicLabel
-        : effectiveTranslate(metric.label);
+    const label = metricLabel(metric, record, effectiveTranslate);
     const rawValue = record[field];
     const value = formatOrRaw(metric.format, rawValue, effectiveTranslate);
     const tiles = screen.metricsStyle === "tiles";
-    // Same rule as the dashboard stat panels: a fixed tone must not paint an all-clear 0.
-    const tone =
-      metricFieldTone(metric.toneField, record) ?? (rawValue === 0 ? undefined : metric.tone);
+    const tone = metricTone(metric, record, rawValue);
     const sub = metricSubline(metric.subField, record);
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
-    const navigate = metric.navigate;
-    const onPress =
-      navigate !== undefined &&
-      metricNavigateResolves(navigate, record) &&
-      navigateTargetAllows(navigate, appFeatures, userRoles)
-        ? () => runMetricNavigate(nav, navigate, record, host)
-        : undefined;
+    const onPress = metricPressHandler(model, metric);
     return Metric !== undefined ? (
       <Metric
         key={field}

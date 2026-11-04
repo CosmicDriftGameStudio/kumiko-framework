@@ -56,6 +56,54 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
   );
 }
 
+function StepsHeader({
+  title,
+  subtitle,
+  count,
+  testId,
+}: Pick<RecordStepsProps, "title" | "subtitle" | "count" | "testId">): ReactNode {
+  return (
+    <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-3">
+      <h3 className="m-0 text-sm font-semibold text-foreground">{title}</h3>
+      {subtitle !== undefined && (
+        <span className="text-[13px] text-muted-foreground">{subtitle}</span>
+      )}
+      {count !== undefined && (
+        <span
+          data-testid={`${testId ?? "record-steps"}-count`}
+          className="ml-auto text-xs text-muted-foreground"
+        >
+          {count}
+        </span>
+      )}
+    </header>
+  );
+}
+
+function StepsMoreToggle({
+  testId,
+  expanded,
+  label,
+  onToggle,
+}: {
+  testId: string | undefined;
+  expanded: boolean;
+  label: string;
+  onToggle: () => void;
+}): ReactNode {
+  return (
+    <button
+      type="button"
+      data-testid={`${testId ?? "record-steps"}-toggle`}
+      aria-expanded={expanded}
+      className="w-full border-t px-4 py-3 text-left text-sm font-medium text-primary hover:underline"
+      onClick={onToggle}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function DefaultRecordSteps({
   title,
   subtitle,
@@ -73,27 +121,19 @@ export function DefaultRecordSteps({
   const [expanded, setExpanded] = useState(false);
   const limited = narrow && narrowLimit !== undefined && items.length > narrowLimit;
   const visible = limited && !expanded ? items.slice(0, narrowLimit) : items;
-  const hiddenCount = items.length - visible.length;
+  const toggleLabel =
+    moreLabel === undefined || lessLabel === undefined
+      ? undefined
+      : expanded
+        ? lessLabel
+        : moreLabel(items.length - visible.length);
   return (
     <section
       data-testid={testId}
       className={cn("shrink-0", !insideScreenFormColumn && "px-6 py-2")}
     >
       <div className="rounded-md border bg-card">
-        <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-3">
-          <h3 className="m-0 text-sm font-semibold text-foreground">{title}</h3>
-          {subtitle !== undefined && (
-            <span className="text-[13px] text-muted-foreground">{subtitle}</span>
-          )}
-          {count !== undefined && (
-            <span
-              data-testid={`${testId ?? "record-steps"}-count`}
-              className="ml-auto text-xs text-muted-foreground"
-            >
-              {count}
-            </span>
-          )}
-        </header>
+        <StepsHeader title={title} subtitle={subtitle} count={count} testId={testId} />
         {items.length === 0 ? (
           <p className="m-0 px-4 py-3 text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (
@@ -103,16 +143,13 @@ export function DefaultRecordSteps({
             ))}
           </ul>
         )}
-        {limited && moreLabel !== undefined && lessLabel !== undefined && (
-          <button
-            type="button"
-            data-testid={`${testId ?? "record-steps"}-toggle`}
-            aria-expanded={expanded}
-            className="w-full border-t px-4 py-3 text-left text-sm font-medium text-primary hover:underline"
-            onClick={() => setExpanded((open) => !open)}
-          >
-            {expanded ? lessLabel : moreLabel(hiddenCount)}
-          </button>
+        {limited && toggleLabel !== undefined && (
+          <StepsMoreToggle
+            testId={testId}
+            expanded={expanded}
+            label={toggleLabel}
+            onToggle={() => setExpanded((open) => !open)}
+          />
         )}
       </div>
     </section>
