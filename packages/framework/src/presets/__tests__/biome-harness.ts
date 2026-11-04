@@ -15,6 +15,7 @@ const reportSchema = z.object({
   diagnostics: z.array(
     z.object({
       category: z.string(),
+      severity: z.string(),
       message: z.string(),
       location: z
         .object({
@@ -32,6 +33,7 @@ const TEMPLATE_OPEN = "$" + "{";
 
 export type Finding = {
   readonly category: string;
+  readonly severity: string;
   readonly file: string;
   readonly line: number;
   readonly message: string;
@@ -74,6 +76,7 @@ export function lintFixture(
       .diagnostics.filter((d) => d.location?.path !== undefined && d.location.path !== "biome.json")
       .map((d) => ({
         category: d.category,
+        severity: d.severity,
         file: d.location?.path ?? "",
         line: d.location?.start?.line ?? 0,
         message: d.message,

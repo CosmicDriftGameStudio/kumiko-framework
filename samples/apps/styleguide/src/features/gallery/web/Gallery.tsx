@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
 const SWATCHES: ReadonlyArray<readonly [string, string]> = [
   ["background", "bg-background"],
   ["foreground", "bg-foreground"],
-  ["card", "bg-card"], // kumiko-lint-ignore primitives-discipline foundation-token swatch (zeigt das bg-card-Token selbst)
+  ["card", "bg-card"],
   ["primary", "bg-primary"],
   ["secondary", "bg-secondary"],
   ["muted", "bg-muted"],
@@ -359,7 +359,6 @@ export function Gallery(): ReactNode {
           <div className="flex items-center gap-3 p-2">
             <div className="relative min-w-0 flex-1">
               <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
-              {/* kumiko-lint-ignore primitives-discipline readOnly search-pill visual (rounded-full with inset icon) — pattern demo, not a form field */}
               <input
                 className="bg-muted/50 placeholder:text-muted-foreground focus-visible:ring-ring h-10 w-full rounded-full border-none pl-9 pr-4 text-sm outline-none focus-visible:ring-2"
                 placeholder="Search holdings or tickers…"
@@ -780,7 +779,6 @@ export function Gallery(): ReactNode {
       <Block id="nav" title="Navigation">
         {/* ponytail: static replica of the nav standard — the LIVE nav is
             the sidebar on the left (NavTree), isolated here for the docs. */}
-        {/* kumiko-lint-ignore primitives-discipline nav-surface demo (navigation surface, not a card) */}
         <div className="bg-card w-60 rounded-lg border p-3 text-sm shadow-sm">
           <div className="text-muted-foreground/70 px-2 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider">
             Workspace
@@ -815,7 +813,6 @@ export function Gallery(): ReactNode {
         <div className="flex flex-wrap items-end gap-6">
           {SHADOWS.map(([name, cls]) => (
             <div key={name} className="flex flex-col items-center gap-2">
-              {/* kumiko-lint-ignore primitives-discipline elevation-swatch (Foundation-Token-Demo, kein Card) */}
               <div className={`bg-card size-16 rounded-lg ${cls}`} />
               <span className="text-muted-foreground text-xs">{name}</span>
             </div>

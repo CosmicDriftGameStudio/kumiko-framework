@@ -210,8 +210,11 @@ produces code that compiles and then fails in production.
   handler: `r.crud`, the `defineEntity*Handler` helpers, the executor from
   `createEntityExecutor`, or `emitEvent` / `ctx.events.append`. The query
   helpers and `ctx.db` throw `AccessDeniedError` on such a write, also
-  through `ctx.db.unsafeRaw()`. Test seeds use `seedRow` / `deleteRows` from
-  `@cosmicdrift/kumiko-testing`.
+  through `ctx.db.unsafeRaw()`. Test seeds on an entity table use
+  `seedRowViaEventStore` / `seedRowsViaEventStore` from
+  `@cosmicdrift/kumiko-testing/helpers`; `seedRow` is for tables without
+  event sourcing and throws on an entity table unless the test passes
+  `{ projectionOnly: "<why>" }`.
 - Never store a value that can be computed. Derive it in a query or a
   projection.
 - Never hand-write SQL for reads that an executor `list` or `detail` covers.

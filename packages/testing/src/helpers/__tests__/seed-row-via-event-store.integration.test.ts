@@ -4,7 +4,7 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack/index.ts";
 import { resetTestTables } from "../db-cleanup.ts";
-import { seedRowViaEventStore } from "../event-store-writes.ts";
+import { seedRowsViaEventStore, seedRowViaEventStore } from "../event-store-writes.ts";
 import { seedRow, seedRows } from "../seed.ts";
 
 const gadgetEntity = createEntity({
@@ -83,6 +83,27 @@ describe("seedRowViaEventStore", () => {
     await expect(
       seedRowViaEventStore(stack.db, gadgetTable, { id: GADGET_ID, label: "again" }),
     ).rejects.toThrow(/seed seed-gadget failed: version_conflict/);
+  });
+});
+
+describe("seedRowsViaEventStore", () => {
+  test("gives every row its own event stream and projects all rows", async () => {
+    const secondId = "00000000-0000-4000-8000-00000000b002";
+    await seedRowsViaEventStore(stack.db, gadgetTable, [
+      { id: GADGET_ID, tenantId: TENANT_ID, label: "first" },
+      { id: secondId, tenantId: TENANT_ID, label: "second" },
+    ]);
+
+    const rows = await selectMany<Record<string, unknown>>(stack.db, gadgetTable, {});
+    expect(rows.map((row) => row["label"]).sort()).toEqual(["first", "second"]);
+    const firstEvents = await selectMany<Record<string, unknown>>(stack.db, eventsTable, {
+      aggregateId: GADGET_ID,
+    });
+    const secondEvents = await selectMany<Record<string, unknown>>(stack.db, eventsTable, {
+      aggregateId: secondId,
+    });
+    expect(firstEvents).toMatchObject([{ type: "seed-gadget.created" }]);
+    expect(secondEvents).toMatchObject([{ type: "seed-gadget.created" }]);
   });
 });
 

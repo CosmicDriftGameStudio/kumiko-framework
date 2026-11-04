@@ -80,7 +80,6 @@ export function useTextBlockEditor(target: TargetRef) {
   // values must not wipe what the user is typing.
   const loadedTitle = loaded?.title ?? "";
   const loadedContent = loaded?.content ?? "";
-  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
   useEffect(() => {
     // skip: keep the form untouched until the query settles
     if (loading) return;

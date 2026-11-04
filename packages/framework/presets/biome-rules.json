@@ -252,7 +252,27 @@
       "resolutionKind": "config",
       "includes": [
         "**/web/**/*.tsx",
+        "**/client/**/*.tsx",
         "**/public/**/*.tsx",
+        "!**/__tests__/**",
+        "!**/*.test.ts",
+        "!**/*.test.tsx",
+        "!**/*.integration.ts",
+        "!**/*.integration.tsx",
+        "!**/*.spec.ts",
+        "!**/*.d.ts",
+        "!**/packages/renderer/**",
+        "!**/packages/document-designer/**",
+        "!**/samples/**"
+      ]
+    },
+    {
+      "path": "./biome-plugins/no-screen-container-classes.grit",
+      "resolutionKind": "config",
+      "includes": [
+        "**/web/**/*.tsx",
+        "**/client/**/*.tsx",
+        "!**/public/**",
         "!**/__tests__/**",
         "!**/*.test.ts",
         "!**/*.test.tsx",

@@ -31,7 +31,7 @@ or {
       `import $_ from "@cosmicdrift/kumiko-renderer-web"`,
       `usePrimitives`
     },
-    register_diagnostic(span=$tag, message="Raw interactive element in a file that has the primitives: use usePrimitives().Link for a, CollapsibleSection (@cosmicdrift/kumiko-renderer/web) for details/summary.", severity="error")
+    register_diagnostic(span=$tag, message="Raw interactive element in a file that has the primitives: use usePrimitives().Link for a, CollapsibleSection (@cosmicdrift/kumiko-renderer/web) for details/summary.", severity="warn")
   },
   JsxSelfClosingElement(name=$tag) as $element where {
     $tag <: or {
@@ -45,7 +45,7 @@ or {
       `import $_ from "@cosmicdrift/kumiko-renderer-web"`,
       `usePrimitives`
     },
-    register_diagnostic(span=$tag, message="Raw interactive element in a file that has the primitives: use usePrimitives().Link for a, CollapsibleSection (@cosmicdrift/kumiko-renderer/web) for details/summary.", severity="error")
+    register_diagnostic(span=$tag, message="Raw interactive element in a file that has the primitives: use usePrimitives().Link for a, CollapsibleSection (@cosmicdrift/kumiko-renderer/web) for details/summary.", severity="warn")
   },
   JsxAttribute(name=`className`, initializer=$classes) where {
     $classes <: includes or {

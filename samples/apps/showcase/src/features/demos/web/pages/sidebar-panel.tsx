@@ -104,7 +104,6 @@ export function SidebarPanelDemo(): ReactNode {
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {MAILS.map((mail) => (
-            // kumiko-lint-ignore primitives-discipline multi-line clickable row (from/subject/teaser stacked) — the core Button primitive is a single-line inline control
             <button
               type="button"
               key={mail.subject}

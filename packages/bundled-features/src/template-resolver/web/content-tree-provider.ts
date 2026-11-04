@@ -152,7 +152,6 @@ async function postBlockList(
   const headers: Record<string, string> = { "content-type": "application/json" };
   const csrf = readCsrfToken();
   if (csrf !== undefined) headers[CSRF_HEADER_NAME] = csrf;
-  // kumiko-lint-ignore no-raw-hooks not yet converted to the framework hook set
   const response = await fetch("/api/query", {
     method: "POST",
     headers,

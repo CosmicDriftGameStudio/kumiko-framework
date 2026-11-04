@@ -123,6 +123,15 @@ export async function seedRowViaEventStore(
   if (!result.isSuccess) throw failedWrite("seed", entityName, result.error);
 }
 
+// Same arguments as seedRows. Seeds one after the other: each row is its own event stream.
+export async function seedRowsViaEventStore(
+  db: DbConnection,
+  table: EventStoreWriteTarget["table"],
+  rows: ReadonlyArray<Readonly<Record<string, unknown>>>,
+): Promise<void> {
+  for (const values of rows) await seedRowViaEventStore(db, table, values);
+}
+
 export async function updateRowViaEventStore(
   db: DbConnection,
   target: EventStoreWriteTarget,
