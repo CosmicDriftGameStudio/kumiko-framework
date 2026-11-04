@@ -36,6 +36,7 @@ function cardCell(m: DataTableModel, row: ListRowViewModel, col: ListColumnViewM
         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
       })}
       {...cellLinkProp(col, row, m.rowOpener(row) === undefined)}
+      insideRowOpener={m.rowOpener(row) !== undefined}
     />
   );
 }

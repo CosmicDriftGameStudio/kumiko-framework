@@ -33,8 +33,10 @@ export function listGuidanceFieldRefs(
   return definedRefs([
     { option: "rowToneField", field: screen.rowToneField },
     ...screen.columns.flatMap((col) => {
-      const hint = normalizeListColumn(col).hint;
+      const column = normalizeListColumn(col);
+      const hint = column.hint;
       return [
+        { option: "linkParamsField", field: column.linkParamsField },
         { option: "hint.detailField", field: hint?.detailField },
         { option: "hint.toneField", field: hint?.toneField },
         { option: "hint.reasonField", field: hint?.reasonField },

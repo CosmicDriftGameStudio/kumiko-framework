@@ -24,7 +24,7 @@ export function hintViewModel(
   };
 }
 
-// The hint cell owns its rendering, so a column's renderer and links are dropped.
+// The hint cell owns its rendering: DataTableCell ignores the column's renderer and links once a hint is set.
 export function withHintColumns(
   columns: readonly ListColumnViewModel[],
   screen: EntityListScreenDefinition,

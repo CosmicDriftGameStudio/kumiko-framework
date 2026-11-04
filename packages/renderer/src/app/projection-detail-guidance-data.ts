@@ -52,7 +52,9 @@ export function readSteps(value: unknown): RecordStep[] {
   for (const raw of value) {
     if (!isPlainObject(raw)) continue;
     const { id, title, detail, why, tone, ...rest } = raw;
-    if (typeof id !== "string" || id === "" || typeof title !== "string") continue;
+    if (typeof id !== "string" || id === "" || typeof title !== "string" || title === "") {
+      continue;
+    }
     const parsedTone = readTone(tone);
     steps.push({
       ...rest,

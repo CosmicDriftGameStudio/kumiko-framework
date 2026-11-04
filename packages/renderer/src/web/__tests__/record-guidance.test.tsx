@@ -6,6 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen } from "../../index.ts";
+import { DataTable } from "./_primitives-helpers.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const listScreen: ProjectionListScreenDefinition = {
@@ -52,6 +53,33 @@ describe("projectionList row guidance", () => {
     expect(screen.queryByText("Paid already")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Why?" }));
     expect(screen.getByText("Paid already")).toBeTruthy();
+  });
+
+  test("a hint in the row-open first cell shows the reason open instead of nesting a toggle", () => {
+    const onRowClick = mock();
+    render(
+      <DataTable
+        columns={[
+          {
+            field: "next",
+            label: "Next",
+            type: "text",
+            sortable: false,
+            hint: { emptyLabel: "Nothing open", reasonLabel: "Why?", reasonField: "why" },
+          },
+        ]}
+        rows={[{ id: "r1", values: { next: "Ship it", why: "Paid already" } }]}
+        testId="dt"
+        onRowClick={onRowClick}
+        rowActions={[{ id: "open", label: "Open", rowClick: true, onTrigger: mock() }]}
+      />,
+    );
+    const sentence = screen.getByText("Ship it");
+    expect(sentence.closest("button")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
+    expect(screen.getByText("Paid already").closest("button")).toBe(sentence.closest("button"));
+    fireEvent.click(sentence);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -146,6 +174,14 @@ describe("projectionDetail record guidance blocks", () => {
     );
     const banner = screen.getByTestId("kumiko-screen-projection-detail-banner");
     expect(banner.getAttribute("data-variant")).toBe("info");
+  });
+
+  test("a step without a title is dropped", async () => {
+    renderDetail({ ...FULL, steps: [{ id: "s0", title: "", tone: "bad" }, ...FULL.steps] });
+    await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
+    const steps = screen.getByTestId("kumiko-screen-projection-detail-steps");
+    expect(steps.querySelector("[data-tone='bad']")).toBeNull();
+    expect(steps.textContent).toContain("Escalate");
   });
 
   test("null banner, empty summary and empty path drop their blocks; empty steps show the empty label", async () => {

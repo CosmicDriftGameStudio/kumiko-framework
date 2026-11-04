@@ -1,21 +1,9 @@
 import type { ProjectionDetailScreenDefinition, RowAction } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { detailGuidanceFieldRefs } from "./query-output-guidance.ts";
 import { validateActionHasIcon } from "./screens-actions.ts";
 import { PROJECTION_DETAIL_RULES } from "./screens-kind-projection-detail-rules.ts";
 import { type ScreenValidationContext, validateRecordHeaderAction } from "./screens-kind-shared.ts";
-
-type NamedField = { readonly option: string; readonly value: string | undefined };
-
-function guidanceFields(screen: ProjectionDetailScreenDefinition): readonly NamedField[] {
-  return [
-    { option: "breadcrumb.field", value: screen.breadcrumb?.field },
-    { option: "summary.field", value: screen.summary?.field },
-    { option: "summary.toneField", value: screen.summary?.toneField },
-    { option: "banner.field", value: screen.banner?.field },
-    { option: "steps.field", value: screen.steps?.field },
-    { option: "steps.subtitleField", value: screen.steps?.subtitleField },
-  ];
-}
 
 function validateGuidanceAction(
   ctx: ScreenValidationContext,
@@ -42,8 +30,8 @@ export function validateProjectionDetailGuidance(
   screenId: string,
   screen: ProjectionDetailScreenDefinition,
 ): void {
-  for (const { option, value } of guidanceFields(screen)) {
-    if (value !== undefined && value.trim().length === 0) {
+  for (const { option, field } of detailGuidanceFieldRefs(screen)) {
+    if (field.trim().length === 0) {
       throw bootRuleError(PROJECTION_DETAIL_RULES.guidanceFieldEmpty, {
         message:
           `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) sets ${option} to ` +

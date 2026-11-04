@@ -11,6 +11,12 @@ export const LIST_ROW_GUIDANCE_RULES = {
     summary: "A hint column owns its cell rendering and sets no display.",
     fix: "Remove display or hint from the column.",
   },
+  hintColumnLink: {
+    id: "list/hint-column-link",
+    summary:
+      "A hint column owns its cell rendering and sets no linkScreenField, linkParamsField, refEntity or badgeToneField.",
+    fix: "Remove the link or badge option, or move the hint to its own column.",
+  },
   linkParamsWithoutScreenField: {
     id: "list/link-params-without-screen-field",
     summary: "linkParamsField only parametrizes the linkScreenField target.",
@@ -18,7 +24,7 @@ export const LIST_ROW_GUIDANCE_RULES = {
   },
   guidanceFieldEmpty: {
     id: "list/guidance-field-empty",
-    summary: "rowToneField and the hint field names are non-empty strings.",
+    summary: "rowToneField, linkParamsField and the hint field names are non-empty strings.",
     fix: "Name a row field or remove the option.",
   },
 } as const satisfies BootRuleTable;

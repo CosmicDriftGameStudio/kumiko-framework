@@ -113,6 +113,7 @@ export function renderDataCell(
             onChange: (value: unknown) => onCellChange(row.id, col.field, value),
           })}
           {...cellLinkProp(col, row, !linksFirstCell)}
+          insideRowOpener={linksFirstCell}
         />
       </FirstCellLink>
     </TableCell>

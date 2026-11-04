@@ -19,17 +19,52 @@ function nonEmptyText(value: unknown): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
+function ReasonToggle({
+  label,
+  reason,
+}: {
+  readonly label: string;
+  readonly reason: string;
+}): ReactNode {
+  const [reasonOpen, setReasonOpen] = useState(false);
+  return (
+    <>
+      {/* The row itself is clickable; the toggle must not open it. */}
+      <button
+        type="button"
+        aria-expanded={reasonOpen}
+        data-hint-reason-toggle="true"
+        className="w-fit text-xs text-muted-foreground underline"
+        onClick={(event) => {
+          event.stopPropagation();
+          setReasonOpen((open) => !open);
+        }}
+      >
+        {label}
+      </button>
+      {reasonOpen && (
+        <small data-hint-reason="true" className="text-xs text-muted-foreground">
+          {reason}
+        </small>
+      )}
+    </>
+  );
+}
+
 /** "To do" cell: an emphasized sentence in the row tone with an optional muted second line. */
 export function HintCell({
   value,
   row,
   hint,
+  insideRowOpener = false,
 }: {
   readonly value: unknown;
   readonly row: Readonly<Record<string, unknown>>;
   readonly hint: ListColumnHintViewModel;
+  // A row-open button already wraps the cell and must not contain another
+  // button, so the reason is shown open instead of behind a toggle.
+  readonly insideRowOpener?: boolean;
 }): ReactNode {
-  const [reasonOpen, setReasonOpen] = useState(false);
   const sentence = nonEmptyText(value);
   if (sentence === undefined) {
     return (
@@ -48,29 +83,14 @@ export function HintCell({
         {sentence}
       </span>
       {detail !== undefined && <small className="text-xs text-muted-foreground">{detail}</small>}
-      {reason !== undefined && (
-        <>
-          {/* The row and a wrapping row link are clickable; the toggle must not trigger them. */}
-          <button
-            type="button"
-            aria-expanded={reasonOpen}
-            data-hint-reason-toggle="true"
-            className="w-fit text-xs text-muted-foreground underline"
-            onClick={(event) => {
-              event.stopPropagation();
-              event.preventDefault();
-              setReasonOpen((open) => !open);
-            }}
-          >
-            {hint.reasonLabel}
-          </button>
-          {reasonOpen && (
-            <small data-hint-reason="true" className="text-xs text-muted-foreground">
-              {reason}
-            </small>
-          )}
-        </>
-      )}
+      {reason !== undefined &&
+        (insideRowOpener ? (
+          <small data-hint-reason="true" className="text-xs text-muted-foreground">
+            {reason}
+          </small>
+        ) : (
+          <ReasonToggle label={hint.reasonLabel} reason={reason} />
+        ))}
     </span>
   );
 }
