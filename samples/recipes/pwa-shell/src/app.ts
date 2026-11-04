@@ -30,3 +30,5 @@ export const pwa: PwaOptions = {
     },
   ],
 };
+
+export const pwaUnderBasePath: PwaOptions = { ...pwa, basePath: "/a/" };

@@ -28,10 +28,10 @@ function stubStandaloneDisplayMode(standalone: boolean): void {
   })) as unknown as typeof window.matchMedia;
 }
 
-function addServiceWorkerMeta(): void {
+function addServiceWorkerMeta(workerUrl = "/sw.js"): void {
   const meta = document.createElement("meta");
   meta.name = PWA_SERVICE_WORKER_META_NAME;
-  meta.content = "/sw.js";
+  meta.content = workerUrl;
   document.head.append(meta);
 }
 
@@ -75,6 +75,14 @@ describe("PwaSupport with the pwa option", () => {
     render(<PwaSupport />);
     await waitFor(() => expect(register).toHaveBeenCalledTimes(1));
     expect(register).toHaveBeenCalledWith("/sw.js", { scope: "/", updateViaCache: "none" });
+  });
+
+  test("the scope is the directory of the worker url under a base path", async () => {
+    document.querySelector(`meta[name="${PWA_SERVICE_WORKER_META_NAME}"]`)?.remove();
+    addServiceWorkerMeta("/a/sw.js");
+    render(<PwaSupport />);
+    await waitFor(() => expect(register).toHaveBeenCalledTimes(1));
+    expect(register).toHaveBeenCalledWith("/a/sw.js", { scope: "/a/", updateViaCache: "none" });
   });
 
   test("a failing registration does not break the app", async () => {

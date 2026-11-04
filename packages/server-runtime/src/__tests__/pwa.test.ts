@@ -28,10 +28,14 @@ const build = {
 
 const SHELL_HTML = "<!doctype html><html><head><title>x</title></head><body></body></html>";
 
-async function serviceWorkerOf(shell = createPwaShell(pwa, build)): Promise<ServiceWorkerSandbox> {
-  const response = shell.respond(new Request(`${SANDBOX_ORIGIN}/sw.js`), "/sw.js");
+async function serviceWorkerOf(
+  shell = createPwaShell(pwa, build),
+  workerPath = "/sw.js",
+  cacheStore?: Map<string, Map<string, Response>>,
+): Promise<ServiceWorkerSandbox> {
+  const response = shell.respond(new Request(`${SANDBOX_ORIGIN}${workerPath}`), workerPath);
   if (!response) throw new Error("no service worker response");
-  return runServiceWorkerScript(await response.text());
+  return runServiceWorkerScript(await response.text(), cacheStore);
 }
 
 describe("createPwaShell — options", () => {
@@ -246,7 +250,10 @@ describe("service worker — install and activate", () => {
   test("activate drops older kumiko caches, keeps foreign ones and claims the clients", async () => {
     const shell = createPwaShell(pwa, build);
     const worker = await serviceWorkerOf(shell);
-    worker.cacheStore.set(`${PWA_CACHE_NAME_PREFIX}old`, new Map());
+    worker.cacheStore.set(
+      `${shell.cacheName.slice(0, shell.cacheName.lastIndexOf("-") + 1)}old`,
+      new Map(),
+    );
     worker.cacheStore.set("other-library-cache", new Map());
     await worker.install();
     await worker.activate();
@@ -307,5 +314,117 @@ describe("service worker — fetch strategies", () => {
       throw new TypeError("offline");
     });
     expect(await (await worker.dispatchFetch("/client.js"))?.text()).toBe("client v2");
+  });
+});
+
+describe("createPwaShell — base path", () => {
+  const underA = createPwaShell({ ...pwa, basePath: "/a/" }, build);
+  const workerUnderA = () => serviceWorkerOf(underA, "/a/sw.js");
+
+  for (const basePath of [
+    "a/",
+    "/a",
+    "//evil.example/",
+    "/a/../",
+    "/a//",
+    "/a/./",
+    "/a/?x=1",
+    "/a/#x",
+    "/a b/",
+  ]) {
+    test(`rejects basePath ${JSON.stringify(basePath)} at boot`, () => {
+      expect(() => createPwaShell({ ...pwa, basePath }, build)).toThrow(/basePath/);
+    });
+  }
+
+  test("the manifest scopes start_url and scope to the base path", async () => {
+    const res = underA.respond(
+      new Request(`${SANDBOX_ORIGIN}/a/manifest.webmanifest`),
+      "/a/manifest.webmanifest",
+    );
+    expect(await res?.json()).toMatchObject({ id: "/a/", start_url: "/a/", scope: "/a/" });
+  });
+
+  test("only the prefixed paths are answered", () => {
+    expect(underA.respond(new Request(`${SANDBOX_ORIGIN}/sw.js`), "/sw.js")).toBeUndefined();
+    expect(
+      underA.respond(
+        new Request(`${SANDBOX_ORIGIN}/manifest.webmanifest`),
+        "/manifest.webmanifest",
+      ),
+    ).toBeUndefined();
+    expect(underA.respond(new Request(`${SANDBOX_ORIGIN}/a/sw.js`), "/a/sw.js")?.status).toBe(200);
+  });
+
+  test("head tags point at the prefixed manifest and worker", () => {
+    const head = underA.injectHeadTags(SHELL_HTML);
+    expect(head).toContain('<link rel="manifest" href="/a/manifest.webmanifest" />');
+    expect(head).toContain('<meta name="kumiko-pwa-sw" content="/a/sw.js" />');
+  });
+
+  test("the cache name differs from the root variant", () => {
+    expect(underA.cacheName).not.toBe(createPwaShell(pwa, build).cacheName);
+  });
+
+  test("install precaches the shell and manifest under the base path, assets stay at the root", async () => {
+    const worker = await workerUnderA();
+    await worker.install();
+    const cached = [...(worker.cacheStore.get(underA.cacheName)?.keys() ?? [])].map(
+      (url) => new URL(url).pathname,
+    );
+    expect(cached).toContain("/a/");
+    expect(cached).toContain("/a/manifest.webmanifest");
+    expect(cached).toContain("/assets/client-abc.js");
+    expect(cached).not.toContain("/");
+  });
+
+  test("an offline navigation falls back to the shell under the base path", async () => {
+    const worker = await workerUnderA();
+    worker.setNetwork((url) => basicResponse(`shell:${new URL(url).pathname}`));
+    await worker.install();
+    worker.setNetwork(() => {
+      throw new TypeError("offline");
+    });
+    const res = await worker.dispatchFetch("/a/tasks/42", { mode: "navigate" });
+    expect(await res?.text()).toBe("shell:/a/");
+  });
+
+  test("two apps on one origin keep each other's cache, and a new version replaces only its own", async () => {
+    const sharedCaches = new Map<string, Map<string, Response>>();
+    const shellB = createPwaShell({ ...pwa, basePath: "/b/" }, build);
+    const workerA = await serviceWorkerOf(underA, "/a/sw.js", sharedCaches);
+    workerA.setNetwork((url) => basicResponse(`shell:${new URL(url).pathname}`));
+    await workerA.install();
+    await workerA.activate();
+    const workerB = await serviceWorkerOf(shellB, "/b/sw.js", sharedCaches);
+    workerB.setNetwork((url) => basicResponse(`shell:${new URL(url).pathname}`));
+    await workerB.install();
+    await workerB.activate();
+
+    expect(sharedCaches.has(underA.cacheName)).toBe(true);
+    expect(sharedCaches.has(shellB.cacheName)).toBe(true);
+    workerA.setNetwork(() => {
+      throw new TypeError("offline");
+    });
+    const res = await workerA.dispatchFetch("/a/tasks/1", { mode: "navigate" });
+    expect(await res?.text()).toBe("shell:/a/");
+
+    const nextA = createPwaShell({ ...pwa, basePath: "/a/" }, { ...build, buildToken: "b2" });
+    const workerNextA = await serviceWorkerOf(nextA, "/a/sw.js", sharedCaches);
+    workerNextA.setNetwork((url) => basicResponse(`shell:${new URL(url).pathname}`));
+    await workerNextA.install();
+    await workerNextA.activate();
+    expect([...sharedCaches.keys()].sort()).toEqual([nextA.cacheName, shellB.cacheName].sort());
+  });
+
+  test("/api stays uncached and /assets stays cache-first", async () => {
+    const worker = await workerUnderA();
+    await worker.install();
+    expect(await worker.dispatchFetch("/api/query")).toBeUndefined();
+    expect(await worker.dispatchFetch("/a/sw.js")).toBeUndefined();
+    worker.networkRequests.length = 0;
+    const res = await worker.dispatchFetch("/assets/client-abc.js");
+    expect(await res?.text()).toBe("network:/assets/client-abc.js");
+    expect(worker.networkRequests).toEqual([]);
   });
 });

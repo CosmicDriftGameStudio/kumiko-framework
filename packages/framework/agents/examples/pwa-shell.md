@@ -31,6 +31,17 @@ option. Pass the same object to `runProdApp` and to the dev server (`runDevApp` 
   other browsers get an Install button behind `beforeinstallprompt`. "Not now" is
   remembered in `localStorage`; standalone launches never show it.
 
+- **Base path**: an app mounted below the origin root (for example `veridom.de/a`) sets
+  `basePath: "/a/"`. Only the shell, manifest and worker live under it: the manifest and
+  worker are served at `/a/manifest.webmanifest` and `/a/sw.js`, `start_url`, `scope`, the
+  shell precache and the offline fallback use `/a/`, and the client registers the worker with
+  the scope of its directory. A worker can only control its own directory, so it must live
+  under the base path. `/assets/*` and the API paths (`/api`, `/sse`, `/auth`) stay at the
+  origin root, so the ingress must route them to the app as well (for example `/a`, `/api`
+  and `/assets` on veridom.de). Each base path gets its own cache name prefix, so apps on one
+  origin do not delete each other's precache. The boot rejects a base path that does not
+  start and end with `/`, has an empty, `.` or `..` segment, or contains `?` or `#`.
+
 Icons must be same-origin paths (`/icons/...`) served from `public/` in dev and
 `dist/` in production; the boot rejects anything else. The default CSP
 (`default-src 'self'`) already allows the manifest and the worker.
@@ -72,7 +83,7 @@ await runProdApp({
 ```ts
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createKumikoServer, type KumikoServerHandle } from "@cosmicdrift/kumiko-dev-server";
-import { notesFeature, pwa } from "../app";
+import { notesFeature, pwa, pwaUnderBasePath } from "../app";
 
 let handle: KumikoServerHandle;
 
@@ -119,6 +130,44 @@ describe("pwa-shell recipe", () => {
     expect(script).toContain('"/api/"');
   });
 });
+
+describe("pwa-shell recipe under a base path", () => {
+  let underBasePath: KumikoServerHandle;
+
+  beforeAll(async () => {
+    underBasePath = await createKumikoServer({
+      features: [notesFeature],
+      port: 0,
+      installSignalHandlers: false,
+      pwa: pwaUnderBasePath,
+    });
+  });
+
+  afterAll(async () => {
+    await underBasePath.stop();
+  });
+
+  const getUnder = (path: string) => underBasePath.fetch(new Request(`http://localhost${path}`));
+
+  test("manifest and worker are answered under /a/ only", async () => {
+    expect(await (await getUnder("/a/manifest.webmanifest")).json()).toMatchObject({
+      start_url: "/a/",
+      scope: "/a/",
+    });
+    const worker = await getUnder("/a/sw.js");
+    expect(worker.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
+    expect(await worker.text()).toContain('"/a/"');
+    expect((await getUnder("/sw.js")).headers.get("content-type")).not.toBe(
+      "text/javascript; charset=utf-8",
+    );
+  });
+
+  test("the shell points at the prefixed manifest and worker", async () => {
+    const html = await (await getUnder("/a/notes/42")).text();
+    expect(html).toContain('<link rel="manifest" href="/a/manifest.webmanifest" />');
+    expect(html).toContain('<meta name="kumiko-pwa-sw" content="/a/sw.js" />');
+  });
+});
 ```
 
 ### src/app.ts
@@ -156,4 +205,6 @@ export const pwa: PwaOptions = {
     },
   ],
 };
+
+export const pwaUnderBasePath: PwaOptions = { ...pwa, basePath: "/a/" };
 ```

@@ -539,9 +539,8 @@ export type EntityListScreenDefinition = {
   /** Computed row fields from an app query, readable by `rowToneField`, column `hint`, `linkScreenField`/`linkParamsField` and rowAction `visible`/`params`/`payload`; a column may name a decoration field. */
   readonly rowDecoration?: ListRowDecoration;
   // Row renderer (Desktop) — when omitted, renderer draws the default table
-  // from `columns`. cardRenderer fills the same role on compact layouts.
+  // from `columns`. Compact layouts draw cards from the column roles.
   readonly rowRenderer?: PlatformComponent;
-  readonly cardRenderer?: PlatformComponent;
   /** Per-row actions, rendered as an actions column on the right.
    *  Adaptive (default, see `rowActionMode`): the primary action as a link,
    *  the rest in the kebab menu; actions with an explicit `display` stay

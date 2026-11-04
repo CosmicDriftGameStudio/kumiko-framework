@@ -23,6 +23,17 @@ option. Pass the same object to `runProdApp` and to the dev server (`runDevApp` 
   other browsers get an Install button behind `beforeinstallprompt`. "Not now" is
   remembered in `localStorage`; standalone launches never show it.
 
+- **Base path**: an app mounted below the origin root (for example `veridom.de/a`) sets
+  `basePath: "/a/"`. Only the shell, manifest and worker live under it: the manifest and
+  worker are served at `/a/manifest.webmanifest` and `/a/sw.js`, `start_url`, `scope`, the
+  shell precache and the offline fallback use `/a/`, and the client registers the worker with
+  the scope of its directory. A worker can only control its own directory, so it must live
+  under the base path. `/assets/*` and the API paths (`/api`, `/sse`, `/auth`) stay at the
+  origin root, so the ingress must route them to the app as well (for example `/a`, `/api`
+  and `/assets` on veridom.de). Each base path gets its own cache name prefix, so apps on one
+  origin do not delete each other's precache. The boot rejects a base path that does not
+  start and end with `/`, has an empty, `.` or `..` segment, or contains `?` or `#`.
+
 Icons must be same-origin paths (`/icons/...`) served from `public/` in dev and
 `dist/` in production; the boot rejects anything else. The default CSP
 (`default-src 'self'`) already allows the manifest and the worker.

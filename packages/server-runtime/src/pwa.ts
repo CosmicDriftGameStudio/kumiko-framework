@@ -22,12 +22,28 @@ export type PwaOptions = {
   readonly themeColor: string;
   readonly backgroundColor: string;
   readonly icons: readonly PwaIcon[];
+  /** Directory the app is served under, e.g. `/a/`; starts and ends with `/`. Default `/`. */
+  readonly basePath?: string;
 };
 
-export const PWA_MANIFEST_PATH = "/manifest.webmanifest";
-export const PWA_SERVICE_WORKER_PATH = "/sw.js";
+const DEFAULT_PWA_BASE_PATH = "/";
+const MANIFEST_FILE = "manifest.webmanifest";
+const SERVICE_WORKER_FILE = "sw.js";
 
-const PWA_SHELL_URL = "/";
+type PwaPaths = {
+  readonly shellUrl: string;
+  readonly manifestPath: string;
+  readonly serviceWorkerPath: string;
+};
+
+function pwaPathsOf(options: PwaOptions): PwaPaths {
+  const basePath = options.basePath ?? DEFAULT_PWA_BASE_PATH;
+  return {
+    shellUrl: basePath,
+    manifestPath: `${basePath}${MANIFEST_FILE}`,
+    serviceWorkerPath: `${basePath}${SERVICE_WORKER_FILE}`,
+  };
+}
 
 export type PwaShellBuild = {
   /** Same-origin URLs of the client bundles and stylesheet the shell loads. */
@@ -50,7 +66,21 @@ function isSameOriginPath(src: string): boolean {
   return /^\/(?![/\\])/.test(src) && !src.includes("\\") && !/[\s\p{Cc}]/u.test(src);
 }
 
+function isValidBasePath(basePath: string): boolean {
+  if (!isSameOriginPath(basePath) || !basePath.endsWith("/")) return false;
+  if (basePath.includes("?") || basePath.includes("#")) return false;
+  const segments = basePath.slice(1, -1).split("/");
+  if (basePath === "/") return true;
+  return segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
 function assertValidPwaOptions(options: PwaOptions): void {
+  const basePath = options.basePath;
+  if (basePath !== undefined && !isValidBasePath(basePath)) {
+    throw new Error(
+      `[pwa] basePath "${basePath}" must be a same-origin path that starts and ends with "/", has no empty, "." or ".." segment and no "?" or "#".`,
+    );
+  }
   for (const icon of options.icons) {
     if (!isSameOriginPath(icon.src)) {
       throw new Error(
@@ -61,12 +91,13 @@ function assertValidPwaOptions(options: PwaOptions): void {
 }
 
 export function buildWebManifest(options: PwaOptions): Readonly<Record<string, unknown>> {
+  const { shellUrl } = pwaPathsOf(options);
   return {
-    id: PWA_SHELL_URL,
+    id: shellUrl,
     name: options.name,
     short_name: options.shortName,
-    start_url: PWA_SHELL_URL,
-    scope: PWA_SHELL_URL,
+    start_url: shellUrl,
+    scope: shellUrl,
     display: "standalone",
     theme_color: options.themeColor,
     background_color: options.backgroundColor,
@@ -92,8 +123,9 @@ function pickAppleTouchIcon(icons: readonly PwaIcon[]): PwaIcon | undefined {
 
 function buildHeadTags(options: PwaOptions): string {
   const appleIcon = pickAppleTouchIcon(options.icons);
+  const { manifestPath, serviceWorkerPath } = pwaPathsOf(options);
   return [
-    `<link rel="manifest" href="${PWA_MANIFEST_PATH}" />`,
+    `<link rel="manifest" href="${escapeHtmlAttr(manifestPath)}" />`,
     `<meta name="theme-color" content="${escapeHtmlAttr(options.themeColor)}" />`,
     `<meta name="mobile-web-app-capable" content="yes" />`,
     `<meta name="apple-mobile-web-app-capable" content="yes" />`,
@@ -101,7 +133,7 @@ function buildHeadTags(options: PwaOptions): string {
     ...(appleIcon
       ? [`<link rel="apple-touch-icon" href="${escapeHtmlAttr(appleIcon.src)}" />`]
       : []),
-    `<meta name="${PWA_SERVICE_WORKER_META_NAME}" content="${PWA_SERVICE_WORKER_PATH}" />`,
+    `<meta name="${PWA_SERVICE_WORKER_META_NAME}" content="${escapeHtmlAttr(serviceWorkerPath)}" />`,
   ].join("\n    ");
 }
 
@@ -117,11 +149,13 @@ function fileResponse(req: Request, body: string, contentType: string): Response
 
 export function createPwaShell(options: PwaOptions, build: PwaShellBuild): PwaShell {
   assertValidPwaOptions(options);
-  const cacheName = `${PWA_CACHE_NAME_PREFIX}${computeCacheVersion(options, build)}`;
+  const paths = pwaPathsOf(options);
+  const cacheScopePrefix = `${PWA_CACHE_NAME_PREFIX}${createHash("sha256").update(paths.shellUrl).digest("hex").slice(0, 8)}-`;
+  const cacheName = `${cacheScopePrefix}${computeCacheVersion(options, build)}`;
   const precacheUrls = [
     ...new Set([
-      PWA_SHELL_URL,
-      PWA_MANIFEST_PATH,
+      paths.shellUrl,
+      paths.manifestPath,
       ...options.icons.map((icon) => icon.src),
       ...build.appShellUrls,
     ]),
@@ -129,8 +163,10 @@ export function createPwaShell(options: PwaOptions, build: PwaShellBuild): PwaSh
   const manifestBody = JSON.stringify(buildWebManifest(options));
   const serviceWorkerBody = buildPwaServiceWorkerScript({
     cacheName,
+    cacheScopePrefix,
     precacheUrls,
-    shellUrl: PWA_SHELL_URL,
+    shellUrl: paths.shellUrl,
+    serviceWorkerPath: paths.serviceWorkerPath,
   });
   const headTagsHtml = buildHeadTags(options);
 
@@ -143,10 +179,10 @@ export function createPwaShell(options: PwaOptions, build: PwaShellBuild): PwaSh
         : html,
     respond: (req, pathname) => {
       if (req.method !== "GET" && req.method !== "HEAD") return undefined;
-      if (pathname === PWA_MANIFEST_PATH) {
+      if (pathname === paths.manifestPath) {
         return fileResponse(req, manifestBody, "application/manifest+json");
       }
-      if (pathname === PWA_SERVICE_WORKER_PATH) {
+      if (pathname === paths.serviceWorkerPath) {
         return fileResponse(req, serviceWorkerBody, "text/javascript; charset=utf-8");
       }
       return undefined;
