@@ -65,6 +65,7 @@ const LIST_COLUMN_RESOLVERS: readonly ListColumnResolver[] = [
   derivedFieldColumn,
   rowMetaColumn,
   virtualRendererColumn,
+  rowDecorationColumn,
 ];
 
 function resolveListColumn(
@@ -264,6 +265,24 @@ function virtualRendererColumn(
     type: "text",
     sortable: false,
     renderer: column.renderer,
+    ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
+  };
+}
+
+// A column naming a field of the screen's rowDecoration query: the value lives
+// in the merged row, so there is no entity metadata and the cell is plain text.
+function rowDecorationColumn(
+  input: ComputeListViewModelInput,
+  column: NormalizedListColumn,
+): ListColumnViewModel | undefined {
+  // skip: without a rowDecoration an unknown column stays an authoring error
+  if (input.screen.rowDecoration === undefined) return undefined;
+  return {
+    field: column.field,
+    label: translatedColumnLabel(input, column),
+    type: "text",
+    sortable: false,
+    ...(column.renderer !== undefined && { renderer: column.renderer }),
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
   };
 }

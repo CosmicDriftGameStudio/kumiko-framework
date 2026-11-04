@@ -295,6 +295,7 @@ export type {
   ListColumnHint,
   ListColumnSpec,
   ListPaginationMode,
+  ListRowDecoration,
   ListSortDir,
   ListSortSpec,
   RelatedListToolbarAction,

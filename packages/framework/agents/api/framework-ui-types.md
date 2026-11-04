@@ -430,6 +430,10 @@ type ListEmptyStateSpec = { // Replacement for the default "no rows" box of a li
   description?: string;
   action?: RowAction;
 };
+type ListRowDecoration = { // Computed fields for the loaded rows: one `query` call per page answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`.
+  query: string;
+  params?: Readonly<Record<string, unknown>>;
+};
 type ListSortSpec = {
   field: string;
   dir: ListSortDir;

@@ -1,8 +1,13 @@
-import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  ProjectionDetailScreenDefinition,
+  SelectOptionTone,
+} from "@cosmicdrift/kumiko-framework/ui-types";
+import type { DashboardStatTone } from "@cosmicdrift/kumiko-types/screen";
 import { type Dispatch, Fragment, type ReactNode, type SetStateAction } from "react";
 import type { RenderEditAction } from "../components/render-edit.tsx";
 import type { Translate } from "../headless/index.ts";
 import type { usePrimitives } from "../primitives.tsx";
+import { isSelectOptionTone } from "../status-tone.ts";
 import { type ErrorNotice, ErrorReference } from "./error-reference.tsx";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { HeaderActionsBar } from "./header-actions-bar.tsx";
@@ -172,6 +177,24 @@ export function renderHeaderSubtitleSlot(model: DetailHeaderModel): ReactNode {
       : undefined;
 }
 
+const METRIC_TONE_BY_SELECT_TONE: Readonly<Record<SelectOptionTone, DashboardStatTone>> = {
+  ok: "ok",
+  warn: "warn",
+  bad: "negative",
+  critical: "negative",
+  accent: "default",
+  neutral: "default",
+};
+
+function metricFieldTone(
+  toneField: string | undefined,
+  record: Readonly<Record<string, unknown>>,
+): DashboardStatTone | undefined {
+  if (toneField === undefined) return undefined;
+  const fieldTone = record[toneField];
+  return isSelectOptionTone(fieldTone) ? METRIC_TONE_BY_SELECT_TONE[fieldTone] : undefined;
+}
+
 // slots.header shares the header card with the actions (one card, actions
 // top right) instead of rendering as an unframed block above it.
 export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefined {
@@ -185,7 +208,8 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const value = formatOrRaw(metric.format, rawValue, effectiveTranslate);
     const tiles = screen.metricsStyle === "tiles";
     // Same rule as the dashboard stat panels: a fixed tone must not paint an all-clear 0.
-    const tone = rawValue === 0 ? undefined : metric.tone;
+    const tone =
+      metricFieldTone(metric.toneField, record) ?? (rawValue === 0 ? undefined : metric.tone);
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
     const navigate = metric.navigate;
     const onPress =

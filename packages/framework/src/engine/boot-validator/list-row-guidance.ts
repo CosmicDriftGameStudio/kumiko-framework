@@ -3,12 +3,14 @@ import type { ListColumnSpec } from "../types/screen.ts";
 import { type BootRule, bootRuleError } from "./boot-rule.ts";
 import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
 import { listGuidanceFieldRefs } from "./query-output-guidance.ts";
+import { acceptsRowDecorationField, type RowDecorationFields } from "./row-decoration.ts";
 import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
 import { buildUnknownFieldMessage } from "./screens-kind-shared.ts";
 
 type RowGuidanceScreen = {
   readonly columns: readonly ListColumnSpec[];
   readonly rowToneField?: string;
+  readonly rowDecoration?: { readonly query: string };
 };
 
 // entityList passes the entity's field names, so row fields can be pinned; a
@@ -16,6 +18,7 @@ type RowGuidanceScreen = {
 export type EntityRowFields = {
   readonly entityName: string;
   readonly fieldNames: ReadonlySet<string>;
+  readonly rowDecorationFields?: RowDecorationFields | undefined;
 };
 
 type ListColumn = ReturnType<typeof normalizeListColumn>;
@@ -72,6 +75,11 @@ export function validateListRowGuidance(
   partLabel?: string,
 ): void {
   const where = guidanceLocation(featureName, screenId, kind, partLabel ?? "");
+  if (screen.rowDecoration !== undefined && screen.rowDecoration.query.trim().length === 0) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.rowDecorationQueryEmpty, {
+      message: `${where} sets rowDecoration.query to an empty string. Name the decoration query or remove rowDecoration.`,
+    });
+  }
   for (const col of screen.columns) {
     validateHintColumn(where, normalizeListColumn(col));
   }
@@ -81,7 +89,11 @@ export function validateListRowGuidance(
         message: `${where} sets ${option} to an empty string. Name a row field or remove the option.`,
       });
     }
-    if (entityFields !== undefined && !entityFields.fieldNames.has(field)) {
+    if (
+      entityFields !== undefined &&
+      !entityFields.fieldNames.has(field) &&
+      !acceptsRowDecorationField(entityFields.rowDecorationFields, field)
+    ) {
       throw bootRuleError(SCREEN_KIND_RULES.unknownFieldReference, {
         message: buildUnknownFieldMessage(
           featureName,
