@@ -3,7 +3,7 @@ import type { ListRowViewModel } from "../../../headless/index.ts";
 import { cn } from "../../lib/cn.ts";
 import { rowToneClass } from "../data-table-cell.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
-import { type CardRoles, renderCardBody } from "./card-body.tsx";
+import { type CardRoles, renderCardBody, renderCardLinks, splitLinkColumns } from "./card-body.tsx";
 import { renderExpandToggle, renderExpansion } from "./row-render-parts.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
@@ -51,7 +51,9 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
   const { rowTone, menuActions } = m;
   const hasMenu = menuActions !== undefined && menuActions.length > 0;
   const openRow = m.rowOpener(row);
-  const body = renderCardBody(m, row, roles);
+  const { bodyRoles, linkColumns } = splitLinkColumns(m, row, roles);
+  const body = renderCardBody(m, row, bodyRoles);
+  const main = openRow !== undefined ? renderCardOpenButton(openRow, body) : body;
   const rowItem = (
     <li
       key={row.id}
@@ -68,7 +70,14 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
     >
       {m.selection.cardCheckbox(row)}
       {renderExpandToggle(m, row)}
-      {openRow !== undefined ? renderCardOpenButton(openRow, body) : body}
+      {linkColumns.length > 0 ? (
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          {main}
+          {renderCardLinks(m, row, linkColumns)}
+        </div>
+      ) : (
+        main
+      )}
       {hasMenu && renderCardMenu(m, row, menuActions)}
     </li>
   );

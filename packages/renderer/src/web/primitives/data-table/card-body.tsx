@@ -17,8 +17,14 @@ import type { DataTableModel } from "./use-data-table-state.ts";
 
 export type CardRoles = ReturnType<typeof cardColumnRoles<ListColumnViewModel>>;
 
-function cardCell(m: DataTableModel, row: ListRowViewModel, col: ListColumnViewModel): ReactNode {
+function cardCell(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  col: ListColumnViewModel,
+  { linksAllowed }: { readonly linksAllowed: boolean } = { linksAllowed: false },
+): ReactNode {
   const { onCellChange } = m;
+  const opensRow = m.rowOpener(row) !== undefined;
   // A bare check mark in the subtitle line says nothing without its column.
   if (showsBareCheckMark(col.type, row.values[col.field], col.renderer)) return col.label;
   return (
@@ -35,14 +41,63 @@ function cardCell(m: DataTableModel, row: ListRowViewModel, col: ListColumnViewM
       {...(onCellChange !== undefined && {
         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
       })}
-      {...cellLinkProp(col, row, m.rowOpener(row) === undefined)}
-      insideRowOpener={m.rowOpener(row) !== undefined}
+      {...cellLinkProp(col, row, linksAllowed || !opensRow)}
+      insideRowOpener={opensRow && !linksAllowed}
     />
   );
 }
 
 function cellTestIdOf(m: DataTableModel, row: ListRowViewModel, field: string): string {
   return m.getCellTestId?.(row, field) ?? `cell-${row.id}-${field}`;
+}
+
+function hasCardLink(row: ListRowViewModel, col: ListColumnViewModel): boolean {
+  return (
+    !isEmptyCellValue(row.values[col.field]) && cellLinkProp(col, row, true).link !== undefined
+  );
+}
+
+// A link inside the row's opener button would be an <a> in a <button>, so link columns
+// of an openable card move out of the body and render below it.
+export function splitLinkColumns(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  roles: CardRoles,
+): { readonly bodyRoles: CardRoles; readonly linkColumns: readonly ListColumnViewModel[] } {
+  if (m.rowOpener(row) === undefined) return { bodyRoles: roles, linkColumns: [] };
+  const lead = roles.lead;
+  const leadColumn = lead !== undefined && hasCardLink(row, lead) ? lead : undefined;
+  const linkMeta = roles.meta.filter((col) => hasCardLink(row, col));
+  if (leadColumn === undefined && linkMeta.length === 0) {
+    return { bodyRoles: roles, linkColumns: [] };
+  }
+  return {
+    bodyRoles: {
+      ...roles,
+      lead: leadColumn === undefined ? lead : undefined,
+      meta: roles.meta.filter((col) => !linkMeta.includes(col)),
+    },
+    linkColumns: [...(leadColumn !== undefined ? [leadColumn] : []), ...linkMeta],
+  };
+}
+
+export function renderCardLinks(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  linkColumns: readonly ListColumnViewModel[],
+): ReactNode {
+  return (
+    <div
+      data-testid={`card-links-${row.id}`}
+      className="flex flex-wrap items-center gap-x-3 text-[13px] leading-5"
+    >
+      {linkColumns.map((col) => (
+        <span key={col.field} data-testid={cellTestIdOf(m, row, col.field)}>
+          {cardCell(m, row, col, { linksAllowed: true })}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function renderCardMeta(

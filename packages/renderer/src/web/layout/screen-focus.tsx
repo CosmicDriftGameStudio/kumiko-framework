@@ -2,10 +2,11 @@ import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
 import { lastSegment, useNav, useTranslation } from "../../index.ts";
 import { ActionOverflowMenu } from "../primitives/row-actions.tsx";
+import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.ts";
 import { MobileTopBar } from "../widgets/mobile-top-bar.tsx";
 import { usePageHeaderSlot } from "./page-header-slot.tsx";
 import { resolveParentScreenId, screenTitleKey } from "./shell-breadcrumb.ts";
-import { useShellFocused, useShellFocusMode } from "./shell-focus.tsx";
+import { useShellFocused, useShellFocusMode, useShellTopbarActions } from "./shell-focus.tsx";
 
 function wantsShellFocus(screen: ScreenDefinition): boolean {
   return (
@@ -29,7 +30,12 @@ function FocusedScreenFrame({
   const slot = usePageHeaderSlot();
   const shortId = lastSegment(screen.id);
   const parentScreenId = resolveParentScreenId(screens, shortId);
+  const shellTopbarActions = useShellTopbarActions();
+  // The bar is CSS-hidden on wide viewports, where the focused shell deliberately drops the
+  // app actions; mounting them there would leave hidden duplicates (same test ids) in the DOM.
+  const topbarActions = useIsNarrowViewport() ? shellTopbarActions : undefined;
   const overflowItems = slot?.overflowItems ?? [];
+  const hasActions = topbarActions !== undefined || overflowItems.length > 0;
   return (
     <>
       {/* Only inside a shell that hides its own header: without one the bar would double it. */}
@@ -43,13 +49,18 @@ function FocusedScreenFrame({
                 ? nav.navigate({ screenId: parentScreenId })
                 : window.history.back(),
           }}
-          {...(overflowItems.length > 0 && {
+          {...(hasActions && {
             actions: (
-              <ActionOverflowMenu
-                items={overflowItems}
-                label={t("kumiko.page-header.actions")}
-                testId="mobile-top-bar-actions"
-              />
+              <>
+                {topbarActions}
+                {overflowItems.length > 0 && (
+                  <ActionOverflowMenu
+                    items={overflowItems}
+                    label={t("kumiko.page-header.actions")}
+                    testId="mobile-top-bar-actions"
+                  />
+                )}
+              </>
             ),
           })}
         />

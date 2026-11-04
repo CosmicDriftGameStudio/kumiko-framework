@@ -690,3 +690,47 @@ describe("DataTable — card lead line", () => {
     });
   });
 });
+
+describe("DataTable cards — link columns", () => {
+  const LINK_COLUMNS = [
+    { field: "name", label: "Name", type: "string", sortable: false },
+    {
+      field: "owner",
+      label: "Owner",
+      type: "string",
+      sortable: false,
+      linkFor: () => ({ href: "/owners/o1", onPress: ownerPress }),
+    },
+  ] as const;
+  const LINK_ROWS = [{ id: "u1", values: { name: "Anna", owner: "Beta GmbH" } }];
+  const ownerPress = mock(() => {});
+
+  test("with a row opener the link sits below the opener button and opens its own target", () => {
+    atViewportWidth(500, () => {
+      ownerPress.mockClear();
+      const onRowClick = mock(() => {});
+      render(
+        <DataTable columns={LINK_COLUMNS} rows={LINK_ROWS} testId="t" onRowClick={onRowClick} />,
+      );
+      const card = screen.getByTestId("row-u1");
+      const link = within(within(card).getByTestId("cell-u1-owner")).getByText("Beta GmbH");
+      expect(link.tagName).toBe("A");
+      expect(link.closest("button")).toBeNull();
+      expect(within(card).getByTestId("card-links-u1").contains(link)).toBe(true);
+      fireEvent.click(link);
+      expect(ownerPress).toHaveBeenCalledTimes(1);
+      expect(onRowClick).not.toHaveBeenCalled();
+      fireEvent.click(within(card).getByText("Anna"));
+      expect(onRowClick).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("without a row opener the link stays in the body", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={LINK_COLUMNS} rows={LINK_ROWS} testId="t" />);
+      const card = screen.getByTestId("row-u1");
+      expect(within(card).queryByTestId("card-links-u1")).toBeNull();
+      expect(within(card).getByText("Beta GmbH").tagName).toBe("A");
+    });
+  });
+});
