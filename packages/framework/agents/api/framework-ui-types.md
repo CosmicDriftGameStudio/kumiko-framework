@@ -476,6 +476,20 @@ type RecordNotice = {
   tone?: SelectOptionTone;
   [field: string]: unknown;
 };
+type RecordProgress = { // A process chain the record is part of.
+  title: string;
+  steps: RecordProgressStep[];
+  currentIndex: number;
+};
+type RecordProgressSpec = {
+  field: string; // Holds `RecordProgress[]`; an empty array shows no block.
+};
+type RecordProgressStep = {
+  id: string;
+  label: string;
+  done: boolean;
+  detail?: string;
+};
 type RecordStep = {
   id: string;
   title: string;

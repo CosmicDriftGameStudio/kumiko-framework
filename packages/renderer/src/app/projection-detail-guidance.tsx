@@ -4,6 +4,7 @@ import { RenderEditActionButton } from "../components/render-edit-action-button.
 import type { RenderEditAction } from "../components/render-edit-types.ts";
 import type { BannerProps } from "../primitives.tsx";
 import {
+  isRecordProgressArray,
   readBreadcrumbItems,
   readNotice,
   readSteps,
@@ -184,12 +185,55 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
   );
 }
 
-/** Summary, banner and steps in reading order; blocks whose record field holds nothing drop out. */
+function renderProgress(model: DetailGuidanceModel): ReactNode {
+  const spec = model.screen.progress;
+  if (spec === undefined) return undefined;
+  const chains = model.record[spec.field];
+  const { StepBar, Card, Text } = model.primitives;
+  if (StepBar === undefined || !isRecordProgressArray(chains) || chains.length === 0) {
+    return undefined;
+  }
+  const t = model.effectiveTranslate;
+  return chains.map((chain, index) => {
+    if (chain.steps.length === 0) return undefined;
+    const currentIndex = Math.min(
+      Math.max(Math.trunc(chain.currentIndex), 0),
+      chain.steps.length - 1,
+    );
+    const current = chain.steps[currentIndex];
+    const testId = `record-progress-${index}`;
+    return (
+      <Card key={testId} slots={{ title: chain.title }} testId={testId}>
+        <StepBar
+          steps={chain.steps.map((step) => step.label)}
+          currentIndex={currentIndex}
+          doneSteps={chain.steps.map((step) => step.done)}
+          narrowLayout="steps"
+          compactLabel={t("kumiko.wizard.step-with-title", {
+            current: currentIndex + 1,
+            total: chain.steps.length,
+            title: current?.label ?? "",
+          })}
+          testId={`${testId}-bar`}
+        />
+        {current !== undefined && (
+          <Text variant="muted" testId={`${testId}-up-next`}>
+            {t("kumiko.wizard.up-next")}: {current.label}
+            {current.detail !== undefined ? ` · ${current.detail}` : ""}
+          </Text>
+        )}
+      </Card>
+    );
+  });
+}
+
+/** Summary, banner, progress and steps in reading order; blocks whose record field holds nothing drop out. */
 export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
   return (
     <>
       {renderSummary(model)}
       {renderBanner(model)}
+      {renderProgress(model)}
       {renderSteps(model)}
     </>
   );

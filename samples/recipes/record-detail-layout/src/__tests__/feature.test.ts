@@ -102,6 +102,7 @@ describe("record-detail-layout showcase — guidance", () => {
     expect(screen.summary).toEqual({ field: "summaryLine", toneField: "summaryTone" });
     expect(screen.banner?.field).toBe("notice");
     expect(screen.steps?.field).toBe("steps");
+    expect(screen.progress?.field).toBe("progress");
   });
 });
 

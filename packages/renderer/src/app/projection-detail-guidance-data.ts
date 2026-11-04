@@ -2,6 +2,7 @@ import type {
   ProjectionDetailScreenDefinition,
   RecordBreadcrumbItem,
   RecordNotice,
+  RecordProgress,
   RecordStep,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -74,11 +75,35 @@ export function readSteps(value: unknown): RecordStep[] {
   return steps;
 }
 
+function isRecordProgress(value: unknown): value is RecordProgress {
+  if (!isPlainObject(value)) return false;
+  const { title, steps, currentIndex } = value;
+  return (
+    typeof title === "string" &&
+    typeof currentIndex === "number" &&
+    Number.isFinite(currentIndex) &&
+    Array.isArray(steps) &&
+    steps.every(
+      (step) =>
+        isPlainObject(step) &&
+        typeof step["id"] === "string" &&
+        typeof step["label"] === "string" &&
+        typeof step["done"] === "boolean" &&
+        (step["detail"] === undefined || typeof step["detail"] === "string"),
+    )
+  );
+}
+
+export function isRecordProgressArray(value: unknown): value is readonly RecordProgress[] {
+  return Array.isArray(value) && value.every(isRecordProgress);
+}
+
 export function hasRecordGuidance(screen: ProjectionDetailScreenDefinition): boolean {
   return (
     screen.breadcrumb !== undefined ||
     screen.summary !== undefined ||
     screen.banner !== undefined ||
-    screen.steps !== undefined
+    screen.steps !== undefined ||
+    screen.progress !== undefined
   );
 }

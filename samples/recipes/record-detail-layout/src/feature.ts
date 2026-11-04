@@ -95,6 +95,17 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
           { id: "escalate", title: "Escalate to accounting" },
         ],
+        progress: [
+          {
+            title: "Order to cash",
+            currentIndex: 1,
+            steps: [
+              { id: "placed", label: "Placed", done: true },
+              { id: "paid", label: "Paid", done: false, detail: "312 EUR open" },
+              { id: "shipped", label: "Shipped", done: false },
+            ],
+          },
+        ],
       }),
       access: { roles: ["Support", "Admin"] },
     });
@@ -188,6 +199,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
+      progress: { field: "progress" },
       steps: {
         field: "steps",
         title: "order-desk.steps.title",

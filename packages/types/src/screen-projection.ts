@@ -22,6 +22,7 @@ import type { ListTableOptions } from "./screen-list-table.ts";
 import type {
   RecordBannerSpec,
   RecordBreadcrumbSpec,
+  RecordProgressSpec,
   RecordStepsSpec,
   RecordSummarySpec,
 } from "./screen-record-guidance.ts";
@@ -296,6 +297,8 @@ export type ProjectionDetailScreenDefinition = {
   readonly banner?: RecordBannerSpec;
   /** "Next steps" panel. Its `actions` are evaluated against the step like a list row (`visible`, `params`, `payload` read the step); a writeHandler without `payload` sends the shown record's id; `rowClick` and `showOnTabs` are rejected. */
   readonly steps?: RecordStepsSpec;
+  /** Process chains the record is part of, drawn as step bars between the banner and the steps panel. Reads `RecordProgress[]` from the query row; an empty array shows no block. */
+  readonly progress?: RecordProgressSpec;
   /** Parent list screen (short id) for a "back" navigation. */
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;

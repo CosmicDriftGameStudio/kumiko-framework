@@ -64,7 +64,8 @@ export const PROJECTION_DETAIL_RULES = {
   },
   guidanceFieldEmpty: {
     id: "projection-detail/guidance-field-empty",
-    summary: "The field names of breadcrumb, summary, banner and steps are non-empty strings.",
+    summary:
+      "The field names of breadcrumb, summary, banner, steps and progress are non-empty strings.",
     fix: "Name a query output field or remove the block.",
   },
   guidanceActionShowOnTabs: {
