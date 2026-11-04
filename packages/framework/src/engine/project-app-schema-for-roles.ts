@@ -93,10 +93,8 @@ import type {
   MetricSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
-  RecordBannerSpec,
   RecordHeaderSpec,
   RecordHeaderSubtitlePart,
-  RecordStepsSpec,
   RelatedListToolbarAction,
   RowAction,
   ScreenDefinition,
@@ -665,29 +663,18 @@ function projectListScreen(
   };
 }
 
-function projectBanner(
-  banner: RecordBannerSpec | undefined,
-  feature: FeatureSchema,
-  indices: IndexedSchema,
-  keptScreenQns: ReadonlySet<string>,
-): RecordBannerSpec | undefined {
-  if (banner === undefined) return undefined;
-  const nextActions = projectActionArray(banner.actions, feature, indices, keptScreenQns);
-  if (nextActions === banner.actions) return banner;
-  const { actions, ...rest } = banner;
-  return { ...rest, ...(nextActions !== undefined && { actions: nextActions }) };
-}
+type WithGuidanceActions = { readonly actions?: readonly RowAction[] };
 
-function projectSteps(
-  steps: RecordStepsSpec | undefined,
+function projectGuidanceActions<TBlock extends WithGuidanceActions>(
+  block: TBlock | undefined,
   feature: FeatureSchema,
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
-): RecordStepsSpec | undefined {
-  if (steps === undefined) return undefined;
-  const nextActions = projectActionArray(steps.actions, feature, indices, keptScreenQns);
-  if (nextActions === steps.actions) return steps;
-  const { actions, ...rest } = steps;
+): (Omit<TBlock, "actions"> & WithGuidanceActions) | undefined {
+  if (block === undefined) return undefined;
+  const nextActions = projectActionArray(block.actions, feature, indices, keptScreenQns);
+  if (nextActions === block.actions) return block;
+  const { actions, ...rest } = block;
   return { ...rest, ...(nextActions !== undefined && { actions: nextActions }) };
 }
 
@@ -703,8 +690,8 @@ function projectProjectionDetailScreen(
   const nextActions = projectActionArray(actions, feature, indices, keptScreenQns);
   const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
   const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
-  const nextBanner = projectBanner(banner, feature, indices, keptScreenQns);
-  const nextSteps = projectSteps(steps, feature, indices, keptScreenQns);
+  const nextBanner = projectGuidanceActions(banner, feature, indices, keptScreenQns);
+  const nextSteps = projectGuidanceActions(steps, feature, indices, keptScreenQns);
   const unchanged =
     nextMetrics === metrics &&
     nextHeader === header &&

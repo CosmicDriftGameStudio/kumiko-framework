@@ -87,6 +87,21 @@ describe("list row guidance", () => {
     expect(ruleIdsOf([feature])).toContain("list/hint-column-display");
   });
 
+  test("hint together with linkScreenField is list/hint-column-link", () => {
+    const feature = projectionListFeature({
+      columns: [{ field: "hint", hint: {}, linkScreenField: "why" }],
+    });
+    expect(ruleIdsOf([feature])).toContain("list/hint-column-link");
+  });
+
+  test("a linkParamsField missing from the query outputSchema is query/output-field-missing", () => {
+    const feature = projectionListFeature(
+      { columns: [{ field: "name", linkScreenField: "tone", linkParamsField: "ghost" }] },
+      ["name", "tone"],
+    );
+    expect(ruleIdsOf([feature])).toContain("query/output-field-missing");
+  });
+
   test("linkParamsField without linkScreenField is list/link-params-without-screen-field", () => {
     const feature = projectionListFeature({
       columns: [{ field: "name", linkParamsField: "why" }],

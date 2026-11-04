@@ -1,7 +1,8 @@
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { ListColumnSpec } from "../types/screen.ts";
-import { bootRuleError } from "./boot-rule.ts";
+import { type BootRule, bootRuleError } from "./boot-rule.ts";
 import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
+import { listGuidanceFieldRefs } from "./query-output-guidance.ts";
 import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
 import { buildUnknownFieldMessage } from "./screens-kind-shared.ts";
 
@@ -17,27 +18,33 @@ export type EntityRowFields = {
   readonly fieldNames: ReadonlySet<string>;
 };
 
-type NamedRowField = { readonly option: string; readonly value: string };
+type ListColumn = ReturnType<typeof normalizeListColumn>;
 
-function guidanceRowFields(screen: RowGuidanceScreen): readonly NamedRowField[] {
-  const named: NamedRowField[] = [];
-  if (screen.rowToneField !== undefined) {
-    named.push({ option: "rowToneField", value: screen.rowToneField });
+// The hint cell draws the column itself; these options would be silently ignored.
+const HINT_CONFLICTS: readonly {
+  readonly option: keyof ListColumn;
+  readonly rule: BootRule;
+}[] = [
+  { option: "renderer", rule: LIST_ROW_GUIDANCE_RULES.hintColumnRenderer },
+  { option: "display", rule: LIST_ROW_GUIDANCE_RULES.hintColumnDisplay },
+  { option: "linkScreenField", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
+  { option: "linkParamsField", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
+  { option: "refEntity", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
+  { option: "badgeToneField", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
+];
+
+function validateHintColumn(where: string, column: ListColumn): void {
+  const conflict =
+    column.hint === undefined
+      ? undefined
+      : HINT_CONFLICTS.find(({ option }) => column[option] !== undefined);
+  if (conflict !== undefined) {
+    throw bootRuleError(conflict.rule, {
+      message:
+        `${where} column "${column.field}" sets both hint and ${conflict.option} — the hint cell ` +
+        `draws the column itself. Remove ${conflict.option} or hint.`,
+    });
   }
-  for (const col of screen.columns) {
-    const hint = normalizeListColumn(col).hint;
-    if (hint === undefined) continue;
-    if (hint.detailField !== undefined) {
-      named.push({ option: "hint.detailField", value: hint.detailField });
-    }
-    if (hint.toneField !== undefined) {
-      named.push({ option: "hint.toneField", value: hint.toneField });
-    }
-    if (hint.reasonField !== undefined) {
-      named.push({ option: "hint.reasonField", value: hint.reasonField });
-    }
-  }
-  return named;
 }
 
 export function validateListRowGuidance(
@@ -53,34 +60,20 @@ export function validateListRowGuidance(
       ? `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panelId ?? ""}"`
       : `[Feature ${featureName}] Screen "${screenId}" (${kind})`;
   for (const col of screen.columns) {
-    const column = normalizeListColumn(col);
-    if (column.hint !== undefined && column.renderer !== undefined) {
-      throw bootRuleError(LIST_ROW_GUIDANCE_RULES.hintColumnRenderer, {
-        message:
-          `${where} column "${column.field}" sets both hint and renderer — the hint cell draws ` +
-          `the column itself. Remove renderer or hint.`,
-      });
-    }
-    if (column.hint !== undefined && column.display !== undefined) {
-      throw bootRuleError(LIST_ROW_GUIDANCE_RULES.hintColumnDisplay, {
-        message:
-          `${where} column "${column.field}" sets both hint and display — the hint cell draws ` +
-          `the column itself. Remove display or hint.`,
-      });
-    }
+    validateHintColumn(where, normalizeListColumn(col));
   }
-  for (const { option, value } of guidanceRowFields(screen)) {
-    if (value.trim().length === 0) {
+  for (const { option, field } of listGuidanceFieldRefs(screen)) {
+    if (field.trim().length === 0) {
       throw bootRuleError(LIST_ROW_GUIDANCE_RULES.guidanceFieldEmpty, {
         message: `${where} sets ${option} to an empty string. Name a row field or remove the option.`,
       });
     }
-    if (entityFields !== undefined && !entityFields.fieldNames.has(value)) {
+    if (entityFields !== undefined && !entityFields.fieldNames.has(field)) {
       throw bootRuleError(SCREEN_KIND_RULES.unknownFieldReference, {
         message: buildUnknownFieldMessage(
           featureName,
           screenId,
-          value,
+          field,
           entityFields.entityName,
           entityFields.fieldNames,
         ),

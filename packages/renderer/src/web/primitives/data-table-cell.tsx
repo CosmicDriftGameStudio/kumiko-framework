@@ -354,6 +354,7 @@ type DataTableCellProps = {
   readonly link?: CellLink;
   readonly linkItems?: readonly CellLinkItem[];
   readonly hint?: ListColumnHintViewModel;
+  readonly insideRowOpener?: boolean;
 };
 
 // A multi reference may list the same id twice; the occurrence count keeps React keys unique.
@@ -465,11 +466,14 @@ export function DataTableCell({
   link,
   linkItems,
   hint,
+  insideRowOpener = false,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
   const RegisteredStatusBadge = useOptionalPrimitives()?.StatusBadge;
-  if (hint !== undefined) return <HintCell value={value} row={row} hint={hint} />;
+  if (hint !== undefined) {
+    return <HintCell value={value} row={row} hint={hint} insideRowOpener={insideRowOpener} />;
+  }
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">
