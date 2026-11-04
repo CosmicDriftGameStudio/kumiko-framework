@@ -65,9 +65,7 @@ const accountStatusEnum = z.enum([
 // ============================================================================
 //
 // One stream per mailbox (aggregateId = accountId, random UUID on connect).
-// address is PII, so maxLength is 1000 to allow for ciphertext expansion
-// (a 200-character plaintext becomes ~460+ characters in a JSON envelope;
-// see billing-foundation events.ts).
+// address is PII ciphertext; its plaintext is capped at 320 characters by connect-account.write.ts.
 export const mailAccountEventPayloadSchema = z.object({
   provider: z.string().min(1).max(50),
   /** "password" | "xoauth2" | "oauth" (InboundMailAuthMethods) — deliberately
@@ -77,7 +75,7 @@ export const mailAccountEventPayloadSchema = z.object({
   /** null = shared by the tenant; otherwise, this user's personal mailbox. */
   ownerUserId: z.string().max(36).nullable(),
   displayName: z.string().max(200),
-  address: z.string().min(1).max(1000),
+  address: z.string().min(1).max(piiCiphertextMaxLengthFor(320)),
   status: accountStatusEnum,
   /** Provider-agnostic watch state ("idle", "watching", "backoff:3", ...)
    *  — an operational signal only, not PII. */
@@ -115,12 +113,12 @@ export const skippedAttachmentSchema = z.object({
 });
 
 // Shared by inbound-message-received (v2+) and inbound-message-content-fetched.
-// bodyText is ciphertext: 32_000 characters become roughly 75 KB, hence the generous max.
+// bodyText is ciphertext of at most INBOUND_BODY_TEXT_MAX_CHARS (32_000) characters.
 const inboundMessageContentShape = {
-  bodyText: z.string().max(200_000),
+  bodyText: z.string().max(piiCiphertextMaxLengthFor(32_000)),
   bodyTextTruncated: z.boolean(),
-  /** Sanitized HTML body, PII ciphertext (500_000 characters become roughly 1.2 MB). Null: none or too large. */
-  bodyHtml: z.string().max(1_500_000).nullable(),
+  /** Sanitized HTML body as PII ciphertext. sanitizeInboundHtml drops anything over 500_000 bytes after sanitizing. Null: none or too large. */
+  bodyHtml: z.string().max(piiCiphertextMaxLengthFor(500_000)).nullable(),
   /** file-foundation FileRef ids (plaintext uuids). Attachments outlive the mail: apps turn them
    *  into documents, so the retention sweep never deletes them. */
   attachmentFileIds: z.array(z.uuid()).max(50),
