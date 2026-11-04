@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     curl \
     fonts-liberation \
+    tini \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -90,4 +91,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD curl -fsS http://localhost:3000/healthz || exit 1
 
+# bun as PID 1 does not reap orphans: every idle close of Chromium would leave
+# zombie chromium/crashpad processes behind. tini reaps them and forwards SIGTERM.
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["bun", "run", "apps/puppeteer-service/src/index.ts"]
