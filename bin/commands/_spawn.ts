@@ -87,10 +87,12 @@ export function run(
       stderr += c.toString("utf-8");
     });
     child.on("error", () => settle(-1));
-    child.on("exit", (code, signal) => {
+    child.on("exit", () => {
       if (killTimer) clearTimeout(killTimer);
-      settle(exitStatusFromChild(code, signal));
     });
+    // "exit" can fire before the stdio pipes are drained; settling there drops trailing
+    // output, which `status` once read as a clean tree. "close" waits for the pipes.
+    child.on("close", (code, signal) => settle(exitStatusFromChild(code, signal)));
     if (opts?.timeoutMs) {
       timer = setTimeout(() => {
         if (child.exitCode === null && child.signalCode === null) {
@@ -134,7 +136,8 @@ export function runStreaming(
     child.stdout?.on("data", onData);
     child.stderr?.on("data", onData);
     child.on("error", () => resolve(-1));
-    child.on("exit", (code, signal) => {
+    // "close", not "exit": the last lines may still sit in the pipes when the child exits.
+    child.on("close", (code, signal) => {
       if (signal) out.log(`killed by ${signal}`);
       resolve(exitStatusFromChild(code, signal));
     });

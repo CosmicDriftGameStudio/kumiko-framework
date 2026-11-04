@@ -33,6 +33,25 @@ describe("run / runStreaming exit codes", () => {
   });
 });
 
+// The background subshell keeps the pipe open past the parent's exit, so output
+// arriving after "exit" is guaranteed instead of left to scheduling luck.
+describe("run / runStreaming collect output written after the child exited", () => {
+  const writeAfterExit = ["-c", "(sleep 0.2; echo late) & echo early; exit 0"];
+
+  test("run keeps stdout that arrives after the exit event", async () => {
+    const result = await run("sh", writeAfterExit);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("early\nlate\n");
+  });
+
+  test("runStreaming logs lines that arrive after the exit event", async () => {
+    const logs: string[] = [];
+    const status = await runStreaming("sh", writeAfterExit, { log: (m) => logs.push(m) });
+    expect(status).toBe(0);
+    expect(logs).toEqual(["early", "late"]);
+  });
+});
+
 describe("run timeout handling", () => {
   test("a missing binary is a spawn failure, not a probe timeout", async () => {
     const result = await run("kumiko-no-such-binary-xyz", []);
