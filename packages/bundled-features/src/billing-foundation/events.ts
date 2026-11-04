@@ -10,6 +10,7 @@
 // accounting-export, churn-analytics) listen directly for the event type
 // without a payload discriminator.
 
+import { piiCiphertextMaxLengthFor } from "@cosmicdrift/kumiko-framework/crypto";
 import * as z from "zod";
 import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./web/constants.ts";
 import { CONSENT_LOCALES } from "./web/consumer-protection/consent-locale.ts";
@@ -53,12 +54,9 @@ const statusEnum = z.enum([
 // PII, and event headers cannot be crypto-shredded.
 export const subscriptionEventPayloadSchema = z.object({
   providerName: z.string().min(1).max(50),
-  // 1000, not 200: these two are `tenantOwned: true` on the entity (see
-  // entities.ts — crypto-shreds on tenant-destroy, unlike `encrypted`).
-  // process-event.write.ts stores the PII-ciphertext here, not the raw
-  // provider id. A 200-char plaintext id becomes ~300+ chars of ciphertext.
-  providerCustomerId: z.string().min(1).max(1000),
-  providerSubscriptionId: z.string().min(1).max(1000),
+  // Ciphertext, not the raw id: process-event limits the plaintext id to 200.
+  providerCustomerId: z.string().min(1).max(piiCiphertextMaxLengthFor(200)),
+  providerSubscriptionId: z.string().min(1).max(piiCiphertextMaxLengthFor(200)),
   status: statusEnum,
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
@@ -100,10 +98,8 @@ export const PAYMENT_RECEIVED_EVENT_QN =
 
 export const paymentEventPayloadSchema = z.object({
   providerName: z.string().min(1).max(50),
-  // 1000, not 200: `tenantOwned: true` on paymentEntity (see entities.ts) —
-  // this stores the PII-ciphertext, not the raw provider id. Mirrors
-  // subscriptionEventPayloadSchema's same rationale.
-  providerCustomerId: z.string().min(1).max(1000),
+  // Ciphertext, not the raw id (plaintext limit 200).
+  providerCustomerId: z.string().min(1).max(piiCiphertextMaxLengthFor(200)),
   priceId: z.string().min(1).max(200),
   // Optional so payloads stored before quantity existed still parse; absent = 1.
   quantity: z.number().int().positive().optional(),

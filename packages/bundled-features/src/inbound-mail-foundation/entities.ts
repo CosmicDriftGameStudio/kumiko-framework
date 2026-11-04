@@ -1,4 +1,7 @@
-import { collectPiiSubjectFields } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  collectPiiSubjectFields,
+  piiCiphertextMaxLengthFor,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import {
   deriveEntityTableMeta,
   isSchemaTable,
@@ -29,8 +32,8 @@ import { DEFAULT_INBOUND_MAIL_ADMIN_ROLES, DEFAULT_INBOUND_MAIL_USER_ROLES } fro
 // **PII convention:** `personal: "tenant"` (not `encrypted`): fields must
 // be crypto-shredded when eraseSubjectKeys deletes the tenant subject key on
 // tenant destruction (pattern from billing-foundation).
-// maxLength is budgeted for ciphertext (`kumiko-pii:v1:<subject>:
-// <blob>` — Plaintext×~2.3 + envelope overhead).
+// The projection holds ciphertext, so these fields' maxLength comes from
+// piiCiphertextMaxLengthFor(<plaintext limit>).
 //
 // **Design decision:** The PII subject of an inbound mail is currently the
 // TENANT (mailbox owner), not the external sender. A sender-forget flow would
@@ -66,7 +69,12 @@ export const mailAccountEntity = createEntity({
       reason: "tenant_config_not_personal",
     }),
     // Mailbox address — tenant PII.
-    address: createTextField({ required: true, maxLength: 1000, personal: "tenant", find: "none" }),
+    address: createTextField({
+      required: true,
+      maxLength: piiCiphertextMaxLengthFor(320),
+      personal: "tenant",
+      find: "none",
+    }),
     status: createTextField({
       required: true,
       maxLength: 30,
@@ -135,21 +143,51 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
         personal: false,
         reason: "technical_reference",
       }),
-      from: createTextField({ required: true, maxLength: 2000, personal: "tenant", find: "none" }),
+      from: createTextField({
+        required: true,
+        maxLength: piiCiphertextMaxLengthFor(2000),
+        personal: "tenant",
+        find: "none",
+      }),
       // JSON-stringified string[] — als Ganzes encrypted.
-      to: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
-      cc: createTextField({ maxLength: 8000, personal: "tenant", find: "none" }),
-      subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
-      snippet: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
+      to: createTextField({
+        maxLength: piiCiphertextMaxLengthFor(8000),
+        personal: "tenant",
+        find: "none",
+      }),
+      cc: createTextField({
+        maxLength: piiCiphertextMaxLengthFor(8000),
+        personal: "tenant",
+        find: "none",
+      }),
+      subject: createTextField({
+        maxLength: piiCiphertextMaxLengthFor(4000),
+        personal: "tenant",
+        find: "none",
+      }),
+      snippet: createTextField({
+        maxLength: piiCiphertextMaxLengthFor(4000),
+        personal: "tenant",
+        find: "none",
+      }),
       receivedAt: createTimestampField({ required: true }),
       bodyRef: createTextField({ maxLength: 500, personal: false, reason: "technical_reference" }),
       scope: createTextField({ maxLength: 200, personal: false, reason: "technical_reference" }),
-      // Full plaintext, capped at 32_000 characters before encryption (ciphertext is ~2.3x plus envelope).
       // Null on rows from before the column; list-messages never selects it.
-      bodyText: createLongTextField({ maxLength: 200_000, personal: "tenant", find: "none" }),
+      // Plaintext is clipped to INBOUND_BODY_TEXT_MAX_CHARS (32_000) before encryption.
+      bodyText: createLongTextField({
+        maxLength: piiCiphertextMaxLengthFor(32_000),
+        personal: "tenant",
+        find: "none",
+      }),
       bodyTextTruncated: createBooleanField(),
-      // Sanitized HTML of the mail (sanitizeInboundHtml), null when the mail has none or it was too large.
-      bodyHtml: createLongTextField({ maxLength: 500_000, personal: "tenant", find: "none" }),
+      // Sanitized HTML of the mail, null when the mail has none or it was too large: sanitizeInboundHtml
+      // drops anything over 500_000 bytes after sanitizing, before encryption.
+      bodyHtml: createLongTextField({
+        maxLength: piiCiphertextMaxLengthFor(500_000),
+        personal: "tenant",
+        find: "none",
+      }),
       // Bound to the message (entityType = the aggregate type), so the file guard answers with the
       // mail's visibility. The fileRefs are bound at ingest, the projection copies the ids.
       attachmentFileIds: createFilesField({ personal: false, reason: "technical_reference" }),
@@ -200,7 +238,11 @@ export const mailThreadEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    subject: createTextField({ maxLength: 4000, personal: "tenant", find: "none" }),
+    subject: createTextField({
+      maxLength: piiCiphertextMaxLengthFor(4000),
+      personal: "tenant",
+      find: "none",
+    }),
     lastMessageAt: createTimestampField({ required: true }),
     messageCount: createNumberField({ required: true, integer: true }),
   },
