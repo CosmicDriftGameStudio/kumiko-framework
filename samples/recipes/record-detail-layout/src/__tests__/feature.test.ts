@@ -18,6 +18,8 @@ import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
 import {
+  answerBriefing,
+  answerOrderDetail,
   answerOrderList,
   answerOrderSummary,
   orderListSchema,
@@ -108,7 +110,11 @@ describe("record-detail-layout showcase — guidance", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
     if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(screen.breadcrumb).toEqual({ field: "path" });
-    expect(screen.summary).toEqual({ field: "summaryLine", toneField: "summaryTone" });
+    expect(screen.summary).toEqual({
+      field: "summaryLine",
+      narrowField: "summaryShort",
+      toneField: "summaryTone",
+    });
     expect(screen.banner?.field).toBe("notice");
     expect(screen.steps?.field).toBe("steps");
     expect(screen.progress?.field).toBe("progress");
@@ -218,6 +224,33 @@ describe("record-detail-layout showcase — board gaps", () => {
     expect(detail.progress?.placement).toBe("beside-steps");
     expect(detail.metricsPlacement).toEqual({ narrow: "after-guidance" });
     expect(detail.metrics?.map((metric) => metric.subField)).toContain("totalNote");
+  });
+});
+
+describe("record-detail-layout showcase — phone variants", () => {
+  test("the today board limits, collapses and hides panels under sm", () => {
+    const today = registry.getScreen("order-desk:screen:today");
+    if (today?.type !== "dashboard") throw new Error("expected dashboard");
+    const panel = (id: string) => today.panels.find((candidate) => candidate.id === id);
+    const now = panel("now");
+    const deadlines = panel("deadlines");
+    if (now?.kind !== "list" || deadlines?.kind !== "list") throw new Error("expected lists");
+    expect(now.narrow).toEqual({ layout: "cards", limit: 3 });
+    expect(deadlines.narrow).toEqual({ layout: "line" });
+    expect(panel("customers")?.hideOnNarrow).toBe(true);
+    expect(panel("money")?.hideOnNarrow).toBe(true);
+  });
+
+  test("the detail shortens summary and steps and drops the chain under sm", () => {
+    const detail = registry.getScreen("order-desk:screen:order-detail");
+    if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    expect(detail.steps?.narrowLimit).toBe(3);
+    expect(detail.progress?.hideOnNarrow).toBe(true);
+    expect(answerOrderDetail("o1").steps.length).toBeGreaterThan(3);
+  });
+
+  test("the briefing answers a shorter variant for phones", () => {
+    expect(answerBriefing().narrowBlocks.length).toBeGreaterThan(0);
   });
 });
 

@@ -35,6 +35,7 @@ import {
 } from "./screens-actions.ts";
 import { DASHBOARD_CHART_RULES } from "./screens-dashboard-chart-rules.ts";
 import { validateDashboardPanelLink } from "./screens-dashboard-links.ts";
+import { validateDashboardPanelNarrow } from "./screens-dashboard-narrow.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
 import { assertRefTargetRegistered, validateColumnRendererForm } from "./screens-lists.ts";
 
@@ -66,6 +67,7 @@ export function validateDashboardScreen(
 
   for (const panel of screen.panels) {
     addPanelId(panel.id, panel.kind);
+    validateDashboardPanelNarrow(featureName, screenId, panel);
     if (panel.kind === "stat-group") {
       validateDashboardStatGroupPanel(featureName, screenId, panel, addPanelId, featureMap);
     } else if (panel.kind === "custom") {
@@ -435,7 +437,7 @@ function validateDashboardTextPanel(
   }
   validateDashboardPanelSpan(featureName, screenId, panel);
   validateDashboardPanelVisibleWhen(context, panel.visibleWhen);
-  for (const block of blocks) {
+  for (const block of [...blocks, ...(panel.narrowBlocks ?? [])]) {
     if (block.kind === "list" && block.items.length === 0) {
       throw bootRuleError(DASHBOARD_RULES.textListBlockEmpty, {
         message: `${context} has a list block without items. Add items or remove the block.`,
@@ -772,6 +774,7 @@ export function validateDashboardCustomPanel(
         `declare a react/native component marker.`,
     });
   }
+  validateDashboardPanelSpan(featureName, screenId, panel);
 }
 
 function validateDashboardQueryPanel(

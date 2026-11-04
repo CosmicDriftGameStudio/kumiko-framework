@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { serverNowMs } from "../../server-clock.ts";
 import { resolveSafeLocale } from "../primitives/locale-number.ts";
 
 const SECONDS_PER_MINUTE = 60;
@@ -53,7 +54,7 @@ export function useRelativeTimeFormatter(locale: string): (atMs: number) => stri
   }, [intervalMs]);
 
   return (atMs) => {
-    const nowMs = Date.now();
+    const nowMs = serverNowMs();
     nearestDistanceMs.current = Math.min(nearestDistanceMs.current, Math.abs(atMs - nowMs));
     return formatRelativeTime(atMs, nowMs, locale);
   };

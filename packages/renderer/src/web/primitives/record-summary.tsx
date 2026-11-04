@@ -3,6 +3,7 @@ import { type ReactNode, useContext } from "react";
 import type { RecordSummaryProps } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { InsideScreenFormColumnContext } from "./metric.tsx";
+import { useIsBelowSmViewport } from "./use-narrow-viewport.ts";
 
 const SUMMARY_BORDER_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   bad: "border-status-bad",
@@ -13,8 +14,14 @@ const SUMMARY_BORDER_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   neutral: "border-border-strong",
 };
 
-export function DefaultRecordSummary({ text, tone, testId }: RecordSummaryProps): ReactNode {
+export function DefaultRecordSummary({
+  text,
+  narrowText,
+  tone,
+  testId,
+}: RecordSummaryProps): ReactNode {
   const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
+  const narrow = useIsBelowSmViewport();
   return (
     <div className={cn("shrink-0", !insideScreenFormColumn && "px-6 py-2")}>
       <p
@@ -25,7 +32,7 @@ export function DefaultRecordSummary({ text, tone, testId }: RecordSummaryProps)
           tone === undefined ? "border-l-primary" : SUMMARY_BORDER_CLASS[tone],
         )}
       >
-        {text}
+        {narrow && narrowText !== undefined ? narrowText : text}
       </p>
     </div>
   );

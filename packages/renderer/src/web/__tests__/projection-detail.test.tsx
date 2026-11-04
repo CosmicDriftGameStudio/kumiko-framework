@@ -2027,7 +2027,13 @@ describe("KumikoScreen / projectionDetail header actions placement", () => {
       expect(headerActions?.contains(screen.getByTestId("render-edit-action-open-user"))).toBe(
         true,
       );
+      // The body title block is the only h1; the shell header names the parent crumb as plain text.
       expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("user-42");
+      expect(
+        within(document.querySelector("header") as HTMLElement).queryByRole("heading", {
+          level: 1,
+        }),
+      ).toBeNull();
       expect(slot.closest('[data-slot="card"]')).toBeNull();
       // The metric band owns the horizontal inset; the slot must sit inside it.
       expect(

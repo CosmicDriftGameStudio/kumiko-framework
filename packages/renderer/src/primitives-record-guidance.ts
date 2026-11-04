@@ -12,6 +12,8 @@ export type RecordBreadcrumbProps = {
 /** One emphasized sentence below a record header; `tone` sets the accent color. */
 export type RecordSummaryProps = {
   readonly text: string;
+  /** Shown instead of `text` below the sm breakpoint. */
+  readonly narrowText?: string;
   readonly tone?: SelectOptionTone;
   readonly testId?: string;
 };
@@ -23,13 +25,23 @@ export type RecordStepsProps = {
   /** Shown instead of the list when there are no items. */
   readonly emptyLabel: string;
   readonly reasonLabel: string;
+  /** Below the sm breakpoint only this many steps show; the rest sits behind a toggle. */
+  readonly narrowLimit?: number;
+  /** Toggle label for the hidden steps; receives their count. */
+  readonly moreLabel?: (hiddenCount: number) => string;
+  readonly lessLabel?: string;
   readonly items: readonly {
     readonly id: string;
     readonly title: string;
     readonly detail?: string;
     readonly tone?: SelectOptionTone;
     readonly reason?: string;
+    /** Main action: a small button on the title row. */
     readonly actions?: ReactNode;
+    /** Further actions under the detail line. */
+    readonly moreActions?: ReactNode;
   }[];
+  /** Total number of steps, shown small beside the heading even when `narrowLimit` shortens the list. */
+  readonly count?: number;
   readonly testId?: string;
 };

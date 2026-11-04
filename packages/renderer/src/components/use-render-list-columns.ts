@@ -16,7 +16,11 @@ import type {
   Translate,
 } from "../headless/index.ts";
 import { computeListViewModel } from "../headless/index.ts";
-import { withDisplayColumns, withHintColumns } from "./render-list-hint-columns.ts";
+import {
+  withDisplayColumns,
+  withHintColumns,
+  withNarrowOnlyColumns,
+} from "./render-list-hint-columns.ts";
 import { enrichReferenceColumns, selectReferenceColumns } from "./render-list-reference-columns.ts";
 import { useReferenceColumnLookups } from "./use-reference-column-lookups.ts";
 
@@ -97,22 +101,25 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
   const resolveScreenLink = useScreenLinkResolver();
   const enrichedColumns = useMemo(
     (): readonly ListColumnViewModel[] =>
-      withDisplayColumns(
-        withHintColumns(
-          withScreenLinks(
-            enrichReferenceColumns({
-              columns: vm.columns,
-              referenceColumns,
-              referenceLookups,
-              resolveReferenceLink,
-              featureName,
-              translate,
-            }),
+      withNarrowOnlyColumns(
+        withDisplayColumns(
+          withHintColumns(
+            withScreenLinks(
+              enrichReferenceColumns({
+                columns: vm.columns,
+                referenceColumns,
+                referenceLookups,
+                resolveReferenceLink,
+                featureName,
+                translate,
+              }),
+              screen,
+              resolveScreenLink,
+            ),
             screen,
-            resolveScreenLink,
+            translate,
           ),
           screen,
-          translate,
         ),
         screen,
       ),

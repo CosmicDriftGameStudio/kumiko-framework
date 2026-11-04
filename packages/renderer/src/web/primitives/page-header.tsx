@@ -10,6 +10,7 @@ export function DefaultPageHeader({
   recordTitle,
   status,
   actions,
+  bodyTitle,
   overflowItems,
   hideBreadcrumb,
   breadcrumbScreenId,
@@ -18,6 +19,7 @@ export function DefaultPageHeader({
   const setOverflowItems = slot?.setOverflowItems;
   const setTitle = slot?.setTitle;
   const setRecordTitle = slot?.setRecordTitle;
+  const setBodyTitle = slot?.setBodyTitle;
   const setBreadcrumbHidden = slot?.setBreadcrumbHidden;
   const setBreadcrumbScreenId = slot?.setBreadcrumbScreenId;
 
@@ -32,6 +34,12 @@ export function DefaultPageHeader({
     setBreadcrumbScreenId(breadcrumbScreenId);
     return () => setBreadcrumbScreenId(undefined);
   }, [setBreadcrumbScreenId, breadcrumbScreenId]);
+
+  useEffect(() => {
+    if (setBodyTitle === undefined || bodyTitle !== true) return;
+    setBodyTitle(true);
+    return () => setBodyTitle(false);
+  }, [setBodyTitle, bodyTitle]);
 
   useEffect(() => {
     if (setRecordTitle === undefined || recordTitle === undefined) return;

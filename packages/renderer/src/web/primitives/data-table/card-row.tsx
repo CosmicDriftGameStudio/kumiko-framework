@@ -64,9 +64,9 @@ function renderCardButtons(
   buttonActions: readonly DataTableRowAction[],
 ): ReactNode {
   return renderStopPropagation(
-    "flex justify-end",
+    "flex justify-start",
     `row-${row.id}-card-buttons`,
-    <RowActionsCell row={row} actions={buttonActions} mode={m.rowActionMode} compact />,
+    <RowActionsCell row={row} actions={buttonActions} mode={m.rowActionMode} compact small />,
   );
 }
 

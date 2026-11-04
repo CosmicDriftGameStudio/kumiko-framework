@@ -20,19 +20,21 @@ function nonEmptyText(value: unknown): string | undefined {
   return trimmed === "" ? undefined : trimmed;
 }
 
+const OPEN_SENTENCE_CLASS =
+  "min-w-0 cursor-pointer bg-transparent p-0 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
 /** "To do" cell: an emphasized sentence in the row tone with an optional muted second line. */
 export function HintCell({
   value,
   row,
   hint,
-  insideRowOpener = false,
+  onOpen,
 }: {
   readonly value: unknown;
   readonly row: Readonly<Record<string, unknown>>;
   readonly hint: ListColumnHintViewModel;
-  // A row-open button already wraps the cell and must not contain another
-  // button, so the reason is shown open instead of behind a toggle.
-  readonly insideRowOpener?: boolean;
+  // The first cell of a clickable row opens it from the sentence only: a wrapping button could not hold the reason toggle.
+  readonly onOpen?: () => void;
 }): ReactNode {
   const [reasonOpen, setReasonOpen] = useState(false);
   const sentence = nonEmptyText(value);
@@ -47,13 +49,34 @@ export function HintCell({
   const tone = isSelectOptionTone(toneValue) ? toneValue : undefined;
   const detail = hint.detailField === undefined ? undefined : nonEmptyText(row[hint.detailField]);
   const reason = hint.reasonField === undefined ? undefined : nonEmptyText(row[hint.reasonField]);
+  const sentenceClass = cn(
+    "font-medium",
+    hint.plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
+  );
   return (
     <span data-hint-tone={tone} className="flex min-w-0 flex-col gap-0.5">
       <span className="flex items-start gap-2">
-        <span className={cn("font-medium", tone !== undefined && HINT_TONE_TEXT_CLASS[tone])}>
-          {sentence}
-        </span>
-        {reason !== undefined && !insideRowOpener && (
+        {onOpen === undefined ? (
+          <span className={sentenceClass}>{sentence}</span>
+        ) : (
+          <button
+            type="button"
+            className={cn(OPEN_SENTENCE_CLASS, sentenceClass)}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            {sentence}
+          </button>
+        )}
+        {reason !== undefined && (
           <ReasonInfoButton
             label={hint.reasonLabel}
             open={reasonOpen}
@@ -63,7 +86,7 @@ export function HintCell({
         )}
       </span>
       {detail !== undefined && <small className="text-xs text-muted-foreground">{detail}</small>}
-      {reason !== undefined && (insideRowOpener || reasonOpen) && (
+      {reason !== undefined && reasonOpen && (
         <ReasonBox data-hint-reason="true">{reason}</ReasonBox>
       )}
     </span>

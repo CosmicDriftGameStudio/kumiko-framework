@@ -11,6 +11,12 @@ export type RecordBreadcrumbItem = {
   readonly id?: string;
 };
 
+/**
+ * A banner or step action. `hideIcon` keeps the icon out of the drawn button (text only); it
+ * stays registered for the `screen/action-icon` rule and for icon-only or menu renderings.
+ */
+export type RecordGuidanceAction = RowAction & { readonly hideIcon?: true };
+
 export type RecordNotice = {
   readonly title: string;
   readonly text?: string;
@@ -38,12 +44,14 @@ export type RecordSummarySpec = {
   readonly field: string;
   /** Row field holding a SelectOptionTone for the sentence's accent. */
   readonly toneField?: string;
+  /** Row field with a shorter sentence shown instead of `field` below `sm`. */
+  readonly narrowField?: string;
 };
 
 export type RecordBannerSpec = {
   /** Holds `RecordNotice | null`; null shows no banner. */
   readonly field: string;
-  readonly actions?: readonly RowAction[];
+  readonly actions?: readonly RecordGuidanceAction[];
 };
 
 export type RecordStepsSpec = {
@@ -55,7 +63,9 @@ export type RecordStepsSpec = {
   readonly subtitleField?: string;
   /** i18n key for an empty list, default `kumiko.detail.steps.empty`. */
   readonly emptyLabel?: string;
-  readonly actions?: readonly RowAction[];
+  /** Below `sm` only the first n steps show; the rest sits behind a "k more steps" toggle. */
+  readonly narrowLimit?: number;
+  readonly actions?: readonly RecordGuidanceAction[];
 };
 
 export type RecordProgressStep = {
@@ -77,4 +87,6 @@ export type RecordProgressSpec = {
   readonly field: string;
   /** "beside-steps": the chains sit as a vertical stage list in a 4/12 column next to the steps panel (8/12) from lg, stacked below it under lg. Needs `steps`; without it the chains keep their own row. */
   readonly placement?: "beside-steps";
+  /** Leaves the chains out below `sm`. */
+  readonly hideOnNarrow?: true;
 };

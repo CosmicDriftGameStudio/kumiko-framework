@@ -74,6 +74,13 @@ describe("DataTable summaryRow", () => {
     expect(items.map((item) => item.textContent)).toEqual(["Orders 8", " · Overdue 1.200 EUR"]);
   });
 
+  test("an item without a label shows its value alone", () => {
+    render(
+      <DataTable columns={COLUMNS} rows={ROWS} summaryRow={{ items: [{ value: "7 open" }] }} />,
+    );
+    expect(screen.getByTestId("list-summary").textContent).toBe("7 open");
+  });
+
   test("narrow viewport: renders as a card", () => {
     atViewportWidth(500, () => {
       render(
@@ -242,5 +249,64 @@ describe("StepBar stacked", () => {
     expect(list.tagName).toBe("OL");
     expect(list.querySelectorAll("li")).toHaveLength(2);
     expect(within(list).getByText("21 Aug")).toBeTruthy();
+  });
+});
+
+describe("DataTable showOnNarrowOnly and plainSentence", () => {
+  const narrowOnlyColumns = [
+    ...COLUMNS,
+    { field: "rent", label: "Rent", type: "string", sortable: false, showOnNarrowOnly: true },
+  ] as const;
+  const rentRows = [{ id: "r1", values: { name: "Alpha", due: "x", rent: "890 EUR cold" } }];
+
+  test("the column is left out of the table", () => {
+    atViewportWidth(1280, () => {
+      render(<DataTable columns={narrowOnlyColumns} rows={rentRows} testId="wide" />);
+      expect(screen.queryByText("890 EUR cold")).toBeNull();
+    });
+  });
+
+  test("the column shows on the cards", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={narrowOnlyColumns} rows={rentRows} testId="phone" />);
+      expect(screen.getByText("890 EUR cold")).toBeTruthy();
+    });
+  });
+
+  const reasonHint = (plainSentence: boolean) =>
+    [
+      {
+        field: "next",
+        label: "Next",
+        type: "text",
+        sortable: false,
+        hint: {
+          emptyLabel: "Nothing open",
+          reasonLabel: "Why?",
+          reasonField: "why",
+          toneField: "tone",
+          ...(plainSentence && { plainSentence: true }),
+        },
+      },
+    ] as const;
+  const hintRows = [{ id: "r1", values: { next: "Ship it", why: "Paid", tone: "bad" } }];
+
+  test("the sentence takes the tone color unless plainSentence is set", () => {
+    render(<DataTable columns={reasonHint(false)} rows={hintRows} testId="tone" />);
+    expect(screen.getByText("Ship it").className).toContain("text-status-bad");
+  });
+
+  test("plainSentence keeps the normal text color", () => {
+    render(<DataTable columns={reasonHint(true)} rows={hintRows} testId="plain" />);
+    expect(screen.getByText("Ship it").className).not.toContain("text-status-bad");
+  });
+
+  test("on cards the reason stays behind its toggle", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={reasonHint(false)} rows={hintRows} testId="cards" />);
+      expect(screen.queryByText("Paid")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Why?" }));
+      expect(screen.getByText("Paid")).toBeTruthy();
+    });
   });
 });

@@ -68,6 +68,9 @@ export type ListColumnSpec =
        *  `md` breakpoint (tables keep it). For columns that only make sense
        *  next to the others, like a sort key. */
       readonly hideOnNarrow?: boolean;
+      /** Counterpart of `hideOnNarrow`: the column shows only in the compact card layout and not in the table.
+       *  Not combinable with `hideOnNarrow`, `hidden` or `pinned`. */
+      readonly showOnNarrowOnly?: true;
       /** Start state for the column picker: the column begins hidden and the
        *  user can show it. Only valid together with `table.columnPicker`. */
       readonly hidden?: boolean;
@@ -110,6 +113,8 @@ export type ListColumnHint = {
   readonly reasonField?: string;
   /** i18n key for an empty sentence; default `kumiko.list.hint.empty`. */
   readonly emptyLabel?: string;
+  /** The sentence keeps the normal text color (still bold); the tone stays on the row stripe, a badge and the detail line. */
+  readonly plainSentence?: true;
 };
 
 /** Computed fields for the loaded rows: one `query` call per page answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`. Fields are merged into the rows and win over same-named row fields. */

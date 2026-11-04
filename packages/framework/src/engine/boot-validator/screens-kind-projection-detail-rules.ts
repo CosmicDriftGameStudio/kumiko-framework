@@ -73,6 +73,11 @@ export const PROJECTION_DETAIL_RULES = {
     summary: 'progress.placement "beside-steps" needs a steps block to sit next to.',
     fix: "Add steps to the projectionDetail or remove progress.placement.",
   },
+  stepsNarrowLimitInvalid: {
+    id: "projection-detail/steps-narrow-limit-invalid",
+    summary: "steps.narrowLimit is a positive integer.",
+    fix: "Set narrowLimit to a whole number of at least 1 or remove it.",
+  },
   guidanceActionShowOnTabs: {
     id: "projection-detail/guidance-action-show-on-tabs",
     summary: "Banner and steps actions set no showOnTabs.",

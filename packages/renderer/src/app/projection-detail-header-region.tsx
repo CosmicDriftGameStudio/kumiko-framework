@@ -18,6 +18,7 @@ import {
   renderHeaderSubtitleSlot,
   renderHeaderTitleSlot,
   renderMetricsBlock,
+  renderRecordTitleBlock,
   renderStatusBadge,
 } from "./projection-detail-header.tsx";
 import { buildDetailTabItems } from "./projection-detail-header-model.ts";
@@ -153,18 +154,30 @@ function renderPageHeaderBranch(
 ): ReactNode {
   const { screen, record, primitives, hasHeaderActions, hasMetrics } = model;
   const { MetricBand } = primitives;
-  const { pageHeaderCompact, recordTitle, statusBadge, bandSubtitle, metricItems } = pieces;
+  const { pageHeaderCompact, recordTitle, statusBadge, metricItems } = pieces;
   const header = screen.header;
+  // Only an explicit `header` gets the body title block; recordTitleField alone keeps the shell
+  // header title and breadcrumb.
+  const titleText = header !== undefined ? String(record[header.title] ?? "") : undefined;
+  // The title block owns chip and subtitle, so neither the shell header nor the band repeats them.
+  const hasTitleBlock = titleText !== undefined;
+  const bandSubtitle = hasTitleBlock ? undefined : pieces.bandSubtitle;
   return (
     <>
       <PageHeader
-        {...(header !== undefined && { title: String(record[header.title] ?? "") })}
+        {...(hasTitleBlock && { bodyTitle: true })}
         {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
-        {...(!pageHeaderCompact && statusBadge !== undefined && { status: statusBadge })}
+        {...(!hasTitleBlock &&
+          !pageHeaderCompact &&
+          statusBadge !== undefined && {
+            status: statusBadge,
+          })}
         {...(hasHeaderActions && {
           actions: renderHeaderActionsContent(model, { compact: pageHeaderCompact, PageHeader }),
         })}
       />
+      {titleText !== undefined &&
+        renderRecordTitleBlock(model, titleText, statusBadge, pieces.headerSubtitleSlot)}
       {/* The band owns the horizontal inset; the slot is its unstyled lead
           row so it lines up with the metrics below. */}
       {MetricBand === undefined && bandSubtitle}

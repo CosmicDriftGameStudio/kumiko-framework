@@ -102,6 +102,7 @@ export function mountDispatcherRoutes(
     "/api",
     createApiRoutes(dispatcher, {
       ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
+      ...(options.context.clock !== undefined ? { clock: options.context.clock } : {}),
     }),
   );
   app.route("/api", createExportRoutes(dispatcher, options.registry, exportRateLimitResolver));

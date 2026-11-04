@@ -2,7 +2,11 @@ import { Children, createContext, type ReactNode, useContext } from "react";
 import type { MetricBandProps, MetricProps } from "../../index.ts";
 import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
-import { STAT_CARD_GRID_CLASSES, StatCard } from "../widgets/stat.tsx";
+import { StatCard } from "../widgets/stat.tsx";
+
+// Two tiles per row on phones, then the dashboard stat-group fill.
+const METRIC_TILE_GRID_CLASSES =
+  "grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))]";
 
 const InsideMetricBandContext = createContext(false);
 
@@ -34,7 +38,7 @@ export function DefaultMetricBand({
       )}
       {hasMetrics &&
         (tiles === true ? (
-          <div className={STAT_CARD_GRID_CLASSES}>{children}</div>
+          <div className={METRIC_TILE_GRID_CLASSES}>{children}</div>
         ) : (
           <InsideMetricBandContext.Provider value={true}>
             <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>

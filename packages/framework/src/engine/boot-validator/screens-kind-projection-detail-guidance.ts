@@ -46,6 +46,14 @@ export function validateProjectionDetailGuidance(
         `"beside-steps" without steps. Add steps or remove the placement.`,
     });
   }
+  const narrowLimit = screen.steps?.narrowLimit;
+  if (narrowLimit !== undefined && (!Number.isInteger(narrowLimit) || narrowLimit < 1)) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.stepsNarrowLimitInvalid, {
+      message:
+        `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail) sets steps.narrowLimit ` +
+        `"${String(narrowLimit)}", which is not a positive integer. Set a whole number of at least 1.`,
+    });
+  }
   for (const action of screen.banner?.actions ?? []) {
     validateGuidanceAction(ctx, screenId, screen, "banner", action);
   }

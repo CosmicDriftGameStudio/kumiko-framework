@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useId, useState } from "react";
+import { type Dispatch, type SetStateAction, useId, useMemo, useState } from "react";
 import { useIsEmbeddedScreen } from "../../../context/embedded-screen-context.tsx";
 import type { ListColumnViewModel, ListRowViewModel } from "../../../headless/index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../../index.ts";
@@ -87,15 +87,7 @@ function isEmptyTable({ rows, serverGroups }: Pick<DataTableProps, "rows" | "ser
 }
 
 export function useDataTableState(props: DataTableProps): DataTableModel {
-  const {
-    columns: schemaColumns,
-    rows,
-    view,
-    scrollBody,
-    serverGroups,
-    bulk,
-    getRowTestId,
-  } = props;
+  const { columns: allColumns, rows, view, scrollBody, serverGroups, bulk, getRowTestId } = props;
   // One locale/translate subscription per table — not per cell.
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
   const tableTranslate = useOptionalTranslation();
@@ -104,6 +96,10 @@ export function useDataTableState(props: DataTableProps): DataTableModel {
   // affordance. Cards replace the table entirely below the breakpoint — same
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
+  const schemaColumns = useMemo(
+    () => (isNarrow ? allColumns : allColumns.filter((col) => col.showOnNarrowOnly !== true)),
+    [allColumns, isNarrow],
+  );
   const viewColumns = useViewColumns(schemaColumns, view, isNarrow);
   const density = densityClasses(view, scrollBody === true);
   const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);

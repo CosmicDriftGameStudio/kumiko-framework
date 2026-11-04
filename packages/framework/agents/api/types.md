@@ -1860,11 +1860,11 @@ type DataTableResetAll = {
   onReset: () => void;
 };
 type DataTableSummaryItem = {
-  label: string;
+  label?: string; // Absent: the cell shows the value alone, for values that carry their own meaning ("7 need action").
   value: string | number;
   tone?: SelectOptionTone;
 };
-type DataTableSummaryRow = { // One line of "label value" pairs under the rows, answered by the screen's summaryRow query.
+type DataTableSummaryRow = { // One line of "label value" pairs (the label is optional) under the rows, answered by the screen's summaryRow query.
   items: DataTableSummaryItem[];
 };
 type DataTableTableBlock = { // The DataTable props a screen's `table` block feeds.
@@ -2276,6 +2276,7 @@ type ListColumnHintViewModel = {
   detailField?: string;
   toneField?: string;
   reasonField?: string;
+  plainSentence?: boolean; // `ListColumnHint.plainSentence`: the sentence keeps the normal text color.
   emptyLabel: string;
   reasonLabel: string; // Label of the reason toggle, already translated.
 };
@@ -2294,6 +2295,7 @@ type ListColumnViewModel = {
   refLabelField?: string; // Only for `type: "reference"` — which field of the referenced entity appears as the display value in the cell (default "id").
   highlighted?: boolean; // Set by the caller at runtime (not schema-derived) to emphasize one column — e.g. the currently selected base-year column in a multi-year statement grid.
   hideOnNarrow?: boolean; // Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column.
+  showOnNarrowOnly?: boolean; // Mirrors `ListColumnSpec.showOnNarrowOnly`: the table layout skips the column.
   grouping?: boolean; // Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default `true`).
   fileDisplay?: ListColumnFileDisplay; // Set for file/image columns: from the entity field type, or from a `{ format: "image" | "file" }` renderer.
   hint?: ListColumnHintViewModel; // "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated.
@@ -2353,11 +2355,16 @@ type RecordStepsProps = { // "Next steps" panel; an item's `reason` sits behind 
   subtitle?: string;
   emptyLabel: string; // Shown instead of the list when there are no items.
   reasonLabel: string;
-  items: { id: string; title: string; detail?: string; tone?: SelectOptionTone; reason?: string; actions?: ReactNode; }[];
+  narrowLimit?: number; // Below the sm breakpoint only this many steps show; the rest sits behind a toggle.
+  moreLabel?: (hiddenCount: number) => string; // Toggle label for the hidden steps; receives their count.
+  lessLabel?: string;
+  items: { id: string; title: string; detail?: string; tone?: SelectOptionTone; reason?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
+  count?: number; // Total number of steps, shown small beside the heading even when `narrowLimit` shortens the list.
   testId?: string;
 };
 type RecordSummaryProps = { // One emphasized sentence below a record header; `tone` sets the accent color.
   text: string;
+  narrowText?: string; // Shown instead of `text` below the sm breakpoint.
   tone?: SelectOptionTone;
   testId?: string;
 };
@@ -2545,6 +2552,7 @@ type PageHeaderProps = { // Page title area rendered by the app shell's header i
   recordTitle?: string; // Name of the loaded record; shown as an extra breadcrumb before the last one.
   status?: ReactNode;
   actions?: ReactNode;
+  bodyTitle?: boolean; // The screen renders its own title block (the document's h1): the shell header then shows the parent crumb as plain text instead of an h1 with the record title.
   overflowItems?: ActionMenuItemSpec[]; // Land in the shell header's overflow menu at phone width.
   hideBreadcrumb?: boolean; // Hide the shell header's breadcrumb while mounted, for a screen that stands in for the one the route names (a locked screen's fallback).
   breadcrumbScreenId?: string; // Label the breadcrumb with this screen (id as in the route) instead of the one the route names, for a locked screen's fallback.
@@ -5056,6 +5064,7 @@ type ListTableTotal = {
 type MetricSpec = {
   field: string;
   label: string;
+  labelField?: string; // Record field of the detail query holding the label text, e.g. "Rent from 01.12."; it replaces the static `label` while it holds a non-empty string.
   navigate?: MetricNavigate;
   tone?: DashboardStatTone; // Tile color as on dashboard stat panels; not applied while the value is 0.
   toneField?: string; // Record field of the detail query holding a SelectOptionTone; a valid value overrides `tone`, also at value 0.
@@ -5073,6 +5082,14 @@ type RecordHeaderSpec = {
   statusTones?: {
     [statusValue: string]: SelectOptionTone;
   }; // Badge tone per `statusToneField` value (default: the `status` value); unlisted values fall back to the value heuristic.
+};
+```
+
+## packages/types/src/screen-record-guidance.ts
+
+```ts
+type RecordGuidanceAction = RowAction & { // A banner or step action.
+  hideIcon?: true;
 };
 ```
 

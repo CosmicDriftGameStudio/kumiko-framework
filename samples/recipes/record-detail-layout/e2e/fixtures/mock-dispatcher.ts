@@ -51,11 +51,19 @@ const QUERY_ORDER_PAYMENTS = "order-desk:query:order:payments";
 // The guidance blocks (breadcrumb, summary, banner, progress, steps) stack tall above the tabs;
 // the height specs measure the tab panel and run without them, `?guidance=1` turns them on.
 function orderDetailForUrl(id: string): Record<string, unknown> {
-  const { path, summaryLine, summaryTone, notice, steps, progress, ...withoutGuidance } =
-    answerOrderDetail(id);
+  const {
+    path,
+    summaryLine,
+    summaryShort,
+    summaryTone,
+    notice,
+    steps,
+    progress,
+    ...withoutGuidance
+  } = answerOrderDetail(id);
   const withGuidance = new URLSearchParams(window.location.search).has("guidance");
   return withGuidance
-    ? { ...withoutGuidance, path, summaryLine, summaryTone, notice, steps, progress }
+    ? { ...withoutGuidance, path, summaryLine, summaryShort, summaryTone, notice, steps, progress }
     : withoutGuidance;
 }
 

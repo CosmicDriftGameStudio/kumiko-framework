@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { resetServerClock, serverNowMs } from "../../server-clock.ts";
 import { createLiveDispatcher } from "../dispatcher-live.ts";
 
 // Builds a fake fetch that returns a JSON body with the given
@@ -14,6 +15,7 @@ function makeFetch(respond: { readonly status?: number; readonly body: unknown }
     return {
       ok: (respond.status ?? 200) < 400,
       status: respond.status ?? 200,
+      headers: new Headers(),
       async json() {
         return respond.body;
       },
@@ -50,6 +52,27 @@ describe("createLiveDispatcher", () => {
     // Auto-generated idempotency key — always present.
     expect(typeof body.requestId).toBe("string");
     expect(body.requestId.length).toBeGreaterThan(8);
+  });
+
+  test("x-kumiko-now on an answer moves the server clock the dashboard reads", async () => {
+    const fetchMock = (async () =>
+      ({
+        ok: true,
+        status: 200,
+        headers: new Headers({ "x-kumiko-now": "2031-05-06T07:08:09Z" }),
+        async json() {
+          return { data: {} };
+        },
+      }) as unknown as Response) as unknown as typeof globalThis.fetch;
+    try {
+      await createLiveDispatcher({ fetch: fetchMock, readCsrf: () => "t" }).query(
+        "app:query:x",
+        {},
+      );
+      expect(Math.abs(serverNowMs() - Date.parse("2031-05-06T07:08:09Z"))).toBeLessThan(2_000);
+    } finally {
+      resetServerClock();
+    }
   });
 
   test("write: propagates requestId into body when provided", async () => {
@@ -246,6 +269,7 @@ describe("createLiveDispatcher", () => {
       }
       return {
         ok: true,
+        headers: new Headers(),
         status: 200,
         async json() {
           return { isSuccess: true, data: {} };
@@ -276,6 +300,7 @@ describe("createLiveDispatcher", () => {
       }
       return {
         ok: true,
+        headers: new Headers(),
         status: 200,
         async json() {
           return { isSuccess: true, data: {} };
@@ -299,6 +324,7 @@ describe("createLiveDispatcher", () => {
     const fetch = mock(async () => {
       return {
         ok: false,
+        headers: new Headers(),
         status: 502,
         async json() {
           throw new SyntaxError("Unexpected token < in JSON at position 0");
@@ -445,6 +471,7 @@ describe("createLiveDispatcher", () => {
     // Force a flip back by resetting fetch to success:
     const fetchOk = mock(async () => ({
       ok: true,
+      headers: new Headers(),
       status: 200,
       async json() {
         return { isSuccess: true, data: {} };

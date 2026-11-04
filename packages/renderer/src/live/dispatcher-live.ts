@@ -14,6 +14,7 @@ import {
   type WriteOpts,
   type WriteResult,
 } from "../headless/index.ts";
+import { noteServerClock } from "../server-clock.ts";
 import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf.ts";
 import {
   batchEnvelopeSchema,
@@ -140,6 +141,7 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
     }
 
     observeNetworkOutcome(true);
+    noteServerClock(response.headers);
 
     // JSON body parse. A server that returned a non-JSON body for any
     // reason (HTML error page from a reverse-proxy, empty body on a

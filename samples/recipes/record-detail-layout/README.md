@@ -30,6 +30,10 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - on the detail screen: a second step action as a link button, metric tiles with `tone`,
   `toneField` and `navigate: { tab }`, and tab counts via `countField`; the breadcrumb stays
   unlinked because the recipe has no entity with a `detailFor` screen to link to
+- phone variants: `hideOnNarrow` on dashboard panels and the progress chain, a list panel's
+  `narrow` (`cards` with a `limit`, or a one-line `line` link), `narrowBlocks` on the briefing,
+  `hint.plainSentence`, `showOnNarrowOnly` list columns, stat-group `columns`, and on the detail
+  `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections

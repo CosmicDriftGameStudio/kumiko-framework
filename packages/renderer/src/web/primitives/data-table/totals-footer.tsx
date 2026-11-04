@@ -57,13 +57,13 @@ function FooterMeasures({
 }
 
 function SummaryItems({ summary }: { readonly summary: DataTableSummaryRow }): ReactNode {
-  const keys = uniqueLabelKeys(summary.items.map((item) => item.label));
+  const keys = uniqueLabelKeys(summary.items.map((item) => item.label ?? String(item.value)));
   return (
     <span className="text-sm text-muted-foreground">
       {summary.items.map((item, index) => (
         <span key={keys[index]} data-testid="list-summary-item">
           {index > 0 && " · "}
-          {item.label}{" "}
+          {item.label !== undefined && `${item.label} `}
           <span
             className={cn(
               "font-medium tabular-nums text-foreground",

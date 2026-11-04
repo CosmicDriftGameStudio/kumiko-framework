@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { type ErrorNotice, errorNoticeOf } from "../app/error-reference.tsx";
+import { COMPACT_TAP_CLASSES } from "../compact-tap-classes.ts";
 import type { usePrimitives } from "../primitives.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
 
@@ -49,6 +50,7 @@ export function RenderEditActionButton({
   action,
   iconOnly = false,
   hideIcon = false,
+  size,
   Button,
   Dialog,
   onError,
@@ -59,6 +61,8 @@ export function RenderEditActionButton({
   readonly iconOnly?: boolean;
   /** Record-header actions are text-only; the icon still shows when collapsed to icon-only. */
   readonly hideIcon?: boolean;
+  /** Compact buttons for dense rows; an icon-only collapse keeps its own size. */
+  readonly size?: "sm";
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly onError: (notice: ErrorNotice | null) => void;
@@ -88,6 +92,7 @@ export function RenderEditActionButton({
         variant={variant}
         loading={busy}
         {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
+        {...(!showIconOnly && size !== undefined && { size, className: COMPACT_TAP_CLASSES })}
         {...(showIconOnly && {
           size: "icon" as const,
           ariaLabel: action.label,

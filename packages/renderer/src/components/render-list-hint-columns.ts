@@ -20,6 +20,7 @@ export function hintViewModel(
     reasonLabel: translate(HINT_REASON_LABEL_KEY),
     ...(hint.reasonField !== undefined && { reasonField: hint.reasonField }),
     ...(hint.detailField !== undefined && { detailField: hint.detailField }),
+    ...(hint.plainSentence === true && { plainSentence: true }),
     ...(toneField !== undefined && { toneField }),
   };
 }
@@ -41,6 +42,22 @@ export function withDisplayColumns(
       ...(spec.badgeToneField !== undefined && { badgeToneField: spec.badgeToneField }),
     };
   });
+}
+
+export function withNarrowOnlyColumns(
+  columns: readonly ListColumnViewModel[],
+  screen: EntityListScreenDefinition,
+): readonly ListColumnViewModel[] {
+  const narrowOnly = new Set(
+    screen.columns.flatMap((spec) => {
+      const column = normalizeListColumn(spec);
+      return column.showOnNarrowOnly === true ? [column.field] : [];
+    }),
+  );
+  if (narrowOnly.size === 0) return columns;
+  return columns.map((col) =>
+    narrowOnly.has(col.field) ? { ...col, showOnNarrowOnly: true } : col,
+  );
 }
 
 // The hint cell owns its rendering: DataTableCell ignores the column's renderer and links once a hint is set.

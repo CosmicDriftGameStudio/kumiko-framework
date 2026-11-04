@@ -364,11 +364,11 @@ describe("compact shell header with a projection detail", () => {
       );
     }
 
-    test("on a phone the badge sits in the body, not in the clipped shell header", async () => {
+    test("on a phone the badge sits in the body title block, not in the clipped shell header", async () => {
       setViewportWidth(PHONE);
       renderStatusDetail();
       const row = await waitFor(() =>
-        screen.getByTestId("kumiko-screen-projection-detail-status-row"),
+        screen.getByTestId("kumiko-screen-projection-detail-title-block"),
       );
       expect(within(row).getByText("Aktiv, Änderungen nicht veröffentlicht")).toBeTruthy();
       expect(
@@ -378,11 +378,20 @@ describe("compact shell header with a projection detail", () => {
       ).toBeNull();
     });
 
-    test("on desktop the badge stays in the shell header and no status row is added", async () => {
+    test("on desktop the badge sits beside the title in the body, not in the shell header", async () => {
       setViewportWidth(DESKTOP);
       renderStatusDetail();
-      await waitFor(() => screen.getByText("Aktiv, Änderungen nicht veröffentlicht"));
-      expect(screen.queryByTestId("kumiko-screen-projection-detail-status-row")).toBeNull();
+      const row = await waitFor(() =>
+        screen.getByTestId("kumiko-screen-projection-detail-title-block"),
+      );
+      expect(within(row).getByText("user-42")).toBeTruthy();
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+      expect(within(row).getByText("Aktiv, Änderungen nicht veröffentlicht")).toBeTruthy();
+      expect(
+        within(document.querySelector("header") as HTMLElement).queryByText(
+          "Aktiv, Änderungen nicht veröffentlicht",
+        ),
+      ).toBeNull();
     });
   });
 

@@ -9,6 +9,7 @@ import {
 import { useReferenceColumnLookups } from "../../components/use-reference-column-lookups.ts";
 import type { ListColumnViewModel, Translate } from "../../headless/index.ts";
 import { type DashboardListColumn, DashboardListTable } from "../widgets/dashboard-list.tsx";
+import { DashboardListCards } from "../widgets/dashboard-list-cards.tsx";
 
 export type DashboardReferenceTarget = {
   readonly refEntity: string;
@@ -23,6 +24,8 @@ type Props = Omit<ComponentProps<typeof DashboardListTable>, "columns"> & {
   readonly columns: readonly DashboardListTableColumn[];
   readonly featureName: string;
   readonly translate: Translate;
+  /** Phone layout: one card per row instead of the table. */
+  readonly narrowCards?: boolean;
 };
 
 function toReferenceViewColumn(
@@ -49,6 +52,7 @@ export function DashboardReferenceListTable({
   rows,
   featureName,
   translate,
+  narrowCards = false,
   ...tableProps
 }: Props): ReactNode {
   const viewColumns = useMemo(
@@ -94,12 +98,25 @@ export function DashboardReferenceListTable({
   return (
     <>
       {renderReferenceLookupBridges(referenceRequests, handleLookupMap)}
-      <DashboardListTable
-        columns={tableColumns}
-        rows={rows}
-        translate={translate}
-        {...tableProps}
-      />
+      {narrowCards ? (
+        <DashboardListCards
+          columns={tableColumns}
+          rows={rows}
+          translate={translate}
+          formatPercent={tableProps.formatPercent}
+          formatNumber={tableProps.formatNumber}
+          formatDateTime={tableProps.formatDateTime}
+          {...(tableProps.testId !== undefined && { testId: tableProps.testId })}
+          {...(tableProps.rowToneField !== undefined && { rowToneField: tableProps.rowToneField })}
+        />
+      ) : (
+        <DashboardListTable
+          columns={tableColumns}
+          rows={rows}
+          translate={translate}
+          {...tableProps}
+        />
+      )}
     </>
   );
 }

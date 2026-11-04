@@ -85,6 +85,7 @@ export function renderDataCell(
   const { getCellTestId, onCellChange, onRowClick, tableTranslate, tableLocale } = m;
   const bodyPin = m.pins.bodyCell(col.field);
   const linksFirstCell = colIndex === 0 && opensOnClick && onCellChange === undefined;
+  const wrapsCellInOpener = linksFirstCell && col.hint === undefined;
   return (
     <TableCell
       key={col.field}
@@ -95,7 +96,7 @@ export function renderDataCell(
       title={cellTitle(row.values[col.field])}
     >
       <FirstCellLink
-        enabled={linksFirstCell}
+        enabled={wrapsCellInOpener}
         onOpen={() => onRowClick?.(row)}
         empty={col.hint === undefined && isEmptyCellValue(row.values[col.field])}
         emptyLabel={m.rowClickLabel}
@@ -116,7 +117,7 @@ export function renderDataCell(
             onChange: (value: unknown) => onCellChange(row.id, col.field, value),
           })}
           {...cellLinkProp(col, row, !linksFirstCell)}
-          insideRowOpener={linksFirstCell}
+          {...(linksFirstCell && !wrapsCellInOpener && { onOpenRow: () => onRowClick?.(row) })}
         />
       </FirstCellLink>
     </TableCell>

@@ -51,17 +51,18 @@ describe("parseSummaryItems", () => {
     ]);
   });
 
-  test("drops items with a missing label, an object value or an unknown tone", () => {
+  test("drops items with a non-string label, an object value or an unknown tone; a missing label is kept", () => {
     expect(
       parseSummaryItems({
         items: [
-          { value: 1 },
+          { label: 5, value: 1 },
           { label: "A", value: { nested: true } },
           { label: "B", value: 1, tone: "purple" },
           { label: "C", value: 2 },
+          { value: 3 },
         ],
       }),
-    ).toEqual([{ label: "C", value: 2 }]);
+    ).toEqual([{ label: "C", value: 2 }, { value: 3 }]);
   });
 
   test("anything but an object with an items array is empty", () => {

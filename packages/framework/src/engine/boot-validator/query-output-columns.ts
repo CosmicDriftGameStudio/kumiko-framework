@@ -329,6 +329,7 @@ function checkDashboardStatPanelFields(
     );
   };
   checkPanelField("valueField", panel.valueField);
+  checkPanelField("labelField", panel.labelField);
   checkPanelField("subField", panel.subField);
   checkPanelField("toneField", panel.toneField);
   checkPanelField("deltaField", panel.deltaField);

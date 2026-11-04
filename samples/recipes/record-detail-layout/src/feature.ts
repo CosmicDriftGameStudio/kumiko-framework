@@ -21,7 +21,10 @@
 //      `breadcrumb`, `summary`, `banner` and `steps`, each reading a query field; empty values drop out.
 //   8. The `today` dashboard composes a lead briefing, count tiles that link into the filtered
 //      list, a headerless "Now" list and two narrow lists on a 12-column grid.
-//   9. `focus: true` gives the detail a focused shell; phones get a top bar with the
+//   9. Phone variants: `hideOnNarrow` drops panels, a list panel's `narrow` turns it into limited cards or a
+//      one-line link, `narrowBlocks` shortens the briefing, `showOnNarrowOnly` adds card-only meta, and the
+//      detail shows `summary.narrowField`, `steps.narrowLimit` and no `progress` chain under sm.
+//  10. `focus: true` gives the detail a focused shell; phones get a top bar with the
 //      record title, a back arrow to the list and the page-header overflow menu.
 //
 // projectionDetail binds to an explicit query, not an entity: every field name below
@@ -173,6 +176,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.today.inbox-sub": { en: "Orders waiting for you" },
         "order-desk.today.inbox-link": { en: "All orders" },
         "order-desk.today.deadlines": { en: "Deadlines" },
+        "order-desk.today.deadlines-all": { en: "All deadlines" },
+        "order-desk.col.narrow-meta": { en: "Details" },
         "order-desk.today.customers": { en: "Customers" },
         "order-desk.today.money": { en: "Money" },
         "order-desk.today.money-sub": { en: "Across all open orders" },
@@ -230,6 +235,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           minWidth: 240,
         },
         { field: "openAmount", label: "order-desk.col.open-amount", hideOnNarrow: true },
+        { field: "narrowMeta", label: "order-desk.col.narrow-meta", showOnNarrowOnly: true },
       ],
       defaultSort: { field: "urgency", dir: "desc" },
       sortOptions: [
@@ -344,6 +350,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           span: "two-thirds",
           showHeader: false,
           showTotal: true,
+          narrow: { layout: "cards", limit: 3 },
           footerLink: {
             label: "order-desk.today.now-all",
             screen: "orders",
@@ -355,7 +362,11 @@ export function createOrderDeskFeature(): FeatureDefinition {
             { field: "urgencyLabel", display: "badge", badgeToneField: "urgencyTone" },
             {
               field: "nextStep",
-              hint: { detailField: "nextStepDue", reasonField: "nextStepReason" },
+              hint: {
+                detailField: "nextStepDue",
+                reasonField: "nextStepReason",
+                plainSentence: true,
+              },
             },
             {
               field: "actionLabel",
@@ -371,6 +382,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.deadlines",
           span: "third",
           showHeader: false,
+          narrow: { layout: "line" },
+          footerLink: { label: "order-desk.today.deadlines-all", screen: "orders" },
           query: "order-desk:query:order:deadlines",
           columns: [
             { field: "due", display: "datetime" },
@@ -383,6 +396,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.customers",
           span: "third",
           showHeader: false,
+          hideOnNarrow: true,
           query: "order-desk:query:order:customers",
           rowToneField: "tone",
           columns: [
@@ -396,6 +410,9 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.today.money",
           subtitle: "order-desk.today.money-sub",
           span: "two-thirds",
+          layout: "cards",
+          columns: 3,
+          hideOnNarrow: true,
           stats: [
             {
               kind: "stat",
@@ -441,7 +458,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         status: "status",
       },
       breadcrumb: { field: "path" },
-      summary: { field: "summaryLine", toneField: "summaryTone" },
+      summary: { field: "summaryLine", narrowField: "summaryShort", toneField: "summaryTone" },
       banner: {
         field: "notice",
         actions: [
@@ -451,12 +468,14 @@ export function createOrderDeskFeature(): FeatureDefinition {
             label: "order-desk.action.recordPayment",
             screen: "order-detail",
             icon: "plus",
+            hideIcon: true,
           },
         ],
       },
-      progress: { field: "progress", placement: "beside-steps" },
+      progress: { field: "progress", placement: "beside-steps", hideOnNarrow: true },
       steps: {
         field: "steps",
+        narrowLimit: 3,
         title: "order-desk.steps.title",
         emptyLabel: "order-desk.steps.empty",
         actions: [
@@ -489,6 +508,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         {
           field: "outstandingAmount",
           label: "order-desk.metric.outstandingAmount",
+          labelField: "outstandingLabel",
           subField: "outstandingNote",
           tone: "warn",
           toneField: "outstandingTone",

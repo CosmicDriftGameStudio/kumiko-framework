@@ -29,6 +29,12 @@ export const LIST_ROW_GUIDANCE_RULES = {
       'display "button" is drawn only in dashboard list panels; entityList and projectionList tables (RenderList) keep a row button as a rowAction.',
     fix: 'Declare the button as a rowAction with display: "button" or remove display: "button" from the column.',
   },
+  narrowOnlyConflict: {
+    id: "list/narrow-only-conflict",
+    summary:
+      "A showOnNarrowOnly column sets neither hideOnNarrow, hidden nor pinned, and is not in a dashboard list panel (its table has no narrow-only cards).",
+    fix: "Remove the conflicting option or showOnNarrowOnly.",
+  },
   linkParamsWithoutScreenField: {
     id: "list/link-params-without-screen-field",
     summary: "linkParamsField only parametrizes the linkScreenField target.",
