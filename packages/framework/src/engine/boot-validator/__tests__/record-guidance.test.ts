@@ -1,21 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
-import * as z from "zod";
 import { registerStubQueryHandler } from "../../__tests__/stub-query-handler.ts";
 import { validateBoot as validateBootRaw } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../factories.ts";
-import { BootValidationError } from "../boot-rule.ts";
-
-function ruleIdsOf(features: Parameters<typeof validateBootRaw>[0]): readonly string[] {
-  try {
-    validateBootRaw(withBootValidatorFixture(features));
-  } catch (e) {
-    if (e instanceof BootValidationError) return e.violations.map((v) => v.ruleId);
-    throw e;
-  }
-  return [];
-}
+import { listQuery, ruleIdsOf } from "./record-guidance-fixtures.ts";
 
 function messageOf(features: Parameters<typeof validateBootRaw>[0]): string {
   try {
@@ -25,21 +14,6 @@ function messageOf(features: Parameters<typeof validateBootRaw>[0]): string {
     throw e;
   }
   return "";
-}
-
-const OPEN_TO_ALL = { openToAll: { reason: "test handler callable by any signed-in test user" } };
-
-function listQuery(r: Parameters<Parameters<typeof defineFeature>[1]>[0], fields: string[]) {
-  r.queryHandler({
-    name: "order:list",
-    schema: z.object({}),
-    handler: async () => ({ rows: [], nextCursor: null }),
-    access: OPEN_TO_ALL,
-    outputSchema: z.object({
-      rows: z.array(z.object(Object.fromEntries(fields.map((f) => [f, z.string()])))),
-      nextCursor: z.string().nullable(),
-    }),
-  });
 }
 
 function projectionListFeature(

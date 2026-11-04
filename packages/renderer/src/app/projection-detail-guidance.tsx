@@ -11,6 +11,7 @@ import {
 } from "./projection-detail-guidance-data.ts";
 import type { DetailHeaderModel } from "./projection-detail-header.tsx";
 import type { ReferenceLinkResolver } from "./reference-link.ts";
+import { uniqueLabelKeys } from "./unique-label-keys.ts";
 
 export type DetailGuidanceModel = DetailHeaderModel & {
   readonly resolveReference: ReferenceLinkResolver;
@@ -65,6 +66,7 @@ export function renderDetailBreadcrumb(model: DetailGuidanceModel): ReactNode {
         : undefined;
     return { label: item.label, ...(link !== undefined && { link }) };
   });
+  const keys = uniqueLabelKeys(items.map((item) => item.label));
   const { RecordBreadcrumb, Text, Link } = model.primitives;
   const ariaLabel = model.effectiveTranslate("kumiko.detail.breadcrumb");
   const testId = "kumiko-screen-projection-detail-breadcrumb";
@@ -74,7 +76,7 @@ export function renderDetailBreadcrumb(model: DetailGuidanceModel): ReactNode {
   return (
     <Text testId={testId}>
       {items.map((item, index) => (
-        <Fragment key={`${item.label}|${item.link?.href ?? ""}`}>
+        <Fragment key={keys[index]}>
           {index > 0 && (
             <Text variant="muted" decorative>
               {" / "}

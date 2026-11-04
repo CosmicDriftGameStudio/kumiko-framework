@@ -47,18 +47,31 @@ function validateHintColumn(where: string, column: ListColumn): void {
   }
 }
 
+type GuidanceListKind = "entityList" | "projectionList" | "dashboard" | "relatedList";
+
+function guidanceLocation(
+  featureName: string,
+  screenId: string,
+  kind: GuidanceListKind,
+  partLabel: string,
+): string {
+  if (kind === "dashboard") {
+    return `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${partLabel}"`;
+  }
+  if (kind === "relatedList") return `[Feature ${featureName}] ${partLabel}`;
+  return `[Feature ${featureName}] Screen "${screenId}" (${kind})`;
+}
+
 export function validateListRowGuidance(
   featureName: string,
   screenId: string,
-  kind: "entityList" | "projectionList" | "dashboard",
+  kind: GuidanceListKind,
   screen: RowGuidanceScreen,
   entityFields?: EntityRowFields,
-  panelId?: string,
+  // dashboard: the list-panel id; relatedList: the section's full location text
+  partLabel?: string,
 ): void {
-  const where =
-    kind === "dashboard"
-      ? `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panelId ?? ""}"`
-      : `[Feature ${featureName}] Screen "${screenId}" (${kind})`;
+  const where = guidanceLocation(featureName, screenId, kind, partLabel ?? "");
   for (const col of screen.columns) {
     validateHintColumn(where, normalizeListColumn(col));
   }

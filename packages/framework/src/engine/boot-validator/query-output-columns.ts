@@ -146,6 +146,14 @@ function checkEditLayoutOutputColumns(
           `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList section "${section.title}" column "${field}" is not present in query "${section.query}"'s outputSchema — check for a typo, or set virtual: true on it to mark it a virtual/computed column.`,
       );
     }
+    for (const { option, field } of listGuidanceFieldRefs({ columns: section.columns })) {
+      checkFieldExists(
+        rowShape,
+        field,
+        () =>
+          `[Feature ${featureName}] Screen "${screenId}" (${screenType}) relatedList section "${section.title}" ${option} references field "${field}" which is not present in query "${section.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+      );
+    }
   }
 }
 
