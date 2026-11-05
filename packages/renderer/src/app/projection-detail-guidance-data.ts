@@ -48,6 +48,18 @@ export function readNotice(value: unknown): RecordNotice | undefined {
   };
 }
 
+function readStepWhy(
+  why: unknown,
+  whyOpen: unknown,
+  whyTitle: unknown,
+): Pick<RecordStep, "why" | "whyOpen" | "whyTitle"> {
+  return {
+    ...(typeof why === "string" && why !== "" && { why }),
+    ...(whyOpen === true && { whyOpen: true as const }),
+    ...(typeof whyTitle === "string" && whyTitle !== "" && { whyTitle }),
+  };
+}
+
 export function readSteps(value: unknown): RecordStep[] {
   if (!Array.isArray(value)) return [];
   const steps: RecordStep[] = [];
@@ -55,7 +67,7 @@ export function readSteps(value: unknown): RecordStep[] {
   for (const raw of value) {
     if (!isPlainObject(raw)) continue;
     // `rest` is only input for the step actions' show/enabled predicates; it is never rendered.
-    const { id, title, detail, why, tone, ...rest } = raw;
+    const { id, title, detail, why, whyOpen, whyTitle, tone, ...rest } = raw;
     if (typeof id !== "string" || id === "" || typeof title !== "string" || title === "") {
       continue;
     }
@@ -68,7 +80,7 @@ export function readSteps(value: unknown): RecordStep[] {
       id,
       title,
       ...(typeof detail === "string" && { detail }),
-      ...(typeof why === "string" && why !== "" && { why }),
+      ...readStepWhy(why, whyOpen, whyTitle),
       ...(parsedTone !== undefined && { tone: parsedTone }),
     });
   }

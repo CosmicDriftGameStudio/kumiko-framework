@@ -39,6 +39,12 @@ export const LIST_ROW_GUIDANCE_RULES = {
     summary: "hint.narrowDetailField replaces hint.detailField below sm, so it needs detailField.",
     fix: "Set hint.detailField or remove narrowDetailField.",
   },
+  reasonOptionWithoutReasonField: {
+    id: "list/reason-option-without-reason-field",
+    summary:
+      "hint.reasonOpenField and hint.reasonTitleField shape the reason text, so they need reasonField.",
+    fix: "Set hint.reasonField or remove reasonOpenField and reasonTitleField.",
+  },
   linkParamsWithoutScreenField: {
     id: "list/link-params-without-screen-field",
     summary: "linkParamsField only parametrizes the linkScreenField target.",

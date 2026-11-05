@@ -38,6 +38,10 @@ export type RecordStep = {
   readonly tone?: SelectOptionTone;
   /** Explanation behind a toggle next to the step. */
   readonly why?: string;
+  /** With `why`: the explanation stands open as a box under the step from `sm` up; the toggle closes it. */
+  readonly whyOpen?: true;
+  /** Bold lead-in of the `why` paragraph. */
+  readonly whyTitle?: string;
   // Extra row fields feed the step actions' show/enabled predicates only; they are never rendered.
   readonly [field: string]: unknown;
 };

@@ -258,6 +258,7 @@ export type {
   DashboardScreenPanel,
   DashboardStatGroupLayout,
   DashboardStatGroupLink,
+  DashboardStatGroupNarrow,
   DashboardStatGroupPanel,
   DashboardStatPanel,
   DashboardStatTone,

@@ -20,6 +20,7 @@ import {
   rowToneClass,
   toneDotClass,
 } from "../primitives/data-table-cell.tsx";
+import { HintReasonRowScope, hintReasonOf } from "../primitives/hint-reason-row.tsx";
 import { StatusBadge } from "./status-badge.tsx";
 
 export type DashboardListColumn = {
@@ -28,6 +29,7 @@ export type DashboardListColumn = {
   readonly label: string;
   readonly display?: "bar" | "badge" | "datetime" | "button";
   readonly badgeToneField?: string;
+  readonly badgeDot?: false;
   /** Resolves the raw cell value to display text, e.g. a reference id to its label. */
   readonly renderValue?: (value: unknown, row: Readonly<Record<string, unknown>>) => string;
   /** Links the rendered text to its target, e.g. a reference cell to the record's detail. */
@@ -97,7 +99,11 @@ export function DashboardListCell({
     if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
     const toneKey = column.badgeToneField !== undefined ? row[column.badgeToneField] : undefined;
     const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
-    return <StatusBadge tone={tone}>{String(raw)}</StatusBadge>;
+    return (
+      <StatusBadge tone={tone} dot={column.badgeDot !== false}>
+        {String(raw)}
+      </StatusBadge>
+    );
   }
   if (column.display === "datetime") {
     const atMs =
@@ -263,14 +269,15 @@ export function DashboardListTable({
                 </>
               );
             };
-            return (
+            const rowKey = typeof row["id"] === "string" ? row["id"] : index;
+            const rowElement = (
               <tr
-                key={typeof row["id"] === "string" ? row["id"] : index}
+                key={rowKey}
                 {...(rowTarget !== undefined && {
                   onClick: (event: MouseEvent<HTMLElement>) => pressRowLink(event, rowTarget),
                 })}
                 className={cn(
-                  "h-10 border-b border-border-row last:border-b-0",
+                  "h-10 border-b border-border-row last:border-b-0 [&:has(+[data-reason-row])]:border-b-0",
                   rowTarget !== undefined && "cursor-pointer",
                   padded && "sm:[&>td]:py-3",
                   // Without a header row nothing labels the columns, so narrow screens stack them.
@@ -312,6 +319,28 @@ export function DashboardListTable({
                   </td>
                 )}
               </tr>
+            );
+            const reasonHint = columns.find(
+              (column) => column.hint !== undefined && hintReasonOf(column.hint, row) !== undefined,
+            )?.hint;
+            return (
+              <HintReasonRowScope
+                key={rowKey}
+                hint={reasonHint}
+                row={row}
+                renderBoxRow={(box) => (
+                  <tr data-reason-row="true" className="border-b border-border-row last:border-b-0">
+                    <td
+                      colSpan={columns.length + (rowLink !== undefined ? 1 : 0)}
+                      className="px-4 pb-3"
+                    >
+                      {box}
+                    </td>
+                  </tr>
+                )}
+              >
+                {rowElement}
+              </HintReasonRowScope>
             );
           })}
         </tbody>

@@ -1,3 +1,4 @@
+import type { SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ListColumnSpec, RowAction } from "./screen-entity-list.ts";
@@ -389,10 +390,17 @@ export type DashboardStatGroupPanel = DashboardPanelGate &
     readonly icon?: PlatformComponent;
     /** Link at the right edge of the panel (label + chevron). */
     readonly link?: DashboardStatGroupLink;
+    /** Phone look of the one-line strip; needs a label and layout "strip". */
+    readonly narrow?: DashboardStatGroupNarrow;
     /** Tiles per row from `md` up, only with `layout: "cards"`; one column below `sm`. Default: follows the number of tiles. */
     readonly columns?: 2 | 3 | 4;
     readonly stats: readonly DashboardStatPanel[];
   };
+
+export type DashboardStatGroupNarrow = {
+  /** Tints the one-line phone strip (background and border) in this tone, e.g. "accent" for a promo-blue inbox line. */
+  readonly tone?: SelectOptionTone;
+};
 
 // Non-tabular short list (e.g. "upcoming appointments"). Query result
 // contract: `{ rows: { primary: DashboardText; trailing?: DashboardText }[] }`.

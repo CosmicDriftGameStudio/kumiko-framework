@@ -48,6 +48,7 @@ export function CardSortSelect({
         onSortChange={onSortChange}
         testId={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
         className="px-4"
+        chevron={summary === undefined}
         {...(summary !== undefined && { summary })}
       />
     );

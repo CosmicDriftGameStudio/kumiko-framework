@@ -52,6 +52,8 @@ export type OrderRow = {
   readonly nextStep: string;
   readonly nextStepDue: string;
   readonly nextStepReason: string;
+  readonly nextStepReasonTitle?: string;
+  readonly nextStepReasonOpen?: boolean;
   readonly openAmount: number;
   readonly status: "processing" | "shipped" | "closing" | "delivered";
   readonly actionLabel: string;
@@ -70,6 +72,8 @@ const ORDER_ROWS: readonly OrderRow[] = [
     nextStep: "Send payment reminder",
     nextStepDue: "by Friday",
     nextStepReason: "312 EUR is 14 days overdue.\nTwo earlier mails stayed unanswered.",
+    nextStepReasonTitle: "Rule 10 · Payment overdue.",
+    nextStepReasonOpen: true,
     openAmount: 312,
     status: "processing",
     actionLabel: "Send reminder",
@@ -492,6 +496,8 @@ export function answerOrderDetail(id: string) {
         detail: "by Friday",
         narrowDetail: "Fri",
         tone: "warn",
+        whyOpen: true,
+        whyTitle: "Rule 10 · Payment overdue.",
         why: "The invoice is 14 days overdue.\nTwo earlier mails stayed unanswered.\nThe credit limit is 1,500 EUR.",
         canPrepare: true,
       },

@@ -134,6 +134,8 @@ export type ListColumnViewModel = {
   readonly display?: ListColumnCellDisplay;
   /** Row field naming the pill tone; only with `display: "badge"`. */
   readonly badgeToneField?: string;
+  /** `false`: the pill has no leading dot. */
+  readonly badgeDot?: false;
 };
 
 export type ListColumnCellDisplay = "badge" | "button";
@@ -144,6 +146,8 @@ export type ListColumnHintViewModel = {
   readonly narrowDetailField?: string;
   readonly toneField?: string;
   readonly reasonField?: string;
+  readonly reasonOpenField?: string;
+  readonly reasonTitleField?: string;
   /** `ListColumnHint.plainSentence`: the sentence keeps the normal text color. */
   readonly plainSentence?: boolean;
   readonly emptyLabel: string;

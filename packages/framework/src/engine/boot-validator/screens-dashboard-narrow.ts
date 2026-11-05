@@ -8,6 +8,7 @@ import type {
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
+import { isSelectOptionTone } from "./select-option-tone.ts";
 
 const STAT_GROUP_COLUMN_COUNTS: readonly unknown[] = [2, 3, 4];
 const LIST_NARROW_LAYOUTS: readonly unknown[] = ["cards", "line"];
@@ -161,6 +162,16 @@ function validateStatGroupNarrow(context: string, panel: DashboardStatGroupPanel
   if (panel.icon !== undefined && !isTitledStrip(panel)) {
     throw bootRuleError(DASHBOARD_RULES.statGroupIconWithoutTitledStrip, {
       message: `${context} sets icon without a label or with layout "cards" — only the titled strip draws it. Add a label and layout "strip", or remove icon.`,
+    });
+  }
+  if (panel.narrow !== undefined && !isTitledStrip(panel)) {
+    throw bootRuleError(DASHBOARD_RULES.statGroupNarrowWithoutTitledStrip, {
+      message: `${context} sets narrow without a label or with layout "cards" — only the titled strip has a phone line to tint. Add a label and layout "strip", or remove narrow.`,
+    });
+  }
+  if (panel.narrow?.tone !== undefined && !isSelectOptionTone(panel.narrow.tone)) {
+    throw bootRuleError(DASHBOARD_RULES.statGroupNarrowToneInvalid, {
+      message: `${context} narrow.tone "${String(panel.narrow.tone)}" is not a select option tone.`,
     });
   }
   // skip: no column count declared

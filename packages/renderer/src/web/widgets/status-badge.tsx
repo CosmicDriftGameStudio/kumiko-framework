@@ -36,8 +36,11 @@ export function StatusBadge({
   children,
   className,
   testId,
+  dot = true,
 }: {
   readonly tone: StatusBadgeTone;
+  /** `false` draws the pill without its leading dot. */
+  readonly dot?: boolean;
   readonly children: ReactNode;
   readonly className?: string;
   readonly testId?: string;
@@ -52,11 +55,13 @@ export function StatusBadge({
         className,
       )}
     >
-      <span
-        aria-hidden="true"
-        data-status-dot
-        className="size-1.5 shrink-0 rounded-full bg-current"
-      />
+      {dot && (
+        <span
+          aria-hidden="true"
+          data-status-dot
+          className="size-1.5 shrink-0 rounded-full bg-current"
+        />
+      )}
       {children}
     </span>
   );

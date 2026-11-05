@@ -278,6 +278,9 @@ type DashboardStatGroupLink = { // Link at the right edge of a stat-group panel;
   screen: string;
   params?: Readonly<Record<string, string>>;
 };
+type DashboardStatGroupNarrow = {
+  tone?: SelectOptionTone; // Tints the one-line phone strip (background and border) in this tone, e.g. "accent" for a promo-blue inbox line.
+};
 type DashboardStatGroupPanel = DashboardPanelGate & DashboardPanelNarrow & {
   kind: "stat-group";
   id: string;
@@ -287,6 +290,7 @@ type DashboardStatGroupPanel = DashboardPanelGate & DashboardPanelNarrow & {
   layout?: DashboardStatGroupLayout; // Default: "strip" without `label`, "cards" with.
   icon?: PlatformComponent; // Icon left of the one-line phone strip (below `sm`); not drawn on wider screens.
   link?: DashboardStatGroupLink; // Link at the right edge of the panel (label + chevron).
+  narrow?: DashboardStatGroupNarrow; // Phone look of the one-line strip; needs a label and layout "strip".
   columns?: 2 | 3 | 4; // Tiles per row from `md` up, only with `layout: "cards"`; one column below `sm`.
   stats: DashboardStatPanel[];
 };
@@ -466,6 +470,8 @@ type ListColumnHint = {
   narrowDetailField?: string; // Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider").
   toneField?: string; // Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`.
   reasonField?: string; // Row field with a longer reason, shown behind a "Why?" toggle in the cell.
+  reasonOpenField?: string; // Row field (boolean): while true, the `reasonField` text stands open as a box under the row, over the full row width, in the table view (entity/projection lists from `md` up, dashboard lists from `sm` up); the (i) stays and closes it.
+  reasonTitleField?: string; // Row field with a bold lead-in of the reason paragraph ("Rule 10 · Case open."); without it the reason has none.
   emptyLabel?: string; // i18n key for an empty sentence; default `kumiko.list.hint.empty`.
   plainSentence?: true; // The sentence keeps the normal text color (still bold); the tone stays on the row stripe, a badge and the detail line.
 };
@@ -550,6 +556,8 @@ type RecordStep = {
   narrowDetail?: string; // Shown instead of `detail` below `sm`.
   tone?: SelectOptionTone;
   why?: string; // Explanation behind a toggle next to the step.
+  whyOpen?: true; // With `why`: the explanation stands open as a box under the step from `sm` up; the toggle closes it.
+  whyTitle?: string; // Bold lead-in of the `why` paragraph.
   [field: string]: unknown;
 };
 type RecordStepsSpec = {
@@ -608,7 +616,7 @@ type RowActionDrawer = {
   subtitle?: string; // Line under the drawer heading (i18n key or a bare `{name}` template), resolved like `title`.
   rowClick?: boolean; // Clicking the row opens this drawer with that row's `params`.
 };
-type RowActionMode = "adaptive" | "inline"; // Row-action column layout.
+type RowActionMode = "adaptive" | "inline" | "menu"; // Row-action column layout.
 type RowActionNavigate = RowActionNavigateBase & ({ screen: string; entity?: never; } | { entity: string; screen?: never; }); // Exactly one of `screen` / `entity` — mutual exclusivity is type-enforced (boot validator still rejects both/neither for untyped schemas).
 type RowFieldExtractor = // Declarative row-field extractor — JSON-safe (no function prop, survives GET /api/schema / buildAppSchema).
   | {

@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import type { DataTableProps, DataTableSort } from "../../../index.ts";
 import { useOptionalTranslation } from "../../../index.ts";
+import { cn } from "../../lib/cn.ts";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
 type SortOptions = NonNullable<DataTableProps["sortOptions"]>;
@@ -54,6 +55,8 @@ export function SortOptionsSelect({
   testId,
   className,
   summary,
+  bordered = false,
+  chevron = true,
 }: {
   readonly options: SortOptions;
   readonly sort: DataTableSort | null | undefined;
@@ -62,18 +65,26 @@ export function SortOptionsSelect({
   readonly className?: string;
   /** Replaces the label text, e.g. with the sentence that also names the list size. */
   readonly summary?: string;
+  /** Draws the select like the filter-row selects: bordered, same height. */
+  readonly bordered?: boolean;
+  /** `false` leaves the trailing chevron out, so a summary sentence reads as plain text. */
+  readonly chevron?: boolean;
 }): ReactNode {
   const translate = useOptionalTranslation();
   const active = activeSortOption(options, sort);
   const prefix = translate?.("kumiko.list.sort.prefix") ?? "Sorted by";
   return (
     <div
-      className={`relative flex h-9 items-center gap-1.5 text-[13px] text-foreground-secondary ${className ?? ""}`}
+      className={cn(
+        "relative flex h-9 items-center gap-1.5 rounded-md text-[13px] text-foreground-secondary focus-within:ring-1 focus-within:ring-ring",
+        bordered && "rounded-md border border-border-strong bg-background px-2.5 text-foreground",
+        className,
+      )}
     >
       <span aria-hidden="true" data-testid={`${testId}-label`}>
         {summary ?? (active !== undefined ? `${prefix}: ${active.label}` : prefix)}
       </span>
-      <ChevronDown className="size-3.5" aria-hidden="true" />
+      {chevron && <ChevronDown className="size-3.5" aria-hidden="true" />}
       <select
         aria-label={prefix}
         data-testid={testId}

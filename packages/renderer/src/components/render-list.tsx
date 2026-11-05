@@ -76,6 +76,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     sort,
     onSortChange,
     sortOptions,
+    toolbarSort,
     pager,
     onReachEnd,
     loadingMore,
@@ -106,8 +107,12 @@ export function RenderList(props: RenderListProps): ReactNode {
   const { DataTable, Button, Dialog, Input, Banner, PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const pageHeaderCompact = usePageHeaderCompact();
-  const createInPageHeader =
+  const pageHeaderOffersCreate =
     onCreate !== undefined && PageHeader !== undefined && pageHeaderSlotAvailable;
+  // Compact means below md (not sm): components stay platform-agnostic, so the toolbar button
+  // starts at md, and between sm and md the compact header keeps its "+".
+  const createInPageHeader =
+    pageHeaderOffersCreate && (screen.createPlacement !== "toolbar" || pageHeaderCompact);
   // Promoted actions that moved into the phone header's overflow menu have no button of
   // their own, so their busy and error state lives here.
   const [menuActionBusyId, setMenuActionBusyId] = useState<string | null>(null);
@@ -183,7 +188,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     defaultFilterActive: defaultFilterActiveProp && onFilterReset !== undefined,
     onFilterReset,
     translate,
-    createInPageHeader,
+    createInPageHeader: pageHeaderOffersCreate,
     effectiveCreateLabel,
   });
   const toolbarTitle = resolveToolbarTitle(screen, translate);
@@ -218,6 +223,7 @@ export function RenderList(props: RenderListProps): ReactNode {
           sort,
           onSortChange,
           sortOptions,
+          toolbarSort: toolbarSort ?? screen.toolbarSort,
           pager,
           onReachEnd,
           loadingMore,

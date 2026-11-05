@@ -365,6 +365,19 @@ function validateEntityListExpandableRow(
   }
 }
 
+function validateToolbarOptions(where: string, screen: EntityListScreenDefinition): void {
+  if (screen.createPlacement === "toolbar" && screen.allowCreate === false) {
+    throw bootRuleError(SCREEN_KIND_RULES.createPlacementWithoutCreate, {
+      message: `${where} sets createPlacement "toolbar" with allowCreate: false — there is no create button to place. Remove createPlacement or allowCreate: false.`,
+    });
+  }
+  if (screen.toolbarSort === true && (screen.sortOptions ?? []).length === 0) {
+    throw bootRuleError(SCREEN_KIND_RULES.toolbarSortWithoutSortOptions, {
+      message: `${where} sets toolbarSort without sortOptions — the select lists the sortOptions. Declare sortOptions or remove toolbarSort.`,
+    });
+  }
+}
+
 export function validateEntityListScreen(
   ctx: ScreenValidationContext,
   screenId: string,
@@ -405,6 +418,7 @@ export function validateEntityListScreen(
         `Known screens in this feature: ${Object.keys(ctx.feature.screens).sort().join(", ") || "(none)"}.`,
     });
   }
+  validateToolbarOptions(where, screen);
   if (screen.filter !== undefined) {
     validateEntityListFilter(featureName, screenId, screen.filter, fields);
   }

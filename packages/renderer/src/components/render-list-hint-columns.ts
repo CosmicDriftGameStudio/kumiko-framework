@@ -19,6 +19,8 @@ export function hintViewModel(
     emptyLabel: translate(hint.emptyLabel ?? HINT_EMPTY_LABEL_KEY),
     reasonLabel: translate(HINT_REASON_LABEL_KEY),
     ...(hint.reasonField !== undefined && { reasonField: hint.reasonField }),
+    ...(hint.reasonOpenField !== undefined && { reasonOpenField: hint.reasonOpenField }),
+    ...(hint.reasonTitleField !== undefined && { reasonTitleField: hint.reasonTitleField }),
     ...(hint.detailField !== undefined && { detailField: hint.detailField }),
     ...(hint.narrowDetailField !== undefined && { narrowDetailField: hint.narrowDetailField }),
     ...(hint.plainSentence === true && { plainSentence: true }),
@@ -41,6 +43,7 @@ export function withDisplayColumns(
       ...col,
       display: spec.display,
       ...(spec.badgeToneField !== undefined && { badgeToneField: spec.badgeToneField }),
+      ...(spec.badgeDot !== undefined && { badgeDot: spec.badgeDot }),
     };
   });
 }

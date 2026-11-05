@@ -243,6 +243,8 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
       ...(step.narrowDetail !== undefined && { narrowDetail: step.narrowDetail }),
       ...(step.tone !== undefined && { tone: step.tone }),
       ...(step.why !== undefined && { reason: step.why }),
+      ...(step.why !== undefined && step.whyOpen === true && { reasonOpen: true as const }),
+      ...(step.why !== undefined && step.whyTitle !== undefined && { reasonTitle: step.whyTitle }),
       ...(mainAction !== undefined && {
         actions: renderActionButtons(model, [mainAction], spec.actions),
       }),

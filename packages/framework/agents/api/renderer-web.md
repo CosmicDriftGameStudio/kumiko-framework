@@ -115,7 +115,7 @@ function SidebarUser(props: SidebarUserProps): ReactNode;
 function Sparkline(props: { points: number[]; className?: string; }): ReactNode;
 function Stack(props: StackProps): ReactNode;
 function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?: string; tone?: StatTone; accentColor?: string; delta?: StatDelta; trend?: string; spark?: number[]; testId?: string; link?: StatLink; navigable?: boolean; children?: ReactNode; }): ReactNode; // Icon-bearing metric tile with an optional delta chip, trend line, and sparkline.
-function StatusBadge(props: { tone: StatusBadgeTone; children: ReactNode; className?: string; testId?: string; }): ReactNode; // Pill badge with a status dot.
+function StatusBadge(props: { tone: StatusBadgeTone; dot?: boolean; children: ReactNode; className?: string; testId?: string; }): ReactNode; // Pill badge with a status dot.
 function StatusBarChart(props: { entries: StatusBarEntry[]; ariaLabel: string; startLabel?: string; endLabel?: string; highlightLast?: boolean; dense?: boolean; testId?: string; }): ReactNode; // Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe.
 function StepBar(props: { steps: string[]; currentIndex: number; compactLabel: string; onStepSelect?: (index: number) => void; doneSteps?: boolean[]; selectableSteps?: "done" | "all"; narrowLayout?: "label" | "steps"; orientation?: "horizontal" | "vertical" | "stacked"; heading?: string; description?: string; subtitles?: (string | undefined)[]; upNext?: { heading: string; title: string; subtitle?: string; }; testId?: string; compactTestId?: string; }): ReactNode; // Wizard step overview — numbered chips with a connector line between them.
 function StepList(props: StepListProps): ReactNode; // Ordered plan of steps with status icons, progress header and per-step actions.
@@ -438,7 +438,8 @@ type DataTableProps = DataTableTableBlock & {
   sort?: DataTableSort | null; // Current sorting, or null when unsorted.
   onSortChange?: (next: DataTableSort | null) => void; // Called with the next sort state after a header click (asc → desc → null); the caller updates URL state or the query parameter and refetches.
   sortOptions?: (DataTableSort & { label: string; })[];
-  rowActions?: DataTableRowAction[]; // Per-row actions rendered in a right-hand column as inline buttons (≤2 actions) or a kebab dropdown (>2).
+  toolbarSort?: true;
+  rowActions?: DataTableRowAction[]; // Per-row actions in a right-hand column: inline buttons (≤2) or a kebab (>2).
   rowActionMode?: DataTableRowActionMode; // How the row-action column renders: - `"adaptive"` (default): with `onRowClick` all actions except the `rowClick` one go in the kebab (no kebab or column if none remain); without it the primary action is a link button and the rest go in the kebab (a single action gets no kebab).
   bulk?: DataTableBulk; // Present: row checkboxes plus a selection bar that runs these actions once per selected row.
   emptyState?: ReactNode; // Custom empty-state content (e.g. Icon + Heading + CTA-Button).
@@ -1400,6 +1401,7 @@ type RenderListProps = DataTableTableBlockProps & {
   sort?: ListSort | null; // Current sorting, or null for the server's default order.
   onSortChange?: (next: ListSort | null) => void; // Called with the next sort state after a header click.
   sortOptions?: DataTableProps["sortOptions"]; // Labelled sort choices (labels already translated) for the "Sorted by" select.
+  toolbarSort?: DataTableProps["toolbarSort"];
   pager?: {
     page: number;
     limit: number;

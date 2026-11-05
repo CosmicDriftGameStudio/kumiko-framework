@@ -49,6 +49,16 @@ function validateHintColumn(where: string, column: ListColumn): void {
       message: `${where} column "${column.field}" sets hint.narrowDetailField without hint.detailField. Set detailField or remove narrowDetailField.`,
     });
   }
+  const { hint } = column;
+  if (
+    hint !== undefined &&
+    hint.reasonField === undefined &&
+    (hint.reasonOpenField !== undefined || hint.reasonTitleField !== undefined)
+  ) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.reasonOptionWithoutReasonField, {
+      message: `${where} column "${column.field}" sets hint.reasonOpenField or hint.reasonTitleField without hint.reasonField. Set reasonField or remove them.`,
+    });
+  }
   const conflict =
     column.hint === undefined
       ? undefined

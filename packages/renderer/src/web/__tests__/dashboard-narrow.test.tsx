@@ -508,3 +508,93 @@ describe("stat-group columns", () => {
     expect(grid?.className).toContain("grid-cols-1");
   });
 });
+
+describe("stat-group narrow tone", () => {
+  restoreViewportWidthAfterEach();
+
+  test("narrow.tone tints the titled strip", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(
+      dashboardOf({
+        kind: "stat-group",
+        id: "inbox",
+        label: "Inbox",
+        layout: "strip",
+        narrow: { tone: "accent" },
+        stats: [{ kind: "stat", id: "a", label: "A", query: "demo:query:a", valueField: "total" }],
+      } as unknown as DashboardScreenDefinition["panels"][number]),
+      { "demo:query:a": () => ok({ total: 2 }) },
+    );
+    await screen.findByText("Inbox");
+    await waitFor(() =>
+      expect(
+        document.body.querySelector("[data-narrow-tone]")?.getAttribute("data-narrow-tone"),
+      ).toBe("accent"),
+    );
+  });
+});
+
+describe("dashboard list reason box and badge dot", () => {
+  restoreViewportWidthAfterEach();
+
+  const reasonPanel = (columns: readonly Record<string, unknown>[]) =>
+    ({
+      kind: "list",
+      id: "open",
+      label: "Open tasks",
+      query: "demo:query:task:list",
+      columns,
+    }) as unknown as DashboardScreenDefinition["panels"][number];
+  const hintColumn = {
+    field: "title",
+    hint: {
+      reasonField: "why",
+      reasonOpenField: "whyOpen",
+      reasonTitleField: "whyTitle",
+      reasonLabel: "Why",
+    },
+  };
+  const reasonRows = () =>
+    ok({
+      rows: [
+        { id: "r1", title: "Remind", why: "Overdue 14 days.", whyOpen: true, whyTitle: "Rule 10" },
+      ],
+      total: 1,
+    });
+
+  test("the box is open from sm, closes and reopens with the (i), and is never doubled", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(reasonPanel([hintColumn])), { "demo:query:task:list": reasonRows });
+    await screen.findByText(/Overdue 14 days\./);
+    expect(screen.getByText("Rule 10")).toBeTruthy();
+    const toggle = document.body.querySelector("[data-hint-reason-toggle]") as HTMLElement;
+    fireEvent.click(toggle);
+    expect(screen.queryByText(/Overdue 14 days\./)).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getAllByText(/Overdue 14 days\./)).toHaveLength(1);
+  });
+
+  test("below sm the box starts closed and the (i) opens it", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(reasonPanel([hintColumn])), { "demo:query:task:list": reasonRows });
+    await waitFor(() =>
+      expect(document.body.querySelector("[data-hint-reason-toggle]")).not.toBeNull(),
+    );
+    expect(screen.queryByText(/Overdue 14 days\./)).toBeNull();
+    fireEvent.click(document.body.querySelector("[data-hint-reason-toggle]") as HTMLElement);
+    expect(screen.getAllByText(/Overdue 14 days\./)).toHaveLength(1);
+  });
+
+  test("badgeDot: false draws the badge without its dot", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    const badges = (badgeDot: boolean) =>
+      reasonPanel([
+        { field: "title" },
+        { field: "state", display: "badge", ...(badgeDot ? {} : { badgeDot: false }) },
+      ]);
+    const rows = () => ok({ rows: [{ id: "r1", title: "Remind", state: "7 open" }], total: 1 });
+    renderDashboard(dashboardOf(badges(false)), { "demo:query:task:list": rows });
+    await screen.findByText("7 open");
+    expect(document.body.querySelector("[data-status-dot]")).toBeNull();
+  });
+});

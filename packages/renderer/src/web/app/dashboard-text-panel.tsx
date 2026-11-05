@@ -97,7 +97,7 @@ function resolveBlockText(
 const PARAGRAPH_CLASS_NAMES = {
   muted: "text-sm text-muted-foreground",
   strong: "text-sm font-medium text-foreground",
-  lead: "font-heading text-base leading-relaxed sm:text-[17px] text-foreground",
+  lead: "font-heading text-[15.5px] leading-[1.5] sm:text-[17px] sm:leading-relaxed text-foreground",
 } as const satisfies Record<NonNullable<ParagraphBlock["emphasis"]>, string>;
 
 function TextBlockView({
