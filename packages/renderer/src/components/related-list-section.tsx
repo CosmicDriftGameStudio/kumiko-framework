@@ -22,7 +22,7 @@ import {
   resolveProjectionFacetSpecs,
 } from "../app/list-facets.ts";
 import { useNav } from "../app/nav.tsx";
-import { SYNTHESIZED_FIELD_PII_REASON } from "../app/projection-list-shim.ts";
+import { type SynthesizedField, valueTypeField } from "../app/projection-list-shim.ts";
 import {
   ReferenceFacetBridges,
   type ReferenceFacetState,
@@ -57,8 +57,6 @@ import { type DataTableFacet, type DataTableProps, usePrimitives } from "../prim
 import { ListGroupPageBridges } from "./list-group-page-bridges.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { RenderList } from "./render-list.tsx";
-
-type SynthesizedField = EntityDefinition["fields"][string];
 
 type SortableCapableField = Extract<SynthesizedField, { readonly sortable?: boolean }>;
 
@@ -109,24 +107,6 @@ function synthesizeRelatedListEntity(
     fields,
     ...(sourceEntity?.derivedFields !== undefined && { derivedFields: sourceEntity.derivedFields }),
   };
-}
-
-function valueTypeField(
-  valueType: "number" | "decimal" | "bigInt" | "money" | undefined,
-  sortable: boolean,
-): SynthesizedField {
-  switch (valueType) {
-    case "number":
-    // decimal renders through the same number formatter; digits come from the column spec, not scale
-    case "decimal":
-      return { type: "number", sortable };
-    case "bigInt":
-      return { type: "bigInt", sortable };
-    case "money":
-      return { type: "money", sortable };
-    case undefined:
-      return { type: "text", allowPlaintext: SYNTHESIZED_FIELD_PII_REASON, sortable };
-  }
 }
 
 // Mirrors row-actions.ts's own warnDrawerActionDropped (module-private

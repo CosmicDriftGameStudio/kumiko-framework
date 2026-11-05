@@ -598,3 +598,49 @@ describe("dashboard list reason box and badge dot", () => {
     expect(document.body.querySelector("[data-status-dot]")).toBeNull();
   });
 });
+
+describe("phone card headline tone", () => {
+  restoreViewportWidthAfterEach();
+  const panel = (plainSentence: boolean) =>
+    ({
+      kind: "list",
+      id: "open",
+      label: "Open tasks",
+      query: "demo:query:task:list",
+      narrow: { layout: "cards" },
+      columns: [
+        {
+          field: "title",
+          hint: { toneField: "tone", ...(plainSentence && { plainSentence: true }) },
+        },
+      ],
+    }) as unknown as DashboardScreenDefinition["panels"][number];
+  const rowsWith = (tone: string) => () =>
+    ok({ rows: [{ id: "r1", title: "Remind", tone }], total: 1 });
+  const headline = async () => (await screen.findByText("Remind")).className;
+
+  test("neutral dims the headline", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel(false)), { "demo:query:task:list": rowsWith("neutral") });
+    const cls = await headline();
+    expect(cls).toContain("text-muted-foreground");
+    expect(cls).toContain("font-normal");
+    expect(cls).not.toContain("font-semibold");
+  });
+
+  test("a toned value stays semibold in the tone color", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel(false)), { "demo:query:task:list": rowsWith("warn") });
+    const cls = await headline();
+    expect(cls).toContain("font-semibold");
+    expect(cls).toContain("text-status-warn");
+  });
+
+  test("plainSentence with neutral is not dimmed", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel(true)), { "demo:query:task:list": rowsWith("neutral") });
+    const cls = await headline();
+    expect(cls).toContain("font-semibold");
+    expect(cls).not.toContain("text-muted-foreground");
+  });
+});

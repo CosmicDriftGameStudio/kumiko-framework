@@ -27,8 +27,29 @@ const PROJECTION_PSEUDO_ENTITY = "__projection__";
 // fields describe query columns and never map to stored entity data.
 export const SYNTHESIZED_FIELD_PII_REASON = "synthesized display field, not stored entity data";
 
+export type SynthesizedField = EntityDefinition["fields"][string];
+
+/** Field for a column without an entity field behind it: text unless the column declares a numeric `valueType`. */
+export function valueTypeField(
+  valueType: "number" | "decimal" | "bigInt" | "money" | undefined,
+  sortable: boolean,
+): SynthesizedField {
+  switch (valueType) {
+    case "number":
+    // decimal renders through the same number formatter; digits come from the column spec, not scale
+    case "decimal":
+      return { type: "number", sortable };
+    case "bigInt":
+      return { type: "bigInt", sortable };
+    case "money":
+      return { type: "money", sortable };
+    case undefined:
+      return { type: "text", allowPlaintext: SYNTHESIZED_FIELD_PII_REASON, sortable };
+  }
+}
+
 /** Minimal EntityDefinition from the column list: every field is a text
- *  field. `sortable` applies to all columns — buildAppSchema derives it from
+ *  field unless the column declares a numeric `valueType`. `sortable` applies to all columns — buildAppSchema derives it from
  *  the query's Zod schema (`screen.sortable`); the query itself has
  *  no per-field server-sort guarantee, so a column opts out with
  *  `sortable: false` when the handler cannot order by it.
@@ -38,14 +59,13 @@ export function synthesizeProjectionEntity(
   columns: readonly ListColumnSpec[],
   sortable: boolean,
 ): Pick<EntityDefinition, "fields"> {
-  const fields: Record<string, EntityDefinition["fields"][string]> = {};
+  const fields: Record<string, SynthesizedField> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
-    fields[normalized.field] = {
-      type: "text",
-      allowPlaintext: SYNTHESIZED_FIELD_PII_REASON,
-      sortable: sortable && normalized.sortable !== false,
-    };
+    fields[normalized.field] = valueTypeField(
+      normalized.valueType,
+      sortable && normalized.sortable !== false,
+    );
   }
   return { fields };
 }

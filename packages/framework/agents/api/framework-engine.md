@@ -1046,7 +1046,8 @@ type ListColumnSpec =
     refEntity?: string; // Marks this column as a reference lookup instead of a plain value — for projectionList/relatedList columns, which have no `EntityDefinition` to carry a real `reference` field type.
     refLabelField?: string; // Row field on the referenced entity shown as the label (default "id").
     sortable?: boolean; // Marks this column as sortable via a clickable header — for relatedList columns, which have no `EntityDefinition` field to carry `sortable` on.
-    valueType?: "number" | "decimal" | "bigInt" | "money"; // Value type of a relatedList column, which has no `EntityDefinition` field to derive it from.
+    valueType?: "number" | "decimal" | "bigInt" | "money"; // Value type of a projectionList or relatedList column, which has no `EntityDefinition` field to derive it from.
+    emptyPlaceholder?: false; // `false` leaves an empty cell blank instead of drawing the "—" placeholder.
     hideOnNarrow?: boolean; // Leaves the column out of the compact card layout used below the `md` breakpoint (tables keep it).
     showOnNarrowOnly?: true; // Counterpart of `hideOnNarrow`: the column shows only in the compact card layout and not in the table.
     hidden?: boolean; // Start state for the column picker: the column begins hidden and the user can show it.
@@ -1753,6 +1754,7 @@ type TierResolverPlugin = { // Plugin shape for the tier-resolver extension.
 };
 type ToggleReader = (featureName: string) => boolean | undefined;
 type ToolbarAction = ({ kind: "navigate"; id: string; label: string; screen: string; tab?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "writeHandler"; id: string; label: string; handler: string; payload?: Record<string, unknown>; confirm?: string; confirmLabel?: string; style?: "primary" | "secondary" | "danger"; } | { kind: "drawer"; id: string; label: string; screen: string; style?: "primary" | "secondary" | "danger"; title?: string; subtitle?: string; }) & {
+  icon?: IconKey; // Icon of the button, in every list (entityList, projectionList, relatedList).
   visibleWhen?: DashboardPanelVisibility; // Shown only while the query's `field` equals `eq` (live, empty payload).
 };
 type TransferAdjacency = ReadonlyMap<string, TransferEdge[]>; // Outgoing edges per type: keyed by the type an edge hangs off, so the mover can ask "what hangs off the rows I just moved" for any type it reaches, at any depth, as often as it reaches it.

@@ -359,8 +359,17 @@ type DataTableCellProps = {
   readonly display?: ListColumnCellDisplay;
   readonly badgeToneField?: string;
   readonly badgeDot?: false;
+  readonly emptyPlaceholder?: false;
   readonly onOpenRow?: () => void;
 };
+
+function EmptyCell({ placeholder }: { readonly placeholder: false | undefined }): ReactNode {
+  return (
+    <span data-empty-cell="true" className="text-muted-foreground">
+      {placeholder === false ? null : EMPTY_VALUE_PLACEHOLDER}
+    </span>
+  );
+}
 
 /** `display: "button"` draws a cell link as a small outline button. */
 export const LINK_BUTTON_CLASS = buttonVariants({ variant: "outline", size: "sm" });
@@ -498,8 +507,10 @@ function renderDisplayCell({
   row,
   badgeToneField,
   badgeDot,
+  emptyPlaceholder,
   link,
 }: {
+  readonly emptyPlaceholder: false | undefined;
   readonly display: DataTableCellProps["display"];
   readonly value: unknown;
   readonly text: string;
@@ -510,11 +521,7 @@ function renderDisplayCell({
 }): ReactNode | undefined {
   // A column renderer skips the generic empty-cell path, so a pill or button would otherwise wrap nothing.
   if ((display === "badge" || display === "button") && isEmptyCellValue(value)) {
-    return (
-      <span data-empty-cell="true" className="text-muted-foreground">
-        {EMPTY_VALUE_PLACEHOLDER}
-      </span>
-    );
+    return <EmptyCell placeholder={emptyPlaceholder} />;
   }
   if (display === "badge") {
     const toneKey = badgeToneField === undefined ? undefined : row[badgeToneField];
@@ -591,6 +598,7 @@ export function DataTableCell({
   display,
   badgeToneField,
   badgeDot,
+  emptyPlaceholder,
   onOpenRow,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
@@ -607,11 +615,7 @@ export function DataTableCell({
     );
   }
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
-    return (
-      <span data-empty-cell="true" className="text-muted-foreground">
-        {EMPTY_VALUE_PLACEHOLDER}
-      </span>
-    );
+    return <EmptyCell placeholder={emptyPlaceholder} />;
   }
   if (value === PII_ERASED_SENTINEL && translate !== undefined) {
     return translate("kumiko.pii.erased");
@@ -623,6 +627,7 @@ export function DataTableCell({
     row,
     badgeToneField,
     badgeDot,
+    emptyPlaceholder,
     link,
   });
   if (displayCell !== undefined) return displayCell;
@@ -633,13 +638,7 @@ export function DataTableCell({
   ) {
     return <BooleanCell value={value} translate={translate} />;
   }
-  if (isUnlabeledFalse(type, value, renderer)) {
-    return (
-      <span data-empty-cell="true" className="text-muted-foreground">
-        {EMPTY_VALUE_PLACEHOLDER}
-      </span>
-    );
-  }
+  if (isUnlabeledFalse(type, value, renderer)) return <EmptyCell placeholder={emptyPlaceholder} />;
   if (fileDisplay !== undefined) {
     return renderFileCell({ value, fileDisplay, compactFile, translate });
   }

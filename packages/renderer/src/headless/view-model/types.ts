@@ -136,6 +136,8 @@ export type ListColumnViewModel = {
   readonly badgeToneField?: string;
   /** `false`: the pill has no leading dot. */
   readonly badgeDot?: false;
+  /** `false`: an empty cell stays blank instead of showing "—". */
+  readonly emptyPlaceholder?: false;
 };
 
 export type ListColumnCellDisplay = "badge" | "button";

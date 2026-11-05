@@ -48,6 +48,20 @@ export function withDisplayColumns(
   });
 }
 
+export function withEmptyPlaceholderColumns(
+  columns: readonly ListColumnViewModel[],
+  screen: EntityListScreenDefinition,
+): readonly ListColumnViewModel[] {
+  const blank = new Set(
+    screen.columns.flatMap((spec) => {
+      const column = normalizeListColumn(spec);
+      return column.emptyPlaceholder === false ? [column.field] : [];
+    }),
+  );
+  if (blank.size === 0) return columns;
+  return columns.map((col) => (blank.has(col.field) ? { ...col, emptyPlaceholder: false } : col));
+}
+
 export function withNarrowOnlyColumns(
   columns: readonly ListColumnViewModel[],
   screen: EntityListScreenDefinition,

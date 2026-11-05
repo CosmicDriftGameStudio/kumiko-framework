@@ -140,3 +140,18 @@ describe("entity list toolbar options", () => {
     ).not.toContain("entity-list/toolbar-sort-without-sort-options");
   });
 });
+
+describe("column emptyPlaceholder", () => {
+  test("is rejected on a hint column, allowed on a plain column", () => {
+    expect(
+      ruleIdsOf([
+        entityListFeature({
+          columns: [{ field: "name", emptyPlaceholder: false, hint: { emptyLabel: "none" } }],
+        }),
+      ]),
+    ).toContain("list/hint-column-empty-placeholder");
+    expect(
+      ruleIdsOf([entityListFeature({ columns: [{ field: "name", emptyPlaceholder: false }] })]),
+    ).toEqual([]);
+  });
+});

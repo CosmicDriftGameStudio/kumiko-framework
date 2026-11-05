@@ -15,6 +15,16 @@ export const HINT_TONE_TEXT_CLASS: Readonly<Record<SelectOptionTone, string>> = 
   neutral: "",
 };
 
+/** Tone `neutral` dims the sentence like an empty label (muted, not bold); `plainSentence` opts out. */
+export function isDimmedHintSentence(
+  tone: SelectOptionTone | undefined,
+  plainSentence: boolean | undefined,
+): boolean {
+  return tone === "neutral" && plainSentence !== true;
+}
+
+export const DIMMED_HINT_SENTENCE_CLASS = "font-normal text-muted-foreground";
+
 const OPEN_SENTENCE_CLASS =
   "min-w-0 cursor-pointer bg-transparent p-0 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
@@ -68,7 +78,7 @@ function EmptyHint({
     <button
       type="button"
       data-hint-empty="true"
-      className={cn(OPEN_SENTENCE_CLASS, "font-normal text-muted-foreground")}
+      className={cn(OPEN_SENTENCE_CLASS, DIMMED_HINT_SENTENCE_CLASS)}
       onClick={(event) => {
         event.stopPropagation();
         onOpen();
@@ -90,6 +100,14 @@ function useHintReason(hint: ListColumnHintViewModel, row: Readonly<Record<strin
     boxInRow: rowReason !== undefined,
     boxId: rowReason?.boxId ?? ownBoxId,
   };
+}
+
+function hintSentenceClass(tone: SelectOptionTone | undefined, plainSentence: boolean | undefined) {
+  if (isDimmedHintSentence(tone, plainSentence)) return DIMMED_HINT_SENTENCE_CLASS;
+  return cn(
+    "font-medium",
+    plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
+  );
 }
 
 /** "To do" cell: an emphasized sentence in the row tone with an optional muted second line. */
@@ -114,10 +132,7 @@ export function HintCell({
   const toneValue = hint.toneField === undefined ? undefined : row[hint.toneField];
   const tone = isSelectOptionTone(toneValue) ? toneValue : undefined;
   const detail = hint.detailField === undefined ? undefined : nonEmptyText(row[hint.detailField]);
-  const sentenceClass = cn(
-    "font-medium",
-    hint.plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
-  );
+  const sentenceClass = hintSentenceClass(tone, hint.plainSentence);
   return (
     <span data-hint-tone={tone} className="flex min-w-0 flex-col gap-0.5">
       <span className="flex items-start gap-2">

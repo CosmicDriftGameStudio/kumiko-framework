@@ -59,11 +59,13 @@ export type ListColumnSpec =
        *  `sortable` on. Ignored on `entityList` columns, where the entity
        *  field's own `sortable` flag wins. */
       readonly sortable?: boolean;
-      /** Value type of a relatedList column, which has no `EntityDefinition`
+      /** Value type of a projectionList or relatedList column, which has no `EntityDefinition`
        *  field to derive it from. Numeric types right-align the column and its
        *  header with tabular figures, like an entityList column of that field
        *  type. Ignored on entityList columns, where the field's own type wins. */
       readonly valueType?: "number" | "decimal" | "bigInt" | "money";
+      /** `false` leaves an empty cell blank instead of drawing the "—" placeholder. Not combinable with `hint`, whose empty sentence is `hint.emptyLabel`. */
+      readonly emptyPlaceholder?: false;
       /** Leaves the column out of the compact card layout used below the
        *  `md` breakpoint (tables keep it). For columns that only make sense
        *  next to the others, like a sort key. */
@@ -111,7 +113,7 @@ export type ListColumnHint = {
   readonly detailField?: string;
   /** Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider"). Needs `detailField`. */
   readonly narrowDetailField?: string;
-  /** Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`. */
+  /** Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`. Tone `neutral` draws the sentence muted and not bold, like `emptyLabel`, and no stripe on the phone card. */
   readonly toneField?: string;
   /** Row field with a longer reason, shown behind a "Why?" toggle in the cell. */
   readonly reasonField?: string;
@@ -462,6 +464,8 @@ export type ToolbarAction = (
       readonly subtitle?: string;
     }
 ) & {
+  /** Icon of the button, in every list (entityList, projectionList, relatedList). Without it the id-derived default applies (`create` → plus). */
+  readonly icon?: IconKey;
   /** Shown only while the query's `field` equals `eq` (live, empty payload). Hidden while the
    *  query loads and when it fails. Named like the screen and panel gates because it is
    *  query-based; a list toolbar has no record to evaluate a row condition against. */
