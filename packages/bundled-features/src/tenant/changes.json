@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "seedTenantMembership reports rowMissing",
+    "detail": "seedTenantMembership reports rowMissing when the membership projection row did not materialize and callers log it."
+  },
+  {
     "version": "0.391.0",
     "type": "fix",
     "title": "The stream-tenant backfill archives membership streams a projection replay must not see",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "readStateByKeys is readable by a job's system user",
+    "detail": "`channel-in-app:query:readStateByKeys` now accepts the `system` role besides SystemAdmin, so a job running as the system user of a tenant reads the read state of its own tenant's messages directly. It still sees only keys of the caller's tenant."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "In-app read state by idempotency key",

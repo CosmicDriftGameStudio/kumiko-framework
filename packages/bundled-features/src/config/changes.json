@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Config values read keeps the declared scope",
+    "detail": "config values returns the declared scope on a widened system read."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Encrypted keys closed to config validators",
+    "detail": "ConfigValidateContext.readCascade refuses encrypted, secrets-backed and piiEncrypted keys with an internal error so a validator cannot echo their plaintext."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "config:write:set passes readCascade to validators",

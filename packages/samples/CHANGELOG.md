@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-samples
 
+## 0.414.0
+
+### Patch Changes
+
+- 9d88ba0: Narrow list cards show the "to do" hint sentence above the title.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: List cards lead with the hint sentence
+  detail: `cardColumnRoles` returns a new role `lead`: the first text column with a `hint` that is neither title, status nor `hideOnNarrow`. It no longer counts as a meta column. Below 768 px the card shows the lead above the heading with the table's hint cell (sentence, detail line, "Why?"), only when the value is not empty; `rowToneField` still tints the card. The card order is now lead, title with status, up to three values, then the row action. Recipe: `samples/recipes/record-detail-layout`.
+  -->
+- 9d88ba0: The `pwa` option takes a `basePath`, so an app mounted below the origin root can be installed.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: pwa option: basePath for apps served under a path prefix
+  detail: `PwaOptions` gets `basePath` (default `/`, must start and end with `/`, same-origin, no empty, `.` or `..` segment, no `?` or `#`, otherwise the boot fails). The manifest is answered at `${basePath}manifest.webmanifest` and the worker at `${basePath}sw.js` (a worker only controls its own directory), `start_url`, `scope` and `id` are the base path, the shell precache and the offline fallback use `${basePath}`, and the head tags point at the prefixed paths; `/assets/*` stays at the root and cache-first, and so do the API paths (`/api`, `/sse`, `/auth`), so the ingress must route those to the app too. Each base path gets its own cache name prefix, so apps on one origin do not delete each other's precache. The web client registers the worker with the directory of the URL in `<meta name="kumiko-pwa-sw">` as scope instead of a fixed `/`. With the default base path nothing changes. `PWA_MANIFEST_PATH` and `PWA_SERVICE_WORKER_PATH` are no longer exported. Recipe: `samples/recipes/pwa-shell`.
+  -->
+- 2ac9914: Web apps can be installed as a PWA and keep their shell offline through one `pwa` option on `runProdApp` and the dev server.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: pwa option: web manifest, own service worker, one-time install hint
+  detail: `runProdApp`, `runDevApp` and `createKumikoServer` take `pwa: { name, shortName, themeColor, backgroundColor, icons: [{ src, sizes, type?, purpose? }] }` (type `PwaOptions` from `@cosmicdrift/kumiko-server-runtime/pwa`); pass it to both servers. Icon `src` must be a same-origin path, otherwise the boot fails; in production `pwa` needs `staticDir`. The server answers `GET /manifest.webmanifest` (`application/manifest+json`) and a generated `GET /sw.js` (`no-cache`), both ahead of app routes and files, and adds manifest link, theme-color, Apple home-screen tags, apple-touch-icon and `<meta name="kumiko-pwa-sw">` to every HTML shell. The worker precaches `/`, manifest, icons and the build's bundles under a cache name derived from build id, bundles and options, serves `/assets/*` cache-first, other shell files network-first, navigations network-first with the cached shell only when offline, and never handles `/api/`, `/sse/`, `/auth/`, SSE, non-GET or cross-origin requests; activate drops older `kumiko-pwa-` caches. The web client registers the worker only when the meta is present and shows a dismissible one-time install hint (iOS: Share then Add to Home Screen; elsewhere the deferred `beforeinstallprompt`), never when running standalone. New i18n keys `kumiko.pwa.install-hint`, `kumiko.pwa.install-hint-ios`, `kumiko.pwa.install`, `kumiko.pwa.dismiss` in en, de, es, fr, it. Without `pwa` nothing changes and existing service workers stay registered. `/manifest.json` remains the build's asset map. Recipe: `samples/recipes/pwa-shell`.
+  -->
+- 9d88ba0: `projectionDetail` and `entityEdit` screens can ask for the focused shell with `focus: true`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Declarative focus for record screens
+  detail: `focus?: boolean` on `projectionDetail` and `entityEdit` (default off). A focused screen calls `useShellFocusMode()` for the renderer: the focus rail replaces the full sidebar and the app header actions leave the shell header. Below 768 px the shell header is hidden and the screen gets a `MobileTopBar` with the record title (screen title as fallback), a back arrow to the parent list screen (same resolution as the breadcrumb, browser history without a parent) and the page-header overflow items as menu. Recipe: `samples/recipes/record-detail-layout`.
+  -->
+
 ## 0.413.1
 
 ### Patch Changes

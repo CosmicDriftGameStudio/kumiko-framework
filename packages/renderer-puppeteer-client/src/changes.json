@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Idle Chromium is closed after BROWSER_IDLE_TIMEOUT_MS",
+    "detail": "The service kept Chromium running after the first render (about 480 MiB instead of 17 MiB idle). It now closes the browser after `BROWSER_IDLE_TIMEOUT_MS` (default 300000) without a render and launches it again on the next render, which pays a cold start. `/metrics` gains the gauge `puppeteer_browser_running`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "puppeteer-service image reaps Chromium child processes",
+    "detail": "The service ran bun as PID 1, which does not reap orphaned processes, so every idle close of Chromium left zombie chromium and crashpad processes in the pod. The image now starts through tini, which reaps them and forwards SIGTERM to the service."
+  },
+  {
     "version": "0.391.0",
     "type": "improvement",
     "title": "PDF-service probe",

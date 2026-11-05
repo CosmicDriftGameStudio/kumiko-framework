@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Retention anonymize compares decrypted values",
+    "detail": "Retention anonymize compares decrypted PII values and is covered by a test. The anonymize diff compares JSON values independent of key order, and the notes-history feature name comes from its constant."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Retention hardDelete takes the notes of the deleted parent along",
+    "detail": "When the retention cleanup hard-deletes a row and notes-history is mounted, the note bodies attached to that row (note-entry, any tenant, including notes written in customer tenants on a global parent) are crypto-shredded in the same sub-transaction as the row's own keys. Before, the parent was gone but its notes stayed readable."
+  },
+  {
     "version": "0.413.1",
     "type": "fix",
     "title": "Retention cleanup, upload sweep and soft-delete cleanup reach the system tenant",

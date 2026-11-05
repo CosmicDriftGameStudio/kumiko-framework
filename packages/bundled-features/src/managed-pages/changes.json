@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "page mask on the editor workbench with a live preview of the unsaved body",
+    "detail": "`managedPagesClient()` registers the page mask and the shared `web` preview renderer from template-resolver (Desktop and 375 px Mobil), so the page preview works without `textBlocksClient`; the preview query lives in template-resolver. The `page-edit` screen is now a custom screen under the same id: settings in the right rail, body editor with the lossy-Markdown warning, one submit for both (create via `managed-pages:write:page:create`, update with only the changed fields). The page list has `createScreen: \"page-edit\"`. The extension section `managed-pages:page-body` and `PAGE_BODY_EXTENSION_NAME` are removed; an app that replaced `page-edit` with its own screen is not affected. New keys `managed-pages:editor.*` in all locale packages."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "managed-pages client bundle no longer loads tiptap at start",
+    "detail": "The link policy helpers moved from `document-schema.ts` into the tiptap-free `document-link-policy.ts` (re-exported from `document-schema.ts`), so `markdown-to-document.ts` stays out of the editor chunk. A test guards the static import closure."
+  },
+  {
     "version": "0.402.0",
     "type": "improvement",
     "title": "The public render caches a sanitized document body per page version",

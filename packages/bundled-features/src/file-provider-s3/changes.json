@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "S3 endpoint rule from the booted env",
+    "detail": "The https-only rule for remote S3 endpoints in production is no longer a field refinement that read the global process.env. isAcceptableS3Endpoint(value, isProduction) is applied against the env being booted: the endpoint variables carry it as an env rule (parseEnv and the boot dry run check it with the booted env record), runProdApp's fileStorage resolution applies it, and parseS3EnvConfig and createS3ProviderFromEnv take an optional env record (default process.env) and refuse a remote http endpoint when it says NODE_ENV=production. s3EndpointSchema now only validates the URL shape. createS3ProviderFromEnv reports a missing variable through requiredEnvFor (message \"[S3 file provider] required env var X is missing or empty\" instead of \"missing_env: ...\").",
+    "migration": "Tests that matched the old \"missing_env:\" message match the requiredEnvFor message; code that parsed s3EndpointSchema alone to enforce the production https rule uses isAcceptableS3Endpoint(value, isProduction) or the env rule through parseEnv."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "s3EndpointSchema carries the production https rule wherever it is reused",
+    "detail": "The env rule lived only on the endpoint field inside `createS3EnvSchema`, so an app that built `s3EndpointSchema` into its own env schema silently lost the production check. The rule is now attached to `s3EndpointSchema` itself, env rules are found through `.optional()`, `.default()` and unions, and `s3EndpointEnvRule` is exported. With NODE_ENV=production a non-loopback `http://` endpoint is rejected by `parseEnv` and the composed boot env without app code; https and loopback http pass.",
+    "migration": "Own copies of the rule (an `envRule` built on `isAcceptableS3Endpoint` next to `s3EndpointSchema`) can be removed."
+  },
+  {
     "version": "0.376.0",
     "type": "improvement",
     "title": "Named S3 provider feature",

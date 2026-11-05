@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Foreign-member check with one limited query",
+    "detail": "auth-email-password checks for foreign members with one limited query."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Logout navigates once and no longer races a login redirect",
+    "detail": "In the browser `logout()` leaves the session state untouched and either assigns `postLogoutUrl` or reloads the page. Before, the reload path first flipped the state to unauthenticated, which let an `AuthGate` with `loginUrl` start its own redirect against the reload (aborted navigation, flaky e2e). Without `window` (native, SSR) the state is still set to unauthenticated."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "boot admin seed ignores unverified accounts that squat the seed email",
+    "detail": "`seedAdminGuarded` (demoAdmin, sysadmin, auth.admin boot seeds) reconciled `emailVerified` and added memberships for any existing account with the seed email, so a self-registered, unverified account with a foreign password became the admin on the next boot. For an existing row it now requires `emailVerified === true` or a seed password that verifies against the stored hash; otherwise it logs a warning and returns the id untouched. An explicit caller guard (`seedBootstrapAdmin`, passwordless own account) still replaces this check."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "SignupScreen shows a closed state while self-registration is off",

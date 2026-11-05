@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "includePaid from a non-SystemAdmin is rejected",
+    "detail": "`readiness:write:run-probes` ignored the role of the caller for `includePaid`, so any TenantAdmin could trigger paid probes. A TenantAdmin that sends `includePaid: true` now gets `access_denied` and no run is started. `readiness:query:latest-summary` reports `hasPaidProbes` as false for everyone but a SystemAdmin, so the paid action on the system check screen is only offered to a SystemAdmin.",
+    "migration": "Send `includePaid: true` only from a SystemAdmin session. Apps with their own button for the paid run must show it to a SystemAdmin only; a TenantAdmin request with `includePaid` now fails instead of running the free probes."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Readiness probes judge running runs by startedAt",
+    "detail": "readiness run-probes judges a running run by startedAt (pending by requestedAt) before abandoning it; an undecryptable starter address skips the mail probe instead of crashing the run; the storage probe no longer deletes after a failed write and a cleanup error cannot replace the original failure; RUN_OUTCOME replaces the literals and the abandoned empty-state variant comes first."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Conditional secret readiness",
+    "detail": "A secret can declare requiredWhenConfigSet (qualified config key name) and readiness:query:status then counts it as missing only while that key is non-empty; the SMTP password uses it with authUser. Test coverage added for a recently started run that was requested long ago staying active in run-probes."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "system check runs are rate limited per user",
+    "detail": "`readiness:write:run-probes` sends a real test mail and logs in to every mailbox per run; the single-active-run lock only bounded concurrency. It now allows 10 runs per user and hour."
+  },
+  {
     "version": "0.402.0",
     "type": "fix",
     "title": "System-check history keeps runs of the same second in order",

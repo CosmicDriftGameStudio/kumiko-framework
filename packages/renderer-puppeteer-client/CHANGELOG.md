@@ -1,5 +1,121 @@
 # @cosmicdrift/kumiko-renderer-puppeteer-client
 
+## 0.414.0
+
+### Patch Changes
+
+- 8ed3f4f: The puppeteer service closes Chromium after an idle period.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: fix
+  title: Idle Chromium is closed after BROWSER_IDLE_TIMEOUT_MS
+  detail: The service kept Chromium running after the first render (about 480 MiB instead of 17 MiB idle). It now closes the browser after `BROWSER_IDLE_TIMEOUT_MS` (default 300000) without a render and launches it again on the next render, which pays a cold start. `/metrics` gains the gauge `puppeteer_browser_running`.
+  -->
+- 2d9f3a7: The puppeteer service image runs under tini.
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: fix
+  title: puppeteer-service image reaps Chromium child processes
+  detail: The service ran bun as PID 1, which does not reap orphaned processes, so every idle close of Chromium left zombie chromium and crashpad processes in the pod. The image now starts through tini, which reaps them and forwards SIGTERM to the service.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [4e33f01]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [258c2e0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [26c19e5]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3e8558]
+- Updated dependencies [d3474b9]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [c6379e6]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [8ed713c]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [b766f7b]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [b1379a6]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [e795fd9]
+- Updated dependencies [25cc04c]
+- Updated dependencies [762ca19]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [1f8ff6f]
+- Updated dependencies [298da75]
+- Updated dependencies [4ae2115]
+- Updated dependencies [f504e08]
+- Updated dependencies [a24a7e3]
+- Updated dependencies [525a3d3]
+- Updated dependencies [9708601]
+- Updated dependencies [3c4d034]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [fe4ebe3]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [f972e66]
+- Updated dependencies [8e8da00]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [8269315]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [99799bf]
+- Updated dependencies [1a5a9ca]
+- Updated dependencies [59c5a67]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [39d9e93]
+- Updated dependencies [dc3cde7]
+- Updated dependencies [f2ed11b]
+  - @cosmicdrift/kumiko-bundled-features@0.414.0
+  - @cosmicdrift/kumiko-framework@0.414.0
+  - @cosmicdrift/kumiko-types@0.414.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

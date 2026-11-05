@@ -1,5 +1,53 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "hanging-account test recovers without the artificial 150ms deadline",
+    "detail": "The recovery poll of `watch-supervisor-hanging-account.integration.test.ts` ran with the 150ms deadline meant for the hung fetches, so a slow CI run abandoned the real sync (status degraded, nothing imported). Recovery now uses a supervisor with the default deadline, and the test also asserts a fresh fetch per tick, so a skipped tick fails it."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "PII ciphertext limits on inbound-mail entities and the mail-account event",
+    "detail": "The `inbound-message`, `mail-thread` and `mail-account` read-model fields for from, to, cc, subject, snippet, address, bodyText and bodyHtml, and the `address`, `bodyText` and `bodyHtml` of the event payloads, capped at plaintext or rough limits although they hold PII ciphertext (envelope plus Base64). A sender, subject, snippet or 320-character address at its plaintext limit failed validation once a PII KMS was configured. Their limits now come from `piiCiphertextMaxLengthFor` in `@cosmicdrift/kumiko-framework/crypto`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "ingest-message no longer rejects mails whose encrypted fields reach the plaintext limit",
+    "detail": "The `inbound-message-received` and `mail-thread-updated` payload schemas capped from, to, cc, subject and snippet at the plaintext limits, but the payload holds PII ciphertext (envelope plus Base64), so a 4000-character subject or snippet failed with \"Validation failed\" once a PII KMS was configured. The limits now come from the new `piiCiphertextMaxLengthFor` in `@cosmicdrift/kumiko-framework/crypto`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "review round 2 inbound mail fixes (connect race, quarantine lookups, storeBody, system search index)",
+    "detail": "`connect-account` takes an advisory lock per tenant and normalized address before the duplicate check, so a double submit or the OAuth callback racing the IMAP form cannot create two accounts for one address. `quarantinedMessageIds`, `hasOpenQuarantine` and `quarantineMessage` filter on `tenantId` and use the unique index. The supervisor no longer hands the storeBody hook an original that is above the raw MIME limit. `reindexTenantsSearch` also configures the system tenant index when a searchable entity lives on the system stream, so those documents get the searchable and ranking fields instead of the wildcard fallback; with the system tenant added, `failedConfigures` can count one more tenant."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "inbound mail content reload, IMAP download budget, abandoned syncs, mail retry, consumer audit",
+    "detail": "The snippet-only content reload remembers per account where its scan stopped, so mails behind the newest 1000 anchors are reloaded over later ticks. The IMAP provider reads message sizes first, reports mails above the 50 MB limit as rejected without downloading them, and cuts each download at 100 MB (the rest follows in the next round via hasMore). A sync abandoned at its deadline stops ingesting before the next message. A mail adapter that throws ECONNREFUSED, ENOTFOUND, EAI_AGAIN, EHOSTUNREACH or ENETUNREACH is retried, since nothing was accepted. The jobs consumer-restart, -skip, -disable and -enable writes append a `jobs:event:consumer-state-changed` event (action, consumer, skipped event id, actor) that the audit log shows; locale packages gain the label `audit.log.event.consumer-state-changed`. `sendMailFromAccount` documents that it cannot be rolled back."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Shared mailbox on an address of a disconnected personal mailbox",
+    "detail": "An admin can connect a shared mailbox on an address held by a member's disconnected personal mailbox. The IMAP sent-folder copy is appended detached, and the docs say to call `sendMailFromAccount` from `beforeTransaction`. With several disconnected mailboxes on one address, the one of the wanted owner kind (shared or personal) is chosen, then the smallest id."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "forget-message permanently removes one imported mail",
+    "detail": "The new write `forget-message` archives the stream of one mail, deletes its read row, the stored original and the attachment files, and keeps the seen anchor so the intake does not import the mail again. The owner of a personal mailbox or, for a shared one, an admin may call it (agent risk high); a mail of another tenant or of someone else's personal mailbox is reported as not found. The retention sweep shares the purge logic."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "partial recipient refusal and sender-check id on reconnect",
+    "detail": "`sendMailFromAccount` returns `rejectedRecipients` when the outgoing server accepts the mail for some recipients and refuses others; before, nodemailer's partial refusal was dropped and the send counted as fully delivered. `reconnect-mailbox` only writes the sender-check id when the payload carries the field, so an admin reconnecting a mailbox through the \"My mail accounts\" form keeps the stored id; the admin form clears it by sending an empty string."
+  },
+  {
     "version": "0.412.0",
     "type": "fix",
     "title": "documents filed from a mail attachment are visible to whoever may read the mail",

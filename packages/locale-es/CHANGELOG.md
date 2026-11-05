@@ -1,5 +1,289 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.414.0
+
+### Patch Changes
+
+- 896dc21: The documents list and the documents tab offer a View action for PDFs that opens the PDF viewer in a drawer.
+  
+  <!-- kumiko-changes
+  feature: documents
+  type: improvement
+  title: documents list and tab show a View action for PDFs
+  detail: The file renderer takes `viewInDrawer: true`; list cells then show a View button for PDFs (MIME from the batched `useFileMeta`, one `/api/files/meta` request per page) that opens `PdfPreview` in a drawer. `documents:screen:list` and the documents tab set it. New export `FileViewAction` for custom columns, new i18n key `kumiko.field.file-list.view` (en, de, es, fr, it).
+  -->
+- d3e8558: Content editors share one edit/preview workbench and a preview registry. The renderer ships the shell (`EditorWorkbench`, `EditorFrame`, `EditorFooter`, rails) and a `contentPreviews` registry keyed by `pdf | mail | web | text`; managed pages, text blocks and collection entries open in it, with a Desktop/Mobil preview for pages.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: editor workbench shell and a contentPreviews registry for editor previews
+  detail: `@cosmicdrift/kumiko-renderer/web` exports `EditorWorkbench`, `EditorFrame`, `EditorInfoBar`, `EditorBody`, `EditorHeader`, `EditorFooter`, `EditorModeSwitch`, `EditorLocaleSwitch` and the rail parts `RailSection`, `RailField`, `RailRow`, `RailHint`; the shell moved out of document-designer. `ClientFeatureDefinition.contentPreviews` registers a `PreviewRenderer` per preview target (`pdf`, `mail`, `web`, `text`), merged last-wins in createKumikoApp with a warning on a collision. `PreviewPane` mounts the renderer for a target; a target without one previews as text (`TextPreviewRenderer`). `HtmlMailFrame`, `useDebouncedValue` and `dispatcherErrorTextWithFieldIssues` are exported. New locale keys `kumiko.editor.*` are in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: page mask on the editor workbench with a live preview of the unsaved body
+  detail: `managedPagesClient()` registers the page mask and the shared `web` preview renderer from template-resolver (Desktop and 375 px Mobil), so the page preview works without `textBlocksClient`; the preview query lives in template-resolver. The `page-edit` screen is now a custom screen under the same id: settings in the right rail, body editor with the lossy-Markdown warning, one submit for both (create via `managed-pages:write:page:create`, update with only the changed fields). The page list has `createScreen: "page-edit"`. The extension section `managed-pages:page-body` and `PAGE_BODY_EXTENSION_NAME` are removed; an app that replaced `page-edit` with its own screen is not affected. New keys `managed-pages:editor.*` in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: text-block and collection-entry masks on the editor workbench, the preview toggle under the field is gone
+  detail: The text-block editor and the collection-entry create form open on `EditorWorkbench` with an edit and a preview mode and the placeholder example values in the right rail. `previewTargetOfKind` and `previewTargetOfCollectionKind` map a template kind to its preview target: text-block previews as `web`, snippet and ai-prompt as `text`. New query `template-resolver:query:body-preview` (roles that may write a body: SystemAdmin, the `tenantEditable` roles and TenantAdmin) renders an unsaved body (`body`, optional `bodyFormat` markdown or document) to the HTML the public page serves, without saving; a document body the write rules reject answers with the field errors of a save. `WebPreviewRenderer` is exported from `template-resolver/web` and registered as `contentPreviews.web`; `contentPreviews.text` shows document-format entries with the example values filled in client-side (escaped, in the sandboxed mail frame, no server call), other formats stay plain text. Legal text previews work in apps that mount legal-pages without managed-pages. A text without placeholders shows no example-values section. `ContentField` and its inline Vorschau toggle are removed. New keys `template-resolver.editor.{infoEdit,infoPreview,localeLabel,rail*}` in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: mail and PDF previews register in the preview registry
+  detail: `documentDesignerClient()` registers `contentPreviews.mail` and `contentPreviews.pdf`; the mail, PDF and layout editors keep their look and mount their preview through `PreviewPane`. Their shell parts are adapters over the renderer's editor shell. Apps that mount the editors through `documentDesignerClient()` need no change; tests that render the editors without `createKumikoApp` wrap them in `ContentPreviewsProvider` with `documentDesignerClient().contentPreviews`.
+  -->
+- 92fe274: Work-queue lists and briefing dashboards: named filters as a counted select with their own sort and empty state, button and badge columns in lists, and a 12-column dashboard grid.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: work-queue lists and briefing dashboards
+  detail: projectionList and entityList take `namedFilterFacet: { display: "select" | "chips", showCounts?, label? }`; `select` shows one single-choice dropdown and `showCounts` asks the list query once per filter for its hit count (`totalCount`). `NamedListFilterRef` gets `sort: { field, dir }` (applies while the URL carries no sort of its own, wins over `defaultSort`) and `emptyState: { title, description? }` (shown instead of the generic text when that filter yields no rows and no search is set, with a reset button). `ListColumnSpec.display` gains "button" (a column with a screen link draws a small outline button, dashboard list panels only) and "badge" now also works in the RenderList tables of entityList and projectionList, not only on dashboards; a row button in those tables stays a rowAction with `display: "button"`. The named-filter counts send the list's own payload for each filter (same filters, search, static params; no sort or paging), and defaultFilters stay off while a named filter is active. `DashboardPanelSpan` gains "third" and "two-thirds" on a 12-column grid, `DashboardListPanel.showHeader: false` drops the column header row and stacks the cells of each row below the sm breakpoint (with the header, the table keeps its normal layout), text paragraphs take `emphasis: "lead"`, and `RenderEditAction`s with `display: "link"` render as link buttons. The "Why?" of a hint column or a step opens as an inverted reason box behind an info icon (`ReasonBox`), and the sticky row-actions cell of a toned row mixes the tint into its opaque surface instead of cutting it off. New boot rules `list/named-filter-facet-without-filters`, `list/named-filter-empty-state-title-empty`, `list/button-column-without-link`, `list/button-column-in-list-table` (display "button" on a column outside dashboard list panels), `list/named-filter-sort-not-listed` and `list/named-filter-sort-not-sortable` (an entityList filter sort now reports under these instead of the defaultSort rules); `dashboard/panel-span-invalid` now lists the four spans, `named-filter/projection-query-accepts-sort` rejects a projectionList filter sort when the query schema has no `sort` and `sortDirection`, and `named-filter/projection-query-accepts-count` rejects `showCounts` when the query schema takes no `limit` and `totalCount`.
+  -->
+- e1893c9: Board gaps round 4: phone variants for dashboards, lists and record details, plus plain hint sentences and an always collapsed hint reason.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: phone variants for dashboards, lists and record details
+  detail: Every dashboard panel takes `hideOnNarrow: true` and is left out below sm (640 px). `DashboardListPanel.narrow: { limit?, layout? }` shows only the first `limit` rows below sm, with subtitle and footer counting them ("3 of 11", "8 more"); `layout: "cards"` draws one card per row (tone stripe, badge column and `hint.detailField` on top, the bold hint sentence, other columns, button columns bottom right) and `layout: "line"` collapses the panel to one link "<label> · <first text> · <n> more" (i18n `kumiko.dashboard.list.line-more`) to `footerLink`. A text panel's query may answer `{ blocks, narrowBlocks? }` and the panel takes a static `narrowBlocks`; below sm they replace `blocks`. `DashboardStatGroupPanel.columns: 2 | 3 | 4` sets the column count of a `layout: "cards"` group from md up (one column below sm). `ListColumnHint.plainSentence: true` draws the hint sentence in the normal text color (bold) and leaves the tone to stripe, badge and detail. `showOnNarrowOnly: true` on a list column shows it on the cards only (it follows the md card switch, not sm). projectionDetail takes `summary.narrowField` (a shorter sentence below sm), `steps.narrowLimit` (the first n steps below sm and a "{count} more steps" toggle, i18n `kumiko.detail.steps.more.one`, `kumiko.detail.steps.more.other` and `kumiko.detail.steps.less`) and `progress.hideOnNarrow`; a chain placed `beside-steps` shows "Step k of n" (`kumiko.detail.progress.step-of`) under its title. `RecordSummaryProps.narrowText`, `RecordStepsProps.narrowLimit`, `moreLabel` and `lessLabel` carry these into custom primitives. Visible change: a hint's `reasonField` now stays behind its info toggle in the table, in the cards and in the row-open first cell (before, that cell showed the reason open); the first cell of a clickable row opens the row from the sentence only. Step and banner actions already honor `display: "link"` and `style`. New boot rules `dashboard/list-narrow-invalid`, `dashboard/list-narrow-line-without-footer-link`, `dashboard/stat-group-columns-invalid`, `dashboard/stat-group-child-hide-on-narrow`, `dashboard/text-narrow-blocks-without-blocks`, `list/narrow-only-conflict`, `projection-detail/steps-narrow-limit-invalid`; `query/output-field-missing` also checks `summary.narrowField`. The detail head now has a title block under the breadcrumb (title, status chip, grey subtitle), steps show a count and a small main action on the title row with further actions below the detail, banners get a tone icon and a small action, and card buttons are small and left-aligned. The shell header then shows the parent crumb instead of the record title (`PageHeaderProps.bodyTitle`), so the document keeps one h1. `table.summaryRow` items may omit `label` and show the value alone. `DashboardCustomPanel.span` sets the grid width like the other panels. Dashboard "As of" and relative times follow the server clock (every query answer carries the app clock `ctx.clock` as an ISO instant with whole milliseconds in the header `X-Kumiko-Now`, set before the body is read on every dispatcher route, so a fixed test or screenshot clock shows; the renderer falls back to the `Date` header, then to the device clock). A focused screen keeps the app's `headerActions` (assistant button) in the shell header; sidebar trigger and notification bell still leave. Step and banner actions take `hideIcon: true` (icon stays registered for the `screen/action-icon` rule, only not drawn). `DashboardStatPanel.labelField` and `MetricSpec.labelField` read the label from the query field (the static `label` stays the fallback); `query/output-field-missing` checks both.
+  -->
+- 1911d8d: Board gaps round 5: remaining differences between the boards and the apps, desktop and phone.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: board gaps round 5, phone and desktop details
+  detail: Dashboard "As of" is now the server date and hidden below sm (i18n `kumiko.dashboard.updated-at` is removed). A titled `stat-group` strip draws one box per stat from sm up; below sm one line "<title> · <n> <narrowLabel ?? label>" with the new `DashboardStatPanel.narrowLabel` (stats inside a group only) and `DashboardStatGroupPanel.icon`. Stat value and sub line share one baseline; metrics with `navigate` get a small arrow; `MetricSpec.hideOnNarrow`. Every panel takes `narrowOrder` (integer of at least 0, stable sort below sm). `DashboardListPanel.showTotal` is `true | { text?, narrowText? }` (`{shown}`, `{total}`); `footerLink.moreText` and `narrowMoreText` (`{count}`); `narrow: { layout: "line", field? }`; `rowLink: { screen, paramField?, icon?: "arrow" | "chevron" }` makes table rows links with a small icon at the right edge (cards get none; i18n `kumiko.dashboard.list.open-row`). `showOnNarrowOnly` is now allowed in dashboard lists; `ListColumnHint.narrowDetailField` replaces the detail on cards. Dashboard list cards below sm: badge plus one-line detail, bold sentence, `showOnNarrowOnly` columns left and a small button right, no info toggle. Entity and projection list cards: description, column picker and export are hidden below sm, a hint reason has no toggle on cards, each text column sits on its own line, row actions are small outlined buttons bottom left (also `display: "link"`). Visible change: the reason of a hint is no longer reachable on cards. `table.summaryRow` items take `column` and draw as a table row with the values under their columns. Shell below sm: app `headerActions` wrapped in `HeaderActionPinned` (new, from renderer/web) stay next to the bell; the other actions fold into the "…" menu. The record file shows "<parent> › <short title> + status chip" in the top bar from md (`header.shortTitle`, a query field, falls back to the record title); below sm the focus top bar reads "‹ <parent>" (the parent list title replaces the record title as the back label) and the breadcrumb line is gone. `header.narrowSubtitle` (query field) replaces the subtitle below sm. `RecordGuidanceAction.narrowLabel` (button text below sm), banners draw on one line (title, text, button right; title and button only below sm), `RecordStep.narrowDetail`, step subtitle hidden below sm, the main step action honors `display: "link"` and `hideIcon`, further actions sit as text links on the title row (hidden below sm). StepBar stage list gets a chain look (vertical connector, filled check when done, ring with dot for the current step in the warn tone, empty ring when open, no numbers). New boot rules `dashboard/list-narrow-field-unknown`, `dashboard/narrow-order-invalid`, `dashboard/stat-narrow-label-outside-group`, `dashboard/stat-group-icon-without-titled-strip`, `dashboard/list-row-link-invalid`, `list/narrow-detail-field-without-detail-field`; the rule that rejected `showOnNarrowOnly` in dashboards is gone. Visible change: banner icons are now "info" for every tone. Breaking: `StatStripCell.compact` is removed (public export of renderer/web). `StatCard` shows the arrow for every `link`, dashboard stats included. The `moreActions` of a step are not reachable below sm.
+  -->
+- 48cfcd4: Board gaps round 6: dashboard heads, strips and rows, list headers, filters and pagination, record file details.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: board gaps round 6, dashboard rows, list headers, filters and pagination
+  detail: Dashboard panel heads put title and description on one line from sm. A titled stat strip bundles its boxes on the left (12px gap) with the link at the right; below sm the numbers are bold in text color. Dashboard list rows from sm: a leading badge column sits inline before the title, the meta line below, 12px row padding. New list options: `rowLink: { screenField, paramsField?, icon? }` (target screen from a query field; `screen` and `screenField` exclude each other, so `DashboardListRowLink.screen` is now optional when read; no app in the workspace reads it), `DashboardListPanel.icon` (extension component for the phone line), `narrow.moreText` (`{count}`), `narrow.titleField` (card title below sm), `rowToneMarker: "bar" | "dot"`, `narrow.field` may be any query output field (not only a column) and `footerLink.narrowOnly` (no footer link from sm, but the target of the phone line). New boot rules for these fields (`footerLink.narrowOnly` needs `narrow.layout: "line"`; a query without `outputSchema` falls back to the panel columns for `narrow.*`, `rowLink.screenField` and `paramsField`; `dashboard/list-narrow-field-unknown` now checks the query output; `query/output-field-missing` covers `rowLink.screenField`, `paramsField`, `narrow.titleField`). The dashboard header date follows the app clock of the server answer. Tables: column headers in small caps from sm; a `linkScreenField` or `display: "button"` action column is right-aligned with a screen-reader-only header from sm; a `linkScreenField` column stays a text link in the table, on cards it draws as a small outline button. Select filters read "<label>: All" when empty (i18n `kumiko.list.filter.all`); below sm (not below md) select-only filters are wrapping chips under the search and the filter icon button is dropped; the card sort line below sm reads "Sorted by <option> ↓ · <n> <noun>" (i18n `kumiko.list.sort.summary`, the count in the locale's number format). Pagination from sm: "1–10 of 26 · 10 per page" left, "‹ 1 2 3 ›" with the current page marked right (i18n `kumiko.pager.goToPage`; the unused key `kumiko.pager.pageOf` is removed from the catalogs, the arrows are 28px from sm); below sm "1–10 of 26" with arrows. Record file: `hideIcon` holds for the narrow label variant of step and banner actions, the step (i) icons are hidden below sm, a step action with `display: "link"` draws as a text link (it was overridden by `style`). Serif body text (dashboard lead paragraph, record summary) is 16px below sm.
+  -->
+- e979518: Board gaps: toned rows as a left stripe, list sort options and a summary row, richer dashboard list and stat-group panels, stat tone stripes with sub lines, self-sizing hint columns, card buttons, detail progress beside the steps, and `setupTestStack({ now })`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: board gaps in lists, dashboards and record details
+  detail: A toned row (`rowTone`, `rowToneField`) now draws a 3px stripe on the left instead of filling the row. `sortOptions: [{ field, dir, label }]` on projectionList and entityList adds a "Sorted by" select to the toolbar (and the card layout, replacing the per-column entries; i18n key `kumiko.list.sort.prefix`). `table.summaryRow: { query }` (projectionList and entityList) shows a line of "label value" pairs from that query under the rows; the query gets the list's filters and search. A hint column's `width` and `minWidth` apply without `table.resizing`. Below 768 px a rowAction with `display: "button"` renders as an outline button at the bottom right of the card. `DashboardListPanel` gets `subtitle`, `showTotal` ("n of m" from the query's `total`) and `footerLink: { label, screen, namedFilter?, params? }`; `DashboardStatGroupPanel` gets `layout: "cards" | "strip"` (a labelless group with `layout: "cards"` renders the cards grid without a heading) and `link: { label, screen }`. Visible changes: a dashboard StatCard with a `tone` colours its value and draws the same left stripe (warn uses the status-warn colour), a toned table row draws its stripe as an inset shadow that also holds on a pinned first column, and the detail progress cards and banner share the summary's px-6 inset. The summary row sits in the same tfoot as the totals. A card with a tone stripe gives up 3px of left padding. Also, `setupTestStack` returns the manual clock as `stack.clock`, and an invalid `now` string fails with a clear message. `metricsPlacement.narrow` moves only the metric tiles, in both the page header and the head card. A dashboard stat tile with a `tone` draws the same left stripe, and `MetricSpec.subField` shows a second line under a metric value. A dashboard stat's `navigate` may target a custom screen (no `namedFilter`). projectionDetail takes `metricsPlacement: { narrow: "after-guidance" }` (below md the metrics follow the summary and steps) and `progress.placement: "beside-steps"` (the chains become a stacked stage list in a 4/12 column next to the steps from lg); `StepBar` gets `orientation: "stacked"`. `setupTestStack({ now })` starts the stack with a manual clock at that instant (string or Temporal.Instant); `extraContext.clock` still wins. New boot rules `list/sort-options-invalid`, `list/sort-options-default-not-listed`, `list/sort-option-not-sortable`, `list/summary-row-shape`, `list/summary-row-query-unknown`, `list/summary-row-query-accepts-list-keys`, `dashboard/panel-link-target`, `dashboard/stat-navigate-custom-with-filter`, `list/summary-row-on-related-list`, `list/summary-row-with-totals` (a table keeps summaryRow or totals, not both), `projection-detail/progress-beside-steps-without-steps`; `list-table/column-width-without-resizing` no longer applies to hint columns; `query/output-field-missing` also checks `MetricSpec.subField`.
+  -->
+- f47a9aa: Lists and record screens get guidance building blocks: row tint, a "to do" hint column, and breadcrumb, summary, banner and steps blocks on projectionDetail. The dashboard list panel, text panel and stat tile get matching options.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: row tone, hint column and record guidance blocks
+  detail: entityList and projectionList take `rowToneField` (row tint from a tone field). A column takes `hint: { detailField?, toneField?, reasonField?, emptyLabel? }` for a sentence cell with detail line, tone and a "Why?" toggle (shown open when the cell sits inside a row-open button), plus `linkParamsField` next to `linkScreenField`. projectionDetail takes `breadcrumb`, `summary`, `banner` and `steps`, each reading a field of the query row; `banner.actions` and `steps.actions` are evaluated against the notice or step like list rows. Dashboard list panels accept `rowToneField`, `hint`, `linkScreenField` and `linkParamsField`, text panels accept a `query` (static `blocks` stay as fallback), and `navigate.params` on stat panels. New optional web primitives `RecordBreadcrumb`, `RecordSummary`, `RecordSteps` (fallbacks from the core primitives), new i18n keys `kumiko.list.hint.empty|reason` and `kumiko.detail.steps.title|empty|reason`, `kumiko.detail.breadcrumb` (en, de, es, fr, it), new boot rules `list/hint-column-renderer`, `list/hint-column-display`, `list/hint-column-link`, `list/link-params-without-screen-field`, `list/guidance-field-empty`, `projection-detail/guidance-field-empty`, `projection-detail/guidance-action-show-on-tabs`, `dashboard/stat-navigate-params-invalid`.
+  -->
+- 2ac9914: Web apps can be installed as a PWA and keep their shell offline through one `pwa` option on `runProdApp` and the dev server.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: pwa option: web manifest, own service worker, one-time install hint
+  detail: `runProdApp`, `runDevApp` and `createKumikoServer` take `pwa: { name, shortName, themeColor, backgroundColor, icons: [{ src, sizes, type?, purpose? }] }` (type `PwaOptions` from `@cosmicdrift/kumiko-server-runtime/pwa`); pass it to both servers. Icon `src` must be a same-origin path, otherwise the boot fails; in production `pwa` needs `staticDir`. The server answers `GET /manifest.webmanifest` (`application/manifest+json`) and a generated `GET /sw.js` (`no-cache`), both ahead of app routes and files, and adds manifest link, theme-color, Apple home-screen tags, apple-touch-icon and `<meta name="kumiko-pwa-sw">` to every HTML shell. The worker precaches `/`, manifest, icons and the build's bundles under a cache name derived from build id, bundles and options, serves `/assets/*` cache-first, other shell files network-first, navigations network-first with the cached shell only when offline, and never handles `/api/`, `/sse/`, `/auth/`, SSE, non-GET or cross-origin requests; activate drops older `kumiko-pwa-` caches. The web client registers the worker only when the meta is present and shows a dismissible one-time install hint (iOS: Share then Add to Home Screen; elsewhere the deferred `beforeinstallprompt`), never when running standalone. New i18n keys `kumiko.pwa.install-hint`, `kumiko.pwa.install-hint-ios`, `kumiko.pwa.install`, `kumiko.pwa.dismiss` in en, de, es, fr, it. Without `pwa` nothing changes and existing service workers stay registered. `/manifest.json` remains the build's asset map. Recipe: `samples/recipes/pwa-shell`.
+  -->
+- f385601: Review round 2, engine misc: wire-name collisions are checked only for events released through PAT scopes, XLSX export is rate limited, isolated e2e specs keep their project's settings, the unsubscribe page shows the uploaded logo, mail and PDF templates reject relative links, api-docs reports missing title and field-label translations, and documents are created by admin roles only by default.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: review round 2 engine fixes (wire names, export rate limit, isolated e2e, mail logo, relative links, api-docs, documents)
+  detail: Two unreleased webhook events with the same default wire name no longer fail boot; `personal-access-tokens/released-wire-name-collision` rejects it only when both are released through PAT scopes. `createExportRoutes` takes an optional rate limit resolver (60 per minute per user). `isolatedSpecs` builds one serial twin per project with its own `use`, and rejects projects with their own `testMatch`. The unsubscribe page chrome inlines the uploaded branding logo as a raster data URI. Mail and PDF template bodies with a relative link are rejected on save (`relative_link_without_base`); snippets and managed pages keep them. api-docs reports `titleTranslationMissing` and `fieldLabelMissing` per non-en locale (field labels only when another locale has one). `documents:write:filed-document:create` defaults to the admin roles when no `access` option is given.
+  -->
+- 1f8ff6f: IMAP mailbox connect and send: cross-tenant limit per target host, clearer send failures, one fetch-and-parse path, accurate TLS texts.
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: fix
+  title: IMAP connect limited per target host, send failures classified correctly, watch and poll share one fetch path
+  detail: The connect, connect-my and reconnect checks now also count per target host and per host plus user across all tenants (200 and 20 per 10 minutes), so many tenants cannot probe one foreign mail server. Sending reports "not set up" when the credential document is missing or unreadable, and for a failed certificate check or a blocked host, instead of a rejected password or a retryable outage. Poll, watch and content refetch fetch and parse mails through one function. The TLS failure text no longer mentions a TLS setting the form does not have, and the SMTP port hint states that 465 means SSL/TLS and every other port STARTTLS. attach-message-content fails instead of treating a stream without a readable received event as a shared mailbox.
+  -->
+- 4ae2115: Inbound mail and delivery hardening: content reload scans past the newest 1000 mails, IMAP downloads are cut at a byte budget, an abandoned sync stops ingesting, connection-refused mail sends are retried, and operator transitions of event consumers leave an audit event.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: inbound mail content reload, IMAP download budget, abandoned syncs, mail retry, consumer audit
+  detail: The snippet-only content reload remembers per account where its scan stopped, so mails behind the newest 1000 anchors are reloaded over later ticks. The IMAP provider reads message sizes first, reports mails above the 50 MB limit as rejected without downloading them, and cuts each download at 100 MB (the rest follows in the next round via hasMore). A sync abandoned at its deadline stops ingesting before the next message. A mail adapter that throws ECONNREFUSED, ENOTFOUND, EAI_AGAIN, EHOSTUNREACH or ENETUNREACH is retried, since nothing was accepted. The jobs consumer-restart, -skip, -disable and -enable writes append a `jobs:event:consumer-state-changed` event (action, consumer, skipped event id, actor) that the audit log shows; locale packages gain the label `audit.log.event.consumer-state-changed`. `sendMailFromAccount` documents that it cannot be rolled back.
+  -->
+- 9708601: Review round 3 for misc fixes: the S3 production endpoint rule follows the booted env instead of process.env, the S3 env reader uses the shared required-env helper, public handlers declare only the anonymous role, the embedded-list limit range reads grammatically in it, es and fr, and boot-rule tables share one test helper.
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: breaking
+  title: S3 endpoint rule from the booted env
+  detail: The https-only rule for remote S3 endpoints in production is no longer a field refinement that read the global process.env. isAcceptableS3Endpoint(value, isProduction) is applied against the env being booted: the endpoint variables carry it as an env rule (parseEnv and the boot dry run check it with the booted env record), runProdApp's fileStorage resolution applies it, and parseS3EnvConfig and createS3ProviderFromEnv take an optional env record (default process.env) and refuse a remote http endpoint when it says NODE_ENV=production. s3EndpointSchema now only validates the URL shape. createS3ProviderFromEnv reports a missing variable through requiredEnvFor (message "[S3 file provider] required env var X is missing or empty" instead of "missing_env: ...").
+  migration: Tests that matched the old "missing_env:" message match the requiredEnvFor message; code that parsed s3EndpointSchema alone to enforce the production https rule uses isAcceptableS3Endpoint(value, isProduction) or the env rule through parseEnv.
+  -->
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: fix
+  title: Public handlers declare only the anonymous role
+  detail: Handlers declaring access.anySignedIn next to the anonymous role list only anonymous in roles (the dropped signed-in roles never had an effect); the SUBMIT_ROLES constant of helpdesk is removed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Public handlers declare only the anonymous role
+  detail: Handlers declaring access.anySignedIn next to the anonymous role list only anonymous in roles (the dropped signed-in roles never had an effect); the SUBMIT_ROLES constant of waitlist is removed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-it
+  type: fix
+  title: Embedded-list limit range wording
+  detail: The embedded-list limit-range text reads "Limite da {min} a {max}".
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-es
+  type: fix
+  title: Embedded-list limit range wording
+  detail: The embedded-list limit-range text reads "Límite de {min} a {max}".
+  -->
+  
+  <!-- kumiko-changes
+  feature: locale-fr
+  type: fix
+  title: Embedded-list limit range wording
+  detail: The embedded-list limit-range text reads "Limite de {min} à {max}".
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot-rule table test helper, env field rules
+  detail: @cosmicdrift/kumiko-framework/internal/testing exports bootRuleTableViolations for boot rule table tests (it returns the violations). An env field can carry a rule through .meta({ kumiko: { envRule } }) that sees the whole env being booted; parseEnv and the boot dry run apply it.
+  -->
+- 61b460a: Personal IMAP mailboxes only connect the caller's own address, locked named-filter chips are hidden, orphaned notification templates are removed at seed time, and a single imported mail can be forgotten.
+  
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: breaking
+  title: A personal password mailbox only connects the caller's own account address
+  detail: `connect-my-mailbox` reads the email of the session user server-side and compares it case-insensitively with the submitted address before any login attempt. A different address is refused with `personal_address_not_own` (i18n `inboundMail.accounts.errors.personalAddressNotOwn`); nothing is created and the mail server is not contacted. The OAuth path needs no extra rule, its callback already binds the mailbox to the provider-authenticated account. The IMAP feature now reads the user through the user feature, which a stack must mount.
+  migration: |
+    Members who connected a personal mailbox with an address other than their account email must have an admin connect it as a shared mailbox instead. Stacks that mount `inbound-provider-imap` need the user feature.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Named-filter chips and dashboard tiles hide filters the session roles may not use
+  detail: `NamedListFilterRef` gains the optional `roles`, set only by the framework from the access rule of the entity's named filter when the client schema is built (open and signed-in-only filters carry none). The list chip row skips chips whose roles do not overlap the session roles, and a dashboard stat tile whose `navigate.namedFilter` targets such a filter is not rendered and sends no count query. Refs of projection-list screens carry no roles because their entity is unknown to the schema build.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Seeding removes system templates of notifications that no longer exist
+  detail: `seedNotificationTemplates` deletes, through the event-based delete write, the system mail templates `<feature>:notify:<name>` whose feature is mounted but whose notification is gone, and those stored under a `renamedFrom` name. Tenant overrides of such slugs are kept and reported once per slug with a warning (slug and count only). Templates of features that are not mounted stay untouched.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: A template test mail is logged as a delivery attempt
+  detail: `send-test` now writes one delivery attempt per test mail (notification type `template-resolver:test-mail`, channel `email`, the caller as recipient, status and error code of the send, address masked like every attempt), also when the send fails, so test mails show up in the delivery log. The attempt is written on the outside-transaction connection through the delivery attempt log, which the delivery feature now exports as `logAttempt`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: forget-message permanently removes one imported mail
+  detail: The new write `forget-message` archives the stream of one mail, deletes its read row, the stored original and the attachment files, and keeps the seen anchor so the intake does not import the mail again. The owner of a personal mailbox or, for a shared one, an admin may call it (agent risk high); a mail of another tenant or of someone else's personal mailbox is reported as not found. The retention sweep shares the purge logic.
+  -->
+  
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Logout navigates once and no longer races a login redirect
+  detail: In the browser `logout()` leaves the session state untouched and either assigns `postLogoutUrl` or reloads the page. Before, the reload path first flipped the state to unauthenticated, which let an `AuthGate` with `loginUrl` start its own redirect against the reload (aborted navigation, flaky e2e). Without `window` (native, SSR) the state is still set to unauthenticated.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [b766f7b]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [b1379a6]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [25cc04c]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [298da75]
+- Updated dependencies [f504e08]
+- Updated dependencies [9708601]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [dc3cde7]
+  - @cosmicdrift/kumiko-framework@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

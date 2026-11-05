@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "New job-only query opted-in-user-ids",
+    "detail": "The new query `delivery:query:opted-in-user-ids` (`{ notificationType, channel }`, answers `{ userIds }`) is open to system users only and lists, sorted and unique, the users of the caller's tenant whose preference row for exactly that notification type and channel is enabled. A job that sends an opt-in notification such as a daily digest uses it to address only the members who ordered it. Rows stored under a former name (`renamedFrom`) count under the current name; an exact row wins over a former-name row, as in `delivery:query:preferences`, and \"*\" wildcard rows never count as opt-in."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Delivery attempts remember the notify idempotencyKey; new attempts-by-keys query",

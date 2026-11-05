@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Billing webhooks are accepted only for checkouts the server opened",
+    "detail": "A tenant member could replay the tenant binding of their own checkout and open checkouts of their own at the provider, which skipped the consent step, the oneOffPriceIds allowlist, the role checks and billingLive. `createCheckoutSession` of a provider plugin now returns `{ url, providerCheckoutId }`, the new SystemAdmin handler `billing-foundation:write:record-checkout-opened` records that id in a checkout ledger on the tenant's subscription or payment stream, and `process-event` and `process-payment-event` ignore (HTTP 200 with `ignored: true`) any event whose checkout is not in the ledger or whose price does not match the ledgered price. A created subscription needs a ledgered checkout for its tier; later events of that subscription are admitted by the subscription itself. The consent of a plan switch comes from the newest unconsumed recorded checkout consent instead of a `consentId` in the provider payload, so `SubscriptionEvent.consentId` and the `consentId` in provider metadata are gone and `SubscriptionEvent` and `PaymentEvent` may carry `providerCheckoutId`. A non-created subscription event for a tenant without any subscription answers a retryable 503 (`subscription_event_redeliver`) instead of 200, so an `updated` that beats its `created` is redelivered by the provider; an event of another subscription than the held one stays a 200 ignore. `SubscriptionProviderPlugin` gains the optional `shouldRedeliverIgnoredEvent`, asked when an event is ignored as `checkout_not_in_ledger`; true makes the route answer 503.",
+    "migration": "Custom subscription provider plugins: return `{ url, providerCheckoutId }` from `createCheckoutSession`, put the id of the provider checkout (Stripe session, Mollie first payment, Paddle transaction) on `SubscriptionEvent.providerCheckoutId` and `PaymentEvent.providerCheckoutId` for the created and payment events, and stop reading or writing a `consentId` in provider metadata or webhook payloads. Checkouts opened before the upgrade have no ledger entry: Paddle ones are taken over by the new job (see subscription-paddle), Stripe and Mollie ones are ignored by the webhook, so let open sessions finish or expire before upgrading."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "providerTexts take a refund link per provider",
+    "detail": "`consumerProtection.providerTexts[provider].refundLink` (one link, or one per consent locale) replaces `legalLinks.refund` for that provider; a provider without it falls back to `legalLinks.refund`. It is validated like `legalLinks`, shown next to the other links while that provider is selected in the checkout dialog, and with `documentsAcknowledgement` it selects the text variant and the consent text version of that provider. `billing-plans` lists the override under `providers[].consumerProtection`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "PII ciphertext limits on the provider ids of the billing events",
+    "detail": "`providerCustomerId` and `providerSubscriptionId` of the subscription and payment event payloads hold PII ciphertext of an id of up to 200 characters; their limit of 1000 was a rough guess and now comes from `piiCiphertextMaxLengthFor` in `@cosmicdrift/kumiko-framework/crypto`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Provider cancel and resume in contract termination time out",
+    "detail": "The provider cancel (record) and resume (revoke) calls run while the tenant's advisory lock is held and are now bounded to 20 seconds. A hanging provider is reported like any provider error (operator notice provider_error or revocation_resume_failed) instead of pinning the transaction, its pool connection and the public withdrawal requests. subscription-paddle and subscription-stripe now share one isBillingLive check with assertBillingLive."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Pending in-app plan switch blocks a second one",
+    "detail": "A second in-app plan switch is refused until the provider's webhook confirmed the first one (30 minute window)."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "The legacy rawPayload header is removed from subscription and invoice events at boot",
+    "detail": "Earlier billing events carried the provider webhook body in the event header `rawPayload`, outside the PII-encrypted payload. The new boot job `billing-foundation:job:scrub-raw-payload-headers` (`runOnBoot`, idempotent) removes that header from the subscription created/updated/canceled and invoice paid/payment-failed events via `scrubEventHeaderKeys`; events without it are untouched and a second run changes nothing. The job declares an `escapeHatch` because the scrub spans every tenant. Framework: `scrubEventHeaderKeys` accepts any `DbRunner`."
+  },
+  {
     "version": "0.405.0",
     "type": "improvement",
     "title": "Provider helpers shared through billing-foundation",

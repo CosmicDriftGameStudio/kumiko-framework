@@ -1,5 +1,222 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "calendar uses the app locale and a non-overlapping header, interactive controls get a pointer cursor",
+    "detail": "`CalendarDayPicker` takes month and weekday names and the week start (de starts on Monday) from the renderer locale (de, en, es, fr, it; other languages fall back to en-US). Prev/next buttons sit beside the dropdowns via `navLayout=\"around\"` instead of absolute positioning, and the chevrons use `fill-current` with token colors. A base rule in `styles.css` sets `cursor: pointer` on enabled `button`, `[role=button]`, `[role=tab]` and `[role=menuitem]`, because Tailwind v4 preflight resets it to default."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "List cards lead with the hint sentence",
+    "detail": "`cardColumnRoles` returns a new role `lead`: the first text column with a `hint` that is neither title, status nor `hideOnNarrow`. It no longer counts as a meta column. Below 768 px the card shows the lead above the heading with the table's hint cell (sentence, detail line, \"Why?\"), only when the value is not empty; `rowToneField` still tints the card. The card order is now lead, title with status, up to three values, then the row action. Recipe: `samples/recipes/record-detail-layout`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Cards keep their cell links tappable and focused screens show the shell's topbar actions on phones",
+    "detail": "A cell link on a card with a row opener sat inside the opener button and was rendered as plain text. The MobileTopBar of a focused screen only received the overflow menu, so the shell's topbarActions were missing on phones."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Required fields with an entity default no longer block create forms",
+    "detail": "The field-derived required check added for `RenderEdit` flagged an empty required field in create mode even when the entity declares a `default`, which the server applies on insert. Create mode now skips the presence check for such fields; update mode is unchanged."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "editor workbench shell and a contentPreviews registry for editor previews",
+    "detail": "`@cosmicdrift/kumiko-renderer/web` exports `EditorWorkbench`, `EditorFrame`, `EditorInfoBar`, `EditorBody`, `EditorHeader`, `EditorFooter`, `EditorModeSwitch`, `EditorLocaleSwitch` and the rail parts `RailSection`, `RailField`, `RailRow`, `RailHint`; the shell moved out of document-designer. `ClientFeatureDefinition.contentPreviews` registers a `PreviewRenderer` per preview target (`pdf`, `mail`, `web`, `text`), merged last-wins in createKumikoApp with a warning on a collision. `PreviewPane` mounts the renderer for a target; a target without one previews as text (`TextPreviewRenderer`). `HtmlMailFrame`, `useDebouncedValue` and `dispatcherErrorTextWithFieldIssues` are exported. New locale keys `kumiko.editor.*` are in all locale packages."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "useFileMeta is public",
+    "detail": "`useFileMeta(fileId)` returns the file name and MIME type of a file. Lookups of all cells in one render are batched into one `GET /api/files/meta` request and cached for the session, so apps can decide per row (for example \"is PDF\") without their own per-row request. New exports: `useFileMeta`, type `FileMeta`, and `FileViewAction` (a \"view\" button that opens a PDF in a drawer)."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "work-queue lists and briefing dashboards",
+    "detail": "projectionList and entityList take `namedFilterFacet: { display: \"select\" | \"chips\", showCounts?, label? }`; `select` shows one single-choice dropdown and `showCounts` asks the list query once per filter for its hit count (`totalCount`). `NamedListFilterRef` gets `sort: { field, dir }` (applies while the URL carries no sort of its own, wins over `defaultSort`) and `emptyState: { title, description? }` (shown instead of the generic text when that filter yields no rows and no search is set, with a reset button). `ListColumnSpec.display` gains \"button\" (a column with a screen link draws a small outline button, dashboard list panels only) and \"badge\" now also works in the RenderList tables of entityList and projectionList, not only on dashboards; a row button in those tables stays a rowAction with `display: \"button\"`. The named-filter counts send the list's own payload for each filter (same filters, search, static params; no sort or paging), and defaultFilters stay off while a named filter is active. `DashboardPanelSpan` gains \"third\" and \"two-thirds\" on a 12-column grid, `DashboardListPanel.showHeader: false` drops the column header row and stacks the cells of each row below the sm breakpoint (with the header, the table keeps its normal layout), text paragraphs take `emphasis: \"lead\"`, and `RenderEditAction`s with `display: \"link\"` render as link buttons. The \"Why?\" of a hint column or a step opens as an inverted reason box behind an info icon (`ReasonBox`), and the sticky row-actions cell of a toned row mixes the tint into its opaque surface instead of cutting it off. New boot rules `list/named-filter-facet-without-filters`, `list/named-filter-empty-state-title-empty`, `list/button-column-without-link`, `list/button-column-in-list-table` (display \"button\" on a column outside dashboard list panels), `list/named-filter-sort-not-listed` and `list/named-filter-sort-not-sortable` (an entityList filter sort now reports under these instead of the defaultSort rules); `dashboard/panel-span-invalid` now lists the four spans, `named-filter/projection-query-accepts-sort` rejects a projectionList filter sort when the query schema has no `sort` and `sortDirection`, and `named-filter/projection-query-accepts-count` rejects `showCounts` when the query schema takes no `limit` and `totalCount`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "board gaps round 10, narrowFacets pills below sm",
+    "detail": "`narrowFacets: \"pills\"` on `EntityListScreenDefinition` and `ProjectionListScreenDefinition`: below sm the select facets (including the namedFilter facet) render as rounded pill triggers with a stronger border; from sm up and without the option nothing changes. Boot rule `list/narrow-facets-invalid` for any other value. The record-detail-layout recipe's orders list uses it."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "phone variants for dashboards, lists and record details",
+    "detail": "Every dashboard panel takes `hideOnNarrow: true` and is left out below sm (640 px). `DashboardListPanel.narrow: { limit?, layout? }` shows only the first `limit` rows below sm, with subtitle and footer counting them (\"3 of 11\", \"8 more\"); `layout: \"cards\"` draws one card per row (tone stripe, badge column and `hint.detailField` on top, the bold hint sentence, other columns, button columns bottom right) and `layout: \"line\"` collapses the panel to one link \"<label> · <first text> · <n> more\" (i18n `kumiko.dashboard.list.line-more`) to `footerLink`. A text panel's query may answer `{ blocks, narrowBlocks? }` and the panel takes a static `narrowBlocks`; below sm they replace `blocks`. `DashboardStatGroupPanel.columns: 2 | 3 | 4` sets the column count of a `layout: \"cards\"` group from md up (one column below sm). `ListColumnHint.plainSentence: true` draws the hint sentence in the normal text color (bold) and leaves the tone to stripe, badge and detail. `showOnNarrowOnly: true` on a list column shows it on the cards only (it follows the md card switch, not sm). projectionDetail takes `summary.narrowField` (a shorter sentence below sm), `steps.narrowLimit` (the first n steps below sm and a \"{count} more steps\" toggle, i18n `kumiko.detail.steps.more.one`, `kumiko.detail.steps.more.other` and `kumiko.detail.steps.less`) and `progress.hideOnNarrow`; a chain placed `beside-steps` shows \"Step k of n\" (`kumiko.detail.progress.step-of`) under its title. `RecordSummaryProps.narrowText`, `RecordStepsProps.narrowLimit`, `moreLabel` and `lessLabel` carry these into custom primitives. Visible change: a hint's `reasonField` now stays behind its info toggle in the table, in the cards and in the row-open first cell (before, that cell showed the reason open); the first cell of a clickable row opens the row from the sentence only. Step and banner actions already honor `display: \"link\"` and `style`. New boot rules `dashboard/list-narrow-invalid`, `dashboard/list-narrow-line-without-footer-link`, `dashboard/stat-group-columns-invalid`, `dashboard/stat-group-child-hide-on-narrow`, `dashboard/text-narrow-blocks-without-blocks`, `list/narrow-only-conflict`, `projection-detail/steps-narrow-limit-invalid`; `query/output-field-missing` also checks `summary.narrowField`. The detail head now has a title block under the breadcrumb (title, status chip, grey subtitle), steps show a count and a small main action on the title row with further actions below the detail, banners get a tone icon and a small action, and card buttons are small and left-aligned. The shell header then shows the parent crumb instead of the record title (`PageHeaderProps.bodyTitle`), so the document keeps one h1. `table.summaryRow` items may omit `label` and show the value alone. `DashboardCustomPanel.span` sets the grid width like the other panels. Dashboard \"As of\" and relative times follow the server clock (every query answer carries the app clock `ctx.clock` as an ISO instant with whole milliseconds in the header `X-Kumiko-Now`, set before the body is read on every dispatcher route, so a fixed test or screenshot clock shows; the renderer falls back to the `Date` header, then to the device clock). A focused screen keeps the app's `headerActions` (assistant button) in the shell header; sidebar trigger and notification bell still leave. Step and banner actions take `hideIcon: true` (icon stays registered for the `screen/action-icon` rule, only not drawn). `DashboardStatPanel.labelField` and `MetricSpec.labelField` read the label from the query field (the static `label` stays the fallback); `query/output-field-missing` checks both."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "board gaps round 5, phone and desktop details",
+    "detail": "Dashboard \"As of\" is now the server date and hidden below sm (i18n `kumiko.dashboard.updated-at` is removed). A titled `stat-group` strip draws one box per stat from sm up; below sm one line \"<title> · <n> <narrowLabel ?? label>\" with the new `DashboardStatPanel.narrowLabel` (stats inside a group only) and `DashboardStatGroupPanel.icon`. Stat value and sub line share one baseline; metrics with `navigate` get a small arrow; `MetricSpec.hideOnNarrow`. Every panel takes `narrowOrder` (integer of at least 0, stable sort below sm). `DashboardListPanel.showTotal` is `true | { text?, narrowText? }` (`{shown}`, `{total}`); `footerLink.moreText` and `narrowMoreText` (`{count}`); `narrow: { layout: \"line\", field? }`; `rowLink: { screen, paramField?, icon?: \"arrow\" | \"chevron\" }` makes table rows links with a small icon at the right edge (cards get none; i18n `kumiko.dashboard.list.open-row`). `showOnNarrowOnly` is now allowed in dashboard lists; `ListColumnHint.narrowDetailField` replaces the detail on cards. Dashboard list cards below sm: badge plus one-line detail, bold sentence, `showOnNarrowOnly` columns left and a small button right, no info toggle. Entity and projection list cards: description, column picker and export are hidden below sm, a hint reason has no toggle on cards, each text column sits on its own line, row actions are small outlined buttons bottom left (also `display: \"link\"`). Visible change: the reason of a hint is no longer reachable on cards. `table.summaryRow` items take `column` and draw as a table row with the values under their columns. Shell below sm: app `headerActions` wrapped in `HeaderActionPinned` (new, from renderer/web) stay next to the bell; the other actions fold into the \"…\" menu. The record file shows \"<parent> › <short title> + status chip\" in the top bar from md (`header.shortTitle`, a query field, falls back to the record title); below sm the focus top bar reads \"‹ <parent>\" (the parent list title replaces the record title as the back label) and the breadcrumb line is gone. `header.narrowSubtitle` (query field) replaces the subtitle below sm. `RecordGuidanceAction.narrowLabel` (button text below sm), banners draw on one line (title, text, button right; title and button only below sm), `RecordStep.narrowDetail`, step subtitle hidden below sm, the main step action honors `display: \"link\"` and `hideIcon`, further actions sit as text links on the title row (hidden below sm). StepBar stage list gets a chain look (vertical connector, filled check when done, ring with dot for the current step in the warn tone, empty ring when open, no numbers). New boot rules `dashboard/list-narrow-field-unknown`, `dashboard/narrow-order-invalid`, `dashboard/stat-narrow-label-outside-group`, `dashboard/stat-group-icon-without-titled-strip`, `dashboard/list-row-link-invalid`, `list/narrow-detail-field-without-detail-field`; the rule that rejected `showOnNarrowOnly` in dashboards is gone. Visible change: banner icons are now \"info\" for every tone. Breaking: `StatStripCell.compact` is removed (public export of renderer/web). `StatCard` shows the arrow for every `link`, dashboard stats included. The `moreActions` of a step are not reachable below sm."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "board gaps round 6, dashboard rows, list headers, filters and pagination",
+    "detail": "Dashboard panel heads put title and description on one line from sm. A titled stat strip bundles its boxes on the left (12px gap) with the link at the right; below sm the numbers are bold in text color. Dashboard list rows from sm: a leading badge column sits inline before the title, the meta line below, 12px row padding. New list options: `rowLink: { screenField, paramsField?, icon? }` (target screen from a query field; `screen` and `screenField` exclude each other, so `DashboardListRowLink.screen` is now optional when read; no app in the workspace reads it), `DashboardListPanel.icon` (extension component for the phone line), `narrow.moreText` (`{count}`), `narrow.titleField` (card title below sm), `rowToneMarker: \"bar\" | \"dot\"`, `narrow.field` may be any query output field (not only a column) and `footerLink.narrowOnly` (no footer link from sm, but the target of the phone line). New boot rules for these fields (`footerLink.narrowOnly` needs `narrow.layout: \"line\"`; a query without `outputSchema` falls back to the panel columns for `narrow.*`, `rowLink.screenField` and `paramsField`; `dashboard/list-narrow-field-unknown` now checks the query output; `query/output-field-missing` covers `rowLink.screenField`, `paramsField`, `narrow.titleField`). The dashboard header date follows the app clock of the server answer. Tables: column headers in small caps from sm; a `linkScreenField` or `display: \"button\"` action column is right-aligned with a screen-reader-only header from sm; a `linkScreenField` column stays a text link in the table, on cards it draws as a small outline button. Select filters read \"<label>: All\" when empty (i18n `kumiko.list.filter.all`); below sm (not below md) select-only filters are wrapping chips under the search and the filter icon button is dropped; the card sort line below sm reads \"Sorted by <option> ↓ · <n> <noun>\" (i18n `kumiko.list.sort.summary`, the count in the locale's number format). Pagination from sm: \"1–10 of 26 · 10 per page\" left, \"‹ 1 2 3 ›\" with the current page marked right (i18n `kumiko.pager.goToPage`; the unused key `kumiko.pager.pageOf` is removed from the catalogs, the arrows are 28px from sm); below sm \"1–10 of 26\" with arrows. Record file: `hideIcon` holds for the narrow label variant of step and banner actions, the step (i) icons are hidden below sm, a step action with `display: \"link\"` draws as a text link (it was overridden by `style`). Serif body text (dashboard lead paragraph, record summary) is 16px below sm."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "board gaps round 7, reason box, toolbar options, compact steps",
+    "detail": "Hint reason box: `ListColumnHint.reasonOpenField` (boolean row field) opens the `reasonField` text from sm as a dark box under the row across the full row width (the (i) stays and closes it; cards below sm keep the toggle), `ListColumnHint.reasonTitleField` adds a bold lead-in; `RecordStep.whyOpen` and `RecordStep.whyTitle` do the same under a step. The box uses the sidebar theme tokens, 12.5px text, an arrow at the top left; the opened toggle uses the same look. Boot rule `list/reason-option-without-reason-field`; the new fields are checked by `query/output-field-missing`. Stat-group: cards layout puts title and description on one line from sm; `narrow: { tone }` tints the one-line phone strip of a titled strip (boot rules `dashboard/stat-group-narrow-without-titled-strip` and `dashboard/stat-group-narrow-tone-invalid`); numbers in every narrow line are plain, not bold. `rowToneMarker: \"dot\"` centers the dot on the first text line. Badge columns take `badgeDot: false` for a pill without dot. Lists: `RowActionMode` \"menu\" puts all row actions in the kebab (cards below sm draw no kebab), `EntityListScreenDefinition.createPlacement: \"toolbar\"` moves the create button to the end of the filter row from sm (boot rule `entity-list/create-placement-without-create`), `EntityListScreenDefinition.toolbarSort: true` adds a \"Sorted by\" select to the filter row from sm (boot rule `entity-list/toolbar-sort-without-sort-options`), `itemNounKey` on `ProjectionListScreenDefinition` and `EntityListScreenDefinition` sets the noun of the card sort line. The card sort line below sm has no trailing chevron, and `summaryRow` is rendered only from sm. Record steps: the count in the steps header shows only below sm; below sm steps are compact rows with a 3px tone stripe, 14px title, 12px detail, a small outline action button and 10px gaps, the \"more steps\" line has a border-colored stripe. Every list row with a `reasonField` now owns its reason state: the opened toggle stands as a full-width row under the row (one look, replaces the in-cell box), with no divider line between row and box. The box is open by default only in the table view (entity/projection lists from `md`, dashboard lists from `sm`); cards keep the plain toggle. New public props: `StatusBadge.dot` (false leaves the dot out), `DataTableProps.toolbarSort`, `RenderListProps.toolbarSort`. Stat-group cards use the shared panel head (`PanelShell`) so title and description sit on one line from sm; frame and spacing follow the other panels. Between sm and md the sort select of the toolbar replaces the card sort bar when `toolbarSort` is set; the create button of `createPlacement: \"toolbar\"` starts at md (the compact header below md keeps its \"+\"). In \"menu\" mode a phone card without a row target keeps its kebab. Serif body text (dashboard lead paragraph, record summary) is 15.5px/1.5 below sm (was 16px)."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "board gaps round 8, list card frame, toolbar actions placement, opener in the kebab",
+    "detail": "`ListTableOptions.frame: \"card\"` (entityList, projectionList and relatedList `table` block): from sm the table, summary row and pager sit in one bordered, rounded card with the pager at the card's end (toolbar and description stay above it); below sm the cards of the card layout are bordered, rounded cards with a gap and the tone stripe inside the card. Default unchanged (table frameless over the page width, pager at the page end); boot rule `list-table/frame-invalid`. `toolbarActionsPlacement: \"toolbar\"` on `EntityListScreenDefinition` and `ProjectionListScreenDefinition`: from md the `toolbarActions` end the filter row after the \"Sorted by\" select and the create button (primary actions with a plus icon) instead of standing in the page header; below md they stay in the header; boot rule `list/toolbar-actions-placement-without-actions`. `ProjectionListScreenDefinition.toolbarSort: true` now exists like on entity lists (boot rule `entity-list/toolbar-sort-without-sort-options` covers both). `rowActionMode: \"menu\"` keeps the row opener (`rowClick: true`) as an entry in the kebab, so every row has a kebab even when the opener is the only action; \"adaptive\" and \"inline\" are unchanged. New density level `relaxed` (`table.density.default`, view menu entry \"Weit\"/\"Relaxed\"): body cells get `py-3` from sm, the header row is unchanged. The record-detail-layout recipe's orders list uses `frame: \"card\"`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "board gaps round 9, projection money alignment, emptyPlaceholder, toolbar icon, dimmed to-do sentence",
+    "detail": "projectionList and relatedList columns with `valueType: \"money\"` or `\"number\"` now synthesize a real number/money field, so header and cells are right-aligned like in an entityList (before, every projection column was typed as text and stayed left). `ListColumnSpec.emptyPlaceholder: false` leaves an empty cell blank instead of drawing the em dash (boot rule `list/hint-column-empty-placeholder` rejects it together with `hint`, which owns its own empty look). `ToolbarAction.icon` (an `IconKey`) is now honored by every toolbar action builder, so a relatedList tab toolbar draws the declared icon like the main list; without it the id-derived default (create, delete, ...) still applies. A hint column whose `toneField` row value is `neutral` draws the sentence muted and not bold, like `emptyLabel`, in the table, on the phone card (no tone stripe) and in dashboard list cards; `plainSentence: true` opts out."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "board gaps in lists, dashboards and record details",
+    "detail": "A toned row (`rowTone`, `rowToneField`) now draws a 3px stripe on the left instead of filling the row. `sortOptions: [{ field, dir, label }]` on projectionList and entityList adds a \"Sorted by\" select to the toolbar (and the card layout, replacing the per-column entries; i18n key `kumiko.list.sort.prefix`). `table.summaryRow: { query }` (projectionList and entityList) shows a line of \"label value\" pairs from that query under the rows; the query gets the list's filters and search. A hint column's `width` and `minWidth` apply without `table.resizing`. Below 768 px a rowAction with `display: \"button\"` renders as an outline button at the bottom right of the card. `DashboardListPanel` gets `subtitle`, `showTotal` (\"n of m\" from the query's `total`) and `footerLink: { label, screen, namedFilter?, params? }`; `DashboardStatGroupPanel` gets `layout: \"cards\" | \"strip\"` (a labelless group with `layout: \"cards\"` renders the cards grid without a heading) and `link: { label, screen }`. Visible changes: a dashboard StatCard with a `tone` colours its value and draws the same left stripe (warn uses the status-warn colour), a toned table row draws its stripe as an inset shadow that also holds on a pinned first column, and the detail progress cards and banner share the summary's px-6 inset. The summary row sits in the same tfoot as the totals. A card with a tone stripe gives up 3px of left padding. Also, `setupTestStack` returns the manual clock as `stack.clock`, and an invalid `now` string fails with a clear message. `metricsPlacement.narrow` moves only the metric tiles, in both the page header and the head card. A dashboard stat tile with a `tone` draws the same left stripe, and `MetricSpec.subField` shows a second line under a metric value. A dashboard stat's `navigate` may target a custom screen (no `namedFilter`). projectionDetail takes `metricsPlacement: { narrow: \"after-guidance\" }` (below md the metrics follow the summary and steps) and `progress.placement: \"beside-steps\"` (the chains become a stacked stage list in a 4/12 column next to the steps from lg); `StepBar` gets `orientation: \"stacked\"`. `setupTestStack({ now })` starts the stack with a manual clock at that instant (string or Temporal.Instant); `extraContext.clock` still wins. New boot rules `list/sort-options-invalid`, `list/sort-options-default-not-listed`, `list/sort-option-not-sortable`, `list/summary-row-shape`, `list/summary-row-query-unknown`, `list/summary-row-query-accepts-list-keys`, `dashboard/panel-link-target`, `dashboard/stat-navigate-custom-with-filter`, `list/summary-row-on-related-list`, `list/summary-row-with-totals` (a table keeps summaryRow or totals, not both), `projection-detail/progress-beside-steps-without-steps`; `list-table/column-width-without-resizing` no longer applies to hint columns; `query/output-field-missing` also checks `MetricSpec.subField`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "row tone, hint column and record guidance blocks",
+    "detail": "entityList and projectionList take `rowToneField` (row tint from a tone field). A column takes `hint: { detailField?, toneField?, reasonField?, emptyLabel? }` for a sentence cell with detail line, tone and a \"Why?\" toggle (shown open when the cell sits inside a row-open button), plus `linkParamsField` next to `linkScreenField`. projectionDetail takes `breadcrumb`, `summary`, `banner` and `steps`, each reading a field of the query row; `banner.actions` and `steps.actions` are evaluated against the notice or step like list rows. Dashboard list panels accept `rowToneField`, `hint`, `linkScreenField` and `linkParamsField`, text panels accept a `query` (static `blocks` stay as fallback), and `navigate.params` on stat panels. New optional web primitives `RecordBreadcrumb`, `RecordSummary`, `RecordSteps` (fallbacks from the core primitives), new i18n keys `kumiko.list.hint.empty|reason` and `kumiko.detail.steps.title|empty|reason`, `kumiko.detail.breadcrumb` (en, de, es, fr, it), new boot rules `list/hint-column-renderer`, `list/hint-column-display`, `list/hint-column-link`, `list/link-params-without-screen-field`, `list/guidance-field-empty`, `projection-detail/guidance-field-empty`, `projection-detail/guidance-action-show-on-tabs`, `dashboard/stat-navigate-params-invalid`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "rowDecoration on entityList and projectionList, MetricSpec.toneField",
+    "detail": "entityList and projectionList take `rowDecoration: { query, params? }`. After every page answer the list calls `query` once with `{ ...params, ids }` (`ids` are the loaded row ids in row order; with infinite pagination all accumulated rows, in grouped mode the rows of the open groups) and merges the answer `{ rows: [{ id, ...fields }] }` into the rows; decoration fields win over same-named row fields, malformed entries and foreign ids are ignored. The list never waits for the decoration and shows plain rows while it loads or fails. `rowToneField`, column `hint`, `linkScreenField`/`linkParamsField`, rowAction `visible`/`params`/`payload` and entityList columns (plain text, label from `label` or the field label key) can read decoration fields. `MetricSpec.toneField` names a record field holding a SelectOptionTone that overrides `tone` (also at value 0; empty or unknown values fall back to `tone`). New boot rules `list/row-decoration-query-empty` and `list/row-decoration-ids-missing`; the decoration query must be registered (`query/not-registered`), its outputSchema fields count as known row fields, and `metrics.toneField` is checked like `summary.toneField`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "sidebar nav no longer re-expands collapsed containers on screen change",
+    "detail": "The collapsed set of `NavTree` was component state that reset whenever the shell remounted the sidebar (focus mode, mobile sheet). It is now kept in sessionStorage (`kumiko.nav.collapsed`, access wrapped in try/catch). Navigating to a screen opens the containers on its path and no other collapsed container; the search filter still opens everything temporarily and restores the stored state when cleared."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "pwa option: basePath for apps served under a path prefix",
+    "detail": "`PwaOptions` gets `basePath` (default `/`, must start and end with `/`, same-origin, no empty, `.` or `..` segment, no `?` or `#`, otherwise the boot fails). The manifest is answered at `${basePath}manifest.webmanifest` and the worker at `${basePath}sw.js` (a worker only controls its own directory), `start_url`, `scope` and `id` are the base path, the shell precache and the offline fallback use `${basePath}`, and the head tags point at the prefixed paths; `/assets/*` stays at the root and cache-first, and so do the API paths (`/api`, `/sse`, `/auth`), so the ingress must route those to the app too. Each base path gets its own cache name prefix, so apps on one origin do not delete each other's precache. The web client registers the worker with the directory of the URL in `<meta name=\"kumiko-pwa-sw\">` as scope instead of a fixed `/`. With the default base path nothing changes. `PWA_MANIFEST_PATH` and `PWA_SERVICE_WORKER_PATH` are no longer exported. Recipe: `samples/recipes/pwa-shell`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "pwa option: web manifest, own service worker, one-time install hint",
+    "detail": "`runProdApp`, `runDevApp` and `createKumikoServer` take `pwa: { name, shortName, themeColor, backgroundColor, icons: [{ src, sizes, type?, purpose? }] }` (type `PwaOptions` from `@cosmicdrift/kumiko-server-runtime/pwa`); pass it to both servers. Icon `src` must be a same-origin path, otherwise the boot fails; in production `pwa` needs `staticDir`. The server answers `GET /manifest.webmanifest` (`application/manifest+json`) and a generated `GET /sw.js` (`no-cache`), both ahead of app routes and files, and adds manifest link, theme-color, Apple home-screen tags, apple-touch-icon and `<meta name=\"kumiko-pwa-sw\">` to every HTML shell. The worker precaches `/`, manifest, icons and the build's bundles under a cache name derived from build id, bundles and options, serves `/assets/*` cache-first, other shell files network-first, navigations network-first with the cached shell only when offline, and never handles `/api/`, `/sse/`, `/auth/`, SSE, non-GET or cross-origin requests; activate drops older `kumiko-pwa-` caches. The web client registers the worker only when the meta is present and shows a dismissible one-time install hint (iOS: Share then Add to Home Screen; elsewhere the deferred `beforeinstallprompt`), never when running standalone. New i18n keys `kumiko.pwa.install-hint`, `kumiko.pwa.install-hint-ios`, `kumiko.pwa.install`, `kumiko.pwa.dismiss` in en, de, es, fr, it. Without `pwa` nothing changes and existing service workers stay registered. `/manifest.json` remains the build's asset map. Recipe: `samples/recipes/pwa-shell`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "Record progress block for projection detail screens",
+    "detail": "projectionDetail takes `progress: { field }`; the query returns `RecordProgress[]` (`title`, `steps` with `id`, `label`, `done`, optional `detail`, and `currentIndex`) in that field. Each chain renders as a step bar between the banner and the steps panel, with done steps marked and the current step as \"up next\". An empty array hides the block, and boot validation rejects an empty field name (`projection-detail/guidance-field-empty`)."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "cardRenderer removed from entityList and projectionList",
+    "detail": "`cardRenderer` was declared and passed through but never rendered; the narrow layout always drew the default card from the column roles. The field is gone from `EntityListScreenDefinition` and `ProjectionListScreenDefinition`.",
+    "migration": "Remove the field; cards follow the column roles `highlighted`, `hideOnNarrow` and `hint`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "RenderEdit validates required fields, with or without a custom schema",
+    "detail": "Required fields were only checked client-side when the form schema came from `buildFormSchema` (default entity screens). Every other `RenderEdit` treated the form as valid, and a caller `schema` replaced the field checks, so an empty required field was submitted and failed on the server without a field error. `RenderEdit` now always runs the field-derived required checks and merges their issues with those of a caller `schema`, for `controller.submit()` and `customSubmit`; hidden fields stay exempt. The `valid` flag of `onChange` includes the required fields as well, so forms such as actionForms that relied on the handler to reject an empty required field now block on the client. Select fields with an entity `default` are exempt when creating, because the server fills an empty select from the default."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "DashboardTextPanel: blocks optional, text and items accept i18n objects",
+    "migration": "Consumers that read panel.blocks or block.text as plain strings: use blocks ?? [] and check typeof text === 'string' (DashboardText is string | i18n object)."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "stale async answers, silent input loss and missing dashboard links",
+    "detail": "Notification inbox `loadMore`, presence heartbeats and related-list tab counts drop answers that a newer request or refetch superseded, and tab badges no longer show the previous record's numbers. A running upload in a draft wizard now asks before leaving. The SSE stall watchdog only arms on `open`, so a cold-start handshake is no longer aborted. A drawer redirect onto the open record of its own projectionDetail no longer navigates. Embedded-list stored references are looked up in one chunk within the list limit. Dashboard list reference cells link to the target detail screen. `StatusBadgeTone` now aliases `StatusBadgeOptionTone`; `isSessionEndedUploadError` is removed in favor of `isSessionEndedCause`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "InfinityList live refresh state is local to its effect",
+    "detail": "The disposed, in-flight and trailing flags of the live first-page refresh belong to one effect run, so a payload change or unmount no longer lets the previous run schedule another query."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "bulk selection no longer keeps hidden rows after an empty result",
+    "detail": "`useRowSelection` skipped pruning whenever the list was empty, so rows selected before a filter hit zero results reappeared selected once the filter was lifted, and hidden ids counted toward the 100-row limit. Pruning now only skips the empty gap right after a bulk run retained its failed rows, and `isFull` and the toggle limit count loaded rows only."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Banner keeps unique keys",
+    "detail": "The renderer Banner keeps unique keys for repeated identical parts. The files dropzone shows a fallback text (kumiko.field.dropzone.file-unavailable, all locales) for a file without meta instead of an endless placeholder."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "lists hold their queries while remembered params are restored",
+    "detail": "With `rememberState`, a list opened without URL params fetched once with the defaults (rows, groups, totals) before the stored params reached the URL, and showed the unfiltered list for a moment. `useRememberedListParams` now returns `restoring`, and the row and aggregate queries wait until the restored URL arrived. A file dropzone shows the file name of a value the form already held (resolved through the file meta cache) instead of the FileRef id, via the new `UploadZone` prop `labelForValue`. Clearing a stored money amount in an edit form is no longer stripped silently from the submit; the server answers it visibly. The three-column editor body keeps the DOM order left rail, page, right rail and places the rails by grid."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "fixed FloatingPanel width accounts for the right offset",
+    "detail": "The fixed placement limited the width to `100vw` minus twice the margin and ignored `rightPx`, so a panel anchored beside a sidebar (for example `right: 364px` at a 768px viewport) lost its left edge, title and header actions. The width is now `min(widthPx, calc(100vw - (rightPx + margin)))`, like the height with `bottomPx`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Named-filter chips and dashboard tiles hide filters the session roles may not use",
+    "detail": "`NamedListFilterRef` gains the optional `roles`, set only by the framework from the access rule of the entity's named filter when the client schema is built (open and signed-in-only filters carry none). The list chip row skips chips whose roles do not overlap the session roles, and a dashboard stat tile whose `navigate.namedFilter` targets such a filter is not rendered and sends no count query. Refs of projection-list screens carry no roles because their entity is unknown to the schema build."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "code input, collapsible header, column drag and overflow error polish",
+    "detail": "`CollapsibleSection` uses `min-h-9` so long titles are not clipped. `CodeInput` discards a change that would insert digits into an already full code, so no shifted code reaches `onComplete`. The column picker drag calls `onChange` only when the target index moves. Data table header cells carry `data-column-role` for width measurement instead of relying on test ids. Overflow-menu action errors render only while the action lives in the overflow menu. The list export no longer strips paging keys client-side; `sanitizeExportPayload` on the server is the only trust boundary."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "list state, reference lookup, live refresh and upload tracking races fixed",
+    "detail": "`referenceRowsByIdsPayload` caps `limit` at the server maximum so a field with more than 200 ids still resolves labels. `sanitizeStoredListState` keeps the `filter` param. `useListViewState` stores only pins and widths that differ from the schema defaults, so later schema changes still reach users who only changed density. Group page bridges remount on `resetKey`, `InfinityList` drops its trailing live refresh once its effect is disposed, and `UploadZone` accepts `trackUpload` so the dropzone tracks resize and upload together. Uniform bar controls keep `h-11` below md, embedded card attachments respect `isHiddenInRow`, and two or more promoted toolbar actions without a create button use the phone overflow menu."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "screen focus seam and user-owned sidebar state",
+    "detail": "`ScreenFocusProvider` (mounted by `DefaultAppShell` and `WorkspaceShell`), `useSetScreenFocus(focus)` and `useScreenFocus()` let a screen report `{ entityName, recordId, label, facts? }`, compared by value and cleared on unmount; the PDF template editor reports its template. `useShellFocusMode()` no longer collapses or restores the sidebar. The sidebar's open state is kept in localStorage (`kumiko.sidebar.open`) and changes only through the user's own clicks; a collapsed sidebar on a focus screen still shows the focus rail."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "Declarative focus for record screens",
+    "detail": "`focus?: boolean` on `projectionDetail` and `entityEdit` (default off). A focused screen calls `useShellFocusMode()` for the renderer: the focus rail replaces the full sidebar and the app header actions leave the shell header. Below 768 px the shell header is hidden and the screen gets a `MobileTopBar` with the record title (screen title as fallback), a back arrow to the parent list screen (same resolution as the breadcrumb, browser history without a parent) and the page-header overflow items as menu. Recipe: `samples/recipes/record-detail-layout`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Segmented control labels wrap instead of overlapping in narrow columns",
+    "detail": "Segments of the select segment control kept their longest word as minimum width and spilled into the neighbouring segment. Segments now shrink to their column (`minmax(0,1fr)`, `min-w-0`) and break long words."
+  },
+  {
     "version": "0.413.1",
     "type": "fix",
     "title": "Edit forms wait for running file uploads before submitting",

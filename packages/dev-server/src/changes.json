@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Scaffolded apps typecheck with bun check",
+    "detail": "The typecheck script of newly scaffolded apps and of the framework workspace now runs `bun check --no-script` instead of `tsc --noEmit`, which needs Bun 1.4.4 or newer. Existing apps keep their script until they change it."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Deploy Dockerfile template no longer mentions migrate-step.sh",
+    "detail": "The comment in `deploy/Dockerfile.template` named a compose-host migrate step that the scaffold does not generate. It now only names the migrate-db initContainer of the k3s deployment."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "managed check reports a bin entry that does not pass bundledLists",
+    "detail": "When `kumiko.config.ts` sets `bundledLists`, every `runProdApp`, `runDevApp` and `runWorkerApp` call in `bin/*.ts` must pass `bundledLists` too; otherwise the managed-files check reports an error instead of the app drifting silently from its config."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "subpath imports of an optional runtime external count as an import",
+    "detail": "The server bundle only detected `import \"meilisearch\"`, so an app that imported just `meilisearch/token` and did not list `meilisearch` in its dependencies shipped a `dist-server/package.json` without it and crashed in production with `Cannot find package 'meilisearch'`. Subpath imports are detected now."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "dev server boots when KUMIKO_REDIS_PREFIX is set",
+    "detail": "The SSE channel prefix defaulted to a per-boot value that differs from `KUMIKO_REDIS_PREFIX`, which `redisNamespaceFromEnv` rejects. The prefix now falls back to `KUMIKO_REDIS_PREFIX` before the per-boot default."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "scaffoldApp starter \"blank\"",

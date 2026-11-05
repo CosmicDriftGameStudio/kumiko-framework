@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "Long external calls with writes belong in transaction perCommand",
+    "detail": "A `perCommand` write handler holds no transaction or connection while an external call runs and keeps `ctx.db.outsideTransaction`, so metering and provenance bookings work there (covered by an integration test with the cap counter). The docs of `WriteHandlerTransactionMode` and `BeforeTransactionContext` say so; `beforeTransaction` keeps its read-only context."
+  },
+  {
     "version": "0.404.0",
     "type": "improvement",
     "title": "JobTrigger gains { maintenance: true }",

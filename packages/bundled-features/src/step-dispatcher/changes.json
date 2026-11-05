@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Final step-delivery attempt erases the dispatch key",
+    "detail": "A final step-delivery attempt whose outcome cannot be recorded still erases the dispatch key."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "A sweeper closes dispatch streams that never got an outcome",
+    "detail": "The daily job `step-dispatcher:job:sweep-abandoned` pages through all `step-dispatch` streams older than 24 hours that have neither a dispatched nor a failed event (a lost deliver job, a worker that died after the request was written), appends `step-dispatch.failed` with the error `dispatch abandoned without a recorded outcome` and erases the stream's PII key, so the personal data of a request nobody delivers no longer stays readable forever. Streams that already have an outcome are not swept. A late deliver job for a swept stream sends nothing. The job declares an `escapeHatch` for the cross-tenant read of open streams. Framework: `selectOpenStreamsStartedBefore` (event-store) lists open streams of one aggregate type across tenants."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "Mail steps do not retry permanent rejections or throws",

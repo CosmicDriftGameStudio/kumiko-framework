@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Mollie first payments are matched by payment id, consentId metadata is gone",
+    "detail": "`createCheckoutSession` returns the first payment's id as `providerCheckoutId`; the created event of the subscription made from that mandate payment carries it. Payment and subscription metadata no longer hold a consentId.",
+    "migration": "First payments created before the upgrade are not in the ledger and their webhook is ignored; let open mandate checkouts finish first."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "Mollie checkout carries consentId through payment and subscription metadata",
