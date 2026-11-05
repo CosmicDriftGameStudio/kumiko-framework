@@ -81,8 +81,9 @@ function rowPresentation(
 
 function toolbarPresentation(
   screen: ProjectionListScreenDefinition,
-): Pick<EntityListScreenDefinition, "toolbarActionsPlacement" | "toolbarSort"> {
+): Pick<EntityListScreenDefinition, "toolbarActionsPlacement" | "toolbarSort" | "narrowFacets"> {
   return {
+    ...(screen.narrowFacets !== undefined && { narrowFacets: screen.narrowFacets }),
     ...(screen.toolbarActionsPlacement !== undefined && {
       toolbarActionsPlacement: screen.toolbarActionsPlacement,
     }),

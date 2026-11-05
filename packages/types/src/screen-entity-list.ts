@@ -15,7 +15,7 @@ import type { ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type { EntityListExpandableRow } from "./screen-expandable-row.ts";
 import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
-import type { ListColumnPin, ListTableOptions } from "./screen-list-table.ts";
+import type { ListColumnPin, ListNarrowFacets, ListTableOptions } from "./screen-list-table.ts";
 
 // --- entityList ---
 
@@ -631,6 +631,8 @@ export type EntityListScreenDefinition = {
   readonly createPlacement?: "header" | "toolbar";
   /** From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable. */
   readonly toolbarSort?: true;
+  /** "pills": below `sm` the select facets render as rounded pill triggers with a stronger border; from `sm` up unchanged. */
+  readonly narrowFacets?: ListNarrowFacets;
   /** "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header. Below `md` they stay in the header. Default "header". Needs `toolbarActions`. */
   readonly toolbarActionsPlacement?: "header" | "toolbar";
   /** i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised). Default `<feature>:entity:<entity>:noun`. */

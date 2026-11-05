@@ -1,3 +1,4 @@
+import type { ListNarrowFacets } from "@cosmicdrift/kumiko-types/screen";
 import type { ReactNode } from "react";
 import type { RenderListProps } from "./render-list-types.ts";
 
@@ -32,11 +33,12 @@ export function tableSortPagingProps(
     | "onReachEnd"
     | "loadingMore"
     | "hasMore"
-  >,
+  > & { readonly narrowFacets?: ListNarrowFacets },
 ) {
   const { sort, onSortChange, sortOptions, toolbarSort, pager, onReachEnd, loadingMore, hasMore } =
     p;
   return {
+    ...(p.narrowFacets !== undefined && { narrowFacets: p.narrowFacets }),
     ...(sort !== undefined && { sort }),
     ...(onSortChange !== undefined && { onSortChange }),
     ...(sortOptions !== undefined && { sortOptions }),

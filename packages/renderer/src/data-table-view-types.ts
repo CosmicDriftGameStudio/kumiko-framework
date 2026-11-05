@@ -1,6 +1,7 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-types/fields";
 import type {
   ListColumnPin,
+  ListNarrowFacets,
   ListTableDensity,
   ListTableFrame,
 } from "@cosmicdrift/kumiko-types/screen";
@@ -100,6 +101,8 @@ export type DataTableTableBlock = {
   readonly compactHeader?: boolean;
   /** "card": table, summary row and pager in one bordered card from sm; bordered cards with a gap below sm. */
   readonly frame?: ListTableFrame;
+  /** "pills": below sm the select facets render as rounded pill triggers with a stronger border. */
+  readonly narrowFacets?: ListNarrowFacets;
   /** Present: the rows are grouped on the server; replaces pager and infinite scroll. */
   readonly serverGroups?: DataTableServerGroups;
   /** Present: a footer line above the totals row with the summary query's items. */

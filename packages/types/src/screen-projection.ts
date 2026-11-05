@@ -19,7 +19,7 @@ import type {
 } from "./screen-entity-list.ts";
 import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
-import type { ListTableOptions } from "./screen-list-table.ts";
+import type { ListNarrowFacets, ListTableOptions } from "./screen-list-table.ts";
 import type {
   RecordBannerSpec,
   RecordBreadcrumbSpec,
@@ -124,6 +124,8 @@ export type ProjectionListScreenDefinition = {
   readonly toolbarActionsPlacement?: "header" | "toolbar";
   /** From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable. Needs `sortOptions`. */
   readonly toolbarSort?: true;
+  /** "pills": below `sm` the select facets render as rounded pill triggers with a stronger border; from `sm` up unchanged. */
+  readonly narrowFacets?: ListNarrowFacets;
   readonly pagination?: ListPaginationMode;
   readonly pageSize?: number;
   /** Opt-in table behaviour: remembered state, reset, column picker, density. */

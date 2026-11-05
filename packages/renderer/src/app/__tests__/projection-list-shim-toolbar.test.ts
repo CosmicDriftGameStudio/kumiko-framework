@@ -20,6 +20,13 @@ describe("synthesizeProjectionScreen toolbar options", () => {
     expect(synthesized.toolbarActionsPlacement).toBe("toolbar");
   });
 
+  test("passes narrowFacets to the list screen", () => {
+    expect(synthesizeProjectionScreen({ ...base, narrowFacets: "pills" }).narrowFacets).toBe(
+      "pills",
+    );
+    expect(synthesizeProjectionScreen(base).narrowFacets).toBeUndefined();
+  });
+
   test("leaves both unset by default", () => {
     const synthesized = synthesizeProjectionScreen(base);
     expect(synthesized.toolbarSort).toBeUndefined();

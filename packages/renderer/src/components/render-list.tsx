@@ -221,6 +221,7 @@ export function RenderList(props: RenderListProps): ReactNode {
           itemNoun,
         })}
         {...tableSortPagingProps({
+          narrowFacets: screen.narrowFacets,
           sort,
           onSortChange,
           sortOptions,

@@ -105,6 +105,19 @@ describe("projection list toolbar options", () => {
   });
 });
 
+describe("narrowFacets", () => {
+  test("accepts pills and rejects other values on both list kinds", () => {
+    expect(ruleIdsOf([projectionListFeature({ narrowFacets: "pills" })])).toEqual([]);
+    expect(ruleIdsOf([entityListFeature({ narrowFacets: "pills" })])).toEqual([]);
+    expect(ruleIdsOf([projectionListFeature({ narrowFacets: "chips" })])).toContain(
+      "list/narrow-facets-invalid",
+    );
+    expect(ruleIdsOf([entityListFeature({ narrowFacets: "chips" })])).toContain(
+      "list/narrow-facets-invalid",
+    );
+  });
+});
+
 describe("entity list toolbar options", () => {
   test("toolbarActionsPlacement needs toolbarActions", () => {
     expect(ruleIdsOf([entityListFeature({ toolbarActionsPlacement: "toolbar" })])).toContain(

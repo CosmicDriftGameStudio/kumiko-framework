@@ -282,6 +282,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         { id: "ending-soon", label: "order-desk.filter.ending-soon" },
       ],
       namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
+      narrowFacets: "pills",
       table: {
         frame: "card",
         summaryRow: { query: "order-desk:query:order:summary" },

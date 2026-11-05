@@ -21,6 +21,7 @@ export function buildModelFacetCluster(m: DataTableModel): ReactNode {
     resetAll: m.resetAll,
     notice: m.notice,
     dense: m.fillsHeight,
+    pills: m.narrowFacets === "pills" && m.belowSm,
   });
 }
 
