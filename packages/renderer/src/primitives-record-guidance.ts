@@ -38,6 +38,10 @@ export type RecordStepsProps = {
     readonly narrowDetail?: string;
     readonly tone?: SelectOptionTone;
     readonly reason?: string;
+    /** With `reason`: the box stands open from `sm` up. */
+    readonly reasonOpen?: true;
+    /** Bold lead-in of the reason paragraph. */
+    readonly reasonTitle?: string;
     /** Main action: a small button on the title row. */
     readonly actions?: ReactNode;
     /** Further actions as text links on the title row, before the main action; hidden below sm. */

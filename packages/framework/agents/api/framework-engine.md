@@ -670,6 +670,9 @@ type EntityListScreenDefinition = {
   namedFilterFacet?: NamedFilterFacetOptions; // Presentation of `namedFilters` in the toolbar; needs `namedFilters`.
   emptyState?: ListEmptyStateSpec; // Replaces the default empty-list title/hint; the create button stays when the list can create.
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
+  createPlacement?: "header" | "toolbar"; // "toolbar": from `sm` up the create button ends the filter row instead of standing in the header.
+  toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
+  itemNounKey?: string; // i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
   searchable?: boolean;
   slots?: ScreenSlots;
@@ -1051,6 +1054,7 @@ type ListColumnSpec =
     minWidth?: number; // Smallest width in px the user can resize to.
     display?: ListColumnDisplay; // One of "bar" | "badge" | "datetime" | "button".
     badgeToneField?: string; // Row field naming the badge tone; only with `display: "badge"`.
+    badgeDot?: false; // `false` draws the badge pill without its leading dot; only with `display: "badge"`.
     linkScreenField?: string; // Row field holding a screen QN (`<feature>:screen:<id>`): the cell links to that screen when the row sets it and the user may open it.
     linkParamsField?: string; // Row field holding a params object for the linkScreenField target: `entityId` opens that record, the other keys become search params (e.g. actionForm prefill).
     hint?: ListColumnHint; // "To do" cell: the column's field holds a sentence, shown emphasized in the row tone; an empty value shows `emptyLabel`.
@@ -1411,6 +1415,7 @@ type ProjectionListScreenDefinition = {
   sortOptions?: ListSortOption[]; // Choices of the "Sorted by" select in the toolbar (and the narrow-width sort control) instead of one entry per column; every field must be sortable.
   emptyState?: ListEmptyStateSpec; // Replaces the default empty-list title/hint; the create button stays when the list can create.
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
+  itemNounKey?: string; // i18n key of the plural noun for the list size in the phone sort line ('{count}' pluralised, e.g. "contract"/"contracts").
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
   searchable?: boolean;
   sortable?: boolean; // Derived by buildAppSchema from the query handler's Zod schema (`sort` param present).

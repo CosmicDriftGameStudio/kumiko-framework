@@ -409,3 +409,49 @@ describe("list and detail narrow rules", () => {
     expect(ruleIdsOf([detail(0)])).toContain("projection-detail/steps-narrow-limit-invalid");
   });
 });
+
+describe("stat-group narrow tone", () => {
+  const group = { kind: "stat-group", id: "inbox", stats: [STAT, { ...STAT, id: "late" }] };
+  const strip = { ...group, label: "shop:today:inbox", layout: "strip" };
+
+  test("narrow needs a titled strip", () => {
+    expect(ruleIdsOf([dashboard([{ ...group, narrow: { tone: "accent" } }])])).toContain(
+      "dashboard/stat-group-narrow-without-titled-strip",
+    );
+    expect(ruleIdsOf([dashboard([{ ...strip, narrow: { tone: "accent" } }])])).toEqual([]);
+  });
+
+  test("an unknown tone is rejected", () => {
+    expect(ruleIdsOf([dashboard([{ ...strip, narrow: { tone: "info" } }])])).toContain(
+      "dashboard/stat-group-narrow-tone-invalid",
+    );
+  });
+});
+
+describe("reason options on dashboard and projection lists", () => {
+  const withHint = (hint: Record<string, unknown>) => ({
+    ...LIST,
+    columns: [{ field: "number", hint }],
+  });
+
+  test("a dashboard list panel needs reasonField for reasonTitleField", () => {
+    expect(ruleIdsOf([dashboard([withHint({ reasonTitleField: "number" })])])).toContain(
+      "list/reason-option-without-reason-field",
+    );
+    expect(
+      ruleIdsOf([dashboard([withHint({ reasonField: "number", reasonOpenField: "number" })])]),
+    ).not.toContain("list/reason-option-without-reason-field");
+  });
+
+  test("a projectionList needs reasonField for reasonOpenField", () => {
+    const feature = screensFeature([
+      {
+        id: "orders",
+        type: "projectionList",
+        query: "shop:query:order:now",
+        columns: [{ field: "number", hint: { reasonOpenField: "number" } }],
+      },
+    ]);
+    expect(ruleIdsOf([feature])).toContain("list/reason-option-without-reason-field");
+  });
+});

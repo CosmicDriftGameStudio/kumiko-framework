@@ -23,7 +23,14 @@ export type CardRoles = ReturnType<typeof cardColumnRoles<ListColumnViewModel>>;
 
 // The phone card shows the sentence and its (narrow) detail; the reason toggle stays a table feature.
 function cardHint(hint: ListColumnHintViewModel): ListColumnHintViewModel {
-  const { reasonField: _reason, detailField: _detail, narrowDetailField, ...rest } = hint;
+  const {
+    reasonField: _reason,
+    reasonOpenField: _reasonOpen,
+    reasonTitleField: _reasonTitle,
+    detailField: _detail,
+    narrowDetailField,
+    ...rest
+  } = hint;
   const detailField = narrowDetailField ?? _detail;
   return { ...rest, ...(detailField !== undefined && { detailField }) };
 }

@@ -126,7 +126,8 @@ export function resolveToolbarLabels(input: ListLabelInput) {
 }
 
 export function resolveItemNoun(input: ListLabelInput): ((count: number) => string) | undefined {
-  const { screen, translate, itemNounKey, featureName } = input;
+  const { screen, translate, featureName } = input;
+  const itemNounKey = input.itemNounKey ?? screen.itemNounKey;
   const nounKey = itemNounKey ?? `${featureName}:entity:${screen.entity}:noun`;
   return (itemNounKey !== undefined || !screen.entity.startsWith("__")) &&
     translate(nounKey, { count: 2 }) !== nounKey

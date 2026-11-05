@@ -220,6 +220,42 @@ describe("KumikoScreen / projectionDetail — board gaps", () => {
     expect(document.body.querySelector("span.flex.max-sm\\:hidden button")).not.toBeNull();
   });
 
+  test("whyOpen opens the step reason as a box with a bold whyTitle lead-in", async () => {
+    const stepScreen: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      steps: { field: "todo" },
+    };
+    const query = (async () => ({
+      isSuccess: true,
+      data: {
+        ...record,
+        todo: [
+          {
+            id: "s1",
+            title: "Remind",
+            why: "Overdue 14 days.",
+            whyOpen: true,
+            whyTitle: "Rule 10",
+          },
+          { id: "s2", title: "Escalate", why: "Two mails unanswered." },
+        ],
+      },
+    })) as unknown as Dispatcher["query"];
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <KumikoScreen
+          schema={{ featureName: "orders", entities: {}, screens: [stepScreen] }}
+          qn="orders:screen:order-detail"
+          entityId="o-1"
+        />
+      </DispatcherProvider>,
+    );
+    const box = await screen.findByTestId("record-step-s1-reason");
+    expect(box.textContent).toContain("Overdue 14 days.");
+    expect(box.querySelector("b")?.textContent?.trim()).toBe("Rule 10");
+    expect(screen.queryByTestId("record-step-s2-reason")).toBeNull();
+  });
+
   describe("narrowLabel and narrowSubtitle", () => {
     const action = {
       id: "refresh-order",

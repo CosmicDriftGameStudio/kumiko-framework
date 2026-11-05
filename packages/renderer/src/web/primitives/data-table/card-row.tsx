@@ -78,15 +78,22 @@ function cardLeftPadding(compact: boolean, toned: boolean): string {
 export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
   const { rowTone } = m;
   const allActions = m.menuActions ?? [];
-  const buttonActions = allActions.filter(
+  const openRow = m.rowOpener(row);
+  // "menu" mode keeps every action in the table's kebab; a phone card opens the row instead,
+  // unless the row cannot be opened, then the actions would be unreachable.
+  const cardActions = m.rowActionMode === "menu" && openRow !== undefined ? [] : allActions;
+  const menuMode = m.rowActionMode === "menu";
+  const buttonActions = cardActions.filter(
     (a) =>
+      !menuMode &&
       (a.display === "button" || a.display === "link") &&
       (a.isVisible === undefined || a.isVisible(row)),
   );
-  const menuActions = allActions.filter((a) => a.display !== "button" && a.display !== "link");
+  const menuActions = cardActions.filter(
+    (a) => menuMode || (a.display !== "button" && a.display !== "link"),
+  );
   const hasMenu = menuActions.length > 0;
   const hasButtons = buttonActions.length > 0;
-  const openRow = m.rowOpener(row);
   const { bodyRoles, linkColumns } = splitLinkColumns(m, row, roles);
   const body = renderCardBody(m, row, bodyRoles);
   const main = openRow !== undefined ? renderCardOpenButton(openRow, body) : body;

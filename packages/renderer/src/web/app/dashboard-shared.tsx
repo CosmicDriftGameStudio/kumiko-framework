@@ -216,7 +216,8 @@ export function PanelShell({
   children,
 }: {
   readonly testId: string;
-  readonly title: string;
+  /** Without a title the panel has no header (a titleless stat-group). */
+  readonly title?: string;
   readonly subtitle?: string;
   readonly action?: ReactNode;
   readonly footer?: ReactNode;
@@ -227,13 +228,15 @@ export function PanelShell({
       data-testid={testId}
       className="flex h-full flex-col rounded-lg border border-border bg-card text-card-foreground"
     >
-      <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border-row px-4 py-2">
-        <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3">
-          <h2 className="text-sm font-semibold break-words">{title}</h2>
-          {subtitle !== undefined && <p className="text-xs text-muted-foreground">{subtitle}</p>}
-        </div>
-        {action !== undefined && <div className="shrink-0">{action}</div>}
-      </header>
+      {(title !== undefined || action !== undefined) && (
+        <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border-row px-4 py-2">
+          <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3">
+            {title !== undefined && <h2 className="text-sm font-semibold break-words">{title}</h2>}
+            {subtitle !== undefined && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+          {action !== undefined && <div className="shrink-0">{action}</div>}
+        </header>
+      )}
       <div className="grow p-4">{children}</div>
       {footer !== undefined && (
         <footer className="flex shrink-0 flex-wrap items-center gap-x-1 border-t border-border-row px-4 py-2 text-xs text-muted-foreground">

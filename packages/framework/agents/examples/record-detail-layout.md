@@ -41,7 +41,7 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - phone variants: `hideOnNarrow` on dashboard panels and the progress chain, a list panel's
   `narrow` (`cards` with a `limit`, or a one-line `line` link), `narrowBlocks` on the briefing,
   `hint.plainSentence`, `showOnNarrowOnly` list columns, stat-group `columns`, and on the detail
-  `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle
+  `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle unless `reasonOpenField` opens it (with `reasonTitleField` as bold lead-in; steps use `whyOpen`/`whyTitle`)
 - round 5 (board gaps): a titled `stat-group` strip with a panel `icon` and per-stat `narrowLabel`,
   `narrowOrder` on a panel, `showTotal: { text, narrowText }`, `footerLink.moreText` and
   `narrowMoreText`, `narrow: { layout: "line", field }`, `rowLink` on a list panel (arrow, or
@@ -1604,6 +1604,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
             detailField: "nextStepDue",
             narrowDetailField: "nextStepShort",
             reasonField: "nextStepReason",
+            reasonTitleField: "nextStepReasonTitle",
+            reasonOpenField: "nextStepReasonOpen",
             emptyLabel: "order-desk.orders.nothing-open",
           },
           width: 320,
@@ -1746,6 +1748,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
                 detailField: "nextStepDue",
                 narrowDetailField: "nextStepShort",
                 reasonField: "nextStepReason",
+                reasonTitleField: "nextStepReasonTitle",
+                reasonOpenField: "nextStepReasonOpen",
                 plainSentence: true,
               },
             },
@@ -2066,6 +2070,8 @@ export type OrderRow = {
   readonly nextStep: string;
   readonly nextStepDue: string;
   readonly nextStepReason: string;
+  readonly nextStepReasonTitle?: string;
+  readonly nextStepReasonOpen?: boolean;
   readonly openAmount: number;
   readonly status: "processing" | "shipped" | "closing" | "delivered";
   readonly actionLabel: string;
@@ -2084,6 +2090,8 @@ const ORDER_ROWS: readonly OrderRow[] = [
     nextStep: "Send payment reminder",
     nextStepDue: "by Friday",
     nextStepReason: "312 EUR is 14 days overdue.\nTwo earlier mails stayed unanswered.",
+    nextStepReasonTitle: "Rule 10 · Payment overdue.",
+    nextStepReasonOpen: true,
     openAmount: 312,
     status: "processing",
     actionLabel: "Send reminder",
@@ -2506,6 +2514,8 @@ export function answerOrderDetail(id: string) {
         detail: "by Friday",
         narrowDetail: "Fri",
         tone: "warn",
+        whyOpen: true,
+        whyTitle: "Rule 10 · Payment overdue.",
         why: "The invoice is 14 days overdue.\nTwo earlier mails stayed unanswered.\nThe credit limit is 1,500 EUR.",
         canPrepare: true,
       },

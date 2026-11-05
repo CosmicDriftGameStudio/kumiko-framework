@@ -33,7 +33,7 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - phone variants: `hideOnNarrow` on dashboard panels and the progress chain, a list panel's
   `narrow` (`cards` with a `limit`, or a one-line `line` link), `narrowBlocks` on the briefing,
   `hint.plainSentence`, `showOnNarrowOnly` list columns, stat-group `columns`, and on the detail
-  `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle
+  `summary.narrowField` and `steps.narrowLimit`; the reason of a hint stays behind its toggle unless `reasonOpenField` opens it (with `reasonTitleField` as bold lead-in; steps use `whyOpen`/`whyTitle`)
 - round 5 (board gaps): a titled `stat-group` strip with a panel `icon` and per-stat `narrowLabel`,
   `narrowOrder` on a panel, `showTotal: { text, narrowText }`, `footerLink.moreText` and
   `narrowMoreText`, `narrow: { layout: "line", field }`, `rowLink` on a list panel (arrow, or

@@ -72,6 +72,18 @@ export const SCREEN_KIND_RULES = {
     summary: "createScreen resolves to a registered screen in the same feature.",
     fix: "Point createScreen at a screen of this feature.",
   },
+  createPlacementWithoutCreate: {
+    id: "entity-list/create-placement-without-create",
+    summary:
+      'createPlacement "toolbar" moves the create button, so the list has one (no allowCreate: false).',
+    fix: "Remove createPlacement or drop allowCreate: false.",
+  },
+  toolbarSortWithoutSortOptions: {
+    id: "entity-list/toolbar-sort-without-sort-options",
+    summary:
+      "toolbarSort draws the sortOptions as a select in the filter row, so it needs sortOptions.",
+    fix: "Declare sortOptions or remove toolbarSort.",
+  },
   configEditFieldsEmpty: {
     id: "config-edit/fields-empty",
     summary: "A configEdit screen declares at least one field.",

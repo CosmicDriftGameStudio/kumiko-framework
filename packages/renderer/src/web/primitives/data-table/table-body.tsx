@@ -1,8 +1,9 @@
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { ListRowViewModel } from "../../../headless/index.ts";
 import { cn } from "../../lib/cn.ts";
 import { TableBody, TableCell, TableRow } from "../../ui/table.tsx";
 import { rowToneClass } from "../data-table-cell.tsx";
+import { HintReasonRowScope, hintReasonOf } from "../hint-reason-row.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import { ActionsBodyCell } from "./actions-column.tsx";
 import { bandClassName, bandReactKey, bandTestId, type DataTableBandItem } from "./group-band.tsx";
@@ -61,8 +62,11 @@ function renderDataRow(m: DataTableModel, row: ListRowViewModel): ReactNode {
   const openRow = m.rowOpener(row);
   const opensOnClick = openRow !== undefined;
   const keyboard = m.keyboardRow(row.id, openRow);
-  return (
-    <Fragment key={row.id}>
+  const reasonHint = m.columns.find(
+    (col) => col.hint !== undefined && hintReasonOf(col.hint, row.values) !== undefined,
+  )?.hint;
+  const rowElements = (
+    <>
       <TableRow
         data-testid={m.rowTestId(row)}
         data-tone={rowTone?.(row)}
@@ -70,6 +74,7 @@ function renderDataRow(m: DataTableModel, row: ListRowViewModel): ReactNode {
         className={cn(
           rowToneClass(rowTone?.(row)),
           opensOnClick && "cursor-pointer",
+          "[&:has(+[data-reason-row])]:border-b-0",
           m.fillsHeight && "h-10 border-border-row hover:bg-muted",
           density.row,
           keyboard.className,
@@ -82,7 +87,21 @@ function renderDataRow(m: DataTableModel, row: ListRowViewModel): ReactNode {
         {m.hasTableActions && tableActions !== undefined && renderActionsCell(m, row, tableActions)}
       </TableRow>
       {renderExpansion(m, row, "row", m.fullColSpan)}
-    </Fragment>
+    </>
+  );
+  return (
+    <HintReasonRowScope
+      key={row.id}
+      hint={reasonHint}
+      row={row.values}
+      renderBoxRow={(box) => (
+        <TableRow data-testid={`${m.rowTestId(row)}-reason`} data-reason-row="true">
+          <TableCell colSpan={m.fullColSpan}>{box}</TableCell>
+        </TableRow>
+      )}
+    >
+      {rowElements}
+    </HintReasonRowScope>
   );
 }
 

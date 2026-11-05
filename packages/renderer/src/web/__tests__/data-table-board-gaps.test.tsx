@@ -183,7 +183,7 @@ describe("DataTable summaryRow", () => {
     expect(screen.getByTestId("list-summary-name").textContent).toBe("9 open");
   });
 
-  test("narrow viewport: renders as a card", () => {
+  test("below sm: no summary row", () => {
     atViewportWidth(500, () => {
       render(
         <DataTable
@@ -192,7 +192,7 @@ describe("DataTable summaryRow", () => {
           summaryRow={{ items: [{ label: "Orders", value: "8" }] }}
         />,
       );
-      expect(screen.getByTestId("list-summary").textContent).toContain("Orders 8");
+      expect(screen.queryByTestId("list-summary")).toBeNull();
     });
   });
 });
@@ -409,6 +409,167 @@ describe("DataTable showOnNarrowOnly and plainSentence", () => {
       expect(screen.getByText("Ship it")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Why?" })).toBeNull();
       expect(screen.queryByText("Paid")).toBeNull();
+    });
+  });
+});
+
+describe("DataTable hint reason box", () => {
+  const reasonColumns = [
+    COLUMNS[0],
+    {
+      field: "note",
+      label: "Note",
+      type: "string",
+      sortable: false,
+      hint: {
+        emptyLabel: "-",
+        reasonLabel: "Why",
+        reasonField: "why",
+        reasonOpenField: "whyOpen",
+        reasonTitleField: "whyTitle",
+      },
+    },
+  ] as const;
+  const reasonRows = [
+    {
+      id: "r1",
+      values: {
+        name: "Alpha",
+        note: "Send",
+        why: "14 days overdue.",
+        whyOpen: true,
+        whyTitle: "Rule 10",
+      },
+    },
+    {
+      id: "r2",
+      values: { name: "Beta", note: "Call", why: "Asked twice.", whyOpen: false, whyTitle: "" },
+    },
+  ];
+
+  test("opens the reason box with its title on rows flagged open", () => {
+    render(<DataTable columns={reasonColumns} rows={reasonRows} />);
+    expect(screen.getAllByText(/14 days overdue\./)).toHaveLength(1);
+    expect(screen.getByText("Rule 10")).toBeTruthy();
+    expect(screen.queryByText(/Asked twice\./)).toBeNull();
+  });
+});
+
+describe("DataTable reason box toggle", () => {
+  const columns = [
+    COLUMNS[0],
+    {
+      field: "note",
+      label: "Note",
+      type: "string",
+      sortable: false,
+      hint: {
+        emptyLabel: "-",
+        reasonLabel: "Why",
+        reasonField: "why",
+        reasonOpenField: "whyOpen",
+      },
+    },
+  ] as const;
+  const rows = [
+    { id: "r1", values: { name: "Alpha", note: "Send", why: "14 days overdue.", whyOpen: true } },
+  ];
+
+  test("the (i) closes the open box and reopens it, never doubling it", () => {
+    render(<DataTable columns={columns} rows={rows} />);
+    expect(screen.getAllByText(/14 days overdue\./)).toHaveLength(1);
+    const toggle = document.body.querySelector("[data-hint-reason-toggle]") as HTMLElement;
+    fireEvent.click(toggle);
+    expect(screen.queryByText(/14 days overdue\./)).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getAllByText(/14 days overdue\./)).toHaveLength(1);
+  });
+});
+
+describe("DataTable badgeDot", () => {
+  const badgeRows = [{ id: "r1", values: { name: "Alpha", state: "open" } }];
+  const badgeColumn = (extra: Record<string, unknown>) =>
+    [
+      COLUMNS[0],
+      {
+        field: "state",
+        label: "State",
+        type: "string",
+        sortable: false,
+        display: "badge",
+        ...extra,
+      },
+    ] as never;
+
+  test("the dot is drawn by default and left out with badgeDot: false", () => {
+    const { unmount } = render(<DataTable columns={badgeColumn({})} rows={badgeRows} />);
+    expect(document.body.querySelector("[data-status-dot]")).not.toBeNull();
+    unmount();
+    render(<DataTable columns={badgeColumn({ badgeDot: false })} rows={badgeRows} />);
+    expect(document.body.querySelector("[data-status-dot]")).toBeNull();
+  });
+});
+
+describe("DataTable toolbarSort", () => {
+  const props = {
+    columns: COLUMNS,
+    rows: ROWS,
+    testId: "dt",
+    sortOptions: SORT_OPTIONS,
+    sort: { field: "due", dir: "desc" },
+    onSortChange: mock(),
+    toolbarSort: true,
+  } as const;
+
+  test("from sm the toolbar shows a bordered sort select", () => {
+    atViewportWidth(1280, () => {
+      render(<DataTable {...props} />);
+      const label = screen.getByTestId("dt-sort-options-label");
+      expect(label.parentElement?.classList.contains("border")).toBe(true);
+    });
+  });
+
+  test("between sm and md exactly one sort select is shown", () => {
+    atViewportWidth(700, () => {
+      render(<DataTable {...props} />);
+      expect(document.body.querySelectorAll("select[aria-label]")).toHaveLength(1);
+    });
+  });
+});
+
+describe("DataTable rowActionMode menu", () => {
+  const actions = [
+    { id: "open", label: "Open", display: "button", onTrigger: mock() },
+    { id: "archive", label: "Archive", onTrigger: mock() },
+  ] as never;
+
+  test("the table puts every action in the kebab", () => {
+    atViewportWidth(1280, () => {
+      render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} rowActionMode="menu" />);
+      expect(screen.getByTestId("row-r1-actions-menu")).toBeTruthy();
+      expect(screen.queryByTestId("row-r1-action-open")).toBeNull();
+    });
+  });
+
+  test("a phone card with a row target draws no kebab", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          rowActions={actions}
+          rowActionMode="menu"
+          onRowClick={mock()}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+    });
+  });
+
+  test("a phone card without a row target keeps its kebab", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} rowActionMode="menu" />);
+      expect(screen.getByTestId("row-r1-actions-menu")).toBeTruthy();
     });
   });
 });

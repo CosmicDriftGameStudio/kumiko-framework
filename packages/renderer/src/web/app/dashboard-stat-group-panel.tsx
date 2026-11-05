@@ -1,6 +1,7 @@
 import type {
   DashboardStatGroupLink,
   DashboardStatGroupPanel,
+  SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
@@ -14,11 +15,11 @@ import {
   usePrimitives,
   useUserRoles,
 } from "../../index.ts";
-import { SectionCard } from "../widgets/section-card.tsx";
+import { cn } from "../lib/cn.ts";
 import { STAT_CARD_GRID_CLASSES } from "../widgets/stat.tsx";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
 import { StatPanelBody } from "./dashboard-panels.tsx";
-import type { ScreenParams } from "./dashboard-shared.tsx";
+import { PanelShell, type ScreenParams } from "./dashboard-shared.tsx";
 
 type StatGroupProps = {
   readonly panel: DashboardStatGroupPanel;
@@ -36,6 +37,16 @@ const STAT_CARD_COLUMN_CLASSES = {
   3: "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3",
   4: "grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4",
 } as const satisfies Record<NonNullable<DashboardStatGroupPanel["columns"]>, string>;
+
+// Literal class strings: Tailwind only emits classes it can read in the source.
+const PHONE_STRIP_TONE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  accent: "max-sm:border-primary/30 max-sm:bg-primary/10",
+  ok: "max-sm:border-status-ok/30 max-sm:bg-status-ok-surface",
+  warn: "max-sm:border-status-warn/30 max-sm:bg-status-warn-surface",
+  bad: "max-sm:border-status-bad/30 max-sm:bg-status-bad-surface",
+  critical: "max-sm:border-status-critical/30 max-sm:bg-status-critical-surface",
+  neutral: "",
+};
 
 function StatGroupLink({
   link,
@@ -137,7 +148,11 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
   return (
     <div
       data-testid={`dashboard-panel-${panel.id}`}
-      className="relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-3 max-sm:items-baseline max-sm:gap-x-2 max-sm:overflow-hidden max-sm:py-2"
+      data-narrow-tone={panel.narrow?.tone}
+      className={cn(
+        "relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-3 max-sm:items-baseline max-sm:gap-x-2 max-sm:overflow-hidden max-sm:py-2",
+        panel.narrow?.tone !== undefined && PHONE_STRIP_TONE_CLASS[panel.narrow.tone],
+      )}
     >
       <PhoneStripIcon panel={panel} screenId={props.screenId} screenParams={props.screenParams} />
       <div className="flex min-w-0 shrink-0 flex-col max-sm:flex-row max-sm:items-baseline">
@@ -194,15 +209,15 @@ export function StatGroupPanelBody(props: StatGroupProps): ReactNode {
     </section>
   );
   return (
-    <SectionCard
+    <PanelShell
+      testId={`dashboard-panel-${panel.id}`}
       {...(label !== undefined && { title: label })}
       {...(panel.subtitle !== undefined && { subtitle: translate(panel.subtitle) })}
       {...(panel.link !== undefined && {
         action: <StatGroupLink link={panel.link} translate={translate} stretchOnNarrow={false} />,
       })}
-      testId={`dashboard-panel-${panel.id}`}
     >
       {cells}
-    </SectionCard>
+    </PanelShell>
   );
 }

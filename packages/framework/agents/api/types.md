@@ -2278,6 +2278,8 @@ type ListColumnHintViewModel = {
   narrowDetailField?: string; // `ListColumnHint.narrowDetailField`: replaces `detailField` in the phone card.
   toneField?: string;
   reasonField?: string;
+  reasonOpenField?: string;
+  reasonTitleField?: string;
   plainSentence?: boolean; // `ListColumnHint.plainSentence`: the sentence keeps the normal text color.
   emptyLabel: string;
   reasonLabel: string; // Label of the reason toggle, already translated.
@@ -2306,6 +2308,7 @@ type ListColumnViewModel = {
   minWidth?: number;
   display?: ListColumnCellDisplay; // `ListColumnSpec.display` for list tables: a status pill or a link drawn as a button.
   badgeToneField?: string; // Row field naming the pill tone; only with `display: "badge"`.
+  badgeDot?: false; // `false`: the pill has no leading dot.
 };
 type ListRowViewModel = {
   id: string;
@@ -2361,7 +2364,7 @@ type RecordStepsProps = { // "Next steps" panel; an item's `reason` sits behind 
   narrowLimit?: number; // Below the sm breakpoint only this many steps show; the rest sits behind a toggle.
   moreLabel?: (hiddenCount: number) => string; // Toggle label for the hidden steps; receives their count.
   lessLabel?: string;
-  items: { id: string; title: string; detail?: string; narrowDetail?: string; tone?: SelectOptionTone; reason?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
+  items: { id: string; title: string; detail?: string; narrowDetail?: string; tone?: SelectOptionTone; reason?: string; reasonOpen?: true; reasonTitle?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
   count?: number; // Total number of steps, shown small beside the heading even when `narrowLimit` shortens the list.
   testId?: string;
 };
@@ -2460,7 +2463,7 @@ type DataTableRowAction = {
   icon?: IconKey; // Resolved icon (author `RowAction.icon` or the id-derived default) — drives both the icon-left-of-text render and the icon-only collapse rule (see `shouldRenderActionsIconOnly`).
   display?: RowActionDisplay; // Author-chosen inline form (`RowAction.display`).
 };
-type DataTableRowActionMode = "adaptive" | "inline";
+type DataTableRowActionMode = "adaptive" | "inline" | "menu";
 type DataTableSort = {
   field: string;
   dir: DataTableSortDir;

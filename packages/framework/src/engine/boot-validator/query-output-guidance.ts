@@ -48,6 +48,8 @@ export function listGuidanceFieldRefs(
         { option: "hint.narrowDetailField", field: hint?.narrowDetailField },
         { option: "hint.toneField", field: hint?.toneField },
         { option: "hint.reasonField", field: hint?.reasonField },
+        { option: "hint.reasonOpenField", field: hint?.reasonOpenField },
+        { option: "hint.reasonTitleField", field: hint?.reasonTitleField },
       ];
     }),
   ]);

@@ -41,6 +41,7 @@ function primaryRowAction(actions: readonly DataTableRowAction[]): DataTableRowA
 //     >2 (no kebab). `w-full justify-start` pins the first button to the
 //     column's left edge so it sits at the same position across rows
 //     (otherwise it would drift with differently-sized labels).
+//   - "menu": every action in the kebab, whatever its `display`.
 // The isVisible filter runs here; an action hidden for a given row never
 // reaches render. If every action is hidden, the cell stays empty (no
 // phantom column).
@@ -63,6 +64,13 @@ export function RowActionsCell({
   const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
   if (visible.length === 0) return null;
   const hasExplicitDisplay = visible.some((a) => a.display !== undefined);
+  if (mode === "menu") {
+    return (
+      <div className="inline-flex items-center justify-end">
+        <RowActionsKebab row={row} actions={visible} />
+      </div>
+    );
+  }
   if (mode === "inline") {
     // Teil C: >2 actions all carrying an icon collapse to icon-only —
     // otherwise "inline" is exactly the wall-to-wall text-button problem

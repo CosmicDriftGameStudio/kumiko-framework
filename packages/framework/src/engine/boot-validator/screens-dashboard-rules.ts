@@ -212,6 +212,17 @@ export const DASHBOARD_RULES = {
       "A stat's narrowLabel is non-empty and only set on a stat-group child (the one-line phone strip is the only place it is drawn).",
     fix: "Move the stat into a titled stat-group or remove narrowLabel.",
   },
+  statGroupNarrowWithoutTitledStrip: {
+    id: "dashboard/stat-group-narrow-without-titled-strip",
+    summary:
+      'A stat-group\'s narrow.tone needs a label and layout "strip" (it tints the one-line phone strip).',
+    fix: 'Give the group a label and layout "strip", or remove narrow.',
+  },
+  statGroupNarrowToneInvalid: {
+    id: "dashboard/stat-group-narrow-tone-invalid",
+    summary: "A stat-group's narrow.tone must be one of the select option tones.",
+    fix: "Use accent, ok, warn, bad, critical or neutral.",
+  },
   statGroupIconWithoutTitledStrip: {
     id: "dashboard/stat-group-icon-without-titled-strip",
     summary:

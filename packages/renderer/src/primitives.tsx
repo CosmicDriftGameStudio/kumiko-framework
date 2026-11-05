@@ -745,7 +745,7 @@ export type DataTableSort = {
 };
 
 // Rendering mode for the row-action column (see DataTableProps.rowActionMode).
-export type DataTableRowActionMode = "adaptive" | "inline";
+export type DataTableRowActionMode = "adaptive" | "inline" | "menu";
 
 // Resolved row action (KumikoScreen builds it from
 // EntityListScreenDefinition.rowActions): labels are already translated and the handler QN is
@@ -834,10 +834,9 @@ export type DataTableProps = {
    *  the caller updates URL state or the query parameter and refetches. */
   readonly onSortChange?: (next: DataTableSort | null) => void;
   readonly sortOptions?: readonly (DataTableSort & { readonly label: string })[];
-  /** Per-row actions rendered in a right-hand column as inline buttons
-   *  (≤2 actions) or a kebab dropdown (>2). The caller supplies the resolved
-   *  form, with translated labels and wired `onTrigger`; DataTable handles
-   *  only rendering and the confirmation dialog. */
+  readonly toolbarSort?: true;
+  /** Per-row actions in a right-hand column: inline buttons (≤2) or a kebab (>2). The caller supplies
+   *  translated labels and wired `onTrigger`; DataTable renders and confirms. */
   readonly rowActions?: readonly DataTableRowAction[];
   /** How the row-action column renders:
    *  - `"adaptive"` (default): with `onRowClick` all actions except the
@@ -846,7 +845,8 @@ export type DataTableProps = {
    *    kebab (a single action gets no kebab).
    *  - `"inline"`: ALWAYS inline buttons, left-aligned, even with >2 (no
    *    kebab). Actions then sit at the same x-position across all rows
-   *    (no drifting with label width) and all lists in an app look alike. */
+   *    (no drifting with label width) and all lists in an app look alike.
+   *  - `"menu"`: every action in the kebab; phone cards draw none. */
   readonly rowActionMode?: DataTableRowActionMode;
   /** Present: row checkboxes plus a selection bar that runs these actions once per selected row. */
   readonly bulk?: DataTableBulk;

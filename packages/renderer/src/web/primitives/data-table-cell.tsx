@@ -358,6 +358,7 @@ type DataTableCellProps = {
   readonly hint?: ListColumnHintViewModel;
   readonly display?: ListColumnCellDisplay;
   readonly badgeToneField?: string;
+  readonly badgeDot?: false;
   readonly onOpenRow?: () => void;
 };
 
@@ -496,6 +497,7 @@ function renderDisplayCell({
   text,
   row,
   badgeToneField,
+  badgeDot,
   link,
 }: {
   readonly display: DataTableCellProps["display"];
@@ -503,6 +505,7 @@ function renderDisplayCell({
   readonly text: string;
   readonly row: Readonly<Record<string, unknown>>;
   readonly badgeToneField: string | undefined;
+  readonly badgeDot: false | undefined;
   readonly link: DataTableCellProps["link"];
 }): ReactNode | undefined {
   // A column renderer skips the generic empty-cell path, so a pill or button would otherwise wrap nothing.
@@ -516,7 +519,11 @@ function renderDisplayCell({
   if (display === "badge") {
     const toneKey = badgeToneField === undefined ? undefined : row[badgeToneField];
     const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
-    return <StatusBadge tone={tone}>{text}</StatusBadge>;
+    return (
+      <StatusBadge tone={tone} dot={badgeDot !== false}>
+        {text}
+      </StatusBadge>
+    );
   }
   if (display === "button" && link !== undefined) {
     return (
@@ -583,6 +590,7 @@ export function DataTableCell({
   hint,
   display,
   badgeToneField,
+  badgeDot,
   onOpenRow,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
@@ -614,6 +622,7 @@ export function DataTableCell({
     text: defaultCellRender(value, type, optionLabels, locale, field, grouping),
     row,
     badgeToneField,
+    badgeDot,
     link,
   });
   if (displayCell !== undefined) return displayCell;

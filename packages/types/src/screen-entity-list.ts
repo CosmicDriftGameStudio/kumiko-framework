@@ -93,6 +93,8 @@ export type ListColumnSpec =
       readonly display?: ListColumnDisplay;
       /** Row field naming the badge tone; only with `display: "badge"`. */
       readonly badgeToneField?: string;
+      /** `false` draws the badge pill without its leading dot; only with `display: "badge"`. */
+      readonly badgeDot?: false;
       /** Row field holding a screen QN (`<feature>:screen:<id>`): the cell links
        *  to that screen when the row sets it and the user may open it. For
        *  query-backed lists (projectionList, relatedList), whose rows can point
@@ -113,6 +115,10 @@ export type ListColumnHint = {
   readonly toneField?: string;
   /** Row field with a longer reason, shown behind a "Why?" toggle in the cell. */
   readonly reasonField?: string;
+  /** Row field (boolean): while true, the `reasonField` text stands open as a box under the row, over the full row width, in the table view (entity/projection lists from `md` up, dashboard lists from `sm` up); the (i) stays and closes it. Cards and narrower views keep the plain toggle. Needs `reasonField`. */
+  readonly reasonOpenField?: string;
+  /** Row field with a bold lead-in of the reason paragraph ("Rule 10 · Case open."); without it the reason has none. Needs `reasonField`. */
+  readonly reasonTitleField?: string;
   /** i18n key for an empty sentence; default `kumiko.list.hint.empty`. */
   readonly emptyLabel?: string;
   /** The sentence keeps the normal text color (still bold); the tone stays on the row stripe, a badge and the detail line. */
@@ -197,8 +203,10 @@ export type RowActionDisplay = "button" | "link" | "icon" | "responsive";
 
 /** Row-action column layout. `"adaptive"` (default): primary action as link,
  *  the rest in a kebab menu — except actions with an explicit `display`, which
- *  stay inline. `"inline"`: every action inline, no kebab. */
-export type RowActionMode = "adaptive" | "inline";
+ *  stay inline. `"inline"`: every action inline, no kebab. `"menu"`: every
+ *  action in the kebab menu at the row end, none inline; phone cards draw no
+ *  kebab. */
+export type RowActionMode = "adaptive" | "inline" | "menu";
 
 // RowAction — per-row button/dropdown item that triggers a write handler
 // or navigates to another screen.
@@ -614,6 +622,12 @@ export type EntityListScreenDefinition = {
   readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
   readonly createLabel?: string;
+  /** "toolbar": from `sm` up the create button ends the filter row instead of standing in the header. Default "header". Needs a create button (no `allowCreate: false`). */
+  readonly createPlacement?: "header" | "toolbar";
+  /** From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable. */
+  readonly toolbarSort?: true;
+  /** i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised). Default `<feature>:entity:<entity>:noun`. */
+  readonly itemNounKey?: string;
   /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */
   readonly searchPlaceholder?: string;
   // Search toolbar in the UI on/off. Server search ALWAYS goes through the

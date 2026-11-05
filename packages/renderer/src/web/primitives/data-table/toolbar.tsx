@@ -36,7 +36,10 @@ export function hasToolbarContent(m: DataTableModel, facetCluster: ReactNode): b
 // The toolbar select is max-md:hidden; below md the card sort bar owns sorting, so a toolbar
 // holding only the hidden select would render an empty row.
 function hasVisibleSortOptions(m: DataTableModel): boolean {
-  return !m.isNarrow && hasSortOptionsSelect(m.sortOptions, m.onSortChange);
+  return (
+    !(m.toolbarSort === true ? m.belowSm : m.isNarrow) &&
+    hasSortOptionsSelect(m.sortOptions, m.onSortChange)
+  );
 }
 
 function toolbarClassName({ fillsHeight, isNarrow }: DataTableModel): string {
@@ -112,7 +115,8 @@ function renderSortOptions(m: DataTableModel): ReactNode {
       sort={m.sort}
       onSortChange={onSortChange}
       testId={testId !== undefined ? `${testId}-sort-options` : "render-list-sort-options"}
-      className="max-md:hidden"
+      className={m.toolbarSort === true ? "max-sm:hidden" : "max-md:hidden"}
+      bordered={m.toolbarSort === true}
     />
   );
 }

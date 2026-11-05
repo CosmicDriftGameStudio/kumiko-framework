@@ -1,8 +1,9 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import type { ListColumnHintViewModel } from "../../../headless/index.ts";
 import { isSelectOptionTone } from "../../../status-tone.ts";
 import { cn } from "../../lib/cn.ts";
+import { hintReasonOf, nonEmptyText, useHintReasonRowControl } from "../hint-reason-row.tsx";
 import { ReasonBox, ReasonInfoButton } from "../reason-box.tsx";
 
 export const HINT_TONE_TEXT_CLASS: Readonly<Record<SelectOptionTone, string>> = {
@@ -13,12 +14,6 @@ export const HINT_TONE_TEXT_CLASS: Readonly<Record<SelectOptionTone, string>> = 
   accent: "text-primary",
   neutral: "",
 };
-
-function nonEmptyText(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed;
-}
 
 const OPEN_SENTENCE_CLASS =
   "min-w-0 cursor-pointer bg-transparent p-0 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -53,6 +48,50 @@ function SentenceText({
   );
 }
 
+// Without a sentence the empty label is the only element of the first cell, so it must stay
+// the keyboard opener of a clickable row.
+function EmptyHint({
+  label,
+  onOpen,
+}: {
+  readonly label: string;
+  readonly onOpen: (() => void) | undefined;
+}): ReactNode {
+  if (onOpen === undefined) {
+    return (
+      <span data-hint-empty="true" className="text-muted-foreground">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      data-hint-empty="true"
+      className={cn(OPEN_SENTENCE_CLASS, "font-normal text-muted-foreground")}
+      onClick={(event) => {
+        event.stopPropagation();
+        onOpen();
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function useHintReason(hint: ListColumnHintViewModel, row: Readonly<Record<string, unknown>>) {
+  const [ownOpen, setOwnOpen] = useState(false);
+  const ownBoxId = useId();
+  const rowReason = useHintReasonRowControl(hint);
+  return {
+    reason: hintReasonOf(hint, row),
+    reasonOpen: rowReason?.open ?? ownOpen,
+    toggleReason: rowReason?.onToggle ?? (() => setOwnOpen((open) => !open)),
+    boxInRow: rowReason !== undefined,
+    boxId: rowReason?.boxId ?? ownBoxId,
+  };
+}
+
 /** "To do" cell: an emphasized sentence in the row tone with an optional muted second line. */
 export function HintCell({
   value,
@@ -69,33 +108,12 @@ export function HintCell({
   // The first cell of a clickable row opens it from the sentence only: a wrapping button could not hold the reason toggle.
   readonly onOpen?: () => void;
 }): ReactNode {
-  const [reasonOpen, setReasonOpen] = useState(false);
+  const { reason, reasonOpen, toggleReason, boxInRow, boxId } = useHintReason(hint, row);
   const sentence = nonEmptyText(value);
-  if (sentence === undefined) {
-    // Without a sentence the empty label is the only element of the first cell, so it must stay
-    // the keyboard opener of a clickable row.
-    return onOpen === undefined ? (
-      <span data-hint-empty="true" className="text-muted-foreground">
-        {hint.emptyLabel}
-      </span>
-    ) : (
-      <button
-        type="button"
-        data-hint-empty="true"
-        className={cn(OPEN_SENTENCE_CLASS, "font-normal text-muted-foreground")}
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpen();
-        }}
-      >
-        {hint.emptyLabel}
-      </button>
-    );
-  }
+  if (sentence === undefined) return <EmptyHint label={hint.emptyLabel} onOpen={onOpen} />;
   const toneValue = hint.toneField === undefined ? undefined : row[hint.toneField];
   const tone = isSelectOptionTone(toneValue) ? toneValue : undefined;
   const detail = hint.detailField === undefined ? undefined : nonEmptyText(row[hint.detailField]);
-  const reason = hint.reasonField === undefined ? undefined : nonEmptyText(row[hint.reasonField]);
   const sentenceClass = cn(
     "font-medium",
     hint.plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
@@ -103,20 +121,29 @@ export function HintCell({
   return (
     <span data-hint-tone={tone} className="flex min-w-0 flex-col gap-0.5">
       <span className="flex items-start gap-2">
-        {leading !== undefined && <span className="flex shrink-0 items-center">{leading}</span>}
+        {leading !== undefined && (
+          <span className="flex h-[1lh] shrink-0 items-center">{leading}</span>
+        )}
         <SentenceText text={sentence} className={sentenceClass} onOpen={onOpen} />
         {reason !== undefined && (
           <ReasonInfoButton
             label={hint.reasonLabel}
             open={reasonOpen}
-            onToggle={() => setReasonOpen((open) => !open)}
+            onToggle={toggleReason}
+            controls={boxId}
             data-hint-reason-toggle="true"
           />
         )}
       </span>
       {detail !== undefined && <small className="text-xs text-muted-foreground">{detail}</small>}
-      {reason !== undefined && reasonOpen && (
-        <ReasonBox data-hint-reason="true">{reason}</ReasonBox>
+      {reason !== undefined && reasonOpen && !boxInRow && (
+        <ReasonBox
+          id={boxId}
+          data-hint-reason="true"
+          {...(reason.title !== undefined && { title: reason.title })}
+        >
+          {reason.text}
+        </ReasonBox>
       )}
     </span>
   );

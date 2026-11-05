@@ -24,14 +24,23 @@ export function tableChromeProps(
 
 export function tableSortPagingProps(
   p: Pick2<
-    "sort" | "onSortChange" | "sortOptions" | "pager" | "onReachEnd" | "loadingMore" | "hasMore"
+    | "sort"
+    | "onSortChange"
+    | "sortOptions"
+    | "toolbarSort"
+    | "pager"
+    | "onReachEnd"
+    | "loadingMore"
+    | "hasMore"
   >,
 ) {
-  const { sort, onSortChange, sortOptions, pager, onReachEnd, loadingMore, hasMore } = p;
+  const { sort, onSortChange, sortOptions, toolbarSort, pager, onReachEnd, loadingMore, hasMore } =
+    p;
   return {
     ...(sort !== undefined && { sort }),
     ...(onSortChange !== undefined && { onSortChange }),
     ...(sortOptions !== undefined && { sortOptions }),
+    ...(toolbarSort === true && { toolbarSort }),
     ...(pager !== undefined && { pager }),
     ...(onReachEnd !== undefined && { onReachEnd }),
     ...(loadingMore !== undefined && { loadingMore }),
