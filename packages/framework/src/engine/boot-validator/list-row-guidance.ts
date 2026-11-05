@@ -41,6 +41,7 @@ const HINT_CONFLICTS: readonly {
   { option: "linkParamsField", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
   { option: "refEntity", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
   { option: "badgeToneField", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
+  { option: "emptyPlaceholder", rule: LIST_ROW_GUIDANCE_RULES.hintColumnEmptyPlaceholder },
 ];
 
 function validateHintColumn(where: string, column: ListColumn): void {

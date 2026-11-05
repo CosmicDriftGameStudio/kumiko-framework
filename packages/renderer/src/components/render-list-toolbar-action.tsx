@@ -18,8 +18,7 @@ export type ToolbarActionButton = {
    *  destructive, but the target form is the confirmation. */
   readonly confirmRequired?: boolean;
   readonly onTrigger: () => Promise<void> | void;
-  /** Id-derived default icon (ACTION_ICON_BY_ID in kumiko-screen.tsx) —
-   *  ToolbarAction has no author-declared icon field, unlike RowAction. */
+  /** The action's declared icon, else the id-derived default (ACTION_ICON_BY_ID). */
   readonly icon?: IconKey;
 };
 

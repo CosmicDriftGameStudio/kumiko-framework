@@ -1726,7 +1726,7 @@ type ToolbarActionButton = {
   confirmLabel?: string;
   confirmRequired?: boolean; // Overrides the default "danger implies a confirm dialog" rule.
   onTrigger: () => Promise<void> | void;
-  icon?: IconKey; // Id-derived default icon (ACTION_ICON_BY_ID in kumiko-screen.tsx) — ToolbarAction has no author-declared icon field, unlike RowAction.
+  icon?: IconKey; // The action's declared icon, else the id-derived default (ACTION_ICON_BY_ID).
 };
 ```
 
@@ -2310,6 +2310,7 @@ type ListColumnViewModel = {
   display?: ListColumnCellDisplay; // `ListColumnSpec.display` for list tables: a status pill or a link drawn as a button.
   badgeToneField?: string; // Row field naming the pill tone; only with `display: "badge"`.
   badgeDot?: false; // `false`: the pill has no leading dot.
+  emptyPlaceholder?: false; // `false`: an empty cell stays blank instead of showing "—".
 };
 type ListRowViewModel = {
   id: string;

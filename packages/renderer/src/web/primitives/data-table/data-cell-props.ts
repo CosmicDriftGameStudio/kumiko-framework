@@ -10,5 +10,6 @@ export function columnCellPresentationProps(col: ListColumnViewModel) {
     ...(col.display !== undefined && { display: col.display }),
     ...(col.badgeToneField !== undefined && { badgeToneField: col.badgeToneField }),
     ...(col.badgeDot !== undefined && { badgeDot: col.badgeDot }),
+    ...(col.emptyPlaceholder !== undefined && { emptyPlaceholder: col.emptyPlaceholder }),
   };
 }

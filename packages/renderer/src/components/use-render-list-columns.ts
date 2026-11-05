@@ -18,6 +18,7 @@ import type {
 import { computeListViewModel } from "../headless/index.ts";
 import {
   withDisplayColumns,
+  withEmptyPlaceholderColumns,
   withHintColumns,
   withNarrowOnlyColumns,
 } from "./render-list-hint-columns.ts";
@@ -107,7 +108,8 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
           withHintColumns(
             withScreenLinks(
               enrichReferenceColumns({
-                columns: vm.columns,
+                // Flag first: the reference renderer reads it while it is built.
+                columns: withEmptyPlaceholderColumns(vm.columns, screen),
                 referenceColumns,
                 referenceLookups,
                 resolveReferenceLink,

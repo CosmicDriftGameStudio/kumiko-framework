@@ -17,6 +17,11 @@ export const LIST_ROW_GUIDANCE_RULES = {
       "A hint column owns its cell rendering and sets no linkScreenField, linkParamsField, refEntity or badgeToneField.",
     fix: "Remove the link or badge option, or move the hint to its own column.",
   },
+  hintColumnEmptyPlaceholder: {
+    id: "list/hint-column-empty-placeholder",
+    summary: "A hint column shows hint.emptyLabel for an empty value and sets no emptyPlaceholder.",
+    fix: "Remove emptyPlaceholder, or name the empty sentence with hint.emptyLabel.",
+  },
   buttonColumnWithoutLink: {
     id: "list/button-column-without-link",
     summary:

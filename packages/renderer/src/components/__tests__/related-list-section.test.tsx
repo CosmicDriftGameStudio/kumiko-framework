@@ -444,6 +444,68 @@ describe("RelatedListSection — list-screen toolbar in tabs mode", () => {
     expect(rtlScreen.getByTestId("render-list-toolbar-action-create")).toBeTruthy();
   });
 
+  test("a declared toolbarAction icon reaches the button even when the id derives none", async () => {
+    const { dispatcher } = stubDispatcher();
+    const withToolbarEnd: ComponentType<DataTableProps> = (props) => (
+      <>
+        {props.toolbarEnd}
+        {testDataTable(props)}
+      </>
+    );
+    const iconButton = ({
+      children,
+      testId,
+      icon,
+    }: {
+      readonly children?: ReactNode;
+      readonly testId?: string;
+      readonly icon?: string;
+    }) => (
+      <button type="button" data-testid={testId} data-icon={icon}>
+        {children}
+      </button>
+    );
+    const section: EditRelatedListSectionViewModel = {
+      ...historySection,
+      toolbarActions: [
+        {
+          kind: "navigate",
+          id: "notify",
+          label: "Notify",
+          screen: "notification-create",
+          icon: "plus",
+          style: "primary",
+        },
+      ],
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider
+            value={{ ...testPrimitives(), DataTable: withToolbarEnd, Button: iconButton }}
+          >
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={section}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+                hideTitle
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    const button = rtlScreen.getByTestId("render-list-toolbar-action-notify");
+    expect(button.getAttribute("data-icon")).toBe("plus");
+  });
+
   test("clicking a toolbarAction navigates to its screen and prefills the parent id under parentParam", async () => {
     const { dispatcher } = stubDispatcher();
     const { nav, navigations, searchParams } = stubNav();

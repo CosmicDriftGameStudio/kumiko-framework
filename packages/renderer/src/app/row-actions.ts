@@ -390,7 +390,7 @@ function buildNavigateToolbarAction(
   prefill: Readonly<Record<string, unknown>> | undefined,
   record: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
-  const actionIcon = resolveActionIcon(action.id);
+  const actionIcon = resolveActionIcon(action.id, action.icon);
   const target: ScreenTarget = { screenId: action.screen };
   return {
     id: action.id,
@@ -424,7 +424,7 @@ function buildDrawerToolbarAction(
   openDrawer: OpenToolbarDrawer,
   record: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
-  const actionIcon = resolveActionIcon(action.id);
+  const actionIcon = resolveActionIcon(action.id, action.icon);
   return {
     id: action.id,
     label: translate(action.label),
@@ -445,7 +445,7 @@ function buildWriteHandlerToolbarAction(
   dispatcher: Dispatcher,
   record: Readonly<Record<string, unknown>> | undefined,
 ): ToolbarActionButton {
-  const actionIcon = resolveActionIcon(action.id);
+  const actionIcon = resolveActionIcon(action.id, action.icon);
   return {
     id: action.id,
     label: translate(action.label),
