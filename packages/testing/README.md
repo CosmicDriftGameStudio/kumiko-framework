@@ -64,6 +64,10 @@ test("member sees the note", async ({ seedTenant, page }) => {
 - The template also sets `KUMIKO_DEV_STYLESHEET_WATCH=0`, so the dev-server builds the app's CSS once and
   never starts a Tailwind `--watch` process — that watcher would otherwise treat every Playwright artifact
   write under `test-results/` as a rebuild trigger.
+- Each run gets its own Meilisearch index prefix `e2e_<uuid>_` (`KUMIKO_MEILI_INDEX_PREFIX`, reserved), and
+  the template's `globalTeardown` drops exactly those indexes. A config with its own teardown keeps the
+  cleanup with `globalTeardown: [base.globalTeardown, "./e2e/teardown.ts"]`. A killed run leaves its indexes
+  behind.
 - App roles: `createE2eSeedRoutes({ extraRoles: ["TenantMember"] })` lets `tenant.addUser(["TenantMember"])` seed them.
 - `tenant.addUser(["SystemAdmin"])` seeds a platform operator for SysAdmin screens: `SystemAdmin` lands as a
   global user role, and the user joins the tenant as `Member` unless you also pass a tenant role

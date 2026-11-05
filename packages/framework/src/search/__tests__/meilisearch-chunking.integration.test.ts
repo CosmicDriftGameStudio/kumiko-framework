@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { Meilisearch } from "meilisearch";
-import { createMeilisearchAdapter } from "../meilisearch-adapter.ts";
+import { createMeilisearchAdapter, listIndexUids } from "../meilisearch-adapter.ts";
 import { meilisearchDocId, meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
 import { CHUNK_MAX_CHARS } from "../meilisearch-chunking.ts";
 import type { SearchAdapter } from "../types.ts";
@@ -50,9 +50,8 @@ describe.skipIf(!MEILI_UP)("meilisearch chunking (live)", () => {
   });
 
   afterAll(async () => {
-    const { results } = await client.getIndexes();
-    for (const idx of results) {
-      if (idx.uid.startsWith(indexPrefix)) await client.index(idx.uid).delete().waitTask();
+    for (const uid of await listIndexUids(client)) {
+      if (uid.startsWith(indexPrefix)) await client.index(uid).delete().waitTask();
     }
   });
 

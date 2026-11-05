@@ -28,7 +28,7 @@ import {
 import type { SessionUser } from "../engine/types/index.ts";
 import { loadEventsAfterVersion } from "../event-store/event-store.ts";
 import { createSearchEventConsumer } from "../pipeline/system-hooks.ts";
-import { createMeilisearchAdapter } from "../search/meilisearch-adapter.ts";
+import { createMeilisearchAdapter, listIndexUids } from "../search/meilisearch-adapter.ts";
 import { meilisearchTenantIndex } from "../search/meilisearch-adapter-internals.ts";
 import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";
 
@@ -190,9 +190,8 @@ describe.skipIf(!MEILI_UP)("longText pieces in Meilisearch follow the memo lifec
   const indexUid = meilisearchTenantIndex(indexPrefix, tenant);
 
   afterAll(async () => {
-    const { results } = await client.getIndexes();
-    for (const idx of results) {
-      if (idx.uid.startsWith(indexPrefix)) await client.index(idx.uid).delete().waitTask();
+    for (const uid of await listIndexUids(client)) {
+      if (uid.startsWith(indexPrefix)) await client.index(uid).delete().waitTask();
     }
   });
 

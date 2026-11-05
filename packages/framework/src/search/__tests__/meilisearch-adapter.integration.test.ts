@@ -112,11 +112,10 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter (live)", () => {
   });
 
   afterAll(async () => {
-    const indices = await client.getIndexes();
-    for (const idx of indices.results) {
-      if (idx.uid.startsWith(indexPrefix)) {
+    for (const uid of await listIndexUids(client)) {
+      if (uid.startsWith(indexPrefix)) {
         try {
-          await client.index(idx.uid).delete().waitTask();
+          await client.index(uid).delete().waitTask();
         } catch {
           /* ok */
         }

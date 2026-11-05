@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import {
   defineConfig,
@@ -17,9 +18,11 @@ import { isRealProviderRun } from "../helpers/real-providers.ts";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   DESKTOP_VIEWPORT,
+  E2E_MEILI_RUN_PREFIX_ENV,
   E2E_REMOTE_BASE_URL_ENV,
   E2E_STORAGE_STATE_ENV,
   E2E_WORKERS_ENV,
+  MEILI_INDEX_PREFIX_ENV,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
   SCREENSHOT_DEVICE_SCALE_FACTOR,
@@ -86,6 +89,7 @@ const RESERVED_ENV_KEYS = [
   STYLESHEET_WATCH_ENV,
   PROD_BUNDLES_ENV,
   TRUSTED_PROXY_HOPS_ENV,
+  MEILI_INDEX_PREFIX_ENV,
 ] as const;
 
 type ProjectUse = Partial<PlaywrightTestOptions & PlaywrightWorkerOptions>;
@@ -197,6 +201,13 @@ function assertNoReservedEnv(env: Readonly<Record<string, string>>): void {
 function seedTokenForRun(): string {
   process.env[SEED_TOKEN_ENV] ??= randomUUID();
   return process.env[SEED_TOKEN_ENV];
+}
+
+// The run's database is thrown away, a shared Meilisearch is not: a prefix per run lets the
+// teardown drop exactly this run's indexes. Dedicated env, so a prefix set in the shell is never dropped.
+function meiliIndexPrefixForRun(): string {
+  process.env[E2E_MEILI_RUN_PREFIX_ENV] ??= `e2e_${randomUUID()}_`;
+  return process.env[E2E_MEILI_RUN_PREFIX_ENV];
 }
 
 type RemoteTarget = { readonly baseURL: string; readonly storageState: string | undefined };
@@ -383,6 +394,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
     },
     projects: e2eProjects,
     ...(remote === undefined && {
+      globalTeardown: fileURLToPath(new URL("./drop-run-meili-indexes.ts", import.meta.url)),
       webServer: {
         command: serverCommand,
         url: baseURL,
@@ -393,6 +405,7 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
           PORT: String(port),
           [SEED_ENABLE_ENV]: "1",
           [SEED_TOKEN_ENV]: seedTokenForRun(),
+          [MEILI_INDEX_PREFIX_ENV]: meiliIndexPrefixForRun(),
           // A Tailwind --watch process subscribes to the whole app cwd
           // recursively (Tailwind v4, no gitignore filter); every Playwright
           // artifact write under test-results/ would then count as a rebuild.
