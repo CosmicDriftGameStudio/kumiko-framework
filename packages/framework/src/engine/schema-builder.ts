@@ -373,7 +373,9 @@ export function fieldToZod(
       // validator's; checking it here would require a database round trip during
       // parsing.
       // Multi-mode accepts an array of UUIDs.
-      return field.multiple === true ? z.array(z.uuid()) : z.uuid();
+      return field.multiple === true
+        ? z.array(z.uuid().meta({ references: field.entity }))
+        : z.uuid().meta({ references: field.entity });
     default:
       assertUnreachable(field, "field type");
   }

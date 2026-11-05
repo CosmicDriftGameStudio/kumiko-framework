@@ -13,9 +13,11 @@ import {
   createMoneyField,
   createMultiSelectField,
   createNumberField,
+  createReferenceField,
   createSelectField,
   createTextField,
 } from "../factories.ts";
+import { handlerFieldReference } from "../handler-field-references.ts";
 import { buildInsertSchema, buildUpdateSchema } from "../schema-builder.ts";
 import type { FieldDefinition } from "../types/fields.ts";
 
@@ -1331,5 +1333,42 @@ describe("buildInsertSchema caller id", () => {
     expect(buildInsertSchema(entity, undefined, [], { allowCallerId: true }).parse({ id })).toEqual(
       { id },
     );
+  });
+});
+
+describe("reference fields", () => {
+  const entity = createEntity({
+    table: "notes",
+    fields: {
+      jobId: createReferenceField({ entity: "job", required: true }),
+      helperIds: createReferenceField({ entity: "worker", multiple: true }),
+    },
+  });
+
+  test.each([
+    ["insert", buildInsertSchema(entity)],
+    ["update", buildUpdateSchema(entity)],
+  ])("the %s schema names the referenced entity for handler consumers", (_kind, schema) => {
+    expect(handlerFieldReference(schema, "jobId")).toEqual({
+      entity: "job",
+      by: undefined,
+      multiple: false,
+    });
+    expect(handlerFieldReference(schema, "helperIds")).toEqual({
+      entity: "worker",
+      by: undefined,
+      multiple: true,
+    });
+  });
+
+  test("a cross-feature reference keeps its qualified target", () => {
+    const schema = buildInsertSchema(
+      createEntity({
+        table: "bookings",
+        fields: { accountId: createReferenceField({ entity: "ledger:account" }) },
+      }),
+    );
+
+    expect(handlerFieldReference(schema, "accountId")?.entity).toBe("ledger:account");
   });
 });

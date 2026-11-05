@@ -3,7 +3,7 @@ import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.ts";
 import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet.tsx";
-import { sidePanelClass } from "./drawer-panel-class.ts";
+import { isNarrowFullscreen, sidePanelClass } from "./drawer-panel-class.ts";
 import { renderMaximizeButton, renderResizeHandle } from "./drawer-resize-controls.tsx";
 import { buildOverlayStyle, buildSheetStyle } from "./drawer-sizing.ts";
 import { DrawerSheetContent } from "./sheet-parts.tsx";
@@ -174,7 +174,7 @@ export function Drawer({
         className={cn(
           sidePanelClass(side, narrow, variant, belowHeader),
           fillBody && "gap-0",
-          !narrow && panelClassName,
+          !isNarrowFullscreen(side, narrow) && panelClassName,
         )}
         style={sheetStyle}
       >

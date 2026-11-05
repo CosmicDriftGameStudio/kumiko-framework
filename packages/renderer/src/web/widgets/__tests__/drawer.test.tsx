@@ -657,6 +657,49 @@ describe("Drawer", () => {
       expect(content.className).not.toContain("inset-y-8");
     });
 
+    test("narrow with side=bottom: stays docked to the bottom edge instead of going full-screen", () => {
+      mockMatchMedia(true);
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="bottom" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("bottom-0");
+      expect(content.className).toContain("h-auto");
+      expect(content.className).not.toContain("inset-0");
+      expect(content.className).not.toContain("h-full");
+    });
+
+    test("narrow: panelClassName reaches the bottom sheet, not a full-screen panel", () => {
+      mockMatchMedia(true);
+      const { rerender } = render(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="bottom"
+          panelClassName="max-h-[60vh]"
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").className).toContain("max-h-[60vh]");
+
+      rerender(
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          panelClassName="max-h-[60vh]"
+          testId="drawer"
+        >
+          <div>Body</div>
+        </Drawer>,
+      );
+      expect(screen.getByTestId("drawer").className).not.toContain("max-h-[60vh]");
+    });
+
     test('narrow with variant="flush": fullscreen branch unaffected, no inline width', () => {
       mockMatchMedia(true);
       render(
