@@ -42,6 +42,11 @@ export const PROD_BUNDLES_ENV = "KUMIKO_DEV_PROD_BUNDLES";
 // duplicated for the same Node/Bun-toolchain reason.
 export const TRUSTED_PROXY_HOPS_ENV = "KUMIKO_TRUSTED_PROXY_HOPS";
 
+// Same literal as kumiko-framework's meilisearch-adapter-internals.ts (MEILI_INDEX_PREFIX_ENV),
+// duplicated for the same Node/Bun-toolchain reason.
+export const MEILI_INDEX_PREFIX_ENV = "KUMIKO_MEILI_INDEX_PREFIX";
+export const E2E_MEILI_RUN_PREFIX_ENV = "KUMIKO_E2E_MEILI_RUN_PREFIX";
+
 // Same literals as kumiko-bundled-features' AuthMfaHandlers (enableStart, enableConfirm),
 // duplicated so the e2e kit has no bundled-features import; e2e-mfa-parity.test.ts pins them.
 export const AUTH_MFA_ENABLE_START_QN = "auth-mfa:write:enable-start";

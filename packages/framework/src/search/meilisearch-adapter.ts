@@ -5,6 +5,7 @@ import { importOptionalPeer } from "../utils/import-optional-peer.ts";
 import {
   type MeilisearchAdapterOptions,
   meilisearchTenantIndex,
+  resolveMeilisearchIndexPrefix,
 } from "./meilisearch-adapter-internals.ts";
 import {
   buildPieceDocuments,
@@ -14,6 +15,8 @@ import {
 } from "./meilisearch-chunking.ts";
 import { MEILISEARCH_PEER } from "./meilisearch-peer.ts";
 import type { SearchAdapter, SearchAdapterConfig, SearchDocument, SearchResult } from "./types.ts";
+
+export { MEILI_INDEX_PREFIX_ENV } from "./meilisearch-adapter-internals.ts";
 
 // meilisearch is an optional peer; a static import would fail with the runtime's bare
 // "Cannot find package" error instead of naming the peer and how to install it.
@@ -202,7 +205,7 @@ async function dropIndexesIfPresent(
 
 export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): SearchAdapter {
   const client = new Meilisearch({ host: options.url, apiKey: options.apiKey });
-  const prefix = options.indexPrefix ?? "kumiko_";
+  const prefix = resolveMeilisearchIndexPrefix(options.indexPrefix);
 
   // Set via setDefaultConfig once the registry is known (server.ts boot).
   // undefined until then — tenants stay unconfigured, matching prior behavior.

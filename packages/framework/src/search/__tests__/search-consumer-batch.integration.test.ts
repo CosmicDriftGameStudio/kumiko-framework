@@ -11,7 +11,7 @@ import { createEntity, createTextField, defineFeature } from "../../engine/index
 import type { ConsumerStateRow, StoredEventRow } from "../../pipeline/event-dispatcher-delivery.ts";
 import { deliverEvents } from "../../pipeline/event-dispatcher-delivery.ts";
 import { createSearchEventConsumer } from "../../pipeline/system-hooks.ts";
-import { createMeilisearchAdapter } from "../meilisearch-adapter.ts";
+import { createMeilisearchAdapter, listIndexUids } from "../meilisearch-adapter.ts";
 import { meilisearchTenantIndex } from "../meilisearch-adapter-internals.ts";
 
 import type { SearchAdapter } from "../types.ts";
@@ -144,11 +144,10 @@ describe.skipIf(!MEILI_UP)("search consumer batchHandler (live Meilisearch)", ()
 
   afterAll(async () => {
     await stack.cleanup();
-    const indices = await client.getIndexes();
-    for (const idx of indices.results) {
-      if (idx.uid.startsWith(indexPrefix)) {
+    for (const uid of await listIndexUids(client)) {
+      if (uid.startsWith(indexPrefix)) {
         try {
-          await client.index(idx.uid).delete().waitTask();
+          await client.index(uid).delete().waitTask();
         } catch {
           /* ok */
         }

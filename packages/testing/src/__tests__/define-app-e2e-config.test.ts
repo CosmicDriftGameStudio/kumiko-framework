@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,10 +8,13 @@ import {
 } from "@cosmicdrift/kumiko-dev-server";
 import { TRUSTED_PROXY_HOPS_ENV as FRAMEWORK_TRUSTED_PROXY_HOPS_ENV } from "@cosmicdrift/kumiko-framework/api";
 import { SEED_MODE_ENV } from "@cosmicdrift/kumiko-framework/event-store";
+import { MEILI_INDEX_PREFIX_ENV as FRAMEWORK_MEILI_INDEX_PREFIX_ENV } from "@cosmicdrift/kumiko-framework/search/meilisearch";
 import {
+  E2E_MEILI_RUN_PREFIX_ENV,
   E2E_REMOTE_BASE_URL_ENV,
   E2E_STORAGE_STATE_ENV,
   E2E_WORKERS_ENV,
+  MEILI_INDEX_PREFIX_ENV,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
   SEED_ENABLE_ENV,
@@ -32,6 +35,7 @@ import { REAL_PROVIDERS_ENV } from "../helpers/real-providers.ts";
 
 const TOUCHED_ENV = [
   SEED_TOKEN_ENV,
+  E2E_MEILI_RUN_PREFIX_ENV,
   E2E_WORKERS_ENV,
   E2E_REMOTE_BASE_URL_ENV,
   E2E_STORAGE_STATE_ENV,
@@ -112,6 +116,52 @@ describe("defineAppE2eConfig remote target", () => {
   test("a storage state without a remote base URL fails instead of being ignored", () => {
     process.env[E2E_STORAGE_STATE_ENV] = "/tmp/session.json";
     expect(() => defineAppE2eConfig({ port: 4321 })).toThrow(E2E_STORAGE_STATE_ENV);
+  });
+});
+
+describe("defineAppE2eConfig Meilisearch isolation", () => {
+  function serverEnv(): Readonly<Record<string, string>> {
+    const server = defineAppE2eConfig({ port: 1 }).webServer;
+    if (Array.isArray(server) || server === undefined) throw new Error("expected one webServer");
+    return server.env ?? {};
+  }
+
+  test("the server gets one index prefix per run, also when a worker re-evaluates the config", () => {
+    const first = serverEnv()[MEILI_INDEX_PREFIX_ENV];
+    expect(first).toMatch(/^e2e_[0-9a-f-]+_$/);
+    expect(serverEnv()[MEILI_INDEX_PREFIX_ENV]).toBe(first);
+  });
+
+  test("a prefix exported in the shell does not become the run's prefix", () => {
+    const saved = process.env[MEILI_INDEX_PREFIX_ENV];
+    process.env[MEILI_INDEX_PREFIX_ENV] = "kumiko_";
+    try {
+      expect(serverEnv()[MEILI_INDEX_PREFIX_ENV]).toMatch(/^e2e_/);
+    } finally {
+      if (saved === undefined) delete process.env[MEILI_INDEX_PREFIX_ENV];
+      else process.env[MEILI_INDEX_PREFIX_ENV] = saved;
+    }
+  });
+
+  test("the teardown points at an existing file", () => {
+    const { globalTeardown } = defineAppE2eConfig({ port: 1 });
+    if (typeof globalTeardown !== "string") throw new Error("expected one teardown file");
+    expect(existsSync(globalTeardown)).toBe(true);
+  });
+
+  test("a remote run has no teardown", () => {
+    process.env[E2E_REMOTE_BASE_URL_ENV] = "https://staging.example.com";
+    expect(defineAppE2eConfig({ port: 1 }).globalTeardown).toBeUndefined();
+  });
+
+  test("an app cannot override the run's prefix", () => {
+    expect(() => defineAppE2eConfig({ port: 1, env: { [MEILI_INDEX_PREFIX_ENV]: "x_" } })).toThrow(
+      MEILI_INDEX_PREFIX_ENV,
+    );
+  });
+
+  test("the env name matches the framework adapter", () => {
+    expect(MEILI_INDEX_PREFIX_ENV).toBe(FRAMEWORK_MEILI_INDEX_PREFIX_ENV);
   });
 });
 
