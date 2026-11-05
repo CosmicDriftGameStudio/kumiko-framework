@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import type { PageHeaderProps } from "../../index.ts";
 import { usePageHeaderSlot } from "../layout/page-header-slot.tsx";
@@ -35,7 +35,8 @@ export function DefaultPageHeader({
     return () => setBreadcrumbScreenId(undefined);
   }, [setBreadcrumbScreenId, breadcrumbScreenId]);
 
-  useEffect(() => {
+  // Layout effect: a passive one lets the shell paint its own h1 next to the body's for a frame.
+  useLayoutEffect(() => {
     if (setBodyTitle === undefined || bodyTitle !== true) return;
     setBodyTitle(true);
     return () => setBodyTitle(false);

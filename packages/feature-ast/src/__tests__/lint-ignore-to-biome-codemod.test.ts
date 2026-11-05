@@ -50,7 +50,7 @@ describe("lint-ignore-to-biome codemod", () => {
   test("converts line, block and JSX comments of deleted guards and keeps the reason", () =>
     withFixture(
       {
-        "a.tsx": [
+        "web/a.tsx": [
           "// kumiko-lint-ignore no-raw-hooks DOM integration needs a real effect",
           "useEffect(() => {}, []);",
           "/* kumiko-lint-ignore primitives-discipline hand rolled layout for print */",
@@ -65,7 +65,7 @@ describe("lint-ignore-to-biome codemod", () => {
       },
       async (dir) => {
         await runCodemod(dir);
-        expect(read(dir, "a.tsx")).toBe(
+        expect(read(dir, "web/a.tsx")).toBe(
           [
             "// biome-ignore lint/plugin: DOM integration needs a real effect",
             "useEffect(() => {}, []);",
@@ -97,6 +97,52 @@ describe("lint-ignore-to-biome codemod", () => {
         expect(output).toContain("rewritten: 0 site(s)");
       },
     ));
+
+  test("the mirrored no-raw-hooks scope still matches the plugin's includes in the preset", () => {
+    const preset = JSON.parse(
+      read(join(import.meta.dir, "../../../framework/presets"), "biome-rules.json"),
+    );
+    expect(preset).toMatchObject({
+      plugins: expect.arrayContaining([
+        expect.objectContaining({
+          path: "./biome-plugins/no-raw-hooks.grit",
+          includes: [
+            "**/web/**/*.tsx",
+            "**/public/**/*.tsx",
+            "!**/__tests__/**",
+            "!**/*.test.ts",
+            "!**/*.test.tsx",
+            "!**/*.integration.ts",
+            "!**/*.integration.tsx",
+            "!**/*.spec.ts",
+            "!**/*.d.ts",
+            "!**/packages/renderer/**",
+            "!**/packages/document-designer/**",
+            "!**/samples/**",
+          ],
+        }),
+      ]),
+    });
+  });
+
+  test("leaves no-raw-hooks markers outside the plugin's includes alone", () => {
+    const marker = "// kumiko-lint-ignore no-raw-hooks DOM integration needs a real effect\n";
+    const outOfScope = [
+      "web/use-thing.ts",
+      "components/thing.tsx",
+      "web/__tests__/thing.tsx",
+      "web/thing.test.tsx",
+      "packages/renderer/web/thing.tsx",
+    ];
+    return withFixture(
+      Object.fromEntries(outOfScope.map((file) => [file, marker])),
+      async (dir) => {
+        const output = await runCodemod(dir);
+        for (const file of outOfScope) expect(read(dir, file)).toBe(marker);
+        expect(output).toContain("rewritten: 0 site(s)");
+      },
+    );
+  });
 
   test("lists markers with a missing or short reason instead of inventing one", () =>
     withFixture(
@@ -163,12 +209,12 @@ describe("lint-ignore-to-biome codemod", () => {
 
   test("runs as a script", () =>
     withFixture(
-      { "f.ts": "// kumiko-lint-ignore no-raw-hooks real DOM integration needs it\n" },
+      { "public/f.tsx": "// kumiko-lint-ignore no-raw-hooks real DOM integration needs it\n" },
       async (dir) => {
         const proc = Bun.spawn({ cmd: ["bun", SCRIPT_PATH, dir], stdout: "pipe", stderr: "pipe" });
         await proc.exited;
         expect(proc.exitCode).toBe(0);
-        expect(read(dir, "f.ts")).toBe(
+        expect(read(dir, "public/f.tsx")).toBe(
           "// biome-ignore lint/plugin: real DOM integration needs it\n",
         );
       },

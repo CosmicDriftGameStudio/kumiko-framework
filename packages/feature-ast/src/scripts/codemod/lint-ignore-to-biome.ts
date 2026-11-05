@@ -35,6 +35,18 @@ const DELETED_GUARD_SLUG_RULES: ReadonlyMap<string, string> = new Map([
   ["test-title", PLUGIN_RULE],
 ]);
 
+// Mirrors the includes of no-raw-hooks.grit in presets/biome-rules.json: outside them a converted
+// marker would be a `biome-ignore` that suppresses nothing, which Biome reports as unused.
+const NO_RAW_HOOKS_SCOPE = /\/(web|public)\/.*\.tsx$/;
+const NO_RAW_HOOKS_EXCLUDED =
+  /\/__tests__\/|\.(test|integration)\.tsx$|\/packages\/(renderer|document-designer)\/|\/samples\//;
+
+function isPluginScopeOfSlug(slug: string, file: string): boolean {
+  if (slug !== "no-raw-hooks") return true;
+  const path = `/${file}`;
+  return NO_RAW_HOOKS_SCOPE.test(path) && !NO_RAW_HOOKS_EXCLUDED.test(path);
+}
+
 const MARKER_RE = /^\s*\**\s*kumiko-lint-ignore\s+([\w-]+(?:,[\w-]+)*)(?:\s+([\s\S]*))?$/;
 
 type CommentRange = { readonly pos: number; readonly end: number; readonly line: number };
@@ -71,7 +83,7 @@ type Rewrite =
   | { readonly kind: "unconverted"; readonly note: string }
   | { readonly kind: "untouched" };
 
-function rewriteComment(commentText: string): Rewrite {
+function rewriteComment(commentText: string, file: string): Rewrite {
   const isBlock = commentText.startsWith("/*");
   const body = isBlock ? commentText.slice(2, -2) : commentText.slice(2);
   const match = MARKER_RE.exec(body);
@@ -84,7 +96,9 @@ function rewriteComment(commentText: string): Rewrite {
       : { kind: "untouched" };
   }
   const slugs = (match[1] ?? "").split(",");
-  const deleted = slugs.filter((slug) => DELETED_GUARD_SLUG_RULES.has(slug));
+  const deleted = slugs.filter(
+    (slug) => DELETED_GUARD_SLUG_RULES.has(slug) && isPluginScopeOfSlug(slug, file),
+  );
   if (deleted.length === 0) return { kind: "untouched" };
 
   const rules = new Set(deleted.map((slug) => DELETED_GUARD_SLUG_RULES.get(slug)));
@@ -126,7 +140,7 @@ function migrateLintIgnoreMarkers(text: string, file: string): CodemodResult {
   );
   let output = text;
   for (const comment of collectComments(sourceFile).reverse()) {
-    const rewrite = rewriteComment(text.slice(comment.pos, comment.end));
+    const rewrite = rewriteComment(text.slice(comment.pos, comment.end), file);
     if (rewrite.kind === "untouched") continue;
     if (rewrite.kind === "unconverted") {
       manual.push({ file, line: comment.line, description: rewrite.note });
