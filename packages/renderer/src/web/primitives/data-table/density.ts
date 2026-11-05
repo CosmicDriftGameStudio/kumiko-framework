@@ -18,6 +18,7 @@ const FILL_EDGE_INSET = " first:pl-6! last:pr-6!";
 
 const DENSITY_CLASSES: Record<DataTableDensity, DensityClasses> = {
   comfortable: NO_DENSITY_CLASSES,
+  relaxed: { row: "", cell: "sm:py-3!", header: "", card: "" },
   compact: { row: "h-8", cell: "p-1!", header: "px-1!", card: "min-h-14 py-2" },
 };
 

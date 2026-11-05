@@ -109,13 +109,20 @@ describe("validateBoot — list table block", () => {
 
   test.each(KINDS)("%s: density.default outside the union is rejected", (kind) => {
     expect(() => validateBoot([featureWith(kind, { density: { default: "tight" } })])).toThrow(
-      /table\.density\.default is "tight" — must be one of "comfortable", "compact"/,
+      /table\.density\.default is "tight" — must be one of "comfortable", "compact", "relaxed"/,
     );
   });
 
   test.each(KINDS)("%s: an unknown density key is rejected", (kind) => {
     expect(() => validateBoot([featureWith(kind, { density: { size: 1 } })])).toThrow(
       /table\.density has unknown key\(s\) "size"\. Allowed keys: default, userChoice/,
+    );
+  });
+
+  test.each(KINDS)("%s: table.frame accepts card and rejects other values", (kind) => {
+    expect(() => validateBoot([featureWith(kind, { frame: "card" })])).not.toThrow();
+    expect(() => validateBoot([featureWith(kind, { frame: "panel" })])).toThrow(
+      /table\.frame is "panel" — must be one of "card"/,
     );
   });
 

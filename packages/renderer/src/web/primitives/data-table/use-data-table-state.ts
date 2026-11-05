@@ -57,9 +57,10 @@ function resolveRowActions({
 }: Pick<DataTableProps, "rowActions" | "onRowClick" | "rowActionMode" | "onCellChange">) {
   // The row click already runs rowClick actions, so with a clickable row they
   // must not reappear in the kebab (a list whose only action is the rowClick
-  // one gets no actions column at all).
+  // one gets no actions column at all). "menu" mode is the exception: every row
+  // shows the kebab, and the opener is one of its entries.
   const menuActions =
-    rowActions !== undefined && onRowClick !== undefined
+    rowActions !== undefined && onRowClick !== undefined && rowActionMode !== "menu"
       ? rowActions.filter((action) => action.rowClick !== true)
       : rowActions;
   // The table keeps every action in "inline" mode, and with editable cells the

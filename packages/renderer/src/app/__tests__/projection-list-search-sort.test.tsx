@@ -195,6 +195,28 @@ describe("ProjectionListBody search/sort capability wiring", () => {
     expect(lastPayload).toMatchObject({ sort: "description", sortDirection: "desc" });
   });
 
+  test("toolbarSort: the table gets the toolbar select flag, the sortOptions and the sort handler", async () => {
+    capturedProps = undefined;
+    renderProjectionList({
+      id: "schedule-list",
+      type: "projectionList",
+      query: "ledger:query:schedule:list",
+      columns: ["description"],
+      sortable: true,
+      toolbarSort: true,
+      sortOptions: [
+        { field: "description", dir: "asc", label: "ledger:sort:description-asc" },
+        { field: "description", dir: "desc", label: "ledger:sort:description-desc" },
+      ],
+    });
+
+    await waitFor(() => expect(capturedProps).toBeDefined());
+    const props = getCapturedProps();
+    expect(props?.toolbarSort).toBe(true);
+    expect(props?.sortOptions).toHaveLength(2);
+    expect(props?.onSortChange).toBeDefined();
+  });
+
   test("non-sort-capable screen: the column is rendered NOT sortable", async () => {
     capturedProps = undefined;
     renderProjectionList({

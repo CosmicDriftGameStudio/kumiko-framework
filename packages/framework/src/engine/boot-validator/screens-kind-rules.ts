@@ -84,6 +84,17 @@ export const SCREEN_KIND_RULES = {
       "toolbarSort draws the sortOptions as a select in the filter row, so it needs sortOptions.",
     fix: "Declare sortOptions or remove toolbarSort.",
   },
+  toolbarActionsPlacementInvalid: {
+    id: "list/toolbar-actions-placement-invalid",
+    summary: 'toolbarActionsPlacement is "header" or "toolbar".',
+    fix: 'Use "header" or "toolbar", or remove toolbarActionsPlacement.',
+  },
+  toolbarActionsPlacementWithoutActions: {
+    id: "list/toolbar-actions-placement-without-actions",
+    summary:
+      'toolbarActionsPlacement "toolbar" moves the toolbarActions, so the list declares some.',
+    fix: "Declare toolbarActions or remove toolbarActionsPlacement.",
+  },
   configEditFieldsEmpty: {
     id: "config-edit/fields-empty",
     summary: "A configEdit screen declares at least one field.",

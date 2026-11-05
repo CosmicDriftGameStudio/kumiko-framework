@@ -3,6 +3,7 @@ import { normalizeListColumn } from "../screen-helpers.ts";
 import {
   LIST_TABLE_DENSITIES,
   LIST_TABLE_DENSITY_KEYS,
+  LIST_TABLE_FRAMES,
   LIST_TABLE_OPTION_KEYS,
   type ListColumnSpec,
 } from "../types/screen.ts";
@@ -110,6 +111,11 @@ export function validateListTableOptions(
         message: `${where} table.${key} must be a boolean, got ${typeof table[key]}.`,
       });
     }
+  }
+  if (table["frame"] !== undefined && !isOneOf(LIST_TABLE_FRAMES, table["frame"])) {
+    throw bootRuleError(LIST_TABLE_RULES.frameInvalid, {
+      message: `${where} table.frame is ${JSON.stringify(table["frame"])} — must be one of ${LIST_TABLE_FRAMES.map((f) => `"${f}"`).join(", ")}.`,
+    });
   }
   if (table["density"] !== undefined) validateDensity(where, table["density"]);
   if (table["export"] !== undefined) validateExportOptions(where, table["export"], exportAllowed);

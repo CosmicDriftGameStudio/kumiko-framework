@@ -59,6 +59,17 @@ function rowPresentation(
   };
 }
 
+function toolbarPresentation(
+  screen: ProjectionListScreenDefinition,
+): Pick<EntityListScreenDefinition, "toolbarActionsPlacement" | "toolbarSort"> {
+  return {
+    ...(screen.toolbarActionsPlacement !== undefined && {
+      toolbarActionsPlacement: screen.toolbarActionsPlacement,
+    }),
+    ...(screen.toolbarSort !== undefined && { toolbarSort: screen.toolbarSort }),
+  };
+}
+
 /** Converts a ProjectionListScreenDefinition to the EntityListScreen shape
  *  expected by RenderList. `type` = "entityList" plus a pseudo-entity satisfy
  *  the type constraint; RenderList does not branch on `type` and reads `entity`
@@ -74,6 +85,7 @@ export function synthesizeProjectionScreen(
     ...rowPresentation(screen),
     ...(screen.rowActions !== undefined && { rowActions: screen.rowActions }),
     ...(screen.toolbarActions !== undefined && { toolbarActions: screen.toolbarActions }),
+    ...toolbarPresentation(screen),
     ...(screen.pagination !== undefined && { pagination: screen.pagination }),
     ...(screen.pageSize !== undefined && { pageSize: screen.pageSize }),
     ...(screen.defaultSort !== undefined && { defaultSort: screen.defaultSort }),

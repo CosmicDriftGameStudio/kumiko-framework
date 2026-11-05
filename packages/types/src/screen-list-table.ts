@@ -1,6 +1,6 @@
 import type { ListAggregateMeasureKind } from "./list-aggregate-types.ts";
 
-export const LIST_TABLE_DENSITIES = ["comfortable", "compact"] as const;
+export const LIST_TABLE_DENSITIES = ["comfortable", "compact", "relaxed"] as const;
 export type ListTableDensity = (typeof LIST_TABLE_DENSITIES)[number];
 
 /** Upper bound for a list column width in pixels; the renderer clamps to it, the boot validator rejects above it. */
@@ -22,7 +22,10 @@ export const LIST_TABLE_OPTION_KEYS = [
   "totals",
   "summaryRow",
   "compactHeader",
+  "frame",
 ] as const;
+export const LIST_TABLE_FRAMES = ["card"] as const;
+export type ListTableFrame = (typeof LIST_TABLE_FRAMES)[number];
 export const LIST_TABLE_SUMMARY_ROW_KEYS = ["query", "params"] as const;
 export const LIST_TABLE_GROUPING_KEYS = [
   "field",
@@ -55,8 +58,10 @@ export type ListTableOptions = {
   readonly keyboardNavigation?: boolean;
   /** Renders the header row smaller (12px) and semibold. */
   readonly compactHeader?: boolean;
+  /** "card": from `sm` up the table, summary row and pager sit in one bordered, rounded card (toolbar and description stay above it); below `sm` the cards of the card layout are bordered, rounded cards with a gap. Default: the table runs frameless over the page width. */
+  readonly frame?: ListTableFrame;
   readonly density?: {
-    /** Row density on first visit. Default "comfortable". */
+    /** Row density on first visit. Default "comfortable"; "relaxed" gives the body cells 12px vertical padding from sm, the header row stays as is. */
     readonly default?: ListTableDensity;
     /** Shows the density choice in the view menu and remembers it per session. */
     readonly userChoice?: boolean;

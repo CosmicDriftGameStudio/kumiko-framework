@@ -19,6 +19,7 @@ import {
   PrimitivesProvider,
 } from "../../primitives.tsx";
 import { RenderList } from "../render-list.tsx";
+import { withPlusIconFallback } from "../render-list-toolbar-model.ts";
 
 const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, size }) => (
   <button
@@ -33,7 +34,16 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, siz
   </button>
 );
 
-const TestPageHeader: ComponentType<PageHeaderProps> = ({ actions }) => <header>{actions}</header>;
+const TestPageHeader: ComponentType<PageHeaderProps> = ({ actions, overflowItems }) => (
+  <header>
+    {actions}
+    {overflowItems?.map((item) => (
+      <span key={item.id} data-testid={item.testId}>
+        {item.label}
+      </span>
+    ))}
+  </header>
+);
 const toolbarOnlyDataTable: ComponentType<DataTableProps> = ({ toolbarEnd }) => (
   <div data-testid="toolbar-end">{toolbarEnd}</div>
 );
@@ -82,7 +92,19 @@ const listScreen: EntityListScreenDefinition = {
   columns: ["name"],
 };
 
-function renderList(compact: boolean, createPlacement: "header" | "toolbar"): void {
+const newContractAction = {
+  id: "new-contract",
+  label: "New contract",
+  style: "primary",
+  onTrigger: () => {},
+} as const;
+
+function renderList(
+  compact: boolean,
+  createPlacement: "header" | "toolbar",
+  placement: Pick<EntityListScreenDefinition, "toolbarActionsPlacement"> = {},
+  withAction = false,
+): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en" })}
@@ -92,11 +114,12 @@ function renderList(compact: boolean, createPlacement: "header" | "toolbar"): vo
         <PageHeaderSlotAvailableProvider value={true}>
           <PageHeaderCompactProvider value={compact}>
             <RenderList
-              screen={{ ...listScreen, createPlacement }}
+              screen={{ ...listScreen, createPlacement, ...placement }}
               entity={entity}
               rows={[]}
               featureName="header-fixture"
               onCreate={() => {}}
+              {...(withAction && { toolbarActions: [newContractAction] })}
             />
           </PageHeaderCompactProvider>
         </PageHeaderSlotAvailableProvider>
@@ -126,5 +149,48 @@ describe("RenderList createPlacement", () => {
     expect(
       within(rtlScreen.getByTestId("toolbar-end")).queryByTestId("render-list-create"),
     ).toBeNull();
+  });
+});
+
+describe("RenderList toolbarActionsPlacement", () => {
+  test("toolbar: from md the action is in the toolbar after the create button, not in the header", () => {
+    renderList(false, "toolbar", { toolbarActionsPlacement: "toolbar" }, true);
+    const toolbarEnd = rtlScreen.getByTestId("toolbar-end");
+    const create = within(toolbarEnd).getByTestId("render-list-create");
+    const action = within(toolbarEnd).getByTestId("render-list-toolbar-action-new-contract");
+    expect(create.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rtlScreen.queryByRole("banner")).toBeNull();
+  });
+
+  test("toolbar: below md the action stays in the header", () => {
+    renderList(true, "header", { toolbarActionsPlacement: "toolbar" }, true);
+    expect(
+      within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract"),
+    ).toBeTruthy();
+    expect(
+      within(rtlScreen.getByTestId("toolbar-end")).queryByTestId(
+        "render-list-toolbar-action-new-contract",
+      ),
+    ).toBeNull();
+  });
+
+  test("plus icon fallback: only for a sole icon-less primary action", () => {
+    const second = { ...newContractAction, id: "other" };
+    const withIcon = { ...newContractAction, id: "iconic", icon: "check" } as const;
+    expect(withPlusIconFallback(newContractAction, [newContractAction]).icon).toBe("plus");
+    expect(withPlusIconFallback(newContractAction, [newContractAction, withIcon]).icon).toBe(
+      "plus",
+    );
+    expect(
+      withPlusIconFallback(newContractAction, [newContractAction, second]).icon,
+    ).toBeUndefined();
+    expect(withPlusIconFallback(withIcon, [withIcon]).icon).toBe("check");
+  });
+
+  test("header (default): a primary action stands in the header", () => {
+    renderList(false, "header", {}, true);
+    expect(
+      within(rtlScreen.getByRole("banner")).getByTestId("render-list-toolbar-action-new-contract"),
+    ).toBeTruthy();
   });
 });

@@ -1,7 +1,9 @@
+import { LIST_TABLE_DENSITIES } from "@cosmicdrift/kumiko-types/screen";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { Columns3 } from "lucide-react";
 import { Popover as PopoverPrimitive } from "radix-ui";
 import type { ReactNode } from "react";
-import type { DataTableViewOptions } from "../../../data-table-view-types.ts";
+import type { DataTableDensity, DataTableViewOptions } from "../../../data-table-view-types.ts";
 import { useOptionalTranslation } from "../../../index.ts";
 import { Button as UiButton } from "../../ui/button.tsx";
 import { SegmentedControl } from "../segmented-select.tsx";
@@ -13,6 +15,10 @@ const POPOVER_CLASS =
   "text-popover-foreground shadow-md max-h-[var(--radix-popover-content-available-height)] overflow-y-auto";
 
 const SECTION_TITLE_CLASS = "m-0 text-xs font-medium text-muted-foreground";
+
+function densityOf(value: string): DataTableDensity {
+  return isOneOf(LIST_TABLE_DENSITIES, value) ? value : "comfortable";
+}
 
 /** The menu also opens for pinning or resizing alone: pins get a section, widths only the reset. */
 export function viewHasMenu(view: DataTableViewOptions | undefined): view is DataTableViewOptions {
@@ -85,13 +91,14 @@ export function ViewMenu({
                 id="list-view-density"
                 name="list-view-density"
                 value={view.density}
-                onChange={(next) => onDensityChange(next === "compact" ? "compact" : "comfortable")}
+                onChange={(next) => onDensityChange(densityOf(next))}
                 options={[
                   {
                     value: "comfortable",
                     label: label("kumiko.list.view.density.comfortable", "Comfortable"),
                   },
                   { value: "compact", label: label("kumiko.list.view.density.compact", "Compact") },
+                  { value: "relaxed", label: label("kumiko.list.view.density.relaxed", "Relaxed") },
                 ]}
                 labelProps={{ "aria-label": label("kumiko.list.view.density", "Density") }}
               />

@@ -16,7 +16,21 @@ type ToolbarModelInput = {
   readonly pageHeaderSlotAvailable: boolean;
   readonly pageHeaderCompact: boolean;
   readonly createInPageHeader: boolean;
+  readonly toolbarActionsPlacement: "header" | "toolbar" | undefined;
 };
+
+// Several icon-less primary actions would all show the same fallback "plus" icon, so it
+// only applies to a sole one (same reasoning as the header's overflow menu below).
+export function withPlusIconFallback(
+  action: ToolbarActionButton,
+  actions: readonly ToolbarActionButton[],
+): ToolbarActionButton {
+  const isIconlessPrimary = (a: ToolbarActionButton): boolean =>
+    a.style === "primary" && a.icon === undefined;
+  return isIconlessPrimary(action) && actions.filter(isIconlessPrimary).length === 1
+    ? { ...action, icon: "plus" }
+    : action;
+}
 
 export type ToolbarActionSplit = {
   readonly toolbarIconOnly: boolean;
@@ -24,6 +38,7 @@ export type ToolbarActionSplit = {
   readonly promotedInOverflowMenu: boolean;
   readonly toolbarActionsInToolbar: readonly ToolbarActionButton[];
   readonly hasToolbarActionsInToolbar: boolean;
+  readonly actionsInToolbar: boolean;
 };
 
 export function splitToolbarActions(input: ToolbarModelInput): ToolbarActionSplit {
@@ -33,7 +48,10 @@ export function splitToolbarActions(input: ToolbarModelInput): ToolbarActionSpli
     pageHeaderSlotAvailable,
     pageHeaderCompact,
     createInPageHeader,
+    toolbarActionsPlacement,
   } = input;
+  // From md up; below it the compact header keeps the actions.
+  const actionsInToolbar = toolbarActionsPlacement === "toolbar" && !pageHeaderCompact;
   const hasToolbarActions = toolbarActions !== undefined && toolbarActions.length > 0;
   const toolbarIconOnly = hasToolbarActions && shouldRenderActionsIconOnly(toolbarActions);
   // Every primary toolbar action takes the page-header slot, left of the create
@@ -42,7 +60,7 @@ export function splitToolbarActions(input: ToolbarModelInput): ToolbarActionSpli
   // the create button or beside another promoted action, an entry in the header's overflow
   // menu: the header has no room for labelled actions.
   const promotedToolbarActions =
-    pageHeaderAvailable && pageHeaderSlotAvailable
+    pageHeaderAvailable && pageHeaderSlotAvailable && !actionsInToolbar
       ? (toolbarActions?.filter(isHeaderPromotableToolbarAction) ?? [])
       : [];
   // Several icon-less actions would otherwise all show the same fallback "plus" icon.
@@ -59,6 +77,7 @@ export function splitToolbarActions(input: ToolbarModelInput): ToolbarActionSpli
     promotedInOverflowMenu,
     toolbarActionsInToolbar,
     hasToolbarActionsInToolbar,
+    actionsInToolbar,
   };
 }
 

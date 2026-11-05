@@ -3,6 +3,7 @@ import type { ProjectionListScreenDefinition } from "../types/screen.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListRowGuidance } from "./list-row-guidance.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
+import { validateListToolbarOptions } from "./list-toolbar-options.ts";
 import {
   assertWriteHandlerRegistered,
   resolveRowActionNavigateTarget,
@@ -103,6 +104,10 @@ export function validateProjectionListScreen(
     screen.table,
     screen.columns,
     true,
+  );
+  validateListToolbarOptions(
+    `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
+    screen,
   );
   // Screen filter: field existence can't be checked without an entity (columns
   // aren't a complete field inventory of the underlying query), so only the
