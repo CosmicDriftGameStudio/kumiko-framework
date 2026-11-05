@@ -1874,6 +1874,7 @@ type DataTableTableBlock = { // The DataTable props a screen's `table` block fee
   exportList?: DataTableExport; // Present: the toolbar has an export button (web only).
   compactHeader?: boolean; // Smaller (12px) semibold header row.
   frame?: ListTableFrame; // "card": table, summary row and pager in one bordered card from sm; bordered cards with a gap below sm.
+  narrowFacets?: ListNarrowFacets; // "pills": below sm the select facets render as rounded pill triggers with a stronger border.
   serverGroups?: DataTableServerGroups; // Present: the rows are grouped on the server; replaces pager and infinite scroll.
   summaryRow?: DataTableSummaryRow; // Present: a footer line above the totals row with the summary query's items.
   totals?: DataTableTotals; // Present: a footer row with the server-computed totals of the filtered list.
@@ -5052,9 +5053,11 @@ type ExpandableRowGrouping = Omit<ListTableGrouping, "field" | "userChoice" | "f
 
 ```ts
 const LIST_COLUMN_PINS: ["left", "right"];
+const LIST_NARROW_FACETS: ["pills"];
 const LIST_TABLE_DENSITIES: ["comfortable", "compact", "relaxed"];
 const LIST_TABLE_FRAMES: ["card"];
 type ListColumnPin = (typeof LIST_COLUMN_PINS)[number];
+type ListNarrowFacets = (typeof LIST_NARROW_FACETS)[number];
 type ListTableDensity = (typeof LIST_TABLE_DENSITIES)[number];
 type ListTableExportOptions = {
   xlsx: true;

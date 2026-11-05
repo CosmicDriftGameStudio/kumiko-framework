@@ -22,6 +22,8 @@ import { FacetSearchFilter } from "./facet-search-filter.tsx";
 
 // ---- DataTable (shadcn: Table) ----
 
+const PILL_CLASSES = "h-9 rounded-full border-border-strong px-3";
+
 function sameValueSet(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value) => b.includes(value));
 }
@@ -75,11 +77,13 @@ function FacetSelect({
   selected,
   onChange,
   dense,
+  pill,
 }: {
   facet: DataTableFacet;
   selected: readonly string[];
   onChange: (field: string, values: readonly string[]) => void;
   dense: boolean;
+  pill: boolean;
 }): ReactNode {
   const chips = facet.chips ?? [];
   const isFiltered = selected.length > 0;
@@ -96,6 +100,7 @@ function FacetSelect({
           className={cn(
             "h-9",
             dense && "border-border-strong px-2.5",
+            pill && PILL_CLASSES,
             isFiltered && "border-primary text-foreground",
           )}
           data-testid={`facet-${facet.field}`}
@@ -141,12 +146,15 @@ export function FacetFilter({
   selected,
   onChange,
   dense = false,
+  pill = false,
 }: {
   facet: DataTableFacet;
   selected: readonly string[];
   onChange: (field: string, values: readonly string[]) => void;
   /** Toolbar of a scrollBody table: h32 with the stronger border. */
   dense?: boolean;
+  /** Compact pill trigger for the dropdown facets: rounded, auto width. */
+  pill?: boolean;
 }): ReactNode {
   const translate = useOptionalTranslation();
   const allLabel = translate?.("kumiko.list.filter.all") ?? "All";
@@ -155,7 +163,15 @@ export function FacetFilter({
     onChange(facet.field, next);
   };
   if (facet.chips !== undefined && facet.display === "select") {
-    return <FacetSelect facet={facet} selected={selected} onChange={onChange} dense={dense} />;
+    return (
+      <FacetSelect
+        facet={facet}
+        selected={selected}
+        onChange={onChange}
+        dense={dense}
+        pill={pill}
+      />
+    );
   }
   if (facet.chips !== undefined) {
     return <FacetChips facet={facet} selected={selected} onChange={onChange} />;
@@ -177,7 +193,7 @@ export function FacetFilter({
         <UiButton
           variant="outline"
           size="sm"
-          className={cn("h-9", dense && "border-border-strong px-2.5")}
+          className={cn("h-9", dense && "border-border-strong px-2.5", pill && PILL_CLASSES)}
           data-testid={`facet-${facet.field}`}
         >
           {selected.length === 0 ? `${facet.label}: ${allLabel}` : facet.label}

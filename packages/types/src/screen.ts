@@ -334,6 +334,7 @@ export { LIST_BULK_ACTION_KEYS, MAX_BULK_SELECTION } from "./screen-list-bulk.ts
 export type {
   BundledListsOptions,
   ListColumnPin,
+  ListNarrowFacets,
   ListTableDensity,
   ListTableExportOptions,
   ListTableFrame,
@@ -346,6 +347,7 @@ export {
   DEFAULT_EXPORT_MAX_ROWS,
   LIST_COLUMN_MAX_WIDTH_PX,
   LIST_COLUMN_PINS,
+  LIST_NARROW_FACETS,
   LIST_TABLE_DENSITIES,
   LIST_TABLE_DENSITY_KEYS,
   LIST_TABLE_EXPORT_KEYS,

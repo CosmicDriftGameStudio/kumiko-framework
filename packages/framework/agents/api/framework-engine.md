@@ -672,6 +672,7 @@ type EntityListScreenDefinition = {
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
   createPlacement?: "header" | "toolbar"; // "toolbar": from `sm` up the create button ends the filter row instead of standing in the header.
   toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
+  narrowFacets?: ListNarrowFacets; // "pills": below `sm` the select facets render as rounded pill triggers with a stronger border; from `sm` up unchanged.
   toolbarActionsPlacement?: "header" | "toolbar"; // "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header.
   itemNounKey?: string; // i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
@@ -1413,6 +1414,7 @@ type ProjectionListScreenDefinition = {
   toolbarActions?: ToolbarAction[];
   toolbarActionsPlacement?: "header" | "toolbar"; // "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select, instead of standing in the page header.
   toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
+  narrowFacets?: ListNarrowFacets; // "pills": below `sm` the select facets render as rounded pill triggers with a stronger border; from `sm` up unchanged.
   pagination?: ListPaginationMode;
   pageSize?: number;
   table?: ListTableOptions; // Opt-in table behaviour: remembered state, reset, column picker, density.

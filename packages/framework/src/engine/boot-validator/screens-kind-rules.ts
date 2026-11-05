@@ -84,6 +84,11 @@ export const SCREEN_KIND_RULES = {
       "toolbarSort draws the sortOptions as a select in the filter row, so it needs sortOptions.",
     fix: "Declare sortOptions or remove toolbarSort.",
   },
+  narrowFacetsInvalid: {
+    id: "list/narrow-facets-invalid",
+    summary: 'narrowFacets is "pills".',
+    fix: 'Use "pills", or remove narrowFacets.',
+  },
   toolbarActionsPlacementInvalid: {
     id: "list/toolbar-actions-placement-invalid",
     summary: 'toolbarActionsPlacement is "header" or "toolbar".',

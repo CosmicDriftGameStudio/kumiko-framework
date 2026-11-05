@@ -1,3 +1,4 @@
+import { LIST_NARROW_FACETS } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { bootRuleError } from "./boot-rule.ts";
 import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
@@ -6,6 +7,7 @@ const TOOLBAR_ACTIONS_PLACEMENTS = ["header", "toolbar"] as const;
 
 type ListToolbarOptionScreen = {
   readonly toolbarSort?: true;
+  readonly narrowFacets?: unknown;
   readonly sortOptions?: readonly unknown[];
   readonly toolbarActionsPlacement?: unknown;
   readonly toolbarActions?: readonly unknown[];
@@ -16,6 +18,11 @@ export function validateListToolbarOptions(where: string, screen: ListToolbarOpt
   if (screen.toolbarSort === true && (screen.sortOptions ?? []).length === 0) {
     throw bootRuleError(SCREEN_KIND_RULES.toolbarSortWithoutSortOptions, {
       message: `${where} sets toolbarSort without sortOptions — the select lists the sortOptions. Declare sortOptions or remove toolbarSort.`,
+    });
+  }
+  if (screen.narrowFacets !== undefined && !isOneOf(LIST_NARROW_FACETS, screen.narrowFacets)) {
+    throw bootRuleError(SCREEN_KIND_RULES.narrowFacetsInvalid, {
+      message: `${where} sets narrowFacets ${JSON.stringify(screen.narrowFacets)} — must be "pills".`,
     });
   }
   const placement = screen.toolbarActionsPlacement;

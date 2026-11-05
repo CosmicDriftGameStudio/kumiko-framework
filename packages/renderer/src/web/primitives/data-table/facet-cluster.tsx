@@ -19,7 +19,7 @@ type FacetClusterProps = Pick<
   | "onRangeChange"
   | "resetAll"
   | "notice"
-> & { readonly dense: boolean };
+> & { readonly dense: boolean; readonly pills: boolean };
 
 function ListNotice({ notice }: { readonly notice: DataTableListNotice }): ReactNode {
   const translate = useOptionalTranslation();
@@ -68,6 +68,7 @@ export function buildFacetCluster({
   resetAll,
   notice,
   dense,
+  pills,
 }: FacetClusterProps): ReactNode | undefined {
   const hasFacets =
     filterFacets !== undefined && filterFacets.length > 0 && onFilterChange !== undefined;
@@ -97,6 +98,7 @@ export function buildFacetCluster({
             selected={filterValues?.[facet.field] ?? []}
             onChange={onFilterChange}
             dense={dense}
+            pill={pills}
           />
         ))}
       {hasDateRangeFacets &&
