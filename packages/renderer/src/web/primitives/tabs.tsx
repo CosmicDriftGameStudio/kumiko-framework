@@ -14,7 +14,11 @@ const TAB_TRIGGER_CLASS =
 // tab's hover and underline span its label plus 10px; "filter" insets the strip so its first label
 // lines up with a list pane's search field, "plain" sits flush with the content it switches.
 const STRIP_SPACING = {
-  pill: { scroller: "px-1.5 @lg:px-6", list: "h-11 gap-2 @lg:gap-6", trigger: "" },
+  pill: {
+    scroller: "px-0 @lg:px-6",
+    list: "h-11 gap-0.5 @lg:gap-6",
+    trigger: "px-2.5 text-[13px] @lg:px-0 @lg:text-sm",
+  },
   plain: { scroller: "px-0", list: "h-10 gap-1", trigger: "px-2.5 font-normal" },
   filter: { scroller: "px-1.5", list: "h-10 gap-0", trigger: "px-2.5 font-normal" },
 } as const;

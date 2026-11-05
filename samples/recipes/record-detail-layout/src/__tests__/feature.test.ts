@@ -19,6 +19,7 @@ import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
 import {
   answerBriefing,
+  answerNextReminder,
   answerOrderDetail,
   answerOrderList,
   answerOrderSummary,
@@ -136,6 +137,7 @@ describe("record-detail-layout showcase — work queue", () => {
       display: "select",
       showCounts: true,
       label: "order-desk.orders.todo",
+      narrowPlacement: "behind-filter",
     });
     const buttons = (screen.rowActions ?? []).filter((action) => action.display === "button");
     expect(buttons.map((action) => [action.id, action.visible])).toEqual([
@@ -277,6 +279,34 @@ describe("record-detail-layout showcase — phone variants", () => {
 
   test("the briefing answers a shorter variant for phones", () => {
     expect(answerBriefing().narrowBlocks.length).toBeGreaterThan(0);
+  });
+});
+
+describe("record-detail-layout showcase — board gaps round 8", () => {
+  test("two narrow-only value columns stand side by side on the phone card", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    const inline = screen.columns
+      .map((column) => normalizeListColumn(column))
+      .filter((column) => column.narrowInline === true);
+    expect(inline.map((column) => [column.field, column.showOnNarrowOnly])).toEqual([
+      ["narrowOpen", true],
+      ["narrowStatus", true],
+    ]);
+    const first = answerOrderList(orderListSchema.parse({}));
+    expect("rows" in first && first.rows[0]?.narrowOpen).toBe("€ 312.00 open");
+  });
+
+  test("the reminder-due empty state takes its description params from a registered query", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    const reminder = screen.namedFilters?.find((filter) => filter.id === "reminder-due");
+    expect(reminder?.emptyState).toEqual({
+      title: "order-desk.orders.all-done",
+      description: "order-desk.orders.next-reminder",
+      paramsQuery: "order-desk:query:order:next-reminder",
+    });
+    expect(answerNextReminder()).toEqual({ customer: "Aiko Tanaka", due: "by Friday" });
   });
 });
 

@@ -6,6 +6,7 @@ export type CardRoleColumn = {
   readonly type?: string;
   readonly renderer?: unknown;
   readonly hideOnNarrow?: boolean;
+  readonly narrowInline?: boolean;
   readonly fileDisplay?: { readonly kind: string };
   /** A "to do" hint column: never the default card title. */
   readonly hint?: unknown;

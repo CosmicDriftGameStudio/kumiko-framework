@@ -114,7 +114,7 @@ function SidebarProvider(props: React.ComponentProps<"div"> & { defaultOpen?: bo
 function SidebarUser(props: SidebarUserProps): ReactNode;
 function Sparkline(props: { points: number[]; className?: string; }): ReactNode;
 function Stack(props: StackProps): ReactNode;
-function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?: string; tone?: StatTone; accentColor?: string; delta?: StatDelta; trend?: string; spark?: number[]; testId?: string; link?: StatLink; navigable?: boolean; children?: ReactNode; }): ReactNode; // Icon-bearing metric tile with an optional delta chip, trend line, and sparkline.
+function StatCard(props: { icon?: ReactNode; label: string; value: string; sub?: string; tone?: StatTone; accentColor?: string; delta?: StatDelta; trend?: string; spark?: number[]; testId?: string; link?: StatLink; navigable?: boolean; inset?: boolean; subBelow?: boolean; boardPadding?: boolean; children?: ReactNode; }): ReactNode; // Icon-bearing metric tile with an optional delta chip, trend line, and sparkline.
 function StatusBadge(props: { tone: StatusBadgeTone; dot?: boolean; children: ReactNode; className?: string; testId?: string; }): ReactNode; // Pill badge with a status dot.
 function StatusBarChart(props: { entries: StatusBarEntry[]; ariaLabel: string; startLabel?: string; endLabel?: string; highlightLast?: boolean; dense?: boolean; testId?: string; }): ReactNode; // Status bar strip (e.g. 90-day uptime): variable-height bars with gradient fade + tick line on top; the last entry gets a "now" accent stripe.
 function StepBar(props: { steps: string[]; currentIndex: number; compactLabel: string; onStepSelect?: (index: number) => void; doneSteps?: boolean[]; selectableSteps?: "done" | "all"; narrowLayout?: "label" | "steps"; orientation?: "horizontal" | "vertical" | "stacked"; heading?: string; description?: string; subtitles?: (string | undefined)[]; upNext?: { heading: string; title: string; subtitle?: string; }; testId?: string; compactTestId?: string; }): ReactNode; // Wizard step overview — numbered chips with a connector line between them.
@@ -1547,11 +1547,12 @@ type StepListProps = {
   }; // Badge next to the title, e.g. "Erledigt" for a finished list.
   steps: StepListItem[];
   footerActions?: StepAction[]; // Footer row: a ghost action for the whole list next to the primary next-step action.
+  footerNote?: string; // Quiet line under the footer actions, e.g. "Nothing is saved without you."
   collapsedAfter?: number; // Show only the first n steps plus "und k weitere Schritte" (expands on click).
   collapseWhen?: "always" | "overflow"; // "always" (default) folds after `collapsedAfter`; "overflow" folds a `fill` list only when its steps do not fit its height, then shows as many as fit but at least `collapsedAfter`.
   surface?: "ai" | "plain"; // "ai" (default) = AiSurface background, "plain" = no background.
   fill?: boolean; // Stretch to the container height: steps scroll in the middle, the footer stays pinned at the bottom.
-  progress?: "full" | "count" | "none"; // "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "none" = neither, e.g. when `status` already says the list is done.
+  progress?: "full" | "count" | "total" | "none"; // "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "total" = only "n steps" (rejected ones left out), "none" = neither, e.g. when `status` already says the list is done.
   emptyContent?: ReactNode;
   selection?: StepListSelection; // Adds a checkbox per selectable step, a select-all row and selection footer actions.
   phoneCard?: boolean; // On a phone the list reads as a card: the header sits inside the surface and the steps in a framed white box.
@@ -1561,6 +1562,7 @@ type StepListSelection = {
   selectedIds: string[]; // Explicitly chosen step ids (controlled); prerequisites are added on top.
   onSelectionChange: (selectedIds: string[]) => void;
   actions: StepSelectionAction[]; // Replace `footerActions` while at least one step is selected.
+  compact?: true; // Phone-card style: no select-all row, the actions stay visible at 0 selected (disabled unless `ignoresSelection`), a muted header and left-aligned footer.
 };
 type StepSelectability =
   | {
@@ -1576,7 +1578,9 @@ type StepSelectability =
 ;
 type StepSelectionAction = {
   id: string;
-  label: string; // Without a number: the list appends " (n)" with the effective selection size.
+  label: string; // Without a number: the list appends " (n)" with the effective selection size (see `labelForCount`).
+  labelForCount?: (count: number) => string; // Replaces the appended " (n)": the label for the effective selection size.
+  ignoresSelection?: true; // No counter, never disabled by an empty selection (e.g. "Review one by one"); `onClick` still gets the selection.
   onClick: (stepIds: string[]) => void; // Receives the effective selection in list order, prerequisites included.
   variant?: "primary" | "secondary" | "ghost";
   disabled?: boolean;
@@ -1591,6 +1595,7 @@ type StepTag = {
   label: string;
   tone?: "accent" | "muted" | "warn" | "ok" | "bad";
   afterWaiting?: boolean; // A note about the step's history (e.g. just changed) reads after what it waits for.
+  side?: true; // Sits in the right column of the row, above a trailing link (e.g. a risk chip over "Preview").
 };
 interface TextFieldProps extends FieldBase {
   value: string;
@@ -1773,6 +1778,8 @@ type WorkspaceShellProps = {
   focusRailNavQns?: string[]; // Top-level nav QNs the focus rail shows as tiles; the others sit behind a "More" tile that opens the full sidebar.
   navBadges?: ReadonlyMap<string, ReactNode>; // Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell.
   fill?: boolean; // Viewport-fit shell.
+  contentSurface?: "card" | "background"; // Surface behind the screen content.
+  navStyle?: ShellNavStyle; // `"plain"` renders the sidebar without leading icons while expanded (the focus rail and the collapsed rail keep them), with uppercase group labels, quiet active entries, a hamburger sidebar trigger and a 58px title bar.
   children: ReactNode; // Screen content.
 };
 type WorkspaceShellUser = {

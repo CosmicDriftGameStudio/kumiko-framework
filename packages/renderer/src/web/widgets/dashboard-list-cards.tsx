@@ -117,7 +117,11 @@ export function DashboardListCards({
             data-testid="dashboard-list-card"
             className={cn(
               "flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5",
-              cardToneClass(rowToneOf(row, rowToneField)),
+              cardToneClass(
+                rowToneField === undefined
+                  ? undefined
+                  : (rowToneOf(row, rowToneField) ?? "neutral"),
+              ),
             )}
           >
             {(badges.length > 0 || detail !== undefined) && (

@@ -22,6 +22,8 @@ export type StepTag = {
   readonly tone?: "accent" | "muted" | "warn" | "ok" | "bad";
   /** A note about the step's history (e.g. just changed) reads after what it waits for. */
   readonly afterWaiting?: boolean;
+  /** Sits in the right column of the row, above a trailing link (e.g. a risk chip over "Preview"). */
+  readonly side?: true;
 };
 
 export type StepListItem = {
@@ -116,21 +118,35 @@ function tagTone(tone: StepTag["tone"]): StatusBadgeTone {
   return tone ?? "muted";
 }
 
-function StepLink({ link }: { readonly link: NonNullable<StepListItem["link"]> }): ReactNode {
+function StepLink({
+  link,
+  compact = false,
+}: {
+  readonly link: NonNullable<StepListItem["link"]>;
+  readonly compact?: boolean;
+}): ReactNode {
   const { Link, Button } = usePrimitives();
   if (link.href !== undefined) {
     return (
       <Link
         href={link.href}
         onPress={link.onClick}
-        className="shrink-0 text-[13px] font-medium underline underline-offset-2"
+        className={cn(
+          "shrink-0 text-[13px] font-medium underline underline-offset-2",
+          compact && "font-normal text-primary no-underline",
+        )}
       >
         {link.label}
       </Link>
     );
   }
   return (
-    <Button variant="link" size="sm" onClick={link.onClick} className="shrink-0 text-[13px]">
+    <Button
+      variant="link"
+      size="sm"
+      onClick={link.onClick}
+      className={cn("shrink-0 text-[13px]", compact && "h-auto p-0 font-normal")}
+    >
       {link.label}
     </Button>
   );
@@ -178,14 +194,26 @@ function StepTagBadge({
   tone,
   label,
   className,
+  chip,
 }: {
   readonly tone: StatusBadgeTone;
   readonly label: string;
   readonly className?: string;
+  /** A small square chip without the status dot (the risk chip of a plan row). */
+  readonly chip?: boolean;
 }): ReactNode {
   return (
     <span className="flex min-w-0 max-w-full" title={label}>
-      <StatusBadge tone={tone} className={cn("min-w-0 max-w-full", className)}>
+      <StatusBadge
+        tone={tone}
+        dot={chip !== true}
+        className={cn(
+          "min-w-0 max-w-full",
+          chip === true &&
+            "h-auto rounded px-1.5 py-0.5 text-[11px] max-md:h-auto max-md:text-[11px]",
+          className,
+        )}
+      >
         <span className="truncate">{label}</span>
       </StatusBadge>
     </span>
@@ -267,6 +295,8 @@ function StepActions({ step }: { readonly step: StepListItem }): ReactNode {
 
 export type StepRowSelection = {
   readonly state: StepSelectionState;
+  /** The checkbox replaces the status icon of a selectable row. */
+  readonly compact?: true;
   readonly onToggle: () => void;
 };
 
@@ -306,8 +336,17 @@ function StepSelectionCell({
         ? t("kumiko.widget.step-list.prerequisiteNotSelectable", { title: state.blockedBy })
         : undefined;
   return (
-    <span className="flex h-5 w-4 shrink-0 items-center">
+    <span
+      className={cn(
+        "flex h-5 w-4 shrink-0 items-center",
+        selection.compact === true && "mt-px h-[18px] w-[18px]",
+      )}
+    >
       <Checkbox
+        className={cn(
+          selection.compact === true &&
+            "size-[18px] border-[1.5px] border-border-strong data-[state=checked]:border-primary [&_svg]:size-3",
+        )}
         aria-label={t("kumiko.widget.step-list.selectStep", { title: step.title })}
         checked={state.kind === "selectable" && state.checked}
         disabled={state.kind !== "selectable"}
@@ -328,9 +367,10 @@ function isAutoSelected(selection: StepRowSelection | undefined): boolean {
   return selection?.state.kind === "selectable" && selection.state.neededFor !== undefined;
 }
 
-function stepRowClassName(step: StepListItem, autoSelected: boolean): string {
+function stepRowClassName(step: StepListItem, autoSelected: boolean, compact: boolean): string {
   return cn(
     "flex gap-2.5 border-b border-border-row px-4 py-3",
+    compact && "px-3 py-[9px] text-[13px]",
     autoSelected &&
       "relative before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-primary/60",
     step.status === "open" && "bg-card",
@@ -342,10 +382,12 @@ function StepRowText({
   step,
   shownStep,
   phoneCard,
+  compact,
 }: {
   readonly step: StepListItem;
   readonly shownStep: StepListItem;
   readonly phoneCard: boolean;
+  readonly compact: boolean;
 }): ReactNode {
   return (
     <div className="flex min-w-0 grow flex-col gap-1">
@@ -359,7 +401,14 @@ function StepRowText({
         {step.title}
       </span>
       {step.description !== undefined && (
-        <span className="text-[13px] text-foreground-secondary">{step.description}</span>
+        <span
+          className={cn(
+            "text-[13px] text-foreground-secondary",
+            compact && "text-xs text-muted-foreground",
+          )}
+        >
+          {step.description}
+        </span>
       )}
       <StepSourcesAndTags step={shownStep} phoneCard={phoneCard} />
       {step.meta !== undefined && (
@@ -381,20 +430,40 @@ export function StepRow({
   readonly selection?: StepRowSelection;
 }): ReactNode {
   const t = useTranslation();
-  const shownStep =
-    selection === undefined
-      ? step
-      : { ...step, tags: [...(step.tags ?? []), ...selectionTags(selection.state, t)] };
+  const sideTags = (step.tags ?? []).filter((tag) => tag.side === true);
+  const bodyTags = (step.tags ?? []).filter((tag) => tag.side !== true);
+  const shownStep = {
+    ...step,
+    tags: selection === undefined ? bodyTags : [...bodyTags, ...selectionTags(selection.state, t)],
+  };
+  const compact = selection?.compact === true;
+  const trailingLink =
+    step.link !== undefined && step.link.placement !== "below" ? (
+      <StepLink link={step.link} compact={compact} />
+    ) : null;
+  const replacesStatusIcon = compact && selection.state.kind === "selectable";
   return (
     <li
       data-testid={`step-${step.id}`}
-      className={stepRowClassName(step, isAutoSelected(selection))}
+      className={stepRowClassName(step, isAutoSelected(selection), compact)}
       {...(step.highlighted === true && { "aria-current": "step" as const })}
     >
       {selection !== undefined && <StepSelectionCell step={step} selection={selection} />}
-      <StatusIcon step={step} />
-      <StepRowText step={step} shownStep={shownStep} phoneCard={phoneCard} />
-      {step.link !== undefined && step.link.placement !== "below" && <StepLink link={step.link} />}
+      {!replacesStatusIcon && <StatusIcon step={step} />}
+      <StepRowText step={step} shownStep={shownStep} phoneCard={phoneCard} compact={compact} />
+      {sideTags.length > 0 ? (
+        <div
+          className="flex shrink-0 flex-col items-end gap-1"
+          data-testid={`step-${step.id}-side`}
+        >
+          {sideTags.map((tag) => (
+            <StepTagBadge key={tag.label} tone={tagTone(tag.tone)} label={tag.label} chip />
+          ))}
+          {trailingLink}
+        </div>
+      ) : (
+        trailingLink
+      )}
     </li>
   );
 }

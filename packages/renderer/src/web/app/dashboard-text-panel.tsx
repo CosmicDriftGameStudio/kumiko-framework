@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { navigateTargetAllows } from "../../app/screen-access.ts";
 import type { Translate } from "../../headless/index.ts";
 import { lastSegment, useAppFeatures, useNav, usePrimitives, useUserRoles } from "../../index.ts";
+import { cn } from "../lib/cn.ts";
 import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import {
   type DashboardFormats,
@@ -100,12 +101,18 @@ const PARAGRAPH_CLASS_NAMES = {
   lead: "font-heading text-[15.5px] leading-[1.5] sm:text-[17px] sm:leading-relaxed text-foreground",
 } as const satisfies Record<NonNullable<ParagraphBlock["emphasis"]>, string>;
 
+function isLeadParagraph(block: DashboardTextBlock | undefined): boolean {
+  return block?.kind === "paragraph" && block.emphasis === "lead";
+}
+
 function TextBlockView({
   block,
   translate,
+  followsLead = false,
 }: {
   readonly block: DashboardTextBlock;
   readonly translate: Translate;
+  readonly followsLead?: boolean;
 }): ReactNode {
   const formats = useDashboardFormats();
   const resolve = (text: DashboardText): string => resolveBlockText(text, translate, formats);
@@ -138,7 +145,11 @@ function TextBlockView({
       );
     case "hint":
       return (
-        <p data-block="hint" className="text-xs text-muted-foreground">
+        // Under a briefing sentence the hint is its dated "as of" line: 11.5px, 8px below the text.
+        <p
+          data-block="hint"
+          className={cn("text-xs text-muted-foreground", followsLead && "-mt-1 text-[11.5px]")}
+        >
           {resolve(block.text)}
         </p>
       );
@@ -223,7 +234,7 @@ function TextPanelFrame({
   return (
     <section
       data-testid={testId}
-      className="h-full rounded-lg border border-border bg-card p-4 text-card-foreground"
+      className="h-full rounded-lg border border-border bg-card p-4 text-card-foreground max-sm:px-3.5 max-sm:py-3"
     >
       {children}
     </section>
@@ -239,8 +250,13 @@ function TextBlockList({
 }): ReactNode {
   return (
     <div className="flex flex-col gap-3">
-      {withOccurrenceKeys(blocks, textBlockKey).map(({ entry, key }) => (
-        <TextBlockView key={key} block={entry} translate={translate} />
+      {withOccurrenceKeys(blocks, textBlockKey).map(({ entry, key }, index) => (
+        <TextBlockView
+          key={key}
+          block={entry}
+          translate={translate}
+          followsLead={isLeadParagraph(blocks[index - 1])}
+        />
       ))}
     </div>
   );

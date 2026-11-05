@@ -73,6 +73,8 @@ export type ListColumnSpec =
       /** Counterpart of `hideOnNarrow`: the column shows only in the compact card layout and not in the table.
        *  Not combinable with `hideOnNarrow`, `hidden` or `pinned`. */
       readonly showOnNarrowOnly?: true;
+      /** In the compact card, consecutive `narrowInline` columns stand side by side on one line (12px gap, no separator) instead of one line each. */
+      readonly narrowInline?: true;
       /** Start state for the column picker: the column begins hidden and the
        *  user can show it. Only valid together with `table.columnPicker`. */
       readonly hidden?: boolean;
@@ -516,6 +518,8 @@ export type EntityListFacetExtraOption = {
   readonly values: readonly string[];
   /** Where the chip sits relative to the field's own options. Default "start". */
   readonly position?: "start" | "end";
+  /** Draws a divider line below this choice in the select dropdown (e.g. after a "needs action" bundle). */
+  readonly separatorAfter?: boolean;
 };
 
 export type EntityListFacetConfig = {
@@ -531,6 +535,8 @@ export type EntityListFacetConfig = {
    *  `showCounts`'s requests even when the number itself is not shown. */
   readonly hideEmpty?: boolean;
   readonly extraOptions?: readonly EntityListFacetExtraOption[];
+  /** "behind-filter": the facet opens behind the filter icon next to the search field instead of standing as a pill. Only below `sm` and only on lists that fill their height; otherwise it stays a pill. The remaining facets follow the usual phone rules and share the toggle panel. */
+  readonly narrowPlacement?: "behind-filter";
 };
 
 export type EntityListScreenDefinition = {

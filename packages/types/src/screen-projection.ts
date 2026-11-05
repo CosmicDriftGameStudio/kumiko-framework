@@ -197,6 +197,8 @@ export type RecordHeaderSubtitlePart =
       readonly navigate?: MetricNavigate;
       /** Formats the raw field value (e.g. `timestamp`); an empty value is still dropped. */
       readonly format?: FormatSpec;
+      /** i18n key of a text before the value ("Owner "); it stays plain text, a `navigate` link covers only the value. Dropped with an empty value. */
+      readonly prefix?: string;
     };
 
 export type RecordHeaderSpec = {
@@ -251,6 +253,8 @@ export type MetricSpec = {
   readonly toneField?: string;
   /** Record field of the detail query shown as a small line under the value; the value stays the number. Same name as `DashboardStatPanel.subField`. */
   readonly subField?: string;
+  /** Record field shown instead of `subField` below `sm` ("of 2,850 €" instead of "0 of 2,850.00 €"). */
+  readonly subFieldNarrow?: string;
   /** Icon chip of the tile; only drawn with `metricsStyle: "tiles"`. */
   readonly icon?: NavIconKey;
   /** Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value. */

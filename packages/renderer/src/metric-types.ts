@@ -18,6 +18,8 @@ export type MetricProps = {
   readonly icon?: NavIconKey;
   /** Small muted line under the value (see `MetricSpec.subField`). */
   readonly sub?: string;
+  /** Replaces `sub` below `sm` (see `MetricSpec.subFieldNarrow`). */
+  readonly narrowSub?: string;
 };
 
 /** Band above the tabs of a record detail: optional subtitle line plus the

@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
+import { useQuery } from "../hooks/use-query.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
@@ -13,8 +14,48 @@ export type ListEmptyStateContent = {
 export type NamedFilterEmptyContent = {
   readonly title: string;
   readonly description?: string;
+  /** The description needs params from a query; it renders only once the query returned an object. */
+  readonly describedByQuery?: {
+    readonly query: string;
+    readonly describe: (params: Readonly<Record<string, unknown>>) => string;
+  };
   readonly onReset: () => void;
 };
+
+function isParamsRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function QueryDescription({
+  query,
+  describe,
+}: {
+  readonly query: string;
+  readonly describe: (params: Readonly<Record<string, unknown>>) => string;
+}): ReactNode {
+  const { Text } = usePrimitives();
+  const result = useQuery<unknown>(query, {});
+  if (!isParamsRecord(result.data)) return null;
+  return <Text variant="small">{describe(result.data)}</Text>;
+}
+
+function NamedFilterEmptyText({
+  content,
+}: {
+  readonly content: NamedFilterEmptyContent;
+}): ReactNode {
+  const { Text } = usePrimitives();
+  const { description, describedByQuery } = content;
+  return (
+    <>
+      <Text>{content.title}</Text>
+      {description !== undefined && <Text variant="small">{description}</Text>}
+      {describedByQuery !== undefined && (
+        <QueryDescription query={describedByQuery.query} describe={describedByQuery.describe} />
+      )}
+    </>
+  );
+}
 
 export function ListEmptyStateBody({
   content,
@@ -41,10 +82,7 @@ export function ListEmptyStateBody({
   if (narrowed && namedFilterEmpty !== undefined) {
     return (
       <>
-        <Text>{namedFilterEmpty.title}</Text>
-        {namedFilterEmpty.description !== undefined && (
-          <Text variant="small">{namedFilterEmpty.description}</Text>
-        )}
+        <NamedFilterEmptyText content={namedFilterEmpty} />
         <Button
           variant="secondary"
           onClick={namedFilterEmpty.onReset}

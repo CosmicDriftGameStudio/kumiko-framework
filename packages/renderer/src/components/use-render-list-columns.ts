@@ -20,6 +20,7 @@ import {
   withDisplayColumns,
   withEmptyPlaceholderColumns,
   withHintColumns,
+  withNarrowInlineColumns,
   withNarrowOnlyColumns,
 } from "./render-list-hint-columns.ts";
 import { enrichReferenceColumns, selectReferenceColumns } from "./render-list-reference-columns.ts";
@@ -104,23 +105,26 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
   const enrichedColumns = useMemo(
     (): readonly ListColumnViewModel[] =>
       withNarrowOnlyColumns(
-        withDisplayColumns(
-          withHintColumns(
-            withScreenLinks(
-              enrichReferenceColumns({
-                // Flag first: the reference renderer reads it while it is built.
-                columns: withEmptyPlaceholderColumns(vm.columns, screen),
-                referenceColumns,
-                referenceLookups,
-                resolveReferenceLink,
-                featureName,
-                translate,
-              }),
+        withNarrowInlineColumns(
+          withDisplayColumns(
+            withHintColumns(
+              withScreenLinks(
+                enrichReferenceColumns({
+                  // Flag first: the reference renderer reads it while it is built.
+                  columns: withEmptyPlaceholderColumns(vm.columns, screen),
+                  referenceColumns,
+                  referenceLookups,
+                  resolveReferenceLink,
+                  featureName,
+                  translate,
+                }),
+                screen,
+                resolveScreenLink,
+              ),
               screen,
-              resolveScreenLink,
+              translate,
             ),
             screen,
-            translate,
           ),
           screen,
         ),

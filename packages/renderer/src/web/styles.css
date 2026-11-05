@@ -314,6 +314,12 @@
 :root:has([data-kumiko-layout="shell-header"]) {
   --shell-header-height: 3.5rem;
 }
+:root:has([data-kumiko-layout="shell-header"][data-nav-style="plain"]),
+:root:has([data-kumiko-layout="shell-header"][data-nav-style="plain"]):has(
+  [data-collapsible="icon"]
+) {
+  --shell-header-height: 58px;
+}
 :root:has([data-kumiko-layout="shell-header"]):has([data-collapsible="icon"]) {
   --shell-header-height: 3.5rem;
 }

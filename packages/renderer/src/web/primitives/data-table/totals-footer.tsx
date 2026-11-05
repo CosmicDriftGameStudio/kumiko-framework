@@ -143,7 +143,7 @@ export function SummaryFooterRow({
           );
         })}
         {actionsCell !== undefined && (
-          <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight)} />
+          <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight, true)} />
         )}
       </TableRow>
     );
@@ -223,7 +223,7 @@ export function TotalsFooterRow({
         );
       })}
       {actionsCell !== undefined && (
-        <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight)} />
+        <TableCell className={stickyActionsCellClass(actionsCell.fillsHeight, true)} />
       )}
     </TableRow>
   );

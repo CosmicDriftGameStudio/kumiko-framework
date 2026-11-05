@@ -103,7 +103,7 @@ describe("list board fidelity", () => {
     expect(screen.getByTestId("cell-r2-status").querySelector("[data-status-dot]")).not.toBeNull();
   });
 
-  test("footer names the entity plural and offers a page-size select", () => {
+  test("footer shows the range without noun and a page-size select without arrow", () => {
     const onPageSizeChange = mock();
     render(
       <DataTable
@@ -121,11 +121,11 @@ describe("list board fidelity", () => {
         }}
       />,
     );
-    expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–19 of 19 Mietverträgen");
+    expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–19 of 19");
     const select = screen.getByTestId("dt-pager-page-size") as HTMLSelectElement;
     expect(within(select).getAllByRole("option").length).toBe(3);
     expect(select.className).toContain("appearance-none");
-    expect(select.parentElement?.querySelector("svg")).not.toBeNull();
+    expect(select.parentElement?.querySelector("svg")).toBeNull();
     fireEvent.change(select, { target: { value: "50" } });
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });

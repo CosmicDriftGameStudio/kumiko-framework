@@ -204,7 +204,7 @@ function renderDateStamp(model: DashboardHeaderModel): ReactNode {
   return (
     <span
       data-testid={`dashboard-${screen.id}-updated-at`}
-      className="whitespace-nowrap text-sm text-muted-foreground max-sm:hidden"
+      className="whitespace-nowrap text-[13px] text-muted-foreground max-sm:hidden"
     >
       {model.formatLongDate(model.loadedAtMs)}
     </span>

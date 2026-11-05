@@ -31,8 +31,12 @@ export type {
 
 export type StepSelectionAction = {
   readonly id: string;
-  /** Without a number: the list appends " (n)" with the effective selection size. */
+  /** Without a number: the list appends " (n)" with the effective selection size (see `labelForCount`). */
   readonly label: string;
+  /** Replaces the appended " (n)": the label for the effective selection size. The action is disabled at 0. */
+  readonly labelForCount?: (count: number) => string;
+  /** No counter, never disabled by an empty selection (e.g. "Review one by one"); `onClick` still gets the selection. */
+  readonly ignoresSelection?: true;
   /** Receives the effective selection in list order, prerequisites included. */
   readonly onClick: (stepIds: readonly string[]) => void;
   readonly variant?: "primary" | "secondary" | "ghost";
@@ -46,6 +50,8 @@ export type StepListSelection = {
   readonly onSelectionChange: (selectedIds: readonly string[]) => void;
   /** Replace `footerActions` while at least one step is selected. */
   readonly actions: readonly StepSelectionAction[];
+  /** Phone-card style: no select-all row, the actions stay visible at 0 selected (disabled unless `ignoresSelection`), a muted header and left-aligned footer. */
+  readonly compact?: true;
 };
 
 export type StepListProps = {
@@ -57,6 +63,8 @@ export type StepListProps = {
   readonly steps: readonly StepListItem[];
   /** Footer row: a ghost action for the whole list next to the primary next-step action. */
   readonly footerActions?: readonly StepAction[];
+  /** Quiet line under the footer actions, e.g. "Nothing is saved without you." */
+  readonly footerNote?: string;
   /** Show only the first n steps plus "und k weitere Schritte" (expands on click). */
   readonly collapsedAfter?: number;
   /** "always" (default) folds after `collapsedAfter`; "overflow" folds a `fill` list only when its steps do not fit its height, then shows as many as fit but at least `collapsedAfter`. */
@@ -65,8 +73,8 @@ export type StepListProps = {
   readonly surface?: "ai" | "plain";
   /** Stretch to the container height: steps scroll in the middle, the footer stays pinned at the bottom. */
   readonly fill?: boolean;
-  /** "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "none" = neither, e.g. when `status` already says the list is done. */
-  readonly progress?: "full" | "count" | "none";
+  /** "full" (default) = "x von y erledigt" plus bar, "count" = only the count, "total" = only "n steps" (rejected ones left out), "none" = neither, e.g. when `status` already says the list is done. */
+  readonly progress?: "full" | "count" | "total" | "none";
   readonly emptyContent?: ReactNode;
   /** Adds a checkbox per selectable step, a select-all row and selection footer actions. */
   readonly selection?: StepListSelection;
@@ -80,17 +88,23 @@ function selectionFooterActions(
   summary: StepSelectionSummary,
   t: ReturnType<typeof useTranslation>,
 ): readonly StepAction[] {
-  return selection.actions.map((action) => ({
-    id: action.id,
-    label: t("kumiko.widget.step-list.actionWithCount", {
-      label: action.label,
-      count: summary.selectedCount,
-    }),
-    onClick: () => action.onClick(summary.effectiveIds),
-    variant: action.variant,
-    disabled: action.disabled,
-    pending: action.pending,
-  }));
+  const count = summary.selectedCount;
+  return selection.actions.map((action) => {
+    const ignoresSelection = action.ignoresSelection === true;
+    const label = ignoresSelection
+      ? action.label
+      : action.labelForCount !== undefined
+        ? action.labelForCount(count)
+        : t("kumiko.widget.step-list.actionWithCount", { label: action.label, count });
+    return {
+      id: action.id,
+      label,
+      onClick: () => action.onClick(summary.effectiveIds),
+      variant: action.variant,
+      disabled: action.disabled === true || (!ignoresSelection && count === 0),
+      pending: action.pending,
+    };
+  });
 }
 
 /** Ordered plan of steps with status icons, progress header and per-step actions. */
@@ -100,6 +114,7 @@ export function StepList({
   status,
   steps,
   footerActions,
+  footerNote,
   collapsedAfter,
   collapseWhen = "always",
   surface = "ai",
@@ -131,6 +146,8 @@ export function StepList({
         fill && "h-full",
         surface === "ai" && "bg-ai-surface",
         phoneCard && "max-md:rounded-md max-md:p-3",
+        selection?.compact === true &&
+          "overflow-hidden rounded-lg border border-border bg-card max-md:p-0",
       )}
     >
       <StepListHeader
@@ -141,6 +158,7 @@ export function StepList({
         done={done}
         total={total}
         phoneCard={phoneCard}
+        compact={selection?.compact === true}
         testId={testId}
       />
       <SelectAllSection
@@ -164,7 +182,12 @@ export function StepList({
           testId={testId}
         />
       )}
-      <StepListFooter footer={footer} selectionActive={selectionFooterActive} />
+      <StepListFooter
+        footer={footer}
+        note={footerNote}
+        selectionActive={selectionFooterActive}
+        compact={selection?.compact === true}
+      />
     </section>
   );
 }
@@ -212,7 +235,11 @@ function useSelectionModel(
   const t = useTranslation();
   const summary =
     selection === undefined ? undefined : resolveStepSelection(steps, selection.selectedIds);
-  if (selection !== undefined && summary !== undefined && summary.selectedCount > 0) {
+  if (
+    selection !== undefined &&
+    summary !== undefined &&
+    (summary.selectedCount > 0 || selection.compact === true)
+  ) {
     return {
       summary,
       footer: selectionFooterActions(selection, summary, t),
@@ -234,6 +261,7 @@ function SelectAllSection({
   readonly phoneCard: boolean;
 }): ReactNode {
   if (selection === undefined || summary === undefined || steps.length === 0) return null;
+  if (selection.compact === true) return null;
   return (
     <SelectAllRow
       summary={summary}
@@ -253,6 +281,7 @@ function rowSelectionFor(
 ): StepRowSelection | undefined {
   if (selection === undefined || summary === undefined) return undefined;
   return {
+    ...(selection.compact === true && { compact: true as const }),
     state: summary.states.get(step.id) ?? { kind: "none" },
     onToggle: () =>
       selection.onSelectionChange(toggleStepSelection(steps, selection.selectedIds, step.id)),
@@ -290,6 +319,7 @@ function StepListRows({
         phoneCard &&
           "max-md:rounded-md max-md:border max-md:border-border max-md:bg-card max-md:[&>li:last-child]:border-b-0 max-md:[&>li]:px-3 max-md:[&>li]:py-2.5",
         selection !== undefined && phoneCard && "max-md:rounded-t-none",
+        selection?.compact === true && "border-t border-border-row [&>li:last-child]:border-b-0",
       )}
     >
       {visibleSteps.map((step) => {
@@ -323,17 +353,45 @@ function StepListRows({
 
 function StepListFooter({
   footer,
+  note,
   selectionActive,
+  compact,
 }: {
   readonly footer: readonly StepAction[];
+  readonly note: string | undefined;
   readonly selectionActive: boolean;
+  readonly compact: boolean;
 }): ReactNode {
-  if (footer.length === 0) return null;
+  if (footer.length === 0 && note === undefined) return null;
+  const noteLine = note !== undefined && (
+    <p className="m-0 w-full text-[11.5px] text-muted-foreground" data-testid="step-list-note">
+      {note}
+    </p>
+  );
+  if (compact) {
+    return (
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-3 py-2.5">
+        {footer.map((action) => (
+          <StepActionButton
+            key={action.id}
+            action={action}
+            className="h-[26px] px-[9px] text-[12.5px] max-md:text-[12.5px]"
+          />
+        ))}
+        {noteLine}
+      </div>
+    );
+  }
   const leading = footer.filter((action) => action.variant === "ghost");
   const trailing = footer.filter((action) => action.variant !== "ghost");
   const phoneHeight = selectionActive ? "max-md:h-11" : undefined;
   return (
-    <div className="flex shrink-0 items-center gap-2 border-t border-border px-4 py-2.5">
+    <div
+      className={cn(
+        "flex shrink-0 items-center gap-2 border-t border-border px-4 py-2.5",
+        note !== undefined && "flex-wrap",
+      )}
+    >
       {leading.map((action) => (
         <StepActionButton key={action.id} action={action} className={phoneHeight} />
       ))}
@@ -345,6 +403,7 @@ function StepListFooter({
           className={cn(phoneHeight, selectionActive && "max-md:grow max-md:justify-center")}
         />
       ))}
+      {noteLine}
     </div>
   );
 }
@@ -408,9 +467,11 @@ function StepListHeader({
   done,
   total,
   phoneCard,
+  compact,
   testId,
 }: Pick<StepListProps, "title" | "subtitle" | "status"> & {
   readonly phoneCard: boolean;
+  readonly compact: boolean;
   readonly progress: NonNullable<StepListProps["progress"]>;
   readonly done: number;
   readonly total: number;
@@ -422,18 +483,26 @@ function StepListHeader({
       className={cn(
         "flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-3.5",
         phoneCard && "max-md:border-b-0 max-md:px-0 max-md:pb-1.5 max-md:pt-0",
+        compact && "border-b-0 bg-muted px-3 py-2.5 max-md:px-3 max-md:py-2.5",
       )}
     >
       <div className="flex items-baseline gap-2">
-        <h3 className="m-0 grow text-[15px] font-semibold">{title}</h3>
+        <h3 className={cn("m-0 grow text-[15px] font-semibold", compact && "text-[13px]")}>
+          {title}
+        </h3>
         {status !== undefined && (
           <StatusBadge tone={status.tone} testId={`${testId}-status`}>
             {status.label}
           </StatusBadge>
         )}
         {progress !== "none" && (
-          <span className="text-[13px] text-muted-foreground" data-testid={`${testId}-progress`}>
-            {t("kumiko.widget.step-list.progress", { done, total })}
+          <span
+            className={cn("text-[13px] text-muted-foreground", compact && "text-xs")}
+            data-testid={`${testId}-progress`}
+          >
+            {progress === "total"
+              ? t(pluralKey("kumiko.widget.step-list.total", total), { count: total })
+              : t("kumiko.widget.step-list.progress", { done, total })}
           </span>
         )}
       </div>

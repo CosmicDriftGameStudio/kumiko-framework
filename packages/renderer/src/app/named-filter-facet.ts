@@ -56,6 +56,7 @@ export function buildNamedFilterFacet(
     id: ref.id,
     label: translate(ref.label),
     values: [ref.id],
+    ...(ref.separatorAfter === true && { separatorAfter: true }),
     ...countOf(ref.id),
   }));
   return {
@@ -77,6 +78,7 @@ export function buildNamedFilterFacet(
         ]
       : chips,
     ...(isSelect && { display: "select" as const }),
+    ...(options?.narrowPlacement !== undefined && { narrowPlacement: options.narrowPlacement }),
     ...(showCounts && { showCounts: true }),
   };
 }
@@ -165,9 +167,19 @@ export function buildNamedFilterEmpty(
 ): NamedFilterEmptyContent | undefined {
   const emptyState = allRefs?.find((ref) => ref.id === activeNamedFilter)?.emptyState;
   if (emptyState === undefined || otherNarrowing || search.trim() !== "") return undefined;
+  const { title, description, paramsQuery } = emptyState;
   return {
-    title: translate(emptyState.title),
-    ...(emptyState.description !== undefined && { description: translate(emptyState.description) }),
+    title: translate(title),
+    ...(description !== undefined &&
+      (paramsQuery === undefined
+        ? { description: translate(description) }
+        : {
+            describedByQuery: {
+              query: paramsQuery,
+              describe: (params: Readonly<Record<string, unknown>>) =>
+                translate(description, params),
+            },
+          })),
     onReset,
   };
 }

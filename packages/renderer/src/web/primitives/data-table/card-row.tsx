@@ -71,9 +71,8 @@ function renderCardButtons(
   );
 }
 
-function cardLeftPadding(compact: boolean, toned: boolean): string {
-  if (compact) return toned ? "pl-[5px]" : "pl-2";
-  return toned ? "pl-[13px]" : "pl-4";
+function cardLeftPadding(compact: boolean): string {
+  return compact ? "pl-2" : "pl-4";
 }
 
 function cardRowBaseClass(m: DataTableModel): string {
@@ -82,29 +81,36 @@ function cardRowBaseClass(m: DataTableModel): string {
     : "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3";
 }
 
-export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
-  const { rowTone } = m;
-  const allActions = m.menuActions ?? [];
-  const openRow = m.rowOpener(row);
+function splitCardActions(m: DataTableModel, row: ListRowViewModel, opensRow: boolean) {
+  const menuMode = m.rowActionMode === "menu";
   // "menu" mode keeps every action in the table's kebab; a phone card opens the row instead,
   // unless the row cannot be opened, then the actions would be unreachable.
-  const cardActions = m.rowActionMode === "menu" && openRow !== undefined ? [] : allActions;
-  const menuMode = m.rowActionMode === "menu";
-  const buttonActions = cardActions.filter(
-    (a) =>
-      !menuMode &&
-      (a.display === "button" || a.display === "link") &&
-      (a.isVisible === undefined || a.isVisible(row)),
-  );
-  const menuActions = cardActions.filter(
-    (a) => menuMode || (a.display !== "button" && a.display !== "link"),
-  );
+  const cardActions = menuMode && opensRow ? [] : (m.menuActions ?? []);
+  return {
+    buttonActions: cardActions.filter(
+      (a) =>
+        !menuMode &&
+        (a.display === "button" || a.display === "link") &&
+        (a.isVisible === undefined || a.isVisible(row)),
+    ),
+    menuActions: cardActions.filter(
+      (a) => menuMode || (a.display !== "button" && a.display !== "link"),
+    ),
+  };
+}
+
+export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
+  const { rowTone } = m;
+  const openRow = m.rowOpener(row);
+  const { buttonActions, menuActions } = splitCardActions(m, row, openRow !== undefined);
   const hasMenu = menuActions.length > 0;
   const hasButtons = buttonActions.length > 0;
   const { bodyRoles, linkColumns } = splitLinkColumns(m, row, roles);
   const body = renderCardBody(m, row, bodyRoles);
   const main = openRow !== undefined ? renderCardOpenButton(openRow, body) : body;
-  const toned = cardToneClass(rowTone?.(row)) !== "";
+  // In a list with row tones every card carries a stripe (neutral = grey) so the cards align.
+  const toneClass = cardToneClass(rowTone === undefined ? undefined : (rowTone(row) ?? "neutral"));
+  const toned = toneClass !== "";
   const rowItem = (
     <li
       key={row.id}
@@ -112,9 +118,9 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
       data-tone={rowTone?.(row)}
       className={cn(
         cardRowBaseClass(m),
-        cardToneClass(rowTone?.(row)),
-        // The 3px tone border sits inside the box, so the inner padding gives it up to keep the content aligned.
-        cardLeftPadding(m.expansion !== undefined || m.selection.active, toned),
+        toneClass,
+        // A toned card already pads past its inner 4px stripe (see cardToneClass); a later pl-* would override it.
+        !toned && cardLeftPadding(m.expansion !== undefined || m.selection.active),
         hasMenu ? "pr-2" : "pr-4",
         m.density.card,
       )}

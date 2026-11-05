@@ -8,9 +8,39 @@ import { hasSortOptionsSelect, SortOptionsSelect } from "./sort-options-select.t
 import { ToolbarEndCluster, toolbarEndHasContent } from "./toolbar-end-cluster.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
+function isBehindFilter(
+  m: DataTableModel,
+  facet: NonNullable<DataTableModel["filterFacets"]>[number],
+): boolean {
+  return facet.narrowPlacement === "behind-filter" && m.belowSm && m.fillsHeight;
+}
+
+function hasBehindFilterFacets(m: DataTableModel): boolean {
+  return (m.filterFacets ?? []).some((facet) => isBehindFilter(m, facet));
+}
+
+function hasActiveBehindFilterFacet(m: DataTableModel): boolean {
+  return (m.filterFacets ?? []).some(
+    (facet) => isBehindFilter(m, facet) && (m.filterValues?.[facet.field]?.length ?? 0) > 0,
+  );
+}
+
+/** Facets that open behind the filter icon on a phone; the rest stays in the inline cluster. */
+export function buildBehindFilterCluster(m: DataTableModel): ReactNode {
+  const behind = (m.filterFacets ?? []).filter((facet) => isBehindFilter(m, facet));
+  if (behind.length === 0) return undefined;
+  return buildFacetCluster({
+    filterFacets: behind,
+    filterValues: m.filterValues,
+    onFilterChange: m.onFilterChange,
+    dense: false,
+    pills: false,
+  });
+}
+
 export function buildModelFacetCluster(m: DataTableModel): ReactNode {
   return buildFacetCluster({
-    filterFacets: m.filterFacets,
+    filterFacets: m.filterFacets?.filter((facet) => !isBehindFilter(m, facet)),
     filterValues: m.filterValues,
     onFilterChange: m.onFilterChange,
     onFilterReset: m.onFilterReset,
@@ -29,6 +59,7 @@ export function hasToolbarContent(m: DataTableModel, facetCluster: ReactNode): b
   return (
     m.toolbarStart !== undefined ||
     facetCluster !== undefined ||
+    hasBehindFilterFacets(m) ||
     hasVisibleSortOptions(m) ||
     toolbarEndHasContent(m.view, m.exportList, m.toolbarEnd)
   );
@@ -75,13 +106,16 @@ function renderToolbarStart(m: DataTableModel, toolbarStart: ReactNode): ReactNo
 
 function renderFacetToggle(m: DataTableModel, facetCluster: ReactNode): ReactNode {
   const { testId, facetsOpenNarrow, setFacetsOpenNarrow } = m;
+  const hasActiveFacet = hasActiveBehindFilterFacet(m);
   return (
     <>
       <UiButton
         type="button"
         variant="outline"
         size="icon"
-        className="size-11"
+        // Like a set select pill: a facet that waits behind the toggle stays visible while the panel is closed.
+        className={cn("size-11", hasActiveFacet && "border-primary text-primary")}
+        data-active={hasActiveFacet}
         aria-label={m.tableTranslate?.("kumiko.list.filter.toggle") ?? "Filter"}
         aria-expanded={facetsOpenNarrow}
         data-testid={testId !== undefined ? `${testId}-filter-toggle` : "filter-toggle"}
@@ -124,18 +158,37 @@ function renderSortOptions(m: DataTableModel): ReactNode {
 
 function hasOnlySelectFacets(m: DataTableModel): boolean {
   return (
-    (m.filterFacets?.length ?? 0) > 0 &&
+    (m.filterFacets ?? []).some((facet) => !isBehindFilter(m, facet)) &&
     (m.dateRangeFacets?.length ?? 0) === 0 &&
     (m.rangeFacets?.length ?? 0) === 0
   );
 }
 
+// Facets that wait behind the filter icon and the rest of the cluster share one toggle panel,
+// never two toggles.
 function renderFacetArea(m: DataTableModel, facetCluster: ReactNode): ReactNode {
-  if (!m.belowSm || facetCluster === undefined) return facetCluster;
-  if (hasOnlySelectFacets(m)) {
-    return <div className="flex w-full flex-wrap gap-2">{facetCluster}</div>;
+  const behindFilter = buildBehindFilterCluster(m);
+  if (!m.belowSm || (facetCluster === undefined && behindFilter === undefined)) {
+    return facetCluster;
   }
-  return m.fillsHeight ? renderFacetToggle(m, facetCluster) : facetCluster;
+  if (facetCluster !== undefined && hasOnlySelectFacets(m)) {
+    const inline = <div className="flex w-full flex-wrap gap-2">{facetCluster}</div>;
+    if (behindFilter === undefined) return inline;
+    return (
+      <>
+        {renderFacetToggle(m, behindFilter)}
+        {inline}
+      </>
+    );
+  }
+  if (!m.fillsHeight) return facetCluster;
+  return renderFacetToggle(
+    m,
+    <>
+      {behindFilter}
+      {facetCluster}
+    </>,
+  );
 }
 
 export function renderToolbar(m: DataTableModel, facetCluster: ReactNode): ReactNode {

@@ -54,6 +54,7 @@ import {
 } from "../ui/sidebar.tsx";
 import { usePersistedNavCollapse } from "./nav-collapse-state.ts";
 import { resolveParentScreenId } from "./shell-breadcrumb.ts";
+import { useShellNavStyle } from "./shell-style.tsx";
 import { useDispatchTarget } from "./target-resolver-stub.tsx";
 import { parseTargetFromSearchParams } from "./target-url.ts";
 
@@ -184,6 +185,7 @@ export function NavTree({
   }, [revealScreenId, revealOnScreenChange]);
 
   const t = useTranslation();
+  const plain = useShellNavStyle() === "plain";
   const { state: sidebarState } = useSidebar();
   const [filter, setFilter] = useState("");
   // The search box is only CSS-hidden (`group-data-[collapsible=icon]:hidden`)
@@ -195,8 +197,7 @@ export function NavTree({
   const q = filter.trim().toLowerCase();
   const matches = useCallback(
     (raw: string): boolean => {
-      const label = raw.includes(".") ? t(raw) : raw;
-      return label.toLowerCase().includes(q);
+      return navLabel(t, raw).toLowerCase().includes(q);
     },
     [t, q],
   );
@@ -217,14 +218,14 @@ export function NavTree({
                 className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-sidebar-muted"
               />
               <SidebarInput
-                className="pl-8"
+                className={cn("pl-8", plain && PLAIN_SEARCH_CLASS)}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder={t("kumiko.nav.search")}
                 aria-label={t("kumiko.nav.search")}
               />
             </div>
-            {groupTopLevelRuns(tree).map((run) =>
+            {groupTopLevelRuns(tree, plain).map((run) =>
               run.kind === "section" ? (
                 <NavSection
                   key={run.node.qualifiedName}
@@ -273,15 +274,33 @@ function NavBadge({ node }: { readonly node: NavNode }): ReactNode {
 // A pure section is a group header without its own screen that only groups
 // its children. At the top level it becomes a SidebarGroup with a toggleable
 // GroupLabel; a node with a screen remains a clickable menu entry even when it
-// also has children.
-function isPureSection(node: NavNode): boolean {
+// also has children. In the plain nav a group's createAction stays a section
+// and renders as a "+" on the group label.
+function isPureSection(node: NavNode, plain: boolean): boolean {
   return (
     node.screen === undefined &&
     node.target === undefined &&
     node.provider !== true &&
-    node.createAction === undefined &&
+    (plain || node.createAction === undefined) &&
     node.children.length > 0
   );
+}
+
+const PLAIN_ITEM_CLASS =
+  "px-2.5 py-1.5 text-[13.5px] leading-[1.3] font-normal hover:bg-sidebar-foreground/10 data-[active=true]:bg-sidebar-foreground/10 data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground";
+
+const PLAIN_GROUP_LABEL_CLASS =
+  "justify-between rounded-none px-2.5 pt-[11px] pb-[3px] text-[10.5px] font-normal uppercase tracking-[0.07em] text-sidebar-muted";
+
+const PLAIN_SEARCH_CLASS = "h-auto rounded-md border-0 py-[7px] text-[12.5px]";
+
+const PLUS_BUTTON_CLASS = "flex size-5 items-center justify-center rounded-md text-sidebar-muted";
+
+const PLAIN_PLUS_REVEAL_CLASS =
+  "opacity-0 group-hover/menu-item:opacity-100 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-item:opacity-100 group-focus-within/menu-sub-item:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-100";
+
+function usePlainItemClass(): string | undefined {
+  return useShellNavStyle() === "plain" ? PLAIN_ITEM_CLASS : undefined;
 }
 
 type TopLevelRun =
@@ -290,11 +309,11 @@ type TopLevelRun =
 
 // Consecutive non-section entries share one <ul>, so the root gap only
 // separates blocks and not every pair of top-level leaves.
-function groupTopLevelRuns(nodes: readonly NavNode[]): readonly TopLevelRun[] {
+function groupTopLevelRuns(nodes: readonly NavNode[], plain: boolean): readonly TopLevelRun[] {
   const runs: TopLevelRun[] = [];
   let entries: [NavNode, ...NavNode[]] | undefined;
   for (const node of nodes) {
-    if (isPureSection(node)) {
+    if (isPureSection(node, plain)) {
       entries = undefined;
       runs.push({ kind: "section", node });
     } else if (entries === undefined) {
@@ -316,9 +335,12 @@ type NavSubProps = {
 // If the label contains a dot, pass it through t(): the bundle translates
 // the key; otherwise the key remains visible as a reminder of a missing
 // translation. Literal string labels are left unchanged.
+function navLabel(t: ReturnType<typeof useTranslation>, raw: string): string {
+  return raw.includes(".") ? t(raw) : raw;
+}
+
 function useLabel(node: NavNode): string {
-  const t = useTranslation();
-  return node.label.includes(".") ? t(node.label) : node.label;
+  return navLabel(useTranslation(), node.label);
 }
 
 // Without an icon only the collapsed rail shows the initial letter; expanded,
@@ -335,6 +357,7 @@ function NavLeadingIcon({
   /** Only needed for the rail fallback — see below. */
   label?: string;
 }): ReactNode {
+  const plain = useShellNavStyle() === "plain";
   const iconKey = expanded && node.icon === "folder" ? "folder-open" : node.icon;
   const isKnownIcon = iconKey !== undefined && Object.hasOwn(NAV_ICONS, iconKey);
   const NavIcon = iconKey !== undefined && isKnownIcon ? NAV_ICON_LOOKUP[iconKey] : undefined;
@@ -346,7 +369,14 @@ function NavLeadingIcon({
       );
     }
   }, [iconKey, isKnownIcon, node.qualifiedName]);
-  if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
+  if (NavIcon !== undefined) {
+    return (
+      <NavIcon
+        aria-hidden="true"
+        className={cn("shrink-0", plain && "hidden group-data-[collapsible=icon]:block")}
+      />
+    );
+  }
   const initial = label?.trim().charAt(0).toUpperCase();
   if (initial === undefined || initial === "") return null;
   return (
@@ -642,12 +672,12 @@ function NodeActions({
 }): ReactNode {
   const dispatch = useDispatchTarget();
   const t = useTranslation();
+  const plain = useShellNavStyle() === "plain";
   const create = node.createAction;
   const actions = node.actions ?? [];
   if (create === undefined && actions.length === 0) return null;
-  const label = (s: string): string => (s.includes(".") ? t(s) : s);
-  const btn =
-    "flex size-5 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+  const label = (s: string): string => navLabel(t, s);
+  const btn = `${PLUS_BUTTON_CLASS} hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`;
   const hover =
     "opacity-0 group-hover/menu-item:opacity-100 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-item:opacity-100";
   return (
@@ -658,7 +688,7 @@ function NodeActions({
         <TreeActionControl
           action={create}
           ariaLabel={label(create.label)}
-          className={btn}
+          className={cn(btn, plain && PLAIN_PLUS_REVEAL_CLASS)}
           dispatch={dispatch}
           workspaceId={workspaceId}
         >
@@ -703,6 +733,11 @@ function ProviderStatus({
 // on items with children, not on the section itself.
 function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const displayLabel = useLabel(node);
+  const t = useTranslation();
+  const nav = useNav();
+  const dispatch = useDispatchTarget();
+  const plain = useShellNavStyle() === "plain";
+  const create = node.createAction;
   const { q, matches } = useContext(NavFilterContext);
   // Provider children are statically empty until loaded, so they keep the
   // section visible; their matches cannot be checked statically, and the node
@@ -716,7 +751,20 @@ function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   }
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>{displayLabel}</SidebarGroupLabel>
+      <SidebarGroupLabel className={plain ? PLAIN_GROUP_LABEL_CLASS : undefined}>
+        {displayLabel}
+        {plain && create !== undefined && (
+          <TreeActionControl
+            action={create}
+            ariaLabel={navLabel(t, create.label)}
+            className={`${PLUS_BUTTON_CLASS} hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground`}
+            dispatch={dispatch}
+            workspaceId={nav.route?.workspaceId}
+          >
+            <Plus className="size-3.5" />
+          </TreeActionControl>
+        )}
+      </SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {node.children.map((child) => (
@@ -744,6 +792,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const t = useTranslation();
   const dispatch = useDispatchTarget();
   const s = useNavNodeState(node, collapsed);
+  const itemClass = usePlainItemClass();
   if (s.hidden) return null;
 
   const sub = s.isExpanded ? (
@@ -775,7 +824,12 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
     return (
       <SidebarMenuItem>
         {/* tooltip = the label that shadcn displays only in the collapsed icon state. */}
-        <SidebarMenuButton asChild isActive={s.active} tooltip={s.displayLabel}>
+        <SidebarMenuButton
+          asChild
+          isActive={s.active}
+          tooltip={s.displayLabel}
+          className={itemClass}
+        >
           <KumikoLink
             to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
             {...(s.ariaCurrent && { "aria-current": "page" })}
@@ -803,6 +857,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
       <SidebarMenuItem>
         <SidebarMenuButton
           isActive={s.active}
+          className={itemClass}
           tooltip={s.displayLabel}
           onClick={() => dispatch(target)}
         >
@@ -825,6 +880,7 @@ function NavMenuNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
+        className={itemClass}
         onClick={() => {
           if (s.expandable) onToggle(node.qualifiedName);
         }}
@@ -857,6 +913,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
   const t = useTranslation();
   const dispatch = useDispatchTarget();
   const s = useNavNodeState(node, collapsed);
+  const itemClass = usePlainItemClass();
   if (s.hidden) return null;
 
   // Children go in their own SidebarMenuSub (<ul>): a sub-item is an <li>, so
@@ -896,7 +953,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
     const screenId = lastSegment(node.screen);
     return (
       <SidebarMenuSubItem>
-        <SidebarMenuSubButton asChild isActive={s.active}>
+        <SidebarMenuSubButton asChild isActive={s.active} className={itemClass}>
           <KumikoLink
             to={{ ...(s.workspaceId !== undefined && { workspaceId: s.workspaceId }), screenId }}
             {...(s.ariaCurrent && { "aria-current": "page" })}
@@ -922,7 +979,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
     const target = node.target;
     return (
       <SidebarMenuSubItem>
-        <SidebarMenuSubButton asChild isActive={s.active}>
+        <SidebarMenuSubButton asChild isActive={s.active} className={itemClass}>
           <button type="button" onClick={() => dispatch(target)}>
             <NavLeadingIcon node={node} active={s.active} label={s.displayLabel} />
             <span
@@ -943,7 +1000,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
 
   return (
     <SidebarMenuSubItem>
-      <SidebarMenuSubButton asChild>
+      <SidebarMenuSubButton asChild className={itemClass}>
         <button
           type="button"
           onClick={() => {

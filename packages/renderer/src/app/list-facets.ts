@@ -80,6 +80,7 @@ export function buildFacetChips(
     id: extra.id,
     label: translate(extra.label),
     values: extra.values,
+    ...(extra.separatorAfter === true && { separatorAfter: true }),
   });
   return [
     ...extras.filter((extra) => extra.position !== "end").map(toChip),
@@ -104,7 +105,10 @@ export function buildEntityFilterFacets(
   for (const spec of specs) {
     const config = configs?.[spec.field];
     if (config === false) continue;
-    const base = facetBase(spec);
+    const base = {
+      ...facetBase(spec),
+      ...(config?.narrowPlacement !== undefined && { narrowPlacement: config.narrowPlacement }),
+    };
     if (config?.display !== "chips") {
       out.push(base);
       continue;

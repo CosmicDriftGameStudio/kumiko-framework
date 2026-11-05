@@ -259,8 +259,9 @@ function SidebarTrigger({
   className,
   onClick,
   label = "Toggle Sidebar",
+  icon = "panel",
   ...props
-}: React.ComponentProps<typeof Button> & { label?: string }) {
+}: React.ComponentProps<typeof Button> & { label?: string; icon?: "panel" | "menu" }) {
   const { toggleSidebar } = useSidebar()
 
   return (
@@ -276,8 +277,8 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      <PanelLeftIcon className="max-md:hidden" />
-      <MenuIcon className="md:hidden" />
+      {icon === "panel" && <PanelLeftIcon className="max-md:hidden" />}
+      <MenuIcon className={icon === "panel" ? "md:hidden" : undefined} />
       <span className="sr-only">{label}</span>
     </Button>
   )

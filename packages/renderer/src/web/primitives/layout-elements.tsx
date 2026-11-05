@@ -466,7 +466,7 @@ export function DefaultHeading({ variant = "page", children, testId }: HeadingPr
     );
   }
   return (
-    <h1 data-testid={testId} className="text-2xl font-semibold tracking-tight">
+    <h1 data-testid={testId} className="text-xl font-semibold tracking-tight sm:text-2xl">
       {children}
     </h1>
   );

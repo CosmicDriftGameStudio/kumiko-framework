@@ -38,6 +38,16 @@ export const NAMED_FILTER_RULES = {
     summary: "A named filter's emptyState.title is a non-empty i18n key.",
     fix: "Name the title key or remove emptyState from the filter.",
   },
+  emptyStateParamsQueryEmpty: {
+    id: "list/named-filter-empty-state-params-query-empty",
+    summary: "A named filter's emptyState.paramsQuery is a non-empty query QN.",
+    fix: "Name the query or remove paramsQuery from the emptyState.",
+  },
+  emptyStateParamsQueryWithoutDescription: {
+    id: "list/named-filter-empty-state-params-query-without-description",
+    summary: "A named filter's emptyState.paramsQuery feeds the description, so it needs one.",
+    fix: "Set emptyState.description (an i18n key with {params}) or remove paramsQuery.",
+  },
   statNavigateTarget: {
     id: "named-filter/stat-navigate-target",
     summary: "A stat navigate.screen resolves to an entityList, projectionList or custom screen.",

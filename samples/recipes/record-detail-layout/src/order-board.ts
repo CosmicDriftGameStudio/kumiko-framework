@@ -266,7 +266,8 @@ export type OrderListAnswer =
     }
   | {
       readonly rows: readonly (OrderRow & {
-        readonly narrowMeta: string;
+        readonly narrowOpen: string;
+        readonly narrowStatus: string;
         readonly actionScreen?: string;
         readonly actionParams?: { readonly entityId: string };
       })[];
@@ -294,7 +295,8 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   const offset = payload.offset ?? 0;
   const rows = ordered.slice(offset, offset + (payload.limit ?? DEFAULT_PAGE_SIZE)).map((row) => ({
     ...row,
-    narrowMeta: `${euro(row.openAmount)} open · ${row.status}`,
+    narrowOpen: `${euro(row.openAmount)} open`,
+    narrowStatus: row.status,
     nextStepShort: row.nextStepDue === "" ? "" : `${row.nextStepDue} · ${euro(row.openAmount)}`,
     ...(row.nextStep !== "" && {
       actionScreen: ORDER_DETAIL_SCREEN_QN,
@@ -347,6 +349,12 @@ export function answerNowList() {
     })),
     total: actionNeededRows(ORDER_ROWS.length).length,
   };
+}
+
+// The params of the "reminder due" empty state; null while no order is waiting for a reminder.
+export function answerNextReminder(): { readonly customer: string; readonly due: string } | null {
+  const next = ORDER_ROWS.find((row) => row.canRemind);
+  return next === undefined ? null : { customer: next.customerName, due: next.nextStepDue };
 }
 
 export function answerBriefing() {

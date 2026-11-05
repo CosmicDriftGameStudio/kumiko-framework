@@ -6,6 +6,7 @@ import type {
 import { Fragment, type ReactNode } from "react";
 import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
+import { pluralKey } from "../headless/plural-key.ts";
 import type { BannerProps } from "../primitives.tsx";
 import {
   isRecordProgressArray,
@@ -265,9 +266,7 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
         {...(spec.narrowLimit !== undefined && {
           narrowLimit: spec.narrowLimit,
           moreLabel: (count: number) =>
-            count === 1
-              ? t("kumiko.detail.steps.more.one")
-              : t("kumiko.detail.steps.more.other", { count }),
+            t(pluralKey(spec.narrowMoreLabel ?? "kumiko.detail.steps.more", count), { count }),
           lessLabel: t("kumiko.detail.steps.less"),
         })}
         items={items}
@@ -324,6 +323,7 @@ function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode
             }),
           }),
         }}
+        options={{ headerLayout: "inline" }}
         testId={testId}
       >
         <StepBar
@@ -355,8 +355,8 @@ function renderProgress(model: DetailGuidanceModel, stacked: boolean): ReactNode
 }
 
 // RecordSteps and the summary carry their own px-6; the progress cards and the banner are bare, so they need the same inset to line up with the metric tiles.
-const GUIDANCE_INSET = "px-6";
-const PROGRESS_INSET = "flex min-w-0 flex-col gap-4 px-6 py-2";
+const GUIDANCE_INSET = "px-6 max-sm:px-4";
+const PROGRESS_INSET = "flex min-w-0 flex-col gap-4 px-6 py-2 max-sm:px-4";
 
 /** Summary, banner, progress and steps in reading order; blocks whose record field holds nothing drop out. */
 export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
@@ -372,7 +372,7 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
       {beside ? (
         wrapLayout(
           model.primitives,
-          "grid grid-cols-1 gap-4 lg:grid-cols-12",
+          "grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12",
           <>
             {wrapLayout(
               model.primitives,
@@ -380,7 +380,11 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
               renderSteps(model),
             )}
             {progressNode !== undefined &&
-              wrapLayout(model.primitives, `${progressInset} lg:col-span-4 lg:pl-0`, progressNode)}
+              wrapLayout(
+                model.primitives,
+                `${progressInset} lg:col-span-4 lg:flex lg:flex-col lg:pl-0 lg:[&>*]:flex-1`,
+                progressNode,
+              )}
           </>,
         )
       ) : (

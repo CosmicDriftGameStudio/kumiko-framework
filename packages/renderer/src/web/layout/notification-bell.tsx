@@ -11,8 +11,8 @@ import { useInAppInbox } from "./use-in-app-inbox.ts";
 const MAX_BADGE_COUNT = 99;
 
 const triggerClass =
-  "relative inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-input " +
-  "bg-background text-foreground shadow-xs transition-colors hover:bg-accent " +
+  "relative inline-flex size-8 shrink-0 items-center justify-center rounded-md " +
+  "text-foreground-secondary transition-colors hover:bg-accent " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 const panelClass =
@@ -63,7 +63,7 @@ export function NotificationBell({
           {inbox.unreadCount > 0 && (
             <span
               data-kumiko-layout="notification-bell-badge"
-              className="absolute -right-1.5 -top-1.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-4 text-destructive-foreground"
+              className="absolute right-[3px] top-[3px] rounded-full bg-destructive px-1 py-0.5 text-[9.5px] font-semibold leading-none text-destructive-foreground"
             >
               {badge}
             </span>

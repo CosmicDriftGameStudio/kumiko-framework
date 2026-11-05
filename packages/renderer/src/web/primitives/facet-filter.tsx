@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -14,6 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./dropdown-menu.tsx";
 import "../react-css-custom-properties.ts";
@@ -101,11 +102,22 @@ function FacetSelect({
             "h-9",
             dense && "border-border-strong px-2.5",
             pill && PILL_CLASSES,
-            isFiltered && "border-primary text-foreground",
+            isFiltered && "border-primary",
           )}
           data-testid={`facet-${facet.field}`}
         >
-          {active === undefined ? facet.label : `${facet.label}: ${active.label}`}
+          {/* Key grey, value in foreground; a set filter turns the value primary. */}
+          <span className="text-muted-foreground">
+            {active === undefined ? facet.label : `${facet.label}: `}
+          </span>
+          {active !== undefined && (
+            <span
+              data-testid={`facet-${facet.field}-value`}
+              className={isFiltered ? "font-medium text-primary" : "text-foreground"}
+            >
+              {active.label}
+            </span>
+          )}
           <ChevronDown className="text-muted-foreground" />
         </UiButton>
       </DropdownMenuTrigger>
@@ -122,16 +134,20 @@ function FacetSelect({
           }}
         >
           {chips.map((chip) => (
-            <DropdownMenuRadioItem
-              key={chip.id}
-              value={chip.id}
-              data-testid={`facet-${facet.field}-${chip.id}`}
-            >
-              <span className="flex-1">{chip.label}</span>
-              {facet.showCounts === true && chip.count !== undefined && (
-                <span className="ml-4 tabular-nums text-muted-foreground">{chip.count}</span>
-              )}
-            </DropdownMenuRadioItem>
+            <Fragment key={chip.id}>
+              <DropdownMenuRadioItem
+                value={chip.id}
+                data-testid={`facet-${facet.field}-${chip.id}`}
+              >
+                <span className="flex-1">{chip.label}</span>
+                {facet.showCounts === true && chip.count !== undefined && (
+                  <span className="ml-auto pl-4 tabular-nums text-muted-foreground">
+                    {chip.count}
+                  </span>
+                )}
+              </DropdownMenuRadioItem>
+              {chip.separatorAfter === true && <DropdownMenuSeparator />}
+            </Fragment>
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>

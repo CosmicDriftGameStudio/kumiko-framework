@@ -427,6 +427,7 @@ type EntityListFacetConfig = {
   showCounts?: boolean; // Chips show how many rows each option matches (other facets and the search apply).
   hideEmpty?: boolean; // Chips with zero matching rows are not shown.
   extraOptions?: EntityListFacetExtraOption[];
+  narrowPlacement?: "behind-filter"; // "behind-filter": the facet opens behind the filter icon next to the search field instead of standing as a pill.
 };
 type FeatureSchema = {
   featureName: string;
@@ -525,6 +526,7 @@ type RecordHeaderSubtitlePart =
     field: string;
     navigate?: MetricNavigate;
     format?: FormatSpec; // Formats the raw field value (e.g. `timestamp`); an empty value is still dropped.
+    prefix?: string; // i18n key of a text before the value ("Owner "); it stays plain text, a `navigate` link covers only the value.
   }
 ;
 type RecordNotice = {
@@ -566,6 +568,7 @@ type RecordStepsSpec = {
   subtitleField?: string; // Record field with a plain-text subtitle.
   emptyLabel?: string; // i18n key for an empty list, default `kumiko.detail.steps.empty`.
   narrowLimit?: number; // Below `sm` only the first n steps show; the rest sits behind a "k more steps" toggle.
+  narrowMoreLabel?: string; // Plural base key for the toggle of the hidden rest: define `<key>.one` and `<key>.other` (the latter with `{count}`).
   actions?: RecordGuidanceAction[];
 };
 type RecordSummarySpec = { // One emphasized sentence below the header; `field` holds a string.

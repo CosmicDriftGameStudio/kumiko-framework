@@ -67,6 +67,8 @@ export type SubtitlePartView = {
   readonly text: string;
   readonly href?: string;
   readonly onPress?: () => void;
+  /** Translated text before the value; outside the link. */
+  readonly prefix?: string;
 };
 
 function recordEntityId(
@@ -136,13 +138,23 @@ export function buildSubtitleParts(
           );
     // skip: empty subtitle parts render nothing
     if (text === "") return [];
+    const prefixKey = typeof part === "string" ? undefined : part.prefix;
+    const prefix = prefixKey === undefined ? {} : { prefix: translate(prefixKey) };
     const navigate = typeof part === "string" ? undefined : part.navigate;
     if (navigate === undefined || !navigateTargetAllows(navigate, appFeatures, userRoles)) {
-      return [{ field, text }];
+      return [{ field, text, ...prefix }];
     }
     const href = hrefForNavigate(nav, navigate, record);
     // skip: unresolvable targets fall back to plain text
-    if (href === undefined) return [{ field, text }];
-    return [{ field, text, href, onPress: () => runMetricNavigate(nav, navigate, record, host) }];
+    if (href === undefined) return [{ field, text, ...prefix }];
+    return [
+      {
+        field,
+        text,
+        ...prefix,
+        href,
+        onPress: () => runMetricNavigate(nav, navigate, record, host),
+      },
+    ];
   });
 }

@@ -148,6 +148,31 @@ function StatIconChip({
   );
 }
 
+function StatDeltaChip({
+  delta,
+  tone,
+}: {
+  readonly delta: StatDelta;
+  readonly tone: StatTone;
+}): ReactNode {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
+        TONE_CHIP[delta.tone ?? tone],
+      )}
+    >
+      {delta.direction === "up" ? "↑" : "↓"}
+      {delta.value}
+    </span>
+  );
+}
+
+function statTileSurface(inset: boolean, boardPadding: boolean): string {
+  if (inset) return "bg-background px-3 py-2.5 shadow-none";
+  return boardPadding ? "px-3.5 py-3 max-sm:px-3 max-sm:py-2.5" : "p-4";
+}
+
 /** Icon-bearing metric tile with an optional delta chip, trend line,
  *  and sparkline. `icon` is a ready-made node (the app supplies its SVG). */
 export function StatCard({
@@ -163,6 +188,9 @@ export function StatCard({
   testId,
   link,
   navigable = false,
+  inset = false,
+  subBelow = false,
+  boardPadding = false,
   children,
 }: {
   readonly icon?: ReactNode;
@@ -179,6 +207,12 @@ export function StatCard({
   readonly link?: StatLink;
   /** Draws a small arrow top right: the tile leads somewhere. Implied by `link`. */
   readonly navigable?: boolean;
+  /** Tile inside a panel: page-coloured fill, no shadow, tighter padding (dashboard board look). */
+  readonly inset?: boolean;
+  /** Puts `sub` on its own line under the value instead of beside it. */
+  readonly subBelow?: boolean;
+  /** Detail metric tile spacing: 12px/14px padding, 10px/12px and a 17px value below `sm`. */
+  readonly boardPadding?: boolean;
   /** Extra content below the built-in fields (e.g. a usage meter) — kept
    *  inside the same card chrome instead of stacking a second bordered box. */
   readonly children?: ReactNode;
@@ -193,7 +227,7 @@ export function StatCard({
     // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
     <Card
       options={{ padded: false }}
-      className={cn("relative p-4", TONE_STRIPE[tone])}
+      className={cn("relative", statTileSurface(inset, boardPadding), TONE_STRIPE[tone])}
       testId={testId}
     >
       {leadsSomewhere && (
@@ -216,22 +250,27 @@ export function StatCard({
             {label}
           </span>
         </div>
-        {delta !== undefined && (
-          <span
-            className={cn(
-              "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
-              TONE_CHIP[delta.tone ?? tone],
-            )}
-          >
-            {delta.direction === "up" ? "↑" : "↓"}
-            {delta.value}
-          </span>
-        )}
+        {delta !== undefined && <StatDeltaChip delta={delta} tone={tone} />}
       </div>
       <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
-        <span className={cn("text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>{value}</span>
-        {sub !== undefined && <span className="text-xs text-muted-foreground">{sub}</span>}
+        <span
+          className={cn(
+            "text-xl font-semibold tabular-nums",
+            boardPadding && "max-sm:text-[17px]",
+            TONE_VALUE[tone],
+          )}
+        >
+          {value}
+        </span>
+        {sub !== undefined && !subBelow && (
+          <span className="text-xs text-muted-foreground">{sub}</span>
+        )}
       </div>
+      {sub !== undefined && subBelow && (
+        <div data-kumiko-layout="stat-card-sub" className="mt-0.5 text-xs text-muted-foreground">
+          {sub}
+        </div>
+      )}
       {trend !== undefined && (
         <div className="mt-0.5 text-xs font-medium text-foreground/80">{trend}</div>
       )}

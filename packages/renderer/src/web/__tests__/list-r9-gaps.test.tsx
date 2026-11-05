@@ -110,7 +110,7 @@ describe("hint sentence with the neutral tone", () => {
       render(<DataTable columns={hintColumns(false)} rows={rows("neutral")} />);
       const sentence = screen.getByText("Completed");
       expect(sentence.className).toContain("text-muted-foreground");
-      expect(document.body.innerHTML).not.toContain("border-l-[3px]");
+      expect(document.body.innerHTML).not.toContain("before:w-1");
     });
   });
 });

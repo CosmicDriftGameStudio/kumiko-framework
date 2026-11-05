@@ -24,7 +24,7 @@ function variantClass(variant: BannerVariant, compact: boolean): string {
     case "error":
       return "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive";
     case "warning":
-      return "border-status-warn/30 bg-status-warn/10 text-status-warn";
+      return "border-status-warn/30 bg-status-warn-surface text-status-warn";
     case "ok":
       return "border-status-ok/30 bg-status-ok-surface text-foreground";
     case "primary":
@@ -107,7 +107,7 @@ function bannerLayoutClass(
 ): string {
   return cn(
     "relative flex w-full items-center border",
-    compact ? "gap-2 rounded-md px-2.5 py-2 text-[13px]" : "gap-3 rounded-lg px-4 py-3 text-sm",
+    compact ? "gap-2 rounded-md px-2.5 py-2 text-[13px]" : "gap-3 rounded-lg px-3.5 py-2.5 text-sm",
     // Viewport breakpoint like the form footer bar; actions drop below the text on phones.
     !compact &&
       !actionsBelow &&

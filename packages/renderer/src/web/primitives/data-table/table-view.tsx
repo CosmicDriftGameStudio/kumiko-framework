@@ -59,7 +59,7 @@ function renderTableFooter(m: DataTableModel): ReactNode {
   const totals = renderTotalsRow(m);
   if (summary === null && totals === null) return null;
   return (
-    <TableFooter>
+    <TableFooter className="bg-muted text-[12.5px]">
       {summary}
       {totals}
     </TableFooter>

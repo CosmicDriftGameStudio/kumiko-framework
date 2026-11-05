@@ -416,7 +416,7 @@ export function cellLinkProp(
 // opaque sticky actions cell. Rows draw it as an inset shadow on the first cell (a border on a
 // <tr> collapses away), cards as a real border. The colour also lands in --row-stripe because a
 // pinned cell sets its own inline box-shadow, which would otherwise replace the stripe.
-const ROW_STRIPE_SHADOW_CLASS = "[&>td:first-child]:shadow-[inset_3px_0_0_var(--row-stripe)]";
+const ROW_STRIPE_SHADOW_CLASS = "[&>td:first-child]:shadow-[inset_4px_0_0_var(--row-stripe)]";
 const ROW_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   bad: `${ROW_STRIPE_SHADOW_CLASS} [&>td:first-child]:[--row-stripe:var(--color-status-bad)]`,
   warn: `${ROW_STRIPE_SHADOW_CLASS} [&>td:first-child]:[--row-stripe:var(--color-status-warn)]`,
@@ -426,13 +426,17 @@ const ROW_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   neutral: "",
 };
 
+// Inner 4px stripe (board .m-card): the card keeps its own border, the stripe sits inside the padding.
+const CARD_STRIPE_BASE =
+  "relative pl-6 before:absolute before:inset-y-2.5 before:left-2.5 before:w-1 before:rounded-[2px] before:content-['']";
+
 const CARD_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
-  bad: "border-l-[3px] border-l-status-bad",
-  warn: "border-l-[3px] border-l-status-warn",
-  ok: "border-l-[3px] border-l-status-ok",
-  critical: "border-l-[3px] border-l-status-critical",
-  accent: "border-l-[3px] border-l-primary",
-  neutral: "",
+  bad: `${CARD_STRIPE_BASE} before:bg-status-bad`,
+  warn: `${CARD_STRIPE_BASE} before:bg-status-warn`,
+  ok: `${CARD_STRIPE_BASE} before:bg-status-ok`,
+  critical: `${CARD_STRIPE_BASE} before:bg-status-critical`,
+  accent: `${CARD_STRIPE_BASE} before:bg-primary`,
+  neutral: `${CARD_STRIPE_BASE} before:bg-border-strong`,
 };
 
 export function rowToneClass(tone: SelectOptionTone | undefined): string {

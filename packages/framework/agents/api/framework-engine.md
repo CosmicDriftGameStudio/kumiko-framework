@@ -1051,6 +1051,7 @@ type ListColumnSpec =
     emptyPlaceholder?: false; // `false` leaves an empty cell blank instead of drawing the "—" placeholder.
     hideOnNarrow?: boolean; // Leaves the column out of the compact card layout used below the `md` breakpoint (tables keep it).
     showOnNarrowOnly?: true; // Counterpart of `hideOnNarrow`: the column shows only in the compact card layout and not in the table.
+    narrowInline?: true; // In the compact card, consecutive `narrowInline` columns stand side by side on one line (12px gap, no separator) instead of one line each.
     hidden?: boolean; // Start state for the column picker: the column begins hidden and the user can show it.
     pinned?: ListColumnPin; // Start pin for the column: it sticks to this edge while the table scrolls horizontally.
     width?: number; // Start width in px.

@@ -1,12 +1,12 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import "../react-css-custom-properties.ts";
 
 export const TABLE_FOOTER_BAR_CLASS = cn(
-  "flex h-15 shrink-0 items-center gap-4 border-t border-border bg-card pl-4 pr-2",
-  "text-[13px] tabular-nums text-foreground-secondary md:h-11 md:px-6",
+  "flex h-15 shrink-0 items-center gap-4 border-t border-border-row bg-card pl-4 pr-2",
+  "text-[12.5px] tabular-nums text-muted-foreground md:h-11 md:px-6",
 );
 
 // InfiniteSentinel — empty div at the end of the table that uses
@@ -108,9 +108,9 @@ export function Pager({
   onPageChange,
   pageSizeOptions,
   onPageSizeChange,
-  itemNoun,
   testId,
   pinned,
+  plain,
 }: {
   readonly page: number;
   readonly limit: number;
@@ -118,9 +118,10 @@ export function Pager({
   readonly onPageChange: (next: number) => void;
   readonly pageSizeOptions?: readonly number[];
   readonly onPageSizeChange?: (next: number) => void;
-  readonly itemNoun?: (count: number) => string;
   readonly testId?: string;
   readonly pinned?: boolean;
+  /** Phone cards: no bar, border or background; the footer sits on the page like the card list. */
+  readonly plain?: boolean;
 }): ReactNode {
   const t = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -132,35 +133,30 @@ export function Pager({
     <div
       data-testid={testId}
       className={
-        pinned === true
-          ? TABLE_FOOTER_BAR_CLASS
-          : "mt-3 flex items-center gap-4 text-[13px] tabular-nums text-foreground-secondary"
+        plain === true
+          ? "flex items-center justify-between px-4 pb-3 pt-1 text-[12.5px] tabular-nums text-muted-foreground"
+          : pinned === true
+            ? TABLE_FOOTER_BAR_CLASS
+            : "mt-3 flex items-center gap-4 text-[12.5px] tabular-nums text-muted-foreground"
       }
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
-          {itemNoun !== undefined
-            ? t("kumiko.pager.status.noun", {
-                from: from.toLocaleString(),
-                to: to.toLocaleString(),
-                total: total.toLocaleString(),
-                noun: itemNoun(total),
-              })
-            : t("kumiko.pager.status", {
-                from: from.toLocaleString(),
-                to: to.toLocaleString(),
-                total: total.toLocaleString(),
-              })}
+          {t("kumiko.pager.status", {
+            from: from.toLocaleString(),
+            to: to.toLocaleString(),
+            total: total.toLocaleString(),
+          })}
         </div>
         {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
-          <div className="relative hidden items-center sm:flex">
+          <div className="hidden items-center sm:flex">
             <span aria-hidden="true">·</span>
             <select
               aria-label={t("kumiko.pager.pageSizeLabel")}
               data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
               value={limit}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="h-7 cursor-pointer appearance-none rounded-md border-0 bg-transparent pl-1.5 pr-5 text-[13px] text-foreground-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-7 cursor-pointer appearance-none rounded-md border-0 bg-transparent px-1.5 text-[12.5px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {pageSizeOptions.map((size) => (
                 <option key={size} value={size}>
@@ -168,10 +164,6 @@ export function Pager({
                 </option>
               ))}
             </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-0.5 top-1/2 size-3.5 -translate-y-1/2 opacity-50"
-              aria-hidden="true"
-            />
           </div>
         )}
       </div>
@@ -249,9 +241,9 @@ function PageNumberButton({
       aria-current={current ? "page" : undefined}
       data-testid={testId}
       className={cn(
-        "inline-flex h-7 min-w-7 items-center justify-center rounded-md px-1.5",
+        "inline-flex h-6 min-w-6 items-center justify-center rounded px-1.5",
         "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        current && "bg-muted font-semibold text-foreground",
+        current && "bg-primary text-primary-foreground hover:bg-primary",
       )}
     >
       {page.toLocaleString()}
@@ -280,7 +272,7 @@ function PagerButton({
       aria-label={ariaLabel}
       data-testid={testId}
       className={cn(
-        "inline-flex size-11 items-center justify-center rounded-md border border-border sm:size-7",
+        "inline-flex size-11 items-center justify-center rounded sm:size-6",
         "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "disabled:pointer-events-none disabled:text-foreground-disabled",
       )}

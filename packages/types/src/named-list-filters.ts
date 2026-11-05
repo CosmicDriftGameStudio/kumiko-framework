@@ -38,8 +38,20 @@ export type NamedListFilterRef = {
   readonly label: string;
   /** Order while this filter is active and the URL carries no sort of its own; wins over `defaultSort`. */
   readonly sort?: ListSortSpec;
-  /** Shown instead of the generic "no matches" text when this filter yields an empty list and no search term is set; both are i18n keys. */
-  readonly emptyState?: { readonly title: string; readonly description?: string };
+  /** Select display: draws a divider line below this entry in the dropdown. */
+  readonly separatorAfter?: boolean;
+  /**
+   * Shown instead of the generic "no matches" text when this filter yields an empty list and no
+   * search term is set; `title` and `description` are i18n keys. `paramsQuery` (a registered query
+   * QN, called without payload) runs only while the empty state is on screen; its result object
+   * becomes the translation params of `description`. Without data (loading, error, no result) the
+   * description is not rendered.
+   */
+  readonly emptyState?: {
+    readonly title: string;
+    readonly description?: string;
+    readonly paramsQuery?: string;
+  };
   /** Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them. */
   readonly roles?: readonly string[];
 };
@@ -49,6 +61,8 @@ export type NamedFilterFacetOptions = {
   readonly display?: "chips" | "select";
   /** Ask the list query for each filter's hit count and show it next to the label. */
   readonly showCounts?: boolean;
+  /** "behind-filter": the select opens behind the filter icon next to the search field instead of standing as a pill. Only below `sm` and only on lists that fill their height; otherwise it stays a pill. */
+  readonly narrowPlacement?: "behind-filter";
   /** i18n key for the select's label, e.g. "To do". */
   readonly label?: string;
 };

@@ -1018,6 +1018,7 @@ import { z } from "zod";
 import { createOrderDeskFeature } from "../feature";
 import {
   answerBriefing,
+  answerNextReminder,
   answerOrderDetail,
   answerOrderList,
   answerOrderSummary,
@@ -1135,6 +1136,7 @@ describe("record-detail-layout showcase — work queue", () => {
       display: "select",
       showCounts: true,
       label: "order-desk.orders.todo",
+      narrowPlacement: "behind-filter",
     });
     const buttons = (screen.rowActions ?? []).filter((action) => action.display === "button");
     expect(buttons.map((action) => [action.id, action.visible])).toEqual([
@@ -1279,6 +1281,34 @@ describe("record-detail-layout showcase — phone variants", () => {
   });
 });
 
+describe("record-detail-layout showcase — board gaps round 8", () => {
+  test("two narrow-only value columns stand side by side on the phone card", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    const inline = screen.columns
+      .map((column) => normalizeListColumn(column))
+      .filter((column) => column.narrowInline === true);
+    expect(inline.map((column) => [column.field, column.showOnNarrowOnly])).toEqual([
+      ["narrowOpen", true],
+      ["narrowStatus", true],
+    ]);
+    const first = answerOrderList(orderListSchema.parse({}));
+    expect("rows" in first && first.rows[0]?.narrowOpen).toBe("€ 312.00 open");
+  });
+
+  test("the reminder-due empty state takes its description params from a registered query", () => {
+    const screen = registry.getScreen("order-desk:screen:orders");
+    if (screen?.type !== "projectionList") throw new Error("expected projectionList");
+    const reminder = screen.namedFilters?.find((filter) => filter.id === "reminder-due");
+    expect(reminder?.emptyState).toEqual({
+      title: "order-desk.orders.all-done",
+      description: "order-desk.orders.next-reminder",
+      paramsQuery: "order-desk:query:order:next-reminder",
+    });
+    expect(answerNextReminder()).toEqual({ customer: "Aiko Tanaka", due: "by Friday" });
+  });
+});
+
 describe("record-detail-layout showcase — empty states", () => {
   test("the payments tab declares a record-dependent empty text ahead of its default", () => {
     const screen = registry.getScreen("order-desk:screen:order-detail");
@@ -1355,6 +1385,43 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 });
 ```
 
+### src/__tests__/next-reminder.integration.test.ts
+
+```ts
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createOrderDeskFeature } from "../feature";
+
+let stack: TestStack;
+const support = createTestUser({ roles: ["Support"], tenantId: testTenantId(1) });
+
+beforeAll(async () => {
+  stack = await setupTestStack({ features: [createOrderDeskFeature()], systemHooks: [] });
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("emptyState.paramsQuery over HTTP", () => {
+  test("the query the reminder-due empty state names answers the params of its description", async () => {
+    const params = await stack.http.queryOk<{ customer: string; due: string }>(
+      "order-desk:query:order:next-reminder",
+      {},
+      support,
+    );
+    expect(params).toEqual({ customer: "Aiko Tanaka", due: "by Friday" });
+  });
+
+  test("a caller without the list's roles cannot read the params", async () => {
+    const outsider = createTestUser({ roles: ["User"], tenantId: testTenantId(1) });
+    const denied = await stack.http.queryErr("order-desk:query:order:next-reminder", {}, outsider);
+    expect(denied.code).toBe("access_denied");
+  });
+});
+```
+
 ### src/feature.ts
 
 ```ts
@@ -1387,6 +1454,10 @@ describe("record-detail-layout showcase — boot-validator catches author mistak
 //  10. `focus: true` gives the detail a focused shell; phones get a top bar with the
 //      record title, a back arrow to the list and the page-header overflow menu.
 //
+//  11. Phone card values: two `showOnNarrowOnly` columns with `narrowInline` stand side by side on one line.
+//      The named-filter select sits behind the filter icon on phones (`narrowPlacement: "behind-filter"`),
+//      and the "reminder due" empty state fills its description from a query (`emptyState.paramsQuery`).
+//
 // projectionDetail binds to an explicit query, not an entity: every field name below
 // (header, metrics, fields) is a column of that query's row.
 
@@ -1397,6 +1468,7 @@ import {
   answerCustomers,
   answerDeadlines,
   answerMoney,
+  answerNextReminder,
   answerNowList,
   answerOrderDetail,
   answerOrderList,
@@ -1433,6 +1505,13 @@ export function createOrderDeskFeature(): FeatureDefinition {
       name: "order:now",
       schema: noPayloadSchema,
       handler: async () => answerNowList(),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:next-reminder",
+      schema: noPayloadSchema,
+      handler: async () => answerNextReminder(),
       access: accessRoles,
     });
 
@@ -1523,6 +1602,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.orders.nothing-open": { en: "Nothing to do" },
         "order-desk.orders.all-done": { en: "All done" },
         "order-desk.orders.all-done-hint": { en: "No order needs you right now." },
+        "order-desk.orders.next-reminder": { en: "Next reminder: {customer}, due {due}." },
         "order-desk.filter.action-needed": { en: "Needs action" },
         "order-desk.filter.reminder-due": { en: "Reminder due" },
         "order-desk.filter.ending-soon": { en: "Ending soon" },
@@ -1548,7 +1628,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.today.inbox-link": { en: "All orders" },
         "order-desk.today.deadlines": { en: "Deadlines" },
         "order-desk.today.deadlines-all": { en: "All deadlines" },
-        "order-desk.col.narrow-meta": { en: "Details" },
+        "order-desk.col.narrow-open": { en: "Open amount" },
+        "order-desk.col.narrow-status": { en: "Status" },
         "order-desk.today.customers": { en: "Customers" },
         "order-desk.today.money": { en: "Money" },
         "order-desk.today.money-sub": { en: "Across all open orders" },
@@ -1592,7 +1673,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       rowToneField: "tone",
       columns: [
         { field: "orderNumber", label: "order-desk.col.order" },
-        { field: "customerName", label: "order-desk.col.customer" },
+        { field: "customerName", label: "order-desk.col.customer", hideOnNarrow: true },
         {
           field: "urgencyLabel",
           label: "order-desk.col.urgency",
@@ -1614,7 +1695,18 @@ export function createOrderDeskFeature(): FeatureDefinition {
           minWidth: 240,
         },
         { field: "openAmount", label: "order-desk.col.open-amount", hideOnNarrow: true },
-        { field: "narrowMeta", label: "order-desk.col.narrow-meta", showOnNarrowOnly: true },
+        {
+          field: "narrowOpen",
+          label: "order-desk.col.narrow-open",
+          showOnNarrowOnly: true,
+          narrowInline: true,
+        },
+        {
+          field: "narrowStatus",
+          label: "order-desk.col.narrow-status",
+          showOnNarrowOnly: true,
+          narrowInline: true,
+        },
       ],
       defaultSort: { field: "urgency", dir: "desc" },
       sortOptions: [
@@ -1636,12 +1728,18 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.filter.reminder-due",
           emptyState: {
             title: "order-desk.orders.all-done",
-            description: "order-desk.orders.all-done-hint",
+            description: "order-desk.orders.next-reminder",
+            paramsQuery: "order-desk:query:order:next-reminder",
           },
         },
         { id: "ending-soon", label: "order-desk.filter.ending-soon" },
       ],
-      namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
+      namedFilterFacet: {
+        display: "select",
+        showCounts: true,
+        label: "order-desk.orders.todo",
+        narrowPlacement: "behind-filter",
+      },
       narrowFacets: "pills",
       table: {
         frame: "card",
@@ -2288,7 +2386,8 @@ export type OrderListAnswer =
     }
   | {
       readonly rows: readonly (OrderRow & {
-        readonly narrowMeta: string;
+        readonly narrowOpen: string;
+        readonly narrowStatus: string;
         readonly actionScreen?: string;
         readonly actionParams?: { readonly entityId: string };
       })[];
@@ -2316,7 +2415,8 @@ export function answerOrderList(payload: OrderListPayload): OrderListAnswer {
   const offset = payload.offset ?? 0;
   const rows = ordered.slice(offset, offset + (payload.limit ?? DEFAULT_PAGE_SIZE)).map((row) => ({
     ...row,
-    narrowMeta: `${euro(row.openAmount)} open · ${row.status}`,
+    narrowOpen: `${euro(row.openAmount)} open`,
+    narrowStatus: row.status,
     nextStepShort: row.nextStepDue === "" ? "" : `${row.nextStepDue} · ${euro(row.openAmount)}`,
     ...(row.nextStep !== "" && {
       actionScreen: ORDER_DETAIL_SCREEN_QN,
@@ -2369,6 +2469,12 @@ export function answerNowList() {
     })),
     total: actionNeededRows(ORDER_ROWS.length).length,
   };
+}
+
+// The params of the "reminder due" empty state; null while no order is waiting for a reminder.
+export function answerNextReminder(): { readonly customer: string; readonly due: string } | null {
+  const next = ORDER_ROWS.find((row) => row.canRemind);
+  return next === undefined ? null : { customer: next.customerName, due: next.nextStepDue };
 }
 
 export function answerBriefing() {

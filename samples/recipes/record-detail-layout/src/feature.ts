@@ -27,6 +27,10 @@
 //  10. `focus: true` gives the detail a focused shell; phones get a top bar with the
 //      record title, a back arrow to the list and the page-header overflow menu.
 //
+//  11. Phone card values: two `showOnNarrowOnly` columns with `narrowInline` stand side by side on one line.
+//      The named-filter select sits behind the filter icon on phones (`narrowPlacement: "behind-filter"`),
+//      and the "reminder due" empty state fills its description from a query (`emptyState.paramsQuery`).
+//
 // projectionDetail binds to an explicit query, not an entity: every field name below
 // (header, metrics, fields) is a column of that query's row.
 
@@ -37,6 +41,7 @@ import {
   answerCustomers,
   answerDeadlines,
   answerMoney,
+  answerNextReminder,
   answerNowList,
   answerOrderDetail,
   answerOrderList,
@@ -73,6 +78,13 @@ export function createOrderDeskFeature(): FeatureDefinition {
       name: "order:now",
       schema: noPayloadSchema,
       handler: async () => answerNowList(),
+      access: accessRoles,
+    });
+
+    r.queryHandler({
+      name: "order:next-reminder",
+      schema: noPayloadSchema,
+      handler: async () => answerNextReminder(),
       access: accessRoles,
     });
 
@@ -163,6 +175,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.orders.nothing-open": { en: "Nothing to do" },
         "order-desk.orders.all-done": { en: "All done" },
         "order-desk.orders.all-done-hint": { en: "No order needs you right now." },
+        "order-desk.orders.next-reminder": { en: "Next reminder: {customer}, due {due}." },
         "order-desk.filter.action-needed": { en: "Needs action" },
         "order-desk.filter.reminder-due": { en: "Reminder due" },
         "order-desk.filter.ending-soon": { en: "Ending soon" },
@@ -188,7 +201,8 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.today.inbox-link": { en: "All orders" },
         "order-desk.today.deadlines": { en: "Deadlines" },
         "order-desk.today.deadlines-all": { en: "All deadlines" },
-        "order-desk.col.narrow-meta": { en: "Details" },
+        "order-desk.col.narrow-open": { en: "Open amount" },
+        "order-desk.col.narrow-status": { en: "Status" },
         "order-desk.today.customers": { en: "Customers" },
         "order-desk.today.money": { en: "Money" },
         "order-desk.today.money-sub": { en: "Across all open orders" },
@@ -232,7 +246,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       rowToneField: "tone",
       columns: [
         { field: "orderNumber", label: "order-desk.col.order" },
-        { field: "customerName", label: "order-desk.col.customer" },
+        { field: "customerName", label: "order-desk.col.customer", hideOnNarrow: true },
         {
           field: "urgencyLabel",
           label: "order-desk.col.urgency",
@@ -254,7 +268,18 @@ export function createOrderDeskFeature(): FeatureDefinition {
           minWidth: 240,
         },
         { field: "openAmount", label: "order-desk.col.open-amount", hideOnNarrow: true },
-        { field: "narrowMeta", label: "order-desk.col.narrow-meta", showOnNarrowOnly: true },
+        {
+          field: "narrowOpen",
+          label: "order-desk.col.narrow-open",
+          showOnNarrowOnly: true,
+          narrowInline: true,
+        },
+        {
+          field: "narrowStatus",
+          label: "order-desk.col.narrow-status",
+          showOnNarrowOnly: true,
+          narrowInline: true,
+        },
       ],
       defaultSort: { field: "urgency", dir: "desc" },
       sortOptions: [
@@ -276,12 +301,18 @@ export function createOrderDeskFeature(): FeatureDefinition {
           label: "order-desk.filter.reminder-due",
           emptyState: {
             title: "order-desk.orders.all-done",
-            description: "order-desk.orders.all-done-hint",
+            description: "order-desk.orders.next-reminder",
+            paramsQuery: "order-desk:query:order:next-reminder",
           },
         },
         { id: "ending-soon", label: "order-desk.filter.ending-soon" },
       ],
-      namedFilterFacet: { display: "select", showCounts: true, label: "order-desk.orders.todo" },
+      namedFilterFacet: {
+        display: "select",
+        showCounts: true,
+        label: "order-desk.orders.todo",
+        narrowPlacement: "behind-filter",
+      },
       narrowFacets: "pills",
       table: {
         frame: "card",
