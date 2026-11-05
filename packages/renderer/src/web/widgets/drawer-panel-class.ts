@@ -7,6 +7,11 @@ export type DrawerSide = "left" | "right" | "top" | "bottom";
 export const MAX_VIEWPORT_WIDTH = "85vw";
 const WIDTH_CLASS = "w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)]";
 
+// A bottom sheet stays docked on a phone: it holds a short choice and the page stays visible behind it.
+export function isNarrowFullscreen(side: DrawerSide, narrow: boolean): boolean {
+  return narrow && side !== "bottom";
+}
+
 // "floating": 32px margin + 32px radius so the panel reads as detached from
 // the viewport edge, unlike the sheet primitive's flush-edge default.
 // "flush" docks it back to that flush-edge default instead, borrowing the
@@ -20,7 +25,12 @@ export function sidePanelClass(
   variant: "floating" | "flush",
   belowHeader: boolean,
 ): string {
-  if (narrow) return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
+  if (isNarrowFullscreen(side, narrow)) {
+    return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
+  }
+  if (narrow) {
+    return "inset-x-0 bottom-0 h-auto max-h-[85vh] w-full max-w-none rounded-t-[2rem] border-t overflow-hidden";
+  }
   if (variant === "flush") {
     switch (side) {
       // h-full would pin height to 100vh despite the shifted top; h-auto lets inset-y-0 size it.
