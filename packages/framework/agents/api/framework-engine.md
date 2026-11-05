@@ -672,6 +672,7 @@ type EntityListScreenDefinition = {
   createLabel?: string; // i18n key for the primary create button label (default `kumiko.actions.create`).
   createPlacement?: "header" | "toolbar"; // "toolbar": from `sm` up the create button ends the filter row instead of standing in the header.
   toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
+  toolbarActionsPlacement?: "header" | "toolbar"; // "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header.
   itemNounKey?: string; // i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
   searchable?: boolean;
@@ -1099,6 +1100,7 @@ type ListTableOptions = { // Opt-in table behaviour of a list.
   resizing?: boolean; // Switches the table to table-layout fixed; the user drags or uses the arrow keys on the header edge to resize.
   keyboardNavigation?: boolean; // Rows become one tab stop; ArrowUp/ArrowDown move, Home/End jump, Enter runs the row click.
   compactHeader?: boolean; // Renders the header row smaller (12px) and semibold.
+  frame?: ListTableFrame; // "card": from `sm` up the table, summary row and pager sit in one bordered, rounded card (toolbar and description stay above it); below `sm` the cards of the card layout are bordered, rounded cards with a gap.
   density?: {
     default?: ListTableDensity; // Row density on first visit.
     userChoice?: boolean; // Shows the density choice in the view menu and remembers it per session.
@@ -1408,6 +1410,8 @@ type ProjectionListScreenDefinition = {
   rowActionMode?: RowActionMode; // Layout of the row-action column — see `RowActionMode`.
   bulkActions?: ListBulkAction[]; // Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action.
   toolbarActions?: ToolbarAction[];
+  toolbarActionsPlacement?: "header" | "toolbar"; // "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select, instead of standing in the page header.
+  toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
   pagination?: ListPaginationMode;
   pageSize?: number;
   table?: ListTableOptions; // Opt-in table behaviour: remembered state, reset, column picker, density.

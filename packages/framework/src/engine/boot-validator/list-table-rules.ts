@@ -16,6 +16,11 @@ export const LIST_TABLE_RULES = {
     summary: "The boolean table switches (rememberState, columnPicker, pinning, ...) are booleans.",
     fix: "Set the table option to true or false.",
   },
+  frameInvalid: {
+    id: "list-table/frame-invalid",
+    summary: "table.frame is one of the known frames.",
+    fix: 'Use "card" or remove table.frame.',
+  },
   densityNotObject: {
     id: "list-table/density-not-object",
     summary: "table.density is an object.",

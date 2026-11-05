@@ -1,4 +1,4 @@
-import type { ListTableOptions } from "@cosmicdrift/kumiko-types/screen";
+import type { ListTableFrame, ListTableOptions } from "@cosmicdrift/kumiko-types/screen";
 import { useCallback, useMemo } from "react";
 import { useNav } from "../app/nav.tsx";
 import { useListStateStore } from "../components/list-state-store.tsx";
@@ -35,6 +35,7 @@ export type ListTableProps = {
   readonly resetAll?: DataTableResetAll;
   readonly exportList?: DataTableExport;
   readonly compactHeader?: boolean;
+  readonly frame?: ListTableFrame;
 };
 
 export type ListTableState = {
@@ -138,8 +139,9 @@ export function useListTable({
       ...(resetAll !== undefined && { resetAll }),
       ...(exportList !== undefined && { exportList }),
       ...(options.compactHeader === true && { compactHeader: true }),
+      ...(options.frame !== undefined && { frame: options.frame }),
     }),
-    [view, resetAll, exportList, options.compactHeader],
+    [view, resetAll, exportList, options.compactHeader, options.frame],
   );
   const groupField =
     options.grouping !== undefined && viewState.groupBy !== "" ? viewState.groupBy : undefined;

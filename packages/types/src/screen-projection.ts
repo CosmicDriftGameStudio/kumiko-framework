@@ -120,6 +120,10 @@ export type ProjectionListScreenDefinition = {
   /** Bulk actions over checkbox-selected rows, each pointing at a writeHandler row action. Adds a checkbox column and a selection bar; without it the list has no checkboxes. */
   readonly bulkActions?: readonly ListBulkAction[];
   readonly toolbarActions?: readonly ToolbarAction[];
+  /** "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select, instead of standing in the page header. Below `md` they stay in the header. Default "header". Needs `toolbarActions`. */
+  readonly toolbarActionsPlacement?: "header" | "toolbar";
+  /** From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable. Needs `sortOptions`. */
+  readonly toolbarSort?: true;
   readonly pagination?: ListPaginationMode;
   readonly pageSize?: number;
   /** Opt-in table behaviour: remembered state, reset, column picker, density. */

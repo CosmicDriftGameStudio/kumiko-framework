@@ -156,6 +156,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     pageHeaderSlotAvailable,
     pageHeaderCompact,
     createInPageHeader,
+    toolbarActionsPlacement: screen.toolbarActionsPlacement,
   });
   const toolbarModel: ListToolbarModel = {
     screen,

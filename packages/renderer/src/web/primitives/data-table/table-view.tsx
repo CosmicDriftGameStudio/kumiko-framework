@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.ts";
 import { Table, TableFooter } from "../../ui/table.tsx";
+import { isInsideCardFrame } from "./card-frame.ts";
 import { ColumnWidthGroup } from "./column-resize-handle.tsx";
 import { renderTableBody } from "./table-body.tsx";
 import { FILL_TABLE_CLASS, FlushTable } from "./table-chrome.tsx";
@@ -81,7 +82,7 @@ export function renderTableView(m: DataTableModel): ReactNode {
     <div
       className={cn(
         !fillsHeight && "overflow-hidden",
-        !fillsHeight && chromeless !== true && "rounded-lg border bg-card",
+        !fillsHeight && chromeless !== true && !isInsideCardFrame(m) && "rounded-lg border bg-card",
       )}
     >
       <TableRoot

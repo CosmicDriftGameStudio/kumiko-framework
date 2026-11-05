@@ -1,5 +1,9 @@
 import type { SelectOptionTone } from "@cosmicdrift/kumiko-types/fields";
-import type { ListColumnPin, ListTableDensity } from "@cosmicdrift/kumiko-types/screen";
+import type {
+  ListColumnPin,
+  ListTableDensity,
+  ListTableFrame,
+} from "@cosmicdrift/kumiko-types/screen";
 import type {
   DataTableListNotice,
   DataTableRangeBound,
@@ -94,6 +98,8 @@ export type DataTableTableBlock = {
   readonly exportList?: DataTableExport;
   /** Smaller (12px) semibold header row. */
   readonly compactHeader?: boolean;
+  /** "card": table, summary row and pager in one bordered card from sm; bordered cards with a gap below sm. */
+  readonly frame?: ListTableFrame;
   /** Present: the rows are grouped on the server; replaces pager and infinite scroll. */
   readonly serverGroups?: DataTableServerGroups;
   /** Present: a footer line above the totals row with the summary query's items. */

@@ -975,6 +975,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.list.view.density": "Densità",
   "kumiko.list.view.density.comfortable": "Comoda",
   "kumiko.list.view.density.compact": "Compatta",
+  "kumiko.list.view.density.relaxed": "Ampia",
   "kumiko.list.view.reset": "Reimposta vista",
   "kumiko.list.group.by": "Raggruppa per",
   "kumiko.list.group.none": "Nessuno",

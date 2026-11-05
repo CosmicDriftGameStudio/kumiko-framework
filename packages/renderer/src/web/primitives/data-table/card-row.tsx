@@ -5,6 +5,7 @@ import { cn } from "../../lib/cn.ts";
 import { cardToneClass } from "../data-table-cell.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import { type CardRoles, renderCardBody, renderCardLinks, splitLinkColumns } from "./card-body.tsx";
+import { CARD_SURFACE_CLASS, hasSeparateCardRows } from "./card-frame.ts";
 import { renderExpandToggle, renderExpansion } from "./row-render-parts.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
@@ -75,6 +76,12 @@ function cardLeftPadding(compact: boolean, toned: boolean): string {
   return toned ? "pl-[13px]" : "pl-4";
 }
 
+function cardRowBaseClass(m: DataTableModel): string {
+  return hasSeparateCardRows(m)
+    ? `flex min-h-[72px] items-center gap-2 py-3 ${CARD_SURFACE_CLASS}`
+    : "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3";
+}
+
 export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: CardRoles): ReactNode {
   const { rowTone } = m;
   const allActions = m.menuActions ?? [];
@@ -104,7 +111,7 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
       data-testid={m.rowTestId(row)}
       data-tone={rowTone?.(row)}
       className={cn(
-        "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3",
+        cardRowBaseClass(m),
         cardToneClass(rowTone?.(row)),
         // The 3px tone border sits inside the box, so the inner padding gives it up to keep the content aligned.
         cardLeftPadding(m.expansion !== undefined || m.selection.active, toned),

@@ -946,6 +946,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.view.density": "Density",
   "kumiko.list.view.density.comfortable": "Comfortable",
   "kumiko.list.view.density.compact": "Compact",
+  "kumiko.list.view.density.relaxed": "Relaxed",
   "kumiko.list.view.reset": "Reset view",
   "kumiko.list.group.by": "Group by",
   "kumiko.list.group.none": "None",

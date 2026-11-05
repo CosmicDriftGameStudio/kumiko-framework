@@ -204,8 +204,9 @@ export type RowActionDisplay = "button" | "link" | "icon" | "responsive";
 /** Row-action column layout. `"adaptive"` (default): primary action as link,
  *  the rest in a kebab menu — except actions with an explicit `display`, which
  *  stay inline. `"inline"`: every action inline, no kebab. `"menu"`: every
- *  action in the kebab menu at the row end, none inline; phone cards draw no
- *  kebab. */
+ *  action in the kebab menu at the row end, none inline, the row opener
+ *  (`rowClick: true`) included as an entry, so every row has a kebab; phone
+ *  cards draw no kebab. */
 export type RowActionMode = "adaptive" | "inline" | "menu";
 
 // RowAction — per-row button/dropdown item that triggers a write handler
@@ -626,6 +627,8 @@ export type EntityListScreenDefinition = {
   readonly createPlacement?: "header" | "toolbar";
   /** From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable. */
   readonly toolbarSort?: true;
+  /** "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header. Below `md` they stay in the header. Default "header". Needs `toolbarActions`. */
+  readonly toolbarActionsPlacement?: "header" | "toolbar";
   /** i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised). Default `<feature>:entity:<entity>:noun`. */
   readonly itemNounKey?: string;
   /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */

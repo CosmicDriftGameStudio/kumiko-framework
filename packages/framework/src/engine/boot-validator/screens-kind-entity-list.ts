@@ -12,6 +12,7 @@ import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListRowGuidance } from "./list-row-guidance.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
+import { validateListToolbarOptions } from "./list-toolbar-options.ts";
 import {
   acceptsRowDecorationField,
   type RowDecorationFields,
@@ -371,11 +372,7 @@ function validateToolbarOptions(where: string, screen: EntityListScreenDefinitio
       message: `${where} sets createPlacement "toolbar" with allowCreate: false — there is no create button to place. Remove createPlacement or allowCreate: false.`,
     });
   }
-  if (screen.toolbarSort === true && (screen.sortOptions ?? []).length === 0) {
-    throw bootRuleError(SCREEN_KIND_RULES.toolbarSortWithoutSortOptions, {
-      message: `${where} sets toolbarSort without sortOptions — the select lists the sortOptions. Declare sortOptions or remove toolbarSort.`,
-    });
-  }
+  validateListToolbarOptions(where, screen);
 }
 
 export function validateEntityListScreen(

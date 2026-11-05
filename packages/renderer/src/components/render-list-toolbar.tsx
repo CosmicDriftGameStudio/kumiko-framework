@@ -9,7 +9,7 @@ import {
 } from "./list-empty-state.tsx";
 import { ListHeaderSlotMount } from "./render-list-header-slot.tsx";
 import { ToolbarActionView } from "./render-list-toolbar-action.tsx";
-import type { ToolbarActionSplit } from "./render-list-toolbar-model.ts";
+import { type ToolbarActionSplit, withPlusIconFallback } from "./render-list-toolbar-model.ts";
 
 type Primitives = ReturnType<typeof usePrimitives>;
 
@@ -74,25 +74,28 @@ export function renderHeaderActions(model: ListToolbarModel, createButton: React
 
 export function renderToolbarEnd(model: ListToolbarModel, createButton: ReactNode): ReactNode {
   const { screen, Button, Dialog, Banner, onCreate, createInPageHeader, split } = model;
-  const { toolbarActionsInToolbar, hasToolbarActionsInToolbar, toolbarIconOnly } = split;
+  const { toolbarActionsInToolbar, hasToolbarActionsInToolbar, toolbarIconOnly, actionsInToolbar } =
+    split;
   const hasHeaderSlot = screen.slots?.header !== undefined;
+  const createButtonFirst = actionsInToolbar && !createInPageHeader;
   return hasHeaderSlot ||
     hasToolbarActionsInToolbar ||
     (onCreate !== undefined && !createInPageHeader) ? (
     <>
       {hasHeaderSlot && <ListHeaderSlotMount screen={screen} />}
+      {createButtonFirst && createButton}
       {hasToolbarActionsInToolbar &&
         toolbarActionsInToolbar.map((a) => (
           <ToolbarActionView
             key={a.id}
-            action={a}
+            action={actionsInToolbar ? withPlusIconFallback(a, toolbarActionsInToolbar) : a}
             iconOnly={toolbarIconOnly}
             Button={Button}
             Dialog={Dialog}
             Banner={Banner}
           />
         ))}
-      {!createInPageHeader && createButton}
+      {!createButtonFirst && !createInPageHeader && createButton}
     </>
   ) : undefined;
 }
