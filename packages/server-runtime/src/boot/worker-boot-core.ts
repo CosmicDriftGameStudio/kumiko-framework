@@ -51,6 +51,7 @@ import { readShutdownDrainTimeoutMs } from "../boot-options/process-signals.ts";
 import { composeFeatures } from "../compose-features.ts";
 import { assertPiiBootInvariants } from "../pii-boot-gate.ts";
 import { readEnv, requireEnv } from "../require-env.ts";
+import { resolveUnsubscribeWiring } from "../resolve-unsubscribe-wiring.ts";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
@@ -297,6 +298,13 @@ export async function bootWorkerProcess(
   configureBlindIndexKey(options.blindIndexKey);
   const bootLogger = loggerFromExtraContext(resolvedExtraContext);
   warnIfRowLevelSecurityOff(rowLevelSecurity, bootLogger ?? createFallbackLogger(processName));
+  const { unsubscribeLinks } = resolveUnsubscribeWiring({
+    unsubscribe: options.unsubscribe,
+    publicOrigin: undefined,
+    mailBaseUrl: undefined,
+    envSource,
+    warn: (message) => (bootLogger ?? createFallbackLogger(processName)).warn(message),
+  });
   const autoExtraContext = buildBootExtraContext({
     db,
     features,
@@ -309,6 +317,7 @@ export async function bootWorkerProcess(
     ...(options.kms && { kms: options.kms }),
     ...(profile.deliverQueuedInline === true && { deliverQueuedInline: true }),
     ...(bootLogger && { log: bootLogger }),
+    ...(unsubscribeLinks && { unsubscribeLinks }),
   });
   const extraContext = addConfigAccessorFactory(
     { ...autoExtraContext, ...resolvedExtraContext },

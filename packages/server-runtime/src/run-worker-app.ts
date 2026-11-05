@@ -74,6 +74,7 @@ import {
 import { installFatalErrorHandlers } from "./fatal-error-handlers.ts";
 import { makeFilesForTenant } from "./files-for-tenant.ts";
 import { installProcessLogger, uninstallProcessLogger } from "./process-logger.ts";
+import type { UnsubscribeOption } from "./resolve-unsubscribe-wiring.ts";
 import type { ConfigOverridesInput } from "./run-prod-app-boot-context.ts";
 
 export type WorkerContextOption =
@@ -174,6 +175,10 @@ export type RunWorkerAppOptions = {
   readonly billing?: BillingBootOption;
   /** Same as RunProdAppOptions["featureToggles"]: mounts feature-toggles and layers the operator switches over the tier resolver. */
   readonly featureToggles?: boolean;
+  /** Signs the unsubscribe links of `unsubscribe: true` mails that jobs in this process trigger, as
+   *  RunProdAppOptions["unsubscribe"] does. The unsubscribe routes stay in the API process; `secret`
+   *  must be the same there. The public URL comes from `APP_BASE_URL`. */
+  readonly unsubscribe?: UnsubscribeOption;
   /** Composed env schema (see RunProdAppOptions["envSchema"]). With it the worker validates its env,
    *  derives the KMS slots from it (`kmsSlots` is ignored) and understands every `KUMIKO_DRY_RUN_ENV`
    *  mode. Without it only `KUMIKO_DRY_RUN_ENV=boot` is available. */
