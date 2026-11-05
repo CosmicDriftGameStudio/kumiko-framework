@@ -21,7 +21,7 @@ const TONE_CHIP: Record<StatTone, string> = {
   default: "bg-muted text-foreground",
   positive: "bg-primary/10 text-primary",
   ok: "bg-status-ok-surface text-status-ok",
-  warn: "bg-destructive/10 text-destructive",
+  warn: "bg-status-warn-surface text-status-warn",
   negative: "bg-status-bad-surface text-status-bad",
 };
 
@@ -29,7 +29,7 @@ export const TONE_VALUE: Record<StatTone, string> = {
   default: "text-foreground",
   positive: "text-primary",
   ok: "text-status-ok",
-  warn: "text-destructive",
+  warn: "text-status-warn",
   negative: "text-status-bad",
 };
 

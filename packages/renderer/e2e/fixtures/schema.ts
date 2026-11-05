@@ -14,6 +14,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer/web";
 import { dashboardScreen } from "./dashboard-fixture";
+import { DETAIL_RACE_A_SCREEN_ID, DETAIL_RACE_B_SCREEN_ID } from "./detail-race-screens";
 import { expenseEntity, expenseScreens, expenseTranslations } from "./expense-fixture";
 import { reportEntity, reportScreens, reportTranslations } from "./expense-report-fixture";
 
@@ -233,6 +234,19 @@ export const inboxPaneScreen: CustomScreenDefinition = {
   renderer: { react: { __component: "InboxPane" } },
 };
 
+export const detailRaceScreens: readonly CustomScreenDefinition[] = [
+  {
+    id: DETAIL_RACE_A_SCREEN_ID,
+    type: "custom",
+    renderer: { react: { __component: "DetailRaceA" } },
+  },
+  {
+    id: DETAIL_RACE_B_SCREEN_ID,
+    type: "custom",
+    renderer: { react: { __component: "DetailRaceB" } },
+  },
+];
+
 export const e2eSchema: AppSchema = {
   features: [
     {
@@ -241,6 +255,8 @@ export const e2eSchema: AppSchema = {
         "screen:debt-dashboard.title": { en: "Debts", de: "Schulden" },
         "screen:boom.title": { en: "Broken screen", de: "Kaputter Screen" },
         "screen:inbox-pane.title": { en: "Inbox", de: "Posteingang" },
+        [`screen:${DETAIL_RACE_A_SCREEN_ID}.title`]: { en: "Detail A", de: "Detail A" },
+        [`screen:${DETAIL_RACE_B_SCREEN_ID}.title`]: { en: "Detail B", de: "Detail B" },
         "test:entity:task:field:title": { en: "Title", de: "Titel" },
         "test:entity:task:field:owner": { en: "Owner", de: "Zuständig" },
         "test:entity:task:field:priority": { en: "Priority", de: "Priorität" },
@@ -263,6 +279,7 @@ export const e2eSchema: AppSchema = {
         dashboardScreen,
         boomScreen,
         inboxPaneScreen,
+        ...detailRaceScreens,
         failingListScreen,
         failingEditScreen,
         taskListScreen,

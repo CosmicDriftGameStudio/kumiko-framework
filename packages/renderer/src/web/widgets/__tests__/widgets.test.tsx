@@ -550,6 +550,25 @@ describe("StatCard", () => {
   });
 });
 
+describe("stat tone warn", () => {
+  test("colors value and stripe with the status-warn token, not destructive", () => {
+    const { container } = render(
+      <StatCard label="Offen" value="3" tone="warn" testId="warn-card" />,
+    );
+    const html = container.innerHTML;
+    expect(html).toContain("text-status-warn");
+    expect(html).toContain("border-l-status-warn");
+    expect(html).not.toContain("destructive");
+  });
+
+  test("MiniStat and the icon chip use the warn surface", () => {
+    render(<MiniStat label="Rate" value="1" tone="warn" valueTestId="mini-value" />);
+    expect(screen.getByTestId("mini-value").className).toContain("text-status-warn");
+    const { container } = render(<StatCard label="Offen" value="3" tone="warn" icon={<span />} />);
+    expect(container.innerHTML).toContain("bg-status-warn-surface");
+  });
+});
+
 describe("MiniStat", () => {
   test("emphasize highlights the tile with a ring", () => {
     render(<MiniStat label="Rate" value="890 €" emphasize testId="mini" />);

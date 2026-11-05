@@ -12,6 +12,12 @@ import { type ReactNode, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ComboboxTestPage } from "./combobox-page";
 import { DateTestPage } from "./date-page";
+import {
+  DETAIL_RACE_A_SCREEN_ID,
+  DETAIL_RACE_B_SCREEN_ID,
+  DetailRaceScreenA,
+  DetailRaceScreenB,
+} from "./detail-race-screens";
 import { TestIdentityProvider } from "./identity-provider";
 import { InboxPaneScreen } from "./inbox-pane-screen";
 import { createMockDispatcher } from "./mock-dispatcher";
@@ -107,7 +113,12 @@ async function boot(): Promise<void> {
     clientFeatures: [
       {
         name: "test",
-        components: { [BOOM_SCREEN_ID]: BoomScreen, [INBOX_PANE_SCREEN_ID]: InboxPaneScreen },
+        components: {
+          [BOOM_SCREEN_ID]: BoomScreen,
+          [INBOX_PANE_SCREEN_ID]: InboxPaneScreen,
+          [DETAIL_RACE_A_SCREEN_ID]: DetailRaceScreenA,
+          [DETAIL_RACE_B_SCREEN_ID]: DetailRaceScreenB,
+        },
         providers: [
           TestIdentityProvider,
           ...(new URLSearchParams(window.location.search).has("crash-root")
