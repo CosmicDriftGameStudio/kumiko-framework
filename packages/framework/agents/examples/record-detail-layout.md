@@ -923,6 +923,8 @@ export default defineConfig({
 import { expect, boundaryGuardedTest as test } from "@cosmicdrift/kumiko-testing/e2e";
 
 const FILTER_FACET = "facet-__namedFilter";
+// The open reason box renders as its own table row under the data row; count data rows only.
+const DATA_ROWS = "tbody tr:not([data-reason-row])";
 
 test("picking a named filter narrows the list and sorts it by the filter's own order", async ({
   page,
@@ -935,7 +937,7 @@ test("picking a named filter narrows the list and sorts it by the filter's own o
   await page.getByTestId(`${FILTER_FACET}-action-needed`).click();
 
   await expect(page.getByText("SO-10483")).toHaveCount(0);
-  const rowTexts = await page.locator("tbody tr").allInnerTexts();
+  const rowTexts = await page.locator(DATA_ROWS).allInnerTexts();
   const orderNumbers = rowTexts.map((text) => /SO-\d+/.exec(text)?.[0]);
   expect(orderNumbers).toEqual(["SO-10482", "SO-10488", "SO-10484", "SO-10485", "SO-10486"]);
 });
@@ -969,7 +971,7 @@ test("the sort select reorders the list by the chosen option", async ({ page }) 
   await expect(page.getByTestId("render-list-table-sort-options-label")).toContainText(
     "Customer A-Z",
   );
-  const rowTexts = await page.locator("tbody tr").allInnerTexts();
+  const rowTexts = await page.locator(DATA_ROWS).allInnerTexts();
   const customers = rowTexts.map(
     (text) => /Aiko|Emma|Jonas|Kenji|Lars|Maria|Priya|Tom/.exec(text)?.[0],
   );
