@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Stream-tenant backfill reindexes the old search bucket",
+    "detail": "The stream-tenant backfill reindexes the old search bucket when a candidate fails after its docs were removed (createSearchBucketCleanup takes a row source and exposes onMoveFailed). A failed candidate reindexes only its own document in the old bucket, not the whole bucket."
+  },
+  {
     "version": "0.405.0",
     "type": "improvement",
     "title": "Bundled features share internal helpers",

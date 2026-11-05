@@ -1,5 +1,49 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Error-Reasons guard accepts a prose reason in subjectForgetAfterDeleteHook",
+    "detail": "The reason is the forget-subject audit reason and part of the hook's systemIdentity escape-hatch reason, not an error-reason code. Apps no longer need a constant to get past the guard."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Single-file guards are replaced by the Biome preset biome-rules",
+    "detail": "The guards admin-api, direct-fetch, error-reasons, event-store-writes (es-literal-writes), i18n-locale-terminology, no-custom-primitives, no-date-api, no-direct-fs, no-direct-process-env, no-inline-styles, no-raw-hooks, no-temporal-polyfill-import, primitives-discipline, raw-classname, raw-interactive-elements, restricted-symbols, test-es-fixtures, test-title and unsafe-json-parse are deleted together with their baselines. Their checks run as Biome builtins or GritQL plugins from `packages/framework/presets/biome-plugins/*.grit`. New checks cover createTestDispatcher, barrel imports from the same folder, external font CDNs (also in CSS), skipped or retried tests and CSSProperties types. The guards silent-skip, thin-wrappers and check-predicates are removed without replacement (the `// @wrapper-known` and silent-skip markers are dead and can be deleted). `kumiko check` gains a `lint` step (`biome lint` in the app repo) and an `agent` step (kumiko agent lint) for apps with a kumiko.config.ts.",
+    "migration": "Extend the preset in your `biome.json`, replacing your own linter rules for these checks - `\"extends\": [\"@cosmicdrift/kumiko-framework/biome-rules\"]` (apps that already extend `biome-app` get it through that preset). Delete `.kumiko-direct-fs-baseline.json`, `.kumiko-test-title-baseline.json`, `.kumiko-no-custom-primitives-baseline.json` and `.kumiko-test-timeouts-baseline.json`. `bun kumiko-upgrade --apply` runs the codemod lint-ignore-to-biome, which turns `kumiko-lint-ignore <slug> <reason>` markers of the deleted guards into `biome-ignore lint/plugin: <reason>` (`lint/style/noInlineStyles` for no-inline-styles), keeps the comment form and the reason, and lists markers without a reason of at least three words. Biome applies a suppression only to the next line or node, so a marker that sat several lines above its hit moves by hand (CSS - `biome-ignore lint/plugin: <reason>` inside a comment). Remove deleted guard names from your `kumiko.json` and security baseline. Enterprise and platform extend the same preset.",
+    "codemod": "scripts/codemod/lint-ignore-to-biome.ts"
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Backslash-aware escape prefilter, Dockerfile heredoc start, stable editor handle report, IMAP host key",
+    "detail": "The escaped-literal prefilter treats every backslash as a possible escape, so identity escapes and backslash-newline continuations no longer hide a literal from the RLS-setting, test-ES-fixture and test-ES-row-write guards. The Dockerfile heredoc start ignores `<<<` herestrings and `$((1 << x))` shifts, so later stages are still inspected. The template editor reports its handle once per editor instance again (the reporting callback is read through a ref), instead of re-reporting on every render. The IMAP connect-target rate limit strips a trailing dot from the host before keying its buckets. Several tests are sharpened (parallel ingest progress, batch hooks, consumer audit, pre-push lane order)."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Guard hardening: test titles, ignore-tag reasons, schema CLI, unsafe array params, RLS settings, internal imports",
+    "detail": "test-title no longer lets English apostrophes hide German words and no longer flags hex colours or row positions as issue references. ignore-tag-reason also checks tags preceded by text and counts lines in linear time. schema-cli-features accepts .js specifiers and namespace imports. unsafe-array-param sees through non-null and angle-bracket assertions. rls-session-settings splits SQL only at top-level semicolons, ignoring comments, strings and dollar-quoted bodies, and skips build, coverage and .turbo directories. internal-subpath-imports flags export-star re-exports of the testing helpers and import-equals require of internal subpaths."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Guards: parser and diagnostic fixes, escape-aware prefilters",
+    "detail": "The app-dockerfile guard now sees RUN heredocs and the `bun i` alias, accepts an inline token assignment only when it reads the mounted secret, and takes token variables only from the private scope's registry entry. The doc-status guard tolerates CRLF and a BOM and skips symlinks while walking. Agent docs render public class accessors with their types and no longer derive a flag call from an `!== true` condition. The security check no longer calls an expired or shadowed repo exception unused. The pre-push pool floor drops from four lanes to two. The RLS-setting, test-ES-fixture and test-ES-row-write guards resolve string escapes (`_`, `\\x20`) before matching and their text prefilters no longer skip files containing escapes. Two timing-based guard tests now synchronize instead of measuring wall-clock time."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "pre-push re-entry needs owner command and nonce, not just an ancestor PID",
+    "detail": "Any shell could run `KUMIKO_CHECK_WT_OWNER=$$ git push` and the ancestor-PID check passed, switching off `pre-push-extra.sh`, the upgrade-state guard and gitleaks. Before delegating to a tracked `scripts/check-wt.sh` the hook now writes a random nonce to `kumiko-prepush-<pid>` (mode 0600) in the git common dir and passes it as `KUMIKO_CHECK_WT_NONCE`. Re-entry requires the owner to be an ancestor whose command line contains `scripts/check-wt.sh` (or the hook process itself when check-wt.sh exec'd it) and the nonce to match the file. Each outer run removes nonce files whose PID is no longer alive; if the file cannot be written the push is refused."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "guard slot directory from older versions is tightened, spreads no longer flagged",
+    "detail": "A slots directory created with mode 0755 by an earlier version made the slot check fail open on every run. A directory owned by the current user is now chmod-ed to 0700 and used; foreign owners and symlinks are still rejected. `guard-unsafe-array-param` no longer warns on spreads in the parameter list, since they bind as scalars. The generated API reference now lists unexported constants that exported types reach through `typeof`."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Guard boot-raw-throws removed",

@@ -1,5 +1,159 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.414.0
+
+### Patch Changes
+
+- 6604fad: Scaffold and typecheck use `bun check` (requires Bun 1.4.4 or newer).
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Scaffolded apps typecheck with bun check
+  detail: The typecheck script of newly scaffolded apps and of the framework workspace now runs `bun check --no-script` instead of `tsc --noEmit`, which needs Bun 1.4.4 or newer. Existing apps keep their script until they change it.
+  -->
+- e795fd9: Agent manifest, tool dispatch and API-docs generator fixes from the second review round.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: agent manifest, tool dispatch and api-docs review fixes
+  detail: The manifest takes feature ownership from the registry instead of qualified-id prefixes, keeps features that only contribute a visible workspace, shares the entity reachability rule with the tool catalog (`isExplicitlyAgentHidden` is no longer exported), splits feature descriptions at ./!/? while keeping abbreviations whole, and cuts long ones by code point with a trailing ellipsis. A write tool without a detail handler to read its version from is now a logged internal error instead of `invalid_tool_call`. API docs: root `$ref: "#"` in input schemas points at the payload schema, only the real token feature is documented, empty translations count as gaps, entity labels stay boundary- and feature-aware, webhook examples must match the contract version (new problems `webhookExampleVersionMismatch`, `unusedWebhookExample`, `scopeSlugCollision`), and `resolveApiDocsConfig` gives the CLI and the recipe golden test one config resolution.
+  -->
+- a27b14f: Schema CLI and scaffold tests no longer reach the shared dev database through DATABASE_URL.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: schema-cli validate and scaffold check tests run without DATABASE_URL
+  detail: `schema validate` checks the live row-level security state whenever DATABASE_URL is set. The validate-boot-options tests and the scaffolded `kumiko check boot` test inherited the host value and hit the shared local dev database, so they failed locally on its old policies while CI stayed green. They now run without DATABASE_URL, which makes local and CI runs equal.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [4e33f01]
+- Updated dependencies [6604fad]
+- Updated dependencies [896dc21]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [564fb1f]
+- Updated dependencies [258c2e0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [896dc21]
+- Updated dependencies [26c19e5]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3e8558]
+- Updated dependencies [d3474b9]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3474b9]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [c6379e6]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [b8599af]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [8ed713c]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [2ac9914]
+- Updated dependencies [b766f7b]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [896dc21]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [f5e673d]
+- Updated dependencies [227c31e]
+- Updated dependencies [bbf126a]
+- Updated dependencies [ba9a383]
+- Updated dependencies [b1379a6]
+- Updated dependencies [ba9a383]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [e795fd9]
+- Updated dependencies [25cc04c]
+- Updated dependencies [762ca19]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [5d2a2d3]
+- Updated dependencies [2458419]
+- Updated dependencies [1f8ff6f]
+- Updated dependencies [298da75]
+- Updated dependencies [4ae2115]
+- Updated dependencies [f504e08]
+- Updated dependencies [a24a7e3]
+- Updated dependencies [525a3d3]
+- Updated dependencies [9708601]
+- Updated dependencies [3c4d034]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [6bab678]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [fe4ebe3]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [f972e66]
+- Updated dependencies [8e8da00]
+- Updated dependencies [bcfcdd6]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [f1f22e1]
+- Updated dependencies [8269315]
+- Updated dependencies [1c618b6]
+- Updated dependencies [fed1e32]
+- Updated dependencies [99bca8f]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [99799bf]
+- Updated dependencies [1a5a9ca]
+- Updated dependencies [59c5a67]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [b8599af]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [896dc21]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [39d9e93]
+- Updated dependencies [e663fd4]
+- Updated dependencies [dc3cde7]
+- Updated dependencies [f2ed11b]
+  - @cosmicdrift/kumiko-bundled-features@0.414.0
+  - @cosmicdrift/kumiko-framework@0.414.0
+  - @cosmicdrift/kumiko-renderer@0.414.0
+  - @cosmicdrift/kumiko-server-runtime@0.414.0
+  - @cosmicdrift/kumiko-dev-server@0.414.0
+  - @cosmicdrift/kumiko-guards@0.414.0
+  - @cosmicdrift/kumiko-feature-ast@0.414.0
+  - @cosmicdrift/kumiko-testing@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

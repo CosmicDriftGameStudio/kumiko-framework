@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Visible overage on not-included caps, batched limits",
+    "detail": "A cap with limit 0 and usage above zero shows the used amount with cap-overview.notIncludedButUsed instead of only \"Not included\" (bar, cap cards, tenant list). CapSpec gets an optional limitBatch that tenant-caps:list prefers over one limit() call per tenant and cap, and the limit comment no longer claims it is resolved once per tier."
+  },
+  {
     "version": "0.397.0",
     "type": "improvement",
     "title": "Cap limits see the tenant and can read its add-ons",

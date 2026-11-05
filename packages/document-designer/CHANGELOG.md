@@ -1,5 +1,187 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.414.0
+
+### Minor Changes
+
+- d3e8558: Content editors share one edit/preview workbench and a preview registry. The renderer ships the shell (`EditorWorkbench`, `EditorFrame`, `EditorFooter`, rails) and a `contentPreviews` registry keyed by `pdf | mail | web | text`; managed pages, text blocks and collection entries open in it, with a Desktop/Mobil preview for pages.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: editor workbench shell and a contentPreviews registry for editor previews
+  detail: `@cosmicdrift/kumiko-renderer/web` exports `EditorWorkbench`, `EditorFrame`, `EditorInfoBar`, `EditorBody`, `EditorHeader`, `EditorFooter`, `EditorModeSwitch`, `EditorLocaleSwitch` and the rail parts `RailSection`, `RailField`, `RailRow`, `RailHint`; the shell moved out of document-designer. `ClientFeatureDefinition.contentPreviews` registers a `PreviewRenderer` per preview target (`pdf`, `mail`, `web`, `text`), merged last-wins in createKumikoApp with a warning on a collision. `PreviewPane` mounts the renderer for a target; a target without one previews as text (`TextPreviewRenderer`). `HtmlMailFrame`, `useDebouncedValue` and `dispatcherErrorTextWithFieldIssues` are exported. New locale keys `kumiko.editor.*` are in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: managed-pages
+  type: improvement
+  title: page mask on the editor workbench with a live preview of the unsaved body
+  detail: `managedPagesClient()` registers the page mask and the shared `web` preview renderer from template-resolver (Desktop and 375 px Mobil), so the page preview works without `textBlocksClient`; the preview query lives in template-resolver. The `page-edit` screen is now a custom screen under the same id: settings in the right rail, body editor with the lossy-Markdown warning, one submit for both (create via `managed-pages:write:page:create`, update with only the changed fields). The page list has `createScreen: "page-edit"`. The extension section `managed-pages:page-body` and `PAGE_BODY_EXTENSION_NAME` are removed; an app that replaced `page-edit` with its own screen is not affected. New keys `managed-pages:editor.*` in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: text-block and collection-entry masks on the editor workbench, the preview toggle under the field is gone
+  detail: The text-block editor and the collection-entry create form open on `EditorWorkbench` with an edit and a preview mode and the placeholder example values in the right rail. `previewTargetOfKind` and `previewTargetOfCollectionKind` map a template kind to its preview target: text-block previews as `web`, snippet and ai-prompt as `text`. New query `template-resolver:query:body-preview` (roles that may write a body: SystemAdmin, the `tenantEditable` roles and TenantAdmin) renders an unsaved body (`body`, optional `bodyFormat` markdown or document) to the HTML the public page serves, without saving; a document body the write rules reject answers with the field errors of a save. `WebPreviewRenderer` is exported from `template-resolver/web` and registered as `contentPreviews.web`; `contentPreviews.text` shows document-format entries with the example values filled in client-side (escaped, in the sandboxed mail frame, no server call), other formats stay plain text. Legal text previews work in apps that mount legal-pages without managed-pages. A text without placeholders shows no example-values section. `ContentField` and its inline Vorschau toggle are removed. New keys `template-resolver.editor.{infoEdit,infoPreview,localeLabel,rail*}` in all locale packages.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: mail and PDF previews register in the preview registry
+  detail: `documentDesignerClient()` registers `contentPreviews.mail` and `contentPreviews.pdf`; the mail, PDF and layout editors keep their look and mount their preview through `PreviewPane`. Their shell parts are adapters over the renderer's editor shell. Apps that mount the editors through `documentDesignerClient()` need no change; tests that render the editors without `createKumikoApp` wrap them in `ContentPreviewsProvider` with `documentDesignerClient().contentPreviews`.
+  -->
+
+### Patch Changes
+
+- 762ca19: Review round 2, document designer: an archived template with an open draft keeps its archived status in the editor, editor handles follow a changed `onEditorReady` callback, and unreachable null guards and duplicated types in the designers are gone.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: fix
+  title: review round 2 document designer fixes
+  detail: `toWorkingRow` keeps `archived` for an archived row with an open draft instead of reporting it as a draft, so find-by-id and layout-source show the template as archived and publish brings the draft back. `useEditorHandleReport` re-reports the handle when `onEditorReady` changes on a standing editor and unregisters the old callback. The repeat-bar list label ignores inherited object keys. Dead null guards in the PDF and mail editors, the redundant variable guard in the insert panel and the unused bullet-list text are removed, and the copies of `Translate`, `Primitives` and the selected-block type now come from one place. Tests cover the PDF editor's branding query without managed-pages and drop an unsafe cast.
+  -->
+- b8599af: Screens can report the record they show through a neutral screen focus, and the sidebar's expanded state is changed only by the user.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: screen focus seam and user-owned sidebar state
+  detail: `ScreenFocusProvider` (mounted by `DefaultAppShell` and `WorkspaceShell`), `useSetScreenFocus(focus)` and `useScreenFocus()` let a screen report `{ entityName, recordId, label, facts? }`, compared by value and cleared on unmount; the PDF template editor reports its template. `useShellFocusMode()` no longer collapses or restores the sidebar. The sidebar's open state is kept in localStorage (`kumiko.sidebar.open`) and changes only through the user's own clicks; a collapsed sidebar on a focus screen still shows the focus rail.
+  -->
+- 39d9e93: The template overview query filters by slug, and the document-designer web barrel exports the template title helpers and the editor screen ids, so an app can name the template open in an editor without copying the framework's logic.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Overview query filters by slug
+  detail: `template-resolver:query:overview` accepts `slug` as a filter field next to kindGroup, kind, origin and status, so a client can fetch the one row of an open template instead of paging through its kind.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: Template title helpers and editor screen ids exported
+  detail: `@cosmicdrift/kumiko-document-designer/web` exports `templateTitle`, `templateTitleText`, `DOCUMENT_DESIGNER_FEATURE`, `MAIL_EDITOR_SCREEN_ID`, `PDF_TEMPLATE_EDITOR_SCREEN_ID`, `TEMPLATE_EDITOR_SCREENS` and the type `TemplateEditorKind`. An app that reads the `slug` search parameter of an editor route can resolve the shown title the same way the overview does.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [4e33f01]
+- Updated dependencies [896dc21]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [564fb1f]
+- Updated dependencies [258c2e0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [896dc21]
+- Updated dependencies [26c19e5]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3e8558]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3474b9]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [c6379e6]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [b8599af]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [8ed713c]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [8ed3f4f]
+- Updated dependencies [2d9f3a7]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [2ac9914]
+- Updated dependencies [b766f7b]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [896dc21]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [f5e673d]
+- Updated dependencies [227c31e]
+- Updated dependencies [bbf126a]
+- Updated dependencies [b1379a6]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [e795fd9]
+- Updated dependencies [25cc04c]
+- Updated dependencies [762ca19]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [1f8ff6f]
+- Updated dependencies [298da75]
+- Updated dependencies [4ae2115]
+- Updated dependencies [f504e08]
+- Updated dependencies [a24a7e3]
+- Updated dependencies [525a3d3]
+- Updated dependencies [9708601]
+- Updated dependencies [3c4d034]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [6bab678]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [fe4ebe3]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [f972e66]
+- Updated dependencies [8e8da00]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [8269315]
+- Updated dependencies [1c618b6]
+- Updated dependencies [fed1e32]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [99799bf]
+- Updated dependencies [1a5a9ca]
+- Updated dependencies [59c5a67]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [b8599af]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [896dc21]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [39d9e93]
+- Updated dependencies [dc3cde7]
+- Updated dependencies [f2ed11b]
+  - @cosmicdrift/kumiko-bundled-features@0.414.0
+  - @cosmicdrift/kumiko-framework@0.414.0
+  - @cosmicdrift/kumiko-types@0.414.0
+  - @cosmicdrift/kumiko-renderer@0.414.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

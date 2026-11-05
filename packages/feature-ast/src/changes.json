@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "ctx-namespaces codemod reads the context kind a structural parameter receives",
+    "detail": "A structural context type that only a job context reaches kept being rewritten with the handler namespaces, for example `tracer` into `obs.tracer`, which `JobContext` does not carry. The codemod now collects the context kinds that reach the parameter: members that move the same way for all kinds are rewritten, members that move for one kind only are reported as manual. The type-aware project also forwards the redirected project reference and the module mode of the importing file to module resolution."
+  },
+  {
     "version": "0.404.0",
     "type": "improvement",
     "title": "Pattern library documents the maintenance trigger",

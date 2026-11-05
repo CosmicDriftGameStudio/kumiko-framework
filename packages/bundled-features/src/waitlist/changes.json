@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Public handlers declare only the anonymous role",
+    "detail": "Handlers declaring access.anySignedIn next to the anonymous role list only anonymous in roles (the dropped signed-in roles never had an effect); the SUBMIT_ROLES constant of waitlist is removed."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "waitlist/static-submit, a DOM-free waitlist sign-up client",

@@ -1,5 +1,314 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "kumiko CLI commands keep the whole output of the processes they start",
+    "detail": "`run` and `runStreaming` in `bin/commands/_spawn.ts` settled on the child's `exit` event, which can fire before stdout and stderr are drained. Under load `kumiko status` then read an empty `git status` as a clean tree, and streamed commands such as `kumiko check` and `kumiko test` could drop their last lines. Both now settle on `close`; the timeout and SIGKILL handling is unchanged."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Agent tool calls can read global entities",
+    "detail": "The generated list and detail query of a system-scoped feature that serves an entity with tenancy `global` (a catalog or lookup table) was refused inside an agent tool call with `agent.tool_not_allowed`. Such a read now runs with the caller's tenant scope; the system-scope default rate limit still applies. This only holds for the entity convention handlers without an `escapeHatch`; hand-written queries, queries with an `escapeHatch` (e.g. `systemIdentity`), other entities and every write handler are still refused for agents."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Biome preset biome-rules with GritQL plugins",
+    "detail": "`@cosmicdrift/kumiko-framework/biome-rules` bundles the linter rules and the GritQL plugins that replace the deleted guards, plus the new builtins noNestedComponentDefinitions, noMisusedPromises, useExhaustiveSwitchCases and noTsIgnore. `biome-app` now extends it. Suppress a plugin finding with `biome-ignore lint/plugin: <reason>`. `test-title` and the raw interactive element rule (`a`, `details`, `summary` in `raw-ui-in-app`) only warn, in the framework too, because the replaced guards only warned in repos without a baseline; every other plugin rule is an error. The screen container rule (`mx-auto` + `max-w-*`) is its own plugin `no-screen-container-classes` and does not apply under `public/`. `biome lint` takes about 3.2x as long with the plugins (every regex sits behind a cheap prefilter). The server-side plugins also scan `bin/` and `scripts/`. noImportCycles stays off (253 findings in the framework repo). noRestrictedImports flags type imports of temporal-polyfill too (the old guard allowed them); use `@cosmicdrift/kumiko-types/temporal`. The scaffold main.ts starts with `biome-ignore-all lint/style/noProcessEnv`, since it wires KMS from the environment before runProdApp parses the env contract.",
+    "migration": "Apps on `biome-app` get the preset automatically; fix new findings or suppress them with a reason. Repos with their own biome.json add `\"extends\": [\"@cosmicdrift/kumiko-framework/biome-rules\"]`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "systemScope queries under queryAsMember get a read-only systemDb",
+    "detail": "Since the member-resolution hardening, `applyMemberResolutionReadOnly` removed `ctx.systemDb`, so every `r.systemScope()` query reached via `ctx.dispatch.queryAsMember` failed (for example `user:me`). A resolved member principal now gets `createSystemDbView` instead: `acknowledgeCrossTenant` reads run in the READ ONLY transaction, `unsafeRaw` follows the `memberReadOnly` denial, and `outsideTransaction` has no source and throws. `crossTenantReads` and `db.outsideTransaction` stay removed. All other principals are unchanged."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "parent-ref gate resolves global hosts in the system scope",
+    "detail": "The parent-ref gate checks a join row's host with an `EXISTS` inside the join table's statement, which runs in the caller's tenant scope. A `tenancy: \"global\"` host lives on the system tenant and its table is not `systemRowsReadable`, so since the narrowed `kumiko_system_tenant_read` the `EXISTS` found no row: `add-note` passed (the host executor reads a global table in the system scope), but the note list returned nothing, so the helpdesk detail never showed an internal note written from an operator's own tenant. The list, detail and row-readable checks of the event-store executor now resolve global hosts ahead of the statement: one system-scope statement runs the same host check (host tenant, soft delete, the host's `access.read`) for the caller's own join rows only, filtered explicitly to the session tenant and narrowed to the requested row or the host ids a list filter pins, and returns host ids. The gated statement keeps its tenant scope and row level security and matches those ids (`ParentVisibilityOption.globalHostIds`). Paths without that step (reference search and sort, eager loading, derived related fields, readGate links) leave the global host arm out, so they deny instead of widening."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "reference-data RLS, search hold, scrub coverage, export paging, webhook strictness",
+    "detail": "Entities of a feature with `referenceData` now carry `systemRowsReadable` on the push path as well as the migration path, so `kumiko_system_tenant_read` applies to them (migration 0065 in `use-all-bundled` is regenerated). A search consumer batch that fails an update keeps the later delete of the same event batch held instead of dropping it. `scrubEventPayloadFields` rejects personal lifecycle fields it cannot scrub and replaces date, timestamp and reference values with a type-matching sentinel. Export paging skips rows that a shifting offset returns twice. The webhook payload strictness check descends into record, map, set, tuple, intersection and lazy schemas without looping on recursive ones."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "consistent schema command names in validate output",
+    "detail": "`kumiko-schema validate` suggests `bun kumiko-schema generate <name>` like the drift report does; internal comments on the production path name `bun /app/kumiko.js schema apply`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "JobContext drops the unused _tenantId, ANONYMOUS_ROLE has one definition",
+    "detail": "The job runner never set `JobContext._tenantId`, so the `ctx.systemUser.tenantId ?? ctx._tenantId` fallbacks in the retention, soft-delete, workflow-resume and tenant-inactivity jobs were dead; they read `ctx.systemUser.tenantId` now and the field is gone from the type. `ANONYMOUS_ROLE` lives in `@cosmicdrift/kumiko-types` (the UI access predicates used a second copy) and the framework re-exports it. `JobContext.triggerName` is documented as the QN the `on` entry matched, a write/query-handler QN or an event QN."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Review fixes in document-ingest, documents, feature-toggles, auth-mfa and auth-email-password",
+    "detail": "appendMissingDocumentExtractEvent returns already-terminal when a concurrent catch-up run wins the append and treats any non-null meta.error as a failure. The documents feature builds hook targets, live entities and the link-list and delete-handler names from its entity constants. createRedisToggleSyncSignal takes the channel prefix and subscribe pattern as one RedisNamespace-shaped argument so they cannot diverge. A test ties TENANT_KEEP_ACCOUNT_ROLES to the account-close roles. Static invite accept returns an unexpected-response failure unless the server answered with an MFA gate. The MFA verify screen reuses MfaCodeOrRecoveryField, trims pasted recovery codes and the preauth setup screen focuses the code field once the recovery codes are acknowledged. Both forgot-password and signup screens share resolveReturnTo. Price env validation uses startsWith instead of an unescaped regex. AppendMissingExtractEventDeps drops the redundant tenantId and relies on tenantDb.tenantId. The framework exports MAX_RETURN_PATH_LENGTH from utils as the single source for the returnTo limit, used by the auth routes and re-exported by the auth-email-password return-path module. Deleting a since-undeclared secret key under a mounted feature prefix works for SystemAdmin and stays unknown-key for tenant admins.",
+    "migration": "Callers of `createRedisToggleSyncSignal` that passed the channel prefix and subscribe pattern as third and fourth argument pass `{ channelPrefix, channelSubscribePattern }` as third argument instead. Callers of `appendMissingDocumentExtractEvent` stop passing `tenantId` in the deps."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Share duplicated helpers between bundled features",
+    "detail": "Behaviour is unchanged. The user-data bridge features, hard-delete user-data hooks, bootstrap-extension lookups, preference (un)subscribe handlers, tenant cross-tenant db lookups, string-value picking in the template resolver and the idempotent meta-table bootstrap (pushTableIfMissing) each use one shared helper instead of copies."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "review round 2 engine fixes (wire names, export rate limit, isolated e2e, mail logo, relative links, api-docs, documents)",
+    "detail": "Two unreleased webhook events with the same default wire name no longer fail boot; `personal-access-tokens/released-wire-name-collision` rejects it only when both are released through PAT scopes. `createExportRoutes` takes an optional rate limit resolver (60 per minute per user). `isolatedSpecs` builds one serial twin per project with its own `use`, and rejects projects with their own `testMatch`. The unsubscribe page chrome inlines the uploaded branding logo as a raster data URI. Mail and PDF template bodies with a relative link are rejected on save (`relative_link_without_base`); snippets and managed pages keep them. api-docs reports `titleTranslationMissing` and `fieldLabelMissing` per non-en locale (field labels only when another locale has one). `documents:write:filed-document:create` defaults to the admin roles when no `access` option is given."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Remove dead allowPerRequest config key option",
+    "detail": "Since resolveConfigOrParam is gone nothing reads `allowPerRequest`, yet the type, the create*Config options and three boot rules (config-key/per-request-text, config-key/per-request-encrypted, config-key/options-query-per-request) still guarded it, suggesting per-request overrides that never happen. The option and the rules are removed; passing `allowPerRequest` is now a type error.",
+    "migration": "Remove `allowPerRequest` from config key definitions (create*Config options); it had no runtime effect."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "db layer review fixes (migration RLS ordering, sortNulls rule, derived money)",
+    "detail": "A generated migration now drops the previous row level security policies before an in-place `tenant_id` type change or drop, so Postgres no longer rejects the ALTER with a policy dependency (new section \"Row level security (pre)\"). The boot validator rejects `sortNulls` on a field without `sortable: true` (rule `entity/sort-nulls-needs-sortable`). A money derived field reads amount and currency in one jsonb_build_array subquery instead of two correlated subqueries per row. The unknown-field-type error names the type, reference sorts reuse the cached target table of the search path, `extractTableInfo` takes `unknown` (no more query.ts import cycle), and stale comments and a hand-rolled IN placeholder loop are fixed."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "db, crypto and ingest-progress review fixes",
+    "detail": "A failing `pg_advisory_lock` call now still resets `statement_timeout` before the reserved connection returns to the pool. The migration replay recognizes `CREATE TABLE \"x\"AS SELECT ...` without whitespace after a closing quote. A wrong-sized DEK from the key store raises `EncryptionUnavailableError` instead of `PiiCiphertextCorruptError`, so scrub and export no longer treat intact values as corrupt. Update and delete check row readability before loading and decrypting the row. Aggregate-type removal looks up its auxiliary tables unqualified (search_path) instead of in `public`. The shared `SYSTEM_ROW_LEVEL_SECURITY_SCOPE` constant is gone; dispatch and the migrate runner name their own reason, and the `[fixed-system-scope]` guard rule is removed. `reportIngestProgress` appends and projects in one transaction and retries on a stream version conflict. Forget now has tests for the `access.read` check and the system-user exemption."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "boot validator and schema CLI report crashes, unknown screen types and drift correctly",
+    "detail": "A runtime crash (TypeError and the like) inside `r.bootCheck` now surfaces as itself instead of a `boot-check/failed` finding, and a nested `BootValidationError` keeps its own violations. An unknown screen `type` is reported as such before the nav check can mask it. entityList rowActions share the list-action target validation, so navigate resolution lives in one place. Column `width` and `minWidth` above `LIST_COLUMN_MAX_WIDTH_PX` (2000, now in kumiko-types and shared with the renderer clamp) are rejected at boot. SQL derived fields reject `bigInt` fields, which a number valueType would round above 2^53. `kumiko-schema validate --json` adds a top-level `ok` plus `schemaDrift`, `migrations` and `rowLevelSecurity` results next to `boot`, and flags `boot.importAborted` when a runtime crash stopped the schema.ts import after violations were collected (human output warns too). The definition collector treats a crash as a follow-up only when the same feature already has a violation. `findEntity` ignores Object.prototype member names. `toEntityWebhookPayload` throws on a contract without a verb and covers all three verbs. `WEBHOOK_ENTITY_VERBS` is exported. The personal-access-token scope check names the actual reason (no opt-in, unknown entity, internal event) in its error."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Tighter tests; search/meilisearch needs meilisearch ^0.62.0",
+    "detail": "Tests only, no runtime change. The tests now assert the Postgres unique-violation and constraint name, run the custom projection on the pool path in the success case, check the schema command hints of the RLS boot check, cover sortNulls first and sortNulls on reference fields, cover the two fail-closed read-model conditions of readGate.fileOwner separately, and put purpose and addedAt into the sub-processor snapshot. As recorded for the Renovate bump, the optional peer dependency of search/meilisearch is meilisearch ^0.62.0 (was ^0.58.0); consumers on 0.58 fail the peer check."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "pipeline review fixes (savepoint scope, member-read services, batch hooks, file splits)",
+    "detail": "A savepoint opened by a background task after its parent savepoint ended now queues on the transaction's root chain instead of the stale nested chain, so it can no longer overlap sibling savepoints (3B001). Queries running as a resolved member principal lose kms, masterKeyProvider and the escape-hatch audit sink, and secrets only allows get and has. Dispatcher batches skip building the batch-hook context when no postSaveBatch/postDeleteBatch hook is registered (new LifecycleHooks.hasBatchHooks). Invalid-datetime errors mapped to a 400 now leave a warn log. The Bun.SQL connection error codes are shared between the event dispatcher and wait-for-database. dispatch-write, handler-context-events, job-runner-context and server-routes were split into single-purpose files without behavior change."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "pipeline, event-payload-scrub and job-runner review fixes",
+    "detail": "Projection rebuild only names the boot backfill as the expected column-drift cause when the sample covers every drifted row and is not empty. A batch consumer at the pending-gap limit no longer burns attempts on passes where all held events only wait out a backoff (`holdForRetry` takes an optional `{ stillBackingOff }`), and `lastError` carries the reason of the event `lastFailedEventId` points at. `scrubEventPayloadFields` logs real runs at info with migration id, reason and totals and documents that it belongs in a maintenance window. Job runner: the perTenant fan-out and the unknown-job path count attempts like every other pre-run path (`_priorAttempts`, `retryable`), a throwing `onJobFailed` hook no longer replaces the original pre-run error, `parseRedisOpts` strips IPv6 brackets and tolerates a credential with a stray percent sign, and one `isQueuedRun` predicate backs `ctx.defer`, `ctx.canDefer` and both defer paths. Tests added for the rate-limit cost floor and rounding, the scrub pagination, snapshot, non-lifecycle, corrupt-ciphertext and failed-rebuild paths."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Boot-rule table test helper, env field rules",
+    "detail": "@cosmicdrift/kumiko-framework/internal/testing exports bootRuleTableViolations for boot rule table tests (it returns the violations). An env field can carry a rule through .meta({ kumiko: { envRule } }) that sees the whole env being booted; parseEnv and the boot dry run apply it."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "named filter id lists bind as one array parameter",
+    "detail": "A list filter with `op: \"in\"` on a plain column bound one placeholder per value, so an id list from an async named-filter resolver failed beyond 65535 values and bloated the SQL text. It now binds one typed array parameter (`col = ANY($n::type[])`). `MINOR_UNIT_SCALE`, `toMinorUnits` and `toMajorUnits` moved to `@cosmicdrift/kumiko-types/minor-units`; the renderer's range facets and money measures use them instead of their own `100`. Comments that pointed at deleted names (`OVERRIDABLE_PROFILE_KEYS`, `buildErrorLog`, `SelectQuery`) are corrected. `kumiko status` exits non-zero when `git status` fails, and the CI puppeteer cache key step fails on a version that is not pinned exactly."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "dev-server watcher, reload and boot cleanup; feature-ast codemod coverage",
+    "detail": "The dev-server file watcher takes its restart baseline from a probe file's mtime instead of Date.now(), so coarse or skewed filesystem clocks no longer swallow real schema edits. A cancelled /_reload stream removes its own client from the hub. A failed createKumikoServer boot kills the Tailwind --watch child it already started. The feature-ast-package codemod reports `export *`, element-access and destructuring reads of the old engine namespace, and dynamic import or import-type of the old module as manual sites, and skips the source walk for packages that already declare feature-ast. The ctx-namespaces codemod reports a structural context type that other parameters, mocks or references also use instead of rewriting it half way, and caches the per-parameter analysis. collectSourceFiles keeps honouring .gitignore per file when a submodule path makes the batch `git check-ignore` fail. The probe file sits in the watched directory, and a failed dev-server boot after the stop function exists tears the server down through it."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "anonymous uploads are capped, rate limited and answer sign_in_required",
+    "detail": "An anonymous POST /files is limited to the largest opted-in `anonymousUpload` field (not the largest field of the app) and to 20 uploads per minute and client IP (bucket `files-upload-anon:<ip>`, 429 with Retry-After). A visitor who never had a session now gets 401 with code `sign_in_required`; `unauthenticated` (which shows the \"session ended\" banner) is kept for a visitor whose session cookie went stale. `FileRoutesOptions.metaBatchRateLimitResolver` is renamed to `rateLimitResolver` and gains a sibling `clientIpResolver`. `withUploadLedger` returns a new resolver instead of mutating the one passed in. The stale pending-upload sweep only reads uploads that name a target field. `rebindFileRef` answers \"not-found\" (instead of \"moved\" or \"rebound\", or an AccessDeniedError) for a file the caller may not read. `ctx.events.load` accepts `includeArchived`, which the documents import uses to recognise an archived document stream.",
+    "migration": "Apps calling createFileRoutes themselves rename `metaBatchRateLimitResolver` to `rateLimitResolver` and pass `clientIpResolver`. Clients that matched a 401 `unauthenticated` from anonymous uploads treat `sign_in_required` as a plain upload error. Callers of rebindFileRef that expected AccessDeniedError for an unreadable file handle \"not-found\"."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Db and types review fixes",
+    "detail": "Eagerload of a reference to an entity with row-level read rules runs one SELECT with the access clause instead of a probe query followed by a lookup, so unreadable rows are never loaded. The rebuild guard now also compares the USING and WITH CHECK expressions of kumiko_tenant_isolation with the framework policy (deparsed the same way on a throwaway table) and refuses the rebuild when they differ. Statements on an enforced transaction handle send set_config and the statement back to back instead of waiting for the scope first. The search reindex fingerprint hashes the source of each search payload extension instead of only counting them, so changed extension code reindexes. physicalColumnName takes a SchemaTable (new guard isSchemaTable exported from the db barrel); the inbound-mail ownership rule narrows its context table with it. SensitiveFilterConfig loses redactedHeaders and redactedQueryParams, which nothing read. A group header text that still contains the removed {lastDate} placeholder renders without it and warns once per key. Eagerload of a reference to an entity with row-level read rules now runs the rows through the normal row coercion (camelCase keys, no blind-index columns) before decrypting. A plain statement issued inside a running unit queues behind sibling units pending in that unit's chain instead of landing in the open savepoint. The PII backfill treats a newer event that sets a field to null as a newer value, so the older owner's ciphertext is no longer re-keyed onto the new owner. `reindexEntity` takes `onlyEntityId` to reindex a single row. `isUnchangedValue` (key-order-stable comparison) is exported from the engine barrel. `seedRow` and `seedRows` now also refuse an event-sourced entity when handed its table meta instead of the table. POST /files answers an anonymous caller with 401, not 413, when no field allows anonymous upload.",
+    "migration": "Remove redactedHeaders and redactedQueryParams from any sensitiveFilter option and from DEFAULT_SENSITIVE_CONFIG overrides. Pass a SchemaTable (or narrow with isSchemaTable) to physicalColumnName instead of an unknown value. Replace {lastDate} in table.grouping label texts with a max measure in table.totals."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "workflow wait, waitForEvent and retry compute their wake time from the database clock",
+    "detail": "`r.step.wait`, `r.step.waitForEvent` and `r.step.retry` took the wake time from the app clock while the resume scan compares it with Postgres `now()`, so a job host running ahead woke retries and waits late and one running behind fired `waitForEvent` timeouts early. The steps now read the database clock, in the trigger projection and in `resume-run` alike. `queryDatabaseNow` is exported from `@cosmicdrift/kumiko-framework/db` for that."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "an explicit Meilisearch configure() is no longer widened by a later default",
+    "detail": "`configure()` now leaves an `_explicitConfig` marker in the index's filterable attributes. Before, an explicit configuration narrowed to a subset of the registry default could not be told apart from an older default and was widened again after the next restart. Indexes configured explicitly before this change carry no marker and keep the old behavior."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "maxPerTenant skip cap holds under concurrent dispatch",
+    "detail": "`dispatch` and `handleEvent` for a job with `maxPerTenant` and `onLimit: \"skip\"` now hold a short Redis lock per job and tenant across the count and the enqueue, so simultaneous dispatches from api and worker processes can no longer all pass at `limit - 1`. A lock that stays contended for three seconds degrades to the earlier soft cap with a warning."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "server wiring and middleware split into smaller files; event payload scrub documents its maintenance window",
+    "detail": "Rate-limit wiring and the PAT rate-limit guard moved out of `server-wiring.ts` and `server-middleware.ts` without behavior change. `scrubEventPayloadFields` must run in a maintenance window, because batches page by id over committed rows and an event that commits below the cursor during the run is not scrubbed."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "access.authenticated is renamed to access.builtinUserRoles",
+    "detail": "The preset only lists the built-in roles User, Admin and SystemAdmin, so a member who holds only an app-defined role was refused although signed in. The new name says what it covers; for \"any signed-in user\" use `anySignedIn: true` or `openToAll`.",
+    "migration": "Replace `access.authenticated` by `access.builtinUserRoles`; where every signed-in user must pass, use `anySignedIn: true` instead."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "file providers throw FileObjectMissingError for a missing object; header scrub for stored events",
+    "detail": "The in-memory, local and S3 file providers throw `FileObjectMissingError` (exported from `@cosmicdrift/kumiko-framework/files`) when the stored object is gone. New operator helper `scrubEventHeaderKeys` removes chosen keys (for example `rawPayload`) from the headers of stored events of given types, with a reason and a dry run; it is not run automatically."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "pool statements without a tenant scope run in an empty scope; seedRow refuses event-sourced entity tables; read_ tables are not writable from plain runners",
+    "detail": "On an RLS-enforced pool every statement now runs in a short scoped transaction, also when no scope is active (empty GUCs, so RLS policies match nothing); before, a scope-free statement went straight to the connection and could meet a connection polluted by an earlier scope. Non-transactional DDL (CREATE INDEX CONCURRENTLY, CREATE/DROP DATABASE) and session-level statements must be wrapped in `outsideRowLevelSecurityScope`. `table(\"read_...\")` from the db dialect now returns a plain `SchemaTable` without the `Writable` brand, so writing a projection table through a plain runner is a compile error; projection applies and `withExecutorManagedWrites` runners are unaffected. The testing helpers `seedRow` and `seedRows` throw for tables built by `buildEntityTable` or `r.entity`, because the projection row would exist without its event.",
+    "migration": "Wrap non-transactional DDL and session-state statements on a pool in `outsideRowLevelSecurityScope(() => ...)`. Replace `seedRow(db, entityTable, ...)` by `seedRowViaEventStore`, or pass `{ projectionOnly: \"<reason>\" }` as fourth argument for a deliberate event-less row. For a `read_*` table written outside a projection, wrap the runner in `withExecutorManagedWrites`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "PII backfill moves only the latest copy of a field to a changed owner; nested echoed events are stripped from write responses",
+    "detail": "The backfill rekey stage no longer re-keys older, superseded copies of a user-keyed field to the new owner when a newer event already carries the field, so forgetting the previous owner still erases the old value. The dispatcher also strips the echoed `event` from executor results that a handler nests in its own response data, not only from the top-level result."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "plain statements wait for open savepoints; jsonb default changes rebuild the projection; trash list with search is rejected",
+    "detail": "A statement issued through the query helpers on a transaction now queues behind pending savepoints instead of racing them and failing with an aborted transaction after a savepoint rollback. A changed jsonb column default on a managed projection table now writes a rebuild marker, so existing rows get the new empty value. A list with `onlyDeleted` and a search term returns a validation error, because soft-deleted rows are not in the search index and the list would always be empty."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "authoritative tenant resolver ignores a disagreeing kumiko_tenant cookie",
+    "detail": "With `resolverTrust: \"authoritative\"`, only an `X-Tenant` header that disagrees with the resolver answers 400 tenant_mismatch. A `kumiko_tenant` cookie is ambient state, possibly apex-scoped and left over from another tenant's subdomain, so a disagreeing cookie is ignored and the resolver's tenant wins; before, such a visitor was locked out of every other tenant subdomain."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "insertMany takes the column list from all rows",
+    "detail": "`insertMany` built its column list from the first row only, so a field set by a later row (for example `isDeleted: true` through `seedRows`) was silently dropped or written as NULL. The column list is now the union over all rows; a row that omits a column gets DEFAULT, like a single `insertOne` without that key."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "schema-cli validate and scaffold check tests run without DATABASE_URL",
+    "detail": "`schema validate` checks the live row-level security state whenever DATABASE_URL is set. The validate-boot-options tests and the scaffolded `kumiko check boot` test inherited the host value and hit the shared local dev database, so they failed locally on its old policies while CI stayed green. They now run without DATABASE_URL, which makes local and CI runs equal."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "upgrade path test for the stale kumiko_system_tenant_read policy",
+    "detail": "A new integration test applies a table marked `systemRowsReadable`, regenerates the schema without the marker, and checks that the migration drops `kumiko_system_tenant_read` and that `schema apply` removes the policy from `pg_policies` while the isolation policy stays."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "scrubEventPayloadFields needs a maintenance window",
+    "detail": "The JSDoc of `scrubEventPayloadFields` now states that it pages by bigserial id and that ids are handed out before commit, so an event appended in parallel with a lower id than the current cursor can be skipped. Run it in a maintenance window without running writes on the affected event types, or repeat the scrub afterwards; the header scrub (`scrubEventHeaderKeys`) is not affected because it is one statement."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "requiredEnvFor takes an optional hint and replaces the test stack's copies",
+    "detail": "`requiredEnvFor(label, env, hint?)` appends the hint to the missing-variable error. The test stack (`TEST_DATABASE_URL`, `REDIS_URL`) and the S3 integration test use it instead of private `requireEnv` copies and keep their `.env.example` / `docker compose up -d` advice. server-runtime's `requireEnv` stays: its advice depends on the boot context."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Boot fails when the booted features declare tables the generated schema lacks",
+    "detail": "`detectKumikoDrift` / `assertKumikoSchemaCurrent` take the booted features and check, once a `.snapshot.json` exists, that every table from `collectTableMetas` of those features is in it. The schema tooling (`kumiko-schema.ts`) and the boot decide `includeBundled` separately, so a differing `kumiko.config.ts` previously left tables out of the generated schema without a message. The report has the new part `tablesMissingFromSnapshot`; `runProdApp` and the worker boot pass their features. A booted table that is not in the snapshot is drift, there is no exception list.",
+    "migration": "Run `kumiko schema generate` (check `includeBundled` and the feature list in `kumiko.config.ts` against what the app boots) and ship the migration. Code that builds a `KumikoDriftReport` by hand needs the new field `tablesMissingFromSnapshot`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "Generated column drops come with a commented not-empty guard",
+    "detail": "For a column that disappears from an in-place table, `schema generate` emits a commented `DO $$ ... RAISE EXCEPTION '<table>.<column> is not empty' ... $$;` line directly before the commented `DROP COLUMN`. Uncommenting both aborts the migration while the column still holds values and drops it once it is empty."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "Jobs read event streams with ctx.events.load",
+    "detail": "`JobContext.events` gains `load(aggregateId, options?)` with the handler semantics (`asOf`, `atVersion`, `includeArchived`): scoped to the tenant of the job, payloads pass the upcaster chain. It shares its implementation with the handler `ctx.events.load`. Jobs no longer need a raw `selectMany` on `eventsTable` to read a stream."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "outsideRowLevelSecurityScope is exported from the db barrel",
+    "detail": "`outsideRowLevelSecurityScope(fn)` runs non-transactional DDL (`CREATE INDEX CONCURRENTLY`) and session-level statements on a pool with row-level security enforced, where every statement otherwise runs in its own transaction. It sits next to `assertNoActiveRowLevelSecurityScope` in `@cosmicdrift/kumiko-framework/db`, so the migration advice from the R3 note can be followed without a deep import."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "agent tool calls lose unsafeRaw, globalWrites and system-scope handlers",
+    "detail": "Only `crossTenantReads` was withheld in the agent tool call scope, so a tool handler declaring `unsafeRaw` or `globalWrites` could still run raw or global SQL against the LLM context, and a `r.systemScope()` handler got the cross-tenant system db. `buildTenantScopedDb` now drops both grants in that scope, and resolving the handler context for a system-scope handler throws `access_denied` (reason `agent.tool_not_allowed`) while the scope is marked."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "list aggregates no longer bypass postQuery hooks and read filtering by shape",
+    "detail": "The dispatcher treated any `{ groups: [...] }` result as an aggregate and skipped postQuery hooks and `filterReadFields`. Aggregates are now recognised by a brand set in `answerListAggregate` (`isAnsweredListAggregate`), so a hand-written handler returning that shape runs through the hooks again. An aggregate query on an entity with handler or entity postQuery hooks fails with `access_denied` (`field_access_denied` reason), because the counts would include rows a hook hides."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "boot guard covers update, delete and restore handlers of parentRef entities",
+    "detail": "The `parentRefHandWrittenQuery` guard only checked list and detail, so a hand-written write handler on a join-row entity could change rows whose host the caller cannot see. `defineEntityWriteHandler` now sets `ENTITY_CONVENTION_WRITE_BRAND` (kept through `r.writeHandler`), and the new rule `parent-ref/hand-written-write-handler` fails boot for an unbranded `update`, `delete` or `restore` handler on such an entity."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "derived values no longer follow liveEntities mentions",
+    "detail": "`derivedSql.canReadEntity` used `collectEntityReadAccess`, which also counts handlers that list an entity in `liveEntities`. Such a handler returns signals, not rows, so a role holding only that handler could read counts and first values over the entity. The check now uses the new `collectEntityQueryAccess`, which only counts query handlers whose own entity is the one asked about; live signals keep `collectEntityReadAccess`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "review fixes for where operators, events prune, ES ops table, read-model access boot check and search reindex",
+    "detail": "An operator object whose operands are all undefined (`{ id: { in: undefined } }`) or a non-array `in`/`notIn` now throws instead of dropping the WHERE and turning `deleteMany` into a whole-table delete. `kumiko events prune` compares aggregate types and projection sources kebab-normalised, so `document-extract` matches a `documentExtract` source and is not reported unknown. `createEsOperationsTable` runs its re-check and DDL on a sibling pool, so a lock transaction no longer deadlocks at `DATABASE_POOL_MAX=1`. `validateOwnershipBoot` and `validateOwnershipRules` also validate the `access` of projection read-model entities. Search reindex reconcile removes unchanged rows whose subject key was erased after the batch read."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "embedded diff, webhook payload strictness, named filter columns, search tenant isolation",
+    "detail": "`isUnchangedValue` compares key-order-stable, so unchanged embedded lists no longer re-trigger `requiredWhen` or sub-field write checks. The nested-write parent ownership check skips embedded sub-field role checks. `defineWebhookEvent` now throws (`webhook-event/payload-open-shape`) for payload objects declared as looseObject, passthrough or catchall, which would let undeclared keys reach receivers. `validateBoot` no longer reports the preSave wiring violation twice. Named list filter conditions may target row-meta columns such as `insertedById`. The search consumer holds a tenant whose event read fails instead of failing the whole batch. The user-scope seed error message names the literal seed form."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "review fixes for upload sweep, search reindex, row-level security, payload scrub, schema hints, sub-processors and xlsx export",
+    "detail": "`executor.delete` accepts an `expect` precondition like update; the stale pending-upload sweep uses it so an upload bound after the page was read fails the delete instead of being soft-deleted. `reindexEntity` takes an `AbortSignal` and `reindexTenantsSearch` aborts a reindex that timed out. Every enforced transaction sets both row-level-security settings before its first statement, so a session-level `kumiko.scope` left on a pooled connection no longer leaks into scope-free transactions. The boot check at rowLevelSecurity \"on\" also fails when `kumiko_tenant_isolation` is not PERMISSIVE ALL for PUBLIC or a RESTRICTIVE policy exists, the same predicate the rebuild guard uses. `scrubEventPayloadFields` writes null instead of the text sentinel for non-string values, so typed projection columns still rebuild. Schema drift and row-level-security boot errors also name `bun /app/kumiko.js schema` for the production image. The sub-processor list has separate Scaleway Key Manager (active since 2026-07-04) and TEM entries. The xlsx export ends the list on an empty page instead of a short one, and a second export of the same user while one runs answers 429."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "system tenant read policy only on tables marked systemRowsReadable",
+    "detail": "Since 0.390.0 users, MFA, API tokens, sessions and tenant secrets live on the system tenant, and `kumiko_system_tenant_read` (tenant_id = system tenant) sat on every table with a tenant_id column, so a tenant session could read them past a missing TenantDb filter. The policy is now a positive classification: `systemRowsReadable: true` on an entity (or `defineUnmanagedTable` input) renders it, entities targeted by `r.referenceData` are classified implicitly, and every other table gets only `kumiko_tenant_isolation`. Marked in the bundled features: `read_config_values`, `read_template_resources`, `read_custom_field_definitions`, `read_pages` (app-wide public pages on the system tenant). Paths that read system rows of an unmarked table use a narrow read path instead of the system scope: the new `systemTenantReadDb(db)` (internal/row-level-security) is a read-only TenantDb on the system tenant, so RLS passes exactly its rows and no other tenant's. `secrets:list` with scope system, `readFileRefContent` (system template files) and the SystemAdmin read of system files in the file routes use it; `secrets.get/has` read platform-wide secrets in the system tenant's own scope. `ctx.dispatch.queryAsMember` reads the stored user profile under the system scope, the reference check of eager-loading runs on the referenced table's scope, and the event-store executor runs its raw reads and writes on a `tenancy: \"global\"` table in the system scope, like the TenantDb's own statements on it. The boot check expects exactly the classified set and reports a system read policy on an unmarked table; `unsafePushTables` and `kumiko-schema apply` drop it from the framework tables (`kumiko_events`, `kumiko_snapshots`, `kumiko_archived_streams`). `KnownTables` has a new required member `readsSystemRows`.",
+    "migration": "Apps: bump, then run `bun kumiko-schema generate` and commit the new RLS migration; it drops `kumiko_system_tenant_read` on every table without the marker (credential and PII tables included). Set `systemRowsReadable: true` on an own entity only if tenant sessions read its SYSTEM_TENANT_ID rows (shared templates, defaults, catalogs); a table without it returns no system rows to a tenant session. Code that must read system rows of an unmarked table (credentials, PII) wraps its db in `systemTenantReadDb`. Hand-built `KnownTables` objects passed to the boot check need `readsSystemRows`."
+  },
+  {
     "version": "0.413.0",
     "type": "improvement",
     "title": "Definition errors in schema.ts are collected by validate",

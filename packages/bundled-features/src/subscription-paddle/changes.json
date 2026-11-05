@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Paddle checkouts are bound by the checkout ledger, the tenant binding key is gone",
+    "detail": "The HMAC `tenantBinding` in custom_data and the PADDLE_TENANT_BINDING_KEY / `tenant-binding-key` setting are removed; a webhook is accepted when its transaction id is in the checkout ledger. The new job `backfill-checkout-ledger` (cron every 5 minutes, no-op without an API key) lists open Paddle transactions created through the API, ledgers the ones that still carry a `tenantBinding`, keeps sweeping for one hour after its first completed sweep and then does nothing. The sweep also lists billed, paid and completed transactions of the last 7 days, and while the takeover window is open (no completed sweep yet, or one younger than an hour) a webhook of a legacy checkout (custom_data still has `tenantBinding`) that is not in the ledger yet answers 503, so Paddle redelivers it after the sweep ledgered the checkout.",
+    "migration": "Remove PADDLE_TENANT_BINDING_KEY from the environment and the `subscription-paddle:config:tenant-binding-key` value from the secrets; nothing reads them any more. Checkouts that customers opened before the upgrade are taken over by the `backfill-checkout-ledger` job within about five minutes, so no manual step is needed. The job needs a worker that runs the system-identity jobs."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "paddle webhook drops one-off payments for prices outside oneOffPriceIds",
+    "detail": "`transaction.completed` became a payment event for any price with a valid tenant binding. Paddle.js can open a checkout in the browser with arbitrary customData and price, so the server-side `oneOffPriceIds` / `authorizeOneOffCheckout` gate was bypassable. `PaddleWebhookOptions` now takes `oneOffPriceIds` (the feature passes `options.oneOffPriceIds ?? []`) and an event for any other price is dropped with a warning carrying only the provider event id and price id. Apps selling one-off credits must list those prices in `oneOffPriceIds`."
+  },
+  {
     "version": "0.394.0",
     "type": "improvement",
     "title": "Add subscription-paddle, a Paddle Billing provider plugin",

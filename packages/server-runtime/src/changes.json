@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "The stripe boot option passes clientConfig",
+    "detail": "`billing: { stripe: { clientConfig } }` is handed to the subscription-stripe feature, so an app can set the Stripe client configuration (API version, retries, host) from the boot options."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "provider-wide billing webhookPath, shared worker boot steps, no leaked SSE broker",
+    "detail": "`billing.webhookPath` replaces `billing.stripe.webhookPath` (deprecated, still read as a fallback) and the error message names the new key. `runWorkerApp` applies env defaults through `withEnvDefaults` and `bootWorkerProcess` validates through the shared `validateBootAndWarnTz` step. If `createWorkerEntrypoint` throws, the Redis SSE broker opened before it is closed instead of keeping the process alive. The stream tenant backfill decides searchability with the shared `isEntitySearchable`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "job drain leaves a tail reserve of the shutdown budget",
+    "detail": "The SIGTERM timer and the job drain in `stop()` used the same budget, so a job that ran the whole time ended the process with exit code 1 before the HTTP shutdown, the escape-hatch audit flush and the connection close ran. The job drain now gets the budget minus a 5 s reserve (at least 1 s). `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` is the budget for both."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "seeds.bootstrapAdminFromEnv creates the app creator as admin",

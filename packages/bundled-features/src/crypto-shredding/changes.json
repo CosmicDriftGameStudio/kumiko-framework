@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "A failed forget in the after-delete hook keeps its error code and message",
+    "detail": "The hook threw forgotten.error, a plain WriteErrorInfo object, so the HTTP layer reported internal_error with the message \"[object Object]\" and no cause, even for a real KMS outage. It now throws reraiseAsKumikoError(forgotten.error). The helpdesk legacy-contact-config job had the same pattern and is fixed the same way."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "subjectForgetAfterDeleteHook erases a deleted row's subjects only after the delete is accepted",
+    "detail": "`subjectForgetAfterDeleteHook({ target, subjectsOf, reason })` returns a `postDelete` hook (in the delete's transaction) that runs `crypto-shredding:write:forget-subject` as the system identity for the subjects of the row just deleted, in the tenant of the deleted row's event. Because preDelete hooks run after the delete handler returns and a key erase cannot be rolled back, forgetting inside the delete handler erased the key even when a preDelete hook then rejected the delete; the hook runs after all of them, and a failed forget throws and rolls the delete back. Register it with `r.hook(subjectForgetAfterDeleteHook({ target: { allOf: entity }, ... }))`; it declares the narrow `systemIdentity` grant itself. `forget-subject` is an irreversible operation, so the consumer's delete handler (the entry handler) must resolve to agent risk `high`, otherwise the hook fails."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "forget-subject called from another write handler no longer blocks on the caller's stream",
+    "detail": "The audit event and the user login-door close of `forget-subject` were written on the outside-transaction connection with the subject id as aggregate id. When the caller's transaction had already written an event for that id (a delete of the very row), the outside append waited for the uncommitted version and the request hung. Called from another write handler, `forget-subject` still commits the login-door close and the audit event on the outside-transaction connection (the key erase cannot be undone, so they must not roll back with the caller), but the audit event goes onto a fresh aggregate id instead of the subject's id; direct calls (HTTP, agents) are unchanged."
+  },
+  {
     "version": "0.389.0",
     "type": "improvement",
     "title": "Tests pin the erasure write purpose in forget-subject and the forget cleanup",

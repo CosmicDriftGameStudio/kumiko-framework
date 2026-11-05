@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Missing inline images no longer fail a mail",
+    "detail": "An inline mail image whose stored object is gone is skipped instead of failing the mail."
+  },
+  {
     "version": "0.392.0",
     "type": "improvement",
     "title": "The mail probe tests the platform sender",

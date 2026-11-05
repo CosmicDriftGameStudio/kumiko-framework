@@ -1,5 +1,179 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.414.0
+
+### Minor Changes
+
+- f89bed5: Guards that only inspect one file move to Biome builtins and GritQL plugins behind one shared preset, `@cosmicdrift/kumiko-framework/biome-rules`.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Single-file guards are replaced by the Biome preset biome-rules
+  detail: The guards admin-api, direct-fetch, error-reasons, event-store-writes (es-literal-writes), i18n-locale-terminology, no-custom-primitives, no-date-api, no-direct-fs, no-direct-process-env, no-inline-styles, no-raw-hooks, no-temporal-polyfill-import, primitives-discipline, raw-classname, raw-interactive-elements, restricted-symbols, test-es-fixtures, test-title and unsafe-json-parse are deleted together with their baselines. Their checks run as Biome builtins or GritQL plugins from `packages/framework/presets/biome-plugins/*.grit`. New checks cover createTestDispatcher, barrel imports from the same folder, external font CDNs (also in CSS), skipped or retried tests and CSSProperties types. The guards silent-skip, thin-wrappers and check-predicates are removed without replacement (the `// @wrapper-known` and silent-skip markers are dead and can be deleted). `kumiko check` gains a `lint` step (`biome lint` in the app repo) and an `agent` step (kumiko agent lint) for apps with a kumiko.config.ts.
+  migration: Extend the preset in your `biome.json`, replacing your own linter rules for these checks - `"extends": ["@cosmicdrift/kumiko-framework/biome-rules"]` (apps that already extend `biome-app` get it through that preset). Delete `.kumiko-direct-fs-baseline.json`, `.kumiko-test-title-baseline.json`, `.kumiko-no-custom-primitives-baseline.json` and `.kumiko-test-timeouts-baseline.json`. `bun kumiko-upgrade --apply` runs the codemod lint-ignore-to-biome, which turns `kumiko-lint-ignore <slug> <reason>` markers of the deleted guards into `biome-ignore lint/plugin: <reason>` (`lint/style/noInlineStyles` for no-inline-styles), keeps the comment form and the reason, and lists markers without a reason of at least three words. Biome applies a suppression only to the next line or node, so a marker that sat several lines above its hit moves by hand (CSS - `biome-ignore lint/plugin: <reason>` inside a comment). Remove deleted guard names from your `kumiko.json` and security baseline. Enterprise and platform extend the same preset.
+  codemod: scripts/codemod/lint-ignore-to-biome.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Biome preset biome-rules with GritQL plugins
+  detail: `@cosmicdrift/kumiko-framework/biome-rules` bundles the linter rules and the GritQL plugins that replace the deleted guards, plus the new builtins noNestedComponentDefinitions, noMisusedPromises, useExhaustiveSwitchCases and noTsIgnore. `biome-app` now extends it. Suppress a plugin finding with `biome-ignore lint/plugin: <reason>`. `test-title` and the raw interactive element rule (`a`, `details`, `summary` in `raw-ui-in-app`) only warn, in the framework too, because the replaced guards only warned in repos without a baseline; every other plugin rule is an error. The screen container rule (`mx-auto` + `max-w-*`) is its own plugin `no-screen-container-classes` and does not apply under `public/`. `biome lint` takes about 3.2x as long with the plugins (every regex sits behind a cheap prefilter). The server-side plugins also scan `bin/` and `scripts/`. noImportCycles stays off (253 findings in the framework repo). noRestrictedImports flags type imports of temporal-polyfill too (the old guard allowed them); use `@cosmicdrift/kumiko-types/temporal`. The scaffold main.ts starts with `biome-ignore-all lint/style/noProcessEnv`, since it wires KMS from the environment before runProdApp parses the env contract.
+  migration: Apps on `biome-app` get the preset automatically; fix new findings or suppress them with a reason. Repos with their own biome.json add `"extends": ["@cosmicdrift/kumiko-framework/biome-rules"]`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: seedRowsViaEventStore seeds several rows through the event store
+  detail: `@cosmicdrift/kumiko-testing/helpers` exports `seedRowsViaEventStore(db, table, rows)`, the event store counterpart of `seedRows`. Each row becomes its own event stream.
+  -->
+
+### Patch Changes
+
+- d3474b9: The Error-Reasons guard treats the `reason` of `subjectForgetAfterDeleteHook({ ... })` as prose, like the escape-hatch and createTenantDb reasons, so a sentence literal there no longer fails the guard.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Error-Reasons guard accepts a prose reason in subjectForgetAfterDeleteHook
+  detail: The reason is the forget-subject audit reason and part of the hook's systemIdentity escape-hatch reason, not an error-reason code. Apps no longer need a constant to get past the guard.
+  -->
+- 740085b: Low-severity database and crypto review fixes from the second review round.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: db, crypto and ingest-progress review fixes
+  detail: A failing `pg_advisory_lock` call now still resets `statement_timeout` before the reserved connection returns to the pool. The migration replay recognizes `CREATE TABLE "x"AS SELECT ...` without whitespace after a closing quote. A wrong-sized DEK from the key store raises `EncryptionUnavailableError` instead of `PiiCiphertextCorruptError`, so scrub and export no longer treat intact values as corrupt. Update and delete check row readability before loading and decrypting the row. Aggregate-type removal looks up its auxiliary tables unqualified (search_path) instead of in `public`. The shared `SYSTEM_ROW_LEVEL_SECURITY_SCOPE` constant is gone; dispatch and the migrate runner name their own reason, and the `[fixed-system-scope]` guard rule is removed. `reportIngestProgress` appends and projects in one transaction and retries on a stream version conflict. Forget now has tests for the `access.read` check and the system-user exemption.
+  -->
+- 37e950e: Pre-push review fixes: stable editor handle reporting, backslash-aware guard prefilter, Dockerfile heredoc detection, IMAP host normalization.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Backslash-aware escape prefilter, Dockerfile heredoc start, stable editor handle report, IMAP host key
+  detail: The escaped-literal prefilter treats every backslash as a possible escape, so identity escapes and backslash-newline continuations no longer hide a literal from the RLS-setting, test-ES-fixture and test-ES-row-write guards. The Dockerfile heredoc start ignores `<<<` herestrings and `$((1 << x))` shifts, so later stages are still inspected. The template editor reports its handle once per editor instance again (the reporting callback is read through a ref), instead of re-reporting on every render. The IMAP connect-target rate limit strips a trailing dot from the host before keying its buckets. Several tests are sharpened (parallel ingest progress, batch hooks, consumer audit, pre-push lane order).
+  -->
+- 5d2a2d3: Close several guard bypasses and false positives found in review.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Guard hardening: test titles, ignore-tag reasons, schema CLI, unsafe array params, RLS settings, internal imports
+  detail: test-title no longer lets English apostrophes hide German words and no longer flags hex colours or row positions as issue references. ignore-tag-reason also checks tags preceded by text and counts lines in linear time. schema-cli-features accepts .js specifiers and namespace imports. unsafe-array-param sees through non-null and angle-bracket assertions. rls-session-settings splits SQL only at top-level semicolons, ignoring comments, strings and dollar-quoted bodies, and skips build, coverage and .turbo directories. internal-subpath-imports flags export-star re-exports of the testing helpers and import-equals require of internal subpaths.
+  -->
+- 2458419: Guards: Dockerfile heredoc and `bun i` parsing, scoped registry token variables, CRLF/BOM doc frontmatter, symlink-safe doc walk, class accessors in agent docs, inverted flag conditions, accurate unused-exception warning, smaller pre-push pool floor, escape-aware literal prefilters, deterministic concurrency tests.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: Guards: parser and diagnostic fixes, escape-aware prefilters
+  detail: The app-dockerfile guard now sees RUN heredocs and the `bun i` alias, accepts an inline token assignment only when it reads the mounted secret, and takes token variables only from the private scope's registry entry. The doc-status guard tolerates CRLF and a BOM and skips symlinks while walking. Agent docs render public class accessors with their types and no longer derive a flag call from an `!== true` condition. The security check no longer calls an expired or shadowed repo exception unused. The pre-push pool floor drops from four lanes to two. The RLS-setting, test-ES-fixture and test-ES-row-write guards resolve string escapes (`_`, `\x20`) before matching and their text prefilters no longer skip files containing escapes. Two timing-based guard tests now synchronize instead of measuring wall-clock time.
+  -->
+- bcfcdd6: The pre-push hook only treats a run as re-entry from `scripts/check-wt.sh` when the owner PID, the owner's command line and a per-run nonce file all match, so `KUMIKO_CHECK_WT_OWNER=$$ git push` no longer skips the pre-flight steps.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: pre-push re-entry needs owner command and nonce, not just an ancestor PID
+  detail: Any shell could run `KUMIKO_CHECK_WT_OWNER=$$ git push` and the ancestor-PID check passed, switching off `pre-push-extra.sh`, the upgrade-state guard and gitleaks. Before delegating to a tracked `scripts/check-wt.sh` the hook now writes a random nonce to `kumiko-prepush-<pid>` (mode 0600) in the git common dir and passes it as `KUMIKO_CHECK_WT_NONCE`. Re-entry requires the owner to be an ancestor whose command line contains `scripts/check-wt.sh` (or the hook process itself when check-wt.sh exec'd it) and the nonce to match the file. Each outer run removes nonce files whose PID is no longer alive; if the file cannot be written the push is refused.
+  -->
+- 9bff1f2: Event-store test helpers reject ambiguous filters, the guard slot directory self-heals, the unsafe-array guard stops flagging spreads, the agent API docs include `typeof` constants, and the dev server boots with `KUMIKO_REDIS_PREFIX` set.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: event-store write helpers fail on ambiguous row filters
+  detail: `updateRowViaEventStore` and `deleteRowViaEventStore` now throw when the filter matches more than one row instead of writing to whichever row came first. `updateInvitationViaEventStore` also filters on the inviting tenant, so the same email invited in two tenants no longer hits the wrong row.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: guard slot directory from older versions is tightened, spreads no longer flagged
+  detail: A slots directory created with mode 0755 by an earlier version made the slot check fail open on every run. A directory owned by the current user is now chmod-ed to 0700 and used; foreign owners and symlinks are still rejected. `guard-unsafe-array-param` no longer warns on spreads in the parameter list, since they bind as scalars. The generated API reference now lists unexported constants that exported types reach through `typeof`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: dev server boots when KUMIKO_REDIS_PREFIX is set
+  detail: The SSE channel prefix defaulted to a per-boot value that differs from `KUMIKO_REDIS_PREFIX`, which `redisNamespaceFromEnv` rejects. The prefix now falls back to `KUMIKO_REDIS_PREFIX` before the per-boot default.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [896dc21]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [b766f7b]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [b1379a6]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [25cc04c]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [298da75]
+- Updated dependencies [f504e08]
+- Updated dependencies [a24a7e3]
+- Updated dependencies [9708601]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [dc3cde7]
+  - @cosmicdrift/kumiko-framework@0.414.0
+  - @cosmicdrift/kumiko-types@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

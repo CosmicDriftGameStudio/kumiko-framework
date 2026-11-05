@@ -1,5 +1,55 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Legacy contact data is exported, erased and expired from the event log",
+    "detail": "The user-data hooks for requests stored under the former contact names read the dropped `read_contact_requests` and `read_contact_replies` tables, so the export failed and the forget run reported an error on an app that never had those tables. They now fold the `contact-request` and `contact-reply` event streams instead: the export lists the requests of the user (by user id, or by verified email for anonymous ones) with their replies, the forget run purges attachments, erases the record keys and archives the streams. A new maintenance job `helpdesk:job:legacy-contact-retention` applies the retention period to old legacy requests and replies. Deleting a user also erases the notes written on their helpdesk requests and legacy requests."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "HELPDESK_REQUEST_ENTITY is exported from the helpdesk entry",
+    "detail": "`HELPDESK_REQUEST_ENTITY` comes from `@cosmicdrift/kumiko-bundled-features/helpdesk` next to the other helpdesk constants."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "Indexes for helpdesk requests and replies",
+    "detail": "All helpdesk rows live in the system tenant, so the tenant index selected nothing. `read_helpdesk_requests` gets indexes on (tenant_id, status) and (tenant_id, reporter_user_id), `read_helpdesk_replies` on (tenant_id, request_id).",
+    "migration": "Run `bun kumiko-schema generate` in the app to pick up the new indexes."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Helpdesk reply error passthrough, paged user-data lookups",
+    "detail": "helpdesk reply returns the file takeover failure as is (file_rejected) instead of mapping everything to helpdesk_attachment_not_found, which is removed from HelpdeskErrors; user-data forget and export page through all requests and replies, the reply detail lists all replies; the exported SYSTEM_ADMIN_ROLE constant is removed and SystemAdmin checks use ROLES.SystemAdmin.",
+    "migration": "Replace imports of SYSTEM_ADMIN_ROLE by ROLES.SystemAdmin; clients matching the helpdesk reply error helpdesk_attachment_not_found match file_rejected instead."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Public handlers declare only the anonymous role",
+    "detail": "Handlers declaring access.anySignedIn next to the anonymous role list only anonymous in roles (the dropped signed-in roles never had an effect); the SUBMIT_ROLES constant of helpdesk is removed."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Notification preferences and config values of the former contact feature are carried over",
+    "detail": "The helpdesk notifications declare `renamedFrom: [\"contact:notify:<name>\"]`, so stored preferences and address opt-outs under the former names keep applying (a helpdesk-name row wins). The boot job `helpdesk:job:legacy-contact-config` (`runOnBoot`, idempotent) writes `contact:config:reply-to` and `contact:config:telegram-chat` to `helpdesk:config:reply-to` and `helpdesk:config:telegram-chat` through `config:write:set` as SystemAdmin, only when the helpdesk key has no value yet; the old rows stay untouched. The job declares an `escapeHatch` (crossTenantReads, systemIdentity). This replaces the \"not carried over\" hint of the 0.413.0 migration note for these settings."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "pre-rename contact requests are exported and erased with the user",
+    "detail": "Since the rename from contact to helpdesk, requests and replies stored under the aggregates `contact-request` and `contact-reply` (tables `read_contact_requests`, `read_contact_replies`, attachments with that entity type) sat inert; the EXT_USER_DATA hooks only covered `helpdesk-*`, so a user's export missed them and an erasure left the personal data behind. The helpdesk feature now registers export and delete hooks for the former aggregate, matching by reporter user id or verified email like the current hooks. Deleting forgets the rows through the event-store executor, removes their attachments and shreds the record subject keys. The former entities are not registered, so no schema is generated for them, and installs without former data skip the hooks. The data-retention job does not see these rows, since it only walks registered entities."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "acknowledgedSystemDb for system-scoped features",
+    "detail": "`acknowledgedSystemDb(ctx, featureName, crossTenantReason)` returns `ctx.systemDb.acknowledgeCrossTenant(reason)` and throws an InternalError naming the feature when `r.systemScope()` is missing. helpdesk and waitlist use it, together with the shared `sendBestEffort` and `resolveVerifiedUserEmail`; behaviour and log texts are unchanged."
+  },
+  {
     "version": "0.413.1",
     "type": "improvement",
     "title": "helpdesk sample: complete same-origin contact page",

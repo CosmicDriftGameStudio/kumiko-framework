@@ -2,13 +2,179 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-11-01
+verified: 2026-11-05
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.414.0
+
+### @cosmicdrift/kumiko-guards
+
+**Single-file guards are replaced by the Biome preset biome-rules**
+
+The guards admin-api, direct-fetch, error-reasons, event-store-writes (es-literal-writes), i18n-locale-terminology, no-custom-primitives, no-date-api, no-direct-fs, no-direct-process-env, no-inline-styles, no-raw-hooks, no-temporal-polyfill-import, primitives-discipline, raw-classname, raw-interactive-elements, restricted-symbols, test-es-fixtures, test-title and unsafe-json-parse are deleted together with their baselines. Their checks run as Biome builtins or GritQL plugins from `packages/framework/presets/biome-plugins/*.grit`. New checks cover createTestDispatcher, barrel imports from the same folder, external font CDNs (also in CSS), skipped or retried tests and CSSProperties types. The guards silent-skip, thin-wrappers and check-predicates are removed without replacement (the `// @wrapper-known` and silent-skip markers are dead and can be deleted). `kumiko check` gains a `lint` step (`biome lint` in the app repo) and an `agent` step (kumiko agent lint) for apps with a kumiko.config.ts.
+
+**Migration:** Extend the preset in your `biome.json`, replacing your own linter rules for these checks - `"extends": ["@cosmicdrift/kumiko-framework/biome-rules"]` (apps that already extend `biome-app` get it through that preset). Delete `.kumiko-direct-fs-baseline.json`, `.kumiko-test-title-baseline.json`, `.kumiko-no-custom-primitives-baseline.json` and `.kumiko-test-timeouts-baseline.json`. `bun kumiko-upgrade --apply` runs the codemod lint-ignore-to-biome, which turns `kumiko-lint-ignore <slug> <reason>` markers of the deleted guards into `biome-ignore lint/plugin: <reason>` (`lint/style/noInlineStyles` for no-inline-styles), keeps the comment form and the reason, and lists markers without a reason of at least three words. Biome applies a suppression only to the next line or node, so a marker that sat several lines above its hit moves by hand (CSS - `biome-ignore lint/plugin: <reason>` inside a comment). Remove deleted guard names from your `kumiko.json` and security baseline. Enterprise and platform extend the same preset.
+
+### @cosmicdrift/kumiko-renderer
+
+**cardRenderer removed from entityList and projectionList**
+
+`cardRenderer` was declared and passed through but never rendered; the narrow layout always drew the default card from the column roles. The field is gone from `EntityListScreenDefinition` and `ProjectionListScreenDefinition`.
+
+**Migration:** Remove the field; cards follow the column roles `highlighted`, `hideOnNarrow` and `hint`.
+
+**DashboardTextPanel: blocks optional, text and items accept i18n objects**
+
+**Migration:** Consumers that read panel.blocks or block.text as plain strings: use blocks ?? [] and check typeof text === 'string' (DashboardText is string | i18n object).
+
+### @cosmicdrift/kumiko-testing
+
+**Test-stack cleanup removes only its own queues; one sweep per integration run**
+
+`stack.cleanup()` scanned the whole Redis for its namespace and queue keys, so every teardown got slower as the local Redis filled up. It now obliterates the stack's two job queues by name (new `obliterateJobQueues` in `@cosmicdrift/kumiko-framework/jobs`) and leaves the namespace to the run sweep. The integration runner gives every run an id, keeps it alive in Redis, puts it into Redis prefixes and database names, and after the run removes its own keys and databases plus those of runs whose alive key has expired. Databases still in use and keys of live runs (including a single `bun test` outside the runner) are kept.
+
+**Migration:** Rename imports of `runWithTestDbTemplates` from `@cosmicdrift/kumiko-testing/integration-runner` to `runWithTestRun`. A test that builds its own JobRunner (`jobs.queueNamePrefix` on setupTestStack, `createJobRunner`) should take its prefix from `testRunQueueNamePrefix("<label>")` in `@cosmicdrift/kumiko-testing/stack`; the run sweep then removes its BullMQ keys, which a hand-made prefix such as `my-test-${Date.now()}` leaves behind. `stack.cleanup()` no longer flushes the Redis namespace; call `flushNamespace()` between tests where a test needs an empty namespace.
+
+### billing-foundation
+
+**Billing webhooks are accepted only for checkouts the server opened**
+
+A tenant member could replay the tenant binding of their own checkout and open checkouts of their own at the provider, which skipped the consent step, the oneOffPriceIds allowlist, the role checks and billingLive. `createCheckoutSession` of a provider plugin now returns `{ url, providerCheckoutId }`, the new SystemAdmin handler `billing-foundation:write:record-checkout-opened` records that id in a checkout ledger on the tenant's subscription or payment stream, and `process-event` and `process-payment-event` ignore (HTTP 200 with `ignored: true`) any event whose checkout is not in the ledger or whose price does not match the ledgered price. A created subscription needs a ledgered checkout for its tier; later events of that subscription are admitted by the subscription itself. The consent of a plan switch comes from the newest unconsumed recorded checkout consent instead of a `consentId` in the provider payload, so `SubscriptionEvent.consentId` and the `consentId` in provider metadata are gone and `SubscriptionEvent` and `PaymentEvent` may carry `providerCheckoutId`. A non-created subscription event for a tenant without any subscription answers a retryable 503 (`subscription_event_redeliver`) instead of 200, so an `updated` that beats its `created` is redelivered by the provider; an event of another subscription than the held one stays a 200 ignore. `SubscriptionProviderPlugin` gains the optional `shouldRedeliverIgnoredEvent`, asked when an event is ignored as `checkout_not_in_ledger`; true makes the route answer 503.
+
+**Migration:** Custom subscription provider plugins: return `{ url, providerCheckoutId }` from `createCheckoutSession`, put the id of the provider checkout (Stripe session, Mollie first payment, Paddle transaction) on `SubscriptionEvent.providerCheckoutId` and `PaymentEvent.providerCheckoutId` for the created and payment events, and stop reading or writing a `consentId` in provider metadata or webhook payloads. Checkouts opened before the upgrade have no ledger entry: Paddle ones are taken over by the new job (see subscription-paddle), Stripe and Mollie ones are ignored by the webhook, so let open sessions finish or expire before upgrading.
+
+### file-provider-s3
+
+**S3 endpoint rule from the booted env**
+
+The https-only rule for remote S3 endpoints in production is no longer a field refinement that read the global process.env. isAcceptableS3Endpoint(value, isProduction) is applied against the env being booted: the endpoint variables carry it as an env rule (parseEnv and the boot dry run check it with the booted env record), runProdApp's fileStorage resolution applies it, and parseS3EnvConfig and createS3ProviderFromEnv take an optional env record (default process.env) and refuse a remote http endpoint when it says NODE_ENV=production. s3EndpointSchema now only validates the URL shape. createS3ProviderFromEnv reports a missing variable through requiredEnvFor (message "[S3 file provider] required env var X is missing or empty" instead of "missing_env: ...").
+
+**Migration:** Tests that matched the old "missing_env:" message match the requiredEnvFor message; code that parsed s3EndpointSchema alone to enforce the production https rule uses isAcceptableS3Endpoint(value, isProduction) or the env rule through parseEnv.
+
+### files
+
+**Anonymous file uploads need the claim handle to be bound**
+
+All anonymous visitors share one session user id, so "uploaded by me" proved nothing and any visitor could attach another visitor's pending upload to a record, or read and delete it. An anonymous `POST /files` now returns `handle` (`<fileRefId>.<claim>`, claim is 32 random bytes in base64url) next to `id`; only the sha256 of the claim is stored in the new nullable `file_refs.claim_hash` column. File and image fields accept a UUID or a handle, the executor resolves handles on create and update with a constant-time claim check (also for system users) and persists only the bare UUID. The save pipeline now rejects with `invalid_element` every pending file ref that the writer neither uploaded as a non-anonymous user nor proved by claim. Anonymous `GET /files/:id`, the meta routes and `DELETE` answer 404 before any app access guard runs. `SaveContext` gains the optional `claimedFileRefIds`; the renderer upload widget lifts the handle instead of the id when the server returns one.
+
+**Migration:** Clients that upload anonymously must submit `handle` from the POST response (not `id`) in the file or image field; a `writeAs` that passes a bare id of an anonymous upload now fails with `invalid_element`. Anonymous uploads from before the upgrade have no claim, can no longer be bound and are removed by the existing sweep of unbound uploads. Anonymous GET, meta and DELETE of files are blocked. Apply the generated migration that adds `file_refs.claim_hash`.
+
+### framework-core
+
+**Biome preset biome-rules with GritQL plugins**
+
+`@cosmicdrift/kumiko-framework/biome-rules` bundles the linter rules and the GritQL plugins that replace the deleted guards, plus the new builtins noNestedComponentDefinitions, noMisusedPromises, useExhaustiveSwitchCases and noTsIgnore. `biome-app` now extends it. Suppress a plugin finding with `biome-ignore lint/plugin: <reason>`. `test-title` and the raw interactive element rule (`a`, `details`, `summary` in `raw-ui-in-app`) only warn, in the framework too, because the replaced guards only warned in repos without a baseline; every other plugin rule is an error. The screen container rule (`mx-auto` + `max-w-*`) is its own plugin `no-screen-container-classes` and does not apply under `public/`. `biome lint` takes about 3.2x as long with the plugins (every regex sits behind a cheap prefilter). The server-side plugins also scan `bin/` and `scripts/`. noImportCycles stays off (253 findings in the framework repo). noRestrictedImports flags type imports of temporal-polyfill too (the old guard allowed them); use `@cosmicdrift/kumiko-types/temporal`. The scaffold main.ts starts with `biome-ignore-all lint/style/noProcessEnv`, since it wires KMS from the environment before runProdApp parses the env contract.
+
+**Migration:** Apps on `biome-app` get the preset automatically; fix new findings or suppress them with a reason. Repos with their own biome.json add `"extends": ["@cosmicdrift/kumiko-framework/biome-rules"]`.
+
+**Review fixes in document-ingest, documents, feature-toggles, auth-mfa and auth-email-password**
+
+appendMissingDocumentExtractEvent returns already-terminal when a concurrent catch-up run wins the append and treats any non-null meta.error as a failure. The documents feature builds hook targets, live entities and the link-list and delete-handler names from its entity constants. createRedisToggleSyncSignal takes the channel prefix and subscribe pattern as one RedisNamespace-shaped argument so they cannot diverge. A test ties TENANT_KEEP_ACCOUNT_ROLES to the account-close roles. Static invite accept returns an unexpected-response failure unless the server answered with an MFA gate. The MFA verify screen reuses MfaCodeOrRecoveryField, trims pasted recovery codes and the preauth setup screen focuses the code field once the recovery codes are acknowledged. Both forgot-password and signup screens share resolveReturnTo. Price env validation uses startsWith instead of an unescaped regex. AppendMissingExtractEventDeps drops the redundant tenantId and relies on tenantDb.tenantId. The framework exports MAX_RETURN_PATH_LENGTH from utils as the single source for the returnTo limit, used by the auth routes and re-exported by the auth-email-password return-path module. Deleting a since-undeclared secret key under a mounted feature prefix works for SystemAdmin and stays unknown-key for tenant admins.
+
+**Migration:** Callers of `createRedisToggleSyncSignal` that passed the channel prefix and subscribe pattern as third and fourth argument pass `{ channelPrefix, channelSubscribePattern }` as third argument instead. Callers of `appendMissingDocumentExtractEvent` stop passing `tenantId` in the deps.
+
+**Remove dead allowPerRequest config key option**
+
+Since resolveConfigOrParam is gone nothing reads `allowPerRequest`, yet the type, the create*Config options and three boot rules (config-key/per-request-text, config-key/per-request-encrypted, config-key/options-query-per-request) still guarded it, suggesting per-request overrides that never happen. The option and the rules are removed; passing `allowPerRequest` is now a type error.
+
+**Migration:** Remove `allowPerRequest` from config key definitions (create*Config options); it had no runtime effect.
+
+**anonymous uploads are capped, rate limited and answer sign_in_required**
+
+An anonymous POST /files is limited to the largest opted-in `anonymousUpload` field (not the largest field of the app) and to 20 uploads per minute and client IP (bucket `files-upload-anon:<ip>`, 429 with Retry-After). A visitor who never had a session now gets 401 with code `sign_in_required`; `unauthenticated` (which shows the "session ended" banner) is kept for a visitor whose session cookie went stale. `FileRoutesOptions.metaBatchRateLimitResolver` is renamed to `rateLimitResolver` and gains a sibling `clientIpResolver`. `withUploadLedger` returns a new resolver instead of mutating the one passed in. The stale pending-upload sweep only reads uploads that name a target field. `rebindFileRef` answers "not-found" (instead of "moved" or "rebound", or an AccessDeniedError) for a file the caller may not read. `ctx.events.load` accepts `includeArchived`, which the documents import uses to recognise an archived document stream.
+
+**Migration:** Apps calling createFileRoutes themselves rename `metaBatchRateLimitResolver` to `rateLimitResolver` and pass `clientIpResolver`. Clients that matched a 401 `unauthenticated` from anonymous uploads treat `sign_in_required` as a plain upload error. Callers of rebindFileRef that expected AccessDeniedError for an unreadable file handle "not-found".
+
+**Db and types review fixes**
+
+Eagerload of a reference to an entity with row-level read rules runs one SELECT with the access clause instead of a probe query followed by a lookup, so unreadable rows are never loaded. The rebuild guard now also compares the USING and WITH CHECK expressions of kumiko_tenant_isolation with the framework policy (deparsed the same way on a throwaway table) and refuses the rebuild when they differ. Statements on an enforced transaction handle send set_config and the statement back to back instead of waiting for the scope first. The search reindex fingerprint hashes the source of each search payload extension instead of only counting them, so changed extension code reindexes. physicalColumnName takes a SchemaTable (new guard isSchemaTable exported from the db barrel); the inbound-mail ownership rule narrows its context table with it. SensitiveFilterConfig loses redactedHeaders and redactedQueryParams, which nothing read. A group header text that still contains the removed {lastDate} placeholder renders without it and warns once per key. Eagerload of a reference to an entity with row-level read rules now runs the rows through the normal row coercion (camelCase keys, no blind-index columns) before decrypting. A plain statement issued inside a running unit queues behind sibling units pending in that unit's chain instead of landing in the open savepoint. The PII backfill treats a newer event that sets a field to null as a newer value, so the older owner's ciphertext is no longer re-keyed onto the new owner. `reindexEntity` takes `onlyEntityId` to reindex a single row. `isUnchangedValue` (key-order-stable comparison) is exported from the engine barrel. `seedRow` and `seedRows` now also refuse an event-sourced entity when handed its table meta instead of the table. POST /files answers an anonymous caller with 401, not 413, when no field allows anonymous upload.
+
+**Migration:** Remove redactedHeaders and redactedQueryParams from any sensitiveFilter option and from DEFAULT_SENSITIVE_CONFIG overrides. Pass a SchemaTable (or narrow with isSchemaTable) to physicalColumnName instead of an unknown value. Replace {lastDate} in table.grouping label texts with a max measure in table.totals.
+
+**access.authenticated is renamed to access.builtinUserRoles**
+
+The preset only lists the built-in roles User, Admin and SystemAdmin, so a member who holds only an app-defined role was refused although signed in. The new name says what it covers; for "any signed-in user" use `anySignedIn: true` or `openToAll`.
+
+**Migration:** Replace `access.authenticated` by `access.builtinUserRoles`; where every signed-in user must pass, use `anySignedIn: true` instead.
+
+**pool statements without a tenant scope run in an empty scope; seedRow refuses event-sourced entity tables; read_ tables are not writable from plain runners**
+
+On an RLS-enforced pool every statement now runs in a short scoped transaction, also when no scope is active (empty GUCs, so RLS policies match nothing); before, a scope-free statement went straight to the connection and could meet a connection polluted by an earlier scope. Non-transactional DDL (CREATE INDEX CONCURRENTLY, CREATE/DROP DATABASE) and session-level statements must be wrapped in `outsideRowLevelSecurityScope`. `table("read_...")` from the db dialect now returns a plain `SchemaTable` without the `Writable` brand, so writing a projection table through a plain runner is a compile error; projection applies and `withExecutorManagedWrites` runners are unaffected. The testing helpers `seedRow` and `seedRows` throw for tables built by `buildEntityTable` or `r.entity`, because the projection row would exist without its event.
+
+**Migration:** Wrap non-transactional DDL and session-state statements on a pool in `outsideRowLevelSecurityScope(() => ...)`. Replace `seedRow(db, entityTable, ...)` by `seedRowViaEventStore`, or pass `{ projectionOnly: "<reason>" }` as fourth argument for a deliberate event-less row. For a `read_*` table written outside a projection, wrap the runner in `withExecutorManagedWrites`.
+
+**Boot fails when the booted features declare tables the generated schema lacks**
+
+`detectKumikoDrift` / `assertKumikoSchemaCurrent` take the booted features and check, once a `.snapshot.json` exists, that every table from `collectTableMetas` of those features is in it. The schema tooling (`kumiko-schema.ts`) and the boot decide `includeBundled` separately, so a differing `kumiko.config.ts` previously left tables out of the generated schema without a message. The report has the new part `tablesMissingFromSnapshot`; `runProdApp` and the worker boot pass their features. A booted table that is not in the snapshot is drift, there is no exception list.
+
+**Migration:** Run `kumiko schema generate` (check `includeBundled` and the feature list in `kumiko.config.ts` against what the app boots) and ship the migration. Code that builds a `KumikoDriftReport` by hand needs the new field `tablesMissingFromSnapshot`.
+
+**system tenant read policy only on tables marked systemRowsReadable**
+
+Since 0.390.0 users, MFA, API tokens, sessions and tenant secrets live on the system tenant, and `kumiko_system_tenant_read` (tenant_id = system tenant) sat on every table with a tenant_id column, so a tenant session could read them past a missing TenantDb filter. The policy is now a positive classification: `systemRowsReadable: true` on an entity (or `defineUnmanagedTable` input) renders it, entities targeted by `r.referenceData` are classified implicitly, and every other table gets only `kumiko_tenant_isolation`. Marked in the bundled features: `read_config_values`, `read_template_resources`, `read_custom_field_definitions`, `read_pages` (app-wide public pages on the system tenant). Paths that read system rows of an unmarked table use a narrow read path instead of the system scope: the new `systemTenantReadDb(db)` (internal/row-level-security) is a read-only TenantDb on the system tenant, so RLS passes exactly its rows and no other tenant's. `secrets:list` with scope system, `readFileRefContent` (system template files) and the SystemAdmin read of system files in the file routes use it; `secrets.get/has` read platform-wide secrets in the system tenant's own scope. `ctx.dispatch.queryAsMember` reads the stored user profile under the system scope, the reference check of eager-loading runs on the referenced table's scope, and the event-store executor runs its raw reads and writes on a `tenancy: "global"` table in the system scope, like the TenantDb's own statements on it. The boot check expects exactly the classified set and reports a system read policy on an unmarked table; `unsafePushTables` and `kumiko-schema apply` drop it from the framework tables (`kumiko_events`, `kumiko_snapshots`, `kumiko_archived_streams`). `KnownTables` has a new required member `readsSystemRows`.
+
+**Migration:** Apps: bump, then run `bun kumiko-schema generate` and commit the new RLS migration; it drops `kumiko_system_tenant_read` on every table without the marker (credential and PII tables included). Set `systemRowsReadable: true` on an own entity only if tenant sessions read its SYSTEM_TENANT_ID rows (shared templates, defaults, catalogs); a table without it returns no system rows to a tenant session. Code that must read system rows of an unmarked table (credentials, PII) wraps its db in `systemTenantReadDb`. Hand-built `KnownTables` objects passed to the boot check need `readsSystemRows`.
+
+### helpdesk
+
+**Helpdesk reply error passthrough, paged user-data lookups**
+
+helpdesk reply returns the file takeover failure as is (file_rejected) instead of mapping everything to helpdesk_attachment_not_found, which is removed from HelpdeskErrors; user-data forget and export page through all requests and replies, the reply detail lists all replies; the exported SYSTEM_ADMIN_ROLE constant is removed and SystemAdmin checks use ROLES.SystemAdmin.
+
+**Migration:** Replace imports of SYSTEM_ADMIN_ROLE by ROLES.SystemAdmin; clients matching the helpdesk reply error helpdesk_attachment_not_found match file_rejected instead.
+
+### inbound-provider-imap
+
+**A personal password mailbox only connects the caller's own account address**
+
+`connect-my-mailbox` reads the email of the session user server-side and compares it case-insensitively with the submitted address before any login attempt. A different address is refused with `personal_address_not_own` (i18n `inboundMail.accounts.errors.personalAddressNotOwn`); nothing is created and the mail server is not contacted. The OAuth path needs no extra rule, its callback already binds the mailbox to the provider-authenticated account. The IMAP feature now reads the user through the user feature, which a stack must mount.
+
+**Migration:** Members who connected a personal mailbox with an address other than their account email must have an admin connect it as a shared mailbox instead. Stacks that mount `inbound-provider-imap` need the user feature.
+
+### readiness
+
+**includePaid from a non-SystemAdmin is rejected**
+
+`readiness:write:run-probes` ignored the role of the caller for `includePaid`, so any TenantAdmin could trigger paid probes. A TenantAdmin that sends `includePaid: true` now gets `access_denied` and no run is started. `readiness:query:latest-summary` reports `hasPaidProbes` as false for everyone but a SystemAdmin, so the paid action on the system check screen is only offered to a SystemAdmin.
+
+**Migration:** Send `includePaid: true` only from a SystemAdmin session. Apps with their own button for the paid run must show it to a SystemAdmin only; a TenantAdmin request with `includePaid` now fails instead of running the free probes.
+
+### secrets
+
+**SystemAdmin checks use ROLES.SystemAdmin**
+
+The exported SYSTEM_ADMIN_ROLE constant of secrets is removed; SystemAdmin checks use ROLES.SystemAdmin.
+
+**Migration:** Replace imports of SYSTEM_ADMIN_ROLE from secrets by ROLES.SystemAdmin.
+
+### subscription-mollie
+
+**Mollie first payments are matched by payment id, consentId metadata is gone**
+
+`createCheckoutSession` returns the first payment's id as `providerCheckoutId`; the created event of the subscription made from that mandate payment carries it. Payment and subscription metadata no longer hold a consentId.
+
+**Migration:** First payments created before the upgrade are not in the ledger and their webhook is ignored; let open mandate checkouts finish first.
+
+### subscription-paddle
+
+**Paddle checkouts are bound by the checkout ledger, the tenant binding key is gone**
+
+The HMAC `tenantBinding` in custom_data and the PADDLE_TENANT_BINDING_KEY / `tenant-binding-key` setting are removed; a webhook is accepted when its transaction id is in the checkout ledger. The new job `backfill-checkout-ledger` (cron every 5 minutes, no-op without an API key) lists open Paddle transactions created through the API, ledgers the ones that still carry a `tenantBinding`, keeps sweeping for one hour after its first completed sweep and then does nothing. The sweep also lists billed, paid and completed transactions of the last 7 days, and while the takeover window is open (no completed sweep yet, or one younger than an hour) a webhook of a legacy checkout (custom_data still has `tenantBinding`) that is not in the ledger yet answers 503, so Paddle redelivers it after the sweep ledgered the checkout.
+
+**Migration:** Remove PADDLE_TENANT_BINDING_KEY from the environment and the `subscription-paddle:config:tenant-binding-key` value from the secrets; nothing reads them any more. Checkouts that customers opened before the upgrade are taken over by the `backfill-checkout-ledger` job within about five minutes, so no manual step is needed. The job needs a worker that runs the system-identity jobs.
+
+### subscription-stripe
+
+**Stripe checkouts are matched by session id, consentId metadata is gone**
+
+`createCheckoutSession` returns the Checkout Session id as `providerCheckoutId`, and `customer.subscription.created` looks up the session of the subscription (`checkout.sessions.list`) to carry that id; if the Stripe API call fails, the webhook replies 503 so Stripe retries; a successful empty list yields a created event without checkout id that is ignored as not in the ledger. Session metadata carries only the tenantId. The new option `clientConfig` passes Stripe SDK client settings, for tests against a local fixture API.
+
+**Migration:** Open Checkout Sessions from before the upgrade are not in the ledger and their `customer.subscription.created` and payment events are ignored; let them expire or finish first. The API key of the Stripe plugin needs read access to Checkout Sessions.
 
 ## 0.413.0
 

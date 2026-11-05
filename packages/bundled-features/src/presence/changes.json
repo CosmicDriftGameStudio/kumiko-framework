@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Batched presence lookups, safe expiry",
+    "detail": "presence list resolves display names and parent visibility in batches (PresenceStore gains listMany) and drops expired fields only if unchanged since read (Lua compare-and-delete)."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "New bundled feature presence: who else is on this record right now",

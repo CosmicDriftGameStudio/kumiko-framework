@@ -1,5 +1,62 @@
 [
   {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "seedRowsViaEventStore seeds several rows through the event store",
+    "detail": "`@cosmicdrift/kumiko-testing/helpers` exports `seedRowsViaEventStore(db, table, rows)`, the event store counterpart of `seedRows`. Each row becomes its own event stream."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "stricter and clearer test helpers",
+    "detail": "`loginViaUi` throws with the MFA verify status and body, or names the missing post-login redirect. `defineAppE2eConfig` merges the default ignores into app projects that set `testIgnore` even without `isolatedSpecs`. `seedRowViaEventStore` throws for system columns such as `isDeleted`; use `deleteRowViaEventStore` or the real command. The unused `end` member of `RawDbClient` is gone.",
+    "migration": "Replace seeds with system columns by the real event, for example `softDeleteUserViaEventStore` instead of `isDeleted: true`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "setupTestStack cleans up when a factory throws",
+    "detail": "The cleanup region of `setupTestStack` starts right after the storage is provisioned, so a throwing `extraContext` factory, `runLogger` factory or job runner creation no longer leaves the test database, Redis namespace and cache-sync connection open. The cleanup only closes what already exists."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "test stack setup split, drain-jobs regression bound to the batch size",
+    "detail": "The test stack setup moved from one 694-line file into test-stack-storage.ts, test-stack-services.ts and test-stack-server.ts without behaviour change. The drain-jobs row-level-security regression derives its backlog from `DEFAULT_EVENT_DISPATCHER_BATCH_SIZE` (newly exported from `@cosmicdrift/kumiko-framework/pipeline`) instead of a fixed 450, so it keeps covering \"more than two batches\" when the batch size changes. The seeded-tenant fixture documents that the per-test client IP header forces a CORS preflight on cross-origin requests. The use-all-bundled admin session file is cleared by a Playwright globalSetup, so a reused runner pid never serves expired cookies."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "api example recordings redact tokens, api keys and JWTs",
+    "detail": "The recording normalizer only masked values under keys matching `password|secret|mfaCode`, so an `accessToken`, `refreshToken`, `apiKey` or `authorization` value was committed and published verbatim. The key rule is now `password|secret|mfa|token|apikey|api_key|authorization|credential` (string values only; numeric fields such as `tokenCount` are untouched) and any JWT-shaped string in a value is replaced by a fixed placeholder. A recorded `token` field is now `REDACTED` instead of the `kpat_EXAMPLE` placeholder. The committed samples/recipes recordings contain no matching keys and are unchanged."
+  },
+  {
+    "version": "0.414.0",
+    "type": "improvement",
+    "title": "e2e fixture client ip header also overrides a per-fetch x-forwarded-for",
+    "detail": "The per-test client ip goes through `context.setExtraHTTPHeaders`, so an `x-forwarded-for` set in a single `fetch(..., { headers })` is replaced by it; only `page.setExtraHTTPHeaders` or a separate `browser.newContext()` with its own header changes the IP. This is now covered by `e2e/client-ip.spec.ts`.",
+    "migration": "Specs that simulate other client IPs per request (rate limit, audit IP, geo) must set the header with `page.setExtraHTTPHeaders` or on their own `browser.newContext()`; a per-fetch `x-forwarded-for` is overwritten. A cross-origin `fetch`/XHR from the page now carries `x-forwarded-for` and therefore forces a CORS preflight; route third-party endpoints that send no `Access-Control-Allow-Headers` through a same-origin proxy or mock them with `page.route`."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "event-store write helpers fail on ambiguous row filters",
+    "detail": "`updateRowViaEventStore` and `deleteRowViaEventStore` now throw when the filter matches more than one row instead of writing to whichever row came first. `updateInvitationViaEventStore` also filters on the inviting tenant, so the same email invited in two tenants no longer hits the wrong row."
+  },
+  {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Test stack attaches the job dispatcher before the runner starts",
+    "detail": "With jobs.consumerLane set, setupTestStack started the runner (worker plus runOnBoot enqueue) before attachDispatcher. Under load a boot job such as a perTenant sync reached ctx.dispatch.write in that window, failed, and drainJobs reported it later as a job failure in an unrelated test. The order now matches the prod entrypoint."
+  },
+  {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Test-stack cleanup removes only its own queues; one sweep per integration run",
+    "detail": "`stack.cleanup()` scanned the whole Redis for its namespace and queue keys, so every teardown got slower as the local Redis filled up. It now obliterates the stack's two job queues by name (new `obliterateJobQueues` in `@cosmicdrift/kumiko-framework/jobs`) and leaves the namespace to the run sweep. The integration runner gives every run an id, keeps it alive in Redis, puts it into Redis prefixes and database names, and after the run removes its own keys and databases plus those of runs whose alive key has expired. Databases still in use and keys of live runs (including a single `bun test` outside the runner) are kept.",
+    "migration": "Rename imports of `runWithTestDbTemplates` from `@cosmicdrift/kumiko-testing/integration-runner` to `runWithTestRun`. A test that builds its own JobRunner (`jobs.queueNamePrefix` on setupTestStack, `createJobRunner`) should take its prefix from `testRunQueueNamePrefix(\"<label>\")` in `@cosmicdrift/kumiko-testing/stack`; the run sweep then removes its BullMQ keys, which a hand-made prefix such as `my-test-${Date.now()}` leaves behind. `stack.cleanup()` no longer flushes the Redis namespace; call `flushNamespace()` between tests where a test needs an empty namespace."
+  },
+  {
     "version": "0.412.0",
     "type": "improvement",
     "title": "recordApiExample records real API responses for the generated docs",

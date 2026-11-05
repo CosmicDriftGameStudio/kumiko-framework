@@ -1,5 +1,96 @@
 # create-kumiko-app
 
+## 0.414.0
+
+### Patch Changes
+
+- d49f073: The dev server measures file changes against the filesystem clock, drops closed reload clients and kills the Tailwind watcher when boot fails; the feature-ast codemods report the forms they cannot rewrite and skip needless work.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: dev-server watcher, reload and boot cleanup; feature-ast codemod coverage
+  detail: The dev-server file watcher takes its restart baseline from a probe file's mtime instead of Date.now(), so coarse or skewed filesystem clocks no longer swallow real schema edits. A cancelled /_reload stream removes its own client from the hub. A failed createKumikoServer boot kills the Tailwind --watch child it already started. The feature-ast-package codemod reports `export *`, element-access and destructuring reads of the old engine namespace, and dynamic import or import-type of the old module as manual sites, and skips the source walk for packages that already declare feature-ast. The ctx-namespaces codemod reports a structural context type that other parameters, mocks or references also use instead of rewriting it half way, and caches the per-parameter analysis. collectSourceFiles keeps honouring .gitignore per file when a submodule path makes the batch `git check-ignore` fail. The probe file sits in the watched directory, and a failed dev-server boot after the stop function exists tears the server down through it.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [4e33f01]
+- Updated dependencies [6604fad]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [2ac9914]
+- Updated dependencies [b766f7b]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [ba9a383]
+- Updated dependencies [b1379a6]
+- Updated dependencies [ba9a383]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [25cc04c]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [298da75]
+- Updated dependencies [f504e08]
+- Updated dependencies [9708601]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [f1f22e1]
+- Updated dependencies [99bca8f]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [e663fd4]
+- Updated dependencies [dc3cde7]
+  - @cosmicdrift/kumiko-framework@0.414.0
+  - @cosmicdrift/kumiko-server-runtime@0.414.0
+  - @cosmicdrift/kumiko-dev-server@0.414.0
+  - @cosmicdrift/kumiko-testing@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

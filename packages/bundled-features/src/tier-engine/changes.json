@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Tier preload keeps a newer cache entry",
+    "detail": "The tier-engine preload no longer overwrites a newer cache entry."
+  },
+  {
     "version": "0.408.0",
     "type": "improvement",
     "title": "capsForTierFromMap",

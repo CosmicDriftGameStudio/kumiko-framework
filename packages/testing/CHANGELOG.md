@@ -1,5 +1,322 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.414.0
+
+### Minor Changes
+
+- f89bed5: Guards that only inspect one file move to Biome builtins and GritQL plugins behind one shared preset, `@cosmicdrift/kumiko-framework/biome-rules`.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Single-file guards are replaced by the Biome preset biome-rules
+  detail: The guards admin-api, direct-fetch, error-reasons, event-store-writes (es-literal-writes), i18n-locale-terminology, no-custom-primitives, no-date-api, no-direct-fs, no-direct-process-env, no-inline-styles, no-raw-hooks, no-temporal-polyfill-import, primitives-discipline, raw-classname, raw-interactive-elements, restricted-symbols, test-es-fixtures, test-title and unsafe-json-parse are deleted together with their baselines. Their checks run as Biome builtins or GritQL plugins from `packages/framework/presets/biome-plugins/*.grit`. New checks cover createTestDispatcher, barrel imports from the same folder, external font CDNs (also in CSS), skipped or retried tests and CSSProperties types. The guards silent-skip, thin-wrappers and check-predicates are removed without replacement (the `// @wrapper-known` and silent-skip markers are dead and can be deleted). `kumiko check` gains a `lint` step (`biome lint` in the app repo) and an `agent` step (kumiko agent lint) for apps with a kumiko.config.ts.
+  migration: Extend the preset in your `biome.json`, replacing your own linter rules for these checks - `"extends": ["@cosmicdrift/kumiko-framework/biome-rules"]` (apps that already extend `biome-app` get it through that preset). Delete `.kumiko-direct-fs-baseline.json`, `.kumiko-test-title-baseline.json`, `.kumiko-no-custom-primitives-baseline.json` and `.kumiko-test-timeouts-baseline.json`. `bun kumiko-upgrade --apply` runs the codemod lint-ignore-to-biome, which turns `kumiko-lint-ignore <slug> <reason>` markers of the deleted guards into `biome-ignore lint/plugin: <reason>` (`lint/style/noInlineStyles` for no-inline-styles), keeps the comment form and the reason, and lists markers without a reason of at least three words. Biome applies a suppression only to the next line or node, so a marker that sat several lines above its hit moves by hand (CSS - `biome-ignore lint/plugin: <reason>` inside a comment). Remove deleted guard names from your `kumiko.json` and security baseline. Enterprise and platform extend the same preset.
+  codemod: scripts/codemod/lint-ignore-to-biome.ts
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Biome preset biome-rules with GritQL plugins
+  detail: `@cosmicdrift/kumiko-framework/biome-rules` bundles the linter rules and the GritQL plugins that replace the deleted guards, plus the new builtins noNestedComponentDefinitions, noMisusedPromises, useExhaustiveSwitchCases and noTsIgnore. `biome-app` now extends it. Suppress a plugin finding with `biome-ignore lint/plugin: <reason>`. `test-title` and the raw interactive element rule (`a`, `details`, `summary` in `raw-ui-in-app`) only warn, in the framework too, because the replaced guards only warned in repos without a baseline; every other plugin rule is an error. The screen container rule (`mx-auto` + `max-w-*`) is its own plugin `no-screen-container-classes` and does not apply under `public/`. `biome lint` takes about 3.2x as long with the plugins (every regex sits behind a cheap prefilter). The server-side plugins also scan `bin/` and `scripts/`. noImportCycles stays off (253 findings in the framework repo). noRestrictedImports flags type imports of temporal-polyfill too (the old guard allowed them); use `@cosmicdrift/kumiko-types/temporal`. The scaffold main.ts starts with `biome-ignore-all lint/style/noProcessEnv`, since it wires KMS from the environment before runProdApp parses the env contract.
+  migration: Apps on `biome-app` get the preset automatically; fix new findings or suppress them with a reason. Repos with their own biome.json add `"extends": ["@cosmicdrift/kumiko-framework/biome-rules"]`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: seedRowsViaEventStore seeds several rows through the event store
+  detail: `@cosmicdrift/kumiko-testing/helpers` exports `seedRowsViaEventStore(db, table, rows)`, the event store counterpart of `seedRows`. Each row becomes its own event stream.
+  -->
+- e979518: Board gaps: toned rows as a left stripe, list sort options and a summary row, richer dashboard list and stat-group panels, stat tone stripes with sub lines, self-sizing hint columns, card buttons, detail progress beside the steps, and `setupTestStack({ now })`.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: board gaps in lists, dashboards and record details
+  detail: A toned row (`rowTone`, `rowToneField`) now draws a 3px stripe on the left instead of filling the row. `sortOptions: [{ field, dir, label }]` on projectionList and entityList adds a "Sorted by" select to the toolbar (and the card layout, replacing the per-column entries; i18n key `kumiko.list.sort.prefix`). `table.summaryRow: { query }` (projectionList and entityList) shows a line of "label value" pairs from that query under the rows; the query gets the list's filters and search. A hint column's `width` and `minWidth` apply without `table.resizing`. Below 768 px a rowAction with `display: "button"` renders as an outline button at the bottom right of the card. `DashboardListPanel` gets `subtitle`, `showTotal` ("n of m" from the query's `total`) and `footerLink: { label, screen, namedFilter?, params? }`; `DashboardStatGroupPanel` gets `layout: "cards" | "strip"` (a labelless group with `layout: "cards"` renders the cards grid without a heading) and `link: { label, screen }`. Visible changes: a dashboard StatCard with a `tone` colours its value and draws the same left stripe (warn uses the status-warn colour), a toned table row draws its stripe as an inset shadow that also holds on a pinned first column, and the detail progress cards and banner share the summary's px-6 inset. The summary row sits in the same tfoot as the totals. A card with a tone stripe gives up 3px of left padding. Also, `setupTestStack` returns the manual clock as `stack.clock`, and an invalid `now` string fails with a clear message. `metricsPlacement.narrow` moves only the metric tiles, in both the page header and the head card. A dashboard stat tile with a `tone` draws the same left stripe, and `MetricSpec.subField` shows a second line under a metric value. A dashboard stat's `navigate` may target a custom screen (no `namedFilter`). projectionDetail takes `metricsPlacement: { narrow: "after-guidance" }` (below md the metrics follow the summary and steps) and `progress.placement: "beside-steps"` (the chains become a stacked stage list in a 4/12 column next to the steps from lg); `StepBar` gets `orientation: "stacked"`. `setupTestStack({ now })` starts the stack with a manual clock at that instant (string or Temporal.Instant); `extraContext.clock` still wins. New boot rules `list/sort-options-invalid`, `list/sort-options-default-not-listed`, `list/sort-option-not-sortable`, `list/summary-row-shape`, `list/summary-row-query-unknown`, `list/summary-row-query-accepts-list-keys`, `dashboard/panel-link-target`, `dashboard/stat-navigate-custom-with-filter`, `list/summary-row-on-related-list`, `list/summary-row-with-totals` (a table keeps summaryRow or totals, not both), `projection-detail/progress-beside-steps-without-steps`; `list-table/column-width-without-resizing` no longer applies to hint columns; `query/output-field-missing` also checks `MetricSpec.subField`.
+  -->
+- dc3cde7: Test-stack cleanup removes only its own queues, and one sweep per integration run removes what finished or aborted runs left in Redis and Postgres.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: breaking
+  title: Test-stack cleanup removes only its own queues; one sweep per integration run
+  detail: `stack.cleanup()` scanned the whole Redis for its namespace and queue keys, so every teardown got slower as the local Redis filled up. It now obliterates the stack's two job queues by name (new `obliterateJobQueues` in `@cosmicdrift/kumiko-framework/jobs`) and leaves the namespace to the run sweep. The integration runner gives every run an id, keeps it alive in Redis, puts it into Redis prefixes and database names, and after the run removes its own keys and databases plus those of runs whose alive key has expired. Databases still in use and keys of live runs (including a single `bun test` outside the runner) are kept.
+  migration: |
+    Rename imports of `runWithTestDbTemplates` from `@cosmicdrift/kumiko-testing/integration-runner` to `runWithTestRun`. A test that builds its own JobRunner (`jobs.queueNamePrefix` on setupTestStack, `createJobRunner`) should take its prefix from `testRunQueueNamePrefix("<label>")` in `@cosmicdrift/kumiko-testing/stack`; the run sweep then removes its BullMQ keys, which a hand-made prefix such as `my-test-${Date.now()}` leaves behind. `stack.cleanup()` no longer flushes the Redis namespace; call `flushNamespace()` between tests where a test needs an empty namespace.
+  -->
+
+### Patch Changes
+
+- b1379a6: E2E helpers report the real cause of a failed MFA or login step, app projects with their own `testIgnore` keep the real and screenshot spec ignores, and `seedRowViaEventStore` rejects keys that are not entity fields.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: stricter and clearer test helpers
+  detail: `loginViaUi` throws with the MFA verify status and body, or names the missing post-login redirect. `defineAppE2eConfig` merges the default ignores into app projects that set `testIgnore` even without `isolatedSpecs`. `seedRowViaEventStore` throws for system columns such as `isDeleted`; use `deleteRowViaEventStore` or the real command. The unused `end` member of `RawDbClient` is gone.
+  migration: Replace seeds with system columns by the real event, for example `softDeleteUserViaEventStore` instead of `isDeleted: true`.
+  -->
+- ba9a383: `setupTestStack` cleans up the ephemeral database, Redis and cache-sync bus when an `extraContext` or job logger factory throws during setup.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: setupTestStack cleans up when a factory throws
+  detail: The cleanup region of `setupTestStack` starts right after the storage is provisioned, so a throwing `extraContext` factory, `runLogger` factory or job runner creation no longer leaves the test database, Redis namespace and cache-sync connection open. The cleanup only closes what already exists.
+  -->
+- f385601: Review round 2, engine misc: wire-name collisions are checked only for events released through PAT scopes, XLSX export is rate limited, isolated e2e specs keep their project's settings, the unsubscribe page shows the uploaded logo, mail and PDF templates reject relative links, api-docs reports missing title and field-label translations, and documents are created by admin roles only by default.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: review round 2 engine fixes (wire names, export rate limit, isolated e2e, mail logo, relative links, api-docs, documents)
+  detail: Two unreleased webhook events with the same default wire name no longer fail boot; `personal-access-tokens/released-wire-name-collision` rejects it only when both are released through PAT scopes. `createExportRoutes` takes an optional rate limit resolver (60 per minute per user). `isolatedSpecs` builds one serial twin per project with its own `use`, and rejects projects with their own `testMatch`. The unsubscribe page chrome inlines the uploaded branding logo as a raster data URI. Mail and PDF template bodies with a relative link are rejected on save (`relative_link_without_base`); snippets and managed pages keep them. api-docs reports `titleTranslationMissing` and `fieldLabelMissing` per non-en locale (field labels only when another locale has one). `documents:write:filed-document:create` defaults to the admin roles when no `access` option is given.
+  -->
+- 7e147b4: Review round 3 hardening for PII, RLS and write races: statements on an RLS-enforced pool always run inside a scope, `read_*` tables are no longer writable from plain runners, `seedRow` refuses event-sourced entity tables, and several smaller PII, rebuild and search gaps are closed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: pool statements without a tenant scope run in an empty scope; seedRow refuses event-sourced entity tables; read_ tables are not writable from plain runners
+  detail: On an RLS-enforced pool every statement now runs in a short scoped transaction, also when no scope is active (empty GUCs, so RLS policies match nothing); before, a scope-free statement went straight to the connection and could meet a connection polluted by an earlier scope. Non-transactional DDL (CREATE INDEX CONCURRENTLY, CREATE/DROP DATABASE) and session-level statements must be wrapped in `outsideRowLevelSecurityScope`. `table("read_...")` from the db dialect now returns a plain `SchemaTable` without the `Writable` brand, so writing a projection table through a plain runner is a compile error; projection applies and `withExecutorManagedWrites` runners are unaffected. The testing helpers `seedRow` and `seedRows` throw for tables built by `buildEntityTable` or `r.entity`, because the projection row would exist without its event.
+  migration: Wrap non-transactional DDL and session-state statements on a pool in `outsideRowLevelSecurityScope(() => ...)`. Replace `seedRow(db, entityTable, ...)` by `seedRowViaEventStore`, or pass `{ projectionOnly: "<reason>" }` as fourth argument for a deliberate event-less row. For a `read_*` table written outside a projection, wrap the runner in `withExecutorManagedWrites`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: PII backfill moves only the latest copy of a field to a changed owner; nested echoed events are stripped from write responses
+  detail: The backfill rekey stage no longer re-keys older, superseded copies of a user-keyed field to the new owner when a newer event already carries the field, so forgetting the previous owner still erases the old value. The dispatcher also strips the echoed `event` from executor results that a handler nests in its own response data, not only from the top-level result.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: plain statements wait for open savepoints; jsonb default changes rebuild the projection; trash list with search is rejected
+  detail: A statement issued through the query helpers on a transaction now queues behind pending savepoints instead of racing them and failing with an aborted transaction after a savepoint rollback. A changed jsonb column default on a managed projection table now writes a rebuild marker, so existing rows get the new empty value. A list with `onlyDeleted` and a search term returns a validation error, because soft-deleted rows are not in the search index and the list would always be empty.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: authoritative tenant resolver ignores a disagreeing kumiko_tenant cookie
+  detail: With `resolverTrust: "authoritative"`, only an `X-Tenant` header that disagrees with the resolver answers 400 tenant_mismatch. A `kumiko_tenant` cookie is ambient state, possibly apex-scoped and left over from another tenant's subdomain, so a disagreeing cookie is ignored and the resolver's tenant wins; before, such a visitor was locked out of every other tenant subdomain.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: managed check reports a bin entry that does not pass bundledLists
+  detail: When `kumiko.config.ts` sets `bundledLists`, every `runProdApp`, `runDevApp` and `runWorkerApp` call in `bin/*.ts` must pass `bundledLists` too; otherwise the managed-files check reports an error instead of the app drifting silently from its config.
+  -->
+- 1368a58: Test stack setup split into storage, services and server files; drain-jobs backlog test bound to the dispatcher batch size.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: test stack setup split, drain-jobs regression bound to the batch size
+  detail: The test stack setup moved from one 694-line file into test-stack-storage.ts, test-stack-services.ts and test-stack-server.ts without behaviour change. The drain-jobs row-level-security regression derives its backlog from `DEFAULT_EVENT_DISPATCHER_BATCH_SIZE` (newly exported from `@cosmicdrift/kumiko-framework/pipeline`) instead of a fixed 450, so it keeps covering "more than two batches" when the batch size changes. The seeded-tenant fixture documents that the per-test client IP header forces a CORS preflight on cross-origin requests. The use-all-bundled admin session file is cleared by a Playwright globalSetup, so a reused runner pid never serves expired cookies.
+  -->
+- 2fc3d53: Boot checks the generated schema against the booted features, the S3 endpoint rule travels with the shared schema, dropped-column migrations carry a not-empty guard, jobs read event streams through `ctx.events.load`, and the env helper `requiredEnvFor` replaces two private copies.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: requiredEnvFor takes an optional hint and replaces the test stack's copies
+  detail: `requiredEnvFor(label, env, hint?)` appends the hint to the missing-variable error. The test stack (`TEST_DATABASE_URL`, `REDIS_URL`) and the S3 integration test use it instead of private `requireEnv` copies and keep their `.env.example` / `docker compose up -d` advice. server-runtime's `requireEnv` stays: its advice depends on the boot context.
+  -->
+  
+  <!-- kumiko-changes
+  feature: file-provider-s3
+  type: fix
+  title: s3EndpointSchema carries the production https rule wherever it is reused
+  detail: The env rule lived only on the endpoint field inside `createS3EnvSchema`, so an app that built `s3EndpointSchema` into its own env schema silently lost the production check. The rule is now attached to `s3EndpointSchema` itself, env rules are found through `.optional()`, `.default()` and unions, and `s3EndpointEnvRule` is exported. With NODE_ENV=production a non-loopback `http://` endpoint is rejected by `parseEnv` and the composed boot env without app code; https and loopback http pass.
+  migration: Own copies of the rule (an `envRule` built on `isAcceptableS3Endpoint` next to `s3EndpointSchema`) can be removed.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot fails when the booted features declare tables the generated schema lacks
+  detail: `detectKumikoDrift` / `assertKumikoSchemaCurrent` take the booted features and check, once a `.snapshot.json` exists, that every table from `collectTableMetas` of those features is in it. The schema tooling (`kumiko-schema.ts`) and the boot decide `includeBundled` separately, so a differing `kumiko.config.ts` previously left tables out of the generated schema without a message. The report has the new part `tablesMissingFromSnapshot`; `runProdApp` and the worker boot pass their features. A booted table that is not in the snapshot is drift, there is no exception list.
+  migration: Run `kumiko schema generate` (check `includeBundled` and the feature list in `kumiko.config.ts` against what the app boots) and ship the migration. Code that builds a `KumikoDriftReport` by hand needs the new field `tablesMissingFromSnapshot`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Generated column drops come with a commented not-empty guard
+  detail: For a column that disappears from an in-place table, `schema generate` emits a commented `DO $$ ... RAISE EXCEPTION '<table>.<column> is not empty' ... $$;` line directly before the commented `DROP COLUMN`. Uncommenting both aborts the migration while the column still holds values and drops it once it is empty.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Jobs read event streams with ctx.events.load
+  detail: `JobContext.events` gains `load(aggregateId, options?)` with the handler semantics (`asOf`, `atVersion`, `includeArchived`): scoped to the tenant of the job, payloads pass the upcaster chain. It shares its implementation with the handler `ctx.events.load`. Jobs no longer need a raw `selectMany` on `eventsTable` to read a stream.
+  -->
+  
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Long external calls with writes belong in transaction perCommand
+  detail: A `perCommand` write handler holds no transaction or connection while an external call runs and keeps `ctx.db.outsideTransaction`, so metering and provenance bookings work there (covered by an integration test with the cap counter). The docs of `WriteHandlerTransactionMode` and `BeforeTransactionContext` say so; `beforeTransaction` keeps its read-only context.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: outsideRowLevelSecurityScope is exported from the db barrel
+  detail: `outsideRowLevelSecurityScope(fn)` runs non-transactional DDL (`CREATE INDEX CONCURRENTLY`) and session-level statements on a pool with row-level security enforced, where every statement otherwise runs in its own transaction. It sits next to `assertNoActiveRowLevelSecurityScope` in `@cosmicdrift/kumiko-framework/db`, so the migration advice from the R3 note can be followed without a deep import.
+  -->
+- f1f22e1: API example recordings now redact more credential-like keys (`token`, `apiKey`, `authorization`, `credential`, `mfa`) and replace JWT-shaped strings.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: api example recordings redact tokens, api keys and JWTs
+  detail: The recording normalizer only masked values under keys matching `password|secret|mfaCode`, so an `accessToken`, `refreshToken`, `apiKey` or `authorization` value was committed and published verbatim. The key rule is now `password|secret|mfa|token|apikey|api_key|authorization|credential` (string values only; numeric fields such as `tokenCount` are untouched) and any JWT-shaped string in a value is replaced by a fixed placeholder. A recorded `token` field is now `REDACTED` instead of the `kpat_EXAMPLE` placeholder. The committed samples/recipes recordings contain no matching keys and are unchanged.
+  -->
+- 99bca8f: The server bundle lists `meilisearch` as a runtime dependency when only a subpath such as `meilisearch/token` is imported, the ctx-namespaces codemod respects job contexts in structural context types, the type-aware codemod project passes redirect references and module mode to module resolution, and a job that uses the whole shutdown budget no longer starves the shutdown steps after it.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: subpath imports of an optional runtime external count as an import
+  detail: The server bundle only detected `import "meilisearch"`, so an app that imported just `meilisearch/token` and did not list `meilisearch` in its dependencies shipped a `dist-server/package.json` without it and crashed in production with `Cannot find package 'meilisearch'`. Subpath imports are detected now.
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: fix
+  title: ctx-namespaces codemod reads the context kind a structural parameter receives
+  detail: A structural context type that only a job context reaches kept being rewritten with the handler namespaces, for example `tracer` into `obs.tracer`, which `JobContext` does not carry. The codemod now collects the context kinds that reach the parameter: members that move the same way for all kinds are rewritten, members that move for one kind only are reported as manual. The type-aware project also forwards the redirected project reference and the module mode of the importing file to module resolution.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: job drain leaves a tail reserve of the shutdown budget
+  detail: The SIGTERM timer and the job drain in `stop()` used the same budget, so a job that ran the whole time ended the process with exit code 1 before the HTTP shutdown, the escape-hatch audit flush and the connection close ran. The job drain now gets the budget minus a 5 s reserve (at least 1 s). `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` is the budget for both.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: e2e fixture client ip header also overrides a per-fetch x-forwarded-for
+  detail: The per-test client ip goes through `context.setExtraHTTPHeaders`, so an `x-forwarded-for` set in a single `fetch(..., { headers })` is replaced by it; only `page.setExtraHTTPHeaders` or a separate `browser.newContext()` with its own header changes the IP. This is now covered by `e2e/client-ip.spec.ts`.
+  migration: Specs that simulate other client IPs per request (rate limit, audit IP, geo) must set the header with `page.setExtraHTTPHeaders` or on their own `browser.newContext()`; a per-fetch `x-forwarded-for` is overwritten. A cross-origin `fetch`/XHR from the page now carries `x-forwarded-for` and therefore forces a CORS preflight; route third-party endpoints that send no `Access-Control-Allow-Headers` through a same-origin proxy or mock them with `page.route`.
+  -->
+- 9bff1f2: Event-store test helpers reject ambiguous filters, the guard slot directory self-heals, the unsafe-array guard stops flagging spreads, the agent API docs include `typeof` constants, and the dev server boots with `KUMIKO_REDIS_PREFIX` set.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: event-store write helpers fail on ambiguous row filters
+  detail: `updateRowViaEventStore` and `deleteRowViaEventStore` now throw when the filter matches more than one row instead of writing to whichever row came first. `updateInvitationViaEventStore` also filters on the inviting tenant, so the same email invited in two tenants no longer hits the wrong row.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: guard slot directory from older versions is tightened, spreads no longer flagged
+  detail: A slots directory created with mode 0755 by an earlier version made the slot check fail open on every run. A directory owned by the current user is now chmod-ed to 0700 and used; foreign owners and symlinks are still rejected. `guard-unsafe-array-param` no longer warns on spreads in the parameter list, since they bind as scalars. The generated API reference now lists unexported constants that exported types reach through `typeof`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: dev server boots when KUMIKO_REDIS_PREFIX is set
+  detail: The SSE channel prefix defaulted to a per-boot value that differs from `KUMIKO_REDIS_PREFIX`, which `redisNamespaceFromEnv` rejects. The prefix now falls back to `KUMIKO_REDIS_PREFIX` before the per-boot default.
+  -->
+- e663fd4: setupTestStack attaches the job dispatcher before it starts the job runner, as the prod entrypoints do. A runOnBoot job that calls `ctx.dispatch.write` no longer fails with "called before dispatcher attached" when the worker picks it up during setup.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Test stack attaches the job dispatcher before the runner starts
+  detail: With jobs.consumerLane set, setupTestStack started the runner (worker plus runOnBoot enqueue) before attachDispatcher. Under load a boot job such as a perTenant sync reached ctx.dispatch.write in that window, failed, and drainJobs reported it later as a job failure in an unrelated test. The order now matches the prod entrypoint.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3474b9]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [b766f7b]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [b1379a6]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [25cc04c]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [5d2a2d3]
+- Updated dependencies [2458419]
+- Updated dependencies [298da75]
+- Updated dependencies [f504e08]
+- Updated dependencies [a24a7e3]
+- Updated dependencies [9708601]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [bcfcdd6]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [dc3cde7]
+  - @cosmicdrift/kumiko-framework@0.414.0
+  - @cosmicdrift/kumiko-types@0.414.0
+  - @cosmicdrift/kumiko-guards@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

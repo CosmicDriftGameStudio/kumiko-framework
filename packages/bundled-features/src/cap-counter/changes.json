@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Canonical stock-cap lock keys",
+    "detail": "The stock-cap lock key sorts where-keys at every depth and serializes Temporal and Date values by their string form, so handlers counting the same rows share one lock."
+  },
+  {
     "version": "0.389.0",
     "type": "fix",
     "title": "Settle and consume racing on a swept reservation book their units",

@@ -1,5 +1,309 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.414.0
+
+### Patch Changes
+
+- 6604fad: Scaffold and typecheck use `bun check` (requires Bun 1.4.4 or newer).
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Scaffolded apps typecheck with bun check
+  detail: The typecheck script of newly scaffolded apps and of the framework workspace now runs `bun check --no-script` instead of `tsc --noEmit`, which needs Bun 1.4.4 or newer. Existing apps keep their script until they change it.
+  -->
+- 3aef6a9: `screenShortId` is exported from the engine barrel, helpdesk tables get indexes, an agent tool call can read global entities, legacy contact data is exported, erased and expired from the event log, `providerTexts` take a per-provider refund link, and only a SystemAdmin can start or see paid system-check probes.
+  
+  <!-- kumiko-changes
+  feature: readiness
+  type: breaking
+  title: includePaid from a non-SystemAdmin is rejected
+  detail: `readiness:write:run-probes` ignored the role of the caller for `includePaid`, so any TenantAdmin could trigger paid probes. A TenantAdmin that sends `includePaid: true` now gets `access_denied` and no run is started. `readiness:query:latest-summary` reports `hasPaidProbes` as false for everyone but a SystemAdmin, so the paid action on the system check screen is only offered to a SystemAdmin.
+  migration: |
+    Send `includePaid: true` only from a SystemAdmin session. Apps with their own button for the paid run must show it to a SystemAdmin only; a TenantAdmin request with `includePaid` now fails instead of running the free probes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Agent tool calls can read global entities
+  detail: The generated list and detail query of a system-scoped feature that serves an entity with tenancy `global` (a catalog or lookup table) was refused inside an agent tool call with `agent.tool_not_allowed`. Such a read now runs with the caller's tenant scope; the system-scope default rate limit still applies. This only holds for the entity convention handlers without an `escapeHatch`; hand-written queries, queries with an `escapeHatch` (e.g. `systemIdentity`), other entities and every write handler are still refused for agents.
+  -->
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: fix
+  title: Legacy contact data is exported, erased and expired from the event log
+  detail: The user-data hooks for requests stored under the former contact names read the dropped `read_contact_requests` and `read_contact_replies` tables, so the export failed and the forget run reported an error on an app that never had those tables. They now fold the `contact-request` and `contact-reply` event streams instead: the export lists the requests of the user (by user id, or by verified email for anonymous ones) with their replies, the forget run purges attachments, erases the record keys and archives the streams. A new maintenance job `helpdesk:job:legacy-contact-retention` applies the retention period to old legacy requests and replies. Deleting a user also erases the notes written on their helpdesk requests and legacy requests.
+  -->
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: improvement
+  title: HELPDESK_REQUEST_ENTITY is exported from the helpdesk entry
+  detail: `HELPDESK_REQUEST_ENTITY` comes from `@cosmicdrift/kumiko-bundled-features/helpdesk` next to the other helpdesk constants.
+  -->
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: improvement
+  title: Indexes for helpdesk requests and replies
+  detail: All helpdesk rows live in the system tenant, so the tenant index selected nothing. `read_helpdesk_requests` gets indexes on (tenant_id, status) and (tenant_id, reporter_user_id), `read_helpdesk_replies` on (tenant_id, request_id).
+  migration: |
+    Run `bun kumiko-schema generate` in the app to pick up the new indexes.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: providerTexts take a refund link per provider
+  detail: `consumerProtection.providerTexts[provider].refundLink` (one link, or one per consent locale) replaces `legalLinks.refund` for that provider; a provider without it falls back to `legalLinks.refund`. It is validated like `legalLinks`, shown next to the other links while that provider is selected in the checkout dialog, and with `documentsAcknowledgement` it selects the text variant and the consent text version of that provider. `billing-plans` lists the override under `providers[].consumerProtection`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: The stripe boot option passes clientConfig
+  detail: `billing: { stripe: { clientConfig } }` is handed to the subscription-stripe feature, so an app can set the Stripe client configuration (API version, retries, host) from the boot options.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Deploy Dockerfile template no longer mentions migrate-step.sh
+  detail: The comment in `deploy/Dockerfile.template` named a compose-host migrate step that the scaffold does not generate. It now only names the migrate-db initContainer of the k3s deployment.
+  -->
+- 2ac9914: Web apps can be installed as a PWA and keep their shell offline through one `pwa` option on `runProdApp` and the dev server.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: pwa option: web manifest, own service worker, one-time install hint
+  detail: `runProdApp`, `runDevApp` and `createKumikoServer` take `pwa: { name, shortName, themeColor, backgroundColor, icons: [{ src, sizes, type?, purpose? }] }` (type `PwaOptions` from `@cosmicdrift/kumiko-server-runtime/pwa`); pass it to both servers. Icon `src` must be a same-origin path, otherwise the boot fails; in production `pwa` needs `staticDir`. The server answers `GET /manifest.webmanifest` (`application/manifest+json`) and a generated `GET /sw.js` (`no-cache`), both ahead of app routes and files, and adds manifest link, theme-color, Apple home-screen tags, apple-touch-icon and `<meta name="kumiko-pwa-sw">` to every HTML shell. The worker precaches `/`, manifest, icons and the build's bundles under a cache name derived from build id, bundles and options, serves `/assets/*` cache-first, other shell files network-first, navigations network-first with the cached shell only when offline, and never handles `/api/`, `/sse/`, `/auth/`, SSE, non-GET or cross-origin requests; activate drops older `kumiko-pwa-` caches. The web client registers the worker only when the meta is present and shows a dismissible one-time install hint (iOS: Share then Add to Home Screen; elsewhere the deferred `beforeinstallprompt`), never when running standalone. New i18n keys `kumiko.pwa.install-hint`, `kumiko.pwa.install-hint-ios`, `kumiko.pwa.install`, `kumiko.pwa.dismiss` in en, de, es, fr, it. Without `pwa` nothing changes and existing service workers stay registered. `/manifest.json` remains the build's asset map. Recipe: `samples/recipes/pwa-shell`.
+  -->
+- d49f073: The dev server measures file changes against the filesystem clock, drops closed reload clients and kills the Tailwind watcher when boot fails; the feature-ast codemods report the forms they cannot rewrite and skip needless work.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: dev-server watcher, reload and boot cleanup; feature-ast codemod coverage
+  detail: The dev-server file watcher takes its restart baseline from a probe file's mtime instead of Date.now(), so coarse or skewed filesystem clocks no longer swallow real schema edits. A cancelled /_reload stream removes its own client from the hub. A failed createKumikoServer boot kills the Tailwind --watch child it already started. The feature-ast-package codemod reports `export *`, element-access and destructuring reads of the old engine namespace, and dynamic import or import-type of the old module as manual sites, and skips the source walk for packages that already declare feature-ast. The ctx-namespaces codemod reports a structural context type that other parameters, mocks or references also use instead of rewriting it half way, and caches the per-parameter analysis. collectSourceFiles keeps honouring .gitignore per file when a submodule path makes the batch `git check-ignore` fail. The probe file sits in the watched directory, and a failed dev-server boot after the stop function exists tears the server down through it.
+  -->
+- 7e147b4: Review round 3 hardening for PII, RLS and write races: statements on an RLS-enforced pool always run inside a scope, `read_*` tables are no longer writable from plain runners, `seedRow` refuses event-sourced entity tables, and several smaller PII, rebuild and search gaps are closed.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: pool statements without a tenant scope run in an empty scope; seedRow refuses event-sourced entity tables; read_ tables are not writable from plain runners
+  detail: On an RLS-enforced pool every statement now runs in a short scoped transaction, also when no scope is active (empty GUCs, so RLS policies match nothing); before, a scope-free statement went straight to the connection and could meet a connection polluted by an earlier scope. Non-transactional DDL (CREATE INDEX CONCURRENTLY, CREATE/DROP DATABASE) and session-level statements must be wrapped in `outsideRowLevelSecurityScope`. `table("read_...")` from the db dialect now returns a plain `SchemaTable` without the `Writable` brand, so writing a projection table through a plain runner is a compile error; projection applies and `withExecutorManagedWrites` runners are unaffected. The testing helpers `seedRow` and `seedRows` throw for tables built by `buildEntityTable` or `r.entity`, because the projection row would exist without its event.
+  migration: Wrap non-transactional DDL and session-state statements on a pool in `outsideRowLevelSecurityScope(() => ...)`. Replace `seedRow(db, entityTable, ...)` by `seedRowViaEventStore`, or pass `{ projectionOnly: "<reason>" }` as fourth argument for a deliberate event-less row. For a `read_*` table written outside a projection, wrap the runner in `withExecutorManagedWrites`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: PII backfill moves only the latest copy of a field to a changed owner; nested echoed events are stripped from write responses
+  detail: The backfill rekey stage no longer re-keys older, superseded copies of a user-keyed field to the new owner when a newer event already carries the field, so forgetting the previous owner still erases the old value. The dispatcher also strips the echoed `event` from executor results that a handler nests in its own response data, not only from the top-level result.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: plain statements wait for open savepoints; jsonb default changes rebuild the projection; trash list with search is rejected
+  detail: A statement issued through the query helpers on a transaction now queues behind pending savepoints instead of racing them and failing with an aborted transaction after a savepoint rollback. A changed jsonb column default on a managed projection table now writes a rebuild marker, so existing rows get the new empty value. A list with `onlyDeleted` and a search term returns a validation error, because soft-deleted rows are not in the search index and the list would always be empty.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: authoritative tenant resolver ignores a disagreeing kumiko_tenant cookie
+  detail: With `resolverTrust: "authoritative"`, only an `X-Tenant` header that disagrees with the resolver answers 400 tenant_mismatch. A `kumiko_tenant` cookie is ambient state, possibly apex-scoped and left over from another tenant's subdomain, so a disagreeing cookie is ignored and the resolver's tenant wins; before, such a visitor was locked out of every other tenant subdomain.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: managed check reports a bin entry that does not pass bundledLists
+  detail: When `kumiko.config.ts` sets `bundledLists`, every `runProdApp`, `runDevApp` and `runWorkerApp` call in `bin/*.ts` must pass `bundledLists` too; otherwise the managed-files check reports an error instead of the app drifting silently from its config.
+  -->
+- 99bca8f: The server bundle lists `meilisearch` as a runtime dependency when only a subpath such as `meilisearch/token` is imported, the ctx-namespaces codemod respects job contexts in structural context types, the type-aware codemod project passes redirect references and module mode to module resolution, and a job that uses the whole shutdown budget no longer starves the shutdown steps after it.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: subpath imports of an optional runtime external count as an import
+  detail: The server bundle only detected `import "meilisearch"`, so an app that imported just `meilisearch/token` and did not list `meilisearch` in its dependencies shipped a `dist-server/package.json` without it and crashed in production with `Cannot find package 'meilisearch'`. Subpath imports are detected now.
+  -->
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: fix
+  title: ctx-namespaces codemod reads the context kind a structural parameter receives
+  detail: A structural context type that only a job context reaches kept being rewritten with the handler namespaces, for example `tracer` into `obs.tracer`, which `JobContext` does not carry. The codemod now collects the context kinds that reach the parameter: members that move the same way for all kinds are rewritten, members that move for one kind only are reported as manual. The type-aware project also forwards the redirected project reference and the module mode of the importing file to module resolution.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: job drain leaves a tail reserve of the shutdown budget
+  detail: The SIGTERM timer and the job drain in `stop()` used the same budget, so a job that ran the whole time ended the process with exit code 1 before the HTTP shutdown, the escape-hatch audit flush and the connection close ran. The job drain now gets the budget minus a 5 s reserve (at least 1 s). `KUMIKO_SHUTDOWN_DRAIN_TIMEOUT_MS` is the budget for both.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: e2e fixture client ip header also overrides a per-fetch x-forwarded-for
+  detail: The per-test client ip goes through `context.setExtraHTTPHeaders`, so an `x-forwarded-for` set in a single `fetch(..., { headers })` is replaced by it; only `page.setExtraHTTPHeaders` or a separate `browser.newContext()` with its own header changes the IP. This is now covered by `e2e/client-ip.spec.ts`.
+  migration: Specs that simulate other client IPs per request (rate limit, audit IP, geo) must set the header with `page.setExtraHTTPHeaders` or on their own `browser.newContext()`; a per-fetch `x-forwarded-for` is overwritten. A cross-origin `fetch`/XHR from the page now carries `x-forwarded-for` and therefore forces a CORS preflight; route third-party endpoints that send no `Access-Control-Allow-Headers` through a same-origin proxy or mock them with `page.route`.
+  -->
+- 9bff1f2: Event-store test helpers reject ambiguous filters, the guard slot directory self-heals, the unsafe-array guard stops flagging spreads, the agent API docs include `typeof` constants, and the dev server boots with `KUMIKO_REDIS_PREFIX` set.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: event-store write helpers fail on ambiguous row filters
+  detail: `updateRowViaEventStore` and `deleteRowViaEventStore` now throw when the filter matches more than one row instead of writing to whichever row came first. `updateInvitationViaEventStore` also filters on the inviting tenant, so the same email invited in two tenants no longer hits the wrong row.
+  -->
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: guard slot directory from older versions is tightened, spreads no longer flagged
+  detail: A slots directory created with mode 0755 by an earlier version made the slot check fail open on every run. A directory owned by the current user is now chmod-ed to 0700 and used; foreign owners and symlinks are still rejected. `guard-unsafe-array-param` no longer warns on spreads in the parameter list, since they bind as scalars. The generated API reference now lists unexported constants that exported types reach through `typeof`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: dev server boots when KUMIKO_REDIS_PREFIX is set
+  detail: The SSE channel prefix defaulted to a per-boot value that differs from `KUMIKO_REDIS_PREFIX`, which `redisNamespaceFromEnv` rejects. The prefix now falls back to `KUMIKO_REDIS_PREFIX` before the per-boot default.
+  -->
+- Updated dependencies [d205705]
+- Updated dependencies [4e33f01]
+- Updated dependencies [896dc21]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [564fb1f]
+- Updated dependencies [258c2e0]
+- Updated dependencies [f0c33c6]
+- Updated dependencies [896dc21]
+- Updated dependencies [26c19e5]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3e8558]
+- Updated dependencies [d3474b9]
+- Updated dependencies [896dc21]
+- Updated dependencies [d3474b9]
+- Updated dependencies [3aef6a9]
+- Updated dependencies [f89bed5]
+- Updated dependencies [92fe274]
+- Updated dependencies [49c6fc0]
+- Updated dependencies [e1893c9]
+- Updated dependencies [1911d8d]
+- Updated dependencies [48cfcd4]
+- Updated dependencies [cc4c9a5]
+- Updated dependencies [faecf4c]
+- Updated dependencies [9e871cc]
+- Updated dependencies [e979518]
+- Updated dependencies [f47a9aa]
+- Updated dependencies [3f340ae]
+- Updated dependencies [c6379e6]
+- Updated dependencies [e0ec0b6]
+- Updated dependencies [b8599af]
+- Updated dependencies [c7fd68e]
+- Updated dependencies [8ed713c]
+- Updated dependencies [5ee88f6]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [2ac9914]
+- Updated dependencies [b766f7b]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [896dc21]
+- Updated dependencies [15412c7]
+- Updated dependencies [227c31e]
+- Updated dependencies [ba9a383]
+- Updated dependencies [f5e673d]
+- Updated dependencies [227c31e]
+- Updated dependencies [bbf126a]
+- Updated dependencies [ba9a383]
+- Updated dependencies [b1379a6]
+- Updated dependencies [ba9a383]
+- Updated dependencies [e4ca30c]
+- Updated dependencies [e795fd9]
+- Updated dependencies [25cc04c]
+- Updated dependencies [762ca19]
+- Updated dependencies [ff40dff]
+- Updated dependencies [f385601]
+- Updated dependencies [ce5c846]
+- Updated dependencies [44b87b5]
+- Updated dependencies [740085b]
+- Updated dependencies [2fc6e19]
+- Updated dependencies [7c1c49b]
+- Updated dependencies [29180e2]
+- Updated dependencies [a3f60e9]
+- Updated dependencies [37e950e]
+- Updated dependencies [5d2a2d3]
+- Updated dependencies [2458419]
+- Updated dependencies [1f8ff6f]
+- Updated dependencies [298da75]
+- Updated dependencies [4ae2115]
+- Updated dependencies [f504e08]
+- Updated dependencies [a24a7e3]
+- Updated dependencies [525a3d3]
+- Updated dependencies [9708601]
+- Updated dependencies [3c4d034]
+- Updated dependencies [c0353fd]
+- Updated dependencies [d49f073]
+- Updated dependencies [713af52]
+- Updated dependencies [6bab678]
+- Updated dependencies [a5da9b5]
+- Updated dependencies [9afe1cb]
+- Updated dependencies [fe4ebe3]
+- Updated dependencies [dbe6689]
+- Updated dependencies [7e147b4]
+- Updated dependencies [29282f0]
+- Updated dependencies [a27b14f]
+- Updated dependencies [1368a58]
+- Updated dependencies [f2eed7e]
+- Updated dependencies [61b460a]
+- Updated dependencies [44080a5]
+- Updated dependencies [2fc3d53]
+- Updated dependencies [81b9c1a]
+- Updated dependencies [52a2969]
+- Updated dependencies [f972e66]
+- Updated dependencies [8e8da00]
+- Updated dependencies [bcfcdd6]
+- Updated dependencies [f152b8f]
+- Updated dependencies [b6f57e0]
+- Updated dependencies [f1f22e1]
+- Updated dependencies [8269315]
+- Updated dependencies [1c618b6]
+- Updated dependencies [fed1e32]
+- Updated dependencies [99bca8f]
+- Updated dependencies [9bff1f2]
+- Updated dependencies [911d5de]
+- Updated dependencies [283f9a5]
+- Updated dependencies [5406d5d]
+- Updated dependencies [99799bf]
+- Updated dependencies [1a5a9ca]
+- Updated dependencies [59c5a67]
+- Updated dependencies [c4c28b5]
+- Updated dependencies [b8599af]
+- Updated dependencies [9d88ba0]
+- Updated dependencies [896dc21]
+- Updated dependencies [b27b2c7]
+- Updated dependencies [ae7f685]
+- Updated dependencies [39d9e93]
+- Updated dependencies [e663fd4]
+- Updated dependencies [dc3cde7]
+- Updated dependencies [f2ed11b]
+  - @cosmicdrift/kumiko-bundled-features@0.414.0
+  - @cosmicdrift/kumiko-framework@0.414.0
+  - @cosmicdrift/kumiko-types@0.414.0
+  - @cosmicdrift/kumiko-renderer@0.414.0
+  - @cosmicdrift/kumiko-server-runtime@0.414.0
+  - @cosmicdrift/kumiko-guards@0.414.0
+  - @cosmicdrift/kumiko-feature-ast@0.414.0
+  - @cosmicdrift/kumiko-testing@0.414.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.414.0
+
 ## 0.413.1
 
 ### Patch Changes

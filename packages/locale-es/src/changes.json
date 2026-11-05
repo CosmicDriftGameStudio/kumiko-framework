@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.414.0",
+    "type": "fix",
+    "title": "Embedded-list limit range wording",
+    "detail": "The embedded-list limit-range text reads \"Límite de {min} a {max}\"."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Spanish strings for the contact feature and the configEdit action rows",

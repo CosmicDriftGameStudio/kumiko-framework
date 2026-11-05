@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.414.0",
+    "type": "breaking",
+    "title": "Stripe checkouts are matched by session id, consentId metadata is gone",
+    "detail": "`createCheckoutSession` returns the Checkout Session id as `providerCheckoutId`, and `customer.subscription.created` looks up the session of the subscription (`checkout.sessions.list`) to carry that id; if the Stripe API call fails, the webhook replies 503 so Stripe retries; a successful empty list yields a created event without checkout id that is ignored as not in the ledger. Session metadata carries only the tenantId. The new option `clientConfig` passes Stripe SDK client settings, for tests against a local fixture API.",
+    "migration": "Open Checkout Sessions from before the upgrade are not in the ledger and their `customer.subscription.created` and payment events are ignored; let them expire or finish first. The API key of the Stripe plugin needs read access to Checkout Sessions."
+  },
+  {
     "version": "0.388.0",
     "type": "improvement",
     "title": "Stripe plugin has a displayName",
