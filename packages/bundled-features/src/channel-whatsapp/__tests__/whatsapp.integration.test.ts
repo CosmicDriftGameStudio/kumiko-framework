@@ -54,6 +54,38 @@ const APP_SECRET = "test-app-secret";
 const VERIFY_TOKEN = "test-verify-token";
 const ACCESS_TOKEN = "EAAtest-access-token";
 
+// A real KMS outage: key access fails once armed, with no handler replaced.
+class FlakyKmsAdapter extends InMemoryKmsAdapter {
+  keyAccesses = 0;
+  private failFromAccess: number | null = null;
+
+  failAfterAccesses(count: number): void {
+    this.failFromAccess = this.keyAccesses + count;
+  }
+
+  recover(): void {
+    this.failFromAccess = null;
+  }
+
+  private async guardAccess(): Promise<void> {
+    this.keyAccesses += 1;
+    if (this.failFromAccess !== null && this.keyAccesses > this.failFromAccess) {
+      throw new Error("kms down");
+    }
+  }
+
+  override async createKey(subject: Parameters<InMemoryKmsAdapter["createKey"]>[0]): Promise<void> {
+    await this.guardAccess();
+    return super.createKey(subject);
+  }
+
+  override async getKey(subject: Parameters<InMemoryKmsAdapter["getKey"]>[0]) {
+    await this.guardAccess();
+    return super.getKey(subject);
+  }
+}
+
+const flakyKms = new FlakyKmsAdapter();
 const meta = createInMemoryMeta();
 const clientOptions: ChannelWhatsappOptions = {
   transport: meta.transport,
@@ -76,7 +108,7 @@ function callContext(tenantId: string = TENANT): WhatsappCallContext {
 
 beforeAll(async () => {
   resetPiiSubjectKmsForTests();
-  configurePiiSubjectKms(new InMemoryKmsAdapter());
+  configurePiiSubjectKms(flakyKms);
   const masterKeyProvider = createEnvMasterKeyProvider({
     env: {
       KUMIKO_SECRETS_MASTER_KEY_V1: randomBytes(32).toString("base64"),
@@ -280,27 +312,50 @@ describe("inbound messages", () => {
   });
 
   test("a failing item answers 500; the redelivery stores no duplicate of the item that worked", async () => {
-    // A fractional error code passes the normalizer and fails the handler schema.
+    // The KMS stays up for the message and is down by the time the status is encrypted.
+    const before = flakyKms.keyAccesses;
+    await post(textWebhook(uniqueSender(), "wamid.PARTIAL-PROBE"));
+    const accessesPerMessage = flakyKms.keyAccesses - before;
     const payload = metaWebhookPayload({
       phoneNumberId: PHONE_NUMBER_ID,
       messages: [metaTextMessage({ from: uniqueSender(), wamid: "wamid.PARTIAL1", text: "ok" })],
       statuses: [
-        metaStatus({
-          wamid: "wamid.PARTIAL-BROKEN",
-          status: "failed",
-          recipient: uniqueSender(),
-          errorCode: 1.5,
-        }),
+        metaStatus({ wamid: "wamid.PARTIAL-BROKEN", status: "failed", recipient: uniqueSender() }),
       ],
     });
-    const first = await post(payload);
-    expect(first.status).toBe(500);
-    expect(await messageEvents("wamid.PARTIAL1")).toHaveLength(1);
+    flakyKms.failAfterAccesses(accessesPerMessage);
+    try {
+      const first = await post(payload);
+      expect(first.status).toBe(500);
+      expect(await messageEvents("wamid.PARTIAL1")).toHaveLength(1);
 
-    const second = await post(payload);
-    expect(second.status).toBe(500);
-    expect(await messageEvents("wamid.PARTIAL1")).toHaveLength(1);
-    expect(await statusEvents("wamid.PARTIAL-BROKEN", "failed")).toHaveLength(0);
+      const second = await post(payload);
+      expect(second.status).toBe(500);
+      expect(await messageEvents("wamid.PARTIAL1")).toHaveLength(1);
+      expect(await statusEvents("wamid.PARTIAL-BROKEN", "failed")).toHaveLength(0);
+    } finally {
+      flakyKms.recover();
+    }
+  });
+
+  test("a fractional status error code is dropped by the normalizer instead of failing the delivery", async () => {
+    const res = await post(
+      metaWebhookPayload({
+        phoneNumberId: PHONE_NUMBER_ID,
+        statuses: [
+          metaStatus({
+            wamid: "wamid.FRACTIONAL-CODE",
+            status: "failed",
+            recipient: uniqueSender(),
+            errorCode: 1.5,
+          }),
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const events = await statusEvents("wamid.FRACTIONAL-CODE", "failed");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload).toMatchObject({ status: "failed", errorCode: null });
   });
 
   test("an oversized wamid or phone number id is skipped, an absurd timestamp falls back, an oversized media id is dropped while the mime type is clipped, and the rest of the delivery is stored", async () => {
@@ -497,6 +552,38 @@ describe("per-sender limit", () => {
     // Each reader is bound to its event's field name: the wrong one fails on the AAD, not silently.
     await expect(readWhatsappMessagePii(TENANT, throttledPayload)).rejects.toThrow();
     await expect(readWhatsappThrottledPii(TENANT, { wamid: "x" })).rejects.toThrow("no sender");
+  });
+
+  test("a delivery that fails after the charge and is redelivered costs the sender one unit of budget", async () => {
+    const from = uniqueSender();
+    flakyKms.failAfterAccesses(0);
+    try {
+      expect((await post(textWebhook(from, "wamid.CHG1"))).status).toBe(500);
+      expect((await post(textWebhook(from, "wamid.CHG1"))).status).toBe(500);
+    } finally {
+      flakyKms.recover();
+    }
+    expect(await messageEvents("wamid.CHG1")).toHaveLength(0);
+
+    expect((await post(textWebhook(from, "wamid.CHG1"))).status).toBe(200);
+    expect((await post(textWebhook(from, "wamid.CHG2"))).status).toBe(200);
+    expect((await messageEvents("wamid.CHG1"))[0]?.type).toBe(WHATSAPP_MESSAGE_RECEIVED_EVENT_QN);
+    expect((await messageEvents("wamid.CHG2"))[0]?.type).toBe(WHATSAPP_MESSAGE_RECEIVED_EVENT_QN);
+    expect((await messageEvents("wamid.CHG3")).length).toBe(0);
+    await post(textWebhook(from, "wamid.CHG3"));
+    expect((await messageEvents("wamid.CHG3"))[0]?.type).toBe(WHATSAPP_THROTTLED_EVENT_QN);
+  });
+
+  test("two concurrent deliveries of one wamid cost the sender one unit of budget", async () => {
+    const from = uniqueSender();
+    const payload = textWebhook(from, "wamid.CONC1");
+    await Promise.all([post(payload), post(payload)]);
+    expect(await messageEvents("wamid.CONC1")).toHaveLength(1);
+
+    await post(textWebhook(from, "wamid.CONC2"));
+    expect((await messageEvents("wamid.CONC2"))[0]?.type).toBe(WHATSAPP_MESSAGE_RECEIVED_EVENT_QN);
+    await post(textWebhook(from, "wamid.CONC3"));
+    expect((await messageEvents("wamid.CONC3"))[0]?.type).toBe(WHATSAPP_THROTTLED_EVENT_QN);
   });
 
   test("statuses do not count against the sender budget, other senders are unaffected", async () => {
