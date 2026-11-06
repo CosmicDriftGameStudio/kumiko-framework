@@ -92,6 +92,20 @@ describe("buildContextServices", () => {
     expect(services._notifyAfterCommitFactory).toBe(factory);
   });
 
+  test("the unbound delivery attempt log factory never reaches the services, the bound log does", () => {
+    const factory = () => () => async () => undefined;
+    // @cast-boundary test stub — only key presence and identity matter
+    const context = { _deliveryAttemptLogFactory: factory } as unknown as AppContext;
+    // @cast-boundary test stub — only identity matters
+    const bound = (async () => undefined) as never;
+
+    const services = buildContextServices(context, { _logOwnDeliveryAttempt: bound });
+
+    expect(Object.hasOwn(services, "_deliveryAttemptLogFactory")).toBe(false);
+    expect(Object.hasOwn(buildContextServices(context), "_deliveryAttemptLogFactory")).toBe(false);
+    expect(services._logOwnDeliveryAttempt).toBe(bound);
+  });
+
   test("keys that are absent stay absent instead of becoming undefined entries", () => {
     const services = buildContextServices(contextWith(["redis"]));
 
