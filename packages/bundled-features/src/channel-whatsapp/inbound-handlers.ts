@@ -17,6 +17,8 @@ import {
 import type { ResolvedWhatsappOptions } from "./options.ts";
 import { encryptWhatsappPii, WhatsappPiiFields } from "./pii.ts";
 
+const WHATSAPP_STREAM_LOCK_NAMESPACE = 0x77616d73;
+
 export type InboundOutcome = "stored" | "duplicate" | "throttled";
 
 type InboundResult = {
@@ -90,6 +92,8 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
       const input = event.payload;
       const tenantId = event.user.tenantId;
       const aggregateId = whatsappMessageAggregateId(tenantId, input.wamid);
+      // tryAppend re-reads the stream version, so a delivery that committed after our load would land as a second event.
+      await ctx.db.advisoryXactLock(WHATSAPP_STREAM_LOCK_NAMESPACE, aggregateId);
 
       // Dedupe before the limit: Meta's redeliveries must not use up the sender's budget.
       if ((await ctx.events.load(aggregateId)).length > 0) return OUTCOME_DUPLICATE;
@@ -148,7 +152,6 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
         mediaId: input.mediaId,
         mimeType: input.mimeType,
       };
-      // A concurrent delivery of the same wamid that won the race counts as a duplicate.
       const appended = await ctx.events.tryAppend({
         aggregateId,
         aggregateType: WHATSAPP_MESSAGE_AGGREGATE_TYPE,
@@ -178,6 +181,8 @@ export function createRecordStatusHandler(options: ResolvedWhatsappOptions) {
         input.status,
         input.rawStatus,
       );
+      // tryAppend re-reads the stream version, so a delivery that committed after our load would land as a second event.
+      await ctx.db.advisoryXactLock(WHATSAPP_STREAM_LOCK_NAMESPACE, aggregateId);
       if ((await ctx.events.load(aggregateId)).length > 0) return OUTCOME_DUPLICATE;
 
       const payload: StatusUpdatedPayload = {
