@@ -1,9 +1,9 @@
 // The worker is plain JS in a string because the server hands it out as is: no bundler step,
 // no workbox, nothing loaded from outside the app's own origin.
 
-// CacheStorage is shared by the whole origin, so each base path gets its own prefix to keep one
-// app's activation from deleting the precache of another app on the same origin.
-export const PWA_CACHE_NAME_PREFIX = "kumiko-pwa-";
+import { PWA_CACHE_NAME_PREFIX } from "@cosmicdrift/kumiko-renderer/headless";
+
+export { PWA_CACHE_NAME_PREFIX };
 
 // Cache names before scoping were `kumiko-pwa-<16hex>`; kept only so an update drops those precaches once.
 // The pattern also matches the precache of another app on the same origin that still runs an old

@@ -1,5 +1,8 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { PWA_SERVICE_WORKER_META_NAME } from "../../headless/pwa-service-worker-meta.ts";
+import {
+  PWA_CACHE_NAME_PREFIX,
+  PWA_SERVICE_WORKER_META_NAME,
+} from "../../headless/pwa-service-worker-meta.ts";
 import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 
@@ -66,6 +69,23 @@ function registerServiceWorker(serviceWorkerUrl: string): void {
     .catch(() => undefined);
 }
 
+function isPwaCacheName(name: string): boolean {
+  return name.startsWith(PWA_CACHE_NAME_PREFIX);
+}
+
+// Only the registration for this document's scope is touched. A worker counts as the
+// framework's own when it is served as /sw.js and left a kumiko-pwa- cache; app-owned workers
+// have no such marker.
+async function retireStaleServiceWorker(): Promise<void> {
+  if (!("serviceWorker" in navigator) || typeof caches === "undefined") return;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration?.active?.scriptURL.endsWith("/sw.js")) return;
+  const pwaCacheNames = (await caches.keys()).filter(isPwaCacheName);
+  if (pwaCacheNames.length === 0) return;
+  await registration.unregister();
+  await Promise.all(pwaCacheNames.map((name) => caches.delete(name)));
+}
+
 function useInstallHint(enabled: boolean): readonly [InstallHint, () => void] {
   const [hint, setHint] = useState<InstallHint>({ kind: "none" });
 
@@ -112,6 +132,7 @@ export function PwaSupport(): ReactNode {
 
   useEffect(() => {
     if (serviceWorkerUrl !== undefined) registerServiceWorker(serviceWorkerUrl);
+    else retireStaleServiceWorker().catch(() => undefined);
   }, [serviceWorkerUrl]);
 
   if (hint.kind === "none") return null;
