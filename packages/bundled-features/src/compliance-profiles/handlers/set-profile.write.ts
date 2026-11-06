@@ -46,6 +46,8 @@ export const setProfileWrite = defineWriteHandler({
   // SystemAdmin can set profiles for customer setup through the platform-
   // operator path; TenantAdmin can set them only for their own tenant.
   access: { roles: access.admin },
+  // The profile picks the retention preset, so a change can shorten how long data is kept before the purge.
+  agent: { risk: "high" },
   description:
     "Sets or replaces a tenant's compliance profile key plus an optional JSON override, for onboarding or a later region change; a system admin may target a different tenant through tenantIdOverride.",
   handler: async (event, ctx) => {

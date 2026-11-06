@@ -5,7 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { access } from "@cosmicdrift/kumiko-framework/engine";
+import { access, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -13,6 +13,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { buildAgentManifest } from "../../agent-tools/agent-manifest.ts";
 import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature.ts";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
@@ -92,6 +93,14 @@ describe("compliance-profiles :: set-profile", () => {
     expect(result.profile.region).toBe("EU");
     expect(result.profile.breach.authorityContact).toBe("BlnBDI Berlin");
     expect(result.warning).toBeUndefined();
+  });
+
+  test("the agent manifest offers changing the profile as a high-risk tool", () => {
+    const manifest = buildAgentManifest(createRegistry([createComplianceProfilesFeature()]), {
+      locale: "en",
+      roles: ["TenantAdmin"],
+    });
+    expect(manifest.handlers.find((handler) => handler.qn === SET_PROFILE)?.risk).toBe("high");
   });
 
   test("set-profile is idempotent — second call switches profiles", async () => {
