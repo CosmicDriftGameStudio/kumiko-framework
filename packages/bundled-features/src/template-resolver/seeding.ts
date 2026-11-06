@@ -32,6 +32,7 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
+import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { executor } from "./handlers/shared.ts";
 import { evaluateTemplateWrite } from "./handlers/template-gates.ts";
@@ -407,20 +408,33 @@ const ALREADY_REMOVED_ERROR_CODES: ReadonlySet<string> = new Set([
 
 const NOTIFICATION_SLUG_PATTERN = /^([^:]+):notify:[^:]+$/;
 
-function isOrphanedNotificationSlug(registry: Registry, slug: string): boolean {
+type OrphanVerdict = "renamed-away" | "unknown-to-registry" | "not-orphaned";
+
+function orphanVerdictOf(registry: Registry, slug: string): OrphanVerdict {
   const feature = NOTIFICATION_SLUG_PATTERN.exec(slug)?.[1];
-  if (feature === undefined) return false;
+  if (feature === undefined) return "not-orphaned";
   const notifications = registry.getAllNotifications();
-  if (notifications.has(slug)) return false;
+  if (notifications.has(slug)) return "not-orphaned";
   const renamedAway = Array.from(notifications.values()).some((notification) =>
     notification.renamedFrom?.includes(slug),
   );
-  return renamedAway || registry.getFeature(feature) !== undefined;
+  if (renamedAway) return "renamed-away";
+  return registry.getFeature(feature) !== undefined ? "unknown-to-registry" : "not-orphaned";
+}
+
+// Seeds write as the system user; a row only the system user ever touched still holds seed text.
+function isUneditedSeedRow(row: TemplateResourceRow): boolean {
+  return (
+    row.insertedById === SYSTEM_USER_ID &&
+    (row.modifiedById === null || row.modifiedById === SYSTEM_USER_ID)
+  );
 }
 
 // A removed or renamed notification leaves its seeded system rows behind; they would keep
-// showing up in the template overview. Tenant overrides may hold customer text, so they stay
-// and are only reported. Slugs of unmounted features are not ours to judge.
+// showing up in the template overview. A notification that is merely unknown to this boot
+// (conditional registration, older pod during a rolling deploy) only loses rows nobody edited.
+// Tenant overrides may hold customer text, so they stay and are only reported. Slugs of
+// unmounted features are not ours to judge.
 async function removeOrphanedNotificationTemplates(
   db: DbConnection,
   registry: Registry,
@@ -428,7 +442,23 @@ async function removeOrphanedNotificationTemplates(
   const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
     kind: "mail",
   });
-  const orphans = rows.filter((row) => isOrphanedNotificationSlug(registry, row.slug));
+  const orphans: TemplateResourceRow[] = [];
+  for (const row of rows) {
+    const verdict = orphanVerdictOf(registry, row.slug);
+    if (verdict === "not-orphaned") continue;
+    if (
+      verdict === "unknown-to-registry" &&
+      row.tenantId === SYSTEM_TENANT_ID &&
+      !isUneditedSeedRow(row)
+    ) {
+      log.warn("edited system template of a notification unknown to this boot is kept", {
+        slug: row.slug,
+        locale: row.locale,
+      });
+      continue;
+    }
+    orphans.push(row);
+  }
   // skip: nothing orphaned
   if (orphans.length === 0) return;
 
