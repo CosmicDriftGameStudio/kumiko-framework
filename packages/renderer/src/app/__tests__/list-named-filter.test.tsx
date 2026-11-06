@@ -5,6 +5,7 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { listPayloadKeysSent } from "@cosmicdrift/kumiko-types/screen";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
@@ -138,7 +139,7 @@ const QN = "tasks:screen:task-list";
 function taskSchema(
   extra: Pick<
     EntityListScreenDefinition,
-    "facets" | "defaultFilters" | "namedFilters" | "namedFilterFacet"
+    "facets" | "defaultFilters" | "namedFilters" | "namedFilterFacet" | "searchable" | "filter"
   >,
 ): FeatureSchema {
   const screen: EntityListScreenDefinition = {
@@ -174,6 +175,52 @@ async function capturedTable(): Promise<DataTableProps> {
 function namedFilterOf(payload: unknown): unknown {
   return (payload as { namedFilter?: unknown }).namedFilter;
 }
+
+const OPTIONAL_LIST_KEYS = ["search", "filters", "namedFilter", "filter"];
+
+describe("entityList payload keys match the boot validator's key derivation", () => {
+  test("every optional key the screen declares reaches the payload, and only those", async () => {
+    reset();
+    renderScreen(
+      taskSchema({
+        searchable: true,
+        facets: { status: { display: "chips" } },
+        namedFilters: OVERDUE,
+        filter: { field: "status", op: "eq", value: "open" },
+      }),
+      QN,
+      { "task-list.q": "x", "task-list.f.status": "open", "task-list.filter": "overdue" },
+    );
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+    const sent = Object.keys(queryCalls[0]?.payload as object).filter((key) =>
+      OPTIONAL_LIST_KEYS.includes(key),
+    );
+    const declared = listPayloadKeysSent({
+      searchable: true,
+      filters: true,
+      namedFilters: true,
+      screenFilter: true,
+    });
+    expect([...sent].sort()).toEqual([...declared].sort());
+  });
+
+  test("a bare screen sends none of them", async () => {
+    reset();
+    renderScreen(taskSchema({}), QN, {});
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+    const sent = Object.keys(queryCalls[0]?.payload as object).filter((key) =>
+      OPTIONAL_LIST_KEYS.includes(key),
+    );
+    expect(sent).toEqual([
+      ...listPayloadKeysSent({
+        searchable: false,
+        filters: false,
+        namedFilters: false,
+        screenFilter: false,
+      }),
+    ]);
+  });
+});
 
 describe("entityList namedFilters", () => {
   test("the URL key reaches the list payload and every facet count query", async () => {
@@ -234,7 +281,7 @@ describe("entityList namedFilters", () => {
   test("a chip restricted to roles is offered only to users holding one", async () => {
     const gated = [
       { id: "overdue", label: "Überfällig" },
-      { id: "audit", label: "Prüfung", roles: ["Auditor"] },
+      { id: "audit", label: "Prüfung", access: { roles: ["Auditor"] } },
     ];
     reset();
     renderScreen(taskSchema({ namedFilters: gated }), QN, {}, ["User"]);

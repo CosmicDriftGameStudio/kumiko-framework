@@ -3,25 +3,54 @@ import {
   buildNamedFilterCountQueries,
   buildNamedFilterEmpty,
   buildNamedFilterFacet,
-  isNamedFilterOffered,
   namedFilterCountKey,
   namedFilterSort,
 } from "../named-filter-facet.ts";
 
 const translate = (key: string): string => key;
 const OPEN = { id: "open", label: "Open" };
-const AUDIT = { id: "audit", label: "Audit", roles: ["Auditor", "TenantAdmin"] };
+const AUDIT = { id: "audit", label: "Audit", access: { roles: ["Auditor", "TenantAdmin"] } };
 
-describe("isNamedFilterOffered", () => {
-  test("a filter without roles is offered to everyone", () => {
-    expect(isNamedFilterOffered(OPEN, [])).toBe(true);
-    expect(isNamedFilterOffered(OPEN, undefined)).toBe(true);
+function offeredIds(
+  refs: Parameters<typeof buildNamedFilterFacet>[0],
+  roles: readonly string[] | undefined,
+): readonly string[] | undefined {
+  return buildNamedFilterFacet(refs, translate, roles)?.chips?.map((chip) => chip.id);
+}
+
+describe("named filter access rule", () => {
+  test("a filter without a rule is offered to everyone", () => {
+    expect(offeredIds([OPEN], [])).toEqual(["open"]);
+    expect(offeredIds([OPEN], undefined)).toEqual(["open"]);
   });
 
   test("a restricted filter needs one of its roles; unknown roles deny", () => {
-    expect(isNamedFilterOffered(AUDIT, ["User"])).toBe(false);
-    expect(isNamedFilterOffered(AUDIT, ["User", "Auditor"])).toBe(true);
-    expect(isNamedFilterOffered(AUDIT, undefined)).toBe(false);
+    expect(offeredIds([AUDIT], ["User"])).toBeUndefined();
+    expect(offeredIds([AUDIT], ["User", "Auditor"])).toEqual(["audit"]);
+    expect(offeredIds([AUDIT], undefined)).toBeUndefined();
+  });
+
+  test("anySignedIn opens a rule only next to the anonymous role", () => {
+    const publicRef = {
+      id: "pub",
+      label: "Pub",
+      access: { roles: ["anonymous"], anySignedIn: true as const },
+    };
+    expect(offeredIds([publicRef], ["User"])).toEqual(["pub"]);
+    expect(offeredIds([publicRef], ["anonymous"])).toEqual(["pub"]);
+    const gated = {
+      id: "g",
+      label: "G",
+      access: { roles: ["Auditor"], anySignedIn: true as const },
+    };
+    expect(offeredIds([gated], ["User"])).toBeUndefined();
+  });
+
+  test("openToAll needs a non-empty reason", () => {
+    const withReason = { id: "a", label: "A", access: { openToAll: { reason: "intake" } } };
+    const blankReason = { id: "b", label: "B", access: { openToAll: { reason: " " } } };
+    expect(offeredIds([withReason], ["User"])).toEqual(["a"]);
+    expect(offeredIds([blankReason], ["User"])).toBeUndefined();
   });
 });
 
