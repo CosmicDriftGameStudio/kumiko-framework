@@ -204,6 +204,13 @@ describe("entityList payload keys match the boot validator's key derivation", ()
     expect([...sent].sort()).toEqual([...declared].sort());
   });
 
+  test("a q in the URL of a non-searchable screen sends no search key", async () => {
+    reset();
+    renderScreen(taskSchema({ searchable: false }), QN, { "task-list.q": "stale" });
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+    expect(Object.keys(queryCalls[0]?.payload as object)).not.toContain("search");
+  });
+
   test("a bare screen sends none of them", async () => {
     reset();
     renderScreen(taskSchema({}), QN, {});

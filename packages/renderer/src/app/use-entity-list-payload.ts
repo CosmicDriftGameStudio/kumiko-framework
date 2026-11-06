@@ -14,6 +14,7 @@ type EntityListPayloadInput = {
   readonly screen: EntityListScreenDefinition;
   readonly entity: EntityDefinition;
   readonly urlState: ListUrlStateApi;
+  readonly searchable: boolean;
   readonly rangeFilters: readonly RangeFilter[];
   readonly activeNamedFilter: string | undefined;
   readonly limit: number;
@@ -26,6 +27,7 @@ export function useEntityListPayload({
   screen,
   entity,
   urlState,
+  searchable,
   rangeFilters,
   activeNamedFilter,
   limit,
@@ -48,7 +50,9 @@ export function useEntityListPayload({
     () => filterPayloadFor(urlState.filters),
     [filterPayloadFor, urlState.filters],
   );
-  const { filtersFor, sort: urlSort, q, page } = urlState;
+  const { filtersFor, sort: urlSort, page } = urlState;
+  // A stale or hand-crafted ?q= on a non-searchable list must not reach the query.
+  const q = searchable ? urlState.q : "";
 
   const listPayloadFor = useCallback(
     (namedFilter: string | undefined): Record<string, unknown> => {
