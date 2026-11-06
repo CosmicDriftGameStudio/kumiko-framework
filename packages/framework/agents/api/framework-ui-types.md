@@ -496,6 +496,7 @@ type ListTableSummaryRow = { // The query receives the list's current search, fi
   query: string; // Qualified query name, e.g. `feature:query:order:summary`.
   params?: Readonly<Record<string, unknown>>; // Extra payload keys merged over the list's own.
 };
+type ListToolbarActionsPlacement = (typeof LIST_TOOLBAR_ACTIONS_PLACEMENTS)[number];
 type OptionsQueryPayload = Readonly<Record<string, OptionsQueryPayloadValue>>;
 type ParsedRefTarget = {
   featureName: string;

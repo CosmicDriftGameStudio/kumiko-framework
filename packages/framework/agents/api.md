@@ -10,11 +10,11 @@ Format: one line per function or constant, object and options types as property 
 | --- | --- | --- |
 | `@cosmicdrift/kumiko-framework/engine` | `api/framework-engine.md` | 446 |
 | `@cosmicdrift/kumiko-framework/errors` | `api/framework-errors.md` | 27 |
-| `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 178 |
+| `@cosmicdrift/kumiko-framework/ui-types` | `api/framework-ui-types.md` | 179 |
 | `@cosmicdrift/kumiko-framework/db` | `api/framework-db.md` | 157 |
 | `@cosmicdrift/kumiko-framework/event-store` | `api/framework-event-store.md` | 41 |
 | `@cosmicdrift/kumiko-framework/seeding` | `api/framework-seeding.md` | 6 |
-| `@cosmicdrift/kumiko-renderer/web` | `api/renderer-web.md` | 372 |
+| `@cosmicdrift/kumiko-renderer/web` | `api/renderer-web.md` | 373 |
 | `@cosmicdrift/kumiko-testing/stack` | `api/testing-stack.md` | 23 |
 | `@cosmicdrift/kumiko-testing/helpers` | `api/testing-helpers.md` | 72 |
 | `@cosmicdrift/kumiko-dev-server/testing` | `api/dev-server-testing.md` | 5 |

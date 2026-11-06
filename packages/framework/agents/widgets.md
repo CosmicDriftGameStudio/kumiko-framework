@@ -177,6 +177,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `buildFileUploadFormData` |  |
 | `buildNavRegistrySlice` |  |
 | `buildNavRegistrySliceForApp` |  |
+| `clearNavCollapseState` | Forgets the collapsed containers and the revealed screen; logout calls it so the next user starts expanded. |
 | `clearRememberedListState` | Forgets all remembered list state and the identity marker. |
 | `cn` | Standard shadcn helper: `clsx` combines conditional classes, while `tailwind-merge` resolves conflicts (for example, `px-2 px-4` → `px-4`). |
 | `createBrowserDraftStorage` | Default DraftStorage when createKumikoApp boots without one. |
