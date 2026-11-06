@@ -68,6 +68,49 @@ describe("PwaSupport without the pwa option", () => {
   });
 });
 
+describe("PwaSupport without the pwa option and a leftover worker", () => {
+  const originalCaches = Object.getOwnPropertyDescriptor(globalThis, "caches");
+  let unregister: ReturnType<typeof mock>;
+  let deleteCache: ReturnType<typeof mock>;
+  let listCaches: ReturnType<typeof mock>;
+
+  function stubWorkerState(scriptURL: string, cacheNames: string[]): void {
+    unregister = mock(async () => true);
+    deleteCache = mock(async () => true);
+    listCaches = mock(async () => cacheNames);
+    stubNavigator("serviceWorker", {
+      register,
+      getRegistration: async () => ({ active: { scriptURL }, unregister }),
+    });
+    Object.defineProperty(globalThis, "caches", {
+      configurable: true,
+      value: { keys: listCaches, delete: deleteCache },
+    });
+  }
+
+  afterEach(() => {
+    if (originalCaches) Object.defineProperty(globalThis, "caches", originalCaches);
+    else Reflect.deleteProperty(globalThis, "caches");
+  });
+
+  test("unregisters the shell worker and drops its caches when the marker cache exists", async () => {
+    stubWorkerState("https://app.test/sw.js", ["kumiko-pwa-abcd-0123", "other-app-cache"]);
+    render(<PwaSupport />);
+    await waitFor(() => expect(unregister).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(deleteCache).toHaveBeenCalledTimes(1));
+    expect(deleteCache).toHaveBeenCalledWith("kumiko-pwa-abcd-0123");
+  });
+
+  test("leaves an app-owned worker alone when no kumiko-pwa- cache exists", async () => {
+    stubWorkerState("https://app.test/sw.js", ["other-app-cache"]);
+    render(<PwaSupport />);
+    await waitFor(() => expect(listCaches).toHaveBeenCalledTimes(1));
+    await act(async () => undefined);
+    expect(unregister).not.toHaveBeenCalled();
+    expect(deleteCache).not.toHaveBeenCalled();
+  });
+});
+
 describe("PwaSupport with the pwa option", () => {
   beforeEach(addServiceWorkerMeta);
 
