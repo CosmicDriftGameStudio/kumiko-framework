@@ -158,7 +158,7 @@ export function validateCardMetaOverflow(features: readonly FeatureDefinition[])
   if (overflows.length === 0) return;
   const lines = overflows.map(
     (o) =>
-      `  - Feature "${o.feature}" screen "${o.screen}"${o.location !== undefined ? ` ${o.location}` : ""}: ${o.count} meta lines (${o.fields.join(", ")})`,
+      `  - Feature "${o.feature}" screen "${o.screen}"${o.location !== undefined ? ` ${o.location}` : ""}: ${o.count} meta lines from the columns ${o.fields.join(", ")}`,
   );
   throw bootRuleError(CARD_META_OVERFLOW_RULES.overflow, {
     message: `List cards show at most ${CARD_META_MAX} meta lines (all columns except title, status select and hideOnNarrow ones, consecutive narrowInline columns sharing one line); more would be cut off on narrow screens:\n${lines.join("\n")}\nReduce each to ${CARD_META_MAX} lines or mark the other columns hideOnNarrow: true.`,
