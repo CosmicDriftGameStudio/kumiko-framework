@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import {
-  PWA_CACHE_NAME_PREFIX,
   PWA_SERVICE_WORKER_META_NAME,
+  pwaCacheScopePrefixOf,
 } from "../../headless/pwa-service-worker-meta.ts";
 import { useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
@@ -69,18 +69,15 @@ function registerServiceWorker(serviceWorkerUrl: string): void {
     .catch(() => undefined);
 }
 
-function isPwaCacheName(name: string): boolean {
-  return name.startsWith(PWA_CACHE_NAME_PREFIX);
-}
-
 // Only the registration for this document's scope is touched. A worker counts as the
-// framework's own when it is served as /sw.js and left a kumiko-pwa- cache; app-owned workers
-// have no such marker.
+// framework's own when it is served as /sw.js and left a cache with this scope's kumiko-pwa-
+// prefix; app-owned workers and other apps on the origin have no such marker.
 async function retireStaleServiceWorker(): Promise<void> {
   if (!("serviceWorker" in navigator) || typeof caches === "undefined") return;
   const registration = await navigator.serviceWorker.getRegistration();
   if (!registration?.active?.scriptURL.endsWith("/sw.js")) return;
-  const pwaCacheNames = (await caches.keys()).filter(isPwaCacheName);
+  const cachePrefix = await pwaCacheScopePrefixOf(new URL(registration.scope).pathname);
+  const pwaCacheNames = (await caches.keys()).filter((name) => name.startsWith(cachePrefix));
   if (pwaCacheNames.length === 0) return;
   await registration.unregister();
   await Promise.all(pwaCacheNames.map((name) => caches.delete(name)));

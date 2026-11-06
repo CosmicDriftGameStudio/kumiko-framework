@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Project } from "ts-morph";
 import {
@@ -91,6 +92,23 @@ describe("security-plugin-suppression guard", () => {
       }),
     );
     expect(createGuard({ baselineRoot: repo }).run([sf], [root]).violations).toEqual([]);
+  });
+
+  test("suppressions that cannot be checked because Biome does not resolve fail closed", () => {
+    const outsideWorkspace = mkdtempSync(join(tmpdir(), "plugin-suppression-unresolvable-"));
+    dirs.push(outsideWorkspace);
+    const withSuppression = new Map([
+      ["src/a.ts", `// biome-ignore lint/plugin: ${REASON}\nexport const a = 1;\n`],
+    ]);
+    const failing = scanSecurityPluginSuppressions(outsideWorkspace, withSuppression);
+    expect(failing.failures).toHaveLength(1);
+    expect(failing.failures[0]).toContain("cannot resolve Biome preset/binary");
+    expect(
+      scanSecurityPluginSuppressions(
+        outsideWorkspace,
+        new Map([["src/a.ts", "export const a = 1;\n"]]),
+      ),
+    ).toEqual({ findings: {}, failures: [] });
   });
 
   test("files without a lint/plugin suppression need no Biome run", () => {

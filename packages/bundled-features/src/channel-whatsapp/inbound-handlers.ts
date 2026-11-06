@@ -35,6 +35,8 @@ type LimitContext = Pick<HandlerContext, "services" | "rateLimitDigest">;
 // A one-token marker bucket per wamid makes the charge once-only across failed rounds and
 // concurrent deliveries. The marker is taken before the charge: a crash in between loses one
 // charge, never doubles one. A redelivery after a throttled-then-failed attempt skips the charge.
+// ponytail: that redelivery also skips the throttle decision (RateLimitResolver cannot read without
+// consuming), so at most one message per failed round gets past the limit; upgrade: add a peek.
 async function chargeSender(
   ctx: LimitContext,
   options: ResolvedWhatsappOptions,
