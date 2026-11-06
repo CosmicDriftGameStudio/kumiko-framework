@@ -68,7 +68,7 @@ describe("i18n parity", () => {
   test("every registered English key has a value in every supported locale", () => {
     const missing = SUPPORTED_LOCALES.flatMap(({ locale, bundle }) =>
       Object.keys(harvest.en)
-        .filter((key) => bundle[key] === undefined)
+        .filter((key) => (bundle[key] ?? "").trim() === "")
         .map((key) => `${key} -> ${locale}`),
     );
     expect(missing).toEqual([]);
