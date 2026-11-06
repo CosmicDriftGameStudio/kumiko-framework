@@ -175,14 +175,21 @@ function Harness({
   return <p data-testid="out">{decorated.map((row) => String(row["stage"])).join(",")}</p>;
 }
 
-function renderHarness(initial: readonly HarnessRow[]) {
+function renderHarness(
+  initial: readonly HarnessRow[],
+  isUndecorated: (id: string, callNumber: number) => boolean = () => false,
+) {
   const calls: Call[] = [];
   const query = (async (type: string, payload: unknown) => {
     calls.push({ type, payload });
     const ids = (payload as { ids: string[] }).ids;
     return {
       isSuccess: true,
-      data: { rows: ids.map((id) => ({ id, stage: `${id}${calls.length}` })) },
+      data: {
+        rows: ids
+          .filter((id) => !isUndecorated(id, calls.length))
+          .map((id) => ({ id, stage: `${id}${calls.length}` })),
+      },
     };
   }) as unknown as Dispatcher["query"];
   const dispatcher = createMockDispatcher({ query });
@@ -226,6 +233,26 @@ describe("useRowDecoration call count", () => {
     await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a2,b2"));
     expect(calls).toHaveLength(2);
     expect(calls[1]?.payload).toEqual({ ids: ["a", "b"] });
+  });
+
+  test("a refetch of loaded pages asks in batches of the first page and drops removed decoration", async () => {
+    const { calls, rerender } = renderHarness(
+      [{ id: "a" }, { id: "b" }],
+      (id, callNumber) => id === "d" && callNumber > 2,
+    );
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a1,b1"));
+    rerender([{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }]);
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a1,b1,c2,d2"));
+
+    rerender([{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }].map((row) => ({ ...row })));
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a3,b3,c4,undefined"));
+
+    expect(calls.map((call) => (call.payload as { ids: string[] }).ids)).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+      ["a", "b"],
+      ["c", "d"],
+    ]);
   });
 
   test("an empty page sends no decoration call", async () => {

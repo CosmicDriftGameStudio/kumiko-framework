@@ -41,23 +41,30 @@ type Accumulated = {
   readonly resetKey: string;
   readonly answeredIds: ReadonlySet<string>;
   readonly fieldsById: FieldsById;
-  // A refresh re-asks for every id; its answer replaces the old fields instead of merging.
-  readonly replaceOnAnswer: boolean;
+  // Ids of the first send in this cycle. The first page passes the query's `ids.max` by
+  // definition, so every later send, including a refresh of all loaded rows, stays within it.
+  readonly batchSize: number | undefined;
 };
 
 function emptyAccumulated(resetKey: string): Accumulated {
-  return { resetKey, answeredIds: new Set(), fieldsById: new Map(), replaceOnAnswer: false };
+  return { resetKey, answeredIds: new Set(), fieldsById: new Map(), batchSize: undefined };
 }
 
-function absorbAnswer(previous: Accumulated, answer: unknown, sentIds: readonly string[]) {
-  const incoming = decorationFieldsById(answer);
+function absorbAnswer(
+  previous: Accumulated,
+  answer: unknown,
+  sentIds: readonly string[],
+): Accumulated {
+  // A sent id the answer no longer contains loses its decoration; ids not asked for keep theirs,
+  // so rows do not flicker while a refresh runs batch by batch.
+  const fieldsById = new Map(previous.fieldsById);
+  for (const id of sentIds) fieldsById.delete(id);
+  for (const [id, fields] of decorationFieldsById(answer)) fieldsById.set(id, fields);
   return {
     resetKey: previous.resetKey,
     answeredIds: new Set([...previous.answeredIds, ...sentIds]),
-    fieldsById: previous.replaceOnAnswer
-      ? incoming
-      : new Map([...previous.fieldsById, ...incoming]),
-    replaceOnAnswer: false,
+    fieldsById,
+    batchSize: previous.batchSize ?? sentIds.length,
   };
 }
 
@@ -68,7 +75,8 @@ function isAppendOf(previousIds: readonly string[], ids: readonly string[]): boo
 /**
  * Sends only ids that have no answer yet, so an infinite list asks once per new page and the
  * answers are kept across calls. `resetKey` drops them (filter or sort changed); a new list
- * answer that is not an append (reload after a write) asks for every id again.
+ * answer that is not an append (reload after a write) asks for every id again, in batches of
+ * the first send's size.
  * Loading and error show the plain rows.
  */
 export function useRowDecoration(
@@ -84,7 +92,9 @@ export function useRowDecoration(
 
   const [stored, setStored] = useState(() => emptyAccumulated(resetKey));
   const accumulated = stored.resetKey === resetKey ? stored : emptyAccumulated(resetKey);
-  const idsToSend = ids.filter((id) => !accumulated.answeredIds.has(id));
+  const idsToSend = ids
+    .filter((id) => !accumulated.answeredIds.has(id))
+    .slice(0, accumulated.batchSize);
   const enabled = decoration !== undefined && idsToSend.length > 0;
   const { data, error } = useQuery<unknown>(
     decoration?.query ?? "",
@@ -123,7 +133,6 @@ export function useRowDecoration(
     setStored((current) => ({
       ...(current.resetKey === resetKey ? current : emptyAccumulated(resetKey)),
       answeredIds: new Set(),
-      replaceOnAnswer: true,
     }));
   }, [answerToken, ids, resetKey]);
 
