@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import {
   type ImportDeclaration,
@@ -278,7 +278,8 @@ function displayPath(file: string): string {
 
 export interface CodemodCliConfig {
   readonly name: string;
-  readonly transform: (source: string, filePath: string) => CodemodResult;
+  // projectRoot: nearest ancestor of the target with a Biome config, else the target itself.
+  readonly transform: (source: string, filePath: string, projectRoot: string) => CodemodResult;
   readonly isSkippedPath: (file: string) => boolean;
   // Exact file names (e.g. package.json) handed to transform next to the .ts/.tsx sources.
   readonly extraFileNames?: readonly string[];
@@ -301,17 +302,29 @@ function parseArgsOrUsageError(
   }
 }
 
+function findProjectRoot(target: string): string {
+  const start = resolve(target);
+  let dir = statSync(start).isDirectory() ? start : dirname(start);
+  for (;;) {
+    if (existsSync(join(dir, "biome.json")) || existsSync(join(dir, "biome.jsonc"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return statSync(start).isDirectory() ? start : dirname(start);
+    dir = parent;
+  }
+}
+
 function transformFiles(
   config: CodemodCliConfig,
   files: readonly string[],
   mode: Mode,
+  projectRoot: string,
 ): { rewrites: CodemodSite[]; manual: CodemodSite[]; changedFiles: string[] } {
   const rewrites: CodemodSite[] = [];
   const manual: CodemodSite[] = [];
   const changedFiles: string[] = [];
   for (const file of files) {
     const before = readFileSync(file, "utf8");
-    const result = config.transform(before, file);
+    const result = config.transform(before, file, projectRoot);
     const shown = displayPath(file);
     for (const site of result.rewrites)
       console.log(`${shown}:${site.line}  rewritten  ${site.description}`);
@@ -349,7 +362,12 @@ export async function runCodemod(
       (config.extraFileNames?.includes(name) ?? false) ||
       (config.extraExtensions?.some((extension) => name.endsWith(extension)) ?? false),
   }).filter((file) => !(file.includes("/__tests__/fixtures/") || config.isSkippedPath(file)));
-  const { rewrites, manual, changedFiles } = transformFiles(config, files, options.mode);
+  const { rewrites, manual, changedFiles } = transformFiles(
+    config,
+    files,
+    options.mode,
+    findProjectRoot(options.paths[0] ?? "."),
+  );
   console.log(
     `\n[${config.name}] ${options.mode === "write" ? "rewritten" : "rewritable"}: ${rewrites.length} site(s) in ${new Set(rewrites.map((site) => site.file)).size} file(s); manual: ${manual.length}`,
   );

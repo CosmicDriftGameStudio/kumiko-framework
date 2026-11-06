@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, type Mock, spyOn, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { MEILI_INDEX_PREFIX_ENV } from "../e2e/constants";
 import dropRunMeiliIndexes from "../e2e/drop-run-meili-indexes";
 
@@ -57,6 +60,37 @@ describe("dropRunMeiliIndexes failure paths", () => {
       expect(reportedOutput()).toContain("403");
     } finally {
       await rejectingMeili.stop(true);
+    }
+  });
+
+  test("URL and key from the app's .env reach the teardown when the shell sets none", async () => {
+    const seenAuthorization: (string | null)[] = [];
+    const meili = Bun.serve({
+      port: 0,
+      fetch(req) {
+        const { pathname } = new URL(req.url);
+        if (pathname === "/health") return new Response("{}");
+        seenAuthorization.push(req.headers.get("authorization"));
+        return Response.json({ results: [], total: 0 });
+      },
+    });
+    const originalCwd = process.cwd();
+    const appDir = mkdtempSync(join(tmpdir(), "drop-meili-dotenv-"));
+    writeFileSync(
+      join(appDir, ".env"),
+      `MEILI_URL=http://127.0.0.1:${meili.port}\nMEILI_MASTER_KEY=dotenv-key\n`,
+    );
+    try {
+      process.chdir(appDir);
+      await dropRunMeiliIndexes({
+        webServer: { command: "unused", env: { [MEILI_INDEX_PREFIX_ENV]: "test_e2e_" } },
+      });
+
+      expect(seenAuthorization).toEqual(["Bearer dotenv-key"]);
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(appDir, { recursive: true, force: true });
+      await meili.stop(true);
     }
   });
 

@@ -27,6 +27,24 @@ export function exitStatusFromChild(code: number | null, signal: NodeJS.Signals 
 }
 
 const KILL_GRACE_MS = 500;
+const PIPE_DRAIN_GRACE_MS = 1000;
+
+// "close" never fires while a grandchild (hook, watcher) still holds an inherited pipe, so
+// after the child's "exit" the pipes get a bounded time to drain before the caller moves on.
+function pipeDrainGuard(onExpired: () => void): {
+  schedulePipeDrain: () => void;
+  cancelPipeDrain: () => void;
+} {
+  let drainTimer: ReturnType<typeof setTimeout> | undefined;
+  return {
+    schedulePipeDrain: () => {
+      drainTimer = setTimeout(onExpired, PIPE_DRAIN_GRACE_MS);
+    },
+    cancelPipeDrain: () => {
+      if (drainTimer) clearTimeout(drainTimer);
+    },
+  };
+}
 
 export interface RunResult {
   readonly status: number;
@@ -78,8 +96,15 @@ export function run(
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
+      cancelPipeDrain();
       resolve({ status, stdout, stderr, timedOut });
     };
+    const settleAfterExit = (): void => {
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      settle(exitStatusFromChild(child.exitCode, child.signalCode));
+    };
+    const { schedulePipeDrain, cancelPipeDrain } = pipeDrainGuard(settleAfterExit);
     child.stdout?.on("data", (c: Buffer) => {
       stdout += c.toString("utf-8");
     });
@@ -89,6 +114,7 @@ export function run(
     child.on("error", () => settle(-1));
     child.on("exit", () => {
       if (killTimer) clearTimeout(killTimer);
+      schedulePipeDrain();
     });
     // "exit" can fire before the stdio pipes are drained; settling there drops trailing
     // output, which `status` once read as a clean tree. "close" waits for the pipes.
@@ -108,7 +134,9 @@ export function run(
           }, opts.killGraceMs ?? KILL_GRACE_MS);
           timedOut = true;
           settle(-1);
+          return;
         }
+        settleAfterExit();
       }, opts.timeoutMs);
     }
   });
@@ -133,13 +161,26 @@ export function runStreaming(
         if (line) out.log(line);
       }
     };
+    let settled = false;
+    const settle = (status: number): void => {
+      if (settled) return;
+      settled = true;
+      cancelPipeDrain();
+      resolve(status);
+    };
+    const { schedulePipeDrain, cancelPipeDrain } = pipeDrainGuard(() => {
+      child.stdout?.destroy();
+      child.stderr?.destroy();
+      settle(exitStatusFromChild(child.exitCode, child.signalCode));
+    });
     child.stdout?.on("data", onData);
     child.stderr?.on("data", onData);
-    child.on("error", () => resolve(-1));
+    child.on("error", () => settle(-1));
+    child.on("exit", schedulePipeDrain);
     // "close", not "exit": the last lines may still sit in the pipes when the child exits.
     child.on("close", (code, signal) => {
-      if (signal) out.log(`killed by ${signal}`);
-      resolve(exitStatusFromChild(code, signal));
+      if (signal && !settled) out.log(`killed by ${signal}`);
+      settle(exitStatusFromChild(code, signal));
     });
   });
 }

@@ -98,32 +98,63 @@ describe("lint-ignore-to-biome codemod", () => {
       },
     ));
 
-  test("the mirrored no-raw-hooks scope still matches the plugin's includes in the preset", () => {
-    const preset = JSON.parse(
-      read(join(import.meta.dir, "../../../framework/presets"), "biome-rules.json"),
+  test("judges the no-raw-hooks scope by the path inside the project, not the checkout location", () => {
+    const marker = "// kumiko-lint-ignore no-raw-hooks DOM integration needs a real effect\n";
+    return withFixture(
+      {
+        "web/app/components/thing.tsx": marker,
+        "web/app/web/inner.tsx": marker,
+        "web/app/biome.json": "{}",
+      },
+      async (checkout) => {
+        const projectDir = join(checkout, "web/app");
+        await runCodemod(projectDir);
+        expect(read(projectDir, "components/thing.tsx")).toBe(marker);
+        expect(read(projectDir, "web/inner.tsx")).toBe(
+          "// biome-ignore lint/plugin: DOM integration needs a real effect\n",
+        );
+      },
     );
-    expect(preset).toMatchObject({
-      plugins: expect.arrayContaining([
-        expect.objectContaining({
-          path: "./biome-plugins/no-raw-hooks.grit",
-          includes: [
-            "**/web/**/*.tsx",
-            "**/public/**/*.tsx",
-            "!**/__tests__/**",
-            "!**/*.test.ts",
-            "!**/*.test.tsx",
-            "!**/*.integration.ts",
-            "!**/*.integration.tsx",
-            "!**/*.spec.ts",
-            "!**/*.d.ts",
-            "!**/packages/renderer/**",
-            "!**/packages/document-designer/**",
-            "!**/samples/**",
-          ],
-        }),
-      ]),
-    });
   });
+
+  test("lists a trailing marker instead of converting it", () =>
+    withFixture(
+      { "i.ts": 'const x = "bg-card"; // kumiko-lint-ignore direct-fs build tooling needs fs\n' },
+      async (dir) => {
+        const before = read(dir, "i.ts");
+        const output = await runCodemod(dir);
+        expect(read(dir, "i.ts")).toBe(before);
+        expect(output).toContain("i.ts:1  manual  trailing marker");
+        expect(output).toContain("rewritten: 0 site(s)");
+      },
+    ));
+
+  test("converts markers of the other deleted guards", () =>
+    withFixture(
+      {
+        "j.ts": [
+          "// kumiko-lint-ignore no-date-api wall clock needed for the log line",
+          "new Date();",
+          "// kumiko-lint-ignore no-direct-process-env bootstrap runs before the env contract",
+          "process.env.X;",
+          "// kumiko-lint-ignore unsafe-json-parse payload was validated one line above",
+          "JSON.parse(x);",
+        ].join("\n"),
+      },
+      async (dir) => {
+        await runCodemod(dir);
+        expect(read(dir, "j.ts")).toBe(
+          [
+            "// biome-ignore lint/plugin: wall clock needed for the log line",
+            "new Date();",
+            "// biome-ignore lint/style/noProcessEnv: bootstrap runs before the env contract",
+            "process.env.X;",
+            "// biome-ignore lint/plugin: payload was validated one line above",
+            "JSON.parse(x);",
+          ].join("\n"),
+        );
+      },
+    ));
 
   test("leaves no-raw-hooks markers outside the plugin's includes alone", () => {
     const marker = "// kumiko-lint-ignore no-raw-hooks DOM integration needs a real effect\n";

@@ -3,7 +3,9 @@ language js
 or {
   `new Date($...)` as $hit,
   `$target.toISOString($...)` as $hit,
-  `$target.getTime($...)` as $hit
+  `$target.getTime($...)` as $hit,
+  `$target?.toISOString($...)` as $hit,
+  `$target?.getTime($...)` as $hit
 } where {
   register_diagnostic(span=$hit, message="JS Date API in production code: use Temporal.Now.instant(), Temporal.Instant.from(...), .toString() or .epochMilliseconds (ctx.tz for wall-clock + IANA zone). Date.now() and Date.parse() stay allowed. See docs/plans/architecture/timezones.md.", severity="error")
 }

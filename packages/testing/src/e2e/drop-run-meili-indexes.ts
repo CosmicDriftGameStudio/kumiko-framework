@@ -2,6 +2,7 @@ import { type APIRequestContext, type FullConfig, request } from "@playwright/te
 import * as z from "zod";
 import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import { MEILI_INDEX_PREFIX_ENV } from "./constants";
+import { appDotenvValues } from "./define-app-e2e-config";
 
 const INDEX_PAGE_SIZE = 200;
 const HEALTH_TIMEOUT_MS = 1000;
@@ -50,9 +51,14 @@ export default async function dropRunMeiliIndexes(
   const indexPrefix = serverEnv[MEILI_INDEX_PREFIX_ENV];
   if (!indexPrefix) return;
 
-  const apiKey = serverEnv["MEILI_MASTER_KEY"] ?? SERVICE_ENV_DEFAULTS.MEILI_MASTER_KEY;
+  // Same order the server resolves: shell (webServer.env), the app's .env files, local default.
+  const dotenv = appDotenvValues();
+  const apiKey =
+    serverEnv["MEILI_MASTER_KEY"] ??
+    dotenv["MEILI_MASTER_KEY"] ??
+    SERVICE_ENV_DEFAULTS.MEILI_MASTER_KEY;
   const meili = await request.newContext({
-    baseURL: serverEnv["MEILI_URL"] ?? SERVICE_ENV_DEFAULTS.MEILI_URL,
+    baseURL: serverEnv["MEILI_URL"] ?? dotenv["MEILI_URL"] ?? SERVICE_ENV_DEFAULTS.MEILI_URL,
     extraHTTPHeaders: { Authorization: `Bearer ${apiKey}` },
   });
   try {

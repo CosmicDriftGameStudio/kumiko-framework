@@ -7,14 +7,16 @@ describe("no-date-api plugin", () => {
       "const created = new Date(0);",
       "const iso = created.toISOString();",
       "const ms = created.getTime();",
+      "const maybeIso = maybe?.toISOString();",
+      "const maybeMs = maybe?.getTime();",
       "const started = Date.now();",
       "const parsed = Date.parse('2026-01-01');",
       "const instant = Temporal.Now.instant();",
     ].join("\n"),
   });
 
-  test("flags new Date, toISOString and getTime", () => {
-    expect(lineNumbers(findings, "a.ts")).toEqual([1, 2, 3]);
+  test("flags new Date, toISOString and getTime, also as optional calls", () => {
+    expect(lineNumbers(findings, "a.ts")).toEqual([1, 2, 3, 4, 5]);
   });
 });
 
@@ -29,11 +31,22 @@ describe("unsafe-json-parse plugin", () => {
       "}",
       "const safe = parseJsonSafe(input);",
       "const revived = JSON.parse(input, reviver);",
+      "try {",
+      "  JSON.parse(input);",
+      "} catch {",
+      "} finally {",
+      "  cleanup();",
+      "}",
+      "try {",
+      "  JSON.parse(input);",
+      "} finally {",
+      "  cleanup();",
+      "}",
     ].join("\n"),
   });
 
-  test("flags JSON.parse outside the try block, including inside catch and with a reviver", () => {
-    expect(lineNumbers(findings, "a.ts")).toEqual([1, 5, 8]);
+  test("flags JSON.parse outside the try block, including inside catch and with a reviver, and in try/finally without catch", () => {
+    expect(lineNumbers(findings, "a.ts")).toEqual([1, 5, 8, 16]);
   });
 });
 

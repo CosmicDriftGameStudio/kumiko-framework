@@ -141,13 +141,15 @@
                     "message": "import * as z from \"zod/v3\" instead — { z } pulls the whole namespace (all locales, json-schema) into client bundles."
                   },
                   "temporal-polyfill": {
-                    "importNames": ["Temporal"],
-                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
-                  },
-                  "temporal-polyfill/global": {
                     "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
                   }
-                }
+                },
+                "patterns": [
+                  {
+                    "group": ["temporal-polyfill/*"],
+                    "message": "import { Temporal } from \"@cosmicdrift/kumiko-types/temporal\" instead — it prefers the native global, so framework and consumer share one set of Temporal classes."
+                  }
+                ]
               }
             }
           }
