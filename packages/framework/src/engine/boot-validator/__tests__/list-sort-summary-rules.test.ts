@@ -97,6 +97,24 @@ describe("summaryRow list keys of an entityList", () => {
     expect(ruleIdsOf([feature])).toContain("list/summary-row-query-accepts-list-keys");
   });
 
+  test("a summaryRow param the summary schema does not know is rejected", () => {
+    const feature = entityListFeature(
+      { sortable: true },
+      { table: { summaryRow: { query: SUMMARY_QUERY, params: { status: "open" } } } },
+      z.object({}),
+    );
+    expect(ruleIdsOf([feature])).toContain("list/summary-row-query-accepts-list-keys");
+  });
+
+  test("a summaryRow param the summary schema knows boots", () => {
+    const feature = entityListFeature(
+      { sortable: true },
+      { table: { summaryRow: { query: SUMMARY_QUERY, params: { status: "open" } } } },
+      z.object({ status: z.string() }),
+    );
+    expect(ruleIdsOf([feature])).not.toContain("list/summary-row-query-accepts-list-keys");
+  });
+
   test("no searchable or filterable field needs no search or filters key", () => {
     const feature = entityListFeature({ sortable: true }, {}, z.object({}));
     expect(ruleIdsOf([feature])).not.toContain("list/summary-row-query-accepts-list-keys");
@@ -184,6 +202,17 @@ describe("sortOptions list rules", () => {
       screen: { sortOptions: [NUMBER_OPTION, URGENCY_OPTION] },
     });
     expect(ruleIdsOf([feature])).not.toContain("list/sort-option-not-sortable");
+  });
+
+  test("a sortDirection enum that lacks an option dir is list/sort-option-not-sortable", () => {
+    const feature = projectionListFeature({
+      listSchema: z.object({
+        sort: z.enum(["number", "urgency"]),
+        sortDirection: z.enum(["desc"]),
+      }),
+      screen: { sortOptions: [NUMBER_OPTION, URGENCY_OPTION] },
+    });
+    expect(ruleIdsOf([feature])).toContain("list/sort-option-not-sortable");
   });
 
   test("an entityList sortOption on a listed column boots", () => {

@@ -103,7 +103,8 @@ function validateSummaryRowQuery(
     });
   }
   const shape = getZodObjectShape(handler.schema);
-  const missing = listKeysSentBy(feature, screen, queryHandlers).filter(
+  const paramKeys = Object.keys(summaryRow.params ?? {});
+  const missing = [...listKeysSentBy(feature, screen, queryHandlers), ...paramKeys].filter(
     (key) => shape === undefined || !(key in shape),
   );
   if (missing.length === 0) return;
@@ -142,6 +143,17 @@ function validateProjectionSortOptions(
       message:
         `${prefix}: sortOptions field "${rejected.field}" is not one of the values query "${screen.query}" ` +
         `accepts for "sort" (${accepted.join(", ")}) - every pick would fail with a 422.`,
+    });
+  }
+  const acceptedDirections = getZodStringLiterals(shape["sortDirection"]);
+  // skip: "sortDirection" is an open string
+  if (acceptedDirections === undefined) return;
+  const rejectedDirection = options.find((option) => !acceptedDirections.includes(option.dir));
+  if (rejectedDirection !== undefined) {
+    throw bootRuleError(LIST_SORT_SUMMARY_RULES.sortOptionNotSortable, {
+      message:
+        `${prefix}: sortOptions dir "${rejectedDirection.dir}" is not one of the values query "${screen.query}" ` +
+        `accepts for "sortDirection" (${acceptedDirections.join(", ")}) - every pick would fail with a 422.`,
     });
   }
 }

@@ -1,9 +1,10 @@
-import { LIST_NARROW_FACETS } from "@cosmicdrift/kumiko-types/screen";
+import {
+  LIST_NARROW_FACETS,
+  LIST_TOOLBAR_ACTIONS_PLACEMENTS,
+} from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { bootRuleError } from "./boot-rule.ts";
 import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
-
-const TOOLBAR_ACTIONS_PLACEMENTS = ["header", "toolbar"] as const;
 
 type ListToolbarOptionScreen = {
   readonly toolbarSort?: true;
@@ -27,9 +28,9 @@ export function validateListToolbarOptions(where: string, screen: ListToolbarOpt
   }
   const placement = screen.toolbarActionsPlacement;
   if (placement === undefined) return;
-  if (!isOneOf(TOOLBAR_ACTIONS_PLACEMENTS, placement)) {
+  if (!isOneOf(LIST_TOOLBAR_ACTIONS_PLACEMENTS, placement)) {
     throw bootRuleError(SCREEN_KIND_RULES.toolbarActionsPlacementInvalid, {
-      message: `${where} sets toolbarActionsPlacement ${JSON.stringify(placement)} — must be "header" or "toolbar".`,
+      message: `${where} sets toolbarActionsPlacement ${JSON.stringify(placement)} — must be ${LIST_TOOLBAR_ACTIONS_PLACEMENTS.map((p) => `"${p}"`).join(" or ")}.`,
     });
   }
   if (placement === "toolbar" && (screen.toolbarActions ?? []).length === 0) {

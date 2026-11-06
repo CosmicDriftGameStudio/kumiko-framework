@@ -68,6 +68,13 @@ describe("list row guidance", () => {
     expect(ruleIdsOf([feature])).toContain("list/hint-column-link");
   });
 
+  test("hint together with badgeDot is list/hint-column-link", () => {
+    const feature = projectionListFeature({
+      columns: [{ field: "hint", hint: {}, badgeDot: false }],
+    });
+    expect(ruleIdsOf([feature])).toContain("list/hint-column-link");
+  });
+
   test("a linkParamsField missing from the query outputSchema is query/output-field-missing", () => {
     const feature = projectionListFeature(
       { columns: [{ field: "name", linkScreenField: "tone", linkParamsField: "ghost" }] },

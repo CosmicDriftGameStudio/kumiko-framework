@@ -14,7 +14,7 @@ export const LIST_ROW_GUIDANCE_RULES = {
   hintColumnLink: {
     id: "list/hint-column-link",
     summary:
-      "A hint column owns its cell rendering and sets no linkScreenField, linkParamsField, refEntity or badgeToneField.",
+      "A hint column owns its cell rendering and sets no linkScreenField, linkParamsField, refEntity, badgeToneField or badgeDot.",
     fix: "Remove the link or badge option, or move the hint to its own column.",
   },
   hintColumnEmptyPlaceholder: {

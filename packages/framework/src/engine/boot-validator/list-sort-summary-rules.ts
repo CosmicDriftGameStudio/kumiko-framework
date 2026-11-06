@@ -4,7 +4,7 @@ export const LIST_SORT_SUMMARY_RULES = {
   sortOptionNotSortable: {
     id: "list/sort-option-not-sortable",
     summary:
-      "Every sortOptions field is a listed, sortable column (entityList); a projectionList's query takes sort and sortDirection and, when sort is an enum, lists every option field.",
+      "Every sortOptions field is a listed, sortable column (entityList); a projectionList's query takes sort and sortDirection and, when they are enums, lists every option field and dir.",
     fix: "Mark the field sortable and list it as a column, or give the projectionList's query sort and sortDirection parameters that accept the option fields.",
   },
   sortOptionsInvalid: {
@@ -30,7 +30,7 @@ export const LIST_SORT_SUMMARY_RULES = {
   summaryRowQueryAcceptsListKeys: {
     id: "list/summary-row-query-accepts-list-keys",
     summary:
-      "The summaryRow query's Zod schema accepts every list key the screen sends (search, namedFilter, filters).",
+      "The summaryRow query's Zod schema accepts every list key the screen sends (search, namedFilter, filters) and every summaryRow.params key.",
     fix: "Add the missing keys to the query schema (or reuse the list query's filter shape) and apply them, or drop the feature on the screen.",
   },
   summaryRowWithTotals: {

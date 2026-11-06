@@ -342,6 +342,7 @@ export type {
   ListTableOptions,
   ListTableSummaryRow,
   ListTableTotal,
+  ListToolbarActionsPlacement,
 } from "./screen-list-table.ts";
 export {
   DEFAULT_EXPORT_MAX_ROWS,
@@ -356,6 +357,7 @@ export {
   LIST_TABLE_OPTION_KEYS,
   LIST_TABLE_SUMMARY_ROW_KEYS,
   LIST_TABLE_TOTAL_KEYS,
+  LIST_TOOLBAR_ACTIONS_PLACEMENTS,
   MAX_EXPORT_MAX_ROWS,
 } from "./screen-list-table.ts";
 export type {

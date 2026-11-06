@@ -415,9 +415,10 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as ProcessEventPayload;
       const aggId = subscriptionAggregateId(event.user.tenantId);
-      const current = await getSubscriptionForTenant(ctx, event.user.tenantId);
       // One locked load serves admission and the append; the stream grows with every opened checkout.
+      // The lock comes first so the stream and `current` are both read under it.
       const stream = await lockAndLoadSubscriptionStream(ctx, aggId);
+      const current = await getSubscriptionForTenant(ctx, event.user.tenantId);
       const admission = admitProviderEvent(ctx, stream, current, payload);
       if (!admission.admitted) {
         ctx.obs.log?.warn(

@@ -148,6 +148,7 @@ export type {
   ListSortSpec,
   ListTableOptions,
   ListTableSummaryRow,
+  ListToolbarActionsPlacement,
   MetricNavigate,
   PlatformComponent,
   ProjectionDetailScreenDefinition,

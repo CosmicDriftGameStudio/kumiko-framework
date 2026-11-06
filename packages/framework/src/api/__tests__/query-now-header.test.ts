@@ -98,6 +98,20 @@ describe("x-kumiko-now on the dispatcher routes", () => {
     expect(res.headers.get("x-kumiko-now")).toBe(PINNED);
   });
 
+  test("the header is read after the handler ran, not before", async () => {
+    let nowMs = Temporal.Instant.from("2031-05-06T07:08:09.000Z").epochMilliseconds;
+    const advancing = { now: () => Temporal.Instant.fromEpochMilliseconds(nowMs) };
+    const res = await post(
+      mount({ clock: advancing }, async () => {
+        nowMs += 1_500;
+        return { rows: [] };
+      }),
+      "/api/query",
+      JSON.stringify({ type: "x:query:y", payload: {} }),
+    );
+    expect(res.headers.get("x-kumiko-now")).toBe("2031-05-06T07:08:10.500Z");
+  });
+
   test("without a clock the header holds the system time", async () => {
     const res = await post(
       mount({}, okQuery),
