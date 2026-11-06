@@ -12,5 +12,5 @@ or {
     },
     $url <: r"(?s)^[\"'`]/[^/$\\].*"
   },
-  register_diagnostic(span=$call, message="Raw fetch() skips the SSRF policy in server code: use egress(policy)(...) from @cosmicdrift/kumiko-framework/http. In web screens use useQuery/useMutation or an API client (*.ts). A same-origin path literal (\"/api/...\") is allowed; any other exception needs a biome-ignore with a specific reason.", severity="error")
+  register_diagnostic(span=$call, message="Raw fetch() skips the SSRF policy in server code: use egress(policy)(...) from @cosmicdrift/kumiko-framework/http. In web screens use useQuery/useMutation or an API client (*.ts). A same-origin path literal (\"/api/...\") is allowed; in web code any other exception needs a biome-ignore with a specific reason, in server code only an entry in the reviewed security-plugin-suppression baseline.", severity="error")
 }

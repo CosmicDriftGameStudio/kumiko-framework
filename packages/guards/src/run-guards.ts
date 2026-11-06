@@ -38,6 +38,7 @@ import { guard as libTestCoverage } from "./guard-lib-test-coverage";
 import { guard as noLogicInViews } from "./guard-no-logic-in-views";
 import { guard as rlsSessionSettings } from "./guard-rls-session-settings";
 import { guard as screenConventions } from "./guard-screen-conventions";
+import { guard as securityPluginSuppression } from "./guard-security-plugin-suppression";
 import { guard as tenantEscalation } from "./guard-tenant-escalation";
 import { guard as testEsRowWrites } from "./guard-test-es-row-writes";
 import { guard as testTemplateDrift } from "./guard-test-template-drift";
@@ -68,6 +69,7 @@ export const GUARDS = [
   fileSize,
   commentIssueRefOnly,
   ignoreTagReason,
+  securityPluginSuppression,
 ];
 
 export const GUARD_FLAGS = [

@@ -229,6 +229,11 @@ const ENFORCING: Record<string, Violating> = {
     code: "// kumiko-lint-ignore raw-sql legacy\nexport const value = 1;\n",
     expectedMessage: /ignore tag\(s\) without a real reason over baseline/,
   },
+  "security-plugin-suppression": {
+    path: `${PKG}/features/x/fetcher.ts`,
+    code: "// biome-ignore lint/plugin: user supplied url here\nexport const load = (url: string) => fetch(url);\n",
+    expectedMessage: /suppressed security plugin finding\(s\)/,
+  },
 };
 
 // These guards can't produce a violation by construction — they report
