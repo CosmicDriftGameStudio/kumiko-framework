@@ -49,6 +49,40 @@ export function listPayloadKeysSent(capabilities: ListPayloadCapabilities): read
     ...(capabilities.screenFilter ? ["filter"] : []),
   ];
 }
+
+type FlaggedFields = { readonly fields: Readonly<Record<string, object>> } | undefined;
+
+function someFieldFlagged(entity: FlaggedFields, flag: "searchable" | "filterable"): boolean {
+  return Object.values(entity?.fields ?? {}).some((field) => Reflect.get(field, flag) === true);
+}
+
+/** True when the entity has a `filterable` field; the facet dropdowns and the `filters` payload key rest on it. */
+export function entityHasFilterableFields(entity: FlaggedFields): boolean {
+  return someFieldFlagged(entity, "filterable");
+}
+
+/** An explicit `searchable` wins, otherwise a searchable field turns search on. The renderer additionally needs a search adapter. */
+export function entityListDeclaresSearch(
+  screen: { readonly searchable?: boolean },
+  entity: FlaggedFields,
+): boolean {
+  return screen.searchable ?? someFieldFlagged(entity, "searchable");
+}
+
+/** Whether an entityList can send `filters`: filterable fields, default filters or a range facet. */
+export function entityListDeclaresFilters(
+  screen: {
+    readonly defaultFilters?: object;
+    readonly facets?: Readonly<Record<string, false | { readonly display?: string }>>;
+  },
+  entity: FlaggedFields,
+): boolean {
+  const hasRangeFacet = Object.values(screen.facets ?? {}).some(
+    (facet) => facet !== false && facet.display === "range",
+  );
+  return entityHasFilterableFields(entity) || screen.defaultFilters !== undefined || hasRangeFacet;
+}
+
 export const LIST_TABLE_GROUPING_KEYS = [
   "field",
   "label",

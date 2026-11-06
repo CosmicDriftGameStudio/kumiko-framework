@@ -5,7 +5,11 @@ import type {
   EntityDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { listPayloadKeysSent } from "@cosmicdrift/kumiko-types/screen";
+import {
+  entityListDeclaresFilters,
+  entityListDeclaresSearch,
+  listPayloadKeysSent,
+} from "@cosmicdrift/kumiko-types/screen";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
@@ -176,31 +180,41 @@ function namedFilterOf(payload: unknown): unknown {
   return (payload as { namedFilter?: unknown }).namedFilter;
 }
 
+// The expectation comes from the same derivation the boot validator uses, not from literals.
+function declaredKeys(
+  extra: Parameters<typeof taskSchema>[0],
+): ReturnType<typeof listPayloadKeysSent> {
+  const screen = { entity: "task", ...extra };
+  return listPayloadKeysSent({
+    searchable: entityListDeclaresSearch(screen, statusEntity),
+    filters: entityListDeclaresFilters(screen, statusEntity),
+    namedFilters: extra.namedFilters !== undefined,
+    screenFilter: extra.filter !== undefined,
+  });
+}
+
 const OPTIONAL_LIST_KEYS = ["search", "filters", "namedFilter", "filter"];
 
 describe("entityList payload keys match the boot validator's key derivation", () => {
   test("every optional key the screen declares reaches the payload, and only those", async () => {
     reset();
-    renderScreen(
-      taskSchema({
-        searchable: true,
-        facets: { status: { display: "chips" } },
-        namedFilters: OVERDUE,
-        filter: { field: "status", op: "eq", value: "open" },
-      }),
-      QN,
-      { "task-list.q": "x", "task-list.f.status": "open", "task-list.filter": "overdue" },
-    );
+    const extra = {
+      searchable: true,
+      facets: { status: { display: "chips" } },
+      namedFilters: OVERDUE,
+      filter: { field: "status", op: "eq", value: "open" },
+    } satisfies Parameters<typeof taskSchema>[0];
+    renderScreen(taskSchema(extra), QN, {
+      "task-list.q": "x",
+      "task-list.f.status": "open",
+      "task-list.filter": "overdue",
+    });
     await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
     const sent = Object.keys(queryCalls[0]?.payload as object).filter((key) =>
       OPTIONAL_LIST_KEYS.includes(key),
     );
-    const declared = listPayloadKeysSent({
-      searchable: true,
-      filters: true,
-      namedFilters: true,
-      screenFilter: true,
-    });
+    const declared = declaredKeys(extra);
+    expect(declared).toEqual(["search", "filters", "namedFilter", "filter"]);
     expect([...sent].sort()).toEqual([...declared].sort());
   });
 
@@ -218,14 +232,8 @@ describe("entityList payload keys match the boot validator's key derivation", ()
     const sent = Object.keys(queryCalls[0]?.payload as object).filter((key) =>
       OPTIONAL_LIST_KEYS.includes(key),
     );
-    expect(sent).toEqual([
-      ...listPayloadKeysSent({
-        searchable: false,
-        filters: false,
-        namedFilters: false,
-        screenFilter: false,
-      }),
-    ]);
+    // `filters` is declared by the filterable status field but only sent while a filter is active.
+    expect(sent).toEqual(declaredKeys({}).filter((key) => key !== "filters"));
   });
 });
 
