@@ -1276,6 +1276,7 @@ type JobRunner = {
   handleCatchUpEvent(jobName: string, eventName: string, payload: Record<string, unknown>, user: SessionUser, triggerEvent: JobTriggerEvent): Promise<void>;
   attachDispatcher(ref: DispatchWriteRef): void;
   countPendingJobs(): Promise<number>;
+  isJobPending?(jobName: string, jobId: string): Promise<boolean>;
 };
 type JobRunnerOptions = {
   registry: Registry;
@@ -4141,7 +4142,6 @@ type ContextServices = { // Infrastructure the app wired at boot, as the handler
   _notifyFactory?: NotifyFactory;
   _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
   _notifyAfterCommitFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
-  _deliveryAttemptLogFactory?: DeliveryAttemptLogFactory;
   _logOwnDeliveryAttempt?: DeliveryAttemptLogFn;
   _escapeHatchAuditSink?: EscapeHatchAuditSink;
   extensions: Readonly<Record<string, unknown>>;
@@ -4281,6 +4281,7 @@ type JobRunnerRef = {
   handleEvent(eventName: string, payload: Record<string, unknown>, user?: SessionUser, triggerEvent?: JobTriggerEvent): Promise<void>;
   handleCatchUpEvent?(jobName: string, eventName: string, payload: Record<string, unknown>, user: SessionUser, triggerEvent: JobTriggerEvent): Promise<void>;
   dispatch?(jobName: string, payload: Record<string, unknown>, meta?: { priority?: number; jobId?: string; }): Promise<unknown>;
+  isJobPending?(jobName: string, jobId: string): Promise<boolean>;
 };
 type JobTriggerEvent = {
   id: string;
@@ -4558,7 +4559,7 @@ type Logger = {
 ```ts
 type MultiStreamApplyContext<TMap extends object = KumikoEventTypeMap> = {
   appendEvent: AppendEventFn<TMap>;
-  unsafeAppendEvent: UnsafeAppendEventFn;
+  unsafeAppendEvent: (args: Parameters<UnsafeAppendEventFn>[0] & { expectedVersion?: number; }) => Promise<void>;
   loadAggregate: (aggregateId: string, options?: { asOf?: Temporal.Instant; }) => Promise<StoredEvent[]>;
   registry: Registry;
   files?: FileContext;
@@ -4601,7 +4602,7 @@ type NamedListFilterRef = { // Screen-side reference to an entity-defined named 
     description?: string;
     paramsQuery?: string;
   }; // Shown instead of the generic "no matches" text when this filter yields an empty list and no search term is set; `title` and `description` are i18n keys.
-  roles?: string[]; // Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them.
+  access?: AccessRule; // Set by the framework from the entity filter's access rule; the client offers the chip only where `isUiAccessGranted` allows it.
 };
 type NamedListFilterScope = {
   ctx: HandlerContext;

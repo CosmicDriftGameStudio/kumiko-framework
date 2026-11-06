@@ -50,6 +50,7 @@ the `kumiko-lint-ignore <key>` markers the guard honors (`-` = not suppressible 
 | `guard-rls-session-settings` | Guard: row-level-security settings are transaction-local and written in one place. | - |
 | `guard-schema-cli-features` | Guard: a consumer's `runSchemaCli(...)` call must pass `features: FEATURES` imported from `kumiko/schema`. | - |
 | `guard-screen-conventions` | Usability mistakes in screen definitions that are statically decidable and otherwise come back screen by screen: a relatedList section whose rows lead nowhere, a row action labelled "edit" that does something else. | `kumiko-lint-ignore screen-conventions` |
+| `guard-security-plugin-suppression` | Security-Plugin-Suppression Guard: `// biome-ignore lint/plugin: <reason>` must not silence the security Biome plugins (admin API, event-store literal writes, restricted event-store symbols, direct fs, server-side direct fetch). | - |
 | `guard-tailwind-scan-surface` | Guard: `className` string-literal tokens under kumiko-framework's `packages/bundled-features/src/**` must already be reachable through the real Tailwind `@source` scan surface (`packages/renderer/src` + `samples/**\/src`, see `packages/renderer/src/web/styles.css`). | `kumiko-lint-ignore tailwind-scan-surface` |
 | `guard-tenant-escalation` | Guard: tenant / privilege-escalation safety. | - |
 | `guard-test-es-row-writes` | Guard: framework tests do not write event-sourced rows through the seed bypass. | - |
