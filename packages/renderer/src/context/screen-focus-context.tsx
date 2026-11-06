@@ -1,4 +1,13 @@
-import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 /** The record an open screen is about, reported for consumers such as assistants. */
 export type ScreenFocus = {
@@ -8,7 +17,7 @@ export type ScreenFocus = {
   readonly facts?: Readonly<Record<string, string>>;
 };
 
-type SetScreenFocus = (focus: ScreenFocus | null) => void;
+type SetScreenFocus = Dispatch<SetStateAction<ScreenFocus | null>>;
 
 const ScreenFocusContext = createContext<ScreenFocus | null>(null);
 const noopSetScreenFocus: SetScreenFocus = () => {};
@@ -27,7 +36,7 @@ export function useScreenFocus(): ScreenFocus | null {
   return useContext(ScreenFocusContext);
 }
 
-/** Reports the focus while the calling screen is mounted; compared by value, cleared on unmount. */
+/** Reports the focus while the calling screen is mounted; compared by value, cleared on unmount unless another screen has reported since. */
 export function useSetScreenFocus(focus: ScreenFocus | null): void {
   const setFocus = useContext(SetScreenFocusContext);
   const key = focus === null ? null : JSON.stringify(focus);
@@ -39,6 +48,6 @@ export function useSetScreenFocus(focus: ScreenFocus | null): void {
   const stableFocus = lastReported.current.focus;
   useEffect(() => {
     setFocus(stableFocus);
-    return () => setFocus(null);
+    return () => setFocus((current) => (current === stableFocus ? null : current));
   }, [setFocus, stableFocus]);
 }

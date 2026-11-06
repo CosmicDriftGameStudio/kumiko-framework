@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
-import { useTranslation } from "../../index.ts";
+import { useOptionalLocale, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import "../react-css-custom-properties.ts";
 
@@ -124,6 +124,7 @@ export function Pager({
   readonly plain?: boolean;
 }): ReactNode {
   const t = useTranslation();
+  const locale = useOptionalLocale();
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const safePage = Math.max(1, Math.min(page, totalPages));
   const from = (safePage - 1) * limit + 1;
@@ -143,9 +144,9 @@ export function Pager({
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
           {t("kumiko.pager.status", {
-            from: from.toLocaleString(),
-            to: to.toLocaleString(),
-            total: total.toLocaleString(),
+            from: from.toLocaleString(locale),
+            to: to.toLocaleString(locale),
+            total: total.toLocaleString(locale),
           })}
         </div>
         {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
@@ -160,7 +161,7 @@ export function Pager({
             >
               {pageSizeOptions.map((size) => (
                 <option key={size} value={size}>
-                  {t("kumiko.pager.pageSize", { size: size.toLocaleString() })}
+                  {t("kumiko.pager.pageSize", { size: size.toLocaleString(locale) })}
                 </option>
               ))}
             </select>

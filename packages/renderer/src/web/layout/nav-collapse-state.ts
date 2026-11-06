@@ -42,6 +42,16 @@ function writeRevealedScreen(screenId: string): void {
   }
 }
 
+/** Forgets the collapsed containers and the revealed screen; logout calls it so the next user starts expanded. */
+export function clearNavCollapseState(): void {
+  try {
+    window.sessionStorage.removeItem(STORAGE_KEY);
+    window.sessionStorage.removeItem(REVEALED_SCREEN_KEY);
+  } catch {
+    // storage unavailable: nothing was persisted
+  }
+}
+
 // The sidebar body remounts when the shell swaps it (focus mode, mobile sheet),
 // so the explicitly collapsed qualified names live in sessionStorage, not in
 // component state alone.

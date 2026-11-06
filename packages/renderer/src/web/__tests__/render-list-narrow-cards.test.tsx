@@ -732,6 +732,45 @@ describe("DataTable cards — link columns", () => {
     });
   });
 
+  test("a link lead column moves out of the body into the links row, an empty link value stays", () => {
+    atViewportWidth(500, () => {
+      const leadColumns = [
+        { field: "name", label: "Name", type: "string", sortable: false },
+        {
+          field: "next",
+          label: "Next",
+          type: "string",
+          sortable: false,
+          hint: { emptyLabel: "", reasonLabel: "Why?" },
+          linkFor: () => ({ href: "/next/n1", onPress: ownerPress }),
+        },
+        ...LINK_COLUMNS.slice(1),
+      ] as const;
+      render(
+        <DataTable
+          columns={leadColumns}
+          rows={[
+            { id: "u1", values: { name: "Anna", next: "Call back", owner: "Beta GmbH" } },
+            { id: "u2", values: { name: "Bert", next: "Call back", owner: "" } },
+          ]}
+          testId="t"
+          onRowClick={() => {}}
+        />,
+      );
+      const withLinks = screen.getByTestId("row-u1");
+      const links = within(withLinks).getByTestId("card-links-u1");
+      expect(within(links).getByTestId("cell-u1-next")).toBeTruthy();
+      expect(within(links).getByTestId("cell-u1-owner")).toBeTruthy();
+      expect(within(withLinks).getAllByTestId("cell-u1-next")).toHaveLength(1);
+      expect(
+        within(withLinks.querySelector("button") as HTMLElement).queryByText("Call back"),
+      ).toBeNull();
+
+      const emptyOwner = within(screen.getByTestId("row-u2")).getByTestId("card-links-u2");
+      expect(within(emptyOwner).queryByTestId("cell-u2-owner")).toBeNull();
+    });
+  });
+
   test("without a row opener the link stays in the body", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={LINK_COLUMNS} rows={LINK_ROWS} testId="t" />);

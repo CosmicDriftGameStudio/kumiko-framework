@@ -158,6 +158,7 @@ export type { LanguageMenuItemsProps } from "./layout/language-menu-items.tsx";
 export { LanguageMenuItems } from "./layout/language-menu-items.tsx";
 export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher.tsx";
 export { LanguageSwitcher } from "./layout/language-switcher.tsx";
+export { clearNavCollapseState } from "./layout/nav-collapse-state.ts";
 export type { NavTreeProps } from "./layout/nav-tree.tsx";
 export { buildNavRegistrySlice, buildNavRegistrySliceForApp, NavTree } from "./layout/nav-tree.tsx";
 export type { ProfileMenuItem, ProfileMenuProps } from "./layout/profile-menu.tsx";

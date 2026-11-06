@@ -35,7 +35,7 @@ export function sortSummaryText(m: DataTableModel): string | undefined {
   const total = m.pager?.total ?? m.rows.length;
   const noun = m.itemNoun?.(total) ?? "";
   const direction = active.dir === "asc" ? "↑" : "↓";
-  const count = total.toLocaleString();
+  const count = total.toLocaleString(m.tableLocale);
   return (
     m.tableTranslate?.("kumiko.list.sort.summary", {
       sort: active.label,

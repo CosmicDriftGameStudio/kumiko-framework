@@ -40,9 +40,11 @@ describe("logout forgets remembered list state", () => {
     window.sessionStorage.clear();
   });
 
-  test("logout() removes every kumiko.list.* entry and keeps foreign keys", async () => {
+  test("logout() removes every kumiko.list.* and kumiko.nav.* entry and keeps foreign keys", async () => {
     window.sessionStorage.setItem("kumiko.list.t1.u1.orders", '{"params":{"q":"acme"}}');
     window.sessionStorage.setItem("kumiko.list.identity", "t1.u1");
+    window.sessionStorage.setItem("kumiko.nav.collapsed", '["app:nav:orders"]');
+    window.sessionStorage.setItem("kumiko.nav.revealedScreen", "app:screen:orders");
     window.sessionStorage.setItem("other.app.key", "keep");
     render(
       <SessionProvider>

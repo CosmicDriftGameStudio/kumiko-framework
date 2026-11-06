@@ -18,12 +18,17 @@ import {
 type ShellFocusContextValue = {
   readonly focused: boolean;
   readonly register: () => () => void;
-  readonly topbarActions?: ReactNode;
 };
 
 const ShellFocusContext = createContext<ShellFocusContextValue | null>(null);
 
 export const ShellFocusProvider = ShellFocusContext.Provider;
+
+// Own context: the shell builds this element anew on every render, which would otherwise
+// re-render every ShellFocusContext consumer along with it.
+const ShellTopbarActionsContext = createContext<ReactNode | undefined>(undefined);
+
+export const ShellTopbarActionsProvider = ShellTopbarActionsContext.Provider;
 
 export type ShellFocusHost = {
   readonly focused: boolean;
@@ -31,7 +36,7 @@ export type ShellFocusHost = {
 };
 
 /** Shell side: holds the focus counter. */
-export function useShellFocusHost(topbarActions?: ReactNode): ShellFocusHost {
+export function useShellFocusHost(): ShellFocusHost {
   const [holders, setHolders] = useState(0);
 
   const register = useCallback(() => {
@@ -40,10 +45,7 @@ export function useShellFocusHost(topbarActions?: ReactNode): ShellFocusHost {
   }, []);
 
   const focused = holders > 0;
-  const value = useMemo(
-    () => ({ focused, register, topbarActions }),
-    [focused, register, topbarActions],
-  );
+  const value = useMemo(() => ({ focused, register }), [focused, register]);
   return { focused, value };
 }
 
@@ -54,7 +56,7 @@ export function useShellFocused(): boolean {
 
 /** The shell's topbarActions, for focused screens whose MobileTopBar replaces the shell header. */
 export function useShellTopbarActions(): ReactNode | undefined {
-  return useContext(ShellFocusContext)?.topbarActions;
+  return useContext(ShellTopbarActionsContext);
 }
 
 /** Screen side: call while the screen is mounted to get the focused shell. No-op without a DefaultAppShell. */

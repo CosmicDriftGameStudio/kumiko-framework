@@ -19,6 +19,7 @@ import {
   useUserRoles,
 } from "../../index.ts";
 import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
+import { dashboardListCellText } from "../widgets/dashboard-list.tsx";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
 import {
   type DashboardListTableColumn,
@@ -133,21 +134,6 @@ function rowLinkResolverOf(
   return (row) => resolveScreenLink(screen, paramField === undefined ? undefined : row[paramField]);
 }
 
-// The same number and date formatting the list cells use, so the phone line agrees with the table.
-function lineValueText(
-  raw: unknown,
-  display: string | undefined,
-  formats: Pick<ReturnType<typeof useDashboardFormats>, "formatNumber" | "formatDateTime">,
-): string | undefined {
-  if (display === "datetime") {
-    const atMs =
-      typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
-    return Number.isFinite(atMs) ? formats.formatDateTime(atMs) : undefined;
-  }
-  if (typeof raw === "number") return formats.formatNumber(raw);
-  return typeof raw === "string" && raw !== "" ? raw : undefined;
-}
-
 function ListLine({
   panel,
   label,
@@ -179,14 +165,11 @@ function ListLine({
       (column) => column.display === undefined && typeof firstRow?.[column.field] === "string",
     )?.field;
   const formats = useDashboardFormats();
+  const lineColumn = columns.find((column) => column.field === lineField);
   const firstText =
-    lineField === undefined
+    lineField === undefined || firstRow === undefined
       ? undefined
-      : lineValueText(
-          firstRow?.[lineField],
-          columns.find((column) => column.field === lineField)?.display,
-          formats,
-        );
+      : dashboardListCellText(lineColumn ?? {}, firstRow, lineField, formats, translate);
   const more = (knownTotal(data) ?? rows.length) - 1;
   const target = dashboardNavigationLink(nav, link);
   return (

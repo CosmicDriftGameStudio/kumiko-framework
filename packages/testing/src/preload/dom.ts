@@ -87,7 +87,7 @@ if (typeof globalThis.Element !== "undefined") {
 // test files in one process, so without afterEach, React components from
 // file N stay mounted in file N+1's DOM.
 //
-// SIX leak sources (b is NOT cleaned here):
+// SEVEN leak sources (b is NOT cleaned here):
 //
 //   a) testing-library/react container: cleanup() unmounts and removes
 //      every container node render() created.
@@ -105,6 +105,9 @@ if (typeof globalThis.Element !== "undefined") {
 //   e) window.location / history.pushState.
 //
 //   f) document.cookie.
+//
+//   g) sessionStorage / localStorage: components persist UI state there on
+//      mount (e.g. nav collapse), which would leak into the next test file.
 afterEach(() => {
   // skip: this preload module runs its own afterEach unconditionally; plain
   // unit test files (no --dom) never get happy-dom registered, so document
@@ -148,6 +151,10 @@ afterEach(() => {
       doc.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT${pathAttribute}`;
     }
   }
+
+  // (g) Web storage
+  globalThis.sessionStorage.clear();
+  globalThis.localStorage.clear();
 
   // (e) Reset window.location to happy-dom's initial url. replaceState
   // instead of pushState, otherwise a history stack of 3000+ entries
