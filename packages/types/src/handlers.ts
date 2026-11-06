@@ -397,6 +397,8 @@ export type JobRunnerRef = {
     payload: Record<string, unknown>,
     meta?: { readonly priority?: number; readonly jobId?: string },
   ): Promise<unknown>;
+  // False once the job completed, failed or was evicted; optional like the other concrete-runner methods.
+  isJobPending?(jobName: string, jobId: string): Promise<boolean>;
 };
 
 // Minimal interface a JobRunner attaches via attachDispatcher() to reach the

@@ -141,6 +141,7 @@ function createOutcomeRecorder(
   ctx: MultiStreamApplyContext,
   aggregateId: string,
   attempt: number,
+  expectedVersion?: number,
 ): OutcomeRecorder {
   const record: OutcomeRecorder["record"] = async (type, payload) => {
     await ctx.unsafeAppendEvent({
@@ -148,6 +149,7 @@ function createOutcomeRecorder(
       aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
       type,
       payload,
+      ...(expectedVersion !== undefined && { expectedVersion }),
     });
     await eraseDispatchKey(aggregateId);
   };
@@ -160,7 +162,8 @@ function createOutcomeRecorder(
 
 // For a deliver job that ended terminally without an outcome (BullMQ stall, lost job): the
 // request is closed as failed and its key erased. A stream that already has an outcome only
-// repeats the erase.
+// repeats the erase. The failure is pinned to the loaded version: a delivery that records its
+// outcome in between makes the append throw VersionConflictError and the key stays.
 export async function closeAbandonedDispatch(
   ctx: MultiStreamApplyContext,
   aggregateId: string,
@@ -171,7 +174,7 @@ export async function closeAbandonedDispatch(
     return "already-closed";
   }
   const requested = stream.find((e) => e.type === STEP_DISPATCH_REQUESTED_TYPE);
-  await createOutcomeRecorder(ctx, aggregateId, 0).recordFailure(
+  await createOutcomeRecorder(ctx, aggregateId, 0, stream.at(-1)?.version).recordFailure(
     rawStepKindOf(requested?.payload),
     DISPATCH_ABANDONED_ERROR,
   );

@@ -12,20 +12,33 @@ import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   defineWriteHandler,
+  STEP_DISPATCH_AGGREGATE_TYPE,
   stepsPipeline,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable, VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
+import {
+  createMultiStreamApplyContext,
+  type MultiStreamApplyContext,
+} from "@cosmicdrift/kumiko-framework/pipeline";
+import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createManualClock, resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createManualClock,
+  resetPiiSubjectKmsForTests,
+  waitFor,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createSecretsFeature } from "../../secrets/index.ts";
 import {
   ABANDON_DISPATCH_AFTER_HOURS,
+  deliverJobId,
+  STEP_DISPATCHER_FEATURE,
   StepDispatcherJobNames,
   StepDispatcherJobs,
 } from "../constants.ts";
+import { closeAbandonedDispatch } from "../deliver-dispatch-request.ts";
 import {
   createStepDispatcherFeature,
   type MailDispatchResult,
@@ -113,6 +126,12 @@ async function deliverPendingJobs(): Promise<void> {
 async function runSweeper(): Promise<void> {
   await stack.jobRunner?.dispatch(StepDispatcherJobs.sweepAbandoned, {});
   await stack.drainJobs();
+}
+
+async function isDeliverJobPendingOnStack(aggregateId: string): Promise<boolean> {
+  const isJobPending = stack.jobRunner?.isJobPending;
+  if (!isJobPending) throw new Error("test stack job runner has no isJobPending");
+  return isJobPending.call(stack.jobRunner, StepDispatcherJobs.deliver, deliverJobId(aggregateId));
 }
 
 async function failedOf(aggregateId: string): Promise<EventRow[]> {
@@ -210,6 +229,7 @@ describe("step-dispatcher sweep-abandoned", () => {
       registry: stack.registry,
       startedBeforeIso: "2100-01-01T00:00:00Z",
       batchSize: 2,
+      isDeliverJobPending: async () => false,
       onCloseFailure: (aggregateId, errorName) => {
         throw new Error(`close of ${aggregateId} failed: ${errorName}`);
       },
@@ -220,6 +240,70 @@ describe("step-dispatcher sweep-abandoned", () => {
       expect(await keyIsErased(aggregateId)).toBe(true);
     }
     expect(await eventsOfType(DISPATCH_FAILED)).toHaveLength(5);
+  });
+
+  test("skips a request whose deliver job is still running, then delivers it normally", async () => {
+    let releaseMail: (result: MailDispatchResult) => void = () => {};
+    mailMock.mockImplementationOnce(
+      () =>
+        new Promise<MailDispatchResult>((resolve) => {
+          releaseMail = resolve;
+        }),
+    );
+    const live = await sendMail("slow@example.com");
+    await stack.eventDispatcher?.runOnce();
+    await waitFor(async () => mailMock.mock.calls.length === 1);
+
+    const closeFailures: string[] = [];
+    await sweepAbandonedDispatches({
+      db: stack.db,
+      registry: stack.registry,
+      startedBeforeIso: "2100-01-01T00:00:00Z",
+      isDeliverJobPending: isDeliverJobPendingOnStack,
+      onCloseFailure: (aggregateId) => closeFailures.push(aggregateId),
+    });
+
+    expect(closeFailures).toEqual([]);
+    expect(await failedOf(live)).toHaveLength(0);
+    expect(await keyIsErased(live)).toBe(false);
+
+    releaseMail({ ok: true, status: 202 });
+    await stack.drainJobs();
+    expect(await eventsOfType(DISPATCHED)).toHaveLength(1);
+    expect(await failedOf(live)).toHaveLength(0);
+  });
+
+  test("keeps the stream and its key when an outcome lands between load and append", async () => {
+    const raced = await sendMail("raced@example.com");
+    await loseDeliverJobs();
+    const realContext = createMultiStreamApplyContext({
+      registry: stack.registry,
+      db: stack.db,
+      tenantId: admin.tenantId,
+      userId: SYSTEM_USER_ID,
+      callerFeature: STEP_DISPATCHER_FEATURE,
+    });
+    const racingContext: MultiStreamApplyContext = {
+      ...realContext,
+      loadAggregate: async (aggregateId, options) => {
+        const stream = await realContext.loadAggregate(aggregateId, options);
+        await realContext.unsafeAppendEvent({
+          aggregateId,
+          aggregateType: STEP_DISPATCH_AGGREGATE_TYPE,
+          type: DISPATCHED,
+          payload: { stepKind: "mail.send", status: 202 },
+        });
+        return stream;
+      },
+    };
+
+    await expect(closeAbandonedDispatch(racingContext, raced)).rejects.toBeInstanceOf(
+      VersionConflictError,
+    );
+
+    expect(await eventsOfType(DISPATCHED)).toHaveLength(1);
+    expect(await failedOf(raced)).toHaveLength(0);
+    expect(await keyIsErased(raced)).toBe(false);
   });
 
   test("a request closed this way is not sent when its late deliver job finally runs", async () => {
