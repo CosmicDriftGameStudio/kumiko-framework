@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Parallel ingest progress reports no longer fail after the retry budget",
+    "detail": "A version conflict after the last attempt means a newer report already landed, so reportIngestProgress returns instead of throwing into the ingest run."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "Ingest progress per file via reportIngestProgress",

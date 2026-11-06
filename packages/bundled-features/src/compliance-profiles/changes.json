@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Changing the compliance profile needs a high-risk agent call"
+  },
+  {
     "version": "0.208.2",
     "type": "improvement",
     "title": "profile-picker screen switched from custom TSX to a declarative actionForm (fw#2222).",

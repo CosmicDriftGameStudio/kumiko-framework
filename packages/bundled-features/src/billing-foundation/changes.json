@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Webhook events without a subscription stop answering 503 after an hour",
+    "detail": "An `updated`, `canceled` or invoice event that arrives before its subscription exists is redelivered (503) only while its provider event time is at most 60 minutes old. Older ones are ignored with 200 (`subscription_not_yet_created`), so a `created` that never comes (subscription from before the checkout ledger, foreign custom_data, deleted subscription) no longer drives the provider's endpoint into disabling. A provider that sends no event time (mollie) keeps retrying as before."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "create-checkout-session and start-plan-checkout allow 30 starts per tenant and hour",
+    "detail": "Every started checkout appends a `checkout-opened` event to the tenant's stream, which each webhook reads in full. Both checkout-starting handlers now declare `{ per: \"tenant+handler\", limit: 30, windowSeconds: 3600 }`, so a tenant member can no longer grow the stream without bound. An app that mounts billing-foundation now needs a rate limit resolver (Redis on `context.redis` or `context.rateLimit`); without one the handler fails at dispatch."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Review fixes for Paddle redelivery, plan-switch consent age and WhatsApp ids",
+    "detail": "shouldRedeliverLegacyCheckout answers false only for configuration or permission failures of the backfill marker (access_denied, not_found, feature_disabled) and true for transient or internal ones, since Paddle retries only a bounded number of times. billing-foundation attaches a recorded switch consent to a provider tier change only within 24 hours before the provider event time. channel-whatsapp sets mediaId and contextWamid to null when they exceed the id length instead of truncating them into a different reference. The waitlist and helpdesk lib modules no longer re-export normalizeEmail; it comes from the shared index."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "plan-switch consent survives interleaved state events, one stream load per webhook",
+    "detail": "pendingSwitchConsentId no longer limits the consent search to events after the last state event, so a same-tier update between switch-plan and the tier change keeps the consent. process-event loads the subscription stream once under the lock for admission and append. Ignored-event reasons share one IgnoredEventReasons object and the provider id limit one constant."
+  },
+  {
     "version": "0.414.0",
     "type": "breaking",
     "title": "Billing webhooks are accepted only for checkouts the server opened",

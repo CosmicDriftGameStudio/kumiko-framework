@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "to/cc lists fit the ciphertext limit, forget-message needs file storage",
+    "detail": "normalizeRawInboundMessage drops addresses from the end of to/cc until the serialized list fits INBOUND_ADDRESS_LIST_JSON_MAX_CHARS, and ingestMessageSchema rejects longer lists, so a mail to a large distribution list no longer fails the event append. Entity and event limits derive from shared constants. forget-message fails before archiving when a stored original exists but no file storage is configured. The content-refetch scan marker belongs to one poller instead of the module."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "hanging-account test recovers without the artificial 150ms deadline",

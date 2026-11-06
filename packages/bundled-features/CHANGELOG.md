@@ -1,5 +1,272 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.415.0
+
+### Minor Changes
+
+- 6f8efad: The irreversible-operation gate now refuses `executor.forget`, hard deletes, `kms.eraseKey` and writes to `readAsInstruction` fields in any request scope without a write-handler entry. Jobs and multi-stream projections can declare `irreversibleWithoutEntryHandler`; afterCommit and afterRollback hooks, HTTP routes, WebSocket handlers and agent tool calls cannot and never inherit the declaration.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Irreversible operations without a write-handler entry need a declared exception
+  detail: A job (`r.job`) or multi-stream projection that runs an irreversible operation without a write-handler entry now throws AccessDeniedError (`irreversible_operation_without_entry_handler`) instead of passing silently. Declare `irreversibleWithoutEntryHandler` with one of `rebuildable-derived-data`, `high-risk-or-cron-pipeline` or `per-dispatch-record-key`. The declaration covers only the job's or consumer's own code; afterCommit hooks, nested dispatches and agent tool calls inside it are still gated. Any other request scope without a write-handler entry is refused too: an afterCommit or afterRollback hook of an HTTP write, an HTTP route, a WebSocket handler. A refused job goes red and a refused consumer goes to the dead letter, while a refused hook is only logged, so its delete does not happen and only the log shows it.
+  migration: Add `irreversibleWithoutEntryHandler: "<case>"` to each job or multi-stream projection that calls executor.forget, a hard delete, kms.eraseKey or writes a readAsInstruction field. Pick the case that names why no entry handler exists; if none fits, route the operation through a write handler with `agent: { risk: "high" }`. Hooks and routes that call one of these primitives directly must dispatch such a handler or a job instead.
+  -->
+
+### Patch Changes
+
+- c8f6862: Changing the compliance profile needs a high-risk agent call
+  
+  <!-- kumiko-changes
+  feature: compliance-profiles
+  type: fix
+  title: Changing the compliance profile needs a high-risk agent call
+  -->
+- 175e232: Signed tokens accept only the exact signature text. Before, a signature with different unused trailing bits in its last character also verified, and the test tampering the last characters failed about once in 65536 runs.
+  
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: fix
+  title: Signed tokens accept only the exact signature text
+  detail: `hmacSignatureMatches` compared the decoded bytes, so a signature whose last character differed only in its unused trailing bits also verified. It now compares the text. No consumer action needed.
+  -->
+- fe78a93: A keep link redeemed during the inactivity check can no longer end in a deletion request.
+  
+  <!-- kumiko-changes
+  feature: tenant-inactivity
+  type: fix
+  title: Keep-link redemption and the destruction request are serialized
+  detail: The inactivity job checks the cycle and files the destruction request in one transaction under an advisory lock that the keep-account handler also takes. If the redemption wins, the job skips the request. If the request wins, the link is rejected as invalid instead of reporting a kept account for a tenant that is already in destroyRequested.
+  -->
+- e3ad367: A provider event for a tenant without subscription is retried only while it is young.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Webhook events without a subscription stop answering 503 after an hour
+  detail: An `updated`, `canceled` or invoice event that arrives before its subscription exists is redelivered (503) only while its provider event time is at most 60 minutes old. Older ones are ignored with 200 (`subscription_not_yet_created`), so a `created` that never comes (subscription from before the checkout ledger, foreign custom_data, deleted subscription) no longer drives the provider's endpoint into disabling. A provider that sends no event time (mollie) keeps retrying as before.
+  -->
+- 1a8b340: Starting a checkout is rate-limited per tenant.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: create-checkout-session and start-plan-checkout allow 30 starts per tenant and hour
+  detail: Every started checkout appends a `checkout-opened` event to the tenant's stream, which each webhook reads in full. Both checkout-starting handlers now declare `{ per: "tenant+handler", limit: 30, windowSeconds: 3600 }`, so a tenant member can no longer grow the stream without bound. An app that mounts billing-foundation now needs a rate limit resolver (Redis on `context.redis` or `context.rateLimit`); without one the handler fails at dispatch.
+  -->
+- 7aae1af: Documents: a split `access` without `write` keeps creating limited to the admin roles.
+  
+  <!-- kumiko-changes
+  feature: documents
+  type: fix
+  title: Split access without write no longer lets members file invisible documents
+  detail: With `access: { read, delete }` and no `write`, create fell back to TenantAdmin and TenantMember, so a member could file a document they could never see. Create now stays limited to the admin roles unless a write rule is set.
+  -->
+- 4ba9300: Resumed workflow steps get the registered tenant db instead of a flat copy.
+  
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: fix
+  title: Resumed steps receive a registered TenantDb
+  detail: The resume-run handler handed steps a spread copy of the tenant db. Framework helpers that look a TenantDb up by identity (executors, runInOwnTransaction) rejected that copy with "TenantDb not built by createTenantDb". The steps now get the same db with outsideTransaction dropped in place.
+  -->
+- 98e82ff: The step-dispatcher sweep no longer closes dispatches whose deliver job is still alive.
+  
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: Abandoned-dispatch sweep skips live deliver jobs and cannot overwrite a concurrent outcome
+  detail: Before closing a request older than 24 h the sweep asks the job runner whether its deliver job is still waiting, delayed, active, paused or prioritized and skips it until a later run. A runner that cannot report job state makes the sweep skip everything and warn. The failure event is appended with the stream version that was loaded, so a delivery recording its outcome in between causes a version conflict (reported through the close-failure log) and the payload key is not erased. `JobRunner` and `JobRunnerRef` gain an optional `isJobPending(jobName, jobId)`, and `MultiStreamApplyContext.unsafeAppendEvent` accepts an optional `expectedVersion`.
+  -->
+- dec0521: The notification template seed no longer deletes edited system templates it merely does not know.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Orphan cleanup keeps edited system templates of notifications unknown to the booting registry
+  detail: A system mail template of a mounted feature whose notification this boot does not register (conditional registration, older pod during a rolling deploy) is deleted only while the system user alone ever wrote it; an edited row is kept and logged with slug and locale. Rows of notifications renamed away through `renamedFrom` are still deleted.
+  -->
+- 748a1cf: A WhatsApp inbound message is charged against the sender budget once per wamid.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: fix
+  title: Inbound messages are charged to the sender budget once per wamid
+  detail: A one-token marker bucket per tenant and wamid is taken before the sender windows are charged. A delivery that fails after the charge, its redelivery, and concurrent deliveries of the same wamid no longer use up the sender's budget again, so a real message is not stored as throttled by retries.
+  -->
+- 9db048a: Review fixes: a Paddle legacy checkout is redelivered again when the ledger backfill marker fails transiently, a plan-switch consent older than 24 hours is no longer attached to a later tier change, WhatsApp media and context ids are dropped instead of truncated, and `waitlist` and `helpdesk` no longer re-export `normalizeEmail`.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Review fixes for Paddle redelivery, plan-switch consent age and WhatsApp ids
+  detail: shouldRedeliverLegacyCheckout answers false only for configuration or permission failures of the backfill marker (access_denied, not_found, feature_disabled) and true for transient or internal ones, since Paddle retries only a bounded number of times. billing-foundation attaches a recorded switch consent to a provider tier change only within 24 hours before the provider event time. channel-whatsapp sets mediaId and contextWamid to null when they exceed the id length instead of truncating them into a different reference. The waitlist and helpdesk lib modules no longer re-export normalizeEmail; it comes from the shared index.
+  -->
+- ec48537: Renderer review fixes: the file View action no longer opens the clicked row, badge cells follow the column renderer, dashboard lists honour `emptyPlaceholder`, phone steps keep their further actions, guidance actions never send a step key as record id, summary footer keys are unique, and the page editor no longer asks to discard after a successful save.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer review fixes for file view, badge cells, dashboard lists, steps and the page editor
+  detail: The PDF View action and its drawer stop click propagation so a row click does not fire. A badge or button column shows the same text as the cell without display (lookup renderer, FormatSpec) and only computes it when needed. Dashboard list columns honour emptyPlaceholder false. Steps keep their further actions in their own row below sm. Payload-less write and client actions of guidance items are left out when the shown record id is unknown. Summary footer cells get unique keys. The managed-pages editor reports clean right after a successful save and computes its initial draft once.
+  -->
+- 61b69e7: Inbound mail and billing review fixes: to/cc lists are cut to the event limit, forget-message refuses without file storage, a plan-switch consent survives interleaved state events, and a fresh Stripe subscription without a linked session is redelivered.
+  
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: fix
+  title: to/cc lists fit the ciphertext limit, forget-message needs file storage
+  detail: normalizeRawInboundMessage drops addresses from the end of to/cc until the serialized list fits INBOUND_ADDRESS_LIST_JSON_MAX_CHARS, and ingestMessageSchema rejects longer lists, so a mail to a large distribution list no longer fails the event append. Entity and event limits derive from shared constants. forget-message fails before archiving when a stored original exists but no file storage is configured. The content-refetch scan marker belongs to one poller instead of the module.
+  -->
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: plan-switch consent survives interleaved state events, one stream load per webhook
+  detail: pendingSwitchConsentId no longer limits the consent search to events after the last state event, so a same-tier update between switch-plan and the tier change keeps the consent. process-event loads the subscription stream once under the lock for admission and append. Ignored-event reasons share one IgnoredEventReasons object and the provider id limit one constant.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: customer.subscription.created without a linked checkout session is redelivered while young
+  detail: An empty checkout session list for a created event younger than ten minutes answers 503 so Stripe redelivers, instead of dropping the subscription as not in the ledger.
+  -->
+  
+  <!-- kumiko-changes
+  feature: subscription-paddle
+  type: fix
+  title: unreadable ledger backfill marker no longer causes endless 503
+  detail: shouldRedeliverLegacyCheckout answers 200 and logs when the marker dispatch fails, because custom_data.tenantBinding is client-settable.
+  -->
+- 2891f68: The server clock header is stamped after the handler, the RLS boot catalog reads policies in one query, and the list boot rules check sort directions, summary params and badgeDot on hint columns.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: x-kumiko-now is stamped after the handler ran
+  detail: The header was set before the handler, so freshly written timestamps looked up to the handler runtime in the future to the client. It is now read after next(). The RLS boot catalog reads all policy shapes in one query instead of one per table. Boot rules now reject sortOptions dirs the projection query's sortDirection enum lacks, summaryRow.params keys the summary query does not know, and badgeDot on a hint column. LIST_TOOLBAR_ACTIONS_PLACEMENTS is the single source for toolbarActionsPlacement. billing-foundation process-event takes the subscription lock before reading the current subscription.
+  -->
+- 50447ab: Renderer review fixes: topbar actions in their own shell context, screen focus survives the unmount of a second reporter, nav collapse state is cleared on logout, dashboard phone line and pager and sort summary format like the cells and in the app locale, DOM tests reset web storage after each test.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer review fixes for shell focus, logout and locale formatting
+  detail: `ShellTopbarActionsProvider` carries the shell's topbar actions in a context of its own, so `ShellFocusContext` consumers no longer re-render with every shell render and `useShellFocusHost` takes no argument. `useSetScreenFocus` only clears the focus it set itself. `clearNavCollapseState` runs on logout. The dashboard list phone line uses `dashboardListCellText` (bar as percent, i18n keys translated, `renderValue`), and the pager and the sort summary format numbers with the app locale.
+  -->
+- 725216a: Ingest progress no longer fails under heavy parallel reports, helpdesk forwarding runs without the delivery feature, legacy contact lookups skip archived and foreign requests before decrypting, the email normalization has one source, and the opted-in-user-ids query refuses the wildcard type.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Parallel ingest progress reports no longer fail after the retry budget
+  detail: A version conflict after the last attempt means a newer report already landed, so reportIngestProgress returns instead of throwing into the ingest run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: helpdesk
+  type: fix
+  title: Helpdesk forwards requests and replies without ctx.notify
+  detail: Forwarding a request, the reply mail dispatch and the in-app note are plain dispatches and now run through runBestEffort instead of the notify-gated sendBestEffort, so they no longer get skipped when the delivery feature is not mounted. The legacy contact subject lookup checks the archive first and decrypts an email only for anonymous requests.
+  -->
+  
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: opted-in-user-ids refuses the wildcard type and resolves former names
+  detail: A notificationType of "*" is rejected by the schema so wildcard rows never count as opt-in, and a former notification name resolves to the current type instead of returning an empty list.
+  -->
+  
+  <!-- kumiko-changes
+  feature: shared
+  type: fix
+  title: One normalizeEmail for helpdesk, waitlist, signup tokens and user-data lookups
+  detail: The copies in helpdesk, waitlist, signup-token-store and the inline toLowerCase in resolveVerifiedUserEmail now use shared/normalizeEmail, so a changed normalization cannot make export and erasure miss stored rows.
+  -->
+- a4e9adf: Review round 1, package 8: the WhatsApp webhook normalizer no longer fails a delivery over oversized ids or absurd timestamps, document previews fill their variables, the PWA update drops caches of the unscoped name format, and test runs outside the runner stay marked alive.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: fix
+  title: WhatsApp webhook skips oversized ids and survives absurd timestamps
+  detail: An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids, media ids and mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: PWA update removes the precache of the unscoped cache name format
+  detail: Caches named kumiko-pwa-<16hex> from before the per-scope prefix were never deleted after an update. The service worker now drops them once, and keeps caches of other scopes and foreign libraries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Test runs outside the runner stay alive for parallel sweeps
+  detail: testRunQueueNamePrefix now marks the process run alive, and a failed first alive mark no longer stops the refresh timer, so a parallel run's sweep cannot delete live queues, keys or template databases.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Web preview of document bodies fills the example values
+  detail: The web preview target sent document bodies with unfilled variable chips. It now fills them with the example values like the snippet preview does.
+  -->
+- bc16118: A WhatsApp status callback with a non-integer error code no longer fails the delivery.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: fix
+  title: Non-integer status error codes are dropped instead of answering 500
+  detail: The webhook normalizer accepted any number as a status error code while the handler schema requires an integer, so a fractional code made the whole delivery answer 500 and Meta redeliver it. The code is now dropped to null like other invalid optional fields.
+  -->
+- fa35300: The tenant-lifecycle test for an entity override that holds a tenant no longer fails when the scheduled sweep finishes the destruction while the job queue drains.
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: fix
+  title: Held-tenant destruction test tolerates the scheduled sweep finishing first
+  detail: After the retention job releases a destroyHeld tenant, the scheduled sweep may already have moved it on to destroyed. The test now accepts destroying or destroyed and only asserts the retention override while the status is still destroying, reading the overrides first so the check stays meaningful.
+  -->
+- 0590bc7: Two concurrent deliveries of one WhatsApp message or status store one event.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: fix
+  title: Concurrent webhook deliveries no longer store a message or status twice
+  detail: The receive-message and record-status handlers now take a per-stream advisory lock before their duplicate check. Before, a delivery that committed after the other one's load landed as a second event on the same stream.
+  -->
+- Updated dependencies [7d4d98b]
+- Updated dependencies [936c2fa]
+- Updated dependencies [936c2fa]
+- Updated dependencies [9e86e17]
+- Updated dependencies [e701e18]
+- Updated dependencies [0dde660]
+- Updated dependencies [6f8efad]
+- Updated dependencies [b56f27a]
+- Updated dependencies [175e232]
+- Updated dependencies [0c06c90]
+- Updated dependencies [98e82ff]
+- Updated dependencies [4e4a883]
+- Updated dependencies [36c874d]
+- Updated dependencies [793b9df]
+- Updated dependencies [b018a5d]
+- Updated dependencies [939c0cb]
+- Updated dependencies [09348da]
+- Updated dependencies [ec48537]
+- Updated dependencies [cabb8f3]
+- Updated dependencies [2891f68]
+- Updated dependencies [50447ab]
+- Updated dependencies [34e38a0]
+- Updated dependencies [a4e9adf]
+- Updated dependencies [4319b98]
+  - @cosmicdrift/kumiko-framework@0.415.0
+  - @cosmicdrift/kumiko-renderer@0.415.0
+  - @cosmicdrift/kumiko-types@0.415.0
+  - @cosmicdrift/kumiko-testing@0.415.0
+
 ## 0.414.0
 
 ### Minor Changes

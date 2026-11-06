@@ -1,5 +1,62 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "CRUD schemas carry the reference target of their fields",
+    "detail": "`createReferenceField` built a bare `z.uuid()`, so `handlerFieldReference` found nothing on `r.crud` write handlers. Insert and update schemas now set the same `references` meta a hand-written handler schema uses, which lets an agent proposal name the referenced record instead of showing its id."
+  },
+  {
+    "version": "0.415.0",
+    "type": "breaking",
+    "title": "Whitespace-only translations and blank plural forms fail the boot check",
+    "detail": "The locale completeness check at boot treated a value of one space as present, so a button with that label rendered blank, and it treated every plural object as present. Whitespace-only strings and plurals with an empty or whitespace-only form now count as missing, and the i18n parity test applies the same rule to locale bundles.",
+    "migration": "Fill in each key the boot error lists. For a plural, fill in the blank form or remove it so the lookup falls back to `other`."
+  },
+  {
+    "version": "0.415.0",
+    "type": "breaking",
+    "title": "Irreversible operations without a write-handler entry need a declared exception",
+    "detail": "A job (`r.job`) or multi-stream projection that runs an irreversible operation without a write-handler entry now throws AccessDeniedError (`irreversible_operation_without_entry_handler`) instead of passing silently. Declare `irreversibleWithoutEntryHandler` with one of `rebuildable-derived-data`, `high-risk-or-cron-pipeline` or `per-dispatch-record-key`. The declaration covers only the job's or consumer's own code; afterCommit hooks, nested dispatches and agent tool calls inside it are still gated. Any other request scope without a write-handler entry is refused too: an afterCommit or afterRollback hook of an HTTP write, an HTTP route, a WebSocket handler. A refused job goes red and a refused consumer goes to the dead letter, while a refused hook is only logged, so its delete does not happen and only the log shows it.",
+    "migration": "Add `irreversibleWithoutEntryHandler: \"<case>\"` to each job or multi-stream projection that calls executor.forget, a hard delete, kms.eraseKey or writes a readAsInstruction field. Pick the case that names why no entry handler exists; if none fits, route the operation through a write handler with `agent: { risk: \"high\" }`. Hooks and routes that call one of these primitives directly must dispatch such a handler or a job instead."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Global host gate skips readable hosts and where-rules and caps unpinned lists",
+    "detail": "Hosts classified `systemRowsReadable` (including reference data) keep their tenant-scope `EXISTS` instead of being resolved up front. A global host whose `access.read` is a `where` rule opens no arm in the system-scope host check, because no row level security acts there. An unpinned list skips soft-deleted join rows and resolves at most 5000 host ids; beyond that the global host arm is left out and a warning is logged."
+  },
+  {
+    "version": "0.415.0",
+    "type": "breaking",
+    "title": "Named filter refs carry `access` instead of `roles`",
+    "detail": "`NamedListFilterRef.roles` is replaced by `access` (an `AccessRule`), set by the framework from the entity filter's rule; an authored `access` is dropped like `roles` was. The client offers a chip with `isUiAccessGranted(ref.access, userRoles)`, so `anySignedIn` and `openToAll` follow the same rules as role-gated screens: `anySignedIn` opens a rule only next to the `anonymous` role, and `openToAll` needs a non-empty reason. Before, every rule form other than a plain role list was offered to everyone. `isNamedFilterOffered` is removed from the renderer.",
+    "migration": "Remove `roles` from `NamedListFilterRef` literals in screens (it was framework-owned and dropped anyway); the restriction is declared once as `access` on the entity's `namedFilters` entry. Code reading `ref.roles` from a built app schema reads `ref.access` instead."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Handlers can no longer call the unbound delivery attempt log factory",
+    "detail": "`_deliveryAttemptLogFactory` was copied into `ctx.services`, so a handler could log delivery attempts for any tenant and recipient. It is now wiring; handlers keep the bound `_logOwnDeliveryAttempt`."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "One shared derivation of the list query keys the summary-row check expects",
+    "detail": "`listPayloadKeysSent` in `@cosmicdrift/kumiko-types/screen` turns a list screen's capabilities (searchable, filters, named filters, screen filter) into the optional query keys it sends. The boot validator's summary-row schema check uses it instead of a hand-written copy, and renderer tests run the real entityList and projectionList payload builders and compare their keys with it."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Biome preset closes temporal-polyfill completely and tightens plugin gaps",
+    "detail": "noRestrictedImports now blocks every import from temporal-polyfill and temporal-polyfill/*, not only the Temporal name. no-date-api also flags optional calls (x?.toISOString(), x?.getTime()). unsafe-json-parse accepts JSON.parse in the try block of try/catch/finally. The allowlists of unsafe-json-parse, error-reasons and admin-api name the framework files by full path, so an app file with the same name no longer inherits the exception. lint-ignore-to-biome matches no-raw-hooks scope against the project-relative path from the plugin's own includes, lists trailing markers instead of converting them, and covers the remaining deleted guard slugs. The e2e Meilisearch teardown resolves MEILI_URL and MEILI_MASTER_KEY from webServer.env, then the app's .env files, then the default."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "x-kumiko-now is stamped after the handler ran",
+    "detail": "The header was set before the handler, so freshly written timestamps looked up to the handler runtime in the future to the client. It is now read after next(). The RLS boot catalog reads all policy shapes in one query instead of one per table. Boot rules now reject sortOptions dirs the projection query's sortDirection enum lacks, summaryRow.params keys the summary query does not know, and badgeDot on a hint column. LIST_TOOLBAR_ACTIONS_PLACEMENTS is the single source for toolbarActionsPlacement. billing-foundation process-event takes the subscription lock before reading the current subscription."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "kumiko CLI commands keep the whole output of the processes they start",

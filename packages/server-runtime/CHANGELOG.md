@@ -1,5 +1,110 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.415.0
+
+### Minor Changes
+
+- 607c71e: `runWorkerApp` takes the `unsubscribe` option, so `unsubscribe: true` mails that jobs in the worker process trigger carry the signed unsubscribe link and the List-Unsubscribe headers.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runWorkerApp accepts the unsubscribe option
+  detail: Pass the same `unsubscribe: { secret }` to runWorkerApp as to runProdApp; a job in the worker (e.g. a cron digest) that sends an `unsubscribe: true` notification then gets a signed link from `APP_BASE_URL`. The unsubscribe routes stay in the API process, which must use the same secret. Before, such mails went out without a link.
+  -->
+
+### Patch Changes
+
+- 793b9df: An app that drops the `pwa` option no longer leaves its old service worker running in users' browsers.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Dropping the pwa option retires the leftover service worker
+  detail: Without the shell meta, the web client unregisters the service worker for its own scope when it is served as `/sw.js` and a cache with that scope's `kumiko-pwa-<scope hash>-` prefix exists, then deletes those caches. App-owned workers and other apps on the same origin have no such cache and stay untouched. `PWA_CACHE_NAME_PREFIX` now lives in the renderer headless entry and is re-exported by the server runtime script module.
+  -->
+- 9db048a: Review fixes: a Paddle legacy checkout is redelivered again when the ledger backfill marker fails transiently, a plan-switch consent older than 24 hours is no longer attached to a later tier change, WhatsApp media and context ids are dropped instead of truncated, and `waitlist` and `helpdesk` no longer re-export `normalizeEmail`.
+  
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Review fixes for Paddle redelivery, plan-switch consent age and WhatsApp ids
+  detail: shouldRedeliverLegacyCheckout answers false only for configuration or permission failures of the backfill marker (access_denied, not_found, feature_disabled) and true for transient or internal ones, since Paddle retries only a bounded number of times. billing-foundation attaches a recorded switch consent to a provider tier change only within 24 hours before the provider event time. channel-whatsapp sets mediaId and contextWamid to null when they exceed the id length instead of truncating them into a different reference. The waitlist and helpdesk lib modules no longer re-export normalizeEmail; it comes from the shared index.
+  -->
+- a4e9adf: Review round 1, package 8: the WhatsApp webhook normalizer no longer fails a delivery over oversized ids or absurd timestamps, document previews fill their variables, the PWA update drops caches of the unscoped name format, and test runs outside the runner stay marked alive.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: fix
+  title: WhatsApp webhook skips oversized ids and survives absurd timestamps
+  detail: An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids, media ids and mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: PWA update removes the precache of the unscoped cache name format
+  detail: Caches named kumiko-pwa-<16hex> from before the per-scope prefix were never deleted after an update. The service worker now drops them once, and keeps caches of other scopes and foreign libraries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Test runs outside the runner stay alive for parallel sweeps
+  detail: testRunQueueNamePrefix now marks the process run alive, and a failed first alive mark no longer stops the refresh timer, so a parallel run's sweep cannot delete live queues, keys or template databases.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Web preview of document bodies fills the example values
+  detail: The web preview target sent document bodies with unfilled variable chips. It now fills them with the example values like the snippet preview does.
+  -->
+- Updated dependencies [7d4d98b]
+- Updated dependencies [c8f6862]
+- Updated dependencies [936c2fa]
+- Updated dependencies [936c2fa]
+- Updated dependencies [9e86e17]
+- Updated dependencies [e701e18]
+- Updated dependencies [175e232]
+- Updated dependencies [0dde660]
+- Updated dependencies [6f8efad]
+- Updated dependencies [b56f27a]
+- Updated dependencies [175e232]
+- Updated dependencies [fe78a93]
+- Updated dependencies [e3ad367]
+- Updated dependencies [1a8b340]
+- Updated dependencies [0c06c90]
+- Updated dependencies [7aae1af]
+- Updated dependencies [4ba9300]
+- Updated dependencies [98e82ff]
+- Updated dependencies [dec0521]
+- Updated dependencies [4e4a883]
+- Updated dependencies [36c874d]
+- Updated dependencies [793b9df]
+- Updated dependencies [b018a5d]
+- Updated dependencies [748a1cf]
+- Updated dependencies [939c0cb]
+- Updated dependencies [09348da]
+- Updated dependencies [9db048a]
+- Updated dependencies [ec48537]
+- Updated dependencies [cabb8f3]
+- Updated dependencies [61b69e7]
+- Updated dependencies [2891f68]
+- Updated dependencies [50447ab]
+- Updated dependencies [34e38a0]
+- Updated dependencies [725216a]
+- Updated dependencies [a4e9adf]
+- Updated dependencies [bc16118]
+- Updated dependencies [4319b98]
+- Updated dependencies [fa35300]
+- Updated dependencies [0590bc7]
+  - @cosmicdrift/kumiko-framework@0.415.0
+  - @cosmicdrift/kumiko-renderer@0.415.0
+  - @cosmicdrift/kumiko-types@0.415.0
+  - @cosmicdrift/kumiko-bundled-features@0.415.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.415.0
+
 ## 0.414.0
 
 ### Minor Changes

@@ -1,5 +1,145 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.415.0
+
+### Minor Changes
+
+- b56f27a: Board gaps round 11: drawn icons for all apps, facet labels, empty list header, short forms for card sentence, step title and banner, bell in the menu.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: board gaps round 11, drawn icons, facet labels, empty list header, short forms, bell in the menu
+  detail: Visible change for all apps: the search, sparkles, wand and pencil icons (`Icon` keys `search`, `sparkles`, `wand`, `pencil`), the list search field, the nav search and the filter toggle use new drawn icons, exported from renderer/web as `DrawnSearch`, `DrawnSparkles`, `DrawnPencil`, `DrawnFilter`, `DrawnWand`, `DrawnPanel`. `navStyle` plain shows `DrawnPanel` on every width instead of the hamburger. Facet triggers split "Label: " grey from the value in its own span (`facet-<field>-value`), the sort select too (`<testId>-value`); with `narrowFacets` pills an empty select shows the label only. New options - `NamedFilterFacetOptions.hideEmpty` (zero-hit entries leave the select, "all" and the active entry stay; the counts are requested without `showCounts`), `ListColumnHint.narrowField` (shorter sentence on the phone card), `RecordStep.narrowTitle`, `RecordNotice.narrowTitle` and `narrowText` (also `BannerProps`), `WorkspaceShell.notificationBellPlacement: "header" | "overflow"` (overflow moves the bell into the always-visible "…" menu). `narrowPlacement: "behind-filter"` now works on lists that do not fill their height (search and filter toggle share one row below sm). A `frame: "card"` list from sm up keeps its header row when empty, with the empty state in the same card. Boot rule `query/output-field-missing` also checks `hint.narrowField`; the projectionList count-acceptance rule also applies to `hideEmpty`.
+  -->
+- 175e232: WorkspaceShell gets `contentSurface` and `navStyle`, and lists, dashboard panels and detail pages move closer to the KI-first boards.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: WorkspaceShell contentSurface and navStyle, board look for lists, panels and detail pages
+  detail: `WorkspaceShell` takes `contentSurface?: "card" | "background"` (default "card") and `navStyle?: "default" | "plain"` (default "default"). `plain` drops the leading icons of the expanded sidebar, styles groups, entries, active entry and search like the board, shows the create plus of an entry only on hover and focus (always on coarse pointers), renders a visible plus on a group's label, shows the hamburger in the header (also in the Akte header on desktop) and sets the header to 58px. Defaults changed for all apps: the notification bell has no border, its counter is a small destructive pill; the dashboard panel header has no divider and board spacing, the titled stat strip is a grid, panel stat tiles use the page background; the pager footer reads "1–10 von 26 · 10 pro Seite" (no noun, no arrow at the page size, plain page buttons); the summary and totals row of a table keep their background under the sticky actions column; select-facet triggers show the label grey and the value in foreground or primary when set; select-facet dropdown counters sit right and a chip can set `separatorAfter` (new on `EntityListFacetExtraOption`); tab counts are pills; metric tiles show `sub` on its own line; Fristen date cells are mono; button columns of a dashboard list are right-aligned. `kumiko.pager.status.noun` is removed (unused). Also new: `NamedListFilterRef.emptyState` takes `paramsQuery` (a registered query QN without payload, run only while the empty state is on screen; its result object becomes the translation params of `description`; without data the description is not rendered; boot rules `list/named-filter-empty-state-params-query-empty`, `...-without-description` and `query/not-registered`); `NamedListFilterRef.separatorAfter`; `narrowPlacement: "behind-filter"` on `EntityListFacetConfig` and `NamedFilterFacetOptions` (the remaining facets follow the usual phone rules, both clusters share one filter toggle); `prefix` on a detail header subtitle part; `MetricSpec.subFieldNarrow`; `steps.narrowMoreLabel`, a plural base key (`<key>.one` and `<key>.other` with `{count}`; default `kumiko.detail.steps.more`). Phone cards and dashboard cards draw the tone as an inner 4px stripe instead of a left border; table row tone stripes are 4px; further step actions are grey 12.5px; the phone stat strip has no tone border; the chain panel beside the steps stretches to their height. Phone detail pages and lists: new list column option `narrowInline` (consecutive columns with it share one line of values with a 12px gap on a phone card, no separator; other apps are unaffected until they set it); new `CardOptions.headerLayout: "stacked" | "inline"` (inline puts title, subtitle and actions on one row without a divider; the chain panel uses it); `StatCard` takes `boardPadding`; the pager of a phone card list is plain text on the page without bar or border and the sort sentence is a muted 12px line; the lead paragraph of a dashboard text panel is followed by a smaller dated hint line; the page heading is 20px on a phone, detail pages use 16px side insets there, steps are divided rows with a 4px tone stripe and a "more steps" toggle row, the record summary has a heading-face sentence with a left stripe, metric tiles use 2-column phone spacing with a short `narrowSub` beside the value, and tab strips scroll sideways with tighter spacing on a phone. `StepList` for a plan card: `StepListSelection.compact` (no select-all row, selection actions visible at 0 selected, muted header, left-aligned footer, the checkbox replaces the status icon of selectable rows), `StepSelectionAction.labelForCount(count)` (replaces the appended " (n)", the action is disabled at 0), `StepSelectionAction.ignoresSelection` (no counter, always enabled, `onClick` still gets the selection), `StepTag.side` (tag in the right column above a trailing link), `progress: "total"` ("n steps", keys `kumiko.widget.step-list.total.one` and `.other`) and `footerNote`. In a list or dashboard panel with row tones every narrow card now carries the stripe, grey for neutral rows, so all cards share one inset. A filter toggle on the phone is marked active while a facet behind it is set.
+  -->
+- 4e4a883: A named filter on an entity list now reaches the client with its full access rule, checked by `isUiAccessGranted`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Named filter refs carry `access` instead of `roles`
+  detail: `NamedListFilterRef.roles` is replaced by `access` (an `AccessRule`), set by the framework from the entity filter's rule; an authored `access` is dropped like `roles` was. The client offers a chip with `isUiAccessGranted(ref.access, userRoles)`, so `anySignedIn` and `openToAll` follow the same rules as role-gated screens: `anySignedIn` opens a rule only next to the `anonymous` role, and `openToAll` needs a non-empty reason. Before, every rule form other than a plain role list was offered to everyone. `isNamedFilterOffered` is removed from the renderer.
+  migration: Remove `roles` from `NamedListFilterRef` literals in screens (it was framework-owned and dropped anyway); the restriction is declared once as `access` on the entity's `namedFilters` entry. Code reading `ref.roles` from a built app schema reads `ref.access` instead.
+  -->
+
+### Patch Changes
+
+- 7d4d98b: The card meta limit counts lines: a run of `narrowInline` columns is one line, as the card draws it. `narrowPlacement` also works on the `facets` of a projection list.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Card meta limit counts lines, projection list facets honour narrowPlacement
+  detail: The boot rule `list/card-meta-overflow` counted every meta column, so a run of `narrowInline` columns that the card draws on one line failed the boot. It now counts lines. `ListFacetSpec` takes `narrowPlacement`, so a facet of a projection list can open behind the filter icon on a phone, as on entity lists.
+  -->
+- 936c2fa: A `Drawer` with `side="bottom"` stays a bottom sheet on a phone and keeps its `panelClassName` there.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Bottom drawers stay docked on narrow viewports
+  detail: Below the narrow breakpoint every Drawer went full-screen and ignored `side`. With `side="bottom"` the panel now stays at the bottom edge with the dimmed page behind it. Other sides keep the full-screen layout.
+  -->
+- e701e18: Detail pages no longer show two h1 for a moment, and the `warn` stat tone uses the status-warn token.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: detail pages show one h1 at a time, stat warn tone uses status-warn
+  detail: DefaultPageHeader sets the bodyTitle flag in a layout effect, so the shell breadcrumb no longer paints its own h1 next to the page's h1 under a slow CPU. The `warn` tone of StatCard, StatStripCell and MiniStat used the destructive color; it now uses `status-warn` and `status-warn-surface` like the other widgets.
+  -->
+- 793b9df: An app that drops the `pwa` option no longer leaves its old service worker running in users' browsers.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Dropping the pwa option retires the leftover service worker
+  detail: Without the shell meta, the web client unregisters the service worker for its own scope when it is served as `/sw.js` and a cache with that scope's `kumiko-pwa-<scope hash>-` prefix exists, then deletes those caches. App-owned workers and other apps on the same origin have no such cache and stay untouched. `PWA_CACHE_NAME_PREFIX` now lives in the renderer headless entry and is re-exported by the server runtime script module.
+  -->
+- b018a5d: Row decoration in infinite lists asks only for the rows loaded since the last answer.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Row decoration sends only new ids and keeps earlier answers
+  detail: In an infinite list each decoration call carries only the ids that have no answer yet; answers are merged across calls and dropped when the list's filter or sort changes. A reload after a write still asks for every id. A decoration query can now cap `ids` at the page size without losing the decoration once more pages are loaded.
+  -->
+- 09348da: An entity list that is not searchable no longer sends `search` when `q` is in the URL.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Non-searchable entity lists ignore a stale q in the URL
+  detail: The entity list payload now gates `search` on the same searchable decision as the toolbar, like the projection list already did. A leftover `?q=` can no longer reach a query handler that does not accept it, and the keys sent match what the boot validator derives.
+  -->
+- ec48537: Renderer review fixes: the file View action no longer opens the clicked row, badge cells follow the column renderer, dashboard lists honour `emptyPlaceholder`, phone steps keep their further actions, guidance actions never send a step key as record id, summary footer keys are unique, and the page editor no longer asks to discard after a successful save.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer review fixes for file view, badge cells, dashboard lists, steps and the page editor
+  detail: The PDF View action and its drawer stop click propagation so a row click does not fire. A badge or button column shows the same text as the cell without display (lookup renderer, FormatSpec) and only computes it when needed. Dashboard list columns honour emptyPlaceholder false. Steps keep their further actions in their own row below sm. Payload-less write and client actions of guidance items are left out when the shown record id is unknown. Summary footer cells get unique keys. The managed-pages editor reports clean right after a successful save and computes its initial draft once.
+  -->
+- 2891f68: The server clock header is stamped after the handler, the RLS boot catalog reads policies in one query, and the list boot rules check sort directions, summary params and badgeDot on hint columns.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: x-kumiko-now is stamped after the handler ran
+  detail: The header was set before the handler, so freshly written timestamps looked up to the handler runtime in the future to the client. It is now read after next(). The RLS boot catalog reads all policy shapes in one query instead of one per table. Boot rules now reject sortOptions dirs the projection query's sortDirection enum lacks, summaryRow.params keys the summary query does not know, and badgeDot on a hint column. LIST_TOOLBAR_ACTIONS_PLACEMENTS is the single source for toolbarActionsPlacement. billing-foundation process-event takes the subscription lock before reading the current subscription.
+  -->
+- 50447ab: Renderer review fixes: topbar actions in their own shell context, screen focus survives the unmount of a second reporter, nav collapse state is cleared on logout, dashboard phone line and pager and sort summary format like the cells and in the app locale, DOM tests reset web storage after each test.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer review fixes for shell focus, logout and locale formatting
+  detail: `ShellTopbarActionsProvider` carries the shell's topbar actions in a context of its own, so `ShellFocusContext` consumers no longer re-render with every shell render and `useShellFocusHost` takes no argument. `useSetScreenFocus` only clears the focus it set itself. `clearNavCollapseState` runs on logout. The dashboard list phone line uses `dashboardListCellText` (bar as percent, i18n keys translated, `renderValue`), and the pager and the sort summary format numbers with the app locale.
+  -->
+- 34e38a0: A titled dashboard stat strip no longer leaves an empty cell for a tile the user may not open; dashboard cards share the hint sentence style, and a few docs and types are corrected.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Titled stat strip drops tiles the user may not open
+  detail: The strip wrapped every stat in its own cell, so a gated tile left an empty cell with a dangling separator. Gated tiles are now filtered before the cell is drawn. The dashboard card headline reuses the table's hint sentence class, the createPlacement and rowActionMode docs match the code, and TEMPLATE_EDITOR_SCREENS is read-only.
+  -->
+- 4319b98: A segment label wider than its column ends in an ellipsis and stays readable as a tooltip.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Long segment labels end in an ellipsis instead of being clipped by the group
+  detail: A segment is now at most as wide as its group, cuts its label with an ellipsis and names the full label in title. Short labels look the same and segments still wrap to the next row.
+  -->
+- Updated dependencies [7d4d98b]
+- Updated dependencies [936c2fa]
+- Updated dependencies [9e86e17]
+- Updated dependencies [0dde660]
+- Updated dependencies [6f8efad]
+- Updated dependencies [b56f27a]
+- Updated dependencies [175e232]
+- Updated dependencies [0c06c90]
+- Updated dependencies [98e82ff]
+- Updated dependencies [4e4a883]
+- Updated dependencies [36c874d]
+- Updated dependencies [b018a5d]
+- Updated dependencies [939c0cb]
+- Updated dependencies [cabb8f3]
+- Updated dependencies [2891f68]
+- Updated dependencies [34e38a0]
+- Updated dependencies [a4e9adf]
+  - @cosmicdrift/kumiko-framework@0.415.0
+  - @cosmicdrift/kumiko-types@0.415.0
+
 ## 0.414.0
 
 ### Minor Changes

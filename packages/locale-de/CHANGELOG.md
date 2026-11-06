@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.415.0
+
+### Patch Changes
+
+- 7dadac3: The informal German bundle no longer contains formal texts. Fourteen strings still addressed the user with „Sie“; they now say „du“, and their old wording is in the formal overrides, so apps with `address: "formal"` read the same as before. The test against formal address now covers the whole bundle.
+  
+  <!-- kumiko-changes
+  feature: locale-de
+  type: fix
+  title: Informal German bundle says du throughout
+  detail: Fourteen strings in the informal bundle addressed the user with Sie. They now say du. Apps with address formal keep the previous wording through the formal overrides.
+  -->
+- Updated dependencies [7d4d98b]
+- Updated dependencies [936c2fa]
+- Updated dependencies [9e86e17]
+- Updated dependencies [0dde660]
+- Updated dependencies [6f8efad]
+- Updated dependencies [b56f27a]
+- Updated dependencies [175e232]
+- Updated dependencies [0c06c90]
+- Updated dependencies [98e82ff]
+- Updated dependencies [4e4a883]
+- Updated dependencies [36c874d]
+- Updated dependencies [b018a5d]
+- Updated dependencies [939c0cb]
+- Updated dependencies [cabb8f3]
+- Updated dependencies [2891f68]
+- Updated dependencies [a4e9adf]
+  - @cosmicdrift/kumiko-framework@0.415.0
+
 ## 0.414.0
 
 ### Patch Changes

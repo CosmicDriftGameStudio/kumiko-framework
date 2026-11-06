@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "unreadable ledger backfill marker no longer causes endless 503",
+    "detail": "shouldRedeliverLegacyCheckout answers 200 and logs when the marker dispatch fails, because custom_data.tenantBinding is client-settable."
+  },
+  {
     "version": "0.414.0",
     "type": "breaking",
     "title": "Paddle checkouts are bound by the checkout ledger, the tenant binding key is gone",

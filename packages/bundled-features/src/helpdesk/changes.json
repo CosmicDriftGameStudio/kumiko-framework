@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Helpdesk forwards requests and replies without ctx.notify",
+    "detail": "Forwarding a request, the reply mail dispatch and the in-app note are plain dispatches and now run through runBestEffort instead of the notify-gated sendBestEffort, so they no longer get skipped when the delivery feature is not mounted. The legacy contact subject lookup checks the archive first and decrypts an email only for anonymous requests."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "Legacy contact data is exported, erased and expired from the event log",

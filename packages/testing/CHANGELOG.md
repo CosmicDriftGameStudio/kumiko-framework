@@ -1,5 +1,84 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.415.0
+
+### Patch Changes
+
+- 9e86e17: App e2e runs no longer leave Meilisearch indexes behind. `defineAppE2eConfig` gives every run its own index prefix and drops exactly those indexes in a global teardown; `createMeilisearchAdapter` reads the prefix from `KUMIKO_MEILI_INDEX_PREFIX`.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: App e2e runs clean up their Meilisearch indexes
+  detail: Each run's server gets `KUMIKO_MEILI_INDEX_PREFIX=e2e_<uuid>_`, which beats the adapter's `indexPrefix` option, and a global teardown drops only that prefix. Without the variable the adapter behaves as before. A config that sets its own `globalTeardown` replaces this cleanup, so it has to include `config.globalTeardown`. Indexes of a run killed before its teardown stay behind. The framework's own Meilisearch tests now list all indexes in their cleanup instead of the first 20.
+  -->
+- cabb8f3: Review fixes for the Biome guard move: temporal-polyfill is blocked as a whole, `no-date-api` and `unsafe-json-parse` close their gaps, the codemod judges scope by project-relative path, and the e2e Meilisearch teardown reads the app's `.env`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Biome preset closes temporal-polyfill completely and tightens plugin gaps
+  detail: noRestrictedImports now blocks every import from temporal-polyfill and temporal-polyfill/*, not only the Temporal name. no-date-api also flags optional calls (x?.toISOString(), x?.getTime()). unsafe-json-parse accepts JSON.parse in the try block of try/catch/finally. The allowlists of unsafe-json-parse, error-reasons and admin-api name the framework files by full path, so an app file with the same name no longer inherits the exception. lint-ignore-to-biome matches no-raw-hooks scope against the project-relative path from the plugin's own includes, lists trailing markers instead of converting them, and covers the remaining deleted guard slugs. The e2e Meilisearch teardown resolves MEILI_URL and MEILI_MASTER_KEY from webServer.env, then the app's .env files, then the default.
+  -->
+- 50447ab: Renderer review fixes: topbar actions in their own shell context, screen focus survives the unmount of a second reporter, nav collapse state is cleared on logout, dashboard phone line and pager and sort summary format like the cells and in the app locale, DOM tests reset web storage after each test.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Renderer review fixes for shell focus, logout and locale formatting
+  detail: `ShellTopbarActionsProvider` carries the shell's topbar actions in a context of its own, so `ShellFocusContext` consumers no longer re-render with every shell render and `useShellFocusHost` takes no argument. `useSetScreenFocus` only clears the focus it set itself. `clearNavCollapseState` runs on logout. The dashboard list phone line uses `dashboardListCellText` (bar as percent, i18n keys translated, `renderValue`), and the pager and the sort summary format numbers with the app locale.
+  -->
+- a4e9adf: Review round 1, package 8: the WhatsApp webhook normalizer no longer fails a delivery over oversized ids or absurd timestamps, document previews fill their variables, the PWA update drops caches of the unscoped name format, and test runs outside the runner stay marked alive.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: fix
+  title: WhatsApp webhook skips oversized ids and survives absurd timestamps
+  detail: An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids, media ids and mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: PWA update removes the precache of the unscoped cache name format
+  detail: Caches named kumiko-pwa-<16hex> from before the per-scope prefix were never deleted after an update. The service worker now drops them once, and keeps caches of other scopes and foreign libraries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Test runs outside the runner stay alive for parallel sweeps
+  detail: testRunQueueNamePrefix now marks the process run alive, and a failed first alive mark no longer stops the refresh timer, so a parallel run's sweep cannot delete live queues, keys or template databases.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Web preview of document bodies fills the example values
+  detail: The web preview target sent document bodies with unfilled variable chips. It now fills them with the example values like the snippet preview does.
+  -->
+- Updated dependencies [7d4d98b]
+- Updated dependencies [936c2fa]
+- Updated dependencies [9e86e17]
+- Updated dependencies [0dde660]
+- Updated dependencies [6f8efad]
+- Updated dependencies [b56f27a]
+- Updated dependencies [175e232]
+- Updated dependencies [0c06c90]
+- Updated dependencies [98e82ff]
+- Updated dependencies [4e4a883]
+- Updated dependencies [36c874d]
+- Updated dependencies [b018a5d]
+- Updated dependencies [30b6b2b]
+- Updated dependencies [939c0cb]
+- Updated dependencies [cabb8f3]
+- Updated dependencies [2891f68]
+- Updated dependencies [34e38a0]
+- Updated dependencies [a4e9adf]
+  - @cosmicdrift/kumiko-framework@0.415.0
+  - @cosmicdrift/kumiko-types@0.415.0
+  - @cosmicdrift/kumiko-guards@0.415.0
+
 ## 0.414.0
 
 ### Minor Changes
