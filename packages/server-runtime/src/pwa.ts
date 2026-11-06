@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   escapeHtmlAttr,
+  PWA_CACHE_SCOPE_HASH_LENGTH,
   PWA_SERVICE_WORKER_META_NAME,
 } from "@cosmicdrift/kumiko-renderer/headless";
 import { buildPwaServiceWorkerScript, PWA_CACHE_NAME_PREFIX } from "./pwa-service-worker-script.ts";
@@ -150,7 +151,7 @@ function fileResponse(req: Request, body: string, contentType: string): Response
 export function createPwaShell(options: PwaOptions, build: PwaShellBuild): PwaShell {
   assertValidPwaOptions(options);
   const paths = pwaPathsOf(options);
-  const cacheScopePrefix = `${PWA_CACHE_NAME_PREFIX}${createHash("sha256").update(paths.shellUrl).digest("hex").slice(0, 8)}-`;
+  const cacheScopePrefix = `${PWA_CACHE_NAME_PREFIX}${createHash("sha256").update(paths.shellUrl).digest("hex").slice(0, PWA_CACHE_SCOPE_HASH_LENGTH)}-`;
   const cacheName = `${cacheScopePrefix}${computeCacheVersion(options, build)}`;
   const precacheUrls = [
     ...new Set([

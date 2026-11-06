@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { PWA_SERVICE_WORKER_META_NAME } from "../../../headless/pwa-service-worker-meta.ts";
+import {
+  PWA_SERVICE_WORKER_META_NAME,
+  pwaCacheScopePrefixOf,
+} from "../../../headless/pwa-service-worker-meta.ts";
 import { render } from "../../__tests__/test-utils.tsx";
 import { PWA_INSTALL_HINT_DISMISSED_KEY, PwaSupport } from "../pwa-support.tsx";
 
@@ -74,13 +77,17 @@ describe("PwaSupport without the pwa option and a leftover worker", () => {
   let deleteCache: ReturnType<typeof mock>;
   let listCaches: ReturnType<typeof mock>;
 
-  function stubWorkerState(scriptURL: string, cacheNames: string[]): void {
+  function stubWorkerState(
+    scriptURL: string,
+    cacheNames: string[],
+    scope = "https://app.test/",
+  ): void {
     unregister = mock(async () => true);
     deleteCache = mock(async () => true);
     listCaches = mock(async () => cacheNames);
     stubNavigator("serviceWorker", {
       register,
-      getRegistration: async () => ({ active: { scriptURL }, unregister }),
+      getRegistration: async () => ({ active: { scriptURL }, scope, unregister }),
     });
     Object.defineProperty(globalThis, "caches", {
       configurable: true,
@@ -94,11 +101,29 @@ describe("PwaSupport without the pwa option and a leftover worker", () => {
   });
 
   test("unregisters the shell worker and drops its caches when the marker cache exists", async () => {
-    stubWorkerState("https://app.test/sw.js", ["kumiko-pwa-abcd-0123", "other-app-cache"]);
+    const ownCache = `${await pwaCacheScopePrefixOf("/")}0123`;
+    stubWorkerState("https://app.test/sw.js", [ownCache, "other-app-cache"]);
     render(<PwaSupport />);
     await waitFor(() => expect(unregister).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(deleteCache).toHaveBeenCalledTimes(1));
-    expect(deleteCache).toHaveBeenCalledWith("kumiko-pwa-abcd-0123");
+    expect(deleteCache).toHaveBeenCalledWith(ownCache);
+  });
+
+  test("an own-scope cache under a base path is matched by that scope's prefix", async () => {
+    const ownCache = `${await pwaCacheScopePrefixOf("/a/")}0123`;
+    stubWorkerState("https://app.test/a/sw.js", [ownCache], "https://app.test/a/");
+    render(<PwaSupport />);
+    await waitFor(() => expect(unregister).toHaveBeenCalledTimes(1));
+    expect(deleteCache).toHaveBeenCalledWith(ownCache);
+  });
+
+  test("leaves the worker and another app's kumiko-pwa- cache alone", async () => {
+    stubWorkerState("https://app.test/sw.js", ["kumiko-pwa-ffffffff-0123"]);
+    render(<PwaSupport />);
+    await waitFor(() => expect(listCaches).toHaveBeenCalledTimes(1));
+    await act(async () => undefined);
+    expect(unregister).not.toHaveBeenCalled();
+    expect(deleteCache).not.toHaveBeenCalled();
   });
 
   test("leaves an app-owned worker alone when no kumiko-pwa- cache exists", async () => {

@@ -89,7 +89,12 @@ export type {
 } from "./nav/index.ts";
 export { resolveNavigation } from "./nav/index.ts";
 export { pluralKey } from "./plural-key.ts";
-export { PWA_CACHE_NAME_PREFIX, PWA_SERVICE_WORKER_META_NAME } from "./pwa-service-worker-meta.ts";
+export {
+  PWA_CACHE_NAME_PREFIX,
+  PWA_CACHE_SCOPE_HASH_LENGTH,
+  PWA_SERVICE_WORKER_META_NAME,
+  pwaCacheScopePrefixOf,
+} from "./pwa-service-worker-meta.ts";
 export type { Store, WritableStore } from "./store/index.ts";
 export { createStore, shallowEqual } from "./store/index.ts";
 export type {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { pwaCacheScopePrefixOf } from "@cosmicdrift/kumiko-renderer/headless";
 import { createPwaShell, type PwaOptions } from "../pwa.ts";
 import { PWA_CACHE_NAME_PREFIX } from "../pwa-service-worker-script.ts";
 import {
@@ -150,6 +151,14 @@ describe("createPwaShell — head tags", () => {
 });
 
 describe("createPwaShell — cache name", () => {
+  test.each(["/", "/a/", "/tenant/app/"])(
+    "the web client derives the same scope prefix for base path %s",
+    async (basePath) => {
+      const { cacheName } = createPwaShell({ ...pwa, basePath }, build);
+      expect(cacheName.startsWith(await pwaCacheScopePrefixOf(basePath))).toBe(true);
+    },
+  );
+
   test("is stable for the same build and changes with a new build", () => {
     const first = createPwaShell(pwa, build).cacheName;
     expect(first.startsWith(PWA_CACHE_NAME_PREFIX)).toBe(true);

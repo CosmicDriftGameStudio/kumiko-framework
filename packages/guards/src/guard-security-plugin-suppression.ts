@@ -243,7 +243,14 @@ export function scanSecurityPluginSuppressions(
   if (suppressed.size === 0) return { findings: {}, failures: [] };
   const presetPath = resolvePresetPath(repoRoot);
   const biomeBin = resolveBiomeBin(repoRoot);
-  if (presetPath === undefined || biomeBin === undefined) return { findings: {}, failures: [] };
+  if (presetPath === undefined || biomeBin === undefined) {
+    return {
+      findings: {},
+      failures: [
+        `cannot resolve Biome preset/binary from ${repoRoot} to check plugin suppressions`,
+      ],
+    };
+  }
   const plugins = securityPluginEntries(presetPath);
   if (typeof plugins === "string") return { findings: {}, failures: [plugins] };
 
