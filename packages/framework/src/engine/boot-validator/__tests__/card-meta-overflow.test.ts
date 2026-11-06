@@ -59,6 +59,30 @@ describe("collectCardMetaOverflow", () => {
     ]);
   });
 
+  test("consecutive narrowInline columns count as one line, as the card draws them", () => {
+    const columns: ListColumnSpec[] = [
+      "name",
+      "a",
+      { field: "b", narrowInline: true },
+      { field: "c", narrowInline: true },
+      "d",
+    ];
+    expect(collectCardMetaOverflow([listFeature(columns)])).toEqual([]);
+  });
+
+  test("narrowInline columns split by another column are separate lines", () => {
+    const columns: ListColumnSpec[] = [
+      "name",
+      { field: "a", narrowInline: true },
+      "b",
+      { field: "c", narrowInline: true },
+      "d",
+    ];
+    expect(collectCardMetaOverflow([listFeature(columns)])).toEqual([
+      { feature: "cards", screen: "item-list", count: 4, fields: ["a", "b", "c", "d"] },
+    ]);
+  });
+
   test("3 meta columns pass", () => {
     expect(collectCardMetaOverflow([listFeature(["name", "a", "b", "c"])])).toEqual([]);
   });
@@ -168,7 +192,7 @@ describe("validateCardMetaOverflow", () => {
     expect(() =>
       validateCardMetaOverflow([listFeature(["name", "a", "b", "c", "d"]), second]),
     ).toThrow(
-      /Feature "cards" screen "item-list": 4 meta columns \(a, b, c, d\)[\s\S]*Feature "other" screen "rows": 4 meta columns[\s\S]*hideOnNarrow/,
+      /Feature "cards" screen "item-list": 4 meta lines \(a, b, c, d\)[\s\S]*Feature "other" screen "rows": 4 meta lines[\s\S]*hideOnNarrow/,
     );
   });
 

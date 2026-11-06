@@ -28,6 +28,7 @@ export type ResolvedFacetSpec = {
     /** Author handler that serves the options instead of the entity list. */
     readonly optionsQuery?: string;
   };
+  readonly narrowPlacement?: "behind-filter";
   /** Reference facets only: set once the bridge resolved it. Makes the facet searchable. */
   readonly onSearchChange?: (query: string) => void;
   readonly searching?: boolean;
@@ -57,6 +58,7 @@ function facetBase(spec: ResolvedFacetSpec): DataTableFacet {
     field: spec.field,
     label: spec.label,
     options: spec.options,
+    ...(spec.narrowPlacement !== undefined && { narrowPlacement: spec.narrowPlacement }),
     ...(spec.onSearchChange !== undefined && { onSearchChange: spec.onSearchChange }),
     ...(spec.searching !== undefined && { searching: spec.searching }),
   };
@@ -223,12 +225,15 @@ export function resolveProjectionFacetSpecs(
   // through resolveDateRangeFacets into its own toolbar control instead.
   return facets.flatMap((facet): ResolvedFacetSpec[] => {
     if (facet.type === "dateRange") return [];
+    const placement =
+      facet.narrowPlacement !== undefined ? { narrowPlacement: facet.narrowPlacement } : {};
     if (facet.type === "select") {
       return [
         {
           field: facet.field,
           type: "select",
           label: tr(facet.label),
+          ...placement,
           options: facet.options.map((opt) => ({
             value: opt.value,
             label: tr(opt.label),
@@ -242,6 +247,7 @@ export function resolveProjectionFacetSpecs(
           field: facet.field,
           type: "boolean",
           label: tr(facet.label),
+          ...placement,
           options: [
             { value: "true", label: tr(facet.trueLabel) },
             { value: "false", label: tr(facet.falseLabel) },
@@ -255,6 +261,7 @@ export function resolveProjectionFacetSpecs(
         field: facet.field,
         type: "reference",
         label: tr(facet.label),
+        ...placement,
         options: [],
         reference: {
           refEntity: target.entityName,

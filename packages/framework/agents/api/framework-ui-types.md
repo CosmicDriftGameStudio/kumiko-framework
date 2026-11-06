@@ -10,6 +10,7 @@ Import from `@cosmicdrift/kumiko-framework/ui-types`. Types used here but not ex
 function applyFormDerivations(values: unknown, screen: FormDerivationScreen): unknown; // Recomputes every derived head field of an action form from its inputs.
 function availableSelectOptions(field: SelectOptionRules, values: Record<string, unknown>): string[]; // Options of a select field that are offered for the given row values, in declaration order.
 function cardColumnRoles<C extends CardRoleColumn>(columns: C[]): CardColumnRoles<C>;
+function cardMetaLines<C extends CardRoleColumn>(meta: C[]): (C[])[];
 function computeDerivedCellValue(op: NumericDerivedOp, values: (number | undefined)[]): number | undefined; // Computes a derived cell from its source values.
 function evalFieldCondition(cond: FieldCondition, values: Record<string, unknown>): boolean; // Evaluates a declarative FieldCondition against the current row/form values.
 function findMissingConditionalRequirements(fields: Readonly<Record<string, FieldDefinition>>, values: Record<string, unknown>, previous?: Record<string, unknown>): string[]; // Paths of fields (and embedded sub-fields) whose `requiredWhen` holds while the value is missing.

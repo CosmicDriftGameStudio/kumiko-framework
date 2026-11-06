@@ -63,3 +63,19 @@ export function cardColumnRoles<C extends CardRoleColumn>(
   );
   return { image, lead, title, status, meta };
 }
+
+// A run of consecutive `narrowInline` columns shares one line; every other column has its own.
+export function cardMetaLines<C extends CardRoleColumn>(
+  meta: readonly C[],
+): readonly (readonly C[])[] {
+  const lines: C[][] = [];
+  let previousWasInline = false;
+  for (const col of meta) {
+    const inline = col.narrowInline === true;
+    const last = lines[lines.length - 1];
+    if (inline && previousWasInline && last !== undefined) last.push(col);
+    else lines.push([col]);
+    previousWasInline = inline;
+  }
+  return lines;
+}
