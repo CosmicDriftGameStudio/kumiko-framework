@@ -23,6 +23,15 @@
 import { piiCiphertextMaxLengthFor } from "@cosmicdrift/kumiko-framework/crypto";
 import * as z from "zod";
 import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants.ts";
+import {
+  INBOUND_ADDRESS_LIST_JSON_MAX_CHARS,
+  INBOUND_BODY_HTML_MAX_BYTES,
+  INBOUND_BODY_TEXT_MAX_CHARS,
+  INBOUND_FROM_MAX_CHARS,
+  INBOUND_MAIL_ADDRESS_MAX_CHARS,
+  INBOUND_SNIPPET_MAX_CHARS,
+  INBOUND_SUBJECT_MAX_CHARS,
+} from "./normalize-inbound-message.ts";
 import { senderAuthenticationFieldSchema } from "./sender-auth.ts";
 
 // Aggregate types for the event store.
@@ -75,7 +84,7 @@ export const mailAccountEventPayloadSchema = z.object({
   /** null = shared by the tenant; otherwise, this user's personal mailbox. */
   ownerUserId: z.string().max(36).nullable(),
   displayName: z.string().max(200),
-  address: z.string().min(1).max(piiCiphertextMaxLengthFor(320)),
+  address: z.string().min(1).max(piiCiphertextMaxLengthFor(INBOUND_MAIL_ADDRESS_MAX_CHARS)),
   status: accountStatusEnum,
   /** Provider-agnostic watch state ("idle", "watching", "backoff:3", ...)
    *  — an operational signal only, not PII. */
@@ -115,10 +124,10 @@ export const skippedAttachmentSchema = z.object({
 // Shared by inbound-message-received (v2+) and inbound-message-content-fetched.
 // bodyText is ciphertext of at most INBOUND_BODY_TEXT_MAX_CHARS (32_000) characters.
 const inboundMessageContentShape = {
-  bodyText: z.string().max(piiCiphertextMaxLengthFor(32_000)),
+  bodyText: z.string().max(piiCiphertextMaxLengthFor(INBOUND_BODY_TEXT_MAX_CHARS)),
   bodyTextTruncated: z.boolean(),
   /** Sanitized HTML body as PII ciphertext. sanitizeInboundHtml drops anything over 500_000 bytes after sanitizing. Null: none or too large. */
-  bodyHtml: z.string().max(piiCiphertextMaxLengthFor(500_000)).nullable(),
+  bodyHtml: z.string().max(piiCiphertextMaxLengthFor(INBOUND_BODY_HTML_MAX_BYTES)).nullable(),
   /** file-foundation FileRef ids (plaintext uuids). Attachments outlive the mail: apps turn them
    *  into documents, so the retention sweep never deletes them. */
   attachmentFileIds: z.array(z.uuid()).max(50),
@@ -148,13 +157,13 @@ export const inboundMessageEventPayloadSchema = z.object({
   /** Normalized thread key (References-chain root or provider thread ID,
    *  prefixed by the provider). */
   threadKey: z.string().min(1).max(500),
-  from: z.string().min(1).max(piiCiphertextMaxLengthFor(2000)),
+  from: z.string().min(1).max(piiCiphertextMaxLengthFor(INBOUND_FROM_MAX_CHARS)),
   /** JSON-stringified string[], dann PII-encrypted. */
-  to: z.string().max(piiCiphertextMaxLengthFor(8000)),
+  to: z.string().max(piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS)),
   /** JSON-stringified string[], dann PII-encrypted. */
-  cc: z.string().max(piiCiphertextMaxLengthFor(8000)),
-  subject: z.string().max(piiCiphertextMaxLengthFor(4000)),
-  snippet: z.string().max(piiCiphertextMaxLengthFor(4000)),
+  cc: z.string().max(piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS)),
+  subject: z.string().max(piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS)),
+  snippet: z.string().max(piiCiphertextMaxLengthFor(INBOUND_SNIPPET_MAX_CHARS)),
   /** ISO instant — receipt time reported by the provider (INTERNALDATE or
    *  receivedDateTime), not ingest time. */
   receivedAtIso: z.string().min(1),
@@ -192,7 +201,7 @@ export type InboundMessageContentFetchedEventPayload = z.infer<
 // ============================================================================
 export const mailThreadEventPayloadSchema = z.object({
   threadKey: z.string().min(1).max(500),
-  subject: z.string().max(piiCiphertextMaxLengthFor(4000)),
+  subject: z.string().max(piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS)),
   lastMessageAtIso: z.string().min(1),
   messageCount: z.number().int().min(1),
 });

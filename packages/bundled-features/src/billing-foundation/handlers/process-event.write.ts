@@ -25,7 +25,11 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.ts";
 import { findProviderPlugin } from "../checkout-core.ts";
-import { findCheckoutOpened } from "../checkout-ledger.ts";
+import {
+  findCheckoutOpened,
+  type IgnoredEventReason,
+  IgnoredEventReasons,
+} from "../checkout-ledger.ts";
 import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities.ts";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,
@@ -33,6 +37,7 @@ import {
   checkoutConsentRecordedPayloadSchema,
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAYMENT_FAILED_EVENT_QN,
+  PROVIDER_ID_MAX_CHARS,
   SUBSCRIPTION_AGGREGATE_TYPE,
   SUBSCRIPTION_CANCELED_EVENT_QN,
   SUBSCRIPTION_CREATED_EVENT_QN,
@@ -76,8 +81,8 @@ export const processEventSchema = z.object({
   providerEventId: z.string().min(1).max(200),
   providerName: z.string().min(1).max(50),
   type: eventTypeSchema,
-  providerCustomerId: z.string().min(1).max(200),
-  providerSubscriptionId: z.string().min(1).max(200),
+  providerCustomerId: z.string().min(1).max(PROVIDER_ID_MAX_CHARS),
+  providerSubscriptionId: z.string().min(1).max(PROVIDER_ID_MAX_CHARS),
   status: statusSchema,
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
@@ -147,6 +152,16 @@ export function isLateStateEvent(
 // who constructs `payload` and what `providerEventId` they use.
 // =============================================================================
 
+type SubscriptionStreamEvent = Awaited<ReturnType<HandlerContext["events"]["load"]>>[number];
+
+async function lockAndLoadSubscriptionStream(
+  ctx: HandlerContext,
+  aggId: string,
+): Promise<readonly SubscriptionStreamEvent[]> {
+  await ctx.db.advisoryXactLock(BILLING_SUBSCRIPTION_LOCK_NAMESPACE, aggId);
+  return ctx.events.load(aggId);
+}
+
 // A provider timestamp far in the future would make every later, genuine event look late.
 const PROVIDER_EVENT_CLOCK_SKEW_SECONDS = 300;
 
@@ -167,6 +182,7 @@ export async function appendSubscriptionEvent(
   rawPayload: ProcessEventPayload,
   now: Temporal.Instant = Temporal.Now.instant(),
   consentId?: string,
+  lockedStream?: readonly SubscriptionStreamEvent[],
 ): Promise<{
   readonly duplicate: boolean;
   readonly stale?: true;
@@ -175,10 +191,9 @@ export async function appendSubscriptionEvent(
   const aggId = subscriptionAggregateId(tenantId);
   const payload = clampProviderEventAt(rawPayload, now);
 
-  // Serialises the read (idempotency + late check) with the append: the append re-reads the
-  // stream version itself, so without the lock a concurrent delivery could slip in between and
-  // the late check would have judged an outdated stream.
-  await ctx.db.advisoryXactLock(BILLING_SUBSCRIPTION_LOCK_NAMESPACE, aggId);
+  // The lock serialises the read (idempotency + late check) with the append: the append re-reads the
+  // stream version itself, so without it a concurrent delivery could slip in between and the late
+  // check would have judged an outdated stream. A caller that already holds it passes its stream.
 
   // ---------------------------------------------------------------
   // 1. Idempotency: load the subscription stream and check whether this
@@ -191,7 +206,7 @@ export async function appendSubscriptionEvent(
   //    streams, optimize via snapshot or a per-tenant dedup table as the
   //    idempotency anchor (like cap-counter).
   // ---------------------------------------------------------------
-  const existingEvents = await ctx.events.load(aggId);
+  const existingEvents = lockedStream ?? (await lockAndLoadSubscriptionStream(ctx, aggId));
   if (hasSeenProviderEvent(existingEvents, payload)) {
     return { duplicate: true, subscriptionAggregateId: aggId };
   }
@@ -311,7 +326,7 @@ function isStaleSubscriptionEvent(
 
 type Admission =
   | { readonly admitted: true; readonly consentId?: string }
-  | { readonly admitted: false; readonly reason: string; readonly retry?: true };
+  | { readonly admitted: false; readonly reason: IgnoredEventReason; readonly retry?: true };
 
 function isBoundToLedgerEntry(
   ctx: HandlerContext,
@@ -323,21 +338,20 @@ function isBoundToLedgerEntry(
 }
 
 // A plan switch has no checkout of its own: its consent is the newest one recorded for the target
-// tier since the last stored state event, as long as no stored subscription event carries it yet.
+// tier, as long as no stored subscription event carries it yet. No window by state events: another
+// state event (renewal, status change) may arrive between the consent and the tier change.
 function pendingSwitchConsentId(
   storedEvents: readonly { readonly type: string; readonly payload: unknown }[],
   payload: ProcessEventPayload,
 ): string | undefined {
-  let lastStateIndex = -1;
   const carried = new Set<string>();
-  storedEvents.forEach((stored, index) => {
+  for (const stored of storedEvents) {
     // skip: only subscription state events can carry a consent
-    if (!STATE_EVENT_QNS.has(stored.type)) return;
-    lastStateIndex = index;
+    if (!STATE_EVENT_QNS.has(stored.type)) continue;
     const consentId = propertyOf(stored.payload, "consentId");
     if (typeof consentId === "string") carried.add(consentId);
-  });
-  for (let index = storedEvents.length - 1; index > lastStateIndex; index--) {
+  }
+  for (let index = storedEvents.length - 1; index >= 0; index--) {
     const stored = storedEvents[index];
     if (stored?.type !== CHECKOUT_CONSENT_RECORDED_EVENT_QN) continue;
     const parsed = checkoutConsentRecordedPayloadSchema.safeParse(stored.payload);
@@ -373,16 +387,17 @@ function admitProviderEvent(
     return { admitted: true, ...(entry.consentId !== undefined && { consentId: entry.consentId }) };
   }
   if (payload.type === SubscriptionEventTypes.created) {
-    return { admitted: false, reason: "checkout_not_in_ledger" };
+    return { admitted: false, reason: IgnoredEventReasons.checkoutNotInLedger };
   }
   // The provider does not guarantee order: an update that beats the `created` of its
   // subscription must be redelivered, not dropped.
   if (current === null)
-    return { admitted: false, reason: "subscription_not_yet_created", retry: true };
+    return { admitted: false, reason: IgnoredEventReasons.subscriptionNotYetCreated, retry: true };
   const isCurrentSubscription =
     current.providerName === payload.providerName &&
     current.providerSubscriptionId === payload.providerSubscriptionId;
-  if (!isCurrentSubscription) return { admitted: false, reason: "foreign_subscription" };
+  if (!isCurrentSubscription)
+    return { admitted: false, reason: IgnoredEventReasons.foreignSubscription };
   const switchConsentId =
     payload.type === SubscriptionEventTypes.updated && current.tier !== payload.tier
       ? pendingSwitchConsentId(storedEvents, payload)
@@ -401,7 +416,9 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
       const payload = event.payload as ProcessEventPayload;
       const aggId = subscriptionAggregateId(event.user.tenantId);
       const current = await getSubscriptionForTenant(ctx, event.user.tenantId);
-      const admission = admitProviderEvent(ctx, await ctx.events.load(aggId), current, payload);
+      // One locked load serves admission and the append; the stream grows with every opened checkout.
+      const stream = await lockAndLoadSubscriptionStream(ctx, aggId);
+      const admission = admitProviderEvent(ctx, stream, current, payload);
       if (!admission.admitted) {
         ctx.obs.log?.warn(
           `[billing-foundation:process-event] ignored ${payload.type} ${payload.providerEventId} (${admission.reason}): provider ${payload.providerName}`,
@@ -431,6 +448,7 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
         payload,
         now(),
         admission.consentId,
+        stream,
       );
       return { isSuccess: true as const, data: result };
     },

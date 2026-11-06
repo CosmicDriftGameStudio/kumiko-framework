@@ -18,6 +18,7 @@ import {
 } from "../../billing-foundation/entities.ts";
 import {
   PAYMENT_AGGREGATE_TYPE,
+  PROVIDER_ID_MAX_CHARS,
   paymentEventPayloadSchema,
   SUBSCRIPTION_AGGREGATE_TYPE,
   subscriptionEventPayloadSchema,
@@ -36,6 +37,14 @@ import {
   MAIL_THREAD_AGGREGATE_TYPE,
   mailAccountEventPayloadSchema,
 } from "../events.ts";
+import {
+  INBOUND_ADDRESS_LIST_JSON_MAX_CHARS,
+  INBOUND_BODY_TEXT_MAX_CHARS,
+  INBOUND_FROM_MAX_CHARS,
+  INBOUND_MAIL_ADDRESS_MAX_CHARS,
+  INBOUND_SNIPPET_MAX_CHARS,
+  INBOUND_SUBJECT_MAX_CHARS,
+} from "../normalize-inbound-message.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001";
 
@@ -70,7 +79,14 @@ describe("entity field limits for PII ciphertext", () => {
       inboundMessageEntity,
       INBOUND_MESSAGE_AGGREGATE_TYPE,
       INBOUND_MESSAGE_PII_FIELDS,
-      { from: 2000, to: 8000, cc: 8000, subject: 4000, snippet: 4000, bodyText: 32_000 },
+      {
+        from: INBOUND_FROM_MAX_CHARS,
+        to: INBOUND_ADDRESS_LIST_JSON_MAX_CHARS,
+        cc: INBOUND_ADDRESS_LIST_JSON_MAX_CHARS,
+        subject: INBOUND_SUBJECT_MAX_CHARS,
+        snippet: INBOUND_SNIPPET_MAX_CHARS,
+        bodyText: INBOUND_BODY_TEXT_MAX_CHARS,
+      },
     );
     const shape = buildInsertSchema(inboundMessageEntity).shape;
     for (const name of ["from", "to", "cc", "subject", "snippet", "bodyText"]) {
@@ -84,7 +100,7 @@ describe("entity field limits for PII ciphertext", () => {
       mailAccountEntity,
       MAIL_ACCOUNT_AGGREGATE_TYPE,
       MAIL_ACCOUNT_PII_FIELDS,
-      { address: 320 },
+      { address: INBOUND_MAIL_ADDRESS_MAX_CHARS },
     );
     const entityResult = buildInsertSchema(mailAccountEntity).shape["address"]?.safeParse(
       encrypted["address"],
@@ -99,7 +115,7 @@ describe("entity field limits for PII ciphertext", () => {
       mailThreadEntity,
       MAIL_THREAD_AGGREGATE_TYPE,
       MAIL_THREAD_PII_FIELDS,
-      { subject: 4000 },
+      { subject: INBOUND_SUBJECT_MAX_CHARS },
     );
     const result = buildInsertSchema(mailThreadEntity).shape["subject"]?.safeParse(
       encrypted["subject"],
@@ -112,14 +128,14 @@ describe("entity field limits for PII ciphertext", () => {
       subscriptionEntity,
       SUBSCRIPTION_AGGREGATE_TYPE,
       SUBSCRIPTION_PII_FIELDS,
-      { providerCustomerId: 200, providerSubscriptionId: 200 },
+      { providerCustomerId: PROVIDER_ID_MAX_CHARS, providerSubscriptionId: PROVIDER_ID_MAX_CHARS },
     );
     const payment = await encryptedAtLimit(
       paymentEntity,
       PAYMENT_AGGREGATE_TYPE,
       PAYMENT_PII_FIELDS,
       {
-        providerCustomerId: 200,
+        providerCustomerId: PROVIDER_ID_MAX_CHARS,
       },
     );
     const customerId = subscription["providerCustomerId"];

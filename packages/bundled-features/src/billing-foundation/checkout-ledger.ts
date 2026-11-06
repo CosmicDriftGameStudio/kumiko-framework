@@ -12,6 +12,14 @@ import {
   SUBSCRIPTION_AGGREGATE_TYPE,
 } from "./events.ts";
 
+export const IgnoredEventReasons = {
+  checkoutNotInLedger: "checkout_not_in_ledger",
+  priceMismatch: "price_mismatch",
+  foreignSubscription: "foreign_subscription",
+  subscriptionNotYetCreated: "subscription_not_yet_created",
+} as const;
+export type IgnoredEventReason = (typeof IgnoredEventReasons)[keyof typeof IgnoredEventReasons];
+
 type CheckoutMode = CheckoutOpenedPayload["mode"];
 
 export type CheckoutLookup = {

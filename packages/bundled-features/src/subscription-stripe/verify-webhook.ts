@@ -167,7 +167,7 @@ export function verifyAndParseStripeWebhook(
     // Only the checkout ledger can vouch for a new subscription, so `created` must name its session.
     const providerCheckoutId =
       normalizedType === SubscriptionEventTypes.created
-        ? await findCheckoutSessionId(stripe, sub.id)
+        ? await findCheckoutSessionId(stripe, sub.id, event.created)
         : undefined;
     return {
       providerEventId: event.id,
@@ -183,22 +183,36 @@ export function verifyAndParseStripeWebhook(
   };
 }
 
-// Only a failing Stripe API call is answered with 503 so Stripe redelivers. A successful empty
-// list means the subscription has no checkout session: the created event then carries no
-// checkout id and the foundation ignores it as not in the ledger.
+// Stripe may emit `customer.subscription.created` before the session is linked to the subscription.
+const SESSION_LINK_GRACE_SECONDS = 600;
+
+// A failing Stripe API call, or an empty list for a young event, is answered with 503 so Stripe
+// redelivers. An empty list for an older event means the subscription has no checkout session: the
+// created event then carries no checkout id and the foundation ignores it as not in the ledger.
 async function findCheckoutSessionId(
   stripe: Stripe,
   subscriptionId: string,
+  eventCreatedSeconds: number,
 ): Promise<string | undefined> {
+  let sessionId: string | undefined;
   try {
     const sessions = await stripe.checkout.sessions.list({
       subscription: subscriptionId,
       limit: 1,
     });
-    return sessions.data[0]?.id;
+    sessionId = sessions.data[0]?.id;
   } catch (error) {
     throw transientProviderRejection(error);
   }
+  if (sessionId === undefined) {
+    const ageSeconds = Temporal.Now.instant().epochMilliseconds / 1000 - eventCreatedSeconds;
+    if (ageSeconds < SESSION_LINK_GRACE_SECONDS) {
+      throw transientProviderRejection(
+        new Error(`no checkout session linked to ${subscriptionId} yet`),
+      );
+    }
+  }
+  return sessionId;
 }
 
 // =============================================================================

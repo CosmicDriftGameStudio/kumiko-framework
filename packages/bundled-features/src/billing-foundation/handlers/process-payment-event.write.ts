@@ -19,13 +19,14 @@ import {
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { paymentAggregateId } from "../aggregate-id.ts";
-import { findCheckoutOpened } from "../checkout-ledger.ts";
+import { findCheckoutOpened, IgnoredEventReasons } from "../checkout-ledger.ts";
 import { PAYMENT_PII_FIELDS, paymentEntity } from "../entities.ts";
 import {
   PAYMENT_AGGREGATE_TYPE,
   PAYMENT_RECEIVED_EVENT_QN,
   type PaymentEventHeaders,
   type PaymentEventPayload,
+  PROVIDER_ID_MAX_CHARS,
 } from "../events.ts";
 import { hasSeenProviderEvent } from "../provider-event-seen.ts";
 
@@ -33,7 +34,7 @@ export const processPaymentEventSchema = z.object({
   providerEventId: z.string().min(1).max(200),
   providerName: z.string().min(1).max(50),
   providerCheckoutId: z.string().min(1).max(200),
-  providerCustomerId: z.string().min(1).max(200),
+  providerCustomerId: z.string().min(1).max(PROVIDER_ID_MAX_CHARS),
   priceId: z.string().min(1).max(200),
   quantity: z.number().int().positive().optional(),
 });
@@ -77,9 +78,9 @@ export const processPaymentEventHandler: WriteHandlerDef = {
     });
     const rejection =
       entry === undefined
-        ? "checkout_not_in_ledger"
+        ? IgnoredEventReasons.checkoutNotInLedger
         : entry.priceId !== payload.priceId
-          ? "price_mismatch"
+          ? IgnoredEventReasons.priceMismatch
           : undefined;
     if (rejection !== undefined) {
       ctx.obs.log?.warn(
