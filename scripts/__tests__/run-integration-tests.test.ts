@@ -6,6 +6,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
+import { type IntegrationShard } from "../../bin/_lib/integration-test";
+import { discoverIntegrationTargets } from "../run-integration-tests";
 
 const RUNNER_PATH = join(import.meta.dir, "..", "run-integration-tests.ts");
 
@@ -27,12 +29,15 @@ function writeFixture(testBody: string): string {
   return dir;
 }
 
-async function runRunnerIn(dir: string): Promise<{ code: number; stdout: string }> {
+async function runRunnerIn(
+  dir: string,
+  shard: IntegrationShard | null = null,
+): Promise<{ code: number; stdout: string }> {
   const proc = Bun.spawn(
     [
       "bun",
       "-e",
-      `const { runIntegrationTests } = await import(${JSON.stringify(RUNNER_PATH)}); process.exit(await runIntegrationTests());`,
+      `const { runIntegrationTests } = await import(${JSON.stringify(RUNNER_PATH)}); process.exit(await runIntegrationTests("bulk", ${JSON.stringify(shard)}));`,
     ],
     { cwd: dir, stdout: "pipe", stderr: "pipe" },
   );
@@ -105,4 +110,65 @@ describe("runIntegrationTests", () => {
     expect(code).not.toBe(0);
     expect(stdout).toContain("Integration run FAILED.");
   });
+});
+
+describe("runIntegrationTests with a shard", () => {
+  function writeSecondFile(dir: string): void {
+    writeFileSync(
+      join(dir, "packages", "x", "b.integration.test.ts"),
+      `import { expect, test } from "bun:test";\n\ntest("b", () => {\n  expect(1).toBe(1);\n});\n`,
+    );
+  }
+
+  test("each shard runs its own slice and counts only that slice as expected", async () => {
+    tmpDir = writeFixture("");
+    writeSecondFile(tmpDir);
+    const first = await runRunnerIn(tmpDir, { index: 1, total: 2 });
+    const second = await runRunnerIn(tmpDir, { index: 2, total: 2 });
+
+    expect(first.code).toBe(0);
+    expect(first.stdout).toContain("Files: 1/1 executed");
+    expect(second.code).toBe(0);
+    expect(second.stdout).toContain("Files: 1/1 executed");
+  });
+
+  test("a shard without files fails instead of passing vacuously", async () => {
+    tmpDir = writeFixture("");
+    const { code, stdout } = await runRunnerIn(tmpDir, { index: 2, total: 2 });
+
+    expect(code).not.toBe(0);
+    expect(stdout).toContain("No integration test files in shard 2/2");
+  });
+
+  test("the subprocess lane runs in shard 1 only", async () => {
+    tmpDir = writeFixture("");
+    writeSecondFile(tmpDir);
+    const laneDir = join(tmpDir, "packages", "cli", "src", "__tests__");
+    mkdirSync(laneDir, { recursive: true });
+    writeFileSync(
+      join(laneDir, "scaffold-check.integration.test.ts"),
+      `import { expect, test } from "bun:test";\n\ntest("lane", () => {\n  expect(1).toBe(1);\n});\n`,
+    );
+    const first = await runRunnerIn(tmpDir, { index: 1, total: 2 });
+    const second = await runRunnerIn(tmpDir, { index: 2, total: 2 });
+
+    expect(first.stdout).toContain("Integration subprocess checks");
+    expect(second.stdout).not.toContain("Integration subprocess checks");
+  });
+
+  test.each([2, 3])(
+    "every real integration file runs in exactly one of %i shards",
+    async (total) => {
+      const all = (await discoverIntegrationTargets("bulk")).includedFiles;
+      const perShard: string[][] = [];
+      for (let index = 1; index <= total; index++) {
+        const shard: IntegrationShard = { index, total };
+        perShard.push((await discoverIntegrationTargets("bulk", shard)).includedFiles);
+      }
+
+      expect(perShard.flat().sort()).toEqual([...all].sort());
+      expect(new Set(perShard.flat()).size).toBe(all.length);
+      for (const files of perShard) expect(files.length).toBeGreaterThan(0);
+    },
+  );
 });

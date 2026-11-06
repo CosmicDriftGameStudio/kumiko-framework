@@ -23,6 +23,15 @@ function tempDir(): string {
 }
 
 describe("checkLockPaths", () => {
+  test("a partial phase run never shares lock/log/result paths with a full run", () => {
+    const base = tempDir();
+    const full = checkLockPaths("kumiko-framework", base);
+    const staticOnly = checkLockPaths("kumiko-framework", base, "static");
+    expect(staticOnly.lockDir).not.toBe(full.lockDir);
+    expect(staticOnly.logPath).not.toBe(full.logPath);
+    expect(staticOnly.resultPath).not.toBe(full.resultPath);
+  });
+
   test("different scopes produce disjoint lock/log/result paths", () => {
     const base = tempDir();
     const a = checkLockPaths("kumiko-framework", base);

@@ -146,7 +146,7 @@ describe("pre-push-extra.sh entry points", () => {
 
   test("CI passes HEAD_REF and keeps no branch exemptions of its own", () => {
     const step = ci.slice(ci.indexOf("- name: Changeset required"));
-    const stepBlock = step.slice(0, step.indexOf("- name: Run tests"));
+    const stepBlock = step.slice(0, step.indexOf("- name: Run static checks"));
     expect(stepBlock).toContain("HEAD_REF: ${{ github.head_ref }}");
     expect(stepBlock).not.toContain("renovate/");
     expect(stepBlock).not.toContain("changeset-release/main");

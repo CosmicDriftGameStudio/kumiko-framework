@@ -1,59 +1,40 @@
 #!/usr/bin/env bun
-/** Merges unit + integration + dom lcov (line-level union, not per-file max — a
- *  file exercised by different lines in each suite needs the union of hit
- *  lines, not the larger of two file-level LH counts) → shields.io endpoint JSON. */
+/** Merges unit + integration (one lcov per shard) + dom lcov (line-level union, not per-file
+ *  max — a file exercised by different lines in each suite needs the union of hit lines, not
+ *  the larger of two file-level LH counts) → shields.io endpoint JSON. */
 
+import { Glob } from "bun";
 import { isIgnoredCoverageFile, readCoverageIgnorePatterns } from "./coverage-ignore";
-
-type LineMap = Map<string, Map<number, number>>;
+import { type LineMap, mergeLineCoverage, parseLcovLines } from "./coverage-merge";
 
 // bun's --parallel workers don't apply bunfig's coveragePathIgnorePatterns
 // (bun 1.4.0), so the badge enforces the product scope itself.
 const ignorePatterns = await readCoverageIgnorePatterns("bunfig.ci.toml");
 
 async function parseLines(path: string): Promise<LineMap> {
-  const perFile: LineMap = new Map();
   const file = Bun.file(path);
-  if (!(await file.exists())) return perFile;
-  const lcov = await file.text();
-  for (const rec of lcov.split("end_of_record")) {
-    const sf = /SF:(.+)/.exec(rec)?.[1]?.trim();
-    if (!sf) continue;
-    const key = sf.replace(/\\/g, "/");
-    if (isIgnoredCoverageFile(key, ignorePatterns)) continue;
-    const lines = perFile.get(key) ?? new Map<number, number>();
-    for (const m of rec.matchAll(/^DA:(\d+),(\d+)/gm)) {
-      const line = Number(m[1]);
-      const count = Number(m[2]);
-      lines.set(line, Math.max(lines.get(line) ?? 0, count));
-    }
-    perFile.set(key, lines);
-  }
-  return perFile;
+  if (!(await file.exists())) return new Map();
+  return parseLcovLines(await file.text(), (key) => isIgnoredCoverageFile(key, ignorePatterns));
+}
+
+// `coverage/integration` (local run) and `coverage/coverage-integration-<shard>` (CI artifacts).
+const integrationLcovPaths: string[] = [];
+for await (const path of new Glob("coverage/*integration*/lcov.info").scan(".")) {
+  integrationLcovPaths.push(path);
 }
 
 const unit = await parseLines("coverage/unit/lcov.info");
-const integ = await parseLines("coverage/integration/lcov.info");
+const integrationShards = await Promise.all(integrationLcovPaths.sort().map(parseLines));
 // dom run (bunfig.dom.toml) — only suite executing the tsx-covered UI files.
 const dom = await parseLines("coverage/dom/lcov.info");
 
-const sources = [unit, integ, dom];
-
-let totalLf = 0;
-let totalLh = 0;
-for (const file of new Set(sources.flatMap((source) => [...source.keys()]))) {
-  const lines = new Map<number, number>();
-  for (const src of sources.map((source) => source.get(file))) {
-    if (!src) continue;
-    for (const [line, count] of src) lines.set(line, Math.max(lines.get(line) ?? 0, count));
-  }
-  totalLf += lines.size;
-  totalLh += [...lines.values()].filter((c) => c > 0).length;
-}
+const { lines: totalLf, hit: totalLh } = mergeLineCoverage([unit, ...integrationShards, dom]);
 
 const pct = totalLf ? (100 * totalLh) / totalLf : 0;
 const color = pct >= 80 ? "brightgreen" : pct >= 60 ? "yellow" : "red";
 const badge = { schemaVersion: 1, label: "coverage", message: `${pct.toFixed(1)}%`, color };
 
 await Bun.write(".github/badges/coverage.json", JSON.stringify(badge));
-console.log(`coverage: ${pct.toFixed(1)}% (${totalLh}/${totalLf} lines, unit+integration+dom merged)`);
+console.log(
+  `coverage: ${pct.toFixed(1)}% (${totalLh}/${totalLf} lines, unit+integration(${integrationShards.length} lcov)+dom merged)`,
+);

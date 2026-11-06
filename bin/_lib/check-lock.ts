@@ -29,9 +29,15 @@ export function parseCliScope(raw: string | undefined): string[] {
  *  different repos never share a lock — without a scope, both landed on the
  *  same literal file names once the pre-push hook cd's into the shared
  *  parent workspace, letting one repo's run adopt another's exit code. */
-export function checkLockPaths(scope: string | undefined, baseDir = ""): CheckLockPaths {
+export function checkLockPaths(
+  scope: string | undefined,
+  baseDir = "",
+  partialPhase?: string,
+): CheckLockPaths {
   const scopeParts = parseCliScope(scope);
-  const suffix = scopeParts.length > 0 ? `.${scopeParts.join("__")}` : "";
+  // A follower adopts the leader's exit code, so a partial run must not stand in for a full one.
+  const phaseSuffix = partialPhase ? `.phase-${partialPhase}` : "";
+  const suffix = `${scopeParts.length > 0 ? `.${scopeParts.join("__")}` : ""}${phaseSuffix}`;
   return {
     lockDir: join(baseDir, `.kumiko-check.lock${suffix}`),
     logPath: join(baseDir, `.kumiko-check.log${suffix}`),

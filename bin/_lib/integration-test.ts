@@ -64,3 +64,38 @@ export type IntegrationDiscovery = {
   /** Bulk mode only: run after `includedFiles`, without --parallel. */
   subprocessFiles?: string[];
 };
+
+export type IntegrationShard = { readonly index: number; readonly total: number };
+
+const SHARD_FLAG_PREFIX = "--shard=";
+
+export function isIntegrationShardFlag(arg: string): boolean {
+  return arg.startsWith(SHARD_FLAG_PREFIX);
+}
+
+/** Parses `N/M` (1-based, like `bun test --shard`); throws on anything else. */
+export function parseIntegrationShard(raw: string): IntegrationShard {
+  const match = /^(\d+)\/(\d+)$/.exec(raw);
+  const index = match ? Number(match[1]) : 0;
+  const total = match ? Number(match[2]) : 0;
+  if (index < 1 || total < 1 || index > total) {
+    throw new Error(`Invalid shard "${raw}": expected N/M with 1 <= N <= M`);
+  }
+  return { index, total };
+}
+
+export function integrationShardFromArgv(argv: readonly string[]): IntegrationShard | null {
+  const flag = argv.find(isIntegrationShardFlag);
+  return flag === undefined ? null : parseIntegrationShard(flag.slice(SHARD_FLAG_PREFIX.length));
+}
+
+// Round-robin over the sorted list: heavy suites cluster per directory, so interleaving evens the
+// shards out, and every runner derives the same split from the same checkout.
+export function selectShardFiles(files: readonly string[], shard: IntegrationShard): string[] {
+  return [...files].sort().filter((_, i) => i % shard.total === shard.index - 1);
+}
+
+/** The subprocess lane is not split: it runs once, in the first shard. */
+export function shardRunsSubprocessLane(shard: IntegrationShard | null): boolean {
+  return shard === null || shard.index === 1;
+}
