@@ -1,6 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { transaction, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { lockInactivityCycle } from "../state-store.ts";
+import { tenantInactivityStateTable } from "../state-table.ts";
 import {
+  INACTIVITY_TENANT,
   type InactivityTestStack,
   KEEP_SECRET,
   KEEP_URL,
@@ -69,5 +73,35 @@ describe("a keep link redeemed while the job is busy", () => {
 
     expect((await t.tenantRow())?.["status"]).toBe("active");
     expect((await t.queryState())["warningsSent"]).toBe(0);
+  });
+
+  test("is not overtaken by a request that checked the cycle before the redemption committed", async () => {
+    t.clock.set(SECOND_WARNING_AT);
+    await t.runJob();
+    expect(t.sent).toHaveLength(2);
+    t.clock.set(DUE);
+    // Stands in for a redemption that holds the lock and has rotated the cycle but not committed yet.
+    duringProbe = async () => {
+      duringProbe = undefined;
+      let locked: () => void = () => {};
+      const lockTaken = new Promise<void>((resolve) => {
+        locked = resolve;
+      });
+      void transaction(t.stack.db, async (tx) => {
+        await lockInactivityCycle(tx, INACTIVITY_TENANT);
+        await updateMany(
+          tx,
+          tenantInactivityStateTable,
+          { cycleId: crypto.randomUUID(), warningsSent: 0 },
+          { tenantId: INACTIVITY_TENANT },
+        );
+        locked();
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      });
+      await lockTaken;
+    };
+    await t.runJob();
+
+    expect((await t.tenantRow())?.["status"]).toBe("active");
   });
 });

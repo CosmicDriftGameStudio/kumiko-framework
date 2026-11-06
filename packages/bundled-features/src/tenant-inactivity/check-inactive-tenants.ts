@@ -1,5 +1,5 @@
-import { fetchOne, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { JobContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { fetchOne, runInOwnTransaction, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { JobContext, Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { hasMailTranslations, mailT } from "@cosmicdrift/kumiko-framework/i18n";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
@@ -30,6 +30,7 @@ import {
   isInactivityCycleCurrent,
   loadInactivityState,
   loadNewestSessionActivity,
+  lockInactivityCycle,
   type StoredInactivityState,
   saveInactivityState,
 } from "./state-store.ts";
@@ -179,6 +180,35 @@ async function sendWarningMails(args: {
   return delivered;
 }
 
+// The probes and mails before this are slow; a keep link redeemed meanwhile must not end in a
+// deletion request. Check and request share one transaction under the lock the redemption takes.
+async function requestDestructionUnlessKept(
+  ctx: JobContext,
+  registry: Registry,
+  tenantId: TenantId,
+  stored: StoredInactivityState | null,
+  now: Temporal.Instant,
+): Promise<boolean> {
+  return runInOwnTransaction(ctx.db, async (txDb) => {
+    const runner = txDb.unsafeRaw();
+    await lockInactivityCycle(runner, tenantId);
+    if (stored !== null && !(await isInactivityCycleCurrent(txDb, stored.cycleId))) return false;
+    const result = await requestTenantDestruction({
+      tenantId,
+      actor: ctx.systemUser,
+      now,
+      db: txDb,
+      runner,
+      registry,
+      revokeSessions: true,
+    });
+    if (!result.isSuccess) {
+      throw new Error(`tenant-inactivity: destruction request for ${tenantId} failed`);
+    }
+    return true;
+  });
+}
+
 async function evaluate(
   ctx: JobContext,
   options: TenantInactivityOptions,
@@ -220,20 +250,8 @@ async function evaluate(
   }
 
   if (!ctx.registry) throw new Error("tenant-inactivity: ctx.registry required");
-  // The probes and mails above are slow; a keep link redeemed meanwhile must not end in a deletion request.
-  if (stored !== null && !(await isInactivityCycleCurrent(ctx.db, stored.cycleId))) return state;
-  const result = await requestTenantDestruction({
-    tenantId,
-    actor: ctx.systemUser,
-    now,
-    db: ctx.db,
-    runner: ctx.db.unsafeRaw(),
-    registry: ctx.registry,
-    revokeSessions: true,
-  });
-  if (!result.isSuccess) {
-    throw new Error(`tenant-inactivity: destruction request for ${tenantId} failed`);
-  }
+  const requested = await requestDestructionUnlessKept(ctx, ctx.registry, tenantId, stored, now);
+  if (!requested) return state;
   // If the owner cancels the request, a fresh cycle starts instead of an instant second request.
   return startNewCycle({ ...state, lastActivityAt: now });
 }

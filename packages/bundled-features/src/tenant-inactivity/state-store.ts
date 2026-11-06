@@ -1,4 +1,8 @@
-import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  acquireNamespacedAdvisoryLock,
+  type DbRunner,
+  type TenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { userSessionTable } from "../sessions/index.ts";
 import type { InactivityState } from "./inactivity-plan.ts";
@@ -8,6 +12,7 @@ export type StoredInactivityState = InactivityState & { readonly cycleId: string
 
 type StateRow = StoredInactivityState & { readonly id: string };
 
+const CYCLE_LOCK_NAMESPACE = 0x696e6163; // 'inac'
 const EPOCH = Temporal.Instant.fromEpochMilliseconds(0);
 
 export async function loadInactivityState(db: TenantDb): Promise<StoredInactivityState | null> {
@@ -62,6 +67,12 @@ export async function saveInactivityState(
       cycleId: previous.cycleId,
     });
   }
+}
+
+// Serializes the destruction request against keep-link redemption: both hold this lock while they
+// decide, so exactly one of them wins and the other sees the result.
+export async function lockInactivityCycle(runner: DbRunner, tenantId: string): Promise<void> {
+  await acquireNamespacedAdvisoryLock(runner, CYCLE_LOCK_NAMESPACE, tenantId);
 }
 
 export async function isInactivityCycleCurrent(db: TenantDb, cycleId: string): Promise<boolean> {
