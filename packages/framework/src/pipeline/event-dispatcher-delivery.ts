@@ -567,6 +567,9 @@ function buildConsumerRequestScope(
     handler: consumer.name,
     feature: consumer.featureName ?? qnScope(consumer.name),
     writeOrigin,
+    ...(consumer.irreversibleWithoutEntryHandler && {
+      irreversibleWithoutEntryHandler: consumer.irreversibleWithoutEntryHandler,
+    }),
   };
 }
 

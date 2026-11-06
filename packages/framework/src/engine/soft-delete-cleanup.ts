@@ -240,6 +240,7 @@ export function buildSoftDeleteCleanupJob(): JobDefinition {
     includeSystemTenant: true,
     concurrency: "skip",
     runIn: "worker",
+    irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
   };
 }
 
@@ -250,6 +251,7 @@ export function buildSoftDeleteCleanupSystemJob(): JobDefinition {
     trigger: { maintenance: true },
     concurrency: "skip",
     runIn: "worker",
+    irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     escapeHatch: {
       reason:
         "hard-deletes expired soft-deleted rows of global entities (e.g. user) once, system-wide",

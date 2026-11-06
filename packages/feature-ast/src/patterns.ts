@@ -74,7 +74,7 @@ import type {
   TreeActionDef,
   WorkspaceDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { RunIn } from "@cosmicdrift/kumiko-types/config";
+import type { IrreversibleWithoutEntryHandler, RunIn } from "@cosmicdrift/kumiko-types/config";
 import type { MetricOptions, SecretOptions } from "@cosmicdrift/kumiko-types/feature";
 import type {
   PayloadRateLimitOption,
@@ -573,6 +573,7 @@ export type MultiStreamProjectionPattern = {
   readonly errorMode?: MspErrorMode;
   readonly runIn?: RunIn;
   readonly delivery?: "shared" | "per-instance";
+  readonly irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler;
 };
 
 // `r.defineEvent(name, schema, options?)` — registers an event payload

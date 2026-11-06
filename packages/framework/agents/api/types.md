@@ -1436,6 +1436,7 @@ type EventConsumer = {
   featureName?: string;
   delivery?: "shared" | "per-instance";
   startFrom?: "beginning" | "now";
+  irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler;
 };
 type EventConsumerBatchHandler = (events: StoredEvent[], ctx: AppContext, turn: BatchTurnControl) => Promise<void>;
 type EventConsumerErrorPolicy = {
@@ -3201,6 +3202,8 @@ type ExtensionSelectorDef = {
   panels?: ExtensionSelectorPanel[];
 };
 type ExtensionSelectorPanel = DashboardCustomPanel | Omit<DashboardScreenPanel, "label">;
+const IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES: ["rebuildable-derived-data", "high-risk-or-cron-pipeline", "per-dispatch-record-key"];
+type IrreversibleWithoutEntryHandler = (typeof IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES)[number];
 type JobBackoff =
   | JobBackoffStrategy
   | {

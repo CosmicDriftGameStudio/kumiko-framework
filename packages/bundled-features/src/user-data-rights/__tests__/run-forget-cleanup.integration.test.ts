@@ -33,6 +33,7 @@ import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRowViaEventStore,
+  waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -97,6 +98,7 @@ beforeAll(async () => {
       createUserDataRightsFeature(),
       createUserDataRightsDefaultsFeature(),
     ],
+    jobs: { consumerLane: "worker" },
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);
@@ -341,6 +343,32 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
     expect(row?.status).toBe(USER_STATUS.Deleted);
     expect(row?.email).not.toContain("cron-delete@example.com");
     expect(row?.email).toContain("anonymized.invalid");
+  });
+
+  test("the job dispatched through the job runner erases past the irreversible-operation gate", async () => {
+    const RUNNER_USER = uuid(8);
+    await seedUser(RUNNER_USER, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+      email: "runner-delete@example.com",
+      displayName: "RunnerDelete",
+    });
+    await seedMembership(RUNNER_USER, TENANT_A);
+    const kms = new InMemoryKmsAdapter();
+    await kms.createKey({ kind: "user", userId: RUNNER_USER });
+    configurePiiSubjectKms(kms);
+
+    try {
+      await stack.jobRunner?.dispatch(UserDataRightsJobs.runForgetCleanup, {});
+      await waitFor(async () => {
+        expect((await fetchUser(RUNNER_USER))?.status).toBe(USER_STATUS.Deleted);
+      });
+      await expect(kms.getKey({ kind: "user", userId: RUNNER_USER })).rejects.toThrow(
+        "Subject key erased",
+      );
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
   });
 
   test("incomplete hooks are written to ctx.obs.log (job-run audit trail)", async () => {

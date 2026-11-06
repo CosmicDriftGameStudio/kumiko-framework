@@ -26,6 +26,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
+  waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -40,7 +41,7 @@ let kms: InMemoryKmsAdapter;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [hrFeature] });
+  stack = await setupTestStack({ features: [hrFeature], jobs: { consumerLane: "worker" } });
   await unsafeCreateEntityTable(stack.db, employeeEntity);
   await unsafeCreateEntityTable(stack.db, hrCommentEntity);
   await createEventsTable(stack.db);
@@ -120,6 +121,29 @@ describe("crypto-shredding-hr", () => {
     const rows = ((result as any).rows ?? result) as Array<{ body: string }>;
     // The comment row's ciphertext names the EMPLOYEE as subject, not the row.
     expect(rows[0]?.body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${employeeId}:`);
+  });
+
+  test("purge-archived-comments job forgets the comment row; its declaration lets the cron run past the gate", async () => {
+    const employeeId = await createEmployee();
+    const comment = await stack.http.writeOk<SaveContext>(
+      "hr:write:hr-comment:create",
+      { employeeId, body: "archived note", authorName: "Manager X" },
+      admin,
+    );
+    const commentId = String(comment.id);
+
+    await stack.jobRunner?.dispatch("hr:job:purge-archived-comments", {
+      commentIds: [commentId],
+      tenantId: admin.tenantId,
+    });
+
+    await waitFor(async () => {
+      const rows = await asRawClient(stack.db).unsafe(
+        "SELECT id FROM read_hr_comments WHERE id = $1",
+        [commentId],
+      );
+      expect(rows).toHaveLength(0);
+    });
   });
 
   test("forget: eraseKey renders [[erased]] for the employee AND comments about them", async () => {

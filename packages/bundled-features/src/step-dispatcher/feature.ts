@@ -77,6 +77,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
       "deliver",
       {
         trigger: { manual: true },
+        irreversibleWithoutEntryHandler: "per-dispatch-record-key",
         retries: DELIVER_RETRIES,
         backoff: "exponential",
         maxPerTenant: { limit: DELIVER_MAX_PER_TENANT, onLimit: "defer" },
@@ -110,6 +111,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
       "sweep-abandoned",
       {
         trigger: { cron: "17 3 * * *", wakesSleepingApp: false },
+        irreversibleWithoutEntryHandler: "per-dispatch-record-key",
         concurrency: "skip",
         escapeHatch: { reason: SWEEP_ESCAPE_HATCH_REASON },
       },
@@ -129,6 +131,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
 
     r.multiStreamProjection({
       name: "step-dispatcher",
+      irreversibleWithoutEntryHandler: "per-dispatch-record-key",
       apply: {
         [STEP_DISPATCH_REQUESTED_TYPE]: async (event, _tx, ctx) => {
           const stream = await ctx.loadAggregate(event.aggregateId);

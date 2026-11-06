@@ -157,6 +157,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
     r.job({
       name: "run-tenant-destruction",
       trigger: { cron: "0 * * * * *", wakesSleepingApp: false },
+      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
       concurrency: "skip",
       escapeHatch: { reason: RUN_TENANT_DESTRUCTION_REASON },
       handler: async (_payload, ctx) => {

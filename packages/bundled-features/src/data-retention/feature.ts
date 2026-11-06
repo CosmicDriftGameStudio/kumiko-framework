@@ -73,6 +73,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
     r.job({
       name: "retention-cleanup",
       trigger: { maintenance: true },
+      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
       perTenant: true,
       includeSystemTenant: true,
       concurrency: "skip",

@@ -44,6 +44,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
   r.job({
     name: "cleanup",
     trigger: { maintenance: true },
+    irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     concurrency: "skip",
     escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
     handler: (payload, ctx) =>

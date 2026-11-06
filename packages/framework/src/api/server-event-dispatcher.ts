@@ -244,6 +244,9 @@ function buildMultiStreamProjectionConsumer(
     // Carry the MSP's declared cursor-seed through to the consumer. Default
     // (beginning) is applied inside insertConsumerIfAbsent.
     ...(msp.startFrom && { startFrom: msp.startFrom }),
+    ...(msp.irreversibleWithoutEntryHandler && {
+      irreversibleWithoutEntryHandler: msp.irreversibleWithoutEntryHandler,
+    }),
     handler: async (event, ctx) => {
       const applyFn = msp.apply[event.type];
       // skip: this MSP doesn't care about this event type — fast path,

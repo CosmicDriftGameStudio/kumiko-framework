@@ -272,6 +272,7 @@ export function createDocumentIngestFoundationFeature() {
       // extracted text has no reason to survive it either.
       r.multiStreamProjection({
         name: "forget-extract-with-file-ref",
+        irreversibleWithoutEntryHandler: "rebuildable-derived-data",
         apply: {
           [FILE_REF_DELETED]: forgetExtractOnFileRefDeletedHook,
           [FILE_REF_FORGOTTEN]: forgetExtractOnFileRefForgottenHook,

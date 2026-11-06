@@ -429,6 +429,20 @@ export type MaxPerTenantOptions = {
   readonly deferMs?: number | undefined;
 };
 
+// The only pipelines allowed to call an irreversible primitive (forget, hard delete, kms.eraseKey,
+// readAsInstruction write) without a directly dispatched entry handler. A new case is a framework change.
+//   rebuildable-derived-data   deletes derived data that is re-created from a reversible source
+//   high-risk-or-cron-pipeline runs behind a risk "high" handler or as a cron scan of expired data
+//   per-dispatch-record-key    the step-dispatcher erasing its per-dispatch record key
+export const IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES = [
+  "rebuildable-derived-data",
+  "high-risk-or-cron-pipeline",
+  "per-dispatch-record-key",
+] as const;
+
+export type IrreversibleWithoutEntryHandler =
+  (typeof IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES)[number];
+
 export type JobDefinition = {
   readonly name: string;
   readonly handler: JobHandlerFn;
@@ -508,6 +522,8 @@ export type JobDefinition = {
         readonly subjectFields?: readonly string[] | undefined;
       }
     | undefined;
+  // Without it the job's direct forget, hard delete, kms.eraseKey and readAsInstruction writes are refused.
+  readonly irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler | undefined;
 };
 
 // --- Notifications ---

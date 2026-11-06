@@ -23,6 +23,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -181,7 +182,10 @@ let pastIso: string;
 let withinIso: string;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [createDataRetentionFeature(), c7Feature] });
+  stack = await setupTestStack({
+    features: [createDataRetentionFeature(), c7Feature],
+    jobs: { consumerLane: "worker", getActiveTenantIds: async () => [T1] },
+  });
   for (const e of [
     tenantRetentionOverrideEntity,
     widgetEntity,
@@ -346,6 +350,16 @@ describe("runRetentionCleanup :: real postgres", () => {
     await job.handler({}, ctx);
 
     expect(await labels("read_c7_widget", T1)).toEqual(["fresh-via-handler"]);
+  });
+
+  test("the job dispatched through the job runner hard-deletes past the irreversible-operation gate", async () => {
+    await seed("read_c7_widget", T1, "expired-via-runner", pastIso);
+    await seed("read_c7_widget", T1, "fresh-via-runner", withinIso);
+
+    await stack.jobRunner?.dispatch("data-retention:job:retention-cleanup", {});
+    await waitFor(async () => {
+      expect(await labels("read_c7_widget", T1)).toEqual(["fresh-via-runner"]);
+    });
   });
 
   test("blockDelete: within keepFor untouched, after expiry anonymized — row NEVER deleted", async () => {
