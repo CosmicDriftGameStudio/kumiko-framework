@@ -503,11 +503,36 @@ export function CellTextLink({
   );
 }
 
+// Same text the cell shows without `display`: a reference-lookup renderer or FormatSpec must win over the raw value.
+function plainCellText({
+  value,
+  row,
+  type,
+  renderer,
+  optionLabels,
+  locale,
+  field,
+  grouping,
+  translate,
+}: Pick<
+  DataTableCellProps,
+  "value" | "row" | "type" | "renderer" | "optionLabels" | "locale" | "field" | "translate"
+> & { readonly grouping: boolean }): string {
+  if (typeof renderer === "function") {
+    return (renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string)(value, row);
+  }
+  if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
+    const spec = renderer as { format: string; locale?: string } & Record<string, unknown>;
+    return applyFormatSpec({ ...spec, locale: spec.locale ?? locale }, value, translate);
+  }
+  return defaultCellRender(value, type, optionLabels, locale, field, grouping);
+}
+
 // A list column's `display` (badge pill, outline link button); undefined = fall through to the normal paths.
 function renderDisplayCell({
   display,
   value,
-  text,
+  textOf,
   row,
   badgeToneField,
   badgeDot,
@@ -517,7 +542,7 @@ function renderDisplayCell({
   readonly emptyPlaceholder: false | undefined;
   readonly display: DataTableCellProps["display"];
   readonly value: unknown;
-  readonly text: string;
+  readonly textOf: () => string;
   readonly row: Readonly<Record<string, unknown>>;
   readonly badgeToneField: string | undefined;
   readonly badgeDot: false | undefined;
@@ -532,14 +557,14 @@ function renderDisplayCell({
     const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
     return (
       <StatusBadge tone={tone} dot={badgeDot !== false}>
-        {text}
+        {textOf()}
       </StatusBadge>
     );
   }
   if (display === "button" && link !== undefined) {
     return (
       <CellTextLink link={link} className={LINK_BUTTON_CLASS}>
-        {text}
+        {textOf()}
       </CellTextLink>
     );
   }
@@ -627,7 +652,18 @@ export function DataTableCell({
   const displayCell = renderDisplayCell({
     display,
     value,
-    text: defaultCellRender(value, type, optionLabels, locale, field, grouping),
+    textOf: () =>
+      plainCellText({
+        value,
+        row,
+        type,
+        renderer,
+        optionLabels,
+        locale,
+        field,
+        grouping,
+        translate,
+      }),
     row,
     badgeToneField,
     badgeDot,

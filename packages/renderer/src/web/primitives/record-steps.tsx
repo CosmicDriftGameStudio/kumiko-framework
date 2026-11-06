@@ -27,6 +27,7 @@ function StepDetail({ item }: { item: StepItem }): ReactNode {
 function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string }): ReactNode {
   const [reasonOpen, setReasonOpen] = useState(item.reasonOpen === true);
   const reasonBoxId = useId();
+  const narrow = useIsBelowSmViewport();
   return (
     <li
       data-testid={`record-step-${item.id}`}
@@ -56,8 +57,8 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
         )}
       </div>
       <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-3 max-sm:row-span-2 max-sm:self-center max-sm:[&_button]:h-8 max-sm:[&_button]:text-[13px]">
-        {item.moreActions !== undefined && (
-          <div className="text-[12.5px] text-muted-foreground max-sm:hidden [&_a]:text-[12.5px] [&_a]:text-muted-foreground [&_button]:text-[12.5px] [&_button]:text-muted-foreground">
+        {item.moreActions !== undefined && !narrow && (
+          <div className="text-[12.5px] text-muted-foreground [&_a]:text-[12.5px] [&_a]:text-muted-foreground [&_button]:text-[12.5px] [&_button]:text-muted-foreground">
             {item.moreActions}
           </div>
         )}
@@ -66,6 +67,14 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
       <div className="col-start-1 row-start-2 min-w-0 sm:col-span-2">
         <StepDetail item={item} />
       </div>
+      {item.moreActions !== undefined && narrow && (
+        <div
+          data-testid={`record-step-${item.id}-more-actions`}
+          className="col-span-2 row-start-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground [&_a]:text-xs [&_a]:text-muted-foreground [&_button]:text-xs [&_button]:text-muted-foreground"
+        >
+          {item.moreActions}
+        </div>
+      )}
       {item.reason !== undefined && reasonOpen && (
         <div className="col-span-2 row-start-3 max-sm:hidden">
           <ReasonBox

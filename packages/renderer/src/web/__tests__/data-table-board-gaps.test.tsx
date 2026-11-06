@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import { LINK_BUTTON_CLASS } from "../primitives/data-table-cell.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { StepBar } from "../widgets/step-bar.tsx";
@@ -164,6 +164,31 @@ describe("DataTable summaryRow", () => {
       <DataTable columns={COLUMNS} rows={ROWS} summaryRow={{ items: [{ value: "7 open" }] }} />,
     );
     expect(screen.getByTestId("list-summary").textContent).toBe("7 open");
+  });
+
+  test("two identical column items render both without a duplicate-key warning", () => {
+    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          summaryRow={{
+            items: [
+              { column: "due", value: "0" },
+              { column: "due", value: "0" },
+            ],
+          }}
+        />,
+      );
+      expect(screen.getAllByTestId("list-summary-item")).toHaveLength(2);
+      const keyWarnings = consoleError.mock.calls.filter((call) =>
+        String(call[0]).includes("same key"),
+      );
+      expect(keyWarnings).toHaveLength(0);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   test("items with a column sit under that column, unknown columns fall back to the first", () => {

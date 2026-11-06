@@ -295,6 +295,9 @@ export function ListPanelBody({
         badgeToneField: normalized.badgeToneField,
       }),
       ...(normalized.badgeDot !== undefined && { badgeDot: normalized.badgeDot }),
+      ...(normalized.emptyPlaceholder !== undefined && {
+        emptyPlaceholder: normalized.emptyPlaceholder,
+      }),
       ...(normalized.refEntity !== undefined && {
         reference: {
           refEntity: normalized.refEntity,

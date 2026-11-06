@@ -7,6 +7,7 @@ import {
   ContentPreviewsProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
+  hasUnsavedInput,
   kumikoDefaultTranslations,
   LocaleProvider,
   NavProvider,
@@ -98,7 +99,11 @@ const MARKDOWN_RECORD = {
   published: true,
 };
 
-function mountEdit(dispatcher: Dispatcher, entityId: string | null = "p1"): void {
+function mountEdit(
+  dispatcher: Dispatcher,
+  entityId: string | null = "p1",
+  replace: () => void = () => {},
+): void {
   writes = [];
   render(
     <LocaleProvider
@@ -114,7 +119,7 @@ function mountEdit(dispatcher: Dispatcher, entityId: string | null = "p1"): void
           value={{
             route: { screenId: "page-edit", ...(entityId !== null && { entityId }) },
             navigate: () => {},
-            replace: () => {},
+            replace,
             hrefFor: () => "",
             searchParams: {},
             setSearchParams: () => {},
@@ -204,6 +209,20 @@ describe("page workbench", () => {
       published: false,
       bodyFormat: "document",
     });
+  });
+
+  test("after a successful create the leave guard already reports clean when the route is replaced", async () => {
+    const unsavedAtReplace: boolean[] = [];
+    mountEdit(gatedDispatcher(MARKDOWN_RECORD), null, () => {
+      unsavedAtReplace.push(hasUnsavedInput());
+    });
+    fill(/^slug/i, "pricing");
+    fill(/^title/i, "Pricing");
+    fireEvent.click(await screen.findByRole("button", { name: "Bullet list" }));
+    expect(hasUnsavedInput()).toBe(true);
+    fireEvent.click(await screen.findByTestId("editor-save"));
+    await waitFor(() => expect(unsavedAtReplace).toHaveLength(1));
+    expect(unsavedAtReplace).toEqual([false]);
   });
 
   test("the preview mode mounts the web renderer with the draft body and shows the settings read-only", async () => {

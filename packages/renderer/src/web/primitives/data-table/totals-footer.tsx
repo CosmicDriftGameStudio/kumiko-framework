@@ -79,9 +79,12 @@ function SummaryItems({ summary }: { readonly summary: DataTableSummaryRow }): R
 }
 
 function SummaryCellValues({ items }: { readonly items: DataTableSummaryRow["items"] }): ReactNode {
-  return items.map((item) => (
+  const keys = uniqueLabelKeys(
+    items.map((item) => `${item.column ?? ""}-${item.label ?? ""}-${item.value}`),
+  );
+  return items.map((item, index) => (
     <span
-      key={`${item.column ?? ""}-${item.label ?? ""}-${item.value}`}
+      key={keys[index]}
       data-testid="list-summary-item"
       className={cn(
         "me-2 font-medium tabular-nums text-foreground",

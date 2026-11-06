@@ -30,6 +30,8 @@ export type DashboardListColumn = {
   readonly display?: "bar" | "badge" | "datetime" | "button";
   readonly badgeToneField?: string;
   readonly badgeDot?: false;
+  /** `false` leaves an empty cell blank instead of drawing the placeholder. */
+  readonly emptyPlaceholder?: false;
   /** Resolves the raw cell value to display text, e.g. a reference id to its label. */
   readonly renderValue?: (value: unknown, row: Readonly<Record<string, unknown>>) => string;
   /** Links the rendered text to its target, e.g. a reference cell to the record's detail. */
@@ -69,6 +71,7 @@ export function DashboardListCell({
   readonly translate: (key: string) => string;
 }): ReactNode {
   const raw = row[column.field];
+  const empty = column.emptyPlaceholder === false ? "" : EMPTY_VALUE_PLACEHOLDER;
   if (column.hint !== undefined) {
     return <HintCell value={raw} row={row} hint={column.hint} leading={leading} />;
   }
@@ -96,7 +99,7 @@ export function DashboardListCell({
     );
   }
   if (column.display === "badge") {
-    if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
+    if (raw === undefined || raw === null || raw === "") return empty;
     const toneKey = column.badgeToneField !== undefined ? row[column.badgeToneField] : undefined;
     const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
     return (
@@ -108,12 +111,12 @@ export function DashboardListCell({
   if (column.display === "datetime") {
     const atMs =
       typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
-    if (!Number.isFinite(atMs)) return EMPTY_VALUE_PLACEHOLDER;
+    if (!Number.isFinite(atMs)) return empty;
     return <span className="font-mono text-[12.5px] tabular-nums">{formatDateTime(atMs)}</span>;
   }
   if (column.display === "button") {
     const link = column.linkFor?.(raw, row);
-    if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
+    if (raw === undefined || raw === null || raw === "") return empty;
     const text = column.renderValue?.(raw, row) ?? String(raw);
     const label = I18N_KEY_SHAPE.test(text) ? translate(text) : text;
     return link === undefined ? (
@@ -134,7 +137,7 @@ export function DashboardListCell({
     const number = <span className="tabular-nums">{formatNumber(raw)}</span>;
     return link === undefined ? number : <CellTextLink link={link}>{number}</CellTextLink>;
   }
-  if (raw === undefined || raw === null || raw === "") return EMPTY_VALUE_PLACEHOLDER;
+  if (raw === undefined || raw === null || raw === "") return empty;
   const text = String(raw);
   const shown = I18N_KEY_SHAPE.test(text) ? translate(text) : text;
   return link === undefined ? shown : <CellTextLink link={link}>{shown}</CellTextLink>;

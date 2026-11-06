@@ -21,7 +21,10 @@ export function FileViewAction({ fileId }: { readonly fileId: string }): ReactNo
         type="button"
         variant="link"
         size="sm"
-        onClick={() => setOpen(true)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
         data-testid={`file-view-${fileId}`}
       >
         {t("kumiko.field.file-list.view")}

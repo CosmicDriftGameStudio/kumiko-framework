@@ -9,7 +9,7 @@ import {
   useUnsavedInputSource,
 } from "@cosmicdrift/kumiko-renderer";
 import { EditorWorkbench, LoadingState, StatusBadge } from "@cosmicdrift/kumiko-renderer/web";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { DocumentContentEditor } from "../../template-resolver/web/index.ts";
 import {
   PAGE_CREATE_HANDLER,
@@ -51,8 +51,10 @@ function PageEditor({
 }): ReactNode {
   const t = useTranslation();
   const { Banner } = usePrimitives();
-  const initial = record === null ? EMPTY_PAGE_DRAFT : draftOfRecord(record);
-  const lossyOnOpen = record === null ? [] : lossyFeaturesOfRecord(record);
+  // Computed once: the editor is remounted per record version, and every keystroke re-renders it.
+  const [initial] = useState(() => (record === null ? EMPTY_PAGE_DRAFT : draftOfRecord(record)));
+  const [lossyOnOpen] = useState(() => (record === null ? [] : lossyFeaturesOfRecord(record)));
+  const savedRef = useRef(false);
   const [draft, setDraft] = useState<PageDraft>(initial);
   const [bodyEdited, setBodyEdited] = useState(false);
   const [resetCount, setResetCount] = useState(0);
@@ -60,10 +62,13 @@ function PageEditor({
   const create = useMutation<{ readonly id?: string }>(PAGE_CREATE_HANDLER);
   const update = useMutation(PAGE_UPDATE_HANDLER);
   const dirty = isDraftDirty(draft, initial);
-  useUnsavedInputSource(() => dirty);
+  // The leave guard runs synchronously after save, before React re-renders with the saved state.
+  useUnsavedInputSource(() => dirty && !savedRef.current);
 
-  const patch = (changes: Partial<PageDraft>): void =>
+  const patch = (changes: Partial<PageDraft>): void => {
+    savedRef.current = false;
     setDraft((current) => ({ ...current, ...changes }));
+  };
   const canSave = dirty && draft.slug !== "" && draft.title !== "";
 
   const save = async (): Promise<void> => {
@@ -80,6 +85,7 @@ function PageEditor({
       setSaveError(dispatcherErrorTextWithFieldIssues(result.error, t));
       return;
     }
+    savedRef.current = true;
     onSaved(record === null ? createdIdOf(result.data) : record.id);
   };
 
