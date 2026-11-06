@@ -111,7 +111,6 @@ export function withoutNotifyFactories(
     _notifyFactory: _factory,
     _notifyInTransactionFactory: _inTransaction,
     _notifyAfterCommitFactory: _afterCommit,
-    _deliveryAttemptLogFactory: _attemptLogFactory,
     _logOwnDeliveryAttempt: _ownAttemptLog,
     ...rest
   } = services;

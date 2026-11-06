@@ -25,7 +25,7 @@ export const APP_CONTEXT_KEY_ROLES = {
   _notifyFactory: "service",
   _notifyInTransactionFactory: "service",
   _notifyAfterCommitFactory: "service",
-  _deliveryAttemptLogFactory: "service",
+  _deliveryAttemptLogFactory: "wiring",
   _logOwnDeliveryAttempt: "service",
   _escapeHatchAuditSink: "service",
   db: "wiring",
