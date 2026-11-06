@@ -71,6 +71,9 @@ async function runJobHandler(
       handler: run.jobName,
       feature: scope.registry.getJobFeature(run.jobName) ?? qnScope(run.jobName),
       writeOrigin: run.writeOrigin,
+      ...(run.jobDef.irreversibleWithoutEntryHandler && {
+        irreversibleWithoutEntryHandler: run.jobDef.irreversibleWithoutEntryHandler,
+      }),
       tenantId: run.tenantId,
       ...(run.triggeredById !== null && { userId: run.triggeredById }),
     },

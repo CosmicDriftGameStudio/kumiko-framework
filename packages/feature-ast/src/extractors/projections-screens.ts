@@ -1,5 +1,9 @@
 import type { MspErrorMode, ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import type { RunIn } from "@cosmicdrift/kumiko-types/config";
+import {
+  IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES,
+  type RunIn,
+} from "@cosmicdrift/kumiko-types/config";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type {
@@ -160,6 +164,18 @@ export function extractMultiStreamProjection(
   const delivery = deliveryLit
     ? (deliveryLit.getLiteralValue() as "shared" | "per-instance")
     : undefined;
+  const irreversibleLit = arg
+    .getProperty("irreversibleWithoutEntryHandler")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer()
+    ?.asKind(SyntaxKind.StringLiteral);
+  const irreversibleValue = irreversibleLit?.getLiteralValue();
+  const irreversibleWithoutEntryHandler = isOneOf(
+    IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES,
+    irreversibleValue,
+  )
+    ? irreversibleValue
+    : undefined;
   return ok({
     kind: "multiStreamProjection",
     source: sourceLocationFromNode(call, sourceFile),
@@ -168,6 +184,7 @@ export function extractMultiStreamProjection(
     ...(isPlainObject(errorMode) && { errorMode: errorMode as MspErrorMode }),
     ...(runIn !== undefined && { runIn }),
     ...(delivery !== undefined && { delivery }),
+    ...(irreversibleWithoutEntryHandler !== undefined && { irreversibleWithoutEntryHandler }),
   });
 }
 

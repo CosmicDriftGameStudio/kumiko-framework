@@ -81,6 +81,17 @@ deletion grace period.
    projection rebuild recomputes it from the (now undecryptable) ciphertext
    to `NULL`.
 
+## Irreversible operations in jobs
+
+`forget`, hard deletes, `kms.eraseKey` and writes to `readAsInstruction` fields are gated: they run only from a
+handler marked `agent: { risk: "high" }`. A job or an event consumer has no handler entry, so it must declare
+`irreversibleWithoutEntryHandler` on `r.job` or `r.multiStreamProjection`, or the gate refuses with
+`irreversible_operation_without_entry_handler`. The value names why no entry handler exists:
+`rebuildable-derived-data` (the data is derived and a rebuild recreates it), `high-risk-or-cron-pipeline`
+(a maintenance pipeline that is high-risk by design, like `purge-archived-comments`) or
+`per-dispatch-record-key` (the key belongs to one dispatch record). Hooks and routes never inherit the
+declaration; they dispatch a `risk: "high"` handler instead.
+
 ## Source files
 
 ### src/__tests__/feature.integration.test.ts
@@ -114,6 +125,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
   resetTestTables,
+  waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -128,7 +140,7 @@ let kms: InMemoryKmsAdapter;
 const admin = TestUsers.admin;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [hrFeature] });
+  stack = await setupTestStack({ features: [hrFeature], jobs: { consumerLane: "worker" } });
   await unsafeCreateEntityTable(stack.db, employeeEntity);
   await unsafeCreateEntityTable(stack.db, hrCommentEntity);
   await createEventsTable(stack.db);
@@ -210,6 +222,29 @@ describe("crypto-shredding-hr", () => {
     expect(rows[0]?.body).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${employeeId}:`);
   });
 
+  test("purge-archived-comments job forgets the comment row; its declaration lets the cron run past the gate", async () => {
+    const employeeId = await createEmployee();
+    const comment = await stack.http.writeOk<SaveContext>(
+      "hr:write:hr-comment:create",
+      { employeeId, body: "archived note", authorName: "Manager X" },
+      admin,
+    );
+    const commentId = String(comment.id);
+
+    await stack.jobRunner?.dispatch("hr:job:purge-archived-comments", {
+      commentIds: [commentId],
+      tenantId: admin.tenantId,
+    });
+
+    await waitFor(async () => {
+      const rows = await asRawClient(stack.db).unsafe(
+        "SELECT id FROM read_hr_comments WHERE id = $1",
+        [commentId],
+      );
+      expect(rows).toHaveLength(0);
+    });
+  });
+
   test("forget: eraseKey renders [[erased]] for the employee AND comments about them", async () => {
     const employeeId = await createEmployee();
     await stack.http.writeOk<SaveContext>(
@@ -278,7 +313,9 @@ describe("crypto-shredding-hr — blind-index lookups", () => {
 ### src/feature.ts
 
 ```ts
+import { buildEntityTable, createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import * as z from "zod";
 
 export const employeeEntity = createEntity({
   table: "read_hr_employees",
@@ -300,6 +337,13 @@ export const hrCommentEntity = createEntity({
   softDelete: true,
 });
 
+const hrCommentTable = buildEntityTable("hr-comment", hrCommentEntity);
+const hrCommentExecutor = createEventStoreExecutor(hrCommentTable, hrCommentEntity, {
+  entityName: "hr-comment",
+});
+
+const purgeArchivedCommentsPayload = z.object({ commentIds: z.array(z.uuid()) });
+
 const hrWrite = { access: { roles: ["Admin"] } } as const;
 const hrRead = { access: { roles: ["Admin"] } } as const;
 
@@ -315,5 +359,23 @@ export const hrFeature = defineFeature("hr", (r) => {
     read: hrRead,
     verbs: { update: false, delete: false, restore: false, list: false },
   });
+
+  // A job runs without a write-handler entry, so the irreversible-operation gate refuses
+  // `forget` here unless the job declares why it may. Remove the declaration and the run fails.
+  r.job(
+    "purge-archived-comments",
+    {
+      trigger: { maintenance: true },
+      runIn: "worker",
+      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
+    },
+    async (payload, ctx) => {
+      const { commentIds } = purgeArchivedCommentsPayload.parse(payload);
+      for (const id of commentIds) {
+        const result = await hrCommentExecutor.forget({ id }, ctx.systemUser, ctx.db);
+        if (!result.isSuccess) throw new Error(`purge of hr-comment ${id} failed`);
+      }
+    },
+  );
 });
 ```

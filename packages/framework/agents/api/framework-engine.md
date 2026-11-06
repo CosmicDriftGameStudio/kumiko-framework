@@ -1002,6 +1002,7 @@ type JobDefinition = {
   escapeHatch?: EscapeHatchDeclaration | undefined;
   tenantVisibleFailure?: { messageKey: string; subjectFields?: string[] | undefined; } | undefined;
   tenantVisibleRun?: { subjectFields?: string[] | undefined; } | undefined;
+  irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler | undefined;
 };
 type JobDispatch = Pick<HandlerDispatch, "write" | "writeAs" | "queryAs" | "queryAsMember">;
 type JobEvents = Pick<HandlerEvents, "append" | "load">;
@@ -1179,6 +1180,7 @@ type MultiStreamProjectionDefinition = {
   runIn?: RunIn;
   delivery?: "shared" | "per-instance";
   startFrom?: "beginning" | "now";
+  irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler;
 };
 type NavDefinition = {
   id: string;

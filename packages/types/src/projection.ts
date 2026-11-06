@@ -1,4 +1,4 @@
-import type { RunIn } from "./config.ts";
+import type { IrreversibleWithoutEntryHandler, RunIn } from "./config.ts";
 import type { StoredEvent } from "./event-store-types.ts";
 import type { ExecutorManagedRunner } from "./executor-brand.ts";
 import type { EntityDefinition } from "./fields.ts";
@@ -179,4 +179,6 @@ export type MultiStreamProjectionDefinition = {
   // retroactively fire side effects for historical events. Only affects the
   // first registration — an existing cursor row is never clobbered.
   readonly startFrom?: "beginning" | "now";
+  // Without it the consumer's direct forget, hard delete, kms.eraseKey and readAsInstruction writes are refused.
+  readonly irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler;
 };

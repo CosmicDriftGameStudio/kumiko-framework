@@ -207,6 +207,7 @@ export function createHelpdeskFeature(opts: HelpdeskOptions): FeatureDefinition 
     r.job({
       name: "legacy-contact-retention",
       trigger: { maintenance: true },
+      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
       concurrency: "skip",
       handler: async (_payload, ctx) => runLegacyContactRetention(keepFor, ctx),
     });

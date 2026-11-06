@@ -1,6 +1,7 @@
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import type { AgentRisk } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext } from "./request-context.ts";
+import type { RequestContextData } from "./request-context-internals.ts";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
 // event-dispatcher when it runs an MSP-apply, so ctx.events.append downstream
@@ -65,11 +66,19 @@ export function isAgentToolCallScope(): boolean {
   return requestContext.get()?.agentToolCall === true;
 }
 
+function withoutIrreversibleExemption(data: RequestContextData): RequestContextData {
+  const { irreversibleWithoutEntryHandler: _irreversibleWithoutEntryHandler, ...rest } = data;
+  return rest;
+}
+
 // An ungated origin never mints a scope: seeds and boot writes keep their missing context.
+// Hooks and nested dispatches run through here too, so a job's or consumer's irreversible-operation
+// exception ends at this boundary and is never inherited by them.
 export function runWithWriteOrigin<T>(origin: WriteOrigin, fn: () => T): T {
-  const current = requestContext.get();
+  const scope = requestContext.get();
+  const current = scope && withoutIrreversibleExemption(scope);
   if (!isPersonalDataGated(origin)) {
-    if (!current?.writeOrigin) return fn();
+    if (!current || (!scope?.writeOrigin && !scope?.irreversibleWithoutEntryHandler)) return fn();
     const { writeOrigin: _writeOrigin, ...rest } = current;
     return requestContext.run(rest, fn);
   }

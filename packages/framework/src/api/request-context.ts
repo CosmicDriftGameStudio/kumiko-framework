@@ -49,7 +49,11 @@ export const requestContext = {
 export function runAsAgentToolCallEntry<T>(fn: () => T): T {
   const current = requestContext.get();
   const requestId = current?.requestId ?? requestContext.generateId();
-  const { entryHandler: _entryHandler, ...rest } = current ?? {};
+  const {
+    entryHandler: _entryHandler,
+    irreversibleWithoutEntryHandler: _irreversibleWithoutEntryHandler,
+    ...rest
+  } = current ?? {};
   return requestContext.run(
     {
       ...rest,

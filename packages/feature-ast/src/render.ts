@@ -592,6 +592,11 @@ function renderMultiStreamProjection(p: MultiStreamProjectionPattern): string {
   if (p.errorMode !== undefined) lines.push(`  errorMode: ${renderValue(p.errorMode)},`);
   if (p.runIn !== undefined) lines.push(`  runIn: ${renderValue(p.runIn)},`);
   if (p.delivery !== undefined) lines.push(`  delivery: ${JSON.stringify(p.delivery)},`);
+  if (p.irreversibleWithoutEntryHandler !== undefined) {
+    lines.push(
+      `  irreversibleWithoutEntryHandler: ${JSON.stringify(p.irreversibleWithoutEntryHandler)},`,
+    );
+  }
   lines.push("});");
   return lines.join("\n");
 }

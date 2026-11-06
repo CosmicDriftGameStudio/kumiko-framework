@@ -227,6 +227,24 @@ irreversible_operation_requires_high_risk:
 
     `agent: { risk: "high" }` am genannten Handler deklarieren.
 
+irreversible_operation_without_entry_handler:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: ein Job, Event-Consumer oder anderer Request-Scope führt
+    eine irreversible Operation aus (`forget`, hartes Delete, `kms.eraseKey` oder
+    ein Write auf ein `readAsInstruction`-Feld), ohne direkt aufgerufenen
+    Einstiegs-Handler und ohne deklarierte Ausnahme. `details.handler` nennt den Job
+    oder Consumer, `details.gate` das Gate, das abgelehnt hat.
+
+    Ein Job oder eine Multi-Stream-Projektion, die das darf, deklariert
+    `irreversibleWithoutEntryHandler` (`"rebuildable-derived-data"`,
+    `"high-risk-or-cron-pipeline"` oder `"per-dispatch-record-key"`). Eine Route, ein
+    `afterCommit`-Hook oder ein Agent-Tool-Call dispatcht stattdessen einen
+    Write-Handler mit `agent: { risk: "high" }`; Hooks und Agent-Tool-Calls erben die
+    Deklaration des umgebenden Jobs nie.
+
 instruction_field_write_requires_high_risk:
   endUser: |
     Diese Aktion ist nicht erlaubt.

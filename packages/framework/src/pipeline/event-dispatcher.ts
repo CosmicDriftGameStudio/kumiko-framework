@@ -1,3 +1,4 @@
+import type { IrreversibleWithoutEntryHandler } from "@cosmicdrift/kumiko-types/config";
 import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import { BUN_SQL_CONNECTION_ERROR_CODES } from "../db/bun-sql-connection-codes.ts";
 import type { DbTx, PgListenClient, PgListenSubscription } from "../db/connection.ts";
@@ -169,6 +170,9 @@ export type EventConsumer = {
   // retroactively fire side effects for historical events. Only affects the
   // first registration — an existing cursor row is never clobbered.
   readonly startFrom?: "beginning" | "now";
+  // Carried into the delivery scope so the irreversible-operation gate lets this consumer's
+  // direct primitive calls pass; every other consumer is refused.
+  readonly irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler;
 };
 
 // Result of a dispatcher pass (runOnce / doPass). Shared across the public

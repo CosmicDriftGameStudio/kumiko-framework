@@ -81,6 +81,11 @@ export const FrameworkReasons = {
   // inherit the gate.
   instructionFieldWriteRequiresHighRisk: "instruction_field_write_requires_high_risk",
 
+  // AccessDeniedError: a job or consumer without a directly dispatched entry handler performs an
+  // irreversible operation but declared no irreversibleWithoutEntryHandler exception.
+  // details.handler names the job or consumer, details.gate the gate that refused.
+  irreversibleOperationWithoutEntryHandler: "irreversible_operation_without_entry_handler",
+
   // ConflictError: a write touched a personal-data field of a data subject whose
   // key was erased (crypto-shredding); the subject can no longer receive data.
   subjectErased: "subject_erased",

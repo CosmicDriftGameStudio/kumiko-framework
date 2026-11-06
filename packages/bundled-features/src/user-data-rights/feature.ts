@@ -708,6 +708,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.job({
       name: "run-forget-cleanup",
       trigger: { maintenance: true },
+      irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
       concurrency: "skip",
       escapeHatch: { reason: RUN_FORGET_CLEANUP_REASON },
       handler: async (_payload, ctx) => {

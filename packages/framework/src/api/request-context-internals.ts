@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { IrreversibleWithoutEntryHandler } from "@cosmicdrift/kumiko-types/config";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import type { AgentRisk } from "@cosmicdrift/kumiko-types/handlers";
 import type { ErrorDocsConfig } from "../errors/docs-url.ts";
@@ -71,6 +72,10 @@ export type RequestContextData = {
   // Set by the agent-tools dispatch and inherited by every nested dispatch, so an
   // LLM-driven call can never pick up ctx.crossTenantReads, however deep it is nested.
   readonly agentToolCall?: true;
+  // Set only by the job runner and consumer delivery for the pipeline itself; the irreversible-operation
+  // gate lets a primitive call without an entryHandler pass only when it is set. Hook wraps and agent
+  // tool calls drop it, and `run` is not part of the public view, so no caller can set it.
+  readonly irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler;
 };
 
 export const storage = new AsyncLocalStorage<RequestContextData>();
