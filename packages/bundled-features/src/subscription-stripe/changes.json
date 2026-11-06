@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "customer.subscription.created without a linked checkout session is redelivered while young",
+    "detail": "An empty checkout session list for a created event younger than ten minutes answers 503 so Stripe redelivers, instead of dropping the subscription as not in the ledger."
+  },
+  {
     "version": "0.414.0",
     "type": "breaking",
     "title": "Stripe checkouts are matched by session id, consentId metadata is gone",

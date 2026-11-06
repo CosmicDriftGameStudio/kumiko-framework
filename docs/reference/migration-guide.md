@@ -2,13 +2,51 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-11-05
+verified: 2026-11-06
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.415.0
+
+### @cosmicdrift/kumiko-cli
+
+**kumiko check fails when biome.json does not extend the Kumiko Biome preset**
+
+The lint step now reads `biome.json` or `biome.jsonc` (comments allowed) before it starts Biome and follows relative `extends` entries. It passes only if the chain reaches `@cosmicdrift/kumiko-framework/biome-rules`, `@cosmicdrift/kumiko-framework/biome` or a relative path to the framework's `presets/biome-rules.json` or `presets/biome-app.json`. Without the preset the SSRF, path-traversal, event-store write and admin-API plugins are missing and the step used to stay green; now it exits 1 and does not start Biome.
+
+**Migration:** Add `"extends": ["@cosmicdrift/kumiko-framework/biome"]` to the repo's `biome.json` (`@cosmicdrift/kumiko-framework/biome-rules` for repos that keep their own file layout).
+
+### @cosmicdrift/kumiko-guards
+
+**security-plugin-suppression guard rejects biome-ignore on the security Biome plugins**
+
+`biome-ignore lint/plugin` covers every plugin, so a reason of three words silenced the SSRF (`no-direct-fetch`), path-traversal (`no-direct-fs`), event-store write (`es-literal-writes`, `es-literal-writes-tests`, `restricted-event-store-symbols`) and `admin-api` checks. The new guard `security-plugin-suppression` re-runs Biome over every file with such a comment, in a temp copy with those comments neutralised and only the security plugins from the preset enabled. Each remaining diagnostic is a finding. UI plugins (raw-ui, raw-hooks, ...) and browser-side fetch in `web/**/*.tsx` stay suppressible. A Biome answer that cannot be parsed fails the guard. The guard needs `@biomejs/biome` and the `biome-rules` preset in the repo and does nothing without them.
+
+**Migration:** Replace each suppressed call with the safe API (`egress(policy)` instead of `fetch`, `FileStorageProvider` or `readBundledAsset` instead of `node:fs`, the event-store API instead of literal writes). A reviewed exception that cannot move is frozen once with `kumiko-guards guards --write-baseline --guard=security-plugin-suppression` into `.kumiko-security-plugin-suppression-baseline.json`; without that file the guard fails closed.
+
+### framework-core
+
+**Whitespace-only translations and blank plural forms fail the boot check**
+
+The locale completeness check at boot treated a value of one space as present, so a button with that label rendered blank, and it treated every plural object as present. Whitespace-only strings and plurals with an empty or whitespace-only form now count as missing, and the i18n parity test applies the same rule to locale bundles.
+
+**Migration:** Fill in each key the boot error lists. For a plural, fill in the blank form or remove it so the lookup falls back to `other`.
+
+**Irreversible operations without a write-handler entry need a declared exception**
+
+A job (`r.job`) or multi-stream projection that runs an irreversible operation without a write-handler entry now throws AccessDeniedError (`irreversible_operation_without_entry_handler`) instead of passing silently. Declare `irreversibleWithoutEntryHandler` with one of `rebuildable-derived-data`, `high-risk-or-cron-pipeline` or `per-dispatch-record-key`. The declaration covers only the job's or consumer's own code; afterCommit hooks, nested dispatches and agent tool calls inside it are still gated. Any other request scope without a write-handler entry is refused too: an afterCommit or afterRollback hook of an HTTP write, an HTTP route, a WebSocket handler. A refused job goes red and a refused consumer goes to the dead letter, while a refused hook is only logged, so its delete does not happen and only the log shows it.
+
+**Migration:** Add `irreversibleWithoutEntryHandler: "<case>"` to each job or multi-stream projection that calls executor.forget, a hard delete, kms.eraseKey or writes a readAsInstruction field. Pick the case that names why no entry handler exists; if none fits, route the operation through a write handler with `agent: { risk: "high" }`. Hooks and routes that call one of these primitives directly must dispatch such a handler or a job instead.
+
+**Named filter refs carry `access` instead of `roles`**
+
+`NamedListFilterRef.roles` is replaced by `access` (an `AccessRule`), set by the framework from the entity filter's rule; an authored `access` is dropped like `roles` was. The client offers a chip with `isUiAccessGranted(ref.access, userRoles)`, so `anySignedIn` and `openToAll` follow the same rules as role-gated screens: `anySignedIn` opens a rule only next to the `anonymous` role, and `openToAll` needs a non-empty reason. Before, every rule form other than a plain role list was offered to everyone. `isNamedFilterOffered` is removed from the renderer.
+
+**Migration:** Remove `roles` from `NamedListFilterRef` literals in screens (it was framework-owned and dropped anyway); the restriction is declared once as `access` on the entity's `namedFilters` entry. Code reading `ref.roles` from a built app schema reads `ref.access` instead.
 
 ## 0.414.0
 

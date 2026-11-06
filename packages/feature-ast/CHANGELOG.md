@@ -1,5 +1,57 @@
 # @cosmicdrift/kumiko-feature-ast
 
+## 0.415.0
+
+### Minor Changes
+
+- 6f8efad: The irreversible-operation gate now refuses `executor.forget`, hard deletes, `kms.eraseKey` and writes to `readAsInstruction` fields in any request scope without a write-handler entry. Jobs and multi-stream projections can declare `irreversibleWithoutEntryHandler`; afterCommit and afterRollback hooks, HTTP routes, WebSocket handlers and agent tool calls cannot and never inherit the declaration.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Irreversible operations without a write-handler entry need a declared exception
+  detail: A job (`r.job`) or multi-stream projection that runs an irreversible operation without a write-handler entry now throws AccessDeniedError (`irreversible_operation_without_entry_handler`) instead of passing silently. Declare `irreversibleWithoutEntryHandler` with one of `rebuildable-derived-data`, `high-risk-or-cron-pipeline` or `per-dispatch-record-key`. The declaration covers only the job's or consumer's own code; afterCommit hooks, nested dispatches and agent tool calls inside it are still gated. Any other request scope without a write-handler entry is refused too: an afterCommit or afterRollback hook of an HTTP write, an HTTP route, a WebSocket handler. A refused job goes red and a refused consumer goes to the dead letter, while a refused hook is only logged, so its delete does not happen and only the log shows it.
+  migration: Add `irreversibleWithoutEntryHandler: "<case>"` to each job or multi-stream projection that calls executor.forget, a hard delete, kms.eraseKey or writes a readAsInstruction field. Pick the case that names why no entry handler exists; if none fits, route the operation through a write handler with `agent: { risk: "high" }`. Hooks and routes that call one of these primitives directly must dispatch such a handler or a job instead.
+  -->
+
+### Patch Changes
+
+- e701e18: The `lint-ignore-to-biome` codemod leaves `no-raw-hooks` markers outside the plugin's scope alone.
+  
+  <!-- kumiko-changes
+  feature: feature-ast
+  type: fix
+  title: lint-ignore-to-biome skips no-raw-hooks markers outside the plugin scope
+  detail: The no-raw-hooks Biome plugin only scans .tsx files under web/ and public/, without tests, renderer, document-designer and samples. Converting a marker elsewhere produced a `biome-ignore` that suppresses nothing. The codemod now keeps such markers as they are.
+  -->
+- cabb8f3: Review fixes for the Biome guard move: temporal-polyfill is blocked as a whole, `no-date-api` and `unsafe-json-parse` close their gaps, the codemod judges scope by project-relative path, and the e2e Meilisearch teardown reads the app's `.env`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Biome preset closes temporal-polyfill completely and tightens plugin gaps
+  detail: noRestrictedImports now blocks every import from temporal-polyfill and temporal-polyfill/*, not only the Temporal name. no-date-api also flags optional calls (x?.toISOString(), x?.getTime()). unsafe-json-parse accepts JSON.parse in the try block of try/catch/finally. The allowlists of unsafe-json-parse, error-reasons and admin-api name the framework files by full path, so an app file with the same name no longer inherits the exception. lint-ignore-to-biome matches no-raw-hooks scope against the project-relative path from the plugin's own includes, lists trailing markers instead of converting them, and covers the remaining deleted guard slugs. The e2e Meilisearch teardown resolves MEILI_URL and MEILI_MASTER_KEY from webServer.env, then the app's .env files, then the default.
+  -->
+- Updated dependencies [7d4d98b]
+- Updated dependencies [936c2fa]
+- Updated dependencies [9e86e17]
+- Updated dependencies [0dde660]
+- Updated dependencies [6f8efad]
+- Updated dependencies [b56f27a]
+- Updated dependencies [175e232]
+- Updated dependencies [0c06c90]
+- Updated dependencies [98e82ff]
+- Updated dependencies [4e4a883]
+- Updated dependencies [36c874d]
+- Updated dependencies [b018a5d]
+- Updated dependencies [939c0cb]
+- Updated dependencies [cabb8f3]
+- Updated dependencies [2891f68]
+- Updated dependencies [34e38a0]
+- Updated dependencies [a4e9adf]
+  - @cosmicdrift/kumiko-framework@0.415.0
+  - @cosmicdrift/kumiko-types@0.415.0
+
 ## 0.414.0
 
 ### Minor Changes

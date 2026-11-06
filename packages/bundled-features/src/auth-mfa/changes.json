@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Signed tokens accept only the exact signature text",
+    "detail": "`hmacSignatureMatches` compared the decoded bytes, so a signature whose last character differed only in its unused trailing bits also verified. It now compares the text. No consumer action needed."
+  },
+  {
     "version": "0.405.0",
     "type": "improvement",
     "title": "MFA setup token uses the shared HMAC token codec",

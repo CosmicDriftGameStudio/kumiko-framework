@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "One normalizeEmail for helpdesk, waitlist, signup tokens and user-data lookups",
+    "detail": "The copies in helpdesk, waitlist, signup-token-store and the inline toLowerCase in resolveVerifiedUserEmail now use shared/normalizeEmail, so a changed normalization cannot make export and erasure miss stored rows."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "Stream-tenant backfill reindexes the old search bucket",

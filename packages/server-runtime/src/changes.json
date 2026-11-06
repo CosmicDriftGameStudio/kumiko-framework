@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "PWA update removes the precache of the unscoped cache name format",
+    "detail": "Caches named kumiko-pwa-<16hex> from before the per-scope prefix were never deleted after an update. The service worker now drops them once, and keeps caches of other scopes and foreign libraries."
+  },
+  {
+    "version": "0.415.0",
+    "type": "improvement",
+    "title": "runWorkerApp accepts the unsubscribe option",
+    "detail": "Pass the same `unsubscribe: { secret }` to runWorkerApp as to runProdApp; a job in the worker (e.g. a cron digest) that sends an `unsubscribe: true` notification then gets a signed link from `APP_BASE_URL`. The unsubscribe routes stay in the API process, which must use the same secret. Before, such mails went out without a link."
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
     "title": "The stripe boot option passes clientConfig",

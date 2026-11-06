@@ -1,5 +1,72 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.415.0
+
+### Minor Changes
+
+- 832e1c0: `kumiko check` refuses a lint step whose biome config does not extend the Kumiko preset.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: breaking
+  title: kumiko check fails when biome.json does not extend the Kumiko Biome preset
+  detail: The lint step now reads `biome.json` or `biome.jsonc` (comments allowed) before it starts Biome and follows relative `extends` entries. It passes only if the chain reaches `@cosmicdrift/kumiko-framework/biome-rules`, `@cosmicdrift/kumiko-framework/biome` or a relative path to the framework's `presets/biome-rules.json` or `presets/biome-app.json`. Without the preset the SSRF, path-traversal, event-store write and admin-API plugins are missing and the step used to stay green; now it exits 1 and does not start Biome.
+  migration: Add `"extends": ["@cosmicdrift/kumiko-framework/biome"]` to the repo's `biome.json` (`@cosmicdrift/kumiko-framework/biome-rules` for repos that keep their own file layout).
+  -->
+
+### Patch Changes
+
+- Updated dependencies [7d4d98b]
+- Updated dependencies [e701e18]
+- Updated dependencies [c8f6862]
+- Updated dependencies [936c2fa]
+- Updated dependencies [936c2fa]
+- Updated dependencies [9e86e17]
+- Updated dependencies [e701e18]
+- Updated dependencies [175e232]
+- Updated dependencies [0dde660]
+- Updated dependencies [6f8efad]
+- Updated dependencies [b56f27a]
+- Updated dependencies [175e232]
+- Updated dependencies [fe78a93]
+- Updated dependencies [e3ad367]
+- Updated dependencies [1a8b340]
+- Updated dependencies [0c06c90]
+- Updated dependencies [7aae1af]
+- Updated dependencies [4ba9300]
+- Updated dependencies [98e82ff]
+- Updated dependencies [dec0521]
+- Updated dependencies [4e4a883]
+- Updated dependencies [36c874d]
+- Updated dependencies [793b9df]
+- Updated dependencies [b018a5d]
+- Updated dependencies [30b6b2b]
+- Updated dependencies [748a1cf]
+- Updated dependencies [939c0cb]
+- Updated dependencies [09348da]
+- Updated dependencies [9db048a]
+- Updated dependencies [ec48537]
+- Updated dependencies [cabb8f3]
+- Updated dependencies [61b69e7]
+- Updated dependencies [2891f68]
+- Updated dependencies [50447ab]
+- Updated dependencies [34e38a0]
+- Updated dependencies [725216a]
+- Updated dependencies [a4e9adf]
+- Updated dependencies [bc16118]
+- Updated dependencies [4319b98]
+- Updated dependencies [fa35300]
+- Updated dependencies [0590bc7]
+- Updated dependencies [607c71e]
+  - @cosmicdrift/kumiko-framework@0.415.0
+  - @cosmicdrift/kumiko-renderer@0.415.0
+  - @cosmicdrift/kumiko-feature-ast@0.415.0
+  - @cosmicdrift/kumiko-bundled-features@0.415.0
+  - @cosmicdrift/kumiko-testing@0.415.0
+  - @cosmicdrift/kumiko-server-runtime@0.415.0
+  - @cosmicdrift/kumiko-guards@0.415.0
+  - @cosmicdrift/kumiko-dev-server@0.415.0
+
 ## 0.414.0
 
 ### Patch Changes

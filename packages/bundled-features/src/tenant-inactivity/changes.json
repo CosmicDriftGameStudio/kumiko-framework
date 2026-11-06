@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Keep-link redemption and the destruction request are serialized",
+    "detail": "The inactivity job checks the cycle and files the destruction request in one transaction under an advisory lock that the keep-account handler also takes. If the redemption wins, the job skips the request. If the request wins, the link is rejected as invalid instead of reporting a kept account for a tenant that is already in destroyRequested."
+  },
+  {
     "version": "0.411.0",
     "type": "improvement",
     "title": "Warning mails reach Admins, activity sources get the tenant db, sessions probe secret from env",

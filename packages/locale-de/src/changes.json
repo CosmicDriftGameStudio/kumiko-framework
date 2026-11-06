@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Informal German bundle says du throughout",
+    "detail": "Fourteen strings in the informal bundle addressed the user with Sie. They now say du. Apps with address formal keep the previous wording through the formal overrides."
+  },
+  {
     "version": "0.409.0",
     "type": "improvement",
     "title": "German strings for the contact feature and the configEdit action rows",

@@ -1,5 +1,132 @@
 # @cosmicdrift/kumiko-types
 
+## 0.415.0
+
+### Minor Changes
+
+- 6f8efad: The irreversible-operation gate now refuses `executor.forget`, hard deletes, `kms.eraseKey` and writes to `readAsInstruction` fields in any request scope without a write-handler entry. Jobs and multi-stream projections can declare `irreversibleWithoutEntryHandler`; afterCommit and afterRollback hooks, HTTP routes, WebSocket handlers and agent tool calls cannot and never inherit the declaration.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Irreversible operations without a write-handler entry need a declared exception
+  detail: A job (`r.job`) or multi-stream projection that runs an irreversible operation without a write-handler entry now throws AccessDeniedError (`irreversible_operation_without_entry_handler`) instead of passing silently. Declare `irreversibleWithoutEntryHandler` with one of `rebuildable-derived-data`, `high-risk-or-cron-pipeline` or `per-dispatch-record-key`. The declaration covers only the job's or consumer's own code; afterCommit hooks, nested dispatches and agent tool calls inside it are still gated. Any other request scope without a write-handler entry is refused too: an afterCommit or afterRollback hook of an HTTP write, an HTTP route, a WebSocket handler. A refused job goes red and a refused consumer goes to the dead letter, while a refused hook is only logged, so its delete does not happen and only the log shows it.
+  migration: Add `irreversibleWithoutEntryHandler: "<case>"` to each job or multi-stream projection that calls executor.forget, a hard delete, kms.eraseKey or writes a readAsInstruction field. Pick the case that names why no entry handler exists; if none fits, route the operation through a write handler with `agent: { risk: "high" }`. Hooks and routes that call one of these primitives directly must dispatch such a handler or a job instead.
+  -->
+- b56f27a: Board gaps round 11: drawn icons for all apps, facet labels, empty list header, short forms for card sentence, step title and banner, bell in the menu.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: board gaps round 11, drawn icons, facet labels, empty list header, short forms, bell in the menu
+  detail: Visible change for all apps: the search, sparkles, wand and pencil icons (`Icon` keys `search`, `sparkles`, `wand`, `pencil`), the list search field, the nav search and the filter toggle use new drawn icons, exported from renderer/web as `DrawnSearch`, `DrawnSparkles`, `DrawnPencil`, `DrawnFilter`, `DrawnWand`, `DrawnPanel`. `navStyle` plain shows `DrawnPanel` on every width instead of the hamburger. Facet triggers split "Label: " grey from the value in its own span (`facet-<field>-value`), the sort select too (`<testId>-value`); with `narrowFacets` pills an empty select shows the label only. New options - `NamedFilterFacetOptions.hideEmpty` (zero-hit entries leave the select, "all" and the active entry stay; the counts are requested without `showCounts`), `ListColumnHint.narrowField` (shorter sentence on the phone card), `RecordStep.narrowTitle`, `RecordNotice.narrowTitle` and `narrowText` (also `BannerProps`), `WorkspaceShell.notificationBellPlacement: "header" | "overflow"` (overflow moves the bell into the always-visible "…" menu). `narrowPlacement: "behind-filter"` now works on lists that do not fill their height (search and filter toggle share one row below sm). A `frame: "card"` list from sm up keeps its header row when empty, with the empty state in the same card. Boot rule `query/output-field-missing` also checks `hint.narrowField`; the projectionList count-acceptance rule also applies to `hideEmpty`.
+  -->
+- 175e232: WorkspaceShell gets `contentSurface` and `navStyle`, and lists, dashboard panels and detail pages move closer to the KI-first boards.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: WorkspaceShell contentSurface and navStyle, board look for lists, panels and detail pages
+  detail: `WorkspaceShell` takes `contentSurface?: "card" | "background"` (default "card") and `navStyle?: "default" | "plain"` (default "default"). `plain` drops the leading icons of the expanded sidebar, styles groups, entries, active entry and search like the board, shows the create plus of an entry only on hover and focus (always on coarse pointers), renders a visible plus on a group's label, shows the hamburger in the header (also in the Akte header on desktop) and sets the header to 58px. Defaults changed for all apps: the notification bell has no border, its counter is a small destructive pill; the dashboard panel header has no divider and board spacing, the titled stat strip is a grid, panel stat tiles use the page background; the pager footer reads "1–10 von 26 · 10 pro Seite" (no noun, no arrow at the page size, plain page buttons); the summary and totals row of a table keep their background under the sticky actions column; select-facet triggers show the label grey and the value in foreground or primary when set; select-facet dropdown counters sit right and a chip can set `separatorAfter` (new on `EntityListFacetExtraOption`); tab counts are pills; metric tiles show `sub` on its own line; Fristen date cells are mono; button columns of a dashboard list are right-aligned. `kumiko.pager.status.noun` is removed (unused). Also new: `NamedListFilterRef.emptyState` takes `paramsQuery` (a registered query QN without payload, run only while the empty state is on screen; its result object becomes the translation params of `description`; without data the description is not rendered; boot rules `list/named-filter-empty-state-params-query-empty`, `...-without-description` and `query/not-registered`); `NamedListFilterRef.separatorAfter`; `narrowPlacement: "behind-filter"` on `EntityListFacetConfig` and `NamedFilterFacetOptions` (the remaining facets follow the usual phone rules, both clusters share one filter toggle); `prefix` on a detail header subtitle part; `MetricSpec.subFieldNarrow`; `steps.narrowMoreLabel`, a plural base key (`<key>.one` and `<key>.other` with `{count}`; default `kumiko.detail.steps.more`). Phone cards and dashboard cards draw the tone as an inner 4px stripe instead of a left border; table row tone stripes are 4px; further step actions are grey 12.5px; the phone stat strip has no tone border; the chain panel beside the steps stretches to their height. Phone detail pages and lists: new list column option `narrowInline` (consecutive columns with it share one line of values with a 12px gap on a phone card, no separator; other apps are unaffected until they set it); new `CardOptions.headerLayout: "stacked" | "inline"` (inline puts title, subtitle and actions on one row without a divider; the chain panel uses it); `StatCard` takes `boardPadding`; the pager of a phone card list is plain text on the page without bar or border and the sort sentence is a muted 12px line; the lead paragraph of a dashboard text panel is followed by a smaller dated hint line; the page heading is 20px on a phone, detail pages use 16px side insets there, steps are divided rows with a 4px tone stripe and a "more steps" toggle row, the record summary has a heading-face sentence with a left stripe, metric tiles use 2-column phone spacing with a short `narrowSub` beside the value, and tab strips scroll sideways with tighter spacing on a phone. `StepList` for a plan card: `StepListSelection.compact` (no select-all row, selection actions visible at 0 selected, muted header, left-aligned footer, the checkbox replaces the status icon of selectable rows), `StepSelectionAction.labelForCount(count)` (replaces the appended " (n)", the action is disabled at 0), `StepSelectionAction.ignoresSelection` (no counter, always enabled, `onClick` still gets the selection), `StepTag.side` (tag in the right column above a trailing link), `progress: "total"` ("n steps", keys `kumiko.widget.step-list.total.one` and `.other`) and `footerNote`. In a list or dashboard panel with row tones every narrow card now carries the stripe, grey for neutral rows, so all cards share one inset. A filter toggle on the phone is marked active while a facet behind it is set.
+  -->
+- 4e4a883: A named filter on an entity list now reaches the client with its full access rule, checked by `isUiAccessGranted`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Named filter refs carry `access` instead of `roles`
+  detail: `NamedListFilterRef.roles` is replaced by `access` (an `AccessRule`), set by the framework from the entity filter's rule; an authored `access` is dropped like `roles` was. The client offers a chip with `isUiAccessGranted(ref.access, userRoles)`, so `anySignedIn` and `openToAll` follow the same rules as role-gated screens: `anySignedIn` opens a rule only next to the `anonymous` role, and `openToAll` needs a non-empty reason. Before, every rule form other than a plain role list was offered to everyone. `isNamedFilterOffered` is removed from the renderer.
+  migration: Remove `roles` from `NamedListFilterRef` literals in screens (it was framework-owned and dropped anyway); the restriction is declared once as `access` on the entity's `namedFilters` entry. Code reading `ref.roles` from a built app schema reads `ref.access` instead.
+  -->
+
+### Patch Changes
+
+- 7d4d98b: The card meta limit counts lines: a run of `narrowInline` columns is one line, as the card draws it. `narrowPlacement` also works on the `facets` of a projection list.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Card meta limit counts lines, projection list facets honour narrowPlacement
+  detail: The boot rule `list/card-meta-overflow` counted every meta column, so a run of `narrowInline` columns that the card draws on one line failed the boot. It now counts lines. `ListFacetSpec` takes `narrowPlacement`, so a facet of a projection list can open behind the filter icon on a phone, as on entity lists.
+  -->
+- 98e82ff: The step-dispatcher sweep no longer closes dispatches whose deliver job is still alive.
+  
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: Abandoned-dispatch sweep skips live deliver jobs and cannot overwrite a concurrent outcome
+  detail: Before closing a request older than 24 h the sweep asks the job runner whether its deliver job is still waiting, delayed, active, paused or prioritized and skips it until a later run. A runner that cannot report job state makes the sweep skip everything and warn. The failure event is appended with the stream version that was loaded, so a delivery recording its outcome in between causes a version conflict (reported through the close-failure log) and the payload key is not erased. `JobRunner` and `JobRunnerRef` gain an optional `isJobPending(jobName, jobId)`, and `MultiStreamApplyContext.unsafeAppendEvent` accepts an optional `expectedVersion`.
+  -->
+- 36c874d: The delivery attempt log factory is boot wiring and no longer reaches `ctx.services`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Handlers can no longer call the unbound delivery attempt log factory
+  detail: `_deliveryAttemptLogFactory` was copied into `ctx.services`, so a handler could log delivery attempts for any tenant and recipient. It is now wiring; handlers keep the bound `_logOwnDeliveryAttempt`.
+  -->
+- b018a5d: Row decoration in infinite lists asks only for the rows loaded since the last answer.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Row decoration sends only new ids and keeps earlier answers
+  detail: In an infinite list each decoration call carries only the ids that have no answer yet; answers are merged across calls and dropped when the list's filter or sort changes. A reload after a write still asks for every id. A decoration query can now cap `ids` at the page size without losing the decoration once more pages are loaded.
+  -->
+- 939c0cb: The boot validator and the renderer's list payload tests share one derivation of the optional list query keys.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: One shared derivation of the list query keys the summary-row check expects
+  detail: `listPayloadKeysSent` in `@cosmicdrift/kumiko-types/screen` turns a list screen's capabilities (searchable, filters, named filters, screen filter) into the optional query keys it sends. The boot validator's summary-row schema check uses it instead of a hand-written copy, and renderer tests run the real entityList and projectionList payload builders and compare their keys with it.
+  -->
+- 2891f68: The server clock header is stamped after the handler, the RLS boot catalog reads policies in one query, and the list boot rules check sort directions, summary params and badgeDot on hint columns.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: x-kumiko-now is stamped after the handler ran
+  detail: The header was set before the handler, so freshly written timestamps looked up to the handler runtime in the future to the client. It is now read after next(). The RLS boot catalog reads all policy shapes in one query instead of one per table. Boot rules now reject sortOptions dirs the projection query's sortDirection enum lacks, summaryRow.params keys the summary query does not know, and badgeDot on a hint column. LIST_TOOLBAR_ACTIONS_PLACEMENTS is the single source for toolbarActionsPlacement. billing-foundation process-event takes the subscription lock before reading the current subscription.
+  -->
+- 34e38a0: A titled dashboard stat strip no longer leaves an empty cell for a tile the user may not open; dashboard cards share the hint sentence style, and a few docs and types are corrected.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Titled stat strip drops tiles the user may not open
+  detail: The strip wrapped every stat in its own cell, so a gated tile left an empty cell with a dangling separator. Gated tiles are now filtered before the cell is drawn. The dashboard card headline reuses the table's hint sentence class, the createPlacement and rowActionMode docs match the code, and TEMPLATE_EDITOR_SCREENS is read-only.
+  -->
+- a4e9adf: Review round 1, package 8: the WhatsApp webhook normalizer no longer fails a delivery over oversized ids or absurd timestamps, document previews fill their variables, the PWA update drops caches of the unscoped name format, and test runs outside the runner stay marked alive.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: fix
+  title: WhatsApp webhook skips oversized ids and survives absurd timestamps
+  detail: An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids, media ids and mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time.
+  -->
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: PWA update removes the precache of the unscoped cache name format
+  detail: Caches named kumiko-pwa-<16hex> from before the per-scope prefix were never deleted after an update. The service worker now drops them once, and keeps caches of other scopes and foreign libraries.
+  -->
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Test runs outside the runner stay alive for parallel sweeps
+  detail: testRunQueueNamePrefix now marks the process run alive, and a failed first alive mark no longer stops the refresh timer, so a parallel run's sweep cannot delete live queues, keys or template databases.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: Web preview of document bodies fills the example values
+  detail: The web preview target sent document bodies with unfilled variable chips. It now fills them with the example values like the snippet preview does.
+  -->
+
 ## 0.414.0
 
 ### Minor Changes

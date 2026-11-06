@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Orphan cleanup keeps edited system templates of notifications unknown to the booting registry",
+    "detail": "A system mail template of a mounted feature whose notification this boot does not register (conditional registration, older pod during a rolling deploy) is deleted only while the system user alone ever wrote it; an edited row is kept and logged with slug and locale. Rows of notifications renamed away through `renamedFrom` are still deleted."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Web preview of document bodies fills the example values",
+    "detail": "The web preview target sent document bodies with unfilled variable chips. It now fills them with the example values like the snippet preview does."
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
     "title": "text-block and collection-entry masks on the editor workbench, the preview toggle under the field is gone",

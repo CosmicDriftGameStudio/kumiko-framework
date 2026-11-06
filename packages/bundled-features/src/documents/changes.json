@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Split access without write no longer lets members file invisible documents",
+    "detail": "With `access: { read, delete }` and no `write`, create fell back to TenantAdmin and TenantMember, so a member could file a document they could never see. Create now stays limited to the admin roles unless a write rule is set."
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
     "title": "documents list and tab show a View action for PDFs",

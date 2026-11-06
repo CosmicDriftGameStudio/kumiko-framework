@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Inbound messages are charged to the sender budget once per wamid",
+    "detail": "A one-token marker bucket per tenant and wamid is taken before the sender windows are charged. A delivery that fails after the charge, its redelivery, and concurrent deliveries of the same wamid no longer use up the sender's budget again, so a real message is not stored as throttled by retries."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "WhatsApp webhook skips oversized ids and survives absurd timestamps",
+    "detail": "An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids, media ids and mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Non-integer status error codes are dropped instead of answering 500",
+    "detail": "The webhook normalizer accepted any number as a status error code while the handler schema requires an integer, so a fractional code made the whole delivery answer 500 and Meta redeliver it. The code is now dropped to null like other invalid optional fields."
+  },
+  {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Concurrent webhook deliveries no longer store a message or status twice",
+    "detail": "The receive-message and record-status handlers now take a per-stream advisory lock before their duplicate check. Before, a delivery that committed after the other one's load landed as a second event on the same stream."
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
     "title": "WhatsApp Business channel with signed webhook, send API and media loading",

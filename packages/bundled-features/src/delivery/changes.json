@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "opted-in-user-ids refuses the wildcard type and resolves former names",
+    "detail": "A notificationType of \"*\" is rejected by the schema so wildcard rows never count as opt-in, and a former notification name resolves to the current type instead of returning an empty list."
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
     "title": "New job-only query opted-in-user-ids",

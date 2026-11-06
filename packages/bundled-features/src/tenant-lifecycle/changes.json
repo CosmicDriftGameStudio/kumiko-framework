@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.415.0",
+    "type": "fix",
+    "title": "Held-tenant destruction test tolerates the scheduled sweep finishing first",
+    "detail": "After the retention job releases a destroyHeld tenant, the scheduled sweep may already have moved it on to destroyed. The test now accepts destroying or destroyed and only asserts the retention override while the status is still destroying, reading the overrides first so the check stays meaningful."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "Destroy accumulator and subject-key erasure",
