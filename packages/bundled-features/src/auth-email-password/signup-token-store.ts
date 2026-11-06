@@ -15,6 +15,7 @@ import * as z from "zod";
 import {
   createSingleUseTokenStore,
   hashSingleUseToken,
+  normalizeEmail,
   type SignupHandoverBinding,
 } from "../shared/index.ts";
 
@@ -22,9 +23,7 @@ import {
  *  internally by the store AND by callers that need a consistent form
  *  in the return body / mail send). Previously two places called
  *  `.toLowerCase()` — one source means no drift. */
-export function normalizeEmail(email: string): string {
-  return email.toLowerCase();
-}
+export { normalizeEmail };
 
 export const SIGNUP_TOKEN_KEY_PREFIXES = {
   token: "signup:by-token:",

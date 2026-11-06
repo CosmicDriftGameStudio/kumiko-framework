@@ -14,7 +14,7 @@ import {
   platformActor,
   replyExecutor,
   requestExecutor,
-  sendBestEffort,
+  runBestEffort,
 } from "../lib.ts";
 import { HelpdeskReplySchema } from "../payloads.ts";
 import {
@@ -50,7 +50,7 @@ async function noteReporterInApp(ctx: HandlerContext, args: InAppNoteArgs): Prom
   const tenantId = parseTenantId(request.reporterTenantId);
   // skip: the in-app note needs a signed-in reporter whose tenant id is still valid
   if (!request.reporterUserId || tenantId === null) return;
-  await sendBestEffort(ctx, "reply in-app note", async () => {
+  await runBestEffort(ctx, "reply in-app note", async () => {
     const noted = await ctx.dispatch.writeAs(
       createSystemUser(tenantId),
       HelpdeskHandlers.notifyReporterInApp,
@@ -173,7 +173,7 @@ export function createReplyHandler() {
       });
       if (failed !== null) return failed;
 
-      await sendBestEffort(ctx, "reply mail", async () => {
+      await runBestEffort(ctx, "reply mail", async () => {
         const sent = await ctx.dispatch.writeAs(platformActor(), HelpdeskHandlers.sendReplyMail, {
           replyId,
         });

@@ -3,13 +3,21 @@ import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/e
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { tenantMembershipsTable } from "../../tenant/index.ts";
-import { notificationTypeNames } from "../notification-type-aliases.ts";
+import { currentNotificationType, notificationTypeNames } from "../notification-type-aliases.ts";
 import { collapsePreferenceRows } from "../preference-rows.ts";
 import { notificationPreferencesTable } from "../tables.ts";
 
 export const optedInUserIdsQuery = defineQueryHandler({
   name: "opted-in-user-ids",
-  schema: z.object({ notificationType: z.string().min(1), channel: z.string().min(1) }).strict(),
+  schema: z
+    .object({
+      notificationType: z
+        .string()
+        .min(1)
+        .refine((type) => type !== "*", { message: "a wildcard is not a notification type" }),
+      channel: z.string().min(1),
+    })
+    .strict(),
   access: { roles: [SYSTEM_ROLE] },
   agent: { expose: false },
   description:
@@ -21,7 +29,8 @@ export const optedInUserIdsQuery = defineQueryHandler({
       });
     }
     const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
-    const { notificationType, channel } = query.payload;
+    const { channel } = query.payload;
+    const notificationType = currentNotificationType(ctx.registry, query.payload.notificationType);
 
     const rows = await selectMany(db, notificationPreferencesTable, {
       tenantId: query.user.tenantId,

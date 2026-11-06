@@ -36,6 +36,7 @@ export {
   mailRepeatedRows,
 } from "./mail-template-body.ts";
 export { mapWithConcurrency } from "./map-with-concurrency.ts";
+export { normalizeEmail } from "./normalize-email.ts";
 export {
   denyUnlessJoinRowParentVisible,
   hostRowIsGone,
@@ -92,7 +93,7 @@ export {
   signRowBoundGrant,
 } from "./row-bound-grant.ts";
 export { runInSubTransaction } from "./run-in-sub-transaction.ts";
-export { sendBestEffort } from "./send-best-effort.ts";
+export { runBestEffort, sendBestEffort } from "./send-best-effort.ts";
 export { registrationLocaleFromRequest, sessionLocaleField } from "./session-locale-field.ts";
 export { sessionTimezoneField } from "./session-timezone-field.ts";
 export { assertNotSvg, MAX_INPUT_PIXELS, SHARP_INPUT_OPTIONS } from "./sharp-input-limits.ts";

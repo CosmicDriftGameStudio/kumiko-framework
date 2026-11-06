@@ -139,8 +139,8 @@ export async function findLegacyRequestsOfSubject(
   const runner = systemTenantReadRunner(db);
   const matches: LegacyAggregate[] = [];
   for (const [id, raw] of await foldLegacyStreams(runner, LEGACY_CONTACT_REQUEST_ENTITY)) {
-    if (!(await isSubjectRequest(raw, subject))) continue;
     if (await isStreamArchived(runner, SYSTEM_TENANT_ID, id)) continue;
+    if (!(await isSubjectRequest(raw, subject))) continue;
     const fields = await readableFields(LEGACY_CONTACT_REQUEST_ENTITY, raw);
     matches.push({
       id,
@@ -157,6 +157,8 @@ async function isSubjectRequest(
 ): Promise<boolean> {
   if (raw["reporterUserId"] === subject.userId) return true;
   if (subject.email === undefined) return false;
+  // Only anonymous requests can match by email; another signed-in reporter needs no decryption.
+  if (typeof raw["reporterUserId"] === "string" && raw["reporterUserId"] !== "") return false;
   const { email } = await readableFields(LEGACY_CONTACT_REQUEST_ENTITY, { email: raw["email"] }, [
     "email",
   ]);

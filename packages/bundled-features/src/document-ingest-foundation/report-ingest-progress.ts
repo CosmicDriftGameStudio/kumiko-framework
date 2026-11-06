@@ -55,7 +55,9 @@ export async function reportIngestProgress(
       // skip: event appended, nothing left to retry
       return;
     } catch (e) {
-      if (!(e instanceof VersionConflictError) || attempt >= MAX_VERSION_CONFLICT_ATTEMPTS) throw e;
+      if (!(e instanceof VersionConflictError)) throw e;
+      // skip: a conflict after the last attempt means a newer report already landed
+      if (attempt >= MAX_VERSION_CONFLICT_ATTEMPTS) return;
     }
   }
 }

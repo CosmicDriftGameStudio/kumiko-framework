@@ -125,6 +125,17 @@ describe("delivery:query:opted-in-user-ids", () => {
     expect((await optedIn(INVOICE_TYPE, "webhook")).userIds).toEqual([stayingId]);
   });
 
+  test("a wildcard row never counts as opt-in and the wildcard is refused as a type", async () => {
+    await setPreference(tenantA, "wild-user", "*", "wildchan", true);
+    await expect(optedIn("*", "wildchan")).rejects.toThrow();
+    expect((await optedIn(INVOICE_TYPE, "wildchan")).userIds).toEqual([]);
+  });
+
+  test("a former name asked for resolves to the current type", async () => {
+    await setPreference(tenantA, "former-ask", DIGEST_TYPE, "formerchan", true);
+    expect((await optedIn(FORMER_DIGEST_TYPE, "formerchan")).userIds).toEqual(["former-ask"]);
+  });
+
   test("a TenantAdmin is refused, the query is job-only", async () => {
     const res = await stack.http.query(
       DeliveryQueries.optedInUserIds,
