@@ -1,3 +1,4 @@
+import { isUiAccessGranted } from "@cosmicdrift/kumiko-types/access-predicates";
 import type {
   NamedFilterFacetOptions,
   NamedListFilterRef,
@@ -15,15 +16,6 @@ const NAMED_FILTER_ALL_CHIP_ID = "all";
 
 type NamedFilterUrlState = Pick<ListUrlStateApi, "namedFilter" | "setFilter" | "setNamedFilter">;
 
-// Unknown roles (undefined) deny a restricted filter, like role-gated screens do.
-export function isNamedFilterOffered(
-  ref: NamedListFilterRef,
-  userRoles: readonly string[] | undefined,
-): boolean {
-  const required = ref.roles;
-  return required === undefined || (userRoles ?? []).some((role) => required.includes(role));
-}
-
 // `undefined` is the "all" entry: the list without any named filter.
 export function namedFilterCountKey(id: string | undefined): string {
   return `${NAMED_FILTER_FACET_FIELD}:${id ?? ""}`;
@@ -33,7 +25,7 @@ function offeredRefs(
   allRefs: readonly NamedListFilterRef[] | undefined,
   userRoles: readonly string[] | undefined,
 ): readonly NamedListFilterRef[] {
-  return allRefs?.filter((ref) => isNamedFilterOffered(ref, userRoles)) ?? [];
+  return allRefs?.filter((ref) => isUiAccessGranted(ref.access, userRoles)) ?? [];
 }
 
 /** One toggle chip (or one select entry) per named filter the user may open, rendered by the facet row. */

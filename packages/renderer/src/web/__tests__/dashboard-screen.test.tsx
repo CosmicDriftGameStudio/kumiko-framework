@@ -664,7 +664,7 @@ describe("KumikoScreen dashboard — neue Panel-Kinds", () => {
           type: "projectionList",
           query: "work:query:task:list",
           columns: ["name"],
-          namedFilters: [{ id: "audit", label: "work:audit", roles: ["Auditor"] }],
+          namedFilters: [{ id: "audit", label: "work:audit", access: { roles: ["Auditor"] } }],
         },
       ],
     };

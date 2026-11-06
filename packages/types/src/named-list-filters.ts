@@ -52,8 +52,8 @@ export type NamedListFilterRef = {
     readonly description?: string;
     readonly paramsQuery?: string;
   };
-  /** Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them. */
-  readonly roles?: readonly string[];
+  /** Set by the framework from the entity filter's access rule; the client offers the chip only where `isUiAccessGranted` allows it. */
+  readonly access?: AccessRule;
 };
 
 /** How the named filters appear in the toolbar: toggle chips (default) or one single-choice select. */

@@ -3,7 +3,6 @@ import type {
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isNamedFilterOffered } from "./named-filter-facet.ts";
 import { findDetailForScreen } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 
@@ -64,7 +63,7 @@ export function namedFilterNavigateAllows(
     if (target === undefined) continue;
     if (target.type !== "entityList" && target.type !== "projectionList") return true;
     const ref = target.namedFilters?.find((candidate) => candidate.id === namedFilter);
-    return ref === undefined || isNamedFilterOffered(ref, userRoles);
+    return ref === undefined || isUiAccessGranted(ref.access, userRoles);
   }
   return true;
 }
