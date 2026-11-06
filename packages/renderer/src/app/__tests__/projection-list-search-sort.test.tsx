@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ProjectionListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { listPayloadKeysSent } from "@cosmicdrift/kumiko-types/screen";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
@@ -130,6 +131,49 @@ function renderProjectionList(
     </LocaleProvider>,
   );
 }
+
+describe("projectionList payload keys match the boot validator's key derivation", () => {
+  const OPTIONAL_LIST_KEYS = ["search", "filters", "namedFilter", "filter"];
+
+  test("every optional key the screen declares reaches the payload, and only those", async () => {
+    queryCalls = [];
+    renderProjectionList(
+      {
+        id: "schedule-list",
+        type: "projectionList",
+        query: "ledger:query:schedule:list",
+        columns: ["description"],
+        searchable: true,
+        facets: [
+          {
+            field: "status",
+            type: "select",
+            label: "Status",
+            options: [{ value: "open", label: "Open" }],
+          },
+        ],
+        namedFilters: [{ id: "overdue", label: "Overdue" }],
+        filter: { field: "status", op: "eq", value: "open" },
+      },
+      {
+        "schedule-list.q": "acme",
+        "schedule-list.f.status": "open",
+        "schedule-list.filter": "overdue",
+      },
+    );
+    await waitFor(() => expect(queryCalls.length).toBeGreaterThan(0));
+    const sent = Object.keys(queryCalls[0]?.payload as object).filter((key) =>
+      OPTIONAL_LIST_KEYS.includes(key),
+    );
+    const declared = listPayloadKeysSent({
+      searchable: true,
+      filters: true,
+      namedFilters: true,
+      screenFilter: true,
+    });
+    expect([...sent].sort()).toEqual([...declared].sort());
+  });
+});
 
 describe("ProjectionListBody search/sort capability wiring", () => {
   test("search-capable screen: a URL search term lands in the query payload", async () => {

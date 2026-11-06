@@ -335,6 +335,7 @@ export type {
   BundledListsOptions,
   ListColumnPin,
   ListNarrowFacets,
+  ListPayloadCapabilities,
   ListTableDensity,
   ListTableExportOptions,
   ListTableFrame,
@@ -358,6 +359,7 @@ export {
   LIST_TABLE_SUMMARY_ROW_KEYS,
   LIST_TABLE_TOTAL_KEYS,
   LIST_TOOLBAR_ACTIONS_PLACEMENTS,
+  listPayloadKeysSent,
   MAX_EXPORT_MAX_ROWS,
 } from "./screen-list-table.ts";
 export type {
