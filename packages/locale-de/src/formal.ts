@@ -4,6 +4,29 @@ import { localeDeBundle } from "./strings";
 export type GermanAddress = "informal" | "formal";
 
 export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
+  "admin-shell:overview.scope.notice":
+    "Sie sehen Daten aller Mandanten. Mandantenübergreifende Abfragen werden im Ereignisprotokoll vermerkt.",
+  "config.secret.channel-whatsapp.verify-token.hint":
+    "Beliebiger Text, den Sie auch in den Meta-Webhook-Einstellungen eintragen; beantwortet den Abonnement-Handshake von Meta.",
+  "kumiko.screen.forbidden": "Sie haben keinen Zugriff auf diese Seite.",
+  "managed-pages:body.lossy.warning":
+    "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfen Sie das Ergebnis vor dem Speichern.",
+  "template-resolver.editor.readOnly": "Nur lesbar. Ihre Rolle erlaubt hier keine Änderungen.",
+  "templateResolver.errors.patch.textAmbiguous":
+    "Der Text {find} kommt {count}-mal im Block vor; verwenden Sie einen längeren Text.",
+  "templateResolver.errors.patch.textSpansFormatting":
+    "Der Text {find} überspannt einen Formatwechsel im Block; ersetzen Sie jeden formatierten Teil einzeln.",
+  "templateResolver.errors.patch.placeholderNotReplaceable":
+    "Der Platzhalter {find} lässt sich nicht als Text ersetzen; ändern Sie den Text drumherum mit einer anderen Operation oder entfernen Sie den Block.",
+  "templateResolver.errors.collection.slugExists":
+    "Ein Eintrag mit dem Kürzel „{detail}“ existiert bereits. Wählen Sie ein anderes.",
+  "userDataRights.privacyCenter.subtitle":
+    "Laden Sie eine Kopie Ihrer Daten herunter (Art. 20), schränken Sie die Verarbeitung Ihres Kontos ein (Art. 18) oder löschen Sie es (Art. 17).",
+  "userDataRights.privacyCenter.subtitleWithoutDeletion":
+    "Laden Sie eine Kopie Ihrer Daten herunter (Art. 20) oder schränken Sie die Verarbeitung Ihres Kontos ein (Art. 18).",
+  "screen:my-mail-accounts.title": "Ihre Postfächer",
+  "inboundMail.accounts.reactivateOauth.confirm":
+    "Sie werden zur Anmeldeseite des Anbieters weitergeleitet. Nach der Anmeldung ruft das Postfach wieder Mails ab und behält seinen Verlauf.",
   "documentDesigner.editor.mjmlNotice.tenant":
     "Sie sehen das System-Layout. Speichern legt ein eigenes Layout für Ihren Mandanten an.",
   "documentDesigner.editor.origin.system":

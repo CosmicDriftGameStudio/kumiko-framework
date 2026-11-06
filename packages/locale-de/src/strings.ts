@@ -39,7 +39,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "admin-shell:overview.range.7d": "7 Tage",
   "admin-shell:overview.scope.badge": "Alle Mandanten",
   "admin-shell:overview.scope.notice":
-    "Sie sehen Daten aller Mandanten. Mandantenübergreifende Abfragen werden im Ereignisprotokoll vermerkt.",
+    "Du siehst Daten aller Mandanten. Mandantenübergreifende Abfragen werden im Ereignisprotokoll vermerkt.",
   "admin-shell:workspace.platform": "Plattform",
   "admin-shell:workspace.tenant": "Administration",
   "audit.errors.systemScopeRequiresSystemAdmin": "Nur SystemAdmin darf Systemereignisse lesen.",
@@ -475,7 +475,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "App-Secret der Meta-App. Prüft die Signatur jedes eingehenden Webhooks.",
   "config.secret.channel-whatsapp.app-secret.label": "WhatsApp-App-Secret",
   "config.secret.channel-whatsapp.verify-token.hint":
-    "Beliebiger Text, den Sie auch in den Meta-Webhook-Einstellungen eintragen; beantwortet den Abonnement-Handshake von Meta.",
+    "Beliebiger Text, den du auch in den Meta-Webhook-Einstellungen einträgst; beantwortet den Abonnement-Handshake von Meta.",
   "config.secret.channel-whatsapp.verify-token.label": "WhatsApp-Verifizierungstoken",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Privater Teil des S3-Schlüsselpaars. Hetzner nennt ihn „Secret Key“, AWS „Secret Access Key“.",
@@ -803,12 +803,12 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.error.reference": "Fehler-ID: {id}",
   "kumiko.error.copyReference": "Kopieren",
   "kumiko.error.referenceCopied": "Kopiert!",
-  "kumiko.screen-access-denied.title": "Sie haben keinen Zugriff auf diese Seite.",
+  "kumiko.screen-access-denied.title": "Du hast keinen Zugriff auf diese Seite.",
   "kumiko.screen-missing.home": "Zur Startseite",
   "kumiko.screen-missing.hint":
     "Sie ist für dein Konto nicht freigeschaltet oder existiert nicht mehr.",
   "kumiko.screen-missing.title": "Diese Seite ist nicht verfügbar",
-  "kumiko.screen.forbidden": "Sie haben keinen Zugriff auf diese Seite.",
+  "kumiko.screen.forbidden": "Du hast keinen Zugriff auf diese Seite.",
   "kumiko.screen.notFound": "Diese Seite wurde nicht gefunden.",
   "kumiko.screen.unavailable": "Diese Seite ist derzeit nicht verfügbar.",
   "kumiko.dashboard.brush-end": "Fensterende",
@@ -1140,7 +1140,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "managed-pages:actions.edit": "Bearbeiten",
   "managed-pages.errors.document.rejected": "Der Inhalt enthält nicht erlaubte Elemente: {detail}",
   "managed-pages:body.lossy.warning":
-    "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfen Sie das Ergebnis vor dem Speichern.",
+    "Diese Seite wurde in Markdown geschrieben. Bei der Umwandlung in den Editor gehen verloren: {features}. Prüfe das Ergebnis vor dem Speichern.",
   "managed-pages:body.lossy.image": "externe Bilder",
   "managed-pages:body.lossy.blockquote": "Zitate",
   "managed-pages:body.lossy.code": "Code",
@@ -1461,7 +1461,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "template-resolver.editor.networkError": "Netzwerkfehler beim Speichern.",
   "template-resolver.editor.newEntry": "Neuer Eintrag",
   "template-resolver.editor.newEntryTitle": "Neu: {label}",
-  "template-resolver.editor.readOnly": "Nur lesbar. Ihre Rolle erlaubt hier keine Änderungen.",
+  "template-resolver.editor.readOnly": "Nur lesbar. Deine Rolle erlaubt hier keine Änderungen.",
   "template-resolver.editor.infoPreviewPlain":
     "Vorschau des ungespeicherten Stands, so wie die Seite ihn zeigt. Kopf und Fuß der Website sind nicht enthalten.",
   "template-resolver.preview.frameTitle": "Textvorschau",
@@ -1541,11 +1541,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Der Block {blockId} wurde von einem früheren Schritt bereits entfernt.",
   "templateResolver.errors.patch.textNotFound": "Der Text {find} wurde im Block nicht gefunden.",
   "templateResolver.errors.patch.textAmbiguous":
-    "Der Text {find} kommt {count}-mal im Block vor; verwenden Sie einen längeren Text.",
+    "Der Text {find} kommt {count}-mal im Block vor; verwende einen längeren Text.",
   "templateResolver.errors.patch.textSpansFormatting":
-    "Der Text {find} überspannt einen Formatwechsel im Block; ersetzen Sie jeden formatierten Teil einzeln.",
+    "Der Text {find} überspannt einen Formatwechsel im Block; ersetze jeden formatierten Teil einzeln.",
   "templateResolver.errors.patch.placeholderNotReplaceable":
-    "Der Platzhalter {find} lässt sich nicht als Text ersetzen; ändern Sie den Text drumherum mit einer anderen Operation oder entfernen Sie den Block.",
+    "Der Platzhalter {find} lässt sich nicht als Text ersetzen; ändere den Text drumherum mit einer anderen Operation oder entferne den Block.",
   "templateResolver.errors.patch.blockNotAllowed":
     "Der Blocktyp {type} ist in {kind}-Vorlagen nicht verfügbar.",
   "templateResolver.errors.patch.blockTypeMismatch":
@@ -1580,7 +1580,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.collection.kindNotAllowed":
     "„{detail}“-Vorlagen werden im eigenen Editor gepflegt, nicht über eine Sammlung.",
   "templateResolver.errors.collection.slugExists":
-    "Ein Eintrag mit dem Kürzel „{detail}“ existiert bereits. Wählen Sie ein anderes.",
+    "Ein Eintrag mit dem Kürzel „{detail}“ existiert bereits. Wähle ein anderes.",
   "templateResolver.errors.noSystemTemplate":
     "Es gibt keine aktive Systemvorlage, auf die zurückgesetzt werden könnte.",
   "templateResolver.errors.noDraft": "Es gibt keinen Entwurf, der verworfen werden könnte.",
@@ -1794,9 +1794,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.restrict": "Konto einschränken",
   "userDataRights.privacyCenter.restriction.title": "Verarbeitung einschränken · Art. 18",
   "userDataRights.privacyCenter.subtitle":
-    "Laden Sie eine Kopie Ihrer Daten herunter (Art. 20), schränken Sie die Verarbeitung Ihres Kontos ein (Art. 18) oder löschen Sie es (Art. 17).",
+    "Lade eine Kopie deiner Daten herunter (Art. 20), schränke die Verarbeitung deines Kontos ein (Art. 18) oder lösche es (Art. 17).",
   "userDataRights.privacyCenter.subtitleWithoutDeletion":
-    "Laden Sie eine Kopie Ihrer Daten herunter (Art. 20) oder schränken Sie die Verarbeitung Ihres Kontos ein (Art. 18).",
+    "Lade eine Kopie deiner Daten herunter (Art. 20) oder schränke die Verarbeitung deines Kontos ein (Art. 18).",
   "admin-shell.screen.platform-overview.subtitle":
     "Zustand von Mandanten, Benutzern, Jobs und Zustellungen der gesamten Installation.",
   "admin-shell.screen.tenant-overview.subtitle":
@@ -2203,7 +2203,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "mail-transport-smtp.from.description":
     "Von dieser Adresse kommen die Mails, zum Beispiel status@example.com. Dein Anbieter muss sie erlauben.",
   "screen:mail-accounts.title": "Postfächer",
-  "screen:my-mail-accounts.title": "Ihre Postfächer",
+  "screen:my-mail-accounts.title": "Deine Postfächer",
   "screen:mail-account-edit.title": "Postfach bearbeiten",
   "screen:mail-account-sender-check.title": "Absenderprüfung",
   "inboundMail.accounts.col.name": "Name",
@@ -2266,7 +2266,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "inboundMail.accounts.connectImap": "Postfach verbinden",
   "screen:mail-account-connect-imap.title": "Postfach verbinden",
   "inboundMail.accounts.reactivateOauth.confirm":
-    "Sie werden zur Anmeldeseite des Anbieters weitergeleitet. Nach der Anmeldung ruft das Postfach wieder Mails ab und behält seinen Verlauf.",
+    "Du wirst zur Anmeldeseite des Anbieters weitergeleitet. Nach der Anmeldung ruft das Postfach wieder Mails ab und behält seinen Verlauf.",
   "inboundMail.accounts.reconnect.invalidRow":
     "Dieses Postfach lässt sich hier nicht reaktivieren.",
   "screen:mail-account-reconnect-imap.title": "Postfach neu verbinden",
