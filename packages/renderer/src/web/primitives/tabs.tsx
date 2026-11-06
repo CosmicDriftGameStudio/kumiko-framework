@@ -15,9 +15,10 @@ const TAB_TRIGGER_CLASS =
 // lines up with a list pane's search field, "plain" sits flush with the content it switches.
 const STRIP_SPACING = {
   pill: {
-    scroller: "px-0 @lg:px-6",
-    list: "h-11 gap-0.5 @lg:gap-6",
-    trigger: "px-2.5 text-[13px] @lg:px-0 @lg:text-sm",
+    scroller: "px-1.5 @lg:px-6 max-sm:px-0",
+    list: "h-11 gap-2 @lg:gap-6 max-sm:gap-0.5",
+    // Phone viewport, not pane width: four counted tabs must still fit a 400px pane on a desktop.
+    trigger: "max-sm:px-2.5 max-sm:text-[13px]",
   },
   plain: { scroller: "px-0", list: "h-10 gap-1", trigger: "px-2.5 font-normal" },
   filter: { scroller: "px-1.5", list: "h-10 gap-0", trigger: "px-2.5 font-normal" },
