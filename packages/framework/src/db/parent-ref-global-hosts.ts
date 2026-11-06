@@ -61,32 +61,27 @@ export async function withGlobalParentHosts(
     return { ...option, globalHostIds: new Map() };
   }
 
-  const params: unknown[] = [...hostCheck.params, db.tenantId];
-  const column = (field: string) => `"${joinTableName}"."${physicalColumnName(table, field)}"`;
-  const whereParts = [`${column("tenantId")} = $${params.length}`, hostCheck.sqlText];
-  if (rowScope.kind === "row") {
-    params.push(rowScope.rowId);
-    whereParts.push(`${column("id")} = $${params.length}`);
-  } else if (rowScope.pinnedHostIds !== undefined) {
-    params.push([...rowScope.pinnedHostIds]);
-    whereParts.push(`${column(parentRef.entityIdField)}::text = ANY($${params.length}::text[])`);
-  }
   const isUnpinnedList = rowScope.kind === "list" && rowScope.pinnedHostIds === undefined;
-  if (isUnpinnedList && !gate.includeDeleted && table["isDeleted"] !== undefined) {
-    whereParts.push(`${column("isDeleted")} = FALSE`);
-  }
   // Correlating the gated statement with the host check would need a SECURITY DEFINER function,
   // so an unpinned list resolves ids up front and this cap is the deliberate bound on that set.
   const maxHostIds = options?.maxResolvedHostIds ?? MAX_RESOLVED_GLOBAL_HOST_IDS;
-  const limitClause = isUnpinnedList ? ` LIMIT ${maxHostIds + 1}` : "";
+  const query = buildHostQuery({
+    parentRef,
+    table,
+    joinTableName,
+    hostCheck,
+    tenantId: db.tenantId,
+    rowScope,
+    includeDeleted: gate.includeDeleted,
+    rowLimit: isUnpinnedList ? maxHostIds + 1 : undefined,
+  });
   const rows = await executeRawQueryRead<HostRow>(
     systemScopedRunner(
       tenantDbRunner(db),
       "parent-ref gate checks global hosts, whose rows carry the system tenant, for the caller's own join rows",
     ),
-    `SELECT DISTINCT ${column(parentRef.entityTypeField)}::text AS "entityType", ${column(parentRef.entityIdField)}::text AS "entityId" ` +
-      `FROM "${joinTableName}" WHERE ${whereParts.join(" AND ")}${limitClause}`,
-    params,
+    query.sqlText,
+    query.params,
   );
   if (isUnpinnedList && rows.length > maxHostIds) {
     log.warn(
@@ -99,11 +94,48 @@ export async function withGlobalParentHosts(
     return { ...option, globalHostIds: new Map() };
   }
 
+  return { ...option, globalHostIds: groupHostIdsByType(rows) };
+}
+
+function groupHostIdsByType(rows: readonly HostRow[]): Map<string, string[]> {
   const globalHostIds = new Map<string, string[]>();
   for (const row of rows) {
     const ids = globalHostIds.get(row.entityType);
     if (ids === undefined) globalHostIds.set(row.entityType, [row.entityId]);
     else ids.push(row.entityId);
   }
-  return { ...option, globalHostIds };
+  return globalHostIds;
+}
+
+function buildHostQuery(input: {
+  readonly parentRef: NonNullable<EntityDefinition["parentRef"]>;
+  readonly table: Table;
+  readonly joinTableName: string;
+  readonly hostCheck: { readonly sqlText: string; readonly params: readonly unknown[] };
+  readonly tenantId: unknown;
+  readonly rowScope: GlobalHostRowScope;
+  readonly includeDeleted: boolean;
+  readonly rowLimit: number | undefined;
+}): { readonly sqlText: string; readonly params: unknown[] } {
+  const { parentRef, table, joinTableName, hostCheck, rowScope } = input;
+  const params: unknown[] = [...hostCheck.params, input.tenantId];
+  const column = (field: string) => `"${joinTableName}"."${physicalColumnName(table, field)}"`;
+  const whereParts = [`${column("tenantId")} = $${params.length}`, hostCheck.sqlText];
+  if (rowScope.kind === "row") {
+    params.push(rowScope.rowId);
+    whereParts.push(`${column("id")} = $${params.length}`);
+  } else if (rowScope.pinnedHostIds !== undefined) {
+    params.push([...rowScope.pinnedHostIds]);
+    whereParts.push(`${column(parentRef.entityIdField)}::text = ANY($${params.length}::text[])`);
+  }
+  if (input.rowLimit !== undefined && !input.includeDeleted && table["isDeleted"] !== undefined) {
+    whereParts.push(`${column("isDeleted")} = FALSE`);
+  }
+  const limitClause = input.rowLimit === undefined ? "" : ` LIMIT ${input.rowLimit}`;
+  return {
+    sqlText:
+      `SELECT DISTINCT ${column(parentRef.entityTypeField)}::text AS "entityType", ${column(parentRef.entityIdField)}::text AS "entityId" ` +
+      `FROM "${joinTableName}" WHERE ${whereParts.join(" AND ")}${limitClause}`,
+    params,
+  };
 }

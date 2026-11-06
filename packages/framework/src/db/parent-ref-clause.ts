@@ -182,14 +182,11 @@ function collectGateBranches(
   let shared: SharedBinding | undefined;
   const branches: string[] = [];
   for (const [candidateName, candidate] of candidates) {
-    const isHiddenGlobalHost =
-      gate.globalHostsHidden &&
-      candidate.tenancy === "global" &&
-      !tableReadsSystemRows(
-        candidateStaticsFor(candidateName, candidate, gate.option.resolveTable),
-      );
-    if (mode === "globalHostsOnly" && !isHiddenGlobalHost) continue;
-    if (mode === "globalHostsOnly" && hostReadRuleNeedsRowLevelSecurity(candidate, gate.user)) {
+    const isHiddenGlobalHost = isHiddenGlobalHostCandidate(candidateName, candidate, gate);
+    if (
+      mode === "globalHostsOnly" &&
+      isExcludedFromHostOnlyCheck(candidate, isHiddenGlobalHost, gate)
+    ) {
       continue;
     }
     const resolvesHostIds = mode === "statement" && isHiddenGlobalHost;
@@ -225,6 +222,26 @@ function collectGateBranches(
   }
 
   return { branches, params };
+}
+
+function isHiddenGlobalHostCandidate(
+  candidateName: string,
+  candidate: EntityDefinition,
+  gate: GateBranchInputs,
+): boolean {
+  return (
+    gate.globalHostsHidden &&
+    candidate.tenancy === "global" &&
+    !tableReadsSystemRows(candidateStaticsFor(candidateName, candidate, gate.option.resolveTable))
+  );
+}
+
+function isExcludedFromHostOnlyCheck(
+  candidate: EntityDefinition,
+  isHiddenGlobalHost: boolean,
+  gate: GateBranchInputs,
+): boolean {
+  return !isHiddenGlobalHost || hostReadRuleNeedsRowLevelSecurity(candidate, gate.user);
 }
 
 // The registry table carries the flag for implicitly classified reference data too, which the

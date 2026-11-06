@@ -20,7 +20,6 @@ import {
   createMultiStreamApplyContext,
   type MultiStreamApplyContext,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
@@ -29,6 +28,7 @@ import {
   waitFor,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import { resetEventStore, setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
 import { createSecretsFeature } from "../../secrets/index.ts";
 import {
