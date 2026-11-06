@@ -70,6 +70,13 @@ describe("documents access", () => {
     expect(accessOf(custom, CREATE)).toEqual({ roles: ["Boss"] });
   });
 
+  test("a split form without write limits create to the admin roles, an explicit write stays in charge", () => {
+    const withoutWrite = featureWith({ read: readers, delete: deleters });
+    expect(accessOf(withoutWrite, CREATE)).toEqual({ roles: ["TenantAdmin", "SystemAdmin"] });
+    expect(accessOf(withoutWrite, DELETE)).toEqual(deleters);
+    expect(accessOf(featureWith({ write: writers }), CREATE)).toEqual(writers);
+  });
+
   test("the import stays reserved for the system user whatever the access", () => {
     const feature = featureWith({ read: readers, write: writers, delete: deleters });
     expect(accessOf(feature, DocumentsHandlers.import)).toEqual({ roles: [SYSTEM_ROLE] });

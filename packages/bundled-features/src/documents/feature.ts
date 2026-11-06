@@ -64,8 +64,8 @@ export type DocumentsFeatureOptions = {
   /**
    * Who may use the document handlers. One rule applies to read, write and delete; the split form
    * sets them apart. Default TenantAdmin and TenantMember; a missing delete follows write. Without
-   * this option, creating a document is limited to the admin roles, since an unlinked document is
-   * visible to them only.
+   * a write rule (no option, or a split form without `write`), creating a document is limited to
+   * the admin roles, since an unlinked document is visible to them only.
    */
   readonly access?: AccessRule | DocumentsAccess;
   /** Roles that see every document of their tenant whose file owner they can read, without a link. */
@@ -86,6 +86,10 @@ type ResolvedDocumentsAccess = Required<DocumentsAccess>;
 
 function isAccessRule(access: AccessRule | DocumentsAccess): access is AccessRule {
   return "roles" in access || "openToAll" in access;
+}
+
+function hasNoExplicitWrite(access: AccessRule | DocumentsAccess | undefined): boolean {
+  return access === undefined || (!isAccessRule(access) && access.write === undefined);
 }
 
 function resolveAccess(access: AccessRule | DocumentsAccess | undefined): ResolvedDocumentsAccess {
@@ -128,9 +132,10 @@ function registerDocuments(
   });
   const linkEntity = createDocumentLinkEntity(linkTargets);
   // A fresh document is invisible until linked, except to the admin roles; with the default access
-  // a member would file a record they can never see again. An explicit access option stays in charge.
-  const createAccess: AccessRule =
-    opts.access === undefined ? { roles: opts.adminRoles ?? DEFAULT_ADMIN_ROLES } : access.write;
+  // a member would file a record they can never see again. An explicit write rule stays in charge.
+  const createAccess: AccessRule = hasNoExplicitWrite(opts.access)
+    ? { roles: opts.adminRoles ?? DEFAULT_ADMIN_ROLES }
+    : access.write;
   const executors = createDocumentExecutors(documentEntity, linkEntity);
 
   r.requires({ features: ["files"] });
