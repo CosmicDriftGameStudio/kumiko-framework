@@ -32,11 +32,15 @@ type LimitContext = Pick<HandlerContext, "services" | "rateLimitDigest">;
 
 // Counts one message against every per-sender window. Only a RateLimitError means "throttled";
 // anything else (Redis down, bad config) propagates so the webhook answers 5xx and Meta redelivers.
+// A one-token marker bucket per wamid makes the charge once-only across failed rounds and
+// concurrent deliveries. The marker is taken before the charge: a crash in between loses one
+// charge, never doubles one. A redelivery after a throttled-then-failed attempt skips the charge.
 async function chargeSender(
   ctx: LimitContext,
   options: ResolvedWhatsappOptions,
   tenantId: TenantId,
   from: string,
+  wamid: string,
 ): Promise<RateLimitError | null> {
   if (options.senderRateLimits.length === 0) return null;
   const { rateLimit } = ctx.services;
@@ -45,6 +49,16 @@ async function chargeSender(
     throw new InternalError({
       message: "channel-whatsapp: the per-sender limit needs a rate limiter and a digest key",
     });
+  }
+  const markerWindowSeconds = Math.max(...options.senderRateLimits.map((l) => l.windowSeconds));
+  try {
+    await rateLimit.enforce(`whatsapp-inbound-charged:${tenantId}:${wamid}`, {
+      limit: 1,
+      windowSeconds: markerWindowSeconds,
+    });
+  } catch (error) {
+    if (error instanceof RateLimitError) return null;
+    throw error;
   }
   const senderKey = `whatsapp-inbound:${tenantId}:${digest(from)}`;
   try {
@@ -78,7 +92,7 @@ export function createReceiveMessageHandler(options: ResolvedWhatsappOptions) {
       // Dedupe before the limit: Meta's redeliveries must not use up the sender's budget.
       if ((await ctx.events.load(aggregateId)).length > 0) return OUTCOME_DUPLICATE;
 
-      const throttle = await chargeSender(ctx, options, tenantId, input.from);
+      const throttle = await chargeSender(ctx, options, tenantId, input.from, input.wamid);
       const requestId = `channel-whatsapp:receive-message:${aggregateId}`;
       const from = await encryptWhatsappPii(
         tenantId,
