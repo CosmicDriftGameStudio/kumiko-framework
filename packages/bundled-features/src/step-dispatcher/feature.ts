@@ -116,9 +116,18 @@ export function createStepDispatcherFeature(): FeatureDefinition {
         escapeHatch: { reason: SWEEP_ESCAPE_HATCH_REASON },
       },
       async (_payload, ctx) => {
+        const runner = ctx.services.jobRunner;
+        const isJobPending = runner?.isJobPending?.bind(runner);
+        if (!isJobPending) {
+          // Fail closed: closing would erase the PII key of a delivery that may still run.
+          ctx.obs.log.warn("job runner cannot report job state, abandoned dispatches are not swept");
+          return;
+        }
         await sweepAbandonedDispatches({
           db: ctx.db.unsafeRaw(),
           registry: ctx.registry,
+          isDeliverJobPending: (aggregateId) =>
+            isJobPending(StepDispatcherJobs.deliver, deliverJobId(aggregateId)),
           startedBeforeIso: ctx.tz
             .now()
             .subtract({ hours: ABANDON_DISPATCH_AFTER_HOURS })

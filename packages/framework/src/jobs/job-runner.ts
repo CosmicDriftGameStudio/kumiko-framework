@@ -738,6 +738,14 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     attachDispatcher(ref: DispatchWriteRef): void {
       dispatchWriteRef = ref;
     },
+    async isJobPending(jobName: string, jobId: string): Promise<boolean> {
+      const jobDef = allJobs.get(jobName);
+      if (!jobDef) {
+        throw new Error(`Unknown job: ${jobName}`);
+      }
+      const state = await queues[laneForJob(jobDef)].getJobState(jobId);
+      return state !== "completed" && state !== "failed" && state !== "unknown";
+    },
     async countPendingJobs(): Promise<number> {
       let total = 0;
       for (const queue of Object.values(queues)) {

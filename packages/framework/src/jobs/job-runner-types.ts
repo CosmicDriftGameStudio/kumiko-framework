@@ -96,6 +96,9 @@ export type JobRunner = {
   // "repeat:" — those are future cron ticks, not work in flight, and would
   // make drainJobs wait forever on a stack with a scheduled job.
   countPendingJobs(): Promise<number>;
+  // True while the job still waits, is delayed, active, paused or prioritized; false once it
+  // completed, failed or was evicted. Optional so hand-written runners (test stubs) keep compiling.
+  isJobPending?(jobName: string, jobId: string): Promise<boolean>;
 };
 
 export type JobRunnerOptions = {

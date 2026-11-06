@@ -16,6 +16,8 @@ export type SweepAbandonedArgs = {
   readonly db: DbRunner;
   readonly registry: Registry;
   readonly startedBeforeIso: string;
+  // A stream whose deliver job is still queued or running is alive, not abandoned.
+  readonly isDeliverJobPending: (aggregateId: string) => Promise<boolean>;
   readonly onCloseFailure: (aggregateId: string, errorName: string) => void;
   readonly batchSize?: number;
 };
@@ -43,6 +45,8 @@ export async function sweepAbandonedDispatches(args: SweepAbandonedArgs): Promis
         callerFeature: STEP_DISPATCHER_FEATURE,
       });
       try {
+        // skip: the next run checks the stream again
+        if (await args.isDeliverJobPending(aggregateId)) continue;
         await closeAbandonedDispatch(applyContext, aggregateId);
       } catch (err) {
         // One broken stream must not keep the others open; the next run retries it.
