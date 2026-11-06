@@ -11,6 +11,7 @@ import {
   UnconfiguredError,
   UnprocessableError,
 } from "@cosmicdrift/kumiko-framework/errors";
+import type { RateLimitOption } from "@cosmicdrift/kumiko-types/handlers";
 import { appendCheckoutOpened } from "./checkout-ledger.ts";
 import { getSubscriptionForTenant } from "./get-subscription-for-tenant.ts";
 import { assertOneOffAuthorized, assertOneOffPriceAllowed } from "./one-off-checkout-gate.ts";
@@ -383,6 +384,16 @@ export async function assertCheckoutAllowed(
   }
   return plugin;
 }
+
+// Every started checkout appends a `checkout-opened` to the tenant's event stream, and the
+// webhook reads that whole stream, so unbounded starts would grow every later webhook. A real
+// customer never opens this many checkouts per hour. Per handler, so each checkout-starting
+// handler gets its own bucket.
+export const CHECKOUT_START_RATE_LIMIT: RateLimitOption = {
+  per: "tenant+handler",
+  limit: 30,
+  windowSeconds: 60 * 60,
+};
 
 export async function startProviderCheckout(
   ctx: HandlerContext,
