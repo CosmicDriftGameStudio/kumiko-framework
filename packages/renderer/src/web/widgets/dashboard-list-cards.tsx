@@ -1,12 +1,9 @@
 import type { ReactNode } from "react";
 import { isSelectOptionTone } from "../../status-tone.ts";
 import { cn } from "../lib/cn.ts";
-import {
-  DIMMED_HINT_SENTENCE_CLASS,
-  HINT_TONE_TEXT_CLASS,
-  isDimmedHintSentence,
-} from "../primitives/data-table/hint-cell.tsx";
+import { hintSentenceClass } from "../primitives/data-table/hint-cell.tsx";
 import { cardToneClass } from "../primitives/data-table-cell.tsx";
+import { nonEmptyText } from "../primitives/hint-reason-row.tsx";
 import {
   DashboardListCell,
   type DashboardListColumn,
@@ -28,12 +25,6 @@ type CardsProps = {
 };
 
 type HintColumn = DashboardListColumn & { readonly hint: NonNullable<DashboardListColumn["hint"]> };
-
-function nonEmptyText(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed === "" ? undefined : trimmed;
-}
 
 function hasValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
@@ -63,17 +54,7 @@ function CardHeadline({
     );
   }
   return (
-    <span
-      className={cn(
-        "text-sm",
-        isDimmedHintSentence(tone, hint.plainSentence)
-          ? DIMMED_HINT_SENTENCE_CLASS
-          : [
-              "font-semibold",
-              hint.plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
-            ],
-      )}
-    >
+    <span className={cn("text-sm", hintSentenceClass(tone, hint.plainSentence, "font-semibold"))}>
       {sentence}
     </span>
   );

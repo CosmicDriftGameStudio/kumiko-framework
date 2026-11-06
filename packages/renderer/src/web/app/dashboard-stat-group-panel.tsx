@@ -19,7 +19,7 @@ import { cn } from "../lib/cn.ts";
 import "../react-css-custom-properties.ts";
 import { STAT_CARD_GRID_CLASSES } from "../widgets/stat.tsx";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
-import { StatPanelBody } from "./dashboard-panels.tsx";
+import { StatPanelBody, useStatNavigateAllowed } from "./dashboard-panels.tsx";
 import { PanelShell, type ScreenParams } from "./dashboard-shared.tsx";
 
 type StatGroupProps = {
@@ -146,11 +146,13 @@ function PhoneStripIcon({
 
 function TitledStatStrip(props: StatGroupProps & { readonly label: string }): ReactNode {
   const { panel, label, translate } = props;
+  const navigateAllowed = useStatNavigateAllowed();
+  const stats = panel.stats.filter(navigateAllowed);
   return (
     <div
       data-testid={`dashboard-panel-${panel.id}`}
       data-narrow-tone={panel.narrow?.tone}
-      style={{ "--stat-count": panel.stats.length }}
+      style={{ "--stat-count": stats.length }}
       className={cn(
         // Board grid: title column, one equal column per stat, link column.
         panel.link === undefined
@@ -170,7 +172,7 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
         )}
       </div>
       <div className="flex min-w-0 items-stretch gap-3 sm:contents max-sm:block max-sm:grow max-sm:truncate max-sm:text-sm">
-        {panel.stats.map((stat) => (
+        {stats.map((stat) => (
           <div
             key={stat.id}
             className={`flex min-w-0 max-sm:inline max-sm:[&_a]:inline max-sm:[&:not(:last-child)]:after:mx-1.5 max-sm:[&:not(:last-child)]:after:text-muted-foreground max-sm:[&:not(:last-child)]:after:content-['·'] [&>*]:min-w-0${stat.navigate !== undefined ? " max-sm:relative max-sm:z-10" : ""}`}
