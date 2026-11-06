@@ -136,7 +136,7 @@ export type ListColumnHint = {
   readonly plainSentence?: true;
 };
 
-/** Computed fields for the loaded rows: one `query` call per page answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`. Fields are merged into the rows and win over same-named row fields. */
+/** Computed fields for the loaded rows: one `query` call per list answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`. Fields are merged into the rows and win over same-named row fields. In infinite lists a call carries only the ids loaded since the last answer, so `ids: z.array(z.string()).max(<page size>)` is safe; a failing call shows plain rows. */
 export type ListRowDecoration = {
   readonly query: string;
   readonly params?: Readonly<Record<string, unknown>>;

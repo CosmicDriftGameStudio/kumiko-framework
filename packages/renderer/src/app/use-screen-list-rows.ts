@@ -127,7 +127,7 @@ export function useScreenListRows({
   const loadedRows = grouped ? aggregates.rows : infinite ? state.rows : (data?.rows ?? NO_ROWS);
   // Grouped rows are rebuilt on every render, so only a group refresh counts as a new answer.
   const answerToken = grouped ? aggregates.groupPages.refreshNonce : loadedRows;
-  const rows = useRowDecoration(rowDecoration, loadedRows, answerToken);
+  const rows = useRowDecoration(rowDecoration, loadedRows, answerToken, resetKey);
 
   if (grouped) {
     return {

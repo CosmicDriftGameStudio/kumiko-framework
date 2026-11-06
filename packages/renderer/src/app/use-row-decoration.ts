@@ -1,16 +1,17 @@
 import type { ListRowDecoration } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "../hooks/use-query.ts";
 
 type Row = Readonly<Record<string, unknown>>;
+type FieldsById = ReadonlyMap<string, Row>;
 
 function rowId(row: Row): string | undefined {
   const id = row["id"];
   return typeof id === "string" ? id : undefined;
 }
 
-function decorationFieldsById(answer: unknown): ReadonlyMap<string, Row> {
+function decorationFieldsById(answer: unknown): FieldsById {
   const byId = new Map<string, Row>();
   const entries = isPlainObject(answer) ? answer["rows"] : undefined;
   if (!Array.isArray(entries)) return byId;
@@ -22,9 +23,7 @@ function decorationFieldsById(answer: unknown): ReadonlyMap<string, Row> {
   return byId;
 }
 
-/** Decoration fields win over same-named row fields; the row id is kept. Entries for ids not in `rows` and malformed entries are ignored. */
-export function mergeRowDecoration(rows: readonly Row[], answer: unknown): readonly Row[] {
-  const byId = decorationFieldsById(answer);
+function applyDecorationFields(rows: readonly Row[], byId: FieldsById): readonly Row[] {
   if (byId.size === 0) return rows;
   return rows.map((row) => {
     const id = rowId(row);
@@ -33,39 +32,105 @@ export function mergeRowDecoration(rows: readonly Row[], answer: unknown): reado
   });
 }
 
+/** Decoration fields win over same-named row fields; the row id is kept. Entries for ids not in `rows` and malformed entries are ignored. */
+export function mergeRowDecoration(rows: readonly Row[], answer: unknown): readonly Row[] {
+  return applyDecorationFields(rows, decorationFieldsById(answer));
+}
+
+type Accumulated = {
+  readonly resetKey: string;
+  readonly answeredIds: ReadonlySet<string>;
+  readonly fieldsById: FieldsById;
+  // A refresh re-asks for every id; its answer replaces the old fields instead of merging.
+  readonly replaceOnAnswer: boolean;
+};
+
+function emptyAccumulated(resetKey: string): Accumulated {
+  return { resetKey, answeredIds: new Set(), fieldsById: new Map(), replaceOnAnswer: false };
+}
+
+function absorbAnswer(previous: Accumulated, answer: unknown, sentIds: readonly string[]) {
+  const incoming = decorationFieldsById(answer);
+  return {
+    resetKey: previous.resetKey,
+    answeredIds: new Set([...previous.answeredIds, ...sentIds]),
+    fieldsById: previous.replaceOnAnswer
+      ? incoming
+      : new Map([...previous.fieldsById, ...incoming]),
+    replaceOnAnswer: false,
+  };
+}
+
+function isAppendOf(previousIds: readonly string[], ids: readonly string[]): boolean {
+  return ids.length > previousIds.length && previousIds.every((id, index) => ids[index] === id);
+}
+
 /**
- * One decoration call per list answer. `answerToken` changes with every new list answer;
- * the decoration query is not live itself. A changed id set refetches through the payload,
- * so only a new answer with the same ids calls `refetch`. Loading and error show the plain rows.
+ * Sends only ids that have no answer yet, so an infinite list asks once per new page and the
+ * answers are kept across calls. `resetKey` drops them (filter or sort changed); a new list
+ * answer that is not an append (reload after a write) asks for every id again.
+ * Loading and error show the plain rows.
  */
 export function useRowDecoration(
   decoration: ListRowDecoration | undefined,
   rows: readonly Row[],
   answerToken: unknown,
+  resetKey: string,
 ): readonly Row[] {
   const ids = rows.flatMap((row) => {
     const id = rowId(row);
     return id === undefined ? [] : [id];
   });
-  const idsKey = ids.join("\n");
-  const enabled = decoration !== undefined && ids.length > 0;
-  const { data, error, refetch } = useQuery<unknown>(
+
+  const [stored, setStored] = useState(() => emptyAccumulated(resetKey));
+  const accumulated = stored.resetKey === resetKey ? stored : emptyAccumulated(resetKey);
+  const idsToSend = ids.filter((id) => !accumulated.answeredIds.has(id));
+  const enabled = decoration !== undefined && idsToSend.length > 0;
+  const { data, error } = useQuery<unknown>(
     decoration?.query ?? "",
-    { ...decoration?.params, ids },
+    { ...decoration?.params, ids: idsToSend },
     { enabled },
   );
 
-  const lastAnswerRef = useRef<{ readonly token: unknown; readonly idsKey: string } | null>(null);
+  const sentIdsRef = useRef(idsToSend);
   useEffect(() => {
-    const last = lastAnswerRef.current;
-    lastAnswerRef.current = enabled ? { token: answerToken, idsKey } : null;
-    if (enabled && last !== null && last.token !== answerToken && last.idsKey === idsKey) {
-      void refetch();
-    }
-  }, [enabled, answerToken, idsKey, refetch]);
+    sentIdsRef.current = idsToSend;
+  });
 
+  const absorbedAnswerRef = useRef<unknown>(null);
+  useEffect(() => {
+    if (data === null || data === absorbedAnswerRef.current) return;
+    absorbedAnswerRef.current = data;
+    const sentIds = sentIdsRef.current;
+    setStored((current) =>
+      absorbAnswer(
+        current.resetKey === resetKey ? current : emptyAccumulated(resetKey),
+        data,
+        sentIds,
+      ),
+    );
+  }, [data, resetKey]);
+
+  const previousListRef = useRef<{
+    readonly token: unknown;
+    readonly ids: readonly string[];
+  } | null>(null);
+  useEffect(() => {
+    const previous = previousListRef.current;
+    previousListRef.current = { token: answerToken, ids };
+    if (previous === null || previous.token === answerToken) return;
+    if (isAppendOf(previous.ids, ids)) return;
+    setStored((current) => ({
+      ...(current.resetKey === resetKey ? current : emptyAccumulated(resetKey)),
+      answeredIds: new Set(),
+      replaceOnAnswer: true,
+    }));
+  }, [answerToken, ids, resetKey]);
+
+  const fieldsById = accumulated.fieldsById;
+  const decorated = decoration !== undefined;
   return useMemo(
-    () => (!enabled || error !== null || data === null ? rows : mergeRowDecoration(rows, data)),
-    [enabled, error, data, rows],
+    () => (!decorated || error !== null ? rows : applyDecorationFields(rows, fieldsById)),
+    [decorated, error, rows, fieldsById],
   );
 }

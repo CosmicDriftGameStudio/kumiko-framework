@@ -69,6 +69,6 @@ export const LIST_ROW_GUIDANCE_RULES = {
     id: "list/row-decoration-ids-missing",
     summary:
       "The rowDecoration query's input schema declares `ids`, the row ids the list sends with every call.",
-    fix: "Add `ids: z.array(z.string())` to the decoration query's schema.",
+    fix: "Add `ids: z.array(z.string())` to the decoration query's schema; a cap of `.max(<page size>)` is safe, infinite lists send only the newly loaded ids.",
   },
 } as const satisfies BootRuleTable;

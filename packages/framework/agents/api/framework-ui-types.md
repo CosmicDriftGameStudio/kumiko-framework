@@ -482,7 +482,7 @@ type ListEmptyStateSpec = { // Replacement for the default "no rows" box of a li
   description?: string;
   action?: RowAction;
 };
-type ListRowDecoration = { // Computed fields for the loaded rows: one `query` call per page answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`.
+type ListRowDecoration = { // Computed fields for the loaded rows: one `query` call per list answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`. In infinite lists a call carries only the ids loaded since the last answer, so `ids: z.array(z.string()).max(<page size>)` is safe; a failing call shows plain rows.
   query: string;
   params?: Readonly<Record<string, unknown>>;
 };
