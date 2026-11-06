@@ -196,6 +196,12 @@ function useUserRoles(): string[] | undefined;
 
 ```ts
 const BROWSER_LOCALE_STORAGE_KEY: "kumiko:locale";
+const DrawnFilter: LucideIcon;
+const DrawnPanel: LucideIcon;
+const DrawnPencil: LucideIcon;
+const DrawnSearch: LucideIcon;
+const DrawnSparkles: LucideIcon;
+const DrawnWand: LucideIcon;
 const DropdownMenu: FC<Primitive.DropdownMenuProps>;
 const DropdownMenuPortal: FC<Primitive.DropdownMenuPortalProps>;
 const DropdownMenuTrigger: ForwardRefExoticComponent<Primitive.DropdownMenuTriggerProps & RefAttributes<HTMLButtonElement>>;
@@ -261,6 +267,8 @@ type BannerProps = { // Banner for an inline message or page state (for example,
   density?: "default" | "compact"; // "compact" is one line: the title reads inline before the text.
   icon?: NavIconKey; // Icon left of the text.
   title?: ReactNode; // Bold heading above `children`, inside the text column.
+  narrowTitle?: ReactNode; // Replaces `title` below sm.
+  narrowText?: ReactNode; // Replaces `children` below sm and stays visible there even when `inline` drops the text.
   titleTestId?: string;
   children?: ReactNode;
   parts?: { text: string; strong?: boolean; }[]; // Structured text after `children`; `strong` parts render emphasized.
@@ -1780,7 +1788,8 @@ type WorkspaceShellProps = {
   navBadges?: ReadonlyMap<string, ReactNode>; // Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell.
   fill?: boolean; // Viewport-fit shell.
   contentSurface?: "card" | "background"; // Surface behind the screen content.
-  navStyle?: ShellNavStyle; // `"plain"` renders the sidebar without leading icons while expanded (the focus rail and the collapsed rail keep them), with uppercase group labels, quiet active entries, a hamburger sidebar trigger and a 58px title bar.
+  navStyle?: ShellNavStyle; // `"plain"` renders the sidebar without leading icons while expanded (the focus rail and the collapsed rail keep them), with uppercase group labels, quiet active entries, a panel-symbol sidebar trigger and a 58px title bar.
+  notificationBellPlacement?: "header" | "overflow"; // `"header"` (default) draws the notification bell in the title bar; `"overflow"` moves it into the "…" menu, which then shows on every width.
   children: ReactNode; // Screen content.
 };
 type WorkspaceShellUser = {

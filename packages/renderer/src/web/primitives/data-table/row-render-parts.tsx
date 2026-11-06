@@ -67,14 +67,15 @@ export function renderBand(m: DataTableModel, item: DataTableBandItem): ReactNod
   return <GroupBand item={item} columnOf={m.columnOf} />;
 }
 
-export function renderEmptyBlock(m: DataTableModel): ReactNode {
+// `embedded`: the block sits inside the framed table's body, which already draws the border.
+export function renderEmptyBlock(m: DataTableModel, embedded = false): ReactNode {
   const { testId, chromeless, fillsHeight, emptyState, tableTranslate } = m;
   return (
     <div
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
       className={cn(
         "flex flex-col items-center justify-center gap-3 px-6 py-10 text-[13px] text-muted-foreground",
-        chromeless !== true && !fillsHeight && "rounded-md border border-border-row",
+        !embedded && chromeless !== true && !fillsHeight && "rounded-md border border-border-row",
       )}
     >
       {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}

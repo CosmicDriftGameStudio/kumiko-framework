@@ -1,5 +1,5 @@
-import { Search, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
+import { DrawnFilter, DrawnSearch } from "../../drawn-icons.ts";
 import { UNIFORM_BAR_CONTROLS_CLASSES } from "../../layout/uniform-bar-controls.ts";
 import { cn } from "../../lib/cn.ts";
 import { Button as UiButton } from "../../ui/button.tsx";
@@ -12,7 +12,7 @@ function isBehindFilter(
   m: DataTableModel,
   facet: NonNullable<DataTableModel["filterFacets"]>[number],
 ): boolean {
-  return facet.narrowPlacement === "behind-filter" && m.belowSm && m.fillsHeight;
+  return facet.narrowPlacement === "behind-filter" && m.belowSm;
 }
 
 function hasBehindFilterFacets(m: DataTableModel): boolean {
@@ -90,11 +90,11 @@ function renderToolbarStart(m: DataTableModel, toolbarStart: ReactNode): ReactNo
       className={cn(
         m.fillsHeight
           ? "relative w-full md:w-[300px] max-md:flex-1 [&_input]:border-border-strong [&_input]:pl-8 [&_input]:max-md:h-11"
-          : "flex-1 min-w-48 max-w-sm",
+          : cn("flex-1 min-w-48 max-w-sm", hasBehindFilterFacets(m) && "max-sm:max-w-none"),
       )}
     >
       {m.fillsHeight && (
-        <Search
+        <DrawnSearch
           className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
@@ -121,7 +121,7 @@ function renderFacetToggle(m: DataTableModel, facetCluster: ReactNode): ReactNod
         data-testid={testId !== undefined ? `${testId}-filter-toggle` : "filter-toggle"}
         onClick={() => setFacetsOpenNarrow((open) => !open)}
       >
-        <SlidersHorizontal className="size-4" aria-hidden="true" />
+        <DrawnFilter className="size-4" aria-hidden="true" />
       </UiButton>
       {facetsOpenNarrow && <div className="w-full">{facetCluster}</div>}
     </>
@@ -181,7 +181,7 @@ function renderFacetArea(m: DataTableModel, facetCluster: ReactNode): ReactNode 
       </>
     );
   }
-  if (!m.fillsHeight) return facetCluster;
+  if (!m.fillsHeight && behindFilter === undefined) return facetCluster;
   return renderFacetToggle(
     m,
     <>

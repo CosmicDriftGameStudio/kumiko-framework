@@ -154,20 +154,22 @@ function validateProjectionListNamedFilterSchemaAcceptance(
   });
 }
 
-// showCounts asks the query once per filter with { limit: 1, totalCount: true, namedFilter }; a schema
+// showCounts and hideEmpty ask the query once per filter with { limit: 1, totalCount: true, namedFilter }; a schema
 // without those keys 422s every count request.
 function validateProjectionListNamedFilterCountAcceptance(
   prefix: string,
   screen: ProjectionListScreenDefinition,
   schema: QueryHandlerDef["schema"] | undefined,
 ): void {
-  if (screen.namedFilterFacet?.showCounts !== true) return;
+  if (screen.namedFilterFacet?.showCounts !== true && screen.namedFilterFacet?.hideEmpty !== true) {
+    return;
+  }
   const missing = ["limit", "totalCount"].filter((key) => !schemaAccepts(schema, key));
   if (missing.length === 0) return;
   throw bootRuleError(NAMED_FILTER_RULES.projectionQueryAcceptsCount, {
     message:
-      `${prefix}: namedFilterFacet.showCounts needs query "${screen.query}" to accept ${missing.map((key) => `"${key}"`).join(" and ")} in its Zod schema ` +
-      `- add them or drop showCounts.`,
+      `${prefix}: namedFilterFacet.${screen.namedFilterFacet.showCounts === true ? "showCounts" : "hideEmpty"} needs query "${screen.query}" to accept ${missing.map((key) => `"${key}"`).join(" and ")} in its Zod schema ` +
+      `- add them or drop showCounts and hideEmpty.`,
   });
 }
 

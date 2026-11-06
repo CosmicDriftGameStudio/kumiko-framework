@@ -68,10 +68,11 @@ describe("WorkspaceShell navStyle", () => {
     expect(header?.getAttribute("data-nav-style")).toBe("plain");
   });
 
-  test("plain shows the hamburger in the header trigger", () => {
+  test("plain shows the drawn panel symbol on every width in the header trigger", () => {
     render(<Harness navStyle="plain" />);
     const trigger = document.querySelector('[data-slot="sidebar-trigger"]');
     expect(trigger?.querySelectorAll("svg").length).toBe(1);
+    expect(trigger?.querySelector("svg")?.classList.contains("lucide-drawn-panel")).toBe(true);
     expect(trigger?.querySelector("svg")?.classList.contains("md:hidden")).toBe(false);
   });
 

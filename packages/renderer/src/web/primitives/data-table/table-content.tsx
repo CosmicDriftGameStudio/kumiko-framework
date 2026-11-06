@@ -47,7 +47,7 @@ function renderSentinel(m: DataTableModel, pagerElement: ReactNode): ReactNode {
 }
 
 function renderTableBodyContent(m: DataTableModel): ReactNode {
-  if (m.isEmpty) return renderEmptyBlock(m);
+  if (m.isEmpty) return isInsideCardFrame(m) ? renderTableView(m) : renderEmptyBlock(m);
   return m.isNarrow ? renderCardsView(m) : renderTableView(m);
 }
 

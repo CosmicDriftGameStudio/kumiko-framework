@@ -3,6 +3,7 @@ import { Fragment, type ReactNode } from "react";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
+  type DataTableFacetChip,
   useOptionalTranslation,
 } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
@@ -20,13 +21,26 @@ import {
 import "../react-css-custom-properties.ts";
 import { DefaultButton } from "./button.tsx";
 import { FacetSearchFilter } from "./facet-search-filter.tsx";
+import { FACET_PILL_CLASSES, FacetTriggerLabel } from "./facet-trigger-label.tsx";
 
 // ---- DataTable (shadcn: Table) ----
 
-const PILL_CLASSES = "h-9 rounded-full border-border-strong px-3";
-
 function sameValueSet(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value) => b.includes(value));
+}
+
+// "All" (no values) always stays; with hideEmpty an entry at 0 only stays while it is the active selection.
+function visibleChips(
+  facet: DataTableFacet,
+  selected: readonly string[],
+): readonly DataTableFacetChip[] {
+  return (facet.chips ?? []).filter(
+    (chip) =>
+      facet.hideEmpty !== true ||
+      chip.values.length === 0 ||
+      chip.count !== 0 ||
+      sameValueSet(selected, chip.values),
+  );
 }
 
 // Single-choice chip row for a facet with `chips`: a chip is pressed while the
@@ -40,9 +54,7 @@ function FacetChips({
   selected: readonly string[];
   onChange: (field: string, values: readonly string[]) => void;
 }): ReactNode {
-  const chips = (facet.chips ?? []).filter(
-    (chip) => facet.hideEmpty !== true || chip.count !== 0 || sameValueSet(selected, chip.values),
-  );
+  const chips = visibleChips(facet, selected);
   return (
     // biome-ignore lint/a11y/useSemanticElements: a <fieldset> brings browser default borders/legend layout the chip row must not have
     <div
@@ -86,7 +98,7 @@ function FacetSelect({
   dense: boolean;
   pill: boolean;
 }): ReactNode {
-  const chips = facet.chips ?? [];
+  const chips = visibleChips(facet, selected);
   const isFiltered = selected.length > 0;
   // A stale URL can name an entry the facet does not offer; showing "all" then would misstate the list.
   const active =
@@ -101,7 +113,7 @@ function FacetSelect({
           className={cn(
             "h-9",
             dense && "border-border-strong px-2.5",
-            pill && PILL_CLASSES,
+            pill && FACET_PILL_CLASSES,
             isFiltered && "border-primary",
           )}
           data-testid={`facet-${facet.field}`}
@@ -200,6 +212,7 @@ export function FacetFilter({
         selected={selected}
         onChange={onChange}
         dense={dense}
+        pill={pill}
       />
     );
   }
@@ -209,10 +222,19 @@ export function FacetFilter({
         <UiButton
           variant="outline"
           size="sm"
-          className={cn("h-9", dense && "border-border-strong px-2.5", pill && PILL_CLASSES)}
+          className={cn("h-9", dense && "border-border-strong px-2.5", pill && FACET_PILL_CLASSES)}
           data-testid={`facet-${facet.field}`}
         >
-          {selected.length === 0 ? `${facet.label}: ${allLabel}` : facet.label}
+          {selected.length === 0 ? (
+            <FacetTriggerLabel
+              field={facet.field}
+              label={facet.label}
+              emptyValueLabel={allLabel}
+              showEmptyValue={!pill}
+            />
+          ) : (
+            facet.label
+          )}
           {selected.length > 0 && (
             <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
               {selected.length}

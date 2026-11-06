@@ -48,8 +48,9 @@ export function buildNamedFilterFacet(
   if (refs.length === 0) return undefined;
   const isSelect = options?.display === "select";
   const showCounts = options?.showCounts === true;
+  const hideEmpty = options?.hideEmpty === true;
   const countOf = (id: string | undefined): { count?: number } => {
-    const count = showCounts ? counts[namedFilterCountKey(id)] : undefined;
+    const count = showCounts || hideEmpty ? counts[namedFilterCountKey(id)] : undefined;
     return count === undefined ? {} : { count };
   };
   const chips = refs.map((ref) => ({
@@ -80,6 +81,7 @@ export function buildNamedFilterFacet(
     ...(isSelect && { display: "select" as const }),
     ...(options?.narrowPlacement !== undefined && { narrowPlacement: options.narrowPlacement }),
     ...(showCounts && { showCounts: true }),
+    ...(hideEmpty && { hideEmpty: true }),
   };
 }
 
@@ -101,7 +103,7 @@ export function buildNamedFilterCountQueries(
   options: NamedFilterFacetOptions | undefined,
   listPayloadFor: (namedFilter: string | undefined) => Readonly<Record<string, unknown>>,
 ): FacetCountQuery[] {
-  if (options?.showCounts !== true) return [];
+  if (options?.showCounts !== true && options?.hideEmpty !== true) return [];
   const refs = offeredRefs(allRefs, userRoles);
   if (refs.length === 0) return [];
   const ids: readonly (string | undefined)[] = [

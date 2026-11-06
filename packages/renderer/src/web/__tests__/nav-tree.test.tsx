@@ -179,7 +179,7 @@ const NAV_ICON_LUCIDE_CLASS: Readonly<Record<string, string>> = {
 
 function navIconSvgs(container: HTMLElement): SVGElement[] {
   return Array.from(container.querySelectorAll("svg")).filter(
-    (svg) => !(svg.getAttribute("class") ?? "").includes("lucide-search"),
+    (svg) => !(svg.getAttribute("class") ?? "").includes("lucide-drawn-search"),
   );
 }
 

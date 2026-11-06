@@ -21,10 +21,11 @@
 // typed text. Both elements MUST share identical typography/box classes
 // or the suggestion won't align with the caret.
 
-import { Check, Languages, Wand2 } from "lucide-react";
+import { Check, Languages } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import type { AiTextRewriteStyle } from "../../index.ts";
 import { useAiTextAction, useCompletion, usePrimitives, useTranslation } from "../../index.ts";
+import { DrawnWand } from "../drawn-icons.ts";
 import { cn } from "../lib/cn.ts";
 import {
   type AiTextEndAction,
@@ -302,7 +303,7 @@ function AiTextCore({
                 ariaLabel={t("kumiko.aiText.rewrite")}
                 onClick={() => openDialog("rewrite")}
               >
-                <Wand2 className="size-3.5" aria-hidden="true" />
+                <DrawnWand className="size-3.5" aria-hidden="true" />
               </Button>
             )}
           </div>

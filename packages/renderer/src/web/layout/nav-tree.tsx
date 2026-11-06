@@ -17,7 +17,7 @@ import type {
   TreeNode,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { ChevronDown, ChevronRight, type Folder, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, type Folder, Plus } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -36,6 +36,7 @@ import type { AppSchema, FeatureSchema } from "../../index.ts";
 import { lastSegment, toAppSchema, useLiveEvents, useNav, useTranslation } from "../../index.ts";
 import { KumikoLink } from "../app/nav.tsx";
 import { useNavEntities, useNavProviders } from "../app/nav-providers-context.tsx";
+import { DrawnSearch } from "../drawn-icons.ts";
 import { NAV_ICONS } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
 import {
@@ -213,7 +214,7 @@ export function NavTree({
             className="flex w-full flex-col gap-3"
           >
             <div className="relative mb-0 group-data-[collapsible=icon]:hidden">
-              <Search
+              <DrawnSearch
                 aria-hidden="true"
                 className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-sidebar-muted"
               />

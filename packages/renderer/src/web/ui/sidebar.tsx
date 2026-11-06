@@ -4,6 +4,7 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { MenuIcon, PanelLeftIcon } from "lucide-react"
+import { DrawnPanel } from "../drawn-icons.ts"
 import { Slot } from "radix-ui"
 
 import { useIsMobile } from "./use-mobile.ts"
@@ -261,7 +262,7 @@ function SidebarTrigger({
   label = "Toggle Sidebar",
   icon = "panel",
   ...props
-}: React.ComponentProps<typeof Button> & { label?: string; icon?: "panel" | "menu" }) {
+}: React.ComponentProps<typeof Button> & { label?: string; icon?: "panel" | "panel-all-widths" }) {
   const { toggleSidebar } = useSidebar()
 
   return (
@@ -277,8 +278,14 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      {icon === "panel" && <PanelLeftIcon className="max-md:hidden" />}
-      <MenuIcon className={icon === "panel" ? "md:hidden" : undefined} />
+      {icon === "panel-all-widths" ? (
+        <DrawnPanel />
+      ) : (
+        <>
+          <PanelLeftIcon className="max-md:hidden" />
+          <MenuIcon className="md:hidden" />
+        </>
+      )}
       <span className="sr-only">{label}</span>
     </Button>
   )

@@ -37,13 +37,15 @@ export function readNotice(value: unknown): RecordNotice | undefined {
   if (!isPlainObject(value)) return undefined;
   // Typed keys are re-added only when valid, so a malformed tone or text can't ride along in `rest`.
   // `rest` is only input for the banner actions' show/enabled predicates; it is never rendered.
-  const { title, text, tone, ...rest } = value;
+  const { title, text, narrowTitle, narrowText, tone, ...rest } = value;
   if (typeof title !== "string" || title === "") return undefined;
   const parsedTone = readTone(tone);
   return {
     ...rest,
     title,
     ...(typeof text === "string" && { text }),
+    ...(typeof narrowTitle === "string" && narrowTitle !== "" && { narrowTitle }),
+    ...(typeof narrowText === "string" && narrowText !== "" && { narrowText }),
     ...(parsedTone !== undefined && { tone: parsedTone }),
   };
 }

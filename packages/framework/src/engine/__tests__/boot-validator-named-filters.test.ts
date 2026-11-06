@@ -244,6 +244,16 @@ describe("validateBoot — named list filters", () => {
       );
     });
 
+    test("rejects hideEmpty when the query takes no limit and totalCount", () => {
+      const feature = ledgerFeature({
+        namedFilterFacet: { display: "select", hideEmpty: true },
+        namedFilters: OPEN_REF,
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /hideEmpty needs query .* to accept "limit" and "totalCount"/,
+      );
+    });
+
     test("accepts showCounts on a query that takes limit and totalCount", () => {
       const feature = ledgerFeature(
         { namedFilterFacet: { display: "select", showCounts: true }, namedFilters: OPEN_REF },

@@ -111,6 +111,14 @@ export { KumikoLink, useBrowserNavApi } from "./app/nav.tsx";
 export { PlainContentEditor } from "./app/plain-content-editor.tsx";
 export { useResolvers } from "./app/resolvers-context.tsx";
 export { clearRememberedListState } from "./app/session-list-state-store.ts";
+export {
+  DrawnFilter,
+  DrawnPanel,
+  DrawnPencil,
+  DrawnSearch,
+  DrawnSparkles,
+  DrawnWand,
+} from "./drawn-icons.ts";
 export type {
   EditorActionTestIds,
   EditorHeaderTestIds,

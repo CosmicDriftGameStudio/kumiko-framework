@@ -107,9 +107,11 @@ export type WorkspaceShellProps = {
    *  `"background"` lets the page background show through so cards stand out from it. */
   readonly contentSurface?: "card" | "background";
   /** `"plain"` renders the sidebar without leading icons while expanded (the focus rail and the
-   *  collapsed rail keep them), with uppercase group labels, quiet active entries, a hamburger
+   *  collapsed rail keep them), with uppercase group labels, quiet active entries, a panel-symbol
    *  sidebar trigger and a 58px title bar. `"default"` keeps the icon navigation. */
   readonly navStyle?: ShellNavStyle;
+  /** `"header"` (default) draws the notification bell in the title bar; `"overflow"` moves it into the "…" menu, which then shows on every width. */
+  readonly notificationBellPlacement?: "header" | "overflow";
   /** Screen content. */
   readonly children: ReactNode;
 };
@@ -126,6 +128,7 @@ export function WorkspaceShell({
   fill = true,
   contentSurface = "card",
   navStyle = "default",
+  notificationBellPlacement = "header",
   children,
 }: WorkspaceShellProps): ReactNode {
   const app = useMemo(() => toAppSchema(schema), [schema]);
@@ -318,6 +321,7 @@ export function WorkspaceShell({
                       {...(user !== undefined && { user })}
                       {...(allowedNavQns !== undefined && { allowedNavQns })}
                       {...(topbarActions !== undefined && { headerActions: topbarActions })}
+                      notificationBellPlacement={notificationBellPlacement}
                     />
                     <main className={fillCls.main}>
                       {activeTarget !== undefined ? (

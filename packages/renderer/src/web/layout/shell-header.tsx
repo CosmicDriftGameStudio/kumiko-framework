@@ -7,12 +7,15 @@
 // in styles.css (:has() selector) — the single source for the header height
 // that Drawer's `belowHeader` prop also reads.
 
+import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { IN_APP_NOTIFICATION_FEATURE } from "@cosmicdrift/kumiko-types/in-app-notification-types";
 import { ChevronLeft, MoreHorizontal } from "lucide-react";
 import {
   Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type Ref,
+  type RefObject,
   useEffect,
   useId,
   useMemo,
@@ -64,12 +67,14 @@ export function ShellHeader({
   user,
   headerActions: appHeaderActions,
   allowedNavQns,
+  notificationBellPlacement = "header",
 }: {
   readonly schema: AppSchema | FeatureSchema;
   readonly user?: ShellHeaderUser;
   readonly headerActions?: ReactNode;
   // The sidebar's nav set: when two navs point at the same screen, the title follows the one the sidebar shows.
   readonly allowedNavQns?: ReadonlySet<string>;
+  readonly notificationBellPlacement?: "header" | "overflow";
 }): ReactNode {
   const nav = useNav();
   const t = useTranslation();
@@ -78,7 +83,7 @@ export function ShellHeader({
   // The app's headerActions (the assistant button) stay in focus mode: they are not navigation,
   // and a focused screen must not cut the user off from them. The notification bell is rendered
   // by this header itself, not passed in, and stays hidden; so does the sidebar trigger, except
-  // with the plain nav style, whose hamburger stays visible in focus mode.
+  // with the plain nav style, whose panel symbol stays visible in focus mode.
   const headerActions = appHeaderActions;
   const appSchema = toAppSchema(schema);
   const tree = useMemo(() => {
@@ -124,13 +129,8 @@ export function ShellHeader({
   const titleOverride = slot?.title;
   const recordTitle = slot?.recordTitle;
   const compact = usePageHeaderCompact();
-  const overflowItems = slot?.overflowItems ?? [];
-  // On a phone the app's headerActions fold into the menu, except the ones wrapped in HeaderActionPinned.
-  const pinnedActions = compact ? collectPinnedHeaderActions(headerActions) : [];
-  const hasOverflow =
-    compact &&
-    (overflowItems.length > 0 ||
-      (headerActions !== undefined && !isOnlyPinnedHeaderActions(headerActions)));
+  const showsBell = !focused && user !== undefined && hasInAppChannel;
+  const bellInOverflow = showsBell && notificationBellPlacement === "overflow";
   // A stand-in without a translated title must not surface the raw i18n key.
   const standInUntitled =
     standInScreenId !== undefined && crumbs?.at(-1)?.label === screenTitleKey(standInScreenId);
@@ -169,7 +169,7 @@ export function ShellHeader({
       className={cn(
         "flex h-14 shrink-0 items-center gap-3 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6",
         plainNav && "h-[58px] md:gap-2.5 md:px-5",
-        compact && "relative",
+        (compact || bellInOverflow) && "relative",
         focused && "max-md:hidden",
       )}
     >
@@ -196,37 +196,94 @@ export function ShellHeader({
           />
         </div>
       </div>
-      <div
-        className={cn(
-          "ml-auto flex items-center gap-2",
-          compact ? "min-w-0 max-w-[60%]" : "min-w-0 max-w-[50%] shrink-0 sm:max-w-none",
-        )}
-      >
-        <div
-          ref={setActionsElement}
-          data-kumiko-layout="page-header-actions"
-          className={cn(
-            SHELL_HEADER_CONTROLS_CLASSES,
-            "flex min-w-0 items-center gap-2 empty:hidden [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap",
-            compact && "overflow-hidden",
-          )}
-        />
-        {!focused && user !== undefined && hasInAppChannel && (
-          <NotificationBell screens={allScreens} />
-        )}
-        {!compact && headerActions !== undefined && (
-          <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
-            {headerActions}
-          </div>
-        )}
-        {pinnedActions.length > 0 && (
-          <div data-kumiko-layout="header-actions-pinned" className="flex items-center gap-2">
-            {pinnedActions}
-          </div>
-        )}
-        {hasOverflow && <HeaderOverflow items={overflowItems} headerActions={headerActions} />}
-      </div>
+      <ShellHeaderEnd
+        compact={compact}
+        actionsRef={setActionsElement}
+        headerActions={headerActions}
+        overflowItems={slot?.overflowItems ?? []}
+        bellScreens={showsBell ? allScreens : undefined}
+        bellInOverflow={bellInOverflow}
+      />
     </header>
+  );
+}
+
+function foldsIntoOverflow(
+  overflowItems: readonly ActionMenuItemSpec[],
+  headerActions: ReactNode,
+): boolean {
+  if (overflowItems.length > 0) return true;
+  return headerActions !== undefined && !isOnlyPinnedHeaderActions(headerActions);
+}
+
+// On a phone the app's headerActions fold into the menu, except the ones wrapped in HeaderActionPinned.
+function VisibleHeaderActions({
+  compact,
+  headerActions,
+}: {
+  readonly compact: boolean;
+  readonly headerActions: ReactNode;
+}): ReactNode {
+  if (!compact) {
+    if (headerActions === undefined) return null;
+    return (
+      <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
+        {headerActions}
+      </div>
+    );
+  }
+  const pinnedActions = collectPinnedHeaderActions(headerActions);
+  if (pinnedActions.length === 0) return null;
+  return (
+    <div data-kumiko-layout="header-actions-pinned" className="flex items-center gap-2">
+      {pinnedActions}
+    </div>
+  );
+}
+
+function ShellHeaderEnd({
+  compact,
+  actionsRef,
+  headerActions,
+  overflowItems,
+  bellScreens,
+  bellInOverflow,
+}: {
+  readonly compact: boolean;
+  readonly actionsRef: Ref<HTMLDivElement> | undefined;
+  readonly headerActions: ReactNode;
+  readonly overflowItems: readonly ActionMenuItemSpec[];
+  readonly bellScreens: readonly ScreenDefinition[] | undefined;
+  readonly bellInOverflow: boolean;
+}): ReactNode {
+  const hasOverflow =
+    bellInOverflow || (compact && foldsIntoOverflow(overflowItems, headerActions));
+  return (
+    <div
+      className={cn(
+        "ml-auto flex items-center gap-2",
+        compact ? "min-w-0 max-w-[60%]" : "min-w-0 max-w-[50%] shrink-0 sm:max-w-none",
+      )}
+    >
+      <div
+        ref={actionsRef}
+        data-kumiko-layout="page-header-actions"
+        className={cn(
+          SHELL_HEADER_CONTROLS_CLASSES,
+          "flex min-w-0 items-center gap-2 empty:hidden [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap",
+          compact && "overflow-hidden",
+        )}
+      />
+      {bellScreens !== undefined && !bellInOverflow && <NotificationBell screens={bellScreens} />}
+      <VisibleHeaderActions compact={compact} headerActions={headerActions} />
+      {hasOverflow && (
+        <HeaderOverflow
+          items={compact ? overflowItems : []}
+          headerActions={compact ? headerActions : undefined}
+          {...(bellInOverflow && bellScreens !== undefined && { bellScreens })}
+        />
+      )}
+    </div>
   );
 }
 
@@ -242,7 +299,7 @@ function ShellSidebarTrigger({
   return (
     <SidebarTrigger
       label={t("kumiko.sidebar.toggle")}
-      {...(plainNav && { icon: "menu" as const })}
+      {...(plainNav && { icon: "panel-all-widths" as const })}
     />
   );
 }
@@ -251,12 +308,33 @@ function ShellSidebarTrigger({
 // nodes with their own popovers, and the panel stays mounted while closed so their
 // effects (shortcut listeners) keep running.
 const MENU_ITEM_SELECTOR = '[role="menuitem"]:not(:disabled)';
+function OverflowBellEntry({
+  screens,
+  anchorRef,
+  onSelect,
+  separated,
+}: {
+  readonly screens: readonly ScreenDefinition[];
+  readonly anchorRef: RefObject<HTMLElement | null>;
+  readonly onSelect: () => void;
+  readonly separated: boolean;
+}): ReactNode {
+  return (
+    <>
+      <NotificationBell screens={screens} menuEntry={{ anchorRef, onSelect }} />
+      {separated && <hr className="-mx-1 my-1 border-t border-border" />}
+    </>
+  );
+}
+
 function HeaderOverflow({
   items,
   headerActions,
+  bellScreens,
 }: {
   readonly items: readonly ActionMenuItemSpec[];
   readonly headerActions: ReactNode;
+  readonly bellScreens?: readonly ScreenDefinition[];
 }): ReactNode {
   const t = useTranslation();
   const [open, setOpen] = useState(false);
@@ -348,6 +426,14 @@ function HeaderOverflow({
         data-testid="shell-header-overflow"
         className="absolute right-2 top-full z-30 mt-1 w-max min-w-[8rem] max-w-[calc(100vw-1rem)] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
       >
+        {bellScreens !== undefined && (
+          <OverflowBellEntry
+            screens={bellScreens}
+            anchorRef={triggerRef}
+            onSelect={() => setOpen(false)}
+            separated={items.length > 0 || headerActions !== undefined}
+          />
+        )}
         {items.length > 0 && (
           <div className="flex flex-col">
             {items.map((item) => (
