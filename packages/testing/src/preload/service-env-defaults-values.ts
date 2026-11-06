@@ -1,3 +1,4 @@
+// @runtime dev
 export const SERVICE_ENV_DEFAULTS = {
   DATABASE_URL: "postgresql://kumiko:kumiko@localhost:15432/kumiko_dev",
   TEST_DATABASE_URL: "postgresql://kumiko:kumiko@localhost:15432/kumiko_test",

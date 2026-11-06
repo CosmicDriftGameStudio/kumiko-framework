@@ -503,6 +503,17 @@ export function CellTextLink({
   );
 }
 
+type FunctionRenderer = (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
+type FormatSpecRenderer = { format: string; locale?: string } & Record<string, unknown>;
+
+function isFunctionRenderer(renderer: unknown): renderer is FunctionRenderer {
+  return typeof renderer === "function";
+}
+
+function isFormatSpecRenderer(renderer: unknown): renderer is FormatSpecRenderer {
+  return typeof renderer === "object" && renderer !== null && "format" in renderer;
+}
+
 // Same text the cell shows without `display`: a reference-lookup renderer or FormatSpec must win over the raw value.
 function plainCellText({
   value,
@@ -518,12 +529,11 @@ function plainCellText({
   DataTableCellProps,
   "value" | "row" | "type" | "renderer" | "optionLabels" | "locale" | "field" | "translate"
 > & { readonly grouping: boolean }): string {
-  if (typeof renderer === "function") {
-    return (renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string)(value, row);
+  if (isFunctionRenderer(renderer)) {
+    return renderer(value, row);
   }
-  if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
-    const spec = renderer as { format: string; locale?: string } & Record<string, unknown>;
-    return applyFormatSpec({ ...spec, locale: spec.locale ?? locale }, value, translate);
+  if (isFormatSpecRenderer(renderer)) {
+    return applyFormatSpec({ ...renderer, locale: renderer.locale ?? locale }, value, translate);
   }
   return defaultCellRender(value, type, optionLabels, locale, field, grouping);
 }
@@ -682,16 +692,19 @@ export function DataTableCell({
   if (fileDisplay !== undefined) {
     return renderFileCell({ value, fileDisplay, compactFile, translate });
   }
-  if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
-    const spec = renderer as { format: string; locale?: string } & Record<string, unknown>;
-    const text = applyFormatSpec({ ...spec, locale: spec.locale ?? locale }, value, translate);
-    const tones = enumOptionTones(spec);
+  if (isFormatSpecRenderer(renderer)) {
+    const text = applyFormatSpec(
+      { ...renderer, locale: renderer.locale ?? locale },
+      value,
+      translate,
+    );
+    const tones = enumOptionTones(renderer);
     if (tones !== undefined && typeof value === "string") {
       return selectPill(value, { [value]: text }, tones, locale, RegisteredStatusBadge);
     }
     return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
   }
-  if (typeof renderer === "function") {
+  if (isFunctionRenderer(renderer)) {
     if (linkItems !== undefined) {
       const linkItemKeys = uniqueLinkItemKeys(linkItems);
       return (
@@ -709,8 +722,7 @@ export function DataTableCell({
         </>
       );
     }
-    const fn = renderer as (v: unknown, r?: Readonly<Record<string, unknown>>) => string;
-    const text = fn(value, row);
+    const text = renderer(value, row);
     return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
   }
   if (componentRef !== undefined) {

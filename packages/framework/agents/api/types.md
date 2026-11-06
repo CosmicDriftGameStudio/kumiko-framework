@@ -5084,6 +5084,7 @@ const LIST_COLUMN_PINS: ["left", "right"];
 const LIST_NARROW_FACETS: ["pills"];
 const LIST_TABLE_DENSITIES: ["comfortable", "compact", "relaxed"];
 const LIST_TABLE_FRAMES: ["card"];
+const LIST_TOOLBAR_ACTIONS_PLACEMENTS: ["header", "toolbar"];
 type ListColumnPin = (typeof LIST_COLUMN_PINS)[number];
 type ListNarrowFacets = (typeof LIST_NARROW_FACETS)[number];
 type ListTableDensity = (typeof LIST_TABLE_DENSITIES)[number];

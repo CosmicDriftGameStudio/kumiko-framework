@@ -135,6 +135,7 @@ function applyTokensToCssVars(_tokens: Tokens): void; // Historically wrote toke
 function buildFileUploadFormData(input: FileUploadFormDataInput): FormData;
 function buildNavRegistrySlice(schema: FeatureSchema, allowedNavQns?: ReadonlySet<string>): NavRegistrySlice;
 function buildNavRegistrySliceForApp(app: AppSchema, allowedNavQns?: ReadonlySet<string>): NavRegistrySlice;
+function clearNavCollapseState(): void; // Forgets the collapsed containers and the revealed screen; logout calls it so the next user starts expanded.
 function clearRememberedListState(): void; // Forgets all remembered list state and the identity marker.
 function cn(...inputs: ClassValue[]): string; // Standard shadcn helper: `clsx` combines conditional classes, while `tailwind-merge` resolves conflicts (for example, `px-2 px-4` → `px-4`).
 function createBrowserDraftStorage(options?: CreateBrowserDraftStorageOptions): DraftStorage; // Default DraftStorage when createKumikoApp boots without one.
