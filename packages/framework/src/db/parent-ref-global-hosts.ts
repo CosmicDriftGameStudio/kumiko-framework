@@ -2,6 +2,7 @@ import type { ParentVisibilityOption } from "@cosmicdrift/kumiko-types/event-sto
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import type { SessionUser } from "../engine/types/index.ts";
+import { createFallbackLogger } from "../logging/utils.ts";
 import type { Table } from "./event-store-executor-context.ts";
 import { buildParentRefGate, readsGlobalHostsUnderTenantScope } from "./parent-ref-clause.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
@@ -10,6 +11,10 @@ import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunner } from "./tenant-db-runner.ts";
+
+const log = createFallbackLogger("parent-ref-global-hosts");
+
+export const MAX_RESOLVED_GLOBAL_HOST_IDS = 5000;
 
 type HostRow = { readonly entityType: string; readonly entityId: string };
 
@@ -30,6 +35,7 @@ export async function withGlobalParentHosts(
   option: ParentVisibilityOption | undefined,
   gate: { readonly includeDeleted: boolean; readonly narrowTypes: ReadonlySet<string> | undefined },
   rowScope: GlobalHostRowScope,
+  options?: { readonly maxResolvedHostIds?: number },
 ): Promise<ParentVisibilityOption | undefined> {
   const { entity, table } = ctx;
   const parentRef = entity.parentRef;
@@ -65,15 +71,33 @@ export async function withGlobalParentHosts(
     params.push([...rowScope.pinnedHostIds]);
     whereParts.push(`${column(parentRef.entityIdField)}::text = ANY($${params.length}::text[])`);
   }
+  const isUnpinnedList = rowScope.kind === "list" && rowScope.pinnedHostIds === undefined;
+  if (isUnpinnedList && !gate.includeDeleted && table["isDeleted"] !== undefined) {
+    whereParts.push(`${column("isDeleted")} = FALSE`);
+  }
+  // Correlating the gated statement with the host check would need a SECURITY DEFINER function,
+  // so an unpinned list resolves ids up front and this cap is the deliberate bound on that set.
+  const maxHostIds = options?.maxResolvedHostIds ?? MAX_RESOLVED_GLOBAL_HOST_IDS;
+  const limitClause = isUnpinnedList ? ` LIMIT ${maxHostIds + 1}` : "";
   const rows = await executeRawQueryRead<HostRow>(
     systemScopedRunner(
       tenantDbRunner(db),
       "parent-ref gate checks global hosts, whose rows carry the system tenant, for the caller's own join rows",
     ),
     `SELECT DISTINCT ${column(parentRef.entityTypeField)}::text AS "entityType", ${column(parentRef.entityIdField)}::text AS "entityId" ` +
-      `FROM "${joinTableName}" WHERE ${whereParts.join(" AND ")}`,
+      `FROM "${joinTableName}" WHERE ${whereParts.join(" AND ")}${limitClause}`,
     params,
   );
+  if (isUnpinnedList && rows.length > maxHostIds) {
+    log.warn(
+      "global host ids of an unpinned list exceed the cap; the global host arm is left out",
+      {
+        table: joinTableName,
+        limit: maxHostIds,
+      },
+    );
+    return { ...option, globalHostIds: new Map() };
+  }
 
   const globalHostIds = new Map<string, string[]>();
   for (const row of rows) {

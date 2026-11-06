@@ -10,7 +10,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { buildParentRefClause } from "../db/parent-ref-clause.ts";
+import { withGlobalParentHosts } from "../db/parent-ref-global-hosts.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
+import { createTenantDb } from "../db/tenant-db.ts";
 import {
   createEntity,
   createTextField,
@@ -18,20 +21,49 @@ import {
   defineEntityWriteHandler,
   defineFeature,
 } from "../engine/index.ts";
+import { from } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
-import { createTestUser } from "../seeding/seed-users.ts";
+import { createTestUser, testTenantId } from "../seeding/seed-users.ts";
 
 const hostAccess: NonNullable<EntityDefinition["access"]> = {
+  read: {
+    TenantMember: from("claim:prglobal:team", "teamId"),
+  },
+};
+
+// A where-rule on a global host: the membership subquery would see other tenants' rows in the
+// system scope, so the gate must not open this host's arm there.
+const gatedHostAccess: NonNullable<EntityDefinition["access"]> = {
   read: {
     TenantMember: {
       kind: "where",
       where: (user, ctx) => ({
-        sqlText: `${ctx.tableName}.team_id = $${ctx.paramStart}`,
-        params: [user.claims?.["team"] ?? null],
+        sqlText: `${ctx.tableName}.team_id IN (SELECT m.team_id FROM pr_global_memberships m WHERE m.user_ref = $${ctx.paramStart})`,
+        params: [user.id],
       }),
     },
   },
 };
+
+const gatedHostEntity = createEntity({
+  table: "pr_global_gated_hosts",
+  tenancy: "global",
+  softDelete: true,
+  fields: {
+    teamId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
+  access: gatedHostAccess,
+});
+const gatedHostTable = buildEntityTable("gatedHost", gatedHostEntity);
+
+const membershipEntity = createEntity({
+  table: "pr_global_memberships",
+  fields: {
+    teamId: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    userRef: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+  },
+});
+const membershipTable = buildEntityTable("membership", membershipEntity);
 
 const globalHostEntity = createEntity({
   table: "pr_global_hosts",
@@ -60,6 +92,8 @@ const linkTable = buildEntityTable("link", linkEntity);
 const feature = defineFeature("prglobal", (r) => {
   r.entity({ name: "globalHost", ...globalHostEntity });
   r.entity({ name: "link", ...linkEntity });
+  r.entity({ name: "gatedHost", ...gatedHostEntity });
+  r.entity({ name: "membership", ...membershipEntity });
   for (const verb of ["create", "update"] as const) {
     r.writeHandler(
       defineEntityWriteHandler(`link:${verb}`, linkEntity, { access: { roles: ["TenantMember"] } }),
@@ -72,12 +106,26 @@ const feature = defineFeature("prglobal", (r) => {
   }
 });
 
-const teamA = createTestUser({ id: 92, roles: ["TenantMember"], claims: { team: "team-a" } });
-const teamB = createTestUser({ id: 93, roles: ["TenantMember"], claims: { team: "team-b" } });
+const teamA = createTestUser({
+  id: 92,
+  roles: ["TenantMember"],
+  claims: { "prglobal:team": "team-a" },
+});
+const teamB = createTestUser({
+  id: 93,
+  roles: ["TenantMember"],
+  claims: { "prglobal:team": "team-b" },
+});
 
 const LIVE_HOST_ID = "e0000000-0000-4000-8000-00000000001a";
 const DELETED_HOST_ID = "e0000000-0000-4000-8000-00000000001b";
 const TRASHED_LINK_ID = "e0000000-0000-4000-8000-00000000001c";
+const SECOND_LIVE_HOST_ID = "e0000000-0000-4000-8000-00000000001d";
+const TRASH_ONLY_HOST_ID = "e0000000-0000-4000-8000-00000000001e";
+const GATED_HOST_ID = "e0000000-0000-4000-8000-00000000001f";
+const GATED_LINK_ID = "e0000000-0000-4000-8000-000000000020";
+const TRASH_ONLY_LINK_ID = "e0000000-0000-4000-8000-000000000021";
+const FOREIGN_TENANT_ID = testTenantId(77);
 
 let stack: TestStack;
 
@@ -85,14 +133,30 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [feature] });
   await unsafeCreateEntityTable(stack.db, globalHostEntity, "globalHost");
   await unsafeCreateEntityTable(stack.db, linkEntity, "link");
+  await unsafeCreateEntityTable(stack.db, gatedHostEntity, "gatedHost");
+  await unsafeCreateEntityTable(stack.db, membershipEntity, "membership");
   await seedRows(
     stack.db,
     globalHostTable,
     [
       { id: LIVE_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: false },
       { id: DELETED_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: true },
+      { id: SECOND_LIVE_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: false },
+      { id: TRASH_ONLY_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: false },
     ],
     { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    gatedHostTable,
+    [{ id: GATED_HOST_ID, tenantId: SYSTEM_TENANT_ID, teamId: "team-a", isDeleted: false }],
+    { projectionOnly: "fixture plants a projection row without its event" },
+  );
+  await seedRows(
+    stack.db,
+    membershipTable,
+    [{ tenantId: FOREIGN_TENANT_ID, teamId: "team-a", userRef: teamA.id }],
+    { projectionOnly: "fixture plants a membership row of another tenant without its event" },
   );
 });
 
@@ -197,6 +261,89 @@ describe("parentRef gate on a tenancy global host", () => {
       ],
     });
     expect(labels).toEqual([]);
+  });
+
+  test("a global host whose access.read is a where-rule over another tenant's membership opens no arm", async () => {
+    await seedRows(
+      stack.db,
+      linkTable,
+      [
+        {
+          id: GATED_LINK_ID,
+          tenantId: teamA.tenantId,
+          entityType: "gatedHost",
+          entityId: GATED_HOST_ID,
+          label: "on-where-rule-host",
+        },
+      ],
+      { projectionOnly: "fixture plants a join row without its event" },
+    );
+
+    expect(await labelInDetail(GATED_LINK_ID)).toBeUndefined();
+    expect(await listLabels({})).not.toContain("on-where-rule-host");
+  });
+
+  describe("resolving the host ids of an unpinned list", () => {
+    const hostOption = { entities: new Map([["globalHost", globalHostEntity]]) };
+    const listScope = { kind: "list", pinnedHostIds: undefined } as const;
+
+    function resolve(gate: { includeDeleted: boolean }, options?: { maxResolvedHostIds: number }) {
+      return withGlobalParentHosts(
+        { entity: linkEntity, table: linkTable },
+        teamA,
+        createTenantDb({ db: stack.db, tenantId: teamA.tenantId }),
+        hostOption,
+        { ...gate, narrowTypes: undefined },
+        listScope,
+        options,
+      );
+    }
+
+    test("over the cap the global host arm is left out and the list shows none of those rows", async () => {
+      await createLink(LIVE_HOST_ID, "capped-a");
+      await createLink(SECOND_LIVE_HOST_ID, "capped-b");
+
+      const within = await resolve({ includeDeleted: false });
+      expect(within?.globalHostIds?.get("globalHost")).toEqual(
+        expect.arrayContaining([LIVE_HOST_ID, SECOND_LIVE_HOST_ID]),
+      );
+
+      const capped = await resolve({ includeDeleted: false }, { maxResolvedHostIds: 1 });
+      expect(capped?.globalHostIds?.size).toBe(0);
+      const clause = buildParentRefClause(
+        linkEntity,
+        linkTable,
+        "pr_global_links",
+        teamA,
+        createTenantDb({ db: stack.db, tenantId: teamA.tenantId }),
+        capped,
+        {},
+      );
+      expect(clause).toEqual({ kind: "empty" });
+    });
+
+    test("a soft-deleted join row does not contribute its host id unless deleted rows are included", async () => {
+      await seedRows(
+        stack.db,
+        linkTable,
+        [
+          {
+            id: TRASH_ONLY_LINK_ID,
+            tenantId: teamA.tenantId,
+            entityType: "globalHost",
+            entityId: TRASH_ONLY_HOST_ID,
+            label: "trashed-only",
+            isDeleted: true,
+          },
+        ],
+        { projectionOnly: "fixture plants a trashed join row without its event" },
+      );
+
+      const live = await resolve({ includeDeleted: false });
+      expect(live?.globalHostIds?.get("globalHost") ?? []).not.toContain(TRASH_ONLY_HOST_ID);
+      const withTrash = await resolve({ includeDeleted: true });
+      expect(withTrash?.globalHostIds?.get("globalHost")).toContain(TRASH_ONLY_HOST_ID);
+    });
   });
 
   test("the trash list shows a deleted join row on a soft-deleted global host", async () => {

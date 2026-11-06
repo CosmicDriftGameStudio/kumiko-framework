@@ -4,8 +4,8 @@ import { createEntity, createTextField } from "../../engine/factories.ts";
 import { combineClauses, from } from "../../engine/ownership.ts";
 import type { SessionUser } from "../../engine/types/index.ts";
 
-import { buildParentRefClause } from "../parent-ref-clause.ts";
-import { buildEntityTable } from "../table-builder.ts";
+import { buildParentRefClause, buildParentRefGate } from "../parent-ref-clause.ts";
+import { buildEntityTable, declareSystemRowsReadable } from "../table-builder.ts";
 import type { TenantDb } from "../tenant-db.ts";
 
 const TENANT = "11111111-1111-4111-8111-111111111111";
@@ -261,6 +261,75 @@ describe("buildParentRefClause on a global host", () => {
     const clause = buildWithIds(new Map([["global-host", globalHost]]), undefined, systemDb);
     if (clause.kind !== "sql") throw new Error(`expected sql, got ${clause.kind}`);
     expect(clause.sqlText).toContain('EXISTS (SELECT 1 FROM "read_test_global_hosts"');
+  });
+
+  test("a global host marked systemRowsReadable keeps its EXISTS arm under the tenant scope", () => {
+    const readableHost = createEntity({
+      table: "read_test_readable_global_hosts",
+      tenancy: "global",
+      systemRowsReadable: true,
+      fields: { ownerId: textField() },
+    });
+    const clause = buildWithIds(new Map([["readable-host", readableHost]]), undefined);
+    if (clause.kind !== "sql") throw new Error(`expected sql, got ${clause.kind}`);
+    expect(clause.sqlText).toContain('EXISTS (SELECT 1 FROM "read_test_readable_global_hosts"');
+  });
+
+  test("a global host classified only on its registry table (reference data) keeps its EXISTS arm", () => {
+    const registryTable = buildEntityTable("reference-host", globalHost);
+    declareSystemRowsReadable(registryTable);
+    const clause = buildParentRefClause(
+      joinEntity,
+      joinTable,
+      "read_test_joins",
+      user,
+      tenantDb,
+      { entities: new Map([["reference-host", globalHost]]), resolveTable: () => registryTable },
+      {},
+    );
+    if (clause.kind !== "sql") throw new Error(`expected sql, got ${clause.kind}`);
+    expect(clause.sqlText).toContain('EXISTS (SELECT 1 FROM "read_test_global_hosts"');
+  });
+
+  test("the host check skips readable hosts and hosts whose access.read is a where-rule", () => {
+    const whereHost = createEntity({
+      table: "read_test_where_global_hosts",
+      tenancy: "global",
+      fields: { ownerId: textField() },
+      access: {
+        read: {
+          TenantMember: {
+            kind: "where",
+            where: (_user, ctx) => ({
+              sqlText: `${ctx.tableName}.owner_id = $${ctx.paramStart}`,
+              params: ["x"],
+            }),
+          },
+        },
+      },
+    });
+    const readableHost = createEntity({
+      table: "read_test_readable_global_hosts",
+      tenancy: "global",
+      systemRowsReadable: true,
+      fields: { ownerId: textField() },
+    });
+    const hostCheck = (entities: ReadonlyMap<string, EntityDefinition>) =>
+      buildParentRefGate(
+        joinEntity,
+        joinTable,
+        "read_test_joins",
+        user,
+        tenantDb,
+        { entities },
+        {},
+        "globalHostsOnly",
+      );
+
+    expect(hostCheck(new Map([["where-host", whereHost]]))).toEqual({ kind: "empty" });
+    expect(hostCheck(new Map([["readable-host", readableHost]]))).toEqual({ kind: "empty" });
+    const plain = hostCheck(new Map([["global-host", globalHost]]));
+    expect(plain.kind).toBe("sql");
   });
 
   test("a tenant host next to a resolved global host binds the shared parameters with its own arm", () => {
