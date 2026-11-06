@@ -482,7 +482,7 @@ type ListEmptyStateSpec = { // Replacement for the default "no rows" box of a li
   description?: string;
   action?: RowAction;
 };
-type ListRowDecoration = { // Computed fields for the loaded rows: one `query` call per list answer with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`.
+type ListRowDecoration = { // Computed fields for the loaded rows: `query` calls with `{ ...params, ids }`, answering `{ rows: [{ id, ...fields }] }`.
   query: string;
   params?: Readonly<Record<string, unknown>>;
 };
