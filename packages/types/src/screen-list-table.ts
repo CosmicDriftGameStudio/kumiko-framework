@@ -31,6 +31,24 @@ export type ListToolbarActionsPlacement = (typeof LIST_TOOLBAR_ACTIONS_PLACEMENT
 export const LIST_NARROW_FACETS = ["pills"] as const;
 export type ListNarrowFacets = (typeof LIST_NARROW_FACETS)[number];
 export const LIST_TABLE_SUMMARY_ROW_KEYS = ["query", "params"] as const;
+
+export type ListPayloadCapabilities = {
+  readonly searchable: boolean;
+  readonly filters: boolean;
+  readonly namedFilters: boolean;
+  readonly screenFilter: boolean;
+};
+
+// The optional list-query keys a list screen sends for what it declares, in one place so the boot
+// validator (summary-row schema check) and the renderer's payload tests agree on them.
+export function listPayloadKeysSent(capabilities: ListPayloadCapabilities): readonly string[] {
+  return [
+    ...(capabilities.searchable ? ["search"] : []),
+    ...(capabilities.filters ? ["filters"] : []),
+    ...(capabilities.namedFilters ? ["namedFilter"] : []),
+    ...(capabilities.screenFilter ? ["filter"] : []),
+  ];
+}
 export const LIST_TABLE_GROUPING_KEYS = [
   "field",
   "label",

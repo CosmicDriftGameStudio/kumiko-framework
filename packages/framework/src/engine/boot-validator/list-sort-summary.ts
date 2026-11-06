@@ -1,8 +1,10 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
-import type {
-  EntityListScreenDefinition,
-  ListTableSummaryRow,
-  ProjectionListScreenDefinition,
+import {
+  type EntityListScreenDefinition,
+  type ListPayloadCapabilities,
+  type ListTableSummaryRow,
+  listPayloadKeysSent,
+  type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-types/screen";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { FeatureDefinition } from "../types/index.ts";
@@ -44,10 +46,10 @@ export function rejectSummaryRowOnRelatedList(where: string, table: unknown): vo
 
 type ListScreen = EntityListScreenDefinition | ProjectionListScreenDefinition;
 
-function entityListKeysSent(
+function entityListCapabilities(
   feature: FeatureDefinition,
   screen: EntityListScreenDefinition,
-): readonly string[] {
+): Pick<ListPayloadCapabilities, "searchable" | "filters"> {
   const entity = feature.entities?.[screen.entity];
   const searchable =
     screen.searchable ??
@@ -59,16 +61,18 @@ function entityListKeysSent(
     hasFilterableFields(feature, screen.entity) ||
     screen.defaultFilters !== undefined ||
     hasRangeFacet;
-  return [...(searchable ? ["search"] : []), ...(filters ? ["filters"] : [])];
+  return { searchable, filters };
 }
 
-function projectionListKeysSent(
+function projectionListCapabilities(
   screen: ProjectionListScreenDefinition,
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
-): readonly string[] {
+): Pick<ListPayloadCapabilities, "searchable" | "filters"> {
   const listSchema = queryHandlers.get(screen.query)?.schema;
-  const searchable = screen.searchable !== false && schemaAccepts(listSchema, "search");
-  return [...(searchable ? ["search"] : []), ...(screen.facets !== undefined ? ["filters"] : [])];
+  return {
+    searchable: screen.searchable !== false && schemaAccepts(listSchema, "search"),
+    filters: screen.facets !== undefined,
+  };
 }
 
 // The keys the list sends for what the screen declares (mirrors the renderer); the summary query
@@ -78,15 +82,15 @@ function listKeysSentBy(
   screen: ListScreen,
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
 ): readonly string[] {
-  const own = [
-    ...(screen.namedFilters !== undefined ? ["namedFilter"] : []),
-    ...(screen.filter !== undefined ? ["filter"] : []),
-  ];
   const derived =
     screen.type === "entityList"
-      ? entityListKeysSent(feature, screen)
-      : projectionListKeysSent(screen, queryHandlers);
-  return [...derived, ...own];
+      ? entityListCapabilities(feature, screen)
+      : projectionListCapabilities(screen, queryHandlers);
+  return listPayloadKeysSent({
+    ...derived,
+    namedFilters: screen.namedFilters !== undefined,
+    screenFilter: screen.filter !== undefined,
+  });
 }
 
 function validateSummaryRowQuery(
