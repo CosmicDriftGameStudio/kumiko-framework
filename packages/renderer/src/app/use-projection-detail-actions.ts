@@ -197,9 +197,10 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     (
       actions: readonly RowAction[],
       item: Readonly<Record<string, unknown>>,
-    ): readonly RenderEditAction[] | undefined =>
-      buildRecordActions({
-        actions,
+    ): readonly RenderEditAction[] | undefined => {
+      const shownRecordId = effectiveEntityId ?? stringId(detailQuery.data?.["id"]);
+      return buildRecordActions({
+        actions: omitActionsDefaultingToShownRecordId(actions, shownRecordId),
         record: item,
         translate: effectiveTranslate,
         nav,
@@ -210,8 +211,9 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
         onRecordLeft: handleRecordLeft,
         sameEntityScreenId,
         clientActions,
-        defaultWritePayloadId: effectiveEntityId ?? stringId(detailQuery.data?.["id"]),
-      }),
+        defaultWritePayloadId: shownRecordId,
+      });
+    },
     [
       detailQuery.data,
       effectiveEntityId,
@@ -260,6 +262,23 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     sameEntityScreenId,
   ]);
   return { buildSectionActions, buildItemActions, headerActions };
+}
+
+// Without a shown record id, a payload-less write or client action would fall back to the guidance item's own id (a step key, not a record id).
+export function omitActionsDefaultingToShownRecordId(
+  actions: readonly RowAction[],
+  shownRecordId: string | undefined,
+): readonly RowAction[] {
+  if (shownRecordId !== undefined) return actions;
+  return actions.filter(
+    (action) =>
+      !(
+        (action.kind === undefined ||
+          action.kind === "writeHandler" ||
+          action.kind === "clientAction") &&
+        action.payload === undefined
+      ),
+  );
 }
 
 function stringId(value: unknown): string | undefined {

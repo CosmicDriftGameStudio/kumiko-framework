@@ -2,7 +2,7 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { DashboardScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import type { Dispatcher } from "../../headless/index.ts";
+import { type Dispatcher, EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
 import {
   AppFeaturesProvider,
@@ -669,6 +669,35 @@ describe("dashboard list columns", () => {
     expect(screen.getByText("50%")).toBeTruthy();
     const badge = screen.getByText("Failed");
     expect(badge.className).toContain("bg-status-bad-surface");
+  });
+
+  test("emptyPlaceholder false leaves an empty cell blank, the default draws the placeholder", async () => {
+    renderDashboard(
+      {
+        id: "lists",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "list",
+            id: "notes",
+            label: "demo:notes",
+            query: "demo:query:notes:list",
+            columns: [
+              { field: "name", label: "demo:col-name" },
+              { field: "note", label: "demo:col-note", emptyPlaceholder: false },
+              { field: "other", label: "demo:col-other" },
+            ],
+          },
+        ],
+      },
+      {
+        "demo:query:notes:list": () =>
+          ok({ rows: [{ id: "n1", name: "Nightly", note: "", other: "" }], nextCursor: null }),
+      },
+    );
+    await waitFor(() => expect(screen.getByText("Nightly")).toBeTruthy());
+    const placeholders = screen.getAllByText(EMPTY_VALUE_PLACEHOLDER);
+    expect(placeholders).toHaveLength(1);
   });
 
   test("button columns draw the cell link as a button and showHeader false drops the header row", async () => {

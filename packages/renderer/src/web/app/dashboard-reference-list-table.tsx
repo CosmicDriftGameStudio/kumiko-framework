@@ -44,6 +44,7 @@ function toReferenceViewColumn(
     refEntity: target.entityName,
     refFeature: target.featureName,
     refLabelField: column.reference.refLabelField ?? "id",
+    ...(column.emptyPlaceholder !== undefined && { emptyPlaceholder: column.emptyPlaceholder }),
   };
 }
 

@@ -66,6 +66,33 @@ describe("DataTableCell display", () => {
     expect(screen.queryByText("open")).toBeNull();
   });
 
+  test("badge of a column with a lookup renderer or FormatSpec shows the rendered text, not the raw value", () => {
+    const { unmount } = render(
+      <DataTableCell
+        value="uuid-1"
+        row={{}}
+        field="owner"
+        type="string"
+        renderer={(value: unknown) => (value === "uuid-1" ? "Ada Lovelace" : "?")}
+        display="badge"
+      />,
+    );
+    expect(screen.getByText("Ada Lovelace")).toBeTruthy();
+    expect(screen.queryByText("uuid-1")).toBeNull();
+    unmount();
+    render(
+      <DataTableCell
+        value="2026-03-04"
+        row={{}}
+        field="due"
+        type="string"
+        renderer={{ format: "date", locale: "en-US", dateStyle: "long" }}
+        display="badge"
+      />,
+    );
+    expect(screen.getByText("March 4, 2026")).toBeTruthy();
+  });
+
   test("button draws a linked value as an outline button, not as a text link", () => {
     render(
       <DataTableCell

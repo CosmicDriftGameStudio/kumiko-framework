@@ -33,10 +33,13 @@ export function DrawerSheetContent({
       <SheetPrimitive.Overlay
         data-slot="sheet-overlay"
         style={overlayStyle}
+        onClick={(event) => event.stopPropagation()}
         className="fixed inset-0 z-50 bg-black/50 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
       />
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        // The portal escapes the DOM tree, not the fiber tree: without this a click in the drawer reaches an ancestor's onClick (e.g. the table row it was opened from).
+        onClick={(event) => event.stopPropagation()}
         className={cn(
           "fixed z-50 flex flex-col gap-4 bg-background shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:animate-in data-[state=open]:duration-500",
           side === "right" &&

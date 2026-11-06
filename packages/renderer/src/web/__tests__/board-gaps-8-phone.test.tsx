@@ -9,6 +9,7 @@ import {
   restoreViewportWidthAfterEach,
   screen,
   setViewportWidth,
+  within,
 } from "./test-utils.tsx";
 
 const { DataTable } = defaultPrimitives;
@@ -158,5 +159,27 @@ describe("steps panel board look", () => {
     expect(screen.getByText("Prepare").parentElement?.className).toContain("text-[12.5px]");
     expect(screen.getByTestId("record-step-a").querySelector("[aria-expanded]")).not.toBeNull();
     expect(screen.getByTestId("record-step-b").querySelector("[aria-expanded]")).toBeNull();
+  });
+
+  test("below sm further step actions stay reachable in their own row under the detail", () => {
+    setViewportWidth(500);
+    render(
+      <DefaultRecordSteps
+        title="Steps"
+        emptyLabel="none"
+        reasonLabel="Why"
+        items={[
+          {
+            id: "a",
+            title: "Step",
+            moreActions: <button type="button">Prepare</button>,
+          },
+        ]}
+        testId="s"
+      />,
+    );
+    const more = screen.getByTestId("record-step-a-more-actions");
+    expect(within(more).getByText("Prepare")).toBeTruthy();
+    expect(more.className).not.toContain("hidden");
   });
 });

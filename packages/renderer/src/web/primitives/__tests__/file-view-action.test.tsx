@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { DataTable } from "../../__tests__/_primitives-helpers.tsx";
 import { render } from "../../__tests__/test-utils.tsx";
 import { DataTableCell } from "../data-table-cell.tsx";
 import { clearFileMetaCache } from "../file-thumbnail.tsx";
@@ -56,6 +57,31 @@ describe("file cell viewInDrawer", () => {
     expect(screen.queryByTestId(`file-view-drawer-${PDF_ID}`)).toBeNull();
     fireEvent.click(viewButton);
     await waitFor(() => expect(screen.getByTestId(`file-view-drawer-${PDF_ID}`)).toBeTruthy());
+  });
+
+  test("View and the drawer's controls do not open the clicked row", async () => {
+    const onRowClick = mock();
+    render(
+      <DataTable
+        columns={[
+          { field: "name", label: "Name", type: "string" as const, sortable: false },
+          {
+            field: "file",
+            label: "File",
+            type: "file" as const,
+            sortable: false,
+            fileDisplay: { kind: "file", viewInDrawer: true },
+          },
+        ]}
+        rows={[{ id: "r1", values: { name: "Doc", file: PDF_ID } }]}
+        onRowClick={onRowClick}
+        testId="t"
+      />,
+    );
+    fireEvent.click(await screen.findByTestId(`file-view-${PDF_ID}`));
+    const drawer = await screen.findByTestId(`file-view-drawer-${PDF_ID}`);
+    fireEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    expect(onRowClick).not.toHaveBeenCalled();
   });
 
   test("a non-PDF row has no View action, and all rows share one meta request", async () => {
