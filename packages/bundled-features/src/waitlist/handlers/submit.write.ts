@@ -12,8 +12,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { sendBestEffort } from "../../shared/index.ts";
-import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
+import { normalizeEmail, sendBestEffort } from "../../shared/index.ts";
+import { platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
 import {
   resolveWaitlistMailLocale,
   waitlistAdminNoticeVariables,

@@ -6,6 +6,8 @@
 export const PWA_CACHE_NAME_PREFIX = "kumiko-pwa-";
 
 // Cache names before scoping were `kumiko-pwa-<16hex>`; kept only so an update drops those precaches once.
+// The pattern also matches the precache of another app on the same origin that still runs an old
+// framework version; accepted, because that app only has to precache again.
 const UNSCOPED_CACHE_NAME_PATTERN = /^kumiko-pwa-[0-9a-f]{16}$/;
 
 export type PwaServiceWorkerScriptInput = {

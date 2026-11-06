@@ -17,7 +17,6 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   acknowledgedSystemDb,
   decryptStoredPii,
-  normalizeEmail,
   runBestEffort as runSharedBestEffort,
   sendBestEffort as sendSharedBestEffort,
 } from "../shared/index.ts";
@@ -90,8 +89,6 @@ export function listRepliesOf(db: TenantDb, requestId: string) {
     ),
   );
 }
-
-export { normalizeEmail };
 
 export function helpdeskDb(ctx: Pick<AppContext, "systemDb">): TenantDb {
   return acknowledgedSystemDb(ctx, "helpdesk", HELPDESK_CROSS_TENANT_REASON);

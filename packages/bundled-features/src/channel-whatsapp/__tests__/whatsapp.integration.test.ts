@@ -303,7 +303,7 @@ describe("inbound messages", () => {
     expect(await statusEvents("wamid.PARTIAL-BROKEN", "failed")).toHaveLength(0);
   });
 
-  test("an oversized wamid or phone number id is skipped, an absurd timestamp falls back, long media fields are clipped, and the rest of the delivery is stored", async () => {
+  test("an oversized wamid or phone number id is skipped, an absurd timestamp falls back, an oversized media id is dropped while the mime type is clipped, and the rest of the delivery is stored", async () => {
     const longWamid = `wamid.${"X".repeat(300)}`;
     const res = await post(
       metaWebhookPayload({
@@ -332,7 +332,7 @@ describe("inbound messages", () => {
     expect(await messageEvents(longWamid)).toHaveLength(0);
     expect(await messageEvents("wamid.HUGETS1")).toHaveLength(1);
     const media = payloadRecord((await messageEvents("wamid.LONGMEDIA1"))[0]);
-    expect(media["mediaId"]).toBe("M".repeat(256));
+    expect(media["mediaId"]).toBeNull();
     expect(String(media["mimeType"])).toHaveLength(255);
 
     const oversizedPhone = await post(

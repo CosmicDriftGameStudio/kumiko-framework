@@ -118,6 +118,11 @@ function optionalClip(value: string | undefined, maxChars: number): string | nul
   return value === undefined ? null : clip(value, maxChars);
 }
 
+// A truncated id would point at another object, so an oversized one is dropped, not clipped.
+function optionalId(value: string | undefined): string | null {
+  return value === undefined || value.length > WAMID_MAX_CHARS ? null : value;
+}
+
 function buttonContentOf(message: MetaMessage): MessageContent | null {
   const reply = message.interactive?.button_reply;
   if (message.type === "interactive" && reply) {
@@ -147,7 +152,7 @@ function mediaContentOf(message: MetaMessage): MessageContent | null {
   return {
     ...NO_CONTENT,
     messageType: message.type,
-    mediaId: optionalClip(media.id, WAMID_MAX_CHARS),
+    mediaId: optionalId(media.id),
     mimeType: optionalClip(media.mime_type, MIME_TYPE_MAX_CHARS),
   };
 }
@@ -183,7 +188,7 @@ function normalizeMessage(
     wamid: message.id,
     from,
     timestampIso: toIso(message.timestamp, nowIso),
-    contextWamid: optionalClip(message.context?.id, WAMID_MAX_CHARS),
+    contextWamid: optionalId(message.context?.id),
     ...contentOf(message),
   };
 }

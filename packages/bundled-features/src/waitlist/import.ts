@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.ts";
+import { normalizeEmail } from "../shared/index.ts";
+import { platformActor, waitlistExecutor } from "./lib.ts";
 import { WAITLIST_FIELD_LIMITS, type WaitlistStatus } from "./web/constants.ts";
 
 export type WaitlistImportEntry = {

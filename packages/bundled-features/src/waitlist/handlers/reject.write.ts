@@ -12,6 +12,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { normalizeEmail } from "../../shared/index.ts";
 import {
   cancelPendingInvitation,
   INVITATION_STATUS,
@@ -21,7 +22,6 @@ import { isOpenWaitlistStatus } from "../entity.ts";
 import {
   adminAccess,
   isTenantMember,
-  normalizeEmail,
   platformActor,
   waitlistDb,
   waitlistExecutor,

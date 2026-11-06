@@ -5,8 +5,10 @@
 
 import type { SignatureExtraRouteDeps } from "@cosmicdrift/kumiko-framework/api";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import type { FrameworkErrorCode } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { isTakeoverWindowOver } from "./backfill-checkout-ledger.ts";
 import {
   LEDGER_BACKFILL_MARKER_HANDLER_QN,
@@ -15,6 +17,13 @@ import {
 import { hasLegacyTenantBinding } from "./webhook-events.ts";
 
 const log = createFallbackLogger("subscription-paddle");
+
+// A retry cannot fix these: the marker handler is missing, disabled or not permitted.
+const MARKER_CONFIGURATION_ERROR_CODES = [
+  "access_denied",
+  "not_found",
+  "feature_disabled",
+] as const satisfies readonly FrameworkErrorCode[];
 
 type IgnoredEvent = Parameters<typeof hasLegacyTenantBinding>[0];
 
@@ -31,12 +40,16 @@ export async function shouldRedeliverLegacyCheckout(args: {
     roles: [],
     payload: { markCompleted: false },
   });
-  // tenantBinding is client-settable, so a failing marker read must not turn into endless 503s.
   if (!marker.isSuccess) {
-    log.warn("ledger backfill marker unreadable, not redelivering", {
-      errorCode: marker.error.code,
-    });
-    return false;
+    // tenantBinding is client-settable, so a permanent failure must not turn into endless 503s.
+    if (isOneOf(MARKER_CONFIGURATION_ERROR_CODES, marker.error.code)) {
+      log.warn("ledger backfill marker not readable, not redelivering", {
+        errorCode: marker.error.code,
+      });
+      return false;
+    }
+    // Transient or internal: Paddle redelivers only a bounded number of times, so retrying is safe.
+    return true;
   }
   const { completedAt } = marker.data as LedgerBackfillMarkerResult; // @cast-boundary engine-payload
   if (completedAt === null) return true;
