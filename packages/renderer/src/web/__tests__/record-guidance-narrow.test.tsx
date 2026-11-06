@@ -95,6 +95,17 @@ describe("record guidance on a phone", () => {
     await waitFor(() => expect(screen.getByText("1 more step")).toBeTruthy());
   });
 
+  test("narrowMoreLabel is the plural base key of the toggle of the rest", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDetail(
+      detailScreen({
+        steps: { field: "steps", narrowLimit: 4, narrowMoreLabel: "app.steps.more" },
+      }),
+    );
+    // Keys without a bundle entry come back as the key itself: the toggle proves which key was asked.
+    await waitFor(() => expect(screen.getByText("app.steps.more.one")).toBeTruthy());
+  });
+
   test("all steps show on a wide screen", async () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDetail(detailScreen({ steps: { field: "steps", narrowLimit: 3 } }));

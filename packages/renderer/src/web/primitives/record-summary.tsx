@@ -23,12 +23,12 @@ export function DefaultRecordSummary({
   const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
   const narrow = useIsBelowSmViewport();
   return (
-    <div className={cn("shrink-0", !insideScreenFormColumn && "px-6 py-2")}>
+    <div className={cn("shrink-0", !insideScreenFormColumn && "px-6 py-2 max-sm:px-4")}>
       <p
         data-testid={testId}
         data-tone={tone}
         className={cn(
-          "m-0 rounded-md border border-l-[3px] bg-card px-4 py-3 font-heading text-[15.5px] leading-[1.5] sm:text-[17px] sm:leading-relaxed text-foreground",
+          "m-0 rounded-lg border border-l-[3px] bg-card px-3.5 py-2.5 sm:px-[18px] sm:py-3.5 font-heading text-[15px] leading-[1.5] sm:text-[17px] sm:leading-relaxed text-foreground",
           tone === undefined ? "border-l-primary" : SUMMARY_BORDER_CLASS[tone],
         )}
       >

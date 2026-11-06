@@ -229,7 +229,7 @@ function StatVariantCell({
     return <StatBoxCell {...boxCell} />;
   }
   const { narrowLabel: _narrow, ...tileCell } = cell;
-  return variant === "strip" ? <StatStripCell {...tileCell} /> : <StatCard {...tileCell} />;
+  return variant === "strip" ? <StatStripCell {...tileCell} /> : <StatCard {...tileCell} inset />;
 }
 
 function statValueText(

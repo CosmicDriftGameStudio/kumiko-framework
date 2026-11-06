@@ -463,7 +463,7 @@ test.describe("mobile", () => {
     await openDashboard(page);
     // Two-column phone grid width, so the delta badge competes with the label.
     await page
-      .locator("div.p-4", { hasText: "Restschuld heute" })
+      .getByTestId("dashboard-panel-debt")
       .evaluate((card) => card.style.setProperty("width", "165px"));
     await shot(page, "dashboard-statcard-narrow-mobile");
   });

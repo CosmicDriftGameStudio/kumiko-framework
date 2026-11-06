@@ -109,7 +109,7 @@ export function DashboardListCell({
     const atMs =
       typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
     if (!Number.isFinite(atMs)) return EMPTY_VALUE_PLACEHOLDER;
-    return <span className="tabular-nums">{formatDateTime(atMs)}</span>;
+    return <span className="font-mono text-[12.5px] tabular-nums">{formatDateTime(atMs)}</span>;
   }
   if (column.display === "button") {
     const link = column.linkFor?.(raw, row);
@@ -242,7 +242,11 @@ export function DashboardListTable({
           <thead>
             <tr className="h-9 border-b border-border-row text-left text-xs text-muted-foreground">
               {columns.map((column) => (
-                <th key={column.field} scope="col" className="px-4 font-medium">
+                <th
+                  key={column.field}
+                  scope="col"
+                  className={cn("px-4 font-medium", column.display === "button" && "text-right")}
+                >
                   {column.label}
                 </th>
               ))}
@@ -297,7 +301,14 @@ export function DashboardListTable({
                     />
                   );
                   return (
-                    <td key={column.field} className={cn("px-4", !showHeader && "max-sm:block")}>
+                    <td
+                      key={column.field}
+                      className={cn(
+                        "px-4",
+                        column.display === "button" && "text-right",
+                        !showHeader && "max-sm:block",
+                      )}
+                    >
                       {column.hint === undefined && dot !== null && columnIndex === 0 ? (
                         <span className="flex items-center gap-2">
                           {dot}

@@ -251,6 +251,24 @@ function checkRowDecorationQueryRef(
   });
 }
 
+function checkEmptyStateParamsQueryRefs(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screen: Extract<ScreenDefinition, { readonly type: "projectionList" | "entityList" }>,
+): void {
+  for (const ref of screen.namedFilters ?? []) {
+    const query = ref.emptyState?.paramsQuery;
+    if (query === undefined) continue;
+    checkQueryRef(
+      queryHandlers,
+      query,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) namedFilters "${ref.id}" emptyState.paramsQuery`,
+    );
+  }
+}
+
 function checkToolbarVisibleWhenQueryRefs(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -298,9 +316,11 @@ function checkScreenQueryRefs(
     );
     checkToolbarVisibleWhenQueryRefs(queryHandlers, featureName, screenId, screen);
     checkRowDecorationQueryRef(queryHandlers, featureName, screenId, screen);
+    checkEmptyStateParamsQueryRefs(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "entityList") {
     checkToolbarVisibleWhenQueryRefs(queryHandlers, featureName, screenId, screen);
     checkRowDecorationQueryRef(queryHandlers, featureName, screenId, screen);
+    checkEmptyStateParamsQueryRefs(queryHandlers, featureName, screenId, screen);
     if (screen.expandableRow !== undefined) {
       checkQueryRef(
         queryHandlers,

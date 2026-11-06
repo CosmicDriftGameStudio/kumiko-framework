@@ -18,6 +18,8 @@ export type DataTableFacet = {
   readonly showCounts?: boolean;
   /** Chips only: hide chips whose `count` is 0 (unless pressed). */
   readonly hideEmpty?: boolean;
+  /** Below `sm` the facet opens behind the filter icon next to the search field instead of standing as a pill. */
+  readonly narrowPlacement?: "behind-filter";
   /** Present: the options come from a server-side search (reference facets), so the dropdown
    *  shows a search field and reports the typed term instead of filtering `options` itself. */
   readonly onSearchChange?: (query: string) => void;
@@ -31,6 +33,8 @@ export type DataTableFacetChip = {
   readonly label: string;
   /** Selection a click sets; `[]` clears the facet. */
   readonly values: readonly string[];
+  /** Select display: a divider line follows this chip. */
+  readonly separatorAfter?: boolean;
   /** Matching row count, undefined while unknown. */
   readonly count?: number;
 };

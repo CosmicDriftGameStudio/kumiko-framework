@@ -77,6 +77,7 @@ export function SortOptionsSelect({
     <div
       className={cn(
         "relative flex h-9 items-center gap-1.5 rounded-md text-[13px] text-foreground-secondary focus-within:ring-1 focus-within:ring-ring",
+        summary !== undefined && !bordered && "h-6 text-xs text-muted-foreground",
         bordered && "rounded-md border border-border-strong bg-background px-2.5 text-foreground",
         className,
       )}

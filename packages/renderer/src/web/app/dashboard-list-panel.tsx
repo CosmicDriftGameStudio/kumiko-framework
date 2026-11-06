@@ -256,7 +256,7 @@ function NarrowCardsPanel({
         {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
       />
       {footerLink !== undefined && (
-        <footer className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+        <footer className="flex flex-wrap items-center gap-x-1 text-[12.5px] text-muted-foreground">
           <ListFooter link={footerLink} data={data} narrow translate={translate} />
         </footer>
       )}

@@ -116,9 +116,21 @@ function validateNamedFilterOptions(where: string, screen: RowGuidanceScreen): v
     });
   }
   for (const ref of screen.namedFilters ?? []) {
-    if (ref.emptyState !== undefined && ref.emptyState.title.trim().length === 0) {
+    const { emptyState } = ref;
+    if (emptyState === undefined) continue;
+    if (emptyState.title.trim().length === 0) {
       throw bootRuleError(NAMED_FILTER_RULES.emptyStateTitleEmpty, {
         message: `${where} namedFilters "${ref.id}" sets emptyState with an empty title. Name the i18n key or remove emptyState.`,
+      });
+    }
+    if (emptyState.paramsQuery !== undefined && emptyState.paramsQuery.trim().length === 0) {
+      throw bootRuleError(NAMED_FILTER_RULES.emptyStateParamsQueryEmpty, {
+        message: `${where} namedFilters "${ref.id}" sets emptyState.paramsQuery to an empty string. Name the query or remove paramsQuery.`,
+      });
+    }
+    if (emptyState.paramsQuery !== undefined && emptyState.description === undefined) {
+      throw bootRuleError(NAMED_FILTER_RULES.emptyStateParamsQueryWithoutDescription, {
+        message: `${where} namedFilters "${ref.id}" sets emptyState.paramsQuery without a description — the params only feed the description. Set description or remove paramsQuery.`,
       });
     }
   }

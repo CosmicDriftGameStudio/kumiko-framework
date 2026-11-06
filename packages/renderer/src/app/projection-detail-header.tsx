@@ -124,7 +124,7 @@ export function renderRecordTitleBlock(
     </>
   );
   return FillContainer !== undefined ? (
-    <FillContainer className="flex flex-col gap-1 px-6 pt-2">{block}</FillContainer>
+    <FillContainer className="flex flex-col gap-1 px-6 pt-2 max-sm:px-4">{block}</FillContainer>
   ) : (
     block
   );
@@ -141,6 +141,11 @@ function renderSubtitleParts(model: DetailHeaderModel, subtitleParts: SubtitlePa
           {index > 0 && (
             <Text variant="muted" decorative>
               {" · "}
+            </Text>
+          )}
+          {part.prefix !== undefined && (
+            <Text testId={`kumiko-screen-projection-detail-subtitle-${part.field}-prefix`}>
+              {`${part.prefix} `}
             </Text>
           )}
           {part.href !== undefined ? (
@@ -301,6 +306,7 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const tiles = screen.metricsStyle === "tiles";
     const tone = metricTone(metric, record, rawValue);
     const sub = metricSubline(metric.subField, record);
+    const narrowSub = metricSubline(metric.subFieldNarrow, record);
     const testId = `kumiko-screen-projection-detail-metric-${field}`;
     const onPress = metricPressHandler(model, metric);
     const item =
@@ -315,6 +321,7 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
           {...(tone !== undefined && { tone })}
           {...(metric.icon !== undefined && { icon: metric.icon })}
           {...(sub !== undefined && { sub })}
+          {...(narrowSub !== undefined && { narrowSub })}
         />
       ) : (
         <GridCell key={field}>

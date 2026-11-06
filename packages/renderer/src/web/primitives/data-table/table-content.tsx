@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.ts";
 import { InfiniteSentinel, Pager } from "../pager.tsx";
-import { CARD_SURFACE_CLASS, isInsideCardFrame } from "./card-frame.ts";
+import { CARD_SURFACE_CLASS, hasSeparateCardRows, isInsideCardFrame } from "./card-frame.ts";
 import { renderCardsView } from "./card-view.tsx";
 import { renderEmptyBlock } from "./row-render-parts.tsx";
 import { DataTableFooter } from "./table-footer.tsx";
@@ -13,7 +13,7 @@ import type { DataTableModel } from "./use-data-table-state.ts";
 // Except total === 0: then there is nothing to paginate. Incompatible with
 // infinite scroll: the caller sets either pager OR onReachEnd.
 function renderPager(m: DataTableModel): ReactNode {
-  const { pager, serverGroups, itemNoun, testId } = m;
+  const { pager, serverGroups, testId } = m;
   if (pager === undefined || !(pager.total > 0) || serverGroups !== undefined) return undefined;
   return (
     <Pager
@@ -23,9 +23,9 @@ function renderPager(m: DataTableModel): ReactNode {
       onPageChange={pager.onPageChange}
       {...(pager.pageSizeOptions !== undefined && { pageSizeOptions: pager.pageSizeOptions })}
       {...(pager.onPageSizeChange !== undefined && { onPageSizeChange: pager.onPageSizeChange })}
-      {...(itemNoun !== undefined && { itemNoun })}
       testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
       pinned={m.fillsHeight || isInsideCardFrame(m)}
+      plain={m.isNarrow && hasSeparateCardRows(m)}
     />
   );
 }

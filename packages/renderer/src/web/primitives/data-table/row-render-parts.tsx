@@ -73,8 +73,8 @@ export function renderEmptyBlock(m: DataTableModel): ReactNode {
     <div
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
       className={cn(
-        "flex flex-col items-center justify-center p-12 text-sm text-muted-foreground gap-3",
-        chromeless !== true && !fillsHeight && "rounded-md border border-dashed",
+        "flex flex-col items-center justify-center gap-3 px-6 py-10 text-[13px] text-muted-foreground",
+        chromeless !== true && !fillsHeight && "rounded-md border border-border-row",
       )}
     >
       {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}

@@ -158,7 +158,7 @@ describe("bootstrap admin seed", () => {
     });
     expect(requested.status).toBe(200);
     const mail = emailTransport.sent.find((sent) => sent.to === CREATOR_EMAIL);
-    const token = mail?.text?.match(/\?token=([^&\s]+)/)?.[1];
+    const token = mail?.text?.match(/\?token=([^&\s\]]+)/)?.[1];
     if (token === undefined) throw new Error("reset mail with token missing");
 
     const reset = await stack.http.raw("POST", "/api/auth/reset-password", {
@@ -178,7 +178,7 @@ describe("bootstrap admin seed", () => {
     await stack.http.raw("POST", "/api/auth/request-password-reset", { email: CREATOR_EMAIL });
     const token = emailTransport.sent
       .find((sent) => sent.to === CREATOR_EMAIL)
-      ?.text?.match(/\?token=([^&\s]+)/)?.[1];
+      ?.text?.match(/\?token=([^&\s\]]+)/)?.[1];
     if (token === undefined) throw new Error("reset mail with token missing");
     await stack.http.raw("POST", "/api/auth/reset-password", {
       token: decodeURIComponent(token),

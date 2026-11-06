@@ -18,7 +18,7 @@ export function DefaultRecordBreadcrumb({
       data-testid={testId}
       className={cn(
         "flex shrink-0 flex-wrap items-center gap-2 text-[13px] text-muted-foreground",
-        !insideScreenFormColumn && "px-6 pt-3.5",
+        !insideScreenFormColumn && "px-6 pt-3.5 max-sm:px-4",
       )}
     >
       {items.map((item, index) => (

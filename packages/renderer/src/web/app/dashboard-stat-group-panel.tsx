@@ -16,6 +16,7 @@ import {
   useUserRoles,
 } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import "../react-css-custom-properties.ts";
 import { STAT_CARD_GRID_CLASSES } from "../widgets/stat.tsx";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
 import { StatPanelBody } from "./dashboard-panels.tsx";
@@ -40,11 +41,11 @@ const STAT_CARD_COLUMN_CLASSES = {
 
 // Literal class strings: Tailwind only emits classes it can read in the source.
 const PHONE_STRIP_TONE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
-  accent: "max-sm:border-primary/30 max-sm:bg-primary/10",
-  ok: "max-sm:border-status-ok/30 max-sm:bg-status-ok-surface",
-  warn: "max-sm:border-status-warn/30 max-sm:bg-status-warn-surface",
-  bad: "max-sm:border-status-bad/30 max-sm:bg-status-bad-surface",
-  critical: "max-sm:border-status-critical/30 max-sm:bg-status-critical-surface",
+  accent: "max-sm:border-transparent max-sm:bg-primary/10",
+  ok: "max-sm:border-transparent max-sm:bg-status-ok-surface",
+  warn: "max-sm:border-transparent max-sm:bg-status-warn-surface",
+  bad: "max-sm:border-transparent max-sm:bg-status-bad-surface",
+  critical: "max-sm:border-transparent max-sm:bg-status-critical-surface",
   neutral: "",
 };
 
@@ -149,8 +150,13 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
     <div
       data-testid={`dashboard-panel-${panel.id}`}
       data-narrow-tone={panel.narrow?.tone}
+      style={{ "--stat-count": panel.stats.length }}
       className={cn(
-        "relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-3 max-sm:items-baseline max-sm:gap-x-2 max-sm:overflow-hidden max-sm:py-2",
+        // Board grid: title column, one equal column per stat, link column.
+        panel.link === undefined
+          ? "sm:[grid-template-columns:190px_repeat(var(--stat-count),minmax(0,1fr))]"
+          : "sm:[grid-template-columns:190px_repeat(var(--stat-count),minmax(0,1fr))_auto]",
+        "relative flex items-center gap-x-4 rounded-lg border border-border bg-card px-4 py-3 shadow-[var(--card-shadow)] sm:grid sm:gap-x-3 max-sm:items-baseline max-sm:gap-x-2 max-sm:overflow-hidden max-sm:py-2 max-sm:font-medium",
         panel.narrow?.tone !== undefined && PHONE_STRIP_TONE_CLASS[panel.narrow.tone],
       )}
     >
@@ -163,7 +169,7 @@ function TitledStatStrip(props: StatGroupProps & { readonly label: string }): Re
           <p className="text-xs text-muted-foreground max-sm:hidden">{translate(panel.subtitle)}</p>
         )}
       </div>
-      <div className="flex min-w-0 items-stretch gap-3 max-sm:block max-sm:grow max-sm:truncate max-sm:text-sm">
+      <div className="flex min-w-0 items-stretch gap-3 sm:contents max-sm:block max-sm:grow max-sm:truncate max-sm:text-sm">
         {panel.stats.map((stat) => (
           <div
             key={stat.id}

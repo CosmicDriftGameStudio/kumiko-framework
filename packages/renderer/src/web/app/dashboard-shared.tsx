@@ -22,6 +22,7 @@ import {
   useTranslation,
 } from "../../index.ts";
 import { serverNowMs } from "../../server-clock.ts";
+import { cn } from "../lib/cn.ts";
 import { resolveSafeLocale } from "../primitives/locale-number.ts";
 import { formatMoney } from "../primitives/money-input.tsx";
 import { Skeleton } from "../ui/skeleton.tsx";
@@ -226,20 +227,22 @@ export function PanelShell({
   return (
     <section
       data-testid={testId}
-      className="flex h-full flex-col rounded-lg border border-border bg-card text-card-foreground"
+      className="flex h-full flex-col rounded-lg border border-border bg-card text-card-foreground shadow-[var(--card-shadow)]"
     >
       {(title !== undefined || action !== undefined) && (
-        <header className="flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border-row px-4 py-2">
-          <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3">
+        <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-2 px-4 pt-3.5">
+          <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2.5">
             {title !== undefined && <h2 className="text-sm font-semibold break-words">{title}</h2>}
-            {subtitle !== undefined && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+            {subtitle !== undefined && (
+              <p className="text-[12.5px] text-muted-foreground">{subtitle}</p>
+            )}
           </div>
           {action !== undefined && <div className="shrink-0">{action}</div>}
         </header>
       )}
-      <div className="grow p-4">{children}</div>
+      <div className={cn("grow px-4 pt-3", footer === undefined && "pb-4")}>{children}</div>
       {footer !== undefined && (
-        <footer className="flex shrink-0 flex-wrap items-center gap-x-1 border-t border-border-row px-4 py-2 text-xs text-muted-foreground">
+        <footer className="mx-4 mb-4 mt-2.5 flex shrink-0 flex-wrap items-center gap-x-1 border-t border-border-row pt-2.5 text-[12.5px] text-muted-foreground">
           {footer}
         </footer>
       )}

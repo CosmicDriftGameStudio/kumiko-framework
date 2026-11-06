@@ -3,10 +3,11 @@ import type { MetricBandProps, MetricProps } from "../../index.ts";
 import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
 import { StatCard } from "../widgets/stat.tsx";
+import { useIsBelowSmViewport } from "./use-narrow-viewport.ts";
 
 // Two tiles per row on phones, then the dashboard stat-group fill.
 const METRIC_TILE_GRID_CLASSES =
-  "grid grid-cols-2 gap-3 md:grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))]";
+  "grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))]";
 
 const InsideMetricBandContext = createContext(false);
 
@@ -27,7 +28,10 @@ export function DefaultMetricBand({
   const hasMetrics = Children.toArray(children).length > 0;
   return (
     <div
-      className={cn("flex shrink-0 flex-col gap-3", !insideScreenFormColumn && "px-6 pb-4 pt-3.5")}
+      className={cn(
+        "flex shrink-0 flex-col gap-3",
+        !insideScreenFormColumn && "px-6 pb-4 pt-3.5 max-sm:px-4",
+      )}
       data-testid={testId}
     >
       {lead !== undefined && <div data-kumiko-layout="metric-band-lead">{lead}</div>}
@@ -48,12 +52,24 @@ export function DefaultMetricBand({
   );
 }
 
-function MetricTile({ label, value, testId, onPress, tone, icon, sub }: MetricProps): ReactNode {
+// Below sm the narrow sub line replaces the regular one (board phone metrics are shorter).
+function useMetricSub({ sub, narrowSub }: MetricProps): string | undefined {
+  const narrow = useIsBelowSmViewport();
+  return narrow && narrowSub !== undefined ? narrowSub : sub;
+}
+
+function MetricTile(props: MetricProps): ReactNode {
+  const { label, value, testId, onPress, tone, icon } = props;
+  const sub = useMetricSub(props);
+  const narrow = useIsBelowSmViewport();
+  // The phone's short sub line ("of 2,850") stands beside the value like the board; the full one sits below.
+  const subBeside = narrow && props.narrowSub !== undefined;
   const card = (
     <StatCard
       label={label}
       value={value}
-      {...(sub !== undefined && { sub })}
+      boardPadding
+      {...(sub !== undefined && { sub, subBelow: !subBeside })}
       {...(onPress !== undefined && { navigable: true })}
       {...(icon !== undefined && { icon: <Icon name={icon} className="size-4" /> })}
       {...(tone !== undefined && { tone })}
@@ -71,8 +87,9 @@ function MetricTile({ label, value, testId, onPress, tone, icon, sub }: MetricPr
 
 export function DefaultMetric(props: MetricProps): ReactNode {
   const insideBand = useContext(InsideMetricBandContext);
+  const sub = useMetricSub(props);
   if (props.tile === true) return <MetricTile {...props} />;
-  const { label, value, testId, onPress, sub } = props;
+  const { label, value, testId, onPress } = props;
   const item = (
     <div
       data-testid={testId}

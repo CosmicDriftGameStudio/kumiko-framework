@@ -7,7 +7,8 @@ import "../../react-css-custom-properties.ts";
 
 export const ACTIONS_CONTENT_ATTRIBUTE = "data-actions-content";
 
-export function stickyActionsCellClass(fillsHeight: boolean): string {
+export function stickyActionsCellClass(fillsHeight: boolean, inFooter = false): string {
+  if (inFooter) return "md:sticky md:right-0 md:z-10 md:bg-muted";
   return cn("md:sticky md:right-0 md:z-10", fillsHeight ? "md:bg-card" : "md:bg-background");
 }
 

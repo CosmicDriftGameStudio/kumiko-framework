@@ -426,3 +426,107 @@ describe("StepList selection", () => {
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 });
+
+const planSteps: readonly StepListItem[] = [
+  { id: "case", title: "Vorgang anlegen", description: "Küche tropft", status: "open" },
+  {
+    id: "order",
+    title: "Auftrag an Sanitär",
+    status: "open",
+    tags: [{ label: "mittel", tone: "warn", side: true }],
+    link: { label: "Vorschau", onClick: () => {} },
+  },
+  { id: "done", title: "Erledigt", status: "done" },
+];
+
+function CompactPlan({
+  onReviewEach,
+}: {
+  readonly onReviewEach: (ids: readonly string[]) => void;
+}): ReactNode {
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  return (
+    <StepList
+      title="Plan"
+      steps={planSteps}
+      progress="total"
+      footerNote="Nichts wird ohne dich gespeichert."
+      selection={{
+        compact: true,
+        selectedIds,
+        onSelectionChange: setSelectedIds,
+        actions: [
+          {
+            id: "approve",
+            label: "freigeben",
+            variant: "primary",
+            labelForCount: (count) => `${count} Schritte freigeben`,
+            onClick: onAccept,
+          },
+          { id: "each", label: "Einzeln prüfen", ignoresSelection: true, onClick: onReviewEach },
+        ],
+      }}
+    />
+  );
+}
+
+describe("StepList compact selection", () => {
+  afterEach(() => onAccept.mockClear());
+
+  test("compact leaves out the select-all row and swaps the status icon of selectable rows for the checkbox", () => {
+    render(<CompactPlan onReviewEach={() => {}} />);
+    expect(screen.queryByTestId("step-list-select-all")).toBeNull();
+    const row = screen.getByTestId("step-case");
+    expect(within(row).queryByRole("img")).toBeNull();
+    expect(within(row).getByRole("checkbox")).toBeTruthy();
+    expect(within(screen.getByTestId("step-done")).getByRole("img")).toBeTruthy();
+  });
+
+  test("selection actions stay visible at 0 and a labelForCount action is disabled there", () => {
+    render(<CompactPlan onReviewEach={() => {}} />);
+    const approve = screen.getByTestId("step-action-approve") as HTMLButtonElement;
+    expect(approve.textContent).toBe("0 Schritte freigeben");
+    expect(approve.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select “Vorgang anlegen”" }));
+    expect(approve.textContent).toBe("1 Schritte freigeben");
+    expect(approve.disabled).toBe(false);
+    fireEvent.click(approve);
+    expect(onAccept).toHaveBeenCalledWith(["case"]);
+  });
+
+  test("an ignoresSelection action is always enabled, has no counter and still gets the selection", () => {
+    const onReviewEach = mock((_ids: readonly string[]) => {});
+    render(<CompactPlan onReviewEach={onReviewEach} />);
+    const each = screen.getByTestId("step-action-each") as HTMLButtonElement;
+    expect(each.textContent).toBe("Einzeln prüfen");
+    expect(each.disabled).toBe(false);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select “Vorgang anlegen”" }));
+    fireEvent.click(each);
+    expect(onReviewEach).toHaveBeenCalledWith(["case"]);
+  });
+
+  test("a side tag sits in the right column above the trailing link; the header shows the step total and the note closes the card", () => {
+    render(<CompactPlan onReviewEach={() => {}} />);
+    const side = screen.getByTestId("step-order-side");
+    expect(within(side).getByText("mittel")).toBeTruthy();
+    expect(within(side).getByText("Vorschau")).toBeTruthy();
+    expect(within(screen.getByTestId("step-order")).getAllByText("mittel")).toHaveLength(1);
+    expect(screen.getByTestId("step-list-progress").textContent).toBe("3 steps");
+    expect(screen.getByTestId("step-list-note").textContent).toBe(
+      "Nichts wird ohne dich gespeichert.",
+    );
+  });
+});
+
+describe("StepList compact plan card look", () => {
+  test("board sizes: 18px checkbox, dotless 11px risk chip, small footer buttons", () => {
+    render(<CompactPlan onReviewEach={() => {}} />);
+    const box = within(screen.getByTestId("step-case")).getByRole("checkbox");
+    expect(box.className).toContain("size-[18px]");
+    const chip = within(screen.getByTestId("step-order-side")).getByText("mittel")
+      .parentElement as HTMLElement;
+    expect(chip.className).toContain("text-[11px]");
+    expect(chip.querySelector("[data-status-dot]")).toBeNull();
+    expect(screen.getByTestId("step-action-approve").className).toContain("h-[26px]");
+  });
+});

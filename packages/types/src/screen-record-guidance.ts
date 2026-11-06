@@ -75,6 +75,8 @@ export type RecordStepsSpec = {
   readonly emptyLabel?: string;
   /** Below `sm` only the first n steps show; the rest sits behind a "k more steps" toggle. */
   readonly narrowLimit?: number;
+  /** Plural base key for the toggle of the hidden rest: define `<key>.one` and `<key>.other` (the latter with `{count}`). Default `kumiko.detail.steps.more`. */
+  readonly narrowMoreLabel?: string;
   readonly actions?: readonly RecordGuidanceAction[];
 };
 

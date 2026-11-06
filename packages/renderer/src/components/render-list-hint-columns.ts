@@ -78,6 +78,20 @@ export function withNarrowOnlyColumns(
   );
 }
 
+export function withNarrowInlineColumns(
+  columns: readonly ListColumnViewModel[],
+  screen: EntityListScreenDefinition,
+): readonly ListColumnViewModel[] {
+  const inline = new Set(
+    screen.columns.flatMap((spec) => {
+      const column = normalizeListColumn(spec);
+      return column.narrowInline === true ? [column.field] : [];
+    }),
+  );
+  if (inline.size === 0) return columns;
+  return columns.map((col) => (inline.has(col.field) ? { ...col, narrowInline: true } : col));
+}
+
 // The hint cell owns its rendering: DataTableCell ignores the column's renderer and links once a hint is set.
 export function withHintColumns(
   columns: readonly ListColumnViewModel[],

@@ -107,7 +107,7 @@ describe("DataTable row tone", () => {
       />,
     );
     const row = container.querySelector('tr[data-tone="bad"]');
-    expect(row?.className).toContain("inset_3px_0_0_var(--row-stripe)");
+    expect(row?.className).toContain("inset_4px_0_0_var(--row-stripe)");
     expect(row?.className).toContain("[--row-stripe:var(--color-status-bad)]");
     expect(row?.className).not.toContain("bg-status-bad");
   });
@@ -127,14 +127,14 @@ describe("DataTable row tone", () => {
     expect(cell.className).not.toContain("color-mix");
   });
 
-  test("a neutral tone draws no stripe", () => {
+  test("a neutral tone draws no table stripe, a neutral card a grey one", () => {
     expect(rowToneClass("neutral")).toBe("");
-    expect(cardToneClass("neutral")).toBe("");
+    expect(cardToneClass("neutral")).toContain("before:bg-border-strong");
     expect(rowToneClass(undefined)).toBe("");
   });
 
   test("cards use a real left border in the tone color", () => {
-    expect(cardToneClass("warn")).toContain("border-l-[3px]");
-    expect(cardToneClass("warn")).toContain("border-l-status-warn");
+    expect(cardToneClass("warn")).toContain("before:w-1");
+    expect(cardToneClass("warn")).toContain("before:bg-status-warn");
   });
 });

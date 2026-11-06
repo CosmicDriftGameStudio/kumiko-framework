@@ -124,6 +124,43 @@ export function renderCardLinks(
   );
 }
 
+function renderMetaCell(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  col: ListColumnViewModel,
+): ReactNode {
+  return (
+    <div
+      key={col.field}
+      data-testid={cellTestIdOf(m, row, col.field)}
+      className="min-w-0 truncate leading-5"
+      onPointerEnter={showFullTextOnHover}
+    >
+      {isBadgeColumn(col) ? (
+        <span className="inline-flex align-middle">{cardCell(m, row, col)}</span>
+      ) : (
+        cardCell(m, row, col)
+      )}
+    </div>
+  );
+}
+
+type MetaLine = readonly ListColumnViewModel[];
+
+// A run of consecutive `narrowInline` columns shares one line; every other column has its own.
+function metaLinesOf(metaColumns: readonly ListColumnViewModel[]): readonly MetaLine[] {
+  const lines: ListColumnViewModel[][] = [];
+  let previousWasInline = false;
+  for (const col of metaColumns) {
+    const inline = col.narrowInline === true;
+    const last = lines[lines.length - 1];
+    if (inline && previousWasInline && last !== undefined) last.push(col);
+    else lines.push([col]);
+    previousWasInline = inline;
+  }
+  return lines;
+}
+
 function renderCardMeta(
   m: DataTableModel,
   row: ListRowViewModel,
@@ -136,21 +173,24 @@ function renderCardMeta(
         data-testid={`card-meta-${row.id}`}
         className="flex min-w-0 flex-col text-[13px] leading-5 tabular-nums text-foreground-secondary"
       >
-        {metaColumns.map((col) => (
-          <div key={col.field} className="flex h-5 min-w-0 max-w-full items-center">
+        {metaLinesOf(metaColumns).map((line) =>
+          line[0]?.narrowInline === true ? (
             <div
-              data-testid={cellTestIdOf(m, row, col.field)}
-              className="min-w-0 truncate leading-5"
-              onPointerEnter={showFullTextOnHover}
+              key={line.map((col) => col.field).join("|")}
+              data-testid={`card-vals-${row.id}-${line[0].field}`}
+              className="mt-1 flex h-5 min-w-0 max-w-full items-center gap-3 text-[12.5px]"
             >
-              {isBadgeColumn(col) ? (
-                <span className="inline-flex align-middle">{cardCell(m, row, col)}</span>
-              ) : (
-                cardCell(m, row, col)
-              )}
+              {line.map((col) => renderMetaCell(m, row, col))}
             </div>
-          </div>
-        ))}
+          ) : (
+            <div
+              key={line.map((col) => col.field).join("|")}
+              className="flex h-5 min-w-0 max-w-full items-center"
+            >
+              {line.map((col) => renderMetaCell(m, row, col))}
+            </div>
+          ),
+        )}
       </div>
     </div>
   );
@@ -163,7 +203,10 @@ function renderCardLead(
 ): ReactNode {
   if (lead === undefined || isEmptyCellValue(row.values[lead.field])) return null;
   return (
-    <div data-testid={cellTestIdOf(m, row, lead.field)} className="min-w-0 text-[13px] leading-5">
+    <div
+      data-testid={cellTestIdOf(m, row, lead.field)}
+      className="min-w-0 text-xs font-medium leading-5"
+    >
       {cardCell(m, row, lead)}
     </div>
   );
@@ -178,7 +221,7 @@ function renderCardHeading(m: DataTableModel, row: ListRowViewModel, roles: Card
       {cardTitleColumn !== undefined && (
         <span
           data-testid={cellTestIdOf(m, row, cardTitleColumn.field)}
-          className="min-w-0 truncate text-base font-semibold text-foreground"
+          className="min-w-0 truncate text-[14.5px] font-semibold text-foreground"
           onPointerEnter={showFullTextOnHover}
         >
           {cardCell(m, row, cardTitleColumn)}
@@ -220,7 +263,7 @@ export function renderCardBody(
         {metaColumns.length > 0 && renderCardMeta(m, row, metaColumns)}
       </div>
       {m.rowOpener(row) !== undefined && (
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <ChevronRight className="size-4 shrink-0 text-border-strong" aria-hidden="true" />
       )}
     </>
   );

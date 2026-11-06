@@ -1534,6 +1534,7 @@ type CardRoleColumn = {
   type?: string;
   renderer?: unknown;
   hideOnNarrow?: boolean;
+  narrowInline?: boolean;
   fileDisplay?: {
     kind: string;
   };
@@ -1678,6 +1679,21 @@ type ScreenTarget = {
 };
 ```
 
+## packages/renderer/src/card-options.ts
+
+```ts
+type CardOptions = { // Card-Options — Verhalten/Optik, ebenfalls additiv erweiterbar.
+  padded?: boolean; // Body-Padding (px-6 py-6).
+  radius?: "lg" | "xl"; // Eckenradius.
+  footerBordered?: boolean; // Separates the footer with `border-t` and `bg-muted/30`.
+  footerInset?: boolean; // Footer horizontal padding.
+  fillHeight?: boolean; // Joins the ancestor fillHeight flex chain — a tabs-mode relatedList table sizing to the panel instead of the page — instead of normal document-flow height.
+  framed?: boolean; // false drops border, background, shadow and radius but keeps padding and header slots — a panel inside a host surface such as a tab panel.
+  screenBody?: boolean; // The card is the whole screen body (secretMint reveal and done phase): no frame, the shared screen insets and width of form screens, children stacked with a gap.
+  headerLayout?: "stacked" | "inline"; // "inline": title and subtitle on one baseline row at 16px inset, compact padding (the board's side panel).
+};
+```
+
 ## packages/renderer/src/components/form-pending-uploads.tsx
 
 ```ts
@@ -1695,6 +1711,10 @@ type ListEmptyStateContent = {
 type NamedFilterEmptyContent = {
   title: string;
   description?: string;
+  describedByQuery?: {
+    query: string;
+    describe: (params: Readonly<Record<string, unknown>>) => string;
+  }; // The description needs params from a query; it renders only once the query returned an object.
   onReset: () => void;
 };
 ```
@@ -1826,6 +1846,7 @@ type DataTableFacet = {
   display?: "select"; // Chips only: "select" renders the chips as one single-choice dropdown instead of a row of toggles.
   showCounts?: boolean; // Chips only: show each chip's `count` next to its label.
   hideEmpty?: boolean; // Chips only: hide chips whose `count` is 0 (unless pressed).
+  narrowPlacement?: "behind-filter"; // Below `sm` the facet opens behind the filter icon next to the search field instead of standing as a pill.
   onSearchChange?: (query: string) => void; // Present: the options come from a server-side search (reference facets), so the dropdown shows a search field and reports the typed term instead of filtering `options` itself.
   searching?: boolean; // The search is loading; the option list may still show the previous term's rows.
 };
@@ -1833,6 +1854,7 @@ type DataTableFacetChip = {
   id: string;
   label: string; // Translated chip label.
   values: string[]; // Selection a click sets; `[]` clears the facet.
+  separatorAfter?: boolean; // Select display: a divider line follows this chip.
   count?: number; // Matching row count, undefined while unknown.
 };
 ```
@@ -2303,6 +2325,7 @@ type ListColumnViewModel = {
   highlighted?: boolean; // Set by the caller at runtime (not schema-derived) to emphasize one column — e.g. the currently selected base-year column in a multi-year statement grid.
   hideOnNarrow?: boolean; // Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column.
   showOnNarrowOnly?: boolean; // Mirrors `ListColumnSpec.showOnNarrowOnly`: the table layout skips the column.
+  narrowInline?: boolean; // Mirrors `ListColumnSpec.narrowInline`: the card draws consecutive such columns on one line.
   grouping?: boolean; // Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default `true`).
   fileDisplay?: ListColumnFileDisplay; // Set for file/image columns: from the entity field type, or from a `{ format: "image" | "file" }` renderer.
   hint?: ListColumnHintViewModel; // "To do" cell (`ListColumnSpec.hint`), `emptyLabel` already translated.
@@ -2348,6 +2371,7 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
   tone?: DashboardStatTone;
   icon?: NavIconKey;
   sub?: string; // Small muted line under the value (see `MetricSpec.subField`).
+  narrowSub?: string; // Replaces `sub` below `sm` (see `MetricSpec.subFieldNarrow`).
 };
 ```
 
@@ -2414,15 +2438,6 @@ type ButtonBaseProps = {
   icon?: NavIconKey; // Icon before the label.
   iconEnd?: NavIconKey; // Icon after the label (e.g. "Continue →").
   dataAttributes?: DataAttributes;
-};
-type CardOptions = { // Card-Options — Verhalten/Optik, ebenfalls additiv erweiterbar.
-  padded?: boolean; // Body-Padding (px-6 py-6).
-  radius?: "lg" | "xl"; // Eckenradius.
-  footerBordered?: boolean; // Separates the footer with `border-t` and `bg-muted/30`.
-  footerInset?: boolean; // Footer horizontal padding.
-  fillHeight?: boolean; // Joins the ancestor fillHeight flex chain — a tabs-mode relatedList table sizing to the panel instead of the page — instead of normal document-flow height.
-  framed?: boolean; // false drops border, background, shadow and radius but keeps padding and header slots — a panel inside a host surface such as a tab panel.
-  screenBody?: boolean; // The card is the whole screen body (secretMint reveal and done phase): no frame, the shared screen insets and width of form screens, children stacked with a gap.
 };
 type CardSlots = { // Card slots are named content regions, all optional.
   header?: ReactNode;
@@ -2716,6 +2731,12 @@ type DefaultAppShellUser = {
   id: string;
   roles: string[];
 };
+```
+
+## packages/renderer/src/web/layout/shell-style.tsx
+
+```ts
+type ShellNavStyle = "default" | "plain";
 ```
 
 ## packages/renderer/src/web/layout/sidebar-panel.tsx
@@ -4552,6 +4573,7 @@ type ListSortDir = "asc" | "desc";
 type NamedFilterFacetOptions = { // How the named filters appear in the toolbar: toggle chips (default) or one single-choice select.
   display?: "chips" | "select";
   showCounts?: boolean; // Ask the list query for each filter's hit count and show it next to the label.
+  narrowPlacement?: "behind-filter"; // "behind-filter": the select opens behind the filter icon next to the search field instead of standing as a pill.
   label?: string; // i18n key for the select's label, e.g. "To do".
 };
 type NamedListFilterCondition = {
@@ -4568,10 +4590,12 @@ type NamedListFilterRef = { // Screen-side reference to an entity-defined named 
   id: string;
   label: string;
   sort?: ListSortSpec; // Order while this filter is active and the URL carries no sort of its own; wins over `defaultSort`.
+  separatorAfter?: boolean; // Select display: draws a divider line below this entry in the dropdown.
   emptyState?: {
     title: string;
     description?: string;
-  }; // Shown instead of the generic "no matches" text when this filter yields an empty list and no search term is set; both are i18n keys.
+    paramsQuery?: string;
+  }; // Shown instead of the generic "no matches" text when this filter yields an empty list and no search term is set; `title` and `description` are i18n keys.
   roles?: string[]; // Set by the framework from the entity filter's role rule; the chip is offered only to users holding one of them.
 };
 type NamedListFilterScope = {
@@ -5011,6 +5035,7 @@ type EntityListFacetExtraOption = { // An extra choice on a facet next to the fi
   label: string; // i18n key.
   values: string[]; // Option values this choice selects; `[]` selects nothing, i.e. no filter.
   position?: "start" | "end"; // Where the chip sits relative to the field's own options.
+  separatorAfter?: boolean; // Draws a divider line below this choice in the select dropdown (e.g. after a "needs action" bundle).
 };
 type ListColumnDisplay = "bar" | "badge" | "datetime" | "button";
 type ListPaginationMode = "pages" | "infinite" | false;
@@ -5090,6 +5115,7 @@ type MetricSpec = {
   tone?: DashboardStatTone; // Tile color as on dashboard stat panels; not applied while the value is 0.
   toneField?: string; // Record field of the detail query holding a SelectOptionTone; a valid value overrides `tone`, also at value 0.
   subField?: string; // Record field of the detail query shown as a small line under the value; the value stays the number.
+  subFieldNarrow?: string; // Record field shown instead of `subField` below `sm` ("of 2,850 €" instead of "0 of 2,850.00 €").
   icon?: NavIconKey; // Icon chip of the tile; only drawn with `metricsStyle: "tiles"`.
   format?: FormatSpec; // Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value.
 };

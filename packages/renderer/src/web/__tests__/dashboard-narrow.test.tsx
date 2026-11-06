@@ -147,6 +147,19 @@ describe("dashboard panels on a phone", () => {
     expect(screen.getByText("Due 0")).toBeTruthy();
   });
 
+  test("a card without a tone next to toned cards keeps the grey stripe and the same inset", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(listPanel({ layout: "cards", limit: 2 })), {
+      "demo:query:task:list": () =>
+        ok({ rows: [{ ...ROWS[0], tone: undefined }, ROWS[1]], total: 2 }),
+    });
+    await waitFor(() => expect(screen.getAllByTestId("dashboard-list-card")).toHaveLength(2));
+    const [neutral, toned] = screen.getAllByTestId("dashboard-list-card");
+    expect(neutral?.className).toContain("before:bg-border-strong");
+    expect(neutral?.className).toContain("pl-6");
+    expect(toned?.className).toContain("pl-6");
+  });
+
   test("narrow without a layout defaults to cards", async () => {
     setViewportWidth(PHONE_WIDTH);
     renderDashboard(dashboardOf(listPanel({ limit: 2 })), {

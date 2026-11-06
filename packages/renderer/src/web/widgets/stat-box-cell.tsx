@@ -49,7 +49,7 @@ export function StatBoxCell({
       ) : (
         <div
           data-testid={testId}
-          className="flex min-w-0 items-center gap-3 rounded-md border border-border bg-background px-3 py-2"
+          className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5"
         >
           {icon}
           <span

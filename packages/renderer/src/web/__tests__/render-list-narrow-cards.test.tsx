@@ -74,7 +74,7 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("narrow viewport: rowTone draws the tone stripe only on matching cards", () => {
+  test("narrow viewport: rowTone draws the tone stripe, an untoned card in a toned list a grey one", () => {
     atViewportWidth(500, () => {
       const rows = [
         { id: "a1", values: { name: "A1", role: "late" } },
@@ -90,8 +90,21 @@ describe("DataTable — cards below 768px", () => {
       );
       const late = screen.getByTestId("row-a1");
       expect(late.getAttribute("data-tone")).toBe("bad");
-      expect(late.className).toContain("border-l-status-bad");
-      expect(screen.getByTestId("row-a2").getAttribute("data-tone")).toBeNull();
+      expect(late.className).toContain("before:bg-status-bad");
+      const neutral = screen.getByTestId("row-a2");
+      expect(neutral.getAttribute("data-tone")).toBeNull();
+      expect(neutral.className).toContain("before:bg-border-strong");
+      expect(neutral.className).toContain("pl-6");
+      expect(late.className).toContain("pl-6");
+    });
+  });
+
+  test("narrow viewport: a list without rowTone draws no stripe", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
+      const card = screen.getByTestId("row-u1");
+      expect(card.className).not.toContain("before:");
+      expect(card.className).not.toContain("pl-6");
     });
   });
 

@@ -34,6 +34,7 @@ export function AppShell({
     <WorkspaceShell
       brand={<Brand />}
       schema={schema}
+      navStyle="plain"
       topbarActions={
         <DefaultTopbarActions
           lightIcon={<Sun className="h-4 w-4" />}

@@ -117,6 +117,8 @@ export type ListColumnViewModel = {
   readonly hideOnNarrow?: boolean;
   /** Mirrors `ListColumnSpec.showOnNarrowOnly`: the table layout skips the column. */
   readonly showOnNarrowOnly?: boolean;
+  /** Mirrors `ListColumnSpec.narrowInline`: the card draws consecutive such columns on one line. */
+  readonly narrowInline?: boolean;
   /** Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default
    *  `true`). `false` renders without thousands-separators (e.g. a model
    *  year). */
