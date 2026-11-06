@@ -16,14 +16,14 @@ export const HINT_TONE_TEXT_CLASS: Readonly<Record<SelectOptionTone, string>> = 
 };
 
 /** Tone `neutral` dims the sentence like an empty label (muted, not bold); `plainSentence` opts out. */
-export function isDimmedHintSentence(
+function isDimmedHintSentence(
   tone: SelectOptionTone | undefined,
   plainSentence: boolean | undefined,
 ): boolean {
   return tone === "neutral" && plainSentence !== true;
 }
 
-export const DIMMED_HINT_SENTENCE_CLASS = "font-normal text-muted-foreground";
+const DIMMED_HINT_SENTENCE_CLASS = "font-normal text-muted-foreground";
 
 const OPEN_SENTENCE_CLASS =
   "min-w-0 cursor-pointer bg-transparent p-0 text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
@@ -43,12 +43,6 @@ function SentenceText({
       type="button"
       className={cn(OPEN_SENTENCE_CLASS, className)}
       onClick={(event) => {
-        event.stopPropagation();
-        onOpen();
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
         event.stopPropagation();
         onOpen();
       }}
@@ -102,12 +96,13 @@ function useHintReason(hint: ListColumnHintViewModel, row: Readonly<Record<strin
   };
 }
 
-function hintSentenceClass(tone: SelectOptionTone | undefined, plainSentence: boolean | undefined) {
+export function hintSentenceClass(
+  tone: SelectOptionTone | undefined,
+  plainSentence: boolean | undefined,
+  weight: "font-medium" | "font-semibold" = "font-medium",
+) {
   if (isDimmedHintSentence(tone, plainSentence)) return DIMMED_HINT_SENTENCE_CLASS;
-  return cn(
-    "font-medium",
-    plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone],
-  );
+  return cn(weight, plainSentence !== true && tone !== undefined && HINT_TONE_TEXT_CLASS[tone]);
 }
 
 /** "To do" cell: an emphasized sentence in the row tone with an optional muted second line. */

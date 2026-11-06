@@ -847,7 +847,7 @@ export type DataTableProps = {
    *  - `"inline"`: ALWAYS inline buttons, left-aligned, even with >2 (no
    *    kebab). Actions then sit at the same x-position across all rows
    *    (no drifting with label width) and all lists in an app look alike.
-   *  - `"menu"`: every action in the kebab, the row opener included; phone cards draw none. */
+   *  - `"menu"`: every action in the kebab, the row opener included; phone cards draw none when the row opens, a card without a row target keeps it. */
   readonly rowActionMode?: DataTableRowActionMode;
   /** Present: row checkboxes plus a selection bar that runs these actions once per selected row. */
   readonly bulk?: DataTableBulk;

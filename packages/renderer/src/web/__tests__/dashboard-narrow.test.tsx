@@ -633,6 +633,10 @@ describe("dashboard list reason box and badge dot", () => {
         { field: "state", display: "badge", ...(badgeDot ? {} : { badgeDot: false }) },
       ]);
     const rows = () => ok({ rows: [{ id: "r1", title: "Remind", state: "7 open" }], total: 1 });
+    renderDashboard(dashboardOf(badges(true)), { "demo:query:task:list": rows });
+    await screen.findByText("7 open");
+    expect(document.body.querySelector("[data-status-dot]")).not.toBeNull();
+    cleanup();
     renderDashboard(dashboardOf(badges(false)), { "demo:query:task:list": rows });
     await screen.findByText("7 open");
     expect(document.body.querySelector("[data-status-dot]")).toBeNull();

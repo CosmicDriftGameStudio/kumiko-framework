@@ -105,19 +105,18 @@ type StatPanelBodyProps = {
 };
 
 // Hidden before any query hook runs: the tile's own count query would be refused for this user.
-export function StatPanelBody(props: StatPanelBodyProps): ReactNode {
+export function useStatNavigateAllowed(): (panel: StatPanelBodyProps["panel"]) => boolean {
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
-  const { navigate } = props.panel;
-  if (
-    navigate !== undefined &&
-    !(
-      navigateTargetAllows({ screen: navigate.screen }, appFeatures, userRoles) &&
-      namedFilterNavigateAllows(navigate, appFeatures, userRoles)
-    )
-  ) {
-    return null;
-  }
+  return ({ navigate }) =>
+    navigate === undefined ||
+    (navigateTargetAllows({ screen: navigate.screen }, appFeatures, userRoles) &&
+      namedFilterNavigateAllows(navigate, appFeatures, userRoles));
+}
+
+export function StatPanelBody(props: StatPanelBodyProps): ReactNode {
+  const navigateAllowed = useStatNavigateAllowed();
+  if (!navigateAllowed(props.panel)) return null;
   return <StatPanelContent {...props} />;
 }
 

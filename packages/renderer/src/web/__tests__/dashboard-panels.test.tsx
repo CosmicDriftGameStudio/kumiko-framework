@@ -2231,6 +2231,62 @@ describe("dashboard board gaps: cards layout, subtitle fallback, gated tiles", (
   });
 });
 
+describe("dashboard titled stat strip with a gated tile", () => {
+  test("a tile the user may not open leaves no empty cell in the strip", async () => {
+    const gated: FeatureSchema = {
+      featureName: FEATURE,
+      entities: {},
+      screens: [
+        {
+          id: "demo:screen:secret",
+          type: "custom",
+          renderer: { react: "Secret" },
+          access: { roles: ["Admin"] },
+        },
+      ],
+    };
+    renderDashboard(
+      {
+        id: "gated-strip",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "stat-group",
+            id: "counts",
+            label: "demo:counts",
+            layout: "strip",
+            stats: [
+              {
+                kind: "stat",
+                id: "locked",
+                label: "demo:locked",
+                query: "demo:query:kpi:a",
+                valueField: "v",
+                navigate: { screen: "secret" },
+              },
+              {
+                kind: "stat",
+                id: "open",
+                label: "demo:open",
+                query: "demo:query:kpi:a",
+                valueField: "v",
+              },
+            ],
+          },
+        ],
+      },
+      { "demo:query:kpi:a": () => ok({ v: "7" }) },
+      { appFeatures: [gated] },
+    );
+    const group = await screen.findByTestId("dashboard-panel-counts");
+    await waitFor(() => expect(within(group).getByText("demo:open")).toBeTruthy());
+    expect(within(group).queryByText("demo:locked")).toBeNull();
+    const cells = group.querySelectorAll(".items-stretch > div");
+    expect(cells).toHaveLength(1);
+    expect(group.style.getPropertyValue("--stat-count")).toBe("1");
+  });
+});
+
 describe("dashboard stat-group strip with a group link and a navigating tile", () => {
   test("the tile with its own navigate sits above the group link's overlay", async () => {
     renderDashboard(

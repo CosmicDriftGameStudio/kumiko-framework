@@ -26,10 +26,9 @@ export const DEFAULT_LAYOUT_SLUG = "default" as const;
 
 export type TemplateEditorKind = "mail" | "document-pdf" | "mail-layout" | "pdf-layout";
 
-// Short screen id per template kind. A kind without an entry gets no "Edit" row action.
-// The mail editor adds `mail` here and declares its screen in this feature, because the
-// boot validator only accepts navigate targets in the same feature.
-export const TEMPLATE_EDITOR_SCREENS: Partial<Record<TemplateEditorKind, string>> = {
+// A kind without an entry gets no "Edit" row action. The screen must live in this feature,
+// because the boot validator only accepts navigate targets in the same feature.
+export const TEMPLATE_EDITOR_SCREENS: Readonly<Partial<Record<TemplateEditorKind, string>>> = {
   "document-pdf": PDF_TEMPLATE_EDITOR_SCREEN_ID,
   mail: MAIL_EDITOR_SCREEN_ID,
   "mail-layout": LAYOUT_EDITOR_SCREEN_ID,

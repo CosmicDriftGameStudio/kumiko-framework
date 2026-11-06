@@ -215,7 +215,7 @@ export type RowActionDisplay = "button" | "link" | "icon" | "responsive";
  *  stay inline. `"inline"`: every action inline, no kebab. `"menu"`: every
  *  action in the kebab menu at the row end, none inline, the row opener
  *  (`rowClick: true`) included as an entry, so every row has a kebab; phone
- *  cards draw no kebab. */
+ *  cards draw no kebab when the row opens, a card without a row target keeps it. */
 export type RowActionMode = "adaptive" | "inline" | "menu";
 
 // RowAction — per-row button/dropdown item that triggers a write handler
@@ -638,7 +638,7 @@ export type EntityListScreenDefinition = {
   readonly emptyState?: ListEmptyStateSpec;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
   readonly createLabel?: string;
-  /** "toolbar": from `sm` up the create button ends the filter row instead of standing in the header. Default "header". Needs a create button (no `allowCreate: false`). */
+  /** "toolbar": from `md` up (below md the compact header keeps its "+") the create button ends the filter row instead of standing in the header. Default "header". Needs a create button (no `allowCreate: false`). */
   readonly createPlacement?: "header" | "toolbar";
   /** From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable. */
   readonly toolbarSort?: true;
