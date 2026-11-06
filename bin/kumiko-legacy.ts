@@ -16,7 +16,7 @@ import {
   parseCliScope,
   registerLockCleanup,
 } from "./_lib/check-lock";
-import { type CheckPhase, parseCheckPhases } from "./_lib/check-phases";
+import { CHECK_PHASES, type CheckPhase, parseCheckPhases } from "./_lib/check-phases";
 import { decideGuardScanRoot } from "./_lib/guard-scan-root";
 
 // Fast checks are CPU-bound (tsc, ts-morph guards). A fixed pool=6 thrashes
@@ -603,7 +603,8 @@ const commands = {
         process.exit(1);
       }
       const workCtx = resolveCheckWorkContext(process.cwd(), REPO_ROOT);
-      const { lockDir, logPath, resultPath } = checkLockPaths(workCtx.cliScope);
+      const partialPhase = phases.size < CHECK_PHASES.length ? [...phases].join("-") : undefined;
+      const { lockDir, logPath, resultPath } = checkLockPaths(workCtx.cliScope, "", partialPhase);
 
       if (!acquireCheckLock(lockDir, logPath, resultPath)) {
         const code = await followCheck(lockDir, logPath, resultPath);

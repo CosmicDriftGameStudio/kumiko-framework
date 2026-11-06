@@ -77,7 +77,7 @@ jobs:
 
       # A Version PR merged while stale ships versions that predate changesets
       # already on main (0.343.0 without #3555, 0.345.0 without #3563). The
-      # stale flag is consumed by the `check` job and the required `test` job, which fail on it.
+      # stale flag is consumed by the `check` job, which fails on it; the required `test` job requires `check`.
       # This only covers the state at PR time: a changeset merged afterwards
       # leaves the green status standing, so the release job repeats the check
       # on the merge result before it publishes.
@@ -293,10 +293,8 @@ jobs:
         env:
           CHECK_RESULT: ${{ needs.check.result }}
           UNIT_DOM_RESULT: ${{ needs.unit-dom.result }}
-          VERSION_PR_STALE: ${{ needs.version-pr-gate.outputs.version_pr_stale }}
         run: |
-          echo "check: $CHECK_RESULT, unit-dom: $UNIT_DOM_RESULT, version_pr_stale: $VERSION_PR_STALE"
-          test "$VERSION_PR_STALE" != "true"
+          echo "check: $CHECK_RESULT, unit-dom: $UNIT_DOM_RESULT"
           test "$CHECK_RESULT" = "success"
           test "$UNIT_DOM_RESULT" = "success"
 
@@ -852,18 +850,12 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # continue-on-error: die Integration-Coverage-Pass ist selbst schon
         # continue-on-error — Artifact kann fehlen, coverage-badge.ts fällt
-        # dann auf Unit-only zurück statt zu crashen. One lcov per shard;
-        # the badge script merges every coverage/integration*/lcov.info.
+        # dann auf Unit-only zurück statt zu crashen. A pattern download extracts each
+        # shard to coverage/<artifact-name>/, which the badge script globs.
         continue-on-error: true
         with:
-          name: coverage-integration-1
-          path: coverage/integration-1
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        continue-on-error: true
-        with:
-          name: coverage-integration-2
-          path: coverage/integration-2
+          pattern: coverage-integration-*
+          path: coverage
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # continue-on-error: fehlt das Artefakt (alter Run vor dem dom-Split),

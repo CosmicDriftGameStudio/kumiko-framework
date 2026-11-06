@@ -17,9 +17,9 @@ async function parseLines(path: string): Promise<LineMap> {
   return parseLcovLines(await file.text(), (key) => isIgnoredCoverageFile(key, ignorePatterns));
 }
 
-// `coverage/integration` (single run) and `coverage/integration-<shard>` (one dir per shard).
+// `coverage/integration` (local run) and `coverage/coverage-integration-<shard>` (CI artifacts).
 const integrationLcovPaths: string[] = [];
-for await (const path of new Glob("coverage/integration*/lcov.info").scan(".")) {
+for await (const path of new Glob("coverage/*integration*/lcov.info").scan(".")) {
   integrationLcovPaths.push(path);
 }
 
