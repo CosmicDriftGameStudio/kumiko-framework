@@ -98,17 +98,18 @@ export async function runWithTestRun(run: () => Promise<number>): Promise<number
   const runId = createTestRunId();
   const redisUrl = process.env["REDIS_URL"] ?? SERVICE_ENV_DEFAULTS.REDIS_URL;
   const databaseUrl = process.env["TEST_DATABASE_URL"] ?? SERVICE_ENV_DEFAULTS.TEST_DATABASE_URL;
-  let alive: { readonly stop: () => void } | undefined;
-  try {
-    alive = await keepTestRunAlive(redisUrl, runId);
-  } catch (error) {
+  const alive = await keepTestRunAlive(redisUrl, runId);
+  if (alive.initialMarkError !== undefined) {
     // biome-ignore lint/suspicious/noConsole: runner output is the interface
-    console.warn(`kumiko-testing: could not mark test run ${runId} alive:`, error);
+    console.warn(
+      `kumiko-testing: could not mark test run ${runId} alive yet, retrying every minute:`,
+      alive.initialMarkError,
+    );
   }
   try {
     return await withEnv({ [TEST_DB_TEMPLATE_RUN_ENV]: runId, [TEST_RUN_ID_ENV]: runId }, run);
   } finally {
-    alive?.stop();
+    alive.stop();
     try {
       await sweepFinishedTestRuns({ runId, redisUrl, adminDatabaseUrl: adminUrlOf(databaseUrl) });
     } catch (error) {

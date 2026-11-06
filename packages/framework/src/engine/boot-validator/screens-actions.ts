@@ -187,7 +187,7 @@ export function validateRowActionNavigateParams(
 //
 // Registration check (not just "resolved is not undefined"): action.icon is
 // typed IconKey, a closed union — but that only protects call sites this
-// repo's own `tsc --build` actually covers (samples and external consumers
+// repo's own typecheck actually covers (samples and external consumers
 // aren't in that project graph). The renderer's actionIconFor
 // (renderer/src/web/primitives/index.tsx) already falls back to "no icon"
 // for an unregistered key instead of crashing — this check makes the same

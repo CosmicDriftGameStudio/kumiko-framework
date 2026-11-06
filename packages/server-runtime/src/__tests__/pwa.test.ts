@@ -262,6 +262,21 @@ describe("service worker — install and activate", () => {
     );
     expect(worker.calls.claim).toBe(1);
   });
+
+  test("activate drops the precache of the unscoped name format but keeps another scope's cache", async () => {
+    const shell = createPwaShell(pwa, build);
+    const worker = await serviceWorkerOf(shell);
+    const otherScopeCache = `${PWA_CACHE_NAME_PREFIX}${"f".repeat(8)}-${"0".repeat(16)}`;
+    expect(otherScopeCache.startsWith(shell.cacheName.slice(0, -16))).toBe(false);
+    worker.cacheStore.set(`${PWA_CACHE_NAME_PREFIX}0123456789abcdef`, new Map());
+    worker.cacheStore.set(otherScopeCache, new Map());
+    worker.cacheStore.set("other-library-cache", new Map());
+    await worker.install();
+    await worker.activate();
+    expect([...worker.cacheStore.keys()].sort()).toEqual(
+      [shell.cacheName, otherScopeCache, "other-library-cache"].sort(),
+    );
+  });
 });
 
 describe("service worker — fetch strategies", () => {

@@ -28,7 +28,7 @@ import { requiredKeysFromScreen, screenTitleKey } from "../../i18n/required-surf
 //
 // The import above is `import type`, erased at runtime — this file guards
 // the barrel at compile time only (tsc, via `check-wt.sh`/CI), not via
-// `bun test`. If a type export regresses, `tsc --build` fails; the runtime
+// `bun test`. If a type export regresses, the repo typecheck (`bun run typecheck`) fails; the runtime
 // assertions only cover requiredKeysFromScreen on the typed literals.
 describe("engine barrel exports the per-screen definition types", () => {
   test("ProjectionListScreenDefinition is assignable and feeds requiredKeysFromScreen", () => {

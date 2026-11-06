@@ -10,7 +10,7 @@
 // versa.
 //
 // Declared as a runtime tuple (not just a type) so callers that sit outside
-// this repo's `tsc --build` project graph (e.g. samples, external consumers
+// this repo's typecheck project graph (e.g. samples, external consumers
 // resolving from a stale published type) still get a runtime-checkable
 // vocabulary — the boot-validator's validateActionHasIcon checks a declared
 // icon against NAV_ICON_KEYS instead of trusting "not undefined".

@@ -7,9 +7,12 @@ import {
   type WhatsappStatusKind,
 } from "./constants.ts";
 import {
+  MIME_TYPE_MAX_CHARS,
+  PHONE_NUMBER_ID_MAX_CHARS,
   RAW_STATUS_MAX_CHARS,
   type ReceiveMessageInput,
   type RecordStatusInput,
+  WAMID_MAX_CHARS,
 } from "./events.ts";
 
 // Meta adds fields and message types without notice. Every nested object is `.catch(undefined)`,
@@ -75,9 +78,13 @@ const webhookSchema = z.object({
 export type NormalizedWebhook = {
   readonly messages: readonly ReceiveMessageInput[];
   readonly statuses: readonly RecordStatusInput[];
-  // Entries that carried no usable id, sender or phone number id; nothing a redelivery could fix.
+  // Entries that carried no usable id, sender or phone number id, or an id longer than the event
+  // schema allows; nothing a redelivery could fix.
   readonly skipped: number;
 };
+
+// Temporal.Instant throws beyond 8.64e15 epoch milliseconds.
+const MAX_EPOCH_SECONDS = 8.64e12;
 
 const DIGITS_PATTERN = /^\d{5,20}$/;
 
@@ -88,7 +95,10 @@ function toE164(raw: string): string | null {
 
 function toIso(unixSeconds: string | undefined, fallbackIso: string): string {
   const seconds = Number(unixSeconds);
-  return unixSeconds !== undefined && Number.isFinite(seconds) && seconds > 0
+  return unixSeconds !== undefined &&
+    Number.isFinite(seconds) &&
+    seconds > 0 &&
+    seconds <= MAX_EPOCH_SECONDS
     ? Temporal.Instant.fromEpochMilliseconds(Math.floor(seconds) * 1000).toString()
     : fallbackIso;
 }
@@ -137,8 +147,8 @@ function mediaContentOf(message: MetaMessage): MessageContent | null {
   return {
     ...NO_CONTENT,
     messageType: message.type,
-    mediaId: media.id ?? null,
-    mimeType: media.mime_type ?? null,
+    mediaId: optionalClip(media.id, WAMID_MAX_CHARS),
+    mimeType: optionalClip(media.mime_type, MIME_TYPE_MAX_CHARS),
   };
 }
 
@@ -163,6 +173,9 @@ function normalizeMessage(
   const parsed = messageSchema.safeParse(raw);
   if (!parsed.success) return null;
   const message = parsed.data;
+  if (message.id.length > WAMID_MAX_CHARS || phoneNumberId.length > PHONE_NUMBER_ID_MAX_CHARS) {
+    return null;
+  }
   const from = toE164(message.from);
   if (from === null) return null;
   return {
@@ -170,7 +183,7 @@ function normalizeMessage(
     wamid: message.id,
     from,
     timestampIso: toIso(message.timestamp, nowIso),
-    contextWamid: message.context?.id ?? null,
+    contextWamid: optionalClip(message.context?.id, WAMID_MAX_CHARS),
     ...contentOf(message),
   };
 }
@@ -187,6 +200,9 @@ function normalizeStatus(
   const parsed = statusSchema.safeParse(raw);
   if (!parsed.success) return null;
   const status: MetaStatus = parsed.data;
+  if (status.id.length > WAMID_MAX_CHARS || phoneNumberId.length > PHONE_NUMBER_ID_MAX_CHARS) {
+    return null;
+  }
   const recipient = toE164(status.recipient_id ?? "");
   if (recipient === null) return null;
   return {

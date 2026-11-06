@@ -152,6 +152,26 @@ describe("requests stored under the former contact names are covered by user dat
     expect(JSON.stringify(signedIn?.["replies"])).toContain("Answered before the rename");
   });
 
+  test("a request of another signed-in user with the same email is not the subject's, the anonymous one is", async () => {
+    await createFormerRequest(
+      { reporterUserId: crypto.randomUUID(), email: REPORTER_EMAIL },
+      "Filed by someone else signed in",
+    );
+    await createFormerRequest({ email: REPORTER_EMAIL }, "Filed anonymously");
+
+    const bundle = await runUserExport({
+      db: ctx.stack.db,
+      registry: ctx.stack.registry,
+      userId: reporter.id,
+      now: Temporal.Now.instant(),
+    });
+
+    const snippet = bundle.tenants
+      .flatMap((section) => section.entities)
+      .find((entity) => entity.entity === FORMER_REQUEST_ENTITY);
+    expect(snippet?.rows.map((row) => row["subject"])).toEqual(["Filed anonymously"]);
+  });
+
   test("forgetting the user removes the former requests and replies and keeps foreign ones", async () => {
     const requestId = await createFormerRequest(
       { reporterUserId: reporter.id, email: "other@example.com" },

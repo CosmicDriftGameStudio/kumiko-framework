@@ -17,6 +17,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer/web";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useState } from "react";
+import { fillDocumentVariables } from "./fill-document-variables.ts";
 import { TemplateResolverQueries } from "./qualified-names.ts";
 import { stringValuesOf } from "./string-values.ts";
 
@@ -117,9 +118,14 @@ export const WebPreviewRenderer: PreviewRenderer = ({
   variables,
 }: PreviewRendererProps): ReactNode => {
   const isDocument = editFormat === "document";
+  const examples = stringValuesOf(variables);
   return (
     <BodyPreviewFrame
-      body={isDocument ? content : substituteVariables(content, stringValuesOf(variables))}
+      body={
+        isDocument
+          ? fillDocumentVariables(content, examples)
+          : substituteVariables(content, examples)
+      }
       bodyFormat={isDocument ? "document" : "markdown"}
     />
   );

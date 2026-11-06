@@ -60,7 +60,7 @@ describe("validateActionHasIcon", () => {
   });
 
   // action.icon is typed IconKey (a closed union) — but that compile-time
-  // guarantee only covers call sites inside this repo's `tsc --build`
+  // guarantee only covers call sites inside this repo's typecheck
   // project graph. Samples and external consumers aren't in it, so an
   // unregistered literal (a typo, or a value copied from a different icon
   // set) can reach here as plain runtime data. The renderer's actionIconFor

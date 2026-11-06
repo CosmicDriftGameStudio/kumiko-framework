@@ -5,6 +5,9 @@
 // app's activation from deleting the precache of another app on the same origin.
 export const PWA_CACHE_NAME_PREFIX = "kumiko-pwa-";
 
+// Cache names before scoping were `kumiko-pwa-<16hex>`; kept only so an update drops those precaches once.
+const UNSCOPED_CACHE_NAME_PATTERN = /^kumiko-pwa-[0-9a-f]{16}$/;
+
 export type PwaServiceWorkerScriptInput = {
   readonly cacheName: string;
   readonly cacheScopePrefix: string;
@@ -59,7 +62,11 @@ async function deleteOldCaches() {
   const names = await caches.keys();
   await Promise.all(
     names
-      .filter((name) => name.startsWith(CACHE_SCOPE_PREFIX) && name !== CACHE_NAME)
+      .filter(
+        (name) =>
+          (name.startsWith(CACHE_SCOPE_PREFIX) || UNSCOPED_CACHE_NAME_PATTERN.test(name)) &&
+          name !== CACHE_NAME,
+      )
       .map((name) => caches.delete(name)),
   );
 }
@@ -122,6 +129,7 @@ export function buildPwaServiceWorkerScript(input: PwaServiceWorkerScriptInput):
   return [
     `const CACHE_SCOPE_PREFIX = ${JSON.stringify(input.cacheScopePrefix)};`,
     `const CACHE_NAME = ${JSON.stringify(input.cacheName)};`,
+    `const UNSCOPED_CACHE_NAME_PATTERN = ${UNSCOPED_CACHE_NAME_PATTERN.toString()};`,
     `const SHELL_URL = ${JSON.stringify(input.shellUrl)};`,
     `const SERVICE_WORKER_PATH = ${JSON.stringify(input.serviceWorkerPath)};`,
     `const PRECACHE_URLS = ${JSON.stringify(input.precacheUrls)};`,
