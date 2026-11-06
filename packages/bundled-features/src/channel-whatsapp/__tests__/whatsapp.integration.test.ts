@@ -514,6 +514,15 @@ describe("status callbacks", () => {
     expect(await statusEvents("wamid.ST3", "read")).toHaveLength(1);
   });
 
+  test("two concurrent deliveries of one status are stored once", async () => {
+    const payload = metaWebhookPayload({
+      phoneNumberId: PHONE_NUMBER_ID,
+      statuses: [metaStatus({ wamid: "wamid.ST6", status: "read", recipient: uniqueSender() })],
+    });
+    await Promise.all([post(payload), post(payload)]);
+    expect(await statusEvents("wamid.ST6", "read")).toHaveLength(1);
+  });
+
   test("an unexpected webhook shape is answered 200 and stores nothing", async () => {
     const res = await post({
       object: "whatsapp_business_account",
