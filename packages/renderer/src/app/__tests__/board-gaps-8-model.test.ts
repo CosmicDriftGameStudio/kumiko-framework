@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { buildFilterFacets, resolveProjectionFacetSpecs } from "../list-facets.ts";
 import { buildNamedFilterFacet } from "../named-filter-facet.ts";
 import type { NavApi } from "../nav.tsx";
 import { buildSubtitleParts } from "../projection-detail-navigation.ts";
@@ -30,6 +31,29 @@ describe("named filter separatorAfter and narrowPlacement", () => {
     const plain = buildNamedFilterFacet([OPEN], translate, [], { display: "select" });
     expect(placed?.narrowPlacement).toBe("behind-filter");
     expect(plain?.narrowPlacement).toBeUndefined();
+  });
+});
+
+describe("projection list facet narrowPlacement", () => {
+  test("a declared placement reaches the rendered facet, others stay inline", () => {
+    const specs = resolveProjectionFacetSpecs(
+      [
+        {
+          field: "status",
+          type: "select",
+          label: "Status",
+          narrowPlacement: "behind-filter",
+          options: [],
+        },
+        { field: "city", type: "select", label: "City", options: [] },
+      ],
+      translate,
+      "lease",
+    );
+    expect(buildFilterFacets(specs).map((facet) => facet.narrowPlacement)).toEqual([
+      "behind-filter",
+      undefined,
+    ]);
   });
 });
 

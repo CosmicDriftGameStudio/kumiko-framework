@@ -57,12 +57,16 @@ export type ListFacetSpec =
       readonly field: string;
       readonly type: "select";
       readonly label: string;
+      /** Below `sm` the facet opens behind the filter icon next to the search field. */
+      readonly narrowPlacement?: "behind-filter";
       readonly options: readonly { readonly value: string; readonly label: string }[];
     }
   | {
       readonly field: string;
       readonly type: "boolean";
       readonly label: string;
+      /** Below `sm` the facet opens behind the filter icon next to the search field. */
+      readonly narrowPlacement?: "behind-filter";
       readonly trueLabel: string;
       readonly falseLabel: string;
     }
@@ -70,6 +74,8 @@ export type ListFacetSpec =
       readonly field: string;
       readonly type: "reference";
       readonly label: string;
+      /** Below `sm` the facet opens behind the filter icon next to the search field. */
+      readonly narrowPlacement?: "behind-filter";
       /** Entity name (same feature) or `feature:entity` (cross-feature), same
        *  convention as `ListColumnSpec.refEntity`. Options load at render time. */
       readonly entity: string;

@@ -1070,12 +1070,14 @@ type ListFacetSpec =
     field: string;
     type: "select";
     label: string;
+    narrowPlacement?: "behind-filter"; // Below `sm` the facet opens behind the filter icon next to the search field.
     options: { value: string; label: string; }[];
   }
   | {
     field: string;
     type: "boolean";
     label: string;
+    narrowPlacement?: "behind-filter"; // Below `sm` the facet opens behind the filter icon next to the search field.
     trueLabel: string;
     falseLabel: string;
   }
@@ -1083,6 +1085,7 @@ type ListFacetSpec =
     field: string;
     type: "reference";
     label: string;
+    narrowPlacement?: "behind-filter"; // Below `sm` the facet opens behind the filter icon next to the search field.
     entity: string; // Entity name (same feature) or `feature:entity` (cross-feature), same convention as `ListColumnSpec.refEntity`.
     labelField?: string; // Row field on the referenced entity shown as the option label (default "id").
   }

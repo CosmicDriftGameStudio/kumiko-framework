@@ -4,6 +4,7 @@ import {
   CARD_META_MAX,
   cardColumnRoles,
   cardFileDisplayKind,
+  cardMetaLines,
 } from "../../ui-types/card-column-roles.ts";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
@@ -54,17 +55,19 @@ function countOverflow(
       type,
       renderer: col.renderer,
       hideOnNarrow: col.hideOnNarrow,
+      narrowInline: col.narrowInline,
       hint: col.hint,
       ...(fileKind !== undefined && { fileDisplay: { kind: fileKind } }),
     };
   });
   const { meta } = cardColumnRoles(cardColumns);
-  if (meta.length <= CARD_META_MAX) return undefined;
+  const lineCount = cardMetaLines(meta).length;
+  if (lineCount <= CARD_META_MAX) return undefined;
   return {
     feature: feature.name,
     screen,
     ...(location !== undefined && { location }),
-    count: meta.length,
+    count: lineCount,
     fields: meta.map((col) => col.field),
   };
 }
@@ -155,9 +158,9 @@ export function validateCardMetaOverflow(features: readonly FeatureDefinition[])
   if (overflows.length === 0) return;
   const lines = overflows.map(
     (o) =>
-      `  - Feature "${o.feature}" screen "${o.screen}"${o.location !== undefined ? ` ${o.location}` : ""}: ${o.count} meta columns (${o.fields.join(", ")})`,
+      `  - Feature "${o.feature}" screen "${o.screen}"${o.location !== undefined ? ` ${o.location}` : ""}: ${o.count} meta lines (${o.fields.join(", ")})`,
   );
   throw bootRuleError(CARD_META_OVERFLOW_RULES.overflow, {
-    message: `List cards show at most ${CARD_META_MAX} meta columns (all columns except title, status select and hideOnNarrow ones); more would be cut off on narrow screens:\n${lines.join("\n")}\nReduce each to ${CARD_META_MAX} columns or mark the others hideOnNarrow: true.`,
+    message: `List cards show at most ${CARD_META_MAX} meta lines (all columns except title, status select and hideOnNarrow ones, consecutive narrowInline columns sharing one line); more would be cut off on narrow screens:\n${lines.join("\n")}\nReduce each to ${CARD_META_MAX} lines or mark the other columns hideOnNarrow: true.`,
   });
 }

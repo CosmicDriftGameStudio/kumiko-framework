@@ -1,4 +1,4 @@
-import type { cardColumnRoles } from "@cosmicdrift/kumiko-framework/ui-types";
+import { type cardColumnRoles, cardMetaLines } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
@@ -148,22 +148,6 @@ function renderMetaCell(
   );
 }
 
-type MetaLine = readonly ListColumnViewModel[];
-
-// A run of consecutive `narrowInline` columns shares one line; every other column has its own.
-function metaLinesOf(metaColumns: readonly ListColumnViewModel[]): readonly MetaLine[] {
-  const lines: ListColumnViewModel[][] = [];
-  let previousWasInline = false;
-  for (const col of metaColumns) {
-    const inline = col.narrowInline === true;
-    const last = lines[lines.length - 1];
-    if (inline && previousWasInline && last !== undefined) last.push(col);
-    else lines.push([col]);
-    previousWasInline = inline;
-  }
-  return lines;
-}
-
 function renderCardMeta(
   m: DataTableModel,
   row: ListRowViewModel,
@@ -176,7 +160,7 @@ function renderCardMeta(
         data-testid={`card-meta-${row.id}`}
         className="flex min-w-0 flex-col text-[13px] leading-5 tabular-nums text-foreground-secondary"
       >
-        {metaLinesOf(metaColumns).map((line) =>
+        {cardMetaLines(metaColumns).map((line) =>
           line[0]?.narrowInline === true ? (
             <div
               key={line.map((col) => col.field).join("|")}

@@ -204,7 +204,7 @@ export type {
   QualifiedContentCollection,
   WorkspaceSchema,
 } from "./app-schema.ts";
-export { CARD_META_MAX, cardColumnRoles } from "./card-column-roles.ts";
+export { CARD_META_MAX, cardColumnRoles, cardMetaLines } from "./card-column-roles.ts";
 export { type Formality, formalLocaleTag } from "./formality.ts";
 export {
   LIST_ROW_META_COLUMNS,
