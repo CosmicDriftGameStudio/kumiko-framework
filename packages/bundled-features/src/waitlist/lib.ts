@@ -24,8 +24,6 @@ export const waitlistExecutor = createEventStoreExecutor(waitlistEntryTable, wai
   entityName: "waitlistEntry",
 });
 
-export { normalizeEmail };
-
 export function waitlistDb(ctx: Pick<AppContext, "systemDb">): TenantDb {
   return acknowledgedSystemDb(ctx, "waitlist", WAITLIST_CROSS_TENANT_REASON);
 }

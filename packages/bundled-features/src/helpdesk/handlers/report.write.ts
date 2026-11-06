@@ -2,13 +2,13 @@ import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { normalizeEmail } from "../../shared/index.ts";
 import {
   forwardHelpdeskRequest,
   helpdeskDb,
   loadTenantName,
   loadTenantPlan,
   loadUserLabel,
-  normalizeEmail,
   phoneProblem,
   platformActor,
   requestExecutor,

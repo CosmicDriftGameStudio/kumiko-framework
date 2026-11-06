@@ -6,7 +6,7 @@ import {
   listDatabaseNamesWithPrefix,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
+import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values.ts";
 
 // Set by the integration runner; every process of the run shares it, and the runner keeps it alive.
 export const TEST_RUN_ID_ENV = "KUMIKO_TEST_RUN_ID";

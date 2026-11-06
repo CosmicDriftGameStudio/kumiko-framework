@@ -103,6 +103,28 @@ describe("assertRowLevelSecurityBootState", () => {
     );
   });
 
+  test('"on" with two tables of which only one has an altered isolation policy reports only that one', async () => {
+    const testDb = await openDb(true);
+    const untouchedTable = defineUnmanagedTable({
+      tableName: "store_boot_check_untouched",
+      columns: tenantTable.columns,
+    });
+    await unsafePushTables(testDb.db, { items: tenantTable, untouched: untouchedTable });
+    const raw = asRawClient(testDb.db);
+    await raw.unsafe(`DROP POLICY "kumiko_tenant_isolation" ON "store_boot_check_items"`);
+    await raw.unsafe(
+      `CREATE POLICY "kumiko_tenant_isolation" ON "store_boot_check_items" FOR SELECT USING (true)`,
+    );
+    const failure = await assertRowLevelSecurityBootState(testDb.db, "on", knowsEverything).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(failure).toBeInstanceOf(Error);
+    const message = failure instanceof Error ? failure.message : "";
+    expect(message).toMatch(/store_boot_check_items \(policy kumiko_tenant_isolation altered/);
+    expect(message).not.toContain("store_boot_check_untouched");
+  });
+
   test('"on" over the application role with every policy applied passes', async () => {
     const { db } = await openAppDbWithTable();
     await expect(

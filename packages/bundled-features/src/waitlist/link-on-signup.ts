@@ -7,10 +7,10 @@ import {
 import { type MultiStreamApplyFn, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { decryptStoredPii } from "../shared/index.ts";
+import { decryptStoredPii, normalizeEmail } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { userTable } from "../user/index.ts";
-import { normalizeEmail, platformActor, waitlistExecutor } from "./lib.ts";
+import { platformActor, waitlistExecutor } from "./lib.ts";
 import { DEFAULT_OWN_TENANT_INVITE_ROLE, WAITLIST_STATUS } from "./web/constants.ts";
 
 const PII_DECRYPT_REASON = "waitlist:link-on-signup";

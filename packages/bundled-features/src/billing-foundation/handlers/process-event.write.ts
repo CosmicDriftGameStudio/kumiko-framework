@@ -339,11 +339,22 @@ function isBoundToLedgerEntry(
 
 // A plan switch has no checkout of its own: its consent is the newest one recorded for the target
 // tier, as long as no stored subscription event carries it yet. No window by state events: another
-// state event (renewal, status change) may arrive between the consent and the tier change.
+// state event (renewal, status change) may arrive between the consent and the tier change. The age
+// limit keeps an abandoned consent from being attached to a portal switch months later.
+const SWITCH_CONSENT_MAX_AGE_HOURS = 24;
+
+function providerEventInstant(payload: ProcessEventPayload, now: Temporal.Instant) {
+  const iso = clampProviderEventAt(payload, now).providerEventAtIso;
+  return iso === undefined ? now : Temporal.Instant.from(iso);
+}
+
 function pendingSwitchConsentId(
-  storedEvents: readonly { readonly type: string; readonly payload: unknown }[],
+  storedEvents: readonly SubscriptionStreamEvent[],
   payload: ProcessEventPayload,
+  now: Temporal.Instant,
 ): string | undefined {
+  const referenceAt = providerEventInstant(payload, now);
+  const oldestAcceptedAt = referenceAt.subtract({ hours: SWITCH_CONSENT_MAX_AGE_HOURS });
   const carried = new Set<string>();
   for (const stored of storedEvents) {
     // skip: only subscription state events can carry a consent
@@ -354,6 +365,7 @@ function pendingSwitchConsentId(
   for (let index = storedEvents.length - 1; index >= 0; index--) {
     const stored = storedEvents[index];
     if (stored?.type !== CHECKOUT_CONSENT_RECORDED_EVENT_QN) continue;
+    if (Temporal.Instant.compare(stored.createdAt, oldestAcceptedAt) < 0) continue;
     const parsed = checkoutConsentRecordedPayloadSchema.safeParse(stored.payload);
     if (!parsed.success) continue;
     const consent = parsed.data;
@@ -371,9 +383,10 @@ function pendingSwitchConsentId(
 
 function admitProviderEvent(
   ctx: HandlerContext,
-  storedEvents: readonly { readonly type: string; readonly payload: unknown }[],
+  storedEvents: readonly SubscriptionStreamEvent[],
   current: SubscriptionView | null,
   payload: ProcessEventPayload,
+  now: Temporal.Instant,
 ): Admission {
   const entry =
     payload.providerCheckoutId === undefined
@@ -400,7 +413,7 @@ function admitProviderEvent(
     return { admitted: false, reason: IgnoredEventReasons.foreignSubscription };
   const switchConsentId =
     payload.type === SubscriptionEventTypes.updated && current.tier !== payload.tier
-      ? pendingSwitchConsentId(storedEvents, payload)
+      ? pendingSwitchConsentId(storedEvents, payload, now)
       : undefined;
   return { admitted: true, ...(switchConsentId !== undefined && { consentId: switchConsentId }) };
 }
@@ -419,7 +432,7 @@ export function createProcessEventHandler(now: () => Temporal.Instant): WriteHan
       // The lock comes first so the stream and `current` are both read under it.
       const stream = await lockAndLoadSubscriptionStream(ctx, aggId);
       const current = await getSubscriptionForTenant(ctx, event.user.tenantId);
-      const admission = admitProviderEvent(ctx, stream, current, payload);
+      const admission = admitProviderEvent(ctx, stream, current, payload, now());
       if (!admission.admitted) {
         ctx.obs.log?.warn(
           `[billing-foundation:process-event] ignored ${payload.type} ${payload.providerEventId} (${admission.reason}): provider ${payload.providerName}`,

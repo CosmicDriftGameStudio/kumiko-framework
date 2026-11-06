@@ -55,7 +55,7 @@ describe("run / runStreaming collect output written after the child exited", () 
 describe("a grandchild holding the pipe open after the child exited", () => {
   const holdPipe = ["-c", "(sleep 5) & echo early; exit 0"];
 
-  test("run with a timeout returns once it elapsed, keeping the collected output", async () => {
+  test("run with a timeout that fires after the exit still waits for the pipe drain grace and keeps the collected output", async () => {
     const startedAt = Date.now();
     const result = await run("sh", holdPipe, { timeoutMs: 300 });
     expect(Date.now() - startedAt).toBeLessThan(2500);

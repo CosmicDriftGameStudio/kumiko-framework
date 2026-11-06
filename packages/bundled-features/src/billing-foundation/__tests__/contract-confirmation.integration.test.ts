@@ -22,6 +22,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
 import {
@@ -174,6 +175,8 @@ const mockProviderFeature = defineFeature("test-mock-confirm-provider", (r) => {
 });
 
 let stack: TestStack;
+// Stored events are stamped by the database; only the handler's clock can move away from them.
+let billingClockOffsetHours = 0;
 
 beforeAll(async () => {
   stack = await setupTestStack({
@@ -195,6 +198,7 @@ beforeAll(async () => {
         baseUrl: "https://app.example.com",
         catalog,
         consumerProtection,
+        now: () => Temporal.Now.instant().add({ hours: billingClockOffsetHours }),
       }),
       mockProviderFeature,
     ],
@@ -225,6 +229,7 @@ afterAll(async () => {
 beforeEach(async () => {
   emailTransport.sent.length = 0;
   lastCheckoutId = undefined;
+  billingClockOffsetHours = 0;
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`,
   );
@@ -482,6 +487,40 @@ describe("contract confirmation mail on a subscription", () => {
     expect(
       issued.filter((e) => propertyOf(e.payload, "consentId") !== starter.consentId),
     ).toHaveLength(1);
+  });
+
+  test("an abandoned in-app switch consent older than a day is not attached to a later tier change", async () => {
+    const buyer = await createBuyer(8235);
+    const starter = await recordSubscriptionConsent(buyer, "de", "starter");
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_old_1",
+        tier: "starter",
+        providerCheckoutId: starter.providerCheckoutId,
+      }),
+    );
+    await stack.drainJobs();
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentFor("de") },
+      buyer,
+    );
+    emailTransport.sent.length = 0;
+
+    billingClockOffsetHours = 25;
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_old_2",
+        type: SubscriptionEventTypes.updated,
+      }),
+    );
+    await stack.drainJobs();
+
+    expect(emailTransport.sent).toHaveLength(0);
+    const issued = await issuedEvents(subscriptionAggregateId(buyer.tenantId), buyer.tenantId);
+    expect(
+      issued.filter((e) => propertyOf(e.payload, "consentId") !== starter.consentId),
+    ).toHaveLength(0);
   });
 
   test("a second in-app switch is refused until the provider's webhook confirmed the first one", async () => {

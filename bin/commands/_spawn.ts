@@ -134,9 +134,9 @@ export function run(
           }, opts.killGraceMs ?? KILL_GRACE_MS);
           timedOut = true;
           settle(-1);
-          return;
         }
-        settleAfterExit();
+        // A child that already exited is settled by the drain grace its "exit" scheduled or by
+        // "close"; settling here would drop output still sitting in the pipes.
       }, opts.timeoutMs);
     }
   });

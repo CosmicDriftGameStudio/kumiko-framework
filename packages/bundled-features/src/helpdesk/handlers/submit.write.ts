@@ -14,11 +14,11 @@ import {
 import { normalizePayloadBucketValue } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { PayloadRateLimitOption } from "@cosmicdrift/kumiko-types/handlers";
+import { normalizeEmail } from "../../shared/index.ts";
 import { consumeChallenge } from "../challenge.ts";
 import {
   forwardHelpdeskRequest,
   helpdeskDb,
-  normalizeEmail,
   phoneProblem,
   platformActor,
   requestExecutor,
