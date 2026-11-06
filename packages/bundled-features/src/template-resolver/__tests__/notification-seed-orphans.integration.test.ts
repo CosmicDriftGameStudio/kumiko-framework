@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type DbConnection, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   setupTestStack,
@@ -25,6 +25,8 @@ const KEPT = "mailer:notify:kept";
 const REMOVED = "mailer:notify:removed";
 const RENAMED_AWAY = "mailer:notify:old-name";
 const UNMOUNTED = "elsewhere:notify:unknown";
+const CONDITIONAL = "mailer:notify:conditional";
+const EDITED_BODY = "<p>Edited by a system admin</p>";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -125,5 +127,47 @@ describe("seedNotificationTemplates orphan cleanup", () => {
     expect(await row(SYSTEM_TENANT_ID, KEPT)).not.toBeUndefined();
     expect(await row(SYSTEM_TENANT_ID, UNMOUNTED)).not.toBeUndefined();
     expect(await row(testTenantId(1), REMOVED)).not.toBeUndefined();
+  });
+
+  test("keeps a system admin's edit of a notification the registry does not know", async () => {
+    await seedSystem(CONDITIONAL);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: CONDITIONAL,
+        kind: "mail",
+        locale: "en",
+        meta: { subject: "Edited" },
+        content: EDITED_BODY,
+        contentFormat: "html",
+        variableSchema: {},
+      },
+      TestUsers.systemAdmin,
+    );
+
+    await seedNotificationTemplates(db, stack.registry);
+
+    expect((await row(SYSTEM_TENANT_ID, CONDITIONAL))?.content).toBe(EDITED_BODY);
+  });
+
+  test("deletes the system row of a renamed-away notification even after an edit", async () => {
+    await seedSystem(RENAMED_AWAY);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug: RENAMED_AWAY,
+        kind: "mail",
+        locale: "en",
+        meta: { subject: "Edited" },
+        content: EDITED_BODY,
+        contentFormat: "html",
+        variableSchema: {},
+      },
+      TestUsers.systemAdmin,
+    );
+
+    await seedNotificationTemplates(db, stack.registry);
+
+    expect(await row(SYSTEM_TENANT_ID, RENAMED_AWAY)).toBeUndefined();
   });
 });
