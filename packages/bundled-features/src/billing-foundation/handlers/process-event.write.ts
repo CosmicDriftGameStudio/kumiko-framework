@@ -381,6 +381,21 @@ function pendingSwitchConsentId(
   return undefined;
 }
 
+// A `created` that never comes (subscription from before the ledger, foreign custom_data, deleted
+// subscription) would otherwise answer 503 until the provider gives up, and Stripe disables an
+// endpoint that keeps failing. Only a young event may still be overtaken by its `created`.
+// A provider that sends no event time (mollie) cannot be aged and keeps retrying.
+const MISSING_SUBSCRIPTION_RETRY_WINDOW_MINUTES = 60;
+
+function isWithinMissingSubscriptionRetryWindow(
+  payload: ProcessEventPayload,
+  now: Temporal.Instant,
+): boolean {
+  if (payload.providerEventAtIso === undefined) return true;
+  const oldestRetriedAt = now.subtract({ minutes: MISSING_SUBSCRIPTION_RETRY_WINDOW_MINUTES });
+  return Temporal.Instant.compare(providerEventInstant(payload, now), oldestRetriedAt) >= 0;
+}
+
 function admitProviderEvent(
   ctx: HandlerContext,
   storedEvents: readonly SubscriptionStreamEvent[],
@@ -404,8 +419,13 @@ function admitProviderEvent(
   }
   // The provider does not guarantee order: an update that beats the `created` of its
   // subscription must be redelivered, not dropped.
-  if (current === null)
-    return { admitted: false, reason: IgnoredEventReasons.subscriptionNotYetCreated, retry: true };
+  if (current === null) {
+    return {
+      admitted: false,
+      reason: IgnoredEventReasons.subscriptionNotYetCreated,
+      ...(isWithinMissingSubscriptionRetryWindow(payload, now) && { retry: true }),
+    };
+  }
   const isCurrentSubscription =
     current.providerName === payload.providerName &&
     current.providerSubscriptionId === payload.providerSubscriptionId;
