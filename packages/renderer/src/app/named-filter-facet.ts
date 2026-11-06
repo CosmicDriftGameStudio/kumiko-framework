@@ -1,4 +1,4 @@
-import { isUiAccessGranted } from "@cosmicdrift/kumiko-types/access-predicates";
+import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   NamedFilterFacetOptions,
   NamedListFilterRef,
