@@ -9,6 +9,7 @@ import * as z from "zod";
 import {
   assertBillingEnabled,
   assertNoActiveSubscription,
+  CHECKOUT_START_RATE_LIMIT,
   isNonEmptyStringArray,
   joinBaseUrl,
   listOfferedCatalogProviders,
@@ -77,6 +78,7 @@ export function createStartPlanCheckoutHandler(
       "Starts a hosted checkout for a plan tier when the tenant has no active subscription; the server picks price and redirect URLs. Name the provider with providerName when the catalog offers several.",
     schema,
     access: { roles: purchaseRolesOf(catalog) },
+    rateLimit: CHECKOUT_START_RATE_LIMIT,
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as {

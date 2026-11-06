@@ -27,6 +27,7 @@ import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework
 import * as z from "zod";
 import {
   assertCheckoutAllowed,
+  CHECKOUT_START_RATE_LIMIT,
   type OpenCheckoutInput,
   openCheckout,
   startProviderCheckout,
@@ -83,6 +84,7 @@ export function createCheckoutSessionHandler(
     // Tenant-Admin-only — the tenant must deliberately configure its own
     // subscription. SystemAdmin as a fallback for operator-initiated flows.
     access: { roles: ["TenantAdmin", "SystemAdmin"] },
+    rateLimit: CHECKOUT_START_RATE_LIMIT,
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as CreateCheckoutSessionPayload;
