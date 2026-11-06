@@ -30,7 +30,9 @@ langlebigen App-Pod laufen und kein CronJob-Objekt erzeugen.
   unter demselben Job-Namen, ohne Tenant-Dimension (Kardinalität). Bei
   `perTenant`-Jobs heißt die Metrik deshalb „mindestens ein Tenant war
   erfolgreich“: scheitert Tenant A dauerhaft und Tenant B läuft durch, bleibt
-  sie frisch. Gibt es keine aktiven Tenants, entsteht nie eine Serie. Einzelne
+  sie frisch. Gibt es keine aktiven Tenants, entsteht nie eine Serie, außer bei Jobs mit
+  `includeSystemTenant: true`: Sie haben immer mindestens den Lauf des
+  System-Tenants. Einzelne
   Tenants überwacht die Failure-Metrik oder der `tenantVisibleFailure`-Record.
   Der Fan-out läuft nur über aktive Tenant-Zeilen; der System-Tenant hat keine.
   Wartungsjobs für Daten im System-Tenant setzen daher zusätzlich

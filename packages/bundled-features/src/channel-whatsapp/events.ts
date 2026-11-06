@@ -23,8 +23,9 @@ export const WHATSAPP_THROTTLED_EVENT_QN =
   `${CHANNEL_WHATSAPP_FEATURE}:event:${WHATSAPP_THROTTLED_EVENT_SHORT}` as const;
 
 const E164_MAX_CHARS = 32;
-const WAMID_MAX_CHARS = 256;
-const PHONE_NUMBER_ID_MAX_CHARS = 64;
+export const WAMID_MAX_CHARS = 256;
+export const PHONE_NUMBER_ID_MAX_CHARS = 64;
+export const MIME_TYPE_MAX_CHARS = 255;
 export const RAW_STATUS_MAX_CHARS = 64;
 
 // What the webhook route hands to the write handlers: normalized, still plaintext.
@@ -38,7 +39,7 @@ export const receiveMessageInputSchema = z.object({
   buttonPayload: z.string().max(WHATSAPP_BUTTON_PAYLOAD_MAX_CHARS).nullable(),
   contextWamid: z.string().max(WAMID_MAX_CHARS).nullable(),
   mediaId: z.string().max(WAMID_MAX_CHARS).nullable(),
-  mimeType: z.string().max(255).nullable(),
+  mimeType: z.string().max(MIME_TYPE_MAX_CHARS).nullable(),
 });
 export type ReceiveMessageInput = z.infer<typeof receiveMessageInputSchema>;
 

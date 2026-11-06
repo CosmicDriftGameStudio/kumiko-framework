@@ -6,6 +6,7 @@ import {
   listDatabaseNamesWithPrefix,
 } from "@cosmicdrift/kumiko-framework/internal/stack-support";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 
 // Set by the integration runner; every process of the run shares it, and the runner keeps it alive.
 export const TEST_RUN_ID_ENV = "KUMIKO_TEST_RUN_ID";
@@ -46,23 +47,34 @@ async function markTestRunAlive(redisUrl: string, runId: string): Promise<void> 
   }
 }
 
+export type TestRunAliveKeeper = {
+  readonly stop: () => void;
+  // Set when the first mark failed; the refresh timer keeps retrying, so the run is not left unmarked.
+  readonly initialMarkError: unknown;
+};
+
 // A short connection per refresh: a held client would keep the test process from exiting.
 export async function keepTestRunAlive(
   redisUrl: string,
   runId: string,
-): Promise<{ readonly stop: () => void }> {
-  await markTestRunAlive(redisUrl, runId);
+): Promise<TestRunAliveKeeper> {
   const timer = setInterval(() => {
     markTestRunAlive(redisUrl, runId).catch(() => {
       // skip: the next tick retries, and the TTL outlasts several missed refreshes
     });
   }, TEST_RUN_ALIVE_REFRESH_MS);
   timer.unref();
-  return { stop: () => clearInterval(timer) };
+  const stop = () => clearInterval(timer);
+  try {
+    await markTestRunAlive(redisUrl, runId);
+    return { stop, initialMarkError: undefined };
+  } catch (error) {
+    return { stop, initialMarkError: error };
+  }
 }
 
 let processTestRunId: string | undefined;
-let processTestRunAlive: Promise<unknown> | undefined;
+let processTestRunAlive: Promise<TestRunAliveKeeper> | undefined;
 
 // Outside the runner (a single `bun test`, dev and e2e servers) the process owns a run of its own.
 export function currentTestRunId(): string {
@@ -77,11 +89,11 @@ export async function ensureCurrentTestRunAlive(redisUrl: string): Promise<strin
   const runId = currentTestRunId();
   if (process.env[TEST_RUN_ID_ENV] !== undefined) return runId;
   processTestRunAlive ??= keepTestRunAlive(redisUrl, runId);
-  try {
-    await processTestRunAlive;
-  } catch (error) {
+  const keeper = await processTestRunAlive;
+  if (keeper.initialMarkError !== undefined) {
+    keeper.stop();
     processTestRunAlive = undefined;
-    throw error;
+    throw keeper.initialMarkError;
   }
   return runId;
 }
@@ -99,6 +111,12 @@ export function testDatabaseName(): string {
  *  `createJobRunner`): it sits in the test run's namespace, so the run sweep removes its BullMQ
  *  keys even when the test never cleans them up. BullMQ rejects `:` in `label`. */
 export function testRunQueueNamePrefix(label: string): string {
+  // A process-owned run must be marked alive too, or a runner's sweep takes these queues for a dead run's.
+  ensureCurrentTestRunAlive(process.env["REDIS_URL"] ?? SERVICE_ENV_DEFAULTS.REDIS_URL).catch(
+    () => {
+      // skip: no Redis means no BullMQ queues for the sweep to remove either
+    },
+  );
   return `kt-${currentTestRunId()}-${label}-${generateId().slice(-8)}`;
 }
 

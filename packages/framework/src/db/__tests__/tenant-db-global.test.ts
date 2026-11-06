@@ -84,7 +84,7 @@ function recordingReporter(): {
   };
 }
 
-// Type-only assertions — never invoked, checked by `tsc --build` only.
+// Type-only assertions — never invoked, checked by the repo typecheck only.
 function typeAssertions(tdb: TenantDb): void {
   // @ts-expect-error db.global() on a "tenant"-tenancy table (default tenancy) is a type error.
   tdb.global(tenantEntityTable);

@@ -280,13 +280,17 @@ describe("inbound messages", () => {
   });
 
   test("a failing item answers 500; the redelivery stores no duplicate of the item that worked", async () => {
-    // The oversized wamid passes the normalizer and fails the handler schema.
-    const brokenWamid = `wamid.${"X".repeat(300)}`;
+    // A fractional error code passes the normalizer and fails the handler schema.
     const payload = metaWebhookPayload({
       phoneNumberId: PHONE_NUMBER_ID,
-      messages: [
-        metaTextMessage({ from: uniqueSender(), wamid: "wamid.PARTIAL1", text: "ok" }),
-        metaTextMessage({ from: uniqueSender(), wamid: brokenWamid, text: "kaputt" }),
+      messages: [metaTextMessage({ from: uniqueSender(), wamid: "wamid.PARTIAL1", text: "ok" })],
+      statuses: [
+        metaStatus({
+          wamid: "wamid.PARTIAL-BROKEN",
+          status: "failed",
+          recipient: uniqueSender(),
+          errorCode: 1.5,
+        }),
       ],
     });
     const first = await post(payload);
@@ -296,7 +300,49 @@ describe("inbound messages", () => {
     const second = await post(payload);
     expect(second.status).toBe(500);
     expect(await messageEvents("wamid.PARTIAL1")).toHaveLength(1);
-    expect(await messageEvents(brokenWamid)).toHaveLength(0);
+    expect(await statusEvents("wamid.PARTIAL-BROKEN", "failed")).toHaveLength(0);
+  });
+
+  test("an oversized wamid or phone number id is skipped, an absurd timestamp falls back, long media fields are clipped, and the rest of the delivery is stored", async () => {
+    const longWamid = `wamid.${"X".repeat(300)}`;
+    const res = await post(
+      metaWebhookPayload({
+        phoneNumberId: PHONE_NUMBER_ID,
+        messages: [
+          metaTextMessage({ from: uniqueSender(), wamid: longWamid, text: "zu lang" }),
+          metaTextMessage({
+            from: uniqueSender(),
+            wamid: "wamid.HUGETS1",
+            text: "Zeit",
+            timestamp: "1e13",
+          }),
+          metaMediaMessage({
+            from: uniqueSender(),
+            wamid: "wamid.LONGMEDIA1",
+            kind: "image",
+            mediaId: "M".repeat(300),
+            mimeType: `image/${"x".repeat(300)}`,
+          }),
+        ],
+        statuses: [metaStatus({ wamid: longWamid, status: "sent", recipient: uniqueSender() })],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ stored: 2, skipped: 2 });
+    expect(await messageEvents(longWamid)).toHaveLength(0);
+    expect(await messageEvents("wamid.HUGETS1")).toHaveLength(1);
+    const media = payloadRecord((await messageEvents("wamid.LONGMEDIA1"))[0]);
+    expect(media["mediaId"]).toBe("M".repeat(256));
+    expect(String(media["mimeType"])).toHaveLength(255);
+
+    const oversizedPhone = await post(
+      metaWebhookPayload({
+        phoneNumberId: "9".repeat(65),
+        messages: [metaTextMessage({ from: uniqueSender(), wamid: "wamid.LONGPN1", text: "x" })],
+      }),
+    );
+    expect(oversizedPhone.status).toBe(200);
+    expect(await messageEvents("wamid.LONGPN1")).toHaveLength(0);
   });
 
   test("a button reply carries payload, title and the wamid it answers", async () => {
@@ -561,6 +607,38 @@ describe("sending", () => {
   });
 });
 
+describe("invalid outbound messages", () => {
+  test("malformed buttons and templates are invalid_message and never reach the network", async () => {
+    meta.reset();
+    const base = { phoneNumberId: PHONE_NUMBER_ID, to: uniqueSender() };
+    const okButton = { payload: "a", title: "Ja" };
+    const buttonCases = [
+      { text: "x", buttons: [] },
+      { text: "x", buttons: [okButton, okButton, okButton, okButton] },
+      { text: "x", buttons: [{ payload: "a", title: "T".repeat(21) }] },
+      { text: "x", buttons: [{ payload: "", title: "Ja" }] },
+      { text: "", buttons: [okButton] },
+    ];
+    for (const buttonCase of buttonCases) {
+      expect(await client.sendButtons(callContext(), { ...base, ...buttonCase })).toEqual({
+        ok: false,
+        code: "invalid_message",
+      });
+    }
+    const templateCases = [
+      { templateName: "Not Valid", languageCode: "de" },
+      { templateName: "reminder", languageCode: "deutsch-lang" },
+    ];
+    for (const templateCase of templateCases) {
+      expect(await client.sendTemplate(callContext(), { ...base, ...templateCase })).toEqual({
+        ok: false,
+        code: "invalid_message",
+      });
+    }
+    expect(meta.requests).toHaveLength(0);
+  });
+});
+
 describe("secret store failure", () => {
   test("a throwing secret store is unreachable, not missing_credentials, and sends nothing", async () => {
     meta.reset();
@@ -657,6 +735,27 @@ describe("media", () => {
       code: "too_large",
     });
     expect(cancelled).toBe(true);
+  });
+
+  test("a redirecting media download is blocked and the redirect target is never requested", async () => {
+    const requested: string[] = [];
+    const redirectingTransport: ChannelWhatsappOptions["transport"] = async (url, init) => {
+      requested.push(url);
+      expect(init?.redirect).toBe("manual");
+      if (url.includes("graph.facebook.com")) {
+        return Response.json({ url: "https://lookaside.fbsbx.com/media/MEDIA4" });
+      }
+      return new Response(null, {
+        status: 302,
+        headers: { location: "https://evil.example/steal" },
+      });
+    };
+    const redirecting = createWhatsappClient({ transport: redirectingTransport });
+    expect(await redirecting.fetchMedia(callContext(), "MEDIA4")).toEqual({
+      ok: false,
+      code: "redirect_blocked",
+    });
+    expect(requested.some((url) => url.includes("evil.example"))).toBe(false);
   });
 
   test("an invalid media id never reaches the network", async () => {

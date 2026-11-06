@@ -22,7 +22,8 @@
 // incrementally (~5s cold / ~0.1s warm via the cached *.tsbuildinfo).
 //
 // Samples verify the framework's BUILT public surface (.d.ts) — exactly what
-// real consumers get. Framework source (and the other root projects: testing,
+// real consumers get, so this stays a real `tsc -b` (it emits to packages/dist)
+// instead of `bun check`. Framework source (and the other root projects: testing,
 // testing/e2e, guards, cli, …) is checked by the root `tsconfig.json`
 // reference in the same `tsc -b` pass, so a source error surfaces there.
 //
