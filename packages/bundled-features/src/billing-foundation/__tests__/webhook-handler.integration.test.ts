@@ -13,6 +13,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
@@ -407,6 +408,34 @@ describe("webhook-handler — delivery order and redelivery", () => {
       id: subscriptionAggregateId(tenantId),
     });
     expect(rows[0]).toMatchObject({ status: SubscriptionStatuses.pastDue });
+  });
+
+  test("an updated event without subscription is retried only while it is young", async () => {
+    const ageMinutes = (minutes: number) => Temporal.Now.instant().subtract({ minutes }).toString();
+    const old = await postWebhook(
+      "stripe",
+      buildEvent({
+        tenantId: testTenantId(5302),
+        providerEventId: "evt_orphan_old",
+        type: SubscriptionEventTypes.updated,
+        providerSubscriptionId: "sub_orphan_old",
+        providerEventAt: ageMinutes(120),
+      }),
+    );
+    expect(old.status).toBe(200);
+    expect(await old.json()).toMatchObject({ ignored: true });
+
+    const young = await postWebhook(
+      "stripe",
+      buildEvent({
+        tenantId: testTenantId(5303),
+        providerEventId: "evt_orphan_young",
+        type: SubscriptionEventTypes.updated,
+        providerSubscriptionId: "sub_orphan_young",
+        providerEventAt: ageMinutes(5),
+      }),
+    );
+    expect(young.status).toBe(503);
   });
 
   test("an updated event of another subscription than the held one stays a 200 ignore", async () => {
