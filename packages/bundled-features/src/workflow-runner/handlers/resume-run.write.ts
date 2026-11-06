@@ -32,6 +32,7 @@
 
 import { fetchOne, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
+  attachOutsideTransaction,
   buildPipelineSteps,
   computeDefinitionFingerprint,
   describeWorkflowStepError,
@@ -362,11 +363,12 @@ async function runResumedPipeline(ctx: HandlerContext, db: TenantDb, input: Resu
       stepIndex,
     );
 
-    // The handler is system-scoped, so ctx.db is unusable; the steps still read the database clock.
+    // The handler is system-scoped, so ctx.db is unusable; the steps get the tenant db without
+    // outsideTransaction. Dropped in place: a copy would fall out of the identity-keyed TenantDb registries.
     const outcome = await runStepList(
       steps,
       triggerEvent,
-      { ...ctx, db: { ...db, outsideTransaction: undefined } },
+      { ...ctx, db: attachOutsideTransaction(db, undefined) },
       stepsAcc,
       {},
       workflowCtx,

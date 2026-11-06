@@ -24,6 +24,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 
 import {
   asRawClient,
+  createEventStoreExecutor,
   createSystemDbView,
   createTenantDb,
   insertOne,
@@ -49,6 +50,8 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { createConfigFeature } from "../../config/index.ts";
+import { createTenantFeature, tenantEntity, tenantTable } from "../../tenant/index.ts";
 import { workflowRunAggregateId } from "../aggregate-id.ts";
 import { DUE_RUNS_BATCH_SIZE, selectDueWorkflowRunPending } from "../db/queries/due-runs.ts";
 import { registerEventTrigger } from "../event-trigger.ts";
@@ -111,10 +114,30 @@ const idempotentResumeWorkflow: WorkflowDefinition = defineWorkflow({
   ]),
 });
 
+const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
+  entityName: "tenant",
+});
+let ctxDbReadCount: number | undefined;
+
+const ctxDbResumeWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "rl-ctx-db-resume",
+  trigger: { kind: "event", eventType: "rl-test.ctx-db-resume" },
+  idempotencyKey: ({ payload }) => (payload as { runKey: string }).runKey,
+  steps: stepsPipeline(({ r }) => [
+    r.step.wait({ for: (ctx) => (ctx.event.payload as { forIso: string }).forIso }),
+    r.step.compute("ctxDbRead", async (ctx) => {
+      const page = await tenantExecutor.list({}, ctx.event.user, ctx.db);
+      ctxDbReadCount = page.rows.length;
+    }),
+    r.step.return({ isSuccess: true, data: undefined }),
+  ]),
+});
+
 const testTriggersFeature = defineFeature("workflow-runner-resume-loop-test-triggers", (r) => {
   registerEventTrigger(r, waitWorkflow);
   registerEventTrigger(r, retryWorkflow);
   registerEventTrigger(r, idempotentResumeWorkflow);
+  registerEventTrigger(r, ctxDbResumeWorkflow);
 });
 
 const noopLogger: JobContext["obs"]["log"] = {
@@ -216,7 +239,12 @@ async function runResumeDueRunsJob(): Promise<void> {
 describe("workflow-runner resume loop", () => {
   beforeAll(async () => {
     stack = await setupTestStack({
-      features: [createWorkflowRunnerFeature(), testTriggersFeature],
+      features: [
+        createConfigFeature(),
+        createTenantFeature(),
+        createWorkflowRunnerFeature(),
+        testTriggersFeature,
+      ],
     });
   });
 
@@ -246,6 +274,23 @@ describe("workflow-runner resume loop", () => {
     // pending-projection deletes on WORKFLOW_RESUMED via a separate MSP pass.
     await stack.eventDispatcher?.runOnce();
     expect(await pendingRowExists(runId, 0)).toBe(false);
+  });
+
+  test("a resumed step reads through the ctx.db it was given, framework helpers accept it", async () => {
+    const runKey = crypto.randomUUID();
+    const runId = workflowRunAggregateId(ctxDbResumeWorkflow.name, runKey);
+    ctxDbReadCount = undefined;
+
+    await fireTrigger("rl-test.ctx-db-resume", {
+      runKey,
+      forIso: T.Now.instant().subtract({ hours: 1 }).toString(),
+    });
+    await runResumeDueRunsJob();
+
+    expect((await loadRunEvents(runId)).map((row) => row["type"])).toContain(
+      WORKFLOW_RUN_COMPLETED_TYPE,
+    );
+    expect(ctxDbReadCount).toBeGreaterThanOrEqual(0);
   });
 
   test("not-yet-due wait: resume-due-runs leaves the row and run untouched", async () => {
