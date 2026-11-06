@@ -22,6 +22,7 @@ import {
   phoneProblem,
   platformActor,
   requestExecutor,
+  runBestEffort,
   sendBestEffort,
 } from "../lib.ts";
 import { helpdeskAcknowledgementVariables, resolveHelpdeskMailLocale } from "../mail.ts";
@@ -165,7 +166,7 @@ export function createSubmitHandler(opts: HelpdeskOptions, settings: HelpdeskSet
       );
       if (!created.isSuccess) return created;
 
-      await sendBestEffort(ctx, "forward request", () => forwardHelpdeskRequest(ctx, requestId));
+      await runBestEffort(ctx, "forward request", () => forwardHelpdeskRequest(ctx, requestId));
 
       await sendBestEffort(ctx, "confirmation mail", (notify) =>
         notify(HELPDESK_NOTIFICATION_TYPES.acknowledgement, {

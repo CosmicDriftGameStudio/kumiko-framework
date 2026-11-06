@@ -11,7 +11,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { acknowledgedSystemDb } from "../shared/index.ts";
+import { acknowledgedSystemDb, normalizeEmail } from "../shared/index.ts";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { userTable } from "../user/index.ts";
 import { waitlistEntryEntity, waitlistEntryTable } from "./entity.ts";
@@ -24,9 +24,7 @@ export const waitlistExecutor = createEventStoreExecutor(waitlistEntryTable, wai
   entityName: "waitlistEntry",
 });
 
-export function normalizeEmail(email: string): string {
-  return email.toLowerCase();
-}
+export { normalizeEmail };
 
 export function waitlistDb(ctx: Pick<AppContext, "systemDb">): TenantDb {
   return acknowledgedSystemDb(ctx, "waitlist", WAITLIST_CROSS_TENANT_REASON);

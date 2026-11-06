@@ -17,6 +17,8 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   acknowledgedSystemDb,
   decryptStoredPii,
+  normalizeEmail,
+  runBestEffort as runSharedBestEffort,
   sendBestEffort as sendSharedBestEffort,
 } from "../shared/index.ts";
 import { tenantTable } from "../tenant/index.ts";
@@ -89,9 +91,7 @@ export function listRepliesOf(db: TenantDb, requestId: string) {
   );
 }
 
-export function normalizeEmail(email: string): string {
-  return email.toLowerCase();
-}
+export { normalizeEmail };
 
 export function helpdeskDb(ctx: Pick<AppContext, "systemDb">): TenantDb {
   return acknowledgedSystemDb(ctx, "helpdesk", HELPDESK_CROSS_TENANT_REASON);
@@ -130,6 +130,14 @@ export async function sendBestEffort(
   send: (notify: NonNullable<HandlerContext["notify"]>) => Promise<unknown>,
 ): Promise<void> {
   return sendSharedBestEffort(ctx, `[helpdesk] ${label} failed`, send);
+}
+
+export async function runBestEffort(
+  ctx: Pick<HandlerContext, "obs">,
+  label: string,
+  run: () => Promise<unknown>,
+): Promise<void> {
+  return runSharedBestEffort(ctx, `[helpdesk] ${label} failed`, run);
 }
 
 export async function forwardHelpdeskRequest(

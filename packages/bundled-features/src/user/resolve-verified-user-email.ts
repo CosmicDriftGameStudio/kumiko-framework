@@ -1,5 +1,5 @@
 import type { UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
-import { decryptStoredPii } from "../shared/index.ts";
+import { decryptStoredPii, normalizeEmail } from "../shared/index.ts";
 import { userTable } from "./schema/user.ts";
 
 // Only a verified owner may see or erase rows matched by email. Forget keeps emailVerified but has
@@ -12,6 +12,6 @@ export async function resolveVerifiedUserEmail(
     id: ctx.userId,
   });
   if (row?.emailVerified !== true) return null;
-  if (ctx.userEmailBeforeDelete) return ctx.userEmailBeforeDelete.toLowerCase();
-  return (await decryptStoredPii(row.email, "email", piiDecryptReason)).toLowerCase();
+  if (ctx.userEmailBeforeDelete) return normalizeEmail(ctx.userEmailBeforeDelete);
+  return normalizeEmail(await decryptStoredPii(row.email, "email", piiDecryptReason));
 }
