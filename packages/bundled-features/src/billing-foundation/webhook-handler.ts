@@ -7,6 +7,7 @@
 import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
+import { IgnoredEventReasons } from "./checkout-ledger.ts";
 import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types.ts";
 import {
   BILLING_FOUNDATION_FEATURE,
@@ -32,7 +33,6 @@ export type SubscriptionWebhookRouteOptions = {
   ) => Promise<import("@cosmicdrift/kumiko-framework/engine").WriteResult>;
 };
 
-const IGNORED_CHECKOUT_NOT_IN_LEDGER = "checkout_not_in_ledger";
 const DEFAULT_WEBHOOK_PATH = "/api/subscription/webhook/:providerName";
 
 function resolveProvider(
@@ -180,7 +180,7 @@ async function redeliveryReason(
   const reason = propertyOf(dispatched.data, "reason");
   if (typeof reason !== "string") return undefined;
   if (propertyOf(dispatched.data, "retry") === true) return reason;
-  if (reason !== IGNORED_CHECKOUT_NOT_IN_LEDGER) return undefined;
+  if (reason !== IgnoredEventReasons.checkoutNotInLedger) return undefined;
   const plugin = resolveProvider(deps.registry, event.providerName);
   const redeliver = await plugin?.shouldRedeliverIgnoredEvent?.({ event, reason, deps });
   return redeliver === true ? reason : undefined;

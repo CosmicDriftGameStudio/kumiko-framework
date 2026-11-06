@@ -444,6 +444,46 @@ describe("contract confirmation mail on a subscription", () => {
     expect(switchIssued).toHaveLength(1);
   });
 
+  test("an in-app plan switch keeps its consent when a same-tier update arrives before the tier change", async () => {
+    const buyer = await createBuyer(8225);
+    const starter = await recordSubscriptionConsent(buyer, "de", "starter");
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_win_1",
+        tier: "starter",
+        providerCheckoutId: starter.providerCheckoutId,
+      }),
+    );
+    await stack.drainJobs();
+    emailTransport.sent.length = 0;
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro", consent: consentFor("de") },
+      buyer,
+    );
+
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_win_2",
+        type: SubscriptionEventTypes.updated,
+        tier: "starter",
+      }),
+    );
+    await postWebhook(
+      subscriptionEvent(buyer.tenantId, {
+        providerEventId: "evt_win_3",
+        type: SubscriptionEventTypes.updated,
+      }),
+    );
+    await stack.drainJobs();
+
+    expect(emailTransport.sent).toHaveLength(1);
+    const issued = await issuedEvents(subscriptionAggregateId(buyer.tenantId), buyer.tenantId);
+    expect(
+      issued.filter((e) => propertyOf(e.payload, "consentId") !== starter.consentId),
+    ).toHaveLength(1);
+  });
+
   test("a second in-app switch is refused until the provider's webhook confirmed the first one", async () => {
     const buyer = await createBuyer(8215);
     const starter = await recordSubscriptionConsent(buyer, "de", "starter");

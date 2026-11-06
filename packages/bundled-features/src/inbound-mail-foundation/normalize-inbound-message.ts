@@ -6,6 +6,9 @@ import type { RawInboundAttachment, RawInboundMessage, SkippedInboundAttachment 
 
 export const INBOUND_MISSING_SENDER = "(no sender)";
 export const INBOUND_BODY_TEXT_MAX_CHARS = 32_000;
+// Counted in UTF-8 bytes, not characters: the ciphertext grows with the bytes, and a CJK or emoji
+// mail of 500,000 characters would encrypt past the event's bodyHtml maximum.
+export const INBOUND_BODY_HTML_MAX_BYTES = 500_000;
 export const INBOUND_BODY_HTML_MAX_CHARS = 5_000_000;
 export const INBOUND_ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
 export const INBOUND_MAIL_ATTACHMENTS_MAX_BYTES = 50 * 1024 * 1024;
@@ -14,13 +17,16 @@ export const INBOUND_RAW_MIME_MAX_BYTES = INBOUND_MAIL_ATTACHMENTS_MAX_BYTES;
 export const INBOUND_ATTACHMENTS_MAX_COUNT = 50;
 export const INBOUND_SKIPPED_ATTACHMENTS_MAX_COUNT = 200;
 
-const FROM_MAX = 2000;
+export const INBOUND_FROM_MAX_CHARS = 2000;
+export const INBOUND_SUBJECT_MAX_CHARS = 4000;
+export const INBOUND_SNIPPET_MAX_CHARS = 4000;
+export const INBOUND_MAIL_ADDRESS_MAX_CHARS = 320;
+// Plaintext of one JSON-stringified to/cc list; its ciphertext must fit the event and entity field.
+export const INBOUND_ADDRESS_LIST_JSON_MAX_CHARS = 8000;
 const ADDRESS_MAX = 2000;
 const ADDRESS_LIST_MAX = 200;
 const REFERENCE_MAX = 500;
 const REFERENCES_MAX = 200;
-const SUBJECT_MAX = 4000;
-const SNIPPET_MAX = 4000;
 const MESSAGE_ID_HEADER_MAX = 500;
 
 export type NormalizedInboundMessage = Omit<
@@ -43,6 +49,14 @@ function clip(value: string, max: number): string {
   if (value.length <= max) return value;
   const cut = isHighSurrogate(value.charCodeAt(max - 1)) ? max - 1 : max;
   return value.slice(0, cut);
+}
+
+function limitAddressList(list: readonly string[]): readonly string[] {
+  const kept = list.slice(0, ADDRESS_LIST_MAX).map((a) => clip(a, ADDRESS_MAX));
+  while (kept.length > 0 && JSON.stringify(kept).length > INBOUND_ADDRESS_LIST_JSON_MAX_CHARS) {
+    kept.pop();
+  }
+  return kept;
 }
 
 function limitReferences(references: readonly string[]): readonly string[] {
@@ -102,11 +116,11 @@ export function normalizeRawInboundMessage(msg: RawInboundMessage): NormalizedIn
         ? msg.messageIdHeader
         : null,
     references: limitReferences(msg.references),
-    from: from.length === 0 ? INBOUND_MISSING_SENDER : clip(from, FROM_MAX),
-    to: msg.to.slice(0, ADDRESS_LIST_MAX).map((a) => clip(a, ADDRESS_MAX)),
-    cc: msg.cc.slice(0, ADDRESS_LIST_MAX).map((a) => clip(a, ADDRESS_MAX)),
-    subject: clip(msg.subject, SUBJECT_MAX),
-    snippet: clip(msg.snippet, SNIPPET_MAX),
+    from: from.length === 0 ? INBOUND_MISSING_SENDER : clip(from, INBOUND_FROM_MAX_CHARS),
+    to: limitAddressList(msg.to),
+    cc: limitAddressList(msg.cc),
+    subject: clip(msg.subject, INBOUND_SUBJECT_MAX_CHARS),
+    snippet: clip(msg.snippet, INBOUND_SNIPPET_MAX_CHARS),
     bodyText: clip(fullText, INBOUND_BODY_TEXT_MAX_CHARS),
     bodyTextTruncated: fullText.length > INBOUND_BODY_TEXT_MAX_CHARS,
     bodyHtml: bodyHtml !== null && bodyHtml.length <= INBOUND_BODY_HTML_MAX_CHARS ? bodyHtml : null,

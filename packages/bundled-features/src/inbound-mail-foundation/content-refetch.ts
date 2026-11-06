@@ -20,9 +20,9 @@ const SEEN_MAX_PAGES = 4;
 export const CONTENT_REFETCH_SCAN_ROWS_PER_TICK = SEEN_PAGE_SIZE * SEEN_MAX_PAGES;
 
 // Where the previous tick stopped scanning, per account. Without it every tick re-reads the newest
-// rows and snippet-only mails further back would never be reached. Lost on restart, which only
-// means the scan starts at the newest mail again.
-const scanResumePoint = new Map<string, Temporal.Instant>();
+// rows and snippet-only mails further back would never be reached. Owned by one poller, so stacks
+// never share it; lost on restart, which only means the scan starts at the newest mail again.
+export type ScanResumePoints = Map<string, Temporal.Instant>;
 
 type SeenRow = { readonly providerMessageId: string; readonly seenAt: Temporal.Instant };
 type MessageRow = {
@@ -38,6 +38,7 @@ function needsContent(row: MessageRow): boolean {
 
 async function findSnippetOnlyMessageIds(
   db: DbConnection,
+  scanResumePoint: ScanResumePoints,
   account: MailAccountRecord,
   windowDays: number,
 ): Promise<string[]> {
@@ -97,6 +98,7 @@ async function findSnippetOnlyMessageIds(
 
 export async function refetchSnippetOnlyMessages(args: {
   readonly db: DbConnection;
+  readonly scanResumePoint: ScanResumePoints;
   readonly dispatchWrite: DispatchWrite;
   readonly providerCtx: InboundMailContext;
   readonly account: MailAccountRecord;
@@ -108,7 +110,12 @@ export async function refetchSnippetOnlyMessages(args: {
   const { account, plugin, dispatchWrite } = args;
   // skip: the provider cannot reload content.
   if (!plugin.fetchContent) return;
-  const ids = await findSnippetOnlyMessageIds(args.db, account, args.windowDays);
+  const ids = await findSnippetOnlyMessageIds(
+    args.db,
+    args.scanResumePoint,
+    account,
+    args.windowDays,
+  );
   // skip: no snippet-only mail to reload.
   if (ids.length === 0) return;
   const result = await plugin.fetchContent(

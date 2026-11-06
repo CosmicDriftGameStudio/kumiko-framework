@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  INBOUND_ADDRESS_LIST_JSON_MAX_CHARS,
   INBOUND_ATTACHMENT_MAX_BYTES,
   INBOUND_ATTACHMENTS_MAX_COUNT,
   INBOUND_BODY_HTML_MAX_CHARS,
@@ -171,5 +172,17 @@ describe("original message limit", () => {
 
     expect(normalized.rawMime).toBe(rawMime);
     expect(normalized.skippedAttachments).toEqual([]);
+  });
+});
+
+describe("address list limit", () => {
+  test("drops addresses from the end until the serialized list fits", () => {
+    const addresses = Array.from({ length: 200 }, (_, i) => `${i}-${"x".repeat(1500)}`);
+    const normalized = normalizeRawInboundMessage(raw({ to: addresses, cc: addresses }));
+    for (const list of [normalized.to, normalized.cc]) {
+      expect(JSON.stringify(list).length).toBeLessThanOrEqual(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS);
+      expect(list.length).toBeGreaterThan(0);
+      expect(list).toEqual(addresses.slice(0, list.length));
+    }
   });
 });

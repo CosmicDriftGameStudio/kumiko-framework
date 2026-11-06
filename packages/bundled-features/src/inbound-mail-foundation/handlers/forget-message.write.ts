@@ -42,6 +42,12 @@ export function createForgetMessageHandler({
       }
 
       const { files } = ctx.services;
+      // Without file storage the original could not be deleted, and the row held its only reference.
+      if (row.bodyRef && !files) {
+        throw new Error(
+          `forget-message: no file storage to delete the stored original of ${messageId}`,
+        );
+      }
       const purged = await purgeInboundMessages({
         db: ctx.db,
         tenantId: event.user.tenantId,

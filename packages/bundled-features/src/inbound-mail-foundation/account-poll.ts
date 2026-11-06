@@ -1,7 +1,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { AccountHealth, PollFailureKind } from "./account-health.ts";
-import { refetchSnippetOnlyMessages } from "./content-refetch.ts";
+import { refetchSnippetOnlyMessages, type ScanResumePoints } from "./content-refetch.ts";
 import { describeError } from "./describe-error.ts";
 import { seenMessageTable } from "./entities.ts";
 import {
@@ -63,6 +63,8 @@ export function createAccountPoller(deps: AccountPollerDeps): {
     log,
   } = deps;
 
+  const scanResumePoint: ScanResumePoints = new Map();
+
   function unknownMessageIdsFilterFor(account: MailAccountRecord) {
     return async (providerMessageIds: readonly string[]): Promise<ReadonlySet<string>> => {
       if (providerMessageIds.length === 0) return new Set();
@@ -111,6 +113,7 @@ export function createAccountPoller(deps: AccountPollerDeps): {
       const accessToken = await resolveAccessToken(account, plugin);
       await refetchSnippetOnlyMessages({
         db: systemDb,
+        scanResumePoint,
         dispatchWrite: deps.dispatchWrite,
         providerCtx,
         account,

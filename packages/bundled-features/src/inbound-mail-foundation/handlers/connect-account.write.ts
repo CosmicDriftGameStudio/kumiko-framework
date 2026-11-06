@@ -41,6 +41,7 @@ import {
   type MailAccountEventPayload,
 } from "../events.ts";
 import { accessRolesOf, type InboundMailRoles } from "../mail-roles.ts";
+import { INBOUND_MAIL_ADDRESS_MAX_CHARS } from "../normalize-inbound-message.ts";
 import {
   connectConflictOf,
   findMailboxByAddress,
@@ -62,7 +63,7 @@ export const connectAccountSchema = z
     ]),
     displayName: z.string().trim().max(200),
     /** Mailbox address in plaintext; it is encrypted here. */
-    address: z.string().min(1).max(320),
+    address: z.string().min(1).max(INBOUND_MAIL_ADDRESS_MAX_CHARS),
     /** "shared" = shared across the tenant (info@) · "user" = the caller's
      *  personal mailbox (ownerUserId is taken from the session, never from
      *  the payload—preventing claims on another user's mailbox). */

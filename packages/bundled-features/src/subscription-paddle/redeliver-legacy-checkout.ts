@@ -5,6 +5,7 @@
 
 import type { SignatureExtraRouteDeps } from "@cosmicdrift/kumiko-framework/api";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isTakeoverWindowOver } from "./backfill-checkout-ledger.ts";
 import {
@@ -12,6 +13,8 @@ import {
   type LedgerBackfillMarkerResult,
 } from "./ledger-backfill-marker.ts";
 import { hasLegacyTenantBinding } from "./webhook-events.ts";
+
+const log = createFallbackLogger("subscription-paddle");
 
 type IgnoredEvent = Parameters<typeof hasLegacyTenantBinding>[0];
 
@@ -28,8 +31,13 @@ export async function shouldRedeliverLegacyCheckout(args: {
     roles: [],
     payload: { markCompleted: false },
   });
-  // Cannot tell whether the sweep is still open: err towards redelivery, Paddle retries a bounded number of times.
-  if (!marker.isSuccess) return true;
+  // tenantBinding is client-settable, so a failing marker read must not turn into endless 503s.
+  if (!marker.isSuccess) {
+    log.warn("ledger backfill marker unreadable, not redelivering", {
+      errorCode: marker.error.code,
+    });
+    return false;
+  }
   const { completedAt } = marker.data as LedgerBackfillMarkerResult; // @cast-boundary engine-payload
   if (completedAt === null) return true;
   return !isTakeoverWindowOver(completedAt, (args.now ?? Temporal.Now.instant)());

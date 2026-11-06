@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SignatureExtraRouteDeps } from "@cosmicdrift/kumiko-framework/api";
 import type { WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { shouldRedeliverLegacyCheckout } from "../redeliver-legacy-checkout.ts";
 import { verifyAndParsePaddleWebhook } from "../webhook-events.ts";
@@ -73,6 +74,19 @@ describe("shouldRedeliverLegacyCheckout", () => {
       });
     expect(await ask("2026-11-02T11:00:01Z")).toBe(true);
     expect(await ask("2026-11-02T11:00:00Z")).toBe(false);
+  });
+
+  test("marker dispatch fails: answer 200 instead of an endless 503", async () => {
+    const event = await parsedEvent({ tenantId, tenantBinding: "b" });
+    const failed = writeFailure(new AccessDeniedError({}));
+    expect(
+      await shouldRedeliverLegacyCheckout({
+        event,
+        reason: "checkout_not_in_ledger",
+        deps: depsWithMarker(failed),
+        now: () => NOW,
+      }),
+    ).toBe(false);
   });
 
   test("an event without tenantBinding never asks for redelivery", async () => {

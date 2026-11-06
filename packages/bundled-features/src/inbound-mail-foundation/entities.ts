@@ -19,6 +19,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { OwnershipMap, OwnershipRule } from "@cosmicdrift/kumiko-types/ownership";
 import { DEFAULT_INBOUND_MAIL_ADMIN_ROLES, DEFAULT_INBOUND_MAIL_USER_ROLES } from "./mail-roles.ts";
+import {
+  INBOUND_ADDRESS_LIST_JSON_MAX_CHARS,
+  INBOUND_BODY_HTML_MAX_BYTES,
+  INBOUND_BODY_TEXT_MAX_CHARS,
+  INBOUND_FROM_MAX_CHARS,
+  INBOUND_MAIL_ADDRESS_MAX_CHARS,
+  INBOUND_SNIPPET_MAX_CHARS,
+  INBOUND_SUBJECT_MAX_CHARS,
+} from "./normalize-inbound-message.ts";
 
 // ============================================================================
 // Read models for the three event-sourced aggregates
@@ -71,7 +80,7 @@ export const mailAccountEntity = createEntity({
     // Mailbox address — tenant PII.
     address: createTextField({
       required: true,
-      maxLength: piiCiphertextMaxLengthFor(320),
+      maxLength: piiCiphertextMaxLengthFor(INBOUND_MAIL_ADDRESS_MAX_CHARS),
       personal: "tenant",
       find: "none",
     }),
@@ -145,28 +154,28 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       }),
       from: createTextField({
         required: true,
-        maxLength: piiCiphertextMaxLengthFor(2000),
+        maxLength: piiCiphertextMaxLengthFor(INBOUND_FROM_MAX_CHARS),
         personal: "tenant",
         find: "none",
       }),
       // JSON-stringified string[] — als Ganzes encrypted.
       to: createTextField({
-        maxLength: piiCiphertextMaxLengthFor(8000),
+        maxLength: piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS),
         personal: "tenant",
         find: "none",
       }),
       cc: createTextField({
-        maxLength: piiCiphertextMaxLengthFor(8000),
+        maxLength: piiCiphertextMaxLengthFor(INBOUND_ADDRESS_LIST_JSON_MAX_CHARS),
         personal: "tenant",
         find: "none",
       }),
       subject: createTextField({
-        maxLength: piiCiphertextMaxLengthFor(4000),
+        maxLength: piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS),
         personal: "tenant",
         find: "none",
       }),
       snippet: createTextField({
-        maxLength: piiCiphertextMaxLengthFor(4000),
+        maxLength: piiCiphertextMaxLengthFor(INBOUND_SNIPPET_MAX_CHARS),
         personal: "tenant",
         find: "none",
       }),
@@ -176,7 +185,7 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       // Null on rows from before the column; list-messages never selects it.
       // Plaintext is clipped to INBOUND_BODY_TEXT_MAX_CHARS (32_000) before encryption.
       bodyText: createLongTextField({
-        maxLength: piiCiphertextMaxLengthFor(32_000),
+        maxLength: piiCiphertextMaxLengthFor(INBOUND_BODY_TEXT_MAX_CHARS),
         personal: "tenant",
         find: "none",
       }),
@@ -184,7 +193,7 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       // Sanitized HTML of the mail, null when the mail has none or it was too large: sanitizeInboundHtml
       // drops anything over 500_000 bytes after sanitizing, before encryption.
       bodyHtml: createLongTextField({
-        maxLength: piiCiphertextMaxLengthFor(500_000),
+        maxLength: piiCiphertextMaxLengthFor(INBOUND_BODY_HTML_MAX_BYTES),
         personal: "tenant",
         find: "none",
       }),
@@ -239,7 +248,7 @@ export const mailThreadEntity = createEntity({
       reason: "technical_reference",
     }),
     subject: createTextField({
-      maxLength: piiCiphertextMaxLengthFor(4000),
+      maxLength: piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS),
       personal: "tenant",
       find: "none",
     }),

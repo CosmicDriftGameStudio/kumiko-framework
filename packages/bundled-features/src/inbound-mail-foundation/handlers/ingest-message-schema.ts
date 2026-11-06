@@ -1,4 +1,10 @@
 import * as z from "zod";
+import {
+  INBOUND_ADDRESS_LIST_JSON_MAX_CHARS,
+  INBOUND_FROM_MAX_CHARS,
+  INBOUND_SNIPPET_MAX_CHARS,
+  INBOUND_SUBJECT_MAX_CHARS,
+} from "../normalize-inbound-message.ts";
 import { senderAuthenticationFieldSchema } from "../sender-auth.ts";
 import { inboundContentPayloadShape } from "./message-content.ts";
 
@@ -8,6 +14,13 @@ import { inboundContentPayloadShape } from "./message-content.ts";
 // original and attachments ride in-process as bytes and are persisted to file
 // storage here; the event itself stays blob-free (references only).
 // =============================================================================
+
+const addressListSchema = z
+  .array(z.string().max(2000))
+  .max(200)
+  .refine((list) => JSON.stringify(list).length <= INBOUND_ADDRESS_LIST_JSON_MAX_CHARS, {
+    message: "serialized address list too long",
+  });
 
 export const ingestMessageSchema = z.object({
   accountId: z.uuid(),
@@ -22,11 +35,11 @@ export const ingestMessageSchema = z.object({
   providerThreadId: z.string().min(1).max(500).nullable(),
   /** References/In-Reply-To chain, oldest first. */
   references: z.array(z.string().min(1).max(500)).max(200),
-  from: z.string().min(1).max(2000),
-  to: z.array(z.string().max(2000)).max(200),
-  cc: z.array(z.string().max(2000)).max(200),
-  subject: z.string().max(4000),
-  snippet: z.string().max(4000),
+  from: z.string().min(1).max(INBOUND_FROM_MAX_CHARS),
+  to: addressListSchema,
+  cc: addressListSchema,
+  subject: z.string().max(INBOUND_SUBJECT_MAX_CHARS),
+  snippet: z.string().max(INBOUND_SNIPPET_MAX_CHARS),
   receivedAtIso: z.string().min(1),
   /** From the app's storeBody hook; empty lets the handler store the original itself. */
   bodyRef: z.string().max(500),

@@ -73,4 +73,37 @@ describe("ingest-message with PII encryption", () => {
     expect(list.rows[0]?.["subject"]).toBe(subject);
     expect(list.rows[0]?.["snippet"]).toBe(snippet);
   });
+
+  test("a to/cc list of 200 long quoted addresses is cut to the limit and read back whole", async () => {
+    const admin = adminFor(6812);
+    const accountId = await connectInMemoryAccount(env.stack, admin);
+    const addresses = Array.from(
+      { length: 200 },
+      (_, i) => `"${i}-${'"\\'.repeat(300)}" <a${i}@firma.example>`,
+    );
+    const msg = normalizeRawInboundMessage(
+      rawMsg({ providerMessageId: "limits-2", to: addresses, cc: addresses }),
+    );
+    expect(msg.to.length).toBeGreaterThan(0);
+    expect(msg.to.length).toBeLessThan(200);
+
+    const result = await env.stack.dispatcher.write(
+      InboundMailFoundationHandlers.ingestMessage,
+      ingestPayloadOf(accountOf(accountId, admin.tenantId), msg, {
+        providerCursor: "test",
+        bodyRef: "",
+      }),
+      createSystemUser(admin.tenantId as TenantId, [ROLES.SystemAdmin]),
+    );
+
+    expect(result.isSuccess).toBe(true);
+    const list = (await env.stack.http.queryOk(
+      InboundMailFoundationQueries.listMessages,
+      { accountId },
+      admin,
+    )) as { rows: Array<Record<string, unknown>> };
+    expect(list.rows).toHaveLength(1);
+    expect(JSON.parse(String(list.rows[0]?.["to"]))).toEqual(msg.to);
+    expect(JSON.parse(String(list.rows[0]?.["cc"]))).toEqual(msg.cc);
+  });
 });

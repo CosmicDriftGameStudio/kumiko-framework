@@ -95,6 +95,7 @@ function buildSubscriptionEvent(overrides: {
   currentPeriodEndUnix?: number;
   cancelAtUnix?: number | null;
   cancelAtPeriodEnd?: boolean;
+  createdUnix?: number;
 }) {
   const eventId = overrides.eventId ?? "evt_test_001";
   const eventType = overrides.eventType ?? "customer.subscription.created";
@@ -106,7 +107,7 @@ function buildSubscriptionEvent(overrides: {
     id: eventId,
     object: "event",
     api_version: "2026-04-22.dahlia",
-    created: 1_770_000_000,
+    created: overrides.createdUnix ?? 1_770_000_000,
     type: eventType,
     livemode: false,
     pending_webhooks: 1,
@@ -355,7 +356,19 @@ describe("verifyAndParseStripeWebhook — checkout session of a created subscrip
     expect(body).toEqual({ error: { code: "subscription_provider_transient" } });
   });
 
-  test("created with an empty session list → event without providerCheckoutId, no rejection", async () => {
+  test("created with an empty session list and a fresh event → 503 so Stripe redelivers", async () => {
+    sessionLookup = "empty";
+    const payload = JSON.stringify(
+      buildSubscriptionEvent({ createdUnix: Math.floor(Date.now() / 1000) }),
+    );
+    const rejection = await verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro" },
+    })(payload, { "stripe-signature": await signEvent(payload) }).catch((e: unknown) => e);
+    expect(rejection).toBeInstanceOf(ExtraRouteRejection);
+    expect((rejection as ExtraRouteRejection).status).toBe(503);
+  });
+
+  test("created with an empty session list and an old event → event without providerCheckoutId, no rejection", async () => {
     sessionLookup = "empty";
     const event = await parse("customer.subscription.created");
     expect(event).not.toBeNull();

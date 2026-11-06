@@ -15,6 +15,8 @@ import * as z from "zod";
 import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./web/constants.ts";
 import { CONSENT_LOCALES } from "./web/consumer-protection/consent-locale.ts";
 
+export const PROVIDER_ID_MAX_CHARS = 200;
+
 // Aggregate type for the event store. One subscription per tenant is
 // one stream; the subscriptionAggregateId helper provides the stream ID.
 export const SUBSCRIPTION_AGGREGATE_TYPE = "subscription" as const;
@@ -54,9 +56,9 @@ const statusEnum = z.enum([
 // PII, and event headers cannot be crypto-shredded.
 export const subscriptionEventPayloadSchema = z.object({
   providerName: z.string().min(1).max(50),
-  // Ciphertext, not the raw id: process-event limits the plaintext id to 200.
-  providerCustomerId: z.string().min(1).max(piiCiphertextMaxLengthFor(200)),
-  providerSubscriptionId: z.string().min(1).max(piiCiphertextMaxLengthFor(200)),
+  // Ciphertext, not the raw id: the plaintext id is limited to PROVIDER_ID_MAX_CHARS.
+  providerCustomerId: z.string().min(1).max(piiCiphertextMaxLengthFor(PROVIDER_ID_MAX_CHARS)),
+  providerSubscriptionId: z.string().min(1).max(piiCiphertextMaxLengthFor(PROVIDER_ID_MAX_CHARS)),
   status: statusEnum,
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
@@ -98,8 +100,8 @@ export const PAYMENT_RECEIVED_EVENT_QN =
 
 export const paymentEventPayloadSchema = z.object({
   providerName: z.string().min(1).max(50),
-  // Ciphertext, not the raw id (plaintext limit 200).
-  providerCustomerId: z.string().min(1).max(piiCiphertextMaxLengthFor(200)),
+  // Ciphertext, not the raw id (plaintext limit PROVIDER_ID_MAX_CHARS).
+  providerCustomerId: z.string().min(1).max(piiCiphertextMaxLengthFor(PROVIDER_ID_MAX_CHARS)),
   priceId: z.string().min(1).max(200),
   // Optional so payloads stored before quantity existed still parse; absent = 1.
   quantity: z.number().int().positive().optional(),
