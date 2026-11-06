@@ -72,6 +72,28 @@ describe("screen focus", () => {
     expect(screen.getByTestId("focus").textContent).toBe("none");
   });
 
+  test("unmounting one of two reporters keeps the focus the other one holds", () => {
+    const second: ScreenFocus = { ...first, recordId: "r2", label: "Offer" };
+    const view = render(
+      <ScreenFocusProvider>
+        <Reporter key="a" focus={first} />
+        <Reporter key="b" focus={second} />
+        <Reader />
+      </ScreenFocusProvider>,
+    );
+    expect(screen.getByTestId("focus").textContent).toBe(JSON.stringify(second));
+
+    act(() => {
+      view.rerender(
+        <ScreenFocusProvider>
+          <Reporter key="b" focus={second} />
+          <Reader />
+        </ScreenFocusProvider>,
+      );
+    });
+    expect(screen.getByTestId("focus").textContent).toBe(JSON.stringify(second));
+  });
+
   test("a fresh but equal focus object does not loop re-renders", () => {
     renderCount.value = 0;
     const view = render(

@@ -489,9 +489,7 @@ describe("DataTable", () => {
           />
         </LocaleProvider>,
       );
-      // toLocaleString() without a locale arg stays runtime-default (not the
-      // resolver locale) — this only addresses the untranslated word/aria-labels.
-      expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 von 3,000");
+      expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 von 3.000");
       expect(screen.getByTestId("dt-pager-page-1").getAttribute("aria-label")).toBe("Seite 1");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe(
         "Vorherige Seite",

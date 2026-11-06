@@ -102,7 +102,11 @@ describe("table footer rows", () => {
 });
 
 describe("sort summary", () => {
-  function model(total: number, tableTranslate?: DataTableModel["tableTranslate"]): DataTableModel {
+  function model(
+    total: number,
+    tableTranslate?: DataTableModel["tableTranslate"],
+    tableLocale?: string,
+  ): DataTableModel {
     return {
       sortOptions: [{ field: "term", dir: "desc", label: "Dringlichkeit" }],
       sort: { field: "term", dir: "desc" },
@@ -110,6 +114,7 @@ describe("sort summary", () => {
       pager: { total },
       itemNoun: (count: number) => (count === 1 ? "Vertrag" : "Verträge"),
       tableTranslate,
+      tableLocale,
     } as unknown as DataTableModel;
   }
   const bundle: Record<string, string> = {
@@ -125,6 +130,15 @@ describe("sort summary", () => {
     expect(sortSummaryText(model(1, translate))).toBe("Nach Dringlichkeit ↓ · 1 Vertrag");
     expect(sortSummaryText(model(1234, translate))).toBe(
       `Nach Dringlichkeit ↓ · ${(1234).toLocaleString()} Verträge`,
+    );
+  });
+
+  test("formats the count in the app locale, not the browser locale", () => {
+    expect(sortSummaryText(model(1234, translate, "de-DE"))).toBe(
+      "Nach Dringlichkeit ↓ · 1.234 Verträge",
+    );
+    expect(sortSummaryText(model(1234, translate, "en-US"))).toBe(
+      "Nach Dringlichkeit ↓ · 1,234 Verträge",
     );
   });
 });

@@ -317,6 +317,33 @@ describe("dashboard list texts and row link", () => {
     expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain("T10:00");
   });
 
+  test("narrow.field on a bar column shows a percent and translates an i18n key value", async () => {
+    const panel = textList({
+      columns: [{ field: "title" }, { field: "share", display: "bar" }, { field: "reason" }],
+      narrow: { layout: "line", field: "share" },
+    });
+    setViewportWidth(PHONE_WIDTH);
+    const answer = () =>
+      ok({ rows: [{ id: "t0", title: "Task 0", share: 0.42, reason: "kumiko.list.empty.title" }] });
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": answer });
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("42%"),
+    );
+    cleanup();
+    renderDashboard(
+      dashboardOf(textList({ ...panel, narrow: { layout: "line", field: "reason" } })),
+      {
+        "demo:query:task:list": answer,
+      },
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("dashboard-panel-open").textContent).toContain("No entries yet."),
+    );
+    expect(screen.getByTestId("dashboard-panel-open").textContent).not.toContain(
+      "kumiko.list.empty.title",
+    );
+  });
+
   const rowLinkRows = [
     { id: "t0", title: "Task 0", target: { entityId: "e0" } },
     { id: "t1", title: "Task 1", target: "not-an-object" },

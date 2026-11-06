@@ -96,6 +96,14 @@ describe("declarative screen focus", () => {
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).not.toBeNull();
   });
 
+  test("wide: the shell's header actions are not mounted a second time as top-bar duplicates", () => {
+    setViewportWidth(1200);
+    render(<Harness screenDef={detailScreen} />);
+    expect(screen.getAllByText("Global action")).toHaveLength(1);
+    const topBar = screen.queryByTestId("mobile-top-bar");
+    if (topBar !== null) expect(within(topBar).queryByText("Global action")).toBeNull();
+  });
+
   test("narrow: the shell's header actions sit in the top bar next to the overflow menu", () => {
     atViewportWidth(500, () => {
       render(<Harness screenDef={detailScreen} />);

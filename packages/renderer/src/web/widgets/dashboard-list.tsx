@@ -52,6 +52,40 @@ function fractionOf(raw: unknown): number {
 // Rows may carry i18n keys (quota labels, failure reasons); translate falls back to the key itself.
 const I18N_KEY_SHAPE = /^[a-z][\w-]*(?:[:.][\w-]+)+$/i;
 
+function timestampMsOf(raw: unknown): number {
+  return typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
+}
+
+/** Plain-text form of a cell value, for places that cannot render the cell itself (phone line). */
+export function dashboardListCellText(
+  column: Pick<DashboardListColumn, "display" | "renderValue">,
+  row: Row,
+  field: string,
+  formats: {
+    readonly formatPercent: (fraction: number) => string;
+    readonly formatNumber: (value: number) => string;
+    readonly formatDateTime: (atMs: number) => string;
+  },
+  translate: (key: string) => string,
+): string | undefined {
+  const raw = row[field];
+  if (column.display === "bar") return formats.formatPercent(fractionOf(raw));
+  if (column.display === "datetime") {
+    const atMs = timestampMsOf(raw);
+    return Number.isFinite(atMs) ? formats.formatDateTime(atMs) : undefined;
+  }
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  if (column.renderValue === undefined && typeof raw === "number") return formats.formatNumber(raw);
+  const text =
+    column.renderValue !== undefined
+      ? column.renderValue(raw, row)
+      : typeof raw === "string"
+        ? raw
+        : undefined;
+  if (text === undefined) return undefined;
+  return I18N_KEY_SHAPE.test(text) ? translate(text) : text;
+}
+
 export function DashboardListCell({
   column,
   row,
@@ -109,8 +143,7 @@ export function DashboardListCell({
     );
   }
   if (column.display === "datetime") {
-    const atMs =
-      typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
+    const atMs = timestampMsOf(raw);
     if (!Number.isFinite(atMs)) return empty;
     return <span className="font-mono text-[12.5px] tabular-nums">{formatDateTime(atMs)}</span>;
   }

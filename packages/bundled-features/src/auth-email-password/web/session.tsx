@@ -14,7 +14,7 @@ import {
   useSessionEndedSignal,
 } from "@cosmicdrift/kumiko-renderer";
 import { readCsrfToken } from "@cosmicdrift/kumiko-renderer/live";
-import { clearRememberedListState } from "@cosmicdrift/kumiko-renderer/web";
+import { clearNavCollapseState, clearRememberedListState } from "@cosmicdrift/kumiko-renderer/web";
 import {
   createContext,
   type ReactNode,
@@ -219,6 +219,7 @@ export function SessionProvider({
     await logoutApi();
     // The reload below would hide the identity change from the list-state boot.
     clearRememberedListState();
+    clearNavCollapseState();
     if (typeof window === "undefined") {
       setState(UNAUTHENTICATED);
       return;
