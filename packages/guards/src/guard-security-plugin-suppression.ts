@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { SourceFile } from "ts-morph";
 import { scanCommentTrivia } from "./_lib/comment-trivia";
 import {
@@ -170,36 +171,34 @@ export function parseBiomeDiagnostics(stdout: string): BiomeDiagnostic[] | undef
   } catch {
     return undefined;
   }
-  const raw =
-    typeof parsed === "object" && parsed !== null && "diagnostics" in parsed
-      ? parsed.diagnostics
-      : undefined;
+  const raw = isPlainObject(parsed) ? parsed["diagnostics"] : undefined;
   if (!Array.isArray(raw)) return undefined;
   const diagnostics: BiomeDiagnostic[] = [];
   for (const item of raw) {
-    if (typeof item !== "object" || item === null) return undefined;
-    const { severity, category, message, location } = item as Record<string, unknown>;
-    if (typeof severity !== "string" || typeof category !== "string") return undefined;
-    const loc = typeof location === "object" && location !== null ? location : undefined;
-    const locPath =
-      loc !== undefined && "path" in loc && typeof loc.path === "string" ? loc.path : undefined;
-    const start = loc !== undefined && "start" in loc ? loc.start : undefined;
-    const line =
-      typeof start === "object" &&
-      start !== null &&
-      "line" in start &&
-      typeof start.line === "number"
-        ? start.line
-        : 1;
-    diagnostics.push({
-      severity,
-      category,
-      message: typeof message === "string" ? message : "",
-      path: locPath,
-      line,
-    });
+    const diagnostic = toBiomeDiagnostic(item);
+    if (diagnostic === undefined) return undefined;
+    diagnostics.push(diagnostic);
   }
   return diagnostics;
+}
+
+function diagnosticLocation(location: unknown): { path: string | undefined; line: number } {
+  if (!isPlainObject(location)) return { path: undefined, line: 1 };
+  const { path: locPath, start } = location;
+  const line = isPlainObject(start) && typeof start["line"] === "number" ? start["line"] : 1;
+  return { path: typeof locPath === "string" ? locPath : undefined, line };
+}
+
+function toBiomeDiagnostic(item: unknown): BiomeDiagnostic | undefined {
+  if (!isPlainObject(item)) return undefined;
+  const { severity, category, message, location } = item;
+  if (typeof severity !== "string" || typeof category !== "string") return undefined;
+  return {
+    severity,
+    category,
+    message: typeof message === "string" ? message : "",
+    ...diagnosticLocation(location),
+  };
 }
 
 function runBiomeInTempRepo(

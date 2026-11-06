@@ -120,7 +120,9 @@ export function createStepDispatcherFeature(): FeatureDefinition {
         const isJobPending = runner?.isJobPending?.bind(runner);
         if (!isJobPending) {
           // Fail closed: closing would erase the PII key of a delivery that may still run.
-          ctx.obs.log.warn("job runner cannot report job state, abandoned dispatches are not swept");
+          ctx.obs.log.warn(
+            "job runner cannot report job state, abandoned dispatches are not swept",
+          );
           return;
         }
         await sweepAbandonedDispatches({
