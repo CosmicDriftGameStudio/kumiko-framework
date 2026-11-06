@@ -77,7 +77,7 @@ jobs:
 
       # A Version PR merged while stale ships versions that predate changesets
       # already on main (0.343.0 without #3555, 0.345.0 without #3563). The
-      # stale flag is consumed by the required `test` job, which fails on it.
+      # stale flag is consumed by the `check` job and the required `test` job, which fail on it.
       # This only covers the state at PR time: a changeset merged afterwards
       # leaves the green status standing, so the release job repeats the check
       # on the merge result before it publishes.
@@ -129,7 +129,9 @@ jobs:
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --config .gitleaks.toml \
             --log-opts="${BASE_SHA}..${HEAD_SHA}" .
 
-  test:
+  # Static half of the former single `test` job: changeset gates, audit, Biome, TypeScript,
+  # guards, dist check. The required check is the `test` job below, which needs this and unit-dom.
+  check:
     # GitHub-hosted: public repo → gratis + 4 Cores (statt 1-CPU cdgs-runner).
     # Kein Cluster-Zugriff nötig (pure typecheck/lint/test).
     runs-on: ubuntu-latest
@@ -199,20 +201,65 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: bash scripts/changeset-required-check.sh
 
-      - name: Run tests
+      - name: Run static checks
         env:
           GITHUB_EVENT_BEFORE: ${{ github.event.before }}
         run: |
           # watch-tests öffnen viele inotify-FDs; ohne Job-Container das
           # nofile-Limit selbst heben (kam vorher aus container.options).
           ulimit -n 65536 || true
-          sh scripts/ci-memlog-run.sh bun kumiko check
+          sh scripts/ci-memlog-run.sh bun kumiko check --phase=static
 
       - name: Verify dist packages
         run: bun run check:dist
 
+  # Unit + DOM half of the former single `test` job; the unit lcov feeds coverage-badge.
+  unit-dom:
+    runs-on: ubuntu-latest
+    needs: version-pr-gate
+    if: ${{ !cancelled() && needs.version-pr-gate.outputs.skip_heavy != 'true' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.4"
+
+      # real-providers-node-import.test.ts spawns node to prove the
+      # helpers/real-providers subpath loads without Bun.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26.13.0"
+
+      - name: Cache Bun
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - name: Install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
+
+      - name: Run unit and DOM tests
+        run: |
+          # watch-tests öffnen viele inotify-FDs; ohne Job-Container das
+          # nofile-Limit selbst heben (kam vorher aus container.options).
+          ulimit -n 65536 || true
+          sh scripts/ci-memlog-run.sh bun kumiko check --phase=tests
+
       - name: Upload unit coverage
-        # lcov aus demselben "Run tests"-Lauf oben (kein zweiter Testrun).
+        # lcov aus demselben "Run unit and DOM tests"-Lauf oben (kein zweiter Testrun).
         # Merge mit dem integration-lcov + Badge-Commit passiert im
         # coverage-badge-Job unten, nachdem beide Jobs fertig sind.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -223,7 +270,7 @@ jobs:
           retention-days: 1
 
       - name: Upload dom coverage
-        # lcov aus dem dom-Step des "Run tests"-Laufs (bunfig.dom.toml) —
+        # lcov aus dem dom-Step des "Run unit and DOM tests"-Laufs (bunfig.dom.toml) —
         # einzige Suite, die die tsx-abgedeckten UI-Dateien ausführt.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -231,6 +278,27 @@ jobs:
           name: coverage-dom
           path: coverage/dom/lcov.info
           retention-days: 1
+
+  # Required check of the branch protection: rename only together with it.
+  # A skipped required check counts as passed, so this job runs whenever `check` was due
+  # (including a stale Version PR, where `check` fails) and passes only if both halves succeeded.
+  test:
+    runs-on: ubuntu-latest
+    needs: [version-pr-gate, check, unit-dom]
+    if: ${{ always() && (needs.version-pr-gate.outputs.skip_heavy != 'true' || needs.version-pr-gate.outputs.version_pr_stale == 'true') }}
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require static checks and unit/DOM tests
+        env:
+          CHECK_RESULT: ${{ needs.check.result }}
+          UNIT_DOM_RESULT: ${{ needs.unit-dom.result }}
+          VERSION_PR_STALE: ${{ needs.version-pr-gate.outputs.version_pr_stale }}
+        run: |
+          echo "check: $CHECK_RESULT, unit-dom: $UNIT_DOM_RESULT, version_pr_stale: $VERSION_PR_STALE"
+          test "$VERSION_PR_STALE" != "true"
+          test "$CHECK_RESULT" = "success"
+          test "$UNIT_DOM_RESULT" = "success"
 
   tz-matrix:
     # Timezones epic (kumiko-framework#268), item 12. Runs the TZ-sensitive
@@ -419,8 +487,7 @@ jobs:
           FILE_STORAGE_PROVIDER: inmemory
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Bundle smoke (Empfehlung 4)" -- bash samples/apps/use-all-bundled/scripts/bundle-smoke.sh
 
-  # Job-Name ist ein Pflicht-Check der Branch-Protection: nur zusammen mit ihr
-  # umbenennen. Fährt die ~515
+  # Fährt die ~515
   # *.integration.test.ts via scripts/run-integration-tests.ts (ein
   # `bun test --parallel=4 --no-isolate`-Aufruf über buildIntegrationTestArgs)
   # gegen den vollen Stack; Subprocess-Checks (scaffold-check) danach ohne --parallel. Wall-clock perf gates laufen
@@ -428,9 +495,17 @@ jobs:
   # setzt die localhost-Env-Defaults selbst (kein --env-file nötig).
   # Services (pg/redis/meili/object storage) come from the
   # .github/actions/kumiko-services action; image pins live in its service-images.txt.
-  integration:
+  # The bulk lane is split into disjoint shards on separate runners, each with its own services;
+  # shard 1 also owns the subprocess lane and the perf gates. The required check is the
+  # `integration` job below.
+  integration-shard:
+    name: integration (${{ matrix.shard }})
     runs-on: ubuntu-latest
     needs: version-pr-gate
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     if: ${{ !cancelled() && needs.version-pr-gate.outputs.skip_heavy != 'true' }}
     timeout-minutes: 30
     permissions:
@@ -503,9 +578,10 @@ jobs:
           # `--parallel` invocation writes straight to
           # coverage/integration/lcov.info; no per-dir parts to merge.
           KUMIKO_INTEGRATION_COVERAGE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && '1' || '' }}
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration tests" -- bun run test:integration
+        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration tests (shard ${{ matrix.shard }})" -- bun scripts/run-integration-tests.ts --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Run integration perf gates (stream-version, pipeline, rebuildProjection)
+        if: matrix.shard == 1
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Run integration perf gates (stream-version, pipeline, rebuildProjection)" -- bun run test:integration:perf:strict
 
       - name: Upload integration coverage
@@ -513,13 +589,30 @@ jobs:
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: coverage-integration
+          name: coverage-integration-${{ matrix.shard }}
           path: coverage/integration/lcov.info
           retention-days: 1
 
       - name: Stop services
         if: always()
         uses: ./.github/actions/kumiko-services/stop
+
+  # Required check of the branch protection: rename only together with it.
+  # A skipped required check counts as passed, so this job runs whenever the
+  # shards were due and passes only if both shards succeeded.
+  integration:
+    runs-on: ubuntu-latest
+    needs: [version-pr-gate, integration-shard]
+    if: ${{ always() && needs.version-pr-gate.outputs.skip_heavy != 'true' }}
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require both integration shards
+        env:
+          SHARD_RESULT: ${{ needs.integration-shard.result }}
+        run: |
+          echo "integration shards: $SHARD_RESULT"
+          test "$SHARD_RESULT" = "success"
 
   # Event-store latency gate (#1940), isolated in its own job (removes bulk-suite contention) and gated on p95 for typical latency; p99 only has a loose 250ms tail budget because cold-Postgres warm-up alone spikes it to 47-73ms even fully isolated.
   # The job name is a required branch-protection check: rename only together with it.
@@ -727,17 +820,19 @@ jobs:
     # ist branch-protected ("changes via PR only"), ein direkter Commit-Push
     # dorthin schlägt immer fehl (#1132 gezeigt) — der badges-Branch umgeht
     # das, ohne für einen generierten Badge-Wert einen PR aufzumachen.
-    # needs: integration nur für die Artifact-Reihenfolge — der `if` verlangt
+    # needs: integration-shard nur für die Artifact-Reihenfolge — der `if` verlangt
     # NICHT dessen Erfolg: der echte dir-by-dir-Integrationslauf flakt
     # gelegentlich (Redis/DB-Races), unabhängig von diesem Badge-Job. Ein
     # Integration-Flake soll die Badge nicht verhindern. ABER: bei schnell
-    # aufeinanderfolgenden main-Pushes killt cancel-in-progress den noch
-    # laufenden integration-Job eines älteren Runs (~5min) — der Badge-Job
+    # aufeinanderfolgenden main-Pushes killt cancel-in-progress die noch
+    # laufenden Integration-Shards eines älteren Runs (~5min) — der Badge-Job
     # lief dann trotzdem (needs nur "completed", nicht "success") und
-    # überschrieb den echten Wert mit Unit-only-Daten. needs.integration.result
-    # != 'cancelled' verhindert genau das (gesehen nach #1141/#1143).
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success' && needs.integration.result != 'cancelled'
-    needs: [test, integration]
+    # überschrieb den echten Wert mit Unit-only-Daten. needs.integration-shard.result
+    # != 'cancelled' verhindert genau das (gesehen nach #1141/#1143). It checks the
+    # shard matrix, not the `integration` collector: with `always()` the collector
+    # runs after a cancel and reports failure, never cancelled.
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success' && needs.integration-shard.result != 'cancelled'
+    needs: [test, integration-shard]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -757,11 +852,18 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # continue-on-error: die Integration-Coverage-Pass ist selbst schon
         # continue-on-error — Artifact kann fehlen, coverage-badge.ts fällt
-        # dann auf Unit-only zurück statt zu crashen.
+        # dann auf Unit-only zurück statt zu crashen. One lcov per shard;
+        # the badge script merges every coverage/integration*/lcov.info.
         continue-on-error: true
         with:
-          name: coverage-integration
-          path: coverage/integration
+          name: coverage-integration-1
+          path: coverage/integration-1
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: coverage-integration-2
+          path: coverage/integration-2
 
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         # continue-on-error: fehlt das Artefakt (alter Run vor dem dom-Split),

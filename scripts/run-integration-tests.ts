@@ -13,10 +13,15 @@ import {
   INTEGRATION_GUARD,
   type IntegrationDiscovery,
   type IntegrationRunMode,
+  type IntegrationShard,
   integrationRunModeFromArgv,
+  integrationShardFromArgv,
   isIntegrationPerfFile,
+  isIntegrationShardFlag,
   isSubprocessIntegrationFile,
   parseBunTestRunOutput,
+  selectShardFiles,
+  shardRunsSubprocessLane,
 } from "../bin/_lib/integration-test";
 
 const INTEGRATION_COVERAGE_OUT = "coverage/integration";
@@ -31,13 +36,17 @@ async function discoverAllIntegrationFiles(): Promise<string[]> {
 
 async function discoverIntegrationTargets(
   mode: IntegrationRunMode = "bulk",
+  shard: IntegrationShard | null = null,
 ): Promise<IntegrationDiscovery> {
   const allFiles = await discoverAllIntegrationFiles();
   if (mode === "perf") return { includedFiles: allFiles.filter(isIntegrationPerfFile) };
   const bulkCandidates = allFiles.filter((file) => !isIntegrationPerfFile(file));
+  const bulkFiles = bulkCandidates.filter((file) => !isSubprocessIntegrationFile(file));
   return {
-    includedFiles: bulkCandidates.filter((file) => !isSubprocessIntegrationFile(file)),
-    subprocessFiles: bulkCandidates.filter(isSubprocessIntegrationFile),
+    includedFiles: shard === null ? bulkFiles : selectShardFiles(bulkFiles, shard),
+    subprocessFiles: shardRunsSubprocessLane(shard)
+      ? bulkCandidates.filter(isSubprocessIntegrationFile)
+      : [],
   };
 }
 
@@ -159,15 +168,22 @@ async function runLane(lane: IntegrationLane): Promise<number> {
   return exitCode !== 0 ? exitCode : summaryCode;
 }
 
-async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<number> {
-  const discovery = await discoverIntegrationTargets(mode);
+async function runIntegrationTests(
+  mode: IntegrationRunMode = "bulk",
+  shard: IntegrationShard | null = null,
+): Promise<number> {
+  const discovery = await discoverIntegrationTargets(mode, shard);
 
   if (discovery.includedFiles.length === 0) {
     if (mode === "perf") {
       console.log("No integration perf gate files found. Nothing to run.");
       return 0;
     }
-    console.error("No integration test files found");
+    console.error(
+      shard === null
+        ? "No integration test files found"
+        : `No integration test files in shard ${shard.index}/${shard.total}`,
+    );
     return 1;
   }
 
@@ -195,11 +211,13 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
   return bulkCode !== 0 ? bulkCode : subprocessCode;
 }
 
-const USAGE = `Usage: bun scripts/run-integration-tests.ts [--perf]
+const USAGE = `Usage: bun scripts/run-integration-tests.ts [--perf] [--shard=N/M]
 
 Runs every *.integration.test.ts under packages/, samples/ and apps/.
 
   --perf       run only the wall-clock perf gate files, without --parallel
+  --shard=N/M  run the Nth of M disjoint slices of the bulk lane; shard 1 also runs the
+               subprocess lane (ignored with --perf)
   -h, --help   print this help and exit`;
 
 const KNOWN_FLAGS: ReadonlySet<string> = new Set(["--perf", "--help", "-h"]);
@@ -210,7 +228,7 @@ if (import.meta.main) {
     console.log(USAGE);
     process.exit(0);
   }
-  const unknown = flags.filter((flag) => !KNOWN_FLAGS.has(flag));
+  const unknown = flags.filter((flag) => !KNOWN_FLAGS.has(flag) && !isIntegrationShardFlag(flag));
   if (unknown.length > 0) {
     console.error(`Unknown argument(s): ${unknown.join(", ")}\n\n${USAGE}`);
     process.exit(1);
@@ -223,7 +241,8 @@ if (import.meta.main) {
   if (guard.exitCode !== 0) process.exit(guard.exitCode ?? 1);
 
   const mode = integrationRunModeFromArgv(process.argv);
-  const code = await runWithTestRun(() => runIntegrationTests(mode));
+  const shard = mode === "perf" ? null : integrationShardFromArgv(process.argv);
+  const code = await runWithTestRun(() => runIntegrationTests(mode, shard));
   process.exit(code);
 }
 

@@ -16,6 +16,7 @@ import {
   parseCliScope,
   registerLockCleanup,
 } from "./_lib/check-lock";
+import { type CheckPhase, parseCheckPhases } from "./_lib/check-phases";
 import { decideGuardScanRoot } from "./_lib/guard-scan-root";
 
 // Fast checks are CPU-bound (tsc, ts-morph guards). A fixed pool=6 thrashes
@@ -594,6 +595,13 @@ const commands = {
       // less file names would let concurrent pushes from different repos
       // collide on the same lock — the loser would then adopt the other
       // repo's scope and exit code (infra#722).
+      let phases: ReadonlySet<CheckPhase>;
+      try {
+        phases = parseCheckPhases(Bun.argv.slice(3));
+      } catch (err) {
+        console.error(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
       const workCtx = resolveCheckWorkContext(process.cwd(), REPO_ROOT);
       const { lockDir, logPath, resultPath } = checkLockPaths(workCtx.cliScope);
 
@@ -609,10 +617,12 @@ const commands = {
       logBoth("Check everything...\n", logPath);
       const results: Array<{ name: string; ok: boolean }> = [];
 
-      logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`, logPath);
-      const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, FAST_POOL, logPath);
-      for (const r of fastResults) results.push(r);
-      logBoth("", logPath);
+      if (phases.has("static")) {
+        logBoth(`--- ${FAST_CHECK_STEPS.length} fast checks (parallel, pool=${FAST_POOL}) ---`, logPath);
+        const fastResults = await runPoolBuffered(FAST_CHECK_STEPS, FAST_POOL, logPath);
+        for (const r of fastResults) results.push(r);
+        logBoth("", logPath);
+      }
 
       // KUMIKO_CHECK=1 enables the higher Vitest thread cap (8 instead of 4)
       // in vitest.config.ts — the box is saturated anyway during a
@@ -620,21 +630,23 @@ const commands = {
       // conservative default stays active.
       //
       // Integration tests locally in `check`, skip in CI (require Docker stack). skip (requires Docker stack).
-      for (const step of UNIT_TEST_STEPS) {
-        logBoth(`--- ${step.name} ---`, logPath);
-        const code = await runWithTee(step.cmd, logPath, step.name);
-        results.push({ name: step.name, ok: code === 0 });
-        logBoth("", logPath);
-      }
-
-      if (process.env.CI === "true") {
-        logBoth("--- Integration Tests (framework) --- skipped (CI)", logPath);
-      } else {
-        for (const step of INTEGRATION_TEST_STEPS) {
+      if (phases.has("tests")) {
+        for (const step of UNIT_TEST_STEPS) {
           logBoth(`--- ${step.name} ---`, logPath);
           const code = await runWithTee(step.cmd, logPath, step.name);
           results.push({ name: step.name, ok: code === 0 });
           logBoth("", logPath);
+        }
+
+        if (process.env.CI === "true") {
+          logBoth("--- Integration Tests (framework) --- skipped (CI)", logPath);
+        } else {
+          for (const step of INTEGRATION_TEST_STEPS) {
+            logBoth(`--- ${step.name} ---`, logPath);
+            const code = await runWithTee(step.cmd, logPath, step.name);
+            results.push({ name: step.name, ok: code === 0 });
+            logBoth("", logPath);
+          }
         }
       }
 
