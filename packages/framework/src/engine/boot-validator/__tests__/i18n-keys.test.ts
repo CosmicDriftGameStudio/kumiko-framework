@@ -430,6 +430,15 @@ describe("translation locale consistency per feature", () => {
     expect(() => validateBoot([complete, englishOnly])).not.toThrow();
   });
 
+  test("a plural with a blank form counts as missing", () => {
+    const blank = featureWith("blank", {
+      a: { en: { one: "one", other: "many" }, de: { one: " ", other: "viele" } },
+    });
+    expect(findTranslationLocaleGaps([blank])).toEqual([
+      { featureName: "blank", key: "a", missingLocales: ["de"] },
+    ]);
+  });
+
   test("a locale package's flat plural keys cover the feature's plural key", () => {
     const shop = featureWith("shop", { items: { en: { one: "1 item", other: "{count} items" } } });
     const localeEs = featureWith("locale-es", {
@@ -449,6 +458,14 @@ describe("translation locale consistency per feature", () => {
 
   test("an empty string counts as missing", () => {
     const blank = featureWith("blank", { a: { en: "A", de: "A" }, b: { en: "B", de: "" } });
+
+    expect(findTranslationLocaleGaps([blank])).toEqual([
+      { featureName: "blank", key: "b", missingLocales: ["de"] },
+    ]);
+  });
+
+  test("a whitespace-only string counts as missing", () => {
+    const blank = featureWith("blank", { a: { en: "A", de: "A" }, b: { en: "B", de: " " } });
 
     expect(findTranslationLocaleGaps([blank])).toEqual([
       { featureName: "blank", key: "b", missingLocales: ["de"] },
@@ -482,6 +499,13 @@ describe("requiredLocales", () => {
 
   test("an empty string counts as missing", () => {
     const blank = featureWith("blank", { a: { en: "A", de: "" } });
+    expect(findRequiredLocaleGaps([blank], ["en", "de"])).toEqual([
+      { featureName: "blank", key: "a", missingLocales: ["de"] },
+    ]);
+  });
+
+  test("a whitespace-only string counts as missing", () => {
+    const blank = featureWith("blank", { a: { en: "A", de: "\n " } });
     expect(findRequiredLocaleGaps([blank], ["en", "de"])).toEqual([
       { featureName: "blank", key: "a", missingLocales: ["de"] },
     ]);
