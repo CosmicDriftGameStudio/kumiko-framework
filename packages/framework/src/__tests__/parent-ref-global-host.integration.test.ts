@@ -55,6 +55,8 @@ const linkEntity = createEntity({
   },
 });
 
+const linkTable = buildEntityTable("link", linkEntity);
+
 const feature = defineFeature("prglobal", (r) => {
   r.entity({ name: "globalHost", ...globalHostEntity });
   r.entity({ name: "link", ...linkEntity });
@@ -75,6 +77,7 @@ const teamB = createTestUser({ id: 93, roles: ["TenantMember"], claims: { team: 
 
 const LIVE_HOST_ID = "e0000000-0000-4000-8000-00000000001a";
 const DELETED_HOST_ID = "e0000000-0000-4000-8000-00000000001b";
+const TRASHED_LINK_ID = "e0000000-0000-4000-8000-00000000001c";
 
 let stack: TestStack;
 
@@ -124,6 +127,18 @@ async function labelsOnHost(hostId: string, as = teamA): Promise<readonly string
   return result.rows.map((row) => row.label);
 }
 
+async function listLabels(
+  payload: Record<string, unknown>,
+  as = teamA,
+): Promise<readonly string[]> {
+  const result = await stack.http.queryOk<{ rows: readonly { label: string }[] }>(
+    "prglobal:query:link:list",
+    payload,
+    as,
+  );
+  return result.rows.map((row) => row.label);
+}
+
 describe("parentRef gate on a tenancy global host", () => {
   test("a user who can read the global host sees its join row in detail and list and can update it", async () => {
     const { id, version } = await createLink(LIVE_HOST_ID, "visible");
@@ -158,5 +173,50 @@ describe("parentRef gate on a tenancy global host", () => {
 
     expect(await labelInDetail(id)).toBeUndefined();
     expect(await labelsOnHost(DELETED_HOST_ID)).toEqual([]);
+  });
+
+  test("a list without an entityId filter keeps only join rows on readable, live global hosts", async () => {
+    await createLink(LIVE_HOST_ID, "unpinned-live");
+    await createLink(DELETED_HOST_ID, "unpinned-orphaned");
+
+    const labelsOfTeamA = await listLabels({});
+    expect(labelsOfTeamA).toContain("unpinned-live");
+    expect(labelsOfTeamA).not.toContain("unpinned-orphaned");
+    const labelsOfTeamB = await listLabels({}, teamB);
+    expect(labelsOfTeamB).not.toContain("unpinned-live");
+    expect(labelsOfTeamB).not.toContain("unpinned-orphaned");
+  });
+
+  test("two eq filters on entityId with different values return no rows", async () => {
+    await createLink(LIVE_HOST_ID, "conflicting-filters");
+
+    const labels = await listLabels({
+      filters: [
+        { field: "entityId", op: "eq", value: LIVE_HOST_ID },
+        { field: "entityId", op: "eq", value: DELETED_HOST_ID },
+      ],
+    });
+    expect(labels).toEqual([]);
+  });
+
+  test("the trash list shows a deleted join row on a soft-deleted global host", async () => {
+    await seedRows(
+      stack.db,
+      linkTable,
+      [
+        {
+          id: TRASHED_LINK_ID,
+          tenantId: teamA.tenantId,
+          entityType: "globalHost",
+          entityId: DELETED_HOST_ID,
+          label: "trashed-on-deleted-host",
+          isDeleted: true,
+        },
+      ],
+      { projectionOnly: "fixture plants a trashed join row without its event" },
+    );
+
+    expect(await listLabels({ onlyDeleted: true })).toContain("trashed-on-deleted-host");
+    expect(await listLabels({})).not.toContain("trashed-on-deleted-host");
   });
 });

@@ -1,4 +1,7 @@
-import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  EntityListScreenDefinition,
+  ListToolbarActionsPlacement,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "../headless/index.ts";
 import { type ActionMenuItemSpec, shouldRenderActionsIconOnly } from "../primitives.tsx";
 import { needsActionConfirm } from "./render-edit-action-button.tsx";
@@ -16,7 +19,7 @@ type ToolbarModelInput = {
   readonly pageHeaderSlotAvailable: boolean;
   readonly pageHeaderCompact: boolean;
   readonly createInPageHeader: boolean;
-  readonly toolbarActionsPlacement: "header" | "toolbar" | undefined;
+  readonly toolbarActionsPlacement: ListToolbarActionsPlacement | undefined;
 };
 
 // Several icon-less primary actions would all show the same fallback "plus" icon, so it

@@ -52,13 +52,13 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
   const heartbeatMs = options.sseHeartbeatMs ?? SSE_HEARTBEAT_INTERVAL_MS;
   const api = new Hono();
 
-  // Before any body is read, so even an answer to a broken body carries the app clock. Whole
-  // milliseconds in ISO form: Temporal's toString() can run to nanoseconds, which Date.parse on
-  // Hermes/JSC does not define.
+  // Stamped after the handler ran, so the client's skew estimate is not behind by the handler's
+  // runtime. Whole milliseconds in ISO form: Temporal's toString() can run to nanoseconds, which
+  // Date.parse on Hermes/JSC does not define.
   api.use("*", async (c, next) => {
+    await next();
     const nowMs = options.clock?.now().epochMilliseconds ?? Date.now();
     c.header(APP_NOW_HEADER_NAME, new Date(nowMs).toISOString());
-    await next();
   });
 
   api.post(Routes.write, async (c) => {

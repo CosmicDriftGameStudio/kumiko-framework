@@ -22,6 +22,7 @@ const COMMAND_BY_CODE = {
 } as const;
 
 type ShapeRow = {
+  relname: string;
   relrowsecurity: boolean;
   relforcerowsecurity: boolean;
   polname: string | null;
@@ -37,18 +38,7 @@ function commandOf(code: string): RowLevelSecurityPolicy["command"] {
   return command;
 }
 
-export async function readRowLevelSecurityShape(
-  db: AnyDb,
-  tableName: string,
-): Promise<RowLevelSecurityShape | undefined> {
-  const rows = await asRawClient(db).unsafe<ShapeRow>(
-    `SELECT c.relrowsecurity, c.relforcerowsecurity, p.polname, p.polpermissive, p.polcmd::text AS polcmd, (p.polroles = '{0}'::oid[]) AS polpublic
-     FROM pg_class c
-     JOIN pg_namespace n ON n.oid = c.relnamespace
-     LEFT JOIN pg_policy p ON p.polrelid = c.oid
-     WHERE n.nspname = 'public' AND c.relname = $1`,
-    [tableName],
-  );
+function shapeOfRows(rows: readonly ShapeRow[]): RowLevelSecurityShape | undefined {
   const first = rows[0];
   if (first === undefined) return undefined;
   const policies = rows.flatMap((row) => {
@@ -64,6 +54,35 @@ export async function readRowLevelSecurityShape(
     ] as const;
   });
   return { enabled: first.relrowsecurity, forced: first.relforcerowsecurity, policies };
+}
+
+export async function readRowLevelSecurityShapes(
+  db: AnyDb,
+  tableNames: readonly string[],
+): Promise<ReadonlyMap<string, RowLevelSecurityShape>> {
+  const shapes = new Map<string, RowLevelSecurityShape>();
+  if (tableNames.length === 0) return shapes;
+  const rows = await asRawClient(db).unsafe<ShapeRow>(
+    `SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity, p.polname, p.polpermissive, p.polcmd::text AS polcmd, (p.polroles = '{0}'::oid[]) AS polpublic
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     LEFT JOIN pg_policy p ON p.polrelid = c.oid
+     WHERE n.nspname = 'public' AND c.relname = ANY($1::text[])`,
+    [tableNames],
+  );
+  const rowsByTable = Map.groupBy(rows, (row) => row.relname);
+  for (const [tableName, tableRows] of rowsByTable) {
+    const shape = shapeOfRows(tableRows);
+    if (shape !== undefined) shapes.set(tableName, shape);
+  }
+  return shapes;
+}
+
+export async function readRowLevelSecurityShape(
+  db: AnyDb,
+  tableName: string,
+): Promise<RowLevelSecurityShape | undefined> {
+  return (await readRowLevelSecurityShapes(db, [tableName])).get(tableName);
 }
 
 // Shared by the rebuild guard and the boot check, so both judge a hand-edited policy alike.

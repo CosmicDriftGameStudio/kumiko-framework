@@ -26,6 +26,8 @@ export const LIST_TABLE_OPTION_KEYS = [
 ] as const;
 export const LIST_TABLE_FRAMES = ["card"] as const;
 export type ListTableFrame = (typeof LIST_TABLE_FRAMES)[number];
+export const LIST_TOOLBAR_ACTIONS_PLACEMENTS = ["header", "toolbar"] as const;
+export type ListToolbarActionsPlacement = (typeof LIST_TOOLBAR_ACTIONS_PLACEMENTS)[number];
 export const LIST_NARROW_FACETS = ["pills"] as const;
 export type ListNarrowFacets = (typeof LIST_NARROW_FACETS)[number];
 export const LIST_TABLE_SUMMARY_ROW_KEYS = ["query", "params"] as const;
