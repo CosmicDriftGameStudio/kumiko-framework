@@ -4,6 +4,7 @@ import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
 import "../react-css-custom-properties.ts";
 import { fieldLabelId } from "./field.tsx";
+import { useIsBelowSmViewport } from "./use-narrow-viewport.ts";
 
 // ---- Banner (shadcn: Alert) ----
 
@@ -58,17 +59,26 @@ function BannerParts({ parts }: { readonly parts: BannerProps["parts"] }): React
 
 function BannerText({
   compact,
-  title,
+  title: fullTitle,
+  narrowTitle,
+  narrowText,
   titleTestId,
-  children,
+  children: fullText,
   parts,
   actionsBelow,
   inline,
-}: Pick<BannerProps, "title" | "titleTestId" | "children" | "parts"> & {
+}: Pick<
+  BannerProps,
+  "title" | "narrowTitle" | "narrowText" | "titleTestId" | "children" | "parts"
+> & {
   readonly compact: boolean;
   readonly inline: boolean;
   readonly actionsBelow: ReactNode;
 }): ReactNode {
+  const narrow = useIsBelowSmViewport();
+  const title = narrow && narrowTitle !== undefined ? narrowTitle : fullTitle;
+  const showsNarrowText = narrow && narrowText !== undefined;
+  const children = showsNarrowText ? narrowText : fullText;
   if (compact || inline) {
     return (
       <div className="min-w-0 grow">
@@ -79,9 +89,9 @@ function BannerText({
             </strong>{" "}
           </>
         )}
-        <span className={cn(inline && "max-sm:hidden")}>
+        <span className={cn(inline && !showsNarrowText && "max-sm:hidden")}>
           {children}
-          <BannerParts parts={parts} />
+          {!showsNarrowText && <BannerParts parts={parts} />}
         </span>
       </div>
     );
@@ -94,7 +104,7 @@ function BannerText({
         </div>
       )}
       {children}
-      <BannerParts parts={parts} />
+      {!showsNarrowText && <BannerParts parts={parts} />}
       {actionsBelow}
     </div>
   );
@@ -123,6 +133,8 @@ export function DefaultBanner({
   density = "default",
   icon,
   title,
+  narrowTitle,
+  narrowText,
   titleTestId,
   children,
   parts,
@@ -158,6 +170,8 @@ export function DefaultBanner({
         compact={compact}
         inline={inline}
         title={title}
+        narrowTitle={narrowTitle}
+        narrowText={narrowText}
         titleTestId={titleTestId}
         parts={parts}
         actionsBelow={

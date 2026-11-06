@@ -469,6 +469,7 @@ type ListBulkAction = { // An action that runs a writeHandler row action once pe
 type ListColumnHint = {
   detailField?: string; // Row field with a second, muted line (e.g. the due date as text).
   narrowDetailField?: string; // Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider").
+  narrowField?: string; // Row field shown as the sentence on the phone card instead of the column's own value (a shorter sentence); the table keeps the column value.
   toneField?: string; // Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`.
   reasonField?: string; // Row field with a longer reason, shown behind a "Why?" toggle in the cell.
   reasonOpenField?: string; // Row field (boolean): while true, the `reasonField` text stands open as a box under the row, over the full row width, in the table view (entity/projection lists from `md` up, dashboard lists from `sm` up); the (i) stays and closes it.
@@ -533,6 +534,8 @@ type RecordHeaderSubtitlePart =
 type RecordNotice = {
   title: string;
   text?: string;
+  narrowTitle?: string; // Shown instead of `title` below `sm`.
+  narrowText?: string; // Shown instead of `text` below `sm`.
   tone?: SelectOptionTone;
   [field: string]: unknown;
 };
@@ -555,6 +558,7 @@ type RecordProgressStep = {
 type RecordStep = {
   id: string;
   title: string;
+  narrowTitle?: string; // Shown instead of `title` below `sm`.
   detail?: string;
   narrowDetail?: string; // Shown instead of `detail` below `sm`.
   tone?: SelectOptionTone;

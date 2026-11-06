@@ -33,6 +33,8 @@ export type RecordStepsProps = {
   readonly items: readonly {
     readonly id: string;
     readonly title: string;
+    /** Replaces `title` below the sm breakpoint. */
+    readonly narrowTitle?: string;
     readonly detail?: string;
     /** Replaces `detail` below the sm breakpoint. */
     readonly narrowDetail?: string;

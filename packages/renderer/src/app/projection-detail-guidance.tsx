@@ -217,6 +217,8 @@ function renderBanner(model: DetailGuidanceModel): ReactNode {
       variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
       icon={BANNER_ICON[notice.tone ?? "neutral"]}
       title={notice.title}
+      {...(notice.narrowTitle !== undefined && { narrowTitle: notice.narrowTitle })}
+      {...(notice.narrowText !== undefined && { narrowText: notice.narrowText })}
       inline
       {...(actions !== undefined && { actions })}
       testId="kumiko-screen-projection-detail-banner"
@@ -240,6 +242,7 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
     return {
       id: step.id,
       title: step.title,
+      ...(step.narrowTitle !== undefined && { narrowTitle: step.narrowTitle }),
       ...(step.detail !== undefined && { detail: step.detail }),
       ...(step.narrowDetail !== undefined && { narrowDetail: step.narrowDetail }),
       ...(step.tone !== undefined && { tone: step.tone }),

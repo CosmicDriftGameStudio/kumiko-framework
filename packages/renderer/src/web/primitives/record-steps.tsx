@@ -17,6 +17,11 @@ const STEP_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
 
 type StepItem = RecordStepsProps["items"][number];
 
+function StepTitle({ item }: { item: StepItem }): ReactNode {
+  const narrow = useIsBelowSmViewport();
+  return narrow ? (item.narrowTitle ?? item.title) : item.title;
+}
+
 function StepDetail({ item }: { item: StepItem }): ReactNode {
   const narrow = useIsBelowSmViewport();
   const detail = narrow ? (item.narrowDetail ?? item.detail) : item.detail;
@@ -43,7 +48,7 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
       />
       <div className="col-start-1 row-start-1 flex min-w-0 items-start gap-2">
         <span className="font-medium text-foreground max-sm:text-[13.5px]" data-slot="step-what">
-          {item.title}
+          <StepTitle item={item} />
         </span>
         {item.reason !== undefined && (
           <span className="flex max-sm:hidden">

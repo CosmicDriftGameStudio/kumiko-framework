@@ -61,7 +61,9 @@ export type NamedFilterFacetOptions = {
   readonly display?: "chips" | "select";
   /** Ask the list query for each filter's hit count and show it next to the label. */
   readonly showCounts?: boolean;
-  /** "behind-filter": the select opens behind the filter icon next to the search field instead of standing as a pill. Only below `sm` and only on lists that fill their height; otherwise it stays a pill. */
+  /** Select entries with zero hits are left out (the active one and "all" stay). Asks for the counts like `showCounts` does, without showing the number unless `showCounts` is set. */
+  readonly hideEmpty?: boolean;
+  /** "behind-filter": the select opens behind the filter icon next to the search field instead of standing as a pill. Only below `sm`; otherwise it stays a pill. */
   readonly narrowPlacement?: "behind-filter";
   /** i18n key for the select's label, e.g. "To do". */
   readonly label?: string;

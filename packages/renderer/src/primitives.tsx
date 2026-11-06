@@ -205,6 +205,10 @@ export type BannerProps = {
   readonly icon?: NavIconKey;
   /** Bold heading above `children`, inside the text column. */
   readonly title?: ReactNode;
+  /** Replaces `title` below sm. */
+  readonly narrowTitle?: ReactNode;
+  /** Replaces `children` below sm and stays visible there even when `inline` drops the text. */
+  readonly narrowText?: ReactNode;
   readonly titleTestId?: string;
   readonly children?: ReactNode;
   /** Structured text after `children`; `strong` parts render emphasized.

@@ -29,6 +29,12 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `DetailList` | Read-only key-value list for detail views (dimmed label on the left, value on the right). |
 | `DispatcherProvider` |  |
 | `Drawer` | Slide-in panel beside a list (e.g. mail reader next to the inbox) — thin wrapper over the Sheet primitive with header/body/footer slots so screens skip per-route Radix boilerplate. |
+| `DrawnFilter` |  |
+| `DrawnPanel` |  |
+| `DrawnPencil` |  |
+| `DrawnSearch` |  |
+| `DrawnSparkles` |  |
+| `DrawnWand` |  |
 | `DropdownMenu` |  |
 | `DropdownMenuCheckboxItem` |  |
 | `DropdownMenuContent` |  |

@@ -120,6 +120,8 @@ export type ListColumnHint = {
   readonly detailField?: string;
   /** Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider"). Needs `detailField`. */
   readonly narrowDetailField?: string;
+  /** Row field shown as the sentence on the phone card instead of the column's own value (a shorter sentence); the table keeps the column value. An empty value falls back to it. */
+  readonly narrowField?: string;
   /** Row field holding a SelectOptionTone; defaults to the screen's `rowToneField`. Tone `neutral` draws the sentence muted and not bold, like `emptyLabel`, and no stripe on the phone card. */
   readonly toneField?: string;
   /** Row field with a longer reason, shown behind a "Why?" toggle in the cell. */
@@ -540,7 +542,7 @@ export type EntityListFacetConfig = {
    *  `showCounts`'s requests even when the number itself is not shown. */
   readonly hideEmpty?: boolean;
   readonly extraOptions?: readonly EntityListFacetExtraOption[];
-  /** "behind-filter": the facet opens behind the filter icon next to the search field instead of standing as a pill. Only below `sm` and only on lists that fill their height; otherwise it stays a pill. The remaining facets follow the usual phone rules and share the toggle panel. */
+  /** "behind-filter": the facet opens behind the filter icon next to the search field instead of standing as a pill. Only below `sm`; otherwise it stays a pill. The remaining facets follow the usual phone rules and share the toggle panel. */
   readonly narrowPlacement?: "behind-filter";
 };
 

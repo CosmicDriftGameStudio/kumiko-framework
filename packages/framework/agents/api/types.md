@@ -2301,6 +2301,7 @@ type ListColumnFileDisplay = // How a list cell shows a FileRef value (id or id 
 type ListColumnHintViewModel = {
   detailField?: string;
   narrowDetailField?: string; // `ListColumnHint.narrowDetailField`: replaces `detailField` in the phone card.
+  narrowField?: string; // `ListColumnHint.narrowField`: replaces the sentence value in the phone card.
   toneField?: string;
   reasonField?: string;
   reasonOpenField?: string;
@@ -2392,7 +2393,7 @@ type RecordStepsProps = { // "Next steps" panel; an item's `reason` sits behind 
   narrowLimit?: number; // Below the sm breakpoint only this many steps show; the rest sits behind a toggle.
   moreLabel?: (hiddenCount: number) => string; // Toggle label for the hidden steps; receives their count.
   lessLabel?: string;
-  items: { id: string; title: string; detail?: string; narrowDetail?: string; tone?: SelectOptionTone; reason?: string; reasonOpen?: true; reasonTitle?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
+  items: { id: string; title: string; narrowTitle?: string; detail?: string; narrowDetail?: string; tone?: SelectOptionTone; reason?: string; reasonOpen?: true; reasonTitle?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
   count?: number; // Total number of steps, shown small beside the heading even when `narrowLimit` shortens the list.
   testId?: string;
 };
@@ -4576,6 +4577,7 @@ type ListSortDir = "asc" | "desc";
 type NamedFilterFacetOptions = { // How the named filters appear in the toolbar: toggle chips (default) or one single-choice select.
   display?: "chips" | "select";
   showCounts?: boolean; // Ask the list query for each filter's hit count and show it next to the label.
+  hideEmpty?: boolean; // Select entries with zero hits are left out (the active one and "all" stay).
   narrowPlacement?: "behind-filter"; // "behind-filter": the select opens behind the filter icon next to the search field instead of standing as a pill.
   label?: string; // i18n key for the select's label, e.g. "To do".
 };

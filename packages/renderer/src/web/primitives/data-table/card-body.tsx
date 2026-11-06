@@ -29,6 +29,7 @@ function cardHint(hint: ListColumnHintViewModel): ListColumnHintViewModel {
     reasonTitleField: _reasonTitle,
     detailField: _detail,
     narrowDetailField,
+    narrowField: _narrowField,
     ...rest
   } = hint;
   const detailField = narrowDetailField ?? _detail;
@@ -45,9 +46,11 @@ function cardCell(
   const opensRow = m.rowOpener(row) !== undefined;
   // A bare check mark in the subtitle line says nothing without its column.
   if (showsBareCheckMark(col.type, row.values[col.field], col.renderer)) return col.label;
+  const shortSentence =
+    col.hint?.narrowField === undefined ? undefined : row.values[col.hint.narrowField];
   return (
     <DataTableCell
-      value={row.values[col.field]}
+      value={isEmptyCellValue(shortSentence) ? row.values[col.field] : shortSentence}
       row={row.values}
       field={col.field}
       type={col.type}

@@ -10,6 +10,7 @@ import { type DataTableFacet, REFERENCE_SEARCH_DEBOUNCE_MS, useTranslation } fro
 import { cn } from "../lib/cn.ts";
 import { Badge } from "../ui/badge.tsx";
 import { Button as UiButton } from "../ui/button.tsx";
+import { FACET_PILL_CLASSES, FacetTriggerLabel } from "./facet-trigger-label.tsx";
 
 export function FacetSearchFilter({
   facet,
@@ -17,12 +18,14 @@ export function FacetSearchFilter({
   selected,
   onChange,
   dense,
+  pill,
 }: {
   facet: DataTableFacet;
   onSearchChange: (query: string) => void;
   selected: readonly string[];
   onChange: (field: string, values: readonly string[]) => void;
   dense: boolean;
+  pill: boolean;
 }): ReactNode {
   const t = useTranslation();
   const [open, setOpen] = useState(false);
@@ -48,10 +51,19 @@ export function FacetSearchFilter({
         <UiButton
           variant="outline"
           size="sm"
-          className={cn("h-9", dense && "border-border-strong px-2.5")}
+          className={cn("h-9", dense && "border-border-strong px-2.5", pill && FACET_PILL_CLASSES)}
           data-testid={`facet-${facet.field}`}
         >
-          {selected.length === 0 ? `${facet.label}: ${t("kumiko.list.filter.all")}` : facet.label}
+          {selected.length === 0 ? (
+            <FacetTriggerLabel
+              field={facet.field}
+              label={facet.label}
+              emptyValueLabel={t("kumiko.list.filter.all")}
+              showEmptyValue={!pill}
+            />
+          ) : (
+            facet.label
+          )}
           {selected.length > 0 && (
             <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
               {selected.length}

@@ -24,6 +24,10 @@ export type RecordGuidanceAction = RowAction & {
 export type RecordNotice = {
   readonly title: string;
   readonly text?: string;
+  /** Shown instead of `title` below `sm`. */
+  readonly narrowTitle?: string;
+  /** Shown instead of `text` below `sm`. */
+  readonly narrowText?: string;
   readonly tone?: SelectOptionTone;
   // Extra row fields feed the banner actions' show/enabled predicates only; they are never rendered.
   readonly [field: string]: unknown;
@@ -32,6 +36,8 @@ export type RecordNotice = {
 export type RecordStep = {
   readonly id: string;
   readonly title: string;
+  /** Shown instead of `title` below `sm`. */
+  readonly narrowTitle?: string;
   readonly detail?: string;
   /** Shown instead of `detail` below `sm`. */
   readonly narrowDetail?: string;

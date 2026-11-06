@@ -23,6 +23,7 @@ export function hintViewModel(
     ...(hint.reasonTitleField !== undefined && { reasonTitleField: hint.reasonTitleField }),
     ...(hint.detailField !== undefined && { detailField: hint.detailField }),
     ...(hint.narrowDetailField !== undefined && { narrowDetailField: hint.narrowDetailField }),
+    ...(hint.narrowField !== undefined && { narrowField: hint.narrowField }),
     ...(hint.plainSentence === true && { plainSentence: true }),
     ...(toneField !== undefined && { toneField }),
   };

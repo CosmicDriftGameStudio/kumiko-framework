@@ -1,6 +1,7 @@
-import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { usePrimitives, useTranslation } from "../../index.ts";
+import { DrawnSearch } from "../drawn-icons.ts";
 
 export type PdfSearchState = {
   readonly open: boolean;
@@ -161,7 +162,7 @@ export function PdfViewerToolbar(props: PdfViewerToolbarProps): ReactNode {
           ariaLabel={t("kumiko.widget.pdf-preview.search")}
           onClick={props.onToggleSearch}
         >
-          <Search aria-hidden="true" className="size-3.5" />
+          <DrawnSearch aria-hidden="true" className="size-3.5" />
         </Button>
       )}
     </div>

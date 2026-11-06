@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/cn.ts";
-import { Table, TableFooter } from "../../ui/table.tsx";
+import { Table, TableBody, TableCell, TableFooter, TableRow } from "../../ui/table.tsx";
 import { isInsideCardFrame } from "./card-frame.ts";
 import { ColumnWidthGroup } from "./column-resize-handle.tsx";
+import { renderEmptyBlock } from "./row-render-parts.tsx";
 import { renderTableBody } from "./table-body.tsx";
 import { FILL_TABLE_CLASS, FlushTable } from "./table-chrome.tsx";
 import { renderTableHeader } from "./table-header-row.tsx";
@@ -66,6 +67,19 @@ function renderTableFooter(m: DataTableModel): ReactNode {
   );
 }
 
+// A framed list that is empty keeps its header row; the empty state fills one spanning row below it.
+function renderEmptyBody(m: DataTableModel): ReactNode {
+  return (
+    <TableBody>
+      <TableRow className="hover:bg-transparent">
+        <TableCell colSpan={m.fullColSpan} className="p-0">
+          {renderEmptyBlock(m, true)}
+        </TableCell>
+      </TableRow>
+    </TableBody>
+  );
+}
+
 export function renderTableView(m: DataTableModel): ReactNode {
   const { fillsHeight, chromeless, sizing, testId } = m;
   const TableRoot = fillsHeight ? FlushTable : Table;
@@ -92,8 +106,8 @@ export function renderTableView(m: DataTableModel): ReactNode {
       >
         {renderColumnWidths(m)}
         {renderTableHeader(m)}
-        {renderTableBody(m)}
-        {renderTableFooter(m)}
+        {m.isEmpty ? renderEmptyBody(m) : renderTableBody(m)}
+        {m.isEmpty ? null : renderTableFooter(m)}
       </TableRoot>
     </div>
   );

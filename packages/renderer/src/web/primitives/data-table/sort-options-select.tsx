@@ -82,8 +82,21 @@ export function SortOptionsSelect({
         className,
       )}
     >
-      <span aria-hidden="true" data-testid={`${testId}-label`}>
-        {summary ?? (active !== undefined ? `${prefix}: ${active.label}` : prefix)}
+      <span
+        aria-hidden="true"
+        data-testid={`${testId}-label`}
+        className={
+          summary === undefined && active !== undefined ? "inline-flex gap-1.5" : undefined
+        }
+      >
+        {summary !== undefined || active === undefined ? (
+          (summary ?? prefix)
+        ) : (
+          <>
+            <span className="text-muted-foreground">{`${prefix}: `}</span>
+            <span data-testid={`${testId}-value`}>{active.label}</span>
+          </>
+        )}
       </span>
       {chevron && <ChevronDown className="size-3.5" aria-hidden="true" />}
       <select

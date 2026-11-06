@@ -2,10 +2,11 @@ import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { InAppInboxRow } from "@cosmicdrift/kumiko-types/in-app-notification-types";
 import { Bell } from "lucide-react";
 import { Popover as PopoverPrimitive } from "radix-ui";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, type RefObject, useState } from "react";
 import { lastSegment, useLocale, useNav, useTranslation } from "../../index.ts";
 import { useRelativeTimeFormatter } from "../app/relative-time.ts";
 import { cn } from "../lib/cn.ts";
+import { headerOverflowMenuItemClass } from "./header-overflow-menu.ts";
 import { useInAppInbox } from "./use-in-app-inbox.ts";
 
 const MAX_BADGE_COUNT = 99;
@@ -21,8 +22,14 @@ const panelClass =
 
 export function NotificationBell({
   screens,
+  menuEntry,
 }: {
   readonly screens: readonly ScreenDefinition[];
+  /** Inside the header overflow menu: a menu row instead of the bell button; the list opens at `anchorRef` and survives the menu closing via `onSelect`. */
+  readonly menuEntry?: {
+    readonly anchorRef: RefObject<HTMLElement | null>;
+    readonly onSelect: () => void;
+  };
 }): ReactNode {
   const t = useTranslation();
   const nav = useNav();
@@ -50,101 +57,141 @@ export function NotificationBell({
     );
   };
 
+  const panel = (
+    <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Content
+        align="end"
+        sideOffset={6}
+        className={panelClass}
+        {...(menuEntry !== undefined && {
+          // Without a Trigger Radix has nothing to refocus; the keyboard user returns to the menu button.
+          onCloseAutoFocus: (event: Event) => {
+            event.preventDefault();
+            menuEntry.anchorRef.current?.focus();
+          },
+        })}
+      >
+        <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+          <h2 className="text-sm font-semibold">{t("kumiko.notifications.title")}</h2>
+          {inbox.unreadCount > 0 && (
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => void inbox.markAllRead()}
+            >
+              {t("kumiko.notifications.markAllRead")}
+            </button>
+          )}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {inbox.failed && (
+            <p role="alert" className="px-3 py-4 text-sm text-destructive">
+              {t("kumiko.notifications.loadFailed")}
+            </p>
+          )}
+          {!inbox.failed && !inbox.loading && inbox.rows.length === 0 && (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              {t("kumiko.notifications.empty")}
+            </p>
+          )}
+          <ul>
+            {inbox.rows.map((row) => (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  data-unread={row.isRead ? undefined : "true"}
+                  className="flex w-full items-start gap-2 border-b border-border px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                  onClick={() => void openRow(row)}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "mt-1.5 size-2 shrink-0 rounded-full",
+                      row.isRead ? "bg-transparent" : "bg-primary",
+                    )}
+                  />
+                  {!row.isRead && (
+                    <span className="sr-only">{t("kumiko.notifications.unread")}</span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className={cn("block truncate text-sm", !row.isRead && "font-semibold")}>
+                      {row.title}
+                    </span>
+                    {row.body !== null && (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {row.body}
+                      </span>
+                    )}
+                    <span className="block text-xs text-muted-foreground">
+                      {formatRelative(Date.parse(row.createdAt))}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {inbox.hasMore && (
+            <button
+              type="button"
+              className="w-full px-3 py-2 text-sm text-primary hover:bg-accent"
+              onClick={() => void inbox.loadMore()}
+            >
+              {t("kumiko.notifications.loadMore")}
+            </button>
+          )}
+        </div>
+      </PopoverPrimitive.Content>
+    </PopoverPrimitive.Portal>
+  );
+
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
-      <PopoverPrimitive.Trigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          data-kumiko-layout="notification-bell"
-          className={triggerClass}
-        >
-          <Bell className="size-4" aria-hidden="true" />
-          {inbox.unreadCount > 0 && (
-            <span
-              data-kumiko-layout="notification-bell-badge"
-              className="absolute right-[3px] top-[3px] rounded-full bg-destructive px-1 py-0.5 text-[9.5px] font-semibold leading-none text-destructive-foreground"
-            >
-              {badge}
-            </span>
-          )}
-        </button>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content align="end" sideOffset={6} className={panelClass}>
-          <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-            <h2 className="text-sm font-semibold">{t("kumiko.notifications.title")}</h2>
+      {menuEntry === undefined ? (
+        <PopoverPrimitive.Trigger asChild>
+          <button
+            type="button"
+            aria-label={label}
+            data-kumiko-layout="notification-bell"
+            className={triggerClass}
+          >
+            <Bell className="size-4" aria-hidden="true" />
             {inbox.unreadCount > 0 && (
-              <button
-                type="button"
-                className="text-xs text-primary hover:underline"
-                onClick={() => void inbox.markAllRead()}
+              <span
+                data-kumiko-layout="notification-bell-badge"
+                className="absolute right-[3px] top-[3px] rounded-full bg-destructive px-1 py-0.5 text-[9.5px] font-semibold leading-none text-destructive-foreground"
               >
-                {t("kumiko.notifications.markAllRead")}
-              </button>
+                {badge}
+              </span>
             )}
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {inbox.failed && (
-              <p role="alert" className="px-3 py-4 text-sm text-destructive">
-                {t("kumiko.notifications.loadFailed")}
-              </p>
-            )}
-            {!inbox.failed && !inbox.loading && inbox.rows.length === 0 && (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                {t("kumiko.notifications.empty")}
-              </p>
-            )}
-            <ul>
-              {inbox.rows.map((row) => (
-                <li key={row.id}>
-                  <button
-                    type="button"
-                    data-unread={row.isRead ? undefined : "true"}
-                    className="flex w-full items-start gap-2 border-b border-border px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                    onClick={() => void openRow(row)}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "mt-1.5 size-2 shrink-0 rounded-full",
-                        row.isRead ? "bg-transparent" : "bg-primary",
-                      )}
-                    />
-                    {!row.isRead && (
-                      <span className="sr-only">{t("kumiko.notifications.unread")}</span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className={cn("block truncate text-sm", !row.isRead && "font-semibold")}
-                      >
-                        {row.title}
-                      </span>
-                      {row.body !== null && (
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {row.body}
-                        </span>
-                      )}
-                      <span className="block text-xs text-muted-foreground">
-                        {formatRelative(Date.parse(row.createdAt))}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {inbox.hasMore && (
-              <button
-                type="button"
-                className="w-full px-3 py-2 text-sm text-primary hover:bg-accent"
-                onClick={() => void inbox.loadMore()}
+          </button>
+        </PopoverPrimitive.Trigger>
+      ) : (
+        <>
+          <PopoverPrimitive.Anchor virtualRef={menuEntry.anchorRef} />
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="notification-bell-menu-item"
+            className={headerOverflowMenuItemClass}
+            onClick={() => {
+              setOpen(true);
+              menuEntry.onSelect();
+            }}
+          >
+            <Bell className="size-4" aria-hidden="true" />
+            <span className="flex-1">{t("kumiko.notifications.label")}</span>
+            {inbox.unreadCount > 0 && (
+              <span
+                data-kumiko-layout="notification-bell-badge"
+                className="rounded-full bg-destructive px-1.5 py-0.5 text-[9.5px] font-semibold leading-none text-destructive-foreground"
               >
-                {t("kumiko.notifications.loadMore")}
-              </button>
+                {badge}
+              </span>
             )}
-          </div>
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
+          </button>
+        </>
+      )}
+      {panel}
     </PopoverPrimitive.Root>
   );
 }

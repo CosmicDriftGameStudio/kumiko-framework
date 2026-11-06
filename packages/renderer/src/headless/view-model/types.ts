@@ -148,6 +148,8 @@ export type ListColumnHintViewModel = {
   readonly detailField?: string;
   /** `ListColumnHint.narrowDetailField`: replaces `detailField` in the phone card. */
   readonly narrowDetailField?: string;
+  /** `ListColumnHint.narrowField`: replaces the sentence value in the phone card. */
+  readonly narrowField?: string;
   readonly toneField?: string;
   readonly reasonField?: string;
   readonly reasonOpenField?: string;
