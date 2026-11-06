@@ -9,17 +9,19 @@ function categories(findings: ReturnType<typeof lintFixture>, file: string): str
 }
 
 describe("shared biome-rules preset", () => {
-  test("temporal-polyfill may not be imported for Temporal", () => {
+  test("temporal-polyfill is closed as a whole: Temporal, helpers, namespace and subpaths", () => {
     const findings = lintFixture(sharedRules, {
       "a.ts": [
         'import { Temporal } from "temporal-polyfill";',
         'import { toTemporalInstant } from "temporal-polyfill";',
-        "export const now = Temporal.Now.instant();",
-        "export const toInstant = toTemporalInstant;",
+        'import { Intl as PolyfillIntl } from "temporal-polyfill";',
+        'import * as polyfill from "temporal-polyfill";',
+        'import { something } from "temporal-polyfill/impl";',
+        "export const all = [Temporal, toTemporalInstant, PolyfillIntl, polyfill, something];",
       ].join("\n"),
     });
-    expect(categories(findings, "a.ts")).toEqual(["lint/style/noRestrictedImports"]);
-    expect(lineNumbers(findings, "a.ts")).toEqual([1]);
+    expect(categories(findings, "a.ts")).toEqual(Array(5).fill("lint/style/noRestrictedImports"));
+    expect(lineNumbers(findings, "a.ts")).toEqual([1, 2, 3, 4, 5]);
   });
 
   test("ts-ignore, floating promises and nested component definitions are errors", () => {

@@ -44,21 +44,23 @@ const OPT_IN_SERVICE_ENV_KEYS: readonly string[] = [
 // Bun never overrides a variable that is already set, so a default placed in
 // webServer.env would beat the same key in the app's `.env`. Keys the app's
 // dotenv files define are therefore left out and stay with the server's own loading.
-function keysDefinedInAppDotenv(): ReadonlySet<string> {
-  // Same files Bun loads: .env, .env.<NODE_ENV>, .env.local. Only the key set matters, not precedence.
+export function appDotenvValues(): Record<string, string> {
+  // Same files Bun loads, later ones win: .env, .env.<NODE_ENV>, .env.local.
   const nodeEnv = process.env["NODE_ENV"] ?? "development";
-  const keys = new Set<string>();
+  const values: Record<string, string> = {};
   for (const fileName of [".env", `.env.${nodeEnv}`, ".env.local"]) {
     const dotenvPath = join(process.cwd(), fileName);
     if (!existsSync(dotenvPath)) continue;
-    for (const key of Object.keys(parseEnv(readFileSync(dotenvPath, "utf-8")))) keys.add(key);
+    for (const [key, value] of Object.entries(parseEnv(readFileSync(dotenvPath, "utf-8")))) {
+      if (value !== undefined) values[key] = value;
+    }
   }
-  return keys;
+  return values;
 }
 
 // Precedence per key: shell/CI environment, then the app's `.env`, then the local-dev default.
 function infraEnvDefaults(): Record<string, string> {
-  const definedInAppDotenv = keysDefinedInAppDotenv();
+  const definedInAppDotenv = new Set(Object.keys(appDotenvValues()));
   return Object.fromEntries(
     Object.entries(SERVICE_ENV_DEFAULTS).flatMap(([key, value]) => {
       const fromEnvironment = process.env[key];

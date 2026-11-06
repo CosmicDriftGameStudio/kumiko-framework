@@ -1,6 +1,12 @@
 language js
 
 `JSON.parse($input, $...)` as $call where {
-  not { $call <: within JsTryStatement(body=$tryBlock), $call <: within $tryBlock },
+  not {
+    or {
+      $call <: within JsTryStatement(body=$tryBlock),
+      $call <: within JsTryFinallyStatement(body=$tryBlock, catch_clause=JsCatchClause())
+    },
+    $call <: within $tryBlock
+  },
   register_diagnostic(span=$call, message="Unguarded JSON.parse throws a SyntaxError on corrupt external input. Use parseJsonSafe (cache semantics) or parseJsonOrThrow (boundary semantics) from utils/safe-json, or wrap the call in try/catch.", severity="error")
 }

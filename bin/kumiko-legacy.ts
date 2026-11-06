@@ -851,7 +851,7 @@ const commands = {
           console.log(`    status:        ${colorStatus(state.status)}`);
           console.log(`    last event id: ${state.lastProcessedEventId}`);
           console.log(
-            `    last rebuild:  ${state.lastRebuildAt?.toISOString() ?? `${dim}never${reset}`}`,
+            `    last rebuild:  ${state.lastRebuildAt ? Temporal.Instant.fromEpochMilliseconds(+state.lastRebuildAt).toString() : `${dim}never${reset}`}`,
           );
           console.log(`    updated at:    ${Temporal.Instant.fromEpochMilliseconds(+state.updatedAt).toString()}`);
           if (state.lastError) {

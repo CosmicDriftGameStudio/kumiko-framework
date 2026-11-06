@@ -52,6 +52,35 @@ describe("run / runStreaming collect output written after the child exited", () 
   });
 });
 
+describe("a grandchild holding the pipe open after the child exited", () => {
+  const holdPipe = ["-c", "(sleep 5) & echo early; exit 0"];
+
+  test("run with a timeout returns once it elapsed, keeping the collected output", async () => {
+    const startedAt = Date.now();
+    const result = await run("sh", holdPipe, { timeoutMs: 300 });
+    expect(Date.now() - startedAt).toBeLessThan(2500);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("early\n");
+  });
+
+  test("run without a timeout still returns after the pipe drain grace", async () => {
+    const startedAt = Date.now();
+    const result = await run("sh", holdPipe);
+    expect(Date.now() - startedAt).toBeLessThan(2500);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("early\n");
+  });
+
+  test("runStreaming returns the exit code after the pipe drain grace", async () => {
+    const startedAt = Date.now();
+    const logs: string[] = [];
+    const status = await runStreaming("sh", holdPipe, { log: (m) => logs.push(m) });
+    expect(Date.now() - startedAt).toBeLessThan(2500);
+    expect(status).toBe(0);
+    expect(logs).toEqual(["early"]);
+  });
+});
+
 describe("run timeout handling", () => {
   test("a missing binary is a spawn failure, not a probe timeout", async () => {
     const result = await run("kumiko-no-such-binary-xyz", []);

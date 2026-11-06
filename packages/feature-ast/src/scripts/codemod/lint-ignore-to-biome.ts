@@ -8,7 +8,10 @@
 //
 // Usage: bun scripts/codemod/lint-ignore-to-biome.ts <targetDir> [--check | --dry-run]
 
+import { relative } from "node:path";
+import preset from "@cosmicdrift/kumiko-framework/biome-rules" with { type: "json" };
 import { ts } from "ts-morph";
+import * as z from "zod";
 import {
   type CodemodCliConfig,
   type CodemodResult,
@@ -20,31 +23,60 @@ const MIN_REASON_WORDS = 3;
 
 const PLUGIN_RULE = "lint/plugin";
 const INLINE_STYLES_RULE = "lint/style/noInlineStyles";
+const PROCESS_ENV_RULE = "lint/style/noProcessEnv";
+const RESTRICTED_IMPORTS_RULE = "lint/style/noRestrictedImports";
 
 // Slugs of the guards deleted in the guards-to-biome move; each maps to the rule that replaces it.
 const DELETED_GUARD_SLUG_RULES: ReadonlyMap<string, string> = new Map([
+  ["admin-api", PLUGIN_RULE],
   ["direct-fetch", PLUGIN_RULE],
   ["direct-fs", PLUGIN_RULE],
+  ["error-reasons", PLUGIN_RULE],
+  ["es-literal-writes", PLUGIN_RULE],
+  ["event-store-writes", PLUGIN_RULE],
   ["i18n-locale-terminology", PLUGIN_RULE],
   ["no-custom-primitives", PLUGIN_RULE],
+  ["no-date-api", PLUGIN_RULE],
+  ["no-direct-process-env", PROCESS_ENV_RULE],
   ["no-inline-styles", INLINE_STYLES_RULE],
   ["no-raw-hooks", PLUGIN_RULE],
+  ["no-temporal-polyfill-import", RESTRICTED_IMPORTS_RULE],
   ["primitives-discipline", PLUGIN_RULE],
   ["raw-classname", PLUGIN_RULE],
   ["raw-interactive-elements", PLUGIN_RULE],
+  ["restricted-symbols", PLUGIN_RULE],
+  ["test-es-fixtures", PLUGIN_RULE],
   ["test-title", PLUGIN_RULE],
+  ["unsafe-json-parse", PLUGIN_RULE],
 ]);
 
-// Mirrors the includes of no-raw-hooks.grit in presets/biome-rules.json: outside them a converted
-// marker would be a `biome-ignore` that suppresses nothing, which Biome reports as unused.
-const NO_RAW_HOOKS_SCOPE = /\/(web|public)\/.*\.tsx$/;
-const NO_RAW_HOOKS_EXCLUDED =
-  /\/__tests__\/|\.(test|integration)\.tsx$|\/packages\/(renderer|document-designer)\/|\/samples\//;
+const presetPluginsSchema = z.object({
+  plugins: z.array(z.object({ path: z.string(), includes: z.array(z.string()).optional() })),
+});
 
-function isPluginScopeOfSlug(slug: string, file: string): boolean {
+// Outside the plugin's includes a converted marker would be a `biome-ignore` that suppresses
+// nothing, which Biome reports as unused. The includes come from the preset itself.
+function noRawHooksIncludes(): { positive: Bun.Glob[]; negative: Bun.Glob[] } {
+  const plugin = presetPluginsSchema
+    .parse(preset)
+    .plugins.find((candidate) => candidate.path.endsWith("/no-raw-hooks.grit"));
+  const includes = plugin?.includes ?? [];
+  const toGlobs = (patterns: string[]): Bun.Glob[] =>
+    patterns.map((pattern) => new Bun.Glob(pattern));
+  return {
+    positive: toGlobs(includes.filter((pattern) => !pattern.startsWith("!"))),
+    negative: toGlobs(includes.filter((pattern) => pattern.startsWith("!")).map((p) => p.slice(1))),
+  };
+}
+
+const NO_RAW_HOOKS_INCLUDES = noRawHooksIncludes();
+
+function isPluginScopeOfSlug(slug: string, relativePath: string): boolean {
   if (slug !== "no-raw-hooks") return true;
-  const path = `/${file}`;
-  return NO_RAW_HOOKS_SCOPE.test(path) && !NO_RAW_HOOKS_EXCLUDED.test(path);
+  return (
+    NO_RAW_HOOKS_INCLUDES.positive.some((glob) => glob.match(relativePath)) &&
+    !NO_RAW_HOOKS_INCLUDES.negative.some((glob) => glob.match(relativePath))
+  );
 }
 
 const MARKER_RE = /^\s*\**\s*kumiko-lint-ignore\s+([\w-]+(?:,[\w-]+)*)(?:\s+([\s\S]*))?$/;
@@ -83,7 +115,7 @@ type Rewrite =
   | { readonly kind: "unconverted"; readonly note: string }
   | { readonly kind: "untouched" };
 
-function rewriteComment(commentText: string, file: string): Rewrite {
+function rewriteComment(commentText: string, relativePath: string): Rewrite {
   const isBlock = commentText.startsWith("/*");
   const body = isBlock ? commentText.slice(2, -2) : commentText.slice(2);
   const match = MARKER_RE.exec(body);
@@ -97,7 +129,7 @@ function rewriteComment(commentText: string, file: string): Rewrite {
   }
   const slugs = (match[1] ?? "").split(",");
   const deleted = slugs.filter(
-    (slug) => DELETED_GUARD_SLUG_RULES.has(slug) && isPluginScopeOfSlug(slug, file),
+    (slug) => DELETED_GUARD_SLUG_RULES.has(slug) && isPluginScopeOfSlug(slug, relativePath),
   );
   if (deleted.length === 0) return { kind: "untouched" };
 
@@ -127,7 +159,15 @@ function mentionsDeletedSlug(body: string): boolean {
   return [...DELETED_GUARD_SLUG_RULES.keys()].some((slug) => body.includes(slug));
 }
 
-function migrateLintIgnoreMarkers(text: string, file: string): CodemodResult {
+// Biome does not honour a trailing suppression; only a lone `{` (JSX comment container) may precede.
+function isTrailingComment(text: string, commentPos: number): boolean {
+  const lineStart = text.lastIndexOf("\n", commentPos - 1) + 1;
+  const before = text.slice(lineStart, commentPos).trim();
+  return before !== "" && before !== "{";
+}
+
+function migrateLintIgnoreMarkers(text: string, file: string, projectRoot: string): CodemodResult {
+  const relativePath = relative(projectRoot, file).split("\\").join("/");
   const rewrites: CodemodSite[] = [];
   const manual: CodemodSite[] = [];
   if (!text.includes("kumiko-lint-ignore")) return { output: text, rewrites, manual };
@@ -140,8 +180,16 @@ function migrateLintIgnoreMarkers(text: string, file: string): CodemodResult {
   );
   let output = text;
   for (const comment of collectComments(sourceFile).reverse()) {
-    const rewrite = rewriteComment(text.slice(comment.pos, comment.end), file);
+    const rewrite = rewriteComment(text.slice(comment.pos, comment.end), relativePath);
     if (rewrite.kind === "untouched") continue;
+    if (rewrite.kind === "converted" && isTrailingComment(text, comment.pos)) {
+      manual.push({
+        file,
+        line: comment.line,
+        description: "trailing marker, move it above the hit as `// biome-ignore ...`",
+      });
+      continue;
+    }
     if (rewrite.kind === "unconverted") {
       manual.push({ file, line: comment.line, description: rewrite.note });
       continue;

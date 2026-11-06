@@ -36,8 +36,12 @@ describe("biome-rules preset in an app-shaped repo", () => {
     // Allowlists and test files stay quiet.
     "src/__tests__/date.ts": SERVER_SNIPPETS["no-date-api"] ?? "",
     "src/date.test.ts": SERVER_SNIPPETS["no-date-api"] ?? "",
-    "src/safe-json.ts": SERVER_SNIPPETS["unsafe-json-parse"] ?? "",
+    "packages/framework/src/utils/safe-json.ts": SERVER_SNIPPETS["unsafe-json-parse"] ?? "",
+    "packages/framework/src/event-store/admin-api.ts": "await store.appendRaw(event);",
     "scripts/migrations/replay.ts": "await store.appendRaw(event);",
+    "src/event-store/admin-api.ts": "await store.appendRaw(event);",
+    "src/scripts/migrations/replay.ts": "await store.appendRaw(event);",
+    "src/utils/safe-json.ts": SERVER_SNIPPETS["unsafe-json-parse"] ?? "",
     "src/admin.ts": "await store.appendRaw(event);",
     "src/fs-read.ts": 'import { readFileSync } from "node:fs";',
     "src/fs-require.ts": 'import legacyFs = require("node:fs");',
@@ -88,7 +92,8 @@ describe("biome-rules preset in an app-shaped repo", () => {
     for (const quiet of [
       "src/__tests__/date.ts",
       "src/date.test.ts",
-      "src/safe-json.ts",
+      "packages/framework/src/utils/safe-json.ts",
+      "packages/framework/src/event-store/admin-api.ts",
       "scripts/migrations/replay.ts",
       "bin/fs-tool.ts",
       "scripts/fs-tool.ts",
@@ -101,6 +106,8 @@ describe("biome-rules preset in an app-shaped repo", () => {
   test("admin API and direct fs imports are caught in src, in every import form", () => {
     for (const file of [
       "src/admin.ts",
+      "src/event-store/admin-api.ts",
+      "src/scripts/migrations/replay.ts",
       "src/fs-read.ts",
       "src/fs-require.ts",
       "src/fs-reexport.ts",
@@ -108,6 +115,10 @@ describe("biome-rules preset in an app-shaped repo", () => {
     ]) {
       expect(findingsFor(findings, file), file).toEqual([1]);
     }
+  });
+
+  test("a lookalike of an allowlisted framework file in an app is still scanned", () => {
+    expect(findingsFor(findings, "src/utils/safe-json.ts")).toEqual([1]);
   });
 
   test("temporal-polyfill is blocked as import and as require()", () => {
