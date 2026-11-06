@@ -6,6 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
+import { entityListDeclaresSearch } from "@cosmicdrift/kumiko-types/screen";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ListGroupPageBridges } from "../components/list-group-page-bridges.tsx";
 import { RenderList } from "../components/render-list.tsx";
@@ -134,11 +135,7 @@ function isEntityListSearchable(
   screen: EntityListScreenDefinition,
   entity: EntityDefinition,
 ): boolean {
-  return (
-    schema.searchAdapterMissing !== true &&
-    (screen.searchable ??
-      Object.values(entity.fields).some((f) => "searchable" in f && f.searchable === true))
-  );
+  return schema.searchAdapterMissing !== true && entityListDeclaresSearch(screen, entity);
 }
 
 function EntityListBody({

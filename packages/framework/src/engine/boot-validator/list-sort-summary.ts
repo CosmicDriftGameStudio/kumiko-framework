@@ -1,6 +1,8 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import {
   type EntityListScreenDefinition,
+  entityListDeclaresFilters,
+  entityListDeclaresSearch,
   type ListPayloadCapabilities,
   type ListTableSummaryRow,
   listPayloadKeysSent,
@@ -10,7 +12,6 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { FeatureDefinition } from "../types/index.ts";
 import { LIST_TABLE_SUMMARY_ROW_KEYS } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
-import { hasFilterableFields } from "./entity-list-screens.ts";
 import { LIST_SORT_SUMMARY_RULES } from "./list-sort-summary-rules.ts";
 import { rejectUnknownKeys } from "./list-table-reject-unknown-keys.ts";
 import { buildQueryHandlerMap, schemaAccepts } from "./projection-list-screens.ts";
@@ -51,17 +52,10 @@ function entityListCapabilities(
   screen: EntityListScreenDefinition,
 ): Pick<ListPayloadCapabilities, "searchable" | "filters"> {
   const entity = feature.entities?.[screen.entity];
-  const searchable =
-    screen.searchable ??
-    Object.values(entity?.fields ?? {}).some((f) => "searchable" in f && f.searchable === true);
-  const hasRangeFacet = Object.values(screen.facets ?? {}).some(
-    (facet) => facet !== false && facet.display === "range",
-  );
-  const filters =
-    hasFilterableFields(feature, screen.entity) ||
-    screen.defaultFilters !== undefined ||
-    hasRangeFacet;
-  return { searchable, filters };
+  return {
+    searchable: entityListDeclaresSearch(screen, entity),
+    filters: entityListDeclaresFilters(screen, entity),
+  };
 }
 
 function projectionListCapabilities(

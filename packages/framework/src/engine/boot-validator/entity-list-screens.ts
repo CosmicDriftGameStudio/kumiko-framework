@@ -1,4 +1,7 @@
-import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
+import {
+  type EntityListScreenDefinition,
+  entityHasFilterableFields,
+} from "@cosmicdrift/kumiko-types/screen";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.ts";
 import { normalizeListColumn } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
@@ -20,11 +23,7 @@ export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap
 export const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
 
 export function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
-  const entities = feature.entities;
-  if (!entities) return false;
-  const entity = entities[entityName];
-  if (!entity) return false;
-  return Object.values(entity.fields).some((raw) => "filterable" in raw && raw.filterable === true);
+  return entityHasFilterableFields(feature.entities?.[entityName]);
 }
 
 function hasEntityEditDetail(feature: FeatureDefinition, entityName: string): boolean {
