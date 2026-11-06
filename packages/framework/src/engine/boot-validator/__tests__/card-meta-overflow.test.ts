@@ -192,7 +192,7 @@ describe("validateCardMetaOverflow", () => {
     expect(() =>
       validateCardMetaOverflow([listFeature(["name", "a", "b", "c", "d"]), second]),
     ).toThrow(
-      /Feature "cards" screen "item-list": 4 meta lines \(a, b, c, d\)[\s\S]*Feature "other" screen "rows": 4 meta lines[\s\S]*hideOnNarrow/,
+      /Feature "cards" screen "item-list": 4 meta lines from the columns a, b, c, d[\s\S]*Feature "other" screen "rows": 4 meta lines[\s\S]*hideOnNarrow/,
     );
   });
 
