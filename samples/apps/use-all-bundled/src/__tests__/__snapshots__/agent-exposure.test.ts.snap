@@ -61,7 +61,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "compliance-profiles:query:list-profiles expose=true risk=low",
   "compliance-profiles:query:needs-profile expose=true risk=low",
   "compliance-profiles:query:sub-processors expose=true risk=low",
-  "compliance-profiles:write:set-profile expose=true risk=mid",
+  "compliance-profiles:write:set-profile expose=true risk=high",
   "config:query:cascade expose=true risk=low",
   "config:query:config-value:selected-extensions expose=false risk=low",
   "config:query:readiness expose=true risk=low",
