@@ -100,7 +100,6 @@ function providerFeatures(
   }
   if (paddle) {
     const clientToken = envSource["PADDLE_CLIENT_TOKEN"];
-    const legacyTenantBindingKey = envSource["PADDLE_TENANT_BINDING_KEY"];
     warnOnEmptyPriceMap("paddle", paddle.priceToTier);
     features.push(
       createSubscriptionPaddleFeature({
@@ -108,7 +107,6 @@ function providerFeatures(
         ...(paddle.oneOffPriceIds && { oneOffPriceIds: paddle.oneOffPriceIds }),
         ...bridgeCredentials(envSource, "PADDLE_API_KEY", "PADDLE_WEBHOOK_SECRET"),
         ...(clientToken && { clientToken }),
-        ...(legacyTenantBindingKey && { legacyTenantBindingKey }),
       }),
     );
   }

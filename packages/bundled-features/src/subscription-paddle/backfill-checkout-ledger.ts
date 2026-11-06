@@ -2,6 +2,8 @@
 // existed: their custom_data still carries the old tenantBinding. Once the
 // first sweep is done the job keeps sweeping for an hour (checkouts opened by
 // the previous release can still be paid), then does nothing.
+// The tenant in custom_data is unverified: the key that signed the binding no longer exists.
+// Only origin "api" and the one hour window bound that; losing a paid checkout would be worse.
 
 import {
   parseProviderConsentId,
@@ -12,7 +14,6 @@ import {
   type JobContext,
   parseTenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { PADDLE_PROVIDER_NAME } from "./constants.ts";
@@ -20,7 +21,6 @@ import {
   LEDGER_BACKFILL_MARKER_HANDLER_QN,
   type LedgerBackfillMarkerResult,
 } from "./ledger-backfill-marker.ts";
-import { isValidTenantBinding } from "./legacy-tenant-binding.ts";
 import type { PaddleCallSource, PaddleCtxRuntime } from "./runtime.ts";
 import { tenantIdOf } from "./webhook-events.ts";
 
@@ -50,21 +50,10 @@ type ListedTransaction = z.infer<typeof transactionListSchema>["data"][number];
 export type BackfillDeps = {
   readonly runtime: PaddleCtxRuntime;
   readonly priceToTier: Readonly<Record<string, string>>;
-  readonly legacyTenantBindingKey?: string;
 };
 
 function isLegacyCheckout(transaction: ListedTransaction): boolean {
   return typeof transaction.custom_data?.["tenantBinding"] === "string";
-}
-
-function carriesValidBinding(transaction: ListedTransaction, key: string): boolean {
-  const tenantId = tenantIdOf(transaction.custom_data);
-  const binding = transaction.custom_data?.["tenantBinding"];
-  return (
-    tenantId !== undefined &&
-    typeof binding === "string" &&
-    isValidTenantBinding(key, tenantId, binding)
-  );
 }
 
 function paddleCallSourceOf(ctx: JobContext): PaddleCallSource {
@@ -156,27 +145,12 @@ export async function runBackfillCheckoutLedger(
     .now()
     .subtract({ hours: LOOKBACK_DAYS * 24 })
     .toString();
-  const log = createFallbackLogger("subscription-paddle");
-  const key = deps.legacyTenantBindingKey;
-  // Without a key a paid checkout from before the ledger must not be lost (the window is one hour
-  // and origin "api" already filters checkouts opened elsewhere), so it is ledgered unverified.
-  if (key === undefined) {
-    log.warn(
-      "legacy checkouts are ledgered without a tenant binding check: no legacy binding key set",
-    );
-  }
   let after: string | undefined;
   for (let page = 0; page < MAX_PAGES; page++) {
     const listed = await listOpenApiTransactions(ctx, deps.runtime, after, createdSince);
     for (const transaction of listed.data) {
-      if (!isLegacyCheckout(transaction)) continue;
-      if (key !== undefined && !carriesValidBinding(transaction, key)) {
-        log.warn("legacy checkout not ledgered: tenant binding is invalid", {
-          transactionId: transaction.id,
-        });
-        continue;
-      }
-      await ledgerTransaction(ctx, deps.priceToTier, transaction);
+      if (isLegacyCheckout(transaction))
+        await ledgerTransaction(ctx, deps.priceToTier, transaction);
     }
     const last = listed.data.at(-1);
     if (listed.meta?.pagination?.has_more !== true || last === undefined) break;
