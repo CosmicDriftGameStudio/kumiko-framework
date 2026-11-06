@@ -131,14 +131,18 @@ const detailScreen: ProjectionDetailScreenDefinition = {
   layout: { sections: [{ title: "Order", fields: ["name"] }] },
 };
 
-function renderDetail(data: Record<string, unknown>, write?: Dispatcher["write"]): void {
+function renderDetail(
+  data: Record<string, unknown>,
+  write?: Dispatcher["write"],
+  definition: ProjectionDetailScreenDefinition = detailScreen,
+): void {
   const query = (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"];
   render(
     <DispatcherProvider
       dispatcher={{ ...createMockDispatcher({ query }), ...(write !== undefined && { write }) }}
     >
       <KumikoScreen
-        schema={{ featureName: "shop", entities: {}, screens: [detailScreen] }}
+        schema={{ featureName: "shop", entities: {}, screens: [definition] }}
         qn="shop:screen:order-detail"
         entityId="o1"
       />
@@ -192,6 +196,18 @@ describe("projectionDetail record guidance blocks", () => {
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
     expect(write.mock.calls[0]?.[0]).toBe("shop:write:order:archive");
     expect(write.mock.calls[0]?.[1]).toEqual({ id: "o1" });
+  });
+
+  test("a singleton detail whose row has no id offers no payload-less step action, so no step key is sent as id", async () => {
+    const write = mock(async (_type: string, _payload: unknown) => ({ isSuccess: true, data: {} }));
+    const { id: _omitted, ...rowWithoutId } = FULL;
+    renderDetail(rowWithoutId, write as unknown as Dispatcher["write"], {
+      ...detailScreen,
+      singleton: true,
+    });
+    await waitFor(() => expect(screen.getByText("Send reminder")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Close it" })).toBeNull();
+    expect(write).not.toHaveBeenCalled();
   });
 
   test("a notice tone outside SelectOptionTone falls back to the info banner", async () => {
