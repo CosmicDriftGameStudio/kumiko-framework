@@ -123,6 +123,24 @@ function toolbarDescriptionOf(
   return description === undefined || isEmbedded ? undefined : translate(description);
 }
 
+// Searchable default: explicit author choice wins, otherwise auto-on when
+// the entity has searchable fields (dead toolbar slot otherwise — the
+// server search index has nothing to filter). Gated on
+// schema.searchAdapterMissing !== true regardless of source (explicit or
+// auto) — a search bar the server can't serve would 422 at request-time;
+// matches the boot-time check in api/server.ts.
+function isEntityListSearchable(
+  schema: FeatureSchema,
+  screen: EntityListScreenDefinition,
+  entity: EntityDefinition,
+): boolean {
+  return (
+    schema.searchAdapterMissing !== true &&
+    (screen.searchable ??
+      Object.values(entity.fields).some((f) => "searchable" in f && f.searchable === true))
+  );
+}
+
 function EntityListBody({
   schema,
   screen,
@@ -190,9 +208,12 @@ function EntityListBody({
     urlState,
   });
 
+  const searchable = isEntityListSearchable(schema, screen, entity);
+
   const { filterPayload, listPayloadFor, queryPayload, effectiveSort } = useEntityListPayload({
     screen,
     entity,
+    searchable,
     urlState,
     rangeFilters: range.rangeFilters,
     activeNamedFilter,
@@ -595,17 +616,6 @@ function EntityListBody({
     : onRowClick !== undefined
       ? (row: ListRowViewModel) => onRowClick(row, screen.entity)
       : undefined;
-
-  // Searchable default: explicit author choice wins, otherwise auto-on when
-  // the entity has searchable fields (dead toolbar slot otherwise — the
-  // server search index has nothing to filter). Gated on
-  // schema.searchAdapterMissing !== true regardless of source (explicit or
-  // auto) — a search bar the server can't serve would 422 at request-time;
-  // matches the boot-time check in api/server.ts.
-  const searchable =
-    schema.searchAdapterMissing !== true &&
-    (screen.searchable ??
-      Object.values(entity.fields).some((f) => "searchable" in f && f.searchable === true));
 
   // Assemble pager props only for pagination="pages". The server total
   // arrives async; until it is there RenderList renders the table without a
