@@ -79,6 +79,13 @@ describe("DefaultInput select → segmented control (edit-existing feedback)", (
     expect(screen.getByRole("radio", { name: "Draft" }).getAttribute("aria-checked")).toBe("false");
   });
 
+  test("every segment names its full label for when the ellipsis cuts it off", () => {
+    renderSelect(["Draft", "Review", "Published"]);
+    expect(screen.getByRole("radio", { name: "Published" }).getAttribute("title")).toBe(
+      "Published",
+    );
+  });
+
   test("disabled prevents selection", () => {
     const changes = renderSelect(["Draft", "Review", "Published"], {
       value: "Draft",

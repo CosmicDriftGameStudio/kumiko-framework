@@ -109,6 +109,7 @@ export function SegmentedControl({
             data-testid={`segmented-${id}-${opt.value}`}
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => handleKeyDown(e, index)}
+            title={opt.label}
             className={cn(
               // Per-segment top/left border instead of the container's
               // `divide-x`: divide-x only draws verticals between siblings
@@ -125,7 +126,10 @@ export function SegmentedControl({
               // and the next row's top border cut a notch into the row above.
               // Harmless on a single-row layout: there's no leftover space to
               // grow into, so `w-fit` on the container still holds.
-              "-ml-px -mt-px grow basis-0 whitespace-nowrap border-l border-t px-3 py-1.5 text-center text-sm transition-colors",
+              //
+              // The ellipsis sits on the inner span: overflow on the segment itself
+              // would drop its automatic min-width to 0 and segments would stop wrapping.
+              "-ml-px -mt-px max-w-full grow basis-0 whitespace-nowrap border-l border-t px-3 py-1.5 text-center text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-50",
               hasError === true ? "border-destructive/50" : "border-border",
@@ -138,7 +142,7 @@ export function SegmentedControl({
                 : "bg-transparent font-medium text-foreground hover:bg-accent",
             )}
           >
-            {opt.label}
+            <span className="block truncate">{opt.label}</span>
           </button>
         );
       })}
