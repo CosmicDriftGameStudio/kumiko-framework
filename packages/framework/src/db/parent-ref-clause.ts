@@ -6,7 +6,7 @@ import type { SessionUser } from "../engine/types/index.ts";
 
 import type { Table } from "./event-store-executor-context.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
-import { schemaTableName } from "./table-introspection.ts";
+import { asEntityTableMeta, schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
 import { isGlobalTenancyTable } from "./tenant-db-runner.ts";
 
@@ -182,8 +182,16 @@ function collectGateBranches(
   let shared: SharedBinding | undefined;
   const branches: string[] = [];
   for (const [candidateName, candidate] of candidates) {
-    const isHiddenGlobalHost = gate.globalHostsHidden && candidate.tenancy === "global";
+    const isHiddenGlobalHost =
+      gate.globalHostsHidden &&
+      candidate.tenancy === "global" &&
+      !tableReadsSystemRows(
+        candidateStaticsFor(candidateName, candidate, gate.option.resolveTable),
+      );
     if (mode === "globalHostsOnly" && !isHiddenGlobalHost) continue;
+    if (mode === "globalHostsOnly" && hostReadRuleNeedsRowLevelSecurity(candidate, gate.user)) {
+      continue;
+    }
     const resolvesHostIds = mode === "statement" && isHiddenGlobalHost;
     const pendingShared =
       resolvesHostIds || shared !== undefined
@@ -217,6 +225,30 @@ function collectGateBranches(
   }
 
   return { branches, params };
+}
+
+// The registry table carries the flag for implicitly classified reference data too, which the
+// entity definition alone does not say; such a host is visible to the tenant-scoped EXISTS arm.
+function tableReadsSystemRows(statics: CandidateStatics): boolean {
+  return asEntityTableMeta(statics.table)?.systemRowsReadable === true;
+}
+
+// The system-scope host check has no row level security as a second layer, so a where-rule
+// subquery over a tenant table would see other tenants' rows; such a host opens no arm (fail closed).
+function hostReadRuleNeedsRowLevelSecurity(
+  candidate: EntityDefinition,
+  user: SessionUser,
+): boolean {
+  const readRules = candidate.access?.read;
+  if (readRules === undefined) return false;
+  const applicable = user.roles.flatMap((role) => {
+    const rule = readRules[role];
+    return rule === undefined ? [] : [rule];
+  });
+  return (
+    !applicable.includes("all") &&
+    applicable.some((rule) => rule !== "all" && rule.kind === "where")
+  );
 }
 
 type SharedBinding = {
