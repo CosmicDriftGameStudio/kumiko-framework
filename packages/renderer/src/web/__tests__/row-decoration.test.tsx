@@ -164,8 +164,14 @@ describe("mergeRowDecoration", () => {
 
 type HarnessRow = Readonly<Record<string, unknown>>;
 
-function Harness({ rows }: { readonly rows: readonly HarnessRow[] }) {
-  const decorated = useRowDecoration({ query: DECORATION_QUERY }, rows, rows);
+function Harness({
+  rows,
+  resetKey,
+}: {
+  readonly rows: readonly HarnessRow[];
+  readonly resetKey: string;
+}) {
+  const decorated = useRowDecoration({ query: DECORATION_QUERY }, rows, rows, resetKey);
   return <p data-testid="out">{decorated.map((row) => String(row["stage"])).join(",")}</p>;
 }
 
@@ -173,31 +179,53 @@ function renderHarness(initial: readonly HarnessRow[]) {
   const calls: Call[] = [];
   const query = (async (type: string, payload: unknown) => {
     calls.push({ type, payload });
-    return { isSuccess: true, data: { rows: [{ id: "a", stage: `call${calls.length}` }] } };
+    const ids = (payload as { ids: string[] }).ids;
+    return {
+      isSuccess: true,
+      data: { rows: ids.map((id) => ({ id, stage: `${id}${calls.length}` })) },
+    };
   }) as unknown as Dispatcher["query"];
   const dispatcher = createMockDispatcher({ query });
-  const tree = (rows: readonly HarnessRow[]) => (
+  const tree = (rows: readonly HarnessRow[], resetKey: string) => (
     <DispatcherProvider dispatcher={dispatcher}>
-      <Harness rows={rows} />
+      <Harness rows={rows} resetKey={resetKey} />
     </DispatcherProvider>
   );
-  const view = render(tree(initial));
-  return { calls, rerender: (rows: readonly HarnessRow[]) => view.rerender(tree(rows)) };
+  const view = render(tree(initial, "k1"));
+  return {
+    calls,
+    rerender: (rows: readonly HarnessRow[], resetKey = "k1") => view.rerender(tree(rows, resetKey)),
+  };
 }
 
 describe("useRowDecoration call count", () => {
-  test("a new list answer with the same ids refetches once, changed ids call once", async () => {
+  test("a new list answer with the same ids refetches once", async () => {
     const { calls, rerender } = renderHarness([{ id: "a" }]);
-    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("call1"));
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a1"));
 
     rerender([{ id: "a" }]);
-    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("call2"));
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a2"));
     expect(calls).toHaveLength(2);
+  });
+
+  test("an appended page sends only the new ids and keeps the earlier decoration", async () => {
+    const { calls, rerender } = renderHarness([{ id: "a" }]);
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a1"));
 
     rerender([{ id: "a" }, { id: "b" }]);
-    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("call3,undefined"));
-    expect(calls).toHaveLength(3);
-    expect(calls[2]?.payload).toEqual({ ids: ["a", "b"] });
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a1,b2"));
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.payload).toEqual({ ids: ["b"] });
+  });
+
+  test("a resetKey change sends every id again and drops the earlier decoration", async () => {
+    const { calls, rerender } = renderHarness([{ id: "a" }, { id: "b" }]);
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a1,b1"));
+
+    rerender([{ id: "a" }, { id: "b" }], "k2");
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toBe("a2,b2"));
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.payload).toEqual({ ids: ["a", "b"] });
   });
 
   test("an empty page sends no decoration call", async () => {
