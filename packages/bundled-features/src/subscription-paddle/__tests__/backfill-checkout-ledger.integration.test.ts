@@ -4,7 +4,7 @@
 // `send` seam; the rest is the real stack with an injected clock.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -54,21 +54,42 @@ const clock = createManualClock(getTemporal().Now.instant());
 const legacySubscriptionTenant = testTenantId(9201);
 const legacyOneOffTenant = testTenantId(9202);
 const modernTenant = testTenantId(9203);
+const forgedBindingTenant = testTenantId(9204);
+
+const LEGACY_BINDING_KEY = randomBytes(32).toString("base64");
+
+// The release that signed bindings is gone; the test signs the way it did.
+function legacyBindingFor(tenantId: string, key = LEGACY_BINDING_KEY): string {
+  return createHmac("sha256", key)
+    .update(`kumiko-paddle-tenant:v1:${tenantId}`)
+    .digest("base64url");
+}
 
 const openTransactions = [
   {
     id: "txn_legacy_sub",
     custom_data: {
       tenantId: legacySubscriptionTenant,
-      tenantBinding: "binding-1",
+      tenantBinding: legacyBindingFor(legacySubscriptionTenant),
       consentId: "consent-9201",
     },
     items: [{ price: { id: "pri_pro" } }],
   },
   {
     id: "txn_legacy_topup",
-    custom_data: { tenantId: legacyOneOffTenant, tenantBinding: "binding-2" },
+    custom_data: {
+      tenantId: legacyOneOffTenant,
+      tenantBinding: legacyBindingFor(legacyOneOffTenant),
+    },
     items: [{ price: { id: ONE_OFF_PRICE } }],
+  },
+  {
+    id: "txn_forged_binding",
+    custom_data: {
+      tenantId: forgedBindingTenant,
+      tenantBinding: legacyBindingFor(forgedBindingTenant, "some-other-key"),
+    },
+    items: [{ price: { id: "pri_pro" } }],
   },
   {
     id: "txn_modern",
@@ -107,6 +128,7 @@ beforeAll(async () => {
         webhookSecret: TEST_WEBHOOK_SECRET,
         priceToTier: PRICE_TO_TIER,
         oneOffPriceIds: [ONE_OFF_PRICE],
+        legacyTenantBindingKey: LEGACY_BINDING_KEY,
         send: paddle.send,
       }),
     ],
@@ -253,6 +275,10 @@ describe("backfill-checkout-ledger job", () => {
     expect(await ledgerEntries(subscriptionAggregateId(modernTenant), modernTenant)).toHaveLength(
       0,
     );
+    // Paddle.js can send any customData, so a binding the legacy key did not sign is not ledgered.
+    expect(
+      await ledgerEntries(subscriptionAggregateId(forgedBindingTenant), forgedBindingTenant),
+    ).toHaveLength(0);
 
     await runJob();
     expect(
