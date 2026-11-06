@@ -18,19 +18,20 @@ const duFormRegex = /\b(du|dich|dir|dein\w*|Du|Dich|Dir|Dein\w*)\b/;
 const informalImperativeRegex =
   /(^|[.!?]\s+)(Gib|Wähle|Speichere|Klicke|Bestätige|Fordere|Scanne|Kopiere|Lege|Melde|Versuche|Prüfe|Öffne|Setze|Trage|Nutze|Verwende|Wende)(?![\p{L}])/u;
 
-// Designer strings are du in the default bundle; extend the allowlist only for
-// genuine 3rd-person "Sie" referring to a noun.
+// The default bundle is du throughout; extend the allowlist only for genuine
+// 3rd-person "Sie" referring to a noun.
 const formalAddressRegex =
-  /\b(Ihr\w*|Ihnen|(Speichern|Nutzen|Laden|Wählen|Geben|Verwenden|Klicken|Prüfen|Legen|Fügen|Löschen|Bestätigen|Verwerfen|Bearbeiten|Öffnen|Setzen|Ziehen|Versuchen) Sie|Sie (sehen|können|müssen|haben|sind|werden|wollen|möchten|erhalten|benötigen))\b/;
+  /\b(Ihr\w*|Ihnen|(Speichern|Nutzen|Laden|Wählen|Geben|Verwenden|Klicken|Prüfen|Legen|Fügen|Löschen|Bestätigen|Verwerfen|Bearbeiten|Öffnen|Setzen|Ziehen|Versuchen|verwenden|ersetzen|ändern|prüfen|wählen|entfernen|schränken) Sie|Sie (sehen|können|müssen|haben|sind|werden|wollen|möchten|erhalten|benötigen))\b/;
 
-const DESIGNER_FORMAL_ALLOWLIST: ReadonlySet<string> = new Set<string>();
+const THIRD_PERSON_SIE_ALLOWLIST: ReadonlySet<string> = new Set<string>([
+  "auth.mfa.enable.recoveryHint",
+]);
 
 describe("locale-de formal overrides", () => {
-  test("informal bundle has no formal address in documentDesigner keys", () => {
+  test("informal bundle has no formal address", () => {
     const offenders = Object.entries(localeDeBundle)
-      .filter(([key]) => key.startsWith("documentDesigner."))
       .filter(
-        ([key, value]) => !DESIGNER_FORMAL_ALLOWLIST.has(key) && formalAddressRegex.test(value),
+        ([key, value]) => !THIRD_PERSON_SIE_ALLOWLIST.has(key) && formalAddressRegex.test(value),
       )
       .map(([key]) => key);
     expect(offenders).toEqual([]);
