@@ -49,7 +49,7 @@ const statusSchema = z.object({
   timestamp: z.string().optional(),
   recipient_id: z.string().optional(),
   errors: z
-    .array(z.object({ code: z.number().optional() }))
+    .array(z.object({ code: z.number().int().optional().catch(undefined) }))
     .optional()
     .catch(undefined),
 });
