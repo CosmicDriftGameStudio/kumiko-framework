@@ -53,3 +53,30 @@ test("select-primitive: render + change + submit-roundtrip", async ({ page }) =>
 
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("select-primitive: a label wider than the column is cut off inside its segment", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.goto("/");
+  const segmented = page.getByTestId("segmented-kumiko-edit-status");
+  await expect(segmented).toBeVisible();
+
+  const layout = await segmented.evaluate((group) => {
+    const [first, second] = Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]'));
+    const firstLabel = first?.querySelector("span");
+    if (!first || !second || !firstLabel) throw new Error("segments did not render");
+    firstLabel.textContent = "Grundstuecksentwaesserungsanlagenwartungsvertragskuendigung";
+    return {
+      groupRight: group.getBoundingClientRect().right,
+      firstRight: first.getBoundingClientRect().right,
+      firstBottom: first.getBoundingClientRect().bottom,
+      secondTop: second.getBoundingClientRect().top,
+      labelIsCut: firstLabel.scrollWidth > firstLabel.clientWidth,
+    };
+  });
+
+  expect(layout.firstRight).toBeLessThanOrEqual(layout.groupRight);
+  expect(layout.labelIsCut).toBe(true);
+  expect(layout.secondTop).toBeGreaterThanOrEqual(layout.firstBottom - 1);
+});
