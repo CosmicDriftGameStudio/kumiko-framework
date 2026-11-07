@@ -45,7 +45,7 @@ export function renderBlankMain(appName: string): string {
     { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
     {
       specifier: "@cosmicdrift/kumiko-framework/crypto",
-      names: ["requireKmsWiring", "resolveKmsWiring"],
+      names: ["resolveKmsWiring"],
     },
     {
       specifier: "@cosmicdrift/kumiko-bundled-features/auth-email-password",
@@ -72,7 +72,7 @@ const kmsOpts = {
 
 const kmsWiring =
   process.env["NODE_ENV"] === "production"
-    ? requireKmsWiring(process.env, kmsOpts)
+    ? { kmsMode: "required" as const }
     : resolveKmsWiring(process.env, kmsOpts);
 
 // The bootstrap admin has no password; password reset is the only way it gets one. Without SMTP

@@ -517,7 +517,7 @@ function renderMain(appName: string): string {
     { specifier: "@cosmicdrift/kumiko-framework/engine", names: ["TenantId"], typeOnly: true },
     {
       specifier: "@cosmicdrift/kumiko-framework/crypto",
-      names: ["requireKmsWiring", "resolveKmsWiring"],
+      names: ["resolveKmsWiring"],
     },
     { specifier: "../src/run-config", names: ["APP_FEATURES"] },
     { specifier: "../kumiko.config", names: [], defaultName: "appConfig" },
@@ -530,7 +530,7 @@ function renderMain(appName: string): string {
   ]);
 
   // Subject-key KMS is optional locally (plaintext + loud warning) but required
-  // under NODE_ENV=production.
+  // under NODE_ENV=production, where kmsMode also resolves the *_CIPHERTEXT form via the Key Manager.
   return `// biome-ignore-all lint/style/noProcessEnv: KMS wiring and the demo admin password are read before runProdApp parses the env contract, and the scaffold has no bin/env.ts
 // Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
 // composeFeatures + validateBoot + createRegistry without DB/Redis-connect
@@ -548,7 +548,7 @@ const kmsOpts = {
 
 const kmsWiring =
   process.env["NODE_ENV"] === "production"
-    ? requireKmsWiring(process.env, kmsOpts)
+    ? { kmsMode: "required" as const }
     : resolveKmsWiring(process.env, kmsOpts);
 
 await runProdApp({
@@ -678,7 +678,8 @@ KUMIKO_SECRETS_MASTER_KEY_V1=
 ${adminBlock}
 # Subject-keys KMS for PII fields (user, tenant-invitation, fileRef). All-or-none.
 # Unset → local boot with plaintext PII + warning; NODE_ENV=production requires
-# the trio (requireKmsWiring). Generate PLATFORM_KEK / KUMIKO_BLIND_INDEX_KEY
+# the trio (runProdApp kmsMode "required"); prod may supply any key as
+# <NAME>_CIPHERTEXT (Key Manager). Generate PLATFORM_KEK / KUMIKO_BLIND_INDEX_KEY
 # with: openssl rand -base64 32. SUBJECT_KEYS_DATABASE_URL must be a dedicated
 # subject-keys cluster (not the app DB) — see kms-adapter.md.
 PLATFORM_KEK=
@@ -885,6 +886,7 @@ function renderBinKumiko(): string {
     "// ad-hoc SQL, and `events prune --aggregate-type <type> [--apply]` removes retired",
     "// aggregate types from the event log. kumiko-build bundles this file to dist-server/kumiko.js.",
     "",
+    'import { kmsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding/env";',
     'import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";',
     'import { kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";',
     'import { runEventsCli } from "@cosmicdrift/kumiko-framework/events-cli";',
@@ -897,7 +899,8 @@ function renderBinKumiko(): string {
     "const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };",
     "",
     'if (cmd === "schema") {',
-    "  const kmsSlots = kmsSlotsOf(envSchema.schema);",
+    "  // bin/main.ts boots with kmsMode, which resolves the slots of kmsEnvSchema; the migrate step needs the same keys.",
+    "  const kmsSlots = [...new Set([...kmsSlotsOf(envSchema.schema), ...kmsSlotsOf(kmsEnvSchema)])];",
     "  process.exit(",
     "    await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, {",
     "      features: FEATURES,",

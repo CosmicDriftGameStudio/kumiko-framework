@@ -363,6 +363,10 @@ describe("scaffoldApp", () => {
     expect(kumikoBin).toContain('import { FEATURES } from "../kumiko/schema";');
     expect(kumikoBin).not.toContain("allAppFeatures");
     expect(kumikoBin).toContain("kmsSlotsOf(envSchema.schema)");
+    expect(kumikoBin).toContain("kmsSlotsOf(kmsEnvSchema)");
+    expect(kumikoBin).toContain(
+      'import { kmsEnvSchema } from "@cosmicdrift/kumiko-bundled-features/crypto-shredding/env";',
+    );
     expect(kumikoBin).toContain("features: FEATURES,");
     // schema apply must heal the mode runProdApp boots with; the prod image ships no kumiko/schema.ts.
     expect(kumikoBin).toContain(
@@ -595,7 +599,8 @@ describe("scaffoldApp", () => {
 
     const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
     expect(main).toContain('from "@cosmicdrift/kumiko-framework/crypto"');
-    expect(main).toContain("requireKmsWiring(process.env");
+    expect(main).toContain('{ kmsMode: "required" as const }');
+    expect(main).not.toContain("requireKmsWiring");
     expect(main).toContain("resolveKmsWiring(process.env");
     expect(main).toContain('process.env["NODE_ENV"] === "production"');
     expect(main).not.toContain('if ("allowPlaintextPii" in kmsWiring)');
