@@ -1,0 +1,45 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
+import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { handbookKnowledgeFeature } from "../feature";
+
+const LIST_PAGES = "handbook-knowledge:query:list-pages";
+const READ_PAGE = "handbook-knowledge:query:read-page";
+
+type ListResult = { locale: string; pages: { id: string; title: string }[] };
+type ReadResult = { id: string; locale: string; bodyMd: string; publicPath?: string };
+
+const user = createTestUser({ roles: ["User"] });
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupTestStack({ features: [handbookKnowledgeFeature] });
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+async function queryIn<T>(type: string, payload: unknown, locale: string): Promise<T> {
+  const res = await stack.http.queryWithHeaders(type, payload, user, { "X-Locale": locale });
+  expect(res.status).toBe(200);
+  return ((await res.json()) as { data: T }).data;
+}
+
+describe("handbook-knowledge recipe", () => {
+  test("list-pages returns the catalog in the caller's language", async () => {
+    const de = await queryIn<ListResult>(LIST_PAGES, {}, "de");
+    expect(de.pages[0]).toMatchObject({ id: "prozess-add-tenant", title: "Mieter hinzufügen" });
+  });
+
+  test("read-page falls back to the default language and links the public handbook", async () => {
+    const page = await queryIn<ReadResult>(READ_PAGE, { id: "lease-detail" }, "de");
+    expect(page).toMatchObject({ locale: "en", publicPath: "/handbuch#lease-detail" });
+    expect(page.bodyMd).toContain("tenants, rent and documents");
+  });
+
+  test("read-page rejects an unknown id", async () => {
+    const error = await stack.http.queryErr(READ_PAGE, { id: "missing" }, user);
+    expect(error.code).toBe("not_found");
+  });
+});

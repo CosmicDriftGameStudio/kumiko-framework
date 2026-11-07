@@ -595,25 +595,8 @@ export function validateRedirectTarget(
 ): void {
   const { allScreenQns } = lookups;
   const redirectTarget = typeof redirect === "string" ? redirect : redirect.screen;
-  if (
-    typeof redirect !== "string" &&
-    (typeof redirect.idFrom !== "string" || redirect.idFrom.trim() === "")
-  ) {
-    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromEmpty, {
-      message:
-        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is empty or not a string — ` +
-        `name the success-payload field carrying the navigation id, or use the plain string ` +
-        `redirect form to navigate with the handler's own "id".`,
-    });
-  }
-  // The renderer reads idFrom verbatim (Object.hasOwn), so stray whitespace
-  // never matches and the navigation silently lands without an entityId.
-  if (typeof redirect !== "string" && redirect.idFrom !== redirect.idFrom.trim()) {
-    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromWhitespace, {
-      message:
-        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom "${redirect.idFrom}" ` +
-        `has leading/trailing whitespace — it would never match a payload field. Remove the whitespace from idFrom.`,
-    });
+  if (typeof redirect !== "string") {
+    validateRedirectIdFromShape(feature.name, screenId, screenKind, propertyPath, redirect);
   }
   validateScreenNavTarget(
     feature.name,
@@ -624,21 +607,24 @@ export function validateRedirectTarget(
     allScreenQns,
     feature.screens,
   );
-  // idFrom only means something to a target that carries a record id; the
-  // renderer drops it silently otherwise. Cross-feature QN targets can't be
-  // typed from here and stay unchecked.
-  const sameFeatureTarget = feature.screens[redirectTarget];
-  if (
-    typeof redirect !== "string" &&
-    sameFeatureTarget !== undefined &&
-    sameFeatureTarget.type !== "entityEdit" &&
-    sameFeatureTarget.type !== "projectionDetail"
-  ) {
-    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromOnIdlessTarget, {
-      message:
-        `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is set but target screen ` +
-        `"${redirectTarget}" (${sameFeatureTarget.type}) carries no id — use the plain string form.`,
-    });
+  if (typeof redirect !== "string" && redirect.idFrom !== undefined) {
+    validateRedirectIdFromTarget(
+      feature.name,
+      screenId,
+      screenKind,
+      propertyPath,
+      redirectTarget,
+      feature.screens[redirectTarget],
+    );
+  }
+  if (typeof redirect !== "string" && redirect.searchParams !== undefined) {
+    validateRedirectSearchParams(
+      feature.name,
+      screenId,
+      screenKind,
+      propertyPath,
+      redirect.searchParams,
+    );
   }
   if (typeof redirect !== "string" && redirect.tab !== undefined) {
     validateRowActionNavigateTab(
@@ -649,6 +635,83 @@ export function validateRedirectTarget(
       { kind: "navigate", id: redirectTarget, label: redirectTarget, tab: redirect.tab },
       findNavTargetEntry(feature, redirectTarget, lookups),
     );
+  }
+}
+
+function validateRedirectIdFromShape(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  propertyPath: string,
+  redirect: ActionFormRedirect,
+): void {
+  const { idFrom } = redirect;
+  if (idFrom === undefined) return;
+  if (typeof idFrom !== "string" || idFrom.trim() === "") {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromEmpty, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is empty or not a string — ` +
+        `name the success-payload field carrying the navigation id, or use the plain string ` +
+        `redirect form to navigate with the handler's own "id".`,
+    });
+  }
+  // The renderer reads idFrom verbatim (Object.hasOwn), so stray whitespace
+  // never matches and the navigation silently lands without an entityId.
+  if (idFrom !== idFrom.trim()) {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromWhitespace, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom "${idFrom}" ` +
+        `has leading/trailing whitespace — it would never match a payload field. Remove the whitespace from idFrom.`,
+    });
+  }
+}
+
+// idFrom only means something to a target that carries a record id; the
+// renderer drops it silently otherwise. Cross-feature QN targets can't be
+// typed from here and stay unchecked.
+function validateRedirectIdFromTarget(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  propertyPath: string,
+  redirectTarget: string,
+  sameFeatureTarget: { type: string } | undefined,
+): void {
+  if (
+    sameFeatureTarget !== undefined &&
+    sameFeatureTarget.type !== "entityEdit" &&
+    sameFeatureTarget.type !== "projectionDetail"
+  ) {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromOnIdlessTarget, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.idFrom is set but target screen ` +
+        `"${redirectTarget}" (${sameFeatureTarget.type}) carries no id — use the plain string form.`,
+    });
+  }
+}
+
+function validateRedirectSearchParams(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  propertyPath: string,
+  searchParams: Record<string, string>,
+): void {
+  if (screenKind !== "actionForm") {
+    throw bootRuleError(SCREEN_ACTION_RULES.redirectSearchParamsOnlyActionForm, {
+      message:
+        `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.searchParams is only ` +
+        `read for actionForm redirects — remove it.`,
+    });
+  }
+  for (const [param, field] of Object.entries(searchParams)) {
+    if (param.trim() === "" || typeof field !== "string" || field.trim() === "") {
+      throw bootRuleError(SCREEN_ACTION_RULES.redirectSearchParamsEmpty, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) ${propertyPath}.searchParams ` +
+          `entry "${param}" has an empty param name or payload field — map each search param name to a success-payload field.`,
+      });
+    }
   }
 }
 

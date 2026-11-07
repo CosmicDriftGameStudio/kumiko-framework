@@ -20,10 +20,23 @@ const BUILD_OPTIONS = {
   "no-large": { type: "boolean" },
 } as const;
 
-function usageError(ctx: CliCommandContext, message?: string): number {
+const KNOWLEDGE_USAGE =
+  "Usage: kumiko handbuch knowledge <config.json> --out <file.json> [--root <dir>] [--texts <dir>] [--web-texts <dir>] [--web-repo <dir>] [--repo <dir>] [--locale <l>]";
+
+const KNOWLEDGE_OPTIONS = {
+  root: { type: "string" },
+  out: { type: "string" },
+  texts: { type: "string" },
+  "web-texts": { type: "string" },
+  "web-repo": { type: "string" },
+  repo: { type: "string" },
+  locale: { type: "string" },
+} as const;
+
+function usageError(ctx: CliCommandContext, message?: string, usage: string = USAGE): number {
   ctx.out.err("");
   if (message) ctx.out.err(`  ${message}`);
-  ctx.out.err(`  ${USAGE}`);
+  ctx.out.err(`  ${usage}`);
   ctx.out.err("");
   return 2;
 }
@@ -73,6 +86,81 @@ function wipesBuildInputs({
   return wipesProtectedDir || lieInsideSource;
 }
 
+type ConfigOverrides = { locale?: string; repo?: string; "web-repo"?: string };
+
+// Reports a bad config itself; the caller only maps undefined to exit code 2.
+async function loadConfigWithOverrides(
+  ctx: CliCommandContext,
+  configPath: string,
+  values: ConfigOverrides,
+  usage: string,
+): Promise<HandbuchConfig | undefined> {
+  // Lazy: the builder pulls in optional peers (framework, headless) that other commands must not need.
+  const { loadHandbuchConfig, restrictToLocale } = await import("../handbuch/config");
+  try {
+    const loaded = loadHandbuchConfig(configPath);
+    const narrowed = values.locale ? restrictToLocale(loaded, values.locale) : loaded;
+    // Worktree checkouts hold the code the texts describe; the configured
+    // sibling checkouts may sit on another commit.
+    return {
+      ...narrowed,
+      repo: values.repo ? resolve(ctx.cwd, values.repo) : narrowed.repo,
+      flowSources: narrowed.flowSources?.map((source) => ({
+        ...source,
+        repo: values["web-repo"] ? resolve(ctx.cwd, values["web-repo"]) : source.repo,
+      })),
+    };
+  } catch (error) {
+    ctx.out.err("");
+    ctx.out.err(`  Invalid handbuch config ${configPath}:`);
+    ctx.out.err(`  ${describeError(error)}`);
+    ctx.out.err(`  ${usage}`);
+    ctx.out.err("");
+    return undefined;
+  }
+}
+
+async function runKnowledge(ctx: CliCommandContext, args: ReadonlyArray<string>): Promise<number> {
+  let parsed: ReturnType<
+    typeof parseArgs<{ options: typeof KNOWLEDGE_OPTIONS; allowPositionals: true }>
+  >;
+  try {
+    parsed = parseArgs({ args: [...args], options: KNOWLEDGE_OPTIONS, allowPositionals: true });
+  } catch (error) {
+    return usageError(ctx, describeError(error), KNOWLEDGE_USAGE);
+  }
+  const { values, positionals } = parsed;
+  const configArg = positionals[0];
+  if (!configArg) return usageError(ctx, "Missing <config.json>.", KNOWLEDGE_USAGE);
+  if (!values.out) return usageError(ctx, "Missing --out <file>.", KNOWLEDGE_USAGE);
+
+  const rootDir = resolve(ctx.cwd, values.root ?? ".");
+  const configPath = resolve(rootDir, configArg);
+  const config = await loadConfigWithOverrides(ctx, configPath, values, KNOWLEDGE_USAGE);
+  if (!config) return 2;
+
+  const { writeKnowledge } = await import("../handbuch/knowledge");
+  try {
+    const result = await writeKnowledge(config, {
+      rootDir,
+      outFile: resolve(ctx.cwd, values.out),
+      textsDir: values.texts ? resolve(ctx.cwd, values.texts) : undefined,
+      flowTextsDir: values["web-texts"] ? resolve(ctx.cwd, values["web-texts"]) : undefined,
+    });
+    const counts = Object.entries(result.pageCounts)
+      .map(([locale, count]) => `${locale} ${count}`)
+      .join(", ");
+    ctx.out.log(`${config.title}: ${counts} Seiten`);
+    ctx.out.log(result.outFile);
+    return 0;
+  } catch (error) {
+    ctx.out.err("");
+    ctx.out.err(`  ✗ ${describeError(error)}`);
+    ctx.out.err("");
+    return 1;
+  }
+}
+
 async function runBuild(ctx: CliCommandContext, args: ReadonlyArray<string>): Promise<number> {
   let parsed: ReturnType<
     typeof parseArgs<{ options: typeof BUILD_OPTIONS; allowPositionals: true }>
@@ -88,31 +176,9 @@ async function runBuild(ctx: CliCommandContext, args: ReadonlyArray<string>): Pr
 
   const rootDir = resolve(ctx.cwd, values.root ?? ".");
   const configPath = resolve(rootDir, configArg);
-  // Lazy: the builder pulls in optional peers (framework, headless) that other commands must not need.
-  const { loadHandbuchConfig, restrictToLocale } = await import("../handbuch/config");
-  const { buildHandbuch, SHARP_MISSING_MESSAGE } = await import("../handbuch/build");
-  let config: HandbuchConfig;
-  try {
-    const loaded = loadHandbuchConfig(configPath);
-    const narrowed = values.locale ? restrictToLocale(loaded, values.locale) : loaded;
-    // Worktree checkouts hold the code the texts describe; the configured
-    // sibling checkouts may sit on another commit.
-    config = {
-      ...narrowed,
-      repo: values.repo ? resolve(ctx.cwd, values.repo) : narrowed.repo,
-      flowSources: narrowed.flowSources?.map((source) => ({
-        ...source,
-        repo: values["web-repo"] ? resolve(ctx.cwd, values["web-repo"]) : source.repo,
-      })),
-    };
-  } catch (error) {
-    ctx.out.err("");
-    ctx.out.err(`  Invalid handbuch config ${configPath}:`);
-    ctx.out.err(`  ${describeError(error)}`);
-    ctx.out.err(`  ${USAGE}`);
-    ctx.out.err("");
-    return 2;
-  }
+  const { SHARP_MISSING_MESSAGE, buildHandbuch } = await import("../handbuch/build");
+  const config = await loadConfigWithOverrides(ctx, configPath, values, USAGE);
+  if (!config) return 2;
 
   // buildHandbuch wipes outDir recursively, so a mistyped --out must never be
   // (or contain) a directory the build reads from or the user works in.
@@ -162,10 +228,12 @@ async function runBuild(ctx: CliCommandContext, args: ReadonlyArray<string>): Pr
 
 export const handbuchCommand: CliCommand = {
   id: "handbuch",
-  description: "Build the HTML handbuch from a config (build <config.json>)",
-  help: `${USAGE}\n\nRenders the handbuch page from the texts and screenshots a config points at.\nRelative paths in the config resolve against --root (default: cwd); the output\ngoes to <root>/.handbuch/<config-name> unless --out is given. Needs sharp\n(bun add -d sharp) for the image conversion.`,
+  description:
+    "Build the HTML handbuch (build <config.json>) or export its texts as JSON (knowledge <config.json>)",
+  help: `${USAGE}\n${KNOWLEDGE_USAGE}\n\nknowledge writes the page texts per locale (without images) as deterministic JSON for the assistant.\n\nRenders the handbuch page from the texts and screenshots a config points at.\nRelative paths in the config resolve against --root (default: cwd); the output\ngoes to <root>/.handbuch/<config-name> unless --out is given. Needs sharp\n(bun add -d sharp) for the image conversion.`,
   run: async (ctx) => {
     const [sub, ...rest] = ctx.argv;
+    if (sub === "knowledge") return runKnowledge(ctx, rest);
     if (sub !== "build") return usageError(ctx);
     return runBuild(ctx, rest);
   },

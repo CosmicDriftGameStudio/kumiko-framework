@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-handbook-knowledge",
+  "description": "The handbook-knowledge bundled feature: a fixed handbook JSON served to the AI assistant as list-pages and read-page query tools.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

@@ -34,6 +34,10 @@ object and an embedded list rendered by a declarative `entityEdit` screen.
   entries (`{ label, from }`). The handler wraps its schema with
   `withFormDerivations(schema, screen)` (`src/handlers/invoice-receive.write.ts`),
   so totals sent by the client are replaced on the server.
+- **Redirect with search params**: after submit, `invoice-receive` redirects to
+  `invoice-list` with `searchParams: { "invoice-list.q": "invoiceNumber" }`, so the list opens
+  with the number the handler returns in its search box. The receive handler stores nothing in
+  this recipe; the search finds invoices saved through `invoice-edit` with that number.
 
 ## When to reach for it
 
@@ -410,6 +414,7 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
 
 describe("invoice receive form derives its totals on the server", () => {
   type ReceiveTotals = {
+    invoiceNumber: string;
     netTotal: { amount: number; currency: string };
     vatTotal: { amount: number; currency: string };
     grossTotal: { amount: number; currency: string };
@@ -432,7 +437,10 @@ describe("invoice receive form derives its totals on the server", () => {
       },
       admin,
     );
+    // The screen's redirect searchParams read `invoiceNumber` from this payload; the
+    // stack booted, so boot validation accepted the redirect to the invoice list.
     expect(totals).toEqual({
+      invoiceNumber: "RE-2026-0042",
       netTotal: eur(30.05),
       vatTotal: eur(3.31),
       grossTotal: eur(33.36),
@@ -534,6 +542,12 @@ export const invoiceEntity = createEntity({
   table: "read_sample_invoices",
   fields: {
     customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    // Business data, so the list can search it: invoice-receive redirects here by number.
+    invoiceNumber: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      searchable: true,
+    }),
     lines: createEmbeddedListField(
       {
         product: { type: "reference", entity: "product", required: true },
@@ -638,10 +652,16 @@ export const embeddedFeature = defineFeature("contacts", (r) => {
     type: "entityEdit",
     entity: "invoice",
     layout: {
-      sections: [{ columns: 1, fields: ["customer", "lines"] }],
+      sections: [{ columns: 1, fields: ["invoiceNumber", "customer", "lines"] }],
     },
   });
 
+  r.screen({
+    id: "invoice-list",
+    type: "entityList",
+    entity: "invoice",
+    columns: ["invoiceNumber", "customer"],
+  });
   r.screen(invoiceReceiveScreen);
 });
 ```
@@ -755,6 +775,7 @@ export const invoiceReceive = defineWriteHandler({
   handler: async (event) => ({
     isSuccess: true,
     data: {
+      invoiceNumber: event.payload.invoiceNumber,
       netTotal: event.payload.netTotal,
       vatTotal: event.payload.vatTotal,
       grossTotal: event.payload.grossTotal,
@@ -798,6 +819,8 @@ export const invoiceReceiveScreen: ActionFormScreenDefinition = {
   id: "invoice-receive",
   type: "actionForm",
   handler: "contacts:write:invoice:receive",
+  // Lands on the invoice list with its search box filled from the result.
+  redirect: { screen: "invoice-list", searchParams: { "invoice-list.q": "invoiceNumber" } },
   fields: {
     supplier: createTextField({ required: true, personal: "tenant", find: "none" }),
     invoiceNumber: createTextField({

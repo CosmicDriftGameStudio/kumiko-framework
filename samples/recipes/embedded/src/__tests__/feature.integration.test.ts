@@ -355,6 +355,7 @@ describe("invoice line items with select/reference/derived/totals metadata", () 
 
 describe("invoice receive form derives its totals on the server", () => {
   type ReceiveTotals = {
+    invoiceNumber: string;
     netTotal: { amount: number; currency: string };
     vatTotal: { amount: number; currency: string };
     grossTotal: { amount: number; currency: string };
@@ -377,7 +378,10 @@ describe("invoice receive form derives its totals on the server", () => {
       },
       admin,
     );
+    // The screen's redirect searchParams read `invoiceNumber` from this payload; the
+    // stack booted, so boot validation accepted the redirect to the invoice list.
     expect(totals).toEqual({
+      invoiceNumber: "RE-2026-0042",
       netTotal: eur(30.05),
       vatTotal: eur(3.31),
       grossTotal: eur(33.36),

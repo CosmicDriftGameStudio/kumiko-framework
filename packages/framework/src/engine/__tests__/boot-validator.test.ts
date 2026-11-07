@@ -2749,7 +2749,13 @@ describe("boot-validator", () => {
         }>;
       }>;
       readonly queries?: readonly string[];
-      readonly redirect?: string | { readonly screen: string; readonly idFrom: string };
+      readonly redirect?:
+        | string
+        | {
+            readonly screen: string;
+            readonly idFrom?: string;
+            readonly searchParams?: Readonly<Record<string, string>>;
+          };
       readonly successLinks?: ReadonlyArray<{
         readonly screen: string;
         readonly idFrom?: string;
@@ -3118,6 +3124,39 @@ describe("boot-validator", () => {
           }),
         ]),
       ).toThrow(/redirect\.idFrom " leaseId" has leading\/trailing whitespace/);
+    });
+
+    test("redirect object with searchParams and no idFrom → custom screen → no throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: { screen: "after-form", searchParams: { cmd: "threadId" } },
+            extraScreens: ["after-form"],
+          }),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("redirect object with an empty searchParams field → throws", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: { screen: "after-form", searchParams: { cmd: " " } },
+            extraScreens: ["after-form"],
+          }),
+        ]),
+      ).toThrow(/redirect\.searchParams entry "cmd" has an empty param name or payload field/);
+    });
+
+    test("redirect object with an empty searchParams key → throws", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: { screen: "after-form", searchParams: { "": "threadId" } },
+            extraScreens: ["after-form"],
+          }),
+        ]),
+      ).toThrow(/redirect\.searchParams entry "" has an empty param name or payload field/);
     });
 
     // --- successLinks ---

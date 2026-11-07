@@ -204,11 +204,16 @@ export type ActionFormRedirect = {
    *  Only used when the target screen type carries an id (`entityEdit`,
    *  `projectionDetail`); a non-string or missing value navigates without
    *  an id, same as a payload without `id` does today. */
-  readonly idFrom: string;
+  readonly idFrom?: string;
   /** Section id to open on the target `projectionDetail` with `layout.mode:
    *  "tabs"` (the `tab` search param, same as `ToolbarAction` navigate `tab`).
    *  Boot rejects other targets and unknown section ids. */
   readonly tab?: string;
+  /** URL search params of the target, each read from a flat success-payload
+   *  field (`{ cmd: "threadId" }` opens `?cmd=<threadId>`). Lets a redirect
+   *  reach a custom screen that is driven by search params instead of a
+   *  record id; a missing or non-string field leaves its param out. */
+  readonly searchParams?: Readonly<Record<string, string>>;
 };
 
 export type ActionFormLoad = {
@@ -244,7 +249,7 @@ export type ActionFormSuccessItems = {
 };
 
 /** A redirect target rendered as a link in the success box. */
-export type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom"> & {
+export type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom" | "searchParams"> & {
   /** Success-payload field carrying the navigation id. Required for a record
    *  target (`entityEdit`, `projectionDetail`); omit it for a list, dashboard
    *  or form target, which opens without an id. */

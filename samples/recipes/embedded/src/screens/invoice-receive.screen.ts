@@ -30,6 +30,8 @@ export const invoiceReceiveScreen: ActionFormScreenDefinition = {
   id: "invoice-receive",
   type: "actionForm",
   handler: "contacts:write:invoice:receive",
+  // Lands on the invoice list with its search box filled from the result.
+  redirect: { screen: "invoice-list", searchParams: { "invoice-list.q": "invoiceNumber" } },
   fields: {
     supplier: createTextField({ required: true, personal: "tenant", find: "none" }),
     invoiceNumber: createTextField({

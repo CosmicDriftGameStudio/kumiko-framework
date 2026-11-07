@@ -29,6 +29,7 @@ export const invoiceReceive = defineWriteHandler({
   handler: async (event) => ({
     isSuccess: true,
     data: {
+      invoiceNumber: event.payload.invoiceNumber,
       netTotal: event.payload.netTotal,
       vatTotal: event.payload.vatTotal,
       grossTotal: event.payload.grossTotal,

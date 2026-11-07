@@ -225,7 +225,9 @@ describe("validateBoot — action wiring (no function values)", () => {
   });
 
   describe("record action redirect wiring across all four call sites", () => {
-    type Redirect = string | { screen: string; idFrom: string };
+    type Redirect =
+      | string
+      | { screen: string; idFrom?: string; searchParams?: Record<string, string> };
     type Site =
       | "projectionDetail header"
       | "projectionDetail section"
@@ -320,6 +322,17 @@ describe("validateBoot — action wiring (no function values)", () => {
         expect(() =>
           validateBoot([featureWithRedirect(site, { screen: "overview", idFrom: "id" })]),
         ).toThrow(/redirect\.idFrom is set but target screen "overview" \(custom\) carries no id/);
+      });
+
+      test(`${site}: redirect searchParams on a record action → Throw`, () => {
+        expect(() =>
+          validateBoot([
+            featureWithRedirect(site, {
+              screen: "order-detail-target",
+              searchParams: { cmd: "threadId" },
+            }),
+          ]),
+        ).toThrow(/redirect\.searchParams is only read for actionForm redirects/);
       });
 
       test(`${site}: object-form redirect to a registered screen does not trip the redirect check`, () => {
