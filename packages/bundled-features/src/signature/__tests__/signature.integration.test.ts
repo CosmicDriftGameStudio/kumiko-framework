@@ -9,7 +9,11 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createEntity,
+  createEntityExecutor,
   createSystemUser,
+  createTextField,
+  defineFeature,
   SYSTEM_TENANT_ID,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -30,6 +34,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { PDFDocument } from "pdf-lib";
+import * as z from "zod";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
@@ -69,14 +74,42 @@ let stack: TestStack;
 let printerDown = false;
 let whilePrinting: (() => Promise<void>) | null = null;
 const deliveredLinks = new Map<string, string>();
-// Who issued each link and whether the app could dispatch from deliverLink (it sends its own mail write).
-const deliveredBy = new Map<string, { readonly issuerId: string; readonly canDispatch: boolean }>();
+const deliveredBy = new Map<string, { readonly issuerId: string }>();
+const failDeliveryFor = new Set<string>();
 const stubRequests: Array<{ html: string }> = [];
 let ipCounter = 0;
 
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
 });
+
+const deliveryOutboxEntity = createEntity({
+  table: "signature_test_delivery_outbox",
+  fields: {
+    signerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
+});
+const { executor: deliveryOutboxExecutor, table: deliveryOutboxTable } = createEntityExecutor(
+  "deliveryOutbox",
+  deliveryOutboxEntity,
+);
+const DELIVERY_OUTBOX_ENQUEUE = "delivery-outbox-test:write:enqueue";
+
+// Stands in for the app's own mail write that deliverLink dispatches.
+const deliveryOutboxFeature = defineFeature("delivery-outbox-test", (r) => {
+  r.entity({ name: "deliveryOutbox", ...deliveryOutboxEntity });
+  r.writeHandler({
+    name: "enqueue",
+    schema: z.object({ signerId: z.string() }),
+    handler: async (event, ctx) => deliveryOutboxExecutor.create(event.payload, event.user, ctx.db),
+    access: { roles: ["TenantAdmin"] },
+  });
+});
+
+async function outboxSignerIds(): Promise<string[]> {
+  const rows = await selectMany<{ signerId: string }>(stack.db, deliveryOutboxTable, {});
+  return rows.map((row) => row.signerId);
+}
 
 async function onePagePdf(): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
@@ -98,6 +131,7 @@ beforeAll(async () => {
       createComplianceProfilesFeature(),
       createUserDataRightsFeature(),
       createFilesFeature(),
+      deliveryOutboxFeature,
       createSignatureFeature({
         retention: { keepFor: "10y" },
         linkSecret: LINK_SECRET,
@@ -110,10 +144,10 @@ beforeAll(async () => {
         signaturePageUrl: "https://app.example/sign",
         deliverLink: async (ctx, { signerId, url, issuedBy }) => {
           deliveredLinks.set(signerId, url);
-          deliveredBy.set(signerId, {
-            issuerId: issuedBy.id,
-            canDispatch: typeof ctx.dispatch.write === "function",
-          });
+          deliveredBy.set(signerId, { issuerId: issuedBy.id });
+          const enqueued = await ctx.dispatch.write(DELIVERY_OUTBOX_ENQUEUE, { signerId });
+          if (!enqueued.isSuccess) throw new Error(`enqueue failed: ${enqueued.error.message}`);
+          if (failDeliveryFor.has(signerId)) throw new Error("mail provider rejected the message");
         },
       }),
     ],
@@ -123,6 +157,7 @@ beforeAll(async () => {
     trustedProxyHops: 1,
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, deliveryOutboxEntity, "deliveryOutbox");
   await unsafeCreateEntityTable(stack.db, signatureRequestEntity, SIGNATURE_REQUEST_ENTITY);
   await unsafeCreateEntityTable(stack.db, signatureSignerEntity, SIGNATURE_SIGNER_ENTITY);
 });
@@ -137,8 +172,10 @@ beforeEach(async () => {
   stubRequests.length = 0;
   deliveredLinks.clear();
   deliveredBy.clear();
+  failDeliveryFor.clear();
   await resetTestTables(stack.db, [
     userTable,
+    deliveryOutboxTable,
     signatureRequestTable,
     signatureSignerTable,
     fileRefsTable,
@@ -226,7 +263,8 @@ async function issueLink(signerId: string): Promise<string> {
   expect(Object.keys(issued).sort()).toEqual(["linkSentAt", "signerId"]);
   const url = deliveredLinks.get(signerId);
   if (url === undefined) throw new Error("deliverLink was not called");
-  expect(deliveredBy.get(signerId)).toEqual({ issuerId: USER.id, canDispatch: true });
+  expect(deliveredBy.get(signerId)).toEqual({ issuerId: USER.id });
+  expect(await outboxSignerIds()).toContain(signerId);
   return url.slice(url.indexOf("#") + 1);
 }
 
@@ -415,6 +453,23 @@ describe("signature :: links", () => {
         key === "requestId" || key === "timestamp" ? undefined : value,
       );
     for (const each of answers) expect(withoutTrace(each)).toBe(withoutTrace(first));
+  });
+
+  test("a failing deliverLink rolls back its own write and the new link anchor", async () => {
+    const { signerIds } = await requestSignatures(["Ada"]);
+    const signerId = signerIds[0] as string;
+    await issueLink(signerId);
+    const before = await signerRow(signerId);
+    const outboxBefore = await outboxSignerIds();
+
+    failDeliveryFor.add(signerId);
+    const failed = await stack.http.writeErr(SignatureHandlers.issueLink, { signerId }, USER);
+
+    expect(failed.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(await outboxSignerIds()).toEqual(outboxBefore);
+    const after = await signerRow(signerId);
+    expect(after["linkAnchor"]).toBe(before["linkAnchor"]);
+    expect(String(after["linkSentAt"])).toBe(String(before["linkSentAt"]));
   });
 
   test("open-by-link works until the open limit and does not consume the link", async () => {
