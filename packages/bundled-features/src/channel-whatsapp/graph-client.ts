@@ -8,6 +8,7 @@ import {
   WHATSAPP_BUTTON_PAYLOAD_MAX_CHARS,
   WHATSAPP_BUTTON_TITLE_MAX_CHARS,
   WHATSAPP_MAX_REPLY_BUTTONS,
+  WHATSAPP_MAX_TEMPLATE_BUTTONS,
   WHATSAPP_SECRET_KEYS,
   WHATSAPP_TEXT_MAX_CHARS,
 } from "./constants.ts";
@@ -62,6 +63,10 @@ export type WhatsappTemplateInput = SendBase & {
   readonly templateName: string;
   readonly languageCode: string;
   readonly bodyParameters?: readonly string[];
+  // One payload per quick-reply button, echoed back as `buttonPayload`. Meta's button `index` is the
+  // position among all template buttons: quick-reply buttons must be the first ones; payload i goes to button index i.
+  readonly quickReplyPayloads?: readonly string[];
+  readonly headerImageLink?: string;
 };
 export type WhatsappReplyButton = {
   // Echoed back unchanged in the `buttonPayload` of the answering message.
@@ -340,13 +345,44 @@ export function buildWhatsappClient(resolved: ResolvedWhatsappOptions): Whatsapp
       ) {
         return Promise.resolve({ ok: false, code: "invalid_message" });
       }
+      const quickReplyPayloads = input.quickReplyPayloads;
+      if (
+        quickReplyPayloads !== undefined &&
+        (quickReplyPayloads.length === 0 ||
+          quickReplyPayloads.length > WHATSAPP_MAX_TEMPLATE_BUTTONS ||
+          quickReplyPayloads.some(
+            (payload) => payload === "" || payload.length > WHATSAPP_BUTTON_PAYLOAD_MAX_CHARS,
+          ))
+      ) {
+        return Promise.resolve({ ok: false, code: "invalid_message" });
+      }
+      if (input.headerImageLink !== undefined && !isPublicMediaLink(input.headerImageLink, true)) {
+        return Promise.resolve({ ok: false, code: "invalid_message" });
+      }
       const parameters = (input.bodyParameters ?? []).map((text) => ({ type: "text", text }));
+      const components = [
+        ...(input.headerImageLink !== undefined
+          ? [
+              {
+                type: "header",
+                parameters: [{ type: "image", image: { link: input.headerImageLink } }],
+              },
+            ]
+          : []),
+        ...(parameters.length > 0 ? [{ type: "body", parameters }] : []),
+        ...(quickReplyPayloads ?? []).map((payload, index) => ({
+          type: "button",
+          sub_type: "quick_reply",
+          index: String(index),
+          parameters: [{ type: "payload", payload }],
+        })),
+      ];
       return postMessage(ctx, input, {
         type: "template",
         template: {
           name: input.templateName,
           language: { code: input.languageCode },
-          ...(parameters.length > 0 && { components: [{ type: "body", parameters }] }),
+          ...(components.length > 0 && { components }),
         },
       });
     },

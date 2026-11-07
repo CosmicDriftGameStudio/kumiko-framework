@@ -17,6 +17,30 @@ describe("applyFormatSpec — json", () => {
   });
 });
 
+describe("applyFormatSpec — relativeTime", () => {
+  const NOW = Date.parse("2026-11-07T12:00:00Z");
+
+  test("renders ISO strings and epoch ms relative to the server clock", () => {
+    const realNow = Date.now;
+    Date.now = () => NOW;
+    try {
+      const spec = { format: "relativeTime", locale: "en" };
+      expect(applyFormatSpec(spec, "2026-11-07T11:55:00Z")).toBe("5 minutes ago");
+      expect(applyFormatSpec(spec, NOW + 30_000)).toBe("in 30 seconds");
+      expect(applyFormatSpec({ format: "relativeTime", locale: "de" }, NOW - 2 * 3_600_000)).toBe(
+        "vor 2 Stunden",
+      );
+    } finally {
+      Date.now = realNow;
+    }
+  });
+
+  test("falls back to the raw text for unparseable values and collapses empty", () => {
+    expect(applyFormatSpec({ format: "relativeTime" }, "not a date")).toBe("not a date");
+    expect(applyFormatSpec({ format: "relativeTime" }, null)).toBe("");
+  });
+});
+
 describe("applyFormatSpec — priority", () => {
   test("renders emptyLabel for undefined/null/empty/0 (not the global '' collapse)", () => {
     expect(applyFormatSpec({ format: "priority" }, undefined)).toBe("—");

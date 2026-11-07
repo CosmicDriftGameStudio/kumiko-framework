@@ -676,6 +676,43 @@ describe("sending", () => {
     });
   });
 
+  test("template carries header image and quick-reply payloads in header, body, buttons order", async () => {
+    meta.reset();
+    const result = await client.sendTemplate(callContext(), {
+      phoneNumberId: PHONE_NUMBER_ID,
+      to: uniqueSender(),
+      templateName: "draft_approval",
+      languageCode: "de",
+      bodyParameters: ["Entwurf"],
+      headerImageLink: "https://example.com/draft.png",
+      quickReplyPayloads: ["approve:d1", "reject:d1"],
+    });
+    expect(result.ok).toBe(true);
+    expect(meta.sent[0]?.body).toMatchObject({
+      template: {
+        components: [
+          {
+            type: "header",
+            parameters: [{ type: "image", image: { link: "https://example.com/draft.png" } }],
+          },
+          { type: "body", parameters: [{ type: "text", text: "Entwurf" }] },
+          {
+            type: "button",
+            sub_type: "quick_reply",
+            index: "0",
+            parameters: [{ type: "payload", payload: "approve:d1" }],
+          },
+          {
+            type: "button",
+            sub_type: "quick_reply",
+            index: "1",
+            parameters: [{ type: "payload", payload: "reject:d1" }],
+          },
+        ],
+      },
+    });
+  });
+
   test("typed failures: no credentials, bad recipient, bad sender id, Meta rejection", async () => {
     meta.reset();
     const base = { phoneNumberId: PHONE_NUMBER_ID, to: uniqueSender(), text: "x" };
@@ -724,6 +761,16 @@ describe("invalid outbound messages", () => {
     const templateCases = [
       { templateName: "Not Valid", languageCode: "de" },
       { templateName: "reminder", languageCode: "deutsch-lang" },
+      { templateName: "reminder", languageCode: "de", quickReplyPayloads: [] },
+      { templateName: "reminder", languageCode: "de", quickReplyPayloads: [""] },
+      { templateName: "reminder", languageCode: "de", quickReplyPayloads: ["p".repeat(257)] },
+      {
+        templateName: "reminder",
+        languageCode: "de",
+        quickReplyPayloads: Array.from({ length: 11 }, () => "p"),
+      },
+      { templateName: "reminder", languageCode: "de", headerImageLink: "http://example.com/a.png" },
+      { templateName: "reminder", languageCode: "de", headerImageLink: "not a url" },
     ];
     for (const templateCase of templateCases) {
       expect(await client.sendTemplate(callContext(), { ...base, ...templateCase })).toEqual({

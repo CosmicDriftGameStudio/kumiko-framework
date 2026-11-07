@@ -12,7 +12,7 @@ Wert-Formatter (kein Code im Schema) — deklariert auf Screen-Column-/Field-
 Ebene und über die `FieldFormatRegistry` registriert
 (`packages/types/src/screen.ts`). Registry-Keys: `timestamp`, `date`,
 `boolean`, `currency`, `priority`, `number`, `decimal`, `bigInt`, `unit`,
-`enumOption` (alle über die `[K in keyof FieldFormatRegistry]`-Struktur
+`enumOption`, `relativeTime` (alle über die `[K in keyof FieldFormatRegistry]`-Struktur
 dediziert typisiert, kein offener `string`).
 
 ## `unit` (fw#2332)
@@ -39,6 +39,15 @@ dediziert typisiert, kein offener `string`).
   `buildOptionLabels`).
 - Einsatz: `projectionDetail`-Felder und `entityList`/`projectionList`/
   `relatedList`-Column-Werte, die sonst nackte Option-Werte zeigten.
+
+## `relativeTime`
+
+```
+{ format: "relativeTime", locale: "de" }   // ISO-Zeitstempel oder Epoch-ms → "vor 5 Minuten"
+```
+
+- Rechnet beim Rendern gegen die Server-Uhr; die Zelle tickt nicht nach.
+- Nicht parsebare Werte erscheinen als Rohtext.
 
 ## `number` / `decimal` / `bigInt` grouping (fw#3234)
 

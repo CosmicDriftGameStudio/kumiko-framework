@@ -4,6 +4,8 @@
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rendererWarn } from "../../dev-console.ts";
+import { serverNowMs } from "../../server-clock.ts";
+import { formatRelativeTime } from "./relative-time.ts";
 
 export const EMPTY_VALUE_PLACEHOLDER = "—";
 
@@ -358,6 +360,13 @@ function formatJsonCell(spec: CellFormatSpec, value: unknown): string {
   return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
 }
 
+function formatRelativeTimeCell(spec: CellFormatSpec, value: unknown): string {
+  const atMs =
+    typeof value === "number" ? value : typeof value === "string" ? Date.parse(value) : Number.NaN;
+  if (!Number.isFinite(atMs)) return String(value);
+  return formatRelativeTime(atMs, serverNowMs(), stringSpec(spec, "locale") ?? "");
+}
+
 const CELL_FORMATTERS = {
   timestamp: formatTemporalCell,
   date: formatTemporalCell,
@@ -369,6 +378,7 @@ const CELL_FORMATTERS = {
   unit: formatUnitSpecCell,
   priority: formatPriorityCell,
   enumOption: formatEnumOptionCell,
+  relativeTime: formatRelativeTimeCell,
   i18nText: formatI18nTextCell,
   image: formatFileCell,
   file: formatFileCell,

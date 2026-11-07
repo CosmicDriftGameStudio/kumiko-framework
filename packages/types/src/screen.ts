@@ -74,6 +74,8 @@ export interface FieldFormatRegistry {
     /** IANA zone id (e.g. "Europe/Berlin"). Default: the runtime's zone. */
     readonly timeZone?: string;
   };
+  /** Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick). */
+  relativeTime: { readonly locale?: string };
   date: {
     readonly locale?: string;
     readonly dateStyle?: "full" | "long" | "medium" | "short";

@@ -858,6 +858,9 @@ interface FieldFormatRegistry {
     timeStyle?: "full" | "long" | "medium" | "short";
     timeZone?: string; // IANA zone id (e.g. "Europe/Berlin").
   };
+  relativeTime: {
+    locale?: string;
+  }; // Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick).
   date: {
     locale?: string;
     dateStyle?: "full" | "long" | "medium" | "short";
