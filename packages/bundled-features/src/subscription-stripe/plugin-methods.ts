@@ -45,6 +45,8 @@ export type StripeCheckoutSessionRuntimeOptions = {
   /** Whether a mode:"payment" checkout gets a Stripe invoice. Default true.
    *  Never applied in mode:"subscription" — Stripe rejects invoice_creation there. */
   readonly paymentInvoiceCreation?: boolean;
+  /** Shows Stripe's promotion-code field in checkout. Default false. */
+  readonly allowPromotionCodes?: boolean;
 };
 
 // Stripe's own Locale union also accepts arbitrary strings, so the known set
@@ -114,7 +116,10 @@ function isUnknownCustomerStripeError(
 
 export function createStripeCheckoutSession(
   runtime: StripeCtxRuntime,
-  { paymentInvoiceCreation = true }: StripeCheckoutSessionRuntimeOptions = {},
+  {
+    paymentInvoiceCreation = true,
+    allowPromotionCodes = false,
+  }: StripeCheckoutSessionRuntimeOptions = {},
 ) {
   return async (
     ctx: HandlerContext,
@@ -138,6 +143,7 @@ export function createStripeCheckoutSession(
       success_url: options.successUrl,
       cancel_url: options.cancelUrl,
       submit_type: "pay",
+      ...(allowPromotionCodes && { allow_promotion_codes: true }),
       ...(options.locale && { locale: mapAppLocaleToStripeLocale(options.locale) }),
       ...(options.submitMessage && {
         custom_text: {
