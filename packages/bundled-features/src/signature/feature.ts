@@ -33,7 +33,7 @@ import {
 } from "./web/constants.ts";
 
 export function createSignatureFeature(opts: SignatureOptions): FeatureDefinition {
-  const access = DEFAULT_SIGNATURE_ACCESS;
+  const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
   const requestEntity = createSignatureRequestEntity(opts.retention);
   const signerEntity = createSignatureSignerEntity(opts.retention);
   const anonymous = createAnonymousLinkHandlers(LINK_RATE_LIMIT);
@@ -61,11 +61,11 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       piiFields: "none",
     });
 
-    r.writeHandler(createRequestHandler(access));
-    r.writeHandler(createSignInPersonHandler(access));
-    r.writeHandler(createIssueLinkHandler(access, opts));
-    r.writeHandler(createRevokeLinkHandler(access));
-    r.writeHandler(createCancelHandler(access));
+    r.writeHandler(createRequestHandler(signedInAccess));
+    r.writeHandler(createSignInPersonHandler(signedInAccess));
+    r.writeHandler(createIssueLinkHandler(signedInAccess, opts));
+    r.writeHandler(createRevokeLinkHandler(signedInAccess));
+    r.writeHandler(createCancelHandler(signedInAccess));
     r.writeHandler(anonymous.openByLink);
     r.writeHandler(anonymous.signByLink);
     r.writeHandler(anonymous.declineByLink);
@@ -78,20 +78,20 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
 
     r.queryHandler(
       defineEntityListHandler(SIGNATURE_REQUEST_ENTITY, requestEntity, {
-        access,
+        access: signedInAccess,
         description:
           "Lists signature requests with status, deadline and the object they belong to; paging, search over the title and sorting.",
       }),
     );
     r.queryHandler(
       defineEntityDetailHandler(SIGNATURE_REQUEST_ENTITY, requestEntity, {
-        access,
+        access: signedInAccess,
         description: "Returns one signature request.",
       }),
     );
     r.queryHandler(
       defineEntityListHandler(SIGNATURE_SIGNER_ENTITY, signerEntity, {
-        access,
+        access: signedInAccess,
         agent: { expose: false },
         description:
           "Lists the signers of requests with their status and way of signing; carries the signers' personal data.",
@@ -111,15 +111,15 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       handler: (_payload, ctx) => sweepSignatureRequests(ctx, opts),
     });
 
-    r.screen(createSignatureListScreen(access));
-    r.screen(createSignatureDetailScreen(access));
+    r.screen(createSignatureListScreen(signedInAccess));
+    r.screen(createSignatureDetailScreen(signedInAccess));
     r.nav({
       id: "signature",
       label: i18nKey("signature.nav.signature"),
       screen: "signature:screen:signature-list",
       icon: "file",
       order: 40,
-      access: { roles: ["TenantAdmin", "TenantMember"] },
+      access: signedInAccess,
     });
   });
 }
