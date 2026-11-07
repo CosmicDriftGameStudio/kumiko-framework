@@ -61,6 +61,7 @@ export function createIssueLinkHandler(
         name: signer.name,
         email: signer.email,
         url: `${opts.signaturePageUrl}#${grant.token}`,
+        issuedBy: user,
       });
       return {
         isSuccess: true,

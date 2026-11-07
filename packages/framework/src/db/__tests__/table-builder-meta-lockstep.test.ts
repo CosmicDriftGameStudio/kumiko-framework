@@ -31,6 +31,8 @@ const entityWithDefaults = createEntity({
       schema: { accountId: { type: "text", required: true } },
     },
     startedAt: { type: "timestamp", required: true },
+    settings: { type: "jsonb" },
+    lines: { type: "jsonb", emptyValue: "array" },
   },
 });
 
@@ -73,6 +75,12 @@ describe("buildEntityTable ↔ deriveEntityTableMeta lock-step", () => {
     expect(cols.get("meta")?.defaultSql).toBe("'{}'::jsonb");
     expect(cols.get("postings")?.defaultSql).toBe("'[]'::jsonb");
     expect(cols.get("postings")?.notNull).toBe(true);
+  });
+
+  test("jsonb default is `{}`, `[]` with emptyValue array, on both paths", () => {
+    const cols = new Map((fromBuilder?.columns ?? []).map((c) => [c.name, c]));
+    expect(cols.get("settings")?.defaultSql).toBe("'{}'::jsonb");
+    expect(cols.get("lines")?.defaultSql).toBe("'[]'::jsonb");
   });
 
   test("decimal field maps to numeric(precision,scale) on both paths", () => {

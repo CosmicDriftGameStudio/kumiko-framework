@@ -69,6 +69,8 @@ let stack: TestStack;
 let printerDown = false;
 let whilePrinting: (() => Promise<void>) | null = null;
 const deliveredLinks = new Map<string, string>();
+// Who issued each link and whether the app could dispatch from deliverLink (it sends its own mail write).
+const deliveredBy = new Map<string, { readonly issuerId: string; readonly canDispatch: boolean }>();
 const stubRequests: Array<{ html: string }> = [];
 let ipCounter = 0;
 
@@ -106,8 +108,12 @@ beforeAll(async () => {
           return onePagePdf();
         },
         signaturePageUrl: "https://app.example/sign",
-        deliverLink: async (_ctx, { signerId, url }) => {
+        deliverLink: async (ctx, { signerId, url, issuedBy }) => {
           deliveredLinks.set(signerId, url);
+          deliveredBy.set(signerId, {
+            issuerId: issuedBy.id,
+            canDispatch: typeof ctx.dispatch.write === "function",
+          });
         },
       }),
     ],
@@ -130,6 +136,7 @@ beforeEach(async () => {
   whilePrinting = null;
   stubRequests.length = 0;
   deliveredLinks.clear();
+  deliveredBy.clear();
   await resetTestTables(stack.db, [
     userTable,
     signatureRequestTable,
@@ -219,6 +226,7 @@ async function issueLink(signerId: string): Promise<string> {
   expect(Object.keys(issued).sort()).toEqual(["linkSentAt", "signerId"]);
   const url = deliveredLinks.get(signerId);
   if (url === undefined) throw new Error("deliverLink was not called");
+  expect(deliveredBy.get(signerId)).toEqual({ issuerId: USER.id, canDispatch: true });
   return url.slice(url.indexOf("#") + 1);
 }
 

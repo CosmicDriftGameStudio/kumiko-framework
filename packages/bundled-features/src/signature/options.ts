@@ -1,4 +1,4 @@
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import type { HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import type { PdfOptions } from "../renderer-foundation/index.ts";
 import type { SignatureRetention } from "./entity.ts";
@@ -14,12 +14,15 @@ export type SignatureLinkDelivery = {
   readonly email: string;
   /** Signing link with the token in the fragment. */
   readonly url: string;
+  /** Who issued the link, e.g. to pick the mailbox it is sent from. */
+  readonly issuedBy: SessionUser;
 };
 
 // The token never leaves the server in a handler result: whoever calls issue-link would otherwise
 // sign in the signer's place. The app sends the link to the signer's own address.
+// Runs inside issue-link's transaction with its full context, so the app can dispatch its own mail write.
 export type DeliverSignatureLink = (
-  ctx: Pick<HandlerContext, "db" | "services">,
+  ctx: HandlerContext,
   delivery: SignatureLinkDelivery,
 ) => Promise<void>;
 
