@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "actionForm redirect with searchParams to custom screens",
+    "detail": "The object form of `redirect` takes `searchParams` (`{ cmd: \"threadId\" }` opens the target with `?cmd=<threadId>`); each value names a flat field in the success payload and a missing or non-string field leaves its param out. `idFrom` is now optional (default \"id\" as with the string redirect), so a redirect to a custom screen needs no record id. Boot rejects `searchParams` on non-actionForm redirects and empty keys or fields; `idFrom` on a target without an id stays rejected."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "jsonb emptyValue \"array\" on projection tables",
+    "detail": "A projection table built with `buildEntityTable` gave a jsonb field with `emptyValue: \"array\"` the default `{}`, while the entity's migration meta used `[]`. `kumiko-schema generate` then refused the table as declared with diverging columns. Both paths now use `[]`."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "CRUD schemas carry the reference target of their fields",
