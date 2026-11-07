@@ -48,6 +48,8 @@ dediziert typisiert, kein offener `string`).
 
 - Rechnet beim Rendern gegen die Server-Uhr; die Zelle tickt nicht nach.
 - Nicht parsebare Werte erscheinen als Rohtext.
+- Optionen: `style: "short"` kürzt die Einheit ("vor 41 Min."), `withTime: true` hängt an "gestern" und an das absolute Datum die Uhrzeit ("gestern, 10:18"), `absoluteAfterDays: n` zeigt ab n Tagen das absolute Datum ("29. Okt. 2026"), `timeZone` (IANA) bestimmt die Uhrzeit. Ohne Optionen bleibt der Text wie oben.
+- Als Metrik im `projectionDetail` (`metrics[].format`) nimmt das Format das UI-Locale, wenn `locale` fehlt.
 
 ## `number` / `decimal` / `bigInt` grouping (fw#3234)
 

@@ -1,8 +1,6 @@
 // Shared locale handling for the text-based numeric inputs (MoneyInput,
 // NumberInput).
-import { resolveSafeLocale } from "../../headless/format/relative-time.ts";
-
-export { resolveSafeLocale };
+import { resolveSafeLocale } from "../../headless/format/safe-locale.ts";
 
 // 20 is the Intl maximum: the display must never round a stored value.
 const MAX_FRACTION_DIGITS = 20;

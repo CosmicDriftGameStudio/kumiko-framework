@@ -213,7 +213,7 @@ describe("Banner", () => {
     const banner = screen.getByTestId("b");
     expect(banner.className).not.toContain("border-l-primary");
     expect(banner.querySelector(".font-semibold")).toBeNull();
-    expect(banner.innerHTML).toBe('<div class="flex-1">Hi</div>');
+    expect(banner.innerHTML).toBe('<div class="min-w-0 flex-1">Hi</div>');
   });
 
   test("id prop (Field-as-control usage) sets role=group + aria-labelledby, not a bare id/htmlFor pairing", () => {

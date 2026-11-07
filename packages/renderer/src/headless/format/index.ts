@@ -360,11 +360,21 @@ function formatJsonCell(spec: CellFormatSpec, value: unknown): string {
   return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
 }
 
+const RELATIVE_TIME_STYLES = ["long", "short", "narrow"] as const;
+
 function formatRelativeTimeCell(spec: CellFormatSpec, value: unknown): string {
   const atMs =
     typeof value === "number" ? value : typeof value === "string" ? Date.parse(value) : Number.NaN;
   if (!Number.isFinite(atMs)) return String(value);
-  return formatRelativeTime(atMs, serverNowMs(), stringSpec(spec, "locale") ?? "");
+  const style = spec["style"];
+  const absoluteAfterDays = spec["absoluteAfterDays"];
+  const timeZone = stringSpec(spec, "timeZone");
+  return formatRelativeTime(atMs, serverNowMs(), stringSpec(spec, "locale"), {
+    ...(isOneOf(RELATIVE_TIME_STYLES, style) && { style }),
+    ...(typeof absoluteAfterDays === "number" && { absoluteAfterDays }),
+    ...(spec["withTime"] === true && { withTime: true }),
+    ...(timeZone !== undefined && { timeZone }),
+  });
 }
 
 const CELL_FORMATTERS = {

@@ -136,7 +136,7 @@ function renderMetaCell(
     <div
       key={col.field}
       data-testid={cellTestIdOf(m, row, col.field)}
-      className="min-w-0 truncate leading-5"
+      className="min-w-0 max-w-full truncate leading-5"
       onPointerEnter={showFullTextOnHover}
     >
       {isBadgeColumn(col) ? (
@@ -165,7 +165,7 @@ function renderCardMeta(
             <div
               key={line.map((col) => col.field).join("|")}
               data-testid={`card-vals-${row.id}-${line[0].field}`}
-              className="mt-1 flex h-5 min-w-0 max-w-full items-center gap-3 text-[12.5px]"
+              className="mt-1 flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px] leading-5"
             >
               {line.map((col) => renderMetaCell(m, row, col))}
             </div>

@@ -8,9 +8,10 @@
 // keypad.
 
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { resolveSafeLocale } from "../../headless/format/safe-locale.ts";
 import { currencyDecimals, formatMoney as formatMoneyForLocale } from "../../headless/index.ts";
 import { cn } from "../lib/cn.ts";
-import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.ts";
+import { parseLocaleNumber } from "./locale-number.ts";
 
 // Re-exported for backward compat — callers used to import this from here
 // before it moved to headless (shared with RenderField).

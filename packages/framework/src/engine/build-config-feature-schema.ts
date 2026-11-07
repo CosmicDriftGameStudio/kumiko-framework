@@ -19,6 +19,7 @@ import type { ExtensionSelectorPanel } from "@cosmicdrift/kumiko-types/config";
 import { isOptionsQueryFieldRef } from "@cosmicdrift/kumiko-types/fields";
 import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.ts";
 import type { WorkspaceSchema } from "../ui-types/index.ts";
+import { rolesToAccess, unionAccessRules } from "./config-access-rules.ts";
 import { isEncryptedAtRest } from "./config-helpers.ts";
 import type { ConfigScope } from "./constants.ts";
 import {
@@ -42,7 +43,6 @@ import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./t
 import type { Registry, SecretKeyDefinition } from "./types/feature.ts";
 import type { FieldCondition, FieldDefinition, OptionsQueryPayload } from "./types/fields.ts";
 import type { AccessRule } from "./types/handlers.ts";
-import { isOpenToAllGranted } from "./types/handlers.ts";
 
 import type { NavDefinition, NavIconKey } from "./types/nav.ts";
 import type {
@@ -956,7 +956,9 @@ function buildScreen(
   const { section, screenDescription } = buildSettingsSection(
     feature,
     scope,
-    keys.map(fieldId),
+    keys.map((k) =>
+      k.def.mask?.readOnly === true ? { field: fieldId(k), readOnly: true } : fieldId(k),
+    ),
     hub,
     options,
   );
@@ -1002,7 +1004,7 @@ function rewriteOptionsQueryFieldRefs(
 function buildSettingsSection(
   feature: string,
   scope: ConfigScope,
-  fieldIds: readonly string[],
+  fieldIds: readonly EditFieldSpec[],
   hub: HubContext,
   options: ScreenOptions,
 ): { readonly section: EditFieldsSection; readonly screenDescription: string | undefined } {
@@ -1130,6 +1132,11 @@ function collectMaskedKeys(registry: Registry): MaskedKey[] {
         `[Feature ${ownerFeature}] config key "${qn.slice(sep + ":config:".length)}" has invalid group "${def.group}" — must be kebab-case.`,
       );
     }
+    if (def.mask?.readOnly === true && def.required === true) {
+      throw new Error(
+        `[Feature ${ownerFeature}] config key "${qn.slice(sep + ":config:".length)}" is mask.readOnly and required — nobody could fill it.`,
+      );
+    }
     // computed keys derive their value — there is no row to set, so a
     // configEdit screen could not write them. Skip even when masked.
     if (def.mask === undefined || def.computed !== undefined) continue;
@@ -1160,38 +1167,4 @@ function maskOrder(k: MaskedKey): number {
 
 function minMaskOrder(keys: readonly MaskedKey[]): number {
   return Math.min(...keys.map(maskOrder));
-}
-
-// The hub is for editing: anyone allowed to WRITE at least one key in the group
-// sees the Settings entry (write, not read). This keeps system-scope (write
-// default `["system"]`) hidden from humans until the author opts in with
-// write: SystemAdmin, while user-scope (write `all`) is shown to everyone.
-// `all` can only be represented as openToAll in AccessRule; writes remain
-// gated per key on the server.
-// Access rules for navs are unioned: an openToAll nav opens the whole gate;
-// otherwise roles are combined. Navs without access rules contribute nothing.
-function unionAccessRules(rules: readonly (AccessRule | undefined)[]): AccessRule {
-  const roles: string[] = [];
-  for (const rule of rules) {
-    if (rule === undefined) continue;
-    if ("openToAll" in rule) {
-      if (isOpenToAllGranted(rule)) return rule;
-      continue;
-    }
-    roles.push(...rule.roles);
-  }
-  return rolesToAccess(roles);
-}
-
-// `all` can only be represented as openToAll in AccessRule; writes remain gated
-// per key on the server.
-function rolesToAccess(roles: readonly string[]): AccessRule {
-  if (roles.includes("all"))
-    return {
-      openToAll: {
-        reason:
-          'config key declares the "all" role, so every signed-in user of the tenant may read/write it',
-      },
-    };
-  return { roles: [...new Set(roles)] };
 }

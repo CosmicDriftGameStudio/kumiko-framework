@@ -74,8 +74,17 @@ export interface FieldFormatRegistry {
     /** IANA zone id (e.g. "Europe/Berlin"). Default: the runtime's zone. */
     readonly timeZone?: string;
   };
-  /** Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick). */
-  relativeTime: { readonly locale?: string };
+  /** Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick).
+   *  `style: "short"` gives "5 min. ago"; `withTime` adds the clock time to "yesterday" and to the absolute date;
+   *  from `absoluteAfterDays` days on the absolute date ("29 Oct 2026") replaces the relative text. */
+  relativeTime: {
+    readonly locale?: string;
+    readonly style?: "long" | "short" | "narrow";
+    readonly absoluteAfterDays?: number;
+    readonly withTime?: boolean;
+    /** IANA zone id for the clock time and the day boundary. Default: the runtime's zone. */
+    readonly timeZone?: string;
+  };
   date: {
     readonly locale?: string;
     readonly dateStyle?: "full" | "long" | "medium" | "short";

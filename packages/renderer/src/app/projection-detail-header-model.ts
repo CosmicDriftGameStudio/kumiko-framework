@@ -13,7 +13,7 @@ import {
   statusToneForOptionTone,
   statusToneForValue,
 } from "../primitives.tsx";
-import { isAbsoluteHttpUrl } from "./projection-detail-navigation.ts";
+import { isAbsoluteHttpUrl, withUiLocale } from "./projection-detail-navigation.ts";
 
 export function headerStatusTone(
   header: NonNullable<ProjectionDetailScreenDefinition["header"]>,
@@ -68,10 +68,15 @@ export function formatOrRaw(
   format: FormatSpec | undefined,
   raw: unknown,
   translate: Translate,
+  uiLocale?: string,
 ): string {
   const rawText = String(raw ?? "");
   if (format === undefined) return rawText;
-  const formatted = applyFormatSpec(format, raw, translate);
+  const formatted = applyFormatSpec(
+    uiLocale === undefined ? format : withUiLocale(format, uiLocale),
+    raw,
+    translate,
+  );
   return formatted === "" ? rawText : formatted;
 }
 

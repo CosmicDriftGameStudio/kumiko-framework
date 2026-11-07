@@ -3169,6 +3169,7 @@ type ConfigMask = {
   description?: string; // i18n key for help text shown under the field label.
   icon?: NavIconKey;
   order?: number;
+  readOnly?: boolean; // Shows the value on the generated settings screen without an input; a read-only key cannot also be `required`.
 };
 type ConfigSeedDef = {
   key: string;

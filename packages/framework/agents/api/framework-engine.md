@@ -860,6 +860,10 @@ interface FieldFormatRegistry {
   };
   relativeTime: {
     locale?: string;
+    style?: "long" | "short" | "narrow";
+    absoluteAfterDays?: number;
+    withTime?: boolean;
+    timeZone?: string; // IANA zone id for the clock time and the day boundary.
   }; // Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick).
   date: {
     locale?: string;

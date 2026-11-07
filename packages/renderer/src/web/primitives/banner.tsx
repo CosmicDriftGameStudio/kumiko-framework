@@ -67,12 +67,14 @@ function BannerText({
   parts,
   actionsBelow,
   inline,
+  wrapsActions,
 }: Pick<
   BannerProps,
   "title" | "narrowTitle" | "narrowText" | "titleTestId" | "children" | "parts"
 > & {
   readonly compact: boolean;
   readonly inline: boolean;
+  readonly wrapsActions: boolean;
   readonly actionsBelow: ReactNode;
 }): ReactNode {
   const narrow = useIsBelowSmViewport();
@@ -81,7 +83,7 @@ function BannerText({
   const children = showsNarrowText ? narrowText : fullText;
   if (compact || inline) {
     return (
-      <div className="min-w-0 grow">
+      <div className={cn("min-w-0 grow", wrapsActions && "max-sm:min-w-[10rem] max-sm:basis-0")}>
         {title !== undefined && (
           <>
             <strong data-testid={titleTestId} className="font-semibold">
@@ -97,7 +99,7 @@ function BannerText({
     );
   }
   return (
-    <div className="flex-1">
+    <div className="min-w-0 flex-1">
       {title !== undefined && (
         <div data-testid={titleTestId} className="font-semibold">
           {title}
@@ -114,6 +116,7 @@ function bannerLayoutClass(
   variant: BannerVariant,
   compact: boolean,
   actionsBelow: boolean,
+  wrapsActions: boolean,
 ): string {
   return cn(
     "relative flex w-full items-center border",
@@ -124,8 +127,19 @@ function bannerLayoutClass(
       variant === "primary" &&
       "flex-col items-start sm:flex-row sm:items-center",
     actionsBelow && "items-start",
+    wrapsActions && "max-sm:flex-wrap",
     variantClass(variant, compact),
   );
+}
+
+// On phones the actions leave the text line and wrap below it instead of squeezing the text.
+function wrapsActionsOnPhone(
+  variant: BannerVariant,
+  compact: boolean,
+  actionsBelow: boolean,
+  hasActions: boolean,
+): boolean {
+  return !compact && !actionsBelow && hasActions && variant !== "primary";
 }
 
 export function DefaultBanner({
@@ -149,6 +163,7 @@ export function DefaultBanner({
   const compact = density === "compact";
   // A compact banner is one line, so its actions always stay at the end.
   const actionsBelow = actionsPlacement === "below" && !compact && actions !== undefined;
+  const wrapsActions = wrapsActionsOnPhone(variant, compact, actionsBelow, actions !== undefined);
   // `id` is set when a <Field> wraps this Banner as its control (see
   // BannerProps.id). A <div> isn't labelable, so a <label htmlFor> pointing
   // at it is inert for screen readers — role="group" + aria-labelledby is
@@ -161,7 +176,7 @@ export function DefaultBanner({
       data-testid={testId}
       data-variant={variant}
       data-density={density}
-      className={bannerLayoutClass(variant, compact, actionsBelow)}
+      className={bannerLayoutClass(variant, compact, actionsBelow, wrapsActions)}
     >
       {icon !== undefined && (
         <Icon name={icon} className={cn("size-3.5 shrink-0", ICON_COLOR_CLASS[variant])} />
@@ -169,6 +184,7 @@ export function DefaultBanner({
       <BannerText
         compact={compact}
         inline={inline}
+        wrapsActions={wrapsActions}
         title={title}
         narrowTitle={narrowTitle}
         narrowText={narrowText}
@@ -185,7 +201,13 @@ export function DefaultBanner({
         {children}
       </BannerText>
       {!actionsBelow && actions !== undefined && (
-        <div data-slot="actions" className={cn(compact && "shrink-0")}>
+        <div
+          data-slot="actions"
+          className={cn(
+            compact && "shrink-0",
+            wrapsActions && "max-sm:flex max-sm:w-full max-sm:flex-wrap max-sm:gap-2",
+          )}
+        >
           {actions}
         </div>
       )}

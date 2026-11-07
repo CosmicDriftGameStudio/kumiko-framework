@@ -578,3 +578,41 @@ describe("buildConfigFeatureSchema — secret keys are write-only", () => {
     expect(vaultScreen.fields["display-name"]).not.toHaveProperty("writeOnly");
   });
 });
+
+describe("buildConfigFeatureSchema — mask.readOnly", () => {
+  const status = defineFeature("status", (r) => {
+    r.config({
+      keys: {
+        plan: createTenantConfig("text", { mask: { title: "status.plan", readOnly: true } }),
+        note: createTenantConfig("text", { mask: { title: "status.note" } }),
+      },
+    });
+  });
+
+  test("a readOnly key stays in the layout as a read-only field, other keys stay plain", () => {
+    const screen = buildConfigFeatureSchema(createRegistry([status])).screens.find(
+      (s) => s.id === "status-tenant",
+    );
+    if (screen?.type !== "configEdit") throw new Error("no configEdit screen");
+    const specs = screen.layout.sections.flatMap((s) => ("fields" in s ? s.fields : []));
+    expect(specs).toContainEqual({ field: "plan", readOnly: true });
+    expect(specs).toContain("note");
+    expect(screen.configKeys["plan"]).toBe("status:config:plan");
+  });
+
+  test("a readOnly key cannot be required", () => {
+    const broken = defineFeature("broken", (r) => {
+      r.config({
+        keys: {
+          plan: createTenantConfig("text", {
+            required: true,
+            mask: { title: "broken.plan", readOnly: true },
+          }),
+        },
+      });
+    });
+    expect(() => buildConfigFeatureSchema(createRegistry([broken]))).toThrow(
+      /mask\.readOnly and required/,
+    );
+  });
+});

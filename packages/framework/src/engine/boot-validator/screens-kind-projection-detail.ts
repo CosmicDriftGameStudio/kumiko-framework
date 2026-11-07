@@ -18,6 +18,7 @@ import type {
   RowAction,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { validateRelativeTimeFormat } from "./relative-time-format.ts";
 import {
   assertWriteHandlerRegistered,
   resolveRowActionNavigateTarget,
@@ -158,6 +159,11 @@ function validateProjectionDetailMetric(
         `there is no fallback to the raw column name.`,
     });
   }
+  validateRelativeTimeFormat(
+    `[Feature ${ctx.feature.name}] Screen "${screenId}" (projectionDetail)`,
+    `metric "${metric.field}"`,
+    metric.format,
+  );
   if (metric.navigate !== undefined) {
     validateProjectionDetailMetricNavigate(ctx, screenId, screen, metric.field, metric.navigate);
   }

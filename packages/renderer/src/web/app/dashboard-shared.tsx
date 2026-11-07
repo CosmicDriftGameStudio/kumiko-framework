@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { resolveSafeLocale } from "../../headless/format/safe-locale.ts";
 import { currencyDecimals, type Translate } from "../../headless/index.ts";
 import {
   dispatcherErrorText,
@@ -23,7 +24,6 @@ import {
 } from "../../index.ts";
 import { serverNowMs } from "../../server-clock.ts";
 import { cn } from "../lib/cn.ts";
-import { resolveSafeLocale } from "../primitives/locale-number.ts";
 import { formatMoney } from "../primitives/money-input.tsx";
 import { Skeleton } from "../ui/skeleton.tsx";
 import { EmptyState, LoadingState } from "../widgets/states.tsx";
