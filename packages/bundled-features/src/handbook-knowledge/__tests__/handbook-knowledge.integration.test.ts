@@ -138,7 +138,7 @@ describe("handbook-knowledge over real HTTP", () => {
       { "X-Locale": "en" },
     );
     expect(fallback).toMatchObject({ locale: "de", bodyMd: "Maske für Verträge." });
-    expect(fallback.publicPath).toBe("/handbuch#lease-detail");
+    expect(fallback.publicPath).toBe("/handbuch/lease-detail");
   });
 
   test("read-page returns the start of a page that names one and omits it otherwise", async () => {
@@ -176,7 +176,7 @@ describe("handbook-knowledge over real HTTP", () => {
     expect(result.truncated).toBe(true);
     expect(result.bodyMd.length).toBeLessThanOrEqual(HANDBOOK_PAGE_MAX_CHARS);
     expect(result.notice).toContain(`${HANDBOOK_PAGE_MAX_CHARS} of`);
-    expect(result.notice).toContain("/handbuch#prozess-lang");
+    expect(result.notice).toContain("/handbuch/prozess-lang");
   });
 
   test("a caller without the configured role is denied on both handlers", async () => {
@@ -214,5 +214,37 @@ describe("handbook-knowledge in the agent tool catalog", () => {
     for (const qn of Object.values(HandbookKnowledgeQueries)) {
       expect(names).not.toContain(toolNameForQn(qn));
     }
+  });
+});
+
+describe("handbook-knowledge page path with a trailing slash", () => {
+  let slashStack: TestStack;
+
+  beforeAll(async () => {
+    slashStack = await setupTestStack({
+      features: [
+        createHandbookKnowledgeFeature({
+          pages,
+          access: { roles: ["Member"] },
+          publicPath: "/handbuch/",
+        }),
+      ],
+    });
+  });
+
+  afterAll(async () => {
+    await slashStack.cleanup();
+  });
+
+  test("read-page joins the slashes once", async () => {
+    const res = await slashStack.http.queryWithHeaders(
+      HandbookKnowledgeQueries.readPage,
+      { id: "lease-detail" },
+      member,
+      { "X-Locale": "de" },
+    );
+    expect(res.status).toBe(200);
+    const { data } = (await res.json()) as { data: ReadResult };
+    expect(data.publicPath).toBe("/handbuch/lease-detail");
   });
 });

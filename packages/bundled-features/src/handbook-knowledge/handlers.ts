@@ -55,7 +55,8 @@ export function createReadPageQuery(
       if (!found) throw new NotFoundError(HANDBOOK_PAGE_ENTITY, query.payload.id);
       const { page, locale } = found;
       const { bodyMd, truncated } = truncateBody(page.bodyMd);
-      const pagePath = publicPath === undefined ? undefined : `${publicPath}#${page.id}`;
+      const pagePath =
+        publicPath === undefined ? undefined : `${publicPath.replace(/\/+$/, "")}/${page.id}`;
       return {
         id: page.id,
         kind: page.kind,
