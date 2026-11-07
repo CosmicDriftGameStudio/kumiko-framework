@@ -204,7 +204,9 @@ const COLUMN_EMITTERS: { readonly [K in FieldType]: ColumnEmitter<K> } = {
   embedded: (name, snakeName, field) => ({
     [name]: field.multiple === true ? emptyJsonbArray(snakeName) : emptyJsonbObject(snakeName),
   }),
-  jsonb: (name, snakeName) => ({ [name]: emptyJsonbObject(snakeName) }),
+  jsonb: (name, snakeName, field) => ({
+    [name]: field.emptyValue === "array" ? emptyJsonbArray(snakeName) : emptyJsonbObject(snakeName),
+  }),
   date: singleColumnNotNullWhenRequired(plainDate),
   timestamp: singleColumnNotNullWhenRequired(instant),
   tz: singleColumnNotNullWhenRequired(text),
