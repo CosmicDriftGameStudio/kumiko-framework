@@ -1,5 +1,43 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.416.0
+
+### Minor Changes
+
+- 934172f: New `signature` bundled feature: several people sign one PDF, in person on a display or through a link, and the request ends as the original plus a signature page.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: improvement
+  title: Signature requests with in-person and link signing
+  detail: `createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl })` adds the entities `signatureRequest` and `signatureSigner`, the handlers `request`, `sign-in-person`, `issue-link` (sends the link through `deliverLink(ctx, { signerId, url, ..., issuedBy })` inside its own transaction, so the app can dispatch its mail write and pick the issuer's mailbox; it never returns the token), `revoke-link`, `cancel` and the anonymous, rate-limited `open-by-link`, `sign-by-link`, `decline-by-link`. Links carry a row-bound grant in the URL fragment (14 days, 20 opens, single-use signing, one answer for every rejection). The last signature sets the request to `all-signed`; the `signature:job:sweep` cron renders the signature page through the injected print function, appends it with pdf-lib and completes the request; the events `completed`, `declined` and `expired` report the outcome. The subpaths `./signature/web` (`SignaturePad`) and `./signature/static-sign` (no React) ship the signature field.
+  migration: The feature adds the tables `read_signature_requests` and `read_signature_signers`; apps that mount it run the schema pipeline migration.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: renderHtmlToPdf for callers that bring their own HTML
+  detail: `renderHtmlToPdf(html, options?)` renders an HTML string to PDF through the print service and returns the bytes. It is the function the signature feature takes as `renderHtmlToPdf`.
+  -->
+
+### Patch Changes
+
+- 934172f: The assistant can read the app's handbook: `kumiko handbuch knowledge` exports the pages as JSON and the new `handbook-knowledge` feature serves them as two query tools. A task page can name the write handler that starts its flow (`start` in the frontmatter), so the assistant offers to start it as a plan.
+  
+  <!-- kumiko-changes
+  feature: handbook-knowledge
+  type: improvement
+  title: Handbook pages for the AI assistant, with a process axis in the handbuch CLI
+  detail: `createHandbookKnowledgeFeature({ pages, access })` mounts the query handlers `list-pages` (catalog of id, kind, title and questions) and `read-page` (one page in the caller's language, falling back to the default language, cut at 12000 characters with a notice). Both appear in the agent tool catalog for the roles in `access`; no entity, no migration. The handbuch config takes an optional `processTextsDir` (with `{locale}`): its pages show as an own group in the HTML, and the new command `kumiko handbuch knowledge <config> --out <file>` writes the pages per locale as deterministic JSON without images. A process page may carry `start` (qualified name of a write handler); `list-pages` and `read-page` return it, and their descriptions tell the assistant to answer with the page's steps, link the page and offer to start the task as a plan through exactly that handler. Without `processTextsDir` the built handbook stays byte-identical.
+  -->
+- Updated dependencies [934172f]
+- Updated dependencies [d147995]
+  - @cosmicdrift/kumiko-types@0.416.0
+  - @cosmicdrift/kumiko-framework@0.416.0
+  - @cosmicdrift/kumiko-renderer@0.416.0
+  - @cosmicdrift/kumiko-testing@0.416.0
+
 ## 0.415.0
 
 ### Minor Changes
