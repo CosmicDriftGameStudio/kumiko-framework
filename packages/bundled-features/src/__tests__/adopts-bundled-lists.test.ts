@@ -15,6 +15,7 @@ import { createManagedPagesFeature } from "../managed-pages/index.ts";
 import { createPersonalAccessTokensFeature } from "../personal-access-tokens/index.ts";
 import { createReadinessFeature } from "../readiness/index.ts";
 import { createSessionsFeature } from "../sessions/index.ts";
+import { createSignatureFeature } from "../signature/index.ts";
 import { createTagsFeature } from "../tags/index.ts";
 import { createTenantFeature } from "../tenant/index.ts";
 import { createUserFeature } from "../user/index.ts";
@@ -44,6 +45,14 @@ const ADOPTING_FEATURES: Readonly<Record<string, () => FeatureDefinition>> = {
   "personal-access-tokens": () => createPersonalAccessTokensFeature({ scopes: {} }),
   readiness: () => createReadinessFeature(),
   sessions: () => createSessionsFeature(),
+  signature: () =>
+    createSignatureFeature({
+      retention: { keepFor: "10y" },
+      linkSecret: "test-secret",
+      signaturePageUrl: "https://example.test/sign",
+      renderHtmlToPdf: async () => new Uint8Array(),
+      deliverLink: async () => {},
+    }),
   tags: () => createTagsFeature(),
   tenant: () => createTenantFeature(),
   user: () => createUserFeature(),

@@ -397,6 +397,12 @@ Requires: `user-data-rights`
 
 Optional requires: `form-draft`
 
+## handbook-knowledge
+
+Gives the AI agent the app's handbook as two read-only query tools: `list-pages` returns the catalog of task and screen pages with the questions each answers, `read-page` returns one page in the caller's language with a fallback to the default language and a fixed length cap. The pages come from a build-time JSON (`kumiko handbuch knowledge`), so no table, projection or search index is involved and the handbook text stays public content.
+
+Category: ai
+
 ## helpdesk
 
 Helpdesk inbox: an anonymous browser client (GET /helpdesk/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin. Every request is stored platform-wide and every SystemAdmin is notified by mail, optionally also in a Telegram chat (option `telegram`, off by default); the notification names only the kind, the app and a link, never name, address, phone, subject or message, because mail and Telegram cannot be shredded. SystemAdmins reply by mail (Reply-To set, attachments, quoting the original) and mark requests done; a website sender gets a fixed acknowledgement, a signed-in reporter a copy and an in-app note. Personal data is crypto-shredding-ready and the EXT_USER_DATA hooks export and erase a user's requests.
@@ -659,6 +665,14 @@ Category: identity
 Requires: `user`, `auth-foundation`
 
 Exposes APIs: `sessions.revokeAllForUser`
+
+## signature
+
+Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the injected print function, appends it to the unchanged original and completes the request. Events completed, declined and expired report the outcome; signer name, email, image, IP and user agent are personal data.
+
+Category: data
+
+Requires: `files`, `user-data-rights`
 
 ## step-dispatcher
 

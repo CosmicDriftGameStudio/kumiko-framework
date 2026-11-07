@@ -134,6 +134,16 @@ export const SCREEN_ACTION_RULES = {
     summary: "A redirect idFrom only targets entityEdit or projectionDetail screens.",
     fix: "Use the plain string redirect form.",
   },
+  redirectSearchParamsOnlyActionForm: {
+    id: "screen/redirect-search-params-only-action-form",
+    summary: "A redirect searchParams is only set on actionForm redirects.",
+    fix: "Remove searchParams; other screen kinds do not read it.",
+  },
+  redirectSearchParamsEmpty: {
+    id: "screen/redirect-search-params-empty",
+    summary: "A redirect searchParams entry has a non-empty param name and payload field.",
+    fix: "Map each search param name to a success-payload field.",
+  },
   successLinkTargetsRecordScreen: {
     id: "screen/success-link-targets-record-screen",
     summary: "A success link without idFrom does not target a record screen.",

@@ -945,6 +945,16 @@
         "@cosmicdrift/kumiko-testing": "workspace:*",
       },
     },
+    "samples/recipes/handbook-knowledge": {
+      "name": "@cosmicdrift/kumiko-sample-handbook-knowledge",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/helpdesk": {
       "name": "@cosmicdrift/kumiko-sample-helpdesk",
       "dependencies": {
@@ -1244,6 +1254,17 @@
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
+    "samples/recipes/signature": {
+      "name": "@cosmicdrift/kumiko-sample-signature",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+        "pdf-lib": "^1.17.1",
       },
       "devDependencies": {
         "@cosmicdrift/kumiko-testing": "workspace:*",
@@ -1595,6 +1616,8 @@
 
     "@cosmicdrift/kumiko-sample-golden-path": ["@cosmicdrift/kumiko-sample-golden-path@workspace:samples/recipes/golden-path"],
 
+    "@cosmicdrift/kumiko-sample-handbook-knowledge": ["@cosmicdrift/kumiko-sample-handbook-knowledge@workspace:samples/recipes/handbook-knowledge"],
+
     "@cosmicdrift/kumiko-sample-helpdesk": ["@cosmicdrift/kumiko-sample-helpdesk@workspace:samples/recipes/helpdesk"],
 
     "@cosmicdrift/kumiko-sample-host-routing": ["@cosmicdrift/kumiko-sample-host-routing@workspace:samples/recipes/host-routing"],
@@ -1660,6 +1683,8 @@
     "@cosmicdrift/kumiko-sample-session-revocation": ["@cosmicdrift/kumiko-sample-session-revocation@workspace:samples/recipes/session-revocation"],
 
     "@cosmicdrift/kumiko-sample-showcase": ["@cosmicdrift/kumiko-sample-showcase@workspace:samples/apps/showcase"],
+
+    "@cosmicdrift/kumiko-sample-signature": ["@cosmicdrift/kumiko-sample-signature@workspace:samples/recipes/signature"],
 
     "@cosmicdrift/kumiko-sample-state-machine": ["@cosmicdrift/kumiko-sample-state-machine@workspace:samples/recipes/state-machine"],
 

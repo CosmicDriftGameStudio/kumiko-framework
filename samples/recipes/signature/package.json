@@ -1,0 +1,13 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-signature",
+  "description": "The signature bundled feature: a request for several signers, a signing link that is delivered by the app, and a completed PDF with a signature page.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

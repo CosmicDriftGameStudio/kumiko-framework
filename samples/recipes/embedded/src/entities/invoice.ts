@@ -13,6 +13,12 @@ export const invoiceEntity = createEntity({
   table: "read_sample_invoices",
   fields: {
     customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    // Business data, so the list can search it: invoice-receive redirects here by number.
+    invoiceNumber: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      searchable: true,
+    }),
     lines: createEmbeddedListField(
       {
         product: { type: "reference", entity: "product", required: true },

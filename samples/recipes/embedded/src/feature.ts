@@ -58,9 +58,15 @@ export const embeddedFeature = defineFeature("contacts", (r) => {
     type: "entityEdit",
     entity: "invoice",
     layout: {
-      sections: [{ columns: 1, fields: ["customer", "lines"] }],
+      sections: [{ columns: 1, fields: ["invoiceNumber", "customer", "lines"] }],
     },
   });
 
+  r.screen({
+    id: "invoice-list",
+    type: "entityList",
+    entity: "invoice",
+    columns: ["invoiceNumber", "customer"],
+  });
   r.screen(invoiceReceiveScreen);
 });

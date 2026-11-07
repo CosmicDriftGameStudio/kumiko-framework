@@ -21,6 +21,7 @@ export type Chrome = {
   lightbox: string;
   close: string;
   fallbackGroup: string;
+  processGroup: string;
   builtAt: string;
   viewports: { desktop: string; tablet: string; mobile: string; all: string };
 };
@@ -48,6 +49,7 @@ const de: Chrome = {
   lightbox: "Screenshot vergrößert",
   close: "Schließen",
   fallbackGroup: "Weitere",
+  processGroup: "Aufgaben",
   builtAt: "Stand",
   viewports: {
     desktop: "Desktop",
@@ -80,6 +82,7 @@ const en: Chrome = {
   lightbox: "Screenshot enlarged",
   close: "Close",
   fallbackGroup: "Other",
+  processGroup: "Tasks",
   builtAt: "Built",
   viewports: {
     desktop: "Desktop",

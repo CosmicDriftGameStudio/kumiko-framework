@@ -42,6 +42,7 @@
 | `field-access` | Field-level access control. When entity-level roles aren't granular enough. | `examples/field-access.md` |
 | `files-post-processing` | The three ways to generate an image variant: declarative field variants, imperative ctx.services.derivatives.variant() with region-blur, and the public route behind a default-deny predicate. | `examples/files-post-processing.md` |
 | `golden-path` | The smallest complete feature: entity, write handler, event, projection, screen and an integration test. | `examples/golden-path.md` |
+| `handbook-knowledge` | The handbook-knowledge bundled feature: a fixed handbook JSON served to the AI assistant as list-pages and read-page query tools. | `examples/handbook-knowledge.md` |
 | `helpdesk` | Public contact form backend: the helpdesk bundled feature with its required companions (delivery, user-data-rights, files) and the anonymous browser client. | `examples/helpdesk.md` |
 | `host-routing` | createHostRoutingFeature + createHostDispatch — tenant per subdomain, per-host HTML and CSP, locale redirect, shared by runProdApp and the dev server. | `examples/host-routing.md` |
 | `i18n` | Feature-scoped translations. 'Hallo' and 'Hello' in the same app. | `examples/i18n.md` |
@@ -74,6 +75,7 @@
 | `security-baseline` | composeSecurityStack(): sessions, crypto-shredding, rate-limiting, audit — plus the NODE_ENV=production boot warning when one is missing. | `examples/security-baseline.md` |
 | `seed-migration` | ES-Operations seed-migrations — file-based diff-and-apply für Aggregate-Updates die idempotent-Seeder nicht erfassen. | `examples/seed-migration.md` |
 | `session-revocation` | createSessionCallbacks + sessionChecker — server-side session revocation via JWT jti. | `examples/session-revocation.md` |
+| `signature` | The signature bundled feature: a request for several signers, a signing link that is delivered by the app, and a completed PDF with a signature page. | `examples/signature.md` |
 | `state-machine` | Enforced entity state transitions. No more illegal state changes. | `examples/state-machine.md` |
 | `tags-basic` | Tag and group any entity without changing it — host-agnostic, event-sourced. | `examples/tags-basic.md` |
 | `tenant-inactivity` | tenant-inactivity: warn abandoned free accounts, then file the regular tenant-lifecycle deletion request; tier-based exemption and a keep-account link. | `examples/tenant-inactivity.md` |

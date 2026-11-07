@@ -443,7 +443,8 @@ export function resolveRedirectTarget(
   const target = findRedirectTargetScreen(redirect, schema, appFeatures);
   const carriesId =
     target !== undefined && (target.type === "entityEdit" || target.type === "projectionDetail");
-  if (!carriesId) return { screenId: targetId, entityId: undefined, tab: undefined };
+  const searchParams = redirectSearchParams(redirect, submittedData);
+  if (!carriesId) return { screenId: targetId, entityId: undefined, tab: undefined, searchParams };
   const entityId =
     extractIdField(submittedData, idField) ??
     (fallbackRecord !== undefined ? extractIdField(fallbackRecord, idField) : undefined);
@@ -451,13 +452,33 @@ export function resolveRedirectTarget(
     screenId: targetId,
     entityId,
     tab: typeof redirect === "string" ? undefined : redirect.tab,
+    searchParams,
   };
+}
+
+// Only the object form of an actionForm redirect declares searchParams; success
+// links keep their own `params`. Non-string payload values leave the param out.
+function redirectSearchParams(
+  redirect: RedirectSpec,
+  submittedData: unknown,
+): Readonly<Record<string, string>> {
+  const declared =
+    typeof redirect === "string" || !("searchParams" in redirect)
+      ? undefined
+      : redirect.searchParams;
+  const resolved: Record<string, string> = {};
+  for (const [param, field] of Object.entries(declared ?? {})) {
+    const value = propertyOf(submittedData, field);
+    if (typeof value === "string") resolved[param] = value;
+  }
+  return resolved;
 }
 
 type ResolvedRedirectTarget = {
   readonly screenId: string;
   readonly entityId: string | undefined;
   readonly tab: string | undefined;
+  readonly searchParams: Readonly<Record<string, string>>;
 };
 
 export function navigateToRedirectTarget(nav: NavApi, target: ResolvedRedirectTarget): void {
@@ -465,8 +486,12 @@ export function navigateToRedirectTarget(nav: NavApi, target: ResolvedRedirectTa
     screenId: target.screenId,
     ...(target.entityId !== undefined && { entityId: target.entityId }),
   };
-  if (target.tab === undefined) nav.navigate(navTarget);
-  else nav.navigate(navTarget, { searchParams: { tab: target.tab } });
+  const searchParams = {
+    ...target.searchParams,
+    ...(target.tab !== undefined && { tab: target.tab }),
+  };
+  if (Object.keys(searchParams).length === 0) nav.navigate(navTarget);
+  else nav.navigate(navTarget, { searchParams });
 }
 
 // Links of the success box. Targets resolve like `redirect`; a link whose target

@@ -50,6 +50,7 @@ export const handbuchConfigSchema = z
     groups: z.array(groupSchema).min(1),
     translations: z.record(z.string(), translationsSchema).optional(),
     textsDir: z.string().includes("{locale}"),
+    processTextsDir: z.string().includes("{locale}").optional(),
     shotsDir: z.string().optional(),
     uiStrings: z.array(z.string().min(1)).optional(),
     uiStringPackages: z

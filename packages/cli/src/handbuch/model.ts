@@ -22,6 +22,8 @@ export const VIEWPORT_WIDTH: Record<Viewport, number> = {
 };
 
 const FALLBACK_GROUP_ID = "weitere";
+const PROCESS_GROUP_ID = "aufgaben";
+const PROCESS_ID_PREFIX = "prozess-";
 
 const LIGHT_THEME_DIR = "default-light";
 const LOCAL_IMAGE_REF = /\.(png|jpe?g|webp|gif|svg)$/i;
@@ -35,7 +37,10 @@ export type LocaleText = {
   bodyMd: string;
   dir: string;
   gruppe?: string;
+  start?: string;
   prozesse: string[];
+  questions: string[];
+  screens: string[];
   missingImages: string[];
   uiIgnore: string[];
   staleTerms: string[];
@@ -56,6 +61,7 @@ export type Chapter = {
   matrix: Map<string, MatrixShots>;
   steps?: Step[];
   inScreenList: boolean;
+  isProcess?: boolean;
 };
 
 export type Model = {
@@ -134,6 +140,24 @@ export function parseList(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
+// Inline `key: [a, b]` or a YAML block list; parseFrontmatter only keeps single-line values.
+export function parseFrontmatterList(raw: string, key: string): string[] {
+  const block = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1];
+  if (block === undefined) return [];
+  const lines = block.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.startsWith(`${key}:`));
+  if (start === -1) return [];
+  const inline = (lines[start] ?? "").slice(key.length + 1).trim();
+  if (inline) return parseList(inline);
+  const items: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    const item = line.match(/^\s*-\s+(.*)$/)?.[1];
+    if (item === undefined) break;
+    items.push(item.trim().replace(/^["']|["']$/g, ""));
+  }
+  return items;
+}
+
 export function stripLeadingHeading(body: string): string {
   const lines = body.split(/\r?\n/);
   let index = 0;
@@ -170,7 +194,8 @@ export function readTexts(textsRoot: string): Map<string, LocaleText & { id: str
   for (const file of readdirSync(textsRoot)
     .filter((name) => name.endsWith(".md"))
     .sort()) {
-    const { data, body } = parseFrontmatter(readFileSync(join(textsRoot, file), "utf8"));
+    const raw = readFileSync(join(textsRoot, file), "utf8");
+    const { data, body } = parseFrontmatter(raw);
     const id = data["screenId"] || basename(file, ".md");
     const bodyMd = stripLeadingHeading(body);
     texts.set(id, {
@@ -179,7 +204,10 @@ export function readTexts(textsRoot: string): Map<string, LocaleText & { id: str
       bodyMd,
       dir: textsRoot,
       gruppe: data["gruppe"] || undefined,
+      start: data["start"] || undefined,
       prozesse: parseList(data["prozesse"]),
+      questions: parseFrontmatterList(raw, "fragen"),
+      screens: parseFrontmatterList(raw, "masken"),
       uiIgnore: parseList(data["ui-ignore"]),
       staleTerms: [],
       missingImages: localImageRefs(bodyMd).filter(
@@ -188,6 +216,16 @@ export function readTexts(textsRoot: string): Map<string, LocaleText & { id: str
     });
   }
   return texts;
+}
+
+// Prefixed so a process page never shares an id with a screen chapter.
+function readProcessTexts(textsRoot: string): Map<string, LocaleText & { id: string }> {
+  const processTexts = new Map<string, LocaleText & { id: string }>();
+  for (const [rawId, text] of readTexts(textsRoot)) {
+    const id = `${PROCESS_ID_PREFIX}${rawId}`;
+    processTexts.set(id, { ...text, id, gruppe: PROCESS_GROUP_ID });
+  }
+  return processTexts;
 }
 
 export function discoverMatrix(
@@ -395,6 +433,62 @@ function registerChapters(
   return { chapters, sourceOrder, configGroupOf };
 }
 
+function loadTextsByLocale(
+  config: HandbuchConfig,
+  options: BuildModelOptions,
+  repoDir: string,
+): Map<string, Map<string, LocaleText>> {
+  return new Map(
+    config.locales.map((locale) => [
+      locale,
+      readTexts(
+        options.textsDir
+          ? join(options.textsDir, locale)
+          : join(repoDir, config.textsDir.replace("{locale}", locale)),
+      ),
+    ]),
+  );
+}
+
+function applyStaleTerms(
+  byLocale: Map<string, Map<string, LocaleText>>,
+  uiStrings: Map<string, string[]>,
+): void {
+  const uiIndex = buildUiIndex(uiStrings);
+  for (const [locale, texts] of byLocale) {
+    for (const text of texts.values()) {
+      text.staleTerms = findMissingUiTerms(text.bodyMd, locale, uiIndex, text.uiIgnore);
+    }
+  }
+}
+
+function mergeProcessTexts(
+  config: HandbuchConfig,
+  repoDir: string,
+  textsByLocale: Map<string, Map<string, LocaleText>>,
+): Set<string> {
+  const processIds = new Set<string>();
+  const processTextsDir = config.processTextsDir;
+  if (!processTextsDir) return processIds;
+  for (const locale of config.locales) {
+    const processTexts = readProcessTexts(
+      join(repoDir, processTextsDir.replace("{locale}", locale)),
+    );
+    for (const [id, text] of processTexts) {
+      textsByLocale.get(locale)?.set(id, text);
+      processIds.add(id);
+    }
+  }
+  return processIds;
+}
+
+function markProcessChapters(chapters: Map<string, Chapter>, processIds: Set<string>): void {
+  for (const id of processIds) {
+    const chapter = chapters.get(id);
+    if (chapter) chapter.isProcess = true;
+  }
+}
+
 export async function buildModel(
   config: HandbuchConfig,
   options: BuildModelOptions,
@@ -407,29 +501,10 @@ export async function buildModel(
       ? await loadScreensModule(options.rootDir, config.repo, config.screensModule)
       : []);
 
-  const textsByLocale = new Map(
-    config.locales.map((locale) => [
-      locale,
-      readTexts(
-        options.textsDir
-          ? join(options.textsDir, locale)
-          : join(repoDir, config.textsDir.replace("{locale}", locale)),
-      ),
-    ]),
-  );
-  const applyStale = (
-    byLocale: Map<string, Map<string, LocaleText>>,
-    uiStrings: Map<string, string[]>,
-  ) => {
-    const uiIndex = buildUiIndex(uiStrings);
-    for (const [locale, texts] of byLocale) {
-      for (const text of texts.values()) {
-        text.staleTerms = findMissingUiTerms(text.bodyMd, locale, uiIndex, text.uiIgnore);
-      }
-    }
-  };
+  const textsByLocale = loadTextsByLocale(config, options, repoDir);
+  const processIds = mergeProcessTexts(config, repoDir, textsByLocale);
   if (config.uiStrings || config.uiStringPackages) {
-    applyStale(
+    applyStaleTerms(
       textsByLocale,
       collectUiStrings({
         repoDir,
@@ -445,6 +520,10 @@ export async function buildModel(
     ...group,
     label: tr?.groups[group.id] ?? group.label,
   });
+  const processGroups: Group[] =
+    processIds.size > 0 && !config.groups.some((group) => group.id === PROCESS_GROUP_ID)
+      ? [labelGroup({ id: PROCESS_GROUP_ID, label: chromeFor(config.defaultLocale).processGroup })]
+      : [];
   const fallbackGroupDefault: Group = {
     id: FALLBACK_GROUP_ID,
     label: chromeFor(config.defaultLocale).fallbackGroup,
@@ -454,7 +533,7 @@ export async function buildModel(
     config,
     options,
     textsByLocale,
-    applyStale,
+    applyStaleTerms,
     labelGroup,
   );
   const shotsDir =
@@ -463,13 +542,14 @@ export async function buildModel(
     ? discoverMatrix(shotsDir, config.locales)
     : new Map<string, Map<string, MatrixShots>>();
 
-  const groups: Group[] = [...config.groups.map(labelGroup), ...flowGroups];
+  const groups: Group[] = [...config.groups.map(labelGroup), ...flowGroups, ...processGroups];
   const { chapters, sourceOrder, configGroupOf } = registerChapters(
     screens,
     flowChapters,
     textsByLocale,
     matrix,
   );
+  markProcessChapters(chapters, processIds);
 
   const fallbackGroup = assignGroups(config, chapters, groups, configGroupOf, fallbackGroupDefault);
   return assembleModel(config, chapters, groups, sourceOrder, fallbackGroup);

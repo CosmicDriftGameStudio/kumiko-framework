@@ -26,6 +26,10 @@ object and an embedded list rendered by a declarative `entityEdit` screen.
   entries (`{ label, from }`). The handler wraps its schema with
   `withFormDerivations(schema, screen)` (`src/handlers/invoice-receive.write.ts`),
   so totals sent by the client are replaced on the server.
+- **Redirect with search params**: after submit, `invoice-receive` redirects to
+  `invoice-list` with `searchParams: { "invoice-list.q": "invoiceNumber" }`, so the list opens
+  with the number the handler returns in its search box. The receive handler stores nothing in
+  this recipe; the search finds invoices saved through `invoice-edit` with that number.
 
 ## When to reach for it
 

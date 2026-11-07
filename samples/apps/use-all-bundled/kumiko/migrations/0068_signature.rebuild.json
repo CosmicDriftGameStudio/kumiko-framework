@@ -1,0 +1,4 @@
+{
+  "version": 1,
+  "tables": ["read_signature_requests", "read_signature_signers"]
+}
