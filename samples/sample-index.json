@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 49,
+  "featureCount": 51,
   "features": {
     "account-security": {
       "samples": [
@@ -251,6 +251,13 @@
       "sampleBlurb": "Drop-in FolderSection on any entity edit screen — assign, move, and clear folder membership without host schema changes.",
       "screenshot": "/screenshots/features/folders.png"
     },
+    "handbook-knowledge": {
+      "samples": [
+        "recipes-handbook-knowledge"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Feature: — createHandbookKnowledgeFeature({ pages, access, publicPath }). No entity, no migration; access decides which roles see the tools. - **list-pages** — catalog of id, kind, title and questions in the caller's language. - **read-page** — one page body; the language falls back to the handbook's default language, long pages are cut with a visible notice, unknown ids are not_found. - **Test** — setupTestStack and HTTP with an X-Locale header."
+    },
     "helpdesk": {
       "samples": [
         "recipes-helpdesk"
@@ -434,6 +441,13 @@
       "whenToUse": "Logins must be revocable server-side — logout, password change, or admin force-logout should invalidate outstanding JWTs before they expire.",
       "sampleBlurb": "Production wiring with createSessionCallbacks() and buildServer auth — login persists sid, logout rejects the JWT before expiry.",
       "screenshot": "/screenshots/features/session-list.png"
+    },
+    "signature": {
+      "samples": [
+        "recipes-signature"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Feature: - createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl }). Needs files and user-data-rights (exports and erases signer data); the test mounts user-data-rights with its own dependencies. - **deliverLink** - issue-link hands the signing link to the app (mail) and returns only { signerId, linkSentAt }: whoever may issue a link must not be able to sign with it. - **renderHtmlToPdf** - injected; in an app it is the client of @cosmicdrift/kumiko-renderer-puppeteer-client. - **Test** - setupTestStack and HTTP: request, issue-link, anonymous sign-by-link, sweep job, completed."
     },
     "tags": {
       "samples": [

@@ -61,6 +61,10 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
   "ledger/schedule":
     "id description startDate endDate interval amount debitAccountId creditAccountId subjectType subjectId sourceRef",
   "document-ingest-foundation/documentExtract": "id fileRefId pages meta",
+  "signature/signatureRequest":
+    "id documentFileId title level subjectType subjectId status expiresAt completedFileId completedAt",
+  "signature/signatureSigner":
+    "id requestId role contactId status method signedAt linkAnchor linkSentAt viewedAt viewCount",
   "notes-demo/note": "id title customFields",
 };
 

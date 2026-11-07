@@ -166,6 +166,10 @@
     "./helpdesk/client": "./src/helpdesk/client/index.ts",
     "./waitlist": "./src/waitlist/index.ts",
     "./waitlist/static-submit": "./src/waitlist/static-submit.ts",
+    "./signature": "./src/signature/index.ts",
+    "./signature/web": "./src/signature/web/index.ts",
+    "./signature/static-sign": "./src/signature/static-sign.ts",
+    "./handbook-knowledge": "./src/handbook-knowledge/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
@@ -785,6 +789,22 @@
       "./waitlist/static-submit": {
         "types": "./dist/waitlist/static-submit.d.ts",
         "default": "./dist/waitlist/static-submit.js"
+      },
+      "./signature": {
+        "types": "./dist/signature/index.d.ts",
+        "default": "./dist/signature/index.js"
+      },
+      "./signature/web": {
+        "types": "./dist/signature/web/index.d.ts",
+        "default": "./dist/signature/web/index.js"
+      },
+      "./signature/static-sign": {
+        "types": "./dist/signature/static-sign.d.ts",
+        "default": "./dist/signature/static-sign.js"
+      },
+      "./handbook-knowledge": {
+        "types": "./dist/handbook-knowledge/index.d.ts",
+        "default": "./dist/handbook-knowledge/index.js"
       },
       "./page-render": {
         "types": "./dist/page-render/index.d.ts",

@@ -14,3 +14,4 @@ export {
   type StoredRenderedPdf,
   storeRenderedPdf,
 } from "./render-and-store.ts";
+export { type RenderHtmlToPdf, renderHtmlToPdf } from "./render-html-to-pdf.ts";

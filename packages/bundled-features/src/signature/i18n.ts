@@ -1,0 +1,52 @@
+type LocalizedString = { readonly en: string; readonly de: string };
+
+const REQUEST = "signature:entity:signatureRequest:field";
+const SIGNER = "signature:entity:signatureSigner:field";
+
+export const SIGNATURE_I18N: Readonly<Record<string, LocalizedString>> = {
+  "signature:feature.label": { en: "Signatures", de: "Unterschriften" },
+  "screen:signature-list.title": { en: "Signatures", de: "Unterschriften" },
+  "signature.nav.signature": { en: "Signatures", de: "Unterschriften" },
+  "signature.action.open": { en: "Open", de: "Öffnen" },
+  "signature.signers.title": { en: "Signers", de: "Unterzeichner" },
+  "signature.action.issueLink": { en: "Send link", de: "Link senden" },
+  "signature.action.revokeLink": { en: "Revoke link", de: "Link widerrufen" },
+  "signature.action.revokeLink.confirm": {
+    en: "Revoke the link of this signer?",
+    de: "Den Link dieses Unterzeichners widerrufen?",
+  },
+  "screen:signature-detail.title": { en: "Signature request", de: "Unterschriftsanfrage" },
+  "signature.action.cancel": { en: "Cancel request", de: "Anfrage abbrechen" },
+  "signature.action.cancel.confirm": {
+    en: "Cancel this request? All signing links stop working.",
+    de: "Diese Anfrage abbrechen? Alle Unterschrifts-Links werden ungültig.",
+  },
+  [`${SIGNER}:name`]: { en: "Name", de: "Name" },
+  [`${SIGNER}:role`]: { en: "Role", de: "Rolle" },
+  [`${SIGNER}:status`]: { en: "Status", de: "Status" },
+  [`${SIGNER}:method`]: { en: "Way of signing", de: "Art der Unterschrift" },
+  [`${SIGNER}:signedAt`]: { en: "Signed", de: "Unterschrieben" },
+  [`${SIGNER}:status:option:pending`]: { en: "Pending", de: "Ausstehend" },
+  [`${SIGNER}:status:option:viewed`]: { en: "Viewed", de: "Geöffnet" },
+  [`${SIGNER}:status:option:signed`]: { en: "Signed", de: "Unterschrieben" },
+  [`${SIGNER}:status:option:declined`]: { en: "Declined", de: "Abgelehnt" },
+  [`${SIGNER}:method:option:in-person`]: { en: "In person", de: "Vor Ort" },
+  [`${SIGNER}:method:option:link`]: { en: "Link", de: "Link" },
+  [`${REQUEST}:title`]: { en: "Document", de: "Dokument" },
+  [`${REQUEST}:status`]: { en: "Status", de: "Status" },
+  [`${REQUEST}:subjectType`]: { en: "Related to", de: "Gehört zu" },
+  [`${REQUEST}:expiresAt`]: { en: "Valid until", de: "Gültig bis" },
+  [`${REQUEST}:completedAt`]: { en: "Completed", de: "Abgeschlossen" },
+  [`${REQUEST}:documentFileId`]: { en: "Document file", de: "Dokumentdatei" },
+  [`${REQUEST}:documentSha256`]: { en: "Document hash", de: "Dokument-Hash" },
+  [`${REQUEST}:level`]: { en: "Level", de: "Stufe" },
+  [`${REQUEST}:subjectId`]: { en: "Related id", de: "Zugehörige ID" },
+  [`${REQUEST}:completedFileId`]: { en: "Signed file", de: "Signierte Datei" },
+  [`${REQUEST}:level:option:simple`]: { en: "Simple", de: "Einfach" },
+  [`${REQUEST}:status:option:open`]: { en: "Open", de: "Offen" },
+  [`${REQUEST}:status:option:all-signed`]: { en: "All signed", de: "Alle unterschrieben" },
+  [`${REQUEST}:status:option:completed`]: { en: "Completed", de: "Abgeschlossen" },
+  [`${REQUEST}:status:option:declined`]: { en: "Declined", de: "Abgelehnt" },
+  [`${REQUEST}:status:option:expired`]: { en: "Expired", de: "Abgelaufen" },
+  [`${REQUEST}:status:option:cancelled`]: { en: "Cancelled", de: "Abgebrochen" },
+};

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-03T08:29:12.542Z",
+  "generatedAt": "2026-11-07T10:54:11.153Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2686,6 +2686,270 @@
         }
       ],
       "source": "managed"
+    },
+    {
+      "tableName": "read_signature_requests",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "document_file_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "document_sha256",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "title",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "level",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'open'"
+        },
+        {
+          "name": "expires_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "completed_file_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "completed_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_signature_requests_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_signature_requests_tenant_id_status_idx",
+          "columns": ["tenant_id", "status"]
+        },
+        {
+          "name": "read_signature_requests_tenant_id_subject_type_subject_id_idx",
+          "columns": ["tenant_id", "subject_type", "subject_id"]
+        }
+      ],
+      "source": "managed"
+    },
+    {
+      "tableName": "read_signature_signers",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "request_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "role",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "contact_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "email",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "email_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'pending'"
+        },
+        {
+          "name": "method",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "signed_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "image_file_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "link_anchor",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "link_sent_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "viewed_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "view_count",
+          "pgType": "double precision",
+          "notNull": false,
+          "defaultSql": "0"
+        },
+        {
+          "name": "signed_from_ip",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "signed_user_agent",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "decline_reason",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_signature_signers_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_signature_signers_email_bidx_idx",
+          "columns": ["email_bidx"]
+        },
+        {
+          "name": "read_signature_signers_tenant_id_request_id_idx",
+          "columns": ["tenant_id", "request_id"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": [
+        "name",
+        "email",
+        "imageFileId",
+        "signedFromIp",
+        "signedUserAgent",
+        "declineReason"
+      ]
     },
     {
       "tableName": "read_subscriptions",
@@ -5752,6 +6016,30 @@
       ]
     },
     "read_readiness_probe_runs": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "read_signature_requests": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
+        }
+      ]
+    },
+    "read_signature_signers": {
       "policies": [
         {
           "name": "kumiko_tenant_isolation",

@@ -68,8 +68,9 @@ type ActionFormLoad = {
 };
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.
   screen: string; // Same target forms as the string `redirect`: short screen ID (same-feature) or a fully-qualified cross-feature screen QN.
-  idFrom: string; // Flat field name in the handler's success payload, e.g. "leaseId".
+  idFrom?: string; // Flat field name in the handler's success payload, e.g. "leaseId".
   tab?: string; // Section id to open on the target `projectionDetail` with `layout.mode: "tabs"` (the `tab` search param, same as `ToolbarAction` navigate `tab`).
+  searchParams?: Readonly<Record<string, string>>; // URL search params of the target, each read from a flat success-payload field (`{ cmd: "threadId" }` opens `?cmd=<threadId>`).
 };
 type ActionFormSuccessFact = { // One key figure of the success box, read from the handler's success payload.
   field: string; // Flat field name in the handler's success payload.
@@ -79,7 +80,7 @@ type ActionFormSuccessItems = { // Per-entry hints of the success box, read from
   field: string; // Flat field name of an array in the success payload.
   link?: ActionFormSuccessLink; // Link of each hint.
 };
-type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom"> & { // A redirect target rendered as a link in the success box.
+type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom" | "searchParams"> & { // A redirect target rendered as a link in the success box.
   idFrom?: string; // Success-payload field carrying the navigation id.
   params?: Readonly<Record<string, string>>; // URL search params of the target, each read from a success-payload field (`{ cmd: "duplicateOfId" }` opens `?cmd=<duplicateOfId>`).
   label: string; // Link text (i18n key).

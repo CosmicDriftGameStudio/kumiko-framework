@@ -55,6 +55,7 @@ import { createFoldersFeature } from "@cosmicdrift/kumiko-bundled-features/folde
 import { createFoldersUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/folders-user-data";
 import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft";
 import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data";
+import { createHandbookKnowledgeFeature } from "@cosmicdrift/kumiko-bundled-features/handbook-knowledge";
 import {
   createHelpdeskFeature,
   helpdeskOpenRequestsPanels,
@@ -81,6 +82,7 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
+import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
 import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher";
 import { createSubscriptionMollieFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-mollie";
 import { createSubscriptionPaddleFeature } from "@cosmicdrift/kumiko-bundled-features/subscription-paddle";
@@ -106,7 +108,10 @@ import {
 import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { createRendererPuppeteerClientFeature } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+import {
+  createRendererPuppeteerClientFeature,
+  renderHtmlToPdf,
+} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { ADMIN_NAV_QN, ADMIN_NAV_WORKSPACES, adminNavFeature } from "./app/admin-nav-feature";
 import { DEV_TENANT_ID } from "./app/auth-constants";
 import { CAP_OVERVIEW_CAPS } from "./app/cap-overview-caps";
@@ -374,6 +379,35 @@ export const APP_FEATURES = [
   // PDF printing for document templates; the print service is reached through
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),
+  // signature: needs files; the print function is the real client, asked only when a request completes.
+  // deliverLink is smoke-only: boot never sends a link.
+  createSignatureFeature({
+    retention: { keepFor: "10y" },
+    renderHtmlToPdf,
+    linkSecret: SMOKE_HMAC_SECRET,
+    signaturePageUrl: "https://use-all-bundled.example/sign",
+    deliverLink: async () => {
+      /* smoke-only */
+    },
+  }),
+  createHandbookKnowledgeFeature({
+    pages: {
+      defaultLocale: "en",
+      locales: {
+        en: [
+          {
+            id: "sign-a-document",
+            kind: "process",
+            title: "Sign a document",
+            questions: ["How do I get a document signed?"],
+            screens: [],
+            bodyMd: "Create a signature request, add the signers and send each a link.",
+          },
+        ],
+      },
+    },
+    access: { roles: ["TenantAdmin", "TenantMember", "SystemAdmin"] },
+  }),
 
   // managed-pages: requires config (auto-bundled). Every host resolves to the
   // dev tenant so the document-editor e2e can read a saved page back from the

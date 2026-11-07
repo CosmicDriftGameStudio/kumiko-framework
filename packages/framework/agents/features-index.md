@@ -90,6 +90,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createFormDraftFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft"`
 - `form-draft-user-data`: GDPR (Art.
   `import { createFormDraftUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/form-draft-user-data"`; requires `user-data-rights`
+- `handbook-knowledge`: Gives the AI agent the app's handbook as two read-only query tools: `list-pages` returns the catalog of task and screen pages with the questions each answers, `read-page` returns one page in the caller's language with a fallback to the default language and a fixed length cap.
+  `import { createHandbookKnowledgeFeature } from "@cosmicdrift/kumiko-bundled-features/handbook-knowledge"`
 - `helpdesk`: Helpdesk inbox: an anonymous browser client (GET /helpdesk/client.js) submits questions, contact requests, bug reports and wishes behind a honeypot, a minimum submit time and a single-use proof-of-work challenge; signed-in users file reports from the admin.
   `import { createHelpdeskFeature } from "@cosmicdrift/kumiko-bundled-features/helpdesk"`; requires `config`, `delivery`, `user-data-rights`, `files`, `notes-history`
 - `host-routing`: Host- and path-based tenant routing: an authoritative tenant resolver from the subdomain (tenantBy host), a tenant existence check against enabled, active tenants, and the tenant-key query behind createHostDispatch, which picks the HTML file, CSP, locale redirect or 404 per host for runProdApp's hostDispatch.
@@ -144,6 +146,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo"`; requires `config`
 - `sessions`: Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`.
   `import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions"`; requires `user`, `auth-foundation`
+- `signature`: Signature requests: a signed-in user asks several people to sign one PDF of the tenant.
+  `import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature"`; requires `files`, `user-data-rights`
 - `step-dispatcher`: Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits.
   `import { createStepDispatcherFeature } from "@cosmicdrift/kumiko-bundled-features/step-dispatcher"`; requires `secrets`
 - `subscription-mollie`: Mollie payment provider plugin for `billing-foundation`, covering the DACH/EU mid-market use case.
