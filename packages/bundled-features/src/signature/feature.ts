@@ -33,7 +33,7 @@ import {
 } from "./web/constants.ts";
 
 export function createSignatureFeature(opts: SignatureOptions): FeatureDefinition {
-  const access = DEFAULT_SIGNATURE_ACCESS;
+  const access = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
   const requestEntity = createSignatureRequestEntity(opts.retention);
   const signerEntity = createSignatureSignerEntity(opts.retention);
   const anonymous = createAnonymousLinkHandlers(LINK_RATE_LIMIT);
@@ -119,7 +119,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       screen: "signature:screen:signature-list",
       icon: "file",
       order: 40,
-      access: { roles: ["TenantAdmin", "TenantMember"] },
+      access,
     });
   });
 }

@@ -23,13 +23,14 @@ the `files` feature. Order of signatures is free.
 
 ## Options
 
-| Option             | Default  | Effect                                                                                                                                                                    |
-| ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retention`        | required | `{ keepFor }`, counted from creation, hard delete                                                                                                                         |
-| `renderHtmlToPdf`  | required | Renders the signature page; an outage leaves `all-signed`, the job retries                                                                                                |
-| `linkSecret`       | required | HMAC secret of the links; empty rejects every link                                                                                                                        |
-| `deliverLink`      | required | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |
-| `signaturePageUrl` | required | URL of the app's signature page; the token is appended as `#<token>`                                                                                                      |
+| Option             | Default                                      | Effect                                                                                                                                                                    |
+| ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retention`        | required                                     | `{ keepFor }`, counted from creation, hard delete                                                                                                                         |
+| `renderHtmlToPdf`  | required                                     | Renders the signature page; an outage leaves `all-signed`, the job retries                                                                                                |
+| `linkSecret`       | required                                     | HMAC secret of the links; empty rejects every link                                                                                                                        |
+| `deliverLink`      | required                                     | `(ctx, delivery)`: sends the link to the signer (mail) inside `issue-link`'s transaction; `delivery.issuedBy` is the issuing user. The token is never in a handler result |
+| `signaturePageUrl` | required                                     | URL of the app's signature page; the token is appended as `#<token>`                                                                                                      |
+| `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of the signed-in handlers, queries, screens and nav; set it when the app hands out other roles. Link handlers stay anonymous                                 |
 
 ## Handlers
 

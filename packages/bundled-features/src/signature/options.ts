@@ -1,4 +1,4 @@
-import type { HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { AccessRule, HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import type { PdfOptions } from "../renderer-foundation/index.ts";
 import type { SignatureRetention } from "./entity.ts";
@@ -38,6 +38,8 @@ export type SignatureOptions = {
   readonly deliverLink: DeliverSignatureLink;
   /** URL of the app's signature page; the token is appended as `#<token>`. */
   readonly signaturePageUrl: string;
+  /** Access rule of the signed-in handlers, queries, screens and nav. Default `{ roles: ["TenantAdmin", "TenantMember"] }`; set it when the app hands out other roles. The link handlers stay anonymous. */
+  readonly access?: AccessRule;
 };
 
 export const LINK_RATE_LIMIT: RateLimitDeclaration = {
