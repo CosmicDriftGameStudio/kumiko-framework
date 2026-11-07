@@ -41,7 +41,7 @@ index. The model picks the page itself from the catalog of titles and questions.
 
    `pages` is validated once at boot. `access` is the declarative access of both
    handlers; the agent tool catalog only contains the tools for roles it admits.
-   `publicPath` is optional; page links append `#<page id>`.
+   `publicPath` is optional; page links are `<publicPath>/<page id>`, with or without a trailing slash.
 
 ## Handlers
 

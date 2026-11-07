@@ -70,7 +70,7 @@ describe("handbook-knowledge recipe", () => {
 
   test("read-page falls back to the default language and links the public handbook", async () => {
     const page = await queryIn<ReadResult>(READ_PAGE, { id: "lease-detail" }, "de");
-    expect(page).toMatchObject({ locale: "en", publicPath: "/handbuch#lease-detail" });
+    expect(page).toMatchObject({ locale: "en", publicPath: "/handbuch/lease-detail" });
     expect(page.bodyMd).toContain("tenants, rent and documents");
   });
 

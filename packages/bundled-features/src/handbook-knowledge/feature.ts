@@ -11,7 +11,7 @@ export type HandbookKnowledgeOptions = {
   /** The JSON written by `kumiko handbuch knowledge`; validated once at boot. */
   pages: unknown;
   access: AccessRule;
-  /** Where the public handbook lives (e.g. "/handbuch"); page links append `#<id>`. */
+  /** Where the public handbook lives (e.g. "/handbuch"); page links are `<publicPath>/<id>`, with or without a trailing slash. */
   publicPath?: string;
 };
 
