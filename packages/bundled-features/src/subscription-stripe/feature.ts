@@ -134,7 +134,9 @@ export type SubscriptionStripeOptions = {
   readonly paymentInvoiceCreation?: boolean;
   /** Shows Stripe's promotion-code field in every checkout of this app.
    *  Default false, because the field shows even when no code exists. Codes
-   *  and coupons are created in the Stripe dashboard, not in the app. */
+   *  and coupons are created in the Stripe dashboard, not in the app. The
+   *  consumer-protection confirmation mail shows the catalog price captured
+   *  at consent, not the discounted amount. */
   readonly allowPromotionCodes?: boolean;
   /** Allowlist of Stripe price-ids a mode:"payment" (one-off) checkout may
    *  target — checkout-core's `openCheckout` rejects any other priceId as

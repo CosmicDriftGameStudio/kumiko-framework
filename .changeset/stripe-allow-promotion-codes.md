@@ -8,5 +8,5 @@
 feature: subscription-stripe
 type: improvement
 title: Stripe checkout can accept promotion codes
-detail: The new option `allowPromotionCodes` sets `allow_promotion_codes` on every Checkout Session of the app, in subscription and payment mode. Coupons and promotion codes are created in the Stripe dashboard. Default false, so existing checkouts show no code field.
+detail: The new option `allowPromotionCodes` sets `allow_promotion_codes` on every Checkout Session of the app, in subscription and payment mode. Coupons and promotion codes are created in the Stripe dashboard. Default false, so existing checkouts show no code field. The consumer-protection confirmation mail still shows the catalog price captured at consent, not the discounted amount.
 -->
