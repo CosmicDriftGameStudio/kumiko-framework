@@ -132,6 +132,10 @@ export type SubscriptionStripeOptions = {
    *  mode:"subscription" — Stripe rejects invoice_creation there; the
    *  subscription's own invoicing covers it. */
   readonly paymentInvoiceCreation?: boolean;
+  /** Shows Stripe's promotion-code field in every checkout of this app.
+   *  Default false, because the field shows even when no code exists. Codes
+   *  and coupons are created in the Stripe dashboard, not in the app. */
+  readonly allowPromotionCodes?: boolean;
   /** Allowlist of Stripe price-ids a mode:"payment" (one-off) checkout may
    *  target — checkout-core's `openCheckout` rejects any other priceId as
    *  `unknown_price`. App-specific and empty by default: without an
@@ -240,6 +244,9 @@ export function createSubscriptionStripeFeature(
       createCheckoutSession: createStripeCheckoutSession(runtimes.ctx, {
         ...(options.paymentInvoiceCreation !== undefined && {
           paymentInvoiceCreation: options.paymentInvoiceCreation,
+        }),
+        ...(options.allowPromotionCodes !== undefined && {
+          allowPromotionCodes: options.allowPromotionCodes,
         }),
       }),
       createPortalSession: createStripePortalSession(runtimes.ctx),

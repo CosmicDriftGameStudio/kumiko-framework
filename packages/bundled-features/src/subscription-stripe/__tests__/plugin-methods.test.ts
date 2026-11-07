@@ -217,6 +217,41 @@ describe("createStripeCheckoutSession", () => {
     });
   });
 
+  test("allowPromotionCodes:true: checkout shows the promotion-code field", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/promo" } as any);
+
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe), { allowPromotionCodes: true });
+    await checkout(stubCtx, {
+      priceId: "price_team",
+      tenantId: "tenant-004",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+    });
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ allow_promotion_codes: true }),
+    );
+  });
+
+  test("default: no allow_promotion_codes in the session params", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/plain" } as any);
+
+    await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
+      priceId: "price_team",
+      tenantId: "tenant-004",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+    });
+
+    expect(createMock.mock.calls[0]?.[0]).not.toHaveProperty("allow_promotion_codes");
+  });
+
   test("mode='payment' + paymentInvoiceCreation:false: invoice_creation.enabled is false", async () => {
     const stripe = buildStripe();
     const createMock = spyOn(stripe.checkout.sessions, "create")
