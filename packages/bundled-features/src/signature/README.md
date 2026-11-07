@@ -39,7 +39,7 @@ agent tool. `request`, `issue-link` and `cancel` are agent tools with `risk: "mi
 
 ## Links
 
-`issue-link` hands the link (`https://app/sign#<token>`) to `deliverLink` and returns only `{ signerId, linkSentAt }`; an older link of the
+`issue-link` hands the link (`https://app/sign#<token>`) to `deliverLink`, which must not store it where other users or the assistant read it, and returns only `{ signerId, linkSentAt }`; an older link of the
 same signer stops working. A link lives 14 days, opens at most 20 times (`open-by-link` does not consume it)
 and dies with the first signature or refusal. Forged, expired, revoked, used up and already signed links
 all get the same 422. Of two simultaneous `sign-by-link` calls exactly one wins.

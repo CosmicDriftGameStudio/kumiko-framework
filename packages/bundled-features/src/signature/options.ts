@@ -21,6 +21,7 @@ export type SignatureLinkDelivery = {
 // The token never leaves the server in a handler result: whoever calls issue-link would otherwise
 // sign in the signer's place. The app sends the link to the signer's own address.
 // Runs inside issue-link's transaction with its full context, so the app can dispatch its own mail write.
+// The url must not land in an event, thread or record that other users or the assistant read.
 export type DeliverSignatureLink = (
   ctx: HandlerContext,
   delivery: SignatureLinkDelivery,
