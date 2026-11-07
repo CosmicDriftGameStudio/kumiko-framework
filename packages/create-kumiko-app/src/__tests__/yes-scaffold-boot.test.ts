@@ -319,11 +319,14 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     const exitCode = await runCreate({ name: "boot-prod-fixture", yes: true, cwd, log: () => {} });
     expect(exitCode).toBe(0);
 
+    // Unset, not "": the env contract rejects an empty key before kmsMode can report the missing trio.
+    const { PLATFORM_KEK, SUBJECT_KEYS_DATABASE_URL, KUMIKO_BLIND_INDEX_KEY, ...hostEnv } =
+      process.env;
     const proc = Bun.spawn({
       cmd: ["bun", "bin/main.ts"],
       cwd: join(cwd, "boot-prod-fixture"),
       env: {
-        ...process.env,
+        ...hostEnv,
         NODE_ENV: "production",
         KUMIKO_DRY_RUN_ENV: "boot",
         JWT_SECRET: "a".repeat(32),
@@ -331,9 +334,6 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
         DEMO_ADMIN_PASSWORD: TEST_ADMIN_PASSWORD,
         DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
         REDIS_URL: "redis://127.0.0.1:1",
-        PLATFORM_KEK: "",
-        SUBJECT_KEYS_DATABASE_URL: "",
-        KUMIKO_BLIND_INDEX_KEY: "",
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -345,7 +345,7 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     ]);
 
     expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).not.toBe(0);
+    expect(`${stdout}${stderr}`).toContain('kmsMode "required"');
     expect(`${stdout}${stderr}`).toContain("PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL");
-    expect(`${stdout}${stderr}`).toContain("are required here");
   });
 });

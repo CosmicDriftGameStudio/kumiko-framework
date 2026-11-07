@@ -65,7 +65,14 @@ describe("scaffoldApp starter blank", () => {
     for (const file of ["bin/env-schema.ts", "bin/main.ts", ".env.example", "README.md"]) {
       expect(readFileSync(join(dest, file), "utf-8"), file).not.toContain("DEMO_ADMIN_PASSWORD");
     }
-    expect(readFileSync(join(dest, "bin/main.ts"), "utf-8")).toContain("bootstrapAdminFromEnv");
+    const main = readFileSync(join(dest, "bin/main.ts"), "utf-8");
+    expect(main).toContain("bootstrapAdminFromEnv");
+    // The sync wiring rejects *_CIPHERTEXT keys; kmsMode resolves them through the Key Manager.
+    expect(main).toContain('{ kmsMode: "required" as const }');
+    expect(main).not.toContain("requireKmsWiring");
+    expect(readFileSync(join(dest, "bin/kumiko.ts"), "utf-8")).toContain(
+      "kmsSlotsOf(kmsEnvSchema)",
+    );
     expect(readFileSync(join(dest, ".env.example"), "utf-8")).toContain(
       "KUMIKO_BOOTSTRAP_ADMIN_EMAIL=",
     );
