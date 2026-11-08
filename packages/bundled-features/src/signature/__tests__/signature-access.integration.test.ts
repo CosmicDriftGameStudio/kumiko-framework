@@ -3,7 +3,6 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -79,7 +78,7 @@ async function seedDocument(): Promise<string> {
       mimeType: "application/pdf",
       size: content.length,
     },
-    createSystemUser(TENANT),
+    CUSTOM_ROLE_USER,
     db,
   );
   if (!created.isSuccess) throw new Error(`fileRef create failed: ${created.error.message}`);

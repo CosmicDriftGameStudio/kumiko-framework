@@ -1,10 +1,12 @@
 export type { SignatureRetention } from "./entity.ts";
 export { createSignatureFeature } from "./feature.ts";
 export type {
+  AuthorizeSignatureSubject,
   DeliverSignatureLink,
   RenderSignatureHtmlToPdf,
   SignatureLinkDelivery,
   SignatureOptions,
+  SignatureSubject,
 } from "./options.ts";
 export type { SignaturePageLabels } from "./signature-page.ts";
 export {

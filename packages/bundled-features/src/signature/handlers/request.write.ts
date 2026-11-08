@@ -1,11 +1,28 @@
-import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import {
+  type AccessRule,
+  defineWriteHandler,
+  type HandlerContext,
+  isUuid,
+} from "@cosmicdrift/kumiko-framework/engine";
+import {
+  NotFoundError,
+  UnprocessableError,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
+import {
+  canCallerReadFileRef,
+  type FileRef,
+  fileRefsTable,
+} from "@cosmicdrift/kumiko-framework/files";
 import { PDFDocument } from "pdf-lib";
 import { requestExecutor, signerExecutor } from "../entity.ts";
 import { readTenantFile, sha256Hex } from "../files.ts";
 import { RequestSignatureSchema } from "../payloads.ts";
+import type { SubjectScope } from "../subject-scope.ts";
 import {
   SIGNATURE_DEFAULT_VALIDITY_DAYS,
+  SIGNATURE_REQUEST_ENTITY,
   SIGNATURE_REQUEST_STATUS,
   SIGNATURE_SIGNER_STATUS,
 } from "../web/constants.ts";
@@ -28,7 +45,18 @@ async function isLoadablePdf(bytes: Uint8Array): Promise<boolean> {
   }
 }
 
-export function createRequestHandler(access: AccessRule) {
+// A file the caller may not open through GET /files/:id answers like an unknown id, so ids cannot be probed.
+async function isReadableTenantFile(ctx: HandlerContext, fileRefId: string): Promise<boolean> {
+  if (!isUuid(fileRefId)) return false;
+  const [fileRef] = await selectMany<FileRef>(ctx.db, fileRefsTable, {
+    id: fileRefId,
+    tenantId: ctx.user.tenantId,
+    isDeleted: false,
+  });
+  return fileRef !== undefined && (await canCallerReadFileRef(ctx, fileRef));
+}
+
+export function createRequestHandler(access: AccessRule, scope: SubjectScope) {
   return defineWriteHandler<"request", typeof RequestSignatureSchema, RequestSignatureData>({
     name: "request",
     schema: RequestSignatureSchema,
@@ -39,6 +67,12 @@ export function createRequestHandler(access: AccessRule) {
     handler: async (event, ctx) => {
       const payload = event.payload;
       const user = event.user;
+      if (!(await scope.allows(ctx, user, payload.subjectType, payload.subjectId))) {
+        return writeFailure(new NotFoundError(SIGNATURE_REQUEST_ENTITY));
+      }
+      if (!(await isReadableTenantFile(ctx, payload.documentFileId))) {
+        return writeFailure(new UnprocessableError("document_not_a_pdf"));
+      }
       const document = await readTenantFile(ctx, user.tenantId, payload.documentFileId);
       if (document === null || !(await isLoadablePdf(document.content))) {
         return writeFailure(new UnprocessableError("document_not_a_pdf"));

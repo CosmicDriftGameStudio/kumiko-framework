@@ -19,11 +19,12 @@ import {
   recordInPersonSignature,
   storeSignatureImage,
 } from "../signing.ts";
+import type { SubjectScope } from "../subject-scope.ts";
 import { SIGNATURE_METHOD, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts";
 
 export type SignInPersonData = { readonly requestStatus: string };
 
-export function createSignInPersonHandler(access: AccessRule) {
+export function createSignInPersonHandler(access: AccessRule, scope: SubjectScope) {
   return defineWriteHandler<"sign-in-person", typeof SignInPersonSchema, SignInPersonData>({
     name: "sign-in-person",
     schema: SignInPersonSchema,
@@ -36,6 +37,9 @@ export function createSignInPersonHandler(access: AccessRule) {
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, user, ctx.db);
       if (signer === null) return writeFailure(new NotFoundError("signer", event.payload.signerId));
       const request = await loadRequestOfSigner(ctx, user, signer);
+      if (request !== null && !(await scope.allowsRequest(ctx, user, request))) {
+        return writeFailure(new NotFoundError("signer", event.payload.signerId));
+      }
       const now = ctx.tz.now();
       if (request === null || !isOpenRequest(request, now) || !isUnsignedSigner(signer)) {
         return writeFailure(new UnprocessableError("signature_not_possible"));

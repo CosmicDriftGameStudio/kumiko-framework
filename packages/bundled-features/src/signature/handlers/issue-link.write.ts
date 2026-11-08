@@ -10,12 +10,14 @@ import { signSignatureLinkToken } from "../grant.ts";
 import { isOpenRequest, isUnsignedSigner, loadRequestOfSigner } from "../lib.ts";
 import type { SignatureOptions } from "../options.ts";
 import { SignerIdSchema } from "../payloads.ts";
+import type { SubjectScope } from "../subject-scope.ts";
 
 export type IssueLinkData = { readonly signerId: string; readonly linkSentAt: string };
 
 // A new link replaces the previous one: the anchor moves on, so the old token stops verifying.
 export function createIssueLinkHandler(
   access: AccessRule,
+  scope: SubjectScope,
   opts: Pick<SignatureOptions, "linkSecret" | "deliverLink" | "signaturePageUrl">,
 ) {
   return defineWriteHandler<"issue-link", typeof SignerIdSchema, IssueLinkData>({
@@ -30,6 +32,9 @@ export function createIssueLinkHandler(
       const signer = await signerExecutor.detail({ id: event.payload.signerId }, user, ctx.db);
       if (signer === null) return writeFailure(new NotFoundError("signer", event.payload.signerId));
       const request = await loadRequestOfSigner(ctx, user, signer);
+      if (request !== null && !(await scope.allowsRequest(ctx, user, request))) {
+        return writeFailure(new NotFoundError("signer", event.payload.signerId));
+      }
       const now = ctx.tz.now();
       if (request === null || !isOpenRequest(request, now) || !isUnsignedSigner(signer)) {
         return writeFailure(new UnprocessableError("link_not_possible"));

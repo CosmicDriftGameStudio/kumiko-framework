@@ -6,7 +6,7 @@ import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sess
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -48,6 +48,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
+// The requester uploads the contract: a request needs a document its caller may open.
 async function seedContract(): Promise<string> {
   const bytes = await (async () => {
     const pdf = await PDFDocument.create();
@@ -66,7 +67,7 @@ async function seedContract(): Promise<string> {
     entityName: "fileRef",
   }).create(
     { storageKey, fileName: "contract.pdf", mimeType: "application/pdf", size: bytes.length },
-    createSystemUser(TENANT),
+    admin,
     db,
   );
   if (!created.isSuccess) throw new Error(created.error.message);

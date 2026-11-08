@@ -32,6 +32,13 @@ the `files` feature. Order of signatures is free.
 | `signaturePageUrl` | required                                     | URL of the app's signature page; the token is appended as `#<token>`                                                                                                      |
 | `access`           | `{ roles: ["TenantAdmin", "TenantMember"] }` | `AccessRule` of the signed-in handlers, queries, screens and nav; set it when the app hands out other roles. Link handlers stay anonymous                                 |
 
+Subject scope: `authorizeSubject(ctx, user, { subjectType, subjectId })` limits requests to the
+subjects a user may see. It runs for every signed-in handler and query; `false` answers like a missing
+record. `unscopedRoles` (e.g. `["TenantAdmin"]`) skip it and are the only roles that see the list screen and
+nav while it is set. A scoped user passes a `subjectType` eq and a `subjectId` eq or in filter to
+`signatureRequest:list` and a `requestId` eq filter to `signatureSigner:list`, otherwise 403. `request` also
+refuses a document the caller cannot open through `GET /files/:id`.
+
 ## Handlers
 
 Signed in: `request`, `sign-in-person`, `issue-link`, `revoke-link`, `cancel`.

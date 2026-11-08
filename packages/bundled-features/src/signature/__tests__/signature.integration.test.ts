@@ -197,8 +197,9 @@ const ENCRYPTED_PDF = new TextEncoder().encode(
   ].join("\n"),
 );
 
+// The requesting user uploads the document: a request needs a file its caller may open.
 async function seedDocument(bytes?: Uint8Array): Promise<string> {
-  const user = createSystemUser(TENANT);
+  const user = USER;
   const db = createTenantDb({
     db: stack.db,
     tenantId: TENANT,
@@ -645,7 +646,7 @@ describe("signature :: boundaries", () => {
   );
 
   test("a document that is not a PDF is refused", async () => {
-    const user = createSystemUser(TENANT);
+    const user = USER;
     const db = createTenantDb({
       db: stack.db,
       tenantId: TENANT,
