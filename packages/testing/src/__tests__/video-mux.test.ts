@@ -129,6 +129,12 @@ describe("buildMuxArgs", () => {
     expect(args.slice(-3)).toEqual(["-metadata", "comment=AI voice", "out.mp4"]);
   });
 
+  test("encodes for the web with a fixed quality and the index up front", () => {
+    const args = buildMuxArgs(base, "list.txt").join(" ");
+    expect(args).toContain("-crf 28");
+    expect(args).toContain("-movflags +faststart");
+  });
+
   test("omits metadata without a comment", () => {
     expect(buildMuxArgs(base, "list.txt")).not.toContain("-metadata");
   });
