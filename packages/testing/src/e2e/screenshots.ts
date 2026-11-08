@@ -144,7 +144,10 @@ function pageFingerprint(): string {
 
 // Replaces fixed sleeps: settled = no data request in flight and an unchanged
 // DOM/scroll-size/animation fingerprint over STABLE_POLLS consecutive polls.
-async function waitForSettledPage(page: Page, inFlightDataRequests: () => number): Promise<void> {
+export async function waitForSettledPage(
+  page: Page,
+  inFlightDataRequests: () => number,
+): Promise<void> {
   let previous: string | undefined;
   let stablePolls = 0;
   await expect

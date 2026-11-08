@@ -88,3 +88,14 @@ export {
   type SeedTenantFixture,
   test,
 } from "./seeded-tenant-fixture";
+export {
+  DEFAULT_TTS_MODEL,
+  defineVideo,
+  type VideoDefinition,
+  type VideoScene,
+  type VideoSceneContext,
+  type VideoTools,
+  type VideoVoice,
+} from "./video/define-video";
+export { type RunVideosOptions, runVideos } from "./video/run-videos";
+export { findVideoTextGaps, loadVideoTexts } from "./video/video-texts";
