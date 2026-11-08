@@ -197,8 +197,8 @@ export async function loadUpcastedAggregate(
 
 type LoadByTypesArgs = Parameters<HandlerContext["events"]["loadByTypes"]>[0];
 
-/** Shared by handler and job `ctx.events.loadByTypes`; upcasters keep the event type, so the SQL type filter stays valid. */
-export async function loadUpcastedEventsByTypes(
+/** Upcasters keep the event type, so the SQL type filter stays valid after upcasting. */
+async function loadUpcastedEventsByTypes(
   source: { readonly db: DbRunner; readonly registry: Registry; readonly tenantId: TenantId },
   args: LoadByTypesArgs,
 ): Promise<readonly StoredEvent[]> {
