@@ -163,8 +163,9 @@ export type HandlerObservability = {
 };
 
 // `append`: own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
-// `load`, `loadByTypes`: same semantics as in handlers, scoped to the job's tenant.
-export type JobEvents = Pick<HandlerEvents, "append" | "load" | "loadByTypes">;
+// `load`: same semantics as in handlers, scoped to the job's tenant. `loadByTypes` stays
+// handler-only so job contexts built by consumers (probes, boot seeding) need no new member.
+export type JobEvents = Pick<HandlerEvents, "append" | "load">;
 
 // `write` runs as the job's systemUser; `writeAs`/`queryAs` take an explicit identity. They throw
 // until JobRunner.attachDispatcher() has run. `queryAsMember`'s tenant is the job's resolved tenant.

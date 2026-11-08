@@ -1030,7 +1030,7 @@ type JobDefinition = {
   irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler | undefined;
 };
 type JobDispatch = Pick<HandlerDispatch, "write" | "writeAs" | "queryAs" | "queryAsMember">;
-type JobEvents = Pick<HandlerEvents, "append" | "load" | "loadByTypes">;
+type JobEvents = Pick<HandlerEvents, "append" | "load">;
 type JobHandlerFn = (payload: Record<string, unknown>, context: JobContext) => Promise<void | JobDeferral>;
 type JobObservability = Pick<HandlerObservability, "log" | "metricsFor" | "meter">;
 type JobTrigger =

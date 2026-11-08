@@ -3,7 +3,7 @@
 "@cosmicdrift/kumiko-types": minor
 ---
 
-`ctx.events.loadByTypes({ aggregateIds, eventTypes, includeArchived? })` reads the events of several aggregates filtered by event type in one tenant-scoped, upcasted query, in handlers and jobs, instead of one `ctx.events.load` per aggregate.
+`ctx.events.loadByTypes({ aggregateIds, eventTypes, includeArchived? })` reads the events of several aggregates filtered by event type in one tenant-scoped, upcasted query in handlers, instead of one `ctx.events.load` per aggregate.
 
 <!-- kumiko-changes
 feature: framework
