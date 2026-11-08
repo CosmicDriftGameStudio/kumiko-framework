@@ -27,6 +27,17 @@ export type DeliverSignatureLink = (
   delivery: SignatureLinkDelivery,
 ) => Promise<void>;
 
+export type SignatureSubject = {
+  readonly subjectType: string;
+  readonly subjectId: string;
+};
+
+export type AuthorizeSignatureSubject = (
+  ctx: HandlerContext,
+  user: SessionUser,
+  subject: SignatureSubject,
+) => Promise<boolean>;
+
 export type SignatureOptions = {
   /** How long requests and signers are kept, data-retention keepFor syntax, counted from creation. */
   readonly retention: SignatureRetention;
@@ -40,6 +51,10 @@ export type SignatureOptions = {
   readonly signaturePageUrl: string;
   /** Access rule of the signed-in handlers, queries, screens and nav. Default `{ roles: ["TenantAdmin", "TenantMember"] }`; set it when the app hands out other roles. The link handlers stay anonymous. */
   readonly access?: AccessRule;
+  /** Runs for every signed-in handler and query on the subject of the request, except for `unscopedRoles`. `false` answers like "does not exist". Without it every user with `access` sees every request of the tenant. */
+  readonly authorizeSubject?: AuthorizeSignatureSubject;
+  /** Roles that skip `authorizeSubject`, e.g. admins. With `authorizeSubject` set, only these roles see the list screen and the nav. */
+  readonly unscopedRoles?: readonly string[];
 };
 
 export const LINK_RATE_LIMIT: RateLimitDeclaration = {

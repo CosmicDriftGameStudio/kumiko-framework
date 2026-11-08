@@ -10,7 +10,7 @@ import {
   staticSuccess,
   takeUrlToken,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/static-client";
-import { SignatureHandlers } from "./web/constants.ts";
+import { SIGNATURE_INVALID_LINK_REASON, SignatureHandlers } from "./web/constants.ts";
 
 export {
   hrefWithoutUrlToken,
@@ -29,6 +29,7 @@ export {
   type SignaturePadCanvas,
   type SignaturePadOptions,
 } from "./web/pad.ts";
+export { SIGNATURE_INVALID_LINK_REASON };
 
 export type SignatureLinkView = {
   readonly title: string;
