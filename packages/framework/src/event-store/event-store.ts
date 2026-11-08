@@ -20,13 +20,15 @@ import {
   runAtomicEventWrite,
   type SubsequentEventInsertRow,
   selectAggregateMaxVersion,
+  selectEventRowsOfAggregatesByType,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
   selectStreamMaxVersions,
 } from "../db/queries/event-store.ts";
-import { selectMany } from "../db/query.ts";
+import { coerceRow, selectMany } from "../db/query.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import type { TenantId } from "../engine/types/index.ts";
-import { isStreamArchived } from "./archive.ts";
+import { isStreamArchived, selectArchivedAggregateIds } from "./archive.ts";
 import {
   IdempotentAppendConflictError,
   SeedTimeOrderError,
@@ -332,6 +334,33 @@ export async function loadAggregate(
       { orderBy: { col: "version", direction: "asc" } },
     );
     return rows.map(toStoredEvent);
+  });
+}
+
+// Events of several aggregates filtered by event type in one query, so a list page does not
+// load every stream (N+1). Ordered by the global id: within one aggregate that is version order.
+// Archived streams are left out unless includeArchived, as in loadAggregate.
+export async function loadEventsOfAggregatesByType(
+  db: DbRunner,
+  tenantId: TenantId,
+  args: {
+    readonly aggregateIds: readonly string[];
+    readonly eventTypes: readonly string[];
+    readonly includeArchived?: boolean;
+  },
+): Promise<readonly StoredEvent[]> {
+  const { aggregateIds, eventTypes, includeArchived } = args;
+  if (aggregateIds.length === 0 || eventTypes.length === 0) return [];
+  return inEventStreamScope(tenantId, async () => {
+    const archivedIds = includeArchived
+      ? new Set<string>()
+      : await selectArchivedAggregateIds(db, tenantId, aggregateIds);
+    const rawRows = await selectEventRowsOfAggregatesByType(db, tenantId, aggregateIds, eventTypes);
+    const info = extractTableInfo(eventsTable);
+    return rawRows
+      .map((raw) => coerceRow<SelectedEvent>(raw, info))
+      .filter((row) => !archivedIds.has(row.aggregateId))
+      .map(toStoredEvent);
   });
 }
 

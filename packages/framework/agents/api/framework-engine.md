@@ -967,6 +967,7 @@ type HandlerEvents<TMap extends object = KumikoEventTypeMap> = { // Event-store 
   tryAppend: TryAppendEventFn; // Optimistic append: runs in a savepoint and returns a version conflict as a result instead of throwing, so the handler can continue after losing a race on the same aggregate stream.
   fetchForWriting: (args: FetchForWritingArgs) => Promise<AggregateStreamHandle>;
   load: (aggregateId: string, options?: { asOf?: Temporal.Instant; atVersion?: never; includeArchived?: boolean; } | { atVersion?: number; asOf?: never; includeArchived?: boolean; }) => Promise<StoredEvent[]>;
+  loadByTypes: (args: { aggregateIds: string[]; eventTypes: string[]; includeArchived?: boolean; }) => Promise<StoredEvent[]>;
   archive: (aggregateId: string, args: { aggregateType: string; reason?: string; }) => Promise<void>;
   restore: (aggregateId: string) => Promise<void>;
   isArchived: (aggregateId: string) => Promise<boolean>;
@@ -1029,7 +1030,7 @@ type JobDefinition = {
   irreversibleWithoutEntryHandler?: IrreversibleWithoutEntryHandler | undefined;
 };
 type JobDispatch = Pick<HandlerDispatch, "write" | "writeAs" | "queryAs" | "queryAsMember">;
-type JobEvents = Pick<HandlerEvents, "append" | "load">;
+type JobEvents = Pick<HandlerEvents, "append" | "load" | "loadByTypes">;
 type JobHandlerFn = (payload: Record<string, unknown>, context: JobContext) => Promise<void | JobDeferral>;
 type JobObservability = Pick<HandlerObservability, "log" | "metricsFor" | "meter">;
 type JobTrigger =

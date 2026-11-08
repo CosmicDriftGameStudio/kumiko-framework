@@ -81,6 +81,7 @@ export function bridgeStub(opts?: {
       tryAppend: notAvailable("events.tryAppend"),
       fetchForWriting: notAvailable("events.fetchForWriting"),
       load: notAvailable("events.load"),
+      loadByTypes: notAvailable("events.loadByTypes"),
       archive: notAvailable("events.archive"),
       restore: notAvailable("events.restore"),
       isArchived: notAvailable("events.isArchived"),

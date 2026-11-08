@@ -10,6 +10,7 @@
 //   - r.projection — single-stream read model (inline in the write TX)
 //   - r.multiStreamProjection — cross-aggregate async read model
 //   - ctx.events.load with { asOf } — point-in-time aggregate state
+//   - ctx.events.loadByTypes — events of many aggregates, filtered by type, in one query
 //   - ctx.events.archive / ctx.events.restore — Marten ArchiveStream
 //   - ctx.dispatch.queryProjection — tenant-scoped read of a projection table
 //   - ctx.events.snapshot + ctx.events.loadWithSnapshot — perf path
@@ -393,6 +394,36 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       openToAll: {
         reason:
           "demo recipe: any signed-in user may read the event-sourced invoice state; " +
+          "there is no per-user invoice ownership in this sample",
+      },
+    },
+  });
+
+  // List page over many invoices: ONE query for just the approved/paid events of the
+  // requested aggregates instead of ctx.events.load per invoice.
+  r.queryHandler({
+    name: "invoice:payment-statuses",
+    schema: z.object({ ids: z.array(z.uuid()).max(200) }),
+    handler: async (query, ctx) => {
+      const events = await ctx.events.loadByTypes({
+        aggregateIds: query.payload.ids,
+        eventTypes: [approved.name, paid.name],
+      });
+      const lastEventByInvoice = new Map<string, string>();
+      for (const evt of events) {
+        lastEventByInvoice.set(evt.aggregateId, evt.type);
+      }
+      return {
+        statuses: [...lastEventByInvoice].map(([id, lastEventType]) => ({
+          id,
+          status: lastEventType === paid.name ? "paid" : "approved",
+        })),
+      };
+    },
+    access: {
+      openToAll: {
+        reason:
+          "demo recipe: any signed-in user may read invoice payment statuses; " +
           "there is no per-user invoice ownership in this sample",
       },
     },

@@ -319,6 +319,35 @@ export async function selectStreamMaxVersions(
   return versions;
 }
 
+/** Raw driver rows of the matching events (columns as in kumiko_events), ordered by the global id. */
+export async function selectEventRowsOfAggregatesByType(
+  db: AnyDb,
+  tenantId: string,
+  aggregateIds: readonly string[],
+  eventTypes: readonly string[],
+): Promise<readonly Record<string, unknown>[]> {
+  if (aggregateIds.length === 0 || eventTypes.length === 0) return [];
+  return unsafeReadRetrying<Record<string, unknown>>(
+    db,
+    `SELECT * FROM "kumiko_events" WHERE "tenant_id" = $1 AND "aggregate_id" = ANY($2::uuid[]) AND "type" = ANY($3::text[]) ORDER BY "id" ASC`,
+    [tenantId, toPostgresArrayLiteral(aggregateIds), toPostgresArrayLiteral(eventTypes)],
+  );
+}
+
+export async function selectArchivedAggregateIdsOf(
+  db: AnyDb,
+  tenantId: string,
+  aggregateIds: readonly string[],
+): Promise<readonly string[]> {
+  if (aggregateIds.length === 0) return [];
+  const rows = await unsafeReadRetrying<{ aggregate_id: string }>(
+    db,
+    `SELECT "aggregate_id" FROM "kumiko_archived_streams" WHERE "tenant_id" = $1 AND "aggregate_id" = ANY($2::uuid[])`,
+    [tenantId, toPostgresArrayLiteral(aggregateIds)],
+  );
+  return rows.map((row) => row.aggregate_id);
+}
+
 /** MAX(version) for one aggregate stream — no tenant filter (seed idempotency). */
 export async function selectAggregateMaxVersion(db: AnyDb, aggregateId: string): Promise<number> {
   const rows = await unsafeReadRetrying<{ v: number | null }>(

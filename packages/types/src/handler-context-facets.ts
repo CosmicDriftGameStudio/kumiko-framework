@@ -73,6 +73,14 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
           readonly includeArchived?: boolean;
         },
   ) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
+  // Events of several aggregates filtered by event type in ONE query (tenant-scoped, upcasted,
+  // ordered by append order, archived streams left out unless includeArchived). Use instead of
+  // load() per aggregate when a page needs only a few event types.
+  readonly loadByTypes: (args: {
+    readonly aggregateIds: readonly string[];
+    readonly eventTypes: readonly string[];
+    readonly includeArchived?: boolean;
+  }) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
   // Marten-aligned stream lifecycle. Archived streams become read-only:
   // events.append throws ArchivedStreamError, events.load returns []
   // (pass { includeArchived: true } to override).
@@ -155,8 +163,8 @@ export type HandlerObservability = {
 };
 
 // `append`: own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
-// `load`: same semantics as in handlers, scoped to the job's tenant.
-export type JobEvents = Pick<HandlerEvents, "append" | "load">;
+// `load`, `loadByTypes`: same semantics as in handlers, scoped to the job's tenant.
+export type JobEvents = Pick<HandlerEvents, "append" | "load" | "loadByTypes">;
 
 // `write` runs as the job's systemUser; `writeAs`/`queryAs` take an explicit identity. They throw
 // until JobRunner.attachDispatcher() has run. `queryAsMember`'s tenant is the job's resolved tenant.

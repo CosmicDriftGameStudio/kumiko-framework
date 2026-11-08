@@ -29,6 +29,7 @@ import {
   loadAggregate,
   loadAggregateAsOf,
   loadAggregateForWriting,
+  loadEventsOfAggregatesByType,
   type StoredEvent,
 } from "../event-store/event-store.ts";
 import {
@@ -194,6 +195,26 @@ export async function loadUpcastedAggregate(
   return upcastStoredEvents(events, registry.getEventUpcasters(), makeUpcastCtx(db, tenantId));
 }
 
+type LoadByTypesArgs = Parameters<HandlerContext["events"]["loadByTypes"]>[0];
+
+/** Shared by handler and job `ctx.events.loadByTypes`; upcasters keep the event type, so the SQL type filter stays valid. */
+export async function loadUpcastedEventsByTypes(
+  source: { readonly db: DbRunner; readonly registry: Registry; readonly tenantId: TenantId },
+  args: LoadByTypesArgs,
+): Promise<readonly StoredEvent[]> {
+  const { db, registry, tenantId } = source;
+  const events = await loadEventsOfAggregatesByType(db, tenantId, args);
+  return upcastStoredEvents(events, registry.getEventUpcasters(), makeUpcastCtx(db, tenantId));
+}
+
+function buildLoadByTypes(scope: HandlerContextScope) {
+  const { ctx, user, tx, registry } = scope;
+  return (args: LoadByTypesArgs): Promise<readonly StoredEvent[]> => {
+    const db = requireDbSource(ctx, tx, "ctx.events.loadByTypes");
+    return loadUpcastedEventsByTypes({ db, registry, tenantId: user.tenantId }, args);
+  };
+}
+
 function buildLoadAggregate(scope: HandlerContextScope) {
   const { ctx, user, tx, registry } = scope;
   return (
@@ -288,6 +309,7 @@ export function buildEventStoreFacet(scope: HandlerContextScope): {
     tryAppend: buildTryAppendEvent(scope),
     fetchForWriting: buildFetchForWriting(scope),
     load: buildLoadAggregate(scope),
+    loadByTypes: buildLoadByTypes(scope),
     archive: async (
       aggregateId: string,
       archiveArgs: { readonly aggregateType: string; readonly reason?: string },

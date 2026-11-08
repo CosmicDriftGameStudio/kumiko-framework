@@ -2,7 +2,7 @@
 
 import type { DbConnection, DbRunner } from "../db/connection.ts";
 import { instant, table as pgTable, sql, text, uniqueIndex, uuid } from "../db/dialect.ts";
-import { upsertArchivedStream } from "../db/queries/event-store.ts";
+import { selectArchivedAggregateIdsOf, upsertArchivedStream } from "../db/queries/event-store.ts";
 import { deleteMany, fetchOne } from "../db/query.ts";
 import { tableExists } from "../db/schema-inspection.ts";
 import { ensureTableRowLevelSecurity, unsafePushTables } from "../db/table-push.ts";
@@ -71,6 +71,15 @@ export async function isStreamArchived(
 ): Promise<boolean> {
   const row = await fetchOne(db, archivedStreamsTable, { tenantId, aggregateId });
   return row !== undefined;
+}
+
+// One query for a whole page of aggregates instead of one isStreamArchived probe each.
+export async function selectArchivedAggregateIds(
+  db: DbRunner,
+  tenantId: TenantId,
+  aggregateIds: readonly string[],
+): Promise<ReadonlySet<string>> {
+  return new Set(await selectArchivedAggregateIdsOf(db, tenantId, aggregateIds));
 }
 
 // Undo an archive — restores the stream to writable state. Ops tool. The
