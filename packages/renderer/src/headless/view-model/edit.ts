@@ -1,7 +1,9 @@
 import type {
   EditExtensionSection,
   EditFieldSpec,
+  EditFieldsSection,
   EditRelatedListSection,
+  EditSectionSpec,
   EditStepListSection,
   EditWriteFormSection,
   EmbeddedListEditSpec,
@@ -108,6 +110,9 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
     ...(sectionSpec.description !== undefined && {
       description: translate(sectionSpec.description),
     }),
+    ...(sectionSpec.descriptionNarrow !== undefined && {
+      descriptionNarrow: translate(sectionSpec.descriptionNarrow),
+    }),
     columns: sectionSpec.columns ?? 1,
     fields,
     ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
@@ -115,6 +120,7 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
     ...(sectionSpec.submitLabel !== undefined && {
       submitLabel: translate(sectionSpec.submitLabel),
     }),
+    ...(sectionSpec.submitWith !== undefined && { submitWith: sectionSpec.submitWith }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
   };
 }
@@ -214,19 +220,32 @@ export function computeRelatedListSectionViewModel(
     ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
     title: translate(sectionSpec.title),
     query: sectionSpec.query,
-    ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
-    ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
     columns: sectionSpec.columns,
-    ...(sectionSpec.entity !== undefined && { entity: sectionSpec.entity }),
     ...(sectionSpec.description !== undefined && {
       description: translate(sectionSpec.description),
     }),
+    ...relatedListQueryProps(sectionSpec),
+    ...relatedListRowProps(sectionSpec),
+    ...relatedListEmptyStateProps(sectionSpec, translate),
+  };
+}
+
+function relatedListQueryProps(sectionSpec: EditRelatedListSection) {
+  return {
+    ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
+    ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
+    ...(sectionSpec.entity !== undefined && { entity: sectionSpec.entity }),
     ...(sectionSpec.itemNoun !== undefined && { itemNoun: sectionSpec.itemNoun }),
     ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
     ...(sectionSpec.table !== undefined && { table: sectionSpec.table }),
     ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
     ...(sectionSpec.searchable !== undefined && { searchable: sectionSpec.searchable }),
     ...(sectionSpec.facets !== undefined && { facets: sectionSpec.facets }),
+  };
+}
+
+function relatedListRowProps(sectionSpec: EditRelatedListSection) {
+  return {
     ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
     ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
     ...(sectionSpec.rowActionMode !== undefined && { rowActionMode: sectionSpec.rowActionMode }),
@@ -235,29 +254,32 @@ export function computeRelatedListSectionViewModel(
     ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
     ...(sectionSpec.photoGrid !== undefined && { photoGrid: sectionSpec.photoGrid }),
-    ...(sectionSpec.emptyState !== undefined && {
-      emptyState: {
-        title: translate(sectionSpec.emptyState.title),
-        ...(sectionSpec.emptyState.description !== undefined && {
-          description: translate(sectionSpec.emptyState.description),
-        }),
-        // Action stays untranslated, same convention as rowActions/
-        // toolbarActions above — the renderer's row-actions builder
-        // translates `action.label` at button-build time.
-        ...(sectionSpec.emptyState.action !== undefined && {
-          action: sectionSpec.emptyState.action,
-        }),
-        ...(sectionSpec.emptyState.variants !== undefined && {
-          variants: sectionSpec.emptyState.variants.map((variant) => ({
-            when: variant.when,
-            title: translate(variant.title),
-            ...(variant.description !== undefined && {
-              description: translate(variant.description),
-            }),
-          })),
-        }),
-      },
-    }),
+  };
+}
+
+function relatedListEmptyStateProps(sectionSpec: EditRelatedListSection, translate: Translate) {
+  const { emptyState } = sectionSpec;
+  if (emptyState === undefined) return {};
+  return {
+    emptyState: {
+      title: translate(emptyState.title),
+      ...(emptyState.description !== undefined && {
+        description: translate(emptyState.description),
+      }),
+      // Action stays untranslated, same convention as rowActions/
+      // toolbarActions above — the renderer's row-actions builder
+      // translates `action.label` at button-build time.
+      ...(emptyState.action !== undefined && { action: emptyState.action }),
+      ...(emptyState.variants !== undefined && {
+        variants: emptyState.variants.map((variant) => ({
+          when: variant.when,
+          title: translate(variant.title),
+          ...(variant.description !== undefined && {
+            description: translate(variant.description),
+          }),
+        })),
+      }),
+    },
   };
 }
 
@@ -277,7 +299,16 @@ function translateAffix(affix: FieldAffix, translate: Translate): FieldAffix {
 
 type FieldAffixHints = Pick<
   EditFieldViewModel,
-  "placeholder" | "prefix" | "suffix" | "fillAction" | "aiAssist" | "valueChips"
+  | "placeholder"
+  | "prefix"
+  | "suffix"
+  | "fillAction"
+  | "aiAssist"
+  | "valueChips"
+  | "concealed"
+  | "badge"
+  | "hintField"
+  | "hideOnNarrow"
 >;
 
 function deriveFieldAffixHints(
@@ -322,6 +353,15 @@ function deriveFieldAffixHints(
       },
     }),
     ...(normalized.valueChips !== undefined && { valueChips: normalized.valueChips }),
+    ...(normalized.concealed === true && { concealed: true as const }),
+    ...(normalized.badge !== undefined && {
+      badge:
+        "label" in normalized.badge
+          ? { label: translate(normalized.badge.label), tone: normalized.badge.tone }
+          : normalized.badge,
+    }),
+    ...(normalized.hintField !== undefined && { hintField: normalized.hintField }),
+    ...(normalized.hideOnNarrow === true && { hideOnNarrow: true as const }),
   };
 }
 
@@ -727,6 +767,25 @@ function isEditFieldRequired(
     : isFieldRequired(fieldDef, values);
 }
 
+function computeNonFieldsSectionViewModel(
+  sectionSpec: Exclude<EditSectionSpec, EditFieldsSection>,
+  screenId: string,
+  values: Readonly<Record<string, unknown>>,
+  translate: Translate,
+  featureName: string,
+): EditSectionViewModel {
+  if (isExtensionEditSection(sectionSpec)) {
+    return buildExtensionSectionViewModel(sectionSpec, translate);
+  }
+  if (isWriteFormEditSection(sectionSpec)) {
+    return computeWriteFormSectionViewModel(sectionSpec, screenId, values, translate, featureName);
+  }
+  if (sectionSpec.kind === "stepList") {
+    return computeStepListSectionViewModel(sectionSpec, values, translate);
+  }
+  return computeRelatedListSectionViewModel(sectionSpec, translate);
+}
+
 export function computeEditViewModel<
   TValues extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
 >(input: ComputeEditViewModelInput<TValues>): EditViewModel {
@@ -745,24 +804,15 @@ export function computeEditViewModel<
   const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
     mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
 
-  const sections: EditSectionViewModel[] = screen.layout.sections.map((sectionSpec) => {
-    if (isExtensionEditSection(sectionSpec)) {
-      return buildExtensionSectionViewModel(sectionSpec, translate);
-    }
-    if (isWriteFormEditSection(sectionSpec)) {
-      return computeWriteFormSectionViewModel(
+  const baseSections: EditSectionViewModel[] = screen.layout.sections.map((sectionSpec) => {
+    if (!isFieldsEditSection(sectionSpec)) {
+      return computeNonFieldsSectionViewModel(
         sectionSpec,
         screen.id,
         values,
         translate,
         featureName,
       );
-    }
-    if (sectionSpec.kind === "stepList") {
-      return computeStepListSectionViewModel(sectionSpec, values, translate);
-    }
-    if (!isFieldsEditSection(sectionSpec)) {
-      return computeRelatedListSectionViewModel(sectionSpec, translate);
     }
     // `groups` flattens into the same per-field pipeline as plain `fields`;
     // the group structure below just re-groups the computed views by name.
@@ -886,6 +936,7 @@ export function computeEditViewModel<
       .map((group) => ({
         title: translate(group.title),
         columns: group.columns ?? 2,
+        ...(group.columns !== undefined && { columnsDeclared: true as const }),
         fields: group.fields.map((fieldSpec) => {
           const fieldName = normalizeEditField(fieldSpec).field;
           const fieldView = fields.find((f) => f.field === fieldName);
@@ -904,8 +955,12 @@ export function computeEditViewModel<
       visible,
       emptiedByWriteExclusion: wasEmptiedByWriteExclusion(declaredFieldSpecs, fields),
       ...translateSectionTexts(sectionSpec, translate),
+      ...(sectionSpec.descriptionNarrow !== undefined && {
+        descriptionNarrow: translate(sectionSpec.descriptionNarrow),
+      }),
       ...(sectionSpec.summaryField !== undefined && { summaryField: sectionSpec.summaryField }),
       columns: sectionSpec.columns ?? defaultColumns,
+      ...(sectionSpec.columns !== undefined && { columnsDeclared: true as const }),
       fields,
       ...(groups !== undefined && { groups }),
       ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),
@@ -913,6 +968,12 @@ export function computeEditViewModel<
     };
   });
 
+  const sections = baseSections.map((section, index) => {
+    const sectionSpec = screen.layout.sections[index];
+    return sectionSpec === undefined
+      ? section
+      : withSectionPresentation(section, sectionSpec, translate);
+  });
   const idValue = values["id"];
   const id = typeof idValue === "string" ? idValue : null;
 
@@ -922,6 +983,21 @@ export function computeEditViewModel<
     id,
     sections,
     ...(screen.slots && { slots: screen.slots }),
+  };
+}
+
+function withSectionPresentation(
+  section: EditSectionViewModel,
+  spec: EditSectionSpec,
+  translate: Translate,
+): EditSectionViewModel {
+  return {
+    ...section,
+    ...(spec.tabLabel !== undefined && { tabLabel: translate(spec.tabLabel) }),
+    ...(spec.after !== undefined && { after: spec.after }),
+    ...(spec.hideOnNarrow === true && { hideOnNarrow: true as const }),
+    ...(spec.showOnNarrowOnly === true && { showOnNarrowOnly: true as const }),
+    ...(spec.titleOnNarrow === false && { titleOnNarrow: false as const }),
   };
 }
 

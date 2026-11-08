@@ -172,10 +172,8 @@ describe("validateBoot — list emptyState", () => {
     });
   }
 
-  test("an emptyState action without a resolvable icon throws", () => {
-    expect(bootMessage(listWithEmptyAction("custom-thing"))).toMatch(
-      /emptyState action "custom-thing" has no resolvable icon/,
-    );
+  test("an emptyState action without a resolvable icon passes (the button draws none)", () => {
+    expect(bootMessage(listWithEmptyAction("custom-thing"))).toBe("");
   });
 
   test("an emptyState action whose id resolves a default icon passes the icon check", () => {

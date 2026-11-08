@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "../../index.ts";
 import { Checkbox } from "../ui/checkbox.tsx";
 import { Switch } from "../ui/switch.tsx";
 import { ComboboxInput } from "./combobox.tsx";
 import {
+  fieldLabelId,
   RadioListSelect,
   SegmentedSelect,
   withInlineDisabledHint,
@@ -11,12 +13,36 @@ import {
 import { stateProps } from "./input-optional-props.ts";
 import { resolveSelectPresentation } from "./input-select-presentation.ts";
 import type { KindRenderer, PropsOfKind } from "./input-shared.ts";
+import { SegmentedControl } from "./segmented-select.tsx";
 
 // layout="inline" (checkbox lists like MultiSelectCheckboxes, the
 // BooleanField widget) keeps the checkbox optics; the standard form
 // field (render-field.tsx, layout="stacked") gets the switch.
+// A settings row (layout="row") shows the flag as an Off/On segment, not a switch.
+function BooleanSegment(props: PropsOfKind<"boolean">): ReactNode {
+  const t = useTranslation();
+  return (
+    <SegmentedControl
+      id={props.id}
+      name={props.name}
+      value={props.value ? "on" : "off"}
+      onChange={(next) => props.onChange(next === "on")}
+      options={[
+        { value: "off", label: t("kumiko.config.cascade.off") },
+        { value: "on", label: t("kumiko.config.cascade.on") },
+      ]}
+      disabled={props.disabled}
+      required={props.required}
+      hasError={props.hasError}
+      labelProps={{ "aria-labelledby": fieldLabelId(props.id) }}
+    />
+  );
+}
+
 export const renderBooleanKind: KindRenderer<"boolean"> = (props, { booleanLayout }) =>
-  booleanLayout === "inline" ? (
+  booleanLayout === "row" ? (
+    <BooleanSegment {...props} />
+  ) : booleanLayout === "inline" ? (
     <Checkbox
       id={props.id}
       name={props.name}

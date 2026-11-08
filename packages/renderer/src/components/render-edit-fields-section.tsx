@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { FormValues } from "../headless/index.ts";
+import type { SectionProps } from "../primitives.tsx";
+import { narrowAwareDescription } from "./narrow-description.tsx";
 import { renderAllRequiredHint } from "./render-edit-banners.tsx";
 import { renderFieldGrid } from "./render-edit-field-grid.tsx";
 import { sectionNavAnchorId } from "./render-edit-helpers.tsx";
@@ -17,6 +19,9 @@ function renderTabbedGroupsSection<TValues extends FormValues, TCtx>(
         <Card
           key={group.title}
           slots={{ title: group.title }}
+          {...(rc.model.engine.props.recordSections?.labelTitles === true && {
+            options: { titleStyle: "label" as const },
+          })}
           testId={`section-${sectionKey}-group-${groupIndex}`}
         >
           {renderFieldGrid(
@@ -25,6 +30,7 @@ function renderTabbedGroupsSection<TValues extends FormValues, TCtx>(
             group.fields,
             group.columns,
             `${sectionKey}-group-${groupIndex}-grid`,
+            group.columnsDeclared === true,
           )}
         </Card>
       ))}
@@ -40,7 +46,9 @@ function renderTabbedGroupsSection<TValues extends FormValues, TCtx>(
     <Card
       key={sectionKey}
       options={{ framed: false }}
-      {...(section.description !== undefined && { slots: { subtitle: section.description } })}
+      {...(section.description !== undefined && {
+        slots: { subtitle: narrowAwareDescription(section.description, section.descriptionNarrow) },
+      })}
     >
       {groupsGrid}
     </Card>,
@@ -65,13 +73,22 @@ function renderTabbedFieldsSection<TValues extends FormValues, TCtx>(
       options={{ framed: false }}
       {...((sectionActionsEl !== undefined || section.description !== undefined) && {
         slots: {
-          ...(section.description !== undefined && { subtitle: section.description }),
+          ...(section.description !== undefined && {
+            subtitle: narrowAwareDescription(section.description, section.descriptionNarrow),
+          }),
           ...(sectionActionsEl !== undefined && { headerActions: sectionActionsEl }),
         },
       })}
       testId={`section-${sectionKey}`}
     >
-      {renderFieldGrid(rc.model, section, section.fields, section.columns, `${sectionKey}-grid`)}
+      {renderFieldGrid(
+        rc.model,
+        section,
+        section.fields,
+        section.columns,
+        `${sectionKey}-grid`,
+        section.columnsDeclared === true,
+      )}
     </Card>
   );
   return rc.wrapWizardStep(sectionKey, cardEl);
@@ -87,7 +104,9 @@ function resolveSectionTitle<TValues extends FormValues, TCtx>(
 ): string | undefined {
   const { titles } = model;
   const { state } = model.engine;
-  const repeatsTabLabel = state.isTabs && state.isStepped;
+  const repeatsTabLabel =
+    (state.isTabs && state.isStepped) ||
+    (sectionIndex === 0 && model.engine.props.recordSections?.omitFirstTitle === true);
   if (titles.titleInSettingsHeader && sectionIndex === 0) return section.title ?? titles.formTitle;
   return section.title === titles.formTitle || repeatsTabLabel ? undefined : section.title;
 }
@@ -97,7 +116,71 @@ function resolveSectionSubtitle<TValues extends FormValues, TCtx>(
   section: FieldsSection,
 ): ReactNode {
   const headerFallback = model.titles.titleInSettingsHeader && sectionIndex === 0;
-  return section.description ?? (headerFallback ? model.titles.formSubtitle : undefined);
+  return (
+    narrowAwareDescription(section.description, section.descriptionNarrow) ??
+    (headerFallback ? model.titles.formSubtitle : undefined)
+  );
+}
+
+function renderSectionFieldBody<TValues extends FormValues, TCtx>(
+  model: SectionRenderContext<TValues, TCtx>["model"],
+  section: FieldsSection,
+  sectionKey: string,
+): ReactNode {
+  const { Section } = model.engine.state.primitives;
+  if (section.groups === undefined) {
+    return renderFieldGrid(
+      model,
+      section,
+      section.fields,
+      section.columns,
+      `${sectionKey}-grid`,
+      section.columnsDeclared === true,
+    );
+  }
+  return section.groups.map((group, groupIndex) => (
+    <Section
+      key={group.title}
+      title={group.title}
+      titleStyle="label"
+      testId={`section-${sectionKey}-group-${groupIndex}`}
+    >
+      {renderFieldGrid(
+        model,
+        section,
+        group.fields,
+        group.columns,
+        `${sectionKey}-group-${groupIndex}-grid`,
+        group.columnsDeclared === true,
+      )}
+    </Section>
+  ));
+}
+
+function firstSectionRequiredHint<TValues extends FormValues, TCtx>(
+  model: SectionRenderContext<TValues, TCtx>["model"],
+  sectionIndex: number,
+): ReactNode {
+  const showsHint =
+    model.engine.sections.showsAllRequiredHint &&
+    model.engine.state.insideDrawer &&
+    sectionIndex === 0;
+  return showsHint ? renderAllRequiredHint(model) : null;
+}
+
+function sectionHintProp(
+  section: FieldsSection,
+  sectionKey: string,
+  hintBelow: boolean,
+): Pick<SectionProps, "hint"> {
+  if (!hintBelow || typeof section.description !== "string") return {};
+  return {
+    hint: {
+      text: section.description,
+      ...(section.descriptionNarrow !== undefined && { textNarrow: section.descriptionNarrow }),
+      testId: `section-${sectionKey}-hint`,
+    },
+  };
 }
 
 function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
@@ -109,7 +192,11 @@ function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
   const { Section } = model.engine.state.primitives;
   const anchorId = sectionNavAnchorId(model.titles.sectionNavItems, sectionIndex);
   const sectionTitle = resolveSectionTitle(rc, section);
-  const sectionSubtitle = resolveSectionSubtitle(rc, section);
+  // Record pages print the hint under the data (muted, first sentence bold)
+  // instead of between the label and the fields.
+  const labelTitles = model.engine.props.recordSections?.labelTitles === true;
+  const hintBelow = labelTitles && typeof section.description === "string";
+  const sectionSubtitle = hintBelow ? undefined : resolveSectionSubtitle(rc, section);
   const sectionEl = (
     <Section
       key={sectionKey}
@@ -119,15 +206,14 @@ function renderDefaultFieldsSection<TValues extends FormValues, TCtx>(
       {...(model.titles.stepRail &&
         section.description !== undefined && { subtitleBelowLgOnly: true })}
       {...(section.icon !== undefined && { icon: section.icon })}
+      {...(labelTitles && { titleStyle: "label" as const })}
+      {...sectionHintProp(section, sectionKey, hintBelow)}
       {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
       {...(model.footer.isSettingsList && { layout: "settings-list" as const })}
       testId={`section-${sectionKey}`}
     >
-      {model.engine.sections.showsAllRequiredHint &&
-        model.engine.state.insideDrawer &&
-        sectionIndex === 0 &&
-        renderAllRequiredHint(model)}
-      {renderFieldGrid(model, section, section.fields, section.columns, `${sectionKey}-grid`)}
+      {firstSectionRequiredHint(model, sectionIndex)}
+      {renderSectionFieldBody(model, section, sectionKey)}
     </Section>
   );
   return rc.wrapWizardStep(sectionKey, sectionEl);

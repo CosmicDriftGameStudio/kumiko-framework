@@ -35,6 +35,15 @@ the `table` block renders and behaves as before.
   offers grouping by priority or none.
 - `table.totals`: a footer row with the estimate sum over the filtered list.
 - `facets.estimateHours: { display: "range" }`: from/to inputs for a number field.
+- `mutedRowField: "parked"`: a parked task is drawn entirely in the muted colour.
+- `toolbarSort: true`: the desktop "Sorted by" select in the filter row (opt-in).
+- Column options: `ellipsis` (one truncated line), `multiline` (line breaks stay),
+  `tone: "muted"`, `cardAbove` (phone card line above the title), `hideWhenDocked`,
+  `emptyPlaceholder` (`false` keeps the cell blank, a string shows muted text),
+  `cardBadge` (phone-card pill), `dateOnlyAfterDays` on a timestamp column,
+  `pillField` / `pillToneField` (a second pill beside the cell value).
+- Row action `display: "text"`: muted text without a button, shown for done tasks.
+- `hideCountFooter` is not set here: no screen declaration reaches it (relatedList sets it itself).
 - The same block on a `projectionList`, and `task:workload`, a hand-written list
   query that keeps grouping and totals by accepting `aggregate`
   (`entityListSchema`) and answering it with `answerListAggregate`.
@@ -145,9 +154,21 @@ describe("list-table-options recipe", () => {
     );
   });
 
-  test("a hidden column needs the column picker", () => {
-    expect(() => validateBoot([featureWithBlock({ rememberState: true, resetAll: true })])).toThrow(
-      /column "estimateHours" is hidden but table\.columnPicker is not enabled/,
+  // A hidden column that backs a facet needs no picker (the facet is its UI), so the recipe's
+  // own hidden estimateHours column does not trip the rule; a plain hidden column does.
+  test("a hidden column without a facet needs the column picker", () => {
+    const feature = defineFeature("task-board", (r) => {
+      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.screen({
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title", { field: "assignee", hidden: true }],
+        table: { rememberState: true },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /column "assignee" is hidden but table\.columnPicker is not enabled/,
     );
   });
 
@@ -248,11 +269,13 @@ import {
   createEventStoreExecutor,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createBooleanField,
   createDateField,
   createEntity,
   createNumberField,
   createSelectField,
   createTextField,
+  createTimestampField,
   defineFeature,
   entityListSchema,
   type FeatureDefinition,
@@ -285,6 +308,14 @@ export const taskEntity = createEntity({
     dueDate: createDateField({ sortable: true }),
     assignee: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
     estimateHours: createNumberField({ sortable: true, filterable: true }),
+    parked: createBooleanField({ default: false }),
+    note: createTextField({ personal: false, reason: "is_business_data" }),
+    team: createTextField({ personal: false, reason: "is_business_data" }),
+    teamTone: createSelectField({
+      options: ["positive", "warn", "negative", "neutral"] as const,
+      default: "neutral",
+    }),
+    lastUpdate: createTimestampField({ sortable: true }),
   },
 });
 
@@ -320,9 +351,29 @@ export function createTaskBoardFeature(
         // Starts pinned left; width and minWidth are start values for resizing.
         { field: "title", pinned: "left", width: 280, minWidth: 160 },
         "status",
-        "priority",
+        // The phone card shows the priority as its outlined pill instead of the first select column.
+        { field: "priority", cardBadge: true },
         { field: "dueDate", hideOnNarrow: true },
-        { field: "assignee", hideOnNarrow: true },
+        // The team pill sits beside the assignee name; its tone comes from the row.
+        {
+          field: "assignee",
+          hideOnNarrow: true,
+          pillField: "team",
+          pillToneField: "teamTone",
+          emptyPlaceholder: "Unassigned",
+        },
+        // One truncated line in the table; a line break starts a new line on the phone card.
+        {
+          field: "note",
+          ellipsis: true,
+          multiline: true,
+          tone: "muted",
+          cardAbove: true,
+          hideWhenDocked: true,
+          emptyPlaceholder: false,
+        },
+        // Recent edits show date and time, older ones the date only.
+        { field: "lastUpdate", dateOnlyAfterDays: 7, hideOnNarrow: true },
         // Starts hidden; the user can add it back in the view menu.
         { field: "estimateHours", hidden: true, hideOnNarrow: true },
       ],
@@ -330,7 +381,22 @@ export function createTaskBoardFeature(
       defaultSort: { field: "dueDate", dir: "asc" },
       searchable: true,
       table: taskTable,
+      mutedRowField: "parked",
+      toolbarSort: true,
+      sortOptions: [
+        { field: "dueDate", dir: "asc", label: "Due date" },
+        { field: "priority", dir: "desc", label: "Priority" },
+      ],
       rowActions: [
+        // A closed state as muted text instead of a button.
+        {
+          kind: "navigate",
+          id: "closed",
+          label: "Closed",
+          screen: "task-edit",
+          display: "text",
+          visible: { field: "status", eq: "done" },
+        },
         { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
         {
           kind: "writeHandler",

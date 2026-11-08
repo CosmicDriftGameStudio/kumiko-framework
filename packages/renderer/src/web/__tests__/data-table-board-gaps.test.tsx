@@ -39,6 +39,7 @@ describe("DataTable sortOptions", () => {
         sort={{ field: "due", dir: "desc" }}
         onSortChange={onSortChange}
         sortOptions={SORT_OPTIONS}
+        toolbarSort
       />,
     );
     expect(screen.getByTestId("render-list-sort-options-label").textContent).toContain("Urgency");
@@ -66,7 +67,7 @@ describe("DataTable sortOptions", () => {
 });
 
 describe("DataTable header styles", () => {
-  test("headers use small caps from sm; an action column is right-aligned with a screen-reader-only label", () => {
+  test("headers are 13.5px regular without small caps; an action column is right-aligned with a screen-reader-only label", () => {
     render(
       <DataTable
         columns={[
@@ -84,7 +85,8 @@ describe("DataTable header styles", () => {
       />,
     );
     const nameHead = screen.getByTestId("column-name");
-    expect(nameHead.className).toContain("sm:uppercase");
+    expect(nameHead.className).not.toContain("uppercase");
+    expect(nameHead.className).toContain("text-[13.5px]");
     const actionHead = screen.getByTestId("column-act");
     expect(actionHead.className).toContain("sm:text-right");
     expect(within(actionHead).getByText("Action").className).toContain("sm:sr-only");
@@ -117,7 +119,7 @@ describe("DataTable header styles", () => {
     expect(screen.getByText("Reply").closest("td")?.className).toContain("sm:text-right");
   });
 
-  test("on cards the action link is a small outline button", () => {
+  test("on cards the action link is a plain primary link, not an outline button", () => {
     atViewportWidth(500, () => {
       render(
         <DataTable
@@ -136,7 +138,10 @@ describe("DataTable header styles", () => {
           testId="t"
         />,
       );
-      expect(hasAllClasses(screen.getByText("Reply").closest("a"), LINK_BUTTON_CLASS)).toBe(true);
+      const link = screen.getByText("Reply").closest("a");
+      expect(link).not.toBeNull();
+      expect(hasAllClasses(link, LINK_BUTTON_CLASS)).toBe(false);
+      expect(link?.className).toContain("text-primary");
     });
   });
 });
@@ -292,6 +297,7 @@ describe("DataTable sortOptions without a matching option", () => {
         sort={{ field: "name", dir: "desc" }}
         onSortChange={mock()}
         sortOptions={SORT_OPTIONS}
+        toolbarSort
       />,
     );
     const label = screen.getByTestId("render-list-sort-options-label").textContent ?? "";
@@ -595,6 +601,74 @@ describe("DataTable rowActionMode menu", () => {
     atViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} rowActions={actions} rowActionMode="menu" />);
       expect(screen.getByTestId("row-r1-actions-menu")).toBeTruthy();
+    });
+  });
+});
+
+describe("DataTable multiline and cardAbove columns", () => {
+  const columns = [
+    { field: "name", label: "Name", type: "string", sortable: false },
+    { field: "channel", label: "Channel", type: "string", sortable: false, cardAbove: true },
+    { field: "text", label: "Text", type: "string", sortable: false, multiline: true },
+  ] as const;
+  const rows = [{ id: "r1", values: { name: "Alpha", channel: "Mail", text: "one\ntwo" } }];
+
+  test("a multiline cell keeps the line break", () => {
+    atViewportWidth(1280, () => {
+      render(<DataTable columns={columns} rows={rows} testId="wide" />);
+      const cell = screen.getByText(
+        (_content, el) => el?.textContent === "one\ntwo" && el.tagName === "TD",
+      );
+      expect(cell.className).toContain("whitespace-pre-line");
+    });
+  });
+
+  test("a multiline cell wraps long text instead of truncating, a plain one truncates", () => {
+    atViewportWidth(1280, () => {
+      render(<DataTable columns={columns} rows={rows} testId="wide" />);
+      const multi = screen.getByText(
+        (_c, el) => el?.textContent === "one\ntwo" && el.tagName === "TD",
+      );
+      expect(multi.className).not.toContain("truncate");
+      expect(multi.className).toContain("break-words");
+      expect(screen.getByText("Alpha").closest("td")?.className).toContain("truncate");
+    });
+  });
+
+  test("on the phone card the cardAbove column stands above the title", () => {
+    atViewportWidth(500, () => {
+      render(<DataTable columns={columns} rows={rows} testId="phone" />);
+      const above = screen.getByTestId("card-above-r1");
+      expect(above.textContent).toContain("Mail");
+      const title = screen.getByText("Alpha");
+      expect(above.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(screen.getByTestId("card-meta-r1").textContent).not.toContain("Mail");
+    });
+  });
+
+  test("an emphasis column above the title stays bold foreground on the phone card", () => {
+    atViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            { field: "name", label: "Name", type: "string", sortable: false },
+            { field: "todo", label: "To do", type: "string", sortable: false, emphasis: true },
+            {
+              field: "channel",
+              label: "Channel",
+              type: "string",
+              sortable: false,
+              emphasis: true,
+              cardAbove: true,
+            },
+          ]}
+          rows={[{ id: "r1", values: { name: "Alpha", todo: "Reply", channel: "Mail" } }]}
+          testId="phone"
+        />,
+      );
+      const channel = within(screen.getByTestId("card-above-r1")).getByTestId("cell-r1-channel");
+      expect(channel.className).toContain("font-semibold");
+      expect(channel.className).toContain("text-foreground");
     });
   });
 });

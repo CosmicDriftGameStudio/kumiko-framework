@@ -27,6 +27,7 @@ export function HeaderActionsBar({
   compact = false,
   preferredPrimaryId,
   inlineActionIds,
+  menuActionIds,
   PageHeader,
   overflowTestId = "kumiko-screen-projection-detail-actions-overflow",
 }: {
@@ -34,6 +35,8 @@ export function HeaderActionsBar({
   readonly preferredPrimaryId?: string;
   /** `inlineActions` of the screen: stay buttons next to the primary instead of the menu. */
   readonly inlineActionIds?: readonly string[];
+  /** `placement: "menu"` actions of the screen: always in the menu, never a button. */
+  readonly menuActionIds?: readonly string[];
   /** Header slot layout: only the primary action stays a button, the rest goes into the menu. */
   readonly collapseAfterPrimary?: boolean;
   /** Phone-width shell header: an icon-only primary button, the rest in the shell's overflow menu. */
@@ -53,7 +56,10 @@ export function HeaderActionsBar({
     onError,
   });
   if (compact && PageHeader !== undefined) {
-    const compactPrimary = compactHeaderPrimary(actions, preferredPrimaryId);
+    const compactPrimary = compactHeaderPrimary(
+      actions.filter((a) => !menuActionIds?.includes(a.id)),
+      preferredPrimaryId,
+    );
     const overflowActions = actions.filter((a) => a !== compactPrimary?.action);
     return (
       <>
@@ -74,8 +80,17 @@ export function HeaderActionsBar({
       </>
     );
   }
+  const dangerMenuActions = actions.filter(
+    (action) =>
+      (collapseAfterPrimary && action.style === "danger") ||
+      (ActionOverflowMenu !== undefined && menuActionIds?.includes(action.id) === true),
+  );
+  const visibleCandidates = actions.filter((action) => !dangerMenuActions.includes(action));
   const maxPlainButtons = collapseAfterPrimary ? 1 : 2;
-  if (actions.length <= maxPlainButtons || ActionOverflowMenu === undefined) {
+  if (
+    ActionOverflowMenu === undefined ||
+    (visibleCandidates.length <= maxPlainButtons && dangerMenuActions.length === 0)
+  ) {
     return (
       <>
         {orderPlainHeaderActions(actions, preferredPrimaryId).map((action) => (
@@ -91,7 +106,12 @@ export function HeaderActionsBar({
       </>
     );
   }
-  const { buttons, menu } = splitHeaderActions(actions, preferredPrimaryId, inlineActionIds);
+  const split =
+    visibleCandidates.length <= maxPlainButtons
+      ? { buttons: orderPlainHeaderActions(visibleCandidates, preferredPrimaryId), menu: [] }
+      : splitHeaderActions(visibleCandidates, preferredPrimaryId, inlineActionIds);
+  const { buttons } = split;
+  const menu = [...split.menu, ...dangerMenuActions];
   return (
     <>
       {buttons.map((action) => (

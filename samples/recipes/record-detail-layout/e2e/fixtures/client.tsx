@@ -52,6 +52,10 @@ function OrderInternalNote(): ReactNode {
   );
 }
 
+function OrderItemsFooter(): ReactNode {
+  return <p data-testid="order-items-footer">Prices include VAT.</p>;
+}
+
 function OrderInboxIcon(): ReactNode {
   return (
     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -90,7 +94,9 @@ function Shell({
       schema={schema}
       user={{ id: "u1", roles: ["Admin"] }}
     >
-      <ExtensionSectionsProvider value={{ OrderInboxIcon, DeadlinesIcon, OrderInternalNote }}>
+      <ExtensionSectionsProvider
+        value={{ OrderInboxIcon, DeadlinesIcon, OrderInternalNote, OrderItemsFooter }}
+      >
         {isPinnedRecord && feature !== undefined ? (
           <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
         ) : (

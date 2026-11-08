@@ -5,7 +5,7 @@ import type { NamedFilterFacetOptions, NamedListFilterRef } from "./named-list-f
 import type { NavIconKey } from "./nav-icon.ts";
 import type { FormatSpec, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { DashboardStatTone, ScreenVisibility } from "./screen-dashboard.ts";
-import type { EditLayout, ListEmptyStateSpec } from "./screen-entity-edit.ts";
+import type { EditLayout, EntityEditAction, ListEmptyStateSpec } from "./screen-entity-edit.ts";
 import type {
   ListColumnSpec,
   ListPaginationMode,
@@ -122,6 +122,8 @@ export type ProjectionListScreenDefinition = {
   readonly columns: readonly ListColumnSpec[];
   /** Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned. */
   readonly rowToneField?: string;
+  /** Row field (boolean): a row with a true value is drawn entirely in the muted text colour. */
+  readonly mutedRowField?: string;
   /** Computed row fields from an app query, merged into the query rows; see `ListRowDecoration`. */
   readonly rowDecoration?: ListRowDecoration;
   readonly rowRenderer?: PlatformComponent;
@@ -221,6 +223,8 @@ export type RecordHeaderSpec = {
   readonly subtitle?: string | readonly RecordHeaderSubtitlePart[];
   /** Field holding a plain-text subtitle shown instead of `subtitle` below `sm` (e.g. "Main St 12, Berlin · 3 rooms"). */
   readonly narrowSubtitle?: string;
+  /** i18n key of a short title for the phone top bar ("Approval") instead of the record title. */
+  readonly narrowTitle?: string;
   readonly status?: string;
   /** Formats the badge text (typically `enumOption` with a `keyPrefix`); tones still resolve on the raw value. Needs `status`. Without it, the `status` field's layout renderer is used when it is `enumOption` or `i18nText`. */
   readonly statusFormat?: FormatSpec;
@@ -270,6 +274,8 @@ export type MetricSpec = {
   readonly icon?: NavIconKey;
   /** Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value. */
   readonly format?: FormatSpec;
+  /** Shows the metric only while the loaded record matches; same `{ field, eq | ne | in | notIn }` syntax as a section's `visibleWhen`. `field` must be an output field of the detail query. */
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
 };
 
 export type ProjectionDetailScreenDefinition = {
@@ -328,8 +334,14 @@ export type ProjectionDetailScreenDefinition = {
   readonly metrics?: readonly MetricSpec[];
   /** "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band. */
   readonly metricsStyle?: "band" | "tiles";
-  /** `narrow: "after-guidance"` moves the metrics below the summary, banner and steps on screens under md, ahead of the tabs. Works with the page header and the head card; only the metric tiles move, the subtitle and status line stay under the title. */
-  readonly metricsPlacement?: { readonly narrow?: "after-guidance" };
+  /** On screens under md, `narrow: "after-guidance"` moves the metrics below the summary, banner and steps, ahead of the tabs; `"before-steps"` puts them below the summary and banner, ahead of the next step. Works with the page header and the head card; only the metric tiles move, the subtitle and status line stay under the title. */
+  readonly metricsPlacement?: { readonly narrow?: "after-guidance" | "before-steps" };
+  /** Record field holding one line of text shown instead of the metrics below `sm`. The metrics stay on larger screens; an empty value keeps them on phones too. */
+  readonly mobileSummary?: string;
+  /** `false` leaves out the "On this page" navigation of a stacked (non-tabs) layout. */
+  readonly pageNavigation?: false;
+  /** A tab holding fields sections and a relatedList with `photoGrid` shows the fields left and the photos right from `lg` up. */
+  readonly photosBeside?: true;
   /** Path above the header (query column holding items). */
   readonly breadcrumb?: RecordBreadcrumbSpec;
   /** One emphasized sentence below the header. */
@@ -348,8 +360,10 @@ export type ProjectionDetailScreenDefinition = {
    *  displayed record stands in for the "row", so `pick`/`map`, `visible`,
    *  `confirm`/`confirmLabel` and `style` keep their meaning unchanged.
    *  `rowClick` has no target here (there is no row to click) and is
-   *  rejected by the boot-validator. */
-  readonly actions?: readonly RowAction[];
+   *  rejected by the boot-validator. `placement: "menu"` puts the action
+   *  into the header "…" menu instead of a button (without a header menu it
+   *  falls back to inline). */
+  readonly actions?: readonly EntityEditAction[];
   /** Id of the action that stays the visible header button when the actions
    *  collapse into a menu (and the one that keeps the phone icon slot when it
    *  has an icon and no confirm). An `actions` id or `"edit"` (the default edit

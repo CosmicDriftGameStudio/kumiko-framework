@@ -17,6 +17,7 @@ import {
 } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
+import { renderBoldMarkup } from "./bold-markup.tsx";
 import {
   type DashboardFormats,
   PanelError,
@@ -106,7 +107,7 @@ function resolveBlockText(
 const PARAGRAPH_CLASS_NAMES = {
   muted: "text-sm text-muted-foreground",
   strong: "text-sm font-medium text-foreground",
-  lead: "font-heading text-[15.5px] leading-[1.5] sm:text-[17px] sm:leading-relaxed text-foreground",
+  lead: "font-heading text-sm leading-5 sm:text-[17px] sm:leading-relaxed text-foreground",
 } as const satisfies Record<NonNullable<ParagraphBlock["emphasis"]>, string>;
 
 function isLeadParagraph(block: DashboardTextBlock | undefined): boolean {
@@ -134,7 +135,7 @@ function TextBlockView({
     case "paragraph":
       return (
         <p data-block="paragraph" className={PARAGRAPH_CLASS_NAMES[block.emphasis ?? "muted"]}>
-          {resolve(block.text)}
+          {renderBoldMarkup(resolve(block.text))}
         </p>
       );
     case "list":
@@ -222,13 +223,19 @@ function textBlockKey(block: DashboardTextBlock): string {
   }
 }
 
+function startsWithLead(blocks: readonly DashboardTextBlock[]): boolean {
+  return isLeadParagraph(blocks[0]);
+}
+
 function TextPanelFrame({
   panel,
   label,
   screenId,
   screenParams,
+  accented = false,
   children,
 }: {
+  readonly accented?: boolean;
   readonly panel: DashboardTextPanel;
   readonly label: string | undefined;
   readonly screenId: string;
@@ -265,7 +272,10 @@ function TextPanelFrame({
   return (
     <section
       data-testid={testId}
-      className="h-full rounded-lg border border-border bg-card p-4 text-card-foreground max-sm:px-3.5 max-sm:py-3"
+      className={cn(
+        "h-full rounded-lg border border-border bg-card p-4 text-card-foreground max-sm:px-3 max-sm:py-2.5",
+        accented && "border-l-[3px] border-l-primary",
+      )}
     >
       {content}
     </section>
@@ -304,13 +314,17 @@ type TextPanelBodyProps = {
 export function TextPanelBody(props: TextPanelBodyProps): ReactNode {
   const { panel, label, translate, screenId, screenParams } = props;
   const narrow = useIsBelowSmViewport();
+  const staticBlocks = (narrow ? panel.narrowBlocks : undefined) ?? panel.blocks ?? [];
   if (panel.query === undefined) {
     return (
-      <TextPanelFrame panel={panel} label={label} screenId={screenId} screenParams={screenParams}>
-        <TextBlockList
-          blocks={(narrow ? panel.narrowBlocks : undefined) ?? panel.blocks ?? []}
-          translate={translate}
-        />
+      <TextPanelFrame
+        panel={panel}
+        label={label}
+        screenId={screenId}
+        screenParams={screenParams}
+        accented={startsWithLead(staticBlocks)}
+      >
+        <TextBlockList blocks={staticBlocks} translate={translate} />
       </TextPanelFrame>
     );
   }
@@ -349,7 +363,13 @@ function QueryTextPanelBody({
     body = null;
   }
   return (
-    <TextPanelFrame panel={panel} label={label} screenId={screenId} screenParams={screenParams}>
+    <TextPanelFrame
+      panel={panel}
+      label={label}
+      screenId={screenId}
+      screenParams={screenParams}
+      accented={startsWithLead(blocks)}
+    >
       {body}
     </TextPanelFrame>
   );

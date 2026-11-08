@@ -62,8 +62,8 @@ export function resolveNavParentScreen(
       : undefined;
   })();
 
-  // rowActions, toolbarActions, and drawer-kind actions (which mount inline
-  // and have no page of their own) all count as "reached from" this list.
+  // rowActions, toolbarActions, the `actions` of a record screen, and drawer-kind actions (which
+  // mount inline and have no page of their own) all count as "reached from" that screen.
   const navigatesToDetail = (
     actions: readonly (RowAction | ToolbarAction)[] | undefined,
   ): boolean =>
@@ -73,6 +73,13 @@ export function resolveNavParentScreen(
         a.screen !== undefined &&
         screenShortId(a.screen) === detailScreenId,
     );
+  // A form opened only from a record screen (e.g. a status dialog) has that record as its parent.
+  const recordFromAction = screens.find(
+    (s) =>
+      (s.type === "projectionDetail" || s.type === "entityEdit") &&
+      screenShortId(getId(s)) !== detailScreenId &&
+      navigatesToDetail(s.actions),
+  );
   // The create button of an entityList navigates to its createScreen, so the
   // list is that screen's parent just like for a rowAction target.
   const listFromRowAction = screens.find((s) => {
@@ -91,7 +98,7 @@ export function resolveNavParentScreen(
       ? screens.find((s) => s.type === "entityList" && s.entity === detail.entity)
       : undefined;
 
-  return listFromExplicit ?? listFromRowAction ?? listFromEntity;
+  return listFromExplicit ?? listFromRowAction ?? recordFromAction ?? listFromEntity;
 }
 
 export type EditLayoutScreen =

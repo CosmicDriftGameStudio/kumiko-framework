@@ -102,7 +102,11 @@ export function GridCellForField({
     field.label === sectionTitle;
   const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
   return (
-    <GridCell span={effectiveSpan} {...(flow === true && { width: fieldCellWidth(field) })}>
+    <GridCell
+      span={effectiveSpan}
+      {...(flow === true && { width: fieldCellWidth(field) })}
+      {...(field.hideOnNarrow === true && { hideOnNarrow: true })}
+    >
       <RenderField
         field={field}
         {...(issues !== undefined && { issues })}

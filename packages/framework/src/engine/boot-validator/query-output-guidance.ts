@@ -26,6 +26,7 @@ export function detailGuidanceFieldRefs(
     { option: "steps.field", field: screen.steps?.field },
     { option: "steps.subtitleField", field: screen.steps?.subtitleField },
     { option: "progress.field", field: screen.progress?.field },
+    { option: "mobileSummary", field: screen.mobileSummary },
     ...(screen.metrics ?? []).flatMap((metric) => [
       { option: "metrics.toneField", field: metric.toneField },
       { option: "metrics.subField", field: metric.subField },

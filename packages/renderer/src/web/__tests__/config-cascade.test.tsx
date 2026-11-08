@@ -78,6 +78,28 @@ describe("ConfigCascadeView — i18n (Bug 7)", () => {
   });
 });
 
+describe("ConfigCascadeView — compact", () => {
+  test("shows the origin as an icon with sr-only text and toggles levels via the icon", async () => {
+    const user = userEvent.setup();
+    const view = render(
+      <ConfigCascadeView
+        cascade={tenantCascade({ tenantValue: "acme" })}
+        screenScope="tenant"
+        compact
+      />,
+    );
+    const srOnlyTexts = Array.from(view.container.querySelectorAll(".sr-only")).map(
+      (node) => node.textContent,
+    );
+    expect(srOnlyTexts.some((text) => text?.startsWith("Set for this tenant"))).toBe(true);
+    const icon = screen.getByTestId("config-cascade-origin");
+    expect(icon.getAttribute("aria-expanded")).toBe("false");
+    await user.click(icon);
+    expect(icon.getAttribute("aria-expanded")).toBe("true");
+    expect(view.container.querySelector("ul")).not.toBeNull();
+  });
+});
+
 describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
   test("screenScope=tenant: Operator levels are hidden, one neutral default fallback remains", async () => {
     const user = userEvent.setup();

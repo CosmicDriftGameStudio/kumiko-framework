@@ -30,7 +30,7 @@ export const screenFormColumnWidthClassName: Record<ScreenWidth, string> = {
 // is the one the settings screens use, so a list, a dashboard and a form start
 // at the same edge. The bottom inset keeps the last field or table row off the
 // viewport edge.
-export const screenPaddingClassName = "px-4 pb-6 pt-5 md:px-10 md:pb-10 md:pt-7";
+export const screenPaddingClassName = "px-4 pb-6 pt-5 md:px-6 md:pb-10 md:pt-7";
 
 // Sticky element at the bottom of a screen scroll that covers the bottom padding of
 // screenPaddingClassName (sticky stops at the content box) and overlaps it at rest (negative margin).

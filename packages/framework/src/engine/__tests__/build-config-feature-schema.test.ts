@@ -616,3 +616,76 @@ describe("buildConfigFeatureSchema — mask.readOnly", () => {
     );
   });
 });
+
+describe("buildConfigFeatureSchema — mask.compact and mask.section", () => {
+  const hubFeature = defineFeature("alerts", (r) => {
+    r.config({
+      keys: {
+        email: createTenantConfig("text", { mask: { title: "alerts.email", compact: true } }),
+        whatsappPhone: createTenantConfig("text", {
+          mask: { title: "alerts.phone", section: "alerts.whatsapp", order: 1 },
+        }),
+        whatsappOn: createTenantConfig("boolean", {
+          mask: { title: "alerts.on", section: "alerts.whatsapp", order: 2 },
+        }),
+      },
+    });
+  });
+  const hub = buildConfigFeatureSchema(createRegistry([hubFeature]));
+  const screenOf = (id: string): ConfigEditScreenDefinition => {
+    const s = hub.screens.find((x) => x.id === id);
+    if (s?.type !== "configEdit") throw new Error(`no configEdit screen "${id}"`);
+    return s;
+  };
+
+  test("a compact mask makes the generated screen compact, others stay default", () => {
+    expect(screenOf("alerts-tenant").compact).toBe(true);
+    expect(configScreen("notify-tenant").compact).toBeUndefined();
+  });
+
+  test("keys sharing mask.section get their own titled section after the default one", () => {
+    const sections = screenOf("alerts-tenant").layout.sections;
+    expect(sections.map((s) => ("title" in s ? s.title : undefined))).toEqual([
+      "alerts.settings",
+      "alerts.whatsapp",
+    ]);
+    const fieldNames = (s: (typeof sections)[number]) =>
+      "fields" in s ? s.fields.map((f) => (typeof f === "string" ? f : f.field)) : [];
+    expect(fieldNames(sections[0] as (typeof sections)[number])).toEqual(["email"]);
+    expect(fieldNames(sections[1] as (typeof sections)[number])).toEqual([
+      "whatsapp-phone",
+      "whatsapp-on",
+    ]);
+  });
+});
+
+describe("buildConfigFeatureSchema — all keys sectioned", () => {
+  test("the base section's description moves to the first generated section", () => {
+    const sectioned = defineFeature("sectioned", (r) => {
+      r.translations({ keys: { "sectioned.settings.description": { en: "All about it." } } });
+      r.config({
+        keys: {
+          a: createTenantConfig("text", {
+            mask: { title: "sectioned.a", section: "sectioned.one" },
+          }),
+          b: createTenantConfig("text", {
+            mask: { title: "sectioned.b", section: "sectioned.two" },
+          }),
+        },
+      });
+    });
+    const screen = buildConfigFeatureSchema(createRegistry([sectioned])).screens.find(
+      (s) => s.id === "sectioned-tenant",
+    );
+    if (screen?.type !== "configEdit") throw new Error("no configEdit screen");
+    const sections = screen.layout.sections;
+    expect(sections.map((s) => ("title" in s ? s.title : undefined))).toEqual([
+      "sectioned.one",
+      "sectioned.two",
+    ]);
+    expect(sections[0] && "description" in sections[0] ? sections[0].description : undefined).toBe(
+      "sectioned.settings.description",
+    );
+    expect(sections[1] && "description" in sections[1]).toBe(false);
+  });
+});

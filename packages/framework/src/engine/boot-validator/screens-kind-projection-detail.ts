@@ -135,6 +135,122 @@ function validateProjectionDetailInitialTab(
   }
 }
 
+function payloadKeysOf(
+  action: Exclude<RowAction, { readonly kind: "navigate" | "drawer" | "clientAction" }>,
+): string[] {
+  const { payload } = action;
+  if (payload === undefined) return ["id"];
+  return "pick" in payload ? [...payload.pick] : Object.keys(payload.map);
+}
+
+type DetailSection = ProjectionDetailScreenDefinition["layout"]["sections"][number];
+
+function validateSectionPresentationFlags(
+  where: string,
+  label: string,
+  section: DetailSection,
+  isTabs: boolean,
+): void {
+  if (section.tabLabel !== undefined && !isTabs) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.presentationOptionInvalid, {
+      message: `${where} section "${label}" sets tabLabel without layout.mode "tabs".`,
+    });
+  }
+  if (section.hideOnNarrow === true && section.showOnNarrowOnly === true) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.presentationOptionInvalid, {
+      message: `${where} section "${label}" sets both hideOnNarrow and showOnNarrowOnly — the section would never show.`,
+    });
+  }
+  if (
+    section.kind === "relatedList" &&
+    section.photoGrid?.badgeFirst === true &&
+    section.photoGrid.badgeField === undefined
+  ) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.presentationOptionInvalid, {
+      message: `${where} section "${label}" sets photoGrid.badgeFirst without badgeField.`,
+    });
+  }
+}
+
+function validateSubmitWithSection(
+  where: string,
+  label: string,
+  screen: ProjectionDetailScreenDefinition,
+  section: EditWriteFormSection,
+  submitWith: string,
+  isTabs: boolean,
+  submitWithIds: Set<string>,
+): void {
+  const action = (screen.actions ?? []).find((a) => a.id === submitWith);
+  if (
+    action === undefined ||
+    action.kind === "navigate" ||
+    action.kind === "drawer" ||
+    action.kind === "clientAction"
+  ) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.submitWithInvalid, {
+      message: `${where} section "${label}" sets submitWith "${submitWith}", which is not a writeHandler action in screen.actions.`,
+    });
+  }
+  if (submitWithIds.has(submitWith)) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.submitWithInvalid, {
+      message: `${where} action "${submitWith}" is the submitWith of more than one writeForm — it can send one form only.`,
+    });
+  }
+  submitWithIds.add(submitWith);
+  // In tabs mode only the active tab's form is mounted, so the action must not show on any other tab.
+  if (
+    isTabs &&
+    (section.id === undefined ||
+      action.showOnTabs === undefined ||
+      action.showOnTabs.length === 0 ||
+      action.showOnTabs.some((tab) => tab !== section.id))
+  ) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.submitWithInvalid, {
+      message: `${where} action "${action.id}" is the submitWith of section "${label}" in a tabs layout, so it needs an id on that section and showOnTabs: ["<that id>"] — a form on another tab is not mounted and would not be sent.`,
+    });
+  }
+  const payloadKeys = payloadKeysOf(action);
+  const clash = section.fields
+    .map((f) => normalizeEditField(f).field)
+    .find((name) => payloadKeys.includes(name));
+  if (clash !== undefined) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.submitWithInvalid, {
+      message: `${where} section "${label}" has the field "${clash}", which action "${action.id}" also sends in its payload — the write would be ambiguous. Rename the field or the payload key.`,
+    });
+  }
+}
+
+// A wrong submitWith or a flag the renderer would ignore must fail at boot, not silently do nothing.
+function validateProjectionDetailPresentation(
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+): void {
+  const where = `[Feature ${featureName}] Screen "${screenId}" (projectionDetail)`;
+  const isTabs = screen.layout.mode === "tabs";
+  if (screen.layout.narrowTabs !== undefined && !isTabs) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.presentationOptionInvalid, {
+      message: `${where} sets layout.narrowTabs without layout.mode "tabs".`,
+    });
+  }
+  const submitWithIds = new Set<string>();
+  for (const section of screen.layout.sections) {
+    const label = editSectionLabel(section);
+    validateSectionPresentationFlags(where, label, section, isTabs);
+    if (!isWriteFormEditSection(section) || section.submitWith === undefined) continue;
+    validateSubmitWithSection(
+      where,
+      label,
+      screen,
+      section,
+      section.submitWith,
+      isTabs,
+      submitWithIds,
+    );
+  }
+}
+
 function validateProjectionDetailMetricNavigate(
   ctx: ScreenValidationContext,
   screenId: string,
@@ -522,6 +638,7 @@ export function validateProjectionDetailScreen(
   rejectEmptySections(featureName, screenId, "projectionDetail", screen.layout.sections.length);
   validateProjectionDetailTabs(featureName, screenId, screen);
   validateProjectionDetailInitialTab(featureName, screenId, screen);
+  validateProjectionDetailPresentation(featureName, screenId, screen);
   for (const metric of screen.metrics ?? []) {
     validateProjectionDetailMetric(ctx, screenId, screen, metric);
   }

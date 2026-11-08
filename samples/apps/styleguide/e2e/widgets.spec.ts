@@ -145,7 +145,7 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await expect(inbox.getByText("Archive").first()).toBeVisible();
   await page.getByRole("button", { name: "Unread" }).click();
   await expect(inbox.getByText("William Smith · Meeting Tomorrow").first()).toBeVisible();
-  await expect(inbox.getByText("Alice Smith · Re: Project Update")).toBeHidden();
+  await expect(inbox.getByText("Alice Smith · Re: Project Update")).toHaveCount(0);
 
   // Search field filters server-side (sender/subject substring).
   await page.getByRole("button", { name: "All", exact: true }).click();

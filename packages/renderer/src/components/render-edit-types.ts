@@ -224,6 +224,17 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly hideSectionTitles?: boolean;
   /** Id of the active tab of a tabbed projectionDetail; handed to the `afterForm` slot. */
   readonly activeTabId?: string;
+  /** Record-view look of a projectionDetail; each key is opt-in. */
+  readonly recordSections?: {
+    /** Section titles render as small uppercase labels without separators. */
+    readonly labelTitles?: true;
+    /** The first section's title is the tab label right above it and is left out. */
+    readonly omitFirstTitle?: true;
+    /** `false` leaves out the "On this page" navigation. */
+    readonly pageNavigation?: false;
+    /** Fields sections and the photo-grid relatedList sit side by side from `lg` up. */
+    readonly photosBeside?: true;
+  };
   /** Screen body fills the shell height: the form gets `fillHeight` and
    *  `stickyActions` (sections scroll, footer pinned). Set by KumikoScreen for
    *  screens with `fillHeight !== false`; dialogs and other embedded hosts

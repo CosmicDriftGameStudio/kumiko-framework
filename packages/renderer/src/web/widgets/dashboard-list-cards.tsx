@@ -80,7 +80,8 @@ export function DashboardListCards({
   const badgeColumns = plain.filter((column) => column.display === "badge");
   const buttonColumns = plain.filter((column) => column.display === "button");
   const otherColumns = plain.filter(
-    (column) => column.display !== "badge" && column.display !== "button",
+    (column) =>
+      column.display !== "badge" && column.display !== "button" && column.hiddenInCards !== true,
   );
   const cell = (column: DashboardListColumn, row: DashboardListRow): ReactNode => (
     <DashboardListCell key={column.field} column={column} row={row} {...cellProps} />
@@ -89,7 +90,10 @@ export function DashboardListCards({
     <ul data-testid={testId} className="m-0 flex list-none flex-col gap-2 p-0">
       {rows.map((row, index) => {
         const detail = detailOf(hintColumn?.hint, row);
-        const badges = badgeColumns.filter((column) => hasValue(row[column.field]));
+        const allBadges = badgeColumns.filter((column) => hasValue(row[column.field]));
+        // First badge (type) heads the card next to the time; further badges (e.g. AI) sit bottom left.
+        const badges = allBadges.slice(0, 1);
+        const footBadges = allBadges.slice(1);
         const buttons = buttonColumns.filter((column) => hasValue(row[column.field]));
         const others = otherColumns.filter((column) => hasValue(row[column.field]));
         return (
@@ -111,7 +115,10 @@ export function DashboardListCards({
                 {detail !== undefined && (
                   <small
                     data-testid="dashboard-list-card-detail"
-                    className="min-w-0 truncate text-xs"
+                    className={cn(
+                      "ml-auto min-w-0 truncate text-xs",
+                      rowToneOf(row, rowToneField) === "warn" && "font-medium text-status-warn",
+                    )}
                   >
                     {detail}
                   </small>
@@ -121,14 +128,15 @@ export function DashboardListCards({
             {hintColumn !== undefined && (
               <CardHeadline column={hintColumn} row={row} titleField={titleField} />
             )}
-            {(others.length > 0 || buttons.length > 0) && (
+            {others.map((column) => (
+              <span key={column.field} className="text-xs text-muted-foreground line-clamp-2">
+                {cell(column, row)}
+              </span>
+            ))}
+            {(footBadges.length > 0 || buttons.length > 0) && (
               <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-col text-xs text-muted-foreground">
-                  {others.map((column) => (
-                    <span key={column.field} className="truncate">
-                      {cell(column, row)}
-                    </span>
-                  ))}
+                <div className="flex min-w-0 items-center gap-2">
+                  {footBadges.map((column) => cell(column, row))}
                 </div>
                 {buttons.length > 0 && (
                   <div className="flex shrink-0 flex-wrap justify-end gap-2 [&_a]:relative [&_a]:h-8 [&_a]:px-2.5 [&_a]:text-xs [&_a]:max-md:min-h-0 [&_a]:before:absolute [&_a]:before:inset-x-0 [&_a]:before:-inset-y-1.5 [&_a]:before:content-['']">

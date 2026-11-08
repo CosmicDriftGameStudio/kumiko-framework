@@ -14,7 +14,7 @@ Tenant-owned secrets with envelope encryption, DEK cache, and KEK rotation.
 
 - `r.secret` + `ctx.services.secrets.get` (audited reads)
 - Charge-style handler that never returns the plaintext key
-- A system-scope secret edited on a `configEdit` screen (`secretKeys`) with a handler button row (`actions`)
+- A system-scope secret edited on a `configEdit` screen (`secretKeys`) with a handler button row (`actions`) and `compact: true` (no origin icon, reset link or accent bar)
 
 ## Source
 
@@ -498,6 +498,8 @@ export function createBillingFeature(): FeatureDefinition {
         }),
       },
       layout: { variant: "settings-list", sections: [{ fields: ["signingKey"] }] },
+      // One write-only field needs no origin icon, reset link or accent bar.
+      compact: true,
       // A button row calls a handler with {} on the stored values; it is disabled while the
       // form has unsaved changes.
       actions: [

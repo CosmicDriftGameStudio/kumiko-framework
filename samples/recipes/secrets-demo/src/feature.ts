@@ -130,6 +130,8 @@ export function createBillingFeature(): FeatureDefinition {
         }),
       },
       layout: { variant: "settings-list", sections: [{ fields: ["signingKey"] }] },
+      // One write-only field needs no origin icon, reset link or accent bar.
+      compact: true,
       // A button row calls a handler with {} on the stored values; it is disabled while the
       // form has unsaved changes.
       actions: [

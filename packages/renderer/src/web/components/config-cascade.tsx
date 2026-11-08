@@ -9,6 +9,7 @@ import { useId, useState } from "react";
 import { usePrimitives, useTranslation } from "../../index.ts";
 import { Icon } from "../icons.tsx";
 import { cn } from "../lib/cn.ts";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip.tsx";
 
 const SOURCE_I18N_KEY: Record<ConfigValueSource, string> = {
   "user-row": "kumiko.config.source.user",
@@ -134,6 +135,7 @@ type ConfigCascadeViewProps = {
   readonly qualifiedKey?: string;
   readonly required?: boolean;
   readonly renderValue?: CascadeValueRenderer;
+  readonly compact?: boolean;
 };
 
 export function ConfigCascadeView({
@@ -143,6 +145,7 @@ export function ConfigCascadeView({
   qualifiedKey,
   required = false,
   renderValue,
+  compact = false,
 }: ConfigCascadeViewProps): ReactNode {
   const t = useTranslation();
   const { Button } = usePrimitives();
@@ -205,29 +208,90 @@ export function ConfigCascadeView({
           className: "text-muted-foreground",
         };
 
+  const resetButton =
+    hasOverride && onReset !== undefined && qualifiedKey !== undefined ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onReset(qualifiedKey, screenScope)}
+        testId="config-cascade-reset"
+        className="h-auto px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
+      >
+        {t(
+          screenScope === "system"
+            ? "kumiko.config.cascade.resetToApp"
+            : "kumiko.config.cascade.resetTo",
+        )}
+      </Button>
+    ) : null;
+
+  const showsLevels = expandable && (cascade.levels.length > 2 || screenScope === "system");
+  const levelsPanel =
+    expanded && showsLevels ? (
+      <ul id={panelId} className="flex flex-col gap-0.5 border-l border-border pl-3">
+        {displayLevels.map((display) => (
+          <CascadeLevelRow
+            key={display.level.source}
+            display={display}
+            {...(renderValue !== undefined && { renderValue })}
+          />
+        ))}
+      </ul>
+    ) : null;
+
+  if (compact) {
+    return (
+      <div className="flex flex-col gap-1 text-xs" data-testid="config-cascade">
+        <div className="flex items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  data-testid="config-cascade-origin"
+                  onClick={showsLevels ? () => setExpanded((v) => !v) : undefined}
+                  {...(showsLevels && {
+                    "aria-expanded": expanded,
+                    ...(expanded && { "aria-controls": panelId }),
+                  })}
+                  className={cn(
+                    "inline-flex size-5 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    showsLevels ? "cursor-pointer" : "cursor-help",
+                    origin.className,
+                  )}
+                >
+                  <Icon name="info" className="size-3.5" />
+                  {showsLevels && (
+                    <span className="sr-only">
+                      {t(
+                        expanded
+                          ? "kumiko.config.cascade.hideLevels"
+                          : "kumiko.config.cascade.showLevels",
+                      )}
+                    </span>
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{origin.text}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <span className="sr-only">{origin.text}</span>
+          {resetButton}
+        </div>
+        {levelsPanel}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1 text-xs" data-testid="config-cascade">
       <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
         <span className={cn("inline-flex items-center gap-1.5", origin.className)}>
           {origin.text}
         </span>
-        {hasOverride && onReset !== undefined && qualifiedKey !== undefined ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onReset(qualifiedKey, screenScope)}
-            testId="config-cascade-reset"
-            className="h-auto px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
-          >
-            {t(
-              screenScope === "system"
-                ? "kumiko.config.cascade.resetToApp"
-                : "kumiko.config.cascade.resetTo",
-            )}
-          </Button>
-        ) : null}
+        {resetButton}
       </div>
-      {expandable && (cascade.levels.length > 2 || screenScope === "system") ? (
+      {showsLevels ? (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -245,17 +309,7 @@ export function ConfigCascadeView({
           {t(expanded ? "kumiko.config.cascade.hideLevels" : "kumiko.config.cascade.showLevels")}
         </button>
       ) : null}
-      {expanded && expandable && (cascade.levels.length > 2 || screenScope === "system") ? (
-        <ul id={panelId} className="flex flex-col gap-0.5 border-l border-border pl-3">
-          {displayLevels.map((display) => (
-            <CascadeLevelRow
-              key={display.level.source}
-              display={display}
-              {...(renderValue !== undefined && { renderValue })}
-            />
-          ))}
-        </ul>
-      ) : null}
+      {levelsPanel}
     </div>
   );
 }

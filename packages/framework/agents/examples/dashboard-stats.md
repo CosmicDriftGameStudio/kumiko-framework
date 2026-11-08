@@ -28,6 +28,10 @@ query and the fields to read, the query does the counting.
   `list` with `filter`, `limit: 1` and `totalCount: true`. The total is counted
   over the whole WHERE clause, so no rows are loaded just to be counted.
 - **Labels are translation keys**: declared with `r.translations`.
+- **`progress-list` head from the answer**: `labelParams` fills the `{month}` of the
+  label from the query answer and `subtitleField` shows the period muted at the head's right.
+- **List footer without a link**: `footerLink` with only `moreText` (no `label`)
+  shows the muted "k more" count under the list.
 - **Record-bound dashboard**: `ticket-record-dashboard` binds to a record with `record`
   and embeds the `ticket-card` projectionDetail as a screen panel; the record id
   becomes its entityId.
@@ -299,8 +303,33 @@ export const ticketFeature = defineFeature("tickets", (r) => {
     access: readerRoles,
   });
 
+  // Three newest rows plus the total, so the panel can say how many more exist.
+  r.queryHandler({
+    name: "ticket:recent",
+    schema: z.object({}),
+    handler: async (query, ctx) => {
+      const page = await ticketExecutor.list({ limit: 3, totalCount: true }, query.user, ctx.db);
+      return { rows: page.rows, nextCursor: null, total: page.total ?? page.rows.length };
+    },
+    access: readerRoles,
+  });
+
+  r.queryHandler({
+    name: "ticket:quota",
+    schema: z.object({}),
+    handler: async () => ({
+      month: "November",
+      period: "01.11. - 30.11.",
+      rows: [{ label: "Tickets handled", used: 18, limit: 25, sub: "7 left" }],
+    }),
+    access: readerRoles,
+  });
+
   r.translations({
     keys: {
+      "tickets.dashboard.recent": { en: "Recent tickets" },
+      "tickets.dashboard.recent-more": { en: "{count} more tickets" },
+      "tickets.dashboard.quota": { en: "Quota {month}" },
       "screen:ticket-list.title": { en: "Tickets" },
       "screen:ticket-card.title": { en: "Ticket" },
       "screen:ticket-record-dashboard.title": { en: "Ticket overview" },
@@ -314,6 +343,7 @@ export const ticketFeature = defineFeature("tickets", (r) => {
       "tickets.dashboard.open": { en: "Open" },
       "tickets.dashboard.closed": { en: "Closed" },
       "tickets.dashboard.total": { en: "All tickets" },
+      "tickets.dashboard.total-narrow": { en: { one: "{count} ticket", other: "{count} tickets" } },
       "tickets.dashboard.open-work": { en: "Open work" },
       "tickets.filter.open-work": { en: "Open work" },
       "screen:ticket-queue.title": { en: "Ticket queue" },
@@ -349,6 +379,8 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         kind: "stat",
         id: "total",
         label: "tickets.dashboard.total",
+        // Below sm the label is replaced by this plural key, resolved with { count: <value> }.
+        labelNarrow: "tickets.dashboard.total-narrow",
         query: TICKET_STATS_QUERY,
         valueField: "total",
       },
@@ -361,6 +393,25 @@ export const ticketFeature = defineFeature("tickets", (r) => {
         valueField: "total",
         params: { namedFilter: "open-work", limit: 1, totalCount: true },
         navigate: { screen: "ticket-queue", namedFilter: "open-work" },
+      },
+      // Without `label` the footer is only the muted "k more" count, no link.
+      {
+        kind: "list",
+        id: "recent",
+        label: "tickets.dashboard.recent",
+        query: "tickets:query:ticket:recent",
+        // `badgeIcon: "sparkles"` draws an AI-prepared value as the soft blue AI pill with an icon.
+        columns: ["title", { field: "status", display: "badge", badgeIcon: "sparkles" }],
+        footerLink: { moreText: "tickets.dashboard.recent-more", screen: "ticket-queue" },
+      },
+      // The title takes its month from the answer and the period shows muted at the head's right.
+      {
+        kind: "progress-list",
+        id: "quota",
+        label: "tickets.dashboard.quota",
+        labelParams: { month: "month" },
+        subtitleField: "period",
+        query: "tickets:query:ticket:quota",
       },
     ],
     access: readerRoles,

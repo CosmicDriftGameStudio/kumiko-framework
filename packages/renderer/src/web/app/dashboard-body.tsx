@@ -255,7 +255,14 @@ function renderDashboardPanel(
     );
   }
   const label =
-    panel.kind === "custom" || panel.label === undefined ? undefined : translate(panel.label);
+    panel.kind === "custom" || panel.label === undefined
+      ? undefined
+      : translate(
+          panel.label,
+          panel.kind === "progress-list" && panel.labelParams !== undefined
+            ? Object.fromEntries(Object.keys(panel.labelParams).map((param) => [param, ""]))
+            : undefined,
+        );
   return (
     <HiddenOnNarrow key={panel.id} hide={panel.hideOnNarrow === true}>
       <GatedGridCell

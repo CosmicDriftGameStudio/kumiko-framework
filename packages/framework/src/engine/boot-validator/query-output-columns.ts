@@ -246,6 +246,15 @@ function checkProjectionDetailOutputFields(
       () =>
         `${prefix} metrics references field "${field}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
+    if (metric.visibleWhen !== undefined) {
+      const conditionField = metric.visibleWhen.field;
+      checkFieldExists(
+        recordShape,
+        conditionField,
+        () =>
+          `${prefix} metric "${field}" visibleWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+      );
+    }
   }
   for (const { option, field } of detailGuidanceFieldRefs(screen)) {
     checkFieldExists(

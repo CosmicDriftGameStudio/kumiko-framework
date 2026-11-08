@@ -56,6 +56,7 @@ function orderDetailForUrl(id: string): Record<string, unknown> {
     summaryLine,
     summaryShort,
     summaryTone,
+    mobileLine,
     notice,
     steps,
     progress,
@@ -63,7 +64,17 @@ function orderDetailForUrl(id: string): Record<string, unknown> {
   } = answerOrderDetail(id);
   const withGuidance = new URLSearchParams(window.location.search).has("guidance");
   return withGuidance
-    ? { ...withoutGuidance, path, summaryLine, summaryShort, summaryTone, notice, steps, progress }
+    ? {
+        ...withoutGuidance,
+        path,
+        summaryLine,
+        summaryShort,
+        summaryTone,
+        mobileLine,
+        notice,
+        steps,
+        progress,
+      }
     : withoutGuidance;
 }
 

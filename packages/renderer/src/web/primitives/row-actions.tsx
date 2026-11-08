@@ -26,6 +26,12 @@ import { useToast } from "./toast.tsx";
 import "../react-css-custom-properties.ts";
 import { actionIconFor, SECONDARY_BUTTON_EXTRA_CLASSES } from "./button.tsx";
 
+// RowAction carries no AI marker; the sparkles icon is the convention for an
+// AI-prepared action (same as record guidance), so it selects the soft look.
+function isSoftAiAction(action: { readonly style?: string }, icon: unknown): boolean {
+  return action.style !== "danger" && icon === "sparkles";
+}
+
 // The primary row action always remains a visible text button: `edit` when declared,
 // otherwise the first visible action ("Edit appears in every row, always, as text").
 function primaryRowAction(actions: readonly DataTableRowAction[]): DataTableRowAction | undefined {
@@ -152,8 +158,9 @@ function effectiveRowActionDisplay(
   display: RowActionDisplay | undefined,
   hasIcon: boolean,
   compact: boolean,
+  keepsLabel: boolean,
 ): Exclude<RowActionDisplay, "responsive"> | undefined {
-  if (display === "responsive") return hasIcon && compact ? "icon" : "button";
+  if (display === "responsive") return hasIcon && compact && !keepsLabel ? "icon" : "button";
   if (display === "icon" && !hasIcon) return "link";
   return display;
 }
@@ -183,27 +190,40 @@ function RowActionButton({
     action.display,
     resolvedIcon !== undefined,
     compact,
+    isSoftAiAction(action, resolvedIcon),
   );
-  // A card's small row action is always an outlined button, also when the author asked for a link.
-  const display = small && resolvedDisplay === "link" ? "button" : resolvedDisplay;
+  const display = resolvedDisplay;
+  if (display === "text") {
+    return (
+      <span
+        data-testid={`row-${row.id}-action-${action.id}`}
+        className={cn("px-2.5 text-muted-foreground", small ? "text-[13px]" : "text-sm")}
+      >
+        {action.label}
+      </span>
+    );
+  }
   const isBorderedButton = display === "button";
+  const isSoftAiButton = isBorderedButton && isSoftAiAction(action, resolvedIcon);
   const showIconOnly =
     display === "icon" || (display === undefined && iconOnly && resolvedIcon !== undefined);
   const linkLike = display === "link" || (display === undefined && asLink);
 
-  const variantClass = isBorderedButton
-    ? action.style === "primary"
-      ? "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90"
+  const variantClass = isSoftAiButton
+    ? "border border-transparent bg-primary/10 text-primary hover:bg-primary/15"
+    : isBorderedButton
+      ? action.style === "primary"
+        ? "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90"
+        : action.style === "danger"
+          ? "border border-destructive/40 bg-card text-destructive hover:bg-destructive/10"
+          : "border border-border-strong bg-card text-foreground hover:bg-accent"
       : action.style === "danger"
-        ? "border border-destructive/40 bg-card text-destructive hover:bg-destructive/10"
-        : "border border-border-strong bg-card text-foreground hover:bg-accent"
-    : action.style === "danger"
-      ? "text-destructive hover:bg-destructive/10"
-      : linkLike
-        ? "font-medium text-primary hover:bg-muted"
-        : action.style === "primary"
-          ? "text-primary hover:bg-primary/10"
-          : "text-foreground hover:bg-accent";
+        ? "text-destructive hover:bg-destructive/10"
+        : linkLike
+          ? "font-medium text-primary hover:bg-muted"
+          : action.style === "primary"
+            ? "text-primary hover:bg-primary/10"
+            : "text-foreground hover:bg-accent";
 
   return (
     <>
@@ -222,13 +242,17 @@ function RowActionButton({
         }}
         className={cn(
           "inline-flex items-center justify-center gap-1.5 text-sm",
-          isBorderedButton
-            ? small
-              ? cn("rounded-md font-medium", COMPACT_TAP_CLASSES)
-              : "h-8 rounded-md px-3 font-medium max-md:h-11"
-            : linkLike
-              ? "h-7 rounded-md px-2.5 max-md:h-11"
-              : "h-8 rounded-sm max-md:h-11",
+          isSoftAiButton
+            ? "h-[26px] rounded-md px-2.5 text-[12.5px] font-semibold"
+            : isBorderedButton
+              ? small
+                ? cn("rounded-md font-medium", COMPACT_TAP_CLASSES)
+                : "h-8 rounded-md px-3 font-medium max-md:h-11"
+              : linkLike
+                ? small
+                  ? "h-8 rounded-md px-0 text-[13px] font-medium"
+                  : "h-7 rounded-md px-2.5 max-md:h-11"
+                : "h-8 rounded-sm max-md:h-11",
           showIconOnly ? "w-8 max-md:w-11" : !linkLike && !isBorderedButton && "px-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:opacity-50 disabled:pointer-events-none",

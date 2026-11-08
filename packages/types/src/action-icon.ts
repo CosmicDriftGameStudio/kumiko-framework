@@ -47,7 +47,8 @@ function kebabFirstSegment(id: string): string {
 // default (full id, then its last kebab segment, then its first kebab
 // segment). `declared` is `undefined` for ToolbarAction, which has no
 // author-facing icon field.
-export function resolveActionIcon(id: string, declared?: IconKey): IconKey | undefined {
+export function resolveActionIcon(id: string, declared?: IconKey | false): IconKey | undefined {
+  if (declared === false) return undefined;
   if (declared !== undefined) return declared;
   return (
     ACTION_ICON_BY_ID[id] ??

@@ -53,7 +53,7 @@ function renderExpandHeaderCell(m: DataTableModel): ReactNode {
 
 export function renderTableHeader(m: DataTableModel): ReactNode {
   return (
-    <TableHeader className="bg-muted">
+    <TableHeader className="bg-background">
       <TableRow ref={m.headerRowRef} className="hover:bg-transparent">
         {m.selection.headerCell(m.pins.headerCell(SELECT_COLUMN_KEY))}
         {m.expansion !== undefined && renderExpandHeaderCell(m)}

@@ -24,6 +24,10 @@ const ReportStandInContext = createContext<((standIn: StandIn | undefined) => vo
   undefined,
 );
 
+// Separate from ReportStandInContext: the stand-in's own KumikoScreen wraps its body in a
+// StandInChainBoundary, which clears the report context, so that one cannot tell a body it is a stand-in.
+const StandInScreenContext = createContext(false);
+
 /** Screen bodies (and anything embedded in them) are not part of a fallback chain. */
 export function StandInChainBoundary({ children }: { readonly children: ReactNode }): ReactNode {
   return (
@@ -55,7 +59,14 @@ export function LockedHeaderScope({
           {...(effectiveScreenId !== undefined && { standInScreenId: effectiveScreenId })}
         />
       )}
-      <ReportStandInContext.Provider value={setInner}>{children}</ReportStandInContext.Provider>
+      <StandInScreenContext.Provider value={standInScreenId !== undefined}>
+        <ReportStandInContext.Provider value={setInner}>{children}</ReportStandInContext.Provider>
+      </StandInScreenContext.Provider>
     </>
   );
+}
+
+/** True while the screen renders as the stand-in of a locked screen (`visibleWhen` + `fallback`). */
+export function useIsStandInScreen(): boolean {
+  return useContext(StandInScreenContext);
 }

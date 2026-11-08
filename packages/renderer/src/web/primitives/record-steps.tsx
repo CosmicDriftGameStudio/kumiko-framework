@@ -1,19 +1,9 @@
-import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useContext, useId, useState } from "react";
 import type { RecordStepsProps } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { InsideScreenFormColumnContext } from "./metric.tsx";
 import { ReasonBox, ReasonInfoButton } from "./reason-box.tsx";
 import { useIsBelowSmViewport } from "./use-narrow-viewport.ts";
-
-const STEP_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
-  bad: "bg-status-bad",
-  warn: "bg-status-warn",
-  critical: "bg-status-critical",
-  ok: "bg-status-ok",
-  accent: "bg-primary",
-  neutral: "bg-border-strong",
-};
 
 type StepItem = RecordStepsProps["items"][number];
 
@@ -40,20 +30,12 @@ function StepRow({
 }): ReactNode {
   const [reasonOpen, setReasonOpen] = useState(item.reasonOpen === true);
   const reasonBoxId = useId();
-  const narrow = useIsBelowSmViewport();
   return (
     <li
       data-testid={`record-step-${item.id}`}
       data-tone={item.tone}
-      className="relative grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 py-3 pl-5 pr-4 max-sm:py-[9px] max-sm:pl-3.5 max-sm:pr-0"
+      className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] content-center gap-x-3 gap-y-1 px-4 py-2.5"
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "absolute inset-y-2.5 left-0 w-1 rounded-[2px] max-sm:inset-y-[9px]",
-          STEP_STRIPE_CLASS[item.tone ?? "neutral"],
-        )}
-      />
       <div className="col-start-1 row-start-1 flex min-w-0 items-start gap-2">
         <span className="font-medium text-foreground max-sm:text-[13.5px]" data-slot="step-what">
           <StepTitle item={item} />
@@ -69,33 +51,34 @@ function StepRow({
           </span>
         )}
       </div>
-      <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-3 max-sm:row-span-2 max-sm:self-center max-sm:[&_button]:h-8 max-sm:[&_button]:text-[13px]">
-        {item.moreActions !== undefined && !narrow && (
-          <div className="flex items-center gap-3 text-[12.5px] text-muted-foreground [&_a]:text-[12.5px] [&_a]:text-muted-foreground [&_button]:text-[12.5px] [&_button]:text-muted-foreground">
-            {moreActionsLabel !== undefined && (
-              <span data-testid={`record-step-${item.id}-more-actions-label`}>
-                {moreActionsLabel}
-              </span>
-            )}
-            {item.moreActions}
-          </div>
-        )}
-        {item.actions}
-      </div>
-      <div className="col-start-1 row-start-2 min-w-0 sm:col-span-2">
+      <div className="col-start-1 row-start-2 min-w-0 sm:col-span-1">
         <StepDetail item={item} />
       </div>
-      {item.moreActions !== undefined && narrow && (
+      {item.actions !== undefined && (
+        <div className="flex shrink-0 items-center gap-3 max-sm:col-span-2 max-sm:row-start-3 max-sm:mt-1 [&_button]:h-9 [&_button_svg]:hidden max-sm:[&>*]:w-full max-sm:[&_button]:w-full sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:self-center">
+          {item.actions}
+        </div>
+      )}
+      {item.moreActions !== undefined && (
         <div
           data-testid={`record-step-${item.id}-more-actions`}
-          className="col-span-2 row-start-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground [&_a]:text-xs [&_a]:text-muted-foreground [&_button]:text-xs [&_button]:text-muted-foreground"
+          className="col-span-2 row-start-4 mt-1 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border-row pt-2.5 text-[12.5px]"
         >
-          {moreActionsLabel !== undefined && <span>{moreActionsLabel}</span>}
-          {item.moreActions}
+          {moreActionsLabel !== undefined && (
+            <span
+              className="text-muted-foreground max-sm:w-full"
+              data-testid={`record-step-${item.id}-more-actions-label`}
+            >
+              {moreActionsLabel}
+            </span>
+          )}
+          <div className="flex flex-wrap items-center gap-2 text-[12.5px] [&_button]:h-9 [&_button]:rounded-md [&_button]:border [&_button]:border-border-strong [&_button]:bg-card [&_button]:px-3 [&_button]:text-[12.5px] [&_button]:font-medium [&_button]:text-foreground [&_button_svg]:text-primary">
+            {item.moreActions}
+          </div>
         </div>
       )}
       {item.reason !== undefined && reasonOpen && (
-        <div className="col-span-2 row-start-3 max-sm:hidden">
+        <div className="col-span-2 row-start-5 max-sm:hidden">
           <ReasonBox
             id={reasonBoxId}
             testId={`record-step-${item.id}-reason`}
@@ -109,25 +92,12 @@ function StepRow({
   );
 }
 
-function StepsHeader({
-  title,
-  subtitle,
-  count,
-  testId,
-}: Pick<RecordStepsProps, "title" | "subtitle" | "count" | "testId">): ReactNode {
+function StepsHeader({ title, subtitle }: Pick<RecordStepsProps, "title" | "subtitle">): ReactNode {
   return (
-    <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 max-sm:px-0 max-sm:pt-1">
-      <h3 className="m-0 text-sm font-semibold text-foreground">{title}</h3>
+    <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 pt-2.5">
+      <h3 className="m-0 text-[11.5px] font-normal text-muted-foreground">{title}</h3>
       {subtitle !== undefined && (
         <span className="text-[13px] text-muted-foreground max-sm:hidden">{subtitle}</span>
-      )}
-      {count !== undefined && (
-        <span
-          data-testid={`${testId ?? "record-steps"}-count`}
-          className="ml-auto text-xs text-muted-foreground sm:hidden"
-        >
-          {count}
-        </span>
       )}
     </header>
   );
@@ -149,13 +119,9 @@ function StepsMoreToggle({
       type="button"
       data-testid={`${testId ?? "record-steps"}-toggle`}
       aria-expanded={expanded}
-      className="relative w-full border-t px-4 py-3 text-left text-sm font-medium text-primary hover:underline max-sm:border-border-row max-sm:py-[9px] max-sm:pl-3.5 max-sm:pr-0 max-sm:text-xs max-sm:font-normal"
+      className="w-full border-t border-border-row px-4 py-3 text-left text-sm font-medium text-primary hover:underline max-sm:py-[9px] max-sm:text-xs max-sm:font-normal"
       onClick={onToggle}
     >
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-[9px] left-0 w-1 rounded-[2px] bg-border-strong sm:hidden"
-      />
       {label}
     </button>
   );
@@ -171,7 +137,6 @@ export function DefaultRecordSteps({
   lessLabel,
   moreActionsLabel,
   items,
-  count,
   testId,
 }: RecordStepsProps): ReactNode {
   const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
@@ -190,8 +155,8 @@ export function DefaultRecordSteps({
       data-testid={testId}
       className={cn("shrink-0", !insideScreenFormColumn && "px-6 py-2 max-sm:px-4")}
     >
-      <div className="sm:rounded-md sm:border sm:bg-card">
-        <StepsHeader title={title} subtitle={subtitle} count={count} testId={testId} />
+      <div className="rounded-[9px] border border-border bg-card">
+        <StepsHeader title={title} subtitle={subtitle} />
         {items.length === 0 ? (
           <p className="m-0 px-4 py-3 text-sm text-muted-foreground">{emptyLabel}</p>
         ) : (

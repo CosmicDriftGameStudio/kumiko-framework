@@ -20,6 +20,50 @@ const panelClass =
   "z-50 flex max-h-[28rem] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-md border " +
   "bg-popover text-popover-foreground shadow-md";
 
+function NotificationRowItem({
+  row,
+  createdLabel,
+  onOpen,
+}: {
+  readonly row: InAppInboxRow;
+  readonly createdLabel: string;
+  readonly onOpen: () => void;
+}): ReactNode {
+  const t = useTranslation();
+  return (
+    <li>
+      <button
+        type="button"
+        data-unread={row.isRead ? undefined : "true"}
+        className="flex w-full items-start gap-2 border-b border-border px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+        onClick={onOpen}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            "mt-1.5 size-2 shrink-0 rounded-full",
+            row.isRead ? "bg-transparent" : "bg-primary",
+          )}
+        />
+        {!row.isRead && <span className="sr-only">{t("kumiko.notifications.unread")}</span>}
+        <span className="min-w-0 flex-1">
+          <span className={cn("block truncate text-sm", !row.isRead && "font-semibold")}>
+            {row.title}
+          </span>
+          {row.body !== null && (
+            <span className="block truncate text-xs text-muted-foreground">{row.body}</span>
+          )}
+          <span className="block text-xs text-muted-foreground">{createdLabel}</span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function unreadBadgeText(unreadCount: number): string {
+  return unreadCount > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : String(unreadCount);
+}
+
 export function NotificationBell({
   screens,
   menuEntry,
@@ -38,8 +82,7 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const inbox = useInAppInbox(open);
 
-  const badge =
-    inbox.unreadCount > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : String(inbox.unreadCount);
+  const badge = unreadBadgeText(inbox.unreadCount);
   const label =
     inbox.unreadCount > 0
       ? t("kumiko.notifications.labelUnread", { count: badge })
@@ -96,38 +139,12 @@ export function NotificationBell({
           )}
           <ul>
             {inbox.rows.map((row) => (
-              <li key={row.id}>
-                <button
-                  type="button"
-                  data-unread={row.isRead ? undefined : "true"}
-                  className="flex w-full items-start gap-2 border-b border-border px-3 py-2 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                  onClick={() => void openRow(row)}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "mt-1.5 size-2 shrink-0 rounded-full",
-                      row.isRead ? "bg-transparent" : "bg-primary",
-                    )}
-                  />
-                  {!row.isRead && (
-                    <span className="sr-only">{t("kumiko.notifications.unread")}</span>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className={cn("block truncate text-sm", !row.isRead && "font-semibold")}>
-                      {row.title}
-                    </span>
-                    {row.body !== null && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {row.body}
-                      </span>
-                    )}
-                    <span className="block text-xs text-muted-foreground">
-                      {formatRelative(Date.parse(row.createdAt))}
-                    </span>
-                  </span>
-                </button>
-              </li>
+              <NotificationRowItem
+                key={row.id}
+                row={row}
+                createdLabel={formatRelative(Date.parse(row.createdAt))}
+                onOpen={() => void openRow(row)}
+              />
             ))}
           </ul>
           {inbox.hasMore && (
@@ -147,24 +164,27 @@ export function NotificationBell({
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
       {menuEntry === undefined ? (
-        <PopoverPrimitive.Trigger asChild>
-          <button
-            type="button"
-            aria-label={label}
-            data-kumiko-layout="notification-bell"
-            className={triggerClass}
-          >
-            <Bell className="size-4" aria-hidden="true" />
-            {inbox.unreadCount > 0 && (
-              <span
-                data-kumiko-layout="notification-bell-badge"
-                className="absolute right-[3px] top-[3px] rounded-full bg-destructive px-1 py-0.5 text-[9.5px] font-semibold leading-none text-destructive-foreground"
-              >
-                {badge}
-              </span>
-            )}
-          </button>
-        </PopoverPrimitive.Trigger>
+        // Stays mounted while the list is open, else "mark all read" would pull the anchor away.
+        inbox.unreadCount > 0 || open ? (
+          <PopoverPrimitive.Trigger asChild>
+            <button
+              type="button"
+              aria-label={label}
+              data-kumiko-layout="notification-bell"
+              className={triggerClass}
+            >
+              <Bell className="size-4" aria-hidden="true" />
+              {inbox.unreadCount > 0 && (
+                <span
+                  data-kumiko-layout="notification-bell-badge"
+                  className="absolute right-[3px] top-[3px] rounded-full bg-destructive px-1 py-0.5 text-[9.5px] font-semibold leading-none text-destructive-foreground"
+                >
+                  {badge}
+                </span>
+              )}
+            </button>
+          </PopoverPrimitive.Trigger>
+        ) : null
       ) : (
         <>
           <PopoverPrimitive.Anchor virtualRef={menuEntry.anchorRef} />

@@ -323,7 +323,11 @@ function createRequestDetailScreen(
               field: "authorName",
               label: `${HELPDESK_FEATURE}:entity:helpdesk-reply:field:authorName`,
             },
-            { field: "message", label: `${HELPDESK_FEATURE}:entity:helpdesk-reply:field:message` },
+            {
+              field: "message",
+              label: `${HELPDESK_FEATURE}:entity:helpdesk-reply:field:message`,
+              multiline: true,
+            },
           ],
         },
         {

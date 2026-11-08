@@ -81,21 +81,30 @@ export function useListTable({
     [options.resetAll, atDefault, onReset],
   );
 
+  // Without a column picker a hidden column only backs a facet: it stays out of the table, and
+  // leaving out onColumnsChange keeps the view menu closed.
+  const fixedColumns = useMemo(
+    () =>
+      schemaColumns.some((column) => column.hidden === true)
+        ? schemaColumns.map((column) => ({ field: column.field, visible: column.hidden !== true }))
+        : undefined,
+    [schemaColumns],
+  );
   const hasView =
     options.columnPicker === true ||
     options.density !== undefined ||
     options.pinning === true ||
     options.resizing === true ||
     options.keyboardNavigation === true ||
-    viewState.groupByFields !== undefined;
+    viewState.groupByFields !== undefined ||
+    fixedColumns !== undefined;
   const view = useMemo<DataTableViewOptions | undefined>(
     () =>
       hasView
         ? {
-            ...(viewState.columns !== undefined && {
-              columns: viewState.columns,
-              onColumnsChange: viewState.setColumns,
-            }),
+            ...(viewState.columns !== undefined
+              ? { columns: viewState.columns, onColumnsChange: viewState.setColumns }
+              : fixedColumns !== undefined && { columns: fixedColumns }),
             density: viewState.density,
             ...(viewState.userChoosesDensity && { onDensityChange: viewState.setDensity }),
             ...(viewState.pins !== undefined && {
@@ -120,7 +129,7 @@ export function useListTable({
             onViewReset: viewState.resetView,
           }
         : undefined,
-    [hasView, viewState, options.keyboardNavigation],
+    [hasView, viewState, fixedColumns, options.keyboardNavigation],
   );
 
   const exportEnabled = options.export?.xlsx === true;

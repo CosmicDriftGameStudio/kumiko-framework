@@ -12,6 +12,10 @@ shared chrome (footer, submit button) can be compared side by side.
 - `note-detail`, a `projectionDetail` screen whose only section is
   `kind: "writeForm"` with the identical field set, dispatching its own
   `note-desk:write:note:comment` handler on submit
+- `note-triage`, an `actionForm`: `infoBand` draws the `assist` banner; the layout field
+  options `badge` (`{ label, tone }`) and `hintField` (a value field as muted hint) and a
+  `suffix` behind the number field. `FormProps.topBanner` is not shown: no screen
+  declaration reaches it
 - an e2e layout-parity spec (`e2e/writeform-parity.spec.ts`) proving both
   submit buttons render the same width, sit right-aligned in their form's
   footer, and never stretch full-width — the regression this recipe guards

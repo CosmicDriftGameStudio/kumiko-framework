@@ -47,7 +47,7 @@ export function DefaultDataTable(props: DataTableProps): ReactNode {
   // typically scroll with the page container, not internally. Sticky would
   // compete with the topbar.
   return (
-    <div className={wrapperClassName(model)}>
+    <div ref={model.containerRef} className={wrapperClassName(model)}>
       {/* An embedded table sits under its section title, so the description reads first
           there; a full-height list keeps it below the toolbar it pads against. */}
       {!mergesDescription && !model.fillsHeight && renderToolbarDescription(model, hasToolbar)}

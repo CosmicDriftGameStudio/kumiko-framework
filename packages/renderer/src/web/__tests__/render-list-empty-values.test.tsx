@@ -5,7 +5,6 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { cleanup, render } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
-import { EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
 import {
   createStaticLocaleResolver,
   DispatcherProvider,
@@ -83,9 +82,9 @@ function renderRow(row: Record<string, unknown>): ReturnType<typeof render> {
 }
 
 describe("RenderList: empty values", () => {
-  test("an empty plain cell and an empty reference cell show the same placeholder", () => {
+  test("an empty plain cell and an empty reference cell are both blank", () => {
     const view = renderRow({ name: null, owner: null });
-    expect(view.getByTestId("cell-r1-name").textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
-    expect(view.getByTestId("cell-r1-owner").textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
+    expect(view.getByTestId("cell-r1-name").textContent).toBe("");
+    expect(view.getByTestId("cell-r1-owner").textContent).toBe("");
   });
 });

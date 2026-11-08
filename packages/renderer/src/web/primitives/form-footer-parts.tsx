@@ -55,13 +55,10 @@ export function renderNarrowPinnedFooter(
 }
 
 export function footerRowClassName(model: FormFooterModel): string {
-  const { pinned, chromeless, fillHeight, railed } = model;
+  const { pinned, chromeless, fillHeight } = model;
   return cn(
     pinned
-      ? cn(
-          "flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6",
-          !railed && "md:pl-10",
-        )
+      ? "flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6"
       : "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
     !pinned && !chromeless && "px-[var(--card-padding)]",
     !pinned && !chromeless && cardFooterBorder,

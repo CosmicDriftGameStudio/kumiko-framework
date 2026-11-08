@@ -24,6 +24,7 @@ function featureWith(
   kind: ScreenKind,
   table: unknown,
   columns: readonly ListColumnSpec[] = ["name"],
+  facets?: readonly unknown[],
 ) {
   return defineFeature("shop", (r) => {
     r.entity({
@@ -34,7 +35,11 @@ function featureWith(
     });
     r.queryHandler({
       name: "item:rows",
-      schema: z.object({}),
+      schema: z.object({
+        filters: z
+          .array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() }))
+          .optional(),
+      }),
       handler: async () => ({ rows: [], nextCursor: null }),
       access: OPEN_TO_ALL,
       outputSchema: rowsSchema,
@@ -54,6 +59,7 @@ function featureWith(
         query: "shop:query:item:rows",
         columns,
         ...(table !== undefined && { table }),
+        ...(facets !== undefined && { facets }),
       } as never);
     } else {
       r.screen({
@@ -150,6 +156,22 @@ describe("validateBoot — list table block", () => {
     expect(() =>
       validateBoot([featureWith(kind, undefined, ["name", { field: "id", hidden: true }])]),
     ).toThrow(/column "id" is hidden but table\.columnPicker is not enabled/);
+  });
+
+  test("a hidden column that backs a facet needs no columnPicker", () => {
+    const facets = [
+      {
+        field: "id",
+        type: "select",
+        label: "shop:filter.id",
+        options: [{ value: "a", label: "A" }],
+      },
+    ];
+    expect(() =>
+      validateBoot([
+        featureWith("projectionList", undefined, ["name", { field: "id", hidden: true }], facets),
+      ]),
+    ).not.toThrow();
   });
 
   test.each(KINDS)("%s: hiding every column is rejected", (kind) => {
@@ -276,7 +298,11 @@ describe("validateBoot — list table block", () => {
       });
       r.queryHandler({
         name: "item:rows",
-        schema: z.object({}),
+        schema: z.object({
+          filters: z
+            .array(z.object({ field: z.string(), op: z.literal("in"), value: z.unknown() }))
+            .optional(),
+        }),
         handler: async () => ({ rows: [], nextCursor: null }),
         access: OPEN_TO_ALL,
         outputSchema: rowsSchema,

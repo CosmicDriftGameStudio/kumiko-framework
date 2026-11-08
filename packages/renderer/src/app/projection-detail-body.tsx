@@ -1,5 +1,8 @@
+import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useState } from "react";
 import { RenderEdit } from "../components/render-edit.tsx";
+import type { WriteFormRegistry } from "../components/write-form-registry.ts";
+import { WriteFormRegistryProvider } from "../components/write-form-registry.ts";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
@@ -88,6 +91,8 @@ export function ProjectionDetailBody({
   // headerActions moved out of RenderEdit's footer — this component owns
   // the failure-surfacing state RenderEdit used to own for them.
   const [actionError, setActionError] = useState<ErrorNotice | null>(null);
+  // writeForm sections register here so an action with `submitWith` can send their values.
+  const [writeForms] = useState<WriteFormRegistry>(() => new Map());
 
   const appFeatures = useAppFeatures();
   const userRoles = useUserRoles();
@@ -117,6 +122,7 @@ export function ProjectionDetailBody({
       detailQuery,
       reloadDetail,
       activeTabId: activeSection?.id,
+      writeForms,
     });
   const { hasMetrics, headerActionsList, hasHeaderActions, hasHeaderCard, renderedDetailScreen } =
     useProjectionDetailLayout({ screen, headerActions, hasTabs, detailScreen });
@@ -144,8 +150,16 @@ export function ProjectionDetailBody({
   if (!record) {
     return renderRecordNotFound({ schema, screen, nav, returnTarget, effectiveTranslate });
   }
+  const visibleMetrics = screen.metrics?.filter(
+    (metric) =>
+      metric.visibleWhen === undefined || evalFieldCondition(metric.visibleWhen, { ...record }),
+  );
   const regionModel: DetailRegionModel = {
-    screen: { ...screen, layout: { ...screen.layout, sections: visibleSections } },
+    screen: {
+      ...screen,
+      ...(visibleMetrics !== undefined && { metrics: visibleMetrics }),
+      layout: { ...screen.layout, sections: visibleSections },
+    },
     record,
     primitives,
     effectiveTranslate,
@@ -160,7 +174,7 @@ export function ProjectionDetailBody({
     pageHeaderSlotAvailable,
     pageHeaderCompactContext,
     hasHeaderActions,
-    hasMetrics,
+    hasMetrics: hasMetrics && (visibleMetrics?.length ?? 0) > 0,
     hasHeaderCard,
     hasTabs,
     tabCounts,
@@ -172,7 +186,7 @@ export function ProjectionDetailBody({
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode =>
     renderDetailHeaderContent(regionModel, regionPieces, headerSlot);
   return (
-    <>
+    <WriteFormRegistryProvider value={writeForms}>
       {refetchErrorBanner}
       <RenderEdit
         key={entityId}
@@ -190,7 +204,17 @@ export function ProjectionDetailBody({
         {...(screen.footerHint !== undefined && {
           footerHint: effectiveTranslate(screen.footerHint),
         })}
-        {...(hasTabs && activeSections.length === 1 && { hideSectionTitles: true })}
+        {...(hasTabs &&
+          activeSections.length === 1 &&
+          screen.layout.narrowTabs !== false && { hideSectionTitles: true })}
+        recordSections={{
+          labelTitles: true,
+          ...(hasTabs &&
+            activeSections.length > 1 &&
+            activeSections[0]?.tabLabel === undefined && { omitFirstTitle: true as const }),
+          ...(screen.pageNavigation === false && { pageNavigation: false as const }),
+          ...(screen.photosBeside === true && { photosBeside: true as const }),
+        }}
         {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
         {...((hasHeaderCard ||
           hasTabs ||
@@ -210,6 +234,6 @@ export function ProjectionDetailBody({
         drawer,
         refreshRows: reloadDetail,
       })}
-    </>
+    </WriteFormRegistryProvider>
   );
 }

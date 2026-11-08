@@ -17,7 +17,8 @@ export const DrawnPencil = createLucideIcon("drawn-pencil", [
 ]);
 
 export const DrawnFilter = createLucideIcon("drawn-filter", [
-  ["path", { d: "M4 6h16l-6 7v5l-4 2v-7z", key: "funnel" }],
+  ["path", { d: "M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3", key: "lines" }],
+  ["path", { d: "M14 2v4M8 10v4M16 18v4", key: "knobs" }],
 ]);
 
 export const DrawnWand = createLucideIcon("drawn-wand", [

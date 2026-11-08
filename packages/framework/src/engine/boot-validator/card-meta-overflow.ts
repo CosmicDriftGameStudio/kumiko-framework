@@ -56,11 +56,15 @@ function countOverflow(
       renderer: col.renderer,
       hideOnNarrow: col.hideOnNarrow,
       narrowInline: col.narrowInline,
+      cardBadge: col.cardBadge,
+      cardAbove: col.cardAbove,
       hint: col.hint,
+      emphasis: col.emphasis,
       ...(fileKind !== undefined && { fileDisplay: { kind: fileKind } }),
     };
   });
-  const { meta } = cardColumnRoles(cardColumns);
+  // The card draws `cardAbove` columns above the title, not as meta lines.
+  const meta = cardColumnRoles(cardColumns).meta.filter((col) => col.cardAbove !== true);
   const lineCount = cardMetaLines(meta).length;
   if (lineCount <= CARD_META_MAX) return undefined;
   return {

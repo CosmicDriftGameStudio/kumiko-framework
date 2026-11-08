@@ -43,6 +43,13 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - round 6 (board gaps): `rowLink.screenField` / `paramsField` (target screen from a query field),
   list panel `icon`, `narrow.moreText`, `narrow.field` as any query output field,
   `footerLink.narrowOnly`, `narrow.titleField` on cards and `rowToneMarker: "dot"`
+- round 7 (board look): `header.narrowTitle` (short phone top-bar title), banner `iconless`,
+  `metricsPlacement: { narrow: "before-steps" }`, `mobileSummary` (one line instead of the
+  metrics below `sm`), `MetricSpec.visibleWhen`, field option `concealed` (muted value with a lock),
+  section `hideOnNarrow` and `after` (a registered component under the items tab card), and a
+  second screen `order-facts` with a stacked layout and `pageNavigation: false`
+- not shown: `photosBeside` (needs a stored image file for `photoGrid`) and `recordSections.omitFirstTitle`
+  (a renderer prop, not reachable from a screen declaration)
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections

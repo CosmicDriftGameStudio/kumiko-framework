@@ -14,6 +14,7 @@ const ICON_COLOR_CLASS: Record<BannerVariant, string> = {
   hint: "text-primary",
   info: "text-primary",
   primary: "text-primary",
+  assist: "text-primary",
   ok: "text-status-ok",
   warning: "text-status-warn",
   error: "text-destructive",
@@ -30,6 +31,8 @@ function variantClass(variant: BannerVariant, compact: boolean): string {
       return "border-status-ok/30 bg-status-ok-surface text-foreground";
     case "primary":
       return "border-l-4 border-l-primary bg-card text-card-foreground";
+    case "assist":
+      return "rounded-[9px] border-transparent border-l-[3px] border-l-primary bg-secondary px-3 py-2.5 text-primary font-medium";
     case "hint":
       return compact
         ? "border-border bg-card text-foreground"
@@ -81,23 +84,9 @@ function BannerText({
   const title = narrow && narrowTitle !== undefined ? narrowTitle : fullTitle;
   const showsNarrowText = narrow && narrowText !== undefined;
   const children = showsNarrowText ? narrowText : fullText;
-  if (compact || inline) {
-    return (
-      <div className={cn("min-w-0 grow", wrapsActions && "max-sm:min-w-[10rem] max-sm:basis-0")}>
-        {title !== undefined && (
-          <>
-            <strong data-testid={titleTestId} className="font-semibold">
-              {title}
-            </strong>{" "}
-          </>
-        )}
-        <span className={cn(inline && !showsNarrowText && "max-sm:hidden")}>
-          {children}
-          {!showsNarrowText && <BannerParts parts={parts} />}
-        </span>
-      </div>
-    );
-  }
+  const text = { title, children, showsNarrowText, titleTestId, parts, wrapsActions };
+  if (inline && !compact && title !== undefined) return <InlineTitledBannerText {...text} />;
+  if (compact || inline) return <CompactBannerText inline={inline} {...text} />;
   return (
     <div className="min-w-0 flex-1">
       {title !== undefined && (
@@ -108,6 +97,66 @@ function BannerText({
       {children}
       {!showsNarrowText && <BannerParts parts={parts} />}
       {actionsBelow}
+    </div>
+  );
+}
+
+type ResolvedBannerText = Pick<BannerProps, "titleTestId" | "parts"> & {
+  readonly title: ReactNode;
+  readonly children: ReactNode;
+  readonly showsNarrowText: boolean;
+  readonly wrapsActions: boolean;
+};
+
+function InlineTitledBannerText({
+  title,
+  children,
+  showsNarrowText,
+  titleTestId,
+  parts,
+  wrapsActions,
+}: ResolvedBannerText): ReactNode {
+  return (
+    <div className={cn("min-w-0 grow", wrapsActions && "max-sm:min-w-[10rem] max-sm:basis-0")}>
+      <div
+        data-testid={titleTestId}
+        className={cn(
+          "text-xs text-muted-foreground",
+          !showsNarrowText && "max-sm:text-sm max-sm:font-semibold max-sm:text-foreground",
+        )}
+      >
+        {title}
+      </div>
+      <div className={cn(!showsNarrowText && "max-sm:hidden")}>
+        {children}
+        {!showsNarrowText && <BannerParts parts={parts} />}
+      </div>
+    </div>
+  );
+}
+
+function CompactBannerText({
+  inline,
+  title,
+  children,
+  showsNarrowText,
+  titleTestId,
+  parts,
+  wrapsActions,
+}: ResolvedBannerText & { readonly inline: boolean }): ReactNode {
+  return (
+    <div className={cn("min-w-0 grow", wrapsActions && "max-sm:min-w-[10rem] max-sm:basis-0")}>
+      {title !== undefined && (
+        <>
+          <strong data-testid={titleTestId} className="font-semibold">
+            {title}
+          </strong>{" "}
+        </>
+      )}
+      <span className={cn(inline && !showsNarrowText && "max-sm:hidden")}>
+        {children}
+        {!showsNarrowText && <BannerParts parts={parts} />}
+      </span>
     </div>
   );
 }

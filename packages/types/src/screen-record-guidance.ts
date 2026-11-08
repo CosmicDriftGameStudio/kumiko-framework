@@ -71,6 +71,8 @@ export type RecordSummarySpec = {
 export type RecordBannerSpec = {
   /** Holds `RecordNotice | null`; null shows no banner. */
   readonly field: string;
+  /** Draws the notice without the tone icon. */
+  readonly iconless?: true;
   readonly actions?: readonly RecordGuidanceAction[];
 };
 

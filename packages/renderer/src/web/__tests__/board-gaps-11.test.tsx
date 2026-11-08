@@ -11,7 +11,13 @@ import { SortOptionsSelect } from "../primitives/data-table/sort-options-select.
 import { FacetFilter } from "../primitives/facet-filter.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { DefaultRecordSteps } from "../primitives/record-steps.tsx";
-import { render, restoreViewportWidthAfterEach, screen, setViewportWidth } from "./test-utils.tsx";
+import {
+  fireEvent,
+  render,
+  restoreViewportWidthAfterEach,
+  screen,
+  setViewportWidth,
+} from "./test-utils.tsx";
 
 const { DataTable, Banner } = defaultPrimitives;
 
@@ -25,12 +31,19 @@ describe("facet trigger label (F3)", () => {
     options: [{ value: "open", label: "Open" }],
   };
 
-  test("a multi-select facet splits the grey label from the value and keeps textContent", () => {
+  test('a multi-select facet with nothing chosen names itself in grey, without ": All"', () => {
     render(<FacetFilter facet={multiFacet} selected={[]} onChange={() => {}} />);
     const trigger = screen.getByTestId("facet-status");
-    expect(trigger.textContent).toBe("Status: All");
+    expect(trigger.textContent).toBe("Status");
     expect(trigger.querySelector("span")?.className).toContain("text-muted-foreground");
-    expect(screen.getByTestId("facet-status-value").textContent).toBe("All");
+    expect(screen.queryByTestId("facet-status-value")).toBeNull();
+  });
+
+  test("a multi-select facet with a choice drops the grey label and shows the count", () => {
+    render(<FacetFilter facet={multiFacet} selected={["open"]} onChange={() => {}} />);
+    const trigger = screen.getByTestId("facet-status");
+    expect(trigger.textContent).toBe("Status1");
+    expect(trigger.querySelector("span.text-muted-foreground")).toBeNull();
   });
 
   test("a pill with nothing chosen names the facet only", () => {
@@ -39,12 +52,13 @@ describe("facet trigger label (F3)", () => {
     expect(screen.queryByTestId("facet-status-value")).toBeNull();
   });
 
-  test("a searchable facet gets the same split and the pill shape", () => {
+  test("a searchable facet names itself only and gets the pill shape", () => {
     const searchFacet: DataTableFacet = { ...multiFacet, onSearchChange: () => {} };
     const { unmount } = render(
       <FacetFilter facet={searchFacet} selected={[]} onChange={() => {}} />,
     );
-    expect(screen.getByTestId("facet-status-value").textContent).toBe("All");
+    expect(screen.getByTestId("facet-status").textContent).toBe("Status");
+    expect(screen.queryByTestId("facet-status-value")).toBeNull();
     unmount();
     render(<FacetFilter facet={searchFacet} selected={[]} onChange={() => {}} pill />);
     const trigger = screen.getByTestId("facet-status");
@@ -97,6 +111,9 @@ describe("behind-filter on a list that does not fill its height (F4)", () => {
     expect(searchWrapper?.parentElement).toBe(toggle.parentElement);
     expect(searchWrapper?.className).toContain("max-sm:max-w-none");
     expect(screen.queryByTestId("facet-__namedFilter")).toBeNull();
+    expect(screen.queryByTestId("facet-kind")).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("facet-__namedFilter")).toBeTruthy();
     expect(screen.getByTestId("facet-kind")).toBeTruthy();
   });
 });
@@ -154,17 +171,15 @@ describe("named filter hideEmpty (F5)", () => {
 describe("empty list inside a card frame (F6)", () => {
   restoreViewportWidthAfterEach();
 
-  test("from sm the header row stays and the empty state sits in the same card without its own border", () => {
+  test("an empty list draws no header row and no card frame around its empty state", () => {
     setViewportWidth(1280);
     render(<DataTable columns={[NAME_COLUMN]} rows={[]} frame="card" testId="t" />);
-    const frame = screen.getByTestId("t-frame");
-    expect(frame.querySelector("th")?.textContent).toContain("Name");
+    expect(document.querySelector("th")).toBeNull();
     const empty = screen.getByTestId("t-empty");
-    expect(frame.contains(empty)).toBe(true);
-    expect(empty.className).not.toContain("border-border-row");
+    expect(screen.queryByTestId("t-frame")?.contains(empty) ?? false).toBe(false);
   });
 
-  test("below sm and without a frame the empty state stays a plain block", () => {
+  test("below sm and without a frame the empty state is a dashed card", () => {
     setViewportWidth(500);
     const { unmount } = render(
       <DataTable columns={[NAME_COLUMN]} rows={[]} frame="card" testId="t" />,
@@ -175,7 +190,9 @@ describe("empty list inside a card frame (F6)", () => {
     setViewportWidth(1280);
     render(<DataTable columns={[NAME_COLUMN]} rows={[]} testId="plain" />);
     expect(document.querySelector("th")).toBeNull();
-    expect(screen.getByTestId("plain-empty").className).toContain("border-border-row");
+    const plainEmpty = screen.getByTestId("plain-empty");
+    expect(plainEmpty.className).toContain("border-dashed");
+    expect(plainEmpty.className).toContain("border-border-strong");
   });
 });
 

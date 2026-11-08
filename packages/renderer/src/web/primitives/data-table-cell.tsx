@@ -28,6 +28,7 @@ import {
   useColumnRenderer,
   useOptionalPrimitives,
 } from "../../index.ts";
+import { serverNowMs } from "../../server-clock.ts";
 import { isSelectOptionTone } from "../../status-tone.ts";
 import { Badge } from "../ui/badge.tsx";
 import { buttonVariants } from "../ui/button.tsx";
@@ -37,6 +38,7 @@ import { FileDisplayCell } from "./file-thumbnail.tsx";
 import { FileViewAction } from "./file-view-action.tsx";
 import { currencyDecimals, formatMoney } from "./money-input.tsx";
 import "../react-css-custom-properties.ts";
+import { useOptionalTranslation } from "../../index.ts";
 import { isPlainPrimaryClick } from "./layout-elements.tsx";
 
 export function isEmptyCellValue(value: unknown): boolean {
@@ -137,11 +139,13 @@ export function FirstCellLink({
   enabled,
   empty,
   emptyLabel,
+  emptyPlaceholder,
   onOpen,
   children,
 }: {
   readonly enabled: boolean;
   readonly empty: boolean;
+  readonly emptyPlaceholder?: string | false | undefined;
   // Names the link when the cell has no text, so a row whose rowClick action
   // is no longer in the kebab stays keyboard-reachable.
   readonly emptyLabel?: string | undefined;
@@ -152,7 +156,7 @@ export function FirstCellLink({
   return (
     <button
       type="button"
-      className="max-w-full cursor-pointer bg-transparent p-0 text-left font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      className="max-w-full cursor-pointer bg-transparent p-0 text-left font-medium text-inherit hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       onClick={(e) => {
         e.stopPropagation();
         onOpen();
@@ -164,7 +168,14 @@ export function FirstCellLink({
         onOpen();
       }}
     >
-      {empty ? <span className="sr-only">{emptyLabel}</span> : children}
+      {empty ? (
+        <>
+          <span className="sr-only">{emptyLabel}</span>
+          <EmptyCell placeholder={emptyPlaceholder} />
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }
@@ -366,14 +377,53 @@ type DataTableCellProps = {
   readonly badgeDot?: false;
   readonly pillField?: string;
   readonly pillToneField?: string;
-  readonly emptyPlaceholder?: false;
+  readonly emptyPlaceholder?: string | false;
+  readonly dateOnlyAfterDays?: number;
   readonly onOpenRow?: () => void;
 };
 
-function EmptyCell({ placeholder }: { readonly placeholder: false | undefined }): ReactNode {
+const MS_PER_DAY = 86_400_000;
+
+function dateOnlyWhenOlderThan(
+  value: unknown,
+  days: number,
+  locale: string | undefined,
+  renderer: unknown,
+): string | undefined {
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  const atMs = typeof value === "number" ? value : Date.parse(value);
+  // An unparsable or out-of-range value falls back to the plain cell text.
+  if (Number.isNaN(new Date(atMs).getTime())) return undefined;
+  if (serverNowMs() - atMs <= days * MS_PER_DAY) return undefined;
+  const timeZone =
+    typeof renderer === "object" &&
+    renderer !== null &&
+    "timeZone" in renderer &&
+    typeof renderer.timeZone === "string"
+      ? renderer.timeZone
+      : undefined;
+  return applyFormatSpec(
+    {
+      format: "date",
+      dateStyle: "long",
+      ...(locale !== undefined && { locale }),
+      ...(timeZone !== undefined && { timeZone }),
+    },
+    new Date(atMs).toISOString(),
+  );
+}
+
+export function EmptyCell({
+  placeholder,
+}: {
+  readonly placeholder: string | false | undefined;
+}): ReactNode {
+  const t = useOptionalTranslation();
+  // translate returns an unknown key (a literal like "No vehicle") unchanged.
+  const text = typeof placeholder === "string" ? (t?.(placeholder) ?? placeholder) : null;
   return (
     <span data-empty-cell="true" className="text-muted-foreground">
-      {placeholder === false ? null : EMPTY_VALUE_PLACEHOLDER}
+      {text}
     </span>
   );
 }
@@ -388,6 +438,10 @@ export const LIST_BADGE_TONE: Readonly<Record<string, StatusBadgeTone>> = {
   warn: "warn",
   negative: "bad",
   neutral: "muted",
+  ok: "ok",
+  bad: "bad",
+  critical: "bad",
+  accent: "muted",
 };
 
 // A multi reference may list the same id twice; the occurrence count keeps React keys unique.
@@ -434,9 +488,9 @@ const ROW_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   neutral: "",
 };
 
-// Inner 4px stripe (board .m-card): the card keeps its own border, the stripe sits inside the padding.
+// Inner 3px edge stripe (board .card.cw): sits inside the card border, rounded with the card corners.
 const CARD_STRIPE_BASE =
-  "relative pl-6 before:absolute before:inset-y-2.5 before:left-2.5 before:w-1 before:rounded-[2px] before:content-['']";
+  "relative pl-5 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:rounded-l-[7px] before:content-['']";
 
 const CARD_TONE_STRIPE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
   bad: `${CARD_STRIPE_BASE} before:bg-status-bad`,
@@ -557,7 +611,7 @@ function renderDisplayCell({
   emptyPlaceholder,
   link,
 }: {
-  readonly emptyPlaceholder: false | undefined;
+  readonly emptyPlaceholder: string | false | undefined;
   readonly display: DataTableCellProps["display"];
   readonly value: unknown;
   readonly textOf: () => string;
@@ -625,18 +679,32 @@ function renderFileCell({
 //      "X" via useColumnRenderer and renders `<X value row column/>`.
 //      Not registered -> one-time warning + default fallback.
 //   4. Otherwise -> defaultCellRender (type-based string renderer).
-export function DataTableCell(props: DataTableCellProps): ReactNode {
-  const { pillField, pillToneField, row } = props;
+/** The extra pill a column draws beside its value in a table row, or in the header line of a phone card. */
+export function CellPill({
+  row,
+  pillField,
+  pillToneField,
+}: {
+  readonly row: Readonly<Record<string, unknown>>;
+  readonly pillField: string | undefined;
+  readonly pillToneField: string | undefined;
+}): ReactNode {
   const pillText = pillField === undefined ? undefined : row[pillField];
-  if (typeof pillText !== "string" || pillText === "") return <DataTableCellBody {...props} />;
+  if (typeof pillText !== "string" || pillText === "") return null;
   const toneKey = pillToneField === undefined ? undefined : row[pillToneField];
   const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
+  return <StatusBadge tone={tone}>{pillText}</StatusBadge>;
+}
+
+export function DataTableCell(props: DataTableCellProps): ReactNode {
+  const { pillField, pillToneField, row } = props;
+  if (pillField === undefined) return <DataTableCellBody {...props} />;
+  const pill = <CellPill row={row} pillField={pillField} pillToneField={pillToneField} />;
+  if (isEmptyCellValue(row[pillField])) return <DataTableCellBody {...props} />;
   return (
     <span className="inline-flex items-center gap-2">
       <DataTableCellBody {...props} />
-      <StatusBadge tone={tone} dot={false}>
-        {pillText}
-      </StatusBadge>
+      {pill}
     </span>
   );
 }
@@ -662,6 +730,7 @@ function DataTableCellBody({
   badgeToneField,
   badgeDot,
   emptyPlaceholder,
+  dateOnlyAfterDays,
   onOpenRow,
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
@@ -677,7 +746,13 @@ function DataTableCellBody({
       />
     );
   }
-  if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
+  // A function renderer formats its own values; only an explicit `emptyPlaceholder` takes an empty value over.
+  const showsPlaceholder =
+    typeof renderer !== "function"
+      ? isEmptyCellValue(value)
+      : typeof emptyPlaceholder === "string" &&
+        (isEmptyCellValue(value) || (Array.isArray(value) && value.length === 0));
+  if (showsPlaceholder && componentRef === undefined) {
     return <EmptyCell placeholder={emptyPlaceholder} />;
   }
   if (value === PII_ERASED_SENTINEL && translate !== undefined) {
@@ -705,6 +780,17 @@ function DataTableCellBody({
     link,
   });
   if (displayCell !== undefined) return displayCell;
+  const dateOnlyText =
+    dateOnlyAfterDays === undefined
+      ? undefined
+      : dateOnlyWhenOlderThan(value, dateOnlyAfterDays, locale, renderer);
+  if (dateOnlyText !== undefined) {
+    return link === undefined ? (
+      dateOnlyText
+    ) : (
+      <CellTextLink link={link}>{dateOnlyText}</CellTextLink>
+    );
+  }
   if (
     typeof value === "boolean" &&
     isBooleanColumn(type, renderer) &&
@@ -717,71 +803,21 @@ function DataTableCellBody({
     return renderFileCell({ value, fileDisplay, compactFile, translate });
   }
   if (isFormatSpecRenderer(renderer)) {
-    const text = applyFormatSpec(
-      { ...renderer, locale: renderer.locale ?? locale },
+    return renderFormatSpecCell({
+      renderer,
       value,
       translate,
-    );
-    const phoneHref = renderer.format === "phone" ? telHref(text) : undefined;
-    if (phoneHref !== undefined) {
-      return (
-        <CellTextLink link={{ href: phoneHref, onPress: () => window.location.assign(phoneHref) }}>
-          {text}
-        </CellTextLink>
-      );
-    }
-    const tones = enumOptionTones(renderer);
-    if (tones !== undefined && typeof value === "string") {
-      return selectPill(value, { [value]: text }, tones, locale, RegisteredStatusBadge);
-    }
-    return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+      locale,
+      link,
+      RegisteredStatusBadge,
+    });
   }
   if (isFunctionRenderer(renderer)) {
-    if (linkItems !== undefined) {
-      const linkItemKeys = uniqueLinkItemKeys(linkItems);
-      return (
-        <>
-          {linkItems.map((item, index) => (
-            <Fragment key={linkItemKeys[index]}>
-              {index > 0 && ", "}
-              {item.link === undefined ? (
-                item.label
-              ) : (
-                <CellTextLink link={item.link}>{item.label}</CellTextLink>
-              )}
-            </Fragment>
-          ))}
-        </>
-      );
-    }
-    const text = renderer(value, row);
-    return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+    return renderFunctionRendererCell({ renderer, value, row, link, linkItems });
   }
   if (componentRef !== undefined) {
     if (ResolvedComponent !== undefined) {
-      const node = (
-        <ResolvedComponent
-          value={value}
-          row={row}
-          column={{ field }}
-          {...(onChange !== undefined && { onChange })}
-        />
-      );
-      // stopPropagation only on the editable branch — plain cells must still
-      // fire row onClick when onCellChange is set for sibling editable cells.
-      if (onChange !== undefined) {
-        return (
-          // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
-          <span
-            className="contents"
-            onClick={(e: MouseEvent) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            {node}
-          </span>
-        );
-      }
-      return node;
+      return renderResolvedComponentCell({ ResolvedComponent, value, row, field, onChange });
     }
     // Renderer referenced in the schema but no map entry client-side —
     // typical case: clientFeatures.columnRenderers forgotten or a typo in the
@@ -789,11 +825,144 @@ function DataTableCellBody({
     // (the default type renderer takes over).
     rendererWarn(`[kumiko] columnRenderer "${componentRef.name}" not registered`);
   }
-  // A select value renders as a pill instead of plain text. When the raw
-  // value is a known status word, it carries the same tone as the
-  // projectionDetail header badge — a status column stayed grey while the
-  // detail view of the same value was coloured. Unknown values
-  // keep the neutral outline pill.
+  const selectCell = renderSelectTypeCell({
+    type,
+    value,
+    optionLabels,
+    optionTones,
+    locale,
+    RegisteredStatusBadge,
+  });
+  if (selectCell !== undefined) return selectCell;
+  const text = defaultCellRender(value, type, optionLabels, locale, field, grouping);
+  return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+}
+
+function renderFormatSpecCell({
+  renderer,
+  value,
+  translate,
+  locale,
+  link,
+  RegisteredStatusBadge,
+}: {
+  renderer: FormatSpecRenderer;
+  value: unknown;
+  translate: DataTableCellProps["translate"];
+  locale: string | undefined;
+  link: DataTableCellProps["link"];
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"];
+}): ReactNode {
+  const text = applyFormatSpec(
+    { ...renderer, locale: renderer.locale ?? locale },
+    value,
+    translate,
+  );
+  const phoneHref = renderer.format === "phone" ? telHref(text) : undefined;
+  if (phoneHref !== undefined) {
+    return (
+      <CellTextLink link={{ href: phoneHref, onPress: () => window.location.assign(phoneHref) }}>
+        {text}
+      </CellTextLink>
+    );
+  }
+  const tones = enumOptionTones(renderer);
+  if (tones !== undefined && typeof value === "string") {
+    return selectPill(value, { [value]: text }, tones, locale, RegisteredStatusBadge);
+  }
+  return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+}
+
+function renderFunctionRendererCell({
+  renderer,
+  value,
+  row,
+  link,
+  linkItems,
+}: {
+  renderer: FunctionRenderer;
+  value: unknown;
+  row: Record<string, unknown>;
+  link: DataTableCellProps["link"];
+  linkItems: DataTableCellProps["linkItems"];
+}): ReactNode {
+  if (linkItems !== undefined) {
+    const linkItemKeys = uniqueLinkItemKeys(linkItems);
+    return (
+      <>
+        {linkItems.map((item, index) => (
+          <Fragment key={linkItemKeys[index]}>
+            {index > 0 && ", "}
+            {item.link === undefined ? (
+              item.label
+            ) : (
+              <CellTextLink link={item.link}>{item.label}</CellTextLink>
+            )}
+          </Fragment>
+        ))}
+      </>
+    );
+  }
+  const text = renderer(value, row);
+  return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+}
+
+function renderResolvedComponentCell({
+  ResolvedComponent,
+  value,
+  row,
+  field,
+  onChange,
+}: {
+  ResolvedComponent: NonNullable<ReturnType<typeof useColumnRenderer>>;
+  value: unknown;
+  row: Record<string, unknown>;
+  field: string;
+  onChange: DataTableCellProps["onChange"];
+}): ReactNode {
+  const node = (
+    <ResolvedComponent
+      value={value}
+      row={row}
+      column={{ field }}
+      {...(onChange !== undefined && { onChange })}
+    />
+  );
+  // stopPropagation only on the editable branch — plain cells must still
+  // fire row onClick when onCellChange is set for sibling editable cells.
+  if (onChange === undefined) return node;
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
+    <span
+      className="contents"
+      onClick={(e: MouseEvent) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      {node}
+    </span>
+  );
+}
+
+// A select value renders as a pill instead of plain text. When the raw
+// value is a known status word, it carries the same tone as the
+// projectionDetail header badge — a status column stayed grey while the
+// detail view of the same value was coloured. Unknown values
+// keep the neutral outline pill.
+function renderSelectTypeCell({
+  type,
+  value,
+  optionLabels,
+  optionTones,
+  locale,
+  RegisteredStatusBadge,
+}: {
+  type: DataTableCellProps["type"];
+  value: unknown;
+  optionLabels: DataTableCellProps["optionLabels"];
+  optionTones: DataTableCellProps["optionTones"];
+  locale: string | undefined;
+  RegisteredStatusBadge: PrimitivesRegistry["StatusBadge"];
+}): ReactNode | undefined {
   if (type === "select" && value !== null && value !== undefined && value !== "") {
     return selectPill(value, optionLabels, optionTones, locale, RegisteredStatusBadge);
   }
@@ -809,6 +978,5 @@ function DataTableCellBody({
       </span>
     );
   }
-  const text = defaultCellRender(value, type, optionLabels, locale, field, grouping);
-  return link === undefined ? text : <CellTextLink link={link}>{text}</CellTextLink>;
+  return undefined;
 }

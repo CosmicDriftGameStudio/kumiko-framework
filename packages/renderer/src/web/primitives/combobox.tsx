@@ -85,8 +85,8 @@ export type ComboboxInputProps = ComboboxBaseProps &
   );
 
 const triggerClass =
-  "flex h-9 w-full min-w-0 items-center justify-between gap-2 " +
-  "rounded-md border border-input text-left max-md:min-h-11 " +
+  "flex h-[38px] w-full min-w-0 items-center justify-between gap-2 " +
+  "rounded-[7px] border-[1.5px] border-input text-left max-md:min-h-11 " +
   "bg-transparent px-3 py-1 text-sm shadow-sm transition-colors " +
   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 " +
   "focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";

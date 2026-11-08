@@ -180,7 +180,7 @@ export function renderDetailBreadcrumb(model: DetailGuidanceModel): ReactNode {
   );
 }
 
-function renderSummary(model: DetailGuidanceModel): ReactNode {
+export function renderDetailSummary(model: DetailGuidanceModel): ReactNode {
   const spec = model.screen.summary;
   if (spec === undefined) return undefined;
   const text = model.record[spec.field];
@@ -217,7 +217,7 @@ function renderBanner(model: DetailGuidanceModel): ReactNode {
     GUIDANCE_INSET,
     <Banner
       variant={BANNER_VARIANT[notice.tone ?? "neutral"]}
-      icon={BANNER_ICON[notice.tone ?? "neutral"]}
+      {...(spec.iconless !== true && { icon: BANNER_ICON[notice.tone ?? "neutral"] })}
       title={notice.title}
       {...(notice.narrowTitle !== undefined && { narrowTitle: notice.narrowTitle })}
       {...(notice.narrowText !== undefined && { narrowText: notice.narrowText })}
@@ -392,10 +392,8 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
   const progressNode = renderProgress(model, beside);
   const progressInset =
     progress?.hideOnNarrow === true ? `${PROGRESS_INSET} max-sm:hidden` : PROGRESS_INSET;
-  return (
+  const lower = (
     <>
-      {renderSummary(model)}
-      {renderBanner(model)}
       {beside ? (
         wrapLayout(
           model.primitives,
@@ -420,6 +418,14 @@ export function renderDetailGuidance(model: DetailGuidanceModel): ReactNode {
           {renderSteps(model)}
         </>
       )}
+    </>
+  );
+  return (
+    <>
+      {renderBanner(model)}
+      {model.screen.metricsPlacement?.narrow === "before-steps"
+        ? wrapLayout(model.primitives, "max-md:order-2", lower)
+        : lower}
     </>
   );
 }

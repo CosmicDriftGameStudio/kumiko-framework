@@ -118,9 +118,10 @@ function buildFormActionProps<TValues extends FormValues, TCtx>(
 }
 
 function buildFormChromeProps<TValues extends FormValues, TCtx>(
-  { engine: { props, sections } }: RenderEditModel<TValues, TCtx>,
+  model: RenderEditModel<TValues, TCtx>,
   { formHeaderRegion, titleActionMount }: HeaderActionsModel,
 ) {
+  const { props, sections } = model.engine;
   const { summary } = props;
   return {
     ...(props.screen.layout.width !== undefined && { width: props.screen.layout.width }),
@@ -129,6 +130,7 @@ function buildFormChromeProps<TValues extends FormValues, TCtx>(
     ...(sections.fillHeight && { fillHeight: sections.fillHeight }),
     ...(props.hideSectionTitles === true && { chromeless: true }),
     ...(summary !== undefined && { summary }),
+    ...(props.formErrorOnTop === true && { topBanner: renderFormErrorBanner(model) }),
   };
 }
 
@@ -160,7 +162,6 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
             {renderDraftPicker(model)}
             {renderWizardProgress(model)}
             {state.isTabs && state.isStepped && renderTabStrip(model)}
-            {props.formErrorOnTop === true && renderFormErrorBanner(model)}
             {renderEditSections(model)}
             {renderAfterFormSlot(model)}
             {props.formErrorOnTop !== true && renderFormErrorBanner(model)}

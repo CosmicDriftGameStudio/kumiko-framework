@@ -31,6 +31,7 @@ describe("DataTable narrow layout parts", () => {
     testId: "t",
     scrollBody: true,
     filterFacets: [statusFacet],
+    narrowFacets: "pills",
     filterValues: {},
     onFilterChange: mock(),
     sortOptions: [{ field: "amount", dir: "desc", label: "Urgency" }],
@@ -40,16 +41,14 @@ describe("DataTable narrow layout parts", () => {
     itemNoun: (count: number) => (count === 1 ? "contract" : "contracts"),
   } as const;
 
-  test("below sm select filters are inline chips under the search and the one sort line names the list size", () => {
+  test("below sm select filters are inline chips under the search and the one sort line names the order only", () => {
     atViewportWidth(500, () => {
       render(<DataTable {...sortedTableProps} />);
       expect(screen.queryByTestId("t-filter-toggle")).toBeNull();
       const chip = screen.getByTestId("facet-status-open");
       expect(chip.getAttribute("aria-haspopup")).toBeNull();
       expect(chip.getAttribute("aria-pressed")).toBe("false");
-      expect(screen.getByTestId("t-sort-label").textContent).toBe(
-        "Sorted by Urgency ↓ · 26 contracts",
-      );
+      expect(screen.getByTestId("t-sort-label").textContent).toBe("Sorted by Urgency ↓");
       expect(screen.queryByTestId("t-sorted-by")).toBeNull();
     });
   });

@@ -38,11 +38,13 @@ function FormSummaryBox({ summary, testId }: Pick<FormProps, "summary" | "testId
   return (
     <div
       data-testid={testId !== undefined ? `${testId}-summary` : undefined}
-      className="flex flex-col gap-0.5 rounded-lg bg-muted px-3.5 py-3"
+      className="flex flex-col gap-[3px] rounded-[9px] border border-l-[3px] border-border-strong border-l-primary bg-card px-4 py-[13px]"
     >
-      <span className="text-sm font-semibold text-foreground">{summary.title}</span>
+      <span className="text-[15px] leading-[21px] font-semibold text-foreground">
+        {summary.title}
+      </span>
       {summary.subtitle !== undefined && (
-        <span className="text-[13px] text-foreground-secondary">{summary.subtitle}</span>
+        <span className="text-[13.5px] text-foreground-secondary">{summary.subtitle}</span>
       )}
     </div>
   );
@@ -55,6 +57,7 @@ function DrawerFormLayout({
   actions,
   secondaryActions,
   summary,
+  topBanner,
   testId,
   children,
 }: Pick<
@@ -66,6 +69,7 @@ function DrawerFormLayout({
   | "secondaryActions"
   | "testId"
   | "summary"
+  | "topBanner"
 > & {
   readonly children: ReactNode;
 }): ReactNode {
@@ -80,6 +84,7 @@ function DrawerFormLayout({
         data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
         className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
       >
+        {topBanner}
         <FormSummaryBox summary={summary} testId={testId} />
         {subtitle !== undefined && (
           <p
@@ -182,8 +187,18 @@ export function DefaultForm({
   sectionNav,
   sideRail,
   summary,
+  topBanner,
 }: FormProps): ReactNode {
   const insideDrawer = useInsideDrawer();
+  const bodyWithTopBanner =
+    topBanner === undefined ? (
+      children
+    ) : (
+      <>
+        {topBanner}
+        {children}
+      </>
+    );
   const isEmbeddedForm = useContext(EmbeddedFormContext);
   const contextWidth = useContext(ScreenWidthContext);
   // Embedded (AuthCard etc.): bare <form>, stacked fields with gap; the
@@ -202,7 +217,7 @@ export function DefaultForm({
         )}
       >
         {headerRegion}
-        <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
+        <InsideFormContext.Provider value={true}>{bodyWithTopBanner}</InsideFormContext.Provider>
         {(secondaryActions !== undefined || actions !== undefined) && (
           <div className="flex items-center justify-end gap-2">
             {secondaryActions}
@@ -222,6 +237,7 @@ export function DefaultForm({
         actions={actions}
         secondaryActions={secondaryActions}
         summary={summary}
+        topBanner={topBanner}
         testId={testId}
       >
         {children}
@@ -239,7 +255,7 @@ export function DefaultForm({
         unsavedCount={unsavedCount}
         testId={testId}
       >
-        {children}
+        {bodyWithTopBanner}
       </EmbeddedFormLayout>
     );
   }
@@ -253,7 +269,7 @@ export function DefaultForm({
       fillHeight={fillHeight}
       screenForm={isScreenForm}
     >
-      {children}
+      {isScreenForm ? children : bodyWithTopBanner}
     </FormSections>
   );
   const footer = (
@@ -311,6 +327,7 @@ export function DefaultForm({
                   bordered={false}
                   fillHeight={false}
                 />
+                {topBanner}
                 <FormSummaryBox summary={summary} testId={testId} />
                 {sections}
               </div>

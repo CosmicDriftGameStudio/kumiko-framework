@@ -5,6 +5,7 @@ import type { EditFieldViewModel } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { useAiAssistPayload } from "./ai-assist-payload.tsx";
+import { choiceChipClass } from "./choice-chip-class.ts";
 
 type AiAssist = NonNullable<EditFieldViewModel["aiAssist"]>;
 
@@ -101,7 +102,7 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
     <>
       {input}
       <div
-        className="flex flex-wrap items-center gap-2"
+        className="order-2 flex flex-wrap items-center gap-2"
         data-testid={`field-ai-assist-${field.field}`}
       >
         {aiAssist.chips?.map((chip, index) => (
@@ -109,12 +110,13 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
             key={chip.label}
             variant="secondary"
             size="sm"
+            className={choiceChipClass(active.has(index))}
             pressed={active.has(index)}
             disabled={busy || field.readOnly}
             testId={`field-ai-chip-${field.field}-${index}`}
             onClick={() => toggle(index)}
           >
-            {chip.label}
+            {active.has(index) ? `✓ ${chip.label}` : chip.label}
           </Button>
         ))}
         {aiAssist.prompt !== undefined && (
@@ -139,7 +141,7 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
       </div>
       {note !== undefined && (
         <span
-          className="text-xs text-muted-foreground"
+          className="order-2 text-xs text-muted-foreground"
           data-testid={`field-ai-note-${field.field}`}
         >
           {note}

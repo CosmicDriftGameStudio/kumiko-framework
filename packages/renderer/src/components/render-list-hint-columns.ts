@@ -35,7 +35,10 @@ export function withDisplayColumns(
   screen: EntityListScreenDefinition,
 ): readonly ListColumnViewModel[] {
   const specs = new Map(
-    screen.columns.map((spec) => [normalizeListColumn(spec).field, normalizeListColumn(spec)]),
+    screen.columns.map((spec) => {
+      const column = normalizeListColumn(spec);
+      return [column.field, column] as const;
+    }),
   );
   return columns.map((col) => {
     const spec = specs.get(col.field);
@@ -71,14 +74,41 @@ export function withEmptyPlaceholderColumns(
   columns: readonly ListColumnViewModel[],
   screen: EntityListScreenDefinition,
 ): readonly ListColumnViewModel[] {
-  const blank = new Set(
-    screen.columns.flatMap((spec) => {
+  const placeholders = new Map<string, string | false>(
+    screen.columns.flatMap((spec): [string, string | false][] => {
       const column = normalizeListColumn(spec);
-      return column.emptyPlaceholder === false ? [column.field] : [];
+      return column.emptyPlaceholder === undefined ? [] : [[column.field, column.emptyPlaceholder]];
     }),
   );
-  if (blank.size === 0) return columns;
-  return columns.map((col) => (blank.has(col.field) ? { ...col, emptyPlaceholder: false } : col));
+  if (placeholders.size === 0) return columns;
+  return columns.map((col) => {
+    const emptyPlaceholder = placeholders.get(col.field);
+    return emptyPlaceholder === undefined ? col : { ...col, emptyPlaceholder };
+  });
+}
+
+export function withCellStyleColumns(
+  columns: readonly ListColumnViewModel[],
+  screen: EntityListScreenDefinition,
+): readonly ListColumnViewModel[] {
+  const specs = new Map(
+    screen.columns.map((spec) => [normalizeListColumn(spec).field, normalizeListColumn(spec)]),
+  );
+  return columns.map((col) => {
+    const spec = specs.get(col.field);
+    if (spec === undefined) return col;
+    const { ellipsis, multiline, cardAbove, emphasis, dateOnlyAfterDays, tone, cardBadge } = spec;
+    return {
+      ...col,
+      ...(ellipsis !== undefined && { ellipsis }),
+      ...(multiline !== undefined && { multiline }),
+      ...(cardAbove !== undefined && { cardAbove }),
+      ...(emphasis !== undefined && { emphasis }),
+      ...(dateOnlyAfterDays !== undefined && { dateOnlyAfterDays }),
+      ...(tone !== undefined && { tone }),
+      ...(cardBadge !== undefined && { cardBadge }),
+    };
+  });
 }
 
 export function withNarrowOnlyColumns(

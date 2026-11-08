@@ -13,3 +13,9 @@ export function hasSeparateCardRows(m: FrameInput): boolean {
 }
 
 export const CARD_SURFACE_CLASS = "rounded-lg border border-border bg-card";
+
+// The row the assistant sees: light primary wash plus a 3px primary bar on the left edge.
+export const ASSISTANT_FOCUS_CARD_CLASS =
+  "bg-primary/10 shadow-[inset_3px_0_0_var(--color-primary)]";
+export const ASSISTANT_FOCUS_ROW_CLASS =
+  "bg-primary/10 hover:bg-primary/10 [&>td:first-child]:shadow-[inset_3px_0_0_var(--color-primary)]";

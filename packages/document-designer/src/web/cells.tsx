@@ -29,7 +29,7 @@ export function TitleCell({ row }: ColumnRendererProps): ReactNode {
         {templateTitle(t, r)}
       </div>
       <span
-        className="block max-w-28 truncate font-mono text-xs text-muted-foreground"
+        className="block max-w-16 truncate font-mono text-xs text-muted-foreground"
         title={r.slug}
       >
         {r.slug}
@@ -121,7 +121,7 @@ export function UsedByCell({ row }: ColumnRendererProps): ReactNode {
   return withRow(row, (r) => {
     const label = usedByLabel(t, r);
     return (
-      <span className="block max-w-28 truncate" title={label}>
+      <span className="block max-w-[4.5rem] truncate" title={label}>
         {label}
       </span>
     );
@@ -164,7 +164,11 @@ function OverriddenByCount({
           active: overriddenBy.active,
           total: overriddenBy.total,
         });
-  return <span>{label}</span>;
+  return (
+    <span className="block max-w-24 truncate" title={label}>
+      {label}
+    </span>
+  );
 }
 
 export function OverriddenByCell({ row }: ColumnRendererProps): ReactNode {

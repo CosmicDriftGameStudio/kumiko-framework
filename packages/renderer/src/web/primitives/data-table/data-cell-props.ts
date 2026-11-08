@@ -13,5 +13,6 @@ export function columnCellPresentationProps(col: ListColumnViewModel) {
     ...(col.pillField !== undefined && { pillField: col.pillField }),
     ...(col.pillToneField !== undefined && { pillToneField: col.pillToneField }),
     ...(col.emptyPlaceholder !== undefined && { emptyPlaceholder: col.emptyPlaceholder }),
+    ...(col.dateOnlyAfterDays !== undefined && { dateOnlyAfterDays: col.dateOnlyAfterDays }),
   };
 }

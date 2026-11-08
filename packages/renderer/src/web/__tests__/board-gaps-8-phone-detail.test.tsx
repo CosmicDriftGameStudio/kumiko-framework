@@ -107,7 +107,7 @@ describe("phone card list footer", () => {
       />,
     );
     const sort = screen.getByTestId("t-sort-label");
-    expect(sort.textContent).toContain("26");
+    expect(sort.textContent).toBe("Sorted by Urgency ↓");
     expect(sort.parentElement?.className).toContain("text-xs");
   });
 });
@@ -175,7 +175,7 @@ describe("phone record page parts", () => {
     expect(toggle.textContent).toBe("2 more steps");
     expect(toggle.className).toContain("text-primary");
     expect(screen.getByTestId("record-step-a").parentElement?.className).toContain("divide-y");
-    expect(screen.getByTestId("s-count").textContent).toBe("3");
+    expect(screen.queryByTestId("s-count")).toBeNull();
   });
 
   test("the summary is the heading-face sentence with the primary stripe at the left", () => {

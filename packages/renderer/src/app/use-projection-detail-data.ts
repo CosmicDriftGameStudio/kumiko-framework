@@ -64,12 +64,26 @@ export function useProjectionDetailData(input: DetailDataInput) {
   }, [isTabsMode, Tabs, screen.id]);
   const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
   const detailScreen = useMemo(() => {
+    if (activeSections.length > 0 && screen.layout.narrowTabs === false) {
+      // Below `sm` there is no tab strip: every visible section renders, the ones of the
+      // other tabs only on the phone. A `hideOnNarrow` section of another tab has no place at
+      // all (hideOnNarrow would win over showOnNarrowOnly and show it on desktop).
+      const sections = visibleSections.flatMap((section) => {
+        if (activeSections.includes(section)) return [section];
+        if ("hideOnNarrow" in section && section.hideOnNarrow === true) return [];
+        return [{ ...section, showOnNarrowOnly: true as const }];
+      });
+      return synthesizeProjectionDetailScreen({
+        ...screen,
+        layout: { ...screen.layout, sections },
+      });
+    }
     const source =
       activeSections.length > 0
         ? { ...screen, layout: { ...screen.layout, sections: activeSections } }
         : screen;
     return synthesizeProjectionDetailScreen(source);
-  }, [screen, activeSections]);
+  }, [screen, activeSections, visibleSections]);
 
   // A writeForm section's handler creates a new record (see EditWriteFormSection's
   // doc) — both the outer record (header/metrics/other sections) and a sibling

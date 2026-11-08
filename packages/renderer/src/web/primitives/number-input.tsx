@@ -10,6 +10,7 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { resolveSafeLocale } from "../../headless/format/safe-locale.ts";
 import { cn } from "../lib/cn.ts";
 import { Input as UiInput } from "../ui/input.tsx";
+import { inlineSuffixStyle } from "./inline-suffix.ts";
 import { formatLocaleNumber, parseLocaleNumber } from "./locale-number.ts";
 
 export type NumberInputProps = {
@@ -20,6 +21,7 @@ export type NumberInputProps = {
   readonly locale?: string;
   readonly grouping?: boolean;
   readonly integer?: boolean;
+  readonly suffix?: string;
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
@@ -38,6 +40,7 @@ export function NumberInput({
   locale,
   grouping = true,
   integer = false,
+  suffix,
   disabled,
   required,
   hasError,
@@ -79,7 +82,8 @@ export function NumberInput({
     onChange(parsed);
   };
 
-  return (
+  const shownText = focused ? draft : format(grouping);
+  const input = (
     <UiInput
       ref={inputRef}
       type="text"
@@ -93,7 +97,7 @@ export function NumberInput({
       aria-describedby={ariaDescribedBy}
       aria-label={ariaLabel}
       data-testid={testId}
-      value={focused ? draft : format(grouping)}
+      value={shownText}
       onFocus={() => {
         setDraft(format(false));
         setFocused(true);
@@ -101,7 +105,19 @@ export function NumberInput({
       onBlur={() => setFocused(false)}
       onChange={(e) => handleChange(e.target.value)}
       {...(placeholder !== undefined && { placeholder })}
-      className={cn("text-left tabular-nums", className)}
+      className={cn("text-left tabular-nums", suffix !== undefined && "pr-8", className)}
     />
+  );
+  if (suffix === undefined) return input;
+  return (
+    <div className="relative">
+      {input}
+      <span
+        style={inlineSuffixStyle(shownText)}
+        className="pointer-events-none absolute top-1/2 -translate-y-1/2 select-none text-sm text-muted-foreground"
+      >
+        {suffix}
+      </span>
+    </div>
   );
 }

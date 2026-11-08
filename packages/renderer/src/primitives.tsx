@@ -198,8 +198,17 @@ export type BannerProps = {
    *  notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action
    *  notice (neutral background, accent in the primary color; pair it with `title` and
    *  `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a
-   *  submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done"). */
-  readonly variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok";
+   *  submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done"),
+   *  "assist" for an AI hint: soft primary surface, primary text, no border. */
+  readonly variant?:
+    | "error"
+    | "info"
+    | "loading"
+    | "warning"
+    | "primary"
+    | "hint"
+    | "ok"
+    | "assist";
   /** Title and text run on one line (text right behind the bold title); the text is dropped below sm, so a phone shows title and actions only. */
   readonly inline?: boolean;
   /** "compact" is one line: the title reads inline before the text. */
@@ -833,6 +842,8 @@ export type DataTableProps = {
   readonly rows: readonly ListRowViewModel[];
   /** Tints a row. Renderers without row tinting ignore it. */
   readonly rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined;
+  /** Draws the whole row in the muted text colour. */
+  readonly rowMuted?: (row: ListRowViewModel) => boolean;
   readonly onRowClick?: (row: ListRowViewModel) => void;
   /** Current sorting, or null when unsorted. If columns contain a
    *  `sortable: true` field and `onSortChange` is set, the renderer makes
@@ -950,6 +961,11 @@ export type DataTableProps = {
    *  Default false: unchanged document-flow table that grows with its
    *  content, pager below the last row. */
   readonly scrollBody?: boolean;
+  /** Drops the "n entries" footer of a `scrollBody` table (a pager stays). */
+  readonly hideCountFooter?: boolean;
+  /** Phone cards as a plain feed: no sort line, the above-title meta joined with commas, the last meta line in
+   *  the text colour. Default false. */
+  readonly plainPhoneCards?: boolean;
   /** Uses the shared screen padding (wider bottom inset) instead of the
    *  table's symmetric embedded inset — for a table that IS the screen body
    *  (entityList/projectionList), so a list screen ends at the same footer
@@ -1048,6 +1064,8 @@ export type FormProps = {
   readonly unsavedCount?: number;
   /** Drawer-hosted forms: context box above the fields. */
   readonly summary?: { readonly title: string; readonly subtitle?: string };
+  /** Rendered above everything else in the form body (above `summary`), e.g. the submit error. */
+  readonly topBanner?: ReactNode;
   /** Titled sections for the "on this page" navigation next to a
    *  `screenForm`. The web impl shows it only with three or more entries. */
   readonly sectionNav?: readonly FormSectionNavItem[];
@@ -1084,6 +1102,10 @@ export type SectionProps = {
    *  deletion, restrict processing) — border color only, no content change.
    *  Default "default" (normal card border). */
   readonly variant?: "default" | "destructive";
+  /** "label": the title is a small uppercase muted label and the section has no separator line above it. Default "heading". */
+  readonly titleStyle?: "heading" | "label";
+  /** Small muted note under the section content on `sm` and up, above it on a phone. `textNarrow` is the phone wording; without it the first sentence is bold. */
+  readonly hint?: { readonly text: string; readonly textNarrow?: string; readonly testId: string };
   readonly testId?: string;
   /** Rendered left of the title, `text-muted-foreground`, same optical
    *  size as the title. No effect without a `title` — an icon alone would
@@ -1141,6 +1163,8 @@ export type GridProps = {
   readonly ariaLabelledBy?: string;
   /** With `columns: "auto"`: the small gap of a chip row instead of the tile gap. */
   readonly tight?: boolean;
+  /** Read-only label/value facts: a true `columns`-wide grid with a tight gap, at most 2 columns below `sm`. Wins over `flow`. */
+  readonly facts?: boolean;
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
@@ -1160,6 +1184,8 @@ export type GridCellProps = {
   readonly span?: number;
   /** Only read inside a `flow` grid. */
   readonly width?: FieldCellWidth;
+  /** Hidden below the `sm` breakpoint. */
+  readonly hideOnNarrow?: boolean;
   readonly children: ReactNode;
 };
 
@@ -1172,6 +1198,10 @@ export type TextProps = {
   readonly variant?: "body" | "small" | "code" | "required-mark" | "muted";
   /** Pure ornament (e.g. a separator glyph): hidden from assistive tech. */
   readonly decorative?: boolean;
+  /** A value the viewer may not see: drawn muted with a lock icon before it. */
+  readonly concealed?: boolean;
+  /** Phone wording: `children` show from `sm` up, this text below it. */
+  readonly narrow?: string;
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -1308,6 +1338,8 @@ export type ConfigCascadeViewProps = {
   /** Display form of a level value (e.g. a select's label instead of its raw
    *  value). Absent = the raw value; a missing value keeps the no-value text. */
   readonly renderValue?: (value: string | number | boolean) => ReactNode;
+  /** Origin shown as an info icon with a tooltip instead of text lines; the level disclosure is dropped. */
+  readonly compact?: boolean;
 };
 
 /** Card slots are named content regions, all optional. Adding slots is
@@ -1484,6 +1516,8 @@ export type PageHeaderProps = {
   readonly title?: string;
   /** Name of the loaded record; shown as an extra breadcrumb before the last one. */
   readonly recordTitle?: string;
+  /** Short record title for the phone top bar; wins over `recordTitle` there. */
+  readonly narrowRecordTitle?: string;
   readonly status?: ReactNode;
   readonly actions?: ReactNode;
   /** Screen renders its own h1: the shell header shows only the parent crumb, as text. */
@@ -1516,80 +1550,23 @@ export type ActionOverflowMenuProps = {
   readonly testId?: string;
 };
 
-/** One revealed value on a `secretMint` screen's confirm phase. */
-export type SecretRevealValue = {
-  readonly label: string;
-  readonly value: string;
-  readonly copyable: boolean;
-  readonly multiline: boolean;
-  /** Render `value` as a scannable QR code instead of monospaced text — for
-   *  an otpauth://-style enrollment URI. Platforms without a QR-capable
-   *  SecretReveal primitive fall back to the monospaced display. */
-  readonly qr?: boolean;
-};
+import type {
+  CopyButtonProps,
+  PromoPanelProps,
+  SecretRevealProps,
+  ShareButtonProps,
+  StickyActionBarProps,
+} from "./primitives-share-types.ts";
 
-/** One-time secret reveal — mint-form confirm phase. Renders each value
- *  monospaced (multiline splits it one line per entry, for recovery codes),
- *  with a per-value copy control when `copyable`. */
-export type SecretRevealProps = {
-  readonly values: readonly SecretRevealValue[];
-  readonly copyLabel: string;
-  readonly copiedLabel: string;
-  readonly testId?: string;
-};
-
-/** Thumb-reach action row for custom screens: pinned to the bottom edge on
- *  narrow viewports (above the device's safe-area inset), inline otherwise.
- *  `children` are the forward actions and share the remaining width; `back`
- *  renders an icon-only back control in front of them. */
-export type StickyActionBarProps = {
-  readonly children: ReactNode;
-  readonly back?: { readonly onBack: () => void; readonly label: string };
-  readonly testId?: string;
-};
-
-/** Copies `text` to the clipboard; the label flips to `copiedLabel` once
- *  the platform confirmed the write. */
-export type CopyButtonProps = {
-  readonly text: string;
-  readonly label: string;
-  readonly copiedLabel: string;
-  readonly variant?: "primary" | "secondary";
-  /** Layout extras, merged via cn(). */
-  readonly className?: string;
-  readonly testId?: string;
-};
-
-/** Hands `text` to another app. "whatsapp" opens a WhatsApp chat prefilled
- *  with the text (to `phone` when given, otherwise the contact picker);
- *  "system" opens the platform share sheet and renders nothing where the
- *  platform has none. */
-export type ShareButtonProps = {
-  readonly text: string;
-  readonly label: string;
-  readonly variant?: "primary" | "secondary";
-  /** Layout extras, merged via cn(). */
-  readonly className?: string;
-  readonly testId?: string;
-} & (
-  | { readonly target: "whatsapp"; readonly phone?: string }
-  | { readonly target: "system"; readonly title?: string; readonly url?: string }
-);
-
-export type PromoPanelAction =
-  | { readonly label: string; readonly href: string; readonly testId?: string }
-  | { readonly label: string; readonly onClick: () => void; readonly testId?: string };
-
-/** Offer surface for upsells (e.g. "create an account"): its own tinted
- *  panel with eyebrow, headline, benefit content and one call to action, so
- *  an offer never reads like an info or error banner. */
-export type PromoPanelProps = {
-  readonly title: string;
-  readonly eyebrow?: string;
-  readonly children?: ReactNode;
-  readonly action?: PromoPanelAction;
-  readonly testId?: string;
-};
+export type {
+  CopyButtonProps,
+  PromoPanelAction,
+  PromoPanelProps,
+  SecretRevealProps,
+  SecretRevealValue,
+  ShareButtonProps,
+  StickyActionBarProps,
+} from "./primitives-share-types.ts";
 
 // ---- Core-Registry (Kumiko-eigene Primitives) ----
 

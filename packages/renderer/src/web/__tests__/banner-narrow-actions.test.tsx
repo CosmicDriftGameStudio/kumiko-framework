@@ -45,3 +45,12 @@ describe("DefaultBanner actions on narrow widths", () => {
     expect(banner.className).not.toContain("max-sm:flex-wrap");
   });
 });
+
+describe("DefaultBanner inline with a title", () => {
+  test("the title sits as a muted label above the text", () => {
+    const banner = renderBanner({ withActions: false });
+    const label = within(banner).getByText("Dealer view");
+    expect(label.className).toContain("text-muted-foreground");
+    expect(label.nextElementSibling?.textContent).toContain("So sehen die Händler das Angebot");
+  });
+});

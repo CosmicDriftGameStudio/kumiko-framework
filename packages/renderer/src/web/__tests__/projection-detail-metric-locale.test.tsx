@@ -20,7 +20,7 @@ const detail: ProjectionDetailScreenDefinition = {
   query: "cases:query:case:detail",
   idParam: "id",
   metrics: [
-    { field: "receivedAt", label: "Received", format: { format: "relativeTime" } },
+    { field: "receivedAt", label: "Received", format: { format: "relativeTime", style: "long" } },
     {
       field: "receivedShort",
       label: "Received short",

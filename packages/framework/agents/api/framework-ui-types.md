@@ -154,6 +154,7 @@ type DashboardFeedPanel = DashboardPanelQueryOptions & DashboardPanelEmptyState 
   id: string;
   label: string;
   query: string;
+  showTotal?: true | Pick<DashboardListShowTotal, "text">; // Shows the count in the panel head, right-aligned like a list panel's `showTotal`: `{total}` is the query's `total`, else the rows returned.
 };
 type DashboardFilterDefinition = {
   id: string;
@@ -166,7 +167,7 @@ type DashboardFilterDefinition = {
 };
 type DashboardLayout = "main-side"; // "main-side": from `lg` up the main column (2/3) stacks every panel without `column`, the side column (1/3) every `column: "side"` panel, each with its own heights; `column: "top"` panels span both columns above them; below `lg` they stack, below `sm` by `narrowOrder`.
 type DashboardListFooterLink = { // Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens.
-  label: string;
+  label?: string; // i18n key of the link text.
   moreText?: string; // i18n key of the text before the link when more rows exist than shown; `{count}` is the rest.
   narrowMoreText?: string; // i18n key used instead of `moreText` below `sm`.
   narrowOnly?: boolean; // Draw the link only below `sm`, where it is the target of the "line" layout; from `sm` up the panel shows no footer link.
@@ -229,6 +230,8 @@ type DashboardProgressListPanel = DashboardPanelQueryOptions & DashboardPanelEmp
   kind: "progress-list";
   id: string;
   label: string;
+  labelParams?: Readonly<Record<string, string>>; // Fills the translated `label` from the query answer: maps a label placeholder to a top-level answer field, e.g. `{ month: "monthName" }` for "Quota {month}" with `{ rows, monthName: "November" }`.
+  subtitleField?: string; // Top-level answer field holding a text shown muted at the right end of the panel head, e.g. the period ("November").
   query: string;
 };
 type DashboardProgressTone = "default" | "danger";
@@ -309,6 +312,7 @@ type DashboardStatPanel = DashboardPanelQueryOptions & DashboardPanelGate & Dash
   valueField: string;
   labelField?: string; // Field of the query answer holding the label text, e.g. "Contracts ending by 31.01.2027"; it replaces the static `label` while it holds a non-empty string.
   narrowLabel?: string; // i18n key shown instead of the label in the one-line phone strip of a titled stat-group ("2 requests").
+  labelNarrow?: string; // i18n key replacing `label` below the `sm` breakpoint wherever the stat draws its label (a dynamic `labelField` text still wins).
   subField?: string;
   toneField?: string;
   valueFormat?: DashboardValueFormat; // Formats a numeric value as currency (minor units) or, with `relativeTime`, as a ticking "5 minutes ago" from epoch ms; ignored for string values.
@@ -375,7 +379,7 @@ type DerivedCellRoundingTarget = {
   type: EmbeddedSubFieldDef["type"];
   scale?: number;
 };
-type EditExtensionSection = {
+type EditExtensionSection = EditSectionPresentation & {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
   visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind: "extension";
@@ -395,6 +399,7 @@ type EditLayout = {
   sections: EditSectionSpec[];
   width?: FormWidth; // Default "4xl" (a centered column, narrower than list chrome), unless the app overrides it via `createKumikoApp({ screenWidth })`.
   mode?: "single" | "wizard" | "tabs"; // Default "single".
+  narrowTabs?: false; // `false` (tabs mode): below `sm` there is no tab strip, the visible sections of every tab stand one under the other.
   variant?: "form" | "settings-list"; // "settings-list" lays each section out as a band with a title column on the left and one hairline-separated row per field (label + help left, control right) — the familiar settings pattern, for screens that are a list of independent preferences rather than one record form.
   hideRequiredMarker?: boolean; // Hides the asterisk after required field labels.
   allRequiredHint?: false; // `false` switches off the "all fields are required" hint when every field is required; each label then carries its own asterisk.
@@ -408,7 +413,7 @@ type EditLayout = {
     submitDisabledWhen?: FieldCondition; // Disables the finish button (and blocks the submit) while the condition holds on the form values.
   }; // Wizard layouts only.
 };
-type EditStepListSection = { // Vertical numbered step list (circles joined by a line), fed from one field of the detail query.
+type EditStepListSection = EditSectionPresentation & { // Vertical numbered step list (circles joined by a line), fed from one field of the detail query.
   id?: string;
   visibleWhen?: Exclude<FieldCondition, boolean>;
   kind: "stepList";
@@ -416,18 +421,20 @@ type EditStepListSection = { // Vertical numbered step list (circles joined by a
   field: string; // Output field of the detail query holding a `StepListItem[]`.
   actions?: undefined; // Present only so section-actions readers accept the union; a step list has no title-row actions.
 };
-type EditWriteFormSection = {
+type EditWriteFormSection = EditSectionPresentation & {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
   visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind: "writeForm";
   title?: string;
   description?: string;
+  descriptionNarrow?: string; // i18n key of a short text shown instead of `description` below `sm`.
   columns?: number;
   icon?: IconKey;
   fieldDefs: Readonly<Record<string, FieldDefinition>>; // Field-type map for this section's own form — same shape as `ActionFormScreenDefinition.fields`.
   fields: EditFieldSpec[]; // Rendered fields, in order — same shape as `EditFieldsSection.fields`.
   handler: string; // Write-handler QN dispatched on submit.
   submitLabel?: string; // i18n-key for the submit button.
+  submitWith?: string; // Id of a writeHandler action in the screen's `actions`.
   actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
 };
 type EmbeddedDerivedCellDef = ({ op: "multiply" | "sum" | "subtract" | "percent"; from: string[]; } | { op: "inRange"; from: string[]; inside: string; outside: string; }) & { // A cell computed from other cells of the same row.
@@ -480,6 +487,16 @@ type FieldAiAssistChip = { // One toggle chip: while active, its `params` are me
   label: string; // i18n key of the chip label.
   params: Readonly<Record<string, string | number | boolean>>;
 };
+type FieldBadge = // Pill next to a field label: a fixed i18n `label`, or the text of another value `field`.
+  | {
+    label: string;
+    tone: SelectOptionTone;
+  }
+  | {
+    field: string;
+    tone: SelectOptionTone;
+  }
+;
 type FieldFillAction = {
   label: string; // i18n key (falls back to the literal) of the button label.
   query: string; // Qualified query name, run with the current form values picked by `params`.
@@ -560,6 +577,7 @@ type QualifiedContentCollection = ContentCollectionDefinition & {
 };
 type RecordBannerSpec = {
   field: string; // Holds `RecordNotice | null`; null shows no banner.
+  iconless?: true; // Draws the notice without the tone icon.
   actions?: RecordGuidanceAction[];
 };
 type RecordBreadcrumbItem = {
@@ -659,7 +677,7 @@ type RowActionClientAction = {
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.
   successMessage?: string | false; // i18n key of the toast shown after the handler reported `{ ok: true }` (default `kumiko.clientAction.success`); `false` shows no toast.
 };
-type RowActionDisplay = "button" | "link" | "icon" | "responsive"; // How a row action renders inline in the row-action column.
+type RowActionDisplay = "button" | "link" | "icon" | "responsive" | "text"; // How a row action renders inline in the row-action column.
 type RowActionDrawer = {
   kind: "drawer";
   id: string;

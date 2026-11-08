@@ -3,7 +3,7 @@ import type {
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { DashboardStatTone } from "@cosmicdrift/kumiko-types/screen";
-import { type Dispatch, Fragment, type ReactNode, type SetStateAction } from "react";
+import { Children, type Dispatch, Fragment, type ReactNode, type SetStateAction } from "react";
 import type { RenderEditAction } from "../components/render-edit.tsx";
 import type { Translate } from "../headless/index.ts";
 import type { usePrimitives } from "../primitives.tsx";
@@ -51,6 +51,9 @@ export function renderHeaderActionsContent(
 ): ReactNode {
   const { screen, primitives, headerActionsList, setActionError } = model;
   const { Grid, Button, Dialog, ActionOverflowMenu } = primitives;
+  const menuActionIds = (screen.actions ?? [])
+    .filter((action) => action.placement === "menu")
+    .map((action) => action.id);
   return (
     <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
       <HeaderActionsBar
@@ -66,6 +69,7 @@ export function renderHeaderActionsContent(
         })}
         {...(screen.primaryAction !== undefined && { preferredPrimaryId: screen.primaryAction })}
         {...(screen.inlineActions !== undefined && { inlineActionIds: screen.inlineActions })}
+        {...(menuActionIds.length > 0 && { menuActionIds })}
       />
     </Grid>
   );
@@ -112,15 +116,22 @@ export function renderRecordTitleBlock(
   chipInBar: boolean,
 ): ReactNode {
   const { Grid, Heading, FillContainer } = model.primitives;
+  // With a mobileSummary the phone shows only the H1 and that line: chip and subtitle give way.
+  const hiddenOnPhone = (node: ReactNode): ReactNode =>
+    FillContainer !== undefined && mobileSummaryLineOf(model) !== undefined && node != null ? (
+      <FillContainer className="max-sm:hidden">{node}</FillContainer>
+    ) : (
+      node
+    );
   const block = (
     <>
       <Grid columns="auto" testId="kumiko-screen-projection-detail-title-block">
         <Heading variant="page" testId="kumiko-screen-projection-detail-title">
           {titleText}
         </Heading>
-        {!chipInBar && statusBadge}
+        {!chipInBar && hiddenOnPhone(statusBadge)}
       </Grid>
-      {subtitle}
+      {hiddenOnPhone(subtitle)}
     </>
   );
   return FillContainer !== undefined ? (
@@ -344,6 +355,49 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
 
 // Metrics are a dl band when the primitive exists; the old Grid stays as the fallback.
 export function renderMetricsBlock(
+  model: DetailHeaderModel,
+  metricItems: ReactNode[] | undefined,
+  subtitle?: ReactNode,
+  lead?: ReactNode,
+): ReactNode {
+  const { FillContainer } = model.primitives;
+  if (mobileSummaryLineOf(model) === undefined || FillContainer === undefined) {
+    return renderPlainMetricsBlock(model, metricItems, subtitle, lead);
+  }
+  // Tiles give way to the summary line (rendered under the title) below sm; display:none keeps one copy for assistive tech.
+  const hiddenOnPhone =
+    Children.map(metricItems, (item) => (
+      <FillContainer className="max-sm:hidden">{item}</FillContainer>
+    )) ?? undefined;
+  const band = renderPlainMetricsBlock(model, hiddenOnPhone, subtitle, lead);
+  return subtitle === undefined && lead === undefined ? (
+    <FillContainer className="max-sm:hidden">{band}</FillContainer>
+  ) : (
+    band
+  );
+}
+
+function mobileSummaryLineOf(model: DetailHeaderModel): string | undefined {
+  const raw =
+    model.screen.mobileSummary === undefined ? undefined : model.record[model.screen.mobileSummary];
+  return typeof raw === "string" && raw !== "" ? raw : undefined;
+}
+
+/** The phone-only line right under the title; nothing when the screen has no `mobileSummary` or the field is empty. */
+export function renderMobileSummary(model: DetailHeaderModel): ReactNode {
+  const { FillContainer, Text } = model.primitives;
+  const line = mobileSummaryLineOf(model);
+  if (line === undefined || FillContainer === undefined) return undefined;
+  return (
+    <FillContainer className="px-6 pt-1 text-left sm:hidden max-sm:px-4">
+      <Text variant="muted" testId="kumiko-screen-projection-detail-mobile-summary">
+        {line}
+      </Text>
+    </FillContainer>
+  );
+}
+
+function renderPlainMetricsBlock(
   model: DetailHeaderModel,
   metricItems: ReactNode[] | undefined,
   subtitle?: ReactNode,

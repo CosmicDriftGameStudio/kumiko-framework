@@ -50,7 +50,7 @@ function FileViewAction(props: { fileId: string; }): ReactNode; // "View" action
 function FloatingPanel(props: FloatingPanelProps): ReactNode; // Non-modal panel floating above the page: draggable by its header, resizable from all edges and corners, clamped to the viewport, geometry optionally remembered.
 function FormScreenShell(props: { children: ReactNode; className?: string; testId?: string; maxWidth?: FormScreenShellWidth; fillHeight?: boolean; }): ReactNode;
 function HeaderActionGroup(props: HeaderActionGroupProps): ReactNode;
-function HeaderActionPinned(props: { children: ReactNode; }): ReactNode; // Marks an app header action (e.g. the assistant trigger) that stays in the bar on a phone, next to the bell; the rest of `headerActions` folds into the "…" menu.
+function HeaderActionPinned(props: { children: ReactNode; hideOnListScreens?: boolean; }): ReactNode; // Marks an app header action (e.g. the assistant trigger) that stays in the bar on a phone, next to the bell; the rest of `headerActions` folds into the "…" menu.
 function HtmlMailFrame(props: { html: string; title: string; allowRemoteImages: boolean; testId?: string; }): ReactNode; // Renders server-sanitized mail HTML in a script-free sandboxed iframe that grows to its content.
 function Icon(props: { name: NavIconKey; className?: string; }): ReactNode;
 function InfinityList<TData = unknown, TRow = Readonly<Record<string, unknown>>>(props: InfinityListProps<TData, TRow>): ReactNode; // Cursor-paginated scroll list (mail inbox, activity feeds) — loads the next page when the end sentinel becomes visible (IntersectionObserver), instead of a pager bar like QueryTable/entityList.
@@ -262,7 +262,7 @@ type AvatarProps = {
 type AvatarShape = "square" | "round";
 type AvatarSize = "xs" | "sm" | "md" | "lg";
 type BannerProps = { // Banner for an inline message or page state (for example, "Loading…" or "Screen not found").
-  variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done").
+  variant?: "error" | "info" | "loading" | "warning" | "primary" | "hint" | "ok" | "assist"; // "error" for alerts (conflict, network error), "info" for neutral placeholders (not-found, loading), "loading" for load states, "warning" for a non-blocking but attention-grabbing notice (e.g. secretMint's "this is shown only once"), "primary" for a call-to-action notice (neutral background, accent in the primary color; pair it with `title` and `actions`), "hint" for a quiet aside on a muted background (e.g. per-entry results of a submit, with an "Open" link in `actions`), "ok" for a completed state (e.g. "Done"), "assist" for an AI hint: soft primary surface, primary text, no border.
   inline?: boolean; // Title and text run on one line (text right behind the bold title); the text is dropped below sm, so a phone shows title and actions only.
   density?: "default" | "compact"; // "compact" is one line: the title reads inline before the text.
   icon?: NavIconKey; // Icon left of the text.
@@ -445,6 +445,7 @@ type DataTableProps = DataTableTableBlock & {
   columns: ListColumnViewModel[];
   rows: ListRowViewModel[];
   rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined; // Tints a row.
+  rowMuted?: (row: ListRowViewModel) => boolean; // Draws the whole row in the muted text colour.
   onRowClick?: (row: ListRowViewModel) => void;
   sort?: DataTableSort | null; // Current sorting, or null when unsorted.
   onSortChange?: (next: DataTableSort | null) => void; // Called with the next sort state after a header click (asc → desc → null); the caller updates URL state or the query parameter and refetches.
@@ -482,6 +483,8 @@ type DataTableProps = DataTableTableBlock & {
   getCellTestId?: (row: ListRowViewModel, field: string) => string; // Overrides the cell `data-testid` (default `cell-${row.id}-${field}`).
   chromeless?: boolean; // Drops the table's own rounded/border/card background — for a host that already provides the surrounding boundary (a tab panel) and would otherwise show a card nested inside that boundary.
   scrollBody?: boolean; // Fills the available height of its flex container and scrolls rows internally instead of growing with row count — for a host that would otherwise have a long table stretch the whole page, or a short table leave dead space below it (a tab panel).
+  hideCountFooter?: boolean; // Drops the "n entries" footer of a `scrollBody` table (a pager stays).
+  plainPhoneCards?: boolean; // Phone cards as a plain feed: no sort line, the above-title meta joined with commas, the last meta line in the text colour.
   screenPadding?: boolean; // Uses the shared screen padding (wider bottom inset) instead of the table's symmetric embedded inset — for a table that IS the screen body (entityList/projectionList), so a list screen ends at the same footer distance as a form or custom screen.
   expandedRowIds?: ReadonlySet<string>; // Ids of the rows whose expansion area is currently open (controlled by the host; several rows can be open at once).
   onToggleRowExpanded?: (rowId: string) => void; // User toggled a row's expand control.
@@ -674,12 +677,14 @@ type FormProps = { // Submit wrapper.
     title: string;
     subtitle?: string;
   }; // Drawer-hosted forms: context box above the fields.
+  topBanner?: ReactNode; // Rendered above everything else in the form body (above `summary`), e.g. the submit error.
   sectionNav?: FormSectionNavItem[]; // Titled sections for the "on this page" navigation next to a `screenForm`.
   sideRail?: ReactNode; // Leading column next to the scroll surface of a `screenForm` (wizard step navigation).
 };
 type GridCellProps = { // Span wrapper for a child within a grid.
   span?: number;
   width?: FieldCellWidth; // Only read inside a `flow` grid.
+  hideOnNarrow?: boolean; // Hidden below the `sm` breakpoint.
   children: ReactNode;
 };
 type GridProps = { // Column-based layout.
@@ -691,6 +696,7 @@ type GridProps = { // Column-based layout.
   list?: boolean; // One full-width row per child, separated by hairlines — the field rows of a `settings-list` section.
   ariaLabelledBy?: string; // Id of the element naming this grid (a Field label).
   tight?: boolean; // With `columns: "auto"`: the small gap of a chip row instead of the tile gap.
+  facts?: boolean; // Read-only label/value facts: a true `columns`-wide grid with a tight gap, at most 2 columns below `sm`.
 };
 type HeaderActionGroupProps = {
   children: ReactNode;
@@ -1363,6 +1369,12 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   valueDisplay?: "form" | "text"; // "form" (default) — every field renders as its Input widget, disabled when `field.readOnly`, unchanged behavior.
   hideSectionTitles?: boolean; // Suppresses every section's own title (fields-section header, relatedList Section title) AND the form's own top-level title/subtitle — for a host that already renders that label itself elsewhere (e.g. a tab strip whose label duplicates it, or a page-level header above RenderEdit).
   activeTabId?: string; // Id of the active tab of a tabbed projectionDetail; handed to the `afterForm` slot.
+  recordSections?: {
+    labelTitles?: true; // Section titles render as small uppercase labels without separators.
+    omitFirstTitle?: true; // The first section's title is the tab label right above it and is left out.
+    pageNavigation?: false; // `false` leaves out the "On this page" navigation.
+    photosBeside?: true; // Fields sections and the photo-grid relatedList sit side by side from `lg` up.
+  }; // Record-view look of a projectionDetail; each key is opt-in.
   fillScreenHeight?: boolean; // Screen body fills the shell height: the form gets `fillHeight` and `stickyActions` (sections scroll, footer pinned).
   leadContent?: ReactNode; // Rendered first inside the form, above the sections, in the same column and rhythm — for content that belongs to the form but is no field (e.g. the secret a confirm step refers to).
   submitBlocked?: boolean; // Blocks submit (button and Enter) while fields stay editable — unlike `disabled`, which locks the whole form.
@@ -1439,6 +1451,8 @@ type RenderListProps = DataTableTableBlockProps & {
   onDateRangeChange?: (field: string, bound: "from" | "to", value: string) => void; // One bound changed (set URL state + refetch).
   chromeless?: boolean; // Forwarded to `DataTableProps.chromeless` — drops the table's own card frame for a host that already provides one (relatedList in a tabs-mode section).
   scrollBody?: boolean; // Forwarded to `DataTableProps.scrollBody` — bounds the table height and scrolls rows internally instead of growing the page (relatedList in a tabs-mode section).
+  hideCountFooter?: boolean; // Forwarded to `DataTableProps.hideCountFooter` (relatedList: the tab label already says how many).
+  plainPhoneCards?: boolean; // Forwarded to `DataTableProps.plainPhoneCards` (relatedList: a history reads as a plain feed on the phone).
   screenPadding?: boolean; // Forwarded to `DataTableProps.screenPadding` — `true`: the table carries the shared screen padding because it is the screen body (entityList/ projectionList).
   expandedRowIds?: ReadonlySet<string>; // Forwarded to `DataTableProps.expandedRowIds` / `onToggleRowExpanded` / `renderExpandedRow` (entityList `expandableRow`).
   onToggleRowExpanded?: (rowId: string) => void;
@@ -1465,6 +1479,12 @@ type SectionProps = { // Titled group of fields.
   actions?: ReactNode; // Rendered top-right in the title row — never a footer.
   layout?: "stacked" | "settings-list"; // "settings-list": title + subtitle form a left header column and the children (field rows) the right one on `md:` and up.
   variant?: "default" | "destructive"; // "destructive" marks the Section as a warning/danger area (e.g. account deletion, restrict processing) — border color only, no content change.
+  titleStyle?: "heading" | "label"; // "label": the title is a small uppercase muted label and the section has no separator line above it.
+  hint?: {
+    text: string;
+    textNarrow?: string;
+    testId: string;
+  }; // Small muted note under the section content on `sm` and up, above it on a phone.
   testId?: string;
   icon?: IconKey; // Rendered left of the title, `text-muted-foreground`, same optical size as the title.
 };
@@ -1621,6 +1641,8 @@ interface TextFieldProps extends FieldBase {
 type TextProps = { // Semantic text.
   variant?: "body" | "small" | "code" | "required-mark" | "muted";
   decorative?: boolean; // Pure ornament (e.g. a separator glyph): hidden from assistive tech.
+  concealed?: boolean; // A value the viewer may not see: drawn muted with a lock icon before it.
+  narrow?: string; // Phone wording: `children` show from `sm` up, this text below it.
   children: ReactNode;
   testId?: string;
 };

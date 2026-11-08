@@ -404,7 +404,14 @@ export const integrationsFeature = defineFeature(FEATURE, (r) => {
         default: "smtp.platform.example",
         write: access.roles("SystemAdmin", "Admin"),
         read: access.admin,
-        mask: { title: "integrations.smtp-host", icon: "mail", order: 2 },
+        // compact: the generated screen drops origin icons and accent bars; section: groups the key under its own titled section.
+        mask: {
+          title: "integrations.smtp-host",
+          icon: "mail",
+          order: 2,
+          compact: true,
+          section: "integrations.mail",
+        },
       }),
     },
   });
@@ -426,6 +433,7 @@ export const integrationsFeature = defineFeature(FEATURE, (r) => {
       "integrations.settings": { de: "Integrationen", en: "Integrations" },
       "integrations.payment-api-key": { de: "Zahlungs-API-Schlüssel", en: "Payment API Key" },
       "integrations.smtp-host": { de: "SMTP-Server", en: "SMTP Host" },
+      "integrations.mail": { de: "E-Mail-Versand", en: "Mail delivery" },
     },
   });
 });

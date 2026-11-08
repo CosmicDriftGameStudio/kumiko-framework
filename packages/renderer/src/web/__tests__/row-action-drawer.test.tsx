@@ -130,7 +130,7 @@ describe("rowActions kind:'drawer'", () => {
     expect(within(header).getByText("actions.addNote")).toBeTruthy();
     expect(screen.queryByTestId("render-edit-form-title")).toBeNull();
     expect(within(scroll).getByTestId("render-edit-form-subtitle")).toBeTruthy();
-    expect(within(footer).getByTestId("render-edit-cancel")).toBeTruthy();
+    expect(within(footer).queryByTestId("render-edit-cancel")).toBeNull();
     expect(within(footer).getByTestId("render-edit-submit")).toBeTruthy();
   });
 
@@ -173,10 +173,10 @@ describe("rowActions kind:'drawer'", () => {
     expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull();
   });
 
-  test("Cancel without input closes immediately", async () => {
+  test("Close without input closes immediately", async () => {
     const user = await openDrawer(drawerSchema, makeDispatcher());
 
-    await user.click(drawer().getByTestId("render-edit-cancel"));
+    await user.click(drawer().getByLabelText("Close"));
 
     await waitFor(() => expect(screen.queryByTestId(DRAWER_TEST_ID)).toBeNull());
     expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull();
@@ -187,10 +187,6 @@ describe("rowActions kind:'drawer'", () => {
     readonly close: (user: ReturnType<typeof userEvent.setup>) => Promise<void>;
   }[] = [
     { name: "X button", close: (user) => user.click(drawer().getByLabelText("Close")) },
-    {
-      name: "Cancel button",
-      close: (user) => user.click(drawer().getByTestId("render-edit-cancel")),
-    },
     { name: "Escape", close: (user) => user.keyboard("{Escape}") },
   ];
 
@@ -217,7 +213,7 @@ describe("rowActions kind:'drawer'", () => {
   test("'Discard' in the confirmation closes the drawer", async () => {
     const user = await openDrawer(drawerSchema, makeDispatcher());
     typeNote("draft text");
-    await user.click(drawer().getByTestId("render-edit-cancel"));
+    await user.click(drawer().getByLabelText("Close"));
 
     await user.click(
       within(await screen.findByTestId("drawer-discard-dialog")).getByText("Discard"),
@@ -230,7 +226,7 @@ describe("rowActions kind:'drawer'", () => {
   test("reopening after a discard starts clean and closes without confirmation", async () => {
     const user = await openDrawer(drawerSchema, makeDispatcher());
     typeNote("draft text");
-    await user.click(drawer().getByTestId("render-edit-cancel"));
+    await user.click(drawer().getByLabelText("Close"));
     await user.click(
       within(await screen.findByTestId("drawer-discard-dialog")).getByText("Discard"),
     );

@@ -1,5 +1,4 @@
 import { describe, expect, mock, test } from "bun:test";
-import { EMPTY_VALUE_PLACEHOLDER } from "../../headless/index.ts";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { fireEvent, render, screen, within } from "./test-utils.tsx";
 
@@ -28,14 +27,14 @@ describe("list board fidelity", () => {
     expect(idleIcon?.classList.contains("opacity-0")).toBe(true);
   });
 
-  test("empty cell renders the shared empty-value placeholder", () => {
+  test("an empty cell stays blank", () => {
     render(
       <DataTable
         columns={[{ field: "name", label: "Name", type: "text", sortable: false }]}
         rows={[{ id: "r1", values: { name: null } }]}
       />,
     );
-    expect(screen.getByTestId("cell-r1-name").textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
+    expect(screen.getByTestId("cell-r1-name").textContent).toBe("");
   });
 
   test("number and money columns are right-aligned in header and cells", () => {
@@ -103,7 +102,7 @@ describe("list board fidelity", () => {
     expect(screen.getByTestId("cell-r2-status").querySelector("[data-status-dot]")).not.toBeNull();
   });
 
-  test("footer shows the range without noun and a page-size select without arrow", () => {
+  test("footer shows the range without noun and an outlined page-size select with an arrow", () => {
     const onPageSizeChange = mock();
     render(
       <DataTable
@@ -125,7 +124,7 @@ describe("list board fidelity", () => {
     const select = screen.getByTestId("dt-pager-page-size") as HTMLSelectElement;
     expect(within(select).getAllByRole("option").length).toBe(3);
     expect(select.className).toContain("appearance-none");
-    expect(select.parentElement?.querySelector("svg")).toBeNull();
+    expect(select.parentElement?.querySelector("svg")).not.toBeNull();
     fireEvent.change(select, { target: { value: "50" } });
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });

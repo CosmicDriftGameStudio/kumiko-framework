@@ -104,6 +104,7 @@ export function validateProjectionListScreen(
     screen.table,
     screen.columns,
     true,
+    screen.facets?.map((facet) => facet.field),
   );
   validateListToolbarOptions(
     `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,

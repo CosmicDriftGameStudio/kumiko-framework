@@ -94,8 +94,8 @@ describe("DataTable — cards below 768px", () => {
       const neutral = screen.getByTestId("row-a2");
       expect(neutral.getAttribute("data-tone")).toBeNull();
       expect(neutral.className).toContain("before:bg-border-strong");
-      expect(neutral.className).toContain("pl-6");
-      expect(late.className).toContain("pl-6");
+      expect(neutral.className).toContain("pl-5");
+      expect(late.className).toContain("pl-5");
     });
   });
 
@@ -104,7 +104,7 @@ describe("DataTable — cards below 768px", () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
       const card = screen.getByTestId("row-u1");
       expect(card.className).not.toContain("before:");
-      expect(card.className).not.toContain("pl-6");
+      expect(card.className).not.toContain("pl-5");
     });
   });
 
@@ -175,7 +175,7 @@ describe("DataTable — cards below 768px", () => {
       const longValue = "A very long description ".repeat(10).trim();
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
-        { field: "note", label: "Note", type: "string", sortable: false },
+        { field: "note", label: "Note", type: "string", sortable: false, ellipsis: true },
         { field: "city", label: "City", type: "string", sortable: false },
       ] as const;
       const rows = [{ id: "u1", values: { name: "Anna", note: longValue, city: "Köln" } }];
@@ -259,7 +259,7 @@ describe("DataTable — cards below 768px", () => {
       },
     ];
 
-    test("card layout: hidden row has no button, no chevron and ignores click and Enter", async () => {
+    test("card layout: hidden row has no button and ignores click and Enter, the open row has no chevron", async () => {
       const user = userEvent.setup();
       const onRowClick = mock();
       await withViewportWidthAsync(500, async () => {
@@ -279,7 +279,7 @@ describe("DataTable — cards below 768px", () => {
         fireEvent.keyDown(hidden, { key: "Enter" });
         expect(onRowClick).not.toHaveBeenCalled();
         const open = screen.getByTestId("row-r1");
-        expect(open.querySelector("svg")).not.toBeNull();
+        expect(open.querySelector("svg")).toBeNull();
         await user.click(within(open).getByRole("button"));
         expect(onRowClick).toHaveBeenCalledTimes(1);
         expect(onRowClick.mock.calls[0]?.[0]).toMatchObject({ id: "r1" });

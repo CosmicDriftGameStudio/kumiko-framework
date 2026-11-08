@@ -155,7 +155,12 @@ const readOnlyTextRule: ControlRule = ({ field, Text, Link, appLocale, t, readOn
     );
   }
   return (
-    <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale, t)}</Text>
+    <Text
+      testId={`field-value-${field.field}`}
+      {...(field.concealed === true && { concealed: true })}
+    >
+      {readOnlyDisplayText(field, appLocale, t)}
+    </Text>
   );
 };
 

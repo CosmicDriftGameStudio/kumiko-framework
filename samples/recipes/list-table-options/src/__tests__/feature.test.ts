@@ -81,9 +81,21 @@ describe("list-table-options recipe", () => {
     );
   });
 
-  test("a hidden column needs the column picker", () => {
-    expect(() => validateBoot([featureWithBlock({ rememberState: true, resetAll: true })])).toThrow(
-      /column "estimateHours" is hidden but table\.columnPicker is not enabled/,
+  // A hidden column that backs a facet needs no picker (the facet is its UI), so the recipe's
+  // own hidden estimateHours column does not trip the rule; a plain hidden column does.
+  test("a hidden column without a facet needs the column picker", () => {
+    const feature = defineFeature("task-board", (r) => {
+      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.screen({
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title", { field: "assignee", hidden: true }],
+        table: { rememberState: true },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /column "assignee" is hidden but table\.columnPicker is not enabled/,
     );
   });
 

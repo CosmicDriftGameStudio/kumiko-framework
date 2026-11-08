@@ -190,6 +190,72 @@ function isEmptyNumericFormValue(value: unknown): boolean {
   return typeof value === "number" && !Number.isFinite(value);
 }
 
+// Same wire shape as a writeOnly config field: null removes, a string replaces.
+function secretChangeCommand(
+  secretKey: string,
+  value: unknown,
+  secretScopePayload: ReturnType<typeof secretScopePayloadFor>,
+): Command | undefined {
+  if (value === null) {
+    return { type: "secrets:write:delete", payload: { key: secretKey, ...secretScopePayload } };
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    return { type: "secrets:write:set", payload: { key: secretKey, value, ...secretScopePayload } };
+  }
+  return undefined;
+}
+
+// One changed form value to its write command; undefined when nothing has to be sent.
+function configChangeCommand({
+  shortName,
+  value,
+  screen,
+  secretKey,
+  secretScopePayload,
+}: {
+  shortName: string;
+  value: unknown;
+  screen: ConfigEditScreenDefinition;
+  secretKey: string | undefined;
+  secretScopePayload: ReturnType<typeof secretScopePayloadFor>;
+}): Command | undefined {
+  if (secretKey !== undefined) return secretChangeCommand(secretKey, value, secretScopePayload);
+  const qualified = screen.configKeys[shortName];
+  if (qualified === undefined) return undefined;
+  const fieldDef = screen.fields[shortName] as { type?: string; optionsQuery?: string } | undefined; // @cast-boundary schema-walk
+  const ftype = fieldDef?.type;
+  const reset: Command = {
+    type: "config:write:reset",
+    payload: { key: qualified, scope: screen.scope },
+  };
+  if (isWriteOnlyTextField(screen.fields[shortName])) {
+    // true (untouched/undone) and "" mean keep the stored secret; null removes it.
+    if (value === null) return reset;
+    if (typeof value === "string" && value !== "") {
+      return {
+        type: "config:write:set",
+        payload: { key: qualified, value, scope: screen.scope },
+      };
+    }
+    return undefined;
+  }
+  // A query-backed select is cleared to "" when its dependent value became
+  // invalid. config:write:set would store that as an empty override (the
+  // badge shows "Mandant" with no value); reset falls back to the inherited
+  // value. set can't do it: deleting the row is irreversible, reset is
+  // the high-risk handler.
+  if (ftype === "select" && fieldDef?.optionsQuery !== undefined && value === "") return reset;
+  // Cleared number/money: drop this scope's override instead of storing an empty value.
+  const storedValue = ftype === "money" ? unwrapMoneyValue(value) : value;
+  if ((ftype === "number" || ftype === "money") && isEmptyNumericFormValue(storedValue)) {
+    return reset;
+  }
+  return {
+    type: "config:write:set",
+    payload: { key: qualified, value: storedValue, scope: screen.scope },
+  };
+}
+
 export function ConfigEditBody({
   schema,
   screen: declaredScreen,
@@ -328,81 +394,16 @@ export function ConfigEditBody({
       const hiddenFieldNames = hiddenLayoutFieldNames(synthScreen, snapshot.values);
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         if (hiddenFieldNames.has(shortName)) continue;
-        const secretKey = secretKeys?.[shortName];
-        if (secretKey !== undefined) {
-          // Same wire shape as a writeOnly config field: null removes, a string replaces.
-          if (value === null) {
-            commandFieldNames.push(shortName);
-            commands.push({
-              type: "secrets:write:delete",
-              payload: { key: secretKey, ...secretScopePayload },
-            });
-          } else if (typeof value === "string" && value.trim() !== "") {
-            commandFieldNames.push(shortName);
-            commands.push({
-              type: "secrets:write:set",
-              payload: { key: secretKey, value, ...secretScopePayload },
-            });
-          }
-          continue;
-        }
-        const qualified = screen.configKeys[shortName];
-        if (qualified === undefined) continue;
-        const fieldDef = screen.fields[shortName] as // @cast-boundary schema-walk
-          | { type?: string; optionsQuery?: string }
-          | undefined;
-        const ftype = fieldDef?.type;
-        if (isWriteOnlyTextField(screen.fields[shortName])) {
-          // true (untouched/undone) and "" mean keep the stored secret; null removes it.
-          if (value === null) {
-            commandFieldNames.push(shortName);
-            commands.push({
-              type: "config:write:reset",
-              payload: { key: qualified, scope: screen.scope },
-            });
-          } else if (typeof value === "string" && value !== "") {
-            commandFieldNames.push(shortName);
-            commands.push({
-              type: "config:write:set",
-              payload: { key: qualified, value, scope: screen.scope },
-            });
-          }
-          continue;
-        }
-        // A query-backed select is cleared to "" when its dependent value became
-        // invalid. config:write:set would store that as an empty override (the
-        // badge shows "Mandant" with no value); reset falls back to the inherited
-        // value. set can't do it: deleting the row is irreversible, reset is
-        // the high-risk handler.
-        if (ftype === "select" && fieldDef?.optionsQuery !== undefined && value === "") {
-          commandFieldNames.push(shortName);
-          commands.push({
-            type: "config:write:reset",
-            payload: { key: qualified, scope: screen.scope },
-          });
-          continue;
-        }
-        // Cleared number/money: drop this scope's override instead of storing an empty value.
-        if (
-          (ftype === "number" || ftype === "money") &&
-          isEmptyNumericFormValue(ftype === "money" ? unwrapMoneyValue(value) : value)
-        ) {
-          commandFieldNames.push(shortName);
-          commands.push({
-            type: "config:write:reset",
-            payload: { key: qualified, scope: screen.scope },
-          });
-          continue;
-        }
-        commandFieldNames.push(shortName);
-        commands.push({
-          type: "config:write:set",
-          payload: {
-            key: qualified,
-            value: ftype === "money" ? unwrapMoneyValue(value) : value,
-            scope: screen.scope,
-          },
+        const command = configChangeCommand({
+          shortName,
+          value,
+          screen,
+          secretKey: secretKeys?.[shortName],
+          secretScopePayload,
         });
+        if (command === undefined) continue;
+        commandFieldNames.push(shortName);
+        commands.push(command);
       }
       if (commands.length === 0) {
         return { validationBlocked: false, isSuccess: true, data: undefined };
@@ -434,9 +435,7 @@ export function ConfigEditBody({
       dispatcher,
       synthScreen,
       secretKeys,
-      screen.configKeys,
-      screen.fields,
-      screen.scope,
+      screen,
       valuesQuery.refetch,
       cascadeQuery.refetch,
       secretsQuery.refetch,
@@ -480,7 +479,8 @@ export function ConfigEditBody({
         [String(value)],
       )[String(value)];
   };
-  return (
+  const compact = screen.compact === true;
+  const form = (
     <RenderEdit
       screen={synthScreen}
       entity={synthEntity}
@@ -494,11 +494,13 @@ export function ConfigEditBody({
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
       fieldAppendixPlacement="below-control"
-      fieldAccent={(fieldName: string) =>
-        cascades[fieldName]?.levels.find((level) => level.isActive)?.source ===
-        CONFIG_SCOPE_SOURCE[screen.scope]
-      }
-      markChangedFields
+      {...(compact && { recordSections: { labelTitles: true as const } })}
+      {...(!compact && {
+        fieldAccent: (fieldName: string) =>
+          cascades[fieldName]?.levels.find((level) => level.isActive)?.source ===
+          CONFIG_SCOPE_SOURCE[screen.scope],
+        markChangedFields: true,
+      })}
       {...actionRowsAfterField(screen.actions, effectiveTranslate)}
       {...(screen.fieldDescriptions !== undefined && {
         fieldDescription: (fieldName: string) => {
@@ -508,13 +510,14 @@ export function ConfigEditBody({
       })}
       fieldAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
-        if (cascade === undefined) return undefined;
+        if (compact || cascade === undefined) return undefined;
         const renderValue = cascadeValueRenderer(fieldName);
         return (
           <ConfigCascadeView
             cascade={cascade}
             screenScope={screen.scope}
             qualifiedKey={screen.configKeys[fieldName]}
+            compact
             required={screen.requiredFields?.includes(fieldName) ?? false}
             {...(renderValue !== undefined && { renderValue })}
             {...(!readOnlyFields.has(fieldName) && {
@@ -527,5 +530,17 @@ export function ConfigEditBody({
         );
       }}
     />
+  );
+  return compact ? (
+    // The prefix icon of a field is dropped together with the padding it reserved. The column cap sits
+    // on the form shell only, so the pinned save bar stays full width at the page bottom like on a record page.
+    <div
+      data-testid="config-edit-compact"
+      className="h-full min-h-0 [&>form>div:first-child]:mx-0 [&>form>div:first-child]:max-w-[940px] [&_.relative>input]:pl-3 [&_.relative>svg.pointer-events-none]:hidden"
+    >
+      {form}
+    </div>
+  ) : (
+    form
   );
 }

@@ -415,6 +415,7 @@ type ConfigEditScreenDefinition = {
   fieldDescriptions?: Readonly<Record<string, string>>; // Per-field help text i18n key (Field-Name → Key), from `mask.description`.
   requiredFields?: string[]; // Field names whose config key declares `required: true` — drives the "Not set.
   submitLabel?: string; // i18n key for the submit button.
+  compact?: true; // Compact rows: no origin icon, no reset link, no accent bar on changed fields; the form column is capped to a readable width.
   actions?: ConfigEditAction[]; // Handler buttons drawn as their own row after `afterField` (settings-list layout).
   slots?: ScreenSlots;
   access?: AccessRule;
@@ -537,6 +538,10 @@ type EditFieldSpec =
     fillAction?: FieldFillAction; // Button beside the input that runs a query and writes one scalar of its result into this field.
     aiAssist?: FieldAiAssist; // Helper under a `text` or `longText` input: stackable chips and an optional free instruction call a query and write its `resultField` into the field.
     valueChips?: FieldValueChips; // Quick-pick chips under a `number`, `decimal`, `bigInt` or `money` input; a chip sets the field to its value.
+    concealed?: true; // Read-only display of a value the viewer may not see: the value (or the mask the query returns) shows muted with a lock icon instead of a replacement text.
+    badge?: FieldBadge; // Pill next to the label, e.g. "price source open" in `warn`.
+    hintField?: string; // Value field whose non-empty text shows as a muted small hint under the field (e.g. "From the buyer: Skoda Octavia").
+    hideOnNarrow?: true; // Leaves the field out below `sm`; its value is still submitted.
     refEntity?: string; // Marks this field as a reference lookup instead of a plain value — for projectionDetail fields, which have no `EntityDefinition` to carry a real `reference` field type.
     refLabelField?: string; // Row field on the referenced entity shown as the label (default "id").
     format?: "email" | "phone"; // Text format for projectionDetail fields, which have no `EntityDefinition` to carry it: a read-only value renders as a `mailto:`/`tel:` link.
@@ -544,7 +549,7 @@ type EditFieldSpec =
     prefill?: EditFieldPrefill; // Fills an empty value when the create form opens; the update form and values from URL params or a handoff are never touched.
   }
 ;
-type EditRelatedListSection = {
+type EditRelatedListSection = EditSectionPresentation & {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
   visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind: "relatedList";
@@ -579,7 +584,9 @@ type EditRelatedListSection = {
   emptyState?: RelatedListEmptyStateSpec; // Rendered inside the section's Card in place of the table when this section's query returns zero rows.
   photoGrid?: {
     imageField: string; // Row field holding a FileRef id (or an id array, the first shows).
-    captionField?: string; // Row field printed under the image.
+    captionField?: string; // Row field printed under the image; without it the tile reads "Photo n".
+    badgeField?: string; // Row field whose non-empty text shows as a warn badge on the image's top left.
+    badgeFirst?: true; // On a phone (below `sm`) tiles whose `badgeField` has text come first, the rest keep their order; from `sm` up the natural order stays.
   }; // Draws the rows as a tile grid of images instead of a table.
 };
 type EditSectionSpec = EditFieldsSection | EditExtensionSection | EditRelatedListSection | EditWriteFormSection | EditStepListSection;
@@ -667,6 +674,7 @@ type EntityListScreenDefinition = {
   allowCreate?: boolean; // `false` hides this list's "+ New" button (and the empty-state create CTA) while the entity's edit screen keeps its create branch for other entry points, e.g. a prefilled action.
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
+  mutedRowField?: string; // Row field (boolean): a row with a true value is drawn entirely in the muted text colour.
   rowDecoration?: ListRowDecoration; // Computed row fields from an app query, readable by `rowToneField`, column `hint`, `linkScreenField`/`linkParamsField` and rowAction `visible`/`params`/`payload`; a column may name a decoration field.
   rowRenderer?: PlatformComponent;
   rowActions?: RowAction[]; // Per-row actions, rendered as an actions column on the right.
@@ -880,7 +888,7 @@ interface FieldFormatRegistry {
     absoluteAfterDays?: number;
     withTime?: boolean;
     timeZone?: string; // IANA zone id for the clock time and the day boundary.
-  }; // Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick).
+  }; // Epoch ms or ISO timestamp, shown as "5 min.
   date: {
     locale?: string;
     dateStyle?: "full" | "long" | "medium" | "short";
@@ -1074,18 +1082,27 @@ type ListColumnSpec =
     refLabelField?: string; // Row field on the referenced entity shown as the label (default "id").
     sortable?: boolean; // Marks this column as sortable via a clickable header — for relatedList columns, which have no `EntityDefinition` field to carry `sortable` on.
     valueType?: "number" | "decimal" | "bigInt" | "money"; // Value type of a projectionList or relatedList column, which has no `EntityDefinition` field to derive it from.
-    emptyPlaceholder?: false; // `false` leaves an empty cell blank instead of drawing the "—" placeholder.
-    hideOnNarrow?: boolean; // Leaves the column out of the compact card layout used below the `md` breakpoint (tables keep it).
+    emptyPlaceholder?: string | false; // An empty cell stays blank by default; a string (i18n key or literal) is shown muted in its place, e.g. "No vehicle".
+    hideOnNarrow?: boolean; // Leaves the column out of the compact card layout used below the `md` breakpoint (phone viewport).
+    hideWhenDocked?: true; // Leaves the column out of a table whose container is narrower than `md` (docked assistant panel); the viewport is not looked at, so the phone card still shows it.
     showOnNarrowOnly?: true; // Counterpart of `hideOnNarrow`: the column shows only in the compact card layout and not in the table.
     narrowInline?: true; // In the compact card, consecutive `narrowInline` columns stand side by side on one line (12px gap, no separator) instead of one line each.
+    ellipsis?: true; // One line with a trailing ellipsis in the table; the full text is the cell's `title`.
+    multiline?: true; // Free text: the cell wraps instead of ending in "…", and a line break (`\n`) in the value starts a new line (table and phone card).
+    cardAbove?: true; // Phone card: the column's line stands above the title (muted, e.g. "date, channel") instead of below it.
+    emphasis?: true; // Cell text in medium weight and foreground colour, like the title column of a board.
+    tone?: "muted"; // `"muted"` draws every cell of the column in the muted text colour (e.g. a free-text message beside primary columns).
+    cardBadge?: true; // The phone card shows this column as its badge: right of the title, as an outlined neutral pill (a `display: "badge"` column keeps its own pill).
+    dateOnlyAfterDays?: number; // Timestamp or relativeTime column: a value older than this many days shows the date only, without the time.
     hidden?: boolean; // Start state for the column picker: the column begins hidden and the user can show it.
     pinned?: ListColumnPin; // Start pin for the column: it sticks to this edge while the table scrolls horizontally.
     width?: number; // Start width in px.
     minWidth?: number; // Smallest width in px the user can resize to.
     display?: ListColumnDisplay; // One of "bar" | "badge" | "datetime" | "button".
     variant?: "primary"; // `"primary"` draws a `display: "button"` link as a filled primary button instead of the outline default (dashboard list panels only).
-    badgeToneField?: string; // Row field naming the badge tone; only with `display: "badge"`.
+    badgeToneField?: string; // Row field naming the badge tone: a `ListBadgeTone` word or a `SelectOptionTone` word (`ok`, `bad`, `critical`, `accent`); only with `display: "badge"`.
     badgeDot?: false; // `false` draws the badge pill without its leading dot; only with `display: "badge"`.
+    badgeIcon?: "sparkles"; // `"sparkles"` marks an AI-prepared value: the dashboard list draws the badge as the soft blue AI pill with a sparkles icon, like an AI row action; only with `display: "badge"`.
     pillField?: string; // Row field holding a second label, drawn as a pill next to the cell's own value (e.g. a vehicle name with a "free" pill).
     pillToneField?: string; // Row field naming the tone of the `pillField` pill (a `ListBadgeTone`).
     linkScreenField?: string; // Row field holding a screen QN (`<feature>:screen:<id>`): the cell links to that screen when the row sets it and the user may open it.
@@ -1411,8 +1428,11 @@ type ProjectionDetailScreenDefinition = {
   metrics?: MetricSpec[]; // Metric band above the layout — column names in the query row, each with its own i18n `label`.
   metricsStyle?: "band" | "tiles"; // "tiles" draws the metrics as the dashboard KPI tiles (StatCard) instead of the plain band.
   metricsPlacement?: {
-    narrow?: "after-guidance";
-  }; // `narrow: "after-guidance"` moves the metrics below the summary, banner and steps on screens under md, ahead of the tabs.
+    narrow?: "after-guidance" | "before-steps";
+  }; // On screens under md, `narrow: "after-guidance"` moves the metrics below the summary, banner and steps, ahead of the tabs; `"before-steps"` puts them below the summary and banner, ahead of the next step.
+  mobileSummary?: string; // Record field holding one line of text shown instead of the metrics below `sm`.
+  pageNavigation?: false; // `false` leaves out the "On this page" navigation of a stacked (non-tabs) layout.
+  photosBeside?: true; // A tab holding fields sections and a relatedList with `photoGrid` shows the fields left and the photos right from `lg` up.
   breadcrumb?: RecordBreadcrumbSpec; // Path above the header (query column holding items).
   summary?: RecordSummarySpec; // One emphasized sentence below the header.
   banner?: RecordBannerSpec; // Notice below the summary.
@@ -1421,7 +1441,7 @@ type ProjectionDetailScreenDefinition = {
   listScreenId?: string; // Parent list screen (short id) for a "back" navigation.
   slots?: ScreenSlots;
   access?: AccessRule;
-  actions?: RowAction[]; // Header action buttons.
+  actions?: EntityEditAction[]; // Header action buttons.
   primaryAction?: string; // Id of the action that stays the visible header button when the actions collapse into a menu (and the one that keeps the phone icon slot when it has an icon and no confirm).
   inlineActions?: string[]; // Action ids that stay visible buttons next to the primary action when the rest collapses into the menu.
   footerActions?: string[]; // Ids of `actions` shown in the pinned footer bar instead of the header, in declaration order.
@@ -1443,6 +1463,7 @@ type ProjectionListScreenDefinition = {
   query: string;
   columns: ListColumnSpec[];
   rowToneField?: string; // Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned.
+  mutedRowField?: string; // Row field (boolean): a row with a true value is drawn entirely in the muted text colour.
   rowDecoration?: ListRowDecoration; // Computed row fields from an app query, merged into the query rows; see `ListRowDecoration`.
   rowRenderer?: PlatformComponent;
   rowActions?: RowAction[];

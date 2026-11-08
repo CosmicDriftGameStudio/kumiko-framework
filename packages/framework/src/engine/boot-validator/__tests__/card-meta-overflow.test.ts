@@ -83,6 +83,11 @@ describe("collectCardMetaOverflow", () => {
     ]);
   });
 
+  test("a cardAbove column stands above the title and is no meta line", () => {
+    const columns: ListColumnSpec[] = ["name", "a", "b", "c", { field: "d", cardAbove: true }];
+    expect(collectCardMetaOverflow([listFeature(columns)])).toEqual([]);
+  });
+
   test("3 meta columns pass", () => {
     expect(collectCardMetaOverflow([listFeature(["name", "a", "b", "c"])])).toEqual([]);
   });

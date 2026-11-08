@@ -15,6 +15,7 @@ import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import type { RenderEditAction } from "../components/render-edit-types.ts";
 import type { ToolbarActionButton } from "../components/render-list.tsx";
+import type { WriteFormRegistry } from "../components/write-form-registry.ts";
 import { rendererError, rendererWarn } from "../dev-console.ts";
 import type { Dispatcher, ListRowViewModel, Translate } from "../headless/index.ts";
 import type { DataTableRowAction } from "../primitives.tsx";
@@ -761,6 +762,8 @@ function buildWriteHandlerRecordAction(
     readonly defaultWritePayloadId: string | undefined;
     readonly onRecordLeft: RecordLeftHandler | undefined;
     readonly discardChanges: DiscardChanges | undefined;
+    readonly writeForms: WriteFormRegistry | undefined;
+    readonly submitWithIds: ReadonlySet<string> | undefined;
   },
 ): RenderEditAction {
   const {
@@ -772,6 +775,8 @@ function buildWriteHandlerRecordAction(
     defaultWritePayloadId,
     onRecordLeft,
     discardChanges,
+    writeForms,
+    submitWithIds,
   } = options;
   const shownRecordId = defaultWritePayloadId ?? record["id"];
   const confirm = withDiscardHint(
@@ -791,14 +796,32 @@ function buildWriteHandlerRecordAction(
     ...(confirm !== undefined && { confirm }),
     ...(confirmLabel !== undefined && { confirmLabel }),
     onPress: async () => {
-      const payload =
+      const ownPayload =
         action.payload !== undefined
           ? evalRowExtractor(action.payload, record)
           : { id: shownRecordId };
+      // A form submitted by this action (writeForm `submitWith`) validates first; no write on error.
+      const form = writeForms?.get(action.id);
+      // A form is not mounted (other tab, hidden by visibleWhen): writing only the own payload would
+      // silently skip its fields.
+      if (form === undefined && submitWithIds?.has(action.id) === true) {
+        rendererError(
+          `kumiko-screen: action "${action.id}" submits a writeForm that is not mounted`,
+        );
+        throw new Error(translate("kumiko.writeForm.unavailable"));
+      }
+      // A form hidden by CSS (phone/desktop only) shows no inline errors, so the failure is named here.
+      if (form !== undefined && !form.validate()) {
+        throw new Error(
+          translate("kumiko.writeForm.invalid", { fields: form.invalidFieldLabels().join(", ") }),
+        );
+      }
+      const payload = form === undefined ? ownPayload : { ...ownPayload, ...form.getValues() };
       const result = await dispatcher.write(action.handler, payload);
       if (!result.isSuccess) {
         throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
       }
+      form?.rebase();
       const deletedShownRecord = deletesShownRecord(action, payload, shownRecordId);
       if (onRecordLeft !== undefined && (action.redirect !== undefined || deletedShownRecord)) {
         onRecordLeft(action, result.data, deletedShownRecord);
@@ -859,6 +882,9 @@ export function buildRecordActions(options: {
    *  form holds unsaved input so it is not lost silently. */
   readonly discardChanges?: DiscardChanges;
   readonly clientActions?: ClientActionRuntime;
+  readonly writeForms?: WriteFormRegistry;
+  /** Ids of the actions that a writeForm section submits (`submitWith`). */
+  readonly submitWithIds?: ReadonlySet<string>;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -875,6 +901,8 @@ export function buildRecordActions(options: {
     defaultWritePayloadId,
     discardChanges,
     clientActions,
+    writeForms,
+    submitWithIds,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
@@ -931,6 +959,8 @@ export function buildRecordActions(options: {
         defaultWritePayloadId,
         onRecordLeft,
         discardChanges,
+        writeForms,
+        submitWithIds,
       }),
     );
   }

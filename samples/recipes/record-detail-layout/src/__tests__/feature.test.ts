@@ -50,6 +50,7 @@ describe("record-detail-layout showcase — registration", () => {
     expect(screen.header).toEqual({
       title: "customerName",
       shortTitle: "shortTitle",
+      narrowTitle: "order-desk.header.narrow-title",
       narrowSubtitle: "narrowSubtitle",
       subtitle: [
         "orderNumber",
@@ -226,7 +227,7 @@ describe("record-detail-layout showcase — board gaps", () => {
     const detail = registry.getScreen("order-desk:screen:order-detail");
     if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(detail.progress?.placement).toBe("beside-steps");
-    expect(detail.metricsPlacement).toEqual({ narrow: "after-guidance" });
+    expect(detail.metricsPlacement).toEqual({ narrow: "before-steps" });
     expect(detail.metrics?.map((metric) => metric.subField)).toContain("totalNote");
   });
 });

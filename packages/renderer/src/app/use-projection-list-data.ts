@@ -83,8 +83,8 @@ export function useProjectionListData(input: ProjectionListDataInput) {
       facetCounts,
     );
     return [
-      ...(namedFacet !== undefined ? [namedFacet] : []),
       ...buildFilterFacets(resolvedFacetSpecs),
+      ...(namedFacet !== undefined ? [namedFacet] : []),
     ];
   }, [
     resolvedFacetSpecs,

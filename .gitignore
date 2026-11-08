@@ -58,3 +58,5 @@ e2e/hero-demos/.tmp/
 
 # packages/samples/{samples,packages} hold checked-in symlinks (workspace layout);
 # scripts/stage-samples-package.ts swaps them for real copies during pack.
+
+*.tgz

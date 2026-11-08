@@ -932,6 +932,7 @@ const I18N_TRANSLATIONS: TranslationsByLocale = {
     "demo.duration": "{years} {months}",
     "demo.stat": "{count} open",
     "demo.row": "Task {name}",
+    "demo.quota": "Quota {month}",
   },
 };
 
@@ -1052,6 +1053,30 @@ describe("dashboard translatable panel texts", () => {
     );
     await waitFor(() => expect(screen.getByText("Task A")).toBeTruthy());
     expect(screen.getByText("1 year 3 months")).toBeTruthy();
+  });
+
+  test("progress-list title takes its labelParams from fields of the query answer", async () => {
+    renderDashboard(
+      {
+        id: "texts",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "progress-list",
+            id: "quota",
+            label: "demo.quota",
+            labelParams: { month: "monthName" },
+            query: "demo:query:quota:rows",
+          },
+        ],
+      },
+      {
+        "demo:query:quota:rows": () =>
+          ok({ monthName: "November", rows: [{ label: "Offers", value: "3", fraction: 0.3 }] }),
+      },
+      i18nOptions,
+    );
+    await waitFor(() => expect(screen.getByText("Quota November")).toBeTruthy());
   });
 
   test("an unknown object falls back to a placeholder instead of crashing", async () => {
@@ -1920,13 +1945,14 @@ describe("dashboard stacked-area panel header and axes", () => {
     for (const label of tickLabels) expect(label).not.toContain("ms");
   });
 
-  test("the subtitle sits in its own element right after the title inside the header", async () => {
+  test("the subtitle sits in its own element at the right end of the header", async () => {
     renderDashboard(chartScreen("stacked-area", { subtitle: "demo:chart-subtitle" }), handlers);
     const subtitle = await screen.findByText("demo:chart-subtitle");
-    const title = screen.getByRole("heading", { name: "demo:chart" });
-    expect(title.nextElementSibling).toBe(subtitle);
-    expect(subtitle.parentElement).toBe(title.parentElement);
-    expect(subtitle.closest("header")).not.toBeNull();
+    const header = subtitle.closest("header");
+    expect(header).not.toBeNull();
+    expect(subtitle.getAttribute("data-slot")).toBe("panel-subtitle");
+    expect(subtitle.parentElement?.className).toContain("ml-auto");
+    expect(header?.contains(screen.getByRole("heading", { name: "demo:chart" }))).toBe(true);
   });
 
   test("markerLabels is passed through to the chart", async () => {
@@ -2091,6 +2117,39 @@ describe("dashboard text panel", () => {
   });
 });
 
+describe("dashboard feed showTotal", () => {
+  const feedScreen = (showTotal: true | { text: string }): DashboardScreenDefinition => ({
+    id: "board",
+    type: "dashboard",
+    panels: [
+      { kind: "feed", id: "dates", label: "demo:dates", query: "demo:query:feed:dates", showTotal },
+    ],
+  });
+  const rows = { rows: [{ primary: "A" }, { primary: "B" }] };
+
+  test("a custom text shows the rows count in the panel head", async () => {
+    renderDashboard(
+      feedScreen({ text: "demo:count" }),
+      { "demo:query:feed:dates": () => ok(rows) },
+      {
+        locale: "en",
+        translations: { en: { "demo:count": "{total}" } },
+      },
+    );
+    const head = await screen.findByText("2");
+    expect(head.getAttribute("data-slot")).toBe("panel-subtitle");
+  });
+
+  test("the query's total wins over the rows returned", async () => {
+    renderDashboard(
+      feedScreen({ text: "demo:count" }),
+      { "demo:query:feed:dates": () => ok({ ...rows, total: 7 }) },
+      { locale: "en", translations: { en: { "demo:count": "{total}" } } },
+    );
+    expect(await screen.findByText("7")).toBeTruthy();
+  });
+});
+
 describe("dashboard list showTotal, footer link and stat-group link", () => {
   const listScreen: DashboardScreenDefinition = {
     id: "board",
@@ -2142,6 +2201,19 @@ describe("dashboard list showTotal, footer link and stat-group link", () => {
     });
     await waitFor(() => expect(screen.getByTestId("dashboard-list-footer-link")).toBeTruthy());
     expect(screen.queryByTestId("dashboard-list-more")).toBeNull();
+  });
+
+  test("a footerLink without label shows only the remaining count, no link", async () => {
+    const [listPanel] = listScreen.panels;
+    if (listPanel === undefined || listPanel.kind !== "list")
+      throw new Error("list panel expected");
+    renderDashboard(
+      { ...listScreen, panels: [{ ...listPanel, footerLink: { screen: "jobs" } }] },
+      { "demo:query:jobs:list": () => ok({ rows: [{ name: "A" }, { name: "B" }], total: 5 }) },
+    );
+    await waitFor(() => expect(screen.getByTestId("dashboard-list-more")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-list-more").textContent).toContain("3");
+    expect(screen.queryByTestId("dashboard-list-footer-link")).toBeNull();
   });
 });
 

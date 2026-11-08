@@ -27,6 +27,7 @@ export const renderNumberKind: KindRenderer<"number"> = (props) => {
         {...(props.locale !== undefined && { locale: props.locale })}
         {...(props.grouping !== undefined && { grouping: props.grouping })}
         {...(props.integer !== undefined && { integer: props.integer })}
+        {...(props.suffix !== undefined && { suffix: props.suffix })}
         {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
         className={cn(
           NumberIcon !== undefined ? "pl-8" : undefined,
@@ -43,7 +44,7 @@ export const renderNumberKind: KindRenderer<"number"> = (props) => {
       )}
     </div>
   );
-  return withInputAddons(props, numberField);
+  return withInputAddons({ ...props, suffix: undefined }, numberField);
 };
 
 export const renderRangeKind: KindRenderer<"range"> = (props, { common }) => (

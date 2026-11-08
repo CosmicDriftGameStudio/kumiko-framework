@@ -10,11 +10,10 @@ import type { DataTableModel } from "./use-data-table-state.ts";
 
 // The pager is ALWAYS rendered below the table (even with rows=[]) so the
 // user can page back on a filter hit of zero without losing the list.
-// Except total === 0: then there is nothing to paginate. Incompatible with
-// infinite scroll: the caller sets either pager OR onReachEnd.
+// Incompatible with infinite scroll: the caller sets either pager OR onReachEnd.
 function renderPager(m: DataTableModel): ReactNode {
   const { pager, serverGroups, testId } = m;
-  if (pager === undefined || !(pager.total > 0) || serverGroups !== undefined) return undefined;
+  if (pager === undefined || serverGroups !== undefined) return undefined;
   return (
     <Pager
       page={pager.page}
@@ -47,7 +46,7 @@ function renderSentinel(m: DataTableModel, pagerElement: ReactNode): ReactNode {
 }
 
 function renderTableBodyContent(m: DataTableModel): ReactNode {
-  if (m.isEmpty) return isInsideCardFrame(m) ? renderTableView(m) : renderEmptyBlock(m);
+  if (m.isEmpty) return renderEmptyBlock(m);
   return m.isNarrow ? renderCardsView(m) : renderTableView(m);
 }
 
@@ -56,7 +55,8 @@ export function renderTableContent(m: DataTableModel): ReactNode {
   const tableContent = renderTableBodyContent(m);
   const pagerElement = renderPager(m);
   const sentinelElement = renderSentinel(m, pagerElement);
-  const framed = isInsideCardFrame(m);
+  // An empty list is only the dashed empty block, with no card frame around it.
+  const framed = isInsideCardFrame(m) && !m.isEmpty;
 
   // With scrollBody the footer (pager, else the entry count) sits OUTSIDE the
   // scroll surface so it stays put at any row count; the infinite sentinel
@@ -75,18 +75,15 @@ export function renderTableContent(m: DataTableModel): ReactNode {
       {sentinelElement}
     </>
   );
-  // A rendered empty state stands alone: a "0 entries" count or pager under it only repeats it.
-  const hasEmptyState = m.isEmpty && m.emptyState !== undefined;
-  const footer = hasEmptyState
-    ? undefined
-    : (pagerElement ??
-      (m.fillsHeight ? (
-        <DataTableFooter
-          count={serverGroups?.totalCount ?? m.rows.length}
-          {...(itemNoun !== undefined && { itemNoun })}
-          testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
-        />
-      ) : undefined));
+  const footer =
+    pagerElement ??
+    (m.fillsHeight && m.hideCountFooter !== true ? (
+      <DataTableFooter
+        count={serverGroups?.totalCount ?? m.rows.length}
+        {...(itemNoun !== undefined && { itemNoun })}
+        testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
+      />
+    ) : undefined);
 
   // Frame card: content and footer share one bordered card. A fill-height card is as tall as
   // its rows and shrinks into the scroll container; the 24px sides match the toolbar's inset.

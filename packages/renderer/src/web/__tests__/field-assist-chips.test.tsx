@@ -43,7 +43,7 @@ const SCREEN: EntityEditScreenDefinition = {
             },
           },
           { field: "price", valueChips: { from: "suggestions" } },
-          { field: "seats", valueChips: { from: "suggestions" } },
+          { field: "seats", suffix: "seats", valueChips: { from: "suggestions" } },
         ],
       },
     ],
@@ -140,6 +140,11 @@ describe("valueChips", () => {
     await waitFor(() =>
       expect(screen.getByTestId("field-price").querySelector("input")?.value).toMatch(/3/),
     );
+  });
+
+  test("a number chip reads like the field: the number followed by its suffix", () => {
+    renderOffer(undefined);
+    expect(screen.getByTestId("field-value-chip-seats-5").textContent).toBe("5 seats");
   });
 
   test("chip text follows the field type and the chip equal to the value is pressed with a check", async () => {

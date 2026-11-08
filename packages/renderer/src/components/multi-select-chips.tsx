@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { EditFieldViewModel } from "../headless/index.ts";
 import { usePrimitives } from "../primitives.tsx";
+import { choiceChipClass } from "./choice-chip-class.ts";
 import type { MultiSelectCheckboxOption } from "./multi-select-checkboxes.tsx";
 
 // MultiSelectFieldDef's `display: "chips"`: every option is a toggle chip, ticked once chosen.
@@ -32,8 +33,9 @@ export function MultiSelectChips({
         return (
           <Button
             key={opt.value}
-            variant={isSelected ? "primary" : "secondary"}
+            variant="secondary"
             size="sm"
+            className={choiceChipClass(isSelected)}
             pressed={isSelected}
             disabled={field.readOnly === true || opt.disabled === true}
             testId={`${id}-chip-${opt.value}`}

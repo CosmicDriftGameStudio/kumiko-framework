@@ -2,7 +2,7 @@ import type {
   DashboardListRowToneMarker,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { ArrowUpRight, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Sparkles } from "lucide-react";
 import type { MouseEvent, ReactNode } from "react";
 import {
   type CellLink,
@@ -33,8 +33,9 @@ export type DashboardListColumn = {
   readonly buttonVariant?: "primary";
   readonly badgeToneField?: string;
   readonly badgeDot?: false;
+  readonly badgeIcon?: "sparkles";
   /** `false` leaves an empty cell blank instead of drawing the placeholder. */
-  readonly emptyPlaceholder?: false;
+  readonly emptyPlaceholder?: string | false;
   /** Resolves the raw cell value to display text, e.g. a reference id to its label. */
   readonly renderValue?: (value: unknown, row: Readonly<Record<string, unknown>>) => string;
   /** Links the rendered text to its target, e.g. a reference cell to the record's detail. */
@@ -43,6 +44,8 @@ export type DashboardListColumn = {
   readonly hint?: ListColumnHintViewModel;
   /** `showOnNarrowOnly`: drawn in the phone cards only, never as a table column. */
   readonly narrowOnly?: true;
+  /** `hideOnNarrow`: a table column that the phone cards leave out. */
+  readonly hiddenInCards?: true;
 };
 
 export type DashboardListRow = Readonly<Record<string, unknown>>;
@@ -108,7 +111,8 @@ export function DashboardListCell({
   readonly translate: (key: string) => string;
 }): ReactNode {
   const raw = row[column.field];
-  const empty = column.emptyPlaceholder === false ? "" : EMPTY_VALUE_PLACEHOLDER;
+  const empty =
+    column.emptyPlaceholder === false ? "" : (column.emptyPlaceholder ?? EMPTY_VALUE_PLACEHOLDER);
   if (column.hint !== undefined) {
     return <HintCell value={raw} row={row} hint={column.hint} leading={leading} />;
   }
@@ -138,9 +142,13 @@ export function DashboardListCell({
   if (column.display === "badge") {
     if (raw === undefined || raw === null || raw === "") return empty;
     const toneKey = column.badgeToneField !== undefined ? row[column.badgeToneField] : undefined;
-    const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
+    const isAi = column.badgeIcon === "sparkles";
+    const tone = isAi
+      ? "accent"
+      : ((typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted");
     return (
-      <StatusBadge tone={tone} dot={column.badgeDot !== false}>
+      <StatusBadge tone={tone} dot={!isAi && column.badgeDot !== false}>
+        {isAi && <Sparkles className="size-3" aria-hidden="true" />}
         {String(raw)}
       </StatusBadge>
     );
@@ -277,6 +285,9 @@ export function DashboardListTable({
   const leadingBadgeColumns = leadingBadgeColumnsOf(visibleColumns);
   const columns = visibleColumns.filter((column) => !leadingBadgeColumns.includes(column));
   const hintColumn = columns.find((column) => column.hint !== undefined);
+  const deadlineFields = new Set(
+    hintColumn?.hint?.narrowDetailField === undefined ? [] : [hintColumn.hint.narrowDetailField],
+  );
   const padded = rowToneField !== undefined || leadingBadgeColumns.length > 0;
   const cellProps = { formatPercent, formatNumber, formatDateTime, translate };
   return (
@@ -336,7 +347,7 @@ export function DashboardListTable({
               >
                 {columns.map((column, columnIndex) => {
                   const leading = leadingFor(column, columnIndex);
-                  const cell = (
+                  const plainCell = (
                     <DashboardListCell
                       column={column}
                       row={row}
@@ -344,6 +355,12 @@ export function DashboardListTable({
                       {...(column.hint !== undefined && { leading })}
                     />
                   );
+                  const cell =
+                    tone === "warn" && deadlineFields.has(column.field) ? (
+                      <span className="font-medium text-status-warn">{plainCell}</span>
+                    ) : (
+                      plainCell
+                    );
                   return (
                     <td
                       key={column.field}

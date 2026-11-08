@@ -7,6 +7,7 @@ import {
   type DetailGuidanceModel,
   renderDetailBreadcrumb,
   renderDetailGuidance,
+  renderDetailSummary,
   wrapLayout,
 } from "./projection-detail-guidance.tsx";
 import {
@@ -18,6 +19,7 @@ import {
   renderHeaderSubtitleSlot,
   renderHeaderTitleSlot,
   renderMetricsBlock,
+  renderMobileSummary,
   renderRecordTitleBlock,
   renderStatusBadge,
 } from "./projection-detail-header.tsx";
@@ -100,13 +102,29 @@ const NARROW_METRICS_ORDER = "max-md:order-1";
 const LEAD_BAND_SHARED_PADDING = "[&>*]:pb-0";
 const TILES_BAND_SHARED_PADDING = "[&>*]:pt-3";
 const NARROW_TABS_ORDER = "max-md:order-2";
+const NARROW_TABS_ORDER_AFTER_STEPS = "max-md:order-3";
 
 function usesNarrowMetricsOrder(model: DetailRegionModel): boolean {
-  return model.screen.metricsPlacement?.narrow === "after-guidance";
+  return model.screen.metricsPlacement?.narrow !== undefined;
+}
+
+function narrowTabsOrder(model: DetailRegionModel): string {
+  return model.screen.metricsPlacement?.narrow === "before-steps"
+    ? NARROW_TABS_ORDER_AFTER_STEPS
+    : NARROW_TABS_ORDER;
 }
 
 function wrapNarrowOrder(model: DetailRegionModel, orderClass: string, node: ReactNode): ReactNode {
   return usesNarrowMetricsOrder(model) ? wrapLayout(model.primitives, orderClass, node) : node;
+}
+
+// `narrowTabs: false` drops the strip on the phone; the sections then stand one under the other.
+function wrapTabStrip(model: DetailRegionModel, strip: ReactNode): ReactNode {
+  const classes = [
+    usesNarrowMetricsOrder(model) ? narrowTabsOrder(model) : undefined,
+    model.screen.layout.narrowTabs === false ? "max-sm:hidden" : undefined,
+  ].filter((c) => c !== undefined);
+  return classes.length === 0 ? strip : wrapLayout(model.primitives, classes.join(" "), strip);
 }
 
 // Only the metric tiles move below the guidance on narrow screens; the lead and the
@@ -174,10 +192,13 @@ function renderPageHeaderBranch(
     <>
       <PageHeader
         {...(hasTitleBlock && { bodyTitle: true })}
-        {...(hasTitleBlock &&
-          !pageHeaderCompact && { recordTitle: shortTitleOf(header, record) ?? titleText })}
+        {...(hasTitleBlock && { recordTitle: shortTitleOf(header, record) ?? titleText })}
+        {...(header?.narrowTitle !== undefined && {
+          narrowRecordTitle: model.effectiveTranslate(header.narrowTitle),
+        })}
         {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
-        {...(!pageHeaderCompact &&
+        {...(!hasTitleBlock &&
+          !pageHeaderCompact &&
           statusBadge !== undefined && {
             status: statusBadge,
           })}
@@ -186,13 +207,9 @@ function renderPageHeaderBranch(
         })}
       />
       {titleText !== undefined &&
-        renderRecordTitleBlock(
-          model,
-          titleText,
-          statusBadge,
-          pieces.headerSubtitleSlot,
-          !pageHeaderCompact,
-        )}
+        renderRecordTitleBlock(model, titleText, statusBadge, pieces.headerSubtitleSlot, false)}
+      {hasTitleBlock && renderMobileSummary(model)}
+      {hasTitleBlock && renderDetailSummary(model)}
       {/* The band owns the horizontal inset; the slot is its unstyled lead
           row so it lines up with the metrics below. */}
       {MetricBand === undefined && bandSubtitle}
@@ -205,6 +222,8 @@ function renderPageHeaderBranch(
           bandSubtitle,
           MetricBand !== undefined ? headerSlot : undefined,
         )}
+      {!hasTitleBlock && renderMobileSummary(model)}
+      {!hasTitleBlock && renderDetailSummary(model)}
       {pieces.actionErrorBanner}
     </>
   );
@@ -237,6 +256,8 @@ function renderHeaderCardBranch(
           {pieces.actionErrorBanner}
         </Card>
       )}
+      {renderMobileSummary(model)}
+      {renderDetailSummary(model)}
       {metricsOutsideCard &&
         wrapNarrowOrder(model, NARROW_METRICS_ORDER, renderMetricsBlock(model, pieces.metricItems))}
     </>
@@ -282,7 +303,7 @@ export function renderDetailHeaderContent(
       {hasTabs &&
         activeSection !== undefined &&
         Tabs !== undefined &&
-        wrapNarrowOrder(model, NARROW_TABS_ORDER, renderDetailTabs(model, activeSection, Tabs))}
+        wrapTabStrip(model, renderDetailTabs(model, activeSection, Tabs))}
     </>
   );
 }

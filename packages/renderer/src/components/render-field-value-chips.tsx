@@ -7,6 +7,7 @@ import {
 } from "../headless/index.ts";
 import { useOptionalLocale } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
+import { choiceChipClass } from "./choice-chip-class.ts";
 import { moneyPayload, resolveMoneyCurrency } from "./render-field-values.ts";
 
 function chipValues(row: Readonly<Record<string, unknown>>, from: string): readonly number[] {
@@ -30,7 +31,8 @@ function chipText(
       Number.isInteger(value) ? 0 : decimals,
     );
   }
-  return new Intl.NumberFormat(resolveSafeMoneyLocale(locale)).format(value);
+  const text = new Intl.NumberFormat(resolveSafeMoneyLocale(locale)).format(value);
+  return typeof field.suffix === "string" ? `${text} ${field.suffix}` : text;
 }
 
 // The form holds a money value as { amount (major units), currency }.
@@ -79,6 +81,7 @@ export function ValueChipsControl({
                 key={value}
                 variant="secondary"
                 size="sm"
+                className={choiceChipClass(selected)}
                 pressed={selected}
                 disabled={field.readOnly}
                 testId={`field-value-chip-${field.field}-${value}`}

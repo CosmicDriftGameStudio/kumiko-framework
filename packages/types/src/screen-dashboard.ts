@@ -141,6 +141,8 @@ export type DashboardStatPanel = DashboardPanelQueryOptions &
     readonly labelField?: string;
     /** i18n key shown instead of the label in the one-line phone strip of a titled stat-group ("2 requests"). Only used for stats inside a stat-group. */
     readonly narrowLabel?: string;
+    /** i18n key replacing `label` below the `sm` breakpoint wherever the stat draws its label (a dynamic `labelField` text still wins). */
+    readonly labelNarrow?: string;
     readonly subField?: string;
     readonly toneField?: string;
     /** Formats a numeric value as currency (minor units) or, with `relativeTime`, as
@@ -356,7 +358,8 @@ export type DashboardListNarrow = {
 
 /** Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens. */
 export type DashboardListFooterLink = {
-  readonly label: string;
+  /** i18n key of the link text. Without it the footer shows only the `moreText` count as muted text, no link; `screen` still has to resolve. */
+  readonly label?: string;
   /** i18n key of the text before the link when more rows exist than shown; `{count}` is the rest. Default "k more". */
   readonly moreText?: string;
   /** i18n key used instead of `moreText` below `sm`. */
@@ -420,6 +423,8 @@ export type DashboardFeedPanel = DashboardPanelQueryOptions &
     readonly id: string;
     readonly label: string;
     readonly query: string;
+    /** Shows the count in the panel head, right-aligned like a list panel's `showTotal`: `{total}` is the query's `total`, else the rows returned. `text` is an i18n key with `{shown}` and `{total}`; without it "{shown} of {total}". */
+    readonly showTotal?: true | Pick<DashboardListShowTotal, "text">;
   };
 
 export type DashboardProgressTone = "default" | "danger";
@@ -442,6 +447,10 @@ export type DashboardProgressListPanel = DashboardPanelQueryOptions &
     readonly kind: "progress-list";
     readonly id: string;
     readonly label: string;
+    /** Fills the translated `label` from the query answer: maps a label placeholder to a top-level answer field, e.g. `{ month: "monthName" }` for "Quota {month}" with `{ rows, monthName: "November" }`. Until the answer arrives the placeholders are empty. */
+    readonly labelParams?: Readonly<Record<string, string>>;
+    /** Top-level answer field holding a text shown muted at the right end of the panel head, e.g. the period ("November"). */
+    readonly subtitleField?: string;
     readonly query: string;
   };
 

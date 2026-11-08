@@ -6,6 +6,7 @@ import { rowToneClass } from "../data-table-cell.tsx";
 import { HintReasonRowScope, hintReasonOf } from "../hint-reason-row.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import { ActionsBodyCell } from "./actions-column.tsx";
+import { ASSISTANT_FOCUS_ROW_CLASS } from "./card-frame.ts";
 import { bandClassName, bandReactKey, bandTestId, type DataTableBandItem } from "./group-band.tsx";
 import { rowClickHandler } from "./row-click-guard.ts";
 import { renderBand, renderExpandToggle, renderExpansion } from "./row-render-parts.tsx";
@@ -75,8 +76,9 @@ function renderDataRow(m: DataTableModel, row: ListRowViewModel): ReactNode {
         className={cn(
           rowToneClass(rowTone?.(row)),
           opensOnClick && "cursor-pointer",
+          m.focusedRowId === row.id && ASSISTANT_FOCUS_ROW_CLASS,
           "[&:has(+[data-reason-row])]:border-b-0",
-          m.fillsHeight && "h-10 border-border-row hover:bg-muted",
+          m.fillsHeight && "h-[50px] border-border-row hover:bg-muted",
           density.row,
           keyboard.className,
         )}

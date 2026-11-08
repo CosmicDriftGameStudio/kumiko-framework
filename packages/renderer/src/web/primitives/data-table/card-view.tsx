@@ -24,7 +24,7 @@ export function renderCardsView(m: DataTableModel): ReactNode {
         data-testid={testId !== undefined ? `${testId}-cards` : "render-list-cards"}
         className="flex flex-col"
       >
-        {!toolbarOwnsSort && (
+        {!toolbarOwnsSort && m.plainPhoneCards !== true && (
           <CardSortSelect
             columns={columns}
             sort={m.sort}

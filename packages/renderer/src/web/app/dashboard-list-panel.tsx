@@ -93,13 +93,17 @@ function ListFooter({
   const total = knownTotal(data);
   const remaining = total === undefined ? 0 : total - (data.rows ?? []).length;
   const allowed =
+    link.label !== undefined &&
     navigateTargetAllows({ screen: link.screen }, appFeatures, userRoles) &&
     namedFilterNavigateAllows(link, appFeatures, userRoles);
   const target = dashboardNavigationLink(nav, link);
   return (
     <>
       {remaining > 0 && (
-        <span data-testid="dashboard-list-more">
+        <span
+          data-testid="dashboard-list-more"
+          className={link.label === undefined && !narrow ? "text-muted-foreground" : undefined}
+        >
           {translate(
             (narrow ? (link.narrowMoreText ?? link.moreText) : link.moreText) ??
               "kumiko.dashboard.list.more",
@@ -108,12 +112,12 @@ function ListFooter({
           {allowed && " · "}
         </span>
       )}
-      {allowed && (
+      {allowed && link.label !== undefined && (
         <Link
           href={target.href}
           onPress={target.onPress}
           testId="dashboard-list-footer-link"
-          className="font-medium"
+          className="font-medium text-primary"
         >
           {translate(link.label)}
         </Link>
@@ -239,7 +243,10 @@ function NarrowCardsPanel({
         {...(panel.rowToneField !== undefined && { rowToneField: panel.rowToneField })}
       />
       {footerLink !== undefined && (
-        <footer className="flex flex-wrap items-center gap-x-1 text-[12.5px] text-muted-foreground">
+        <footer
+          data-testid="dashboard-list-more-bar"
+          className="flex flex-wrap items-center justify-center gap-x-1 text-sm font-medium text-primary"
+        >
           <ListFooter link={footerLink} data={data} narrow translate={translate} />
         </footer>
       )}
@@ -279,6 +286,7 @@ export function ListPanelBody({
         badgeToneField: normalized.badgeToneField,
       }),
       ...(normalized.badgeDot !== undefined && { badgeDot: normalized.badgeDot }),
+      ...(normalized.badgeIcon !== undefined && { badgeIcon: normalized.badgeIcon }),
       ...(normalized.emptyPlaceholder !== undefined && {
         emptyPlaceholder: normalized.emptyPlaceholder,
       }),
@@ -298,6 +306,7 @@ export function ListPanelBody({
         ),
       }),
       ...(normalized.showOnNarrowOnly === true && { narrowOnly: true as const }),
+      ...(normalized.hideOnNarrow === true && { hiddenInCards: true as const }),
       ...(hint !== undefined && { hint: hintViewModel(hint, panel.rowToneField, translate) }),
     };
   });

@@ -92,6 +92,25 @@ describe("resolveNavParentScreen()", () => {
     expect(resolveNavParentScreen([qnList, detail], detail, (s) => s.id)).toBe(qnList);
   });
 
+  test("a form reached only from a record screen's drawer action has that record as parent", () => {
+    const record: ScreenDefinition = {
+      id: "lead-detail",
+      type: "projectionDetail",
+      query: "demo:query:lead:get",
+      layout: { sections: [{ fields: ["name"] }] },
+      actions: [{ kind: "drawer", id: "set-status", label: "Status", screen: "lead-set-status" }],
+    };
+    const form: ScreenDefinition = {
+      id: "lead-set-status",
+      type: "actionForm",
+      handler: "demo:write:lead:set-status",
+      fields: {},
+      layout: { sections: [] },
+    } as unknown as ScreenDefinition;
+    expect(resolveNavParentScreen([record, form], form, (s) => s.id)).toBe(record);
+    expect(resolveNavParentScreen([record, form], record, (s) => s.id)).toBeUndefined();
+  });
+
   test("a fully-qualified listScreenId resolves its list", () => {
     const detail: ScreenDefinition = {
       id: "item-detail",

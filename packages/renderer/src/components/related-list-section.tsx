@@ -212,7 +212,8 @@ export function RelatedListSection({
   featureName,
   translate,
   hideTitle,
-  grow,
+  labelTitle,
+  omitTitle,
   onOpenDrawer,
   actions,
   anchorId,
@@ -229,8 +230,10 @@ export function RelatedListSection({
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
-  /** Under a fixed-height screen the tab panel chain stretches so the count footer sits at the bottom. */
-  readonly grow?: boolean;
+  /** The stacked section title is a small uppercase label. */
+  readonly labelTitle?: boolean;
+  /** The stacked section has no title (the tab label above it says the same). */
+  readonly omitTitle?: boolean;
   /** Opens a drawer-kind rowAction. Supplied by the parent
    *  (ProjectionDetailBody), which owns schema + the actual Drawer render —
    *  this component only ever invokes the callback. */
@@ -591,7 +594,12 @@ export function RelatedListSection({
             {...(aggregates.totals !== undefined && { totals: aggregates.totals })}
             {...(aggregates.notice !== undefined && { notice: aggregates.notice })}
             screenPadding={false}
-            {...(hideTitle === true && { scrollBody: true, chromeless: true })}
+            {...(hideTitle === true && {
+              scrollBody: true,
+              chromeless: true,
+              hideCountFooter: true,
+              plainPhoneCards: true,
+            })}
             {...(embedded === true && { chromeless: true })}
           />
         </PageHeaderSlotAvailableProvider>
@@ -635,7 +643,12 @@ export function RelatedListSection({
       <>
         {bridges}
         {FillContainer !== undefined ? (
-          <FillContainer {...(grow === true && { grow: true })}>{content}</FillContainer>
+          <FillContainer
+            testId="related-list-card"
+            className="mx-6 my-3 overflow-hidden rounded-[9px] border border-border bg-card max-sm:mx-4 max-sm:rounded-none max-sm:border-0 max-sm:bg-transparent [&_thead_th]:bg-muted"
+          >
+            {content}
+          </FillContainer>
         ) : (
           content
         )}
@@ -647,7 +660,8 @@ export function RelatedListSection({
     <>
       {bridges}
       <Section
-        title={section.title}
+        {...(omitTitle !== true && { title: section.title })}
+        {...(labelTitle === true && { titleStyle: "label" as const })}
         {...(anchorId !== undefined && { id: anchorId })}
         {...(actions !== undefined && { actions })}
         testId={`related-list-${section.title}`}

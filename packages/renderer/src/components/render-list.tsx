@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { useIsStandInScreen } from "../app/locked-screen-header.tsx";
 import type { Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { renderReferenceLookupBridges } from "./render-list-reference-bridge.tsx";
-import { rowToneFromField } from "./render-list-row-tone.ts";
+import { rowMutedFromField, rowToneFromField } from "./render-list-row-tone.ts";
 import {
   tableChromeProps,
   tableFilterProps,
@@ -94,6 +95,8 @@ export function RenderList(props: RenderListProps): ReactNode {
     onDateRangeChange,
     chromeless,
     scrollBody,
+    hideCountFooter,
+    plainPhoneCards,
     screenPadding,
     expandedRowIds,
     onToggleRowExpanded,
@@ -104,6 +107,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // otherwise column headers would display raw i18n keys.
   const t = useTranslation();
   const translate: Translate = translateProp ?? t;
+  const isStandIn = useIsStandInScreen();
   const { DataTable, Button, Dialog, Input, Banner, PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const pageHeaderCompact = usePageHeaderCompact();
@@ -121,6 +125,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     () => rowTone ?? rowToneFromField(screen.rowToneField),
     [rowTone, screen.rowToneField],
   );
+  const rowMuted = useMemo(() => rowMutedFromField(screen.mutedRowField), [screen.mutedRowField]);
   const { localQ, setLocalQ } = useRenderListSearch(searchValue, onSearchChange);
   const { referenceRequests, handleLookupMap, enrichedVm } = useRenderListColumns({
     screen,
@@ -225,13 +230,15 @@ export function RenderList(props: RenderListProps): ReactNode {
           sort,
           onSortChange,
           sortOptions,
-          toolbarSort: toolbarSort ?? screen.toolbarSort,
+          toolbarSort,
+          screenToolbarSort: screen.toolbarSort,
+          isStandIn,
           pager,
           onReachEnd,
           loadingMore,
           hasMore,
         })}
-        {...tableRowProps({ rowActions, rowActionMode, bulk, rowTone: effectiveRowTone })}
+        {...tableRowProps({ rowActions, rowActionMode, bulk, rowTone: effectiveRowTone, rowMuted })}
         {...tableFilterProps({
           filterFacets,
           filterValues,
@@ -243,6 +250,9 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...tableLayoutProps({
           chromeless,
           scrollBody,
+          hideCountFooter,
+          isStandIn,
+          plainPhoneCards,
           screenPadding,
           expandedRowIds,
           onToggleRowExpanded,

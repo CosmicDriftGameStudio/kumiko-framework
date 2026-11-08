@@ -231,13 +231,23 @@ export function PanelShell({
     >
       {(title !== undefined || action !== undefined) && (
         <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-2 px-4 pt-3.5">
-          <div className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-2.5">
+          <div className="flex min-w-0 flex-col gap-0.5">
             {title !== undefined && <h2 className="text-sm font-semibold break-words">{title}</h2>}
-            {subtitle !== undefined && (
-              <p className="text-[12.5px] text-muted-foreground">{subtitle}</p>
-            )}
           </div>
-          {action !== undefined && <div className="shrink-0">{action}</div>}
+          {(subtitle !== undefined || action !== undefined) && (
+            // min-w-0: a long subtitle wraps instead of widening the panel; on a phone it stacks under the title.
+            <div className="ml-auto flex min-w-0 items-baseline gap-3 max-sm:ml-0 max-sm:w-full max-sm:flex-col max-sm:items-start max-sm:gap-2">
+              {subtitle !== undefined && (
+                <p
+                  data-slot="panel-subtitle"
+                  className="text-[12.5px] tabular-nums text-muted-foreground"
+                >
+                  {subtitle}
+                </p>
+              )}
+              {action}
+            </div>
+          )}
         </header>
       )}
       <div className={cn("grow px-4 pt-3", footer === undefined && "pb-4")}>{children}</div>
@@ -324,6 +334,8 @@ type QueryPanelProps<TData> = {
   readonly panel: DashboardPanelQueryOptions &
     DashboardPanelEmptyState & { readonly id: string; readonly query: string };
   readonly label: string;
+  /** Title derived from the loaded data; `label` stands in until then. */
+  readonly titleFrom?: (data: TData) => string | undefined;
   /** A function derives the line from the loaded data (e.g. "n of m"); `staticSubtitle` stands in until then. */
   readonly subtitle?: string | ((data: TData) => string | undefined);
   readonly staticSubtitle?: string;
@@ -344,6 +356,7 @@ type QueryPanelProps<TData> = {
 export function QueryPanel<TData>({
   panel,
   label,
+  titleFrom,
   subtitle,
   staticSubtitle,
   action,
@@ -382,7 +395,7 @@ export function QueryPanel<TData>({
   return (
     <PanelShell
       testId={`dashboard-panel-${panel.id}`}
-      title={label}
+      title={(shown !== undefined ? titleFrom?.(shown) : undefined) ?? label}
       subtitle={resolveSubtitle(subtitle, staticSubtitle, shown)}
       action={action}
       footer={shown !== undefined ? footer?.(shown) : undefined}
