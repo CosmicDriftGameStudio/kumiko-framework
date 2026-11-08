@@ -166,11 +166,19 @@ export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string
     "[aout]",
     "-c:v",
     "libx264",
+    // CRF 28 halves the size of animated stages at no visible loss; faststart puts the
+    // index up front so a browser starts playing before the download ends.
+    "-preset",
+    "slow",
+    "-crf",
+    "28",
     "-pix_fmt",
     "yuv420p",
     "-c:a",
     "aac",
     "-shortest",
+    "-movflags",
+    "+faststart",
     ...(metadataComment === undefined ? [] : ["-metadata", `comment=${metadataComment}`]),
     outMp4,
   ];
