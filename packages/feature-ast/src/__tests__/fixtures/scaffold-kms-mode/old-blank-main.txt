@@ -1,0 +1,50 @@
+// biome-ignore-all lint/style/noProcessEnv: KMS wiring and the demo admin password are read before runProdApp parses the env contract, and the scaffold has no bin/env.ts
+// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
+// composeFeatures + validateBoot + createRegistry without DB/Redis-connect
+// (see @cosmicdrift/kumiko-server-runtime runProdApp).
+
+import { DEFAULT_AUTH_PATHS } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import { requireKmsWiring, resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
+import appConfig from "../kumiko.config";
+import { APP_FEATURES } from "../src/run-config";
+import { envSchema } from "./env-schema";
+
+const DEFAULT_TENANT_ID = "993e6640-55f6-455f-beb3-0000308719c1" as TenantId;
+
+const kmsOpts = {
+  logPrefix: "[blankapp]",
+  plaintextReason:
+    "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",
+} as const;
+
+const kmsWiring =
+  process.env["NODE_ENV"] === "production"
+    ? requireKmsWiring(process.env, kmsOpts)
+    : resolveKmsWiring(process.env, kmsOpts);
+
+// The bootstrap admin has no password; password reset is the only way it gets one. Without SMTP
+// and APP_BASE_URL (local boot) the mail flow stays off and the app still boots.
+const appBaseUrl = process.env["APP_BASE_URL"];
+const mailAppUrl = process.env["SMTP_HOST"] && appBaseUrl ? appBaseUrl : undefined;
+
+await runProdApp({
+  features: APP_FEATURES,
+  ...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions }),
+  ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),
+  envSchema,
+  staticDir: "./dist",
+  ...kmsWiring,
+  ...(mailAppUrl !== undefined && { mail: { transport: "smtp-env" } }),
+  auth: {
+    ...(mailAppUrl !== undefined && {
+      passwordReset: { appUrl: `${mailAppUrl}${DEFAULT_AUTH_PATHS.resetPassword}` },
+    }),
+  },
+  seeds: {
+    bootstrapAdminFromEnv: {
+      tenant: { id: DEFAULT_TENANT_ID, key: "blankapp", name: "blankapp" },
+    },
+  },
+});
