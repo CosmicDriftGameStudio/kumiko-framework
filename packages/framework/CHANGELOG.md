@@ -1,5 +1,117 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.416.0
+
+### Minor Changes
+
+- 934172f: An actionForm redirect can carry search params from the result, so a submit can land on a custom screen such as `?cmd=<id of the new thread>`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: actionForm redirect with searchParams to custom screens
+  detail: The object form of `redirect` takes `searchParams` (`{ cmd: "threadId" }` opens the target with `?cmd=<threadId>`); each value names a flat field in the success payload and a missing or non-string field leaves its param out. `idFrom` is now optional (default "id" as with the string redirect), so a redirect to a custom screen needs no record id. Boot rejects `searchParams` on non-actionForm redirects and empty keys or fields; `idFrom` on a target without an id stays rejected.
+  -->
+- add54f1: More declarative screen options for boards. Dashboards take `layout: "main-side"` with `column: "side"` or `column: "top"` (full width above both columns) on panels, a text panel takes `icon`, a list column with `display: "button"` takes `variant: "primary"`, and a stat-group child with `hideOnNarrow` is now left out on phones (a group may not hide all of its children). The steps panel of a projectionDetail takes `moreActionsLabel` and `visibleWhen`, projectionDetail takes `initialTab`, `footerHint` and renders `slots.afterForm` (which receives `activeTabId`); `footerActions` stay in the phone footer instead of folding into the more-menu. Forms take `layout.allRequiredHint: false`, and actionForm `fieldLabels` and `fieldDescriptions` accept `{ key, params }` filled from form values. The AI prompt input submits with Enter (the Apply button is gone), `valueChips` show formatted values and mark the current one, and a client row action takes `successMessage: false`.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Board options for dashboards, projectionDetail and forms
+  detail: Dashboard `layout: "main-side"` lays panels out in a two-thirds main and a one-third side column (`column: "side"` on a panel; below sm one column in `narrowOrder`); a boot rule rejects `column` without that layout. Text panel `icon` (an extension-section component) leads the text. List column `variant: "primary"` (with `display: "button"`) draws the filled button. A stat-group child with `hideOnNarrow` is unmounted on phones; the boot rule now only rejects a group whose children all hide. projectionDetail `steps.moreActionsLabel` (i18n key before each step's further actions) and `steps.visibleWhen`, `initialTab: [{ when, tab }]` (first matching rule wins, else the first visible tab; an explicit `?tab=` wins over it), `footerHint` (i18n key, left of the footer actions, hidden on phones; needs `footerActions`) and `slots.afterForm` under the active tab's sections (the slot component gets `activeTabId`; it renders on every RenderEdit screen that declares it). `footerActions` are pinned in the phone footer next to the primary action instead of the more-menu. `layout.allRequiredHint: false` keeps the per-field asterisks instead of the all-fields-required hint. actionForm `fieldLabels` and `fieldDescriptions` take `{ key, params: { placeholder: "fieldName" } }`, filled from the form values including hidden fields; a description with an empty param value is not shown; a boot rule rejects params that name no field of the form. `aiAssist.prompt` submits with Enter and the Apply button and its `kumiko.field.aiAssist.apply` key are removed. `valueChips` format the text by field type (money with locale and currency, numbers with locale) and render the chip equal to the current value pressed with a check mark. Client row action `successMessage: false` shows no toast.
+  -->
+- add54f1: Entities take `crossTenantFileRead: { query, reason }`. Files attached to a record of such an entity can be read from another tenant (download, variant, download-url, meta, batch meta) when the named query handler, run with `{ id: <entityId> }` as the requesting user, returns the record with that id. Only that query decides; the file guard and its privileged roles do not apply, and delete stays with the owning tenant. Boot rejects an unregistered query or an empty reason.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Cross-tenant file reads declared per entity
+  detail: `crossTenantFileRead: { query, reason }` on an entity lets users of another tenant read its attached files when the named query handler, run as that user with `{ id: <entityId> }`, returns the record with that id. Covers GET /files/:id, /variant/:name, /download-url, /meta and GET /files/meta; variants are rendered and cached in the owning tenant. The query alone decides, so privilegedRoles and a custom accessGuard never open a foreign tenant's file. Anonymous users are always refused, delete and upload stay tenant-equal. Boot rules `files/cross-tenant-read-query-unregistered` and `files/cross-tenant-read-reason-missing`.
+  -->
+- add54f1: The relativeTime format takes style, withTime, absoluteAfterDays and timeZone, config keys can be shown read-only in the settings hub, projectionDetail metrics use the UI locale, and inline card meta wraps on phones.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: relativeTime options style, withTime, absoluteAfterDays, timeZone
+  detail: A column renderer or metric format { format: "relativeTime" } accepts style "short" (41 min. ago), withTime (yesterday, 10:18 and the absolute date with the clock time), absoluteAfterDays n (absolute date such as 29 Oct 2026 from n days on) and timeZone. Boot validation rejects a bad style, a non-integer absoluteAfterDays below 1 and a non-boolean withTime. Without options the text is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ConfigMask.readOnly shows a key without an input in the settings hub
+  detail: mask: { title, readOnly: true } keeps the key on the generated settings screen as a read-only field. A readOnly key that is also required fails at boot, since nobody could fill it.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: projectionDetail metrics format relativeTime in the UI locale
+  detail: A metric with format { format: "relativeTime" } fell back to the browser language ("42 minutes ago" in a German UI). The metric now passes the UI locale, unless the format sets its own locale.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Inline card meta wraps instead of truncating equal-width columns
+  detail: On phones, narrowInline list columns sit in a wrapping row with natural widths; only a single over-long element is truncated.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Banner actions wrap below the text on phones
+  detail: A banner with actions (such as the projectionDetail banner) squeezed its text into a narrow column next to the buttons on phone widths. Below sm the row now wraps: the text keeps the line and the actions take their own line. Desktop is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: relativeTime counts calendar days and falls back to the browser language
+  detail: "Yesterday" and the day count now come from calendar days in the format's timeZone (default: the runtime zone) instead of rounded hours, so a value from the day before yesterday no longer reads "yesterday, 22:00" shortly after midnight. Without a locale the format used en-US instead of the browser language.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Read-only settings fields offer no reset button
+  detail: A configEdit field marked readOnly in the layout (including keys with mask.readOnly) no longer shows the "reset override" button in its cascade display.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot validation checks the relativeTime timeZone
+  detail: A relativeTime format with an unknown timeZone such as Europe/Berln fails at boot instead of throwing when the cell renders.
+  -->
+- add54f1: New screen options for forms, lists and record details: `aiAssist` (stackable chips and a free instruction on a text field that call a configurable query) and `valueChips` (quick values on a number or money field) on form fields, `fieldDescriptions` and `formErrorOnTop` on actionForm, `pillField`/`pillToneField` and `format: "phone"` on list columns, `footerActions` on projectionDetail, `photoGrid` on relatedList, and `icon` on the record summary. The flaky Replace step of write-only fields is fixed. projectionDetail tabs can stack several sections (fields, relatedList, the new `stepList`) under one tab and hide a tab with `visibleWhen`; actionForm gets `infoBand`, `fieldBadges` and chip multi-selects (`display: "chips"`); an empty list no longer shows an entry-count footer; the drawer is a bottom sheet on phones.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Form helpers, list pills, phone cells, pinned footer actions and photo grid
+  detail: Form fields take `aiAssist: { query, resultField, chips: [{ label, params }], prompt: { param, placeholder } }` (an active chip's `params` and the typed text are sent to the registered `query` together with the form's load/prefill payload; chips stack, `resultField` of the result is written into the field; labels and placeholder are i18n keys) and `valueChips: { from }` (chips from an array field of the form). actionForm gets `fieldDescriptions` (field to i18n key, help text under the field) and `formErrorOnTop`. List columns get `pillField` and `pillToneField` (a second pill beside the value) and `{ format: "phone" }` (a tel: link). projectionDetail `footerActions` moves actions from the header into the pinned footer (`align: "start"` on a declared action sets it on the left), relatedList `photoGrid: { imageField, captionField }` draws rows as image tiles with their row actions (new optional `PhotoGrid` primitive), and `summary.icon` leads the record sentence with an icon. Boot rules reject unknown fields, wrong field types and invalid chips. Write-only fields no longer close an open Replace when the record reloads. projectionDetail: adjacent sections sharing one `id` form one tab (the first section gives label and count). New section kind `{ kind: "stepList", field, title? }` renders a numbered vertical step list from an array field of the detail query (`StepListItem`: title, status, statusTone, description; optional `StepList` primitive). Every projectionDetail section takes `visibleWhen: { field, eq | ne | in | notIn }` evaluated on the record; a hidden section drops out of the tab strip. actionForm `infoBand` (i18n key, banner with a sparkles icon above the fields) and `fieldBadges: { field: { label, tone } }` (badge next to the label); multiSelect `display: "chips"`; `aiAssist.contextFields` sends other form fields in the query payload and re-runs the query when they change. A list that shows its emptyState has no `0 entries` footer. DefaultDrawer is a bottom sheet (max 90% height) on narrow viewports. actionForm `summary.paramsFromLoad: string[]` fills summary placeholders from fields of the load result (boot rule: field must be in the load query's outputSchema). actionForm `load: { passPrefill: true }` sends the drawer's prefill values (e.g. `vehicleId`) in the load payload; `aiAssist.noteField` shows a short note from the query result under the field. Boot rules cover stepList field, visibleWhen field, unknown fieldBadges and contextFields.
+  -->
+
+### Patch Changes
+
+- d147995: `buildEntityTable` honors `emptyValue: "array"` on jsonb fields.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: jsonb emptyValue "array" on projection tables
+  detail: A projection table built with `buildEntityTable` gave a jsonb field with `emptyValue: "array"` the default `{}`, while the entity's migration meta used `[]`. `kumiko-schema generate` then refused the table as declared with diverging columns. Both paths now use `[]`.
+  -->
+- Updated dependencies [934172f]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+  - @cosmicdrift/kumiko-types@0.416.0
+
 ## 0.415.0
 
 ### Minor Changes

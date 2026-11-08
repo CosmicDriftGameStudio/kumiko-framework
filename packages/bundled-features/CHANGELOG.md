@@ -1,5 +1,89 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.416.0
+
+### Minor Changes
+
+- 934172f: New `signature` bundled feature: several people sign one PDF, in person on a display or through a link, and the request ends as the original plus a signature page.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: improvement
+  title: Signature requests with in-person and link signing
+  detail: `createSignatureFeature({ retention, linkSecret, renderHtmlToPdf, deliverLink, signaturePageUrl })` adds the entities `signatureRequest` and `signatureSigner`, the handlers `request`, `sign-in-person`, `issue-link` (sends the link through `deliverLink(ctx, { signerId, url, ..., issuedBy })` inside its own transaction, so the app can dispatch its mail write and pick the issuer's mailbox; it never returns the token), `revoke-link`, `cancel` and the anonymous, rate-limited `open-by-link`, `sign-by-link`, `decline-by-link`. Links carry a row-bound grant in the URL fragment (14 days, 20 opens, single-use signing, one answer for every rejection). The last signature sets the request to `all-signed`; the `signature:job:sweep` cron renders the signature page through the injected print function, appends it with pdf-lib and completes the request; the events `completed`, `declined` and `expired` report the outcome. The subpaths `./signature/web` (`SignaturePad`) and `./signature/static-sign` (no React) ship the signature field.
+  migration: The feature adds the tables `read_signature_requests` and `read_signature_signers`; apps that mount it run the schema pipeline migration.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: renderHtmlToPdf for callers that bring their own HTML
+  detail: `renderHtmlToPdf(html, options?)` renders an HTML string to PDF through the print service and returns the bytes. It is the function the signature feature takes as `renderHtmlToPdf`.
+  -->
+- add54f1: The agent tool `ask_user` accepts options as `string | { label, preview? }`.
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: ask_user options can carry a preview
+  detail: Each option of the `ask_user` agent tool is a string or `{ label, preview? }`, where `preview` is the text the agent writes if the option is chosen. Plain string options keep working.
+  -->
+- a9a6c05: `createSignatureFeature` takes an `access` option for apps that do not hand out `TenantMember`.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: improvement
+  title: Access rule option for the signature feature
+  detail: `createSignatureFeature({ ..., access })` replaces the default `{ roles: ["TenantAdmin", "TenantMember"] }` on the signed-in handlers, queries, screens and nav, like `createLedgerFeature({ access })`. Without it, nested `ctx.dispatch` calls fail for users that only hold an app-specific role.
+  -->
+- ea3ab4d: `createSubscriptionStripeFeature({ allowPromotionCodes: true })` shows Stripe's promotion-code field in checkout.
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: Stripe checkout can accept promotion codes
+  detail: The new option `allowPromotionCodes` sets `allow_promotion_codes` on every Checkout Session of the app, in subscription and payment mode. Coupons and promotion codes are created in the Stripe dashboard. Default false, so existing checkouts show no code field. The consumer-protection confirmation mail still shows the catalog price captured at consent, not the discounted amount.
+  -->
+- add54f1: WhatsApp templates can carry quick-reply payloads and a header image, and table columns can show a timestamp as relative time.
+  
+  <!-- kumiko-changes
+  feature: channel-whatsapp
+  type: improvement
+  title: WhatsApp sendTemplate takes quickReplyPayloads and headerImageLink
+  detail: quickReplyPayloads (1 to 10 entries, each non-empty and at most 256 characters) adds one quick-reply button component per entry, so a tap comes back with that payload. headerImageLink (https only) adds an image header. Components are sent as header, body, buttons; without the new fields the request is unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Column format relativeTime
+  detail: A list column with renderer { format: "relativeTime" } shows an ISO timestamp or epoch ms as "5 minutes ago" in the user locale. The text is computed at render time and does not tick.
+  -->
+
+### Patch Changes
+
+- 934172f: The assistant can read the app's handbook: `kumiko handbuch knowledge` exports the pages as JSON and the new `handbook-knowledge` feature serves them as two query tools. A task page can name the write handler that starts its flow (`start` in the frontmatter), so the assistant offers to start it as a plan.
+  
+  <!-- kumiko-changes
+  feature: handbook-knowledge
+  type: improvement
+  title: Handbook pages for the AI assistant, with a process axis in the handbuch CLI
+  detail: `createHandbookKnowledgeFeature({ pages, access })` mounts the query handlers `list-pages` (catalog of id, kind, title and questions) and `read-page` (one page in the caller's language, falling back to the default language, cut at 12000 characters with a notice; with `publicPath` it links the page as `<publicPath>/<id>`). Both appear in the agent tool catalog for the roles in `access`; no entity, no migration. The handbuch config takes an optional `processTextsDir` (with `{locale}`): its pages show as an own group in the HTML, and the new command `kumiko handbuch knowledge <config> --out <file>` writes the pages per locale as deterministic JSON without images. A process page may carry `start` (qualified name of a write handler); `list-pages` and `read-page` return it, and their descriptions tell the assistant to answer with the page's steps, link the page and offer to start the task as a plan through exactly that handler. Without `processTextsDir` the built handbook stays byte-identical.
+  -->
+- Updated dependencies [934172f]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+- Updated dependencies [d147995]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+- Updated dependencies [add54f1]
+  - @cosmicdrift/kumiko-types@0.416.0
+  - @cosmicdrift/kumiko-framework@0.416.0
+  - @cosmicdrift/kumiko-renderer@0.416.0
+  - @cosmicdrift/kumiko-testing@0.416.0
+
 ## 0.415.0
 
 ### Minor Changes

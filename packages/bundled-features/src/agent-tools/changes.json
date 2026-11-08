@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "ask_user options can carry a preview",
+    "detail": "Each option of the `ask_user` agent tool is a string or `{ label, preview? }`, where `preview` is the text the agent writes if the option is chosen. Plain string options keep working."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "agent manifest, tool dispatch and api-docs review fixes",
