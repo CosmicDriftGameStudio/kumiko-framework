@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.417.0",
+    "type": "improvement",
+    "title": "The billing boot option forwards allowPromotionCodes",
+    "detail": "`billing.stripe.allowPromotionCodes` reaches `createSubscriptionStripeFeature`, so an app booted through `runProdApp` or `runWorkerApp` can show Stripe's promotion-code field in checkout. Default false."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "PWA update removes the precache of the unscoped cache name format",

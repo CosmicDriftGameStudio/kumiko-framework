@@ -1,5 +1,35 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.417.0
+
+### Patch Changes
+
+- b13dd37: `kumiko-upgrade --apply` now switches `bin/main.ts` and `bin/kumiko.ts` of apps scaffolded before 0.416.0 to the Key Manager ciphertext wiring.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: kumiko-upgrade migrates older scaffolds to Key Manager ciphertext keys
+  detail: The `scaffold-kms-mode` codemod replaces `requireKmsWiring` in the production branch of `bin/main.ts` with `{ kmsMode: "required" as const }` and lets `schema apply` in `bin/kumiko.ts` also resolve the slots of `kmsEnvSchema`. It only rewrites the exact scaffold form; a hand-edited file is left as it is and reported as manual.
+  codemod: scripts/codemod/scaffold-kms-mode.ts
+  -->
+- Updated dependencies [0c6142d]
+- Updated dependencies [b969c3e]
+- Updated dependencies [6d80f27]
+- Updated dependencies [b13dd37]
+- Updated dependencies [4e7aa1c]
+- Updated dependencies [e79f754]
+- Updated dependencies [134338c]
+  - @cosmicdrift/kumiko-server-runtime@0.417.0
+  - @cosmicdrift/kumiko-renderer@0.417.0
+  - @cosmicdrift/kumiko-types@0.417.0
+  - @cosmicdrift/kumiko-framework@0.417.0
+  - @cosmicdrift/kumiko-bundled-features@0.417.0
+  - @cosmicdrift/kumiko-feature-ast@0.417.0
+  - @cosmicdrift/kumiko-testing@0.417.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.417.0
+  - @cosmicdrift/kumiko-guards@0.417.0
+
 ## 0.416.0
 
 ### Patch Changes

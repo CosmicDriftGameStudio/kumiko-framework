@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.417.0
+
+### Minor Changes
+
+- 0c6142d: `runProdApp({ billing: { stripe: { allowPromotionCodes: true } } })` passes the option on to `subscription-stripe`.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: The billing boot option forwards allowPromotionCodes
+  detail: `billing.stripe.allowPromotionCodes` reaches `createSubscriptionStripeFeature`, so an app booted through `runProdApp` or `runWorkerApp` can show Stripe's promotion-code field in checkout. Default false.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [b969c3e]
+- Updated dependencies [6d80f27]
+- Updated dependencies [4e7aa1c]
+  - @cosmicdrift/kumiko-renderer@0.417.0
+  - @cosmicdrift/kumiko-types@0.417.0
+  - @cosmicdrift/kumiko-framework@0.417.0
+  - @cosmicdrift/kumiko-bundled-features@0.417.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.417.0
+
 ## 0.416.0
 
 ### Patch Changes

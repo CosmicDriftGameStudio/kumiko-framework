@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.417.0
+
+### Minor Changes
+
+- e79f754: `@cosmicdrift/kumiko-testing/e2e` gains a video generator: `defineVideo` describes scenes, `runVideos` records the real app with Playwright, narrates each scene with TTS from `text.<locale>.yaml` and builds an MP4 plus VTT. `findVideoTextGaps` lets an app test that every scene has text in every locale. `runVideos({ brandLogo })` overlays a brand logo (SVG or PNG) bottom right on every video, and `defineVideo({ music })` loops a music track under the narration, ducked while it speaks. `runVideos({ aiNotice })` adds a per-locale AI disclosure next to the logo and in the MP4 comment metadata.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Video generator for tutorial and marketing videos
+  detail: `defineVideo` and `runVideos` from `@cosmicdrift/kumiko-testing/e2e` record scenes from the real app or from an HTML stage with Playwright in virtual time, narrate them via Gemini TTS over OpenRouter (cached by text hash), and mux MP4 plus VTT with ffmpeg. Optional brand logo, background music with ducking and a per-locale AI disclosure.
+  -->
+
+### Patch Changes
+
+- 134338c: `runVideos` encodes MP4s for the web: CRF 28 with preset `slow` roughly halves animated trailers, and `+faststart` lets a browser start playback before the download finishes.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Smaller web-ready video files
+  detail: The video muxer encodes with CRF 28, preset slow and +faststart, so trailers shrink by about half and start playing while they load.
+  -->
+- Updated dependencies [b969c3e]
+- Updated dependencies [6d80f27]
+  - @cosmicdrift/kumiko-types@0.417.0
+  - @cosmicdrift/kumiko-framework@0.417.0
+  - @cosmicdrift/kumiko-guards@0.417.0
+
 ## 0.416.0
 
 ### Patch Changes

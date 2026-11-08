@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.417.0",
+    "type": "improvement",
+    "title": "Video generator for tutorial and marketing videos",
+    "detail": "`defineVideo` and `runVideos` from `@cosmicdrift/kumiko-testing/e2e` record scenes from the real app or from an HTML stage with Playwright in virtual time, narrate them via Gemini TTS over OpenRouter (cached by text hash), and mux MP4 plus VTT with ffmpeg. Optional brand logo, background music with ducking and a per-locale AI disclosure."
+  },
+  {
+    "version": "0.417.0",
+    "type": "improvement",
+    "title": "Smaller web-ready video files",
+    "detail": "The video muxer encodes with CRF 28, preset slow and +faststart, so trailers shrink by about half and start playing while they load."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "App e2e runs clean up their Meilisearch indexes",
