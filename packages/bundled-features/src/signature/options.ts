@@ -53,7 +53,7 @@ export type SignatureOptions = {
   readonly access?: AccessRule;
   /** Runs for every signed-in handler and query on the subject of the request, except for `unscopedRoles`. `false` answers like "does not exist". Without it every user with `access` sees every request of the tenant. */
   readonly authorizeSubject?: AuthorizeSignatureSubject;
-  /** Roles that skip `authorizeSubject`, e.g. admins. With `authorizeSubject` set, only these roles see the list screen and the nav. */
+  /** Roles that skip `authorizeSubject`, e.g. admins. */
   readonly unscopedRoles?: readonly string[];
 };
 

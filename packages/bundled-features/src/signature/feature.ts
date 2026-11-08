@@ -37,8 +37,6 @@ import {
 export function createSignatureFeature(opts: SignatureOptions): FeatureDefinition {
   const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
   const scope = createSubjectScope(opts);
-  const screenAccess =
-    opts.authorizeSubject !== undefined ? { roles: opts.unscopedRoles ?? [] } : signedInAccess;
   const requestEntity = createSignatureRequestEntity(opts.retention);
   const signerEntity = createSignatureSignerEntity(opts.retention);
   const anonymous = createAnonymousLinkHandlers(LINK_RATE_LIMIT);
@@ -113,15 +111,15 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       handler: (_payload, ctx) => sweepSignatureRequests(ctx, opts),
     });
 
-    r.screen(createSignatureListScreen(screenAccess));
-    r.screen(createSignatureDetailScreen(screenAccess));
+    r.screen(createSignatureListScreen(signedInAccess));
+    r.screen(createSignatureDetailScreen(signedInAccess));
     r.nav({
       id: "signature",
       label: i18nKey("signature.nav.signature"),
       screen: "signature:screen:signature-list",
       icon: "file",
       order: 40,
-      access: screenAccess,
+      access: signedInAccess,
     });
   });
 }

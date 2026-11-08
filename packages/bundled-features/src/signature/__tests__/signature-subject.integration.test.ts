@@ -3,7 +3,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { MAX_LIST_LIMIT, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -211,9 +211,41 @@ describe("signature :: authorizeSubject on queries", () => {
     expect(row.id).toBe(requestId);
   });
 
-  test("list without a subject filter is forbidden for a scoped user", async () => {
-    const failure = await stack.http.queryErr(SignatureQueries.list, {}, USER_B);
-    expect(failure.httpStatus).toBe(403);
+  test("list without a filter shows a scoped user only the rows of allowed subjects", async () => {
+    const { requestId } = await createRequestOfA();
+    const forA = await listRequests(USER_A, []);
+    expect(forA.rows.map((row) => row.id)).toContain(requestId);
+    expect(forA.rows.every((row) => row.subjectId === SUBJECT_A)).toBe(true);
+    const forB = await listRequests(USER_B, []);
+    expect(forB.rows.some((row) => row.subjectId === SUBJECT_A)).toBe(false);
+  });
+
+  test("a scoped user whose first base page holds only foreign requests still gets their rows", async () => {
+    const own = await stack.http.writeOk<RequestData>(
+      SignatureHandlers.request,
+      { ...(await requestPayload(USER_A, SUBJECT_A)), title: "zz own contract" },
+      USER_A,
+    );
+    for (const index of [1, 2]) {
+      await stack.http.writeOk<RequestData>(
+        SignatureHandlers.request,
+        { ...(await requestPayload(ADMIN, "subject-foreign")), title: `aa foreign ${index}` },
+        ADMIN,
+      );
+    }
+    const page = await stack.http.queryOk<Page<RequestRow>>(
+      SignatureQueries.list,
+      { sort: "expiresAt", sortDirection: "desc", limit: 2 },
+      USER_A,
+    );
+    expect(page.rows.length).toBeGreaterThan(0);
+    expect(page.rows.every((row) => row.subjectId === SUBJECT_A)).toBe(true);
+    const all = await stack.http.queryOk<Page<RequestRow>>(
+      SignatureQueries.list,
+      { limit: 200 },
+      USER_A,
+    );
+    expect(all.rows.map((row) => row.id)).toContain(own.requestId);
   });
 
   test("list with a subject filter shows nothing to B and the row to A", async () => {
@@ -233,19 +265,49 @@ describe("signature :: authorizeSubject on queries", () => {
     expect(mixed.rows.every((row) => row.subjectId === SUBJECT_A)).toBe(true);
   });
 
-  test("an in-filter longer than the list limit is forbidden", async () => {
-    const tooMany = Array.from({ length: MAX_LIST_LIMIT + 1 }, (_, index) => `subject-${index}`);
-    const failure = await stack.http.queryErr(
+  test("a scoped page has no total, an unscoped one has", async () => {
+    await createRequestOfA();
+    const query = { totalCount: true };
+    const scoped = await stack.http.queryOk<Record<string, unknown>>(
       SignatureQueries.list,
-      {
-        filters: [
-          { field: "subjectType", op: "eq", value: SUBJECT_TYPE },
-          { field: "subjectId", op: "in", value: tooMany },
-        ],
-      },
+      query,
       USER_A,
     );
-    expect(failure.httpStatus).toBe(403);
+    expect("total" in scoped).toBe(false);
+    const unscoped = await stack.http.queryOk<Record<string, unknown>>(
+      SignatureQueries.list,
+      query,
+      ADMIN,
+    );
+    expect(typeof unscoped["total"]).toBe("number");
+  });
+
+  test("group counts are refused for a scoped user and answered for an unscoped one", async () => {
+    await createRequestOfA();
+    const aggregate = { aggregate: { groupBy: "status" } };
+    const refused = await stack.http.queryErr(SignatureQueries.list, aggregate, USER_A);
+    expect(refused.httpStatus).toBe(403);
+    const offset = await stack.http.queryErr(SignatureQueries.list, { offset: 2 }, USER_A);
+    expect(offset.httpStatus).toBe(403);
+    await stack.http.queryOk(SignatureQueries.list, aggregate, ADMIN);
+  });
+
+  test("a scoped user reaches every own request by following the cursor, without duplicates", async () => {
+    const own = await Promise.all([createRequestOfA(), createRequestOfA(), createRequestOfA()]);
+    const seen: string[] = [];
+    let cursor: string | null | undefined;
+    do {
+      const page: Page<RequestRow> = await stack.http.queryOk<Page<RequestRow>>(
+        SignatureQueries.list,
+        { limit: 2, ...(cursor !== undefined && cursor !== null && { cursor }) },
+        USER_A,
+      );
+      expect(page.rows.length).toBeLessThanOrEqual(2);
+      seen.push(...page.rows.map((row) => row.id));
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+    expect(new Set(seen).size).toBe(seen.length);
+    for (const request of own) expect(seen).toContain(request.requestId);
   });
 
   test("an unscoped role lists without a filter", async () => {
