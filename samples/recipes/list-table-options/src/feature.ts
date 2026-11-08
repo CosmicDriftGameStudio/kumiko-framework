@@ -4,11 +4,13 @@ import {
   createEventStoreExecutor,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createBooleanField,
   createDateField,
   createEntity,
   createNumberField,
   createSelectField,
   createTextField,
+  createTimestampField,
   defineFeature,
   entityListSchema,
   type FeatureDefinition,
@@ -41,6 +43,14 @@ export const taskEntity = createEntity({
     dueDate: createDateField({ sortable: true }),
     assignee: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
     estimateHours: createNumberField({ sortable: true, filterable: true }),
+    parked: createBooleanField({ default: false }),
+    note: createTextField({ personal: false, reason: "is_business_data" }),
+    team: createTextField({ personal: false, reason: "is_business_data" }),
+    teamTone: createSelectField({
+      options: ["positive", "warn", "negative", "neutral"] as const,
+      default: "neutral",
+    }),
+    lastUpdate: createTimestampField({ sortable: true }),
   },
 });
 
@@ -76,9 +86,29 @@ export function createTaskBoardFeature(
         // Starts pinned left; width and minWidth are start values for resizing.
         { field: "title", pinned: "left", width: 280, minWidth: 160 },
         "status",
-        "priority",
+        // The phone card shows the priority as its outlined pill instead of the first select column.
+        { field: "priority", cardBadge: true },
         { field: "dueDate", hideOnNarrow: true },
-        { field: "assignee", hideOnNarrow: true },
+        // The team pill sits beside the assignee name; its tone comes from the row.
+        {
+          field: "assignee",
+          hideOnNarrow: true,
+          pillField: "team",
+          pillToneField: "teamTone",
+          emptyPlaceholder: "Unassigned",
+        },
+        // One truncated line in the table; a line break starts a new line on the phone card.
+        {
+          field: "note",
+          ellipsis: true,
+          multiline: true,
+          tone: "muted",
+          cardAbove: true,
+          hideWhenDocked: true,
+          emptyPlaceholder: false,
+        },
+        // Recent edits show date and time, older ones the date only.
+        { field: "lastUpdate", dateOnlyAfterDays: 7, hideOnNarrow: true },
         // Starts hidden; the user can add it back in the view menu.
         { field: "estimateHours", hidden: true, hideOnNarrow: true },
       ],
@@ -86,7 +116,22 @@ export function createTaskBoardFeature(
       defaultSort: { field: "dueDate", dir: "asc" },
       searchable: true,
       table: taskTable,
+      mutedRowField: "parked",
+      toolbarSort: true,
+      sortOptions: [
+        { field: "dueDate", dir: "asc", label: "Due date" },
+        { field: "priority", dir: "desc", label: "Priority" },
+      ],
       rowActions: [
+        // A closed state as muted text instead of a button.
+        {
+          kind: "navigate",
+          id: "closed",
+          label: "Closed",
+          screen: "task-edit",
+          display: "text",
+          visible: { field: "status", eq: "done" },
+        },
         { kind: "navigate", id: "open", label: "Open", screen: "task-edit", rowClick: true },
         {
           kind: "writeHandler",

@@ -18,8 +18,8 @@ const rows = [
   { id: "r1", values: { title: "Nordlicht Immobilien GmbH", note: "0 von 5 Mandanten" } },
 ];
 
-describe("DataTable lets text wrap instead of widening past its container", () => {
-  test("headers (plain and sortable) and text cells wrap, row actions stay on one line", () => {
+describe("DataTable keeps cells on one line and truncates, headers wrap", () => {
+  test("headers (plain and sortable) wrap, text cells truncate, row actions stay on one line", () => {
     render(
       <LocaleProvider
         resolver={createStaticLocaleResolver({ locale: "en" })}
@@ -35,11 +35,15 @@ describe("DataTable lets text wrap instead of widening past its container", () =
       </LocaleProvider>,
     );
 
-    for (const id of ["column-title", "column-note", "cell-r1-title", "cell-r1-note"]) {
+    for (const id of ["column-title", "column-note"]) {
       const cls = screen.getByTestId(id).className.split(/\s+/);
       expect(cls).toContain("whitespace-normal");
       expect(cls).not.toContain("truncate");
-      expect(cls).not.toContain("whitespace-nowrap");
+    }
+    for (const id of ["cell-r1-title", "cell-r1-note"]) {
+      const cls = screen.getByTestId(id).className.split(/\s+/);
+      expect(cls).toContain("truncate");
+      expect(cls).not.toContain("whitespace-normal");
     }
     expect(screen.getByTestId("cell-r1-actions").className.split(/\s+/)).toContain(
       "whitespace-nowrap",

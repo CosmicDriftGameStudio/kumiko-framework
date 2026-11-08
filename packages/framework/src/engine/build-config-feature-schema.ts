@@ -953,15 +953,39 @@ function buildScreen(
     if (k.def.mask?.description !== undefined) fieldDescriptions[id] = k.def.mask.description;
     if (k.def.required === true) requiredFields.push(id);
   }
+  const specOf = (k: MaskedKey): EditFieldSpec =>
+    k.def.mask?.readOnly === true ? { field: fieldId(k), readOnly: true } : fieldId(k);
+  const plainKeys = keys.filter((k) => k.def.mask?.section === undefined);
   const { section, screenDescription } = buildSettingsSection(
     feature,
     scope,
-    keys.map((k) =>
-      k.def.mask?.readOnly === true ? { field: fieldId(k), readOnly: true } : fieldId(k),
-    ),
+    plainKeys.map(specOf),
     hub,
     options,
   );
+  const sectionTitles = [
+    ...new Set(
+      keys.flatMap((k) => (k.def.mask?.section === undefined ? [] : [k.def.mask.section])),
+    ),
+  ];
+  const titledSections: EditFieldsSection[] = sectionTitles.map((title) => ({
+    title,
+    fields: keys.filter((k) => k.def.mask?.section === title).map(specOf),
+  }));
+  // Every key sectioned: the base section is gone, its description moves to the first generated one.
+  const [firstTitled, ...otherTitled] = titledSections;
+  const sections =
+    plainKeys.length > 0
+      ? [section, ...titledSections]
+      : firstTitled === undefined
+        ? []
+        : [
+            {
+              ...firstTitled,
+              ...(section.description !== undefined && { description: section.description }),
+            },
+            ...otherTitled,
+          ];
   return {
     id: shortId,
     type: "configEdit",
@@ -969,10 +993,11 @@ function buildScreen(
     configKeys,
     fields,
     fieldLabels,
+    ...(keys.some((k) => k.def.mask?.compact === true) && { compact: true as const }),
     ...(Object.keys(fieldDescriptions).length > 0 && { fieldDescriptions }),
     ...(requiredFields.length > 0 && { requiredFields }),
     ...(screenDescription !== undefined && { description: screenDescription }),
-    layout: { sections: [section], width: "full", variant: "settings-list" },
+    layout: { sections, width: "full", variant: "settings-list" },
     access,
   };
 }

@@ -127,7 +127,7 @@ export const renderTextareaKind: KindRenderer<"textarea"> = (props, { common }) 
     rows={props.rows ?? 4}
     className="resize-y"
     {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
-    {...(props.rows !== undefined && { style: textareaMinHeight(props.rows) })}
+    style={textareaMinHeight(props.rows ?? 4)}
     {...textareaShortcutProps(props)}
   />
 );

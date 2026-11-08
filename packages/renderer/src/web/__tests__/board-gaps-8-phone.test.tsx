@@ -183,3 +183,37 @@ describe("steps panel board look", () => {
     expect(more.className).not.toContain("hidden");
   });
 });
+
+describe("named-filter chips on a phone", () => {
+  restoreViewportWidthAfterEach();
+
+  test("the chips with their counts wait in the filter panel, not lost", () => {
+    setViewportWidth(500);
+    render(
+      <DataTable
+        columns={[{ field: "name", label: "Name", type: "string", sortable: false }]}
+        rows={[{ id: "r1", values: { name: "A" } }]}
+        scrollBody
+        filterFacets={[
+          {
+            field: "__namedFilter",
+            label: "Status",
+            options: [],
+            showCounts: true,
+            chips: [
+              { id: "all", label: "All", values: [], count: 6 },
+              { id: "open", label: "Open", values: ["open"], count: 3 },
+            ],
+          },
+        ]}
+        filterValues={{}}
+        onFilterChange={() => {}}
+        toolbarStart={<input aria-label="search" />}
+        testId="t"
+      />,
+    );
+    fireEvent.click(screen.getByTestId("t-filter-toggle"));
+    expect(screen.getByRole("button", { name: /Open\s*3/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /All\s*6/ })).toBeTruthy();
+  });
+});

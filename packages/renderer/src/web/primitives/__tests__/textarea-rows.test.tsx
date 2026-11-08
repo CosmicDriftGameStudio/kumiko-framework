@@ -44,15 +44,15 @@ describe("textarea rows → min-height", () => {
     expect(large).toBeGreaterThan(small);
   });
 
-  test("without rows no min-height is imposed — the Tailwind floor stays", () => {
-    expect(renderTextarea().style.minHeight).toBe("");
+  test("without rows the field is four lines tall", () => {
+    expect(rowFactor(renderTextarea().style.minHeight)).toBe(4);
   });
 
-  // textareaMinHeight hardcodes the vendored frame (py-2 + 1px border); a
+  // textareaMinHeight hardcodes the vendored frame (py-2 + 1.5px border); a
   // shadcn re-sync that changes either must fail here instead of drifting silently.
   test("vendored textarea still carries the frame classes the min-height addend assumes", () => {
     const classes = renderTextarea(4).className.split(/\s+/);
     expect(classes).toContain("py-2");
-    expect(classes).toContain("border");
+    expect(classes).toContain("border-[1.5px]");
   });
 });

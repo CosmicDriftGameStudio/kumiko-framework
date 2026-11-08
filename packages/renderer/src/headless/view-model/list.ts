@@ -127,6 +127,7 @@ function declaredReferenceColumn(
     refLabelField: column.refLabelField ?? "id",
     ...(column.renderer !== undefined && { renderer: column.renderer }),
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
+    ...(column.hideWhenDocked === true && { hideWhenDocked: true }),
   };
 }
 
@@ -145,6 +146,7 @@ function storedFieldColumn(
     ...(column.renderer !== undefined && { renderer: column.renderer }),
     ...storedFieldMetadata(input, column, fieldDef),
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
+    ...(column.hideWhenDocked === true && { hideWhenDocked: true }),
   };
 }
 
@@ -214,6 +216,7 @@ function derivedFieldColumn(
     sortable: "sortable" in derivedDef && derivedDef.sortable === true,
     ...(column.renderer !== undefined && { renderer: column.renderer }),
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
+    ...(column.hideWhenDocked === true && { hideWhenDocked: true }),
   };
 }
 
@@ -239,6 +242,7 @@ function rowMetaColumn(
     sortable: rowMetaRef === undefined,
     ...(column.renderer !== undefined && { renderer: column.renderer }),
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
+    ...(column.hideWhenDocked === true && { hideWhenDocked: true }),
     ...(rowMetaRef !== undefined && {
       refEntity: rowMetaRef.refEntity,
       refFeature: rowMetaRef.refFeature,
@@ -266,6 +270,7 @@ function virtualRendererColumn(
     sortable: false,
     renderer: column.renderer,
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
+    ...(column.hideWhenDocked === true && { hideWhenDocked: true }),
   };
 }
 
@@ -284,6 +289,7 @@ function rowDecorationColumn(
     sortable: false,
     ...(column.renderer !== undefined && { renderer: column.renderer }),
     ...(column.hideOnNarrow === true && { hideOnNarrow: true }),
+    ...(column.hideWhenDocked === true && { hideWhenDocked: true }),
   };
 }
 

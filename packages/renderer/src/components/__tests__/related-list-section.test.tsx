@@ -355,11 +355,11 @@ describe("RelatedListSection — hideTitle FillContainer", () => {
     expect(container.getAttribute("data-grow")).toBe("0");
   });
 
-  test("grow is forwarded to the FillContainer", async () => {
+  test("the FillContainer never grows, even on a fill-height screen", async () => {
     renderHideTitle({ ...testPrimitives(), FillContainer: fillContainer }, true);
 
     const container = await rtlScreen.findByTestId("fill-container");
-    expect(container.getAttribute("data-grow")).toBe("1");
+    expect(container.getAttribute("data-grow")).toBe("0");
   });
 
   test("without a FillContainer primitive the list renders directly", async () => {

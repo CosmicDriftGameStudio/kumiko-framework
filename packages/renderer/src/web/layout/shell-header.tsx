@@ -26,6 +26,7 @@ import { resolveNavigation } from "../../headless/index.ts";
 import type { AppSchema, FeatureSchema } from "../../index.ts";
 import {
   type ActionMenuItemSpec,
+  lastSegment,
   toAppSchema,
   useNav,
   usePageHeaderCompact,
@@ -43,7 +44,11 @@ import {
 } from "../ui/breadcrumb.tsx";
 import { SidebarTrigger } from "../ui/sidebar.tsx";
 import { collectPinnedHeaderActions, isOnlyPinnedHeaderActions } from "./header-action-pinned.tsx";
-import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.ts";
+import {
+  HeaderOverflowMenuContext,
+  HeaderScreenTypeContext,
+  headerOverflowMenuItemClass,
+} from "./header-overflow-menu.ts";
 import { buildNavRegistrySliceForApp } from "./nav-tree.tsx";
 import { NotificationBell } from "./notification-bell.tsx";
 import { usePageHeaderSlot } from "./page-header-slot.tsx";
@@ -106,6 +111,11 @@ export function ShellHeader({
   const slot = usePageHeaderSlot();
   const standInScreenId = slot?.breadcrumbScreenId;
   const screenId = standInScreenId ?? nav.route?.screenId;
+  // The qualified id wins: two features can share a short screen id.
+  const screenType = (
+    allScreens.find((s) => s.id === screenId) ??
+    allScreens.find((s) => lastSegment(s.id) === screenId)
+  )?.type;
   const entityId = standInScreenId !== undefined ? undefined : nav.route?.entityId;
   const crumbs = useMemo((): readonly BreadcrumbCrumb[] | undefined => {
     if (screenId === undefined) return undefined;
@@ -151,8 +161,12 @@ export function ShellHeader({
   const titleCrumbs = standInUntitled ? undefined : crumbs;
   const parentCrumb =
     titleCrumbs !== undefined && titleCrumbs.length > 1 ? titleCrumbs.at(-2) : undefined;
-  const parentOnly = bodyTitle && compact && parentCrumb !== undefined;
+  // A record's short title replaces the "‹ parent" link on the phone; going back is the gesture or menu.
+  const phoneRecordTitle = slot?.narrowRecordTitle ?? recordTitle;
+  const phoneShowsRecordTitle = bodyTitle && compact && phoneRecordTitle !== undefined;
+  const parentOnly = bodyTitle && compact && parentCrumb !== undefined && !phoneShowsRecordTitle;
   const bodyTitleCrumbs = (): readonly BreadcrumbCrumb[] => {
+    if (phoneShowsRecordTitle) return [{ label: phoneRecordTitle }];
     if (compact) return parentCrumb === undefined ? [] : [parentCrumb];
     const ownTitle = recordTitle ?? titleCrumbs?.at(-1)?.label;
     return [
@@ -196,14 +210,16 @@ export function ShellHeader({
           />
         </div>
       </div>
-      <ShellHeaderEnd
-        compact={compact}
-        actionsRef={setActionsElement}
-        headerActions={headerActions}
-        overflowItems={slot?.overflowItems ?? []}
-        bellScreens={showsBell ? allScreens : undefined}
-        bellInOverflow={bellInOverflow}
-      />
+      <HeaderScreenTypeContext.Provider value={screenType}>
+        <ShellHeaderEnd
+          compact={compact}
+          actionsRef={setActionsElement}
+          headerActions={headerActions}
+          overflowItems={slot?.overflowItems ?? []}
+          bellScreens={showsBell ? allScreens : undefined}
+          bellInOverflow={bellInOverflow}
+        />
+      </HeaderScreenTypeContext.Provider>
     </header>
   );
 }
@@ -265,6 +281,8 @@ function ShellHeaderEnd({
         compact ? "min-w-0 max-w-[60%]" : "min-w-0 max-w-[50%] shrink-0 sm:max-w-none",
       )}
     >
+      {/* Desktop: the app's actions (assistant) stand left of the screen's own actions and its "…" menu. */}
+      {!compact && <VisibleHeaderActions compact={compact} headerActions={headerActions} />}
       <div
         ref={actionsRef}
         data-kumiko-layout="page-header-actions"
@@ -275,7 +293,7 @@ function ShellHeaderEnd({
         )}
       />
       {bellScreens !== undefined && !bellInOverflow && <NotificationBell screens={bellScreens} />}
-      <VisibleHeaderActions compact={compact} headerActions={headerActions} />
+      {compact && <VisibleHeaderActions compact={compact} headerActions={headerActions} />}
       {hasOverflow && (
         <HeaderOverflow
           items={compact ? overflowItems : []}

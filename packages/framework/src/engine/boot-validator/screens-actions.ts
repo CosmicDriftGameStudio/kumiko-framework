@@ -201,8 +201,9 @@ export function validateActionHasIcon(
   screenId: string,
   screenType: "projectionDetail" | "entityEdit" | "entityList" | "projectionList" | "dashboard",
   context: string,
-  action: { readonly id: string; readonly icon?: IconKey },
+  action: { readonly id: string; readonly icon?: IconKey | false },
 ): void {
+  if (action.icon === false) return;
   const resolved = resolveActionIcon(action.id, action.icon);
   if (resolved === undefined || !isRegisteredIcon(resolved)) {
     throw bootRuleError(SCREEN_ACTION_RULES.actionIcon, {

@@ -65,12 +65,11 @@ export function hasToolbarContent(m: DataTableModel, facetCluster: ReactNode): b
   );
 }
 
-// The toolbar select is max-md:hidden; below md the card sort bar owns sorting, so a toolbar
-// holding only the hidden select would render an empty row.
+// Desktop sorts through the column headers; the toolbar select is an opt-in (`toolbarSort`),
+// and below sm the card sort bar owns sorting.
 function hasVisibleSortOptions(m: DataTableModel): boolean {
   return (
-    !(m.toolbarSort === true ? m.belowSm : m.isNarrow) &&
-    hasSortOptionsSelect(m.sortOptions, m.onSortChange)
+    m.toolbarSort === true && !m.belowSm && hasSortOptionsSelect(m.sortOptions, m.onSortChange)
   );
 }
 
@@ -141,7 +140,7 @@ export function toolbarMergesDescription(m: DataTableModel, facetCluster: ReactN
 
 function renderSortOptions(m: DataTableModel): ReactNode {
   const { sortOptions, onSortChange, testId } = m;
-  if (onSortChange === undefined || !hasSortOptionsSelect(sortOptions, onSortChange)) {
+  if (onSortChange === undefined || !hasVisibleSortOptions(m) || sortOptions === undefined) {
     return null;
   }
   return (
@@ -150,8 +149,7 @@ function renderSortOptions(m: DataTableModel): ReactNode {
       sort={m.sort}
       onSortChange={onSortChange}
       testId={testId !== undefined ? `${testId}-sort-options` : "render-list-sort-options"}
-      className={m.toolbarSort === true ? "max-sm:hidden" : "max-md:hidden"}
-      bordered={m.toolbarSort === true}
+      bordered
     />
   );
 }
@@ -171,7 +169,7 @@ function renderFacetArea(m: DataTableModel, facetCluster: ReactNode): ReactNode 
   if (!m.belowSm || (facetCluster === undefined && behindFilter === undefined)) {
     return facetCluster;
   }
-  if (facetCluster !== undefined && hasOnlySelectFacets(m)) {
+  if (facetCluster !== undefined && m.narrowFacets === "pills" && hasOnlySelectFacets(m)) {
     const inline = <div className="flex w-full flex-wrap gap-2">{facetCluster}</div>;
     if (behindFilter === undefined) return inline;
     return (

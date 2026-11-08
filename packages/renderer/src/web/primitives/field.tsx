@@ -83,6 +83,66 @@ export function DefaultField(props: FieldProps): ReactNode {
   );
 }
 
+function FieldLabelElement({
+  id,
+  label,
+  required,
+  layout,
+  hideLabel,
+  hasError,
+}: Pick<FieldProps, "id" | "label" | "required" | "layout" | "hideLabel"> & {
+  hasError: boolean;
+}): ReactNode {
+  const hideRequiredMarker = useContext(HideRequiredMarkerContext);
+  return (
+    <UiLabel
+      id={fieldLabelId(id)}
+      htmlFor={id}
+      className={cn(
+        "min-w-0 gap-0 text-[13px]",
+        hasError ? "text-destructive" : "text-foreground",
+        hideLabel === true && "sr-only",
+      )}
+    >
+      {/* An inline label sits beside a checkbox and may carry legal text that
+          must stay readable in full, so it wraps instead of truncating; so does a settings row's. */}
+      <span
+        className={layout === "inline" || layout === "row" ? undefined : "truncate"}
+        title={typeof label === "string" ? label : undefined}
+      >
+        {label}
+      </span>
+      {required === true && !hideRequiredMarker && (
+        <span data-required className="ml-0.5 shrink-0 text-destructive">
+          *
+        </span>
+      )}
+    </UiLabel>
+  );
+}
+
+function FieldErrors({
+  id,
+  testId,
+  issues,
+}: Pick<FieldProps, "id" | "testId"> & {
+  issues: NonNullable<FieldProps["issues"]>;
+}): ReactNode {
+  const t = useTranslation();
+  return (
+    <div
+      id={fieldErrorId(id)}
+      role="alert"
+      data-testid={testId !== undefined ? `${testId}-errors` : undefined}
+      className="order-1 text-xs text-destructive"
+    >
+      {issues.map((issue) => (
+        <div key={`${issue.path}:${issue.code}`}>{fieldIssueText(t, issue)}</div>
+      ))}
+    </div>
+  );
+}
+
 function DefaultFieldBody({
   id,
   label,
@@ -101,45 +161,18 @@ function DefaultFieldBody({
   changed,
 }: FieldProps): ReactNode {
   const t = useTranslation();
-  const hideRequiredMarker = useContext(HideRequiredMarkerContext);
   const hasError = issues !== undefined && issues.length > 0;
   const labelEl = (
-    <UiLabel
-      id={fieldLabelId(id)}
-      htmlFor={id}
-      className={cn(
-        "min-w-0 gap-0 text-[13px]",
-        hasError ? "text-destructive" : "text-foreground",
-        hideLabel === true && "sr-only",
-      )}
-    >
-      {/* An inline label sits beside a checkbox and may carry legal text that
-          must stay readable in full, so it wraps instead of truncating. */}
-      <span
-        className={layout === "inline" ? undefined : "truncate"}
-        title={typeof label === "string" ? label : undefined}
-      >
-        {label}
-      </span>
-      {required === true && !hideRequiredMarker && (
-        <span data-required className="ml-0.5 shrink-0 text-destructive">
-          *
-        </span>
-      )}
-    </UiLabel>
+    <FieldLabelElement
+      id={id}
+      label={label}
+      required={required}
+      layout={layout}
+      hideLabel={hideLabel}
+      hasError={hasError}
+    />
   );
-  const errorsEl = hasError ? (
-    <div
-      id={fieldErrorId(id)}
-      role="alert"
-      data-testid={testId !== undefined ? `${testId}-errors` : undefined}
-      className="text-xs text-destructive"
-    >
-      {issues.map((issue) => (
-        <div key={`${issue.path}:${issue.code}`}>{fieldIssueText(t, issue)}</div>
-      ))}
-    </div>
-  ) : null;
+  const errorsEl = hasError ? <FieldErrors id={id} testId={testId} issues={issues} /> : null;
 
   // Inline (boolean/checkbox): Control links, Label rechts — shadcn-Muster.
   if (layout === "inline") {
@@ -184,40 +217,40 @@ function DefaultFieldBody({
       <div
         data-testid={testId}
         className={cn(
-          "group/row relative grid gap-x-6 gap-y-2 py-4 @2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @2xl:grid-rows-[auto_auto_auto_1fr] @2xl:gap-y-0",
+          "group/row relative grid gap-x-6 gap-y-2 py-4 @sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @sm:grid-rows-[auto_auto_auto_1fr] @sm:gap-y-0",
           // Switch rows keep label left / switch right when stacked.
-          "@max-2xl:has-[[data-slot=switch]]:grid-cols-[minmax(0,1fr)_auto]",
-          accent === true && "@max-2xl:pl-3",
+          "@max-sm:has-[[data-slot=switch]]:grid-cols-[minmax(0,1fr)_auto]",
+          accent === true && "@max-sm:pl-3",
         )}
       >
         {accent === true && (
           <span
             aria-hidden="true"
             data-testid={testId !== undefined ? `${testId}-accent` : undefined}
-            className="absolute inset-y-3 w-0.5 bg-status-active @max-2xl:left-0 @2xl:-left-4"
+            className="absolute inset-y-3 w-0.5 bg-status-active @max-sm:left-0 @sm:-left-4"
           />
         )}
-        <div className="flex min-w-0 items-center gap-2 @2xl:col-start-1 @2xl:row-start-1">
+        <div className="flex min-w-0 items-center gap-2 @sm:col-start-1 @sm:row-start-1">
           {labelEl}
           {changedMarker}
           {labelAppendix !== undefined && labelAppendix}
-          {statusEl}
+          {statusEl !== null && <span className="ml-auto">{statusEl}</span>}
         </div>
         {description !== undefined && (
           <div
             id={fieldDescriptionId(id)}
             data-testid={testId !== undefined ? `${testId}-description` : undefined}
-            className="min-w-0 text-sm text-muted-foreground @2xl:col-start-1 @2xl:row-start-2 @2xl:mt-1 @max-2xl:group-has-[[data-slot=switch]]/row:col-span-2"
+            className="min-w-0 text-sm text-muted-foreground @sm:col-start-1 @sm:row-start-2 @sm:mt-1 @max-sm:group-has-[[data-slot=switch]]/row:col-span-2"
           >
             {description}
           </div>
         )}
-        <div className="flex min-w-0 flex-col gap-1.5 has-[[data-slot=switch]]:items-end @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @max-2xl:group-has-[[data-slot=switch]]/row:col-start-2 @max-2xl:group-has-[[data-slot=switch]]/row:row-start-1">
+        <div className="flex min-w-0 flex-col gap-1.5 has-[[data-slot=switch]]:items-end @sm:col-start-2 @sm:row-span-4 @sm:row-start-1 @max-sm:group-has-[[data-slot=switch]]/row:col-start-2 @max-sm:group-has-[[data-slot=switch]]/row:row-start-1">
           <FieldLayoutContext.Provider value="row">{children}</FieldLayoutContext.Provider>
           {errorsEl}
         </div>
         {fieldAppendix !== undefined && (
-          <div className="min-w-0 @2xl:col-start-1 @2xl:row-start-3 @2xl:mt-1 @max-2xl:group-has-[[data-slot=switch]]/row:col-span-2">
+          <div className="min-w-0 @sm:col-start-1 @sm:row-start-3 @sm:mt-1 @max-sm:group-has-[[data-slot=switch]]/row:col-span-2">
             {fieldAppendix}
           </div>
         )}
@@ -238,7 +271,7 @@ function DefaultFieldBody({
       statusEl === null ? (
         labelEl
       ) : (
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
           {changedMarker !== null ? (
             <div className="flex min-w-0 items-center gap-2">
               {labelEl}
@@ -253,23 +286,25 @@ function DefaultFieldBody({
           {statusEl}
         </div>
       )}
-      {description !== undefined && (
-        <div
-          id={fieldDescriptionId(id)}
-          data-testid={testId !== undefined ? `${testId}-description` : undefined}
-          className="text-sm text-muted-foreground"
-        >
-          {description}
-        </div>
-      )}
       {/* Default: fieldAppendix above the input, so an expanded detail sits
           right under its trigger in the label row instead of being separated
           from it by the input. below-control keeps the inputs of neighbouring
           fields on one line. */}
       {!belowControl && fieldAppendix !== undefined && fieldAppendix}
       {children}
+      {description !== undefined && (
+        <div
+          id={fieldDescriptionId(id)}
+          data-testid={testId !== undefined ? `${testId}-description` : undefined}
+          className="order-1 text-[13px] text-muted-foreground"
+        >
+          {description}
+        </div>
+      )}
       {errorsEl}
-      {belowControl && fieldAppendix !== undefined && fieldAppendix}
+      {belowControl && fieldAppendix !== undefined && (
+        <div className="order-1">{fieldAppendix}</div>
+      )}
     </div>
   );
 }
@@ -544,9 +579,9 @@ export function RadioListSelect({
 // the box height from the content and makes the `rows` attribute inert.
 // A declared row count therefore only survives as a min-height floor: the field
 // starts at `rows` lines tall and still grows with its content. The addend is
-// the textarea frame — py-2 top+bottom plus the 1px borders.
+// the textarea frame: py-2 top+bottom plus the 1.5px borders.
 export function textareaMinHeight(rows: number): CSSProperties {
-  return { minHeight: `calc(${rows} * 1lh + 1rem + 2px)` };
+  return { minHeight: `calc(${rows} * 1lh + 1rem + 3px)` };
 }
 
 export function withInlineDisabledHint(option: ComboboxOption): ComboboxOption {

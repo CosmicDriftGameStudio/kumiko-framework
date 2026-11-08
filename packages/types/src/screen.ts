@@ -74,9 +74,9 @@ export interface FieldFormatRegistry {
     /** IANA zone id (e.g. "Europe/Berlin"). Default: the runtime's zone. */
     readonly timeZone?: string;
   };
-  /** Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick).
-   *  `style: "short"` gives "5 min. ago"; `withTime` adds the clock time to "yesterday" and to the absolute date;
-   *  from `absoluteAfterDays` days on the absolute date ("29 Oct 2026") replaces the relative text. */
+  /** Epoch ms or ISO timestamp, shown as "5 min. ago" at render time (a table cell does not tick).
+   *  Defaults: `style: "short"`, `withTime: true` (clock time on "yesterday" and on the absolute date; `false` leaves it out),
+   *  `absoluteAfterDays: 7` (from then on the absolute date, "29 Oct 2026", replaces the relative text); under a minute reads "just now". */
   relativeTime: {
     readonly locale?: string;
     readonly style?: "long" | "short" | "narrow";
@@ -305,6 +305,7 @@ export type {
   FieldAffix,
   FieldAiAssist,
   FieldAiAssistChip,
+  FieldBadge,
   FieldFillAction,
   FieldTextRef,
   FieldValueChips,

@@ -1,5 +1,4 @@
 // @runtime test
-import { EMPTY_VALUE_PLACEHOLDER } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   captureScreenshot,
   expect,
@@ -12,7 +11,7 @@ const SUCCESSOR_LEASE_ID = "00000000-0000-4000-8000-000000003112";
 
 test.use({ locale: "de-DE", viewport: { width: 1440, height: 900 } });
 
-test("reference column links to the referenced lease and shows the placeholder when empty", async ({
+test("reference column links to the referenced lease and stays blank when empty", async ({
   page,
 }) => {
   await loginAsAdmin(page);
@@ -23,12 +22,9 @@ test("reference column links to the referenced lease and shows the placeholder w
   await expect(link).toHaveAttribute("href", `/lease-detail-gaps/${PREDECESSOR_LEASE_ID}`);
 
   const emptyRow = page.getByTestId(`row-${PREDECESSOR_LEASE_ID}`);
-  await expect(emptyRow.getByTestId(`cell-${PREDECESSOR_LEASE_ID}-vorgaenger`)).toHaveText(
-    EMPTY_VALUE_PLACEHOLDER,
-  );
-  await expect(emptyRow.getByTestId(`cell-${PREDECESSOR_LEASE_ID}-ende`)).toHaveText(
-    EMPTY_VALUE_PLACEHOLDER,
-  );
+  // Empty cells stay blank by default (changeset "List cells stay blank when empty").
+  await expect(emptyRow.getByTestId(`cell-${PREDECESSOR_LEASE_ID}-vorgaenger`)).toHaveText("");
+  await expect(emptyRow.getByTestId(`cell-${PREDECESSOR_LEASE_ID}-ende`)).toHaveText("");
   await link.hover();
   await captureScreenshot(page, "after-4-ref-list");
   await captureScreenshot(page, "after-5-empty");

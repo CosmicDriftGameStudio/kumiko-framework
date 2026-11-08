@@ -230,6 +230,10 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.metric.outstandingAmount": { en: "Outstanding" },
         "order-desk.metric.itemCount": { en: "Items" },
         "order-desk.metric.placedAt": { en: "Placed" },
+        "order-desk.header.narrow-title": { en: "Order" },
+        "screen:order-facts.title": { en: "Order facts" },
+        "order-desk.facts.contact": { en: "Contact" },
+        "order-desk.facts.address": { en: "Address" },
         "order-desk.tab.items": { en: "Items" },
         "order-desk.tab.payments": { en: "Payments" },
         "order-desk.tab.details": { en: "Details" },
@@ -282,6 +286,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         },
       ],
       defaultSort: { field: "urgency", dir: "desc" },
+      toolbarSort: true,
       sortOptions: [
         { field: "urgency", dir: "desc", label: "order-desk.sort.urgency" },
         { field: "customerName", dir: "asc", label: "order-desk.sort.customer" },
@@ -523,6 +528,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       header: {
         title: "customerName",
         shortTitle: "shortTitle",
+        narrowTitle: "order-desk.header.narrow-title",
         // Parts are joined by a separator; `format` formats the raw field value.
         narrowSubtitle: "narrowSubtitle",
         subtitle: [
@@ -535,6 +541,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       summary: { field: "summaryLine", narrowField: "summaryShort", toneField: "summaryTone" },
       banner: {
         field: "notice",
+        iconless: true,
         actions: [
           {
             kind: "navigate",
@@ -572,8 +579,9 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
+      mobileSummary: "mobileLine",
       metricsStyle: "tiles",
-      metricsPlacement: { narrow: "after-guidance" },
+      metricsPlacement: { narrow: "before-steps" },
       metrics: [
         {
           field: "totalAmount",
@@ -587,6 +595,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           subField: "outstandingNote",
           tone: "warn",
           toneField: "outstandingTone",
+          visibleWhen: { field: "status", ne: "delivered" },
           navigate: { tab: "payments" },
         },
         {
@@ -604,6 +613,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
             kind: "relatedList",
             title: "order-desk.tab.items",
             countField: "itemsCount",
+            after: { react: { __component: "OrderItemsFooter" } },
             query: "order-desk:query:order:items",
             columns: [
               { field: "sku", label: "order-desk.col.sku" },
@@ -646,11 +656,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
             id: "details",
             kind: "fields",
             title: "order-desk.tab.details",
-            fields: ["shippingAddress", "billingAddress", "salesRep"],
+            fields: ["shippingAddress", { field: "billingAddress", concealed: true }, "salesRep"],
           },
           {
             id: "internal-note",
             kind: "extension",
+            hideOnNarrow: true,
             title: "order-desk.tab.internalNote",
             component: { react: { __component: "OrderInternalNote" } },
             entityName: "order",
@@ -682,6 +693,33 @@ export function createOrderDeskFeature(): FeatureDefinition {
         },
       ],
       inlineActions: ["download-invoice"],
+      access: accessRoles,
+    });
+
+    r.screen({
+      id: "order-facts",
+      type: "projectionDetail",
+      query: "order-desk:query:order:detail",
+      listScreenId: "orders",
+      header: { title: "customerName" },
+      // Two short stacked sections need no "On this page" index.
+      pageNavigation: false,
+      layout: {
+        sections: [
+          {
+            id: "contact",
+            kind: "fields",
+            title: "order-desk.facts.contact",
+            fields: ["salesRep"],
+          },
+          {
+            id: "address",
+            kind: "fields",
+            title: "order-desk.facts.address",
+            fields: ["shippingAddress", "billingAddress"],
+          },
+        ],
+      },
       access: accessRoles,
     });
   });

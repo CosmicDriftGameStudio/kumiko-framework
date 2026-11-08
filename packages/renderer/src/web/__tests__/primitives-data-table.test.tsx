@@ -374,7 +374,7 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("dt-pager")).toBeNull();
     });
 
-    test("pager with total=0: no pager (nothing to paginate)", () => {
+    test("pager with total=0: the footer stays with 0 of 0 and disabled paging", () => {
       render(
         <DataTable
           columns={cols}
@@ -383,7 +383,10 @@ describe("DataTable", () => {
           pager={{ page: 1, limit: 50, total: 0, onPageChange: mock() }}
         />,
       );
-      expect(screen.queryByTestId("dt-pager")).toBeNull();
+      expect(screen.getByTestId("dt-pager")).toBeTruthy();
+      expect(screen.getByTestId("dt-pager-status").textContent).toBe("0 of 0");
+      expect((screen.getByTestId("dt-pager-prev") as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByTestId("dt-pager-next") as HTMLButtonElement).disabled).toBe(true);
     });
 
     test("page=1: Prev-Button disabled, Next aktiv", () => {
@@ -439,24 +442,6 @@ describe("DataTable", () => {
       expect(onPageChange).toHaveBeenCalledWith(2);
     });
 
-    test("numbered pages: current page marked, gaps elided, click jumps", () => {
-      const onPageChange = mock();
-      render(
-        <DataTable
-          columns={cols}
-          rows={oneRow}
-          testId="dt"
-          pager={{ page: 30, limit: 50, total: 3000, onPageChange }}
-        />,
-      );
-      expect(screen.getByTestId("dt-pager-page-30").getAttribute("aria-current")).toBe("page");
-      expect(screen.getByTestId("dt-pager-page-1")).toBeDefined();
-      expect(screen.getByTestId("dt-pager-page-60")).toBeDefined();
-      expect(screen.queryByTestId("dt-pager-page-15")).toBeNull();
-      fireEvent.click(screen.getByTestId("dt-pager-page-31"));
-      expect(onPageChange).toHaveBeenCalledWith(31);
-    });
-
     test("Default locale (en): status, page X of Y, and aria labels from i18n fallback", () => {
       render(
         <DataTable
@@ -467,7 +452,7 @@ describe("DataTable", () => {
         />,
       );
       expect(screen.getByTestId("dt-pager-status").textContent).toBe("51–100 of 3,000");
-      expect(screen.getByTestId("dt-pager-page-2").getAttribute("aria-current")).toBe("page");
+      expect(screen.getByTestId("dt-pager-page-label").textContent).toBe("Page 2 of 60");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe("Previous page");
       expect(screen.getByTestId("dt-pager-next").getAttribute("aria-label")).toBe("Next page");
     });
@@ -490,7 +475,7 @@ describe("DataTable", () => {
         </LocaleProvider>,
       );
       expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 von 3.000");
-      expect(screen.getByTestId("dt-pager-page-1").getAttribute("aria-label")).toBe("Seite 1");
+      expect(screen.getByTestId("dt-pager-page-label").textContent).toBe("Seite 1 von 60");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe(
         "Vorherige Seite",
       );

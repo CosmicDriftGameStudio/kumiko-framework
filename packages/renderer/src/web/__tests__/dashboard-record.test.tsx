@@ -261,12 +261,12 @@ describe("dashboard refresh and relative time", () => {
           },
         ],
       }),
-      { query: () => ({ at: NOW_MS - 5_000 }) },
+      { query: () => ({ at: NOW_MS - 65_000 }) },
     );
     await advance(0);
     await advance(0);
-    expect(screen.getByText("5 seconds ago")).toBeTruthy();
-    await advance(5_000);
-    expect(screen.getByText("10 seconds ago")).toBeTruthy();
+    expect(screen.getByText("1 min. ago")).toBeTruthy();
+    await advance(60_000);
+    expect(screen.getByText("2 min. ago")).toBeTruthy();
   });
 });

@@ -9,7 +9,7 @@ import { EMPTY_VALUE_PLACEHOLDER, type ListColumnViewModel } from "../../headles
 import { RenderList } from "../../index.ts";
 import { HintCell } from "../primitives/data-table/hint-cell.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
-import { atViewportWidth, render, screen } from "./test-utils.tsx";
+import { atViewportWidth, cleanup, render, screen } from "./test-utils.tsx";
 
 const { DataTable } = defaultPrimitives;
 
@@ -55,8 +55,16 @@ describe("projectionList value type alignment", () => {
 describe("column emptyPlaceholder", () => {
   const rows = [{ id: "r1", name: "A", note: null }];
 
-  test("an empty cell shows the placeholder by default", () => {
+  test("an empty cell stays blank by default", () => {
     renderProjectionList([{ field: "name" }, { field: "note" }], rows);
+    expect(screen.getByTestId("cell-r1-note").textContent).toBe("");
+  });
+
+  test("a string emptyPlaceholder shows in the empty cell", () => {
+    renderProjectionList(
+      [{ field: "name" }, { field: "note", emptyPlaceholder: EMPTY_VALUE_PLACEHOLDER }],
+      rows,
+    );
     expect(screen.getByTestId("cell-r1-note").textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
   });
 
@@ -116,15 +124,15 @@ describe("hint sentence with the neutral tone", () => {
 });
 
 describe("emptyPlaceholder on reference columns", () => {
-  const refColumn = (emptyPlaceholder: false | undefined): ListColumnViewModel => ({
+  const refColumn = (emptyPlaceholder: string | false | undefined): ListColumnViewModel => ({
     field: "owner",
     label: "Owner",
     type: "reference",
     sortable: false,
     refEntity: "user",
-    ...(emptyPlaceholder === false && { emptyPlaceholder }),
+    ...(emptyPlaceholder !== undefined && { emptyPlaceholder }),
   });
-  const rendererOf = (column: ListColumnViewModel) => {
+  const cellText = (column: ListColumnViewModel, value: unknown): HTMLElement => {
     const [enriched] = enrichReferenceColumns({
       columns: [column],
       referenceColumns: [
@@ -135,20 +143,28 @@ describe("emptyPlaceholder on reference columns", () => {
       featureName: "orders",
       translate: (key) => key,
     });
-    const renderer = enriched?.renderer;
-    if (typeof renderer !== "function") throw new Error("reference renderer missing");
-    return renderer;
+    if (enriched === undefined) throw new Error("column missing");
+    render(<DataTable columns={[enriched]} rows={[{ id: "r1", values: { owner: value } }]} />);
+    return screen.getByTestId("cell-r1-owner");
   };
 
-  test("empty scalar and empty array render blank with emptyPlaceholder: false", () => {
-    const render = rendererOf(refColumn(false));
-    for (const empty of [null, undefined, "", []]) expect(render(empty, {})).toBe("");
+  test("empty scalar and empty array stay blank with emptyPlaceholder: false or by default", () => {
+    for (const placeholder of [false as const, undefined]) {
+      for (const empty of [null, "", []]) {
+        const cell = cellText(refColumn(placeholder), empty);
+        expect(cell.textContent).toBe("");
+        cleanup();
+      }
+    }
   });
 
-  test("they keep the placeholder by default", () => {
-    const render = rendererOf(refColumn(undefined));
-    for (const empty of [null, ""]) expect(render(empty, {})).toBe(EMPTY_VALUE_PLACEHOLDER);
-    expect(render([], {})).toBe(EMPTY_VALUE_PLACEHOLDER);
+  test("a configured placeholder shows muted in an empty reference cell, translated like any cell", () => {
+    for (const empty of [null, "", []]) {
+      const cell = cellText(refColumn(EMPTY_VALUE_PLACEHOLDER), empty);
+      expect(cell.textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
+      expect(cell.querySelector("[data-empty-cell]")?.className).toContain("text-muted-foreground");
+      cleanup();
+    }
   });
 });
 

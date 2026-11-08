@@ -78,7 +78,7 @@ function ColumnSortSelect({ columns, sort, onSortChange, testId }: CardSortSelec
   const currentSortIsUnlisted =
     sort !== undefined && sort !== null && !sortOptions.some((o) => o.value === currentSortValue);
   return (
-    <div className="relative flex h-9 items-center gap-1.5 px-4 text-[13px] text-foreground-secondary">
+    <div className="relative flex h-[37px] items-center gap-1.5 px-4 text-[13px] text-foreground-secondary">
       <span aria-hidden="true">{sortLabel}</span>
       {sort !== undefined && sort !== null && <SortArrow className="size-3.5" aria-hidden="true" />}
       <select

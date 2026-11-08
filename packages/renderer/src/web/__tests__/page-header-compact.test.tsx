@@ -378,18 +378,17 @@ describe("compact shell header with a projection detail", () => {
       ).toBeNull();
     });
 
-    test("on desktop the shell header carries the badge, the body title block the only h1 without a chip", async () => {
+    test("on desktop the body title block carries the chip next to the only h1, the shell header none", async () => {
       setViewportWidth(DESKTOP);
       renderStatusDetail();
-      const shellHeader = await waitFor(() => {
-        const found = document.querySelector("header") as HTMLElement;
-        within(found).getByText("Aktiv, Änderungen nicht veröffentlicht");
-        return found;
-      });
+      const titleBlock = await waitFor(() =>
+        screen.getByTestId("kumiko-screen-projection-detail-title-block"),
+      );
+      expect(within(titleBlock).getByText("Aktiv, Änderungen nicht veröffentlicht")).toBeTruthy();
+      const shellHeader = document.querySelector("header") as HTMLElement;
+      expect(within(shellHeader).queryByText("Aktiv, Änderungen nicht veröffentlicht")).toBeNull();
       expect(within(shellHeader).queryByRole("heading", { level: 1 })).toBeNull();
       expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-      const titleBlock = screen.getByTestId("kumiko-screen-projection-detail-title-block");
-      expect(within(titleBlock).queryByText("Aktiv, Änderungen nicht veröffentlicht")).toBeNull();
     });
   });
 
@@ -423,7 +422,40 @@ describe("compact shell header with a projection detail", () => {
     ).toBeNull();
   });
 
-  test("desktop shows no menu when every action besides the primary is inline", async () => {
+  test("desktop puts a placement menu action into the menu although two buttons would fit", async () => {
+    setViewportWidth(DESKTOP);
+    renderDetail({
+      ...schema,
+      screens: [
+        {
+          ...detailScreen,
+          actions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "rent-edit" },
+            {
+              kind: "navigate",
+              id: "duplicate",
+              label: "actions.duplicate",
+              screen: "rent-edit",
+              placement: "menu",
+            },
+          ],
+        },
+      ],
+    });
+    await waitFor(() => screen.getByTestId("render-edit-action-edit"));
+
+    expect(screen.queryByTestId("render-edit-action-duplicate")).toBeNull();
+    fireEvent.pointerDown(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow"), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
+    });
+    expect(
+      screen.getByTestId("kumiko-screen-projection-detail-actions-overflow-item-duplicate"),
+    ).toBeTruthy();
+  });
+
+  test("desktop keeps a destructive action in the menu even when it is listed inline", async () => {
     setViewportWidth(DESKTOP);
     renderDetail({
       ...schema,
@@ -432,8 +464,8 @@ describe("compact shell header with a projection detail", () => {
     await waitFor(() => screen.getByTestId("render-edit-action-edit"));
 
     expect(screen.getByTestId("render-edit-action-duplicate")).toBeTruthy();
-    expect(screen.getByTestId("render-edit-action-archive")).toBeTruthy();
-    expect(screen.queryByTestId("kumiko-screen-projection-detail-actions-overflow")).toBeNull();
+    expect(screen.queryByTestId("render-edit-action-archive")).toBeNull();
+    expect(screen.getByTestId("kumiko-screen-projection-detail-actions-overflow")).toBeTruthy();
   });
 });
 

@@ -51,6 +51,13 @@ header, a metrics band, and a tabbed layout instead of one long stacked form.
 - round 6 (board gaps): `rowLink.screenField` / `paramsField` (target screen from a query field),
   list panel `icon`, `narrow.moreText`, `narrow.field` as any query output field,
   `footerLink.narrowOnly`, `narrow.titleField` on cards and `rowToneMarker: "dot"`
+- round 7 (board look): `header.narrowTitle` (short phone top-bar title), banner `iconless`,
+  `metricsPlacement: { narrow: "before-steps" }`, `mobileSummary` (one line instead of the
+  metrics below `sm`), `MetricSpec.visibleWhen`, field option `concealed` (muted value with a lock),
+  section `hideOnNarrow` and `after` (a registered component under the items tab card), and a
+  second screen `order-facts` with a stacked layout and `pageNavigation: false`
+- not shown: `photosBeside` (needs a stored image file for `photoGrid`) and `recordSections.omitFirstTitle`
+  (a renderer prop, not reachable from a screen declaration)
 - boot-validator catching two common author mistakes: a `metrics` entry
   with an empty `label`, and a `tabs` layout with fewer than two
   sections
@@ -334,6 +341,10 @@ function OrderInternalNote(): ReactNode {
   );
 }
 
+function OrderItemsFooter(): ReactNode {
+  return <p data-testid="order-items-footer">Prices include VAT.</p>;
+}
+
 function OrderInboxIcon(): ReactNode {
   return (
     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -372,7 +383,9 @@ function Shell({
       schema={schema}
       user={{ id: "u1", roles: ["Admin"] }}
     >
-      <ExtensionSectionsProvider value={{ OrderInboxIcon, DeadlinesIcon, OrderInternalNote }}>
+      <ExtensionSectionsProvider
+        value={{ OrderInboxIcon, DeadlinesIcon, OrderInternalNote, OrderItemsFooter }}
+      >
         {isPinnedRecord && feature !== undefined ? (
           <KumikoScreen schema={feature} qn={ORDER_DETAIL_SCREEN_QN} entityId="order-1" />
         ) : (
@@ -471,6 +484,7 @@ function orderDetailForUrl(id: string): Record<string, unknown> {
     summaryLine,
     summaryShort,
     summaryTone,
+    mobileLine,
     notice,
     steps,
     progress,
@@ -478,7 +492,17 @@ function orderDetailForUrl(id: string): Record<string, unknown> {
   } = answerOrderDetail(id);
   const withGuidance = new URLSearchParams(window.location.search).has("guidance");
   return withGuidance
-    ? { ...withoutGuidance, path, summaryLine, summaryShort, summaryTone, notice, steps, progress }
+    ? {
+        ...withoutGuidance,
+        path,
+        summaryLine,
+        summaryShort,
+        summaryTone,
+        mobileLine,
+        notice,
+        steps,
+        progress,
+      }
     : withoutGuidance;
 }
 
@@ -632,7 +656,8 @@ test.describe("record-detail-layout — tab-panel height", () => {
     expect(region.y + region.height).toBeLessThanOrEqual(main.y + main.height + 4);
     expect(table.height).toBeLessThan(region.height);
     expect(table.height).toBeLessThan(main.height * 0.4);
-    await expect(page.getByTestId("render-list-table-footer")).toBeVisible();
+    // A tab's table has no count footer: the tab label already says how many rows there are.
+    await expect(page.getByTestId("render-list-table-footer")).toHaveCount(0);
   });
 
   test("long list: the tab-panel card is capped at the panel's available height and the table scrolls internally", async ({
@@ -1049,6 +1074,7 @@ describe("record-detail-layout showcase — registration", () => {
     expect(screen.header).toEqual({
       title: "customerName",
       shortTitle: "shortTitle",
+      narrowTitle: "order-desk.header.narrow-title",
       narrowSubtitle: "narrowSubtitle",
       subtitle: [
         "orderNumber",
@@ -1225,7 +1251,7 @@ describe("record-detail-layout showcase — board gaps", () => {
     const detail = registry.getScreen("order-desk:screen:order-detail");
     if (detail?.type !== "projectionDetail") throw new Error("expected projectionDetail");
     expect(detail.progress?.placement).toBe("beside-steps");
-    expect(detail.metricsPlacement).toEqual({ narrow: "after-guidance" });
+    expect(detail.metricsPlacement).toEqual({ narrow: "before-steps" });
     expect(detail.metrics?.map((metric) => metric.subField)).toContain("totalNote");
   });
 });
@@ -1657,6 +1683,10 @@ export function createOrderDeskFeature(): FeatureDefinition {
         "order-desk.metric.outstandingAmount": { en: "Outstanding" },
         "order-desk.metric.itemCount": { en: "Items" },
         "order-desk.metric.placedAt": { en: "Placed" },
+        "order-desk.header.narrow-title": { en: "Order" },
+        "screen:order-facts.title": { en: "Order facts" },
+        "order-desk.facts.contact": { en: "Contact" },
+        "order-desk.facts.address": { en: "Address" },
         "order-desk.tab.items": { en: "Items" },
         "order-desk.tab.payments": { en: "Payments" },
         "order-desk.tab.details": { en: "Details" },
@@ -1709,6 +1739,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
         },
       ],
       defaultSort: { field: "urgency", dir: "desc" },
+      toolbarSort: true,
       sortOptions: [
         { field: "urgency", dir: "desc", label: "order-desk.sort.urgency" },
         { field: "customerName", dir: "asc", label: "order-desk.sort.customer" },
@@ -1950,6 +1981,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       header: {
         title: "customerName",
         shortTitle: "shortTitle",
+        narrowTitle: "order-desk.header.narrow-title",
         // Parts are joined by a separator; `format` formats the raw field value.
         narrowSubtitle: "narrowSubtitle",
         subtitle: [
@@ -1962,6 +1994,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
       summary: { field: "summaryLine", narrowField: "summaryShort", toneField: "summaryTone" },
       banner: {
         field: "notice",
+        iconless: true,
         actions: [
           {
             kind: "navigate",
@@ -1999,8 +2032,9 @@ export function createOrderDeskFeature(): FeatureDefinition {
           },
         ],
       },
+      mobileSummary: "mobileLine",
       metricsStyle: "tiles",
-      metricsPlacement: { narrow: "after-guidance" },
+      metricsPlacement: { narrow: "before-steps" },
       metrics: [
         {
           field: "totalAmount",
@@ -2014,6 +2048,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
           subField: "outstandingNote",
           tone: "warn",
           toneField: "outstandingTone",
+          visibleWhen: { field: "status", ne: "delivered" },
           navigate: { tab: "payments" },
         },
         {
@@ -2031,6 +2066,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
             kind: "relatedList",
             title: "order-desk.tab.items",
             countField: "itemsCount",
+            after: { react: { __component: "OrderItemsFooter" } },
             query: "order-desk:query:order:items",
             columns: [
               { field: "sku", label: "order-desk.col.sku" },
@@ -2073,11 +2109,12 @@ export function createOrderDeskFeature(): FeatureDefinition {
             id: "details",
             kind: "fields",
             title: "order-desk.tab.details",
-            fields: ["shippingAddress", "billingAddress", "salesRep"],
+            fields: ["shippingAddress", { field: "billingAddress", concealed: true }, "salesRep"],
           },
           {
             id: "internal-note",
             kind: "extension",
+            hideOnNarrow: true,
             title: "order-desk.tab.internalNote",
             component: { react: { __component: "OrderInternalNote" } },
             entityName: "order",
@@ -2109,6 +2146,33 @@ export function createOrderDeskFeature(): FeatureDefinition {
         },
       ],
       inlineActions: ["download-invoice"],
+      access: accessRoles,
+    });
+
+    r.screen({
+      id: "order-facts",
+      type: "projectionDetail",
+      query: "order-desk:query:order:detail",
+      listScreenId: "orders",
+      header: { title: "customerName" },
+      // Two short stacked sections need no "On this page" index.
+      pageNavigation: false,
+      layout: {
+        sections: [
+          {
+            id: "contact",
+            kind: "fields",
+            title: "order-desk.facts.contact",
+            fields: ["salesRep"],
+          },
+          {
+            id: "address",
+            kind: "fields",
+            title: "order-desk.facts.address",
+            fields: ["shippingAddress", "billingAddress"],
+          },
+        ],
+      },
       access: accessRoles,
     });
   });
@@ -2614,6 +2678,7 @@ export function answerOrderDetail(id: string) {
     path: [{ label: "Orders" }, { label: "Aiko Tanaka" }, { label: "SO-10482" }],
     summaryLine: "Waiting for the second payment",
     summaryShort: "Second payment open.",
+    mobileLine: "€ 312.00 open of € 1,248.00",
     summaryTone: "warn",
     narrowSubtitle: "SO-10482 · placed 21 Aug",
     notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },

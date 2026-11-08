@@ -3,6 +3,7 @@ import * as z from "zod";
 import { type ErrorNotice, ErrorReference } from "../app/error-reference.tsx";
 import { isPresent, REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.ts";
 import { dispatcherErrorText } from "../app/write-failed-error.ts";
+import { stripUntouchedEmptyStrings } from "../headless/form/form-controller.ts";
 import type {
   EditFieldViewModel,
   EditWriteFormSectionViewModel,
@@ -14,7 +15,10 @@ import { useTranslation } from "../i18n.tsx";
 import { useUnsavedInputSource } from "../leave-guard.ts";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.tsx";
 import { GridCellForField } from "./grid-cell-for-field.tsx";
+import { narrowAwareDescription } from "./narrow-description.tsx";
+import { appendixCellProps } from "./render-edit-field-grid.tsx";
 import { hasIssueWithoutVisibleField, issuesAfterEdit } from "./render-edit-logic.ts";
+import { useWriteFormRegistry } from "./write-form-registry.ts";
 
 function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z
@@ -39,10 +43,14 @@ export type WriteFormSectionProps = {
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
+  /** Small uppercase label instead of a heading (record pages). */
+  readonly labelTitle?: boolean;
   /** Fired after a successful submit, once this section reset itself to its
    *  initial values — projectionDetail refetches its record (a new one now
    *  exists), see ProjectionDetailBody's reloadNonce in kumiko-screen.tsx. */
   readonly onSubmitted: () => void;
+  /** The screen's record: hintField and badge fall back to it for fields the form does not hold. */
+  readonly recordValues?: Readonly<Record<string, unknown>>;
   /** section.actions, already resolved into buttons by the caller —
    *  rendered in the title row, apart from the section's own submit button. */
   readonly actions?: ReactNode;
@@ -51,6 +59,77 @@ export type WriteFormSectionProps = {
    *  of the end of the section body. Called with undefined on unmount. */
   readonly onFooterAction?: (action: ReactNode | undefined) => void;
 };
+
+// Only an error no rendered field can show gets the banner.
+function submitErrorNotice(
+  error: Parameters<typeof dispatcherErrorText>[0],
+  fields: readonly EditFieldViewModel[],
+  translate: Translate,
+): ErrorNotice | null {
+  const issuePaths = (error.details?.fields ?? []).map((i) => i.path);
+  if (!hasIssueWithoutVisibleField(issuePaths, fields)) return null;
+  return {
+    message: dispatcherErrorText(error, translate),
+    ...(error.requestId !== undefined && { requestId: error.requestId }),
+  };
+}
+
+// An action with `submitWith` validates and reads this form through the registry.
+type FormController = ReturnType<typeof useForm>["controller"];
+
+function useRegisterWriteForm(
+  submitWith: string | undefined,
+  controller: FormController,
+  fields: readonly EditFieldViewModel[],
+): void {
+  const registry = useWriteFormRegistry();
+  useEffect(() => {
+    if (submitWith === undefined || registry === null) return;
+    registry.set(submitWith, {
+      validate: () => controller.validate(),
+      invalidFieldLabels: () =>
+        Object.keys(controller.getSnapshot().errors).map(
+          (path) => fields.find((f: EditFieldViewModel) => f.field === path)?.label ?? path,
+        ),
+      // Same as controller.submit: an untouched "" would fail an optional enum/email/date in the schema.
+      getValues: () => {
+        const { values, initial } = controller.getSnapshot();
+        return stripUntouchedEmptyStrings(values, initial, new Set());
+      },
+      rebase: () => controller.rebase(),
+    });
+    return () => {
+      registry.delete(submitWith);
+    };
+  }, [registry, submitWith, controller, fields]);
+}
+
+function WriteFormFeedback({
+  error,
+  submitRow,
+}: {
+  readonly error: ErrorNotice | null;
+  readonly submitRow: ReactNode;
+}): ReactNode {
+  const { Banner, Card } = usePrimitives();
+  return (
+    <>
+      {error !== null && (
+        <Banner variant="error" testId="write-form-section-error">
+          {error.message}
+          <ErrorReference requestId={error.requestId} />
+        </Banner>
+      )}
+      {submitRow !== null && (
+        <Card
+          options={{ framed: false, footerBordered: false, footerInset: false }}
+          slots={{ footer: submitRow }}
+          testId="write-form-section-submit-row"
+        />
+      )}
+    </>
+  );
+}
 
 // A self-persisting form section for projectionDetail (see
 // EditWriteFormSection's doc). Deliberately NOT a nested <RenderEdit> — that
@@ -62,11 +141,13 @@ export function WriteFormSection({
   featureName,
   translate,
   hideTitle,
+  labelTitle,
   onSubmitted,
+  recordValues,
   actions,
   onFooterAction,
 }: WriteFormSectionProps): ReactNode {
-  const { Section, Card, Grid, GridCell, Button, Banner } = usePrimitives();
+  const { Section, Card, Grid, GridCell, Button, StatusBadge } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
 
@@ -83,6 +164,8 @@ export function WriteFormSection({
   useUnsavedInputSource(() => controller.getSnapshot().isDirty);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<ErrorNotice | null>(null);
+  const { submitWith } = section;
+  useRegisterWriteForm(submitWith, controller, section.fields);
 
   async function handleSubmit(): Promise<void> {
     if (isSubmitting) return;
@@ -104,15 +187,7 @@ export function WriteFormSection({
       // GridCellForField/RenderField path RenderEdit uses) — the banner stays
       // for anything no rendered field can show (`version`, `id`, a root
       // refine, a hidden field).
-      const issuePaths = (result.error.details?.fields ?? []).map((i) => i.path);
-      setError(
-        hasIssueWithoutVisibleField(issuePaths, section.fields)
-          ? {
-              message: dispatcherErrorText(result.error, effectiveTranslate),
-              ...(result.error.requestId !== undefined && { requestId: result.error.requestId }),
-            }
-          : null,
-      );
+      setError(submitErrorNotice(result.error, section.fields, effectiveTranslate));
     } finally {
       setIsSubmitting(false);
     }
@@ -125,6 +200,7 @@ export function WriteFormSection({
   // latest handleSubmit through a ref instead of capturing a stale closure.
   const handleSubmitRef = useRef(handleSubmit);
   handleSubmitRef.current = handleSubmit;
+  const sectionTestId = `write-form-${section.title ?? section.handler}`;
   const submitLabel = section.submitLabel ?? effectiveTranslate("kumiko.actions.save");
   const submitButton = (
     <Button
@@ -142,10 +218,10 @@ export function WriteFormSection({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: submitButton is rebuilt every render; isSubmitting and submitLabel are everything it shows.
   useEffect(() => {
-    if (onFooterAction === undefined) return;
+    if (onFooterAction === undefined || submitWith !== undefined) return;
     onFooterAction(submitButton);
     return () => onFooterAction(undefined);
-  }, [onFooterAction, isSubmitting, submitLabel]);
+  }, [onFooterAction, submitWith, isSubmitting, submitLabel]);
 
   const content = (
     <>
@@ -165,6 +241,7 @@ export function WriteFormSection({
             }}
             GridCell={GridCell}
             featureName={featureName}
+            {...appendixCellProps({}, field, { ...recordValues, ...snapshot.values }, StatusBadge)}
             allIssues={snapshot.errors}
             valueDisplay="form"
             row={snapshot.values}
@@ -173,19 +250,10 @@ export function WriteFormSection({
           />
         ))}
       </Grid>
-      {error !== null && (
-        <Banner variant="error" testId="write-form-section-error">
-          {error.message}
-          <ErrorReference requestId={error.requestId} />
-        </Banner>
-      )}
-      {onFooterAction === undefined && (
-        <Card
-          options={{ framed: false, footerBordered: false, footerInset: false }}
-          slots={{ footer: submitButton }}
-          testId="write-form-section-submit-row"
-        />
-      )}
+      <WriteFormFeedback
+        error={error}
+        submitRow={onFooterAction === undefined && submitWith === undefined ? submitButton : null}
+      />
     </>
   );
 
@@ -197,10 +265,12 @@ export function WriteFormSection({
       <Card
         options={{ framed: false }}
         slots={{
-          ...(section.description !== undefined && { subtitle: section.description }),
+          ...(section.description !== undefined && {
+            subtitle: narrowAwareDescription(section.description, section.descriptionNarrow),
+          }),
           ...(actions !== undefined && { headerActions: actions }),
         }}
-        testId={`write-form-${section.title ?? section.handler}`}
+        testId={sectionTestId}
       >
         {content}
       </Card>
@@ -210,10 +280,13 @@ export function WriteFormSection({
   return (
     <Section
       {...(section.title !== undefined && { title: section.title })}
-      {...(section.description !== undefined && { subtitle: section.description })}
+      {...(labelTitle === true && { titleStyle: "label" as const })}
+      {...(section.description !== undefined && {
+        subtitle: narrowAwareDescription(section.description, section.descriptionNarrow),
+      })}
       {...(section.icon !== undefined && { icon: section.icon })}
       {...(actions !== undefined && { actions })}
-      testId={`write-form-${section.title ?? section.handler}`}
+      testId={sectionTestId}
     >
       {content}
     </Section>

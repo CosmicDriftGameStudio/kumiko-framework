@@ -155,7 +155,7 @@ export function deriveTitles<TValues extends FormValues, TCtx>(
       headerRegion !== undefined && PageHeader !== undefined && state.pageHeaderSlotAvailable,
     stepRail: state.isWizard && layout.isScreenForm && StepBar !== undefined,
     sectionNavItems:
-      layout.isScreenForm && !state.isStepped
+      layout.isScreenForm && !state.isStepped && props.recordSections?.pageNavigation !== false
         ? deriveSectionNavItems(filteredSections, formTitle)
         : [],
     compactStepLabel: deriveCompactStepLabel(

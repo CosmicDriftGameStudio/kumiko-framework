@@ -103,7 +103,7 @@ function isCurrencyOnlyMoney(value: unknown): boolean {
   );
 }
 
-function stripUntouchedEmptyStrings<TValues extends FormValues>(
+export function stripUntouchedEmptyStrings<TValues extends FormValues>(
   values: TValues,
   initial: TValues,
   forceIncludeEmpty: ReadonlySet<string>,

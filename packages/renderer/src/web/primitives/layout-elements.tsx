@@ -22,6 +22,49 @@ import "../react-css-custom-properties.ts";
 import { cardSurface } from "./card-styles.ts";
 import { DrawerBodyContext, InsideFormContext, ScreenFormContext } from "./contexts.tsx";
 
+// Desktop boards print the hint under the data, phone boards above it.
+const SECTION_HINT_CLASS =
+  "m-0 mt-3 text-[12.5px] text-muted-foreground max-sm:order-first max-sm:mb-3 max-sm:mt-0";
+
+function SectionHint({ text, textNarrow, testId }: NonNullable<SectionProps["hint"]>): ReactNode {
+  if (textNarrow !== undefined) {
+    return (
+      <p data-testid={testId} className={SECTION_HINT_CLASS}>
+        <NarrowText text={text} narrow={textNarrow} />
+      </p>
+    );
+  }
+  const end = text.indexOf(". ");
+  const first = end === -1 ? text : text.slice(0, end + 1);
+  const rest = end === -1 ? "" : text.slice(end + 1);
+  return (
+    <p data-testid={testId} className={SECTION_HINT_CLASS}>
+      <strong className="font-semibold">{first}</strong>
+      {rest}
+    </p>
+  );
+}
+
+// The flex column lets the phone hint jump above the content via `order-first`.
+function withSectionHint(children: ReactNode, hint: SectionProps["hint"]): ReactNode {
+  if (hint === undefined) return children;
+  return (
+    <div className="flex flex-col">
+      {children}
+      <SectionHint {...hint} />
+    </div>
+  );
+}
+
+function NarrowText({ text, narrow }: { text: ReactNode; narrow: string }): ReactNode {
+  return (
+    <>
+      <span className="max-sm:hidden">{text}</span>
+      <span className="sm:hidden">{narrow}</span>
+    </>
+  );
+}
+
 export function DefaultSection({
   id,
   title,
@@ -31,9 +74,12 @@ export function DefaultSection({
   actions,
   variant = "default",
   layout = "stacked",
+  titleStyle = "heading",
+  hint,
   testId,
   icon,
 }: SectionProps): ReactNode {
+  const labelTitle = titleStyle === "label";
   const insideForm = useContext(InsideFormContext);
   const insideScreenForm = useContext(ScreenFormContext);
 
@@ -51,8 +97,14 @@ export function DefaultSection({
       <div className="flex min-w-48 flex-1 flex-col gap-1">
         {title !== undefined && (
           <TitleTag
+            data-section-title=""
             data-testid={testId !== undefined ? `${testId}-title` : undefined}
-            className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight"
+            className={cn(
+              "flex items-center gap-2",
+              labelTitle
+                ? "text-[12.5px] font-semibold uppercase leading-none tracking-[0.06em] text-muted-foreground"
+                : "text-base font-semibold leading-none tracking-tight",
+            )}
           >
             {icon !== undefined && <Icon name={icon} className="size-4 text-muted-foreground" />}
             {title}
@@ -101,14 +153,16 @@ export function DefaultSection({
           // gap only needs to read as roughly double the gap-4 field row
           // spacing, not triple it.
           insideScreenForm
-            ? "flex scroll-mt-4 flex-col gap-4 [&:not(:first-of-type)]:border-t [&:not(:first-of-type)]:border-border [&:not(:first-of-type)]:pt-7"
+            ? labelTitle
+              ? "flex scroll-mt-4 flex-col gap-2 [&:not(:first-of-type)]:pt-6"
+              : "flex scroll-mt-4 flex-col gap-4 [&:not(:first-of-type)]:border-t [&:not(:first-of-type)]:border-border [&:not(:first-of-type)]:pt-7"
             : "flex flex-col gap-4 px-6 py-4",
           variant === "destructive" && "border-l-2 border-destructive/40",
-          layout === "settings-list" && "@container max-w-4xl",
+          layout === "settings-list" && "@container max-w-[944px]",
         )}
       >
         {header}
-        {children}
+        {withSectionHint(children, hint)}
       </section>
     );
   }
@@ -132,7 +186,7 @@ export function DefaultSection({
     >
       <div className="flex flex-col gap-4 px-6 py-6">
         {header}
-        {children}
+        {withSectionHint(children, hint)}
       </div>
     </div>
   );
@@ -158,7 +212,7 @@ export function DefaultFillContainer({
 }
 
 const DRAWER_FIELD_CELL_WIDTH_CLASS: Partial<Record<FieldCellWidth, string>> = {
-  money: "w-full sm:w-[200px] [&_label]:whitespace-nowrap",
+  money: "w-full [&_label]:whitespace-nowrap",
   select: "w-full",
 };
 
@@ -184,6 +238,7 @@ export function DefaultGrid({
   list,
   ariaLabelledBy,
   tight,
+  facts,
 }: GridProps): ReactNode {
   const insideDrawerBody = useContext(DrawerBodyContext);
   const groupProps =
@@ -193,6 +248,23 @@ export function DefaultGrid({
   if (list === true) {
     return (
       <div {...groupProps} data-testid={testId} className="flex flex-col divide-y divide-border">
+        {children}
+      </div>
+    );
+  }
+  if (facts === true && typeof columns === "number") {
+    const factStyle: CSSProperties = {
+      "--grid-cols": `repeat(${columns}, minmax(0, 1fr))`,
+      "--grid-cols-narrow": `repeat(${Math.min(columns, 2)}, minmax(0, 1fr))`,
+    };
+    return (
+      <div
+        {...groupProps}
+        data-testid={testId}
+        data-facts=""
+        className="grid gap-x-6 gap-y-3 [grid-template-columns:var(--grid-cols-narrow)] sm:[grid-template-columns:var(--grid-cols)] [&_label]:text-[12.5px] [&_label]:font-normal [&_label]:text-muted-foreground [&_[data-testid^=field-value-]]:text-sm [&_[data-testid^=field-value-]:not([data-concealed])]:font-medium [&_[data-testid^=field-value-]:not([data-concealed])]:text-foreground"
+        style={factStyle}
+      >
         {children}
       </div>
     );
@@ -269,13 +341,14 @@ export function DefaultGrid({
   );
 }
 
-export function DefaultGridCell({ span, width, children }: GridCellProps): ReactNode {
+export function DefaultGridCell({ span, width, hideOnNarrow, children }: GridCellProps): ReactNode {
   const insideDrawerBody = useContext(DrawerBodyContext);
   if (width !== undefined) {
     return (
       <div
         className={cn(
           "min-w-0 max-w-full",
+          hideOnNarrow === true && "max-sm:hidden",
           width === "full" && "sm:[grid-column:1/-1]",
           insideDrawerBody
             ? (DRAWER_FIELD_CELL_WIDTH_CLASS[width] ?? FIELD_CELL_WIDTH_CLASS[width])
@@ -291,7 +364,13 @@ export function DefaultGridCell({ span, width, children }: GridCellProps): React
   // `span N` there would add implicit auto columns that squeeze the fr column.
   const style: CSSProperties = { "--grid-span": s };
   return (
-    <div className="min-w-0 sm:[grid-column:span_var(--grid-span)]" style={style}>
+    <div
+      className={cn(
+        "min-w-0 sm:[grid-column:span_var(--grid-span)]",
+        hideOnNarrow === true && "max-sm:hidden",
+      )}
+      style={style}
+    >
       {children}
     </div>
   );
@@ -300,9 +379,24 @@ export function DefaultGridCell({ span, width, children }: GridCellProps): React
 export function DefaultText({
   variant = "body",
   decorative,
+  concealed,
+  narrow,
   children,
   testId,
 }: TextProps): ReactNode {
+  if (narrow !== undefined) return <NarrowText text={children} narrow={narrow} />;
+  if (concealed === true) {
+    return (
+      <span
+        data-testid={testId}
+        data-concealed=""
+        className="inline-flex items-center gap-1.5 text-muted-foreground"
+      >
+        <Icon name="lock" className="size-3.5 shrink-0" />
+        {children}
+      </span>
+    );
+  }
   switch (variant) {
     case "code":
       return (

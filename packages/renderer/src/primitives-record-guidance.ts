@@ -27,6 +27,10 @@ export type PhotoGridProps = {
     /** FileRef id of the image; a tile without one shows a placeholder. */
     readonly imageId?: string;
     readonly caption?: string;
+    /** Short text shown as a warn badge on the image's top left. */
+    readonly badge?: string;
+    /** Moves the tile to the front on a phone (below `sm`); the DOM order stays. */
+    readonly leadsOnNarrow?: true;
     readonly actions?: ReactNode;
   }[];
   readonly testId?: string;

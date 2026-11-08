@@ -1,12 +1,14 @@
 import { type cardColumnRoles, cardMetaLines } from "@cosmicdrift/kumiko-framework/ui-types";
-import { ChevronRight } from "lucide-react";
-import type { ReactNode } from "react";
+import { Sparkles } from "lucide-react";
+import { Fragment, type ReactNode } from "react";
 import type {
   ListColumnHintViewModel,
   ListColumnViewModel,
   ListRowViewModel,
 } from "../../../headless/index.ts";
+import { cn } from "../../lib/cn.ts";
 import {
+  CellPill,
   cellLinkProp,
   DataTableCell,
   isBadgeColumn,
@@ -36,11 +38,18 @@ function cardHint(hint: ListColumnHintViewModel): ListColumnHintViewModel {
   return { ...rest, ...(detailField !== undefined && { detailField }) };
 }
 
+function withoutPill(col: ListColumnViewModel): ListColumnViewModel {
+  const { pillField: _pill, pillToneField: _pillTone, ...rest } = col;
+  return rest;
+}
+
 function cardCell(
   m: DataTableModel,
   row: ListRowViewModel,
   col: ListColumnViewModel,
-  { linksAllowed }: { readonly linksAllowed: boolean } = { linksAllowed: false },
+  { linksAllowed, omitPill }: { readonly linksAllowed: boolean; readonly omitPill?: boolean } = {
+    linksAllowed: false,
+  },
 ): ReactNode {
   const { onCellChange } = m;
   const opensRow = m.rowOpener(row) !== undefined;
@@ -57,14 +66,12 @@ function cardCell(
       renderer={col.renderer}
       translate={m.tableTranslate}
       locale={m.tableLocale}
-      {...columnCellPresentationProps(col)}
+      {...columnCellPresentationProps(omitPill === true ? withoutPill(col) : col)}
       {...(col.hint !== undefined && { hint: cardHint(col.hint) })}
       {...(col.fileDisplay !== undefined && { fileDisplay: col.fileDisplay, compactFile: true })}
       {...(onCellChange !== undefined && {
         onChange: (value: unknown) => onCellChange(row.id, col.field, value),
       })}
-      {...(col.rowActionLink === true &&
-        col.display === undefined && { display: "button" as const })}
       {...cellLinkProp(col, row, linksAllowed || !opensRow)}
     />
   );
@@ -116,7 +123,7 @@ export function renderCardLinks(
   return (
     <div
       data-testid={`card-links-${row.id}`}
-      className="flex flex-wrap items-center gap-x-3 text-[13px] leading-5"
+      className="flex flex-wrap items-center gap-x-3 text-[13px] font-medium leading-5 text-primary"
     >
       {linkColumns.map((col) => (
         <span key={col.field} data-testid={cellTestIdOf(m, row, col.field)}>
@@ -136,7 +143,7 @@ function renderMetaCell(
     <div
       key={col.field}
       data-testid={cellTestIdOf(m, row, col.field)}
-      className="min-w-0 max-w-full truncate leading-5"
+      className={`min-w-0 max-w-full leading-5 ${col.ellipsis === true ? "truncate" : "break-words"}${col.multiline === true ? " whitespace-pre-line" : ""}${col.emphasis === true ? " font-semibold text-foreground" : ""}`}
       onPointerEnter={showFullTextOnHover}
     >
       {isBadgeColumn(col) ? (
@@ -152,27 +159,44 @@ function renderCardMeta(
   m: DataTableModel,
   row: ListRowViewModel,
   metaColumns: readonly ListColumnViewModel[],
+  placement: "above" | "below" = "below",
 ): ReactNode {
+  const plain = m.plainPhoneCards === true;
+  const lines = cardMetaLines(metaColumns);
   return (
     // One column per line, truncated on its own line.
     <div className="min-w-0">
       <div
-        data-testid={`card-meta-${row.id}`}
-        className="flex min-w-0 flex-col text-[13px] leading-5 tabular-nums text-foreground-secondary"
+        data-testid={placement === "above" ? `card-above-${row.id}` : `card-meta-${row.id}`}
+        className={`flex min-w-0 flex-col text-[12.5px] leading-5 tabular-nums text-muted-foreground`}
       >
-        {cardMetaLines(metaColumns).map((line) =>
+        {lines.map((line, lineIndex) =>
           line[0]?.narrowInline === true ? (
             <div
               key={line.map((col) => col.field).join("|")}
               data-testid={`card-vals-${row.id}-${line[0].field}`}
-              className="mt-1 flex min-w-0 max-w-full flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px] leading-5"
+              className={cn(
+                "mt-1 flex min-w-0 max-w-full flex-wrap items-center gap-y-0.5 text-[12.5px] leading-5",
+                plain ? "gap-x-0" : "gap-x-3",
+              )}
             >
-              {line.map((col) => renderMetaCell(m, row, col))}
+              {line.map((col, colIndex) => (
+                <Fragment key={col.field}>
+                  {plain && colIndex > 0 && <span aria-hidden="true">,&nbsp;</span>}
+                  {renderMetaCell(m, row, col)}
+                </Fragment>
+              ))}
             </div>
           ) : (
             <div
               key={line.map((col) => col.field).join("|")}
-              className="flex h-5 min-w-0 max-w-full items-center"
+              className={cn(
+                "flex min-h-5 min-w-0 max-w-full items-center",
+                plain &&
+                  placement === "below" &&
+                  lineIndex === lines.length - 1 &&
+                  "text-foreground",
+              )}
             >
               {line.map((col) => renderMetaCell(m, row, col))}
             </div>
@@ -183,19 +207,55 @@ function renderCardMeta(
   );
 }
 
+// Header line of the card: the "to do" sentence (primary with a sparkle when the column is `emphasis`)
+// on the left, the column's extra pill on the right.
 function renderCardLead(
   m: DataTableModel,
   row: ListRowViewModel,
   lead: ListColumnViewModel | undefined,
 ): ReactNode {
   if (lead === undefined || isEmptyCellValue(row.values[lead.field])) return null;
+  const emphasized = lead.emphasis === true;
+  const pill = (
+    <CellPill row={row.values} pillField={lead.pillField} pillToneField={lead.pillToneField} />
+  );
   return (
-    <div
-      data-testid={cellTestIdOf(m, row, lead.field)}
-      className="min-w-0 text-xs font-medium leading-5"
-    >
-      {cardCell(m, row, lead)}
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <div
+        data-testid={cellTestIdOf(m, row, lead.field)}
+        className={`flex min-w-0 items-start gap-1.5 text-xs leading-5 ${emphasized ? "font-medium text-primary [&_span]:text-primary" : "font-medium text-muted-foreground"}`}
+      >
+        {emphasized && <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />}
+        {cardCell(m, row, lead, { linksAllowed: false, omitPill: true })}
+      </div>
+      {pill !== null && <span className="shrink-0">{pill}</span>}
     </div>
+  );
+}
+
+const OUTLINED_NEUTRAL_PILL_CLASS =
+  "[&_span]:border [&_span]:border-border-strong [&_span]:bg-transparent [&_span]:text-muted-foreground";
+
+function renderCardStatus(
+  m: DataTableModel,
+  row: ListRowViewModel,
+  status: ListColumnViewModel,
+): ReactNode {
+  const cell = cardCell(m, row, status);
+  return (
+    <span data-testid={cellTestIdOf(m, row, status.field)} className="shrink-0">
+      {status.cardBadge === true ? (
+        isBadgeColumn(status) ? (
+          <span className={`inline-flex ${OUTLINED_NEUTRAL_PILL_CLASS}`}>{cell}</span>
+        ) : (
+          <span className="inline-flex rounded-full border border-border-strong px-2 py-0.5 text-xs text-muted-foreground">
+            {cell}
+          </span>
+        )
+      ) : (
+        cell
+      )}
+    </span>
   );
 }
 
@@ -214,11 +274,7 @@ function renderCardHeading(m: DataTableModel, row: ListRowViewModel, roles: Card
           {cardCell(m, row, cardTitleColumn)}
         </span>
       )}
-      {showStatus && (
-        <span data-testid={cellTestIdOf(m, row, cardStatusColumn.field)} className="shrink-0">
-          {cardCell(m, row, cardStatusColumn)}
-        </span>
-      )}
+      {showStatus && renderCardStatus(m, row, cardStatusColumn)}
     </div>
   );
 }
@@ -229,11 +285,13 @@ export function renderCardBody(
   roles: CardRoles,
 ): ReactNode {
   const { image: cardImageColumn, meta: cardMetaColumns } = roles;
-  const metaColumns = cardMetaColumns.filter(
+  const shownMeta = cardMetaColumns.filter(
     (col) =>
       !isEmptyCellValue(row.values[col.field]) &&
       !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
   );
+  const aboveColumns = shownMeta.filter((col) => col.cardAbove === true);
+  const metaColumns = shownMeta.filter((col) => col.cardAbove !== true);
   return (
     <>
       {cardImageColumn?.fileDisplay !== undefined && (
@@ -246,12 +304,10 @@ export function renderCardBody(
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {renderCardLead(m, row, roles.lead)}
+        {aboveColumns.length > 0 && renderCardMeta(m, row, aboveColumns, "above")}
         {renderCardHeading(m, row, roles)}
         {metaColumns.length > 0 && renderCardMeta(m, row, metaColumns)}
       </div>
-      {m.rowOpener(row) !== undefined && (
-        <ChevronRight className="size-4 shrink-0 text-border-strong" aria-hidden="true" />
-      )}
     </>
   );
 }

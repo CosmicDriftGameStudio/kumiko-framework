@@ -26,11 +26,9 @@ export function FlushTable({
 // Child selectors only: an expanded row nests a whole table inside a cell, and
 // descendant selectors would make its header sticky and re-pad its cells.
 export const FILL_TABLE_CLASS = cn(
-  "[&>thead>tr>th]:sticky [&>thead>tr>th]:top-0 [&>thead>tr>th]:z-10 [&>thead>tr>th]:h-9 [&>thead>tr>th]:bg-muted [&>thead>tr>th]:px-2 [&>thead>tr>th]:text-[13px]",
-  "[&>thead>tr>th]:shadow-[inset_0_-1px_0_var(--color-border)] [&>thead>tr>th_button]:text-[13px] [&>tbody>tr>td]:px-2 [&>tbody>tr>td]:py-0",
-  // The small-caps header size of SortableHeader; the child selectors above would outrank it.
-  "sm:[&>thead>tr>th]:text-[11px] sm:[&>thead>tr>th_button]:text-[11px]",
-  "[&>*>tr>:first-child]:pl-6 [&>*>tr>:last-child]:pr-6",
+  "[&>thead>tr>th]:sticky [&>thead>tr>th]:top-0 [&>thead>tr>th]:z-10 [&>thead>tr>th]:h-[37px] [&>thead>tr>th]:bg-background [&>thead>tr>th]:px-3 [&>thead>tr>th]:text-[13.5px]",
+  "[&>thead>tr>th]:shadow-[inset_0_-1.5px_0_var(--color-border-row)] [&>thead>tr>th_button]:text-[13.5px] [&>tbody>tr>td]:px-3 [&>tbody>tr>td]:py-0",
+  "[&>*>tr>:first-child]:pl-6 [&>*>tr>:last-child]:pr-[34px]",
 );
 
 // `!`: beats the first/last-child padding of FILL_TABLE_CLASS, which would

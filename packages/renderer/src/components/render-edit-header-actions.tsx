@@ -164,6 +164,7 @@ function renderCustomActions<TValues extends FormValues, TCtx>({
       key={action.id}
       action={action}
       iconOnly={layout.iconOnlyMidActions}
+      {...(action.pinnedOnPhone === true && { hideIcon: true })}
       {...(action.pinnedOnPhone === true && { [FOOTER_ACTION_ROLE_PROP]: "inline" as const })}
       Button={Button}
       Dialog={Dialog}

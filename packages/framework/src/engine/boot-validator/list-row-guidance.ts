@@ -97,7 +97,11 @@ export function validatePhotoGrid(
   where: string,
   section: {
     readonly columns: readonly ListColumnSpec[];
-    readonly photoGrid?: { readonly imageField: string; readonly captionField?: string };
+    readonly photoGrid?: {
+      readonly imageField: string;
+      readonly captionField?: string;
+      readonly badgeField?: string;
+    };
   },
 ): void {
   const { photoGrid } = section;
@@ -106,6 +110,7 @@ export function validatePhotoGrid(
   for (const [option, field] of [
     ["imageField", photoGrid.imageField],
     ["captionField", photoGrid.captionField],
+    ["badgeField", photoGrid.badgeField],
   ] as const) {
     if (field === undefined || columnFields.has(field)) continue;
     throw bootRuleError(LIST_ROW_GUIDANCE_RULES.photoGridFieldNotInColumns, {

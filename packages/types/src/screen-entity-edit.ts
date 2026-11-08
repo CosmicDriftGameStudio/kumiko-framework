@@ -68,6 +68,17 @@ export type EditFieldSpec =
        *  the field to its value. The values come from another field of the same form that
        *  holds an array of numbers (e.g. hidden and `submit: false`, seeded by prefill). */
       readonly valueChips?: FieldValueChips;
+      /** Read-only display of a value the viewer may not see: the value (or the mask the query
+       *  returns) shows muted with a lock icon instead of a replacement text. */
+      readonly concealed?: true;
+      /** Pill next to the label, e.g. "price source open" in `warn`. `label` is an i18n key; `field` names a
+       *  value field of the form or record whose non-empty text is the pill text (no text: no pill). */
+      readonly badge?: FieldBadge;
+      /** Value field whose non-empty text shows as a muted small hint under the field
+       *  (e.g. "From the buyer: Skoda Octavia"). */
+      readonly hintField?: string;
+      /** Leaves the field out below `sm`; its value is still submitted. */
+      readonly hideOnNarrow?: true;
       /** Marks this field as a reference lookup instead of a plain value —
        *  for projectionDetail fields, which have no `EntityDefinition` to
        *  carry a real `reference` field type. Same target convention as
@@ -90,6 +101,11 @@ export type EditFieldSpec =
        *  field `default`, it is not applied server-side. */
       readonly prefill?: EditFieldPrefill;
     };
+
+/** Pill next to a field label: a fixed i18n `label`, or the text of another value `field`. */
+export type FieldBadge =
+  | { readonly label: string; readonly tone: SelectOptionTone }
+  | { readonly field: string; readonly tone: SelectOptionTone };
 
 export type FieldAffix = string | { readonly field: string };
 
@@ -161,6 +177,20 @@ export type EditFieldPrefill =
       readonly property: "displayName" | "email" | "id";
     };
 
+/** Presentation options every section kind of a projectionDetail takes. */
+export type EditSectionPresentation = {
+  /** i18n key of the tab name when the layout is in tabs mode; the section `title` stays the card heading. Without it the tab is named after the title of the first section with that tab id. */
+  readonly tabLabel?: string;
+  /** Component drawn directly under this section's card, in its column (also beside photos); same `{ react: { __component } }` form as `slots.afterForm`, receiving the same props. */
+  readonly after?: PlatformComponent;
+  /** Leaves the section out below `sm`. Exclusive with `showOnNarrowOnly`. */
+  readonly hideOnNarrow?: true;
+  /** Shows the section only below `sm` (e.g. a compact facts block for phones). */
+  readonly showOnNarrowOnly?: true;
+  /** `false` leaves the section title out below `sm` (phone); the title stays from `sm` up. */
+  readonly titleOnNarrow?: false;
+};
+
 // A section is a normal field-grid (default — `kind` omitted keeps every
 // existing screen-def working), an extension slot that mounts a feature-
 // provided component, or a related-list of other records. The extension
@@ -176,7 +206,7 @@ export type EditSectionSpec =
   | EditWriteFormSection
   | EditStepListSection;
 
-type EditFieldsSectionBase = {
+type EditFieldsSectionBase = EditSectionPresentation & {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
@@ -195,6 +225,8 @@ type EditFieldsSectionBase = {
    *  `subtitle` slot as `FormProps.subtitle`. Works without `title` too
    *  (subtitle-only section). */
   readonly description?: string;
+  /** i18n key of a short text shown instead of `description` below `sm`. */
+  readonly descriptionNarrow?: string;
   readonly columns?: number;
   /** Rendered left of the section title, `text-muted-foreground` — closed
    *  IconKey vocabulary into the ICONS registry (renderer/web), analogous
@@ -224,7 +256,8 @@ type EditFieldsSectionBase = {
 export type EditFieldGroup = {
   readonly title: string;
   readonly fields: readonly EditFieldSpec[];
-  /** Default 2. */
+  /** Edit mode renders 2 columns by default. In read mode only a declared value turns the group
+   *  into a label/value grid; without it the stacked layout stays. */
   readonly columns?: number;
 };
 
@@ -251,7 +284,7 @@ export type StepListItem = {
 /** Vertical numbered step list (circles joined by a line), fed from one field of the detail
  *  query. Only supported on projectionDetail. Several sections sharing one `id` stack inside one
  *  tab, e.g. fields, relatedList and stepList under "Overview". */
-export type EditStepListSection = {
+export type EditStepListSection = EditSectionPresentation & {
   readonly id?: string;
   readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly kind: "stepList";
@@ -262,7 +295,7 @@ export type EditStepListSection = {
   readonly actions?: undefined;
 };
 
-export type EditExtensionSection = {
+export type EditExtensionSection = EditSectionPresentation & {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
@@ -341,7 +374,7 @@ export type ListEmptyStateSpec = {
 // projectionDetail screen showing e.g. a tenant's payments below the
 // tenant's own fields. Only supported on projectionDetail; the
 // boot-validator rejects it on entityEdit/configEdit/actionForm.
-export type EditRelatedListSection = {
+export type EditRelatedListSection = EditSectionPresentation & {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
@@ -459,8 +492,12 @@ export type EditRelatedListSection = {
   readonly photoGrid?: {
     /** Row field holding a FileRef id (or an id array, the first shows). */
     readonly imageField: string;
-    /** Row field printed under the image. */
+    /** Row field printed under the image; without it the tile reads "Photo n". */
     readonly captionField?: string;
+    /** Row field whose non-empty text shows as a warn badge on the image's top left. */
+    readonly badgeField?: string;
+    /** On a phone (below `sm`) tiles whose `badgeField` has text come first, the rest keep their order; from `sm` up the natural order stays. */
+    readonly badgeFirst?: true;
   };
 };
 
@@ -488,7 +525,7 @@ export type RelatedListEmptyStateSpec = ListEmptyStateSpec & {
 // `EditFieldsSection.fields`. Only supported on projectionDetail — the
 // boot-validator rejects it on entityEdit/configEdit/actionForm, same as
 // `relatedList`.
-export type EditWriteFormSection = {
+export type EditWriteFormSection = EditSectionPresentation & {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
@@ -499,6 +536,8 @@ export type EditWriteFormSection = {
   readonly kind: "writeForm";
   readonly title?: string;
   readonly description?: string;
+  /** i18n key of a short text shown instead of `description` below `sm`. */
+  readonly descriptionNarrow?: string;
   readonly columns?: number;
   readonly icon?: IconKey;
   /** Field-type map for this section's own form — same shape as
@@ -517,6 +556,8 @@ export type EditWriteFormSection = {
   readonly handler: string;
   /** i18n-key for the submit button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
+  /** Id of a writeHandler action in the screen's `actions`. The section then has no submit button of its own: the action sends its own payload plus this form's current values in one write to the action's handler, after the form validated (an invalid form sends nothing). A form field named like a payload key of the action is rejected at boot; `handler` is not dispatched. */
+  readonly submitWith?: string;
   /** Rendered top-right in the section's Card title row — same
    *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
    *  evaluated against the same record. Every action must resolve an icon
@@ -541,6 +582,8 @@ export type EditLayout = {
    *  boot-validator rejects it on entityEdit, see the check for the reason);
    *  requires >= 2 sections, each with a title and an `id`. */
   readonly mode?: "single" | "wizard" | "tabs";
+  /** `false` (tabs mode): below `sm` there is no tab strip, the visible sections of every tab stand one under the other. */
+  readonly narrowTabs?: false;
   /** "settings-list" lays each section out as a band with a title column on
    *  the left and one hairline-separated row per field (label + help left,
    *  control right) — the familiar settings pattern, for screens that are a

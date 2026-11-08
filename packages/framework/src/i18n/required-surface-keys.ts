@@ -540,6 +540,11 @@ function collectProjectionDetailKeys(
   detail: ScreenOfKind["projectionDetail"],
 ): void {
   for (const metric of detail.metrics ?? []) pushKey(ctx.out, metric.label);
+  pushKey(ctx.out, detail.header?.narrowTitle);
+  for (const section of detail.layout.sections) {
+    pushKey(ctx.out, section.tabLabel);
+    if ("descriptionNarrow" in section) pushKey(ctx.out, section.descriptionNarrow);
+  }
   pushDetailGuidanceKeys(
     detail,
     (value) => pushKey(ctx.out, value),

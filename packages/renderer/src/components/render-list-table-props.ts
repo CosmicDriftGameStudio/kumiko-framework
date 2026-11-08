@@ -1,5 +1,6 @@
 import type { ListNarrowFacets } from "@cosmicdrift/kumiko-types/screen";
 import type { ReactNode } from "react";
+import type { DataTableProps } from "../primitives.tsx";
 import type { RenderListProps } from "./render-list-types.ts";
 
 type Pick2<K extends keyof RenderListProps> = Pick<RenderListProps, K>;
@@ -33,10 +34,16 @@ export function tableSortPagingProps(
     | "onReachEnd"
     | "loadingMore"
     | "hasMore"
-  > & { readonly narrowFacets?: ListNarrowFacets },
+  > & {
+    readonly narrowFacets?: ListNarrowFacets;
+    readonly screenToolbarSort?: boolean;
+    /** A stand-in screen is a locked preview: no paging. */
+    readonly isStandIn: boolean;
+  },
 ) {
-  const { sort, onSortChange, sortOptions, toolbarSort, pager, onReachEnd, loadingMore, hasMore } =
-    p;
+  const { sort, onSortChange, sortOptions, onReachEnd, loadingMore, hasMore } = p;
+  const toolbarSort = p.toolbarSort ?? p.screenToolbarSort;
+  const pager = p.isStandIn ? undefined : p.pager;
   return {
     ...(p.narrowFacets !== undefined && { narrowFacets: p.narrowFacets }),
     ...(sort !== undefined && { sort }),
@@ -50,13 +57,18 @@ export function tableSortPagingProps(
   };
 }
 
-export function tableRowProps(p: Pick2<"rowActions" | "rowActionMode" | "bulk" | "rowTone">) {
-  const { rowActions, rowActionMode, bulk, rowTone } = p;
+export function tableRowProps(
+  p: Pick2<"rowActions" | "rowActionMode" | "bulk" | "rowTone"> & {
+    readonly rowMuted: DataTableProps["rowMuted"];
+  },
+) {
+  const { rowActions, rowActionMode, bulk, rowTone, rowMuted } = p;
   return {
     ...(rowActions !== undefined && { rowActions }),
     ...(rowActionMode !== undefined && { rowActionMode }),
     ...(bulk !== undefined && { bulk }),
     ...(rowTone !== undefined && { rowTone }),
+    ...(rowMuted !== undefined && { rowMuted }),
   };
 }
 
@@ -92,23 +104,29 @@ export function tableLayoutProps(
   p: Pick2<
     | "chromeless"
     | "scrollBody"
+    | "hideCountFooter"
+    | "plainPhoneCards"
     | "screenPadding"
     | "expandedRowIds"
     | "onToggleRowExpanded"
     | "renderExpandedRow"
-  >,
+  > & { readonly isStandIn: boolean },
 ) {
   const {
     chromeless,
     scrollBody,
+    plainPhoneCards,
     screenPadding,
     expandedRowIds,
     onToggleRowExpanded,
     renderExpandedRow,
   } = p;
+  const hideCountFooter = p.isStandIn || p.hideCountFooter === true;
   return {
     ...(chromeless !== undefined && { chromeless }),
     ...(scrollBody !== undefined && { scrollBody }),
+    ...(hideCountFooter && { hideCountFooter }),
+    ...(plainPhoneCards !== undefined && { plainPhoneCards }),
     ...(screenPadding !== undefined && { screenPadding }),
     ...(expandedRowIds !== undefined && { expandedRowIds }),
     ...(onToggleRowExpanded !== undefined && { onToggleRowExpanded }),

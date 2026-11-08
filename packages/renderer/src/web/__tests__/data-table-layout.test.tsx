@@ -185,7 +185,7 @@ describe("DataTable column resizing", () => {
     expect(screen.getByTestId("t").style.tableLayout).toBe("");
   });
 
-  test("without a chosen width the table stays auto and sizes by content, the first column unbounded", () => {
+  test("without a chosen width the table stays auto and sizes by content, the first column is wider and truncates", () => {
     render(
       <DataTable
         columns={columns}
@@ -200,13 +200,14 @@ describe("DataTable column resizing", () => {
     expect(table.querySelector("colgroup")).toBeNull();
     expect(screen.getByTestId("column-resize-name")).toBeTruthy();
     const firstCell = screen.getByTestId("cell-r1-name").className.split(/\s+/);
-    expect(firstCell).toContain("[overflow-wrap:anywhere]");
+    expect(firstCell).toContain("max-w-md");
+    expect(firstCell).toContain("truncate");
     expect(firstCell).not.toContain("max-w-xs");
     expect(screen.getByTestId("cell-r1-city").className.split(/\s+/)).toContain("max-w-xs");
     expect(screen.getByRole("button", { name: "Ada" }).className).not.toContain("truncate");
   });
 
-  test("dates in a resizable table keep one line, without resizing they wrap as before", () => {
+  test("dates keep one line, in a resizable table and without resizing", () => {
     const datedColumns = [
       ...columns,
       { field: "expiresAt", label: "Expires", type: "timestamp" as const, sortable: false },
@@ -237,7 +238,7 @@ describe("DataTable column resizing", () => {
     );
     unmount();
     render(<DataTable columns={datedColumns} rows={datedRows} testId="t" view={view()} />);
-    expect(screen.getByTestId("cell-r1-expiresAt").className.split(/\s+/)).not.toContain(
+    expect(screen.getByTestId("cell-r1-expiresAt").className.split(/\s+/)).toContain(
       "whitespace-nowrap",
     );
   });

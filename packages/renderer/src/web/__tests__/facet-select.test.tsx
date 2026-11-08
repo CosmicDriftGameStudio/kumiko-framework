@@ -23,8 +23,8 @@ function triggerText(selected: readonly string[]): string | null {
 }
 
 describe("FacetSelect trigger", () => {
-  test("an empty selection names the first entry", () => {
-    expect(triggerText([])).toBe("Filter: Alle");
+  test("an empty selection shows only the label", () => {
+    expect(triggerText([])).toBe("Filter");
   });
 
   test("a selection of an entry the facet does not offer shows only the label, not Alle", () => {

@@ -54,16 +54,7 @@ export function FacetSearchFilter({
           className={cn("h-9", dense && "border-border-strong px-2.5", pill && FACET_PILL_CLASSES)}
           data-testid={`facet-${facet.field}`}
         >
-          {selected.length === 0 ? (
-            <FacetTriggerLabel
-              field={facet.field}
-              label={facet.label}
-              emptyValueLabel={t("kumiko.list.filter.all")}
-              showEmptyValue={!pill}
-            />
-          ) : (
-            facet.label
-          )}
+          {selected.length === 0 ? <FacetTriggerLabel label={facet.label} /> : facet.label}
           {selected.length > 0 && (
             <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
               {selected.length}

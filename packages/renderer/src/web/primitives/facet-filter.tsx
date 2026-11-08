@@ -1,11 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
-import {
-  type DataTableDateRangeFacet,
-  type DataTableFacet,
-  type DataTableFacetChip,
-  useOptionalTranslation,
-} from "../../index.ts";
+import type { DataTableDateRangeFacet, DataTableFacet, DataTableFacetChip } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { Badge } from "../ui/badge.tsx";
 import { Button as UiButton } from "../ui/button.tsx";
@@ -120,9 +115,9 @@ function FacetSelect({
         >
           {/* Key grey, value in foreground; a set filter turns the value primary. */}
           <span className="text-muted-foreground">
-            {active === undefined ? facet.label : `${facet.label}: `}
+            {active === undefined || !isFiltered ? facet.label : `${facet.label}: `}
           </span>
-          {active !== undefined && (
+          {active !== undefined && isFiltered && (
             <span
               data-testid={`facet-${facet.field}-value`}
               className={isFiltered ? "font-medium text-primary" : "text-foreground"}
@@ -184,8 +179,6 @@ export function FacetFilter({
   /** Compact pill trigger for the dropdown facets: rounded, auto width. */
   pill?: boolean;
 }): ReactNode {
-  const translate = useOptionalTranslation();
-  const allLabel = translate?.("kumiko.list.filter.all") ?? "All";
   const toggle = (value: string, checked: boolean): void => {
     const next = checked ? [...selected, value] : selected.filter((v) => v !== value);
     onChange(facet.field, next);
@@ -225,16 +218,7 @@ export function FacetFilter({
           className={cn("h-9", dense && "border-border-strong px-2.5", pill && FACET_PILL_CLASSES)}
           data-testid={`facet-${facet.field}`}
         >
-          {selected.length === 0 ? (
-            <FacetTriggerLabel
-              field={facet.field}
-              label={facet.label}
-              emptyValueLabel={allLabel}
-              showEmptyValue={!pill}
-            />
-          ) : (
-            facet.label
-          )}
+          {selected.length === 0 ? <FacetTriggerLabel label={facet.label} /> : facet.label}
           {selected.length > 0 && (
             <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
               {selected.length}

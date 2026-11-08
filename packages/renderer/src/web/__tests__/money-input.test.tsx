@@ -29,7 +29,8 @@ describe("MoneyInput", () => {
     const symbol = screen.getByTestId("eur-currency");
     expect(symbol.textContent).toBe("€");
     expect(symbol.className).toContain("text-muted-foreground");
-    expect(symbol.className).toContain("pr-3");
+    expect(symbol.className).toContain("absolute");
+    expect(symbol.style.left).toContain("calc(");
   });
 
   test("blur-view: en-US USD shows $ prefix + comma thousands separator + dot decimal separator", () => {

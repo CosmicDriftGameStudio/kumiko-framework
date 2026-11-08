@@ -4,6 +4,7 @@ import type {
   EmbeddedDerivedCellDef,
   FieldAffix,
   FieldAiAssist,
+  FieldBadge,
   FieldCondition,
   FieldFillAction,
   FieldIconKey,
@@ -117,6 +118,8 @@ export type ListColumnViewModel = {
   readonly highlighted?: boolean;
   /** Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column. */
   readonly hideOnNarrow?: boolean;
+  /** Mirrors `ListColumnSpec.hideWhenDocked`: a table in a narrow container skips the column. */
+  readonly hideWhenDocked?: true;
   /** Mirrors `ListColumnSpec.showOnNarrowOnly`: the table layout skips the column. */
   readonly showOnNarrowOnly?: boolean;
   /** Mirrors `ListColumnSpec.narrowInline`: the card draws consecutive such columns on one line. */
@@ -144,8 +147,22 @@ export type ListColumnViewModel = {
   readonly pillField?: string;
   /** Row field naming the pill tone. */
   readonly pillToneField?: string;
-  /** `false`: an empty cell stays blank instead of showing "—". */
-  readonly emptyPlaceholder?: false;
+  /** An empty cell stays blank; a string is shown muted in its place. */
+  readonly emptyPlaceholder?: string | false;
+  /** Mirrors `ListColumnSpec.ellipsis`: one line, cut with an ellipsis. */
+  readonly ellipsis?: true;
+  /** Mirrors `ListColumnSpec.multiline`: `\n` in the value breaks the line. */
+  readonly multiline?: true;
+  /** Mirrors `ListColumnSpec.cardAbove`. */
+  readonly cardAbove?: true;
+  /** Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour. */
+  readonly emphasis?: true;
+  /** Mirrors `ListColumnSpec.tone`. */
+  readonly tone?: "muted";
+  /** Mirrors `ListColumnSpec.cardBadge`. */
+  readonly cardBadge?: true;
+  /** Mirrors `ListColumnSpec.dateOnlyAfterDays`. */
+  readonly dateOnlyAfterDays?: number;
 };
 
 export type ListColumnCellDisplay = "badge" | "button";
@@ -387,6 +404,14 @@ export type EditFieldViewModel = {
   readonly aiAssist?: FieldAiAssist;
   /** From EditFieldSpec.valueChips. */
   readonly valueChips?: FieldValueChips;
+  /** From EditFieldSpec.concealed. */
+  readonly concealed?: true;
+  /** From EditFieldSpec.badge, a fixed `label` already translated. */
+  readonly badge?: FieldBadge;
+  /** From EditFieldSpec.hintField. */
+  readonly hintField?: string;
+  /** From EditFieldSpec.hideOnNarrow. */
+  readonly hideOnNarrow?: true;
   /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
    *  metadata the renderer needs to draw each column/cell. Absent for a
    *  plain (non-list) embedded field. */
@@ -431,12 +456,24 @@ export type EditFieldViewModel = {
 // Discriminated by `kind` — mirrors EditSectionSpec on the engine side.
 // The builder always emits `kind` explicitly (no defaulting), so the
 // renderer narrows with a strict equality check.
-export type EditSectionViewModel =
+/** Presentation options copied from `EditSectionPresentation` onto every section view model. */
+export type EditSectionPresentationViewModel = {
+  readonly titleOnNarrow?: false;
+  /** Translated `tabLabel`. */
+  readonly tabLabel?: string;
+  readonly after?: PlatformComponent;
+  readonly hideOnNarrow?: true;
+  readonly showOnNarrowOnly?: true;
+};
+
+export type EditSectionViewModel = (
   | EditFieldsSectionViewModel
   | EditExtensionSectionViewModel
   | EditRelatedListSectionViewModel
   | EditWriteFormSectionViewModel
-  | EditStepListSectionViewModel;
+  | EditStepListSectionViewModel
+) &
+  EditSectionPresentationViewModel;
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
@@ -457,6 +494,8 @@ export type EditFieldsSectionViewModel = {
   /** Translated help text under the block heading, from
    *  `EditFieldsSection.description`. Renders even without `title`. */
   readonly description?: string;
+  /** Translated `EditFieldsSection.descriptionNarrow`. */
+  readonly descriptionNarrow?: string;
   /** Translated `EditFieldsSection.subtitle` (wizard step rail / up-next box). */
   readonly subtitle?: string;
   /** Translated `EditFieldsSection.upNextHint`. */
@@ -464,12 +503,16 @@ export type EditFieldsSectionViewModel = {
   /** From `EditFieldsSection.summaryField` (wizard step rail). */
   readonly summaryField?: string;
   readonly columns: number;
+  /** True when the author declared `columns` (section or group); only then may a read-only
+   *  section draw a label/value grid. */
+  readonly columnsDeclared?: true;
   readonly fields: readonly EditFieldViewModel[];
   /** From `EditFieldsSection.groups` — each entry's `fields` are the same
    *  view-model objects as `fields` above, re-grouped (not recomputed). */
   readonly groups?: readonly {
     readonly title: string;
     readonly columns: number;
+    readonly columnsDeclared?: true;
     readonly fields: readonly EditFieldViewModel[];
   }[];
   /** From `EditFieldsSection.icon` — closed IconKey vocabulary, renders
@@ -547,7 +590,12 @@ export type EditRelatedListSectionViewModel = {
    *  above the table itself). */
   readonly actions?: readonly RowAction[];
   /** From `EditRelatedListSection.photoGrid` — draws the rows as image tiles. */
-  readonly photoGrid?: { readonly imageField: string; readonly captionField?: string };
+  readonly photoGrid?: {
+    readonly imageField: string;
+    readonly captionField?: string;
+    readonly badgeField?: string;
+    readonly badgeFirst?: true;
+  };
   /** From `EditRelatedListSection.emptyState` — forwarded to the
    *  DataTable's `emptyState` prop when the section has zero rows. */
   readonly emptyState?: {
@@ -566,11 +614,15 @@ export type EditWriteFormSectionViewModel = {
   readonly kind: "writeForm";
   readonly title?: string;
   readonly description?: string;
+  /** Translated `EditWriteFormSection.descriptionNarrow`. */
+  readonly descriptionNarrow?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
   readonly icon?: IconKey;
   readonly handler: string;
   readonly submitLabel?: string;
+  /** From `EditWriteFormSection.submitWith`. */
+  readonly submitWith?: string;
   /** From `EditWriteFormSection.actions`. */
   readonly actions?: readonly RowAction[];
 };

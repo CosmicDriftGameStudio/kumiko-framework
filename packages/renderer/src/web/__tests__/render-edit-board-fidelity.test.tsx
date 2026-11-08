@@ -6,6 +6,7 @@ import type {
 import type { ReactNode } from "react";
 import { DispatcherProvider, InsideDrawerProvider, RenderEdit } from "../../index.ts";
 import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot.tsx";
+import { DrawerBodyContext } from "../primitives/contexts.tsx";
 import { defaultPrimitives } from "../primitives/index.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.tsx";
 
@@ -269,7 +270,8 @@ describe("RenderEdit board fidelity", () => {
     const grid = screen.getByTestId("g");
     expect(grid.className).toContain("flex-col");
     expect(grid.className).not.toContain("flex-wrap");
-    expect(grid.firstElementChild?.className).toContain("sm:w-[200px]");
+    expect(grid.firstElementChild?.className).toContain("w-full");
+    expect(grid.firstElementChild?.className).not.toContain("sm:w-[200px]");
     expect(screen.getByTestId("drawer-form").querySelector("hr")).toBeNull();
   });
 
@@ -304,6 +306,20 @@ describe("RenderEdit board fidelity", () => {
     }
     expect(screen.getByTestId("g").children[0]?.className).toContain("w-24");
     expect(screen.getByTestId("g").children[1]?.className).toContain("w-40");
+  });
+
+  test("a money cell in a drawer form is as wide as the other inputs", () => {
+    const { GridCell } = defaultPrimitives;
+    render(
+      <DrawerBodyContext.Provider value={true}>
+        <GridCell width="money" hideOnNarrow={false}>
+          <span data-testid="m" />
+        </GridCell>
+      </DrawerBodyContext.Provider>,
+    );
+    const cls = screen.getByTestId("m").parentElement?.className ?? "";
+    expect(cls).toContain("w-full");
+    expect(cls).not.toContain("w-40");
   });
 
   test("a select cell takes a full row when it renders as a radio list", () => {

@@ -17,6 +17,7 @@ import type {
 } from "../headless/index.ts";
 import { computeListViewModel } from "../headless/index.ts";
 import {
+  withCellStyleColumns,
   withDisplayColumns,
   withEmptyPlaceholderColumns,
   withHintColumns,
@@ -105,26 +106,29 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
   const resolveScreenLink = useScreenLinkResolver();
   const enrichedColumns = useMemo(
     (): readonly ListColumnViewModel[] =>
-      withNarrowOnlyColumns(
-        withNarrowInlineColumns(
-          withPillColumns(
-            withDisplayColumns(
-              withHintColumns(
-                withScreenLinks(
-                  enrichReferenceColumns({
-                    // Flag first: the reference renderer reads it while it is built.
-                    columns: withEmptyPlaceholderColumns(vm.columns, screen),
-                    referenceColumns,
-                    referenceLookups,
-                    resolveReferenceLink,
-                    featureName,
-                    translate,
-                  }),
+      withCellStyleColumns(
+        withNarrowOnlyColumns(
+          withNarrowInlineColumns(
+            withPillColumns(
+              withDisplayColumns(
+                withHintColumns(
+                  withScreenLinks(
+                    enrichReferenceColumns({
+                      // Flag first: the reference renderer reads it while it is built.
+                      columns: withEmptyPlaceholderColumns(vm.columns, screen),
+                      referenceColumns,
+                      referenceLookups,
+                      resolveReferenceLink,
+                      featureName,
+                      translate,
+                    }),
+                    screen,
+                    resolveScreenLink,
+                  ),
                   screen,
-                  resolveScreenLink,
+                  translate,
                 ),
                 screen,
-                translate,
               ),
               screen,
             ),

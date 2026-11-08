@@ -105,7 +105,9 @@ describe("field prefix, suffix and fillAction", () => {
 
     expect(screen.getByTestId("input-prefix-slug").textContent).toBe("https://");
     expect(screen.getByTestId("input-suffix-slug").textContent).toBe("example.org");
-    expect(screen.getByTestId("input-suffix-seats").textContent).toBe("seats");
+    // A number field draws its suffix inside the field, right behind the number.
+    expect(screen.queryByTestId("input-suffix-seats")).toBeNull();
+    expect(screen.getByTestId("field-seats").textContent).toContain("seats");
     expect(screen.queryByTestId("input-prefix-seats")).toBeNull();
   });
 

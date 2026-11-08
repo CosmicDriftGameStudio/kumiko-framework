@@ -183,8 +183,6 @@ function buildLinkItemsFor(lookup: ColumnLookup): RuntimeCellLinkItems {
 
 function buildReferenceRenderer(lookup: ColumnLookup): RuntimeRenderer {
   const { col, map, labelField, unresolvedLabel } = lookup;
-  // A function renderer bypasses DataTableCell's empty path, so `emptyPlaceholder: false` is honoured here.
-  const empty = col.emptyPlaceholder === false ? "" : EMPTY_VALUE_PLACEHOLDER;
   return (value: unknown, row?: Readonly<Record<string, unknown>>): string => {
     // Server eager loading: when the server includes _refs, read the display
     // value directly from the resolved row. This avoids a round trip
@@ -200,10 +198,10 @@ function buildReferenceRenderer(lookup: ColumnLookup): RuntimeRenderer {
     }
     // Renderer-side fallback when server eager loading is not active.
     if (Array.isArray(value)) {
-      if (value.length === 0) return empty;
+      if (value.length === 0) return "";
       return value.map((v) => map?.get(String(v)) ?? unresolvedLabel(String(v))).join(", ");
     }
-    if (value === null || value === undefined || value === "") return empty;
+    if (value === null || value === undefined || value === "") return "";
     const idStr = String(value);
     return map?.get(idStr) ?? unresolvedLabel(idStr);
   };

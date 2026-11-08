@@ -20,6 +20,10 @@ shared chrome (footer, submit button) can be compared side by side.
 - `note-detail`, a `projectionDetail` screen whose only section is
   `kind: "writeForm"` with the identical field set, dispatching its own
   `note-desk:write:note:comment` handler on submit
+- `note-triage`, an `actionForm`: `infoBand` draws the `assist` banner; the layout field
+  options `badge` (`{ label, tone }`) and `hintField` (a value field as muted hint) and a
+  `suffix` behind the number field. `FormProps.topBanner` is not shown: no screen
+  declaration reaches it
 - an e2e layout-parity spec (`e2e/writeform-parity.spec.ts`) proving both
   submit buttons render the same width, sit right-aligned in their form's
   footer, and never stretch full-width — the regression this recipe guards
@@ -606,6 +610,7 @@ import {
   sectionFieldSpecs,
   validateBoot as validateBootRaw,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import { z } from "zod";
 import { noteDeskFeature } from "../feature";
@@ -712,6 +717,233 @@ describe("writeform-section sample — boot-validator catches author mistakes", 
     );
   });
 });
+
+describe("writeform-section sample — submitWith and narrow options", () => {
+  test("note-approval registers the form with submitWith and tab labels", () => {
+    expect(() => validateBoot([noteDeskFeature])).not.toThrow();
+    const screen = registry.getScreen("note-desk:screen:note-approval");
+    if (screen?.type !== "projectionDetail") throw new Error("expected projectionDetail");
+    const form = screen.layout.sections[0];
+    if (form?.kind !== "writeForm") throw new Error("expected writeForm section");
+    expect(form.submitWith).toBe("approve");
+    expect(screen.layout.sections.map((s) => s.tabLabel)).toEqual(["Review", "History"]);
+    expect(screen.layout.narrowTabs).toBe(false);
+  });
+
+  function approvalFeature(options: {
+    readonly submitWith: string;
+    readonly payload?: { readonly map: Record<string, string> };
+    readonly fields?: readonly string[];
+  }) {
+    return defineFeature("approval-desk", (r) => {
+      r.translations({
+        keys: {
+          "screen:x.title": { en: "X" },
+          "approval-desk:entity:__write-form-section__:field:name": { en: "Name" },
+          "approval-desk:entity:__write-form-section__:field:noteId": { en: "Note" },
+        },
+      });
+      const access = {
+        openToAll: { reason: "test handler callable by any signed-in test user" },
+      } as const;
+      r.queryHandler({
+        name: "foo:detail",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({}),
+        access,
+      });
+      r.writeHandler({
+        name: "approve",
+        schema: z.object({}).passthrough(),
+        handler: async () => ({ isSuccess: true as const, data: null }),
+        access,
+      });
+      const text = createTextField({ personal: false, reason: "is_business_data" });
+      r.screen({
+        id: "x",
+        type: "projectionDetail",
+        query: "approval-desk:query:foo:detail",
+        layout: {
+          sections: [
+            {
+              kind: "writeForm",
+              title: "s",
+              fieldDefs: { name: text, noteId: text },
+              fields: options.fields ?? ["name"],
+              handler: "approval-desk:write:approve",
+              submitWith: options.submitWith,
+            },
+          ],
+        },
+        actions: [
+          {
+            id: "approve",
+            label: "Approve",
+            handler: "approval-desk:write:approve",
+            ...(options.payload !== undefined && { payload: options.payload }),
+          },
+        ],
+      });
+    });
+  }
+
+  test("in a tabs layout the submitWith action must be limited to the form's tab", () => {
+    const tabsFeature = (showOnTabs: readonly string[] | undefined) =>
+      defineFeature("tabs-desk", (r) => {
+        r.translations({
+          keys: {
+            "screen:x.title": { en: "X" },
+            "tabs-desk:entity:__write-form-section__:field:name": { en: "Name" },
+          },
+        });
+        const access = {
+          openToAll: { reason: "test handler callable by any signed-in test user" },
+        } as const;
+        r.queryHandler({
+          name: "foo:detail",
+          schema: z.object({ id: z.string() }),
+          handler: async () => ({}),
+          access,
+        });
+        r.writeHandler({
+          name: "approve",
+          schema: z.object({}).passthrough(),
+          handler: async () => ({ isSuccess: true as const, data: null }),
+          access,
+        });
+        const text = createTextField({ personal: false, reason: "is_business_data" });
+        r.screen({
+          id: "x",
+          type: "projectionDetail",
+          query: "tabs-desk:query:foo:detail",
+          layout: {
+            mode: "tabs",
+            sections: [
+              {
+                id: "review",
+                kind: "writeForm",
+                title: "s",
+                fieldDefs: { name: text },
+                fields: ["name"],
+                handler: "tabs-desk:write:approve",
+                submitWith: "approve",
+              },
+              { id: "log", title: "Log", fields: ["name"] },
+            ],
+          },
+          actions: [
+            {
+              id: "approve",
+              label: "Approve",
+              handler: "tabs-desk:write:approve",
+              ...(showOnTabs !== undefined && { showOnTabs }),
+            },
+          ],
+        });
+      });
+    expect(() => validateBoot([tabsFeature(undefined)])).toThrow('showOnTabs: ["<that id>"]');
+    expect(() => validateBoot([tabsFeature(["review", "log"])])).toThrow("showOnTabs");
+    expect(() => validateBoot([tabsFeature(["review"])])).not.toThrow();
+  });
+
+  test("submitWith that names no action of the screen fails boot", () => {
+    expect(() => validateBoot([approvalFeature({ submitWith: "missing" })])).toThrow(
+      'sets submitWith "missing"',
+    );
+  });
+
+  test("a form field that the action also sends in its payload fails boot", () => {
+    expect(() =>
+      validateBoot([
+        approvalFeature({
+          submitWith: "approve",
+          payload: { map: { noteId: "id" } },
+          fields: ["name", "noteId"],
+        }),
+      ]),
+    ).toThrow('has the field "noteId"');
+  });
+
+  test("a valid submitWith boots", () => {
+    expect(() =>
+      validateBoot([
+        approvalFeature({ submitWith: "approve", payload: { map: { noteId: "id" } } }),
+      ]),
+    ).not.toThrow();
+  });
+});
+
+describe("writeform-section sample — presentation options are checked at boot", () => {
+  function detailFeature(
+    layout: ProjectionDetailScreenDefinition["layout"],
+    actions?: ProjectionDetailScreenDefinition["actions"],
+  ) {
+    return defineFeature("layout-desk", (r) => {
+      r.translations({ keys: { "screen:x.title": { en: "X" } } });
+      r.queryHandler({
+        name: "foo:detail",
+        schema: z.object({ id: z.string() }),
+        handler: async () => ({}),
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({
+        id: "x",
+        type: "projectionDetail",
+        query: "layout-desk:query:foo:detail",
+        layout,
+        ...(actions !== undefined && { actions }),
+      });
+    });
+  }
+  const fields = ["name"];
+
+  test("hideOnNarrow together with showOnNarrowOnly fails", () => {
+    expect(() =>
+      validateBoot([
+        detailFeature({ sections: [{ fields, hideOnNarrow: true, showOnNarrowOnly: true }] }),
+      ]),
+    ).toThrow("hideOnNarrow and showOnNarrowOnly");
+  });
+
+  test("tabLabel and narrowTabs without tabs mode fail", () => {
+    expect(() =>
+      validateBoot([detailFeature({ sections: [{ fields, tabLabel: "Tab" }] })]),
+    ).toThrow("tabLabel without layout.mode");
+    expect(() =>
+      validateBoot([detailFeature({ narrowTabs: false, sections: [{ fields }] })]),
+    ).toThrow("narrowTabs without layout.mode");
+  });
+
+  test("photoGrid.badgeFirst without badgeField fails", () => {
+    expect(() =>
+      validateBoot([
+        detailFeature({
+          sections: [
+            {
+              kind: "relatedList",
+              title: "Photos",
+              query: "layout-desk:query:foo:detail",
+              parentParam: "id",
+              columns: [{ field: "name", label: "Name" }],
+              photoGrid: { imageField: "name", badgeFirst: true },
+            },
+          ],
+        }),
+      ]),
+    ).toThrow("badgeFirst without badgeField");
+  });
+
+  test("a navigate action with icon: false needs no icon", () => {
+    const action = {
+      kind: "navigate" as const,
+      id: "open-board",
+      label: "Board",
+      screen: "x",
+      icon: false as const,
+    };
+    expect(() => validateBoot([detailFeature({ sections: [{ fields }] }, [action])])).not.toThrow();
+  });
+});
 ```
 
 ### src/feature.ts
@@ -771,11 +1003,21 @@ const commentPayloadSchema = z.object({
   priority: z.number().optional(),
 });
 
+const approvePayloadSchema = z.object({
+  noteId: z.string(),
+  title: z.string().optional(),
+  body: z.string().optional(),
+});
+
 export const noteDeskFeature = defineFeature("note-desk", (r) => {
   r.translations({
     keys: {
       "screen:note-edit.title": { en: "Edit note" },
       "screen:note-detail.title": { en: "Note" },
+      "screen:note-triage.title": { en: "Triage note" },
+      "note-desk:triage.info-band": { en: "Check the category, then send the note on." },
+      "note-desk:triage.badge-review": { en: "Needs review" },
+      "note-desk:triage.priority-suffix": { en: "pts" },
       "note-desk:entity:note:field:title": { en: "Title" },
       "note-desk:entity:note:field:body": { en: "Body" },
       "note-desk:entity:note:field:category": { en: "Category" },
@@ -837,6 +1079,93 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
         },
       ],
     },
+    access: open.access,
+  });
+
+  // An actionForm reaches the "assist" banner through `infoBand`; the layout field options
+  // `badge`, `hintField` and `suffix` work on any form layout.
+  r.screen({
+    id: "note-triage",
+    type: "actionForm",
+    handler: "note-desk:write:note:comment",
+    dormant: true,
+    infoBand: "note-desk:triage.info-band",
+    fields: {
+      title: NOTE_FIELDS.title,
+      body: NOTE_FIELDS.body,
+      category: NOTE_FIELDS.category,
+      priority: NOTE_FIELDS.priority,
+    },
+    layout: {
+      sections: [
+        {
+          columns: 1,
+          fields: [
+            { field: "title", badge: { label: "note-desk:triage.badge-review", tone: "warn" } },
+            { field: "category" },
+            { field: "body", hintField: "category" },
+            { field: "priority", suffix: "note-desk:triage.priority-suffix" },
+          ],
+        },
+      ],
+    },
+    access: open.access,
+  });
+
+  r.writeHandler({
+    name: "note:approve",
+    schema: approvePayloadSchema,
+    handler: async () => ({ isSuccess: true as const, data: null }),
+    ...open,
+  });
+
+  // The footer action "approve" submits the form: one write with its own payload (noteId)
+  // plus the form values, after form validation. The tab strip is phone-free; the "Review"
+  // section stands above the "History" section there.
+  r.screen({
+    id: "note-approval",
+    type: "projectionDetail",
+    query: "note-desk:query:note:summary",
+    layout: {
+      mode: "tabs",
+      narrowTabs: false,
+      sections: [
+        {
+          id: "review",
+          tabLabel: "Review",
+          kind: "writeForm",
+          title: "Decision",
+          description: "Confirm the note and leave a reason.",
+          descriptionNarrow: "Leave a reason.",
+          columns: 1,
+          fieldDefs: {
+            title: NOTE_FIELDS.title,
+            body: NOTE_FIELDS.body,
+          },
+          fields: ["title", { field: "body", hideOnNarrow: true }],
+          handler: "note-desk:write:note:approve",
+          submitWith: "approve",
+        },
+        {
+          id: "history",
+          tabLabel: "History",
+          title: "History",
+          titleOnNarrow: false,
+          fields: ["category", "priority"],
+        },
+      ],
+    },
+    actions: [
+      {
+        id: "approve",
+        label: "Approve",
+        handler: "note-desk:write:note:approve",
+        payload: { map: { noteId: "id" } },
+        // Tabs layout: only the tab that mounts the form may show the action.
+        showOnTabs: ["review"],
+      },
+    ],
+    footerActions: ["approve"],
     access: open.access,
   });
 });

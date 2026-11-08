@@ -15,6 +15,27 @@ describe("cardColumnRoles", () => {
     expect(roles.meta.map((c) => c.field)).toEqual(["a"]);
   });
 
+  test("an emphasis column without hint leads the card and is never the title", () => {
+    const roles = cardColumnRoles([
+      { field: "todo", emphasis: true, renderer: { react: {} } },
+      { field: "name" },
+      { field: "phone" },
+    ]);
+    expect(roles.lead?.field).toBe("todo");
+    expect(roles.title?.field).toBe("name");
+    expect(roles.meta.map((c) => c.field)).toEqual(["phone"]);
+  });
+
+  test("a hideOnNarrow column is never the title, the first visible one is", () => {
+    const roles = cardColumnRoles([
+      { field: "when", hideOnNarrow: true },
+      { field: "event" },
+      { field: "by" },
+    ]);
+    expect(roles.title?.field).toBe("event");
+    expect(roles.meta.map((c) => c.field)).toEqual(["by"]);
+  });
+
   test("the first select without renderer is the status, later selects stay meta", () => {
     const roles = cardColumnRoles([
       { field: "name" },

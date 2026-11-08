@@ -27,12 +27,21 @@ describe("DataTableCell display", () => {
     expect(screen.getByText("Failed").className).toContain("bg-status-bad-surface");
   });
 
-  test("badge draws an empty value as the placeholder, not as an empty pill", () => {
-    render(<DataTableCell value={null} row={{}} field="state" type="string" display="badge" />);
+  test("badge draws an empty value as the configured placeholder, not as an empty pill", () => {
+    render(
+      <DataTableCell
+        value={null}
+        row={{}}
+        field="state"
+        type="string"
+        display="badge"
+        emptyPlaceholder={EMPTY_VALUE_PLACEHOLDER}
+      />,
+    );
     expect(screen.getByText(EMPTY_VALUE_PLACEHOLDER).className).not.toContain("bg-status-");
   });
 
-  test("badge and button with a column renderer and an empty value draw the placeholder, not a pill", () => {
+  test("badge and button with a column renderer and an empty value draw the configured placeholder, not a pill", () => {
     for (const display of ["badge", "button"] as const) {
       const { unmount } = render(
         <DataTableCell
@@ -42,6 +51,7 @@ describe("DataTableCell display", () => {
           type="string"
           renderer={() => null}
           display={display}
+          emptyPlaceholder={EMPTY_VALUE_PLACEHOLDER}
           link={{ href: "/x", onPress: () => {} }}
         />,
       );
@@ -161,7 +171,7 @@ describe("DataTable row tone", () => {
   });
 
   test("cards use a real left border in the tone color", () => {
-    expect(cardToneClass("warn")).toContain("before:w-1");
+    expect(cardToneClass("warn")).toContain("before:w-[3px]");
     expect(cardToneClass("warn")).toContain("before:bg-status-warn");
   });
 });

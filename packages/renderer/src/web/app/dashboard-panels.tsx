@@ -21,6 +21,7 @@ import {
   useTranslation,
   useUserRoles,
 } from "../../index.ts";
+import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import {
   initialWindowSelection,
   type StackedAreaDateFormat,
@@ -129,6 +130,7 @@ function StatPanelContent({
   variant,
 }: StatPanelBodyProps): ReactNode {
   const formats = useDashboardFormats();
+  const belowSm = useIsBelowSmViewport();
   const nav = useNav();
   const link: StatLink | undefined = optionalDashboardNavigationLink(nav, panel.navigate);
   // Resolved HERE (not in a separate always-rendered child) so `icon` on
@@ -165,7 +167,12 @@ function StatPanelContent({
     (rawValue === 0 ? undefined : panel.tone);
   const sub = panel.subField !== undefined ? record[panel.subField] : undefined;
   const dynamicLabel = panel.labelField !== undefined ? record[panel.labelField] : undefined;
-  const shownLabel = typeof dynamicLabel === "string" && dynamicLabel !== "" ? dynamicLabel : label;
+  const staticLabel =
+    belowSm && panel.labelNarrow !== undefined
+      ? translate(panel.labelNarrow, typeof rawValue === "number" ? { count: rawValue } : {})
+      : label;
+  const shownLabel =
+    typeof dynamicLabel === "string" && dynamicLabel !== "" ? dynamicLabel : staticLabel;
   const delta = readDelta(panel, record);
   const value = statValueText(rawValue, panel.valueFormat, translate, formats);
   const spark = readSparkline(panel, record);
@@ -529,7 +536,19 @@ export function ChartPanelBody({
 
 type FeedEnvelope = {
   readonly rows?: readonly { readonly primary: unknown; readonly trailing?: unknown }[];
+  readonly total?: unknown;
 };
+
+function feedTotalText(
+  showTotal: NonNullable<DashboardFeedPanel["showTotal"]>,
+  data: FeedEnvelope,
+  translate: Translate,
+): string {
+  const shown = (data.rows ?? []).length;
+  const total = typeof data.total === "number" && Number.isFinite(data.total) ? data.total : shown;
+  const key = showTotal === true ? undefined : showTotal.text;
+  return translate(key ?? "kumiko.dashboard.list.shown-of-total", { shown, total });
+}
 
 export function FeedPanelBody({
   panel,
@@ -550,6 +569,9 @@ export function FeedPanelBody({
       translate={translate}
       skeleton="rows"
       isEmpty={(data) => (data.rows ?? []).length === 0}
+      {...(panel.showTotal !== undefined && {
+        subtitle: (data: FeedEnvelope) => feedTotalText(panel.showTotal ?? true, data, translate),
+      })}
     >
       {(data, formats) => {
         const rows: readonly FeedRow[] = (data.rows ?? []).map((row, i) => {
@@ -569,7 +591,19 @@ export function FeedPanelBody({
 
 type ProgressListEnvelope = {
   readonly rows?: readonly Readonly<Record<string, unknown>>[];
-};
+} & Readonly<Record<string, unknown>>;
+
+function labelParamsFrom(
+  labelParams: NonNullable<DashboardProgressListPanel["labelParams"]>,
+  data: ProgressListEnvelope,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(labelParams).map(([param, field]) => {
+      const value = data[field];
+      return [param, typeof value === "string" || typeof value === "number" ? String(value) : ""];
+    }),
+  );
+}
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -641,6 +675,18 @@ export function ProgressListPanelBody({
     <QueryPanel<ProgressListEnvelope>
       panel={panel}
       label={label}
+      {...(panel.labelParams !== undefined && {
+        titleFrom: (data: ProgressListEnvelope) =>
+          panel.labelParams === undefined
+            ? undefined
+            : translate(panel.label, labelParamsFrom(panel.labelParams, data)),
+      })}
+      {...(panel.subtitleField !== undefined && {
+        subtitle: (data: ProgressListEnvelope) => {
+          const value = panel.subtitleField === undefined ? undefined : data[panel.subtitleField];
+          return typeof value === "string" && value !== "" ? value : undefined;
+        },
+      })}
       screenParams={screenParams}
       translate={translate}
       skeleton="rows"

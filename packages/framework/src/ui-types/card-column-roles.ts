@@ -7,9 +7,12 @@ export type CardRoleColumn = {
   readonly renderer?: unknown;
   readonly hideOnNarrow?: boolean;
   readonly narrowInline?: boolean;
+  readonly cardBadge?: boolean;
   readonly fileDisplay?: { readonly kind: string };
   /** A "to do" hint column: never the default card title. */
   readonly hint?: unknown;
+  /** Leads the card like a hint column; covers computed columns, which need a renderer and so cannot take `hint`. */
+  readonly emphasis?: boolean;
 };
 
 export type CardColumnRoles<C extends CardRoleColumn> = {
@@ -48,15 +51,20 @@ export function cardColumnRoles<C extends CardRoleColumn>(
   const textColumns = columns.filter(
     (col) => col !== image && !(isImage(col) && col.hideOnNarrow === true),
   );
+  // A column the phone hides cannot be the card title.
+  const titleCandidates = textColumns.filter((col) => col.hideOnNarrow !== true);
+  const isLeadCandidate = (col: C): boolean => col.hint !== undefined || col.emphasis === true;
   const title =
-    textColumns.find((col) => col.highlighted === true) ??
-    textColumns.find((col) => col.hint === undefined) ??
-    textColumns[0];
-  const status = textColumns.find(
-    (col) => col !== title && col.type === "select" && col.renderer === undefined,
-  );
+    titleCandidates.find((col) => col.highlighted === true) ??
+    titleCandidates.find((col) => !isLeadCandidate(col)) ??
+    titleCandidates[0];
+  const status =
+    textColumns.find(
+      (col) => col !== title && col.cardBadge === true && col.hideOnNarrow !== true,
+    ) ??
+    textColumns.find((col) => col !== title && col.type === "select" && col.renderer === undefined);
   const lead = textColumns.find(
-    (col) => col !== title && col !== status && col.hint !== undefined && col.hideOnNarrow !== true,
+    (col) => col !== title && col !== status && isLeadCandidate(col) && col.hideOnNarrow !== true,
   );
   const meta = textColumns.filter(
     (col) => col !== title && col !== status && col !== lead && col.hideOnNarrow !== true,

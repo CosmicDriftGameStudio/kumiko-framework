@@ -52,11 +52,21 @@ const commentPayloadSchema = z.object({
   priority: z.number().optional(),
 });
 
+const approvePayloadSchema = z.object({
+  noteId: z.string(),
+  title: z.string().optional(),
+  body: z.string().optional(),
+});
+
 export const noteDeskFeature = defineFeature("note-desk", (r) => {
   r.translations({
     keys: {
       "screen:note-edit.title": { en: "Edit note" },
       "screen:note-detail.title": { en: "Note" },
+      "screen:note-triage.title": { en: "Triage note" },
+      "note-desk:triage.info-band": { en: "Check the category, then send the note on." },
+      "note-desk:triage.badge-review": { en: "Needs review" },
+      "note-desk:triage.priority-suffix": { en: "pts" },
       "note-desk:entity:note:field:title": { en: "Title" },
       "note-desk:entity:note:field:body": { en: "Body" },
       "note-desk:entity:note:field:category": { en: "Category" },
@@ -118,6 +128,93 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
         },
       ],
     },
+    access: open.access,
+  });
+
+  // An actionForm reaches the "assist" banner through `infoBand`; the layout field options
+  // `badge`, `hintField` and `suffix` work on any form layout.
+  r.screen({
+    id: "note-triage",
+    type: "actionForm",
+    handler: "note-desk:write:note:comment",
+    dormant: true,
+    infoBand: "note-desk:triage.info-band",
+    fields: {
+      title: NOTE_FIELDS.title,
+      body: NOTE_FIELDS.body,
+      category: NOTE_FIELDS.category,
+      priority: NOTE_FIELDS.priority,
+    },
+    layout: {
+      sections: [
+        {
+          columns: 1,
+          fields: [
+            { field: "title", badge: { label: "note-desk:triage.badge-review", tone: "warn" } },
+            { field: "category" },
+            { field: "body", hintField: "category" },
+            { field: "priority", suffix: "note-desk:triage.priority-suffix" },
+          ],
+        },
+      ],
+    },
+    access: open.access,
+  });
+
+  r.writeHandler({
+    name: "note:approve",
+    schema: approvePayloadSchema,
+    handler: async () => ({ isSuccess: true as const, data: null }),
+    ...open,
+  });
+
+  // The footer action "approve" submits the form: one write with its own payload (noteId)
+  // plus the form values, after form validation. The tab strip is phone-free; the "Review"
+  // section stands above the "History" section there.
+  r.screen({
+    id: "note-approval",
+    type: "projectionDetail",
+    query: "note-desk:query:note:summary",
+    layout: {
+      mode: "tabs",
+      narrowTabs: false,
+      sections: [
+        {
+          id: "review",
+          tabLabel: "Review",
+          kind: "writeForm",
+          title: "Decision",
+          description: "Confirm the note and leave a reason.",
+          descriptionNarrow: "Leave a reason.",
+          columns: 1,
+          fieldDefs: {
+            title: NOTE_FIELDS.title,
+            body: NOTE_FIELDS.body,
+          },
+          fields: ["title", { field: "body", hideOnNarrow: true }],
+          handler: "note-desk:write:note:approve",
+          submitWith: "approve",
+        },
+        {
+          id: "history",
+          tabLabel: "History",
+          title: "History",
+          titleOnNarrow: false,
+          fields: ["category", "priority"],
+        },
+      ],
+    },
+    actions: [
+      {
+        id: "approve",
+        label: "Approve",
+        handler: "note-desk:write:note:approve",
+        payload: { map: { noteId: "id" } },
+        // Tabs layout: only the tab that mounts the form may show the action.
+        showOnTabs: ["review"],
+      },
+    ],
+    footerActions: ["approve"],
     access: open.access,
   });
 });

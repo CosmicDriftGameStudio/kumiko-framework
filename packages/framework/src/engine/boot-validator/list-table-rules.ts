@@ -48,7 +48,8 @@ export const LIST_TABLE_RULES = {
   },
   hiddenWithoutColumnPicker: {
     id: "list-table/hidden-without-column-picker",
-    summary: "Hidden columns need table.columnPicker, otherwise the user can never show them.",
+    summary:
+      "Hidden columns need table.columnPicker, otherwise the user can never show them; a hidden column that backs a facet is exempt.",
     fix: "Set table: { columnPicker: true } or remove hidden from the column.",
   },
   hidesEveryColumn: {

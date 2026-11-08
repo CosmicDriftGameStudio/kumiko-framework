@@ -363,7 +363,11 @@ function formatJsonCell(spec: CellFormatSpec, value: unknown): string {
 
 const RELATIVE_TIME_STYLES = ["long", "short", "narrow"] as const;
 
-function formatRelativeTimeCell(spec: CellFormatSpec, value: unknown): string {
+function formatRelativeTimeCell(
+  spec: CellFormatSpec,
+  value: unknown,
+  translate: CellTranslate,
+): string {
   const atMs =
     typeof value === "number" ? value : typeof value === "string" ? Date.parse(value) : Number.NaN;
   if (!Number.isFinite(atMs)) return String(value);
@@ -371,9 +375,10 @@ function formatRelativeTimeCell(spec: CellFormatSpec, value: unknown): string {
   const absoluteAfterDays = spec["absoluteAfterDays"];
   const timeZone = stringSpec(spec, "timeZone");
   return formatRelativeTime(atMs, serverNowMs(), stringSpec(spec, "locale"), {
-    ...(isOneOf(RELATIVE_TIME_STYLES, style) && { style }),
-    ...(typeof absoluteAfterDays === "number" && { absoluteAfterDays }),
-    ...(spec["withTime"] === true && { withTime: true }),
+    style: isOneOf(RELATIVE_TIME_STYLES, style) ? style : "short",
+    absoluteAfterDays: typeof absoluteAfterDays === "number" ? absoluteAfterDays : 7,
+    withTime: spec["withTime"] !== false,
+    ...(translate !== undefined && { justNow: translate("kumiko.time.justNow") }),
     ...(timeZone !== undefined && { timeZone }),
   });
 }

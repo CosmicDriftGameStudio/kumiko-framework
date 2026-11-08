@@ -31,6 +31,7 @@ export function ProgressList({
     <ul data-testid={testId} className="flex max-h-64 flex-col gap-3 overflow-y-auto pr-1">
       {rows.map((row) => (
         <li key={row.id} className="flex flex-col gap-1">
+          {row.fraction !== null && <ProgressBar value={row.fraction} tone={row.tone} />}
           <div className="flex items-baseline justify-between gap-2 text-sm">
             <span className="font-medium">{row.label}</span>
             <span
@@ -42,7 +43,6 @@ export function ProgressList({
               {row.value}
             </span>
           </div>
-          {row.fraction !== null && <ProgressBar value={row.fraction} tone={row.tone} />}
           {row.sub !== undefined && <div className="text-xs text-muted-foreground">{row.sub}</div>}
         </li>
       ))}

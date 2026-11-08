@@ -1537,10 +1537,12 @@ type CardRoleColumn = {
   renderer?: unknown;
   hideOnNarrow?: boolean;
   narrowInline?: boolean;
+  cardBadge?: boolean;
   fileDisplay?: {
     kind: string;
   };
   hint?: unknown; // A "to do" hint column: never the default card title.
+  emphasis?: boolean; // Leads the card like a hint column; covers computed columns, which need a renderer and so cannot take `hint`.
 };
 ```
 
@@ -1694,6 +1696,7 @@ type CardOptions = { // Card-Options — Verhalten/Optik, ebenfalls additiv erwe
   framed?: boolean; // false drops border, background, shadow and radius but keeps padding and header slots — a panel inside a host surface such as a tab panel.
   screenBody?: boolean; // The card is the whole screen body (secretMint reveal and done phase): no frame, the shared screen insets and width of form screens, children stacked with a gap.
   headerLayout?: "stacked" | "inline"; // "inline": title and subtitle on one baseline row at 16px inset, compact padding (the board's side panel).
+  titleStyle?: "heading" | "label"; // "label": the title is a small uppercase muted label.
 };
 ```
 
@@ -2256,6 +2259,10 @@ type EditFieldViewModel = {
   fillAction?: FieldFillAction; // From EditFieldSpec.fillAction, `label` already translated.
   aiAssist?: FieldAiAssist; // From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated.
   valueChips?: FieldValueChips; // From EditFieldSpec.valueChips.
+  concealed?: true; // From EditFieldSpec.concealed.
+  badge?: FieldBadge; // From EditFieldSpec.badge, a fixed `label` already translated.
+  hintField?: string; // From EditFieldSpec.hintField.
+  hideOnNarrow?: true; // From EditFieldSpec.hideOnNarrow.
   embeddedListCells?: EmbeddedListCellViewModel[]; // Only set for an embedded-LIST field (`multiple: true`) — the per-cell metadata the renderer needs to draw each column/cell.
   embeddedListMinItems?: number; // Minimum row count for the embedded list.
   embeddedListMaxItems?: number; // Maximum row count for the embedded list.
@@ -2332,6 +2339,7 @@ type ListColumnViewModel = {
   refLabelField?: string; // Only for `type: "reference"` — which field of the referenced entity appears as the display value in the cell (default "id").
   highlighted?: boolean; // Set by the caller at runtime (not schema-derived) to emphasize one column — e.g. the currently selected base-year column in a multi-year statement grid.
   hideOnNarrow?: boolean; // Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column.
+  hideWhenDocked?: true; // Mirrors `ListColumnSpec.hideWhenDocked`: a table in a narrow container skips the column.
   showOnNarrowOnly?: boolean; // Mirrors `ListColumnSpec.showOnNarrowOnly`: the table layout skips the column.
   narrowInline?: boolean; // Mirrors `ListColumnSpec.narrowInline`: the card draws consecutive such columns on one line.
   grouping?: boolean; // Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default `true`).
@@ -2344,7 +2352,14 @@ type ListColumnViewModel = {
   badgeDot?: false; // `false`: the pill has no leading dot.
   pillField?: string; // Row field with the label of a pill drawn beside the cell value (`ListColumnSpec.pillField`).
   pillToneField?: string; // Row field naming the pill tone.
-  emptyPlaceholder?: false; // `false`: an empty cell stays blank instead of showing "—".
+  emptyPlaceholder?: string | false; // An empty cell stays blank; a string is shown muted in its place.
+  ellipsis?: true; // Mirrors `ListColumnSpec.ellipsis`: one line, cut with an ellipsis.
+  multiline?: true; // Mirrors `ListColumnSpec.multiline`: `\n` in the value breaks the line.
+  cardAbove?: true; // Mirrors `ListColumnSpec.cardAbove`.
+  emphasis?: true; // Mirrors `ListColumnSpec.emphasis`: medium weight, foreground colour.
+  tone?: "muted"; // Mirrors `ListColumnSpec.tone`.
+  cardBadge?: true; // Mirrors `ListColumnSpec.cardBadge`.
+  dateOnlyAfterDays?: number; // Mirrors `ListColumnSpec.dateOnlyAfterDays`.
 };
 type ListRowViewModel = {
   id: string;
@@ -2389,7 +2404,7 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
 
 ```ts
 type PhotoGridProps = { // Grid of image tiles; each tile shows a stored file and its own action buttons underneath.
-  tiles: { id: string; imageId?: string; caption?: string; actions?: ReactNode; }[];
+  tiles: { id: string; imageId?: string; caption?: string; badge?: string; leadsOnNarrow?: true; actions?: ReactNode; }[];
   testId?: string;
 };
 type RecordBreadcrumbProps = { // Path above a record header; an item with a `link` is a link, the last item without one names the current record.
@@ -2419,6 +2434,66 @@ type RecordSummaryProps = { // One emphasized sentence below a record header; `t
 };
 type StepListProps = { // Vertical numbered steps joined by a line; each step has a title, an optional status pill and a description line.
   items: { id: string; title: string; status?: string; statusTone?: SelectOptionTone; description?: string; }[];
+  testId?: string;
+};
+```
+
+## packages/renderer/src/primitives-share-types.ts
+
+```ts
+type CopyButtonProps = { // Copies `text` to the clipboard; the label flips to `copiedLabel` once the platform confirmed the write.
+  text: string;
+  label: string;
+  copiedLabel: string;
+  variant?: "primary" | "secondary";
+  className?: string; // Layout extras, merged via cn().
+  testId?: string;
+};
+type PromoPanelAction =
+  | {
+    label: string;
+    href: string;
+    testId?: string;
+  }
+  | {
+    label: string;
+    onClick: () => void;
+    testId?: string;
+  }
+;
+type PromoPanelProps = { // Offer surface for upsells (e.g. "create an account"): its own tinted panel with eyebrow, headline, benefit content and one call to action, so an offer never reads like an info or error banner.
+  title: string;
+  eyebrow?: string;
+  children?: ReactNode;
+  action?: PromoPanelAction;
+  testId?: string;
+};
+type SecretRevealProps = { // One-time secret reveal — mint-form confirm phase.
+  values: SecretRevealValue[];
+  copyLabel: string;
+  copiedLabel: string;
+  testId?: string;
+};
+type SecretRevealValue = { // One revealed value on a `secretMint` screen's confirm phase.
+  label: string;
+  value: string;
+  copyable: boolean;
+  multiline: boolean;
+  qr?: boolean; // Render `value` as a scannable QR code instead of monospaced text — for an otpauth://-style enrollment URI.
+};
+type ShareButtonProps = ({ target: "whatsapp"; phone?: string; } | { target: "system"; title?: string; url?: string; }) & { // Hands `text` to another app.
+  text: string;
+  label: string;
+  variant?: "primary" | "secondary";
+  className?: string; // Layout extras, merged via cn().
+  testId?: string;
+};
+type StickyActionBarProps = { // Thumb-reach action row for custom screens: pinned to the bottom edge on narrow viewports (above the device's safe-area inset), inline otherwise.
+  children: ReactNode;
+  back?: {
+    onBack: () => void;
+    label: string;
+  };
   testId?: string;
 };
 ```
@@ -2474,18 +2549,11 @@ type ConfigCascadeViewProps = { // Cascade view for a config-edit field: one ori
   qualifiedKey?: string;
   required?: boolean; // The key declares `required: true` — a missing value reads "Not set.
   renderValue?: (value: string | number | boolean) => ReactNode; // Display form of a level value (e.g. a select's label instead of its raw value).
+  compact?: boolean; // Origin shown as an info icon with a tooltip instead of text lines; the level disclosure is dropped.
 };
 type ConfigSourceBadgeProps = { // Source-badge for one cascade step (User / Tenant / System / …).
   source: ConfigValueSource;
   screenScope?: ConfigScope; // Scope of the hosting screen.
-};
-type CopyButtonProps = { // Copies `text` to the clipboard; the label flips to `copiedLabel` once the platform confirmed the write.
-  text: string;
-  label: string;
-  copiedLabel: string;
-  variant?: "primary" | "secondary";
-  className?: string; // Layout extras, merged via cn().
-  testId?: string;
 };
 type DataAttributes = Readonly<Record<`data-${string}`, string>>; // Escape hatch for `data-*` test hooks (e.g. an E2E selector) that don't warrant a dedicated typed prop.
 type DataTableRowAction = {
@@ -2594,6 +2662,7 @@ type ModalProps = { // Bare content shell for hosting an existing self-contained
 type PageHeaderProps = { // Page title area rendered by the app shell's header instead of inside the screen: `title` replaces the last breadcrumb, `status` sits right after it, `actions` at the right edge.
   title?: string;
   recordTitle?: string; // Name of the loaded record; shown as an extra breadcrumb before the last one.
+  narrowRecordTitle?: string; // Short record title for the phone top bar; wins over `recordTitle` there.
   status?: ReactNode;
   actions?: ReactNode;
   bodyTitle?: boolean; // Screen renders its own h1: the shell header shows only the parent crumb, as text.
@@ -2615,45 +2684,6 @@ type ProgressProps = {
   testId?: string;
 };
 type ProgressTone = "default" | "success" | "warn" | "danger"; // Determinate progress bar (e.g. wizard step progress).
-type PromoPanelAction =
-  | {
-    label: string;
-    href: string;
-    testId?: string;
-  }
-  | {
-    label: string;
-    onClick: () => void;
-    testId?: string;
-  }
-;
-type PromoPanelProps = { // Offer surface for upsells (e.g. "create an account"): its own tinted panel with eyebrow, headline, benefit content and one call to action, so an offer never reads like an info or error banner.
-  title: string;
-  eyebrow?: string;
-  children?: ReactNode;
-  action?: PromoPanelAction;
-  testId?: string;
-};
-type SecretRevealProps = { // One-time secret reveal — mint-form confirm phase.
-  values: SecretRevealValue[];
-  copyLabel: string;
-  copiedLabel: string;
-  testId?: string;
-};
-type SecretRevealValue = { // One revealed value on a `secretMint` screen's confirm phase.
-  label: string;
-  value: string;
-  copyable: boolean;
-  multiline: boolean;
-  qr?: boolean; // Render `value` as a scannable QR code instead of monospaced text — for an otpauth://-style enrollment URI.
-};
-type ShareButtonProps = ({ target: "whatsapp"; phone?: string; } | { target: "system"; title?: string; url?: string; }) & { // Hands `text` to another app.
-  text: string;
-  label: string;
-  variant?: "primary" | "secondary";
-  className?: string; // Layout extras, merged via cn().
-  testId?: string;
-};
 type StatusBadgeProps = { // Status pill.
   value: string;
   tone?: StatusBadgeOptionTone;
@@ -2678,14 +2708,6 @@ type StepBarProps = { // Wizard step overview — numbered chips, one per step l
   }; // Vertical only: box under the rail announcing the next step.
   testId?: string;
   compactTestId?: string;
-};
-type StickyActionBarProps = { // Thumb-reach action row for custom screens: pinned to the bottom edge on narrow viewports (above the device's safe-area inset), inline otherwise.
-  children: ReactNode;
-  back?: {
-    onBack: () => void;
-    label: string;
-  };
-  testId?: string;
 };
 type TabsProps = { // Tab strip for a projectionDetail `layout.mode: "tabs"`.
   items: { id: string; label: string; count?: number; icon?: ReactNode; detail?: string; }[];
@@ -3187,6 +3209,8 @@ type ConfigMask = {
   icon?: NavIconKey;
   order?: number;
   readOnly?: boolean; // Shows the value on the generated settings screen without an input; a read-only key cannot also be `required`.
+  compact?: true; // Draws the generated settings screen of this key compact (like `configEdit` `compact: true`: no origin icon or reset link, no accent bar, large section labels, no name-derived field icons).
+  section?: string; // i18n key of a section title: keys sharing it form their own titled section on the generated settings screen, after the untitled-by-mask keys.
 };
 type ConfigSeedDef = {
   key: string;
@@ -5020,7 +5044,7 @@ type DashboardValueFormat = DashboardCurrencyFormat | DashboardRelativeTimeForma
 type EditFieldGroup = {
   title: string;
   fields: EditFieldSpec[];
-  columns?: number; // Default 2.
+  columns?: number; // Edit mode renders 2 columns by default.
 };
 type EditFieldPrefill =
   | {
@@ -5031,12 +5055,13 @@ type EditFieldPrefill =
     property: "displayName" | "email" | "id";
   }
 ;
-type EditFieldsSectionBase = {
+type EditFieldsSectionBase = EditSectionPresentation & {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
   visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind?: "fields";
   title?: string; // Optional.
   description?: string; // Optional help text under the block heading (i18n key or raw string, like `title`) — makes a form usable without training instead of falling back to custom JSX for help text.
+  descriptionNarrow?: string; // i18n key of a short text shown instead of `description` below `sm`.
   columns?: number;
   icon?: IconKey; // Rendered left of the section title, `text-muted-foreground` — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   countField?: string; // Record field rendered as a count badge in the tab label when the enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
@@ -5044,6 +5069,13 @@ type EditFieldsSectionBase = {
   upNextHint?: string; // Wizard layouts only: text under this step's title in the "up next" box while the step before it is active; falls back to `subtitle`.
   summaryField?: string; // Wizard layouts only: field of this section whose formatted value shows under the step label in the step rail once the step is done.
   actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the same record.
+};
+type EditSectionPresentation = { // Presentation options every section kind of a projectionDetail takes.
+  tabLabel?: string; // i18n key of the tab name when the layout is in tabs mode; the section `title` stays the card heading.
+  after?: PlatformComponent; // Component drawn directly under this section's card, in its column (also beside photos); same `{ react: { __component } }` form as `slots.afterForm`, receiving the same props.
+  hideOnNarrow?: true; // Leaves the section out below `sm`.
+  showOnNarrowOnly?: true; // Shows the section only below `sm` (e.g. a compact facts block for phones).
+  titleOnNarrow?: false; // `false` leaves the section title out below `sm` (phone); the title stays from `sm` up.
 };
 type EntityEditActionPlacement = "inline" | "menu";
 type EntityWriteExcludedFields = {
@@ -5075,7 +5107,7 @@ type RowActionNavigateBase = {
   showOnTabs?: string[]; // projectionDetail header action only: shown while one of these tab (section) ids is active.
   style?: "primary" | "secondary" | "danger"; // Visual style only — unlike the writeHandler variants, "danger" does not force a confirm dialog here: the target form is the confirmation.
   rowClick?: boolean; // When true, a click on the whole row (not just the action menu) triggers this navigate action.
-  icon?: IconKey; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
+  icon?: IconKey | false; // Overrides the id-based default icon (see ACTION_ICON_BY_ID in kumiko-renderer) — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.
 };
 type ScreenFilter = {
@@ -5144,12 +5176,14 @@ type MetricSpec = {
   subFieldNarrow?: string; // Record field shown instead of `subField` below `sm` ("of 2,850 €" instead of "0 of 2,850.00 €").
   icon?: NavIconKey; // Icon chip of the tile; only drawn with `metricsStyle: "tiles"`.
   format?: FormatSpec; // Formats the displayed value (e.g. `date`, `enumOption`); the tone still resolves on the raw value.
+  visibleWhen?: Exclude<FieldCondition, boolean>; // Shows the metric only while the loaded record matches; same `{ field, eq | ne | in | notIn }` syntax as a section's `visibleWhen`.
 };
 type RecordHeaderSpec = {
   title: string;
   shortTitle?: string; // Field holding a short title for the desktop top bar ("Orders › SO-10482 ● processing"); the body keeps the full `title` as the h1.
   subtitle?: string | RecordHeaderSubtitlePart[]; // Field name, or several parts (field name or `{ field, navigate }`) joined by a separator; parts with an empty value are dropped.
   narrowSubtitle?: string; // Field holding a plain-text subtitle shown instead of `subtitle` below `sm` (e.g. "Main St 12, Berlin · 3 rooms").
+  narrowTitle?: string; // i18n key of a short title for the phone top bar ("Approval") instead of the record title.
   status?: string;
   statusFormat?: FormatSpec; // Formats the badge text (typically `enumOption` with a `keyPrefix`); tones still resolve on the raw value.
   subtitleHref?: string; // Record field holding an absolute http(s) URL.

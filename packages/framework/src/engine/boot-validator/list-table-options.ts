@@ -58,6 +58,7 @@ function validateHiddenColumns(
   where: string,
   columnPickerOn: boolean,
   columns: readonly ListColumnSpec[],
+  facetFields: readonly string[],
 ): void {
   const normalized = columns.map(normalizeListColumn);
   for (const col of normalized) {
@@ -70,10 +71,12 @@ function validateHiddenColumns(
   const hidden = normalized.filter((col) => col.hidden === true);
   // skip: no hidden columns, nothing to validate
   if (hidden.length === 0) return;
-  if (!columnPickerOn) {
+  // A hidden column that only backs a facet never needs to be shown; the facet is its UI.
+  const unreachable = hidden.find((col) => !facetFields.includes(col.field));
+  if (!columnPickerOn && unreachable !== undefined) {
     throw bootRuleError(LIST_TABLE_RULES.hiddenWithoutColumnPicker, {
       message:
-        `${where} column "${hidden[0]?.field}" is hidden but table.columnPicker is not enabled, ` +
+        `${where} column "${unreachable.field}" is hidden but table.columnPicker is not enabled, ` +
         `so the user could never show it. Set table: { columnPicker: true } or remove "hidden".`,
     });
   }
@@ -90,9 +93,10 @@ export function validateListTableOptions(
   table: unknown,
   columns: readonly ListColumnSpec[],
   exportAllowed = false,
+  facetFields: readonly string[] = [],
 ): void {
   if (table === undefined) {
-    validateHiddenColumns(where, false, columns);
+    validateHiddenColumns(where, false, columns, facetFields);
     validateColumnLayout(where, { pinning: false, resizing: false }, columns);
     // skip: no table block: nothing else to check
     return;
@@ -126,7 +130,7 @@ export function validateListTableOptions(
       message: `${where} sets table.summaryRow and table.totals; a table has one footer. Keep one of them.`,
     });
   }
-  validateHiddenColumns(where, table["columnPicker"] === true, columns);
+  validateHiddenColumns(where, table["columnPicker"] === true, columns, facetFields);
   validateColumnLayout(
     where,
     { pinning: table["pinning"] === true, resizing: table["resizing"] === true },

@@ -8,6 +8,7 @@ import { cn } from "../lib/cn.ts";
 export function DefaultPageHeader({
   title,
   recordTitle,
+  narrowRecordTitle,
   status,
   actions,
   bodyTitle,
@@ -19,6 +20,7 @@ export function DefaultPageHeader({
   const setOverflowItems = slot?.setOverflowItems;
   const setTitle = slot?.setTitle;
   const setRecordTitle = slot?.setRecordTitle;
+  const setNarrowRecordTitle = slot?.setNarrowRecordTitle;
   const setBodyTitle = slot?.setBodyTitle;
   const setBreadcrumbHidden = slot?.setBreadcrumbHidden;
   const setBreadcrumbScreenId = slot?.setBreadcrumbScreenId;
@@ -47,6 +49,12 @@ export function DefaultPageHeader({
     setRecordTitle(recordTitle);
     return () => setRecordTitle(undefined);
   }, [setRecordTitle, recordTitle]);
+
+  useEffect(() => {
+    if (setNarrowRecordTitle === undefined || narrowRecordTitle === undefined) return;
+    setNarrowRecordTitle(narrowRecordTitle);
+    return () => setNarrowRecordTitle(undefined);
+  }, [setNarrowRecordTitle, narrowRecordTitle]);
 
   useEffect(() => {
     if (setTitle === undefined || title === undefined) return;

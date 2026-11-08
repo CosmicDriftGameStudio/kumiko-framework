@@ -71,7 +71,7 @@ import {
 // EntityEditUpdateForm: state for "which drawer-kind action is currently
 // open" plus a host component that mounts the referenced actionForm inside
 // the Drawer primitive. Reuses ActionFormBody (no second, parallel form
-// renderer) with onSuccess/onCancelOverride so submit-success closes the
+// renderer) with onSuccess so submit-success closes the
 // drawer + refetches the host screen; a declared `redirect` navigates after
 // the drawer closed, like on the full page. The only difference
 // between the toolbar and row variants is prefill: a row action extracts
@@ -212,7 +212,6 @@ export function DrawerHost({
                   setHasUnsavedInput(false);
                   onSuccess();
                 }}
-                onCancelOverride={requestClose}
                 onDirtyChange={setHasUnsavedInput}
                 submitLabelFallback={drawerAction.label}
               />
@@ -293,7 +292,6 @@ export function ActionFormBody({
   entityId,
   initialOverrides,
   onSuccess,
-  onCancelOverride,
   onDirtyChange,
   submitLabelFallback,
 }: {
@@ -310,9 +308,6 @@ export function ActionFormBody({
    *  drawer + refetches its list; a declared `screen.redirect` then navigates
    *  (without returnTo, a drawer is no navigation target). */
   readonly onSuccess?: () => void;
-  /** Drawer-hosted usage: replaces the cancelTarget/redirect-based Cancel
-   *  handler so Cancel closes the drawer instead of navigating. */
-  readonly onCancelOverride?: () => void;
   /** Drawer-hosted usage: reports unsaved input so the host can confirm
    *  before discarding it. */
   readonly onDirtyChange?: (dirty: boolean) => void;
@@ -324,7 +319,7 @@ export function ActionFormBody({
   const insideDrawer = useInsideDrawer();
   const locale = useLocale().locale();
   const { Banner, StatusBadge } = usePrimitives();
-  // Unused when drawer-hosted — onSuccess/onCancelOverride win below first.
+  // Unused when drawer-hosted — onSuccess wins below first.
   const returnTarget = useReturnTarget(screen.id);
   const submittableFields = useMemo(() => actionFormSubmittableFields(screen), [screen]);
   const synthEntity = useMemo(
@@ -533,15 +528,16 @@ export function ActionFormBody({
   // `false` switches the button off explicitly (single-action screens where
   // cancel would just be submit-without-sending).
   // returnTo wins over the declared target when both are present.
+  // A drawer closes through its × / Esc (which confirms unsaved input), so its footer has no Cancel.
   const handleCancel = useMemo<(() => void) | undefined>(() => {
-    if (onCancelOverride !== undefined) return onCancelOverride;
+    if (insideDrawer) return undefined;
     const target =
       screen.cancelTarget ??
       (screen.redirect !== undefined ? redirectScreenTarget(screen.redirect) : undefined);
     if (target === undefined || target === false) return undefined;
     return () =>
       navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
-  }, [nav, screen.redirect, screen.cancelTarget, onCancelOverride, returnTarget]);
+  }, [nav, screen.redirect, screen.cancelTarget, insideDrawer, returnTarget]);
   // Rendering the form before a tenant-declared currency lands would show the
   // fallback and, on a fast click, submit it — hold instead.
   if (currencyLoading) {
@@ -581,7 +577,7 @@ export function ActionFormBody({
             <>
               {screen.infoBand !== undefined && (
                 <Banner
-                  variant="primary"
+                  variant="assist"
                   icon="sparkles"
                   density="compact"
                   testId="kumiko-screen-action-form-info-band"
@@ -618,7 +614,7 @@ export function ActionFormBody({
         })}
         {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
         {...(screen.footerActions !== undefined && { footerActions: screen.footerActions })}
-        {...(screen.formErrorOnTop === true && { formErrorOnTop: true })}
+        formErrorOnTop
         {...(screen.fieldDescriptions !== undefined && {
           fieldDescription: (fieldName: string, values: FormValues) => {
             const ref = screen.fieldDescriptions?.[fieldName];

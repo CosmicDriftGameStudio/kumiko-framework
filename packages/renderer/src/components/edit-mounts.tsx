@@ -135,7 +135,7 @@ export function EditSlotMount({
   activeTabId,
 }: {
   readonly slot: PlatformComponent;
-  readonly slotName: "header" | "titleAction" | "afterForm" | "footer";
+  readonly slotName: "header" | "titleAction" | "afterForm" | "afterSection" | "footer";
   readonly screenId: string;
   readonly entityName: string;
   readonly entityId: string | null;

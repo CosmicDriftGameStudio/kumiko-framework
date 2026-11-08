@@ -116,7 +116,12 @@ export function buildDetailTabItems(
         typeof countValue === "number" && Number.isFinite(countValue) ? countValue : undefined;
       return {
         id: section.id ?? "",
-        label: translate(section.title ?? section.id ?? ""),
+        label: translate(
+          sections.find((s) => s.id === section.id && s.tabLabel !== undefined)?.tabLabel ??
+            section.title ??
+            section.id ??
+            "",
+        ),
         ...(count !== undefined && { count }),
       };
     });

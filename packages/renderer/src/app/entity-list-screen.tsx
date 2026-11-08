@@ -286,13 +286,13 @@ function EntityListBody({
       facetCounts,
     );
     return [
-      ...(namedFacet !== undefined ? [namedFacet] : []),
       ...buildEntityFilterFacets(
         mergeReferenceFacetOptions(entityFacetSpecs, entityReferenceFacetOptions),
         screen.facets,
         effectiveTranslate,
         facetCounts,
       ),
+      ...(namedFacet !== undefined ? [namedFacet] : []),
     ];
   }, [
     entityFacetSpecs,

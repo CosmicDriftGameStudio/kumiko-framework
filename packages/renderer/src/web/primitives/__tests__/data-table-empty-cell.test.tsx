@@ -8,20 +8,39 @@ import { defaultPrimitives } from "../index.tsx";
 const { DataTable } = defaultPrimitives;
 
 const columns = [{ field: "tenants", label: "Tenants", type: "text", sortable: false }] as const;
+const columnsWithPlaceholder = [
+  { ...columns[0], emptyPlaceholder: EMPTY_VALUE_PLACEHOLDER },
+] as const;
 
 describe("DataTable renders a placeholder for empty cell values", () => {
   test.each([
     ["empty string", ""],
     ["whitespace-only string", "  "],
     ["null", null],
-  ] as const)("%s shows the empty-cell placeholder instead of a blank cell", (_, value) => {
+  ] as const)("%s shows the configured emptyPlaceholder instead of a blank cell", (_, value) => {
     render(
-      <DataTable columns={columns} rows={[{ id: "r1", values: { tenants: value } }]} testId="t" />,
+      <DataTable
+        columns={columnsWithPlaceholder}
+        rows={[{ id: "r1", values: { tenants: value } }]}
+        testId="t"
+      />,
     );
 
     const cell = screen.getByTestId("cell-r1-tenants");
     expect(cell.textContent).toBe(EMPTY_VALUE_PLACEHOLDER);
     expect(cell.querySelector('[data-empty-cell="true"]')).not.toBeNull();
+  });
+
+  test.each([
+    ["empty string", ""],
+    ["whitespace-only string", "  "],
+    ["null", null],
+  ] as const)("%s stays blank without an emptyPlaceholder", (_, value) => {
+    render(
+      <DataTable columns={columns} rows={[{ id: "r1", values: { tenants: value } }]} testId="t" />,
+    );
+
+    expect(screen.getByTestId("cell-r1-tenants").textContent).toBe("");
   });
 
   test("a non-empty value is rendered as-is", () => {

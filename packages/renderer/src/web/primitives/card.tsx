@@ -16,9 +16,11 @@ function cardBodyPadding(inline: boolean, hasHeader: boolean): string {
 function CardTitleRow({
   slots,
   inline,
+  labelTitle,
 }: {
   readonly slots: NonNullable<CardProps["slots"]>;
   readonly inline: boolean;
+  readonly labelTitle: boolean;
 }): ReactNode {
   const { title, subtitle, headerActions } = slots;
   if (inline) {
@@ -36,7 +38,15 @@ function CardTitleRow({
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex flex-col gap-1">
         {title !== undefined && (
-          <h3 className="text-base font-semibold leading-none tracking-tight">{title}</h3>
+          <h3
+            className={
+              labelTitle
+                ? "text-[12.5px] font-semibold uppercase leading-none tracking-[0.06em] text-muted-foreground"
+                : "text-base font-semibold leading-none tracking-tight"
+            }
+          >
+            {title}
+          </h3>
         )}
         {subtitle !== undefined && <div className="text-sm text-muted-foreground">{subtitle}</div>}
       </div>
@@ -76,7 +86,13 @@ export function DefaultCard({
           fillHeight && "shrink-0",
         )}
       >
-        {hasTitleRow && <CardTitleRow slots={s} inline={inlineHeader} />}
+        {hasTitleRow && (
+          <CardTitleRow
+            slots={s}
+            inline={inlineHeader}
+            labelTitle={options?.titleStyle === "label"}
+          />
+        )}
         {/* Own full-width row: beside the actions, block content would end at
             a different right edge than the card body below it. */}
         {s.headerContent}

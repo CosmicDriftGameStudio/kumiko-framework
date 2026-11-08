@@ -22,4 +22,6 @@ export type CardOptions = {
   readonly screenBody?: boolean;
   /** "inline": title and subtitle on one baseline row at 16px inset, compact padding (the board's side panel). Default "stacked". */
   readonly headerLayout?: "stacked" | "inline";
+  /** "label": the title is a small uppercase muted label. Default "heading". */
+  readonly titleStyle?: "heading" | "label";
 };

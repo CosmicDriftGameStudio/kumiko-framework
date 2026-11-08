@@ -44,7 +44,10 @@ function FocusedScreenFrame({
           label={
             parentScreenId !== undefined
               ? t(screenTitleKey(parentScreenId))
-              : (slot?.recordTitle ?? slot?.title ?? t(screenTitleKey(shortId)))
+              : (slot?.narrowRecordTitle ??
+                slot?.recordTitle ??
+                slot?.title ??
+                t(screenTitleKey(shortId)))
           }
           back={{
             label: t("kumiko.actions.back"),

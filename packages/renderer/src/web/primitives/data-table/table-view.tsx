@@ -73,7 +73,7 @@ function renderEmptyBody(m: DataTableModel): ReactNode {
     <TableBody>
       <TableRow className="hover:bg-transparent">
         <TableCell colSpan={m.fullColSpan} className="p-0">
-          {renderEmptyBlock(m, true)}
+          {renderEmptyBlock(m)}
         </TableCell>
       </TableRow>
     </TableBody>

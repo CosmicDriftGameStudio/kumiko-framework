@@ -187,6 +187,10 @@ export type ConfigMask = {
   readonly order?: number;
   /** Shows the value on the generated settings screen without an input; a read-only key cannot also be `required`. */
   readonly readOnly?: boolean;
+  /** Draws the generated settings screen of this key compact (like `configEdit` `compact: true`: no origin icon or reset link, no accent bar, large section labels, no name-derived field icons). One key per screen is enough. */
+  readonly compact?: true;
+  /** i18n key of a section title: keys sharing it form their own titled section on the generated settings screen, after the untitled-by-mask keys. */
+  readonly section?: string;
 };
 
 export type ConfigDefinition = {

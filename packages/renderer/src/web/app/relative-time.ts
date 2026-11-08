@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { formatRelativeTime } from "../../headless/format/relative-time.ts";
+import { useTranslation } from "../../i18n.tsx";
 import { serverNowMs } from "../../server-clock.ts";
 
 const SECONDS_PER_MINUTE = 60;
+
+// One look for relative times everywhere: short units, yesterday with clock, absolute after a week.
+const LIST_RELATIVE_OPTIONS = {
+  style: "short",
+  withTime: true,
+  absoluteAfterDays: 7,
+} as const;
 
 const SECOND_TICK_MS = 1000;
 // Above a minute the text changes at most once per minute; half a minute keeps it
@@ -18,6 +26,8 @@ export function relativeTickIntervalMs(distanceMs: number): number {
 /** Returns a formatter for relative times that redraws its component on a timer, but
  *  only while a render actually called it: no relative output on screen, no timer. */
 export function useRelativeTimeFormatter(locale: string): (atMs: number) => string {
+  const t = useTranslation();
+  const justNow = t("kumiko.time.justNow");
   const [, setTick] = useState(0);
   const [intervalMs, setIntervalMs] = useState<number | null>(null);
   const nearestDistanceMs = useRef(Number.POSITIVE_INFINITY);
@@ -39,6 +49,6 @@ export function useRelativeTimeFormatter(locale: string): (atMs: number) => stri
   return (atMs) => {
     const nowMs = serverNowMs();
     nearestDistanceMs.current = Math.min(nearestDistanceMs.current, Math.abs(atMs - nowMs));
-    return formatRelativeTime(atMs, nowMs, locale);
+    return formatRelativeTime(atMs, nowMs, locale, { ...LIST_RELATIVE_OPTIONS, justNow });
   };
 }

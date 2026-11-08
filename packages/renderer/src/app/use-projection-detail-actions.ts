@@ -1,7 +1,12 @@
-import type { RowAction, RowActionWriteHandler } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  isWriteFormEditSection,
+  type RowAction,
+  type RowActionWriteHandler,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { useCallback, useMemo } from "react";
 import type { RenderEditAction } from "../components/render-edit.tsx";
+import type { WriteFormRegistry } from "../components/write-form-registry.ts";
 import type { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import type { useUserRoles } from "../context/user-roles-context.tsx";
 import type { Translate } from "../headless/index.ts";
@@ -39,6 +44,7 @@ type DetailActionsInput = {
   readonly detailQuery: ReturnType<typeof useProjectionDetailData>["detailQuery"];
   readonly reloadDetail: ReturnType<typeof useProjectionDetailData>["reloadDetail"];
   readonly activeTabId: string | undefined;
+  readonly writeForms: WriteFormRegistry;
 };
 
 function isShownOnTab(action: RowAction, activeTabId: string | undefined): boolean {
@@ -65,6 +71,7 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     detailQuery,
     reloadDetail,
     activeTabId,
+    writeForms,
   } = input;
   const handleRecordLeft = useCallback(
     (action: RowActionWriteHandler, resultData: unknown, deletedShownRecord: boolean) => {
@@ -229,6 +236,17 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     ],
   );
   const footerIds = screen.footerActions;
+  const submitWithIds = useMemo(
+    () =>
+      new Set(
+        screen.layout.sections.flatMap((section) =>
+          isWriteFormEditSection(section) && section.submitWith !== undefined
+            ? [section.submitWith]
+            : [],
+        ),
+      ),
+    [screen.layout.sections],
+  );
   const recordActions = useMemo((): readonly RenderEditAction[] | undefined => {
     const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
     const resolved = buildRecordActions({
@@ -243,6 +261,8 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
       onRecordLeft: handleRecordLeft,
       sameEntityScreenId,
       clientActions,
+      writeForms,
+      submitWithIds,
     });
     // skip: a declared or unavailable edit action leaves the resolved list untouched
     if (defaultEditAction === undefined || declaredHasEdit) return resolved;
@@ -261,6 +281,8 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     openDrawer,
     handleRecordLeft,
     sameEntityScreenId,
+    writeForms,
+    submitWithIds,
   ]);
   // footerActions render in RenderEdit's pinned footer, so the header bar must not repeat them.
   const headerActions = useMemo(

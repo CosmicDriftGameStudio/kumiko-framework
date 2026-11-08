@@ -7,8 +7,9 @@ import { FIT_CONTENT_CELL_CLASS } from "../data-table-cell.tsx";
 
 export const COMPACT_HEADER_CLASS = "text-xs font-semibold";
 
-/** Small-caps look of column headers from sm up: 11px keeps dense tables inside 1280px. */
-const SMALL_CAPS_HEADER_CLASS = "sm:text-[11px] sm:uppercase sm:tracking-[0.05em]";
+/** Board header: 13.5px regular, ink colour, 37px high, 12px side padding. */
+const HEADER_CLASS =
+  "h-[37px] border-b-[1.5px] border-border-row px-3 text-[13.5px] first:pl-6 last:pr-[34px]";
 
 // SortableHeader: renders the th header per column, with or without
 // click-sort. Three paths:
@@ -68,8 +69,8 @@ export function SortableHeader({
         data-sortable={sortable === true ? true : undefined}
         data-highlighted={highlighted === true ? "true" : undefined}
         className={cn(
-          "font-medium whitespace-normal text-muted-foreground",
-          SMALL_CAPS_HEADER_CLASS,
+          "font-normal whitespace-normal text-foreground-secondary",
+          HEADER_CLASS,
           numeric === true && "text-right",
           actionColumn === true && "sm:text-right",
           fitContent === true && FIT_CONTENT_CELL_CLASS,
@@ -98,9 +99,9 @@ export function SortableHeader({
       className={cn(
         active !== undefined
           ? "font-semibold text-foreground"
-          : "font-medium text-muted-foreground",
+          : "font-normal text-foreground-secondary",
         "whitespace-normal",
-        SMALL_CAPS_HEADER_CLASS,
+        HEADER_CLASS,
         numeric === true && "text-right",
         fitContent === true && FIT_CONTENT_CELL_CLASS,
         highlighted === true && "bg-accent/40",
@@ -114,8 +115,7 @@ export function SortableHeader({
         type="button"
         onClick={() => onSortChange(next)}
         className={cn(
-          "group/sort inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-sm [font-weight:inherit]",
-          SMALL_CAPS_HEADER_CLASS,
+          "group/sort inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-[13.5px] [font-weight:inherit]",
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           active !== undefined && "text-foreground",

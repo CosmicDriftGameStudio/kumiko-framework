@@ -59,6 +59,7 @@ function renderDashboard(
             "demo.total-short": "{shown}/{total}",
             "demo.more": "plus {count} further",
             "demo.more-short": "+{count}",
+            "demo.answers": { one: "{count} answer", other: "{count} answers" },
           },
         },
       ]}
@@ -156,8 +157,8 @@ describe("dashboard panels on a phone", () => {
     await waitFor(() => expect(screen.getAllByTestId("dashboard-list-card")).toHaveLength(2));
     const [neutral, toned] = screen.getAllByTestId("dashboard-list-card");
     expect(neutral?.className).toContain("before:bg-border-strong");
-    expect(neutral?.className).toContain("pl-6");
-    expect(toned?.className).toContain("pl-6");
+    expect(neutral?.className).toContain("pl-5");
+    expect(toned?.className).toContain("pl-5");
   });
 
   test("narrow without a layout defaults to cards", async () => {
@@ -265,6 +266,18 @@ describe("dashboard list texts and row link", () => {
     renderDashboard(dashboardOf(panel), { "demo:query:task:list": listAnswer });
     await waitFor(() => expect(screen.getByText("3/11")).toBeTruthy());
     expect(screen.getByText(/\+8/)).toBeTruthy();
+  });
+
+  test("the label-less 'k more' text under phone cards is primary, not muted", async () => {
+    const panel = textList({
+      footerLink: { screen: "demo:screen:all", moreText: "demo.more" },
+      narrow: { layout: "cards", limit: 3 },
+    });
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(panel), { "demo:query:task:list": listAnswer });
+    const more = await screen.findByTestId("dashboard-list-more");
+    expect(more.className).not.toContain("text-muted-foreground");
+    expect(screen.getByTestId("dashboard-list-more-bar").className).toContain("text-primary");
   });
 
   test("narrow.field picks the column behind the label in the line layout", async () => {
@@ -396,13 +409,15 @@ describe("dashboard board gaps (round 6)", () => {
       ...overrides,
     }) as unknown as DashboardScreenDefinition["panels"][number];
 
-  test("the panel head puts title and description on one line from sm", async () => {
+  test("the panel head puts the title left and the subtitle right", async () => {
     setViewportWidth(DESKTOP_WIDTH);
     renderDashboard(dashboardOf(panelOf({ subtitle: "demo.more" })), {
       "demo:query:task:list": listAnswer,
     });
     const title = await screen.findByText("Open tasks");
-    expect(title.parentElement?.className).toContain("sm:flex-row");
+    const subtitle = document.querySelector("[data-slot=panel-subtitle]");
+    expect(subtitle?.parentElement?.className).toContain("ml-auto");
+    expect(title.closest("header")?.contains(subtitle ?? null)).toBe(true);
   });
 
   test("a titled stat strip bundles its boxes on the left instead of spreading them", async () => {
@@ -686,5 +701,119 @@ describe("phone card headline tone", () => {
     const cls = await headline();
     expect(cls).toContain("font-semibold");
     expect(cls).not.toContain("text-muted-foreground");
+  });
+});
+
+describe("board look: text panel lead and progress-list head", () => {
+  restoreViewportWidthAfterEach();
+  test("a text panel starting with a lead paragraph gets the accent bar and renders **bold**", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(
+      dashboardOf({
+        kind: "text",
+        id: "brief",
+        blocks: [{ kind: "paragraph", emphasis: "lead", text: "**Good morning.** Three tasks." }],
+      } as unknown as DashboardScreenDefinition["panels"][number]),
+      {},
+    );
+    const panel = await screen.findByTestId("dashboard-panel-brief");
+    expect(panel.className).toContain("border-l-primary");
+    const bold = screen.getByText("Good morning.");
+    expect(bold.tagName).toBe("STRONG");
+  });
+
+  test("a text panel without a lead has no accent bar", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(
+      dashboardOf({ kind: "text", id: "plain", blocks: [{ kind: "paragraph", text: "Plain" }] }),
+      {},
+    );
+    const panel = await screen.findByTestId("dashboard-panel-plain");
+    expect(panel.className).not.toContain("border-l-primary");
+  });
+
+  test("progress-list subtitleField shows the answer field muted in the head", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(
+      dashboardOf({
+        kind: "progress-list",
+        id: "quota",
+        label: "Quota",
+        query: "demo:query:quota",
+        subtitleField: "period",
+      } as unknown as DashboardScreenDefinition["panels"][number]),
+      {
+        "demo:query:quota": () =>
+          ok({ period: "November", rows: [{ label: "A", value: "1", fraction: 0.5 }] }),
+      },
+    );
+    const period = await screen.findByText("November");
+    expect(period.getAttribute("data-slot")).toBe("panel-subtitle");
+    expect(period.closest("header")).not.toBeNull();
+    expect(period.className).toContain("text-muted-foreground");
+  });
+
+  test("the detail line of a warn card is drawn in the warn tone, not as a badge", async () => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(listPanel({ layout: "cards", limit: 3 })), {
+      "demo:query:task:list": listAnswer,
+    });
+    await waitFor(() => expect(screen.getAllByTestId("dashboard-list-card")).toHaveLength(3));
+    const detail = screen.getAllByText("Due 0")[0];
+    expect(detail?.tagName).toBe("SMALL");
+    expect(detail?.className).toContain("text-status-warn");
+    expect(detail?.className).not.toContain("rounded-full");
+  });
+});
+
+describe("stat labelNarrow and AI badge", () => {
+  restoreViewportWidthAfterEach();
+  const statPanel = {
+    kind: "stat",
+    id: "answers",
+    label: "Answers received",
+    labelNarrow: "demo.answers",
+    query: "demo:query:a",
+    valueField: "total",
+  } as unknown as DashboardScreenDefinition["panels"][number];
+
+  test.each([
+    [1, "1 answer"],
+    [2, "2 answers"],
+  ])("below sm labelNarrow resolves the plural for %d", async (total, text) => {
+    setViewportWidth(PHONE_WIDTH);
+    renderDashboard(dashboardOf(statPanel), { "demo:query:a": () => ok({ total }) });
+    expect(await screen.findByText(text)).not.toBeNull();
+    expect(screen.queryByText("Answers received")).toBeNull();
+  });
+
+  test("from sm the full label stays", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(dashboardOf(statPanel), { "demo:query:a": () => ok({ total: 2 }) });
+    expect(await screen.findByText("Answers received")).not.toBeNull();
+  });
+
+  test("badgeIcon sparkles draws the soft AI pill with an icon and no dot", async () => {
+    setViewportWidth(DESKTOP_WIDTH);
+    renderDashboard(
+      dashboardOf({
+        kind: "list",
+        id: "open",
+        label: "Open",
+        query: "demo:query:task:list",
+        columns: [
+          { field: "title" },
+          { field: "ai", display: "badge", badgeToneField: "aiTone", badgeIcon: "sparkles" },
+        ],
+      } as unknown as DashboardScreenDefinition["panels"][number]),
+      {
+        "demo:query:task:list": () =>
+          ok({ rows: [{ id: "r1", title: "Remind", ai: "AI", aiTone: "muted" }], total: 1 }),
+      },
+    );
+    const pill = (await screen.findByText("AI")).closest("span");
+    expect(pill?.className).toContain("bg-primary/10");
+    expect(pill?.querySelector("svg")).not.toBeNull();
+    expect(document.body.querySelector("[data-status-dot]")).toBeNull();
   });
 });

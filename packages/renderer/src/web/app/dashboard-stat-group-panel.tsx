@@ -4,7 +4,7 @@ import type {
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { ChevronRight } from "lucide-react";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { useNav } from "../../app/nav.tsx";
 import { navigateTargetAllows } from "../../app/screen-access.ts";
 import type { Translate } from "../../headless/index.ts";
@@ -101,27 +101,67 @@ function StatCells({
   variant,
 }: Omit<StatGroupProps, "label"> & { readonly variant: StatVariant }): ReactNode {
   const belowSm = useIsBelowSmViewport();
-  return statsForViewport(panel.stats, belowSm).map((stat) => (
-    <StatPanelBody
-      key={stat.id}
-      panel={stat}
-      label={translate(stat.label)}
-      screenId={screenId}
-      screenParams={screenParams}
-      translate={translate}
-      variant={variant}
-    />
-  ));
+  return statsForViewport(panel.stats, belowSm).map((stat) => {
+    const body = (
+      <StatPanelBody
+        key={stat.id}
+        panel={stat}
+        label={translate(stat.label)}
+        screenId={screenId}
+        screenParams={screenParams}
+        translate={translate}
+        variant={variant}
+      />
+    );
+    return variant === "strip" ? (
+      <div
+        key={stat.id}
+        data-stat-card="true"
+        className="min-w-0 rounded-lg border border-border bg-card empty:hidden"
+      >
+        {body}
+      </div>
+    ) : (
+      <Fragment key={stat.id}>{body}</Fragment>
+    );
+  });
+}
+
+// Phone: the untitled strip is one text line ("2 Interessenten   2 Vorschläge   1 Antwort"), not tiles.
+function PhoneStatLine(props: StatGroupProps): ReactNode {
+  const { panel, translate } = props;
+  const navigateAllowed = useStatNavigateAllowed();
+  const stats = statsForViewport(panel.stats, true).filter(navigateAllowed);
+  return (
+    <div
+      data-testid={`dashboard-panel-${panel.id}`}
+      data-stat-line="true"
+      className="flex flex-wrap justify-between gap-x-3 gap-y-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+    >
+      {stats.map((stat) => (
+        // flex-wrap is the line's only wrap point; each item itself stays on one line.
+        <span key={stat.id} className="[&_a]:inline">
+          <StatPanelBody
+            panel={stat}
+            label={translate(stat.label)}
+            screenId={props.screenId}
+            screenParams={props.screenParams}
+            translate={translate}
+            variant="strip-compact"
+          />
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function FlatStatStrip(props: StatGroupProps): ReactNode {
   const { panel, translate } = props;
+  const belowSm = useIsBelowSmViewport();
+  if (belowSm) return <PhoneStatLine {...props} />;
   return (
-    <div
-      data-testid={`dashboard-panel-${panel.id}`}
-      className="rounded-lg border border-border bg-card py-1 lg:flex lg:items-center"
-    >
-      <div className="grid grow grid-cols-2 gap-y-2 lg:auto-cols-fr lg:grid-flow-col lg:divide-x lg:divide-border-row">
+    <div data-testid={`dashboard-panel-${panel.id}`} className="lg:flex lg:items-center lg:gap-3">
+      <div className="grid grow grid-cols-2 gap-3 lg:auto-cols-fr lg:grid-flow-col">
         <StatCells {...props} variant="strip" />
       </div>
       {panel.link !== undefined && (

@@ -69,17 +69,34 @@ export type ListColumnSpec =
        *  header with tabular figures, like an entityList column of that field
        *  type. Ignored on entityList columns, where the field's own type wins. */
       readonly valueType?: "number" | "decimal" | "bigInt" | "money";
-      /** `false` leaves an empty cell blank instead of drawing the "—" placeholder. Not combinable with `hint`, whose empty sentence is `hint.emptyLabel`. */
-      readonly emptyPlaceholder?: false;
+      /** An empty cell stays blank by default; a string (i18n key or literal) is shown muted in its place, e.g. "No vehicle". Not combinable with `hint`, whose empty sentence is `hint.emptyLabel`. */
+      readonly emptyPlaceholder?: string | false;
       /** Leaves the column out of the compact card layout used below the
-       *  `md` breakpoint (tables keep it). For columns that only make sense
+       *  `md` breakpoint (phone viewport). For columns that only make sense
        *  next to the others, like a sort key. */
       readonly hideOnNarrow?: boolean;
+      /** Leaves the column out of a table whose container is narrower than `md` (docked assistant panel); the viewport is not looked at,
+       *  so the phone card still shows it. */
+      readonly hideWhenDocked?: true;
       /** Counterpart of `hideOnNarrow`: the column shows only in the compact card layout and not in the table.
        *  Not combinable with `hideOnNarrow`, `hidden` or `pinned`. */
       readonly showOnNarrowOnly?: true;
       /** In the compact card, consecutive `narrowInline` columns stand side by side on one line (12px gap, no separator) instead of one line each. */
       readonly narrowInline?: true;
+      /** One line with a trailing ellipsis in the table; the full text is the cell's `title`. */
+      readonly ellipsis?: true;
+      /** Free text: the cell wraps instead of ending in "…", and a line break (`\n`) in the value starts a new line (table and phone card). */
+      readonly multiline?: true;
+      /** Phone card: the column's line stands above the title (muted, e.g. "date, channel") instead of below it. Consecutive `narrowInline` columns share the line. */
+      readonly cardAbove?: true;
+      /** Cell text in medium weight and foreground colour, like the title column of a board. */
+      readonly emphasis?: true;
+      /** `"muted"` draws every cell of the column in the muted text colour (e.g. a free-text message beside primary columns). */
+      readonly tone?: "muted";
+      /** The phone card shows this column as its badge: right of the title, as an outlined neutral pill (a `display: "badge"` column keeps its own pill). Without one the first select column is the badge. */
+      readonly cardBadge?: true;
+      /** Timestamp or relativeTime column: a value older than this many days shows the date only, without the time. */
+      readonly dateOnlyAfterDays?: number;
       /** Start state for the column picker: the column begins hidden and the
        *  user can show it. Only valid together with `table.columnPicker`. */
       readonly hidden?: boolean;
@@ -102,10 +119,12 @@ export type ListColumnSpec =
       readonly display?: ListColumnDisplay;
       /** `"primary"` draws a `display: "button"` link as a filled primary button instead of the outline default (dashboard list panels only). Needs `display: "button"`. */
       readonly variant?: "primary";
-      /** Row field naming the badge tone; only with `display: "badge"`. */
+      /** Row field naming the badge tone: a `ListBadgeTone` word or a `SelectOptionTone` word (`ok`, `bad`, `critical`, `accent`); only with `display: "badge"`. */
       readonly badgeToneField?: string;
       /** `false` draws the badge pill without its leading dot; only with `display: "badge"`. */
       readonly badgeDot?: false;
+      /** `"sparkles"` marks an AI-prepared value: the dashboard list draws the badge as the soft blue AI pill with a sparkles icon, like an AI row action; only with `display: "badge"`. */
+      readonly badgeIcon?: "sparkles";
       /** Row field holding a second label, drawn as a pill next to the cell's own value
        *  (e.g. a vehicle name with a "free" pill). Not combinable with `display` or `hint`. */
       readonly pillField?: string;
@@ -215,9 +234,10 @@ export type RowFieldExtractor =
  *  `"link"` without one). `"responsive"` is a `"button"` with icon and label
  *  from tablet width up and an icon-only button below it, the label staying the
  *  accessible name (needs a resolved icon, falls back to `"button"` without
- *  one). Unset: the renderer decides (primary action as link, the rest in the
+ *  one). `"text"` is a closed state without an action: muted text, not
+ *  clickable (the row click still applies). Unset: the renderer decides (primary action as link, the rest in the
  *  kebab menu). */
-export type RowActionDisplay = "button" | "link" | "icon" | "responsive";
+export type RowActionDisplay = "button" | "link" | "icon" | "responsive" | "text";
 
 /** Row-action column layout. `"adaptive"` (default): primary action as link,
  *  the rest in a kebab menu — except actions with an explicit `display`, which
@@ -337,8 +357,9 @@ export type RowActionNavigateBase = {
   readonly rowClick?: boolean;
   /** Overrides the id-based default icon (see ACTION_ICON_BY_ID in
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
-   *  (renderer/web), analogous to EditFieldSpec.icon. */
-  readonly icon?: IconKey;
+   *  (renderer/web), analogous to EditFieldSpec.icon. `false` draws no icon at all, not even the
+   *  id-derived default (a plain text button). */
+  readonly icon?: IconKey | false;
   /** Inline render form in the row-action column — see `RowActionDisplay`. */
   readonly display?: RowActionDisplay;
 };
@@ -586,6 +607,8 @@ export type EntityListScreenDefinition = {
   readonly columns: readonly ListColumnSpec[];
   /** Row field holding a SelectOptionTone; the row is toned like relatedList `rowTone`, other values leave it untoned. */
   readonly rowToneField?: string;
+  /** Row field (boolean): a row with a true value is drawn entirely in the muted text colour. */
+  readonly mutedRowField?: string;
   /** Computed row fields from an app query, readable by `rowToneField`, column `hint`, `linkScreenField`/`linkParamsField` and rowAction `visible`/`params`/`payload`; a column may name a decoration field. */
   readonly rowDecoration?: ListRowDecoration;
   // Row renderer (Desktop) — when omitted, renderer draws the default table

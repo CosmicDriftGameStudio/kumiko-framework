@@ -142,6 +142,9 @@ export type ConfigEditScreenDefinition = {
   readonly requiredFields?: readonly string[];
   /** i18n key for the submit button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
+  /** Compact rows: no origin icon, no reset link, no accent bar on changed fields; the form
+   *  column is capped to a readable width. */
+  readonly compact?: true;
   /** Handler buttons drawn as their own row after `afterField` (settings-list layout). */
   readonly actions?: readonly ConfigEditAction[];
   readonly slots?: ScreenSlots;

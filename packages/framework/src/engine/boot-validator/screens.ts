@@ -18,7 +18,7 @@ import type {
   ScreenDefinition,
 } from "../types/screen.ts";
 import type { NavigateTargetLookups } from "./screens-actions.ts";
-import { validateActionHasIcon, validateScreenVisibleWhen } from "./screens-actions.ts";
+import { validateScreenVisibleWhen } from "./screens-actions.ts";
 import {
   validateDashboardActions,
   validateDashboardRecordBinding,
@@ -174,13 +174,6 @@ function validateListEmptyStateAction(
     (screen.type === "entityList" || screen.type === "projectionList") &&
     screen.emptyState?.action !== undefined
   ) {
-    validateActionHasIcon(
-      ctx.feature.name,
-      screenId,
-      screen.type,
-      "emptyState action",
-      screen.emptyState.action,
-    );
     validateListActionTargets(
       listActionContext(
         ctx,

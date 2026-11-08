@@ -29,11 +29,25 @@ describe("applyFormatSpec — relativeTime", () => {
 
   test("renders ISO strings and epoch ms relative to the server clock", () => {
     const spec = { format: "relativeTime", locale: "en" };
-    expect(applyFormatSpec(spec, "2026-11-07T11:55:00Z")).toBe("5 minutes ago");
-    expect(applyFormatSpec(spec, NOW + 30_000)).toBe("in 30 seconds");
+    expect(applyFormatSpec(spec, "2026-11-07T11:55:00Z")).toBe("5 min. ago");
+    expect(applyFormatSpec(spec, NOW + 30_000)).toBe("in 30 sec.");
     expect(applyFormatSpec({ format: "relativeTime", locale: "de" }, NOW - 2 * 3_600_000)).toBe(
-      "vor 2 Stunden",
+      "vor 2 Std.",
     );
+  });
+
+  test("defaults: short style, the clock time on yesterday, absolute date after 7 days, just now", () => {
+    const spec = { format: "relativeTime", locale: "en", timeZone: "UTC" };
+    expect(
+      applyFormatSpec(spec, NOW - 10_000, (key) =>
+        key === "kumiko.time.justNow" ? "just now" : key,
+      ),
+    ).toBe("just now");
+    // German: the English date-time connector ("at" vs ",") differs between macOS and bundled ICU.
+    expect(applyFormatSpec({ ...spec, locale: "de" }, NOW - 8 * 86_400_000)).toBe(
+      "30. Okt. 2026, 12:00",
+    );
+    expect(applyFormatSpec({ ...spec, style: "long" }, NOW - 5 * 60_000)).toBe("5 minutes ago");
   });
 
   test("style short abbreviates the unit", () => {
@@ -43,13 +57,15 @@ describe("applyFormatSpec — relativeTime", () => {
     expect(applyFormatSpec({ ...spec, locale: "en" }, NOW - 41 * 60_000)).toBe("41 min. ago");
   });
 
-  test("withTime adds the clock time to yesterday, in the locale and zone", () => {
+  test("withTime (default on) adds the clock time to yesterday, in the locale and zone", () => {
     const yesterday = NOW - 26 * 3_600_000; // 2026-11-06T10:00:00Z
     const base = { format: "relativeTime", withTime: true, timeZone: "UTC" };
     expect(applyFormatSpec({ ...base, locale: "de" }, yesterday)).toBe("gestern, 10:00");
     expect(applyFormatSpec({ ...base, locale: "es" }, yesterday)).toBe("ayer, 10:00");
     expect(applyFormatSpec({ ...base, locale: "en" }, yesterday)).toBe("yesterday, 10:00 AM");
-    expect(applyFormatSpec({ format: "relativeTime", locale: "de" }, yesterday)).toBe("gestern");
+    expect(
+      applyFormatSpec({ format: "relativeTime", locale: "de", withTime: false }, yesterday),
+    ).toBe("gestern");
   });
 
   test("days count calendar days in the zone, not rounded hours", () => {
@@ -63,14 +79,14 @@ describe("applyFormatSpec — relativeTime", () => {
     expect(applyFormatSpec(spec, earlyYesterday)).toBe("gestern, 00:10");
   });
 
-  test("absoluteAfterDays switches to the absolute date, with the time on request", () => {
+  test("absoluteAfterDays switches to the absolute date, with the time unless withTime is false", () => {
     const spec = { format: "relativeTime", locale: "de", absoluteAfterDays: 7, timeZone: "UTC" };
     expect(applyFormatSpec(spec, NOW - 3 * 86_400_000)).toBe("vor 3 Tagen");
     expect(applyFormatSpec(spec, NOW - 6 * 86_400_000)).toBe("vor 6 Tagen");
-    expect(applyFormatSpec(spec, NOW - 8 * 86_400_000)).toBe("30. Okt. 2026");
-    expect(applyFormatSpec({ ...spec, withTime: true }, NOW - 8 * 86_400_000)).toBe(
-      "30. Okt. 2026, 12:00",
+    expect(applyFormatSpec({ ...spec, withTime: false }, NOW - 8 * 86_400_000)).toBe(
+      "30. Okt. 2026",
     );
+    expect(applyFormatSpec(spec, NOW - 8 * 86_400_000)).toBe("30. Okt. 2026, 12:00");
   });
 
   test("without a locale the browser language applies", () => {
@@ -80,9 +96,7 @@ describe("applyFormatSpec — relativeTime", () => {
       configurable: true,
     });
     try {
-      expect(applyFormatSpec({ format: "relativeTime" }, NOW - 2 * 3_600_000)).toBe(
-        "vor 2 Stunden",
-      );
+      expect(applyFormatSpec({ format: "relativeTime" }, NOW - 2 * 3_600_000)).toBe("vor 2 Std.");
     } finally {
       if (original === undefined) Reflect.deleteProperty(globalThis, "navigator");
       else Object.defineProperty(globalThis, "navigator", original);

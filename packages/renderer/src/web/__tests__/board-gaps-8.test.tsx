@@ -38,9 +38,9 @@ describe("select facet", () => {
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
   });
 
-  test("an unset filter keeps the value in foreground and the border neutral", () => {
+  test("an unset filter shows only the label and keeps the border neutral", () => {
     render(<FacetFilter facet={facet} selected={[]} onChange={() => {}} />);
-    expect(screen.getByTestId("facet-state-value").classList.contains("text-primary")).toBe(false);
+    expect(screen.queryByTestId("facet-state-value")).toBeNull();
     expect(screen.getByTestId("facet-state").classList.contains("border-primary")).toBe(false);
   });
 
@@ -55,7 +55,7 @@ describe("select facet", () => {
 });
 
 describe("pager footer", () => {
-  test("status has no noun, the page-size select has no arrow, the current page is primary", () => {
+  test("status has no noun, the page-size select is outlined with an arrow, the current page is primary", () => {
     render(
       <DataTable
         columns={[{ field: "name", label: "Name", type: "text", sortable: false }]}
@@ -74,10 +74,8 @@ describe("pager footer", () => {
     );
     expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–10 of 26");
     const select = screen.getByTestId("dt-pager-page-size");
-    expect(select.parentElement?.querySelector("svg")).toBeNull();
-    const current = screen.getByTestId("dt-pager-page-1");
-    expect(current.classList.contains("bg-primary")).toBe(true);
-    expect(screen.getByTestId("dt-pager-page-2").classList.contains("bg-primary")).toBe(false);
+    expect(select.parentElement?.querySelector("svg")).not.toBeNull();
+    expect(screen.getByTestId("dt-pager-page-label").textContent).toBe("Page 1 of 3");
   });
 });
 

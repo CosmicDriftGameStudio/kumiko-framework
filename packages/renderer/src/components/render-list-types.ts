@@ -115,6 +115,10 @@ export type RenderListProps = {
   /** Forwarded to `DataTableProps.scrollBody` — bounds the table height and scrolls rows
    *  internally instead of growing the page (relatedList in a tabs-mode section). Default false. */
   readonly scrollBody?: boolean;
+  /** Forwarded to `DataTableProps.hideCountFooter` (relatedList: the tab label already says how many). */
+  readonly hideCountFooter?: boolean;
+  /** Forwarded to `DataTableProps.plainPhoneCards` (relatedList: a history reads as a plain feed on the phone). */
+  readonly plainPhoneCards?: boolean;
   /** Forwarded to `DataTableProps.screenPadding` — `true`: the table carries
    *  the shared screen padding because it is the screen body (entityList/
    *  projectionList). Explicit `false`: no padding at all — the host already

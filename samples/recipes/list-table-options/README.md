@@ -27,6 +27,15 @@ the `table` block renders and behaves as before.
   offers grouping by priority or none.
 - `table.totals`: a footer row with the estimate sum over the filtered list.
 - `facets.estimateHours: { display: "range" }`: from/to inputs for a number field.
+- `mutedRowField: "parked"`: a parked task is drawn entirely in the muted colour.
+- `toolbarSort: true`: the desktop "Sorted by" select in the filter row (opt-in).
+- Column options: `ellipsis` (one truncated line), `multiline` (line breaks stay),
+  `tone: "muted"`, `cardAbove` (phone card line above the title), `hideWhenDocked`,
+  `emptyPlaceholder` (`false` keeps the cell blank, a string shows muted text),
+  `cardBadge` (phone-card pill), `dateOnlyAfterDays` on a timestamp column,
+  `pillField` / `pillToneField` (a second pill beside the cell value).
+- Row action `display: "text"`: muted text without a button, shown for done tasks.
+- `hideCountFooter` is not set here: no screen declaration reaches it (relatedList sets it itself).
 - The same block on a `projectionList`, and `task:workload`, a hand-written list
   query that keeps grouping and totals by accepting `aggregate`
   (`entityListSchema`) and answering it with `answerListAggregate`.

@@ -1,7 +1,16 @@
-import { type Dispatch, type SetStateAction, useId, useMemo, useState } from "react";
+import {
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+  useId,
+  useMemo,
+  useState,
+} from "react";
 import { useIsEmbeddedScreen } from "../../../context/embedded-screen-context.tsx";
+import { useScreenFocus } from "../../../context/screen-focus-context.tsx";
 import type { ListColumnViewModel, ListRowViewModel } from "../../../headless/index.ts";
 import { type DataTableProps, useOptionalLocale, useOptionalTranslation } from "../../../index.ts";
+import { useContainerSqueeze } from "../use-container-narrow.ts";
 import { useIsBelowSmViewport, useIsNarrowViewport } from "../use-narrow-viewport.ts";
 import { isPinningActive, isResizingActive } from "./column-layout-mode.ts";
 import { densityClasses } from "./density.ts";
@@ -20,10 +29,15 @@ type RowExpansion = {
 
 export type DataTableModel = Omit<DataTableProps, "columns"> & {
   readonly schemaColumns: readonly ListColumnViewModel[];
+  /** With an emphasis column the first column is plain: the emphasised one carries the row. */
+  readonly hasEmphasisColumn: boolean;
   readonly columns: ColumnPins<ListColumnViewModel>["columns"];
   readonly tableTranslate: ReturnType<typeof useOptionalTranslation>;
   readonly tableLocale: ReturnType<typeof useOptionalLocale>;
   readonly isNarrow: boolean;
+  readonly containerRef: RefObject<HTMLDivElement | null>;
+  /** Row the assistant currently sees (the screen focus names its record); drawn highlighted. */
+  readonly focusedRowId: string | undefined;
   readonly belowSm: boolean;
   readonly density: ReturnType<typeof densityClasses>;
   readonly facetsOpenNarrow: boolean;
@@ -99,9 +113,18 @@ export function useDataTableState(props: DataTableProps): DataTableModel {
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
   const belowSm = useIsBelowSmViewport();
+  const focusedRowId = useScreenFocus()?.recordId;
+  const [containerRef, squeeze] = useContainerSqueeze<HTMLDivElement>();
+  const containerNarrow = squeeze.narrow || squeeze.docked;
   const schemaColumns = useMemo(
-    () => (isNarrow ? allColumns : allColumns.filter((col) => col.showOnNarrowOnly !== true)),
-    [allColumns, isNarrow],
+    () =>
+      isNarrow
+        ? allColumns
+        : allColumns.filter(
+            (col) =>
+              col.showOnNarrowOnly !== true && !(containerNarrow && col.hideWhenDocked === true),
+          ),
+    [allColumns, isNarrow, containerNarrow],
   );
   const viewColumns = useViewColumns(schemaColumns, view, isNarrow);
   const density = densityClasses(view, scrollBody === true);
@@ -157,11 +180,14 @@ export function useDataTableState(props: DataTableProps): DataTableModel {
   return {
     ...props,
     schemaColumns,
+    hasEmphasisColumn: schemaColumns.some((column) => column.emphasis === true),
     columns,
     tableTranslate,
     tableLocale,
     isNarrow,
     belowSm,
+    containerRef,
+    focusedRowId,
     density,
     facetsOpenNarrow,
     setFacetsOpenNarrow,

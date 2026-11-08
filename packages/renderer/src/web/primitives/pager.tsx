@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useOptionalLocale, useTranslation } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
@@ -93,8 +93,8 @@ export function InfiniteSentinel({
   );
 }
 
-// Pager — left "X – Y of Z · N per page" (the page size is a select in text
-// style), right "‹ 1 2 3 ›" from sm; below sm only the arrows.
+// Pager — left "X – Y of Z", right the page size select in text style and "‹ Page 1 of 3 ›" from sm; below sm
+// only the arrows.
 // `pinned` renders the footer bar of a scrollBody table (fixed height, top
 // border); unpinned it sits as a plain row below the table.
 //
@@ -127,7 +127,7 @@ export function Pager({
   const locale = useOptionalLocale();
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const safePage = Math.max(1, Math.min(page, totalPages));
-  const from = (safePage - 1) * limit + 1;
+  const from = total === 0 ? 0 : (safePage - 1) * limit + 1;
   const to = Math.min(safePage * limit, total);
 
   return (
@@ -143,21 +143,24 @@ export function Pager({
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
-          {t("kumiko.pager.status", {
-            from: from.toLocaleString(locale),
-            to: to.toLocaleString(locale),
-            total: total.toLocaleString(locale),
-          })}
+          {total === 0
+            ? t("kumiko.pager.statusEmpty")
+            : t("kumiko.pager.status", {
+                from: from.toLocaleString(locale),
+                to: to.toLocaleString(locale),
+                total: total.toLocaleString(locale),
+              })}
         </div>
+      </div>
+      <div className="flex items-center gap-1">
         {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
-          <div className="hidden items-center sm:flex">
-            <span aria-hidden="true">·</span>
+          <div className="relative mr-2 hidden items-center sm:flex">
             <select
               aria-label={t("kumiko.pager.pageSizeLabel")}
               data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
               value={limit}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="h-7 cursor-pointer appearance-none rounded-md border-0 bg-transparent px-1.5 text-[12.5px] text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-8 cursor-pointer appearance-none rounded-md border border-border-strong bg-card py-0 pl-2.5 pr-7 text-[12.5px] text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
               {pageSizeOptions.map((size) => (
                 <option key={size} value={size}>
@@ -165,10 +168,12 @@ export function Pager({
                 </option>
               ))}
             </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-2 size-3.5 text-muted-foreground"
+              aria-hidden="true"
+            />
           </div>
         )}
-      </div>
-      <div className="flex items-center gap-1">
         <PagerButton
           ariaLabel={t("kumiko.pager.previousPage")}
           disabled={safePage <= 1}
@@ -177,24 +182,15 @@ export function Pager({
         >
           <ChevronLeft className="size-3.5" aria-hidden="true" />
         </PagerButton>
-        <div className="hidden items-center gap-1 sm:flex">
-          {pageNumbersAround(safePage, totalPages).map((entry) =>
-            typeof entry !== "number" ? (
-              <span key={`gap-${entry.gapBefore}`} aria-hidden="true" className="px-1">
-                …
-              </span>
-            ) : (
-              <PageNumberButton
-                key={entry}
-                page={entry}
-                current={entry === safePage}
-                label={t("kumiko.pager.goToPage", { page: entry.toLocaleString() })}
-                onClick={() => onPageChange(entry)}
-                testId={testId !== undefined ? `${testId}-page-${entry}` : undefined}
-              />
-            ),
-          )}
-        </div>
+        <span
+          data-testid={testId !== undefined ? `${testId}-page-label` : undefined}
+          className="hidden px-1 sm:inline"
+        >
+          {t("kumiko.pager.pageOf", {
+            page: safePage.toLocaleString(locale),
+            total: totalPages.toLocaleString(locale),
+          })}
+        </span>
         <PagerButton
           ariaLabel={t("kumiko.pager.nextPage")}
           disabled={safePage >= totalPages}
@@ -205,50 +201,6 @@ export function Pager({
         </PagerButton>
       </div>
     </div>
-  );
-}
-
-type PageEntry = number | { readonly gapBefore: number };
-
-// All pages up to 7, else first, last and the neighbours of the current page, gaps in between.
-function pageNumbersAround(current: number, totalPages: number): readonly PageEntry[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-  const wanted = new Set([1, current - 1, current, current + 1, totalPages]);
-  const pages = [...wanted].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
-  return pages.flatMap((page, index) => {
-    const previous = pages[index - 1];
-    return previous !== undefined && page - previous > 1 ? [{ gapBefore: page }, page] : [page];
-  });
-}
-
-function PageNumberButton({
-  page,
-  current,
-  label,
-  onClick,
-  testId,
-}: {
-  readonly page: number;
-  readonly current: boolean;
-  readonly label: string;
-  readonly onClick: () => void;
-  readonly testId?: string;
-}): ReactNode {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-current={current ? "page" : undefined}
-      data-testid={testId}
-      className={cn(
-        "inline-flex h-6 min-w-6 items-center justify-center rounded px-1.5",
-        "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        current && "bg-primary text-primary-foreground hover:bg-primary",
-      )}
-    >
-      {page.toLocaleString()}
-    </button>
   );
 }
 
@@ -273,7 +225,7 @@ function PagerButton({
       aria-label={ariaLabel}
       data-testid={testId}
       className={cn(
-        "inline-flex size-11 items-center justify-center rounded sm:size-6",
+        "inline-flex size-8 items-center justify-center rounded-md border border-border-strong bg-card",
         "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         "disabled:pointer-events-none disabled:text-foreground-disabled",
       )}

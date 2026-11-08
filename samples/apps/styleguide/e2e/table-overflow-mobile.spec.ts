@@ -160,16 +160,19 @@ test.describe("desktop (>= md)", () => {
     const boxAtRest = await actionsCell.boundingBox();
     expect(boxAtRest).not.toBeNull();
 
+    // One pixel short of the end: the table width is fractional (text widths at
+    // 13.5px headers) while scrollLeft snaps to whole pixels, so a scroll to the
+    // very end overshoots the true max by <1px and drags the sticky cell with it.
     await scrollContainer.evaluate((el) => {
-      el.scrollLeft = el.scrollWidth;
+      el.scrollLeft = el.scrollWidth - el.clientWidth - 1;
     });
-    const boxScrolledFull = await actionsCell.boundingBox();
-    expect(boxScrolledFull).not.toBeNull();
+    const boxScrolledToEnd = await actionsCell.boundingBox();
+    expect(boxScrolledToEnd).not.toBeNull();
 
     // A sticky column keeps the same viewport x regardless of scroll
     // position. Without md:sticky, scrolling the container drags the
     // actions cell along with the row content — x would shift left.
-    expect(boxScrolledFull?.x).toBeCloseTo(boxAtRest?.x ?? Number.NaN, 1);
+    expect(boxScrolledToEnd?.x).toBeCloseTo(boxAtRest?.x ?? Number.NaN, 1);
   });
 
   // Root cause: the vendored SidebarInset (packages/renderer/src/web/ui/

@@ -9,3 +9,9 @@ export function rowToneFromField(field: string | undefined): DataTableProps["row
     return isSelectOptionTone(tone) ? tone : undefined;
   };
 }
+
+/** Mutes a row whose `field` holds `true`. */
+export function rowMutedFromField(field: string | undefined): DataTableProps["rowMuted"] {
+  if (field === undefined) return undefined;
+  return (row) => row.values[field] === true;
+}

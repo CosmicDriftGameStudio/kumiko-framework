@@ -72,9 +72,10 @@ export function synthesizeProjectionEntity(
 
 function rowPresentation(
   screen: ProjectionListScreenDefinition,
-): Pick<EntityListScreenDefinition, "rowToneField" | "rowRenderer"> {
+): Pick<EntityListScreenDefinition, "rowToneField" | "mutedRowField" | "rowRenderer"> {
   return {
     ...(screen.rowToneField !== undefined && { rowToneField: screen.rowToneField }),
+    ...(screen.mutedRowField !== undefined && { mutedRowField: screen.mutedRowField }),
     ...(screen.rowRenderer !== undefined && { rowRenderer: screen.rowRenderer }),
   };
 }

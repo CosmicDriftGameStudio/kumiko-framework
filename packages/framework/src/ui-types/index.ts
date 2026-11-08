@@ -138,6 +138,7 @@ export type {
   FieldAffix,
   FieldAiAssist,
   FieldAiAssistChip,
+  FieldBadge,
   FieldCondition,
   FieldFillAction,
   FieldIconKey,

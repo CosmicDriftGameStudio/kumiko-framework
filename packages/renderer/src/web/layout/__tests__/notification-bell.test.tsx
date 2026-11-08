@@ -177,6 +177,13 @@ describe("NotificationBell", () => {
     await waitFor(() => expect(bell.textContent).toBe("3"));
   });
 
+  test("renders no bell while nothing is unread", async () => {
+    const calls: Calls = { queries: [], writes: [] };
+    mount("channel-in-app", makeDispatcher(calls, { count: 0 }), makeLive().subscriber);
+    await waitFor(() => expect(calls.queries).toContain("channel-in-app:query:unread-count"));
+    expect(document.querySelector('[data-kumiko-layout="notification-bell"]')).toBeNull();
+  });
+
   test("caps the badge at 99+", async () => {
     mount(
       "channel-in-app",

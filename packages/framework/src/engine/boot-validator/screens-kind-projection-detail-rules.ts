@@ -119,6 +119,18 @@ export const PROJECTION_DETAIL_RULES = {
     summary: "Every rendered writeForm field has a fieldDefs entry.",
     fix: "Add the field to fieldDefs.",
   },
+  submitWithInvalid: {
+    id: "projection-detail/submit-with-invalid",
+    summary:
+      "A writeForm submitWith names a writeHandler action of the screen, no other form uses the same action, and no form field shares a name with the action's payload keys.",
+    fix: "Point submitWith at a writeHandler action id in screen.actions, give each form its own action, and rename the colliding field or payload key.",
+  },
+  presentationOptionInvalid: {
+    id: "projection-detail/presentation-option-invalid",
+    summary:
+      'tabLabel and layout.narrowTabs need layout.mode "tabs"; hideOnNarrow and showOnNarrowOnly exclude each other on a section; photoGrid.badgeFirst needs badgeField.',
+    fix: "Use tabs mode for tabLabel/narrowTabs, set only one of hideOnNarrow/showOnNarrowOnly, and set badgeField next to badgeFirst.",
+  },
   wizardWriteForm: {
     id: "projection-detail/wizard-write-form",
     summary: "A wizard-mode layout has no writeForm section.",

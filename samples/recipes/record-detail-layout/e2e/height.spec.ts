@@ -52,7 +52,8 @@ test.describe("record-detail-layout — tab-panel height", () => {
     expect(region.y + region.height).toBeLessThanOrEqual(main.y + main.height + 4);
     expect(table.height).toBeLessThan(region.height);
     expect(table.height).toBeLessThan(main.height * 0.4);
-    await expect(page.getByTestId("render-list-table-footer")).toBeVisible();
+    // A tab's table has no count footer: the tab label already says how many rows there are.
+    await expect(page.getByTestId("render-list-table-footer")).toHaveCount(0);
   });
 
   test("long list: the tab-panel card is capped at the panel's available height and the table scrolls internally", async ({

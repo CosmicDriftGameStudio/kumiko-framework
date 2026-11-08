@@ -494,6 +494,7 @@ export function answerOrderDetail(id: string) {
     path: [{ label: "Orders" }, { label: "Aiko Tanaka" }, { label: "SO-10482" }],
     summaryLine: "Waiting for the second payment",
     summaryShort: "Second payment open.",
+    mobileLine: "€ 312.00 open of € 1,248.00",
     summaryTone: "warn",
     narrowSubtitle: "SO-10482 · placed 21 Aug",
     notice: { title: "Payment overdue", text: "312 EUR is 14 days overdue", tone: "bad" },

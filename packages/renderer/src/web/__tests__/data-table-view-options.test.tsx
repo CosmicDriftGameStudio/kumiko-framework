@@ -85,10 +85,10 @@ describe("DataTable view options", () => {
       />,
     );
     expect(screen.getByTestId("row-r1").className).toContain("h-8");
-    expect(screen.getByTestId("row-r1").className).not.toContain("h-10");
+    expect(screen.getByTestId("row-r1").className).not.toContain("h-[50px]");
     unmount();
     render(<DataTable columns={columns} rows={rows} testId="t" scrollBody view={view()} />);
-    expect(screen.getByTestId("row-r1").className).toContain("h-10");
+    expect(screen.getByTestId("row-r1").className).toContain("h-[50px]");
   });
 
   test("the view menu toggles a column and keeps the last visible one", () => {

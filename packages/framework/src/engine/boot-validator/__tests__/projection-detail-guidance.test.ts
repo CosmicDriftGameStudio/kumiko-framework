@@ -172,4 +172,21 @@ describe("projectionDetail record guidance blocks", () => {
     expect(ids).not.toContain("query/output-field-missing");
     expect(ids).not.toContain("projection-detail/guidance-field-empty");
   });
+
+  test("a mobileSummary missing from the outputSchema is query/output-field-missing", () => {
+    expect(ruleIdsOf([detailFeature({ mobileSummary: "line" }, ["title"])])).toContain(
+      "query/output-field-missing",
+    );
+    expect(ruleIdsOf([detailFeature({ mobileSummary: "line" })])).toEqual([]);
+  });
+
+  test("a metric visibleWhen field missing from the outputSchema is query/output-field-missing", () => {
+    const metric = (visibleWhen: unknown) => ({
+      metrics: [{ field: "title", label: "shop:metric:title", visibleWhen }],
+    });
+    expect(ruleIdsOf([detailFeature(metric({ field: "tone", eq: "x" }), ["title"])])).toContain(
+      "query/output-field-missing",
+    );
+    expect(ruleIdsOf([detailFeature(metric({ field: "tone", eq: "x" }))])).toEqual([]);
+  });
 });

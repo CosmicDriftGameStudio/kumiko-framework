@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { ListRowViewModel } from "../../../headless/index.ts";
-import { cn } from "../../lib/cn.ts";
 import { TableCell, TableRow } from "../../ui/table.tsx";
 import { cellTitle } from "../data-table-cell.tsx";
 import { type DataTableBandItem, GroupBand } from "./group-band.tsx";
@@ -67,18 +66,18 @@ export function renderBand(m: DataTableModel, item: DataTableBandItem): ReactNod
   return <GroupBand item={item} columnOf={m.columnOf} />;
 }
 
-// `embedded`: the block sits inside the framed table's body, which already draws the border.
-export function renderEmptyBlock(m: DataTableModel, embedded = false): ReactNode {
-  const { testId, chromeless, fillsHeight, emptyState, tableTranslate } = m;
+export function renderEmptyBlock(m: DataTableModel): ReactNode {
+  const { testId, emptyState, tableTranslate } = m;
   return (
     <div
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
-      className={cn(
-        "flex flex-col items-center justify-center gap-3 px-6 py-10 text-[13px] text-muted-foreground",
-        !embedded && chromeless !== true && !fillsHeight && "rounded-md border border-border-row",
-      )}
+      className="m-6 flex flex-col items-center justify-center gap-3 rounded-[9px] border border-dashed border-border-strong px-6 py-10 text-[13px] text-muted-foreground [&>:first-child]:font-semibold [&>:first-child]:text-foreground"
     >
-      {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}
+      {emptyState ?? (
+        <span className="text-sm font-semibold text-foreground">
+          {tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}
+        </span>
+      )}
     </div>
   );
 }

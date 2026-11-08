@@ -11,6 +11,7 @@ import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "reac
 import { resolveSafeLocale } from "../../headless/format/safe-locale.ts";
 import { currencyDecimals, formatMoney as formatMoneyForLocale } from "../../headless/index.ts";
 import { cn } from "../lib/cn.ts";
+import { inlineSuffixStyle } from "./inline-suffix.ts";
 import { parseLocaleNumber } from "./locale-number.ts";
 
 // Re-exported for backward compat — callers used to import this from here
@@ -34,15 +35,12 @@ export type MoneyInputProps = {
 // a flex sibling of the input: a symbol of any width ("€", "CHF", "R$") takes
 // its own space instead of overlapping the digits.
 const wrapperClass =
-  "flex h-9 w-full items-center rounded-md border border-input bg-transparent text-sm shadow-sm " +
+  "flex min-h-[38px] w-full items-center rounded-[7px] border-[1.5px] border-input bg-transparent text-sm shadow-sm " +
   "transition-colors focus-within:ring-1 focus-within:ring-ring";
 
 const inputClass =
   "h-full min-w-0 flex-1 bg-transparent px-3 placeholder:text-muted-foreground " +
-  "focus-visible:outline-none disabled:cursor-not-allowed " +
-  // Right-aligns the value like a native type=number input so amounts align at the thousands
-  // separators in list columns.
-  "text-right tabular-nums";
+  "focus-visible:outline-none disabled:cursor-not-allowed text-left tabular-nums";
 
 export function MoneyInput({
   id,
@@ -113,14 +111,18 @@ export function MoneyInput({
     onChange(Math.round(parsed * factor));
   };
 
+  const shownText = focused ? draft : formatted;
   const symbolEl =
     symbol !== "" ? (
       <span
         id={`${id}-currency`}
         data-testid={`${id}-currency`}
+        {...(symbolPosition === "suffix" && { style: inlineSuffixStyle(shownText) })}
         className={cn(
-          "shrink-0 select-none text-muted-foreground",
-          symbolPosition === "prefix" ? "pl-3" : "pr-3",
+          "select-none text-muted-foreground",
+          symbolPosition === "prefix"
+            ? "shrink-0 pl-3"
+            : "pointer-events-none absolute top-1/2 -translate-y-1/2",
         )}
       >
         {symbol}
@@ -131,6 +133,7 @@ export function MoneyInput({
     <div
       className={cn(
         wrapperClass,
+        "relative",
         hasError === true && "border-destructive focus-within:ring-destructive",
         disabled === true && "cursor-not-allowed opacity-50",
       )}
@@ -148,11 +151,11 @@ export function MoneyInput({
         aria-invalid={hasError === true ? true : undefined}
         aria-label={ariaLabel}
         aria-describedby={symbol !== "" ? `${id}-currency` : undefined}
-        value={focused ? draft : formatted}
+        value={shownText}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onChange={(e) => setDraft(e.target.value)}
-        className={cn(inputClass, symbolPosition === "prefix" ? "pl-2" : "pr-2")}
+        className={cn(inputClass, symbolPosition === "prefix" ? "pl-2" : "pr-8")}
       />
       {symbolPosition === "suffix" && symbolEl}
     </div>

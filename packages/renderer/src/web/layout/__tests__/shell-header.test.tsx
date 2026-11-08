@@ -231,13 +231,13 @@ describe("ShellHeader", () => {
       expect(navigate).toHaveBeenCalledWith({ screenId: "item-list" });
     });
 
-    test("on a phone the parent still wins over the record title", () => {
+    test("on a phone the record's short title wins over the parent link", () => {
       atViewportWidth(500, () => {
         renderBodyTitle(true, () => {});
         const items = Array.from(document.querySelectorAll("[data-slot='breadcrumb-item']"));
         expect(items).toHaveLength(1);
-        expect(items[0]?.textContent).toContain("item-list");
-        expect(screen.queryByText("VW Golf")).toBeNull();
+        expect(items[0]?.textContent).toBe("VW Golf");
+        expect(screen.queryByRole("link", { name: /item-list/ })).toBeNull();
       });
     });
 

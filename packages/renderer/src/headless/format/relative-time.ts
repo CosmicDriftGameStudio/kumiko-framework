@@ -10,6 +10,8 @@ export type RelativeTimeOptions = {
   readonly absoluteAfterDays?: number;
   readonly withTime?: boolean;
   readonly timeZone?: string;
+  /** Translated text for past moments below a minute ("just now") instead of "N seconds ago". */
+  readonly justNow?: string;
 };
 
 function formatAbsolute(atMs: number, locale: string, options: RelativeTimeOptions): string {
@@ -55,7 +57,10 @@ export function formatRelativeTime(
     style: options.style ?? "long",
   });
   const seconds = Math.round((atMs - nowMs) / 1000);
-  if (Math.abs(seconds) < SECONDS_PER_MINUTE) return formatter.format(seconds, "second");
+  if (Math.abs(seconds) < SECONDS_PER_MINUTE) {
+    if (options.justNow !== undefined && seconds <= 0) return options.justNow;
+    return formatter.format(seconds, "second");
+  }
   const minutes = Math.round(seconds / SECONDS_PER_MINUTE);
   if (Math.abs(minutes) < MINUTES_PER_HOUR) return formatter.format(minutes, "minute");
   const hours = Math.round(minutes / MINUTES_PER_HOUR);

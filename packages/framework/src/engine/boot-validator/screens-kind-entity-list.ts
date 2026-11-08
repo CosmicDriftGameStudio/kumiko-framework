@@ -399,7 +399,15 @@ export function validateEntityListScreen(
     });
   }
   const where = `[Feature ${featureName}] Screen "${screenId}" (entityList)`;
-  validateListTableOptions(where, screen.table, screen.columns, true);
+  validateListTableOptions(
+    where,
+    screen.table,
+    screen.columns,
+    true,
+    Object.entries(screen.facets ?? {})
+      .filter(([, facet]) => facet !== false)
+      .map(([field]) => field),
+  );
   validateEntityListAggregateOptions(where, screen, fields.entityDef);
   if (screen.defaultSort !== undefined) {
     validateEntityListDefaultSort(featureName, screenId, screen.defaultSort, fields);

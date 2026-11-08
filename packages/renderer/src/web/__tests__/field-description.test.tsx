@@ -17,6 +17,17 @@ describe("DefaultField description", () => {
     expect(view.getByText("What changed and why (optional)").id).toBe(describedBy ?? "");
   });
 
+  test("the description sits below the control", () => {
+    const view = render(
+      <Field id="note" label="Note" description="Hint text" testId="field">
+        <Input id="note" name="note" kind="text" value="" onChange={() => {}} />
+      </Field>,
+    );
+    const input = view.getByLabelText("Note");
+    const hint = view.getByText("Hint text");
+    expect(input.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   test("sets no aria-describedby without a description", () => {
     const view = render(
       <Field id="note" label="Note" testId="field">

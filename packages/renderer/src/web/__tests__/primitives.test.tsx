@@ -6,6 +6,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
+import { InsideDrawerProvider } from "../../index.ts";
 import { defaultPrimitives, FormScreenShell, ScreenWidthProvider } from "../primitives/index.tsx";
 import { DefaultJsonView } from "../primitives/json-view.tsx";
 import { PageSection, Stack } from "../primitives/layout.tsx";
@@ -156,6 +157,17 @@ describe("Banner", () => {
       </Banner>,
     );
     expect(screen.getByTestId("b").getAttribute("role")).toBe("alert");
+  });
+
+  test('variant="assist" is a quiet hint: no alert role, secondary surface', () => {
+    render(
+      <Banner variant="assist" testId="b">
+        Suggestion
+      </Banner>,
+    );
+    const banner = screen.getByTestId("b");
+    expect(banner.getAttribute("role")).toBeNull();
+    expect(banner.className).toContain("bg-secondary");
   });
 
   test('variant="info" has no alert role', () => {
@@ -437,6 +449,32 @@ describe("Input kind=boolean: switch vs checkbox", () => {
     expect(field.querySelector('[role="switch"]')).toBeNull();
   });
 
+  test("Field(layout=row) + Input(boolean): renders an Off/On segment, not a switch", () => {
+    const onChange = mock();
+    render(
+      <Field id="notify" label="Notify" layout="row" testId="field-notify">
+        <Input id="notify" name="notify" kind="boolean" value={false} onChange={onChange} />
+      </Field>,
+    );
+    const field = screen.getByTestId("field-notify");
+    expect(field.querySelector('[role="switch"]')).toBeNull();
+    const on = field.querySelector('[data-testid="segmented-notify-on"]') as HTMLElement;
+    expect(on.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(on);
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  test("Field(layout=row) puts label and control side by side from a 384px container", () => {
+    render(
+      <Field id="phone" label="Phone" layout="row" testId="field-phone">
+        <input id="phone" />
+      </Field>,
+    );
+    const cls = screen.getByTestId("field-phone").className;
+    expect(cls).toContain("@sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]");
+    expect(cls).not.toContain("@md:");
+  });
+
   test("clicking the switch reports the inverted value to onChange", () => {
     const onChange = mock();
     render(<Input id="active" name="active" kind="boolean" value={true} onChange={onChange} />);
@@ -527,6 +565,24 @@ describe("Form", () => {
     expect(actionsFooter.textContent).toContain("Save");
     // The title is no longer in the action bar; it was moved out of the header.
     expect(actionsFooter.textContent).not.toContain("Eintrag bearbeiten");
+  });
+
+  test("topBanner renders above the summary box", () => {
+    render(
+      <InsideDrawerProvider value>
+        <Form
+          onSubmit={() => undefined}
+          testId="form"
+          summary={{ title: "Summary" }}
+          topBanner={<div data-testid="top-banner">failed</div>}
+        >
+          <div>content</div>
+        </Form>
+      </InsideDrawerProvider>,
+    );
+    const banner = screen.getByTestId("top-banner");
+    const summary = screen.getByTestId("form-summary");
+    expect(banner.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   test("without title and actions: no action bar rendered", () => {
@@ -1003,7 +1059,7 @@ describe("PageSection", () => {
     );
     expect(paddingOf("page-pad")).toEqual(["pb-6", "pt-5", "px-4"]);
     expect(paddingOf("page-pad")).toEqual(paddingOf("shell-pad"));
-    expect(screen.getByTestId("page-pad").className).toContain("md:px-10");
+    expect(screen.getByTestId("page-pad").className).toContain("md:px-6");
   });
 
   test("the pinned-footer screen form scrolls on the same inset as PageSection", () => {
@@ -1016,7 +1072,7 @@ describe("PageSection", () => {
       </>,
     );
     expect(paddingOf("sf-scroll")).toEqual(paddingOf("page-pad"));
-    expect(screen.getByTestId("sf-scroll").className).toContain("md:px-10");
+    expect(screen.getByTestId("sf-scroll").className).toContain("md:px-6");
   });
 
   test("maxWidth=4xl sets the same width class as FormScreenShell maxWidth=4xl", () => {

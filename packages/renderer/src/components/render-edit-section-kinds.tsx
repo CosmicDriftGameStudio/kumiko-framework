@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { EditSectionViewModel, FormValues } from "../headless/index.ts";
-import { ExtensionSectionMount } from "./edit-mounts.tsx";
+import { EditSlotMount, ExtensionSectionMount } from "./edit-mounts.tsx";
 import { RelatedListSection } from "./related-list-section.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { renderFieldsSection } from "./render-edit-fields-section.tsx";
@@ -91,8 +91,10 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
       featureName={props.featureName}
       translate={model.engine.state.translate}
       hideTitle={hideSectionTitles}
+      {...(props.recordSections?.labelTitles === true && { labelTitle: true })}
+      {...(sectionIndex === 0 &&
+        props.recordSections?.omitFirstTitle === true && { omitTitle: true })}
       {...(refreshToken !== undefined && { refreshToken })}
-      {...(fillScreenHeight === true && { grow: true })}
       // Tabs mode: actions move to the outer Card below — the
       // hideTitle branch of RelatedListSection has no title row to
       // render them into.
@@ -127,9 +129,14 @@ function renderStepListSection<TValues extends FormValues, TCtx>(
   return (
     <Section
       key={section.title ?? `step-list-${sectionIndex}`}
-      {...(section.title !== undefined && !model.engine.props.hideSectionTitles
+      {...(section.title !== undefined &&
+      !model.engine.props.hideSectionTitles &&
+      !(sectionIndex === 0 && model.engine.props.recordSections?.omitFirstTitle === true)
         ? { title: section.title }
         : {})}
+      {...(model.engine.props.recordSections?.labelTitles === true && {
+        titleStyle: "label" as const,
+      })}
       testId="step-list-section"
     >
       <StepList items={items} testId="step-list" />
@@ -152,7 +159,9 @@ function renderWriteFormSection<TValues extends FormValues, TCtx>(
       featureName={props.featureName}
       translate={state.translate}
       hideTitle={props.hideSectionTitles}
+      {...(props.recordSections?.labelTitles === true && { labelTitle: true })}
       onSubmitted={() => props.onReload?.()}
+      recordValues={model.engine.form.snapshot.values}
       {...(sections.isLoneWriteFormTab && { onFooterAction: sections.setWriteFormFooterAction })}
       {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
     />
@@ -242,19 +251,90 @@ function createWizardStepWrapper<TValues extends FormValues, TCtx>(
   };
 }
 
+// `after` stands directly under its section card; the narrow options are CSS-only so the
+// section stays mounted (its form state and queries survive a resize).
+function withSectionPresentation<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+  section: EditSectionViewModel,
+  sectionIndex: number,
+  node: ReactNode,
+): ReactNode {
+  const { props, form, sections, state } = model.engine;
+  const { FillContainer } = state.primitives;
+  if (node === null || FillContainer === undefined) return node;
+  const narrowClass =
+    section.hideOnNarrow === true
+      ? "max-sm:hidden"
+      : section.showOnNarrowOnly === true
+        ? "sm:hidden"
+        : undefined;
+  const titleClass =
+    section.titleOnNarrow === false ? "max-sm:[&_[data-section-title]]:hidden" : undefined;
+  if (section.after === undefined && narrowClass === undefined && titleClass === undefined) {
+    return node;
+  }
+  return (
+    <FillContainer
+      key={`section-presentation-${sectionIndex}`}
+      className={[narrowClass, titleClass, "gap-3"].filter((c) => c !== undefined).join(" ")}
+    >
+      {node}
+      {section.after !== undefined && (
+        <EditSlotMount
+          slot={section.after}
+          slotName="afterSection"
+          screenId={props.screen.id}
+          entityName={sections.vm.entityName}
+          entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
+          values={form.snapshot.values}
+          {...(props.activeTabId !== undefined && { activeTabId: props.activeTabId })}
+        />
+      )}
+    </FillContainer>
+  );
+}
+
 export function renderEditSections<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
 ): ReactNode {
-  return model.engine.sections.filteredSections.map(
-    (section: EditSectionViewModel, sectionIndex: number) =>
-      renderSectionByKind(
-        {
-          model,
-          sectionIndex,
-          sectionActionsEl: renderSectionActions(model, section),
-          wrapWizardStep: createWizardStepWrapper(model, sectionIndex),
-        },
+  const rendered = model.engine.sections.filteredSections.map(
+    (section: EditSectionViewModel, sectionIndex: number) => ({
+      section,
+      node: withSectionPresentation(
+        model,
         section,
+        sectionIndex,
+        renderSectionByKind(
+          {
+            model,
+            sectionIndex,
+            sectionActionsEl: renderSectionActions(model, section),
+            wrapWizardStep: createWizardStepWrapper(model, sectionIndex),
+          },
+          section,
+        ),
       ),
+    }),
   );
+  const { FillContainer } = model.engine.state.primitives;
+  if (model.engine.props.recordSections?.photosBeside !== true || FillContainer === undefined) {
+    return rendered.map(({ node }) => node);
+  }
+  const photos = rendered.filter(({ section }) => isPhotoGridSection(section));
+  const rest = rendered.filter(({ section }) => !isPhotoGridSection(section));
+  if (photos.length === 0 || rest.length === 0) return rendered.map(({ node }) => node);
+  return (
+    <FillContainer
+      key="photos-beside"
+      testId="record-photos-beside"
+      className="grid grid-cols-1 items-start gap-x-8 gap-y-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]"
+    >
+      <FillContainer className="gap-6">{rest.map(({ node }) => node)}</FillContainer>
+      <FillContainer className="gap-6">{photos.map(({ node }) => node)}</FillContainer>
+    </FillContainer>
+  );
+}
+
+function isPhotoGridSection(section: EditSectionViewModel): boolean {
+  return section.kind === "relatedList" && section.photoGrid !== undefined;
 }
