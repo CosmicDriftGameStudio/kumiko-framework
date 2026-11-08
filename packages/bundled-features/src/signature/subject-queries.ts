@@ -1,4 +1,5 @@
 import {
+  DEFAULT_LIST_LIMIT,
   entityListSchema,
   type HandlerContext,
   MAX_LIST_LIMIT,
@@ -26,21 +27,23 @@ function onlyFilterOn(payload: ListPayload, field: string): ListFilter | null {
   return matching.length === 1 && first !== undefined ? first : null;
 }
 
-function stringList(value: unknown): readonly string[] | null {
-  if (!Array.isArray(value)) return null;
-  const strings = value.filter((item): item is string => typeof item === "string");
-  return strings.length === value.length ? strings : null;
+type RowsPage = { rows: unknown[] } & Record<string, unknown>;
+
+function isRowsPage(value: unknown): value is RowsPage {
+  return (
+    typeof value === "object" && value !== null && "rows" in value && Array.isArray(value.rows)
+  );
 }
 
-function replaceFilterValue(payload: ListPayload, target: ListFilter, value: unknown): ListPayload {
-  const swap = (filter: ListFilter): ListFilter =>
-    filter === target ? { ...filter, value } : filter;
-  return {
-    ...payload,
-    ...(payload.filter !== undefined && { filter: swap(payload.filter) }),
-    ...(payload.filters !== undefined && { filters: payload.filters.map(swap) }),
-  };
+function subjectKey(subject: { subjectType?: unknown; subjectId?: unknown }): string {
+  return `${String(subject.subjectType)}\u0000${String(subject.subjectId)}`;
 }
+
+// ponytail: at most this many base pages per answer; a user who may see almost none of the
+// tenant's requests gets short pages and scrolls on. Upgrade to a subject-joined query if that hurts.
+const MAX_BASE_PAGES_PER_ANSWER = 10;
+// authorizeSubject usually queries the database; a page of 200 subjects must not take the whole pool.
+const SUBJECT_CHECKS_IN_PARALLEL = 10;
 
 export function scopeRequestList(base: QueryHandlerDef, scope: SubjectScope): QueryHandlerDef {
   return {
@@ -49,36 +52,50 @@ export function scopeRequestList(base: QueryHandlerDef, scope: SubjectScope): Qu
       const user = query.user;
       if (!scope.isScoped(user)) return base.handler(query, ctx);
       const payload = entityListSchema.parse(query.payload);
-      const typeFilter = onlyFilterOn(payload, "subjectType");
-      const idFilter = onlyFilterOn(payload, "subjectId");
-      if (
-        typeFilter === null ||
-        typeFilter.op !== "eq" ||
-        typeof typeFilter.value !== "string" ||
-        idFilter === null
-      ) {
+      // Group counts would include requests of foreign subjects, and an offset counts base rows,
+      // not the rows this user sees; the screen pages by cursor.
+      if (payload.aggregate !== undefined || (payload.offset ?? 0) > 0) {
         throw new AccessDeniedError();
       }
-      let requested: readonly string[] | null;
-      if (idFilter.op === "eq") {
-        requested = typeof idFilter.value === "string" ? [idFilter.value] : null;
-      } else if (idFilter.op === "in") {
-        requested = stringList(idFilter.value);
-      } else {
-        requested = null;
+      const limit = payload.limit ?? DEFAULT_LIST_LIMIT;
+      const verdicts = new Map<string, boolean>();
+      const visibleRows: unknown[] = [];
+      let page: unknown = await base.handler(query, ctx);
+      for (let fetched = 1; ; fetched++) {
+        if (!isRowsPage(page)) throw new Error("signature request list did not return a rows page");
+        const unknownSubjects = new Map(
+          page.rows
+            .map((row) => [subjectKey(subjectOf(row)), subjectOf(row)] as const)
+            .filter(([key]) => !verdicts.has(key)),
+        );
+        const pending = [...unknownSubjects];
+        for (let start = 0; start < pending.length; start += SUBJECT_CHECKS_IN_PARALLEL) {
+          await Promise.all(
+            pending.slice(start, start + SUBJECT_CHECKS_IN_PARALLEL).map(async ([key, subject]) => {
+              verdicts.set(key, await scope.allowsRequest(ctx, user, subject));
+            }),
+          );
+        }
+        visibleRows.push(...page.rows.filter((row) => verdicts.get(subjectKey(subjectOf(row)))));
+        const nextCursor = page["nextCursor"];
+        if (
+          visibleRows.length >= limit ||
+          typeof nextCursor !== "string" ||
+          fetched >= MAX_BASE_PAGES_PER_ANSWER ||
+          verdicts.size >= MAX_LIST_LIMIT
+        ) {
+          // `total` would count requests of foreign subjects; the cursor continues after the last base page.
+          const { total: _total, rows: _rows, ...rest } = page;
+          return { ...rest, rows: visibleRows };
+        }
+        page = await base.handler(
+          {
+            ...query,
+            payload: { ...payload, cursor: nextCursor, limit: limit - visibleRows.length },
+          },
+          ctx,
+        );
       }
-      // The cap bounds the hook calls one query can trigger.
-      if (requested === null || requested.length > MAX_LIST_LIMIT) throw new AccessDeniedError();
-      const subjectType = typeFilter.value;
-      // ponytail: one hook call per subjectId; add a batch hook when lists get large.
-      const verdicts = await Promise.all(
-        requested.map((subjectId) => scope.allows(ctx, user, subjectType, subjectId)),
-      );
-      const allowed = requested.filter((_, index) => verdicts[index]);
-      if (allowed.length === 0) return emptyPage(payload);
-      const narrowed =
-        idFilter.op === "in" ? replaceFilterValue(payload, idFilter, allowed) : payload;
-      return base.handler({ ...query, payload: narrowed }, ctx);
     },
   };
 }

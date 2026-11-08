@@ -34,9 +34,9 @@ the `files` feature. Order of signatures is free.
 
 Subject scope: `authorizeSubject(ctx, user, { subjectType, subjectId })` limits requests to the
 subjects a user may see. It runs for every signed-in handler and query; `false` answers like a missing
-record. `unscopedRoles` (e.g. `["TenantAdmin"]`) skip it and are the only roles that see the list screen and
-nav while it is set. A scoped user passes a `subjectType` eq and a `subjectId` eq or in filter to
-`signatureRequest:list` and a `requestId` eq filter to `signatureSigner:list`, otherwise 403. `request` also
+record. `unscopedRoles` (e.g. `["TenantAdmin"]`) skip it. For a scoped user `signatureRequest:list` keeps only the
+rows of allowed subjects, reading up to ten base pages per answer (it can still hold fewer rows than `limit`), and has no `total`; screens
+and nav stay at `access`. `signatureSigner:list` needs a `requestId` eq filter, otherwise 403. `request` also
 refuses a document the caller cannot open through `GET /files/:id`.
 
 ## Handlers
