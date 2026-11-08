@@ -163,7 +163,7 @@ export type HandlerObservability = {
 };
 
 // `append`: own-feature events only; runs in its own transaction together with inline projections, userId = systemUser.
-// `load`: same semantics as in handlers, scoped to the job's tenant.
+// `load`, `loadByTypes`: same semantics as in handlers, scoped to the job's tenant.
 export type JobEvents = Pick<HandlerEvents, "append" | "load" | "loadByTypes">;
 
 // `write` runs as the job's systemUser; `writeAs`/`queryAs` take an explicit identity. They throw

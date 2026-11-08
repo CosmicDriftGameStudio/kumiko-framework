@@ -145,6 +145,59 @@ describe("Event Sourcing Showcase", () => {
     expect(byCustomer.get("Globex")).toMatchObject({ paidInvoices: 1, totalCents: 300 });
   });
 
+  test("loadByTypes: statuses of the requested invoices from approved/paid events only", async () => {
+    const requestedPaid = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Acme" },
+      admin,
+    );
+    const requestedApproved = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Acme" },
+      admin,
+    );
+    const notRequested = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Globex" },
+      admin,
+    );
+    for (const invoice of [requestedPaid, requestedApproved, notRequested]) {
+      await stack.http.writeOk(
+        "showcase:write:invoice:approve",
+        { id: invoice.id, amountCents: 100, approvedBy: "cfo" },
+        admin,
+      );
+    }
+    await stack.http.writeOk(
+      "showcase:write:invoice:pay",
+      { id: requestedPaid.id, amountCents: 100 },
+      admin,
+    );
+    await stack.http.writeOk(
+      "showcase:write:invoice:pay",
+      { id: notRequested.id, amountCents: 100 },
+      admin,
+    );
+    await stack.http.writeOk(
+      "showcase:write:invoice:acknowledge",
+      { id: requestedApproved.id, approverId: "cfo" },
+      admin,
+    );
+
+    const { statuses } = await stack.http.queryOk<{
+      statuses: Array<{ id: string; status: string }>;
+    }>(
+      "showcase:query:invoice:payment-statuses",
+      { ids: [requestedPaid.id, requestedApproved.id] },
+      admin,
+    );
+
+    expect(statuses).toEqual([
+      { id: requestedPaid.id, status: "paid" },
+      { id: requestedApproved.id, status: "approved" },
+    ]);
+  });
+
   test("asOf point-in-time read: invoice state before the pay event", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       "showcase:write:invoice:create",

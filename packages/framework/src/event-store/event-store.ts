@@ -20,11 +20,13 @@ import {
   runAtomicEventWrite,
   type SubsequentEventInsertRow,
   selectAggregateMaxVersion,
+  selectEventRowsOfAggregatesByType,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
   selectStreamMaxVersions,
 } from "../db/queries/event-store.ts";
-import { selectMany } from "../db/query.ts";
+import { coerceRow, selectMany } from "../db/query.ts";
+import { extractTableInfo } from "../db/table-info.ts";
 import type { TenantId } from "../engine/types/index.ts";
 import { isStreamArchived, selectArchivedAggregateIds } from "./archive.ts";
 import {
@@ -353,13 +355,12 @@ export async function loadEventsOfAggregatesByType(
     const archivedIds = includeArchived
       ? new Set<string>()
       : await selectArchivedAggregateIds(db, tenantId, aggregateIds);
-    const rows = await selectMany<SelectedEvent>(
-      db,
-      eventsTable,
-      { tenantId, aggregateId: [...aggregateIds], type: [...eventTypes] },
-      { orderBy: { col: "id", direction: "asc" } },
-    );
-    return rows.filter((row) => !archivedIds.has(row.aggregateId)).map(toStoredEvent);
+    const rawRows = await selectEventRowsOfAggregatesByType(db, tenantId, aggregateIds, eventTypes);
+    const info = extractTableInfo(eventsTable);
+    return rawRows
+      .map((raw) => coerceRow<SelectedEvent>(raw, info))
+      .filter((row) => !archivedIds.has(row.aggregateId))
+      .map(toStoredEvent);
   });
 }
 

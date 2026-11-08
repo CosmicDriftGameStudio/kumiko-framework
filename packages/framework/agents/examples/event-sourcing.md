@@ -229,6 +229,59 @@ describe("Event Sourcing Showcase", () => {
     expect(byCustomer.get("Globex")).toMatchObject({ paidInvoices: 1, totalCents: 300 });
   });
 
+  test("loadByTypes: statuses of the requested invoices from approved/paid events only", async () => {
+    const requestedPaid = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Acme" },
+      admin,
+    );
+    const requestedApproved = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Acme" },
+      admin,
+    );
+    const notRequested = await stack.http.writeOk<{ id: string }>(
+      "showcase:write:invoice:create",
+      { customer: "Globex" },
+      admin,
+    );
+    for (const invoice of [requestedPaid, requestedApproved, notRequested]) {
+      await stack.http.writeOk(
+        "showcase:write:invoice:approve",
+        { id: invoice.id, amountCents: 100, approvedBy: "cfo" },
+        admin,
+      );
+    }
+    await stack.http.writeOk(
+      "showcase:write:invoice:pay",
+      { id: requestedPaid.id, amountCents: 100 },
+      admin,
+    );
+    await stack.http.writeOk(
+      "showcase:write:invoice:pay",
+      { id: notRequested.id, amountCents: 100 },
+      admin,
+    );
+    await stack.http.writeOk(
+      "showcase:write:invoice:acknowledge",
+      { id: requestedApproved.id, approverId: "cfo" },
+      admin,
+    );
+
+    const { statuses } = await stack.http.queryOk<{
+      statuses: Array<{ id: string; status: string }>;
+    }>(
+      "showcase:query:invoice:payment-statuses",
+      { ids: [requestedPaid.id, requestedApproved.id] },
+      admin,
+    );
+
+    expect(statuses).toEqual([
+      { id: requestedPaid.id, status: "paid" },
+      { id: requestedApproved.id, status: "approved" },
+    ]);
+  });
+
   test("asOf point-in-time read: invoice state before the pay event", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       "showcase:write:invoice:create",
@@ -837,6 +890,7 @@ describe("role-restricted write handlers", () => {
 //   - r.projection — single-stream read model (inline in the write TX)
 //   - r.multiStreamProjection — cross-aggregate async read model
 //   - ctx.events.load with { asOf } — point-in-time aggregate state
+//   - ctx.events.loadByTypes — events of many aggregates, filtered by type, in one query
 //   - ctx.events.archive / ctx.events.restore — Marten ArchiveStream
 //   - ctx.dispatch.queryProjection — tenant-scoped read of a projection table
 //   - ctx.events.snapshot + ctx.events.loadWithSnapshot — perf path
@@ -1220,6 +1274,36 @@ export const invoiceFeature = defineFeature("showcase", (r) => {
       openToAll: {
         reason:
           "demo recipe: any signed-in user may read the event-sourced invoice state; " +
+          "there is no per-user invoice ownership in this sample",
+      },
+    },
+  });
+
+  // List page over many invoices: ONE query for just the approved/paid events of the
+  // requested aggregates instead of ctx.events.load per invoice.
+  r.queryHandler({
+    name: "invoice:payment-statuses",
+    schema: z.object({ ids: z.array(z.uuid()).max(200) }),
+    handler: async (query, ctx) => {
+      const events = await ctx.events.loadByTypes({
+        aggregateIds: query.payload.ids,
+        eventTypes: [approved.name, paid.name],
+      });
+      const lastEventByInvoice = new Map<string, string>();
+      for (const evt of events) {
+        lastEventByInvoice.set(evt.aggregateId, evt.type);
+      }
+      return {
+        statuses: [...lastEventByInvoice].map(([id, lastEventType]) => ({
+          id,
+          status: lastEventType === paid.name ? "paid" : "approved",
+        })),
+      };
+    },
+    access: {
+      openToAll: {
+        reason:
+          "demo recipe: any signed-in user may read invoice payment statuses; " +
           "there is no per-user invoice ownership in this sample",
       },
     },
