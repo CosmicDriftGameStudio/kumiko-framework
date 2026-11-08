@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.417.0",
+    "type": "fix",
+    "title": "kumiko-upgrade migrates older scaffolds to Key Manager ciphertext keys",
+    "detail": "The `scaffold-kms-mode` codemod replaces `requireKmsWiring` in the production branch of `bin/main.ts` with `{ kmsMode: \"required\" as const }` and lets `schema apply` in `bin/kumiko.ts` also resolve the slots of `kmsEnvSchema`. It only rewrites the exact scaffold form; a hand-edited file is left as it is and reported as manual.",
+    "codemod": "scripts/codemod/scaffold-kms-mode.ts"
+  },
+  {
     "version": "0.416.0",
     "type": "fix",
     "title": "Scaffolded apps accept Key Manager ciphertext keys in production",
