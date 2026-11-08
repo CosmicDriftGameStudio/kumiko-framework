@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "renderHtmlToPdf for callers that bring their own HTML",
+    "detail": "`renderHtmlToPdf(html, options?)` renders an HTML string to PDF through the print service and returns the bytes. It is the function the signature feature takes as `renderHtmlToPdf`."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "Idle Chromium is closed after BROWSER_IDLE_TIMEOUT_MS",

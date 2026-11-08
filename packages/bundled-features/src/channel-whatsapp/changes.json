@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "WhatsApp sendTemplate takes quickReplyPayloads and headerImageLink",
+    "detail": "quickReplyPayloads (1 to 10 entries, each non-empty and at most 256 characters) adds one quick-reply button component per entry, so a tap comes back with that payload. headerImageLink (https only) adds an image header. Components are sent as header, body, buttons; without the new fields the request is unchanged."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "Inbound messages are charged to the sender budget once per wamid",

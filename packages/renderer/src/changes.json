@@ -1,5 +1,59 @@
 [
   {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "projectionDetail on a phone keeps metrics above the tabs and start-aligned footer actions visible",
+    "detail": "With `metricsPlacement: { narrow: \"after-guidance\" }` the metrics and tabs stay above the tab content on a phone. `footerActions` that mix an `align: \"start\"` action with others stay in the pinned footer instead of folding into the \"…\" menu; the start group fills the row."
+  },
+  {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "relativeTime options style, withTime, absoluteAfterDays, timeZone",
+    "detail": "A column renderer or metric format { format: \"relativeTime\" } accepts style \"short\" (41 min. ago), withTime (yesterday, 10:18 and the absolute date with the clock time), absoluteAfterDays n (absolute date such as 29 Oct 2026 from n days on) and timeZone. Boot validation rejects a bad style, a non-integer absoluteAfterDays below 1 and a non-boolean withTime. Without options the text is unchanged."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "projectionDetail metrics format relativeTime in the UI locale",
+    "detail": "A metric with format { format: \"relativeTime\" } fell back to the browser language (\"42 minutes ago\" in a German UI). The metric now passes the UI locale, unless the format sets its own locale."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "Inline card meta wraps instead of truncating equal-width columns",
+    "detail": "On phones, narrowInline list columns sit in a wrapping row with natural widths; only a single over-long element is truncated."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "Banner actions wrap below the text on phones",
+    "detail": "A banner with actions (such as the projectionDetail banner) squeezed its text into a narrow column next to the buttons on phone widths. Below sm the row now wraps: the text keeps the line and the actions take their own line. Desktop is unchanged."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "relativeTime counts calendar days and falls back to the browser language",
+    "detail": "\"Yesterday\" and the day count now come from calendar days in the format's timeZone (default: the runtime zone) instead of rounded hours, so a value from the day before yesterday no longer reads \"yesterday, 22:00\" shortly after midnight. Without a locale the format used en-US instead of the browser language."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "Read-only settings fields offer no reset button",
+    "detail": "A configEdit field marked readOnly in the layout (including keys with mask.readOnly) no longer shows the \"reset override\" button in its cascade display."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "Row click ignores controls inside custom cells and portaled content",
+    "detail": "A list with a row click opened the row when a button, link or input inside a custom cell was clicked, and also on clicks inside a drawer or menu portaled from that row. Those clicks now stay with their control."
+  },
+  {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "Column format relativeTime",
+    "detail": "A list column with renderer { format: \"relativeTime\" } shows an ISO timestamp or epoch ms as \"5 minutes ago\" in the user locale. The text is computed at render time and does not tick."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "Card meta limit counts lines, projection list facets honour narrowPlacement",

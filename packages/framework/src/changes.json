@@ -1,5 +1,47 @@
 [
   {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "actionForm redirect with searchParams to custom screens",
+    "detail": "The object form of `redirect` takes `searchParams` (`{ cmd: \"threadId\" }` opens the target with `?cmd=<threadId>`); each value names a flat field in the success payload and a missing or non-string field leaves its param out. `idFrom` is now optional (default \"id\" as with the string redirect), so a redirect to a custom screen needs no record id. Boot rejects `searchParams` on non-actionForm redirects and empty keys or fields; `idFrom` on a target without an id stays rejected."
+  },
+  {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "Board options for dashboards, projectionDetail and forms",
+    "detail": "Dashboard `layout: \"main-side\"` lays panels out in a two-thirds main and a one-third side column (`column: \"side\"` on a panel; below sm one column in `narrowOrder`); a boot rule rejects `column` without that layout. Text panel `icon` (an extension-section component) leads the text. List column `variant: \"primary\"` (with `display: \"button\"`) draws the filled button. A stat-group child with `hideOnNarrow` is unmounted on phones; the boot rule now only rejects a group whose children all hide. projectionDetail `steps.moreActionsLabel` (i18n key before each step's further actions) and `steps.visibleWhen`, `initialTab: [{ when, tab }]` (first matching rule wins, else the first visible tab; an explicit `?tab=` wins over it), `footerHint` (i18n key, left of the footer actions, hidden on phones; needs `footerActions`) and `slots.afterForm` under the active tab's sections (the slot component gets `activeTabId`; it renders on every RenderEdit screen that declares it). `footerActions` are pinned in the phone footer next to the primary action instead of the more-menu. `layout.allRequiredHint: false` keeps the per-field asterisks instead of the all-fields-required hint. actionForm `fieldLabels` and `fieldDescriptions` take `{ key, params: { placeholder: \"fieldName\" } }`, filled from the form values including hidden fields; a description with an empty param value is not shown; a boot rule rejects params that name no field of the form. `aiAssist.prompt` submits with Enter and the Apply button and its `kumiko.field.aiAssist.apply` key are removed. `valueChips` format the text by field type (money with locale and currency, numbers with locale) and render the chip equal to the current value pressed with a check mark. Client row action `successMessage: false` shows no toast."
+  },
+  {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "Cross-tenant file reads declared per entity",
+    "detail": "`crossTenantFileRead: { query, reason }` on an entity lets users of another tenant read its attached files when the named query handler, run as that user with `{ id: <entityId> }`, returns the record with that id. Covers GET /files/:id, /variant/:name, /download-url, /meta and GET /files/meta; variants are rendered and cached in the owning tenant. The query alone decides, so privilegedRoles and a custom accessGuard never open a foreign tenant's file. Anonymous users are always refused, delete and upload stay tenant-equal. Boot rules `files/cross-tenant-read-query-unregistered` and `files/cross-tenant-read-reason-missing`."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "jsonb emptyValue \"array\" on projection tables",
+    "detail": "A projection table built with `buildEntityTable` gave a jsonb field with `emptyValue: \"array\"` the default `{}`, while the entity's migration meta used `[]`. `kumiko-schema generate` then refused the table as declared with diverging columns. Both paths now use `[]`."
+  },
+  {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "ConfigMask.readOnly shows a key without an input in the settings hub",
+    "detail": "mask: { title, readOnly: true } keeps the key on the generated settings screen as a read-only field. A readOnly key that is also required fails at boot, since nobody could fill it."
+  },
+  {
+    "version": "0.416.0",
+    "type": "fix",
+    "title": "Boot validation checks the relativeTime timeZone",
+    "detail": "A relativeTime format with an unknown timeZone such as Europe/Berln fails at boot instead of throwing when the cell renders."
+  },
+  {
+    "version": "0.416.0",
+    "type": "improvement",
+    "title": "Form helpers, list pills, phone cells, pinned footer actions and photo grid",
+    "detail": "Form fields take `aiAssist: { query, resultField, chips: [{ label, params }], prompt: { param, placeholder } }` (an active chip's `params` and the typed text are sent to the registered `query` together with the form's load/prefill payload; chips stack, `resultField` of the result is written into the field; labels and placeholder are i18n keys) and `valueChips: { from }` (chips from an array field of the form). actionForm gets `fieldDescriptions` (field to i18n key, help text under the field) and `formErrorOnTop`. List columns get `pillField` and `pillToneField` (a second pill beside the value) and `{ format: \"phone\" }` (a tel: link). projectionDetail `footerActions` moves actions from the header into the pinned footer (`align: \"start\"` on a declared action sets it on the left), relatedList `photoGrid: { imageField, captionField }` draws rows as image tiles with their row actions (new optional `PhotoGrid` primitive), and `summary.icon` leads the record sentence with an icon. Boot rules reject unknown fields, wrong field types and invalid chips. Write-only fields no longer close an open Replace when the record reloads. projectionDetail: adjacent sections sharing one `id` form one tab (the first section gives label and count). New section kind `{ kind: \"stepList\", field, title? }` renders a numbered vertical step list from an array field of the detail query (`StepListItem`: title, status, statusTone, description; optional `StepList` primitive). Every projectionDetail section takes `visibleWhen: { field, eq | ne | in | notIn }` evaluated on the record; a hidden section drops out of the tab strip. actionForm `infoBand` (i18n key, banner with a sparkles icon above the fields) and `fieldBadges: { field: { label, tone } }` (badge next to the label); multiSelect `display: \"chips\"`; `aiAssist.contextFields` sends other form fields in the query payload and re-runs the query when they change. A list that shows its emptyState has no `0 entries` footer. DefaultDrawer is a bottom sheet (max 90% height) on narrow viewports. actionForm `summary.paramsFromLoad: string[]` fills summary placeholders from fields of the load result (boot rule: field must be in the load query's outputSchema). actionForm `load: { passPrefill: true }` sends the drawer's prefill values (e.g. `vehicleId`) in the load payload; `aiAssist.noteField` shows a short note from the query result under the field. Boot rules cover stepList field, visibleWhen field, unknown fieldBadges and contextFields."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "CRUD schemas carry the reference target of their fields",
