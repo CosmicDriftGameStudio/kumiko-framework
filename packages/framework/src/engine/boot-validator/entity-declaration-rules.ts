@@ -102,4 +102,14 @@ export const ENTITY_DECLARATION_RULES = {
       'A recordOwned (or whenAbsent: "self") field lives only on entities with idType "uuid", because forgetSubject validates the record id as a UUID.',
     fix: 'Set idType: "uuid" on the entity, or give the field a different personal stance.',
   },
+  crossTenantFileReadQueryUnregistered: {
+    id: "files/cross-tenant-read-query-unregistered",
+    summary: "crossTenantFileRead.query names a registered query handler.",
+    fix: "Use the qualified name of a query handler (<feature>:query:<name>) and register it.",
+  },
+  crossTenantFileReadReasonMissing: {
+    id: "files/cross-tenant-read-reason-missing",
+    summary: "crossTenantFileRead declares a non-empty reason.",
+    fix: "State why files of this entity are readable across tenants.",
+  },
 } as const satisfies BootRuleTable;

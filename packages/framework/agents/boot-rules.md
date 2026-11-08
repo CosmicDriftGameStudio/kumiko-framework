@@ -431,6 +431,13 @@
 | --- | --- | --- | --- |
 | <a id="file-storage-provider-env-missing"></a>`file-storage/provider-env-missing` | An app with file or image fields sets the FILE_STORAGE_PROVIDER environment variable. | Set FILE_STORAGE_PROVIDER in the environment. | `packages/framework/src/engine/boot-validator/boot-environment-rules.ts` |
 
+## files
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="files-cross-tenant-read-query-unregistered"></a>`files/cross-tenant-read-query-unregistered` | crossTenantFileRead.query names a registered query handler. | Use the qualified name of a query handler (<feature>:query:<name>) and register it. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+| <a id="files-cross-tenant-read-reason-missing"></a>`files/cross-tenant-read-reason-missing` | crossTenantFileRead declares a non-empty reason. | State why files of this entity are readable across tenants. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
+
 ## folders
 
 | Rule | Summary | Fix | Source |

@@ -614,6 +614,8 @@ export function createEntity<const F, const T extends EntityTenancy = "tenant">(
   readonly transferable?: boolean;
   /** See EntityDefinition.attachedFileAccess. */
   readonly attachedFileAccess?: EntityDefinition["attachedFileAccess"];
+  /** See EntityDefinition.crossTenantFileRead. */
+  readonly crossTenantFileRead?: EntityDefinition["crossTenantFileRead"];
 }): F extends FieldsMap ? EntityDefinition<F, T> : never {
   return {
     softDelete: false,

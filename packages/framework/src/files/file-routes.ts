@@ -49,6 +49,11 @@ import { isFileSubField } from "./file-field-slots.ts";
 import { createFileContext, createTenantFileContext } from "./file-handle.ts";
 import { fileRefEntity } from "./file-ref-entity.ts";
 import { fileRefsTable } from "./file-ref-table.ts";
+import {
+  collectCrossTenantFileReadQueries,
+  type ForeignTenantFileReadCheck,
+  foreignTenantFileReadDb,
+} from "./foreign-tenant-file-read.ts";
 import type { FileProviderResolver } from "./provider-resolver.ts";
 import { collectRecordOnlyFileEntityTypes } from "./record-only-file-entity-types.ts";
 import type { RecordReadCheck } from "./record-read-check.ts";
@@ -138,6 +143,9 @@ export type FileRoutesOptions = {
   // Lets the default guard grant read on an attached file to everyone who may
   // read its record. buildServer wires it to the entity's detail query.
   readonly canReadRecord?: RecordReadCheck;
+  // Lets a user read a file of another tenant whose entity declares crossTenantFileRead. For such
+  // a file only this check decides; the guard never applies. Absent: no cross-tenant reads.
+  readonly canReadForeignTenantFile?: ForeignTenantFileReadCheck;
   // Gates uploads that name an entityId (attach to a stored record). Absent: such uploads
   // answer 403. A custom accessGuard does not replace it; the guard only covers read/delete
   // of existing files.
@@ -256,6 +264,11 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   // accessGuard so a custom guard cannot reopen reads or deletes between visitors.
   const guard: FileAccessGuard = (args) =>
     isAnonymousSessionUser(args.user) ? "deny" : configuredGuard(args);
+  const crossTenantFileReadQueries = options.registry
+    ? collectCrossTenantFileReadQueries(options.registry)
+    : new Map<string, string>();
+  const canReadForeignTenantFile =
+    crossTenantFileReadQueries.size > 0 ? options.canReadForeignTenantFile : undefined;
   const executor = getFileRefExecutor();
   const piiSubjectFields = collectPiiSubjectFields(fileRefEntity);
   const api = new Hono();
@@ -531,10 +544,11 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   api.get("/files/:id", async (c) => {
     const user = getUser(c);
     const id = c.req.param("id");
-    const fileRef = await loadReadableFileRef(id, user);
-    if (!fileRef) return c.json({ error: "not_found" }, 404);
+    const readable = await loadReadableFile(id, user);
+    if (!readable) return c.json({ error: "not_found" }, 404);
+    const { fileRef } = readable;
 
-    const decision = await guard({ fileRef, user, operation: "read" });
+    const decision = await readDecisionFor(readable, user);
     if (decision === "deny") {
       // 404 rather than 403 so the existence of the file isn't confirmed to
       // an unauthorised caller — matches the tenant-miss response.
@@ -568,10 +582,11 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const user = getUser(c);
     const id = c.req.param("id");
     const name = c.req.param("name");
-    const fileRef = await loadFileForTenant(id, user.tenantId);
-    if (!fileRef) return c.json({ error: "not_found" }, 404);
+    const readable = await loadOwnOrForeignFile(id, user);
+    if (!readable) return c.json({ error: "not_found" }, 404);
+    const { fileRef } = readable;
 
-    const decision = await guard({ fileRef, user, operation: "read" });
+    const decision = await readDecisionFor(readable, user);
     if (decision === "deny") return c.json({ error: "not_found" }, 404);
 
     // An unknown name and a denied file answer alike, so the route never
@@ -594,12 +609,15 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     // Built per request: createFileContext caches the resolved provider, so
     // one shared across requests would serve tenant A's store to tenant B.
-    const files = createFileContext(() => options.resolveProvider(user.tenantId), user.tenantId);
+    const files = createFileContext(
+      () => options.resolveProvider(fileRef.tenantId),
+      fileRef.tenantId,
+    );
     const derivatives = createDerivativesContext({
       files,
       registry,
-      db,
-      tenantId: user.tenantId,
+      db: readable.foreign ? foreignTenantFileReadDb(db) : db,
+      tenantId: fileRef.tenantId,
     });
     const result = await derivatives.variant(id, spec, name);
     const data = await files.refFromFileRef(result).read();
@@ -664,10 +682,11 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   api.get("/files/:id/download-url", async (c) => {
     const user = getUser(c);
     const id = c.req.param("id");
-    const fileRef = await loadReadableFileRef(id, user);
-    if (!fileRef) return c.json({ error: "not_found" }, 404);
+    const readable = await loadReadableFile(id, user);
+    if (!readable) return c.json({ error: "not_found" }, 404);
+    const { fileRef } = readable;
 
-    const decision = await guard({ fileRef, user, operation: "read" });
+    const decision = await readDecisionFor(readable, user);
     if (decision === "deny") return c.json({ error: "not_found" }, 404);
 
     // Resolve after access-check: tenant-scoped provider, and capability
@@ -716,8 +735,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       (canReadSystemTenantFile(user, SYSTEM_TENANT_ID)
         ? await executor.detail({ id }, user, tenantDbFor(SYSTEM_TENANT_ID))
         : null);
-    if (!row) return null;
-    const fileRef = row as FileRef; // @cast-boundary db-row (decrypted via executor.detail)
+    if (!row) return loadForeignFileMeta(id, user);
+    const fileRef = fileRefOfRow(row);
     // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM),
     // narrower in loadFileForTenant's selectMany. Restore that here so meta
     // doesn't leak reference-tenant rows.
@@ -728,6 +747,23 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const decision = await guard({ fileRef, user, operation: "read" });
     if (decision === "deny") return null;
 
+    return metaOf(fileRef);
+  }
+
+  // The foreign file is located and authorized first; only then is it decrypted through detail()
+  // in the file's own tenant.
+  async function loadForeignFileMeta(id: string, user: SessionUser): Promise<FileMeta | null> {
+    const readable = await loadForeignFile(id, user);
+    if (!readable || (await readDecisionFor(readable, user)) === "deny") return null;
+    const row = await executor.detail({ id }, user, tenantDbFor(readable.fileRef.tenantId));
+    return row ? metaOf(fileRefOfRow(row)) : null;
+  }
+
+  function fileRefOfRow(row: Record<string, unknown>): FileRef {
+    return row as FileRef; // @cast-boundary db-row (file_refs rows, decrypted where read via executor.detail)
+  }
+
+  function metaOf(fileRef: FileRef): FileMeta {
     return {
       id: fileRef.id,
       fileName: fileRef.fileName,
@@ -744,13 +780,58 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return meta ? c.json(meta) : c.json({ error: "not_found" }, 404);
   });
 
-  // Read-only crossing: SYSTEM_TENANT_ID files (e.g. helpdesk attachments) are
-  // visible to a SystemAdmin whose session sits in another tenant. Delete,
-  // variant and upload keep using loadFileForTenant and stay tenant-equal.
-  async function loadReadableFileRef(id: string, user: SessionUser): Promise<FileRef | null> {
+  type ReadableFile = { readonly fileRef: FileRef; readonly foreign: boolean };
+
+  // Read-only crossings: SYSTEM_TENANT_ID files (e.g. helpdesk attachments) are visible to a
+  // SystemAdmin whose session sits in another tenant, and files of entities that declare
+  // crossTenantFileRead to users their query admits. Delete and upload keep using
+  // loadFileForTenant and stay tenant-equal.
+  async function loadReadableFile(id: string, user: SessionUser): Promise<ReadableFile | null> {
     const own = await loadFileForTenant(id, user.tenantId);
-    if (own || !canReadSystemTenantFile(user, SYSTEM_TENANT_ID)) return own;
-    return loadFileForTenant(id, SYSTEM_TENANT_ID, systemTenantReadDb(db));
+    if (own) return { fileRef: own, foreign: false };
+    if (canReadSystemTenantFile(user, SYSTEM_TENANT_ID)) {
+      const system = await loadFileForTenant(id, SYSTEM_TENANT_ID, systemTenantReadDb(db));
+      if (system) return { fileRef: system, foreign: false };
+    }
+    return loadForeignFile(id, user);
+  }
+
+  async function loadOwnOrForeignFile(id: string, user: SessionUser): Promise<ReadableFile | null> {
+    const own = await loadFileForTenant(id, user.tenantId);
+    return own ? { fileRef: own, foreign: false } : loadForeignFile(id, user);
+  }
+
+  // Located across tenants only for declared entity types; whether the user may read it is decided
+  // by readDecisionFor, so a caller that skips it must not hand the file out.
+  async function loadForeignFile(id: string, user: SessionUser): Promise<ReadableFile | null> {
+    if (canReadForeignTenantFile === undefined || isAnonymousSessionUser(user)) return null;
+    if (!isUuid(id)) return null;
+    const [row] = await selectMany(foreignTenantFileReadDb(db), fileRefsTable, {
+      id,
+      isDeleted: false,
+    });
+    const fileRef = row === undefined ? undefined : fileRefOfRow(row);
+    if (
+      fileRef === undefined ||
+      fileRef.tenantId === user.tenantId ||
+      fileRef.entityType === null ||
+      fileRef.entityId === null ||
+      !crossTenantFileReadQueries.has(fileRef.entityType)
+    ) {
+      return null;
+    }
+    return { fileRef, foreign: true };
+  }
+
+  // A foreign tenant's file is decided by the declared query alone: the guard's privilegedRoles
+  // would otherwise hand it to any admin of any tenant.
+  async function readDecisionFor(
+    { fileRef, foreign }: ReadableFile,
+    user: SessionUser,
+  ): Promise<FileAccessDecision> {
+    if (!foreign) return guard({ fileRef, user, operation: "read" });
+    if (canReadForeignTenantFile === undefined || isAnonymousSessionUser(user)) return "deny";
+    return (await canReadForeignTenantFile({ fileRef, user })) ? "allow" : "deny";
   }
 
   async function loadFileForTenant(
@@ -766,7 +847,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     // isDeleted:false — soft-deleted (trashed) rows stay recoverable but must
     // never surface to reads/guards.
     const [row] = await selectMany(readDb, fileRefsTable, { id, tenantId, isDeleted: false });
-    return (row as FileRef | undefined) ?? null; // @cast-boundary db-row
+    return row === undefined ? null : fileRefOfRow(row);
   }
 
   return api;

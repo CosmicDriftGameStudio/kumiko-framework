@@ -190,6 +190,10 @@ reference is a file field, `unclaimedUploadReaders` when it is not.
 
 Files are tenant-isolated, with one read-only exception: a SystemAdmin whose session sits in any tenant may read (`GET /files/:id`, `/meta`, `/download-url`) files owned by `SYSTEM_TENANT_ID`, for example attachments of the contact feature. The file access guard still applies. Delete, variants and upload stay strictly tenant-equal, and files of other tenants stay unreadable.
 
+### Cross-tenant reads: `crossTenantFileRead`
+
+An entity can declare `crossTenantFileRead: { query, reason }`. A file attached to a record of that entity may then be read from another tenant (`GET /files/:id`, `/variant/:name`, `/download-url`, `/meta` and the batch `/files/meta`) when the named query handler, run with `{ id: <entityId> }` as the requesting user, returns the record with that id. `null`, any other result and access errors mean no, and anonymous visitors never pass. For such a file only this query decides: the file access guard, `privilegedRoles` and a custom `accessGuard` do not apply, so an admin of the reading tenant gets nothing without the query's grant. Derivatives are rendered and cached in the owning tenant. The query handler is responsible for resolving the record across tenants itself. Delete and upload stay tenant-equal. Boot fails when the query is not a registered query handler or `reason` is empty (`files/cross-tenant-read-query-unregistered`, `files/cross-tenant-read-reason-missing`).
+
 ## Upload in an actionForm
 
 A `files` or `images` field of an `actionForm` screen has no record to attach to,

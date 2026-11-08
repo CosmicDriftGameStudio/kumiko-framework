@@ -35,7 +35,7 @@ function createDecimalField<R extends true | false = false>(config: { precision:
 function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef; // Read-time computed field for `EntityDefinition.derivedFields` (NOT `fields`), never persisted.
 function createEmbeddedField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef;
 function createEmbeddedListField(schema: EmbeddedFieldDef["schema"], overrides?: Partial<Omit<EmbeddedFieldDef, "type" | "schema" | "multiple" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): EmbeddedFieldDef & { multiple: true; };
-function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; systemRowsReadable?: boolean; webhookEvents?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; namedFilters?: EntityDefinition["namedFilters"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
+function createEntity<const F, const T extends EntityTenancy = "tenant">(def: { table?: string; fields: F; description?: string; softDelete?: boolean; systemStream?: boolean; systemRowsReadable?: boolean; webhookEvents?: boolean; eventVersion?: number; eventMigrations?: EntityDefinition["eventMigrations"]; searchWeight?: number; defaultCurrency?: string; transitions?: Readonly<Record<string, Readonly<Record<string, string[]>>>>; lockedWhen?: EntityDefinition["lockedWhen"]; indexes?: EntityIndexDef[]; idType?: "serial" | "uuid"; access?: EntityDefinition["access"]; parentRef?: EntityDefinition["parentRef"]; readGate?: EntityDefinition["readGate"]; retention?: RetentionDef; derivedFields?: EntityDefinition["derivedFields"]; namedFilters?: EntityDefinition["namedFilters"]; tenancy?: T; transferable?: boolean; attachedFileAccess?: EntityDefinition["attachedFileAccess"]; crossTenantFileRead?: EntityDefinition["crossTenantFileRead"]; }): F extends FieldsMap ? EntityDefinition<F, T> : never;
 function createEntityExecutor<E extends EntityDefinition>(entityName: string, entity: E): { table: EntityTable; executor: EventStoreExecutor<EntityRow<E>>; };
 function createFileField(overrides?: Partial<Omit<FileFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FileFieldDef;
 function createFilesField(overrides?: Partial<Omit<FilesFieldDef, "type" | keyof ResolvedPiiFlags>> & PersonalAnnotationsNoFind): FilesFieldDef;
@@ -614,6 +614,10 @@ type EntityDefinition<F extends FieldsMap = FieldsMap, T extends EntityTenancy =
   description?: string; // Optional free-text semantics for the AI agent manifest — see TextFieldDef.description.
   transferable?: boolean; // Opts the rows into `tenant-handover`, a grant-legitimated move from an anonymous tenant to the signed-up account's tenant.
   attachedFileAccess?: "record-only"; // Attached files are readable only through the record's detail query: the files feature's privilegedRoles do not bypass it, the uploader check stays.
+  crossTenantFileRead?: {
+    query: string;
+    reason: string;
+  }; // Files of this entity may be read from another tenant when `query`, run with `{ id: <entityId> }` as the requesting user, returns the record with that id.
 };
 type EntityEditScreenDefinition = {
   id: string;
