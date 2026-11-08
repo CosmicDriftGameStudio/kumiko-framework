@@ -161,8 +161,14 @@ export const SCREEN_ACTION_RULES = {
   },
   primaryActionUnknown: {
     id: "screen/primary-action-unknown",
-    summary: "primaryAction and inlineActions name a declared action id or the default edit.",
+    summary:
+      "primaryAction, inlineActions and footerActions name a declared action id or the default edit.",
     fix: 'Use a declared action id, or "edit" when the screen sets detailFor.',
+  },
+  footerActionConflict: {
+    id: "screen/footer-action-conflict",
+    summary: "A footerActions id is neither the primaryAction nor in inlineActions.",
+    fix: "Keep each action in one place: header (primaryAction), inline row or pinned footer.",
   },
   fallbackWithoutVisibleWhen: {
     id: "screen/fallback-without-visible-when",

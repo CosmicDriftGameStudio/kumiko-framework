@@ -42,6 +42,7 @@ const HINT_CONFLICTS: readonly {
   { option: "refEntity", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
   { option: "badgeToneField", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
   { option: "badgeDot", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
+  { option: "pillField", rule: LIST_ROW_GUIDANCE_RULES.hintColumnLink },
   { option: "emptyPlaceholder", rule: LIST_ROW_GUIDANCE_RULES.hintColumnEmptyPlaceholder },
 ];
 
@@ -88,6 +89,40 @@ function validateNarrowOnlyColumn(where: string, column: ListColumn): void {
   if (conflict !== undefined) {
     throw bootRuleError(LIST_ROW_GUIDANCE_RULES.narrowOnlyConflict, {
       message: `${where} column "${column.field}" sets showOnNarrowOnly together with ${conflict}. Remove one of them.`,
+    });
+  }
+}
+
+export function validatePhotoGrid(
+  where: string,
+  section: {
+    readonly columns: readonly ListColumnSpec[];
+    readonly photoGrid?: { readonly imageField: string; readonly captionField?: string };
+  },
+): void {
+  const { photoGrid } = section;
+  if (photoGrid === undefined) return;
+  const columnFields = new Set(section.columns.map((col) => normalizeListColumn(col).field));
+  for (const [option, field] of [
+    ["imageField", photoGrid.imageField],
+    ["captionField", photoGrid.captionField],
+  ] as const) {
+    if (field === undefined || columnFields.has(field)) continue;
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.photoGridFieldNotInColumns, {
+      message: `${where} photoGrid.${option} "${field}" is not one of the section's columns (${[...columnFields].join(", ")}). Add it to columns or name another field.`,
+    });
+  }
+}
+
+function validatePillColumn(where: string, column: ListColumn): void {
+  if (column.pillToneField !== undefined && column.pillField === undefined) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.pillToneWithoutPill, {
+      message: `${where} column "${column.field}" sets pillToneField without pillField. Set pillField or remove pillToneField.`,
+    });
+  }
+  if (column.pillField !== undefined && column.display !== undefined) {
+    throw bootRuleError(LIST_ROW_GUIDANCE_RULES.pillWithDisplay, {
+      message: `${where} column "${column.field}" sets both pillField and display. Remove one of them.`,
     });
   }
 }
@@ -171,6 +206,7 @@ export function validateListRowGuidance(
     const column = normalizeListColumn(col);
     validateHintColumn(where, column);
     validateNarrowOnlyColumn(where, column);
+    validatePillColumn(where, column);
     validateButtonColumn(where, column, kind);
   }
   validateNamedFilterOptions(where, screen);

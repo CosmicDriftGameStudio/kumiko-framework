@@ -86,6 +86,7 @@ import {
 import { ListPanelBody } from "./dashboard-list-panel.tsx";
 import { HiddenOnNarrow } from "./dashboard-narrow-gate.tsx";
 import { panelsInNarrowOrder } from "./dashboard-narrow-order.ts";
+import { DashboardPanelGrid } from "./dashboard-panel-columns.tsx";
 import {
   ChartPanelBody,
   CustomPanelBody,
@@ -216,6 +217,7 @@ function PanelBody({
   if (panel.kind === "text") {
     return (
       <TextPanelBody
+        screenId={screenId}
         panel={panel}
         label={label}
         screenParams={screenParams}
@@ -348,17 +350,20 @@ export function WebDashboardBody({
               onResult={visibility.gateResults.report}
               onForget={visibility.gateResults.forget}
             />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12">
-              {panelsInNarrowOrder(screen.panels, belowSm).map((panel) =>
+            <DashboardPanelGrid
+              layout={screen.layout}
+              panels={panelsInNarrowOrder(screen.panels, belowSm)}
+              belowSm={belowSm}
+              renderPanel={(panel) =>
                 renderDashboardPanel(
                   panel,
                   featureName,
                   screen.id,
                   screenParams,
                   effectiveTranslate,
-                ),
-              )}
-            </div>
+                )
+              }
+            />
           </VisibilityQueryContext.Provider>
         </PageSection>
       </DashboardQueryContext.Provider>

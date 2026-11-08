@@ -1,9 +1,9 @@
-import type { FormFieldDefinition } from "./fields.ts";
+import type { FormFieldDefinition, SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { IconKey } from "./nav-icon.ts";
 import type { ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ScreenVisibility } from "./screen-dashboard.ts";
-import type { EditLayout } from "./screen-entity-edit.ts";
+import type { EditLayout, FieldTextRef } from "./screen-entity-edit.ts";
 import type { ScreenFallback } from "./screen-fallback.ts";
 
 // --- actionForm ---
@@ -91,7 +91,7 @@ export type ActionFormScreenDefinition = {
   readonly layout: EditLayout;
   /** Per-field label i18n key override, same type/semantics as
    *  `EntityEditScreenDefinition.fieldLabels`. Falls back to the convention when absent. */
-  readonly fieldLabels?: Readonly<Record<string, string>>;
+  readonly fieldLabels?: Readonly<Record<string, FieldTextRef>>;
   /** i18n key for the submit button. Default: the renderer's i18n default
    *  (typically "actions.submit"). */
   readonly submitLabel?: string;
@@ -108,7 +108,21 @@ export type ActionFormScreenDefinition = {
     readonly title: string;
     readonly subtitle?: string;
     readonly params?: Readonly<Record<string, string>>;
+    /** Fields of the `load` result that fill `{name}` placeholders too (static `params` win). Needs `load`. */
+    readonly paramsFromLoad?: readonly string[];
   };
+  /** Help text under a field (field name -> i18n key). */
+  readonly fieldDescriptions?: Readonly<Record<string, FieldTextRef>>;
+  /** i18n key of a short note in a banner above the fields, with a sparkles icon (e.g. "the AI
+   *  prepared everything, read the text, then send"). */
+  readonly infoBand?: string;
+  /** Badge next to a field's label (field name -> `{ label: i18n key, tone }`), e.g. "price
+   *  source open" in `warn`. */
+  readonly fieldBadges?: Readonly<
+    Record<string, { readonly label: string; readonly tone: SelectOptionTone }>
+  >;
+  /** Shows a failed submit's error banner above the fields instead of below them. */
+  readonly formErrorOnTop?: boolean;
   /** Visual style of the submit button. "danger" renders it red — for a form
    *  whose handler is destructive (terminate, revoke, delete), so the warning
    *  isn't lost on the way from the calling screen to this one. Default "primary". */
@@ -226,6 +240,10 @@ export type ActionFormLoad = {
    *  (same semantics as `ProjectionDetailScreenDefinition.singleton`). Boot
    *  rejects declaring `idParam` alongside it. */
   readonly singleton?: boolean;
+  /** Sends the values a drawer opens the form with (row-action params, e.g. `vehicleId`) in the
+   *  load payload next to `idParam`, so the query can pre-fill for the chosen item. The query's
+   *  schema must accept them. */
+  readonly passPrefill?: boolean;
 };
 
 /** One key figure of the success box, read from the handler's success payload. */

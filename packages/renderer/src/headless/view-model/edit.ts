@@ -2,6 +2,7 @@ import type {
   EditExtensionSection,
   EditFieldSpec,
   EditRelatedListSection,
+  EditStepListSection,
   EditWriteFormSection,
   EmbeddedListEditSpec,
   EntityDefinition,
@@ -11,6 +12,7 @@ import type {
   FormDerivationScreen,
   ParsedRefTarget,
   RowAction,
+  StepListItem,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   availableSelectOptions,
@@ -27,13 +29,16 @@ import {
   sectionFieldSpecs,
   WRITE_FORM_SECTION_ENTITY,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { AnyFileFieldDef } from "@cosmicdrift/kumiko-types/fields";
+import { type AnyFileFieldDef, SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
+import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { buildEmbeddedListCell } from "./embedded-list-cells.ts";
+import { resolveFieldText } from "./field-text.ts";
 import { buildOptionLabels, fieldLabelKey, fieldOptionLabelKey } from "./list.ts";
 import type {
   EditFieldViewModel,
   EditRelatedListSectionViewModel,
   EditSectionViewModel,
+  EditStepListSectionViewModel,
   EditViewModel,
   EditWriteFormSectionViewModel,
   EmbeddedListCellViewModel,
@@ -151,6 +156,53 @@ function wasEmptiedByWriteExclusion(
   return declaredFieldSpecs.length > 0 && remainingFields.length === 0;
 }
 
+function readOptionalString(entry: unknown, key: string): string | undefined {
+  const value = propertyOf(entry, key);
+  return typeof value === "string" ? value : undefined;
+}
+
+function readStepListItem(entry: unknown): StepListItem | undefined {
+  const title = readOptionalString(entry, "title");
+  if (title === undefined) return undefined;
+  const status = readOptionalString(entry, "status");
+  const statusTone = propertyOf(entry, "statusTone");
+  const description = readOptionalString(entry, "description");
+  return {
+    title,
+    ...(status !== undefined && { status }),
+    ...(isOneOf(SELECT_OPTION_TONES, statusTone) && { statusTone }),
+    ...(description !== undefined && { description }),
+  };
+}
+
+// Malformed entries of the record's array are skipped: the screen must not crash on a bad row.
+export function computeStepListSectionViewModel(
+  sectionSpec: EditStepListSection,
+  values: Readonly<Record<string, unknown>>,
+  translate: Translate,
+): EditStepListSectionViewModel {
+  const raw = values[sectionSpec.field];
+  const items = Array.isArray(raw) ? raw : [];
+  return {
+    kind: "stepList" as const,
+    ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
+    ...(sectionSpec.title !== undefined && { title: translate(sectionSpec.title) }),
+    items: items.flatMap((entry: unknown) => {
+      const item = readStepListItem(entry);
+      if (item === undefined) return [];
+      const { title, status, statusTone, description } = item;
+      return [
+        {
+          title: translate(title),
+          ...(status !== undefined && { status: translate(status) }),
+          ...(statusTone !== undefined && { statusTone }),
+          ...(description !== undefined && { description: translate(description) }),
+        },
+      ];
+    }),
+  };
+}
+
 // relatedList runs its own query — nothing here to resolve against
 // entity/values, the spec passes through verbatim.
 export function computeRelatedListSectionViewModel(
@@ -182,6 +234,7 @@ export function computeRelatedListSectionViewModel(
     ...(sectionSpec.rowTone !== undefined && { rowTone: sectionSpec.rowTone }),
     ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
+    ...(sectionSpec.photoGrid !== undefined && { photoGrid: sectionSpec.photoGrid }),
     ...(sectionSpec.emptyState !== undefined && {
       emptyState: {
         title: translate(sectionSpec.emptyState.title),
@@ -222,7 +275,10 @@ function translateAffix(affix: FieldAffix, translate: Translate): FieldAffix {
   return typeof affix === "string" ? translate(affix) : affix;
 }
 
-type FieldAffixHints = Pick<EditFieldViewModel, "placeholder" | "prefix" | "suffix" | "fillAction">;
+type FieldAffixHints = Pick<
+  EditFieldViewModel,
+  "placeholder" | "prefix" | "suffix" | "fillAction" | "aiAssist" | "valueChips"
+>;
 
 function deriveFieldAffixHints(
   normalized: NormalizedEditField,
@@ -239,6 +295,33 @@ function deriveFieldAffixHints(
     ...(normalized.fillAction !== undefined && {
       fillAction: { ...normalized.fillAction, label: translate(normalized.fillAction.label) },
     }),
+    ...(normalized.aiAssist !== undefined && {
+      aiAssist: {
+        query: normalized.aiAssist.query,
+        resultField: normalized.aiAssist.resultField,
+        ...(normalized.aiAssist.noteField !== undefined && {
+          noteField: normalized.aiAssist.noteField,
+        }),
+        ...(normalized.aiAssist.contextFields !== undefined && {
+          contextFields: normalized.aiAssist.contextFields,
+        }),
+        ...(normalized.aiAssist.chips !== undefined && {
+          chips: normalized.aiAssist.chips.map((chip) => ({
+            ...chip,
+            label: translate(chip.label),
+          })),
+        }),
+        ...(normalized.aiAssist.prompt !== undefined && {
+          prompt: {
+            param: normalized.aiAssist.prompt.param,
+            ...(normalized.aiAssist.prompt.placeholder !== undefined && {
+              placeholder: translate(normalized.aiAssist.prompt.placeholder),
+            }),
+          },
+        }),
+      },
+    }),
+    ...(normalized.valueChips !== undefined && { valueChips: normalized.valueChips }),
   };
 }
 
@@ -675,6 +758,9 @@ export function computeEditViewModel<
         featureName,
       );
     }
+    if (sectionSpec.kind === "stepList") {
+      return computeStepListSectionViewModel(sectionSpec, values, translate);
+    }
     if (!isFieldsEditSection(sectionSpec)) {
       return computeRelatedListSectionViewModel(sectionSpec, translate);
     }
@@ -706,10 +792,12 @@ export function computeEditViewModel<
             ? parseRefTarget(normalized.refEntity, featureName)
             : undefined;
         const effectiveType = declaredRefTarget !== undefined ? "reference" : fieldDef.type;
-        const label = translate(
+        const label = resolveFieldText(
           screen.fieldLabels?.[normalized.field] ??
             fieldLabelKey(featureName, screen.entity, normalized.field),
-        );
+          values,
+          translate,
+        ).text;
         const visible = isEditFieldVisible(normalized, fieldDef, values);
         // `readOnly` (camelCase) is the name on both sides: EditFieldSpec
         // in the engine, and the view-model emitted here. One convention

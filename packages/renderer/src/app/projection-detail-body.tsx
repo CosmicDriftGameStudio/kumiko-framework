@@ -72,8 +72,17 @@ export function ProjectionDetailBody({
   // entityId fallback (resolveExtensionEntityId in render-edit.tsx) would
   // let a client-controlled value leak where none is meant to reach.
   const effectiveEntityId = screen.singleton === true ? undefined : entityId;
-  const { activeSection, hasTabs, entity, detailScreen, detailQuery, reloadNonce, reloadDetail } =
-    useProjectionDetailData({ screen, Tabs: primitives.Tabs, nav, effectiveEntityId });
+  const {
+    activeSection,
+    activeSections,
+    visibleSections,
+    hasTabs,
+    entity,
+    detailScreen,
+    detailQuery,
+    reloadNonce,
+    reloadDetail,
+  } = useProjectionDetailData({ screen, Tabs: primitives.Tabs, nav, effectiveEntityId });
 
   // Header actions render directly via RenderEditActionButton
   // headerActions moved out of RenderEdit's footer — this component owns
@@ -91,29 +100,30 @@ export function ProjectionDetailBody({
   const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
   const drawer = useDrawerAction(schema);
   const { openDrawer } = drawer;
-  const { buildSectionActions, buildItemActions, headerActions } = useProjectionDetailActions({
-    schema,
-    screen,
-    effectiveTranslate,
-    effectiveEntityId,
-    nav,
-    host,
-    dispatcher,
-    clientActions,
-    appFeatures,
-    userRoles,
-    returnTarget,
-    openDrawer,
-    detailQuery,
-    reloadDetail,
-    activeTabId: activeSection?.id,
-  });
+  const { buildSectionActions, buildItemActions, headerActions, footerActions } =
+    useProjectionDetailActions({
+      schema,
+      screen,
+      effectiveTranslate,
+      effectiveEntityId,
+      nav,
+      host,
+      dispatcher,
+      clientActions,
+      appFeatures,
+      userRoles,
+      returnTarget,
+      openDrawer,
+      detailQuery,
+      reloadDetail,
+      activeTabId: activeSection?.id,
+    });
   const { hasMetrics, headerActionsList, hasHeaderActions, hasHeaderCard, renderedDetailScreen } =
     useProjectionDetailLayout({ screen, headerActions, hasTabs, detailScreen });
 
   const recordId = detailQuery.data?.["id"];
   const tabCounts = useRelatedListTabCounts({
-    sections: hasTabs ? screen.layout.sections : [],
+    sections: hasTabs ? visibleSections : [],
     parentId: effectiveEntityId ?? (typeof recordId === "string" ? recordId : undefined),
   });
 
@@ -135,7 +145,7 @@ export function ProjectionDetailBody({
     return renderRecordNotFound({ schema, screen, nav, returnTarget, effectiveTranslate });
   }
   const regionModel: DetailRegionModel = {
-    screen,
+    screen: { ...screen, layout: { ...screen.layout, sections: visibleSections } },
     record,
     primitives,
     effectiveTranslate,
@@ -176,7 +186,11 @@ export function ProjectionDetailBody({
         onReload={reloadDetail}
         onRelatedListDrawerAction={openDrawer}
         {...(translate !== undefined && { translate })}
-        {...(hasTabs && { hideSectionTitles: true })}
+        {...(hasTabs && activeSection !== undefined && { activeTabId: activeSection.id })}
+        {...(screen.footerHint !== undefined && {
+          footerHint: effectiveTranslate(screen.footerHint),
+        })}
+        {...(hasTabs && activeSections.length === 1 && { hideSectionTitles: true })}
         {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
         {...((hasHeaderCard ||
           hasTabs ||
@@ -185,6 +199,7 @@ export function ProjectionDetailBody({
           screen.recordTitleField !== undefined) && {
           headerRegion: renderHeaderContent,
         })}
+        {...(footerActions !== undefined && footerActions.length > 0 && { actions: footerActions })}
         buildSectionActions={buildSectionActions}
         valueDisplay={screen.valueDisplay ?? "text"}
       />

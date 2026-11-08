@@ -17,12 +17,14 @@ import { DefaultLightbox } from "./lightbox.tsx";
 import { DefaultMetric, DefaultMetricBand } from "./metric.tsx";
 import { DefaultModal } from "./modal.tsx";
 import { DefaultPageHeader } from "./page-header.tsx";
+import { DefaultPhotoGrid } from "./photo-grid.tsx";
 import { PromoPanel } from "./promo-panel.tsx";
 import { DefaultRecordBreadcrumb } from "./record-breadcrumb.tsx";
 import { DefaultRecordSteps } from "./record-steps.tsx";
 import { DefaultRecordSummary } from "./record-summary.tsx";
 import { CopyButton, ShareButton } from "./share-actions.tsx";
 import { DefaultStatusBadge } from "./status-badge.tsx";
+import { DefaultStepList } from "./step-list.tsx";
 import { StickyActionBar } from "./sticky-action-bar.tsx";
 import { DefaultTabs } from "./tabs.tsx";
 import "../react-css-custom-properties.ts";
@@ -89,6 +91,8 @@ export const defaultPrimitives: CorePrimitives = {
   Metric: DefaultMetric,
   MetricBand: DefaultMetricBand,
   RecordBreadcrumb: DefaultRecordBreadcrumb,
+  PhotoGrid: DefaultPhotoGrid,
+  StepList: DefaultStepList,
   RecordSummary: DefaultRecordSummary,
   RecordSteps: DefaultRecordSteps,
   PageHeader: DefaultPageHeader,

@@ -14,6 +14,7 @@ import {
   validateConfigKeyPiiEncrypted,
   validateConfigKeyRequired,
 } from "./config-deps.ts";
+import { validateCrossTenantFileRead } from "./cross-tenant-file-read.ts";
 import { validateSqlDerivedFields } from "./derived-sql-fields.ts";
 import { collectDetailForScreens } from "./detail-screens.ts";
 import {
@@ -159,6 +160,10 @@ const FEATURE_CHECKS: readonly FeatureCheck[] = [
     run: (f, c) => validateOwnershipRules(f, c.allClaimKeys, c.knownRoles),
   },
   { check: "validateReadGates", run: (f, c) => validateReadGates(f, c.featureMap) },
+  {
+    check: "validateCrossTenantFileRead",
+    run: (f, c) => validateCrossTenantFileRead(f, c.queryHandlerQns),
+  },
   { check: "validateTransferGraph", run: (f, c) => validateTransferGraph(f, c.featureMap) },
   { check: "validateMultiStreamProjections", run: (f) => validateMultiStreamProjections(f) },
 ];

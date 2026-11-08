@@ -47,6 +47,12 @@ export const LIST_SCREEN_RULES = {
     summary: "A column renderer's react.__component is a non-empty string.",
     fix: "Set react.__component to the name of a client columnRenderers entry.",
   },
+  relativeTimeOptionsInvalid: {
+    id: "list/relative-time-options-invalid",
+    summary:
+      "relativeTime format options (style, absoluteAfterDays, withTime, timeZone) are valid.",
+    fix: "Use style long, short or narrow, an integer absoluteAfterDays of at least 1 and a boolean withTime and an IANA timeZone.",
+  },
   enumOptionTonesInvalid: {
     id: "list/enum-option-tones-invalid",
     summary: "enumOption column tones are known select option tones.",

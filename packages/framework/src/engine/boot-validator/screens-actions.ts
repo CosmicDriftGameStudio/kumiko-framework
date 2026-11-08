@@ -836,6 +836,20 @@ export function validateRecordActionRedirect(
   }
 }
 
+function validateFooterActionsAreExclusive(
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+): void {
+  for (const id of screen.footerActions ?? []) {
+    if (id === screen.primaryAction || (screen.inlineActions ?? []).includes(id)) {
+      throw bootRuleError(SCREEN_ACTION_RULES.footerActionConflict, {
+        message: `[Feature ${featureName}] Screen "${screenId}" (projectionDetail) footerActions "${id}" is also the primaryAction or in inlineActions. Keep it in one place.`,
+      });
+    }
+  }
+}
+
 // "edit" is the default edit action, which only exists when detailFor names
 // the entity; a typo would otherwise silently fall back to the default header layout.
 export function validatePrimaryActionTarget(
@@ -848,7 +862,9 @@ export function validatePrimaryActionTarget(
       ? [["primaryAction", screen.primaryAction] as const]
       : []),
     ...(screen.inlineActions ?? []).map((id) => ["inlineActions", id] as const),
+    ...(screen.footerActions ?? []).map((id) => ["footerActions", id] as const),
   ];
+  validateFooterActionsAreExclusive(featureName, screenId, screen);
   const declaredIds = (screen.actions ?? []).map((action) => action.id);
   const editIsAvailable = screen.detailFor !== undefined;
   for (const [option, id] of targets) {

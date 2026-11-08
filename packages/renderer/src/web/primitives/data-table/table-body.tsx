@@ -7,6 +7,7 @@ import { HintReasonRowScope, hintReasonOf } from "../hint-reason-row.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import { ActionsBodyCell } from "./actions-column.tsx";
 import { bandClassName, bandReactKey, bandTestId, type DataTableBandItem } from "./group-band.tsx";
+import { rowClickHandler } from "./row-click-guard.ts";
 import { renderBand, renderExpandToggle, renderExpansion } from "./row-render-parts.tsx";
 import { EXPAND_TOGGLE_CELL_CLASS } from "./table-chrome.tsx";
 import { renderDataCell } from "./table-data-cell.tsx";
@@ -70,7 +71,7 @@ function renderDataRow(m: DataTableModel, row: ListRowViewModel): ReactNode {
       <TableRow
         data-testid={m.rowTestId(row)}
         data-tone={rowTone?.(row)}
-        onClick={openRow}
+        onClick={rowClickHandler(openRow)}
         className={cn(
           rowToneClass(rowTone?.(row)),
           opensOnClick && "cursor-pointer",

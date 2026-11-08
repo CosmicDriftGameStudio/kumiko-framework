@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
 import * as z from "zod";
+import { BootValidationError } from "../boot-validator/boot-rule.ts";
 import { validateBoot } from "../boot-validator.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
@@ -13,6 +14,16 @@ function bootMessage(feature: Parameters<typeof validateBoot>[0][number]): strin
     return e instanceof Error ? e.message : String(e);
   }
   return "";
+}
+
+function bootRuleIds(feature: Parameters<typeof validateBoot>[0][number]): string[] {
+  try {
+    validateBoot(withBootValidatorFixture([feature]));
+  } catch (e) {
+    if (e instanceof BootValidationError) return e.violations.map((v) => v.ruleId);
+    throw e;
+  }
+  return [];
 }
 
 const ADMIN_ACCESS = { roles: ["Admin"] } as const;
@@ -37,7 +48,12 @@ function registerHandlers(r: Parameters<Parameters<typeof defineFeature>[1]>[0],
 const detailSections = { sections: [{ title: "s", fields: ["total"] }] };
 
 function featureWithDetail(
-  screen: { primaryAction?: string; inlineActions?: readonly string[]; detailFor?: string },
+  screen: {
+    primaryAction?: string;
+    inlineActions?: readonly string[];
+    footerActions?: readonly string[];
+    detailFor?: string;
+  },
   withEdit = false,
 ) {
   return defineFeature("shop", (r) => {
@@ -74,6 +90,28 @@ function featureWithDetail(
     });
   });
 }
+
+describe("validateBoot — projectionDetail footerActions", () => {
+  test("an action that is also the primaryAction is rejected with its rule id", () => {
+    expect(
+      bootRuleIds(featureWithDetail({ primaryAction: "activate", footerActions: ["activate"] })),
+    ).toEqual(["screen/footer-action-conflict"]);
+  });
+
+  test("an action that is also an inlineAction is rejected", () => {
+    expect(
+      bootRuleIds(featureWithDetail({ inlineActions: ["activate"], footerActions: ["activate"] })),
+    ).toEqual(["screen/footer-action-conflict"]);
+  });
+
+  test("an unknown id is rejected as unknown action", () => {
+    expect(bootMessage(featureWithDetail({ footerActions: ["ghost"] }))).toMatch(/ghost/);
+  });
+
+  test("a declared action passes", () => {
+    expect(bootMessage(featureWithDetail({ footerActions: ["activate"] }))).toBe("");
+  });
+});
 
 describe("validateBoot — projectionDetail primaryAction", () => {
   test("a declared action id is accepted", () => {

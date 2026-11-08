@@ -96,7 +96,8 @@ describe("validateBoot — projectionDetail tabs (fw record-layout)", () => {
           mode: "tabs",
           sections: [
             { id: "overview", title: "Overview", fields: ["description"] },
-            { id: "overview", title: "History", fields: ["notes"] },
+            { id: "history", title: "History", fields: ["notes"] },
+            { id: "overview", title: "Again", fields: ["notes"] },
           ],
         },
       });
@@ -368,5 +369,49 @@ describe("header action showOnTabs", () => {
 
   test("an empty list fails boot", () => {
     expect(() => validateBoot([screenWith([])])).toThrow(/at least one/);
+  });
+});
+
+describe("initialTab and footerHint", () => {
+  function screenWith(extra: Record<string, unknown>, mode: "tabs" | "single" = "tabs") {
+    return defineFeature("app", (r) => {
+      registerStubQueryHandler(r, "rent:detail");
+      r.screen({
+        id: "rent-detail",
+        type: "projectionDetail",
+        query: "app:query:rent:detail",
+        ...extra,
+        layout: {
+          mode,
+          sections: [
+            { id: "overview", title: "Overview", fields: ["description"] },
+            { id: "history", title: "History", fields: ["notes"] },
+          ],
+        },
+      });
+    });
+  }
+  const rule = (tab: string) => ({ when: { field: "state", eq: "open" }, tab });
+
+  test("rules naming an existing tab boot cleanly", () => {
+    expect(() => validateBoot([screenWith({ initialTab: [rule("history")] })])).not.toThrow();
+  });
+
+  test("an unknown tab id fails boot", () => {
+    expect(() => validateBoot([screenWith({ initialTab: [rule("nope")] })])).toThrow(
+      /initialTab names tab "nope"/,
+    );
+  });
+
+  test("initialTab without tabs mode fails boot", () => {
+    expect(() => validateBoot([screenWith({ initialTab: [rule("history")] }, "single")])).toThrow(
+      /initialTab without layout.mode "tabs"/,
+    );
+  });
+
+  test("footerHint without footerActions fails boot", () => {
+    expect(() => validateBoot([screenWith({ footerHint: "rent.hint" })])).toThrow(
+      /footerHint without footerActions/,
+    );
   });
 });

@@ -185,6 +185,8 @@ export type ConfigMask = {
   readonly description?: string;
   readonly icon?: NavIconKey;
   readonly order?: number;
+  /** Shows the value on the generated settings screen without an input; a read-only key cannot also be `required`. */
+  readonly readOnly?: boolean;
 };
 
 export type ConfigDefinition = {

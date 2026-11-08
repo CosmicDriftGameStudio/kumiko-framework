@@ -149,6 +149,7 @@ export function filterEditSections(
     if (
       section.kind === "extension" ||
       section.kind === "relatedList" ||
+      section.kind === "stepList" ||
       section.kind === "writeForm"
     ) {
       result.push(section);

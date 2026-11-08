@@ -62,9 +62,11 @@ import type {
 } from "./headless/index.ts";
 import type { MetricBandProps, MetricProps } from "./metric-types.ts";
 import type {
+  PhotoGridProps,
   RecordBreadcrumbProps,
   RecordStepsProps,
   RecordSummaryProps,
+  StepListProps,
 } from "./primitives-record-guidance.ts";
 import type { StatusBadgeOptionTone, StatusTone } from "./status-tone.ts";
 
@@ -92,7 +94,8 @@ export const STICKY_PRIMARY_ACTION_PROP = "kumikoStickyPrimaryAction" as const;
 
 export type StickyPrimaryActionMarker = Partial<Record<typeof STICKY_PRIMARY_ACTION_PROP, boolean>>;
 
-export type FooterActionRole = "back" | "primary";
+/** "inline" keeps a non-primary action as a visible button in the phone footer instead of the "…" menu. */
+export type FooterActionRole = "back" | "primary" | "inline";
 
 /** Tells the pinned phone footer which node is Back and which is the primary
  *  action, for buttons that are not `type="submit"` (e.g. the wizard Back). */
@@ -818,9 +821,11 @@ export type {
 } from "./data-table-facet-types.ts";
 export type { MetricBandProps, MetricProps } from "./metric-types.ts";
 export type {
+  PhotoGridProps,
   RecordBreadcrumbProps,
   RecordStepsProps,
   RecordSummaryProps,
+  StepListProps,
 } from "./primitives-record-guidance.ts";
 
 export type DataTableProps = {
@@ -1134,6 +1139,8 @@ export type GridProps = {
    *  a `role="group"` so a Field whose control is a set of inputs (checkbox
    *  group) still gives screen readers a group name. */
   readonly ariaLabelledBy?: string;
+  /** With `columns: "auto"`: the small gap of a chip row instead of the tile gap. */
+  readonly tight?: boolean;
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
@@ -1658,6 +1665,10 @@ export type CorePrimitives = {
   readonly RecordBreadcrumb?: ComponentType<RecordBreadcrumbProps>;
   /** Optional — without it the summary renders as plain text. */
   readonly RecordSummary?: ComponentType<RecordSummaryProps>;
+  /** Optional — without it a relatedList with `photoGrid` falls back to its table. */
+  readonly PhotoGrid?: ComponentType<PhotoGridProps>;
+  /** Optional — without it a stepList section renders nothing. */
+  readonly StepList?: ComponentType<StepListProps>;
   /** Optional — without it the steps render as a plain card. */
   readonly RecordSteps?: ComponentType<RecordStepsProps>;
   /** Optional: without an implementation, callers with >2 header/row

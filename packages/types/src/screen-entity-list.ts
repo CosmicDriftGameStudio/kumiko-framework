@@ -100,10 +100,17 @@ export type ListColumnSpec =
        *  entityList or projectionList table is a rowAction with display "button" (boot-rejected
        *  on columns there). Other list renderers ignore `display`. */
       readonly display?: ListColumnDisplay;
+      /** `"primary"` draws a `display: "button"` link as a filled primary button instead of the outline default (dashboard list panels only). Needs `display: "button"`. */
+      readonly variant?: "primary";
       /** Row field naming the badge tone; only with `display: "badge"`. */
       readonly badgeToneField?: string;
       /** `false` draws the badge pill without its leading dot; only with `display: "badge"`. */
       readonly badgeDot?: false;
+      /** Row field holding a second label, drawn as a pill next to the cell's own value
+       *  (e.g. a vehicle name with a "free" pill). Not combinable with `display` or `hint`. */
+      readonly pillField?: string;
+      /** Row field naming the tone of the `pillField` pill (a `ListBadgeTone`). Needs `pillField`. */
+      readonly pillToneField?: string;
       /** Row field holding a screen QN (`<feature>:screen:<id>`): the cell links
        *  to that screen when the row sets it and the user may open it. For
        *  query-backed lists (projectionList, relatedList), whose rows can point
@@ -239,11 +246,15 @@ export type RowActionMode = "adaptive" | "inline" | "menu";
 //   - "clientAction": runs a handler the client app registered under a
 //     `<feature>:<kebab>` name (ClientFeatureDefinition.clientActions) — for
 //     actions that need browser-side work or an unauthenticated endpoint.
-export type RowAction =
+export type RowAction = (
   | RowActionWriteHandler
   | RowActionNavigate
   | RowActionDrawer
-  | RowActionClientAction;
+  | RowActionClientAction
+) & {
+  /** projectionDetail `footerActions` only: "start" sets the button apart on the left of the footer. */
+  readonly align?: "start";
+};
 
 export type RowActionWriteHandler = {
   /** Default for RowActions without an explicitly set `kind` —
@@ -415,8 +426,8 @@ export type RowActionClientAction = {
   /** Inline render form in the row-action column — see `RowActionDisplay`. */
   readonly display?: RowActionDisplay;
   /** i18n key of the toast shown after the handler reported `{ ok: true }`
-   *  (default `kumiko.clientAction.success`). */
-  readonly successMessage?: string;
+   *  (default `kumiko.clientAction.success`); `false` shows no toast. */
+  readonly successMessage?: string | false;
 };
 
 // ToolbarAction — button in the list header. Three variants: navigate to

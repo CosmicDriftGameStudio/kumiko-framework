@@ -86,6 +86,8 @@ export type ExtensionSectionProps = {
    *  (`null` while the step's data loads) with whether the step already holds
    *  its data, so the step bar shows the step as done. */
   readonly reportStepComplete?: (complete: boolean) => void;
+  /** Id of the active tab; only set in the `afterForm` slot of a projectionDetail screen with tabs, so the component can limit itself to one tab. */
+  readonly activeTabId?: string;
 };
 
 export type ExtensionSectionComponent = ComponentType<ExtensionSectionProps>;

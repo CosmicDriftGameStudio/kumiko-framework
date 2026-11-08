@@ -132,9 +132,10 @@ export function EditSlotMount({
   markSaved,
   hasUnsavedChanges,
   wizardStep,
+  activeTabId,
 }: {
   readonly slot: PlatformComponent;
-  readonly slotName: "header" | "titleAction" | "footer";
+  readonly slotName: "header" | "titleAction" | "afterForm" | "footer";
   readonly screenId: string;
   readonly entityName: string;
   readonly entityId: string | null;
@@ -142,6 +143,7 @@ export function EditSlotMount({
   readonly markSaved?: (fields?: readonly string[]) => void;
   readonly hasUnsavedChanges?: boolean;
   readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
+  readonly activeTabId?: string;
 } & StickyPrimaryActionMarker): ReactNode {
   const name = extensionSectionName(slot);
   const Component = useExtensionSectionComponent(name);
@@ -161,6 +163,7 @@ export function EditSlotMount({
       {...(markSaved !== undefined && { markSaved })}
       {...(hasUnsavedChanges !== undefined && { hasUnsavedChanges })}
       {...(wizardStep !== undefined && { wizardStep })}
+      {...(activeTabId !== undefined && { activeTabId })}
     />
   );
 }

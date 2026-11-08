@@ -1,3 +1,4 @@
+import type { FieldCondition } from "./field-state-conditions.ts";
 import type { SelectOptionTone } from "./fields.ts";
 import type { AccessRule, AgentScreenHints } from "./handlers.ts";
 import type { NamedFilterFacetOptions, NamedListFilterRef } from "./named-list-filters.ts";
@@ -359,9 +360,22 @@ export type ProjectionDetailScreenDefinition = {
    *  collapses into the menu. Same id rules as `primaryAction`; the phone header keeps
    *  its single icon button. */
   readonly inlineActions?: readonly string[];
+  /** Ids of `actions` shown in the pinned footer bar instead of the header, in declaration order.
+   *  Style "primary" marks the main button. An id must not also be `primaryAction` or in `inlineActions`. */
+  readonly footerActions?: readonly string[];
+  /** i18n key of a note on the left of the footer bar ("Changes go out with the release"); hidden below `sm`. Needs `footerActions`. */
+  readonly footerHint?: string;
+  /** Tab that opens first when the URL names none: the first rule whose condition holds on the record wins, else the first visible tab. Needs `layout.mode: "tabs"`; every tab stays visible. */
+  readonly initialTab?: readonly ProjectionDetailInitialTab[];
   /** How head fields render. Default "text" — plain text instead of a
    *  disabled Input, since every field on this screen type is forced
    *  readOnly anyway (there is no write path, see the shim doc above).
    *  Set "form" to opt back into the disabled-Input look. */
   readonly valueDisplay?: "form" | "text";
+};
+
+/** One `initialTab` rule: `tab` is a section id of the layout. */
+export type ProjectionDetailInitialTab = {
+  readonly when: Exclude<FieldCondition, boolean>;
+  readonly tab: string;
 };

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-12
+verified: 2026-11-08
 evidence: "kumiko-framework#2345 (enumOption); #2332 (unit); packages/types/src/screen.ts (FieldFormatRegistry); packages/renderer/src/headless/format; packages/headless/src/view-model/list-file-display.ts (format image/file); packages/types/src/fields.ts (TextFieldDef.format); packages/renderer/src/components/render-field-control.tsx (readOnlyTextRule); packages/renderer/src/headless/format/escape.ts (isSafeHref); packages/renderer/src/app/projection-detail-shim.ts; packages/renderer/src/app/__tests__/projection-detail-shim.test.ts"
 ---
 
@@ -12,7 +12,7 @@ Wert-Formatter (kein Code im Schema) — deklariert auf Screen-Column-/Field-
 Ebene und über die `FieldFormatRegistry` registriert
 (`packages/types/src/screen.ts`). Registry-Keys: `timestamp`, `date`,
 `boolean`, `currency`, `priority`, `number`, `decimal`, `bigInt`, `unit`,
-`enumOption` (alle über die `[K in keyof FieldFormatRegistry]`-Struktur
+`enumOption`, `relativeTime` (alle über die `[K in keyof FieldFormatRegistry]`-Struktur
 dediziert typisiert, kein offener `string`).
 
 ## `unit` (fw#2332)
@@ -40,6 +40,18 @@ dediziert typisiert, kein offener `string`).
 - Einsatz: `projectionDetail`-Felder und `entityList`/`projectionList`/
   `relatedList`-Column-Werte, die sonst nackte Option-Werte zeigten.
 
+## `relativeTime`
+
+```
+{ format: "relativeTime", locale: "de" }   // ISO-Zeitstempel oder Epoch-ms → "vor 5 Minuten"
+```
+
+- Rechnet beim Rendern gegen die Server-Uhr; die Zelle tickt nicht nach.
+- Nicht parsebare Werte erscheinen als Rohtext.
+- Optionen: `style: "short"` kürzt die Einheit ("vor 41 Min."), `withTime: true` hängt an "gestern" und an das absolute Datum die Uhrzeit ("gestern, 10:18"), `absoluteAfterDays: n` zeigt ab n Tagen das absolute Datum ("29. Okt. 2026"), `timeZone` (IANA) bestimmt die Uhrzeit. Ohne Optionen bleibt der Text wie oben.
+- "Gestern" und die Tageszahl zählen Kalendertage in `timeZone` (Default: die Zeitzone der Laufzeit); ohne `locale` gilt die Browsersprache. Die Boot-Validierung lehnt einen ungültigen `style`, ein nicht ganzzahliges `absoluteAfterDays` unter 1, ein nicht-boolesches `withTime` und eine unbekannte `timeZone` ab.
+- Als Metrik im `projectionDetail` (`metrics[].format`) nimmt das Format das UI-Locale, wenn `locale` fehlt.
+
 ## `number` / `decimal` / `bigInt` grouping (fw#3234)
 
 Tausendertrennzeichen sind standardmäßig an (`Intl.NumberFormat`s
@@ -56,6 +68,10 @@ Thumbnail (Variante, sonst Original, sonst Platzhalter), `{ format: "file" }`
 den Dateinamen als Link. Mehrere Dateien zeigen `+N`. Ohne `format` greift
 dasselbe für Felder vom Typ `file`/`image`/`files`/`images`; es erscheint nie
 eine Datei-ID.
+
+## `phone` (Listen-Spalten)
+
+`{ format: "phone" }` auf einer Listen-Spalte zeigt die Nummer als `tel:`-Link, wie ein read-only Textfeld mit `format: "phone"`.
 
 ## `email` / `phone` (read-only Text-Felder)
 

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-04
+verified: 2026-11-08
 evidence: "kumiko-framework#4239; packages/bundled-features/src/channel-whatsapp; packages/bundled-features/src/channel-whatsapp/__tests__/whatsapp.integration.test.ts"
 ---
 
@@ -49,7 +49,7 @@ const sent = await client.sendText(
 // { ok: true, wamid } or { ok: false, code: "missing_credentials" | "invalid_recipient" | "rejected" | ... }
 ```
 
-`sendText`, `sendTemplate`, `sendButtons` (payload freely chosen, returned in the button reply) and `sendMedia` (image by link) all take the sending `phoneNumberId`. Outside the 24-hour window Meta rejects free text with code 131047 (`WHATSAPP_OUTSIDE_WINDOW_ERROR_CODE`); use a template then. Tokens never appear in results, errors or logs.
+`sendText`, `sendTemplate`, `sendButtons` (payload freely chosen, returned in the button reply) and `sendMedia` (image by link) all take the sending `phoneNumberId`. Outside the 24-hour window Meta rejects free text with code 131047 (`WHATSAPP_OUTSIDE_WINDOW_ERROR_CODE`); use a template then. `sendTemplate` also takes `quickReplyPayloads` (1 to 10 payloads, one per quick-reply button of the template, which must be the template's first buttons since payload i goes to button index i; a tap returns the payload as `buttonPayload`) and `headerImageLink` (https URL for an image header). Tokens never appear in results, errors or logs.
 
 `fetchMedia(ctx, mediaId)` asks the Graph API for the URL and mime type, then downloads the bytes. The URL from the Graph answer is checked against `allowedHosts` (default `graph.facebook.com` and `lookaside.fbsbx.com`) and https before the bearer token is sent.
 

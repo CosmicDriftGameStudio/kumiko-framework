@@ -183,6 +183,7 @@ export function DefaultGrid({
   flow,
   list,
   ariaLabelledBy,
+  tight,
 }: GridProps): ReactNode {
   const insideDrawerBody = useContext(DrawerBodyContext);
   const groupProps =
@@ -222,7 +223,11 @@ export function DefaultGrid({
   // maxRows/scrolling don't apply — the row just wraps.
   if (columns === "auto") {
     return (
-      <div {...groupProps} data-testid={testId} className="flex flex-wrap items-center gap-4">
+      <div
+        {...groupProps}
+        data-testid={testId}
+        className={cn("flex flex-wrap items-center", tight === true ? "gap-2" : "gap-4")}
+      >
         {children}
       </div>
     );

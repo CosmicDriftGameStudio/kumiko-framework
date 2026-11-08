@@ -74,10 +74,23 @@ export interface FieldFormatRegistry {
     /** IANA zone id (e.g. "Europe/Berlin"). Default: the runtime's zone. */
     readonly timeZone?: string;
   };
+  /** Epoch ms or ISO timestamp, shown as "5 minutes ago" at render time (a table cell does not tick).
+   *  `style: "short"` gives "5 min. ago"; `withTime` adds the clock time to "yesterday" and to the absolute date;
+   *  from `absoluteAfterDays` days on the absolute date ("29 Oct 2026") replaces the relative text. */
+  relativeTime: {
+    readonly locale?: string;
+    readonly style?: "long" | "short" | "narrow";
+    readonly absoluteAfterDays?: number;
+    readonly withTime?: boolean;
+    /** IANA zone id for the clock time and the day boundary. Default: the runtime's zone. */
+    readonly timeZone?: string;
+  };
   date: {
     readonly locale?: string;
     readonly dateStyle?: "full" | "long" | "medium" | "short";
   };
+  /** Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field. */
+  phone: Record<never, never>;
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
   currency: { readonly symbol?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
@@ -234,12 +247,14 @@ export type {
   DashboardFeedPanel,
   DashboardFilterDefinition,
   DashboardI18nText,
+  DashboardLayout,
   DashboardListFooterLink,
   DashboardListNarrow,
   DashboardListPanel,
   DashboardListRowLink,
   DashboardListRowToneMarker,
   DashboardMoneyParam,
+  DashboardPanelColumn,
   DashboardPanelDefinition,
   DashboardPanelEmptyState,
   DashboardPanelGate,
@@ -280,6 +295,7 @@ export type {
   EditLayout,
   EditRelatedListSection,
   EditSectionSpec,
+  EditStepListSection,
   EditWriteFormSection,
   EmbeddedListEditSpec,
   EntityEditAction,
@@ -287,12 +303,17 @@ export type {
   EntityEditScreenDefinition,
   EntityWriteExcludedFields,
   FieldAffix,
+  FieldAiAssist,
+  FieldAiAssistChip,
   FieldFillAction,
+  FieldTextRef,
+  FieldValueChips,
   FormWidth,
   ListEmptyStateSpec,
   RelatedListEmptyStateSpec,
   RelatedListEmptyStateVariant,
   RelatedListRowTone,
+  StepListItem,
 } from "./screen-entity-edit.ts";
 export { relatedListGroupHeaderLabel, relatedListGroupKey } from "./screen-entity-edit.ts";
 export type {
@@ -369,6 +390,7 @@ export type {
   ListFacetSpec,
   MetricNavigate,
   MetricSpec,
+  ProjectionDetailInitialTab,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RecordHeaderSpec,

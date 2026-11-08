@@ -56,7 +56,10 @@ describe("phone card: narrowInline columns", () => {
     expect(within(vals).getByTestId("cell-r1-rent")).toBeTruthy();
     expect(within(vals).getByTestId("cell-r1-since")).toBeTruthy();
     expect(within(vals).queryByTestId("cell-r1-unit")).toBeNull();
-    expect(vals.className).toContain("gap-3");
+    expect(vals.className).toContain("flex-wrap");
+    expect(vals.className).toContain("gap-x-3");
+    expect(vals.className).not.toContain("h-5");
+    expect(within(vals).getByTestId("cell-r1-rent").className).toContain("max-w-full");
     expect(vals.textContent).not.toContain("·");
   });
 

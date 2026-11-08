@@ -13,7 +13,7 @@ import {
   statusToneForOptionTone,
   statusToneForValue,
 } from "../primitives.tsx";
-import { isAbsoluteHttpUrl } from "./projection-detail-navigation.ts";
+import { isAbsoluteHttpUrl, withUiLocale } from "./projection-detail-navigation.ts";
 
 export function headerStatusTone(
   header: NonNullable<ProjectionDetailScreenDefinition["header"]>,
@@ -68,10 +68,15 @@ export function formatOrRaw(
   format: FormatSpec | undefined,
   raw: unknown,
   translate: Translate,
+  uiLocale?: string,
 ): string {
   const rawText = String(raw ?? "");
   if (format === undefined) return rawText;
-  const formatted = applyFormatSpec(format, raw, translate);
+  const formatted = applyFormatSpec(
+    uiLocale === undefined ? format : withUiLocale(format, uiLocale),
+    raw,
+    translate,
+  );
   return formatted === "" ? rawText : formatted;
 }
 
@@ -97,16 +102,22 @@ export function buildDetailTabItems(
   translate: Translate,
   queryCounts: Readonly<Record<string, number>> = {},
 ): DetailTabItem[] {
-  return sections.map((section) => {
-    const countField = isWriteFormEditSection(section) ? undefined : section.countField;
-    const countValue =
-      countField !== undefined ? record[countField] : queryCounts[section.id ?? ""];
-    const count =
-      typeof countValue === "number" && Number.isFinite(countValue) ? countValue : undefined;
-    return {
-      id: section.id ?? "",
-      label: translate(section.title ?? section.id ?? ""),
-      ...(count !== undefined && { count }),
-    };
-  });
+  // Adjacent sections sharing an id are one tab; its label and count come from the first.
+  return sections
+    .filter((section, index) => section.id !== sections[index - 1]?.id)
+    .map((section) => {
+      const countField =
+        isWriteFormEditSection(section) || section.kind === "stepList"
+          ? undefined
+          : section.countField;
+      const countValue =
+        countField !== undefined ? record[countField] : queryCounts[section.id ?? ""];
+      const count =
+        typeof countValue === "number" && Number.isFinite(countValue) ? countValue : undefined;
+      return {
+        id: section.id ?? "",
+        label: translate(section.title ?? section.id ?? ""),
+        ...(count !== undefined && { count }),
+      };
+    });
 }

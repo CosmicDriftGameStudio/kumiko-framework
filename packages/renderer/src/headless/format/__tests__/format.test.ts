@@ -1,4 +1,4 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
 import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.ts";
 
@@ -14,6 +14,84 @@ describe("applyFormatSpec — json", () => {
     const circular: Record<string, unknown> = {};
     circular["self"] = circular;
     expect(applyFormatSpec({ format: "json" }, circular)).toBe("[object Object]");
+  });
+});
+
+describe("applyFormatSpec — relativeTime", () => {
+  const NOW = Date.parse("2026-11-07T12:00:00Z");
+  const realNow = Date.now;
+  beforeEach(() => {
+    Date.now = () => NOW;
+  });
+  afterEach(() => {
+    Date.now = realNow;
+  });
+
+  test("renders ISO strings and epoch ms relative to the server clock", () => {
+    const spec = { format: "relativeTime", locale: "en" };
+    expect(applyFormatSpec(spec, "2026-11-07T11:55:00Z")).toBe("5 minutes ago");
+    expect(applyFormatSpec(spec, NOW + 30_000)).toBe("in 30 seconds");
+    expect(applyFormatSpec({ format: "relativeTime", locale: "de" }, NOW - 2 * 3_600_000)).toBe(
+      "vor 2 Stunden",
+    );
+  });
+
+  test("style short abbreviates the unit", () => {
+    const spec = { format: "relativeTime", locale: "de", style: "short" };
+    expect(applyFormatSpec(spec, NOW - 41 * 60_000)).toBe("vor 41 Min.");
+    expect(applyFormatSpec(spec, NOW - 3 * 3_600_000)).toBe("vor 3 Std.");
+    expect(applyFormatSpec({ ...spec, locale: "en" }, NOW - 41 * 60_000)).toBe("41 min. ago");
+  });
+
+  test("withTime adds the clock time to yesterday, in the locale and zone", () => {
+    const yesterday = NOW - 26 * 3_600_000; // 2026-11-06T10:00:00Z
+    const base = { format: "relativeTime", withTime: true, timeZone: "UTC" };
+    expect(applyFormatSpec({ ...base, locale: "de" }, yesterday)).toBe("gestern, 10:00");
+    expect(applyFormatSpec({ ...base, locale: "es" }, yesterday)).toBe("ayer, 10:00");
+    expect(applyFormatSpec({ ...base, locale: "en" }, yesterday)).toBe("yesterday, 10:00 AM");
+    expect(applyFormatSpec({ format: "relativeTime", locale: "de" }, yesterday)).toBe("gestern");
+  });
+
+  test("days count calendar days in the zone, not rounded hours", () => {
+    Date.now = () => Date.parse("2026-11-07T00:30:00Z");
+    const twoDaysAgo = Date.parse("2026-11-05T22:00:00Z"); // 26.5 hours before now
+    const spec = { format: "relativeTime", locale: "de", withTime: true, timeZone: "UTC" };
+    expect(applyFormatSpec(spec, twoDaysAgo)).toBe("vorgestern");
+    // Berlin is UTC+1: now is 01:30 on the 7th, the value 23:00 on the 5th.
+    expect(applyFormatSpec({ ...spec, timeZone: "Europe/Berlin" }, twoDaysAgo)).toBe("vorgestern");
+    const earlyYesterday = Date.parse("2026-11-06T00:10:00Z");
+    expect(applyFormatSpec(spec, earlyYesterday)).toBe("gestern, 00:10");
+  });
+
+  test("absoluteAfterDays switches to the absolute date, with the time on request", () => {
+    const spec = { format: "relativeTime", locale: "de", absoluteAfterDays: 7, timeZone: "UTC" };
+    expect(applyFormatSpec(spec, NOW - 3 * 86_400_000)).toBe("vor 3 Tagen");
+    expect(applyFormatSpec(spec, NOW - 6 * 86_400_000)).toBe("vor 6 Tagen");
+    expect(applyFormatSpec(spec, NOW - 8 * 86_400_000)).toBe("30. Okt. 2026");
+    expect(applyFormatSpec({ ...spec, withTime: true }, NOW - 8 * 86_400_000)).toBe(
+      "30. Okt. 2026, 12:00",
+    );
+  });
+
+  test("without a locale the browser language applies", () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+    Object.defineProperty(globalThis, "navigator", {
+      value: { language: "de" },
+      configurable: true,
+    });
+    try {
+      expect(applyFormatSpec({ format: "relativeTime" }, NOW - 2 * 3_600_000)).toBe(
+        "vor 2 Stunden",
+      );
+    } finally {
+      if (original === undefined) Reflect.deleteProperty(globalThis, "navigator");
+      else Object.defineProperty(globalThis, "navigator", original);
+    }
+  });
+
+  test("falls back to the raw text for unparseable values and collapses empty", () => {
+    expect(applyFormatSpec({ format: "relativeTime" }, "not a date")).toBe("not a date");
+    expect(applyFormatSpec({ format: "relativeTime" }, null)).toBe("");
   });
 });
 

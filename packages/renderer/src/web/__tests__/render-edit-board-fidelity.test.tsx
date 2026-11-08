@@ -55,6 +55,24 @@ describe("RenderEdit board fidelity", () => {
     expect(screen.getByLabelText(/price/i).getAttribute("aria-required")).toBe("true");
   });
 
+  test("layout.allRequiredHint false drops the hint and gives each field its own star", () => {
+    const base = screenWith(["price", "reason"]);
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({})}>
+        <RenderEdit
+          screen={{ ...base, layout: { ...base.layout, allRequiredHint: false } }}
+          entity={allRequiredEntity}
+          featureName="orders"
+          initial={{}}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.queryByTestId("render-edit-all-required-hint")).toBeNull();
+    expect(screen.getByTestId("field-price").textContent).toContain("*");
+    expect(screen.getByTestId("field-reason").textContent).toContain("*");
+  });
+
   test("mixed required and optional fields keep the stars and show no hint", () => {
     renderEdit(mixedEntity, ["price", "reason"]);
     expect(screen.queryByTestId("render-edit-all-required-hint")).toBeNull();

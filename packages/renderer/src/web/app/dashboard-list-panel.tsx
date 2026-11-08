@@ -274,6 +274,7 @@ export function ListPanelBody({
       field: normalized.field,
       label: translate(normalized.label ?? normalized.field),
       ...(normalized.display !== undefined && { display: normalized.display }),
+      ...(normalized.variant !== undefined && { buttonVariant: normalized.variant }),
       ...(normalized.badgeToneField !== undefined && {
         badgeToneField: normalized.badgeToneField,
       }),

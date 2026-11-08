@@ -22,6 +22,7 @@ import {
   withHintColumns,
   withNarrowInlineColumns,
   withNarrowOnlyColumns,
+  withPillColumns,
 } from "./render-list-hint-columns.ts";
 import { enrichReferenceColumns, selectReferenceColumns } from "./render-list-reference-columns.ts";
 import { useReferenceColumnLookups } from "./use-reference-column-lookups.ts";
@@ -106,23 +107,26 @@ export function useRenderListColumns(input: RenderListColumnsInput) {
     (): readonly ListColumnViewModel[] =>
       withNarrowOnlyColumns(
         withNarrowInlineColumns(
-          withDisplayColumns(
-            withHintColumns(
-              withScreenLinks(
-                enrichReferenceColumns({
-                  // Flag first: the reference renderer reads it while it is built.
-                  columns: withEmptyPlaceholderColumns(vm.columns, screen),
-                  referenceColumns,
-                  referenceLookups,
-                  resolveReferenceLink,
-                  featureName,
-                  translate,
-                }),
+          withPillColumns(
+            withDisplayColumns(
+              withHintColumns(
+                withScreenLinks(
+                  enrichReferenceColumns({
+                    // Flag first: the reference renderer reads it while it is built.
+                    columns: withEmptyPlaceholderColumns(vm.columns, screen),
+                    referenceColumns,
+                    referenceLookups,
+                    resolveReferenceLink,
+                    featureName,
+                    translate,
+                  }),
+                  screen,
+                  resolveScreenLink,
+                ),
                 screen,
-                resolveScreenLink,
+                translate,
               ),
               screen,
-              translate,
             ),
             screen,
           ),

@@ -436,8 +436,8 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   readonly access?: FieldAccess;
   /** Renderer metadata: `"checkboxes"` renders every option as a visible
    *  checkbox with a select-all toggle. Default (omitted) stays the combobox
-   *  dropdown. */
-  readonly display?: "checkboxes" | "dropdown";
+   *  dropdown; `"chips"` renders toggle chips with a check mark on the chosen ones. */
+  readonly display?: "checkboxes" | "chips" | "dropdown";
   /** Renderer metadata: column count for the `"checkboxes"` grid at the widest
    *  breakpoint; narrow viewports always collapse to one column. Omitted =
    *  the renderer picks a sensible count. Ignored unless
@@ -1224,4 +1224,7 @@ export type EntityDefinition<
   /** Attached files are readable only through the record's detail query: the files feature's
    *  privilegedRoles do not bypass it, the uploader check stays. */
   readonly attachedFileAccess?: "record-only";
+  /** Files of this entity may be read from another tenant when `query`, run with `{ id: <entityId> }`
+   *  as the requesting user, returns the record with that id. Read only: delete stays with the owning tenant. */
+  readonly crossTenantFileRead?: { readonly query: string; readonly reason: string };
 };

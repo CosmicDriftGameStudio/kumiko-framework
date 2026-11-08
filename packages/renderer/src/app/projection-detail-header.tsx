@@ -302,7 +302,7 @@ export function buildMetricItems(model: DetailHeaderModel): ReactNode[] | undefi
     const field = metric.field;
     const label = metricLabel(metric, record, effectiveTranslate);
     const rawValue = record[field];
-    const value = formatOrRaw(metric.format, rawValue, effectiveTranslate);
+    const value = formatOrRaw(metric.format, rawValue, effectiveTranslate, model.locale);
     const tiles = screen.metricsStyle === "tiles";
     const tone = metricTone(metric, record, rawValue);
     const sub = metricSubline(metric.subField, record);

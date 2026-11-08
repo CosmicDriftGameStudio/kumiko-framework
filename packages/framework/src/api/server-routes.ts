@@ -5,6 +5,7 @@ import type { SessionUser } from "../engine/types/index.ts";
 
 import type { FileRoutesOptions } from "../files/file-routes.ts";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.ts";
+import { createForeignTenantFileReadCheck } from "../files/foreign-tenant-file-read.ts";
 import { createRecordReadCheck } from "../files/record-read-check.ts";
 import { createRecordWriteCheck } from "../files/record-write-check.ts";
 import { createRateLimitResolver } from "../rate-limit/index.ts";
@@ -152,6 +153,10 @@ export function mountFileRoutes(
         ...(fileRateLimitResolver ? { rateLimitResolver: fileRateLimitResolver } : {}),
         clientIpResolver: wiring.clientIpResolver,
         canReadRecord,
+        canReadForeignTenantFile: createForeignTenantFileReadCheck(
+          options.registry,
+          dispatcher.query,
+        ),
         canWriteRecord: createRecordWriteCheck({
           registry: options.registry,
           canReadRecord,

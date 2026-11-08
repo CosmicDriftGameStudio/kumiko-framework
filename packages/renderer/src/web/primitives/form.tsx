@@ -258,15 +258,15 @@ function isPrimaryStickyAction(node: ReactNode): boolean {
   return props.type === "submit" || props[STICKY_PRIMARY_ACTION_PROP] === true;
 }
 
-// `actions` from render-edit.tsx arrives as a single `<>…</>` Fragment
-// element (not spread children) — Children.toArray only flattens fragments
-// nested inside an already-flattened children list, not a Fragment passed
-// as the whole value, so the Fragment's own children are unwrapped first.
+// `actions` from render-edit.tsx arrives as a Fragment whose children are Fragments again
+// (one per action group); Children.toArray keeps nested Fragments as single elements, so they
+// are unwrapped recursively or the footer would see one opaque node and fold it into "…".
 function flattenActionNodes(node: ReactNode): readonly ReactNode[] {
-  if (isValidElement(node) && node.type === Fragment) {
-    return Children.toArray((node.props as { readonly children?: ReactNode }).children);
-  }
-  return Children.toArray(node);
+  return Children.toArray(node).flatMap((child) =>
+    isValidElement(child) && child.type === Fragment
+      ? flattenActionNodes((child.props as { readonly children?: ReactNode }).children)
+      : [child],
+  );
 }
 
 type StickyActionSplit = {

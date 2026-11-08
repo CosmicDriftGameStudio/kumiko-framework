@@ -57,8 +57,9 @@ const SHARED_FORBIDDEN_IMPORTS = [
   /from ["']@cosmicdrift\/kumiko-renderer\/live(?:\/.*)?["']/,
 ];
 
-// dev-console.ts is a dependency-free console wrapper, safe in server bundles.
-const HEADLESS_ALLOWED_LEAF = /(?:^|\/)dev-console(?:\.ts)?$/;
+// dev-console.ts (console wrapper) and server-clock.ts (clock offset) are dependency-free,
+// safe in server bundles.
+const HEADLESS_ALLOWED_LEAF = /(?:^|\/)(?:dev-console|server-clock)(?:\.ts)?$/;
 
 const RELATIVE_SPECIFIER = /from ["'](\.\.?\/[^"']*)["']/;
 

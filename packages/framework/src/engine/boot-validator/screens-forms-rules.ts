@@ -46,6 +46,66 @@ export const FORM_FIELD_RULES = {
     summary: "fillAction does not target a sensitive, writeOnly or password field.",
     fix: "Remove fillAction.",
   },
+  fieldDescriptionUnknownField: {
+    id: "form/field-description-unknown-field",
+    summary: "actionForm fieldDescriptions keys name fields of the form.",
+    fix: "Name a field of the form or remove the entry.",
+  },
+  fieldTextParamUnknownField: {
+    id: "form/field-text-param-unknown-field",
+    summary: "actionForm fieldLabels and fieldDescriptions params name fields of the form.",
+    fix: "Point each param at a field of the form or use the plain i18n key.",
+  },
+  fieldBadgeUnknownField: {
+    id: "form/field-badge-unknown-field",
+    summary: "actionForm fieldBadges keys name fields of the form.",
+    fix: "Name a field of the form or remove the entry.",
+  },
+  aiAssistContextFieldUnknown: {
+    id: "form/ai-assist-context-field-unknown",
+    summary: "aiAssist.contextFields names fields of the same form.",
+    fix: "Name other fields of the same form or remove the entry.",
+  },
+  aiAssistFieldType: {
+    id: "form/ai-assist-field-type",
+    summary: "aiAssist targets a text or longText field.",
+    fix: "Remove aiAssist or use a text or longText field.",
+  },
+  aiAssistSensitiveField: {
+    id: "form/ai-assist-sensitive-field",
+    summary: "aiAssist does not target a sensitive, writeOnly or password field.",
+    fix: "Remove aiAssist; the field text would be sent to the AI.",
+  },
+  aiAssistChipInvalid: {
+    id: "form/ai-assist-chip-invalid",
+    summary: "An aiAssist chip has a label and at least one param.",
+    fix: 'Set a non-empty label and params such as { style: "short" }.',
+  },
+  aiAssistResultFieldEmpty: {
+    id: "form/ai-assist-result-field-empty",
+    summary: "aiAssist names a non-empty resultField.",
+    fix: "Set resultField to the key of the query result that holds the text.",
+  },
+  aiAssistPromptParamEmpty: {
+    id: "form/ai-assist-prompt-param-empty",
+    summary: "aiAssist.prompt names a non-empty param.",
+    fix: "Set prompt.param to the query payload key that receives the typed instruction.",
+  },
+  aiAssistEmpty: {
+    id: "form/ai-assist-empty",
+    summary: "aiAssist declares at least one chip or a prompt.",
+    fix: "Add chips or prompt, or remove aiAssist.",
+  },
+  valueChipsFieldType: {
+    id: "form/value-chips-field-type",
+    summary: "valueChips targets a number, decimal, bigInt or money field.",
+    fix: "Remove valueChips or use a numeric or money field.",
+  },
+  valueChipsUnknownField: {
+    id: "form/value-chips-unknown-field",
+    summary: "valueChips.from names a field of the same form.",
+    fix: "Name a field of the same form (hidden and submit: false is fine) that holds the numbers.",
+  },
   requiredFieldWithoutWidget: {
     id: "form/required-field-without-widget",
     summary: "A required entityEdit field has a widget to fill it.",

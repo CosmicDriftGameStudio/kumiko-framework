@@ -59,6 +59,7 @@ describe("writeform-section sample — registration", () => {
       editSection === undefined ||
       editSection.kind === "extension" ||
       editSection.kind === "relatedList" ||
+      editSection.kind === "stepList" ||
       detailSection?.kind !== "writeForm"
     ) {
       throw new Error("expected an entityEdit fields section and a writeForm section");

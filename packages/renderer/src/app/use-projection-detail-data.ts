@@ -1,4 +1,5 @@
 import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { evalFieldCondition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { rendererWarn } from "../dev-console.ts";
 import { useQuery } from "../hooks/use-query.ts";
@@ -21,14 +22,36 @@ export function useProjectionDetailData(input: DetailDataInput) {
   const { screen, Tabs, nav, effectiveEntityId } = input;
   const idParam = screen.idParam ?? "id";
   const isTabsMode = screen.layout.mode === "tabs";
-  const activeSection = useMemo(() => {
+  const live = screen.live === true;
+  const detailQuery = useQuery<Readonly<Record<string, unknown>>>(
+    screen.query,
+    effectiveEntityId !== undefined ? { [idParam]: effectiveEntityId } : {},
+    { live },
+  );
+  const record = detailQuery.data;
+  // A section hidden by `visibleWhen` drops out of the tab strip and the body alike; until the
+  // record is loaded nothing is evaluated (the loading banner shows instead).
+  const visibleSections = useMemo(
+    () =>
+      screen.layout.sections.filter(
+        (section) =>
+          section.visibleWhen === undefined ||
+          (record !== null && evalFieldCondition(section.visibleWhen, { ...record })),
+      ),
+    [screen.layout.sections, record],
+  );
+  // Adjacent sections sharing one `id` form a single tab (several blocks under one tab label).
+  const activeSections = useMemo(() => {
     // skip: only tabs mode with a registered Tabs primitive has an active section
-    if (!isTabsMode || Tabs === undefined) return undefined;
+    if (!isTabsMode || Tabs === undefined) return [];
     const tabParam = nav.searchParams["tab"];
-    return (
-      screen.layout.sections.find((section) => section.id === tabParam) ?? screen.layout.sections[0]
-    );
-  }, [isTabsMode, Tabs, screen.layout.sections, nav.searchParams]);
+    const activeId =
+      visibleSections.find((section) => section.id === tabParam)?.id ??
+      initialTabId(screen.initialTab, record, visibleSections) ??
+      visibleSections[0]?.id;
+    return visibleSections.filter((section) => section.id === activeId);
+  }, [isTabsMode, Tabs, visibleSections, nav.searchParams, screen.initialTab, record]);
+  const activeSection = activeSections[0];
   const hasTabs = isTabsMode && Tabs !== undefined && activeSection !== undefined;
   // Tabs is an optional Core-Primitive: without it the screen falls back to
   // the stacked all-sections layout instead of silently truncating to section 1.
@@ -42,17 +65,11 @@ export function useProjectionDetailData(input: DetailDataInput) {
   const entity = useMemo(() => synthesizeProjectionDetailEntity(screen.layout), [screen.layout]);
   const detailScreen = useMemo(() => {
     const source =
-      activeSection !== undefined
-        ? { ...screen, layout: { ...screen.layout, sections: [activeSection] } }
+      activeSections.length > 0
+        ? { ...screen, layout: { ...screen.layout, sections: activeSections } }
         : screen;
     return synthesizeProjectionDetailScreen(source);
-  }, [screen, activeSection]);
-  const live = screen.live === true;
-  const detailQuery = useQuery<Readonly<Record<string, unknown>>>(
-    screen.query,
-    effectiveEntityId !== undefined ? { [idParam]: effectiveEntityId } : {},
-    { live },
-  );
+  }, [screen, activeSections]);
 
   // A writeForm section's handler creates a new record (see EditWriteFormSection's
   // doc) — both the outer record (header/metrics/other sections) and a sibling
@@ -78,5 +95,28 @@ export function useProjectionDetailData(input: DetailDataInput) {
     shownLiveRecord.current = liveRecord;
     if (previous !== undefined) setReloadNonce((n) => n + 1);
   }, [liveRecord]);
-  return { activeSection, hasTabs, entity, detailScreen, detailQuery, reloadNonce, reloadDetail };
+  return {
+    activeSection,
+    activeSections,
+    visibleSections,
+    hasTabs,
+    entity,
+    detailScreen,
+    detailQuery,
+    reloadNonce,
+    reloadDetail,
+  };
+}
+
+function initialTabId(
+  rules: ProjectionDetailScreenDefinition["initialTab"],
+  record: Readonly<Record<string, unknown>> | null,
+  visibleSections: ProjectionDetailScreenDefinition["layout"]["sections"],
+): string | undefined {
+  if (rules === undefined || record === null) return undefined;
+  return rules.find(
+    (rule) =>
+      evalFieldCondition(rule.when, { ...record }) &&
+      visibleSections.some((section) => section.id === rule.tab),
+  )?.tab;
 }

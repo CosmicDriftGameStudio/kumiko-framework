@@ -49,6 +49,24 @@ export function withDisplayColumns(
   });
 }
 
+export function withPillColumns(
+  columns: readonly ListColumnViewModel[],
+  screen: EntityListScreenDefinition,
+): readonly ListColumnViewModel[] {
+  const specs = new Map(
+    screen.columns.map((spec) => [normalizeListColumn(spec).field, normalizeListColumn(spec)]),
+  );
+  return columns.map((col) => {
+    const spec = specs.get(col.field);
+    if (spec?.pillField === undefined) return col;
+    return {
+      ...col,
+      pillField: spec.pillField,
+      ...(spec.pillToneField !== undefined && { pillToneField: spec.pillToneField }),
+    };
+  });
+}
+
 export function withEmptyPlaceholderColumns(
   columns: readonly ListColumnViewModel[],
   screen: EntityListScreenDefinition,

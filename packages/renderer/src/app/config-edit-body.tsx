@@ -163,6 +163,15 @@ function actionRowsAfterField(
   return { rowAfterField };
 }
 
+// A read-only field shows its value; resetting an override from its cascade would change it anyway.
+function readOnlyLayoutFieldNames(screen: EntityEditScreenDefinition): ReadonlySet<string> {
+  return new Set(
+    layoutEditFields(screen)
+      .filter((spec) => spec.readOnly === true)
+      .map((spec) => spec.field),
+  );
+}
+
 // A field hidden by its `visible` condition (a provider's settings while another
 // provider is picked) is not saved: the form saves what it shows.
 function hiddenLayoutFieldNames(
@@ -286,6 +295,8 @@ export function ConfigEditBody({
     screen.configKeys,
     screen.scope,
   ]);
+
+  const readOnlyFields = useMemo(() => readOnlyLayoutFieldNames(synthScreen), [synthScreen]);
 
   // Cascade lookup: qualifiedKey -> ConfigCascade for the cascade display
   // under each field. Defensive `levels` shape check so foreign query mocks
@@ -506,10 +517,12 @@ export function ConfigEditBody({
             qualifiedKey={screen.configKeys[fieldName]}
             required={screen.requiredFields?.includes(fieldName) ?? false}
             {...(renderValue !== undefined && { renderValue })}
-            onReset={async (key, scope) => {
-              await dispatcher.write("config:write:reset", { key, scope });
-              await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
-            }}
+            {...(!readOnlyFields.has(fieldName) && {
+              onReset: async (key: string, scope: ConfigScope) => {
+                await dispatcher.write("config:write:reset", { key, scope });
+                await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);
+              },
+            })}
           />
         );
       }}

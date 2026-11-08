@@ -15,7 +15,12 @@ import type {
   RuntimeCellLink,
   RuntimeCellLinkItems,
 } from "../../headless/index.ts";
-import { applyFormatSpec, EMPTY_VALUE_PLACEHOLDER, isSafeHref } from "../../headless/index.ts";
+import {
+  applyFormatSpec,
+  EMPTY_VALUE_PLACEHOLDER,
+  isSafeHref,
+  telHref,
+} from "../../headless/index.ts";
 import {
   type PrimitivesRegistry,
   statusToneForOptionTone,
@@ -359,6 +364,8 @@ type DataTableCellProps = {
   readonly display?: ListColumnCellDisplay;
   readonly badgeToneField?: string;
   readonly badgeDot?: false;
+  readonly pillField?: string;
+  readonly pillToneField?: string;
   readonly emptyPlaceholder?: false;
   readonly onOpenRow?: () => void;
 };
@@ -373,6 +380,7 @@ function EmptyCell({ placeholder }: { readonly placeholder: false | undefined })
 
 /** `display: "button"` draws a cell link as a small outline button. */
 export const LINK_BUTTON_CLASS = buttonVariants({ variant: "outline", size: "sm" });
+export const LINK_BUTTON_PRIMARY_CLASS = buttonVariants({ variant: "default", size: "sm" });
 
 /** Badge tones by the list-wide ListBadgeTone words. */
 export const LIST_BADGE_TONE: Readonly<Record<string, StatusBadgeTone>> = {
@@ -617,7 +625,23 @@ function renderFileCell({
 //      "X" via useColumnRenderer and renders `<X value row column/>`.
 //      Not registered -> one-time warning + default fallback.
 //   4. Otherwise -> defaultCellRender (type-based string renderer).
-export function DataTableCell({
+export function DataTableCell(props: DataTableCellProps): ReactNode {
+  const { pillField, pillToneField, row } = props;
+  const pillText = pillField === undefined ? undefined : row[pillField];
+  if (typeof pillText !== "string" || pillText === "") return <DataTableCellBody {...props} />;
+  const toneKey = pillToneField === undefined ? undefined : row[pillToneField];
+  const tone = (typeof toneKey === "string" ? LIST_BADGE_TONE[toneKey] : undefined) ?? "muted";
+  return (
+    <span className="inline-flex items-center gap-2">
+      <DataTableCellBody {...props} />
+      <StatusBadge tone={tone} dot={false}>
+        {pillText}
+      </StatusBadge>
+    </span>
+  );
+}
+
+function DataTableCellBody({
   value,
   row,
   field,
@@ -698,6 +722,14 @@ export function DataTableCell({
       value,
       translate,
     );
+    const phoneHref = renderer.format === "phone" ? telHref(text) : undefined;
+    if (phoneHref !== undefined) {
+      return (
+        <CellTextLink link={{ href: phoneHref, onPress: () => window.location.assign(phoneHref) }}>
+          {text}
+        </CellTextLink>
+      );
+    }
     const tones = enumOptionTones(renderer);
     if (tones !== undefined && typeof value === "string") {
       return selectPill(value, { [value]: text }, tones, locale, RegisteredStatusBadge);

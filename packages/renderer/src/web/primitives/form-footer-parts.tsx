@@ -100,6 +100,9 @@ export function renderSecondaryActionsGroup(model: FormFooterModel): ReactNode {
         // below the 24px touch-target minimum on narrow viewports.
         "flex flex-wrap items-center gap-2 max-sm:[&_button]:min-h-11 max-sm:[&_button]:px-2 max-sm:[&_button]:text-xs",
         pinned && hasNonPrimaryOverflow && "mr-auto",
+        // An align: "start" action (marked data-footer-align) rides the group's inner mr-auto to the
+        // left edge, so the group has to span the free width of the pinned row.
+        pinned && "has-[[data-footer-align=start]]:flex-1",
       )}
     >
       {renderedSecondary}

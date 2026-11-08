@@ -49,6 +49,10 @@ function isExplicitPrimaryNode(node: ReactNode): boolean {
   return asFooterElement(node)?.props[FOOTER_ACTION_ROLE_PROP] === "primary";
 }
 
+function isInlineNode(node: ReactNode): boolean {
+  return asFooterElement(node)?.props[FOOTER_ACTION_ROLE_PROP] === "inline";
+}
+
 function isSubmitNode(node: ReactNode): boolean {
   return asFooterElement(node)?.props.type === "submit";
 }
@@ -68,6 +72,7 @@ function lastOf<T>(items: readonly T[]): T | undefined {
 type NarrowFooterParts = {
   readonly back: ReactNode | undefined;
   readonly primary: ReactNode | undefined;
+  readonly inline: readonly ReactNode[];
   readonly overflow: readonly ReactNode[];
 };
 
@@ -80,7 +85,8 @@ function splitNarrowFooterNodes(nodes: readonly ReactNode[]): NarrowFooterParts 
   return {
     back,
     primary,
-    overflow: nodes.filter((node) => node !== back && node !== primary),
+    inline: nodes.filter((node) => node !== primary && isInlineNode(node)),
+    overflow: nodes.filter((node) => node !== back && node !== primary && !isInlineNode(node)),
   };
 }
 
@@ -294,7 +300,7 @@ export function NarrowPinnedFooter({
   readonly testId: string | undefined;
   readonly keyboardInset: number;
 }): ReactNode {
-  const { back, primary, overflow } = splitNarrowFooterNodes(nodes);
+  const { back, primary, inline, overflow } = splitNarrowFooterNodes(nodes);
   const backElement = asFooterElement(back);
   const [holder] = useState<HTMLDivElement | null>(() =>
     typeof document === "undefined" ? null : createOverflowHolder(),
@@ -324,6 +330,11 @@ export function NarrowPinnedFooter({
           hasEnabledAction={hasEnabledAction}
         />
       )}
+      {inline.map((node) => (
+        <div key={asFooterElement(node)?.key} className="min-w-0 flex-1 [&>button]:w-full">
+          {node}
+        </div>
+      ))}
       {primary !== undefined && (
         <PrimaryButton
           node={primary}

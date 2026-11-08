@@ -1660,6 +1660,7 @@ type ExtensionSectionProps = {
     isLast: boolean;
   }; // Current wizard step, only set for `layout.mode === "wizard"` forms.
   reportStepComplete?: (complete: boolean) => void; // Only set for extension steps of a `layout.mode: "wizard"` entityEdit editing an existing record (update mode); undefined everywhere else.
+  activeTabId?: string; // Id of the active tab; only set in the `afterForm` slot of a projectionDetail screen with tabs, so the component can limit itself to one tab.
 };
 ```
 
@@ -1734,6 +1735,8 @@ type RenderEditAction = {
   confirmLabel?: string;
   confirmRequired?: boolean; // Overrides the default "danger implies a confirm dialog" rule.
   icon?: IconKey; // Resolved icon (author `RowAction.icon` or the id-derived default) — drives both the icon-left-of-text render and the icon-only collapse rule (see `shouldRenderActionsIconOnly`).
+  align?: "start"; // "start" sets the button apart on the left of the form footer.
+  pinnedOnPhone?: true; // Stays a visible button in the pinned footer below `sm` instead of folding into the "…" menu.
 };
 ```
 
@@ -2217,7 +2220,7 @@ type EditFieldViewModel = {
     query: string;
     payload: OptionsQueryPayload;
   }; // Set for `type: "select"` / `"multiSelect"` when optionsAvailabilityQuery is set: the renderer loads `{ rows: { value, disabled?, hint?
-  display?: "checkboxes" | "dropdown" | "radio"; // Set for `type: "multiSelect"` when MultiSelectFieldDef.display is "checkboxes" — the renderer shows a checkbox grid with a select-all toggle instead of the default combobox dropdown.
+  display?: "checkboxes" | "chips" | "dropdown" | "radio"; // Set for `type: "multiSelect"` when MultiSelectFieldDef.display is "checkboxes" — the renderer shows a checkbox grid with a select-all toggle instead of the default combobox dropdown.
   optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // `type: "select"` only: tone per option, shown on the selected radio segment.
   columns?: 1 | 2 | 3 | 4; // Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is defined — column count for the checkbox grid at the widest breakpoint.
   maxRows?: number; // Set for `type: "multiSelect"` when MultiSelectFieldDef.maxRows is defined — grid rows visible before the checkbox grid becomes scrollable.
@@ -2251,6 +2254,8 @@ type EditFieldViewModel = {
   prefix?: FieldAffix; // From EditFieldSpec.prefix / suffix.
   suffix?: FieldAffix;
   fillAction?: FieldFillAction; // From EditFieldSpec.fillAction, `label` already translated.
+  aiAssist?: FieldAiAssist; // From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated.
+  valueChips?: FieldValueChips; // From EditFieldSpec.valueChips.
   embeddedListCells?: EmbeddedListCellViewModel[]; // Only set for an embedded-LIST field (`multiple: true`) — the per-cell metadata the renderer needs to draw each column/cell.
   embeddedListMinItems?: number; // Minimum row count for the embedded list.
   embeddedListMaxItems?: number; // Maximum row count for the embedded list.
@@ -2337,6 +2342,8 @@ type ListColumnViewModel = {
   display?: ListColumnCellDisplay; // `ListColumnSpec.display` for list tables: a status pill or a link drawn as a button.
   badgeToneField?: string; // Row field naming the pill tone; only with `display: "badge"`.
   badgeDot?: false; // `false`: the pill has no leading dot.
+  pillField?: string; // Row field with the label of a pill drawn beside the cell value (`ListColumnSpec.pillField`).
+  pillToneField?: string; // Row field naming the pill tone.
   emptyPlaceholder?: false; // `false`: an empty cell stays blank instead of showing "—".
 };
 type ListRowViewModel = {
@@ -2381,6 +2388,10 @@ type MetricProps = { // Compact label/value tile (record-detail metrics band).
 ## packages/renderer/src/primitives-record-guidance.ts
 
 ```ts
+type PhotoGridProps = { // Grid of image tiles; each tile shows a stored file and its own action buttons underneath.
+  tiles: { id: string; imageId?: string; caption?: string; actions?: ReactNode; }[];
+  testId?: string;
+};
 type RecordBreadcrumbProps = { // Path above a record header; an item with a `link` is a link, the last item without one names the current record.
   items: { label: string; link?: CellLink; }[];
   ariaLabel: string;
@@ -2394,6 +2405,7 @@ type RecordStepsProps = { // "Next steps" panel; an item's `reason` sits behind 
   narrowLimit?: number; // Below the sm breakpoint only this many steps show; the rest sits behind a toggle.
   moreLabel?: (hiddenCount: number) => string; // Toggle label for the hidden steps; receives their count.
   lessLabel?: string;
+  moreActionsLabel?: string; // Label before the further actions of each item.
   items: { id: string; title: string; narrowTitle?: string; detail?: string; narrowDetail?: string; tone?: SelectOptionTone; reason?: string; reasonOpen?: true; reasonTitle?: string; actions?: ReactNode; moreActions?: ReactNode; }[];
   count?: number; // Total number of steps, shown small beside the heading even when `narrowLimit` shortens the list.
   testId?: string;
@@ -2402,6 +2414,11 @@ type RecordSummaryProps = { // One emphasized sentence below a record header; `t
   text: string;
   narrowText?: string; // Shown instead of `text` below the sm breakpoint.
   tone?: SelectOptionTone;
+  icon?: NavIconKey; // Leads the sentence; the sentence then has no bordered box.
+  testId?: string;
+};
+type StepListProps = { // Vertical numbered steps joined by a line; each step has a title, an optional status pill and a description line.
+  items: { id: string; title: string; status?: string; statusTone?: SelectOptionTone; description?: string; }[];
   testId?: string;
 };
 ```
@@ -3169,6 +3186,7 @@ type ConfigMask = {
   description?: string; // i18n key for help text shown under the field label.
   icon?: NavIconKey;
   order?: number;
+  readOnly?: boolean; // Shows the value on the generated settings screen without an input; a read-only key cannot also be `required`.
 };
 type ConfigSeedDef = {
   key: string;
@@ -3924,7 +3942,7 @@ type MultiSelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldStat
   sensitive?: boolean;
   default?: TOptions[number][]; // Default selection.
   access?: FieldAccess;
-  display?: "checkboxes" | "dropdown"; // Renderer metadata: `"checkboxes"` renders every option as a visible checkbox with a select-all toggle.
+  display?: "checkboxes" | "chips" | "dropdown"; // Renderer metadata: `"checkboxes"` renders every option as a visible checkbox with a select-all toggle.
   columns?: 1 | 2 | 3 | 4; // Renderer metadata: column count for the `"checkboxes"` grid at the widest breakpoint; narrow viewports always collapse to one column.
   maxRows?: number; // Renderer metadata: how many grid rows stay visible before the `"checkboxes"` grid becomes scrollable.
   optionsAvailabilityQuery?: string; // Query returning `{ rows: { value, disabled?, hint?
@@ -5015,6 +5033,7 @@ type EditFieldPrefill =
 ;
 type EditFieldsSectionBase = {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
+  visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind?: "fields";
   title?: string; // Optional.
   description?: string; // Optional help text under the block heading (i18n key or raw string, like `title`) — makes a form usable without training instead of falling back to custom JSX for help text.

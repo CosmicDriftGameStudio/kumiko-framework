@@ -50,6 +50,20 @@ describe("runClientAction", () => {
     expect(runtime.notices).toEqual([{ tone: "success", text: "t(x:sent)" }]);
   });
 
+  test("successMessage false shows no toast but still resolves true", async () => {
+    const runtime = runtimeWith({ "x:ping": async () => ({ ok: true }) });
+
+    expect(
+      await runClientAction({
+        action: { ...action, successMessage: false },
+        payload: {},
+        runtime,
+        translate,
+      }),
+    ).toBe(true);
+    expect(runtime.notices).toEqual([]);
+  });
+
   test("hands the payload to the handler", async () => {
     const handler = mock(async (_payload: Readonly<Record<string, unknown>>) => ({
       ok: true as const,

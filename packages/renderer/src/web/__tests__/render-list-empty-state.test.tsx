@@ -45,6 +45,13 @@ describe("RenderList — empty state", () => {
     expect(getByTestId("render-list-empty-create")).toBeDefined();
   });
 
+  test("a rendered empty state has no entry-count footer under it", () => {
+    const { getByText, queryByTestId } = renderEmptyList({ onCreate: () => {} });
+    expect(getByText("No entries yet.")).toBeDefined();
+    expect(queryByTestId("render-list-footer")).toBeNull();
+    expect(queryByTestId("render-list-footer-count")).toBeNull();
+  });
+
   test("the authored action button triggers its handler", () => {
     const onPress = mock(() => {});
     const { getByTestId } = renderEmptyList({

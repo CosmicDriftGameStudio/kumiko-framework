@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { formatRelativeTime, relativeTickIntervalMs } from "../relative-time.ts";
+import { formatRelativeTime } from "../../../headless/format/relative-time.ts";
+import { relativeTickIntervalMs } from "../relative-time.ts";
 
 const NOW = 1_700_000_000_000;
 const SECOND = 1000;

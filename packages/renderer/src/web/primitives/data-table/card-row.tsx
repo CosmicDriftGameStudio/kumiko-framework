@@ -6,6 +6,7 @@ import { cardToneClass } from "../data-table-cell.tsx";
 import { RowActionsCell } from "../row-actions.tsx";
 import { type CardRoles, renderCardBody, renderCardLinks, splitLinkColumns } from "./card-body.tsx";
 import { CARD_SURFACE_CLASS, hasSeparateCardRows } from "./card-frame.ts";
+import { rowClickHandler } from "./row-click-guard.ts";
 import { renderExpandToggle, renderExpansion } from "./row-render-parts.tsx";
 import type { DataTableModel } from "./use-data-table-state.ts";
 
@@ -47,6 +48,11 @@ function renderCardOpenButton(openRow: () => void, body: ReactNode): ReactNode {
     <button
       type="button"
       className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 bg-transparent p-0 text-left"
+      onClick={(e) => {
+        // The card's click guard skips clicks on buttons, so this one opens the row itself.
+        e.stopPropagation();
+        openRow();
+      }}
       onKeyDown={(e) => {
         if (e.key !== "Enter") return;
         e.preventDefault();
@@ -124,7 +130,7 @@ export function renderCard(m: DataTableModel, row: ListRowViewModel, roles: Card
         hasMenu ? "pr-2" : "pr-4",
         m.density.card,
       )}
-      {...(openRow !== undefined && { onClick: openRow })}
+      {...(openRow !== undefined && { onClick: rowClickHandler(openRow) })}
     >
       {m.selection.cardCheckbox(row)}
       {renderExpandToggle(m, row)}

@@ -116,9 +116,11 @@ export async function runClientAction(options: {
   }
   if (!outcome.ok) return fail(translate(outcome.message));
 
-  notify?.({
-    tone: "success",
-    text: translate(action.successMessage ?? "kumiko.clientAction.success"),
-  });
+  if (action.successMessage !== false) {
+    notify?.({
+      tone: "success",
+      text: translate(action.successMessage ?? "kumiko.clientAction.success"),
+    });
+  }
   return true;
 }

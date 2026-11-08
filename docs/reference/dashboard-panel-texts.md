@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-15
+verified: 2026-11-08
 evidence: "packages/types/src/screen.ts (DashboardText, DashboardValueFormat, DashboardPanelGate, DashboardChartPanel); packages/renderer/src/web/app/dashboard-body.tsx; packages/renderer/src/web/widgets/stat.tsx; packages/renderer/src/web/widgets/charts.tsx (StackedAreaChart scrollable, lines, markers); packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
@@ -117,6 +117,30 @@ A `text` panel has no query. It renders `blocks`, an optional `label` as title a
 ```
 
 `text` and every list item are i18n keys and count as required translation keys; `code` is shown verbatim in a horizontally scrollable block. `paragraph` is muted by default, `emphasis: "strong"` uses the foreground color. There is no markdown or HTML. A `link` block shows a link to a screen (`screen` is a short id or a qualified name). With `roles` it is shown only to users holding one of them; this only hides the link, the target screen still checks access on the server. The boot validator rejects empty `blocks`, a `list` without items, a `link` to an unknown screen and an empty `roles`.
+
+A `text` panel takes an optional `icon` (a component, resolved like a stat-group `icon`) that leads the text blocks.
+
+## Board layout: `main-side`, `column` and phone options
+
+A dashboard with `layout: "main-side"` lays its panels out in a main column (2/3) and a side column (1/3) from `lg` up. Each panel picks its place with `column`:
+
+- no `column`: main column
+- `column: "side"`: side column
+- `column: "top"`: full-width block above both columns, in declared order
+
+Below `lg` the columns stack; below `sm` the order follows `narrowOrder`. Panel `span` is ignored in this layout. The boot validator rejects `column` without `layout: "main-side"` and `column` on a stat-group child.
+
+```ts illustration
+{ layout: "main-side", panels: [
+  { kind: "stat-group", id: "kpis", column: "top", /* ... */ },
+  { kind: "list", id: "open-orders", /* ... */ },
+  { kind: "feed", id: "activity", column: "side", narrowOrder: 2 },
+] }
+```
+
+`narrowOrder` (integer, 0 or more) sorts panels below `sm` like CSS `order`; equal values keep the declared order and desktop keeps the declared order. `hideOnNarrow: true` leaves a panel out below `sm`. On a stat-group child it drops that stat from the group on a phone and unmounts it; the boot validator rejects a group whose children all hide.
+
+A list column with `display: "button"` draws its screen link as an outline button; `variant: "primary"` fills it. The variant needs `display: "button"` and applies to dashboard list panels only.
 
 ## Stat groups: `subtitle`, `span` and strip icons
 

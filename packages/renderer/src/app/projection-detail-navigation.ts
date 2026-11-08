@@ -3,6 +3,7 @@ import type {
   RecordHeaderSubtitlePart,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { FormatSpec } from "@cosmicdrift/kumiko-types/screen";
 import { applyFormatSpec, isSafeHref, type Translate } from "../headless/index.ts";
 import { requestLeave } from "../leave-guard.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
@@ -115,6 +116,14 @@ function hrefForNavigate(
   return undefined;
 }
 
+// The format keeps its own locale; otherwise it follows the UI locale instead of the browser's.
+export function withUiLocale(
+  format: FormatSpec,
+  uiLocale: string,
+): { readonly format: string } & Readonly<Record<string, unknown>> {
+  return { ...format, locale: ("locale" in format ? format.locale : undefined) ?? uiLocale };
+}
+
 export function buildSubtitleParts(
   parts: readonly RecordHeaderSubtitlePart[],
   record: Readonly<Record<string, unknown>>,
@@ -131,11 +140,7 @@ export function buildSubtitleParts(
     const text =
       format === undefined
         ? String(record[field] ?? "")
-        : applyFormatSpec(
-            { ...format, locale: ("locale" in format ? format.locale : undefined) ?? locale },
-            record[field],
-            translate,
-          );
+        : applyFormatSpec(withUiLocale(format, locale), record[field], translate);
     // skip: empty subtitle parts render nothing
     if (text === "") return [];
     const prefixKey = typeof part === "string" ? undefined : part.prefix;

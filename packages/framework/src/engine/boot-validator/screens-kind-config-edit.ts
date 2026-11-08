@@ -144,6 +144,7 @@ function layoutFieldNames(screen: ConfigEditScreenDefinition): ReadonlySet<strin
     if (
       isExtensionEditSection(section) ||
       section.kind === "relatedList" ||
+      section.kind === "stepList" ||
       section.kind === "writeForm"
     ) {
       continue;

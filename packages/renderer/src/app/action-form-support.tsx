@@ -7,7 +7,7 @@ import { usePrimitives } from "../primitives.tsx";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
 import { dispatcherErrorText } from "./write-failed-error.ts";
 
-const DEFAULT_LOAD_ID_PARAM = "id";
+export const DEFAULT_LOAD_ID_PARAM = "id";
 
 function nonEmptyId(value: unknown): string | undefined {
   if (typeof value === "string" && value !== "") return value;
@@ -37,6 +37,8 @@ export type ActionFormLoadState =
   | {
       readonly status: "ready";
       readonly values: Readonly<Record<string, unknown>>;
+      /** `summary.paramsFromLoad` picked from the raw load result. */
+      readonly summaryValues: Readonly<Record<string, unknown>>;
       readonly refetch: () => Promise<void>;
     };
 
@@ -69,23 +71,32 @@ export function useActionFormLoad(
   load: ActionFormLoad | undefined,
   recordId: string | undefined,
   fieldNames: readonly string[],
+  summaryFieldNames: readonly string[] = [],
+  prefill?: Readonly<Record<string, unknown>>,
 ): ActionFormLoadState | undefined {
   const isSingleton = load?.singleton === true;
   const query = useQuery<unknown>(
     load?.query ?? "",
-    isSingleton ? {} : { [load?.idParam ?? DEFAULT_LOAD_ID_PARAM]: recordId },
+    {
+      ...(load?.passPrefill === true && prefill),
+      ...(isSingleton ? {} : { [load?.idParam ?? DEFAULT_LOAD_ID_PARAM]: recordId }),
+    },
     { enabled: load !== undefined && (isSingleton || recordId !== undefined) },
   );
   const values = useMemo(
     () => pickDeclaredFields(query.data, fieldNames),
     [query.data, fieldNames],
   );
+  const summaryValues = useMemo(
+    () => pickDeclaredFields(query.data, summaryFieldNames),
+    [query.data, summaryFieldNames],
+  );
   if (load === undefined) return undefined;
   if (!isSingleton && recordId === undefined) return { status: "missing-id" };
   if (query.error !== null) return { status: "error", error: query.error };
   if (query.loading) return { status: "loading" };
   if (query.data === null) return { status: "missing-record" };
-  return { status: "ready", values, refetch: query.refetch };
+  return { status: "ready", values, summaryValues, refetch: query.refetch };
 }
 
 /** Banner for every `load` state that is not "ready". */

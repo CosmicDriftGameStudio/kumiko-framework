@@ -44,6 +44,8 @@ export function listGuidanceFieldRefs(
       const hint = column.hint;
       return [
         { option: "linkParamsField", field: column.linkParamsField },
+        { option: "pillField", field: column.pillField },
+        { option: "pillToneField", field: column.pillToneField },
         { option: "hint.detailField", field: hint?.detailField },
         { option: "hint.narrowDetailField", field: hint?.narrowDetailField },
         { option: "hint.narrowField", field: hint?.narrowField },
