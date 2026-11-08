@@ -75,15 +75,18 @@ export function renderTableContent(m: DataTableModel): ReactNode {
       {sentinelElement}
     </>
   );
-  const footer =
-    pagerElement ??
-    (m.fillsHeight ? (
-      <DataTableFooter
-        count={serverGroups?.totalCount ?? m.rows.length}
-        {...(itemNoun !== undefined && { itemNoun })}
-        testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
-      />
-    ) : undefined);
+  // A rendered empty state stands alone: a "0 entries" count or pager under it only repeats it.
+  const hasEmptyState = m.isEmpty && m.emptyState !== undefined;
+  const footer = hasEmptyState
+    ? undefined
+    : (pagerElement ??
+      (m.fillsHeight ? (
+        <DataTableFooter
+          count={serverGroups?.totalCount ?? m.rows.length}
+          {...(itemNoun !== undefined && { itemNoun })}
+          testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
+        />
+      ) : undefined));
 
   // Frame card: content and footer share one bordered card. A fill-height card is as tall as
   // its rows and shrinks into the scroll container; the 24px sides match the toolbar's inset.

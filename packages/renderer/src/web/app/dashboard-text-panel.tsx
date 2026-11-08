@@ -6,7 +6,15 @@ import type {
 import type { ReactNode } from "react";
 import { navigateTargetAllows } from "../../app/screen-access.ts";
 import type { Translate } from "../../headless/index.ts";
-import { lastSegment, useAppFeatures, useNav, usePrimitives, useUserRoles } from "../../index.ts";
+import {
+  extensionSectionName,
+  lastSegment,
+  useAppFeatures,
+  useExtensionSectionComponent,
+  useNav,
+  usePrimitives,
+  useUserRoles,
+} from "../../index.ts";
 import { cn } from "../lib/cn.ts";
 import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import {
@@ -217,17 +225,40 @@ function textBlockKey(block: DashboardTextBlock): string {
 function TextPanelFrame({
   panel,
   label,
+  screenId,
+  screenParams,
   children,
 }: {
   readonly panel: DashboardTextPanel;
   readonly label: string | undefined;
+  readonly screenId: string;
+  readonly screenParams: ScreenParams;
   readonly children: ReactNode;
 }): ReactNode {
   const testId = `dashboard-panel-${panel.id}`;
+  const Icon = useExtensionSectionComponent(
+    panel.icon !== undefined ? extensionSectionName(panel.icon) : undefined,
+  );
+  const content =
+    Icon === undefined ? (
+      children
+    ) : (
+      <div className="flex items-start gap-3">
+        <span data-testid={`${testId}-icon`} className="flex shrink-0 items-center pt-0.5">
+          <Icon
+            entityName={screenId}
+            entityId={null}
+            screenId={screenId}
+            filterParams={screenParams.filterParams}
+          />
+        </span>
+        <div className="min-w-0 grow">{children}</div>
+      </div>
+    );
   if (label !== undefined) {
     return (
       <PanelShell testId={testId} title={label}>
-        {children}
+        {content}
       </PanelShell>
     );
   }
@@ -236,7 +267,7 @@ function TextPanelFrame({
       data-testid={testId}
       className="h-full rounded-lg border border-border bg-card p-4 text-card-foreground max-sm:px-3.5 max-sm:py-3"
     >
-      {children}
+      {content}
     </section>
   );
 }
@@ -265,16 +296,17 @@ function TextBlockList({
 type TextPanelBodyProps = {
   readonly panel: DashboardTextPanel;
   readonly label: string | undefined;
+  readonly screenId: string;
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 };
 
 export function TextPanelBody(props: TextPanelBodyProps): ReactNode {
-  const { panel, label, translate } = props;
+  const { panel, label, translate, screenId, screenParams } = props;
   const narrow = useIsBelowSmViewport();
   if (panel.query === undefined) {
     return (
-      <TextPanelFrame panel={panel} label={label}>
+      <TextPanelFrame panel={panel} label={label} screenId={screenId} screenParams={screenParams}>
         <TextBlockList
           blocks={(narrow ? panel.narrowBlocks : undefined) ?? panel.blocks ?? []}
           translate={translate}
@@ -291,6 +323,7 @@ function QueryTextPanelBody({
   panel,
   query,
   label,
+  screenId,
   screenParams,
   translate,
 }: TextPanelBodyProps & { readonly query: string }): ReactNode {
@@ -316,7 +349,7 @@ function QueryTextPanelBody({
     body = null;
   }
   return (
-    <TextPanelFrame panel={panel} label={label}>
+    <TextPanelFrame panel={panel} label={label} screenId={screenId} screenParams={screenParams}>
       {body}
     </TextPanelFrame>
   );

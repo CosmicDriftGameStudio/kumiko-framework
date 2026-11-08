@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-12
+verified: 2026-11-08
 evidence: "packages/framework/src/engine/boot-validator/screens.ts (primaryAction, emptyState action, redirect tab); kumiko-framework#2509 (screen field refs vs query handler outputSchema); engine/boot-validator/*"
 ---
 
@@ -55,6 +55,17 @@ Auflösung: explizites `icon` auf der Action, sonst ein Default über die
 `id`-Konvention (z. B. ein `deletion`-Segment in der id → `trash`). Fehlt
 beides, stoppt der Boot mit einer Meldung, die Screen, Section (falls
 zutreffend) und Action-id nennt.
+
+## Board-Optionen (Screens)
+
+Weitere Boot-Regeln für deklarative Screen-Optionen, Details in `docs/reference/screen-layout.md` und `docs/reference/dashboard-panel-texts.md`:
+
+- Dashboard: `column` braucht `layout: "main-side"` und ist auf einem Stat-Group-Kind nicht erlaubt; eine Stat-Group, deren Kinder alle `hideOnNarrow` setzen, wird abgelehnt.
+- `projectionDetail`: das `field` einer `stepList`-Sektion und einer Sektions-`visibleWhen` muss im Output der Detail-Query stehen.
+- `actionForm`: `{ key, params }` in `fieldLabels` / `fieldDescriptions` darf nur Felder des Formulars nennen; `summary.paramsFromLoad` braucht `load` und Felder aus dem `outputSchema` der Load-Query; `fieldBadges` und `aiAssist.contextFields` müssen Formularfelder nennen.
+- Formularfelder: unbekannte Felder, falsche Feldtypen und ungültige Chips bei `aiAssist` / `valueChips` schlagen fehl.
+- `relativeTime`: ungültiger `style`, nicht ganzzahliges `absoluteAfterDays` unter 1, nicht-boolesches `withTime` und unbekannte `timeZone` schlagen fehl.
+- Config: ein Key mit `mask.readOnly: true`, der zugleich `required` ist, schlägt fehl.
 
 ## Kernregel für Feature-Autoren
 

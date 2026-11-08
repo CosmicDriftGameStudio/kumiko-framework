@@ -78,6 +78,7 @@ export {
   raw,
   resolveSafeMoneyLocale,
   stripControlChars,
+  telHref,
   toInstant,
 } from "./format/index.ts";
 export type {
@@ -142,7 +143,9 @@ export {
   fieldLabelKey,
   fieldOptionLabelKey,
   fieldOptionLabelKeyPrefix,
+  fieldTextKey,
   groupEmbeddedListIssues,
+  resolveFieldText,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
   withDerivedCells,

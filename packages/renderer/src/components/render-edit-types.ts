@@ -86,6 +86,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  same split as `onCopyLink`) — RenderEdit only wires the button, its
    *  busy state and its confirm dialog. */
   readonly actions?: readonly RenderEditAction[];
+  /** Translated note on the left of the form footer (hidden below `sm`). */
+  readonly footerHint?: string;
   /** Record actions declared with `placement: "menu"`, resolved like `actions`.
    *  Rendered in the header "…" menu ahead of copy-link/delete; without a
    *  header menu (drawer, card form, shell without a header slot) they fall
@@ -127,8 +129,13 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  above-control; below-control keeps the inputs of neighbouring fields
    *  on one line when an appendix expands. */
   readonly fieldAppendixPlacement?: "above-control" | "below-control";
+  /** Renders the form-error banner above the sections instead of below them. */
+  readonly formErrorOnTop?: boolean;
   /** Per-field help text rendered under the label (translated by the caller). */
-  readonly fieldDescription?: (fieldName: string) => ReactNode | undefined;
+  readonly fieldDescription?: (
+    fieldName: string,
+    values: Readonly<Record<string, unknown>>,
+  ) => ReactNode | undefined;
   /** Extra full-width row drawn right after a field's cell (configEdit actions). `dirty` is true
    *  while the form has unsaved changes. Called with the field name, returns a ReactNode or
    *  undefined. */
@@ -215,6 +222,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  redundant title above its content. Omitting this prop keeps unchanged
    *  behavior. */
   readonly hideSectionTitles?: boolean;
+  /** Id of the active tab of a tabbed projectionDetail; handed to the `afterForm` slot. */
+  readonly activeTabId?: string;
   /** Screen body fills the shell height: the form gets `fillHeight` and
    *  `stickyActions` (sections scroll, footer pinned). Set by KumikoScreen for
    *  screens with `fillHeight !== false`; dialogs and other embedded hosts
@@ -277,6 +286,10 @@ export type RenderEditAction = {
    *  drives both the icon-left-of-text render and the icon-only collapse
    *  rule (see `shouldRenderActionsIconOnly`). */
   readonly icon?: IconKey;
+  /** "start" sets the button apart on the left of the form footer. */
+  readonly align?: "start";
+  /** Stays a visible button in the pinned footer below `sm` instead of folding into the "…" menu. */
+  readonly pinnedOnPhone?: true;
 };
 
 export type RenderEditChangeState<TValues extends FormValues> = {

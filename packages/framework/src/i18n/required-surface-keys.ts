@@ -10,6 +10,7 @@ import type {
   EditRelatedListSection,
   EditWriteFormSection,
   EntityListExpandableRow,
+  FieldTextRef,
   ListEmptyStateSpec,
   RowAction,
   ScreenDefinition,
@@ -127,6 +128,8 @@ function pushEditFieldTextKeys(out: Set<string>, spec: EditFieldSpec, treatAsKey
     if (typeof affix === "string") pushKey(out, affix, treatAsKey);
   }
   pushKey(out, spec.fillAction?.label, treatAsKey);
+  for (const chip of spec.aiAssist?.chips ?? []) pushKey(out, chip.label, treatAsKey);
+  pushKey(out, spec.aiAssist?.prompt?.placeholder, treatAsKey);
 }
 
 // Group titles are translated exactly like the section title (computeEditViewModel).
@@ -156,7 +159,7 @@ function pushActionFormShapedKeys(
       pushKey(out, section.title);
       continue;
     }
-    if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+    if (section.kind === "relatedList" || section.kind === "stepList") continue; // rejected at boot, unreachable here
     pushSectionTitles(out, section);
     for (const f of sectionFieldSpecs(section)) {
       out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, editFieldName(f)));
@@ -175,7 +178,9 @@ function pushRowActionKeys(out: Set<string>, action: RowAction): void {
     pushKey(out, action.confirm);
     pushKey(out, action.confirmLabel);
   }
-  if (action.kind === "clientAction") pushKey(out, action.successMessage);
+  if (action.kind === "clientAction" && action.successMessage !== false) {
+    pushKey(out, action.successMessage);
+  }
   if (action.kind === "drawer") {
     pushKey(out, action.title);
     pushKey(out, action.subtitle);
@@ -323,7 +328,11 @@ type ScreenKeyCollectors = {
   readonly [K in ScreenKind]: (ctx: ScreenKeyCollectorContext, screen: ScreenOfKind[K]) => void;
 };
 
-type FieldLabelOverrides = Readonly<Record<string, string>> | undefined;
+type FieldLabelOverrides = Readonly<Record<string, FieldTextRef>> | undefined;
+
+function fieldTextRefKey(ref: FieldTextRef): string {
+  return typeof ref === "string" ? ref : ref.key;
+}
 
 function pushFieldLabelOrOverrideKey(
   ctx: ScreenKeyCollectorContext,
@@ -333,7 +342,7 @@ function pushFieldLabelOrOverrideKey(
   treatAsKey = false,
 ): void {
   const override = fieldLabels?.[fieldName];
-  if (override !== undefined) pushKey(ctx.out, override, treatAsKey);
+  if (override !== undefined) pushKey(ctx.out, fieldTextRefKey(override), treatAsKey);
   else ctx.out.add(fieldLabelKey(ctx.featureName, labelEntity, fieldName));
 }
 
@@ -392,7 +401,7 @@ function pushEditLayoutSectionKeys(
       pushKey(ctx.out, section.title);
       continue;
     }
-    if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+    if (section.kind === "relatedList" || section.kind === "stepList") continue; // rejected at boot, unreachable here
     pushSectionTitles(ctx.out, section);
     for (const f of sectionFieldSpecs(section)) {
       pushEditFieldTextKeys(ctx.out, f);
@@ -418,6 +427,11 @@ function collectActionFormKeys(
   pushKey(ctx.out, form.summary?.title);
   pushKey(ctx.out, form.summary?.subtitle);
   for (const action of form.footerActions ?? []) pushKey(ctx.out, action.label);
+  for (const ref of Object.values(form.fieldDescriptions ?? {})) {
+    pushKey(ctx.out, fieldTextRefKey(ref));
+  }
+  pushKey(ctx.out, form.infoBand);
+  for (const badge of Object.values(form.fieldBadges ?? {})) pushKey(ctx.out, badge.label);
   for (const link of form.successLinks ?? []) pushKey(ctx.out, link.label);
   for (const fact of form.successFacts ?? []) pushKey(ctx.out, fact.label);
   pushKey(ctx.out, form.successItems?.link?.label);
@@ -458,7 +472,7 @@ function pushConfigEditSectionKeys(
       pushKey(out, section.title);
       continue;
     }
-    if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+    if (section.kind === "relatedList" || section.kind === "stepList") continue; // rejected at boot, unreachable here
     pushSectionTitles(out, section, treatDotFormAsKey);
     pushKey(out, section.description, treatDotFormAsKey);
     for (const f of sectionFieldSpecs(section)) {
@@ -539,6 +553,10 @@ function collectProjectionDetailKeys(
     if (section.kind === "relatedList") {
       pushRelatedListSectionKeys(ctx.out, section);
       for (const bulk of section.bulkActions ?? []) pushKey(ctx.out, bulk.confirm);
+      continue;
+    }
+    if (section.kind === "stepList") {
+      pushKey(ctx.out, section.title);
       continue;
     }
     if (isWriteFormEditSection(section)) {
@@ -867,7 +885,13 @@ export function fieldValueTranslationKeysFromFeature(
       const entity = feature.entities?.[screen.entity];
       if (!entity) continue;
       for (const section of screen.layout.sections) {
-        if (isExtensionEditSection(section) || section.kind === "relatedList") continue;
+        if (
+          isExtensionEditSection(section) ||
+          section.kind === "relatedList" ||
+          section.kind === "stepList"
+        ) {
+          continue;
+        }
         for (const spec of sectionFieldSpecs(section)) {
           const field = editFieldName(spec);
           const def = entity.fields[field];

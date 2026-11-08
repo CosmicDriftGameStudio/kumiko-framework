@@ -39,6 +39,7 @@ import {
   validateListRowLinkTarget,
 } from "./screens-dashboard-links.ts";
 import {
+  validateDashboardLayout,
   validateDashboardPanelNarrow,
   validateListRowLinkShape,
 } from "./screens-dashboard-narrow.ts";
@@ -61,6 +62,7 @@ export function validateDashboardScreen(
         `declare at least one panel.`,
     });
   }
+  validateDashboardLayout(featureName, screenId, screen);
   const panelIds = new Set<string>();
   const addPanelId = (id: string, context: string): void => {
     if (panelIds.has(id)) {

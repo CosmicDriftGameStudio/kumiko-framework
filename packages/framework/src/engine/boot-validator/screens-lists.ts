@@ -21,7 +21,7 @@ import type {
 import { bootRuleError } from "./boot-rule.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
-import { validateListRowGuidance } from "./list-row-guidance.ts";
+import { validateListRowGuidance, validatePhotoGrid } from "./list-row-guidance.ts";
 import { LIST_ROW_GUIDANCE_RULES } from "./list-row-guidance-rules.ts";
 import { rejectSummaryRowOnRelatedList } from "./list-sort-summary.ts";
 import { validateListTableOptions } from "./list-table-options.ts";
@@ -165,6 +165,7 @@ function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): vo
     section,
     args.screenType === "entityList expandableRow",
   );
+  validatePhotoGrid(`[Feature ${featureName}] ${where}`, section);
   validateListTableOptions(`[Feature ${featureName}] ${where}`, section.table, section.columns);
   if (section.rowActions !== undefined) validateRelatedListRowActions(args, section.rowActions);
   validateListBulkActions(

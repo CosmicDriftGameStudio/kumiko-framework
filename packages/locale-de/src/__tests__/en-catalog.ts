@@ -833,6 +833,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.field.file-upload.remove": "Remove",
   "kumiko.field.file-upload.upload": "Upload",
   "kumiko.field.fillAction.failed": "Could not fetch a suggestion.",
+  "kumiko.field.aiAssist.prompt": "Tell the AI what to change",
+  "kumiko.field.aiAssist.failed": "The AI could not rewrite the text.",
   "kumiko.field.locatedTzHint": "Time local to the given location",
   "kumiko.field.multiSelect.deselect-all": "Deselect all",
   "kumiko.field.multiSelect.select-all": "Select all",

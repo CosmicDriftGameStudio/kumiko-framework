@@ -57,6 +57,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.field.file-list.preview": "Preview",
     "kumiko.field.file-list.view": "View",
     "kumiko.field.fillAction.failed": "Could not fetch a suggestion.",
+    "kumiko.field.aiAssist.prompt": "Tell the AI what to change",
+    "kumiko.field.aiAssist.failed": "The AI could not rewrite the text.",
     "kumiko.field.writeOnly.remove": "Remove stored value",
     "kumiko.field.writeOnly.set": "Set",
     "kumiko.field.writeOnly.maskedSet": "•••••••••• set",

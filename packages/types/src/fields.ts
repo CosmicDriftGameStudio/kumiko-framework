@@ -436,8 +436,8 @@ export type MultiSelectFieldDef<TOptions extends readonly string[] = readonly st
   readonly access?: FieldAccess;
   /** Renderer metadata: `"checkboxes"` renders every option as a visible
    *  checkbox with a select-all toggle. Default (omitted) stays the combobox
-   *  dropdown. */
-  readonly display?: "checkboxes" | "dropdown";
+   *  dropdown; `"chips"` renders toggle chips with a check mark on the chosen ones. */
+  readonly display?: "checkboxes" | "chips" | "dropdown";
   /** Renderer metadata: column count for the `"checkboxes"` grid at the widest
    *  breakpoint; narrow viewports always collapse to one column. Omitted =
    *  the renderer picks a sensible count. Ignored unless

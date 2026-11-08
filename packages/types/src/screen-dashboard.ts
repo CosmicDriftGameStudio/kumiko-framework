@@ -91,11 +91,19 @@ export type DashboardPanelGate = {
 
 /** Phone layout switch shared by every panel kind. */
 export type DashboardPanelNarrow = {
-  /** Leaves the panel out below the `sm` breakpoint (phone). Not valid on a stat-group child: hide the group. */
+  /** Leaves the panel out below the `sm` breakpoint (phone). On a stat-group child it drops that stat from the group on a phone; not every child may hide. */
   readonly hideOnNarrow?: true;
   /** Position below `sm`, like CSS `order`: panels are laid out by ascending value, a panel without one counts as 0, equal values keep the declared order. Integer ≥ 0. Desktop keeps the declared order. */
   readonly narrowOrder?: number;
+  /** "side" puts the panel in the narrow right column of a `layout: "main-side"` dashboard, "top" in a full-width block above both columns; panels without it fill the main column. Not valid on a stat-group child or without that layout. */
+  readonly column?: DashboardPanelColumn;
 };
+
+/** "top" spans both columns above the main and side column, in declared order. */
+export type DashboardPanelColumn = "side" | "top";
+
+/** "main-side": from `lg` up the main column (2/3) stacks every panel without `column`, the side column (1/3) every `column: "side"` panel, each with its own heights; `column: "top"` panels span both columns above them; below `lg` they stack, below `sm` by `narrowOrder`. Default: one 12-column grid. Panel `span` is ignored in this layout. */
+export type DashboardLayout = "main-side";
 
 // Grid width of stat-group/chart/list/feed/progress-list panels. Default:
 // stat-groups, charts and lists span the full row, feed and progress-list half of it.
@@ -485,6 +493,8 @@ export type DashboardTextPanel = DashboardPanelGate &
     readonly id: string;
     /** Panel title (i18n key). */
     readonly label?: string;
+    /** Icon shown before the text blocks (resolved like `DashboardStatGroupPanel.icon`). */
+    readonly icon?: PlatformComponent;
     readonly span?: DashboardPanelSpan;
     /** Query answering `{ blocks: DashboardTextBlock[] }`; its blocks replace the static ones.
      *  Static blocks show while it loads, on error and when it answers empty. It may add
@@ -613,6 +623,8 @@ export type DashboardScreenDefinition = {
   /** Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice). */
   readonly fallback?: ScreenFallback;
   readonly panels: readonly DashboardPanelDefinition[];
+  /** Panel arrangement, see DashboardLayout. */
+  readonly layout?: DashboardLayout;
   /** Binds the dashboard to one record via a URL search param, see DashboardRecordBinding. */
   readonly record?: DashboardRecordBinding;
   /** Header actions on the bound record (writeHandler, navigate, clientAction).

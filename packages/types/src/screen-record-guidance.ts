@@ -1,4 +1,6 @@
+import type { FieldCondition } from "./field-state-conditions.ts";
 import type { SelectOptionTone } from "./fields.ts";
+import type { IconKey } from "./nav-icon.ts";
 import type { RowAction } from "./screen-entity-list.ts";
 
 // Guidance blocks of a projectionDetail screen. `field` names a column of the
@@ -62,6 +64,8 @@ export type RecordSummarySpec = {
   readonly toneField?: string;
   /** Row field with a shorter sentence shown instead of `field` below `sm`. */
   readonly narrowField?: string;
+  /** Draws the sentence as plain text led by this icon (e.g. "sparkles" for an AI statement) instead of the bordered box. */
+  readonly icon?: IconKey;
 };
 
 export type RecordBannerSpec = {
@@ -83,6 +87,10 @@ export type RecordStepsSpec = {
   readonly narrowLimit?: number;
   /** Plural base key for the toggle of the hidden rest: define `<key>.one` and `<key>.other` (the latter with `{count}`). Default `kumiko.detail.steps.more`. */
   readonly narrowMoreLabel?: string;
+  /** i18n key of a short label before each step's further actions ("Clarify first?"). */
+  readonly moreActionsLabel?: string;
+  /** The whole panel is drawn only while the condition holds on the record. Default: always. */
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly actions?: readonly RecordGuidanceAction[];
 };
 

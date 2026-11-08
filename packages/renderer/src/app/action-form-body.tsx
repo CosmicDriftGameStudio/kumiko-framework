@@ -4,16 +4,23 @@ import type {
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AiAssistPayloadProvider } from "../components/ai-assist-payload.tsx";
 import { withDerivedValues } from "../components/form-derivation-patch.ts";
 import { RenderEdit } from "../components/render-edit.tsx";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
-import type { FormValues, SubmitResult, Translate } from "../headless/index.ts";
+import {
+  type FormValues,
+  resolveFieldText,
+  type SubmitResult,
+  type Translate,
+} from "../headless/index.ts";
 import { useLocale, useTranslation } from "../i18n.tsx";
 import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.ts";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
+import { statusToneForOptionTone } from "../status-tone.ts";
 import {
   actionFormSubmittableFields,
   synthesizeActionFormEntity,
@@ -23,6 +30,7 @@ import {
   ActionFormLoadStatus,
   ActionFormSuccessBanner,
   type ActionFormSuccessState,
+  DEFAULT_LOAD_ID_PARAM,
   isSecretFormField,
   resolveActionFormRecordId,
   resolveSuccessFacts,
@@ -315,7 +323,7 @@ export function ActionFormBody({
   const appFeatures = useAppFeatures();
   const insideDrawer = useInsideDrawer();
   const locale = useLocale().locale();
-  const { Banner } = usePrimitives();
+  const { Banner, StatusBadge } = usePrimitives();
   // Unused when drawer-hosted — onSuccess/onCancelOverride win below first.
   const returnTarget = useReturnTarget(screen.id);
   const submittableFields = useMemo(() => actionFormSubmittableFields(screen), [screen]);
@@ -348,18 +356,33 @@ export function ActionFormBody({
         .map(([name]) => name),
     [submittableFields],
   );
-  const loadState = useActionFormLoad(
-    screen.load,
+  const loadRecordId =
     screen.load !== undefined
       ? resolveActionFormRecordId({
           routeEntityId: entityId,
           drawerOverrides: initialOverrides,
           searchParams: nav.searchParams,
         })
-      : undefined,
+      : undefined;
+  const loadState = useActionFormLoad(
+    screen.load,
+    loadRecordId,
     loadableFieldNames,
+    screen.summary?.paramsFromLoad,
+    initialOverrides,
+  );
+  // What an aiAssist query gets besides its chip params: the same context the form loads with.
+  const aiAssistPayload = useMemo(
+    (): Readonly<Record<string, unknown>> =>
+      screen.load === undefined
+        ? (initialOverrides ?? {})
+        : screen.load.singleton === true
+          ? {}
+          : { [screen.load.idParam ?? DEFAULT_LOAD_ID_PARAM]: loadRecordId },
+    [screen.load, initialOverrides, loadRecordId],
   );
   const loadedValues = loadState?.status === "ready" ? loadState.values : undefined;
+  const summaryLoadValues = loadState?.status === "ready" ? loadState.summaryValues : undefined;
   const refetchLoadedValues = loadState?.status === "ready" ? loadState.refetch : undefined;
   const initial = useMemo(() => {
     // With `load` the loaded record is the only source of values: a crafted link
@@ -399,8 +422,14 @@ export function ActionFormBody({
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const summary = useMemo(
-    () => resolveActionFormSummary(screen.summary, initialOverrides, effectiveTranslate, locale),
-    [screen.summary, initialOverrides, effectiveTranslate, locale],
+    () =>
+      resolveActionFormSummary(
+        screen.summary,
+        { ...summaryLoadValues, ...initialOverrides },
+        effectiveTranslate,
+        locale,
+      ),
+    [screen.summary, summaryLoadValues, initialOverrides, effectiveTranslate, locale],
   );
   const dispatcher = useDispatcher();
   const [success, setSuccess] = useState<ActionFormSuccessState | undefined>(undefined);
@@ -531,37 +560,76 @@ export function ActionFormBody({
     );
   }
   return (
-    <RenderEdit
-      key={formEpoch}
-      screen={synthScreen}
-      entity={synthEntity}
-      featureName={schema.featureName}
-      initial={derivedInitial}
-      {...(screen.derive !== undefined && { formDerivation: screen })}
-      actionFormScreenQn={qualifyScreenId(schema.featureName, screen.id)}
-      // Extension sections in the actionForm see the initial form values
-      // (incl. searchParams prefill, e.g. ?incidentId=...) as initialValues;
-      // unlike entityEdit there is no record they could draw context from.
-      extensionInitialValues={initial}
-      {...(screen.submitPrefilled === true && {
-        submitWithoutChanges: hiddenRequiredFieldsFilled(synthScreen, screen.fields, initial),
-      })}
-      {...(success !== undefined && {
-        leadContent: <ActionFormSuccessBanner success={success} />,
-      })}
-      writeCommand={screen.handler}
-      payloadMode="values"
-      onSubmit={handleSubmitted}
-      {...(handleCancel !== undefined && { onCancel: handleCancel })}
-      onDirtyChange={handleDirtyChange}
-      {...((insideDrawer || screenFillsHeight(screen)) && { fillScreenHeight: true })}
-      {...((screen.submitLabel ?? submitLabelFallback) !== undefined && {
-        submitLabel: screen.submitLabel ?? submitLabelFallback,
-      })}
-      {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
-      {...(screen.footerActions !== undefined && { footerActions: screen.footerActions })}
-      {...(summary !== undefined && { summary })}
-      {...(translate !== undefined && { translate })}
-    />
+    <AiAssistPayloadProvider value={aiAssistPayload}>
+      <RenderEdit
+        key={formEpoch}
+        screen={synthScreen}
+        entity={synthEntity}
+        featureName={schema.featureName}
+        initial={derivedInitial}
+        {...(screen.derive !== undefined && { formDerivation: screen })}
+        actionFormScreenQn={qualifyScreenId(schema.featureName, screen.id)}
+        // Extension sections in the actionForm see the initial form values
+        // (incl. searchParams prefill, e.g. ?incidentId=...) as initialValues;
+        // unlike entityEdit there is no record they could draw context from.
+        extensionInitialValues={initial}
+        {...(screen.submitPrefilled === true && {
+          submitWithoutChanges: hiddenRequiredFieldsFilled(synthScreen, screen.fields, initial),
+        })}
+        {...((success !== undefined || screen.infoBand !== undefined) && {
+          leadContent: (
+            <>
+              {screen.infoBand !== undefined && (
+                <Banner
+                  variant="primary"
+                  icon="sparkles"
+                  density="compact"
+                  testId="kumiko-screen-action-form-info-band"
+                >
+                  {effectiveTranslate(screen.infoBand)}
+                </Banner>
+              )}
+              {success !== undefined && <ActionFormSuccessBanner success={success} />}
+            </>
+          ),
+        })}
+        {...(screen.fieldBadges !== undefined &&
+          StatusBadge !== undefined && {
+            labelAppendix: (fieldName: string) => {
+              const badge = screen.fieldBadges?.[fieldName];
+              if (badge === undefined) return undefined;
+              return (
+                <StatusBadge
+                  value={effectiveTranslate(badge.label)}
+                  tone={statusToneForOptionTone(badge.tone) ?? "muted"}
+                  testId={`field-badge-${fieldName}`}
+                />
+              );
+            },
+          })}
+        writeCommand={screen.handler}
+        payloadMode="values"
+        onSubmit={handleSubmitted}
+        {...(handleCancel !== undefined && { onCancel: handleCancel })}
+        onDirtyChange={handleDirtyChange}
+        {...((insideDrawer || screenFillsHeight(screen)) && { fillScreenHeight: true })}
+        {...((screen.submitLabel ?? submitLabelFallback) !== undefined && {
+          submitLabel: screen.submitLabel ?? submitLabelFallback,
+        })}
+        {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
+        {...(screen.footerActions !== undefined && { footerActions: screen.footerActions })}
+        {...(screen.formErrorOnTop === true && { formErrorOnTop: true })}
+        {...(screen.fieldDescriptions !== undefined && {
+          fieldDescription: (fieldName: string, values: FormValues) => {
+            const ref = screen.fieldDescriptions?.[fieldName];
+            if (ref === undefined) return undefined;
+            const { text, complete } = resolveFieldText(ref, values, effectiveTranslate);
+            return complete ? text : undefined;
+          },
+        })}
+        {...(summary !== undefined && { summary })}
+        {...(translate !== undefined && { translate })}
+      />
+    </AiAssistPayloadProvider>
   );
 }

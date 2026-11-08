@@ -10,6 +10,7 @@ import type { DrawerProps } from "../../index.ts";
 import { useTranslation } from "../../index.ts";
 import { SheetTitle } from "../ui/sheet.tsx";
 import { Drawer } from "../widgets/drawer.tsx";
+import { useIsNarrowViewport } from "./use-narrow-viewport.ts";
 
 const DRAWER_WIDTH_PX = 480;
 const DRAWER_DIM_PERCENT = 32;
@@ -24,17 +25,20 @@ export function DefaultDrawer({
   testId,
 }: DrawerProps): ReactNode {
   const t = useTranslation();
+  // On a phone the panel is a bottom sheet (up to 90% of the height, page visible above it)
+  // instead of a full-screen takeover.
+  const narrow = useIsNarrowViewport();
   return (
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
       testId={testId}
       variant="flush"
-      side="right"
+      side={narrow ? "bottom" : "right"}
       width={DRAWER_WIDTH_PX}
       backdrop={{ dimPercent: DRAWER_DIM_PERCENT }}
       showCloseButton={false}
-      panelClassName={PANEL_CLASS}
+      panelClassName={narrow ? undefined : PANEL_CLASS}
       fillBody
     >
       <div

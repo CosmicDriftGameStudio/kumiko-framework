@@ -108,6 +108,33 @@ function validateProjectionDetailTabs(
   }
 }
 
+function validateProjectionDetailInitialTab(
+  featureName: string,
+  screenId: string,
+  screen: ProjectionDetailScreenDefinition,
+): void {
+  const where = `[Feature ${featureName}] Screen "${screenId}" (projectionDetail)`;
+  if (screen.footerHint !== undefined && (screen.footerActions ?? []).length === 0) {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.initialTabInvalid, {
+      message: `${where} sets footerHint without footerActions — the footer bar only exists with footer actions.`,
+    });
+  }
+  // skip: the first tab opens first
+  if (screen.initialTab === undefined) return;
+  if (screen.layout.mode !== "tabs") {
+    throw bootRuleError(PROJECTION_DETAIL_RULES.initialTabInvalid, {
+      message: `${where} sets initialTab without layout.mode "tabs".`,
+    });
+  }
+  for (const rule of screen.initialTab) {
+    if (!screen.layout.sections.some((section) => section.id === rule.tab)) {
+      throw bootRuleError(PROJECTION_DETAIL_RULES.initialTabInvalid, {
+        message: `${where} initialTab names tab "${rule.tab}", which is not a section id on this screen.`,
+      });
+    }
+  }
+}
+
 function validateProjectionDetailMetricNavigate(
   ctx: ScreenValidationContext,
   screenId: string,
@@ -449,6 +476,9 @@ function validateProjectionDetailSection(
     validateProjectionDetailRelatedList(ctx, screenId, screen, section);
   } else if (isWriteFormEditSection(section)) {
     validateProjectionDetailWriteForm(ctx, screenId, screen, section);
+  } else if (section.kind === "stepList") {
+    // field existence is checked against the outputSchema in query-output-columns
+    return;
   } else {
     validateProjectionDetailFieldsSection(ctx, screenId, section);
   }
@@ -491,6 +521,7 @@ export function validateProjectionDetailScreen(
   validateProjectionDetailFlags(featureName, screenId, screen);
   rejectEmptySections(featureName, screenId, "projectionDetail", screen.layout.sections.length);
   validateProjectionDetailTabs(featureName, screenId, screen);
+  validateProjectionDetailInitialTab(featureName, screenId, screen);
   for (const metric of screen.metrics ?? []) {
     validateProjectionDetailMetric(ctx, screenId, screen, metric);
   }

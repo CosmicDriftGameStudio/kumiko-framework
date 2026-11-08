@@ -1,11 +1,16 @@
 import type { PlatformComponent } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
 import type { FormValues } from "../headless/index.ts";
-import type { ActionMenuItemSpec } from "../primitives.tsx";
+import {
+  type ActionMenuItemSpec,
+  FOOTER_ACTION_ROLE_PROP,
+  type FooterActionMarker,
+} from "../primitives.tsx";
 import { EditSlotMount } from "./edit-mounts.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import { resolveExtensionEntityId } from "./render-edit-logic.ts";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
+import type { RenderEditAction } from "./render-edit-types.ts";
 
 export type HeaderActionsModel = {
   readonly headerMenuItems: readonly ActionMenuItemSpec[];
@@ -134,21 +139,61 @@ function renderCopyLinkButton<TValues extends FormValues, TCtx>({
   );
 }
 
+// The role prop is read by NarrowPinnedFooter from the element, so the DOM span needs a component in between.
+function FooterStartGroup({
+  children,
+}: { readonly children: ReactNode } & FooterActionMarker): ReactNode {
+  return (
+    <span
+      className="mr-auto inline-flex gap-2 max-sm:flex max-sm:w-full max-sm:[&>button]:flex-1"
+      data-footer-align="start"
+      data-testid="render-edit-footer-start"
+    >
+      {children}
+    </span>
+  );
+}
+
 function renderCustomActions<TValues extends FormValues, TCtx>({
   engine: { props, state },
   layout,
 }: RenderEditModel<TValues, TCtx>): ReactNode {
   const { Button, Dialog } = state.primitives;
-  return props.actions?.map((action) => (
+  const button = (action: RenderEditAction) => (
     <RenderEditActionButton
       key={action.id}
       action={action}
       iconOnly={layout.iconOnlyMidActions}
+      {...(action.pinnedOnPhone === true && { [FOOTER_ACTION_ROLE_PROP]: "inline" as const })}
       Button={Button}
       Dialog={Dialog}
       onError={state.setActionError}
     />
-  ));
+  );
+  const startActions = props.actions?.filter((action) => action.align === "start") ?? [];
+  const otherActions = props.actions?.filter((action) => action.align !== "start");
+  return (
+    <>
+      {props.footerHint !== undefined && (
+        <span
+          data-testid="render-edit-footer-hint"
+          className="mr-auto min-w-0 text-[13px] text-muted-foreground max-sm:hidden"
+        >
+          {props.footerHint}
+        </span>
+      )}
+      {startActions.length > 0 && (
+        <FooterStartGroup
+          {...(startActions.some((action) => action.pinnedOnPhone === true) && {
+            [FOOTER_ACTION_ROLE_PROP]: "inline" as const,
+          })}
+        >
+          {startActions.map(button)}
+        </FooterStartGroup>
+      )}
+      {otherActions?.map(button)}
+    </>
+  );
 }
 
 function renderMenuActionButtons<TValues extends FormValues, TCtx>({
@@ -219,6 +264,25 @@ function renderEditSlot<TValues extends FormValues, TCtx>(
       entityName={sections.vm.entityName}
       entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
       values={form.snapshot.values}
+    />
+  );
+}
+
+export function renderAfterFormSlot<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): ReactNode {
+  const { props, form, sections } = model.engine;
+  const slot = props.screen.slots?.afterForm;
+  if (slot === undefined) return undefined;
+  return (
+    <EditSlotMount
+      slot={slot}
+      slotName="afterForm"
+      screenId={props.screen.id}
+      entityName={sections.vm.entityName}
+      entityId={resolveExtensionEntityId(props.entityId, sections.vm.id)}
+      values={form.snapshot.values}
+      {...(props.activeTabId !== undefined && { activeTabId: props.activeTabId })}
     />
   );
 }

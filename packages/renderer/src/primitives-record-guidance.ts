@@ -1,4 +1,4 @@
-import type { SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavIconKey, SelectOptionTone } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ReactNode } from "react";
 import type { CellLink } from "./headless/index.ts";
 
@@ -15,6 +15,33 @@ export type RecordSummaryProps = {
   /** Shown instead of `text` below the sm breakpoint. */
   readonly narrowText?: string;
   readonly tone?: SelectOptionTone;
+  /** Leads the sentence; the sentence then has no bordered box. */
+  readonly icon?: NavIconKey;
+  readonly testId?: string;
+};
+
+/** Grid of image tiles; each tile shows a stored file and its own action buttons underneath. */
+export type PhotoGridProps = {
+  readonly tiles: readonly {
+    readonly id: string;
+    /** FileRef id of the image; a tile without one shows a placeholder. */
+    readonly imageId?: string;
+    readonly caption?: string;
+    readonly actions?: ReactNode;
+  }[];
+  readonly testId?: string;
+};
+
+/** Vertical numbered steps joined by a line; each step has a title, an optional status pill and
+ *  a description line. */
+export type StepListProps = {
+  readonly items: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly status?: string;
+    readonly statusTone?: SelectOptionTone;
+    readonly description?: string;
+  }[];
   readonly testId?: string;
 };
 
@@ -30,6 +57,8 @@ export type RecordStepsProps = {
   /** Toggle label for the hidden steps; receives their count. */
   readonly moreLabel?: (hiddenCount: number) => string;
   readonly lessLabel?: string;
+  /** Label before the further actions of each item. */
+  readonly moreActionsLabel?: string;
   readonly items: readonly {
     readonly id: string;
     readonly title: string;

@@ -102,16 +102,22 @@ export function buildDetailTabItems(
   translate: Translate,
   queryCounts: Readonly<Record<string, number>> = {},
 ): DetailTabItem[] {
-  return sections.map((section) => {
-    const countField = isWriteFormEditSection(section) ? undefined : section.countField;
-    const countValue =
-      countField !== undefined ? record[countField] : queryCounts[section.id ?? ""];
-    const count =
-      typeof countValue === "number" && Number.isFinite(countValue) ? countValue : undefined;
-    return {
-      id: section.id ?? "",
-      label: translate(section.title ?? section.id ?? ""),
-      ...(count !== undefined && { count }),
-    };
-  });
+  // Adjacent sections sharing an id are one tab; its label and count come from the first.
+  return sections
+    .filter((section, index) => section.id !== sections[index - 1]?.id)
+    .map((section) => {
+      const countField =
+        isWriteFormEditSection(section) || section.kind === "stepList"
+          ? undefined
+          : section.countField;
+      const countValue =
+        countField !== undefined ? record[countField] : queryCounts[section.id ?? ""];
+      const count =
+        typeof countValue === "number" && Number.isFinite(countValue) ? countValue : undefined;
+      return {
+        id: section.id ?? "",
+        label: translate(section.title ?? section.id ?? ""),
+        ...(count !== undefined && { count }),
+      };
+    });
 }

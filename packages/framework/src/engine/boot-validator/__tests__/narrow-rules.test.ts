@@ -124,15 +124,81 @@ describe("dashboard narrow rules", () => {
     );
   });
 
-  test("a stat-group child may not hide itself", () => {
+  test("a stat-group child may hide itself unless every child does", () => {
     const group = {
       kind: "stat-group",
       id: "inbox",
       label: "shop:today:inbox",
       layout: "cards",
+      stats: [
+        { ...STAT, hideOnNarrow: true },
+        { ...STAT, id: "other" },
+      ],
+    };
+    expect(ruleIdsOf([dashboard([group])])).toEqual([]);
+    const allHidden = {
+      ...group,
       stats: [{ ...STAT, hideOnNarrow: true }],
     };
-    expect(ruleIdsOf([dashboard([group])])).toContain("dashboard/stat-group-child-hide-on-narrow");
+    expect(ruleIdsOf([dashboard([allHidden])])).toContain(
+      "dashboard/stat-group-child-hide-on-narrow",
+    );
+  });
+
+  test("column side needs layout main-side and a group child has none", () => {
+    const panels = [{ ...LIST, column: "side" }];
+    const withLayout = (layout?: string) =>
+      screensFeature([
+        {
+          id: "orders",
+          type: "projectionList",
+          query: "shop:query:order:now",
+          columns: ["number"],
+        },
+        { id: "overview", type: "dashboard", panels, ...(layout !== undefined && { layout }) },
+      ]);
+    expect(ruleIdsOf([withLayout()])).toContain("dashboard/layout-invalid");
+    expect(ruleIdsOf([withLayout("main-side")])).toEqual([]);
+    expect(ruleIdsOf([withLayout("three-col")])).toContain("dashboard/layout-invalid");
+    const group = {
+      kind: "stat-group",
+      id: "inbox",
+      label: "shop:today:inbox",
+      layout: "cards",
+      stats: [{ ...STAT, column: "side" }],
+    };
+    expect(ruleIdsOf([dashboard([group])])).toContain("dashboard/layout-invalid");
+  });
+
+  test("column top needs layout main-side", () => {
+    const withLayout = (layout?: string) =>
+      screensFeature([
+        {
+          id: "orders",
+          type: "projectionList",
+          query: "shop:query:order:now",
+          columns: ["number"],
+        },
+        {
+          id: "overview",
+          type: "dashboard",
+          panels: [{ ...LIST, column: "top" }],
+          ...(layout !== undefined && { layout }),
+        },
+      ]);
+    expect(ruleIdsOf([withLayout()])).toContain("dashboard/layout-invalid");
+    expect(ruleIdsOf([withLayout("main-side")])).toEqual([]);
+  });
+
+  test("a list column variant needs display button", () => {
+    const withColumn = (column: Record<string, unknown>) =>
+      dashboard([{ ...LIST, columns: [column] }]);
+    expect(ruleIdsOf([withColumn({ field: "number", variant: "primary" })])).toContain(
+      "dashboard/list-column-variant-invalid",
+    );
+    expect(
+      ruleIdsOf([withColumn({ field: "number", display: "button", variant: "primary" })]),
+    ).not.toContain("dashboard/list-column-variant-invalid");
   });
 
   test("narrowBlocks need blocks", () => {

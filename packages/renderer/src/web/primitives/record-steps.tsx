@@ -29,7 +29,15 @@ function StepDetail({ item }: { item: StepItem }): ReactNode {
   return <small className="block text-xs text-muted-foreground">{detail}</small>;
 }
 
-function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string }): ReactNode {
+function StepRow({
+  item,
+  reasonLabel,
+  moreActionsLabel,
+}: {
+  item: StepItem;
+  reasonLabel: string;
+  moreActionsLabel: string | undefined;
+}): ReactNode {
   const [reasonOpen, setReasonOpen] = useState(item.reasonOpen === true);
   const reasonBoxId = useId();
   const narrow = useIsBelowSmViewport();
@@ -63,7 +71,12 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
       </div>
       <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-3 max-sm:row-span-2 max-sm:self-center max-sm:[&_button]:h-8 max-sm:[&_button]:text-[13px]">
         {item.moreActions !== undefined && !narrow && (
-          <div className="text-[12.5px] text-muted-foreground [&_a]:text-[12.5px] [&_a]:text-muted-foreground [&_button]:text-[12.5px] [&_button]:text-muted-foreground">
+          <div className="flex items-center gap-3 text-[12.5px] text-muted-foreground [&_a]:text-[12.5px] [&_a]:text-muted-foreground [&_button]:text-[12.5px] [&_button]:text-muted-foreground">
+            {moreActionsLabel !== undefined && (
+              <span data-testid={`record-step-${item.id}-more-actions-label`}>
+                {moreActionsLabel}
+              </span>
+            )}
             {item.moreActions}
           </div>
         )}
@@ -77,6 +90,7 @@ function StepRow({ item, reasonLabel }: { item: StepItem; reasonLabel: string })
           data-testid={`record-step-${item.id}-more-actions`}
           className="col-span-2 row-start-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground [&_a]:text-xs [&_a]:text-muted-foreground [&_button]:text-xs [&_button]:text-muted-foreground"
         >
+          {moreActionsLabel !== undefined && <span>{moreActionsLabel}</span>}
           {item.moreActions}
         </div>
       )}
@@ -155,6 +169,7 @@ export function DefaultRecordSteps({
   narrowLimit,
   moreLabel,
   lessLabel,
+  moreActionsLabel,
   items,
   count,
   testId,
@@ -182,7 +197,12 @@ export function DefaultRecordSteps({
         ) : (
           <ul className="m-0 flex list-none flex-col divide-y divide-border-row p-0">
             {visible.map((item) => (
-              <StepRow key={item.id} item={item} reasonLabel={reasonLabel} />
+              <StepRow
+                key={item.id}
+                item={item}
+                reasonLabel={reasonLabel}
+                moreActionsLabel={moreActionsLabel}
+              />
             ))}
           </ul>
         )}

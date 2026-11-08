@@ -6,6 +6,7 @@ import {
 } from "./availability-options-select.tsx";
 import { FileListField } from "./file-list-field.tsx";
 import { MultiSelectCheckboxes } from "./multi-select-checkboxes.tsx";
+import { MultiSelectChips } from "./multi-select-chips.tsx";
 import type { RenderInputArgs, SharedInputProps } from "./render-field-input-shared.ts";
 import { stringArrayOf, stringValue, withPinnedValues } from "./render-field-values.ts";
 
@@ -15,6 +16,17 @@ function renderMultiSelectControl(
   options: readonly SelectOptionEntry[],
   arrayValue: readonly string[],
 ): ReactNode {
+  if (field.display === "chips") {
+    return (
+      <MultiSelectChips
+        field={field}
+        id={id}
+        options={options}
+        value={arrayValue}
+        onChange={(v) => onChange(v)}
+      />
+    );
+  }
   return field.display === "checkboxes" ? (
     <MultiSelectCheckboxes
       field={field}

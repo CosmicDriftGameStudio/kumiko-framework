@@ -117,6 +117,26 @@ function renderRelatedListSection<TValues extends FormValues, TCtx>(
   );
 }
 
+function renderStepListSection<TValues extends FormValues, TCtx>(
+  { model, sectionIndex }: SectionRenderContext<TValues, TCtx>,
+  section: Extract<EditSectionViewModel, { readonly kind: "stepList" }>,
+): ReactNode {
+  const { Section, StepList } = model.engine.state.primitives;
+  if (StepList === undefined || section.items.length === 0) return null;
+  const items = section.items.map((item, index) => ({ id: String(index), ...item }));
+  return (
+    <Section
+      key={section.title ?? `step-list-${sectionIndex}`}
+      {...(section.title !== undefined && !model.engine.props.hideSectionTitles
+        ? { title: section.title }
+        : {})}
+      testId="step-list-section"
+    >
+      <StepList items={items} testId="step-list" />
+    </Section>
+  );
+}
+
 function renderWriteFormSection<TValues extends FormValues, TCtx>(
   { model, sectionIndex, sectionActionsEl }: SectionRenderContext<TValues, TCtx>,
   section: WriteFormSectionModel,
@@ -150,6 +170,8 @@ function renderSectionByKind<TValues extends FormValues, TCtx>(
       return renderRelatedListSection(rc, section);
     case "writeForm":
       return renderWriteFormSection(rc, section);
+    case "stepList":
+      return renderStepListSection(rc, section);
     case "fields":
       return renderFieldsSection(rc, section);
   }

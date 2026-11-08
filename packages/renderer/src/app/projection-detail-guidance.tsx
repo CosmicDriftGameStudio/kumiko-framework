@@ -1,7 +1,8 @@
-import type {
-  RecordBannerSpec,
-  RowAction,
-  SelectOptionTone,
+import {
+  evalFieldCondition,
+  type RecordBannerSpec,
+  type RowAction,
+  type SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { Fragment, type ReactNode } from "react";
 import { RenderEditActionButton } from "../components/render-edit-action-button.tsx";
@@ -196,6 +197,7 @@ function renderSummary(model: DetailGuidanceModel): ReactNode {
         text={text}
         {...(narrowText !== undefined && { narrowText })}
         {...(tone !== undefined && { tone })}
+        {...(spec.icon !== undefined && { icon: spec.icon })}
         testId={testId}
       />
     );
@@ -228,35 +230,62 @@ function renderBanner(model: DetailGuidanceModel): ReactNode {
   );
 }
 
+function buildStepItem(
+  model: DetailGuidanceModel,
+  spec: NonNullable<DetailGuidanceModel["screen"]["steps"]>,
+  step: ReturnType<typeof readSteps>[number],
+) {
+  const [mainAction, ...otherActions] = resolveItemActions(model, spec.actions, step);
+  return {
+    id: step.id,
+    title: step.title,
+    ...(step.narrowTitle !== undefined && { narrowTitle: step.narrowTitle }),
+    ...(step.detail !== undefined && { detail: step.detail }),
+    ...(step.narrowDetail !== undefined && { narrowDetail: step.narrowDetail }),
+    ...(step.tone !== undefined && { tone: step.tone }),
+    ...(step.why !== undefined && { reason: step.why }),
+    ...(step.why !== undefined && step.whyOpen === true && { reasonOpen: true as const }),
+    ...(step.why !== undefined && step.whyTitle !== undefined && { reasonTitle: step.whyTitle }),
+    ...(mainAction !== undefined && {
+      actions: renderActionButtons(model, [mainAction], spec.actions),
+    }),
+    ...(otherActions.length > 0 && {
+      moreActions: renderActionButtons(model, otherActions, spec.actions),
+    }),
+  };
+}
+
+function stepsCollapseProps(
+  spec: NonNullable<DetailGuidanceModel["screen"]["steps"]>,
+  t: DetailGuidanceModel["effectiveTranslate"],
+) {
+  return {
+    ...(spec.moreActionsLabel !== undefined && { moreActionsLabel: t(spec.moreActionsLabel) }),
+    ...(spec.narrowLimit !== undefined && {
+      narrowLimit: spec.narrowLimit,
+      moreLabel: (count: number) =>
+        t(pluralKey(spec.narrowMoreLabel ?? "kumiko.detail.steps.more", count), { count }),
+      lessLabel: t("kumiko.detail.steps.less"),
+    }),
+  };
+}
+
 function renderSteps(model: DetailGuidanceModel): ReactNode {
   const spec = model.screen.steps;
   if (spec === undefined) return undefined;
+  if (
+    spec.visibleWhen !== undefined &&
+    !evalFieldCondition(spec.visibleWhen, { ...model.record })
+  ) {
+    return undefined;
+  }
   const { effectiveTranslate: t, record } = model;
   const steps = readSteps(record[spec.field]);
   const title = t(spec.title ?? "kumiko.detail.steps.title");
   const subtitleRaw = spec.subtitleField !== undefined ? record[spec.subtitleField] : undefined;
   const subtitle = typeof subtitleRaw === "string" && subtitleRaw !== "" ? subtitleRaw : undefined;
   const emptyLabel = t(spec.emptyLabel ?? "kumiko.detail.steps.empty");
-  const items = steps.map((step) => {
-    const [mainAction, ...otherActions] = resolveItemActions(model, spec.actions, step);
-    return {
-      id: step.id,
-      title: step.title,
-      ...(step.narrowTitle !== undefined && { narrowTitle: step.narrowTitle }),
-      ...(step.detail !== undefined && { detail: step.detail }),
-      ...(step.narrowDetail !== undefined && { narrowDetail: step.narrowDetail }),
-      ...(step.tone !== undefined && { tone: step.tone }),
-      ...(step.why !== undefined && { reason: step.why }),
-      ...(step.why !== undefined && step.whyOpen === true && { reasonOpen: true as const }),
-      ...(step.why !== undefined && step.whyTitle !== undefined && { reasonTitle: step.whyTitle }),
-      ...(mainAction !== undefined && {
-        actions: renderActionButtons(model, [mainAction], spec.actions),
-      }),
-      ...(otherActions.length > 0 && {
-        moreActions: renderActionButtons(model, otherActions, spec.actions),
-      }),
-    };
-  });
+  const items = steps.map((step) => buildStepItem(model, spec, step));
   const { RecordSteps, Card, Text } = model.primitives;
   const testId = "kumiko-screen-projection-detail-steps";
   if (RecordSteps !== undefined) {
@@ -266,12 +295,7 @@ function renderSteps(model: DetailGuidanceModel): ReactNode {
         {...(subtitle !== undefined && { subtitle })}
         emptyLabel={emptyLabel}
         reasonLabel={t("kumiko.detail.steps.reason")}
-        {...(spec.narrowLimit !== undefined && {
-          narrowLimit: spec.narrowLimit,
-          moreLabel: (count: number) =>
-            t(pluralKey(spec.narrowMoreLabel ?? "kumiko.detail.steps.more", count), { count }),
-          lessLabel: t("kumiko.detail.steps.less"),
-        })}
+        {...stepsCollapseProps(spec, t)}
         items={items}
         count={items.length}
         testId={testId}

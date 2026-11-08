@@ -2,6 +2,7 @@ import { normalizeListColumn } from "../screen-helpers.ts";
 import type {
   DashboardListPanel,
   DashboardPanelDefinition,
+  DashboardScreenDefinition,
   DashboardStatGroupPanel,
   DashboardStatPanel,
   DashboardTextPanel,
@@ -133,15 +134,20 @@ function isTitledStrip(panel: DashboardStatGroupPanel): boolean {
 }
 
 function validateStatGroupChildren(context: string, panel: DashboardStatGroupPanel): void {
+  if (panel.stats.length > 0 && panel.stats.every((stat) => stat.hideOnNarrow === true)) {
+    throw bootRuleError(DASHBOARD_RULES.statGroupChildHideOnNarrow, {
+      message: `${context} hides every child on narrow — set hideOnNarrow on the whole group instead.`,
+    });
+  }
   for (const stat of panel.stats) {
     if (stat.narrowLabel !== undefined && !isTitledStrip(panel)) {
       throw bootRuleError(DASHBOARD_RULES.statNarrowLabelOutsideGroup, {
         message: `${context} child "${stat.id}" sets narrowLabel, but only the one-line phone strip of a titled group with layout "strip" draws it. Give the group a label and layout "strip", or remove narrowLabel.`,
       });
     }
-    if (stat.hideOnNarrow !== undefined) {
-      throw bootRuleError(DASHBOARD_RULES.statGroupChildHideOnNarrow, {
-        message: `${context} child "${stat.id}" sets hideOnNarrow — set it on the whole group instead; a hidden cell would leave a gap.`,
+    if (stat.column !== undefined) {
+      throw bootRuleError(DASHBOARD_RULES.layoutInvalid, {
+        message: `${context} child "${stat.id}" sets column — set it on the whole group instead.`,
       });
     }
     if (stat.narrowOrder !== undefined) {
@@ -218,6 +224,43 @@ function validateNarrowOrder(context: string, panel: DashboardPanelDefinition): 
   }
 }
 
+const PANEL_COLUMNS: readonly unknown[] = ["side", "top"];
+
+function validateListColumnVariants(context: string, panel: DashboardListPanel): void {
+  for (const spec of panel.columns) {
+    const column = normalizeListColumn(spec);
+    // skip: default outline look
+    if (column.variant === undefined) continue;
+    if (column.variant !== "primary" || column.display !== "button") {
+      throw bootRuleError(DASHBOARD_RULES.listColumnVariantInvalid, {
+        message: `${context} column "${column.field}" sets variant "${String(column.variant)}", which must be "primary" and needs display: "button".`,
+      });
+    }
+  }
+}
+
+export function validateDashboardLayout(
+  featureName: string,
+  screenId: string,
+  screen: DashboardScreenDefinition,
+): void {
+  const prefix = `[Feature ${featureName}] Screen "${screenId}" (dashboard)`;
+  if (screen.layout !== undefined && screen.layout !== "main-side") {
+    throw bootRuleError(DASHBOARD_RULES.layoutInvalid, {
+      message: `${prefix} layout "${String(screen.layout)}" is not "main-side".`,
+    });
+  }
+  for (const panel of screen.panels) {
+    // skip: panel stays in the main column
+    if (panel.column === undefined) continue;
+    if (screen.layout !== "main-side" || !PANEL_COLUMNS.includes(panel.column)) {
+      throw bootRuleError(DASHBOARD_RULES.layoutInvalid, {
+        message: `${prefix} panel "${panel.id}" sets column "${String(panel.column)}", which needs layout: "main-side" and the value "side" or "top".`,
+      });
+    }
+  }
+}
+
 // Phone-layout options per panel kind; `hideOnNarrow` itself is a plain flag with no cross-field rule.
 export function validateDashboardPanelNarrow(
   featureName: string,
@@ -227,8 +270,10 @@ export function validateDashboardPanelNarrow(
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (dashboard)`;
   validateNarrowOrder(`${prefix} panel "${panel.id}"`, panel);
   if (panel.kind === "stat") validateStatNarrowLabel(`${prefix} stat "${panel.id}"`, panel);
-  if (panel.kind === "list") validateListNarrow(`${prefix} list-panel "${panel.id}"`, panel);
-  else if (panel.kind === "stat-group") {
+  if (panel.kind === "list") {
+    validateListNarrow(`${prefix} list-panel "${panel.id}"`, panel);
+    validateListColumnVariants(`${prefix} list-panel "${panel.id}"`, panel);
+  } else if (panel.kind === "stat-group") {
     validateStatGroupNarrow(`${prefix} stat-group "${panel.id}"`, panel);
   } else if (panel.kind === "text") validateTextNarrow(`${prefix} text-panel "${panel.id}"`, panel);
 }

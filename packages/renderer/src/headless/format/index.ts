@@ -168,6 +168,7 @@ export {
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.ts";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template.ts";
 export { currencyDecimals, formatMoney, resolveSafeMoneyLocale } from "./money.ts";
+export { telHref } from "./phone.ts";
 
 // JSON.stringify throws on BigInt and circular values; a cell must degrade to text instead of crashing the screen.
 function stringifyJsonOrString(value: unknown, indent: number): string {
@@ -390,6 +391,7 @@ const CELL_FORMATTERS = {
   enumOption: formatEnumOptionCell,
   relativeTime: formatRelativeTimeCell,
   i18nText: formatI18nTextCell,
+  phone: (_spec, value) => String(value).trim(),
   image: formatFileCell,
   file: formatFileCell,
   json: formatJsonCell,

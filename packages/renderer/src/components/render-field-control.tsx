@@ -1,15 +1,17 @@
 import type { ReactNode } from "react";
-import type { EditFieldViewModel, FieldIssue } from "../headless/index.ts";
+import { type EditFieldViewModel, type FieldIssue, telHref } from "../headless/index.ts";
 import type { usePrimitives } from "../primitives.tsx";
 import { AvailabilityOptionsSelect } from "./availability-options-select.tsx";
 import { EmbeddedListField } from "./embedded-list-field.tsx";
 import { QueryOptionsSelect } from "./query-options-select.tsx";
+import { AiAssistControl } from "./render-field-ai-assist.tsx";
 import { FillActionControl } from "./render-field-fill-action.tsx";
 import { renderInput } from "./render-field-input.tsx";
 import type { RenderInputArgs } from "./render-field-input-shared.ts";
 import { isComplexFieldType, isFileFieldType } from "./render-field-meta.ts";
 import { FieldRendererOutput, readOnlyDisplayText } from "./render-field-read-only.tsx";
 import { ReadOnlyReferenceValue, ReferenceInput } from "./render-field-reference.tsx";
+import { ValueChipsControl } from "./render-field-value-chips.tsx";
 import { WriteOnlyTextInput } from "./render-field-write-only.tsx";
 
 export type ControlContext = RenderInputArgs & {
@@ -129,21 +131,13 @@ const selectAvailabilityRule: ControlRule = (ctx) => {
   );
 };
 
-// Only digits and a leading "+" survive into the tel: href, so a stored
-// "+49 (30) 123-45" dials but can never smuggle other URI parts.
-function telHrefDigits(value: string): string {
-  const digits = value.replace(/[^\d]/g, "");
-  return value.trim().startsWith("+") ? `+${digits}` : digits;
-}
-
 function contactHref(field: EditFieldViewModel): string | undefined {
   if (field.type !== "text" || typeof field.value !== "string" || field.value.trim() === "") {
     return undefined;
   }
   if (field.format === "email") return `mailto:${field.value.trim()}`;
   if (field.format === "phone") {
-    const digits = telHrefDigits(field.value);
-    return digits.replace("+", "") === "" ? undefined : `tel:${digits}`;
+    return telHref(field.value);
   }
   return undefined;
 }
@@ -195,6 +189,34 @@ const fillActionRule: ControlRule = (ctx) => {
   );
 };
 
+const aiAssistRule: ControlRule = (ctx) => {
+  const { field, onChange } = ctx;
+  if (field.aiAssist === undefined || field.readOnly) return undefined;
+  return (
+    <AiAssistControl
+      field={field}
+      row={rowOf(ctx)}
+      aiAssist={field.aiAssist}
+      onChange={onChange}
+      input={renderInput(ctx)}
+    />
+  );
+};
+
+const valueChipsRule: ControlRule = (ctx) => {
+  const { field, onChange } = ctx;
+  if (field.valueChips === undefined || field.readOnly) return undefined;
+  return (
+    <ValueChipsControl
+      field={field}
+      from={field.valueChips.from}
+      row={rowOf(ctx)}
+      onChange={onChange}
+      input={renderInput(ctx)}
+    />
+  );
+};
+
 const CONTROL_RULES: readonly ControlRule[] = [
   fieldRendererRule,
   embeddedListRule,
@@ -204,6 +226,8 @@ const CONTROL_RULES: readonly ControlRule[] = [
   readOnlyTextRule,
   writeOnlyRule,
   fillActionRule,
+  aiAssistRule,
+  valueChipsRule,
 ];
 
 export function renderControl(ctx: ControlContext): ReactNode {

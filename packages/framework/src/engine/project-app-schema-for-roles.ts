@@ -494,6 +494,8 @@ function projectEditSection(
   switch (section.kind) {
     case "relatedList":
       return projectRelatedListSection(section, feature, indices, keptScreenQns);
+    case "stepList":
+      return section;
     case "extension": {
       const { actions, ...rest } = section;
       const kept = projectActionArray(actions, feature, indices, keptScreenQns);

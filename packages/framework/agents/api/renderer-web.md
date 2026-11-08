@@ -378,6 +378,8 @@ type CorePrimitives = {
   MetricBand?: ComponentType<MetricBandProps>; // Optional — additive rollout, see StickyActionBar.
   RecordBreadcrumb?: ComponentType<RecordBreadcrumbProps>; // Optional — without it the detail screen renders the path as plain links.
   RecordSummary?: ComponentType<RecordSummaryProps>; // Optional — without it the summary renders as plain text.
+  PhotoGrid?: ComponentType<PhotoGridProps>; // Optional — without it a relatedList with `photoGrid` falls back to its table.
+  StepList?: ComponentType<StepListProps>; // Optional — without it a stepList section renders nothing.
   RecordSteps?: ComponentType<RecordStepsProps>; // Optional — without it the steps render as a plain card.
   ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>; // Optional: without an implementation, callers with >2 header/row actions fall back to today's all-buttons-inline rendering.
   SecretReveal?: ComponentType<SecretRevealProps>; // Optional (unlike the other Core-Primitives) so existing partial CorePrimitives mocks in tests keep compiling — additive rollout of a new primitive shouldn't force every test double to grow a stub.
@@ -688,6 +690,7 @@ type GridProps = { // Column-based layout.
   flow?: boolean; // Fields flow left to right in wrapping rows sized by `GridCell.width` instead of equal-width tracks (screen forms and drawers).
   list?: boolean; // One full-width row per child, separated by hairlines — the field rows of a `settings-list` section.
   ariaLabelledBy?: string; // Id of the element naming this grid (a Field label).
+  tight?: boolean; // With `columns: "auto"`: the small gap of a chip row instead of the tile gap.
 };
 type HeaderActionGroupProps = {
   children: ReactNode;
@@ -1332,6 +1335,7 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   onDirtyChange?: (dirty: boolean) => void; // Fires when the form gains or loses unsaved input (field changes or a dirty extension section).
   onCopyLink?: () => Promise<void> | void; // Copy-link action — only set in update mode (create mode has no entity id yet, hence no permalink).
   actions?: RenderEditAction[]; // Header action buttons, rendered before the built-in copy-link/ delete/cancel/save controls.
+  footerHint?: string; // Translated note on the left of the form footer (hidden below `sm`).
   menuActions?: RenderEditAction[]; // Record actions declared with `placement: "menu"`, resolved like `actions`.
   onRelatedListDrawerAction?: (action: RowActionDrawer, initialValues: Readonly<Record<string, unknown>> | undefined) => void; // Opens a relatedList section row's drawer-kind action.
   submitLabel?: string; // i18n key for the submit button.
@@ -1345,7 +1349,8 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   labelAppendix?: (fieldName: string) => ReactNode | undefined; // Per-field extra content inline after the label (e.g. ConfigSourceBadge).
   fieldAppendix?: (fieldName: string) => ReactNode | undefined; // Per-field extra content below the input (e.g. ConfigCascadeView).
   fieldAppendixPlacement?: "above-control" | "below-control"; // Placement of every `fieldAppendix` relative to its control.
-  fieldDescription?: (fieldName: string) => ReactNode | undefined; // Per-field help text rendered under the label (translated by the caller).
+  formErrorOnTop?: boolean; // Renders the form-error banner above the sections instead of below them.
+  fieldDescription?: (fieldName: string, values: Readonly<Record<string, unknown>>) => ReactNode | undefined; // Per-field help text rendered under the label (translated by the caller).
   rowAfterField?: (fieldName: string, state: { dirty: boolean; }) => ReactNode | undefined; // Extra full-width row drawn right after a field's cell (configEdit actions).
   fieldAccent?: (fieldName: string) => boolean; // Marks fields whose value is set at this level; drawn by `settings-list` rows.
   markChangedFields?: boolean; // Edit-mode "changed" markers also for screens without an entity id (configEdit loads its values from a query, not a record).
@@ -1357,6 +1362,7 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   hideActions?: boolean; // Renders the fields without RenderEdit's own action bar (save, cancel, delete, copy-link).
   valueDisplay?: "form" | "text"; // "form" (default) — every field renders as its Input widget, disabled when `field.readOnly`, unchanged behavior.
   hideSectionTitles?: boolean; // Suppresses every section's own title (fields-section header, relatedList Section title) AND the form's own top-level title/subtitle — for a host that already renders that label itself elsewhere (e.g. a tab strip whose label duplicates it, or a page-level header above RenderEdit).
+  activeTabId?: string; // Id of the active tab of a tabbed projectionDetail; handed to the `afterForm` slot.
   fillScreenHeight?: boolean; // Screen body fills the shell height: the form gets `fillHeight` and `stickyActions` (sections scroll, footer pinned).
   leadContent?: ReactNode; // Rendered first inside the form, above the sections, in the same column and rhythm — for content that belongs to the form but is no field (e.g. the secret a confirm step refers to).
   submitBlocked?: boolean; // Blocks submit (button and Enter) while fields stay editable — unlike `disabled`, which locks the whole form.

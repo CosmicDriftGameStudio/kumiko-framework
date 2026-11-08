@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-26
-evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer/src/web/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer/src/web/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts; packages/renderer/src/app/config-edit-action-row.tsx; packages/renderer/src/app/__tests__/config-edit-actions.test.tsx; packages/framework/src/engine/boot-validator/screens-kind-config-edit.ts; packages/renderer/src/app/projection-detail-navigation.ts; packages/renderer/src/app/__tests__/projection-detail-subtitle-format.test.ts"
+verified: 2026-11-08
+evidence: "packages/renderer/src/app/header-actions.ts; packages/renderer/src/components/list-empty-state.tsx; packages/renderer/src/app/facet-count-bridge.tsx (chip counts refresh after writes); packages/renderer/src/web/primitives/index.tsx (responsive row actions, 44px touch targets); kumiko-framework#3449 (step picker, phone footer); packages/renderer/src/web/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts; packages/renderer/src/app/config-edit-action-row.tsx; packages/renderer/src/app/__tests__/config-edit-actions.test.tsx; packages/framework/src/engine/boot-validator/screens-kind-config-edit.ts; packages/renderer/src/app/projection-detail-navigation.ts; packages/types/src/screen-projection.ts (footerActions, footerHint, initialTab); packages/types/src/screen-action-form.ts; packages/types/src/screen-entity-edit.ts (aiAssist, valueChips, stepList, photoGrid); packages/renderer/src/app/__tests__/projection-detail-subtitle-format.test.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -141,6 +141,7 @@ rowActions: [
 ```
 
 - Closing with unsaved input (X, Escape, overlay click, Cancel) asks "Discard changes?" first. "Keep editing" is the default focus. After a successful submit nothing is asked, so input is never lost silently.
+- Below `sm` the drawer is a bottom sheet (at most 90% of the viewport height).
 - The drawer body scrolls, header and footer stay fixed. Long forms stay pages: use a `navigate` row action and an `entityEdit` screen.
 - `kind: "drawer"` is also available on related list row actions and on toolbar actions. Without `kind: "drawer"`, actions behave as before.
 - Each field of the form is prefilled from the row through `params` (`pick`, `map`) when the field names match.
@@ -338,6 +339,86 @@ export const leaseListScreen: EntityListScreenDefinition = {
 ```
 
 A primary action with `confirm` stays in the toolbar, so the dialog opens next to the list it acts on.
+
+## projectionDetail: footer, tabs, steps and sections
+
+| Option | On | Purpose |
+|---|---|---|
+| `footerActions` | projectionDetail | ids of `actions` shown in the pinned footer bar instead of the header, in declaration order. An id must not also be `primaryAction` or in `inlineActions`. `align: "start"` on a declared action sets it apart on the left |
+| `footerHint` | projectionDetail | i18n key of a note left of the footer actions; hidden below `sm`; needs `footerActions` |
+| `initialTab` | projectionDetail | `[{ when, tab }]`: the first rule whose condition holds on the record picks the tab that opens first, else the first visible tab. An explicit `?tab=` wins. Needs `layout.mode: "tabs"` |
+| `slots.afterForm` | projectionDetail | component rendered under the active tab's sections; it receives `activeTabId` |
+| `metricsPlacement` | projectionDetail | `{ narrow: "after-guidance" }` moves the metric tiles below summary, banner and steps on screens under `md`, ahead of the tabs |
+| `summary.icon` | projectionDetail | icon (`NavIconKey`) that leads the record sentence |
+| `steps.moreActionsLabel` | steps panel | i18n key of a short label before each step's further actions |
+| `steps.visibleWhen` | steps panel | `{ field, eq \| ne \| in \| notIn }` on the record; the panel is drawn only while it holds |
+| `visibleWhen` | every section | same condition syntax on the record; a hidden section drops out of the tab strip. `field` must be an output field of the detail query |
+| `photoGrid` | relatedList section | `{ imageField, captionField? }` draws the rows as image tiles with their row actions instead of a table |
+
+```ts illustration
+layout: {
+  mode: "tabs",
+  sections: [
+    { id: "overview", kind: "fields", title: "order.overview", fields: ["customer"] },
+    { id: "overview", kind: "stepList", field: "steps" },
+    { id: "photos", kind: "relatedList", /* ... */ photoGrid: { imageField: "file", captionField: "name" } },
+  ],
+},
+footerActions: ["approve", "reject"],
+footerHint: "order.footer.hint",
+initialTab: [{ when: { field: "status", eq: "open" }, tab: "overview" }],
+```
+
+- Adjacent sections that share one `id` form one tab; the first section gives label and count.
+- A section `{ kind: "stepList", field, title? }` renders a numbered vertical step list from an array field of the detail query. Each item is a `StepListItem` (`title`, `status`, `statusTone`, `description`).
+- Phone footer: `footerActions` stay in the pinned footer next to the primary action instead of folding into the "…" menu, also when an `align: "start"` action is mixed with others. The start group fills the row.
+- With `metricsPlacement: { narrow: "after-guidance" }` the metrics and tabs stay above the tab content.
+- Metrics with `format: "relativeTime"` use the UI locale unless the format sets its own.
+- Boot rejects a `stepList` or `visibleWhen` field that is not an output field of the detail query. `footerHint` needs `footerActions`.
+
+## actionForm and form options
+
+| Option | On | Purpose |
+|---|---|---|
+| `fieldDescriptions` | actionForm | help text under a field (field name to i18n key) |
+| `fieldLabels`, `fieldDescriptions` | actionForm | an entry may be `{ key, params: { placeholder: "fieldName" } }`: the `{placeholder}` in the text is filled from the form values, hidden fields included. A description whose param value is empty is not shown. Boot rejects params that name no field of the form |
+| `formErrorOnTop` | actionForm | shows a failed submit's error banner above the fields |
+| `infoBand` | actionForm | i18n key of a short banner with a sparkles icon above the fields |
+| `fieldBadges` | actionForm | `{ field: { label, tone } }`: badge next to the field's label |
+| `summary.paramsFromLoad` | actionForm | fields of the `load` result that fill the summary `{name}` placeholders (static `params` win). Needs `load`; boot requires each field in the load query's `outputSchema` |
+| `load.passPrefill` | actionForm | `true` sends the drawer's prefill values (for example `vehicleId`) in the load payload; the query's schema must accept them |
+| `layout.allRequiredHint` | edit layouts | `false` keeps the per-field asterisks instead of the "all fields are required" hint |
+| `aiAssist` | text, longText field | helper under the input, see below |
+| `valueChips` | number, decimal, bigInt, money field | `{ from }`: quick-pick chips from an array field of the same form |
+| `display: "chips"` | multiSelect field | toggle chips with a check mark instead of checkboxes or a dropdown |
+| `readOnly` | config `mask` | `mask: { title, readOnly: true }` keeps the key on the generated settings screen as a read-only value. A readOnly key that is also `required` fails at boot |
+
+```ts illustration
+aiAssist: {
+  query: "orders:query:draft-reply",
+  resultField: "text",
+  noteField: "note",
+  contextFields: ["customerId"],
+  chips: [{ label: "orders.ai.shorter", params: { tone: "short" } }],
+  prompt: { param: "instruction", placeholder: "orders.ai.prompt" },
+},
+```
+
+- `aiAssist`: an active chip's `params` and the typed instruction are sent to `query` together with the form's context payload (the `load` id of an actionForm, else the drawer row's prefill values). Chips stack. The string at `resultField` of the result is written into the field. `noteField` shows a short note from the result under the field until the next result without one. `contextFields` sends other form fields under their names and re-runs the query when one changes. The prompt input submits with Enter; there is no Apply button.
+- `valueChips` format the text by field type (money with locale and currency, numbers with locale); the chip equal to the current value is shown pressed with a check mark.
+- A read-only config field offers no "reset override" button.
+- Boot rejects unknown fields, wrong field types, invalid chips, `contextFields` or `fieldBadges` that name no form field.
+- A client row action takes `successMessage: false` to show no toast.
+
+## List columns and rows
+
+- `pillField` / `pillToneField`: a second pill beside the column value; `pillToneField` names the row field that holds the tone and needs `pillField`.
+- `renderer: { format: "phone" }` shows the value as a `tel:` link. For `relativeTime` and its options see `docs/reference/field-formats.md`.
+- `display: "button"` on a dashboard list column draws a screen link as a small outline button; `variant: "primary"` draws it filled.
+- `narrowInline: true` columns sit in a wrapping row with natural widths in the phone card; only a single over-long element is truncated.
+- A list that shows its `emptyState` has no entry-count footer.
+- A row click does not fire for clicks from controls inside custom cells (button, link, input) or from content portaled out of the row, such as a drawer or menu.
+- A banner with actions wraps below its text on phones: text first, actions on their own line.
 
 ## Gates, fallbacks and parent values
 

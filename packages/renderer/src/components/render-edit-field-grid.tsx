@@ -12,13 +12,17 @@ type AppendixProps = Pick<
   "labelAppendix" | "fieldAppendix" | "fieldAppendixPlacement" | "fieldDescription"
 >;
 
-function appendixCellProps(props: AppendixProps, fieldName: string) {
+function appendixCellProps(
+  props: AppendixProps,
+  fieldName: string,
+  values: Readonly<Record<string, unknown>>,
+) {
   const { labelAppendix, fieldAppendix, fieldAppendixPlacement, fieldDescription } = props;
   return {
     ...(labelAppendix !== undefined && { labelAppendix: labelAppendix(fieldName) }),
     ...(fieldAppendix !== undefined && { fieldAppendix: fieldAppendix(fieldName) }),
     ...(fieldAppendixPlacement !== undefined && { appendixPlacement: fieldAppendixPlacement }),
-    ...(fieldDescription !== undefined && { description: fieldDescription(fieldName) }),
+    ...(fieldDescription !== undefined && { description: fieldDescription(fieldName, values) }),
   };
 }
 
@@ -58,7 +62,7 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
       })}
       GridCell={GridCell}
       featureName={props.featureName}
-      {...appendixCellProps(props, field.field)}
+      {...appendixCellProps(props, field.field, snapshot.values)}
       allIssues={snapshot.errors}
       valueDisplay={props.valueDisplay}
       row={snapshot.values}

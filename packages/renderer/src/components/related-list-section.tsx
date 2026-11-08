@@ -55,7 +55,9 @@ import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { type DataTableFacet, type DataTableProps, usePrimitives } from "../primitives.tsx";
 import { ListGroupPageBridges } from "./list-group-page-bridges.tsx";
+import { RelatedPhotoGrid } from "./related-photo-grid.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
+import type { RenderEditAction } from "./render-edit-types.ts";
 import { RenderList } from "./render-list.tsx";
 
 type SortableCapableField = Extract<SynthesizedField, { readonly sortable?: boolean }>;
@@ -124,6 +126,85 @@ function buildRowTone(rule: RelatedListRowTone | undefined): DataTableProps["row
   return (row) => (evalFieldCondition(rule, { ...row.values }) ? rule.tone : undefined);
 }
 
+function RelatedListEmptyState({
+  text,
+  actionButton,
+  onActionError,
+}: {
+  readonly text: NonNullable<ReturnType<typeof pickEmptyStateText>>;
+  readonly actionButton: RenderEditAction | undefined;
+  readonly onActionError: (error: ErrorNotice | null) => void;
+}): ReactNode {
+  const { Text, Button, Dialog } = usePrimitives();
+  return (
+    <>
+      <Text>{text.title}</Text>
+      {text.description !== undefined && <Text variant="small">{text.description}</Text>}
+      {actionButton !== undefined && (
+        <RenderEditActionButton
+          action={actionButton}
+          Button={Button}
+          Dialog={Dialog}
+          onError={onActionError}
+        />
+      )}
+    </>
+  );
+}
+
+function EmbeddedRelatedListCard({
+  title,
+  actions,
+  testId,
+  children,
+}: {
+  readonly title: string;
+  readonly actions: ReactNode;
+  readonly testId: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { Card } = usePrimitives();
+  return (
+    <Card
+      options={{ framed: false, padded: false }}
+      // Trim the default header inset: the host row already pads the area.
+      className="[&>div:first-child]:px-0 [&>div:first-child]:pt-1 [&>div:first-child]:pb-2"
+      slots={{ title, ...(actions !== undefined && { headerActions: actions }) }}
+      testId={testId}
+    >
+      {children}
+    </Card>
+  );
+}
+
+// A row-body click target comes from EITHER the legacy `rowClick` field OR
+// a `rowActions` entry marked rowClick:true — the boot-validator rejects
+// both being set, so this order is just a fallback, not a precedence rule.
+function buildRelatedListRowClick(
+  section: EditRelatedListSectionViewModel,
+  nav: ReturnType<typeof useNav>,
+  host: ReturnType<typeof useReturnHost>,
+  onOpenDrawer: Parameters<typeof runDrawerRowAction>[1] | undefined,
+): ((row: ListRowViewModel) => void) | undefined {
+  const rowClick = section.rowClick;
+  if (rowClick !== undefined) {
+    return (row) => {
+      const id = String(row.values[rowClick.idColumn ?? "id"] ?? "");
+      if (id === "") return;
+      navigateWithReturnTo(nav, { entity: rowClick.entity, id }, host);
+    };
+  }
+  const rowClickAction = findRowClickAction(section.rowActions);
+  if (rowClickAction === undefined) return undefined;
+  return (row) => {
+    if (rowClickAction.kind === "navigate") {
+      runProjectionRowNavigate(nav, rowClickAction, row, host);
+    } else if (onOpenDrawer !== undefined) {
+      runDrawerRowAction(rowClickAction, onOpenDrawer, row);
+    }
+  };
+}
+
 export function RelatedListSection({
   section,
   parentId,
@@ -176,7 +257,7 @@ export function RelatedListSection({
    *  sort/search/filter state — the host's record changed without a remount. */
   readonly refreshToken?: number;
 }): ReactNode {
-  const { Banner, Section, Card, FillContainer, Text, Button, Dialog } = usePrimitives();
+  const { Banner, Section, FillContainer, PhotoGrid } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<ErrorNotice | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -312,27 +393,7 @@ export function RelatedListSection({
   );
   const onFilterReset = useCallback(() => setFilters({}), [setFilters]);
 
-  const rowClick = section.rowClick;
-  // A row-body click target comes from EITHER the legacy `rowClick` field OR
-  // a `rowActions` entry marked rowClick:true — the boot-validator rejects
-  // both being set, so this order is just a fallback, not a precedence rule.
-  const rowClickAction = findRowClickAction(section.rowActions);
-  const onRowClick =
-    rowClick !== undefined
-      ? (row: ListRowViewModel) => {
-          const id = String(row.values[rowClick.idColumn ?? "id"] ?? "");
-          if (id === "") return;
-          navigateWithReturnTo(nav, { entity: rowClick.entity, id }, host);
-        }
-      : rowClickAction !== undefined
-        ? (row: ListRowViewModel) => {
-            if (rowClickAction.kind === "navigate") {
-              runProjectionRowNavigate(nav, rowClickAction, row, host);
-            } else if (onOpenDrawer !== undefined) {
-              runDrawerRowAction(rowClickAction, onOpenDrawer, row);
-            }
-          }
-        : undefined;
+  const onRowClick = buildRelatedListRowClick(section, nav, host, onOpenDrawer);
 
   // Same execution path as projectionList's rowActions (kumiko-screen.tsx) —
   // a relatedList row has the identical "no guaranteed id field" shape a
@@ -448,20 +509,11 @@ export function RelatedListSection({
   const emptyStateText = pickEmptyStateText(section.emptyState, record);
   const emptyStateContent =
     emptyStateText !== undefined ? (
-      <>
-        <Text>{emptyStateText.title}</Text>
-        {emptyStateText.description !== undefined && (
-          <Text variant="small">{emptyStateText.description}</Text>
-        )}
-        {emptyStateActionButton !== undefined && (
-          <RenderEditActionButton
-            action={emptyStateActionButton}
-            Button={Button}
-            Dialog={Dialog}
-            onError={setEmptyStateActionError}
-          />
-        )}
-      </>
+      <RelatedListEmptyState
+        text={emptyStateText}
+        actionButton={emptyStateActionButton}
+        onActionError={setEmptyStateActionError}
+      />
     ) : undefined;
 
   // Without a cursor-driven pager the client-side sort covers only the fetched
@@ -490,44 +542,60 @@ export function RelatedListSection({
         </Banner>
       )}
       <ListGroupPageBridges {...aggregates.groupPages} />
-      <PageHeaderSlotAvailableProvider value={false}>
-        <RenderList
-          screen={listScreen}
-          entity={entity}
-          rows={listRows.rows}
-          featureName={listFeatureName ?? featureName}
-          translate={effectiveTranslate}
-          {...(section.description !== undefined && { description: section.description })}
-          {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
-          sort={sort}
-          onSortChange={setSort}
-          {...(section.searchable === true && {
-            searchable: true,
-            searchValue: search,
-            onSearchChange: setSearch,
-          })}
-          {...(filterFacets.length > 0 && {
-            filterFacets,
-            filterValues: filters,
-            onFilterChange,
-            onFilterReset,
-          })}
-          {...(onRowClick !== undefined && { onRowClick })}
-          {...(rowActions !== undefined && { rowActions })}
-          {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
-          {...(bulk !== undefined && { bulk })}
-          {...(rowTone !== undefined && { rowTone })}
-          {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
-          {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
-          {...listTable}
-          {...(aggregates.serverGroups !== undefined && { serverGroups: aggregates.serverGroups })}
-          {...(aggregates.totals !== undefined && { totals: aggregates.totals })}
-          {...(aggregates.notice !== undefined && { notice: aggregates.notice })}
-          screenPadding={false}
-          {...(hideTitle === true && { scrollBody: true, chromeless: true })}
-          {...(embedded === true && { chromeless: true })}
-        />
-      </PageHeaderSlotAvailableProvider>
+      {section.photoGrid !== undefined && PhotoGrid !== undefined ? (
+        listRows.rows.length === 0 ? (
+          emptyStateContent
+        ) : (
+          <RelatedPhotoGrid
+            rows={listRows.rows}
+            photoGrid={section.photoGrid}
+            rowActions={rowActions}
+            onActionError={setEmptyStateActionError}
+            testId="related-photo-grid"
+          />
+        )
+      ) : (
+        <PageHeaderSlotAvailableProvider value={false}>
+          <RenderList
+            screen={listScreen}
+            entity={entity}
+            rows={listRows.rows}
+            featureName={listFeatureName ?? featureName}
+            translate={effectiveTranslate}
+            {...(section.description !== undefined && { description: section.description })}
+            {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
+            sort={sort}
+            onSortChange={setSort}
+            {...(section.searchable === true && {
+              searchable: true,
+              searchValue: search,
+              onSearchChange: setSearch,
+            })}
+            {...(filterFacets.length > 0 && {
+              filterFacets,
+              filterValues: filters,
+              onFilterChange,
+              onFilterReset,
+            })}
+            {...(onRowClick !== undefined && { onRowClick })}
+            {...(rowActions !== undefined && { rowActions })}
+            {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
+            {...(bulk !== undefined && { bulk })}
+            {...(rowTone !== undefined && { rowTone })}
+            {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
+            {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
+            {...listTable}
+            {...(aggregates.serverGroups !== undefined && {
+              serverGroups: aggregates.serverGroups,
+            })}
+            {...(aggregates.totals !== undefined && { totals: aggregates.totals })}
+            {...(aggregates.notice !== undefined && { notice: aggregates.notice })}
+            screenPadding={false}
+            {...(hideTitle === true && { scrollBody: true, chromeless: true })}
+            {...(embedded === true && { chromeless: true })}
+          />
+        </PageHeaderSlotAvailableProvider>
+      )}
     </>
   );
 
@@ -551,18 +619,13 @@ export function RelatedListSection({
     return (
       <>
         {bridges}
-        <Card
-          options={{ framed: false, padded: false }}
-          // Trim the default header inset: the host row already pads the area.
-          className="[&>div:first-child]:px-0 [&>div:first-child]:pt-1 [&>div:first-child]:pb-2"
-          slots={{
-            title: `${section.title}${countSuffix}`,
-            ...(actions !== undefined && { headerActions: actions }),
-          }}
+        <EmbeddedRelatedListCard
+          title={`${section.title}${countSuffix}`}
+          actions={actions}
           testId={`related-list-${section.title}-${parentId}`}
         >
           {content}
-        </Card>
+        </EmbeddedRelatedListCard>
       </>
     );
   }

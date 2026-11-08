@@ -12,6 +12,7 @@ export {
   sumEmbeddedListColumn,
   withDerivedCells,
 } from "./embedded-list.ts";
+export { fieldTextKey, resolveFieldText } from "./field-text.ts";
 export type { ComputeListViewModelInput } from "./list.ts";
 export {
   buildOptionLabels,

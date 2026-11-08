@@ -131,6 +131,18 @@ export function validateFieldFormRefs(
   fieldSpec: Exclude<EditFieldSpec, string>,
   formFieldNames: ReadonlySet<string>,
 ): void {
+  if (fieldSpec.valueChips !== undefined && !formFieldNames.has(fieldSpec.valueChips.from)) {
+    throw bootRuleError(FORM_FIELD_RULES.valueChipsUnknownField, {
+      message: `${where} valueChips.from "${fieldSpec.valueChips.from}" is not a field of this form. Known fields: ${[...formFieldNames].sort().join(", ")}`,
+    });
+  }
+  for (const contextField of fieldSpec.aiAssist?.contextFields ?? []) {
+    if (!formFieldNames.has(contextField)) {
+      throw bootRuleError(FORM_FIELD_RULES.aiAssistContextFieldUnknown, {
+        message: `${where} aiAssist.contextFields names unknown field "${contextField}" — it must be another field of the same form.`,
+      });
+    }
+  }
   const affixes = [
     ["prefix", fieldSpec.prefix],
     ["suffix", fieldSpec.suffix],
@@ -156,15 +168,74 @@ export function validateFieldFormRefs(
   }
 }
 
-const FILL_ACTION_FIELD_TYPES: readonly string[] = ["text", "number", "decimal", "bigInt"];
-
 // The fill button writes a plain text or numeric query result into the field;
 // a secret value must never be filled from a query response.
+const FILL_ACTION_FIELD_TYPES: readonly string[] = ["text", "number", "decimal", "bigInt"];
+const AI_ASSIST_FIELD_TYPES: readonly string[] = ["text", "longText"];
+const VALUE_CHIPS_FIELD_TYPES: readonly string[] = ["number", "decimal", "bigInt", "money"];
+
+function validateAssistTargets(
+  where: string,
+  fieldSpec: Exclude<EditFieldSpec, string>,
+  fieldDef: { readonly type: string } | undefined,
+): void {
+  // skip: the field is unknown (reported elsewhere)
+  if (fieldDef === undefined) return;
+  const { aiAssist, valueChips } = fieldSpec;
+  if (valueChips !== undefined && !VALUE_CHIPS_FIELD_TYPES.includes(fieldDef.type)) {
+    throw bootRuleError(FORM_FIELD_RULES.valueChipsFieldType, {
+      message: `${where} valueChips needs a ${VALUE_CHIPS_FIELD_TYPES.join(", ")} field, not "${fieldDef.type}".`,
+    });
+  }
+  if (aiAssist === undefined) return;
+  validateAiAssistTarget(where, aiAssist, fieldDef);
+}
+
+function validateAiAssistTarget(
+  where: string,
+  aiAssist: NonNullable<Exclude<EditFieldSpec, string>["aiAssist"]>,
+  fieldDef: { readonly type: string },
+): void {
+  if (!AI_ASSIST_FIELD_TYPES.includes(fieldDef.type)) {
+    throw bootRuleError(FORM_FIELD_RULES.aiAssistFieldType, {
+      message: `${where} aiAssist needs a text or longText field, not "${fieldDef.type}".`,
+    });
+  }
+  if (isSensitiveOrPasswordField(fieldDef)) {
+    throw bootRuleError(FORM_FIELD_RULES.aiAssistSensitiveField, {
+      message: `${where} aiAssist targets a sensitive, writeOnly or password field. Remove aiAssist.`,
+    });
+  }
+  if ((aiAssist.chips ?? []).length === 0 && aiAssist.prompt === undefined) {
+    throw bootRuleError(FORM_FIELD_RULES.aiAssistEmpty, {
+      message: `${where} aiAssist has neither chips nor a prompt.`,
+    });
+  }
+  if (aiAssist.resultField.trim() === "") {
+    throw bootRuleError(FORM_FIELD_RULES.aiAssistResultFieldEmpty, {
+      message: `${where} aiAssist.resultField is empty. Name the query result key that holds the text.`,
+    });
+  }
+  if (aiAssist.prompt !== undefined && aiAssist.prompt.param.trim() === "") {
+    throw bootRuleError(FORM_FIELD_RULES.aiAssistPromptParamEmpty, {
+      message: `${where} aiAssist.prompt.param is empty. Name the query payload key for the typed instruction.`,
+    });
+  }
+  for (const chip of aiAssist.chips ?? []) {
+    if (chip.label.trim() === "" || Object.keys(chip.params).length === 0) {
+      throw bootRuleError(FORM_FIELD_RULES.aiAssistChipInvalid, {
+        message: `${where} aiAssist chip "${chip.label}" needs a label and at least one param.`,
+      });
+    }
+  }
+}
+
 export function validateFillActionTarget(
   where: string,
   fieldSpec: Exclude<EditFieldSpec, string>,
   fieldDef: { readonly type: string } | undefined,
 ): void {
+  validateAssistTargets(where, fieldSpec, fieldDef);
   // skip: no fill action, or the field is unknown (reported elsewhere)
   if (fieldSpec.fillAction === undefined || fieldDef === undefined) return;
   if (!FILL_ACTION_FIELD_TYPES.includes(fieldDef.type)) {
@@ -220,8 +291,15 @@ export function validateTabSections(
   featureName: string,
   screenId: string,
   screenType: "projectionDetail" | "entityEdit",
-  sections: readonly { readonly id?: string; readonly title?: string }[],
+  allSections: readonly { readonly id?: string; readonly title?: string }[],
 ): void {
+  // projectionDetail: adjacent sections sharing an id are the blocks of one tab.
+  const sections = allSections.filter(
+    (section, index) =>
+      screenType !== "projectionDetail" ||
+      section.id === undefined ||
+      section.id !== allSections[index - 1]?.id,
+  );
   if (sections.length < 2) {
     throw bootRuleError(FORM_LAYOUT_RULES.tabsTooFewSections, {
       message:
@@ -745,6 +823,13 @@ function validateFormLayoutSections(
           `primitive (fw#2166). Move the section to a projectionDetail screen or remove it.`,
       });
     }
+    if (section.kind === "stepList") {
+      throw bootRuleError(FORM_LAYOUT_RULES.stepListSectionUnsupported, {
+        message:
+          `[Feature ${featureName}] Screen "${screenId}" (${context}) stepList section ` +
+          `"${section.title ?? section.field}" is not supported — stepList is a projectionDetail-only primitive. Move the section to a projectionDetail screen or remove it.`,
+      });
+    }
     if (isWriteFormEditSection(section)) {
       throw bootRuleError(FORM_LAYOUT_RULES.writeFormSectionUnsupported, {
         message:
@@ -860,6 +945,40 @@ function validateInlineFormNavTargets(
 
 // actionForm/secretMint have no entity link, only a write-handler QN +
 // inline fields: checks handler registration, field types, layout refs, and nav targets.
+function validateActionFormFieldTexts(
+  featureName: string,
+  screenId: string,
+  screen: ActionFormScreenDefinition,
+  fieldNames: ReadonlySet<string>,
+): void {
+  for (const described of Object.keys(screen.fieldDescriptions ?? {})) {
+    if (fieldNames.has(described)) continue;
+    throw bootRuleError(FORM_FIELD_RULES.fieldDescriptionUnknownField, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) fieldDescriptions names unknown field "${described}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+    });
+  }
+  for (const [owner, texts] of [
+    ["fieldLabels", screen.fieldLabels],
+    ["fieldDescriptions", screen.fieldDescriptions],
+  ] as const) {
+    for (const [fieldName, ref] of Object.entries(texts ?? {})) {
+      if (typeof ref === "string") continue;
+      for (const param of Object.values(ref.params)) {
+        if (fieldNames.has(param)) continue;
+        throw bootRuleError(FORM_FIELD_RULES.fieldTextParamUnknownField, {
+          message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) ${owner}.${fieldName} param names unknown field "${param}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+        });
+      }
+    }
+  }
+  for (const badged of Object.keys(screen.fieldBadges ?? {})) {
+    if (fieldNames.has(badged)) continue;
+    throw bootRuleError(FORM_FIELD_RULES.fieldBadgeUnknownField, {
+      message: `[Feature ${featureName}] Screen "${screenId}" (actionForm) fieldBadges names unknown field "${badged}". Known fields: ${[...fieldNames].sort().join(", ")}`,
+    });
+  }
+}
+
 export function validateInlineFormScreen(
   feature: FeatureDefinition,
   screenId: string,
@@ -891,6 +1010,7 @@ export function validateInlineFormScreen(
   );
   validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap, fieldNames);
   if (screen.type === "actionForm") {
+    validateActionFormFieldTexts(feature.name, screenId, screen, fieldNames);
     validateFormDerivations(feature.name, screenId, screen);
     validateFormDerivationsEnforced(feature.name, screenId, screen, featureMap);
   }

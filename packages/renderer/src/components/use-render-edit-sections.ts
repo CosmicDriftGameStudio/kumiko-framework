@@ -73,6 +73,7 @@ function useFilteredSections(
         (section) =>
           section.kind === "extension" ||
           section.kind === "relatedList" ||
+          section.kind === "stepList" ||
           section.kind === "writeForm" ||
           (section.fields.length === 0 && section.emptiedByWriteExclusion !== true) ||
           section.visible,
@@ -101,7 +102,11 @@ export function useRenderEditSections<TValues extends FormValues, TCtx>(
   const filteredSections = useFilteredSections(vm, props.fields);
   const allFieldsRequired = useAllFieldsRequired(filteredSections);
 
-  const showsAllRequiredHint = allFieldsRequired && hideSectionTitles !== true && !state.isWizard;
+  const showsAllRequiredHint =
+    allFieldsRequired &&
+    hideSectionTitles !== true &&
+    !state.isWizard &&
+    props.screen.layout.allRequiredHint !== false;
 
   // true when editable fields exist or an extension opted into composed submit.
   const isFormEditable = hasEditableSection(filteredSections);

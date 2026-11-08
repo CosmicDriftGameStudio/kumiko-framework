@@ -16,6 +16,7 @@ import {
   useUserRoles,
 } from "../../index.ts";
 import { cn } from "../lib/cn.ts";
+import { useIsBelowSmViewport } from "../primitives/use-narrow-viewport.ts";
 import "../react-css-custom-properties.ts";
 import { STAT_CARD_GRID_CLASSES } from "../widgets/stat.tsx";
 import { dashboardNavigationLink } from "./dashboard-navigation-link.ts";
@@ -84,6 +85,14 @@ function StatGroupLink({
   );
 }
 
+/** A child with `hideOnNarrow` is not mounted on a phone, so it runs no query and leaves no gap. */
+function statsForViewport(
+  stats: DashboardStatGroupPanel["stats"],
+  belowSm: boolean,
+): DashboardStatGroupPanel["stats"] {
+  return belowSm ? stats.filter((stat) => stat.hideOnNarrow !== true) : stats;
+}
+
 function StatCells({
   panel,
   screenId,
@@ -91,7 +100,8 @@ function StatCells({
   translate,
   variant,
 }: Omit<StatGroupProps, "label"> & { readonly variant: StatVariant }): ReactNode {
-  return panel.stats.map((stat) => (
+  const belowSm = useIsBelowSmViewport();
+  return statsForViewport(panel.stats, belowSm).map((stat) => (
     <StatPanelBody
       key={stat.id}
       panel={stat}
@@ -147,7 +157,8 @@ function PhoneStripIcon({
 function TitledStatStrip(props: StatGroupProps & { readonly label: string }): ReactNode {
   const { panel, label, translate } = props;
   const navigateAllowed = useStatNavigateAllowed();
-  const stats = panel.stats.filter(navigateAllowed);
+  const belowSm = useIsBelowSmViewport();
+  const stats = statsForViewport(panel.stats, belowSm).filter(navigateAllowed);
   return (
     <div
       data-testid={`dashboard-panel-${panel.id}`}

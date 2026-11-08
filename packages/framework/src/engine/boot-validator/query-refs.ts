@@ -76,7 +76,15 @@ function checkEditLayoutQueryRefs(
   for (const section of layout.sections) {
     if (isFieldsEditSection(section)) {
       for (const fieldSpec of sectionFieldSpecs(section)) {
-        const { field, fillAction } = normalizeEditField(fieldSpec);
+        const { field, fillAction, aiAssist } = normalizeEditField(fieldSpec);
+        if (aiAssist !== undefined) {
+          checkQueryRef(
+            queryHandlers,
+            aiAssist.query,
+            () =>
+              `[Feature ${featureName}] Screen "${screenId}" (${screenType}) field "${field}" aiAssist`,
+          );
+        }
         if (fillAction === undefined) continue;
         checkQueryRef(
           queryHandlers,

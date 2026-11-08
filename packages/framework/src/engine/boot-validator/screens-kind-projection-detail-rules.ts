@@ -16,6 +16,12 @@ export const PROJECTION_DETAIL_RULES = {
     summary: "A projectionDetail with a header sets no recordTitleField.",
     fix: "Drop recordTitleField; header.title names the record.",
   },
+  initialTabInvalid: {
+    id: "projection-detail/initial-tab-invalid",
+    summary:
+      "initialTab needs layout.mode tabs and each rule names an existing section id; footerHint needs footerActions.",
+    fix: "Use tabs mode and section ids from the layout for initialTab, or declare footerActions next to footerHint.",
+  },
   tabsSectionGroupsAndActions: {
     id: "projection-detail/tabs-section-groups-and-actions",
     summary: "A tabs-mode section declares groups or actions, not both.",

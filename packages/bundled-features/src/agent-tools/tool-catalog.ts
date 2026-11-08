@@ -403,7 +403,26 @@ function buildAskUserTool(): { tool: ToolDefinition; descriptor: ToolDispatchDes
         type: "object",
         properties: {
           question: { type: "string" },
-          options: { type: "array", items: { type: "string" } },
+          options: {
+            type: "array",
+            items: {
+              anyOf: [
+                { type: "string" },
+                {
+                  type: "object",
+                  properties: {
+                    label: { type: "string" },
+                    preview: {
+                      type: "string",
+                      description: "The text you will write if the user picks this option.",
+                    },
+                  },
+                  required: ["label"],
+                  additionalProperties: false,
+                },
+              ],
+            },
+          },
         },
         required: ["question"],
         additionalProperties: false,

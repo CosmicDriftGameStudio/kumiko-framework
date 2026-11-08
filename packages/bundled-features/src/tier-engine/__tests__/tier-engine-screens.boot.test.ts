@@ -31,7 +31,7 @@ describe("tier-engine tier-admin screen + handler access alignment", () => {
     const tierEngine = createTierEngineFeature();
     const screen = tierEngine.screens[TIER_ADMIN_SCREEN_ID];
     expect(screen).toBeDefined();
-    if (screen && "layout" in screen) {
+    if (screen && screen.type !== "dashboard" && "layout" in screen) {
       expect(screen.layout.sections[0]).toMatchObject({ description: "tier-admin.error.noTiers" });
     }
     if (screen && "fields" in screen) {
@@ -49,7 +49,7 @@ describe("tier-engine tier-admin screen + handler access alignment", () => {
     if (screen && "access" in screen && screen.access && "roles" in screen.access) {
       expect(screen.access.roles).toEqual(SYSTEM_ADMIN_ROLES);
     }
-    if (screen && "layout" in screen) {
+    if (screen && screen.type !== "dashboard" && "layout" in screen) {
       expect(screen.layout.sections[0]).toMatchObject({ description: "tier-admin.explainer" });
     }
   });

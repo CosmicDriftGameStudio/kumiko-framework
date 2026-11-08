@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-11-04
+verified: 2026-11-08
 evidence: "kumiko-framework#4239; packages/bundled-features/src/channel-whatsapp; packages/bundled-features/src/channel-whatsapp/__tests__/whatsapp.integration.test.ts"
 ---
 

@@ -14,8 +14,24 @@ export const LIST_ROW_GUIDANCE_RULES = {
   hintColumnLink: {
     id: "list/hint-column-link",
     summary:
-      "A hint column owns its cell rendering and sets no linkScreenField, linkParamsField, refEntity, badgeToneField or badgeDot.",
+      "A hint column owns its cell rendering and sets no linkScreenField, linkParamsField, refEntity, badgeToneField, badgeDot or pillField.",
     fix: "Remove the link or badge option, or move the hint to its own column.",
+  },
+  photoGridFieldNotInColumns: {
+    id: "list/photo-grid-field-not-in-columns",
+    summary:
+      "photoGrid.imageField and photoGrid.captionField name a field of the section's columns, so the query output is checked.",
+    fix: "Add the field to the section's columns or name another field.",
+  },
+  pillToneWithoutPill: {
+    id: "list/pill-tone-without-pill",
+    summary: "pillToneField colors the pillField pill, so it needs pillField.",
+    fix: "Set pillField on the column or remove pillToneField.",
+  },
+  pillWithDisplay: {
+    id: "list/pill-with-display",
+    summary: "pillField adds a pill beside the cell value and is not combined with display.",
+    fix: "Remove display or pillField from the column.",
   },
   hintColumnEmptyPlaceholder: {
     id: "list/hint-column-empty-placeholder",

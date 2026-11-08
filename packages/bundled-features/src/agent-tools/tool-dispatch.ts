@@ -2,7 +2,7 @@ import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/eng
 import { isKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { runAsAgentToolCallEntry } from "@cosmicdrift/kumiko-framework/internal/request-context";
 import { createFallbackLogger, type Logger } from "@cosmicdrift/kumiko-framework/logging";
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { FILTER_OPS, isRecord } from "./filter-ops.ts";
 import type { ToolDispatchDescriptor } from "./types.ts";
 
@@ -402,8 +402,20 @@ function dispatchClientOpenForm(
   };
 }
 
-function isStringArray(value: unknown): value is readonly string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+type AskUserOption = string | { readonly label: string; readonly preview?: string };
+
+function isAskUserOption(value: unknown): value is AskUserOption {
+  if (typeof value === "string") return true;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const preview = propertyOf(value, "preview");
+  return (
+    typeof propertyOf(value, "label") === "string" &&
+    (preview === undefined || typeof preview === "string")
+  );
+}
+
+function isAskUserOptions(value: unknown): value is readonly AskUserOption[] {
+  return Array.isArray(value) && value.every(isAskUserOption);
 }
 
 function dispatchClientAskUser(input: Readonly<Record<string, unknown>>): ToolCallResult {
@@ -415,8 +427,10 @@ function dispatchClientAskUser(input: Readonly<Record<string, unknown>>): ToolCa
   if (options === undefined) {
     return { ok: true, data: { kind: "ask_user", question } };
   }
-  if (!isStringArray(options)) {
-    return invalidToolCall(`ask_user "options" argument must be an array of strings`);
+  if (!isAskUserOptions(options)) {
+    return invalidToolCall(
+      `ask_user "options" argument must be an array of strings or { label, preview? } objects`,
+    );
   }
   return { ok: true, data: { kind: "ask_user", question, options } };
 }

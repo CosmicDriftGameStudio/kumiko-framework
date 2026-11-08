@@ -189,10 +189,21 @@ export const DASHBOARD_RULES = {
     summary: 'A stat-group\'s columns is 2, 3 or 4 and needs layout "cards".',
     fix: 'Set columns to 2, 3 or 4 and give the group a label or layout: "cards", or remove columns.',
   },
+  layoutInvalid: {
+    id: "dashboard/layout-invalid",
+    summary:
+      'A dashboard layout is "main-side"; a panel column is "side" or "top", used only with that layout and never on a stat-group child.',
+    fix: 'Set layout: "main-side" on the dashboard to use column: "side" or "top", or remove column.',
+  },
+  listColumnVariantInvalid: {
+    id: "dashboard/list-column-variant-invalid",
+    summary: 'A list column variant is "primary" and needs display: "button".',
+    fix: 'Set display: "button" on the column or remove variant.',
+  },
   statGroupChildHideOnNarrow: {
     id: "dashboard/stat-group-child-hide-on-narrow",
-    summary: "Stat-group children do not set hideOnNarrow.",
-    fix: "Set hideOnNarrow on the whole group instead.",
+    summary: "A stat-group keeps at least one child on a phone: not every child sets hideOnNarrow.",
+    fix: "Set hideOnNarrow on the whole group instead, or keep one child visible.",
   },
   listNarrowFieldUnknown: {
     id: "dashboard/list-narrow-field-unknown",

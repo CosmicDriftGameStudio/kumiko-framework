@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { EditFieldViewModel } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
@@ -26,10 +26,18 @@ export function WriteOnlyTextInput({
   const isMarkedForRemoval = field.value === null && changed;
   const [replacing, setReplacing] = useState(false);
 
-  // A save turns the wire value back into `true`; the masked row returns with it.
+  // The masked row returns when a value the user produced (typed text, a pending removal) turns
+  // back into `true` (save or Undo). A plain false -> true flip, e.g. the record arriving or
+  // reloading, must not close an open Replace, so only a user-produced value arms the reset.
+  const userEdited = useRef(false);
+  const userValue = typeof field.value === "string" || isMarkedForRemoval;
   useEffect(() => {
-    if (isSet) setReplacing(false);
-  }, [isSet]);
+    if (userValue) userEdited.current = true;
+    else if (isSet && userEdited.current) {
+      userEdited.current = false;
+      setReplacing(false);
+    }
+  }, [isSet, userValue]);
 
   if (isSet && !replacing && !field.readOnly) {
     return (

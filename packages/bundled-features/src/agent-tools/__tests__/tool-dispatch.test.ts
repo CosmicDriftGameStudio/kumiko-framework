@@ -513,6 +513,19 @@ describe("dispatchToolCall — client tools", () => {
     });
   });
 
+  test("ask_user passes { label, preview } options through and rejects an option without label", async () => {
+    const options = ["Maybe", { label: "Yes", preview: "It has one." }];
+    const ok = await dispatchToolCall(
+      request({ toolName: "ask_user", input: { question: "Hitch?", options } }),
+    );
+    expect(ok).toEqual({ ok: true, data: { kind: "ask_user", question: "Hitch?", options } });
+
+    const noLabel = await dispatchToolCall(
+      request({ toolName: "ask_user", input: { question: "Hitch?", options: [{ preview: "x" }] } }),
+    );
+    expect(noLabel.ok).toBe(false);
+  });
+
   test("ask_user omits options from the result data when not provided", async () => {
     const result = await dispatchToolCall(
       request({ toolName: "ask_user", input: { question: "Which vendor?" } }),

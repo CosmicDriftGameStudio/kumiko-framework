@@ -3,10 +3,12 @@ import type {
   EditSectionSpec,
   EmbeddedDerivedCellDef,
   FieldAffix,
+  FieldAiAssist,
   FieldCondition,
   FieldFillAction,
   FieldIconKey,
   FieldRenderer,
+  FieldValueChips,
   IconKey,
   ListBulkAction,
   ListColumnSpec,
@@ -138,6 +140,10 @@ export type ListColumnViewModel = {
   readonly badgeToneField?: string;
   /** `false`: the pill has no leading dot. */
   readonly badgeDot?: false;
+  /** Row field with the label of a pill drawn beside the cell value (`ListColumnSpec.pillField`). */
+  readonly pillField?: string;
+  /** Row field naming the pill tone. */
+  readonly pillToneField?: string;
   /** `false`: an empty cell stays blank instead of showing "—". */
   readonly emptyPlaceholder?: false;
 };
@@ -277,7 +283,7 @@ export type EditFieldViewModel = {
    *  toggle instead of the default combobox dropdown. Set for
    *  `type: "select"` when SelectFieldDef.display is "radio" or "dropdown" —
    *  the renderer then skips its own radio-vs-dropdown heuristic. */
-  readonly display?: "checkboxes" | "dropdown" | "radio";
+  readonly display?: "checkboxes" | "chips" | "dropdown" | "radio";
   /** `type: "select"` only: tone per option, shown on the selected radio segment. */
   readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is
@@ -377,6 +383,10 @@ export type EditFieldViewModel = {
   readonly suffix?: FieldAffix;
   /** From EditFieldSpec.fillAction, `label` already translated. */
   readonly fillAction?: FieldFillAction;
+  /** From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated. */
+  readonly aiAssist?: FieldAiAssist;
+  /** From EditFieldSpec.valueChips. */
+  readonly valueChips?: FieldValueChips;
   /** Only set for an embedded-LIST field (`multiple: true`) — the per-cell
    *  metadata the renderer needs to draw each column/cell. Absent for a
    *  plain (non-list) embedded field. */
@@ -425,7 +435,8 @@ export type EditSectionViewModel =
   | EditFieldsSectionViewModel
   | EditExtensionSectionViewModel
   | EditRelatedListSectionViewModel
-  | EditWriteFormSectionViewModel;
+  | EditWriteFormSectionViewModel
+  | EditStepListSectionViewModel;
 
 export type EditFieldsSectionViewModel = {
   readonly kind: "fields";
@@ -494,6 +505,20 @@ export type EditExtensionSectionViewModel = {
 // Mirrors EditRelatedListSection verbatim — no per-row/query resolution
 // happens in the view-model builder; the renderer's RelatedListSection
 // runs the query itself.
+export type EditStepListSectionViewModel = {
+  readonly kind: "stepList";
+  readonly id?: string;
+  readonly title?: string;
+  /** Read from the record at view-model time; texts are already translated. */
+  readonly items: readonly {
+    readonly title: string;
+    readonly status?: string;
+    readonly statusTone?: SelectOptionTone;
+    readonly description?: string;
+  }[];
+  readonly actions?: undefined;
+};
+
 export type EditRelatedListSectionViewModel = {
   readonly kind: "relatedList";
   readonly id?: string;
@@ -521,6 +546,8 @@ export type EditRelatedListSectionViewModel = {
    *  Section's title row, distinct from `toolbarActions` (which render
    *  above the table itself). */
   readonly actions?: readonly RowAction[];
+  /** From `EditRelatedListSection.photoGrid` — draws the rows as image tiles. */
+  readonly photoGrid?: { readonly imageField: string; readonly captionField?: string };
   /** From `EditRelatedListSection.emptyState` — forwarded to the
    *  DataTable's `emptyState` prop when the section has zero rows. */
   readonly emptyState?: {

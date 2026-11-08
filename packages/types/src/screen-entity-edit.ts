@@ -61,6 +61,13 @@ export type EditFieldSpec =
        *  the value can only come from the suggestion. Only for single-line
        *  text and number inputs; other kinds ignore it. */
       readonly fillAction?: FieldFillAction;
+      /** Helper under a `text` or `longText` input: stackable chips and an optional free
+       *  instruction call a query and write its `resultField` into the field. */
+      readonly aiAssist?: FieldAiAssist;
+      /** Quick-pick chips under a `number`, `decimal`, `bigInt` or `money` input; a chip sets
+       *  the field to its value. The values come from another field of the same form that
+       *  holds an array of numbers (e.g. hidden and `submit: false`, seeded by prefill). */
+      readonly valueChips?: FieldValueChips;
       /** Marks this field as a reference lookup instead of a plain value —
        *  for projectionDetail fields, which have no `EntityDefinition` to
        *  carry a real `reference` field type. Same target convention as
@@ -85,6 +92,44 @@ export type EditFieldSpec =
     };
 
 export type FieldAffix = string | { readonly field: string };
+
+/** A label or help text: an i18n key, or a key whose `{placeholder}`s are filled from form values.
+ *  `params` maps each placeholder to the name of a form field (hidden fields count). */
+export type FieldTextRef =
+  | string
+  | { readonly key: string; readonly params: Readonly<Record<string, string>> };
+
+/** One toggle chip: while active, its `params` are merged into the query payload. */
+export type FieldAiAssistChip = {
+  /** i18n key of the chip label. */
+  readonly label: string;
+  readonly params: Readonly<Record<string, string | number | boolean>>;
+};
+
+export type FieldAiAssist = {
+  /** Qualified query name, run with the form's context payload (the `load` id of an actionForm,
+   *  else the drawer row's prefill values) plus the `params` of the active chips. */
+  readonly query: string;
+  /** Key in the query result written into the field; the value must be a string. */
+  readonly resultField: string;
+  /** Key in the query result with a short note for the user (e.g. "could not rewrite, draft unchanged"). Shown as a quiet line under the field until the next result without one. */
+  readonly noteField?: string;
+  /** Other fields of the same form whose current values are sent in the payload (under their
+   *  field names). Changing one of them runs the query again and replaces the text. */
+  readonly contextFields?: readonly string[];
+  readonly chips?: readonly FieldAiAssistChip[];
+  /** Adds an input where the user types a free instruction; it is sent under `param`. */
+  readonly prompt?: {
+    readonly param: string;
+    /** i18n key of the input's placeholder. */
+    readonly placeholder?: string;
+  };
+};
+
+export type FieldValueChips = {
+  /** Name of a field of the same form whose value is an array of numbers. For `money`, major units. */
+  readonly from: string;
+};
 
 export type FieldFillAction = {
   /** i18n key (falls back to the literal) of the button label. */
@@ -128,12 +173,17 @@ export type EditSectionSpec =
   | EditFieldsSection
   | EditExtensionSection
   | EditRelatedListSection
-  | EditWriteFormSection;
+  | EditWriteFormSection
+  | EditStepListSection;
 
 type EditFieldsSectionBase = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
+  /** projectionDetail only: shows the section (and its tab) only while the loaded record matches,
+   *  same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`. `field` must be an
+   *  output field of the detail query. */
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly kind?: "fields";
   /** Optional. Without a title the section only renders its fields (no h3
    *  heading) — for flat forms (card title + fields directly, a single
@@ -190,10 +240,36 @@ export type EditFieldsSection = EditFieldsSectionBase &
       }
   );
 
+/** One step of an `EditStepListSection`; `status` renders as a pill in `statusTone`. */
+export type StepListItem = {
+  readonly title: string;
+  readonly status?: string;
+  readonly statusTone?: SelectOptionTone;
+  readonly description?: string;
+};
+
+/** Vertical numbered step list (circles joined by a line), fed from one field of the detail
+ *  query. Only supported on projectionDetail. Several sections sharing one `id` stack inside one
+ *  tab, e.g. fields, relatedList and stepList under "Overview". */
+export type EditStepListSection = {
+  readonly id?: string;
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
+  readonly kind: "stepList";
+  readonly title?: string;
+  /** Output field of the detail query holding a `StepListItem[]`. */
+  readonly field: string;
+  /** Present only so section-actions readers accept the union; a step list has no title-row actions. */
+  readonly actions?: undefined;
+};
+
 export type EditExtensionSection = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
+  /** projectionDetail only: shows the section (and its tab) only while the loaded record matches,
+   *  same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`. `field` must be an
+   *  output field of the detail query. */
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly kind: "extension";
   readonly title: string;
   /** Wizard layouts only: intro text above the step, same slot as `EditFieldsSection.description`. */
@@ -269,6 +345,10 @@ export type EditRelatedListSection = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
+  /** projectionDetail only: shows the section (and its tab) only while the loaded record matches,
+   *  same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`. `field` must be an
+   *  output field of the detail query. */
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly kind: "relatedList";
   readonly title: string;
   /** Rows are aggregates or other values with no record of their own, so they lead nowhere on
@@ -374,6 +454,14 @@ export type EditRelatedListSection = {
    *  ("kumiko.list.no-entries") applies. `action`'s icon must resolve, same
    *  as `actions` above. */
   readonly emptyState?: RelatedListEmptyStateSpec;
+  /** Draws the rows as a tile grid of images instead of a table. Each tile shows the file in
+   *  `imageField` and the row's `rowActions` underneath; `columns` only name the row fields. */
+  readonly photoGrid?: {
+    /** Row field holding a FileRef id (or an id array, the first shows). */
+    readonly imageField: string;
+    /** Row field printed under the image. */
+    readonly captionField?: string;
+  };
 };
 
 /** Empty-state text for one parent-record state, e.g. "still running" vs. "finished without rows". */
@@ -404,6 +492,10 @@ export type EditWriteFormSection = {
   /** Kebab-case tab id, used as the `?tab=` value. Required by the
    *  boot-validator when the enclosing `EditLayout.mode` is "tabs". */
   readonly id?: string;
+  /** projectionDetail only: shows the section (and its tab) only while the loaded record matches,
+   *  same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`. `field` must be an
+   *  output field of the detail query. */
+  readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly kind: "writeForm";
   readonly title?: string;
   readonly description?: string;
@@ -457,6 +549,8 @@ export type EditLayout = {
   readonly variant?: "form" | "settings-list";
   /** Hides the asterisk after required field labels. Default false (shown). */
   readonly hideRequiredMarker?: boolean;
+  /** `false` switches off the "all fields are required" hint when every field is required; each label then carries its own asterisk. */
+  readonly allRequiredHint?: false;
   /** Persists in-progress wizard state as a resumable draft instead of
    *  discarding it on navigation away. */
   readonly draft?: boolean;
@@ -577,7 +671,7 @@ export type EntityEditScreenDefinition = {
    *  natural field namespace — the settings hub injects the config key's
    *  `mask.title` label here. A missing entry falls back to the
    *  convention. */
-  readonly fieldLabels?: Readonly<Record<string, string>>;
+  readonly fieldLabels?: Readonly<Record<string, FieldTextRef>>;
   /** Record actions. Reuses `RowAction` — analogous to
    *  `ProjectionDetailScreenDefinition.actions` (the loaded record stands
    *  in for the "row"). `rowClick` has no target here and is rejected by

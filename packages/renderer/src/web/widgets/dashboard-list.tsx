@@ -16,6 +16,7 @@ import { HintCell } from "../primitives/data-table/hint-cell.tsx";
 import {
   CellTextLink,
   LINK_BUTTON_CLASS,
+  LINK_BUTTON_PRIMARY_CLASS,
   LIST_BADGE_TONE,
   rowToneClass,
   toneDotClass,
@@ -28,6 +29,8 @@ export type DashboardListColumn = {
   /** Translated by the caller. */
   readonly label: string;
   readonly display?: "bar" | "badge" | "datetime" | "button";
+  /** `display: "button"` only: filled primary instead of outline. */
+  readonly buttonVariant?: "primary";
   readonly badgeToneField?: string;
   readonly badgeDot?: false;
   /** `false` leaves an empty cell blank instead of drawing the placeholder. */
@@ -155,7 +158,12 @@ export function DashboardListCell({
     return link === undefined ? (
       label
     ) : (
-      <CellTextLink link={link} className={LINK_BUTTON_CLASS}>
+      <CellTextLink
+        link={link}
+        className={
+          column.buttonVariant === "primary" ? LINK_BUTTON_PRIMARY_CLASS : LINK_BUTTON_CLASS
+        }
+      >
         {label}
       </CellTextLink>
     );

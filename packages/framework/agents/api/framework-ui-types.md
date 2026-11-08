@@ -65,6 +65,7 @@ type ActionFormLoad = {
   query: string; // Query QN that returns the record.
   idParam?: string; // Payload key carrying the record id (default "id").
   singleton?: boolean; // The query picks the row from the caller's tenant/session context, so the form loads without a record id and the query is called WITHOUT `idParam` (same semantics as `ProjectionDetailScreenDefinition.singleton`).
+  passPrefill?: boolean; // Sends the values a drawer opens the form with (row-action params, e.g. `vehicleId`) in the load payload next to `idParam`, so the query can pre-fill for the chosen item.
 };
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.
   screen: string; // Same target forms as the string `redirect`: short screen ID (same-feature) or a fully-qualified cross-feature screen QN.
@@ -163,6 +164,7 @@ type DashboardFilterDefinition = {
   options?: { value: string; label: string; }[];
   optionsQuery?: string; // Query-Result-Contract: `{ rows: { value: string; label: string }[] }`.
 };
+type DashboardLayout = "main-side"; // "main-side": from `lg` up the main column (2/3) stacks every panel without `column`, the side column (1/3) every `column: "side"` panel, each with its own heights; `column: "top"` panels span both columns above them; below `lg` they stack, below `sm` by `narrowOrder`.
 type DashboardListFooterLink = { // Link to a screen from a panel; `label` is an i18n key, `namedFilter` only for list screens.
   label: string;
   moreText?: string; // i18n key of the text before the link when more rows exist than shown; `{count}` is the rest.
@@ -201,6 +203,7 @@ type DashboardMoneyParam = { // Minor units (like Money fields), formatted with 
   amountMinor: number;
   currency: string;
 };
+type DashboardPanelColumn = "side" | "top"; // "top" spans both columns above the main and side column, in declared order.
 type DashboardPanelDefinition = DashboardStatPanel | DashboardStatGroupPanel | DashboardChartPanel | DashboardListPanel | DashboardFeedPanel | DashboardProgressListPanel | DashboardTextPanel | DashboardCustomPanel | DashboardScreenPanel;
 type DashboardPanelEmptyState = {
   span?: DashboardPanelSpan;
@@ -210,6 +213,7 @@ type DashboardPanelEmptyState = {
 type DashboardPanelNarrow = { // Phone layout switch shared by every panel kind.
   hideOnNarrow?: true; // Leaves the panel out below the `sm` breakpoint (phone).
   narrowOrder?: number; // Position below `sm`, like CSS `order`: panels are laid out by ascending value, a panel without one counts as 0, equal values keep the declared order.
+  column?: DashboardPanelColumn; // "side" puts the panel in the narrow right column of a `layout: "main-side"` dashboard, "top" in a full-width block above both columns; panels without it fill the main column.
 };
 type DashboardPanelQueryOptions = {
   params?: Readonly<Record<string, unknown>>; // Static, author-set query parameters merged on top of the screen's dynamic filterParams — lets a panel pin a value (e.g. a status facet) the screen-wide filter doesn't cover, without needing its own query.
@@ -255,6 +259,7 @@ type DashboardScreenDefinition = {
   visibleWhen?: ScreenVisibility; // UI-only gate, also on direct URL access; handlers still enforce access.
   fallback?: ScreenFallback; // Same-feature short id or cross-feature QN `<feature>:screen:<id>` shown when `visibleWhen` is unmet (default: standard notice).
   panels: DashboardPanelDefinition[];
+  layout?: DashboardLayout; // Panel arrangement, see DashboardLayout.
   record?: DashboardRecordBinding; // Binds the dashboard to one record via a URL search param, see DashboardRecordBinding.
   actions?: RowAction[]; // Header actions on the bound record (writeHandler, navigate, clientAction).
   refresh?: DashboardRefresh;
@@ -354,6 +359,7 @@ type DashboardTextPanel = DashboardPanelGate & DashboardPanelQueryOptions & Dash
   kind: "text";
   id: string;
   label?: string; // Panel title (i18n key).
+  icon?: PlatformComponent; // Icon shown before the text blocks (resolved like `DashboardStatGroupPanel.icon`).
   span?: DashboardPanelSpan;
   query?: string; // Query answering `{ blocks: DashboardTextBlock[] }`; its blocks replace the static ones.
   blocks?: DashboardTextBlock[];
@@ -371,6 +377,7 @@ type DerivedCellRoundingTarget = {
 };
 type EditExtensionSection = {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
+  visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind: "extension";
   title: string;
   description?: string; // Wizard layouts only: intro text above the step, same slot as `EditFieldsSection.description`.
@@ -390,6 +397,7 @@ type EditLayout = {
   mode?: "single" | "wizard" | "tabs"; // Default "single".
   variant?: "form" | "settings-list"; // "settings-list" lays each section out as a band with a title column on the left and one hairline-separated row per field (label + help left, control right) — the familiar settings pattern, for screens that are a list of independent preferences rather than one record form.
   hideRequiredMarker?: boolean; // Hides the asterisk after required field labels.
+  allRequiredHint?: false; // `false` switches off the "all fields are required" hint when every field is required; each label then carries its own asterisk.
   draft?: boolean; // Persists in-progress wizard state as a resumable draft instead of discarding it on navigation away.
   wizard?: {
     aside?: {
@@ -400,8 +408,17 @@ type EditLayout = {
     submitDisabledWhen?: FieldCondition; // Disables the finish button (and blocks the submit) while the condition holds on the form values.
   }; // Wizard layouts only.
 };
+type EditStepListSection = { // Vertical numbered step list (circles joined by a line), fed from one field of the detail query.
+  id?: string;
+  visibleWhen?: Exclude<FieldCondition, boolean>;
+  kind: "stepList";
+  title?: string;
+  field: string; // Output field of the detail query holding a `StepListItem[]`.
+  actions?: undefined; // Present only so section-actions readers accept the union; a step list has no title-row actions.
+};
 type EditWriteFormSection = {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
+  visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind: "writeForm";
   title?: string;
   description?: string;
@@ -448,6 +465,21 @@ type FieldAffix =
     field: string;
   }
 ;
+type FieldAiAssist = {
+  query: string; // Qualified query name, run with the form's context payload (the `load` id of an actionForm, else the drawer row's prefill values) plus the `params` of the active chips.
+  resultField: string; // Key in the query result written into the field; the value must be a string.
+  noteField?: string; // Key in the query result with a short note for the user (e.g. "could not rewrite, draft unchanged").
+  contextFields?: string[]; // Other fields of the same form whose current values are sent in the payload (under their field names).
+  chips?: FieldAiAssistChip[];
+  prompt?: {
+    param: string;
+    placeholder?: string; // i18n key of the input's placeholder.
+  }; // Adds an input where the user types a free instruction; it is sent under `param`.
+};
+type FieldAiAssistChip = { // One toggle chip: while active, its `params` are merged into the query payload.
+  label: string; // i18n key of the chip label.
+  params: Readonly<Record<string, string | number | boolean>>;
+};
 type FieldFillAction = {
   label: string; // i18n key (falls back to the literal) of the button label.
   query: string; // Qualified query name, run with the current form values picked by `params`.
@@ -456,6 +488,16 @@ type FieldFillAction = {
 };
 type FieldIconKey = "mail" | "lock" | "hash" | "search" | "user" | "phone" | "calendar" | "link" | "tag" | "building" | "globe" | "key" | "map-pin";
 type FieldRenderer = PlatformComponent | string | FormatSpec;
+type FieldTextRef = // A label or help text: an i18n key, or a key whose `{placeholder}`s are filled from form values.
+  | string
+  | {
+    key: string;
+    params: Readonly<Record<string, string>>;
+  }
+;
+type FieldValueChips = {
+  from: string; // Name of a field of the same form whose value is an array of numbers.
+};
 type FormDerivationScreen = {
   fields: Readonly<Record<string, FormFieldDefinition>>;
   derive?: Readonly<Record<string, FormFieldDerivation>>;
@@ -508,6 +550,10 @@ type ParsedRefTarget = {
 type PlatformComponent = {
   react?: unknown;
   native?: unknown;
+};
+type ProjectionDetailInitialTab = { // One `initialTab` rule: `tab` is a section id of the layout.
+  when: Exclude<FieldCondition, boolean>;
+  tab: string;
 };
 type QualifiedContentCollection = ContentCollectionDefinition & {
   navQn: string;
@@ -576,12 +622,15 @@ type RecordStepsSpec = {
   emptyLabel?: string; // i18n key for an empty list, default `kumiko.detail.steps.empty`.
   narrowLimit?: number; // Below `sm` only the first n steps show; the rest sits behind a "k more steps" toggle.
   narrowMoreLabel?: string; // Plural base key for the toggle of the hidden rest: define `<key>.one` and `<key>.other` (the latter with `{count}`).
+  moreActionsLabel?: string; // i18n key of a short label before each step's further actions ("Clarify first?").
+  visibleWhen?: Exclude<FieldCondition, boolean>; // The whole panel is drawn only while the condition holds on the record.
   actions?: RecordGuidanceAction[];
 };
 type RecordSummarySpec = { // One emphasized sentence below the header; `field` holds a string.
   field: string;
   toneField?: string; // Row field holding a SelectOptionTone for the sentence's accent.
   narrowField?: string; // Row field with a shorter sentence shown instead of `field` below `sm`.
+  icon?: IconKey; // Draws the sentence as plain text led by this icon (e.g. "sparkles" for an AI statement) instead of the bordered box.
 };
 type RelatedListEmptyStateSpec = ListEmptyStateSpec & { // The first `variants` entry whose `when` holds for the parent record replaces `title` and `description`; `action` stays.
   variants?: RelatedListEmptyStateVariant[];
@@ -608,7 +657,7 @@ type RowActionClientAction = {
   style?: "primary" | "secondary" | "danger"; // Visual style.
   icon?: IconKey; // Overrides the id-based default icon, see `RowActionWriteHandler.icon`.
   display?: RowActionDisplay; // Inline render form in the row-action column — see `RowActionDisplay`.
-  successMessage?: string; // i18n key of the toast shown after the handler reported `{ ok: true }` (default `kumiko.clientAction.success`).
+  successMessage?: string | false; // i18n key of the toast shown after the handler reported `{ ok: true }` (default `kumiko.clientAction.success`); `false` shows no toast.
 };
 type RowActionDisplay = "button" | "link" | "icon" | "responsive"; // How a row action renders inline in the row-action column.
 type RowActionDrawer = {
@@ -679,6 +728,12 @@ type SecretsEditScreenDefinition = {
   access?: AccessRule;
 };
 type SelectOptionTone = (typeof SELECT_OPTION_TONES)[number];
+type StepListItem = { // One step of an `EditStepListSection`; `status` renders as a pill in `statusTone`.
+  title: string;
+  status?: string;
+  statusTone?: SelectOptionTone;
+  description?: string;
+};
 type TextFieldDef = PiiAndFieldState & {
   type: "text";
   description?: string; // Optional free-text semantics for the AI agent manifest — never rendered; the i18n label is what users see.

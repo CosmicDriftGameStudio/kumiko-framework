@@ -92,6 +92,11 @@ export const FORM_LAYOUT_RULES = {
     summary: "Inline form layouts have no relatedList sections.",
     fix: "Move the section to a projectionDetail screen or remove it.",
   },
+  stepListSectionUnsupported: {
+    id: "form/step-list-section-unsupported",
+    summary: "Inline form layouts have no stepList sections.",
+    fix: "Move the section to a projectionDetail screen or remove it.",
+  },
   writeFormSectionUnsupported: {
     id: "form/write-form-section-unsupported",
     summary: "Inline form layouts have no writeForm sections.",

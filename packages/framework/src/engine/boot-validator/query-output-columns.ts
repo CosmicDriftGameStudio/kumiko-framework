@@ -1,5 +1,6 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-types/handlers";
 import type {
+  ActionFormScreenDefinition,
   DashboardListPanel,
   DashboardPanelVisibility,
   DashboardScreenDefinition,
@@ -276,6 +277,25 @@ function checkDetailSectionFields(
           `${prefix} section "${section.title ?? "(untitled)"}" countField references field "${countField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
       );
     }
+    if (section.visibleWhen !== undefined) {
+      const conditionField = section.visibleWhen.field;
+      checkFieldExists(
+        recordShape,
+        conditionField,
+        () =>
+          `${prefix} section "${section.title ?? section.id ?? "(untitled)"}" visibleWhen references field "${conditionField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+      );
+    }
+    if (section.kind === "stepList") {
+      const stepField = section.field;
+      checkFieldExists(
+        recordShape,
+        stepField,
+        () =>
+          `${prefix} stepList section "${section.title ?? section.id ?? "(untitled)"}" references field "${stepField}" which is not present in query "${screen.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+      );
+      continue;
+    }
     if (section.kind !== undefined && section.kind !== "fields") continue;
     for (const entry of sectionFieldSpecs(section)) {
       const field = typeof entry === "string" ? entry : entry.field;
@@ -511,8 +531,30 @@ function checkScreenOutputColumns(
     screen.type === "secretMint"
   ) {
     checkEditLayoutOutputColumns(queryHandlers, featureName, screenId, screen.type, screen.layout);
+    if (screen.type === "actionForm")
+      checkSummaryLoadFields(queryHandlers, featureName, screenId, screen);
   } else if (screen.type === "dashboard") {
     checkDashboardOutputFields(queryHandlers, featureName, screenId, screen);
+  }
+}
+
+// summary.paramsFromLoad reads the raw load result, so each name must be an output field of the load query.
+function checkSummaryLoadFields(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screen: ActionFormScreenDefinition,
+): void {
+  const shape = getZodObjectShape(
+    screen.load === undefined ? undefined : queryHandlers.get(screen.load.query)?.outputSchema,
+  );
+  for (const field of screen.summary?.paramsFromLoad ?? []) {
+    checkFieldExists(
+      shape,
+      field,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (actionForm) summary.paramsFromLoad references field "${field}" which is not present in load query "${screen.load?.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
+    );
   }
 }
 

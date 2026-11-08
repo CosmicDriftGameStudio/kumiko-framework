@@ -228,7 +228,8 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
       sameEntityScreenId,
     ],
   );
-  const headerActions = useMemo((): readonly RenderEditAction[] | undefined => {
+  const footerIds = screen.footerActions;
+  const recordActions = useMemo((): readonly RenderEditAction[] | undefined => {
     const declaredHasEdit = screen.actions?.some((a) => a.id === "edit") === true;
     const resolved = buildRecordActions({
       actions: (screen.actions ?? []).filter((a) => isShownOnTab(a, activeTabId)),
@@ -261,7 +262,28 @@ export function useProjectionDetailActions(input: DetailActionsInput) {
     handleRecordLeft,
     sameEntityScreenId,
   ]);
-  return { buildSectionActions, buildItemActions, headerActions };
+  // footerActions render in RenderEdit's pinned footer, so the header bar must not repeat them.
+  const headerActions = useMemo(
+    () =>
+      footerIds === undefined
+        ? recordActions
+        : recordActions?.filter((a) => !footerIds.includes(a.id)),
+    [recordActions, footerIds],
+  );
+  const footerActions = useMemo(
+    () =>
+      footerIds === undefined
+        ? undefined
+        : recordActions
+            ?.filter((a) => footerIds.includes(a.id))
+            .map((a) =>
+              screen.actions?.find((declared) => declared.id === a.id)?.align === "start"
+                ? { ...a, align: "start" as const, pinnedOnPhone: true as const }
+                : { ...a, pinnedOnPhone: true as const },
+            ),
+    [recordActions, footerIds, screen.actions],
+  );
+  return { buildSectionActions, buildItemActions, headerActions, footerActions };
 }
 
 // Without a shown record id, a payload-less write or client action would fall back to the guidance item's own id (a step key, not a record id).

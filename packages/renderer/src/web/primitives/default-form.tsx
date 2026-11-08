@@ -112,6 +112,56 @@ function DrawerFormLayout({
   );
 }
 
+function EmbeddedFormLayout({
+  onSubmit,
+  focusFirstErrorKey,
+  actions,
+  secondaryActions,
+  unsavedCount,
+  testId,
+  children,
+}: Pick<
+  FormProps,
+  "onSubmit" | "focusFirstErrorKey" | "actions" | "secondaryActions" | "unsavedCount" | "testId"
+> & {
+  readonly children: ReactNode;
+}): ReactNode {
+  const t = useTranslation();
+  return (
+    <FormRoot
+      onSubmit={onSubmit}
+      focusFirstErrorKey={focusFirstErrorKey}
+      testId={testId}
+      className="flex w-full flex-col gap-6"
+    >
+      <FormSections chromeless stickyActions={undefined} fillHeight={false} screenForm>
+        {children}
+      </FormSections>
+      {(actions !== undefined || secondaryActions !== undefined) && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-footer` : undefined}
+          className="flex flex-wrap items-center gap-2"
+        >
+          {actions}
+          {secondaryActions}
+          {unsavedCount !== undefined && unsavedCount > 0 && (
+            <span
+              data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
+              className="flex items-center gap-2 text-[13px] text-foreground-secondary"
+            >
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-status-active"
+                aria-hidden="true"
+              />
+              {unsavedStatusText(t, unsavedCount)}
+            </span>
+          )}
+        </div>
+      )}
+    </FormRoot>
+  );
+}
+
 export function DefaultForm({
   onSubmit,
   focusFirstErrorKey,
@@ -134,7 +184,6 @@ export function DefaultForm({
   summary,
 }: FormProps): ReactNode {
   const insideDrawer = useInsideDrawer();
-  const t = useTranslation();
   const isEmbeddedForm = useContext(EmbeddedFormContext);
   const contextWidth = useContext(ScreenWidthContext);
   // Embedded (AuthCard etc.): bare <form>, stacked fields with gap; the
@@ -182,37 +231,16 @@ export function DefaultForm({
 
   if (isEmbeddedForm) {
     return (
-      <FormRoot
+      <EmbeddedFormLayout
         onSubmit={onSubmit}
         focusFirstErrorKey={focusFirstErrorKey}
+        actions={actions}
+        secondaryActions={secondaryActions}
+        unsavedCount={unsavedCount}
         testId={testId}
-        className="flex w-full flex-col gap-6"
       >
-        <FormSections chromeless stickyActions={undefined} fillHeight={false} screenForm>
-          {children}
-        </FormSections>
-        {(actions !== undefined || secondaryActions !== undefined) && (
-          <div
-            data-testid={testId !== undefined ? `${testId}-footer` : undefined}
-            className="flex flex-wrap items-center gap-2"
-          >
-            {actions}
-            {secondaryActions}
-            {unsavedCount !== undefined && unsavedCount > 0 && (
-              <span
-                data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
-                className="flex items-center gap-2 text-[13px] text-foreground-secondary"
-              >
-                <span
-                  className="size-1.5 shrink-0 rounded-full bg-status-active"
-                  aria-hidden="true"
-                />
-                {unsavedStatusText(t, unsavedCount)}
-              </span>
-            )}
-          </div>
-        )}
-      </FormRoot>
+        {children}
+      </EmbeddedFormLayout>
     );
   }
 
@@ -267,9 +295,14 @@ export function DefaultForm({
                     : "max-w-[640px]",
                 )}
               >
-                <InsideScreenFormColumnContext.Provider value={true}>
-                  {headerRegion}
-                </InsideScreenFormColumnContext.Provider>
+                {headerRegion !== undefined && (
+                  // Own flex container: the header parts carry `order` classes that must not reach the sections.
+                  <div className="flex flex-col gap-9">
+                    <InsideScreenFormColumnContext.Provider value={true}>
+                      {headerRegion}
+                    </InsideScreenFormColumnContext.Provider>
+                  </div>
+                )}
                 <FormTitleBlock
                   title={title}
                   subtitle={subtitle}

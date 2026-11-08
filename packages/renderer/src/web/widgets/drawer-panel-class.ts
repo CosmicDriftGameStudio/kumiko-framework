@@ -29,7 +29,7 @@ export function sidePanelClass(
     return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
   }
   if (narrow) {
-    return "inset-x-0 bottom-0 h-auto max-h-[85vh] w-full max-w-none rounded-t-[2rem] border-t overflow-hidden";
+    return "inset-x-0 bottom-0 h-auto max-h-[90vh] w-full max-w-none rounded-t-[2rem] border-t overflow-hidden";
   }
   if (variant === "flush") {
     switch (side) {

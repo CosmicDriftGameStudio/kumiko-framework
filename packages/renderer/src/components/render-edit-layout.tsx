@@ -14,7 +14,11 @@ import {
   renderWizardProgress,
 } from "./render-edit-banners.tsx";
 import { renderFormActions } from "./render-edit-form-actions.tsx";
-import { buildHeaderActions, type HeaderActionsModel } from "./render-edit-header-actions.tsx";
+import {
+  buildHeaderActions,
+  type HeaderActionsModel,
+  renderAfterFormSlot,
+} from "./render-edit-header-actions.tsx";
 import type { RenderEditModel } from "./render-edit-render-model.ts";
 import { renderEditSections } from "./render-edit-section-kinds.tsx";
 import { deriveWizardRail } from "./render-edit-wizard-rail.ts";
@@ -156,8 +160,10 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
             {renderDraftPicker(model)}
             {renderWizardProgress(model)}
             {state.isTabs && state.isStepped && renderTabStrip(model)}
+            {props.formErrorOnTop === true && renderFormErrorBanner(model)}
             {renderEditSections(model)}
-            {renderFormErrorBanner(model)}
+            {renderAfterFormSlot(model)}
+            {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
             {renderRootIssueBanners(model)}
             {renderExtensionErrorBanner(model)}
             {renderActionErrorBanner(model)}

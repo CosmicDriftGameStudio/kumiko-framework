@@ -281,14 +281,19 @@ type ActionFormScreenDefinition = {
   fields: Readonly<Record<string, FormFieldDefinition>>; // Form shape: field map by name.
   derive?: Readonly<Record<string, FormFieldDerivation>>; // Fields computed from other fields, shown read-only and recomputed on every change.
   layout: EditLayout; // Layout analogous to EntityEditScreen: sections with fields from the fields map above.
-  fieldLabels?: Readonly<Record<string, string>>; // Per-field label i18n key override, same type/semantics as `EntityEditScreenDefinition.fieldLabels`.
+  fieldLabels?: Readonly<Record<string, FieldTextRef>>; // Per-field label i18n key override, same type/semantics as `EntityEditScreenDefinition.fieldLabels`.
   submitLabel?: string; // i18n key for the submit button.
   footerActions?: ActionFormFooterAction[]; // Extra buttons in the form footer next to the submit button.
   summary?: {
     title: string;
     subtitle?: string;
     params?: Readonly<Record<string, string>>;
+    paramsFromLoad?: string[]; // Fields of the `load` result that fill `{name}` placeholders too (static `params` win).
   }; // Context box above the fields (i18n keys).
+  fieldDescriptions?: Readonly<Record<string, FieldTextRef>>; // Help text under a field (field name -> i18n key).
+  infoBand?: string; // i18n key of a short note in a banner above the fields, with a sparkles icon (e.g. "the AI prepared everything, read the text, then send").
+  fieldBadges?: Readonly<Record<string, { label: string; tone: SelectOptionTone; }>>; // Badge next to a field's label (field name -> `{ label: i18n key, tone }`), e.g. "price source open" in `warn`.
+  formErrorOnTop?: boolean; // Shows a failed submit's error banner above the fields instead of below them.
   submitStyle?: "primary" | "danger"; // Visual style of the submit button.
   successMessage?: string; // i18n key of a confirmation shown above the form after a successful submit when the screen stays put (no `redirect`, not drawer-hosted).
   redirect?: string | ActionFormRedirect; // Navigate to this screen ID after a successful submit: either a short ID (e.g. "item-list" — same feature, the nav-router resolves to the full path) or a fully-qualified cross-feature QN (`<feature>:screen:<id>`).
@@ -530,6 +535,8 @@ type EditFieldSpec =
     prefix?: FieldAffix; // Static text shown before the input (i18n key, falls back to the literal), or `{ field }` for the current form value of another field (a hidden field carrying e.g. a base domain).
     suffix?: FieldAffix; // Same as `prefix`, shown after the input.
     fillAction?: FieldFillAction; // Button beside the input that runs a query and writes one scalar of its result into this field.
+    aiAssist?: FieldAiAssist; // Helper under a `text` or `longText` input: stackable chips and an optional free instruction call a query and write its `resultField` into the field.
+    valueChips?: FieldValueChips; // Quick-pick chips under a `number`, `decimal`, `bigInt` or `money` input; a chip sets the field to its value.
     refEntity?: string; // Marks this field as a reference lookup instead of a plain value — for projectionDetail fields, which have no `EntityDefinition` to carry a real `reference` field type.
     refLabelField?: string; // Row field on the referenced entity shown as the label (default "id").
     format?: "email" | "phone"; // Text format for projectionDetail fields, which have no `EntityDefinition` to carry it: a read-only value renders as a `mailto:`/`tel:` link.
@@ -539,6 +546,7 @@ type EditFieldSpec =
 ;
 type EditRelatedListSection = {
   id?: string; // Kebab-case tab id, used as the `?tab=` value.
+  visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind: "relatedList";
   title: string;
   readOnly?: boolean; // Rows are aggregates or other values with no record of their own, so they lead nowhere on purpose.
@@ -569,8 +577,12 @@ type EditRelatedListSection = {
   count?: true; // Tab badge counted from this section's own query (`limit: 1, totalCount: true` → `total`), so it matches the tab's rows and stays live.
   actions?: RowAction[]; // Rendered top-right in the section's Card title row — same navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`, evaluated against the parent record.
   emptyState?: RelatedListEmptyStateSpec; // Rendered inside the section's Card in place of the table when this section's query returns zero rows.
+  photoGrid?: {
+    imageField: string; // Row field holding a FileRef id (or an id array, the first shows).
+    captionField?: string; // Row field printed under the image.
+  }; // Draws the rows as a tile grid of images instead of a table.
 };
-type EditSectionSpec = EditFieldsSection | EditExtensionSection | EditRelatedListSection | EditWriteFormSection;
+type EditSectionSpec = EditFieldsSection | EditExtensionSection | EditRelatedListSection | EditWriteFormSection | EditStepListSection;
 type EffectiveFeaturesResolver = ((tenantId: TenantId) => ReadonlySet<string>) & { // Resolver callback shape: synchronous (on the dispatcher's hot path), per tenant.
   trialGate?: TrialGate; // Optional live-trial gate, consulted by the dispatcher feature gate ONLY when the synchronous resolver reports a feature as disabled.
 };
@@ -628,7 +640,7 @@ type EntityEditScreenDefinition = {
   singleton?: boolean; // Default false.
   redirect?: string | ActionFormRedirect; // Navigate to this screen ID after a successful save (create or update).
   listScreenId?: string; // Parent list screen (short id) for breadcrumb + nav highlighting when this screen has no nav entry of its own.
-  fieldLabels?: Readonly<Record<string, string>>; // Optional per-field label i18n key (field name → key), overrides the default convention `<feature>:entity:<entity>:field:<name>`.
+  fieldLabels?: Readonly<Record<string, FieldTextRef>>; // Optional per-field label i18n key (field name → key), overrides the default convention `<feature>:entity:<entity>:field:<name>`.
   actions?: EntityEditAction[]; // Record actions.
   slots?: ScreenSlots;
   access?: AccessRule;
@@ -869,6 +881,7 @@ interface FieldFormatRegistry {
     locale?: string;
     dateStyle?: "full" | "long" | "medium" | "short";
   };
+  phone: Record<never, never>; // Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field.
   boolean: {
     trueLabel?: string;
     falseLabel?: string;
@@ -1065,8 +1078,11 @@ type ListColumnSpec =
     width?: number; // Start width in px.
     minWidth?: number; // Smallest width in px the user can resize to.
     display?: ListColumnDisplay; // One of "bar" | "badge" | "datetime" | "button".
+    variant?: "primary"; // `"primary"` draws a `display: "button"` link as a filled primary button instead of the outline default (dashboard list panels only).
     badgeToneField?: string; // Row field naming the badge tone; only with `display: "badge"`.
     badgeDot?: false; // `false` draws the badge pill without its leading dot; only with `display: "badge"`.
+    pillField?: string; // Row field holding a second label, drawn as a pill next to the cell's own value (e.g. a vehicle name with a "free" pill).
+    pillToneField?: string; // Row field naming the tone of the `pillField` pill (a `ListBadgeTone`).
     linkScreenField?: string; // Row field holding a screen QN (`<feature>:screen:<id>`): the cell links to that screen when the row sets it and the user may open it.
     linkParamsField?: string; // Row field holding a params object for the linkScreenField target: `entityId` opens that record, the other keys become search params (e.g. actionForm prefill).
     hint?: ListColumnHint; // "To do" cell: the column's field holds a sentence, shown emphasized in the row tone; an empty value shows `emptyLabel`.
@@ -1403,6 +1419,9 @@ type ProjectionDetailScreenDefinition = {
   actions?: RowAction[]; // Header action buttons.
   primaryAction?: string; // Id of the action that stays the visible header button when the actions collapse into a menu (and the one that keeps the phone icon slot when it has an icon and no confirm).
   inlineActions?: string[]; // Action ids that stay visible buttons next to the primary action when the rest collapses into the menu.
+  footerActions?: string[]; // Ids of `actions` shown in the pinned footer bar instead of the header, in declaration order.
+  footerHint?: string; // i18n key of a note on the left of the footer bar ("Changes go out with the release"); hidden below `sm`.
+  initialTab?: ProjectionDetailInitialTab[]; // Tab that opens first when the URL names none: the first rule whose condition holds on the record wins, else the first visible tab.
   valueDisplay?: "form" | "text"; // How head fields render.
 };
 type ProjectionListScreenDefinition = {
@@ -1591,7 +1610,9 @@ type RoleAccessRule = {
   personalData?: RoleAccessPersonalData;
   anySignedIn?: true;
 };
-type RowAction = RowActionWriteHandler | RowActionNavigate | RowActionDrawer | RowActionClientAction;
+type RowAction = (RowActionWriteHandler | RowActionNavigate | RowActionDrawer | RowActionClientAction) & {
+  align?: "start"; // projectionDetail `footerActions` only: "start" sets the button apart on the left of the footer.
+};
 type RowActionWriteHandler = {
   kind?: "writeHandler"; // Default for RowActions without an explicitly set `kind` — backwards-compatible form.
   id: string; // Stable id per screen — kebab-case, unique within the action set.
