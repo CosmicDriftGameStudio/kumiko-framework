@@ -215,6 +215,20 @@ describe("billing option", () => {
     }
   });
 
+  test("stripe.allowPromotionCodes reaches the subscription-stripe feature factory", () => {
+    const factory = spyOn(stripeFeatureModule, "createSubscriptionStripeFeature");
+    try {
+      resolveBillingOption(
+        { ...billing, stripe: { ...billing.stripe, allowPromotionCodes: true } },
+        {},
+      );
+      expect(factory).toHaveBeenCalledTimes(1);
+      expect(factory.mock.calls[0]?.[0]).toMatchObject({ allowPromotionCodes: true });
+    } finally {
+      factory.mockRestore();
+    }
+  });
+
   test("paddle alone mounts subscription-paddle on the shared route", () => {
     const resolved = resolveBillingOption(
       { paddle: { priceToTier: { pri_pro: "pro" } }, defaultTier: "free" },

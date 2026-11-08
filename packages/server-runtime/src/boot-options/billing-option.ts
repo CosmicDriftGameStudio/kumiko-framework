@@ -37,6 +37,7 @@ export type BillingBootOption = {
     readonly webhookPath?: string;
     readonly oneOffPriceIds?: SubscriptionStripeOptions["oneOffPriceIds"];
     readonly paymentInvoiceCreation?: boolean;
+    readonly allowPromotionCodes?: SubscriptionStripeOptions["allowPromotionCodes"];
     readonly clientConfig?: SubscriptionStripeOptions["clientConfig"];
   };
   readonly paddle?: {
@@ -92,6 +93,9 @@ function providerFeatures(
         ...(stripe.oneOffPriceIds && { oneOffPriceIds: stripe.oneOffPriceIds }),
         ...(stripe.paymentInvoiceCreation !== undefined && {
           paymentInvoiceCreation: stripe.paymentInvoiceCreation,
+        }),
+        ...(stripe.allowPromotionCodes !== undefined && {
+          allowPromotionCodes: stripe.allowPromotionCodes,
         }),
         ...(stripe.clientConfig && { clientConfig: stripe.clientConfig }),
         ...bridgeCredentials(envSource, "STRIPE_API_KEY", "STRIPE_WEBHOOK_SECRET"),
