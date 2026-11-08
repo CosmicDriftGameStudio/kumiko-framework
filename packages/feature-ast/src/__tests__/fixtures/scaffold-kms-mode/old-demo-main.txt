@@ -1,0 +1,49 @@
+// biome-ignore-all lint/style/noProcessEnv: KMS wiring and the demo admin password are read before runProdApp parses the env contract, and the scaffold has no bin/env.ts
+// Production-bootstrap. KUMIKO_DRY_RUN_ENV=boot exits after
+// composeFeatures + validateBoot + createRegistry without DB/Redis-connect
+// (see @cosmicdrift/kumiko-server-runtime runProdApp).
+
+import { requireKmsWiring, resolveKmsWiring } from "@cosmicdrift/kumiko-framework/crypto";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { runProdApp } from "@cosmicdrift/kumiko-server-runtime";
+import appConfig from "../kumiko.config";
+import { APP_FEATURES } from "../src/run-config";
+import { envSchema } from "./env-schema";
+
+const DEFAULT_TENANT_ID = "7d8e9bfd-aef1-4aef-970d-0000d0e0ee3f" as TenantId;
+
+const kmsOpts = {
+  logPrefix: "[demoapp]",
+  plaintextReason:
+    "no PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY set — see .env.example",
+} as const;
+
+const kmsWiring =
+  process.env["NODE_ENV"] === "production"
+    ? requireKmsWiring(process.env, kmsOpts)
+    : resolveKmsWiring(process.env, kmsOpts);
+
+await runProdApp({
+  features: APP_FEATURES,
+  ...(appConfig.validateBootOptions && { validateBootOptions: appConfig.validateBootOptions }),
+  ...(appConfig.rowLevelSecurity && { rowLevelSecurity: appConfig.rowLevelSecurity }),
+  envSchema,
+  staticDir: "./dist",
+  ...kmsWiring,
+  auth: {
+    admin: {
+      email: "admin@demoapp.local",
+      // runProdApp validates envSchema before seeding: a missing or short value aborts the boot.
+      password: process.env["DEMO_ADMIN_PASSWORD"] ?? "",
+      displayName: "Admin",
+      memberships: [
+        {
+          tenantId: DEFAULT_TENANT_ID,
+          tenantKey: "demoapp",
+          tenantName: "demoapp",
+          roles: ["TenantAdmin"],
+        },
+      ],
+    },
+  },
+});
