@@ -10,7 +10,7 @@ import { createMetricsForFactory } from "../observability/index.ts";
 import { buildContextServices } from "../pipeline/context-services.ts";
 import { parseWriteOrigin } from "../pipeline/write-origin.ts";
 import { createJobAppendEvent } from "./job-append-event.ts";
-import { createJobLoadEvents } from "./job-load-events.ts";
+import { createJobLoadEvents, createJobLoadEventsByTypes } from "./job-load-events.ts";
 import {
   buildJobDbFacets,
   buildJobDispatchFacets,
@@ -185,6 +185,12 @@ function buildJobContext(
         jobName,
       }),
       load: createJobLoadEvents({ registry: scope.registry, jobDb, tenantId, jobName }),
+      loadByTypes: createJobLoadEventsByTypes({
+        registry: scope.registry,
+        jobDb,
+        tenantId,
+        jobName,
+      }),
     },
     services: buildJobServices(scope, { files, derivatives, selfRunner }),
     lifecycle: scope.context.signal ? { signal: scope.context.signal } : {},

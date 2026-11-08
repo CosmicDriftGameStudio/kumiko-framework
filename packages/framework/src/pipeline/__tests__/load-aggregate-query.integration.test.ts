@@ -102,6 +102,23 @@ const asOfFeature = defineFeature("asoftest", (r) => {
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
 
+  r.queryHandler({
+    name: "invoice:approvals",
+    schema: z.object({ ids: z.array(z.uuid()) }),
+    handler: async (query, ctx) => {
+      const events = await ctx.events.loadByTypes({
+        aggregateIds: query.payload.ids,
+        eventTypes: [approved.name],
+      });
+      return events.map((evt) => ({
+        aggregateId: evt.aggregateId,
+        type: evt.type,
+        payload: evt.payload,
+      }));
+    },
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+
   // Query handler — reduces raw events into a derived shape via
   // ctx.events.load. Exposes live aggregation over HTTP.
   r.queryHandler({
@@ -168,6 +185,53 @@ afterEach(async () => {
 });
 
 // --- Tests ---
+
+describe("ctx.events.loadByTypes via queryHandler", () => {
+  test("returns only the requested types of the requested aggregates, upcasted", async () => {
+    const first = await stack.http.writeOk<{ id: string }>(
+      "asoftest:write:invoice:create",
+      { customer: "First", status: "draft" },
+      admin,
+    );
+    const unrequested = await stack.http.writeOk<{ id: string }>(
+      "asoftest:write:invoice:create",
+      { customer: "Unrequested", status: "draft" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "asoftest:write:invoice:approve",
+      { id: first.id, amount: 1500, approvedBy: "boss" },
+      admin,
+    );
+    await stack.http.writeOk(
+      "asoftest:write:invoice:approve",
+      { id: unrequested.id, amount: 700, approvedBy: "other" },
+      admin,
+    );
+    const legacyId = "00000000-0000-4000-8000-000000000043";
+    await (stack.db as DbConnection).begin(async (tx: DbTx) => {
+      await append(tx, {
+        aggregateId: legacyId,
+        aggregateType: "asof-invoice",
+        tenantId: admin.tenantId,
+        expectedVersion: 0,
+        type: "asoftest:event:approved",
+        eventVersion: 1,
+        payload: { amount: "12.50", approvedBy: "legacy" },
+        metadata: { userId: admin.id },
+      });
+    });
+
+    const events = await stack.http.queryOk<
+      { aggregateId: string; type: string; payload: { amount: number } }[]
+    >("asoftest:query:invoice:approvals", { ids: [first.id, legacyId] }, admin);
+
+    expect(events.map((evt) => [evt.aggregateId, evt.type, evt.payload.amount])).toEqual([
+      [first.id, "asoftest:event:approved", 1500],
+      [legacyId, "asoftest:event:approved", 1250],
+    ]);
+  });
+});
 
 describe("ctx.events.load via queryHandler — Marten AggregateStreamAsync equivalent", () => {
   test("reduces created + approved events into current state", async () => {
