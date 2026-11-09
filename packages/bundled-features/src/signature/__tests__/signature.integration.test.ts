@@ -466,7 +466,10 @@ describe("signature :: links", () => {
     failDeliveryFor.add(signerId);
     const failed = await stack.http.writeErr(SignatureHandlers.issueLink, { signerId }, USER);
 
-    expect(failed.httpStatus).toBeGreaterThanOrEqual(400);
+    expect(failed.httpStatus).toBe(500);
+    // The cause is only echoed in dev/test (exposesCauseDetails); the message is generic everywhere.
+    expect(failed.code).toBe("internal_error");
+    expect(failed.message).toBe("internal error");
     expect(await outboxSignerIds()).toEqual(outboxBefore);
     const after = await signerRow(signerId);
     expect(after["linkAnchor"]).toBe(before["linkAnchor"]);

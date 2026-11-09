@@ -2,6 +2,7 @@ import {
   DEFAULT_LIST_LIMIT,
   entityListSchema,
   type HandlerContext,
+  isUuid,
   MAX_LIST_LIMIT,
   type QueryHandlerDef,
   type SessionUser,
@@ -134,6 +135,7 @@ export function scopeSignerList(base: QueryHandlerDef, scope: SubjectScope): Que
       ) {
         throw new AccessDeniedError();
       }
+      if (!isUuid(requestFilter.value)) return emptyPage(payload);
       const request = await requestExecutor.detail({ id: requestFilter.value }, user, ctx.db);
       if (request === null || !(await scope.allowsRequest(ctx, user, request))) {
         return emptyPage(payload);

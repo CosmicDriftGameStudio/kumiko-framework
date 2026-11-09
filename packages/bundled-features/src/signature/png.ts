@@ -122,13 +122,27 @@ function unfilterRows(raw: Uint8Array, header: Header): boolean {
 }
 
 function countInkPixels(raw: Uint8Array, header: Header): number {
-  const stride = header.width * header.bytesPerPixel + 1;
+  const bytesPerPixel = header.bytesPerPixel;
+  const stride = header.width * bytesPerPixel + 1;
+  const pixelStart = (row: number, column: number): number =>
+    row * stride + 1 + column * bytesPerPixel;
+  const background = pixelStart(0, 0);
+  // An opaque first pixel means the image has a solid background, so ink is whatever differs from it.
+  const hasSolidBackground = (raw[background + bytesPerPixel - 1] ?? 0) > 0;
+  const differsFromBackground = (start: number): boolean => {
+    for (let i = 0; i < bytesPerPixel; i++) {
+      if (raw[start + i] !== raw[background + i]) return true;
+    }
+    return false;
+  };
   let ink = 0;
   for (let row = 0; row < header.height; row++) {
     for (let column = 0; column < header.width; column++) {
-      const alphaIndex =
-        row * stride + 1 + column * header.bytesPerPixel + header.bytesPerPixel - 1;
-      if ((raw[alphaIndex] ?? 0) > 0) ink++;
+      const start = pixelStart(row, column);
+      const isInk = hasSolidBackground
+        ? differsFromBackground(start)
+        : (raw[start + bytesPerPixel - 1] ?? 0) > 0;
+      if (isInk) ink++;
     }
   }
   return ink;

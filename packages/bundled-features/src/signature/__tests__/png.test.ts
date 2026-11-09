@@ -11,6 +11,16 @@ describe("checkSignaturePng", () => {
     expect(checkSignaturePng(makePng({ drawn: false })).ok).toBe(false);
   });
 
+  test("rejects a fully opaque image without a stroke", () => {
+    expect(checkSignaturePng(makePng({ drawn: false, background: [255, 255, 255, 255] })).ok).toBe(
+      false,
+    );
+  });
+
+  test("accepts a stroke drawn on an opaque background", () => {
+    expect(checkSignaturePng(makePng({ background: [255, 255, 255, 255] })).ok).toBe(true);
+  });
+
   test("rejects bytes that are not a PNG", () => {
     expect(checkSignaturePng(new TextEncoder().encode("GIF89a not a png")).ok).toBe(false);
     expect(checkSignaturePng(new Uint8Array()).ok).toBe(false);

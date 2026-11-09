@@ -45,7 +45,7 @@ export type SignatureOptions = {
   readonly renderHtmlToPdf: RenderSignatureHtmlToPdf;
   /** HMAC secret of the signing links. Without it every link is rejected. */
   readonly linkSecret: string;
-  /** Sends a freshly issued link to the signer, e.g. by mail. A throw fails issue-link and leaves no link sent. */
+  /** Sends a freshly issued link to the signer, e.g. by mail. Runs inside the issue-link transaction, before it commits: enqueue through `ctx.dispatch` so the send commits or rolls back with the new link; a throw fails issue-link and leaves no link sent. */
   readonly deliverLink: DeliverSignatureLink;
   /** URL of the app's signature page; the token is appended as `#<token>`. */
   readonly signaturePageUrl: string;

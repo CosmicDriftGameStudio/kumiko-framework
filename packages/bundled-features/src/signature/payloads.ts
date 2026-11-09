@@ -12,7 +12,7 @@ const SignerInputSchema = z.object({
   name: z.string().trim().min(1).max(200),
   role: z.string().trim().min(1).max(100).optional(),
   contactId: z.string().min(1).max(64).optional(),
-  email: z.string().trim().min(3).max(320).optional(),
+  email: z.string().trim().max(320).pipe(z.email()).optional(),
 });
 
 export const RequestSignatureSchema = z.object({
