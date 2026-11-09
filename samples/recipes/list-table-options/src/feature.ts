@@ -183,7 +183,7 @@ export function createTaskBoardFeature(
         {
           id: "set-status",
           label: "Set status",
-          icon: "edit",
+          icon: "pencil",
           screen: "task-set-status",
           idsField: "taskIds",
         },

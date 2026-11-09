@@ -1,3 +1,4 @@
+import * as z from "zod";
 import {
   ZodArray,
   ZodCatch,
@@ -22,7 +23,6 @@ import {
   ZodType,
   ZodUnion,
   ZodXor,
-  z,
 } from "zod";
 import type { $ZodType } from "zod/v4/core";
 import { bootRuleError } from "./boot-rule.ts";
