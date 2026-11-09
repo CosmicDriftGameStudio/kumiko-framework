@@ -53,13 +53,19 @@ function ListThenForm({ dispatcher }: { readonly dispatcher: Dispatcher }): Reac
   );
 }
 
-function BulkList({ dispatcher }: { readonly dispatcher: Dispatcher }): ReactNode {
+function BulkList({
+  dispatcher,
+  screenRef = "swap-company",
+}: {
+  readonly dispatcher: Dispatcher;
+  readonly screenRef?: string;
+}): ReactNode {
   const bulk = useListBulk({
     bulkActions: [
       {
         id: "swap-company",
         label: "Swap company",
-        screen: "swap-company",
+        screen: screenRef,
         idsField: "propertyIds",
       },
     ],
@@ -98,5 +104,29 @@ describe("list bulk form action", () => {
       type: "props:write:swap-company",
       payload: { propertyIds: ["p1", "p2", "p4"], company: "Acme Facility" },
     });
+  });
+
+  test("a qualified screen id navigates with the short id the URL carries", async () => {
+    const targets: unknown[] = [];
+    const dispatcher = createMockDispatcher();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "property-list" },
+            navigate: (target) => targets.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <BulkList dispatcher={dispatcher} screenRef="props:screen:swap-company" />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+    fireEvent.click(screen.getByTestId("row-p1-select"));
+    fireEvent.click(screen.getByTestId("bulk-action-swap-company"));
+    expect(targets).toEqual([{ screenId: "swap-company" }]);
   });
 });

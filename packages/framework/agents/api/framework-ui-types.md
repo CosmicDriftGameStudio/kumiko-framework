@@ -67,6 +67,17 @@ type ActionFormLoad = {
   singleton?: boolean; // The query picks the row from the caller's tenant/session context, so the form loads without a record id and the query is called WITHOUT `idParam` (same semantics as `ProjectionDetailScreenDefinition.singleton`).
   passPrefill?: boolean; // Sends the values a drawer opens the form with (row-action params, e.g. `vehicleId`) in the load payload next to `idParam`, so the query can pre-fill for the chosen item.
 };
+type ActionFormPreview = { // Preview panel above the submit button: runs a query over the current form values and shows what the submit would do.
+  query: string; // Query QN.
+  fields?: string[]; // Form fields sent to the query; they also trigger a rerun when they change.
+  title?: string; // Panel title (i18n key).
+  facts?: ActionFormSuccessFact[]; // Key figures from the query result, shown like the success box facts.
+  list?: ActionFormPreviewList; // Table of rows from the query result.
+};
+type ActionFormPreviewList = { // Rows of the preview panel, read from an array in the preview query's result.
+  field: string; // Flat field name of an array in the query result; an entry that is no object is skipped.
+  columns: { field: string; label: string; }[];
+};
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.
   screen: string; // Same target forms as the string `redirect`: short screen ID (same-feature) or a fully-qualified cross-feature screen QN.
   idFrom?: string; // Flat field name in the handler's success payload, e.g. "leaseId".

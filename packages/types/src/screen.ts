@@ -214,6 +214,8 @@ export type { NamedFilterFacetOptions } from "./named-list-filters.ts";
 export type {
   ActionFormFooterAction,
   ActionFormLoad,
+  ActionFormPreview,
+  ActionFormPreviewList,
   ActionFormRedirect,
   ActionFormScreenDefinition,
   ActionFormSuccessFact,

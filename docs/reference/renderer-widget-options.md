@@ -289,6 +289,8 @@ bulkActions: [{ id: "swap-company", label: "props.swap-company", icon: "edit", s
 // target form: fields: { propertyIds: { type: "multiSelect", options: [], display: "count" } }
 ```
 
+**Security.** A form action runs one write for all rows, so access and audit no longer run per row, and the client limit of 100 rows is no protection. The form's write handler must bound the list itself with `z.array(...).max(MAX_BULK_SELECTION)` (from `ui-types`) and check every id with a tenant-scoped read, answering `failNotFound` for an unknown or foreign id before it writes anything.
+
 With at least one bulk action the table gets a checkbox column on the left, a header checkbox for the loaded rows and a checkbox on every card in the card layout. A bar above the table shows "n selected", one button per action and "Clear selection". A list without `bulkActions` renders without the column.
 
 ![Task board with two selected rows, the bar shows 2 selected, Delete and Clear selection](/screenshots/tables/bulk-actions.png)
@@ -298,6 +300,25 @@ With at least one bulk action the table gets a checkbox column on the left, a he
 **Confirm.** The dialog appears once for the whole selection and names the count. It appears when the bulk entry sets `confirm` (an i18n key with `{count}` and `{action}`) or the row action has `confirm` or `style: "danger"`.
 
 **Limits.** The selection covers the loaded rows of the current page and at most 100 rows. There is no "select all matches across pages". With `table.keyboardNavigation`, Space toggles the focused row.
+
+## actionForm `preview`
+
+An `actionForm` takes `preview` to show what the submit will do before the user sends it, for example which row of a bulk action gets which new value. The panel sits above the submit button and runs a query over the form values.
+
+```ts illustration
+preview: {
+  query: "task-board:query:task:set-status-preview",
+  fields: ["taskIds", "status"],
+  title: "Preview",
+  facts: [{ field: "count", label: "Tasks that change" }],
+  list: { field: "tasks", columns: [{ field: "title", label: "Task" }, { field: "after", label: "New" }] },
+},
+```
+
+- The query payload is the current value of `fields` (all form fields when unset). It runs 300 ms after the last change of a sent field and not while a required field among them is empty.
+- `facts` read numbers, strings or arrays from the result like the success box. `list.field` names an array of objects in the result; each `columns` entry shows one field of every object.
+- A failing query shows a warning in the panel and never blocks the submit. The panel shows a loading banner until the first result.
+- Let the query and the write handler call one pure function, so the preview shows what the handler will do. The boot validator rejects an unknown query, a `fields` entry that is no form field, a fact or column without a label and a preview without facts and list.
 
 ## `DataTable`: `onFilterReset`
 

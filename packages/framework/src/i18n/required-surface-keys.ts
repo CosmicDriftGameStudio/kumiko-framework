@@ -425,6 +425,15 @@ function collectEntityEditKeys(
   pushEditLayoutSectionKeys(ctx, edit.layout.sections, edit.entity, edit.fieldLabels);
 }
 
+function pushPreviewKeys(
+  ctx: ScreenKeyCollectorContext,
+  preview: ScreenOfKind["actionForm"]["preview"],
+): void {
+  pushKey(ctx.out, preview?.title);
+  for (const fact of preview?.facts ?? []) pushKey(ctx.out, fact.label);
+  for (const column of preview?.list?.columns ?? []) pushKey(ctx.out, column.label);
+}
+
 function collectActionFormKeys(
   ctx: ScreenKeyCollectorContext,
   form: ScreenOfKind["actionForm"],
@@ -440,6 +449,7 @@ function collectActionFormKeys(
   for (const badge of Object.values(form.fieldBadges ?? {})) pushKey(ctx.out, badge.label);
   for (const link of form.successLinks ?? []) pushKey(ctx.out, link.label);
   for (const fact of form.successFacts ?? []) pushKey(ctx.out, fact.label);
+  pushPreviewKeys(ctx, form.preview);
   pushKey(ctx.out, form.successItems?.link?.label);
   for (const fieldName of Object.keys(form.fields)) {
     pushFieldLabelOrOverrideKey(ctx, ACTION_FORM_ENTITY, fieldName, form.fieldLabels);

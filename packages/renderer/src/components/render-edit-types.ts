@@ -244,6 +244,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  rhythm — for content that belongs to the form but is no field (e.g. the
    *  secret a confirm step refers to). */
   readonly leadContent?: ReactNode;
+  /** Rendered after the sections, above the form actions, with the live form values. */
+  readonly belowSections?: (values: Readonly<Record<string, unknown>>) => ReactNode;
   /** Blocks submit (button and Enter) while fields stay editable — unlike
    *  `disabled`, which locks the whole form. For a gate the host owns, e.g.
    *  an acknowledgement checkbox in `leadContent`. */

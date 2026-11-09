@@ -24,7 +24,10 @@ the `table` block renders and behaves as before.
   row action once per selected row (done tasks are skipped); "Set status" opens
   an actionForm once for the whole selection. Its `taskIds` field is a
   `multiSelect` with `display: "count"`, and the `task:set-status` handler
-  updates every id in one write.
+  updates every id in one write, bounded by `.max(MAX_BULK_SELECTION)` and
+  reading each id through the tenant-scoped executor. The form has a `preview`:
+  the `task:set-status-preview` query returns the affected tasks with old and
+  new status from the same plan function the handler applies.
 - `table.grouping`: the server groups the list by status; each header shows the
   group's count and estimate sum, "done" starts collapsed and the view menu
   offers grouping by priority or none.
@@ -57,6 +60,6 @@ bun test
 The test boots the feature through the boot validator and checks that a
 misspelled key, a hidden column without the picker, an unknown density, a pinned column
 without `pinning`, a width without `resizing` and a bulk action on a navigate
-row action, and a form bulk action whose `idsField` is no count list, are rejected.
+row action, a form bulk action whose `idsField` is no count list and a preview over an unknown query or field are rejected.
 `workload.integration.test.ts` runs the hand-written query over HTTP and checks
-the grouped sums and the filtered total.
+the grouped sums and the filtered total, the preview query, and the handler's unknown-id and over-cap rejections.

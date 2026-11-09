@@ -43,13 +43,18 @@ function validateBulkActionTarget(
   }
 }
 
-function validateBulkFormTarget(
+type ActionFormTarget = Extract<
+  NonNullable<ReturnType<typeof findNavTargetEntry>>["screen"],
+  { readonly type: "actionForm" }
+>;
+
+function resolveBulkFormScreen(
   where: string,
   bulkId: string,
   entry: Readonly<Record<string, unknown>>,
   featureName: string,
   lookups: NavigateTargetLookups,
-): void {
+): { readonly screenId: string; readonly form: ActionFormTarget } {
   const label = entry["label"];
   if (typeof label !== "string" || label === "") {
     throw bootRuleError(LIST_BULK_ACTION_RULES.formLabelMissing, {
@@ -78,6 +83,16 @@ function validateBulkFormTarget(
         `Point screen at an actionForm screen; it receives the selected ids in idsField.`,
     });
   }
+  return { screenId, form };
+}
+
+function validateBulkIdsField(
+  where: string,
+  bulkId: string,
+  entry: Readonly<Record<string, unknown>>,
+  screenId: string,
+  form: ActionFormTarget,
+): void {
   const idsField = entry["idsField"];
   if (typeof idsField !== "string" || idsField === "") {
     throw bootRuleError(LIST_BULK_ACTION_RULES.formIdsFieldMissing, {
@@ -114,6 +129,17 @@ function validateBulkFormTarget(
         `field to the layout (visible: false still carries the value) and remove sensitive.`,
     });
   }
+}
+
+function validateBulkFormTarget(
+  where: string,
+  bulkId: string,
+  entry: Readonly<Record<string, unknown>>,
+  featureName: string,
+  lookups: NavigateTargetLookups,
+): void {
+  const { screenId, form } = resolveBulkFormScreen(where, bulkId, entry, featureName, lookups);
+  validateBulkIdsField(where, bulkId, entry, screenId, form);
 }
 
 /** `where` is the full message prefix, e.g. `[Feature x] Screen "y" (entityList)`. */

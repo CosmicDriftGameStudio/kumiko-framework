@@ -21,6 +21,7 @@ import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
 import { screenFillsHeight } from "../screen-fills-height.ts";
 import { statusToneForOptionTone } from "../status-tone.ts";
+import { ActionFormPreviewPanel } from "./action-form-preview.tsx";
 import {
   actionFormSubmittableFields,
   synthesizeActionFormEntity,
@@ -555,6 +556,7 @@ export function ActionFormBody({
       <ActionFormLoadStatus state={loadState} screenId={screen.id} translate={effectiveTranslate} />
     );
   }
+  const { preview } = screen;
   return (
     <AiAssistPayloadProvider value={aiAssistPayload}>
       <RenderEdit
@@ -624,6 +626,17 @@ export function ActionFormBody({
           },
         })}
         {...(summary !== undefined && { summary })}
+        {...(preview !== undefined && {
+          belowSections: (values: FormValues) => (
+            <ActionFormPreviewPanel
+              preview={preview}
+              fields={screen.fields}
+              values={values}
+              translate={effectiveTranslate}
+              locale={locale}
+            />
+          ),
+        })}
         {...(translate !== undefined && { translate })}
       />
     </AiAssistPayloadProvider>

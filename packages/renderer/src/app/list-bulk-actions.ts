@@ -14,6 +14,7 @@ import type {
 } from "../data-table-bulk-types.ts";
 import type { Dispatcher, ListRowViewModel, Translate } from "../headless/index.ts";
 import { useNavigateWithInitialValues } from "./nav.tsx";
+import { lastSegment } from "./qn.ts";
 import { isWriteHandlerRowAction, refetchAfterWrite, writeRowAction } from "./row-actions.ts";
 import { dispatcherErrorText } from "./write-failed-error.ts";
 
@@ -113,7 +114,10 @@ export function useListBulk(options: {
   return useMemo(() => {
     if (bulkActions === undefined || dispatcher === undefined) return undefined;
     const openBulkForm: OpenBulkForm = (action, ids) =>
-      navigateWithInitialValues({ screenId: action.screen }, { [action.idsField]: ids });
+      navigateWithInitialValues(
+        { screenId: lastSegment(action.screen) },
+        { [action.idsField]: ids },
+      );
     const actions = buildListBulkActions({
       bulkActions,
       rowActions,

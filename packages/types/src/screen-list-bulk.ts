@@ -26,7 +26,7 @@ export type ListBulkFormAction = {
   readonly icon?: IconKey;
   /** Short id (same feature) or `<feature>:screen:<id>` of an `actionForm` screen. */
   readonly screen: string;
-  /** Field of that form which receives the selected row ids: a `multiSelect` with `display: "count"`. The ids travel in memory, not in the URL, so the selection size is only capped by `MAX_BULK_SELECTION`. */
+  /** Field of that form which receives the selected row ids: a `multiSelect` with `display: "count"`. The ids travel in memory, not in the URL. The client cap `MAX_BULK_SELECTION` is no protection: the form's write handler runs once, so access and audit no longer run per row. The handler must bound the list itself (`z.array(...).max(MAX_BULK_SELECTION)`) and check every id with a tenant-scoped detail, answering `failNotFound` for a foreign or unknown one. */
   readonly idsField: string;
 };
 

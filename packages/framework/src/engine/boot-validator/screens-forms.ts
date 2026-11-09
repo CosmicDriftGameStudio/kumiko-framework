@@ -23,6 +23,7 @@ import type {
   EditLayout,
   SecretMintScreenDefinition,
 } from "../types/screen.ts";
+import { validateActionFormPreview } from "./action-form-preview.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { validateFormDerivations, validateFormDerivationsEnforced } from "./form-derivations.ts";
 import type { NavigateTargetLookups } from "./screens-actions.ts";
@@ -1011,6 +1012,7 @@ export function validateInlineFormScreen(
   validateWizardLayout(feature.name, screenId, kind, screen.layout, featureMap, fieldNames);
   if (screen.type === "actionForm") {
     validateActionFormFieldTexts(feature.name, screenId, screen, fieldNames);
+    validateActionFormPreview(feature.name, screenId, screen, fieldNames);
     validateFormDerivations(feature.name, screenId, screen);
     validateFormDerivationsEnforced(feature.name, screenId, screen, featureMap);
   }

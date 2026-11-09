@@ -163,6 +163,8 @@ export type ActionFormScreenDefinition = {
    *  While at least one entry is shown, the hints replace the generic
    *  confirmation text. Mutually exclusive with `redirect`. */
   readonly successItems?: ActionFormSuccessItems;
+  /** Preview of what the submit will do, computed by a query from the current form values. */
+  readonly preview?: ActionFormPreview;
   /** Reset the form to its initial values after a successful submit (prefill
    *  kept, typed values cleared). Only applies while the screen stays put,
    *  i.e. without `redirect`. */
@@ -244,6 +246,35 @@ export type ActionFormLoad = {
    *  load payload next to `idParam`, so the query can pre-fill for the chosen item. The query's
    *  schema must accept them. */
   readonly passPrefill?: boolean;
+};
+
+/** Rows of the preview panel, read from an array in the preview query's result. */
+export type ActionFormPreviewList = {
+  /** Flat field name of an array in the query result; an entry that is no object is skipped. */
+  readonly field: string;
+  readonly columns: readonly {
+    /** Field of one array entry. */
+    readonly field: string;
+    /** Column header (i18n key). */
+    readonly label: string;
+  }[];
+};
+
+/** Preview panel above the submit button: runs a query over the current form values and shows
+ *  what the submit would do. Put the rule in one pure function that the query and the write handler
+ *  both call, so the preview cannot drift from the result. */
+export type ActionFormPreview = {
+  /** Query QN. The payload is the current form values (only `fields` when set). It does not run while
+   *  a required field of the payload is empty; a failed query shows a hint and never blocks the submit. */
+  readonly query: string;
+  /** Form fields sent to the query; they also trigger a rerun when they change. Default: all fields. */
+  readonly fields?: readonly string[];
+  /** Panel title (i18n key). */
+  readonly title?: string;
+  /** Key figures from the query result, shown like the success box facts. */
+  readonly facts?: readonly ActionFormSuccessFact[];
+  /** Table of rows from the query result. */
+  readonly list?: ActionFormPreviewList;
 };
 
 /** One key figure of the success box, read from the handler's success payload. */

@@ -6,6 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ListTableOptions } from "@cosmicdrift/kumiko-framework/ui-types";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import * as z from "zod";
 import { createTaskBoardFeature, openAccess, taskEntity } from "../feature";
 
 // The boot validator is the net for blocks the type system never sees (JS, generated features).
@@ -74,6 +75,39 @@ describe("list-table-options recipe", () => {
       });
     });
     expect(() => validateBoot([feature])).toThrow(/idsField "taskIds", which is not a list field/);
+  });
+
+  test("a preview over an unknown query or an undeclared field is rejected", () => {
+    const withPreview = (preview: object) =>
+      defineFeature("preview-bad", (r) => {
+        r.queryHandler({
+          name: "task:p",
+          schema: z.object({ status: z.string().optional() }),
+          handler: async () => ({ count: 0 }),
+          access: openAccess.access,
+        });
+        r.writeHandler({
+          name: "task:noop",
+          schema: z.object({ status: z.string() }),
+          handler: async () => ({ isSuccess: true as const, data: {} }),
+          access: openAccess.access,
+        });
+        r.screen({
+          id: "noop-form",
+          type: "actionForm",
+          dormant: true,
+          handler: "preview-bad:write:task:noop",
+          fields: { status: { type: "text" } },
+          layout: { sections: [{ fields: ["status"] }] },
+          preview: { facts: [{ field: "count", label: "Count" }], ...preview },
+        } as never);
+      });
+    expect(() => validateBoot([withPreview({ query: "preview-bad:query:task:missing" })])).toThrow(
+      /Screen "noop-form" \(actionForm\) preview/,
+    );
+    expect(() =>
+      validateBoot([withPreview({ query: "preview-bad:query:task:p", fields: ["owner"] })]),
+    ).toThrow(/sends field "owner"/);
   });
 
   test("a bulk action that points at a navigate row action is rejected", () => {

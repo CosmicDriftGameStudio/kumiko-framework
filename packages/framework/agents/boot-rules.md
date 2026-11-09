@@ -4,6 +4,15 @@
 
 `validateBoot` reports every violation as `- [<id>] <message>`, followed by a `Fix:` and a `Rule:` line that links the entry below. Violations with an `unclassified/<check>` id have no entry yet. `kumiko-schema validate --json` returns the same ids.
 
+## action-form-preview
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="action-form-preview-empty"></a>`action-form-preview/empty` | A preview shows facts or a list. | Add facts or list, or remove preview. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+| <a id="action-form-preview-field-unknown"></a>`action-form-preview/field-unknown` | preview.fields names fields of the form. | Name an existing field of the form, or drop fields to send all of them. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+| <a id="action-form-preview-label-missing"></a>`action-form-preview/label-missing` | Every preview fact and list column has a label. | Add label: the i18n key of the fact or column header. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+| <a id="action-form-preview-list-field-missing"></a>`action-form-preview/list-field-missing` | preview.list names the result field of its rows and at least one column. | Set list.field to the array in the query result and list the columns to show. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+
 ## agent-effect
 
 | Rule | Summary | Fix | Source |

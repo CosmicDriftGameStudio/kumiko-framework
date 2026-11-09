@@ -1,3 +1,4 @@
+import { ACTION_FORM_PREVIEW_RULES } from "./action-form-preview-rules.ts";
 import { AGENT_EFFECT_RULES } from "./agent-effect-rules.ts";
 import { API_EXT_RULES } from "./api-ext-rules.ts";
 import { BOOT_CHECK_RULES } from "./boot-check-rules.ts";
@@ -81,6 +82,7 @@ export const FRAMEWORK_BOOT_RULE_TABLES = [
   LIST_QUERY_RULES,
   LIST_SORT_SUMMARY_RULES,
   LIST_BULK_ACTION_RULES,
+  ACTION_FORM_PREVIEW_RULES,
   QUERY_RULES,
   BOOT_ENVIRONMENT_RULES,
   CONFIG_KEY_RULES,

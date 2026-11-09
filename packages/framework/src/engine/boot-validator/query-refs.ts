@@ -225,6 +225,13 @@ function checkEditFormScreenQueryRefs(
       });
     }
   }
+  if (screen.type === "actionForm" && screen.preview !== undefined) {
+    checkQueryRef(
+      queryHandlers,
+      screen.preview.query,
+      () => `[Feature ${featureName}] Screen "${screenId}" (actionForm) preview`,
+    );
+  }
   if (screen.type !== "entityEdit") {
     checkFormFieldQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.fields);
   }

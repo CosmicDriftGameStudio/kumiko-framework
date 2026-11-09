@@ -76,6 +76,8 @@ export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav.ts"
 export type {
   ActionFormFooterAction,
   ActionFormLoad,
+  ActionFormPreview,
+  ActionFormPreviewList,
   ActionFormRedirect,
   ActionFormScreenDefinition,
   ActionFormSuccessFact,

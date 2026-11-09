@@ -164,6 +164,7 @@ export type ActionFormSuccessState = {
   readonly text: string;
   readonly links: readonly ResolvedSuccessLink[];
   readonly facts: readonly ResolvedSuccessFact[];
+  readonly testIdPrefix?: string;
   /** Per-entry hints; while any is shown they replace `text`. */
   readonly items?: readonly ResolvedSuccessItem[];
 };
@@ -235,6 +236,37 @@ function SuccessItemHints({
   );
 }
 
+/** One line per fact, a list of values as a block; shared by the success box and the preview panel. */
+export function ActionFormFacts({
+  testIdPrefix = "action-form-success-fact",
+  facts,
+}: {
+  readonly facts: readonly ResolvedSuccessFact[];
+  readonly testIdPrefix?: string;
+}): ReactNode {
+  const { Grid, Text } = usePrimitives();
+  return facts.map((fact) => {
+    const factTestId = `${testIdPrefix}-${fact.key}`;
+    if (fact.lines.length === 1) {
+      return (
+        <Text key={fact.key} testId={factTestId}>
+          {fact.label}: {fact.lines[0]}
+        </Text>
+      );
+    }
+    return (
+      <Grid key={fact.key} columns={1} testId={factTestId}>
+        <Text>{fact.label}:</Text>
+        {positionedLines(fact.lines).map(({ position, line }) => (
+          <Text key={position} testId={`${factTestId}-line-${position}`}>
+            {line}
+          </Text>
+        ))}
+      </Grid>
+    );
+  });
+}
+
 export function ActionFormSuccessBanner({
   success,
 }: {
@@ -249,26 +281,7 @@ export function ActionFormSuccessBanner({
     <Banner variant="info" testId="action-form-success">
       <Grid columns={1}>
         {items.length === 0 && <Text testId="action-form-success-text">{success.text}</Text>}
-        {success.facts.map((fact) => {
-          const factTestId = `action-form-success-fact-${fact.key}`;
-          if (fact.lines.length === 1) {
-            return (
-              <Text key={fact.key} testId={factTestId}>
-                {fact.label}: {fact.lines[0]}
-              </Text>
-            );
-          }
-          return (
-            <Grid key={fact.key} columns={1} testId={factTestId}>
-              <Text>{fact.label}:</Text>
-              {positionedLines(fact.lines).map(({ position, line }) => (
-                <Text key={position} testId={`${factTestId}-line-${position}`}>
-                  {line}
-                </Text>
-              ))}
-            </Grid>
-          );
-        })}
+        <ActionFormFacts facts={success.facts} />
       </Grid>
       {success.links.map((link) => (
         <Link
