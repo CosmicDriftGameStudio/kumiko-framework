@@ -160,6 +160,8 @@ export function createStripeCheckoutSession(
       ...(mode === "subscription"
         ? { subscription_data: { metadata } }
         : {
+            // Session metadata too: a 100% promotion code completes without a PaymentIntent.
+            metadata,
             payment_intent_data: { metadata },
             invoice_creation: { enabled: paymentInvoiceCreation },
             // Without a customer, Stripe's default "if_required" makes a guest

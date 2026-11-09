@@ -1,4 +1,4 @@
-import { type DbConnection, transaction } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, selectMany, transaction } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import {
   append,
@@ -12,6 +12,7 @@ import {
   DOCUMENT_INGEST_PROGRESS_EVENT_QN,
   documentIngestProgressPayloadSchema,
 } from "./events.ts";
+import { documentIngestProgressTable } from "./tables.ts";
 
 export type ReportIngestProgressDeps = {
   readonly db: DbConnection;
@@ -26,8 +27,9 @@ export type ReportIngestProgressInput = {
   readonly pagesTotal: number;
 };
 
-// Parallel reports for one file race on the stream version; progress is idempotent and the newest
-// report wins, so a lost race re-reads the version and appends again.
+// Parallel reports for one file race on the stream version, so a lost race re-reads the version and
+// appends again. The projection keeps the highest pagesDone, so landing order does not matter; past
+// the attempt limit a report only stops once the stored progress already covers it.
 const MAX_VERSION_CONFLICT_ATTEMPTS = 3;
 
 // Low-level append() does not fire projections, so they run explicitly, in the same transaction as the append.
@@ -56,8 +58,24 @@ export async function reportIngestProgress(
       return;
     } catch (e) {
       if (!(e instanceof VersionConflictError)) throw e;
-      // skip: a conflict after the last attempt means a newer report already landed
-      if (attempt >= MAX_VERSION_CONFLICT_ATTEMPTS) return;
+      if (
+        attempt >= MAX_VERSION_CONFLICT_ATTEMPTS &&
+        (await storedProgressCovers(deps, aggregateId, payload.pagesDone))
+      ) {
+        return;
+      }
     }
   }
+}
+
+async function storedProgressCovers(
+  deps: ReportIngestProgressDeps,
+  aggregateId: string,
+  pagesDone: number,
+): Promise<boolean> {
+  const rows = await selectMany<{ pagesDone: number }>(deps.db, documentIngestProgressTable, {
+    id: aggregateId,
+    tenantId: deps.tenantId,
+  });
+  return (rows[0]?.pagesDone ?? 0) >= pagesDone;
 }

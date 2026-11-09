@@ -19,12 +19,6 @@ import {
   type SignupHandoverBinding,
 } from "../shared/index.ts";
 
-/** Email normalization — single source for every lookup layer (used
- *  internally by the store AND by callers that need a consistent form
- *  in the return body / mail send). Previously two places called
- *  `.toLowerCase()` — one source means no drift. */
-export { normalizeEmail };
-
 export const SIGNUP_TOKEN_KEY_PREFIXES = {
   token: "signup:by-token:",
   email: "signup:by-email:",

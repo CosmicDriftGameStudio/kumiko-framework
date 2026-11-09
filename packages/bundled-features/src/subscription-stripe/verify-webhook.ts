@@ -399,9 +399,13 @@ async function parsePaymentEvent(
 ): Promise<PaymentEvent | null> {
   const session = event.data.object as Stripe.Checkout.Session; // @cast-boundary engine-bridge
   // mode !== "payment" excludes subscription-checkout sessions (same event types);
-  // payment_status !== "paid" excludes an unpaid/expired session. Null here — not an
-  // error — maps to foundation's 200 "ignored", same as the subscription-path's filters.
-  if (session.mode !== "payment" || session.payment_status !== "paid") {
+  // any status but paid / no_payment_required (a 100% promotion code) excludes an
+  // unpaid/expired session. Null here — not an error — maps to foundation's 200 "ignored",
+  // same as the subscription-path's filters.
+  if (
+    session.mode !== "payment" ||
+    (session.payment_status !== "paid" && session.payment_status !== "no_payment_required")
+  ) {
     return null;
   }
 
@@ -420,21 +424,22 @@ async function parsePaymentEvent(
     throw transientProviderRejection(error);
   }
 
-  // Tenant-resolution: mode:"payment" checkout sessions carry tenantId on
-  // the PaymentIntent's OWN metadata (plugin-methods.ts sets it via
-  // payment_intent_data.metadata), NOT on session-level metadata —
-  // session.metadata is unset for this mode. Reading it off the expanded,
-  // Stripe-verified PaymentIntent (not a freely-choosable payload field) is
-  // what keeps tenant-attribution trustworthy: the webhook signature proves
-  // this whole object chain came from Stripe, and the metadata itself was
-  // set by our own backend at checkout-creation time.
+  // Tenant-resolution: plugin-methods.ts sets tenantId on the PaymentIntent metadata and on the
+  // session metadata. A 100% promotion code creates no PaymentIntent, so the session metadata
+  // is only read then. Both are set by our own backend at checkout-creation time and reach us
+  // through the signature-verified webhook chain, not as a freely-choosable payload field.
   const paymentIntent = expanded.payment_intent;
-  if (!paymentIntent || typeof paymentIntent === "string") {
-    // Not expanded (Stripe-API-drift) or absent — no verified tenant-claim
+  if (
+    typeof paymentIntent === "string" ||
+    (paymentIntent === null && session.payment_status === "paid")
+  ) {
+    // Not expanded (Stripe-API-drift) or absent on a paid session — no verified tenant-claim
     // to trust.
     return dropPaidSession(event, session, "payment_intent_not_expanded");
   }
-  const tenantId = paymentIntent.metadata?.["tenantId"];
+  const tenantId = paymentIntent
+    ? paymentIntent.metadata?.["tenantId"]
+    : expanded.metadata?.["tenantId"];
   if (!tenantId || tenantId.length === 0) {
     return dropPaidSession(event, session, "missing_tenant_id");
   }
@@ -450,9 +455,9 @@ async function parsePaymentEvent(
   const sessionCustomer = expanded.customer;
   const providerCustomerId =
     (typeof sessionCustomer === "string" ? sessionCustomer : sessionCustomer?.id) ??
-    (typeof paymentIntent.customer === "string"
+    (typeof paymentIntent?.customer === "string"
       ? paymentIntent.customer
-      : paymentIntent.customer?.id);
+      : paymentIntent?.customer?.id);
   if (!providerCustomerId) {
     return dropPaidSession(event, session, "missing_customer");
   }

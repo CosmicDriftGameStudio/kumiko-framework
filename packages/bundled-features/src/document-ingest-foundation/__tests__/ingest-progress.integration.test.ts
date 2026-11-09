@@ -81,6 +81,15 @@ describe("reportIngestProgress", () => {
 
     const rows = (await progressRows()).filter((row) => row.fileRefId === "file-many");
     expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ pagesDone: 8, pagesTotal: 8 });
+  });
+
+  test("a report arriving after a higher one does not move progress back", async () => {
+    await report("file-late", 5, 5);
+    await report("file-late", 2, 5);
+
+    const rows = (await progressRows()).filter((row) => row.fileRefId === "file-late");
+    expect(rows[0]).toMatchObject({ pagesDone: 5, pagesTotal: 5 });
   });
 
   test("a second file gets its own row", async () => {

@@ -50,7 +50,7 @@ export const hrFeature = defineFeature("hr", (r) => {
   r.job(
     "purge-archived-comments",
     {
-      trigger: { maintenance: true },
+      trigger: { manual: true },
       runIn: "worker",
       irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     },

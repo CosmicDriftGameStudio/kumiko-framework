@@ -15,6 +15,7 @@ import { resolve } from "node:path";
 import { Project } from "ts-morph";
 import { isRawRefSentinel, readDataLiteralNode } from "../extractors/shared.ts";
 import { parseFeatureFile, parseSourceFile } from "../parse.ts";
+import { renderFeatureFile } from "../render.ts";
 
 function createProject() {
   return new Project({
@@ -2779,15 +2780,41 @@ defineFeature("f", (r) => {
       "task.created": async (event, tx, ctx) => {},
     },
     delivery: "shared",
+    irreversibleWithoutEntryHandler: "rebuildable-derived-data",
   });
 });
 `);
 
+    expect(result.errors).toEqual([]);
     expect(result.patterns[0]).toMatchObject({
       kind: "multiStreamProjection",
       name: "audit-log",
       delivery: "shared",
+      irreversibleWithoutEntryHandler: "rebuildable-derived-data",
     });
+    const rendered = renderFeatureFile(result);
+    expect(rendered).toContain('  irreversibleWithoutEntryHandler: "rebuildable-derived-data",');
+  });
+
+  test.each([
+    ["unknown case", `"not-a-case"`],
+    ["constant reference", "CASE"],
+  ])("irreversibleWithoutEntryHandler with %s is an error, not dropped", (_label, value) => {
+    const result = parseInline(`
+const CASE = "rebuildable-derived-data";
+defineFeature("f", (r) => {
+  r.multiStreamProjection({
+    name: "audit-log",
+    apply: { "task.created": async (event, tx, ctx) => {} },
+    irreversibleWithoutEntryHandler: ${value},
+  });
+});
+`);
+
+    expect(result.patterns).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.methodName).toBe("multiStreamProjection");
+    expect(result.errors[0]?.reason).toContain("irreversibleWithoutEntryHandler must be one of");
   });
 });
 
