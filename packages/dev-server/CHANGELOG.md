@@ -1,5 +1,51 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.418.0
+
+### Patch Changes
+
+- 21f0119: The deploy Dockerfile builds for arm64 and amd64.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Deploy Dockerfile runs bun on the build platform
+  detail: The managed `deploy/Dockerfile` runs every bun step in a `--platform=$BUILDPLATFORM` stage. A new `deps` stage installs the server bundle's production dependencies with `--os=linux --cpu=<x64|arm64>` for the target, and the runtime stage only copies them. An amd64 image built on arm64 runners therefore never runs bun under QEMU, where it aborts. The managed public CI workflow builds `linux/arm64,linux/amd64`. Apps pick it up with `kumiko sync-managed --write`.
+  -->
+- 11bc811: Review fixes: signature ink check and signer email, field AI assist, shell accessibility and PWA scope, video setup tools, monotonic ingest progress, feature-ast parse errors, kms codemod hints, plural and formal-address checks, and tests.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Ingest progress only moves forward
+  detail: Parallel `reportIngestProgress` calls for one file can land in any order; the progress row now keeps the highest `pagesDone`, a report whose progress is already stored stops early, and after 10 version conflicts the call throws instead of returning silently.
+  -->
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Empty signatures are rejected on every background
+  detail: The ink check treats an image as having a solid background only when all four corners are opaque and identical; a lone opaque pixel no longer counts the whole image as ink, and signer emails must be valid addresses.
+  -->
+- Updated dependencies [e9a7d69]
+- Updated dependencies [d7d1009]
+- Updated dependencies [11bc811]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [01224e7]
+- Updated dependencies [01224e7]
+  - @cosmicdrift/kumiko-framework@0.418.0
+  - @cosmicdrift/kumiko-types@0.418.0
+  - @cosmicdrift/kumiko-renderer@0.418.0
+  - @cosmicdrift/kumiko-bundled-features@0.418.0
+  - @cosmicdrift/kumiko-feature-ast@0.418.0
+  - @cosmicdrift/kumiko-testing@0.418.0
+  - @cosmicdrift/kumiko-guards@0.418.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.418.0
+  - @cosmicdrift/kumiko-server-runtime@0.418.0
+
 ## 0.417.0
 
 ### Patch Changes

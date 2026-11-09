@@ -1,5 +1,42 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.418.0
+
+### Patch Changes
+
+- 11bc811: Review fixes: signature ink check and signer email, field AI assist, shell accessibility and PWA scope, video setup tools, monotonic ingest progress, feature-ast parse errors, kms codemod hints, plural and formal-address checks, and tests.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Ingest progress only moves forward
+  detail: Parallel `reportIngestProgress` calls for one file can land in any order; the progress row now keeps the highest `pagesDone`, a report whose progress is already stored stops early, and after 10 version conflicts the call throws instead of returning silently.
+  -->
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Empty signatures are rejected on every background
+  detail: The ink check treats an image as having a solid background only when all four corners are opaque and identical; a lone opaque pixel no longer counts the whole image as ink, and signer emails must be valid addresses.
+  -->
+- 01224e7: The stack cleanup test no longer fails on the ioredis MONITOR startup race.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Stack cleanup test tolerates the ioredis MONITOR startup race
+  detail: ioredis switches a connection to monitoring one microtask after MONITOR's OK, so command lines in the same TCP read raised "Command queue state error" and failed the cleanup test under parallel Redis traffic. The test opens its own monitor connection and drops only that startup error.
+  -->
+- Updated dependencies [e9a7d69]
+- Updated dependencies [d7d1009]
+- Updated dependencies [11bc811]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [01224e7]
+  - @cosmicdrift/kumiko-framework@0.418.0
+  - @cosmicdrift/kumiko-types@0.418.0
+  - @cosmicdrift/kumiko-guards@0.418.0
+
 ## 0.417.0
 
 ### Minor Changes

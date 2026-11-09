@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "Handbook chapter links resolve on static hosting",
+    "detail": "`kumiko handbuch build` now writes `<id>/index.html` for each chapter, a small page that redirects to `../#<id>` in the single handbook page, so the `<publicPath>/<id>` links from handbook-knowledge resolve without a rewrite rule."
+  },
+  {
     "version": "0.415.0",
     "type": "breaking",
     "title": "kumiko check fails when biome.json does not extend the Kumiko Biome preset",

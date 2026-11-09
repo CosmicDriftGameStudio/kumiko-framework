@@ -1,5 +1,87 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.418.0
+
+### Patch Changes
+
+- d7d1009: Review fixes (final round), signature list page-cap test.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: List cursor of subject-scoped users is sealed
+  detail: The request list returned the plain cursor of the last base page, which could name a request of a foreign subject. Scoped users now get an encrypted cursor bound to their user and tenant, a plain or foreign cursor is answered with access denied, and `authorizeSubject` now requires a non-empty `linkSecret` because the cursor key is derived from it. A scoped user asking for `limit: 0` is refused like `offset`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Unrecoverable finalisation ends in status failed
+  detail: A request whose original PDF changed or went missing, or whose signature image is missing, used to stay `all-signed` forever while the sweep warned every five minutes. It now ends in the status `failed` with the event `signature:event:failed` and a reason (`document-changed` or `signature-image-missing`). Renderer outages and storage errors still retry on the next run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot validator checks dateOnlyAfterDays on list columns
+  detail: A column's `dateOnlyAfterDays` must be a non-negative whole number on every list kind. On an entityList column it requires a timestamp, locatedTimestamp or date field or a `relativeTime` format; on a projectionList or relatedList column a numeric `valueType` (number, decimal, bigInt, money) is rejected, and a relatedList column with an entity is checked against that entity's field type. Number columns that showed 42 as 1 January 1970 now fail at boot (rules `list/date-only-after-days-invalid` and `list/date-only-after-days-wrong-type`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: withStockCap keeps the handler type
+  detail: `withStockCap` is generic over the write handler definition and returns the type it received, so a `defineWriteHandler` result passes in without an `as unknown as WriteHandlerDef` cast. Callers passing a `WriteHandlerDef` compile unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: API docs label nullable types
+  detail: A JSON Schema type array such as `["string", "null"]` (Zod nullable) was labelled `any` in the generated API docs. Each element is now labelled (string keeps its format) and joined with ` | `, with null last, e.g. `string | null`.
+  -->
+- 11bc811: Review fixes: signature ink check and signer email, field AI assist, shell accessibility and PWA scope, video setup tools, monotonic ingest progress, feature-ast parse errors, kms codemod hints, plural and formal-address checks, and tests.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Ingest progress only moves forward
+  detail: Parallel `reportIngestProgress` calls for one file can land in any order; the progress row now keeps the highest `pagesDone`, a report whose progress is already stored stops early, and after 10 version conflicts the call throws instead of returning silently.
+  -->
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Empty signatures are rejected on every background
+  detail: The ink check treats an image as having a solid background only when all four corners are opaque and identical; a lone opaque pixel no longer counts the whole image as ink, and signer emails must be valid addresses.
+  -->
+- aa8ee93: Stripe one-off checkouts that a 100% promo code makes free are booked.
+  
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: One-off checkouts with a 100% promo code are booked
+  detail: A Stripe checkout session in payment mode that a 100% promo code makes free is now booked like a paid one: the handler reads the session metadata in payment mode. Sessions created before the upgrade carry no session metadata and are still discarded.
+  -->
+- aa8ee93: The tenant destruction sweep locks per tenant.
+  
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: fix
+  title: The tenant destruction sweep locks per tenant
+  detail: Overlapping sweeps no longer push a tenant into `destroyFailed`. Each sweep takes a session advisory lock per tenant and skips tenants another sweep holds for that tick; failed stage attempts and abandoned stages are now logged with tenant and stage.
+  -->
+- Updated dependencies [e9a7d69]
+- Updated dependencies [d7d1009]
+- Updated dependencies [11bc811]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [01224e7]
+- Updated dependencies [01224e7]
+  - @cosmicdrift/kumiko-framework@0.418.0
+  - @cosmicdrift/kumiko-types@0.418.0
+  - @cosmicdrift/kumiko-renderer@0.418.0
+  - @cosmicdrift/kumiko-testing@0.418.0
+
 ## 0.417.0
 
 ### Minor Changes

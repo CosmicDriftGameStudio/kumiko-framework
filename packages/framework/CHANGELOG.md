@@ -1,5 +1,99 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.418.0
+
+### Minor Changes
+
+- e9a7d69: List bulk actions can open a form for the whole selection.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Bulk action opens an actionForm with all selected ids
+  detail: A list `bulkActions` entry `{ id, label, icon?, screen, idsField }` opens the actionForm `screen` once for the checkbox selection. The selected ids arrive as a `string[]` in `idsField`, so the form's handler runs once for all rows. `idsField` must be a `multiSelect` with the new `display: "count"`, which shows "n selected" read-only. The ids travel in memory, so only the 100-row selection cap applies. The `rowAction` form is unchanged. The boot validator checks label, screen, actionForm type, field and layout (rules `list-bulk/form-*`).
+  -->
+  
+  An actionForm can show a preview of what the submit will do.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: actionForm preview from a query over the form values
+  detail: An actionForm `preview` `{ query, fields?, title?, facts?, list? }` shows a panel above the submit button. The query runs over the current form values 300 ms after the last change, not while a required sent field is empty; empty optional fields stay out of the query payload, an untouched money field that holds only its currency included. Its result renders as facts and a table. A failing query shows a hint and never blocks the submit. The boot validator checks the query, the sent fields and the labels (rules `action-form-preview/*`). A form bulk action's write handler must bound the id list with `.max(MAX_BULK_SELECTION)` and check every id itself. Facts (also the success box ones) and list columns take an optional `type` (`number`, `money`, `date`, `timestamp`); a money value is `{ amount, currency }` in major units.
+  -->
+
+### Patch Changes
+
+- d7d1009: Review fixes (final round), signature list page-cap test.
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: List cursor of subject-scoped users is sealed
+  detail: The request list returned the plain cursor of the last base page, which could name a request of a foreign subject. Scoped users now get an encrypted cursor bound to their user and tenant, a plain or foreign cursor is answered with access denied, and `authorizeSubject` now requires a non-empty `linkSecret` because the cursor key is derived from it. A scoped user asking for `limit: 0` is refused like `offset`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Unrecoverable finalisation ends in status failed
+  detail: A request whose original PDF changed or went missing, or whose signature image is missing, used to stay `all-signed` forever while the sweep warned every five minutes. It now ends in the status `failed` with the event `signature:event:failed` and a reason (`document-changed` or `signature-image-missing`). Renderer outages and storage errors still retry on the next run.
+  -->
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot validator checks dateOnlyAfterDays on list columns
+  detail: A column's `dateOnlyAfterDays` must be a non-negative whole number on every list kind. On an entityList column it requires a timestamp, locatedTimestamp or date field or a `relativeTime` format; on a projectionList or relatedList column a numeric `valueType` (number, decimal, bigInt, money) is rejected, and a relatedList column with an entity is checked against that entity's field type. Number columns that showed 42 as 1 January 1970 now fail at boot (rules `list/date-only-after-days-invalid` and `list/date-only-after-days-wrong-type`).
+  -->
+  
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: withStockCap keeps the handler type
+  detail: `withStockCap` is generic over the write handler definition and returns the type it received, so a `defineWriteHandler` result passes in without an `as unknown as WriteHandlerDef` cast. Callers passing a `WriteHandlerDef` compile unchanged.
+  -->
+  
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: API docs label nullable types
+  detail: A JSON Schema type array such as `["string", "null"]` (Zod nullable) was labelled `any` in the generated API docs. Each element is now labelled (string keeps its format) and joined with ` | `, with null last, e.g. `string | null`.
+  -->
+- 11bc811: Review fixes: signature ink check and signer email, field AI assist, shell accessibility and PWA scope, video setup tools, monotonic ingest progress, feature-ast parse errors, kms codemod hints, plural and formal-address checks, and tests.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Ingest progress only moves forward
+  detail: Parallel `reportIngestProgress` calls for one file can land in any order; the progress row now keeps the highest `pagesDone`, a report whose progress is already stored stops early, and after 10 version conflicts the call throws instead of returning silently.
+  -->
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Empty signatures are rejected on every background
+  detail: The ink check treats an image as having a solid background only when all four corners are opaque and identical; a lone opaque pixel no longer counts the whole image as ink, and signer emails must be valid addresses.
+  -->
+- aa8ee93: Boot warns on tenant or user rate limits without a RateLimitResolver.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot warns on tenant or user rate limits without a RateLimitResolver
+  detail: A handler `rateLimit` with a `tenant` or `user` bucket needs a `RateLimitResolver`. Without one the server still boots but logs a warning naming the handlers, which answer every call with a 500. Wire a Redis client on `context.redis` or pass `context.rateLimit`.
+  -->
+- 01224e7: A navigate action whose `screen` is a cross-feature QN now counts for the target form's URL prefill.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: URL prefill and the hidden-required boot rule follow navigate targets given as a QN
+  detail: `urlPrefillFields` and the boot rule `submit-prefilled-hidden-required` resolved a navigate `screen` only by its short id, so a target written as `<feature>:screen:<id>` was skipped silently. Its `params` keys now prefill the target form and seed its hidden required fields like a short-id target does.
+  -->
+- Updated dependencies [e9a7d69]
+  - @cosmicdrift/kumiko-types@0.418.0
+
 ## 0.417.0
 
 ### Minor Changes

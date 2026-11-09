@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.418.0
+
+### Patch Changes
+
+- aa8ee93: pre-push stops in a worktree that is not installed.
+  
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: pre-push stops in a worktree that is not installed
+  detail: `kumiko-pre-push` aborts before any check when it runs in a git worktree that has a `package.json` but no `node_modules`, and prints `bun install --frozen-lockfile` for that worktree. A main checkout is not affected.
+  -->
+- Updated dependencies [e9a7d69]
+- Updated dependencies [d7d1009]
+- Updated dependencies [11bc811]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [01224e7]
+  - @cosmicdrift/kumiko-framework@0.418.0
+  - @cosmicdrift/kumiko-types@0.418.0
+
 ## 0.417.0
 
 ### Patch Changes

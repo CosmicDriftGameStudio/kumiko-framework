@@ -1,5 +1,35 @@
 [
   {
+    "version": "0.418.0",
+    "type": "improvement",
+    "title": "Bulk action opens an actionForm with all selected ids",
+    "detail": "A list `bulkActions` entry `{ id, label, icon?, screen, idsField }` opens the actionForm `screen` once for the checkbox selection. The selected ids arrive as a `string[]` in `idsField`, so the form's handler runs once for all rows. `idsField` must be a `multiSelect` with the new `display: \"count\"`, which shows \"n selected\" read-only. The ids travel in memory, so only the 100-row selection cap applies. The `rowAction` form is unchanged. The boot validator checks label, screen, actionForm type, field and layout (rules `list-bulk/form-*`)."
+  },
+  {
+    "version": "0.418.0",
+    "type": "improvement",
+    "title": "actionForm preview from a query over the form values",
+    "detail": "An actionForm `preview` `{ query, fields?, title?, facts?, list? }` shows a panel above the submit button. The query runs over the current form values 300 ms after the last change, not while a required sent field is empty; empty optional fields stay out of the query payload, an untouched money field that holds only its currency included. Its result renders as facts and a table. A failing query shows a hint and never blocks the submit. The boot validator checks the query, the sent fields and the labels (rules `action-form-preview/*`). A form bulk action's write handler must bound the id list with `.max(MAX_BULK_SELECTION)` and check every id itself. Facts (also the success box ones) and list columns take an optional `type` (`number`, `money`, `date`, `timestamp`); a money value is `{ amount, currency }` in major units."
+  },
+  {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "Boot validator checks dateOnlyAfterDays on list columns",
+    "detail": "A column's `dateOnlyAfterDays` must be a non-negative whole number on every list kind. On an entityList column it requires a timestamp, locatedTimestamp or date field or a `relativeTime` format; on a projectionList or relatedList column a numeric `valueType` (number, decimal, bigInt, money) is rejected, and a relatedList column with an entity is checked against that entity's field type. Number columns that showed 42 as 1 January 1970 now fail at boot (rules `list/date-only-after-days-invalid` and `list/date-only-after-days-wrong-type`)."
+  },
+  {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "Boot warns on tenant or user rate limits without a RateLimitResolver",
+    "detail": "A handler `rateLimit` with a `tenant` or `user` bucket needs a `RateLimitResolver`. Without one the server still boots but logs a warning naming the handlers, which answer every call with a 500. Wire a Redis client on `context.redis` or pass `context.rateLimit`."
+  },
+  {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "URL prefill and the hidden-required boot rule follow navigate targets given as a QN",
+    "detail": "`urlPrefillFields` and the boot rule `submit-prefilled-hidden-required` resolved a navigate `screen` only by its short id, so a target written as `<feature>:screen:<id>` was skipped silently. Its `params` keys now prefill the target form and seed its hidden required fields like a short-id target does."
+  },
+  {
     "version": "0.417.0",
     "type": "improvement",
     "title": "ctx.events.loadByTypes reads several aggregates by event type in one query",

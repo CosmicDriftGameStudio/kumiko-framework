@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "pre-push stops in a worktree that is not installed",
+    "detail": "`kumiko-pre-push` aborts before any check when it runs in a git worktree that has a `package.json` but no `node_modules`, and prints `bun install --frozen-lockfile` for that worktree. A main checkout is not affected."
+  },
+  {
     "version": "0.415.0",
     "type": "breaking",
     "title": "security-plugin-suppression guard rejects biome-ignore on the security Biome plugins",

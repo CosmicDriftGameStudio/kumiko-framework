@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "withStockCap keeps the handler type",
+    "detail": "`withStockCap` is generic over the write handler definition and returns the type it received, so a `defineWriteHandler` result passes in without an `as unknown as WriteHandlerDef` cast. Callers passing a `WriteHandlerDef` compile unchanged."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "Canonical stock-cap lock keys",

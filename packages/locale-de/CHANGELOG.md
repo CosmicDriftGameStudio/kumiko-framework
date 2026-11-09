@@ -1,5 +1,51 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.418.0
+
+### Minor Changes
+
+- e9a7d69: List bulk actions can open a form for the whole selection.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Bulk action opens an actionForm with all selected ids
+  detail: A list `bulkActions` entry `{ id, label, icon?, screen, idsField }` opens the actionForm `screen` once for the checkbox selection. The selected ids arrive as a `string[]` in `idsField`, so the form's handler runs once for all rows. `idsField` must be a `multiSelect` with the new `display: "count"`, which shows "n selected" read-only. The ids travel in memory, so only the 100-row selection cap applies. The `rowAction` form is unchanged. The boot validator checks label, screen, actionForm type, field and layout (rules `list-bulk/form-*`).
+  -->
+  
+  An actionForm can show a preview of what the submit will do.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: actionForm preview from a query over the form values
+  detail: An actionForm `preview` `{ query, fields?, title?, facts?, list? }` shows a panel above the submit button. The query runs over the current form values 300 ms after the last change, not while a required sent field is empty; empty optional fields stay out of the query payload, an untouched money field that holds only its currency included. Its result renders as facts and a table. A failing query shows a hint and never blocks the submit. The boot validator checks the query, the sent fields and the labels (rules `action-form-preview/*`). A form bulk action's write handler must bound the id list with `.max(MAX_BULK_SELECTION)` and check every id itself. Facts (also the success box ones) and list columns take an optional `type` (`number`, `money`, `date`, `timestamp`); a money value is `{ amount, currency }` in major units.
+  -->
+
+### Patch Changes
+
+- 11bc811: Review fixes: signature ink check and signer email, field AI assist, shell accessibility and PWA scope, video setup tools, monotonic ingest progress, feature-ast parse errors, kms codemod hints, plural and formal-address checks, and tests.
+  
+  <!-- kumiko-changes
+  feature: document-ingest-foundation
+  type: fix
+  title: Ingest progress only moves forward
+  detail: Parallel `reportIngestProgress` calls for one file can land in any order; the progress row now keeps the highest `pagesDone`, a report whose progress is already stored stops early, and after 10 version conflicts the call throws instead of returning silently.
+  -->
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Empty signatures are rejected on every background
+  detail: The ink check treats an image as having a solid background only when all four corners are opaque and identical; a lone opaque pixel no longer counts the whole image as ink, and signer emails must be valid addresses.
+  -->
+- Updated dependencies [e9a7d69]
+- Updated dependencies [d7d1009]
+- Updated dependencies [11bc811]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [01224e7]
+  - @cosmicdrift/kumiko-framework@0.418.0
+
 ## 0.417.0
 
 ### Minor Changes

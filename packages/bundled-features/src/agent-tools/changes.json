@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "API docs label nullable types",
+    "detail": "A JSON Schema type array such as `[\"string\", \"null\"]` (Zod nullable) was labelled `any` in the generated API docs. Each element is now labelled (string keeps its format) and joined with ` | `, with null last, e.g. `string | null`."
+  },
+  {
     "version": "0.416.0",
     "type": "improvement",
     "title": "ask_user options can carry a preview",
