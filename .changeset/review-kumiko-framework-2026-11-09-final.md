@@ -32,3 +32,10 @@ type: fix
 title: withStockCap keeps the handler type
 detail: `withStockCap` is generic over the write handler definition and returns the type it received, so a `defineWriteHandler` result passes in without an `as unknown as WriteHandlerDef` cast. Callers passing a `WriteHandlerDef` compile unchanged.
 -->
+
+<!-- kumiko-changes
+feature: agent-tools
+type: fix
+title: API docs label nullable types
+detail: A JSON Schema type array such as `["string", "null"]` (Zod nullable) was labelled `any` in the generated API docs. Each element is now labelled (string keeps its format) and joined with ` | `, with null last, e.g. `string | null`.
+-->
