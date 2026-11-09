@@ -28,8 +28,12 @@ describe("signature :: list cursor seal", () => {
 
   test("a manipulated token, a wrong secret and a plain cursor open to null", async () => {
     const sealed = await sealListCursor(BASE_CURSOR, USER, SECRET);
-    const last = sealed.endsWith("A") ? "B" : "A";
-    expect(await openListCursor(`${sealed.slice(0, -1)}${last}`, USER, SECRET)).toBeNull();
+    // Flip a ciphertext char, not the last one: the auth tag's final base64url char carries
+    // padding bits, so swapping it can decode to identical bytes and leave the token valid.
+    const parts = sealed.split(".");
+    const ciphertext = parts[3] ?? "";
+    parts[3] = `${ciphertext.startsWith("A") ? "B" : "A"}${ciphertext.slice(1)}`;
+    expect(await openListCursor(parts.join("."), USER, SECRET)).toBeNull();
     expect(await openListCursor(sealed, USER, "another-secret-0123456789")).toBeNull();
     expect(await openListCursor(BASE_CURSOR, USER, SECRET)).toBeNull();
     expect(await openListCursor("", USER, SECRET)).toBeNull();
