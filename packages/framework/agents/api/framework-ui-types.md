@@ -67,6 +67,17 @@ type ActionFormLoad = {
   singleton?: boolean; // The query picks the row from the caller's tenant/session context, so the form loads without a record id and the query is called WITHOUT `idParam` (same semantics as `ProjectionDetailScreenDefinition.singleton`).
   passPrefill?: boolean; // Sends the values a drawer opens the form with (row-action params, e.g. `vehicleId`) in the load payload next to `idParam`, so the query can pre-fill for the chosen item.
 };
+type ActionFormPreview = { // Preview panel above the submit button: runs a query over the current form values and shows what the submit would do.
+  query: string; // Query QN.
+  fields?: string[]; // Form fields sent to the query; they also trigger a rerun when they change.
+  title?: string; // Panel title (i18n key).
+  facts?: ActionFormSuccessFact[]; // Key figures from the query result, shown like the success box facts.
+  list?: ActionFormPreviewList; // Table of rows from the query result.
+};
+type ActionFormPreviewList = { // Rows of the preview panel, read from an array in the preview query's result.
+  field: string; // Flat field name of an array in the query result; an entry that is no object is skipped.
+  columns: { field: string; label: string; type?: ActionFormValueType; }[];
+};
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.
   screen: string; // Same target forms as the string `redirect`: short screen ID (same-feature) or a fully-qualified cross-feature screen QN.
   idFrom?: string; // Flat field name in the handler's success payload, e.g. "leaseId".
@@ -76,6 +87,7 @@ type ActionFormRedirect = { // Redirect target plus the success-payload field ca
 type ActionFormSuccessFact = { // One key figure of the success box, read from the handler's success payload.
   field: string; // Flat field name in the handler's success payload.
   label: string; // Label (i18n key).
+  type?: ActionFormValueType; // Format of the value (a money object, a date string, a number); default `text`.
 };
 type ActionFormSuccessItems = { // Per-entry hints of the success box, read from an array in the handler's success payload.
   field: string; // Flat field name of an array in the success payload.
@@ -86,6 +98,7 @@ type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom" | "searchParams">
   params?: Readonly<Record<string, string>>; // URL search params of the target, each read from a success-payload field (`{ cmd: "duplicateOfId" }` opens `?cmd=<duplicateOfId>`).
   label: string; // Link text (i18n key).
 };
+type ActionFormValueType = "text" | "number" | "money" | "date" | "timestamp"; // How a preview value or success fact is formatted, by the same formatters a list cell uses.
 type AppSchema = {
   features: FeatureSchema[];
   workspaces?: WorkspaceSchema[];
@@ -522,11 +535,7 @@ type FormDerivationScreen = {
 type FormWidth = "3xl" | "4xl" | "full";
 type Formality = "formal" | "informal";
 type IconKey = NavIconKey;
-type ListBulkAction = { // An action that runs a writeHandler row action once per checkbox-selected row.
-  id: string; // Stable id, kebab-case, unique among the screen's bulk actions.
-  rowAction: string; // Id of a writeHandler entry in the same screen's `rowActions`; it supplies handler, payload, label, style and `visible`.
-  confirm?: string; // i18n key of the one confirm dialog for the whole selection; gets `{count}` and `{action}`.
-};
+type ListBulkAction = ListBulkRowAction | ListBulkFormAction; // An action over checkbox-selected rows: a writeHandler row action per row (`rowAction`) or one form for all rows (`screen` + `idsField`).
 type ListColumnHint = {
   detailField?: string; // Row field with a second, muted line (e.g. the due date as text).
   narrowDetailField?: string; // Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider").

@@ -61,6 +61,28 @@ function featureWith(kind: ScreenKind, bulkActions: unknown) {
       fields: { name: { type: "text" } },
       layout: { sections: [{ title: "Rename", fields: ["name"] }] },
     } as never);
+    r.screen({
+      id: "item-bulk-rename",
+      type: "actionForm",
+      handler: "shop:write:item:rename",
+      fields: {
+        ids: { type: "multiSelect", options: [], display: "count" },
+        plainIds: { type: "multiSelect", options: ["a"] },
+        name: { type: "text" },
+        secret: { type: "multiSelect", options: [], display: "count", sensitive: true },
+      },
+      layout: { sections: [{ title: "Rename", fields: ["ids", "plainIds", "name", "secret"] }] },
+    } as never);
+    r.screen({
+      id: "item-bulk-rename-hidden",
+      type: "actionForm",
+      handler: "shop:write:item:rename",
+      fields: {
+        ids: { type: "multiSelect", options: [], display: "count" },
+        name: { type: "text" },
+      },
+      layout: { sections: [{ title: "Rename", fields: ["name"] }] },
+    } as never);
     const list = {
       columns: ["name"],
       rowActions: ROW_ACTIONS,
@@ -133,6 +155,79 @@ describe("validateBoot — list bulkActions", () => {
     expect(() => validateBoot([featureWith("entityList", [entry, entry])])).toThrow(
       /declares bulk action "archive" twice/,
     );
+  });
+
+  describe("form actions", () => {
+    const formEntry = {
+      id: "rename-all",
+      label: "shop.rename-all",
+      screen: "item-bulk-rename",
+      idsField: "ids",
+    };
+    const withEntry = (patch: Record<string, unknown>) => ({ ...formEntry, ...patch });
+
+    test.each(KINDS)("%s: a form action next to a row action passes", (kind) => {
+      expect(() =>
+        validateBoot([
+          featureWith(kind, [{ id: "archive", rowAction: "archive" }, withEntry({ icon: "edit" })]),
+        ]),
+      ).not.toThrow();
+    });
+
+    test("a screen that does not exist is rejected", () => {
+      expect(() =>
+        validateBoot([featureWith("entityList", [withEntry({ screen: "nope" })])]),
+      ).toThrow(/bulk action "rename-all" opens screen "nope", which does not resolve/);
+    });
+
+    test("a screen that is no actionForm is rejected", () => {
+      expect(() =>
+        validateBoot([featureWith("entityList", [withEntry({ screen: "item-list" })])]),
+      ).toThrow(/opens screen "item-list", a "entityList" screen\. Point screen at an actionForm/);
+    });
+
+    test("a missing label or idsField names the missing key", () => {
+      expect(() =>
+        validateBoot([featureWith("entityList", [withEntry({ label: undefined })])]),
+      ).toThrow(/needs label/);
+      expect(() =>
+        validateBoot([featureWith("entityList", [withEntry({ idsField: undefined })])]),
+      ).toThrow(/needs idsField/);
+    });
+
+    test("an idsField the form does not declare lists the form fields", () => {
+      expect(() =>
+        validateBoot([featureWith("entityList", [withEntry({ idsField: "nope" })])]),
+      ).toThrow(
+        /idsField "nope", which form "item-bulk-rename" does not declare\. Form fields: ids/,
+      );
+    });
+
+    test.each(["name", "plainIds"])(
+      "idsField %s is not a count list and is rejected",
+      (idsField) => {
+        expect(() => validateBoot([featureWith("entityList", [withEntry({ idsField })])])).toThrow(
+          /is not a list field\. Declare it .* display: "count"/,
+        );
+      },
+    );
+
+    test("an idsField the layout leaves out or marks sensitive is rejected", () => {
+      expect(() =>
+        validateBoot([
+          featureWith("entityList", [withEntry({ screen: "item-bulk-rename-hidden" })]),
+        ]),
+      ).toThrow(/leaves out of its layout/);
+      expect(() =>
+        validateBoot([featureWith("entityList", [withEntry({ idsField: "secret" })])]),
+      ).toThrow(/marks sensitive or leaves out of its layout/);
+    });
+
+    test("rowAction next to screen is an unknown key of the form variant", () => {
+      expect(() =>
+        validateBoot([featureWith("entityList", [withEntry({ rowAction: "archive" })])]),
+      ).toThrow(/unknown key\(s\) "rowAction"\. Allowed keys: id, label, icon, screen, idsField/);
+    });
   });
 
   test("a non-kebab id is rejected", () => {

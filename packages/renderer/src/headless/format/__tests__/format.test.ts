@@ -1,6 +1,16 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
-import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.ts";
+import { applyFormatSpec, moneyAmountToMinor, UNIT_FORMAT_KEYS } from "../index.ts";
+
+describe("moneyAmountToMinor", () => {
+  test.each([
+    ["EUR", 12.5, 1250],
+    ["JPY", 1234, 1234],
+    ["BHD", 1.234, 1234],
+  ])("scales %s by its own decimals", (currency, amount, minor) => {
+    expect(moneyAmountToMinor(amount, currency)).toBe(minor);
+  });
+});
 
 describe("applyFormatSpec — json", () => {
   test("honors a numeric indent and defaults to 2", () => {

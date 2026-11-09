@@ -202,6 +202,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.row.collapse": "Collapse {title}",
     "kumiko.list.row.expand": "Expand {title}",
     "kumiko.list.bulk.selected": "{count} selected",
+    "kumiko.form.selection-count": "{count} selected",
     "kumiko.list.bulk.clear": "Clear selection",
     "kumiko.list.bulk.limit": "At most {max} rows per selection",
     "kumiko.list.bulk.select-all": "Select all rows on this page",

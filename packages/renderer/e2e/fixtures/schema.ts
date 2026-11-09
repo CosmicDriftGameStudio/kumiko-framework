@@ -150,7 +150,24 @@ export const taskBulkScreen: EntityListScreenDefinition = {
       visible: { field: "archived", ne: true },
     },
   ],
-  bulkActions: [{ id: "archive", rowAction: "archive" }],
+  bulkActions: [
+    { id: "archive", rowAction: "archive" },
+    { id: "reassign", label: "Reassign", screen: "task-reassign", idsField: "taskIds" },
+  ],
+};
+
+export const taskReassignScreen: ActionFormScreenDefinition = {
+  id: "task-reassign",
+  type: "actionForm",
+  dormant: true,
+  handler: "test:write:task:reassign",
+  listScreenId: "task-bulk",
+  redirect: "task-bulk",
+  fields: {
+    taskIds: { type: "multiSelect", options: [], display: "count" },
+    owner: { type: "text", required: true },
+  },
+  layout: { sections: [{ title: "Reassign tasks", fields: ["taskIds", "owner"] }] },
 };
 
 export const taskEditScreen: EntityEditScreenDefinition = {
@@ -287,6 +304,7 @@ export const e2eSchema: AppSchema = {
         taskBoardScreen,
         taskBoardPlainScreen,
         taskBulkScreen,
+        taskReassignScreen,
         taskEditScreen,
         ...expenseScreens,
         ...reportScreens,

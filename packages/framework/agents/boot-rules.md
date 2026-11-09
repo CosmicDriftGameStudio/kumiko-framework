@@ -4,6 +4,15 @@
 
 `validateBoot` reports every violation as `- [<id>] <message>`, followed by a `Fix:` and a `Rule:` line that links the entry below. Violations with an `unclassified/<check>` id have no entry yet. `kumiko-schema validate --json` returns the same ids.
 
+## action-form-preview
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="action-form-preview-empty"></a>`action-form-preview/empty` | A preview shows facts or a list. | Add facts or list, or remove preview. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+| <a id="action-form-preview-field-unknown"></a>`action-form-preview/field-unknown` | preview.fields names fields of the form. | Name an existing field of the form, or drop fields to send all of them. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+| <a id="action-form-preview-label-missing"></a>`action-form-preview/label-missing` | Every preview fact and list column has a label. | Add label: the i18n key of the fact or column header. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+| <a id="action-form-preview-list-field-missing"></a>`action-form-preview/list-field-missing` | preview.list names the result field of its rows and at least one column. | Set list.field to the array in the query result and list the columns to show. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+
 ## agent-effect
 
 | Rule | Summary | Fix | Source |
@@ -730,6 +739,14 @@
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
 | <a id="list-bulk-entry-not-object"></a>`list-bulk/entry-not-object` | Every bulkActions entry is an object with id and rowAction. | Write each entry as { id, rowAction }. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-ids-field-missing"></a>`list-bulk/form-ids-field-missing` | A bulk form action names the form field that receives the selected ids. | Set idsField to a field of the target form. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-ids-field-not-list"></a>`list-bulk/form-ids-field-not-list` | A bulk form action's idsField is a multiSelect field with display: "count". | Declare the field as { type: "multiSelect", options: [], display: "count" } on the target form. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-ids-field-not-rendered"></a>`list-bulk/form-ids-field-not-rendered` | A bulk form action's idsField is shown by the target form's layout and not sensitive. | Add the field to the form layout (visible: false hides it but keeps the value) and drop sensitive. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-ids-field-unknown"></a>`list-bulk/form-ids-field-unknown` | A bulk form action's idsField is a field of the target form. | Declare the field on the target form or point idsField at a declared one. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-label-missing"></a>`list-bulk/form-label-missing` | A bulk form action has a label (i18n key) for its button. | Set label to an i18n key. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-screen-missing"></a>`list-bulk/form-screen-missing` | A bulk form action names the screen it opens in screen. | Set screen to the id of an actionForm screen. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-screen-not-action-form"></a>`list-bulk/form-screen-not-action-form` | A bulk form action opens an actionForm screen. | Point screen at an actionForm screen. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
+| <a id="list-bulk-form-screen-unresolved"></a>`list-bulk/form-screen-unresolved` | A bulk form action's screen resolves to a registered screen. | Use the id of a screen in this feature or a fully-qualified <feature>:screen:<id>. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
 | <a id="list-bulk-id-duplicate"></a>`list-bulk/id-duplicate` | Bulk action ids are unique within a list. | Rename or remove the duplicate bulk action. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
 | <a id="list-bulk-id-not-kebab"></a>`list-bulk/id-not-kebab` | A bulk action id is a kebab-case string. | Rename the id to kebab-case. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |
 | <a id="list-bulk-not-array"></a>`list-bulk/not-array` | bulkActions is a non-empty array. | Write bulkActions as [{ id: "archive", rowAction: "archive" }] or remove it. | `packages/framework/src/engine/boot-validator/list-bulk-actions-rules.ts` |

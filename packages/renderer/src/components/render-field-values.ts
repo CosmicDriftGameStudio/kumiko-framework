@@ -1,6 +1,6 @@
 import type { FieldAffix } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { currencyDecimals } from "../headless/index.ts";
+import { currencyDecimals, moneyAmountToMinor } from "../headless/index.ts";
 import type { SelectOptionEntry } from "./availability-options-select.tsx";
 
 export function stringValue(v: unknown): string {
@@ -103,10 +103,10 @@ export function withPinnedValues(
 
 export function moneyMinorValue(v: unknown, currency: string): number | "" {
   if (v === undefined || v === null || v === "") return "";
-  if (typeof v === "number") return Math.round(v * 10 ** currencyDecimals(currency));
+  if (typeof v === "number") return moneyAmountToMinor(v, currency);
   if (typeof v === "object") {
     const amount = propertyOf(v, "amount");
-    if (typeof amount === "number") return Math.round(amount * 10 ** currencyDecimals(currency));
+    if (typeof amount === "number") return moneyAmountToMinor(amount, currency);
   }
   return "";
 }

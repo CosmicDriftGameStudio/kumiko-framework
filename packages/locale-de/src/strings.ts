@@ -942,6 +942,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.list.row.collapse": "{title} zuklappen",
   "kumiko.list.row.expand": "{title} aufklappen",
   "kumiko.list.bulk.selected": "{count} ausgewählt",
+  "kumiko.form.selection-count": "{count} ausgewählt",
   "kumiko.list.bulk.clear": "Auswahl aufheben",
   "kumiko.list.bulk.limit": "Höchstens {max} Zeilen pro Auswahl",
   "kumiko.list.bulk.select-all": "Alle Zeilen dieser Seite auswählen",

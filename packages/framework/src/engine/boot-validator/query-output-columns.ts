@@ -21,7 +21,7 @@ import { detailGuidanceFieldRefs, listGuidanceFieldRefs } from "./query-output-g
 import { QUERY_RULES } from "./query-rules.ts";
 import { validateActionFieldRefs } from "./screens.ts";
 import { DASHBOARD_RULES } from "./screens-dashboard-rules.ts";
-import { getZodObjectShape, getZodRowShape } from "./zod-shape.ts";
+import { getZodArrayFieldElementShape, getZodObjectShape, getZodRowShape } from "./zod-shape.ts";
 
 // Query handlers can now declare `outputSchema` (the Zod shape of
 // their actual return value). This validator is entirely opt-in and
@@ -540,8 +540,10 @@ function checkScreenOutputColumns(
     screen.type === "secretMint"
   ) {
     checkEditLayoutOutputColumns(queryHandlers, featureName, screenId, screen.type, screen.layout);
-    if (screen.type === "actionForm")
+    if (screen.type === "actionForm") {
       checkSummaryLoadFields(queryHandlers, featureName, screenId, screen);
+      checkPreviewOutputFields(queryHandlers, featureName, screenId, screen);
+    }
   } else if (screen.type === "dashboard") {
     checkDashboardOutputFields(queryHandlers, featureName, screenId, screen);
   }
@@ -564,6 +566,32 @@ function checkSummaryLoadFields(
       () =>
         `[Feature ${featureName}] Screen "${screenId}" (actionForm) summary.paramsFromLoad references field "${field}" which is not present in load query "${screen.load?.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`,
     );
+  }
+}
+
+// preview facts and list read the preview query's result, so each name must be an output field of it.
+function checkPreviewOutputFields(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screen: ActionFormScreenDefinition,
+): void {
+  const { preview } = screen;
+  // skip: no preview declared
+  if (preview === undefined) return;
+  const outputSchema = queryHandlers.get(preview.query)?.outputSchema;
+  const shape = getZodObjectShape(outputSchema);
+  const missing = (what: string, field: string): string =>
+    `[Feature ${featureName}] Screen "${screenId}" (actionForm) preview ${what} "${field}" is not present in query "${preview.query}"'s outputSchema. Check the field name for a typo or add the field to the outputSchema.`;
+  for (const fact of preview.facts ?? []) {
+    checkFieldExists(shape, fact.field, () => missing("fact", fact.field));
+  }
+  if (preview.list === undefined) return;
+  const listField = preview.list.field;
+  checkFieldExists(shape, listField, () => missing("list field", listField));
+  const rowShape = getZodArrayFieldElementShape(outputSchema, listField);
+  for (const column of preview.list.columns) {
+    checkFieldExists(rowShape, column.field, () => missing("list column", column.field));
   }
 }
 

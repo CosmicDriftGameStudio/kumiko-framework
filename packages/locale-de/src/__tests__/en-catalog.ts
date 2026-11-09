@@ -869,6 +869,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.form.noUnsavedChanges": "No unsaved changes",
   "kumiko.form.on-this-page": "On this page",
   "kumiko.form.saveChanges": "Save changes",
+  "kumiko.form.selection-count": "{count} selected",
   "kumiko.form.unsaved.one": "1 unsaved change",
   "kumiko.form.unsaved.other": "{count} unsaved changes",
   "kumiko.form.unsavedChangesActionConfirm":

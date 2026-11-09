@@ -35,6 +35,18 @@ export const FAILING_WRITE_REQUEST_ID = "req-7f9c2a1e-4b3d-4c8a-9e21-5d6f0a1b2c3
 
 type Row = Record<string, unknown> & { id: string };
 
+function stringsOf(value: unknown): readonly string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+// A bulk form write carries its row ids in `taskIds`; every other write names one row by `id`.
+function logTargetOf(data: Readonly<Record<string, unknown>>): string {
+  const ids = stringsOf(data["taskIds"]);
+  return ids.length > 0 ? ids.join(",") : String(data["id"]);
+}
+
 export type MockDispatcherState = {
   /** Pre-seed data — e.g. to test list renderings without calling create
    *  first. Keys are entity names (as they appear in the QN). */
@@ -125,7 +137,7 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
     const table = getTable(entity);
     const data = (payload ?? {}) as Record<string, unknown>; // @cast-boundary render-helper
     const rowId = data["id"];
-    writeLog.push(`${verb}:${String(rowId)}`);
+    writeLog.push(`${verb}:${logTargetOf(data)}`);
     if (writesHeld) await new Promise<void>((resume) => heldWrites.push(resume));
     if (typeof rowId === "string" && rejectWriteIds.has(rowId)) {
       return {
@@ -172,6 +184,14 @@ export function createMockDispatcher(state: MockDispatcherState = {}): MockDispa
         };
         table.set(id, row);
         return { isSuccess: true, data: row as unknown as TData };
+      }
+      case "reassign": {
+        const ids = stringsOf(data["taskIds"]);
+        for (const id of ids) {
+          const existing = table.get(id);
+          if (existing) table.set(id, { ...existing, owner: data["owner"] });
+        }
+        return { isSuccess: true, data: { count: ids.length } as unknown as TData };
       }
       case "delete": {
         const id = data["id"] as string | undefined;

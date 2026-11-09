@@ -437,6 +437,8 @@ export function validateEntityListScreen(
     `[Feature ${featureName}] Screen "${screenId}" (entityList)`,
     screen.bulkActions,
     screen.rowActions,
+    featureName,
+    ctx,
   );
   for (const action of screen.toolbarActions ?? []) {
     validateEntityListToolbarAction(ctx, screenId, fields, action);

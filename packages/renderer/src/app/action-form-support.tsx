@@ -1,9 +1,19 @@
-import type { ActionFormLoad, ActionFormSuccessFact } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  ActionFormLoad,
+  ActionFormSuccessFact,
+  ActionFormValueType,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
-import type { DispatcherError, Translate } from "../headless/index.ts";
+import {
+  applyFormatSpec,
+  type DispatcherError,
+  formatMoneyValue,
+  type Translate,
+} from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
 import { usePrimitives } from "../primitives.tsx";
+import { isMoneyValue } from "./entity-edit-prefill.ts";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
 import { dispatcherErrorText } from "./write-failed-error.ts";
 
@@ -168,6 +178,20 @@ export type ActionFormSuccessState = {
   readonly items?: readonly ResolvedSuccessItem[];
 };
 
+function formatTypedFact(
+  entry: unknown,
+  type: ActionFormValueType | undefined,
+  locale: string,
+): string | undefined {
+  if (type === "money" && isMoneyValue(entry)) {
+    return formatMoneyValue(entry, locale);
+  }
+  if ((type === "date" || type === "timestamp") && typeof entry === "string") {
+    return applyFormatSpec({ format: type, locale }, entry);
+  }
+  return undefined;
+}
+
 function factLine(entry: unknown, locale: string): string | undefined {
   if (typeof entry === "number") return entry.toLocaleString(locale);
   if (typeof entry === "string") return entry;
@@ -187,7 +211,9 @@ export function resolveSuccessFacts(
   (facts ?? []).forEach((fact, index) => {
     const value = propertyOf(data, fact.field);
     const entries = Array.isArray(value) ? value : [value];
-    const lines = entries.flatMap((entry) => factLine(entry, locale) ?? []);
+    const lines = entries.flatMap(
+      (entry) => formatTypedFact(entry, fact.type, locale) ?? factLine(entry, locale) ?? [],
+    );
     if (lines.length > 0) {
       resolved.push({ key: String(index), label: translate(fact.label), lines });
     }
@@ -235,6 +261,37 @@ function SuccessItemHints({
   );
 }
 
+/** One line per fact, a list of values as a block; shared by the success box and the preview panel. */
+export function ActionFormFacts({
+  testIdPrefix = "action-form-success-fact",
+  facts,
+}: {
+  readonly facts: readonly ResolvedSuccessFact[];
+  readonly testIdPrefix?: string;
+}): ReactNode {
+  const { Grid, Text } = usePrimitives();
+  return facts.map((fact) => {
+    const factTestId = `${testIdPrefix}-${fact.key}`;
+    if (fact.lines.length === 1) {
+      return (
+        <Text key={fact.key} testId={factTestId}>
+          {fact.label}: {fact.lines[0]}
+        </Text>
+      );
+    }
+    return (
+      <Grid key={fact.key} columns={1} testId={factTestId}>
+        <Text>{fact.label}:</Text>
+        {positionedLines(fact.lines).map(({ position, line }) => (
+          <Text key={position} testId={`${factTestId}-line-${position}`}>
+            {line}
+          </Text>
+        ))}
+      </Grid>
+    );
+  });
+}
+
 export function ActionFormSuccessBanner({
   success,
 }: {
@@ -249,26 +306,7 @@ export function ActionFormSuccessBanner({
     <Banner variant="info" testId="action-form-success">
       <Grid columns={1}>
         {items.length === 0 && <Text testId="action-form-success-text">{success.text}</Text>}
-        {success.facts.map((fact) => {
-          const factTestId = `action-form-success-fact-${fact.key}`;
-          if (fact.lines.length === 1) {
-            return (
-              <Text key={fact.key} testId={factTestId}>
-                {fact.label}: {fact.lines[0]}
-              </Text>
-            );
-          }
-          return (
-            <Grid key={fact.key} columns={1} testId={factTestId}>
-              <Text>{fact.label}:</Text>
-              {positionedLines(fact.lines).map(({ position, line }) => (
-                <Text key={position} testId={`${factTestId}-line-${position}`}>
-                  {line}
-                </Text>
-              ))}
-            </Grid>
-          );
-        })}
+        <ActionFormFacts facts={success.facts} />
       </Grid>
       {success.links.map((link) => (
         <Link

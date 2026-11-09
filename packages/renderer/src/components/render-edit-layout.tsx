@@ -137,7 +137,7 @@ function buildFormChromeProps<TValues extends FormValues, TCtx>(
 export function renderEditLayout<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
 ): ReactNode {
-  const { props, state, sections, handleSubmit } = model.engine;
+  const { props, state, sections, form, handleSubmit } = model.engine;
   const header = buildHeaderActions(model);
   const { Form } = state.primitives;
   return (
@@ -163,6 +163,7 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
             {renderWizardProgress(model)}
             {state.isTabs && state.isStepped && renderTabStrip(model)}
             {renderEditSections(model)}
+            {props.belowSections?.(form.snapshot.values)}
             {renderAfterFormSlot(model)}
             {props.formErrorOnTop !== true && renderFormErrorBanner(model)}
             {renderRootIssueBanners(model)}

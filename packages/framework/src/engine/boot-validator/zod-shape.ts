@@ -1,3 +1,4 @@
+import * as z from "zod";
 import {
   ZodArray,
   ZodCatch,
@@ -180,4 +181,14 @@ export function collectZodObjectKeys(schema: $ZodType | undefined): ReadonlySet<
     pending.push(...childSchemas(next));
   }
   return keys;
+}
+
+// The element shape of an array field of an object schema, e.g. `tasks` in `{ count, tasks: T[] }`.
+// Reuses the `{ rows: T[] }` walk instead of reading `.element` (core-vs-wrapper type gap).
+export function getZodArrayFieldElementShape(
+  schema: ZodType | undefined,
+  field: string,
+): Record<string, ZodType> | undefined {
+  const arrayField = getZodObjectShape(schema)?.[field];
+  return arrayField === undefined ? undefined : getZodRowShape(z.object({ rows: arrayField }));
 }

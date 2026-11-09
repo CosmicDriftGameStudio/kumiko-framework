@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { MAX_BULK_SELECTION } from "@cosmicdrift/kumiko-framework/ui-types";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createTaskBoardFeature } from "../feature";
 
@@ -63,5 +64,81 @@ describe("hand-written list query with aggregate", () => {
       "Prepare audit",
       "Quarterly VAT filing",
     ]);
+  });
+});
+
+describe("form bulk action handler", () => {
+  test("one write sets the status of every selected task", async () => {
+    const created = await Promise.all(
+      ["Bulk A", "Bulk B"].map((title) =>
+        stack.http.writeOk<{ data: { id: string } }>(
+          "task-board:write:task:create",
+          { title },
+          user,
+        ),
+      ),
+    );
+    const taskIds = created.map((task) => task.data.id);
+    await stack.http.writeOk(
+      "task-board:write:task:set-status",
+      { taskIds, status: "blocked", note: "waiting" },
+      user,
+    );
+    const list = await stack.http.queryOk<{
+      rows: { title: string; status: string; note: string }[];
+    }>("task-board:query:task:list", { sort: "title" }, user);
+    expect(
+      list.rows.filter((row) => row.title.startsWith("Bulk")).map((row) => [row.status, row.note]),
+    ).toEqual([
+      ["blocked", "waiting"],
+      ["blocked", "waiting"],
+    ]);
+  });
+
+  test("the preview query shows the same plan the handler applies", async () => {
+    const created = await Promise.all(
+      ["Plan A", "Plan B"].map((title) =>
+        stack.http.writeOk<{ data: { id: string } }>(
+          "task-board:write:task:create",
+          { title, status: title === "Plan B" ? "blocked" : "open" },
+          user,
+        ),
+      ),
+    );
+    const taskIds = created.map((task) => task.data.id);
+    const preview = await stack.http.queryOk<{
+      count: number;
+      tasks: { title: string; before: string; after: string }[];
+    }>("task-board:query:task:set-status-preview", { taskIds, status: "blocked" }, user);
+    expect(preview).toEqual({
+      count: 1,
+      tasks: [
+        { title: "Plan A", before: "open", after: "blocked" },
+        { title: "Plan B", before: "blocked", after: "blocked" },
+      ],
+    });
+  });
+
+  test("an unknown id fails the whole write and a list above the cap is rejected", async () => {
+    const unknown = await stack.http.write(
+      "task-board:write:task:set-status",
+      { taskIds: ["11111111-1111-4111-8111-111111111111"], status: "done" },
+      user,
+    );
+    const unknownBody = (await unknown.json()) as { isSuccess: boolean; error?: { code: string } };
+    expect(unknownBody.isSuccess).toBe(false);
+    expect(unknownBody.error?.code).toBe("not_found");
+
+    const tooMany = await stack.http.write(
+      "task-board:write:task:set-status",
+      {
+        taskIds: Array.from({ length: MAX_BULK_SELECTION + 1 }, () => crypto.randomUUID()),
+        status: "done",
+      },
+      user,
+    );
+    const tooManyBody = (await tooMany.json()) as { isSuccess: boolean; error?: { code: string } };
+    expect(tooManyBody.isSuccess).toBe(false);
+    expect(tooManyBody.error?.code).toBe("validation_error");
   });
 });

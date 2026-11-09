@@ -174,6 +174,8 @@ function validateRelatedListTableAndBulk(args: RelatedListSectionValidation): vo
     `[Feature ${featureName}] ${where}`,
     section.bulkActions,
     section.rowActions,
+    featureName,
+    args,
   );
 }
 

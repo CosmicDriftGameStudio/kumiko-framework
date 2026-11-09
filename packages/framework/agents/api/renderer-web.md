@@ -1377,6 +1377,7 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   }; // Record-view look of a projectionDetail; each key is opt-in.
   fillScreenHeight?: boolean; // Screen body fills the shell height: the form gets `fillHeight` and `stickyActions` (sections scroll, footer pinned).
   leadContent?: ReactNode; // Rendered first inside the form, above the sections, in the same column and rhythm — for content that belongs to the form but is no field (e.g. the secret a confirm step refers to).
+  belowSections?: (values: Readonly<Record<string, unknown>>) => ReactNode; // Rendered after the sections, above the form actions, with the live form values.
   submitBlocked?: boolean; // Blocks submit (button and Enter) while fields stay editable — unlike `disabled`, which locks the whole form.
   formDerivation?: FormDerivationScreen; // actionForm `derive`: derived fields are recomputed into the form state on every change and render read-only.
   actionFormScreenQn?: string; // QN of the actionForm screen this form renders; its file fields upload as pending for that screen.
