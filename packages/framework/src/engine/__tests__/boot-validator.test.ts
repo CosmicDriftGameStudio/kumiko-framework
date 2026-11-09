@@ -6426,6 +6426,7 @@ describe("boot-validator", () => {
       readonly params?: RowFieldExtractor | null;
       readonly targetFields?: Record<string, unknown>;
       readonly layoutFields?: readonly unknown[];
+      readonly targetScreen?: string;
     }) {
       const targetType = opts.targetType ?? "secretMint";
       const params = opts.params === undefined ? { pick: ["id"] } : opts.params;
@@ -6452,7 +6453,7 @@ describe("boot-validator", () => {
               kind: "navigate",
               id: "rotate",
               label: "actions.rotate",
-              screen: "rotate-form",
+              screen: opts.targetScreen ?? "rotate-form",
               ...(params !== null && { params }),
             },
           ],
@@ -6485,6 +6486,18 @@ describe("boot-validator", () => {
         ).not.toThrow();
       });
     }
+
+    test("a navigate target given as a QN seeds the hidden required field → no throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            submitPrefilled: true,
+            targetType: "actionForm",
+            targetScreen: "shop:screen:rotate-form",
+          }),
+        ]),
+      ).not.toThrow();
+    });
 
     test("params key the target does not declare → throw", () => {
       expect(() =>

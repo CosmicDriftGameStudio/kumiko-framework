@@ -1,4 +1,4 @@
-import { qualifyEntityName } from "../qualified-name.ts";
+import { isValidQn, parseQn, qualifyEntityName } from "../qualified-name.ts";
 import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type {
@@ -216,6 +216,12 @@ function resolveTarget(
   | undefined {
   if (source.entity !== undefined) return detailForByEntity.get(source.entity);
   if (source.screen === undefined) return undefined;
+  if (isValidQn(source.screen)) {
+    const { scope, type, name } = parseQn(source.screen);
+    if (type !== "screen") return undefined;
+    const match = screensByShortId.get(name)?.find((entry) => entry.featureName === scope);
+    return match === undefined ? undefined : { ...match, shortId: name };
+  }
   const match = screensByShortId.get(source.screen)?.[0];
   return match === undefined ? undefined : { ...match, shortId: source.screen };
 }

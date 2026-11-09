@@ -212,6 +212,13 @@ const billingFeature = defineFeature("billing", (r) => {
         screen: "record-payment",
         params: { map: { name: "payee" } },
       },
+      {
+        kind: "navigate",
+        id: "pay-by-qn",
+        label: "pay",
+        screen: "leases:screen:record-payment",
+        params: { map: { invoiceId: "id" } },
+      },
     ],
   });
 });
@@ -248,8 +255,12 @@ describe("buildAppSchema — urlPrefillFields derived from navigate params", () 
     expect(urlPrefillFieldsOf("leases", "item-create")).toEqual(["leaseId", "note"]);
   });
 
-  test("keys from several sources and features are unioned; an authored value is overwritten", () => {
-    expect(urlPrefillFieldsOf("leases", "record-payment")).toEqual(["name", "partyId"]);
+  test("keys from several sources and features are unioned, a cross-feature QN target included; an authored value is overwritten", () => {
+    expect(urlPrefillFieldsOf("leases", "record-payment")).toEqual([
+      "invoiceId",
+      "name",
+      "partyId",
+    ]);
   });
 
   test("a form no navigate params targets gets an empty list — drawer params do not count", () => {
