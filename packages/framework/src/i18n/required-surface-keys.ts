@@ -757,9 +757,14 @@ export type RequiredLocaleGap = {
   readonly missingLocales: readonly string[];
 };
 
-function collectLocalesByName(
-  features: readonly FeatureDefinition[],
-): ReadonlyMap<string, ReadonlySet<string>> {
+const PLURAL_FORM_NAMES = ["zero", "one", "two", "few", "many", "other"] as const;
+
+type LocalesByName = {
+  readonly localesByName: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly blankLocalesByName: ReadonlyMap<string, ReadonlySet<string>>;
+};
+
+function collectLocalesByName(features: readonly FeatureDefinition[]): LocalesByName {
   // A plain key of a regular feature is only its own; registering it raw would let two
   // features with the same plain key cover each other's missing locales.
   const namesOf = (featureName: string, key: string): readonly string[] =>
@@ -767,19 +772,26 @@ function collectLocalesByName(
       ? [`${featureName}:${key}`, key]
       : [`${featureName}:${key}`];
   const localesByName = new Map<string, Set<string>>();
+  const blankLocalesByName = new Map<string, Set<string>>();
+  const addAll = (target: Map<string, Set<string>>, name: string, locales: readonly string[]) => {
+    const set = target.get(name) ?? new Set<string>();
+    for (const locale of locales) set.add(locale);
+    target.set(name, set);
+  };
   for (const feature of features) {
     for (const [key, byLocale] of Object.entries(feature.translations ?? {})) {
-      const present = Object.entries(byLocale)
+      const entries = Object.entries(byLocale);
+      const present = entries
         .filter(([, value]) => hasLocaleValue(value))
         .map(([locale]) => locale);
+      const blank = entries.filter(([, value]) => !hasLocaleValue(value)).map(([locale]) => locale);
       for (const name of namesOf(feature.name, key)) {
-        const locales = localesByName.get(name) ?? new Set<string>();
-        for (const locale of present) locales.add(locale);
-        localesByName.set(name, locales);
+        addAll(localesByName, name, present);
+        addAll(blankLocalesByName, name, blank);
       }
     }
   }
-  return localesByName;
+  return { localesByName, blankLocalesByName };
 }
 
 /**
@@ -797,7 +809,7 @@ export function findRequiredLocaleGaps(
   requiredLocales: readonly string[],
 ): readonly RequiredLocaleGap[] {
   const featureNames = new Set(features.map((feature) => feature.name));
-  const localesByName = collectLocalesByName(features);
+  const { localesByName, blankLocalesByName } = collectLocalesByName(features);
   const gaps: RequiredLocaleGap[] = [];
   const reported = new Set<string>();
   for (const feature of features) {
@@ -815,6 +827,14 @@ export function findRequiredLocaleGaps(
           ...(localesByName.get(name) ?? []),
         ]),
       );
+      // A blank flat form (`.one`) leaves the plural incomplete even when `.other` is filled.
+      for (const name of [effective, key]) {
+        for (const form of PLURAL_FORM_NAMES) {
+          for (const locale of blankLocalesByName.get(`${name}.${form}`) ?? []) {
+            present.delete(locale);
+          }
+        }
+      }
       const missingLocales = requiredLocales.filter((locale) => !present.has(locale));
       if (missingLocales.length > 0) {
         reported.add(effective);

@@ -143,17 +143,19 @@ function transformCli(source: string, filePath: string, result: SiteLists): stri
     slotsOfImported &&
     !hasImportBinding(sourceFile, "kmsEnvSchema");
   if (!isScaffoldShape) {
-    const unmigrated = sourceFile
-      .getDescendantsOfKind(SyntaxKind.CallExpression)
-      .find((call) => call.getText() === OLD_SLOTS_INITIALIZER);
-    if (unmigrated !== undefined && !hasImportBinding(sourceFile, "kmsEnvSchema")) {
-      result.manual.push(
-        site(
-          filePath,
-          unmigrated,
-          `kmsSlots does not match the scaffold: add kmsSlotsOf(kmsEnvSchema) from ${KMS_ENV_SPECIFIER}`,
-        ),
-      );
+    if (!hasImportBinding(sourceFile, "kmsEnvSchema")) {
+      const slotCalls = sourceFile
+        .getDescendantsOfKind(SyntaxKind.CallExpression)
+        .filter((call) => ["runSchemaCli", "kmsSlotsOf"].includes(call.getExpression().getText()));
+      for (const call of slotCalls) {
+        result.manual.push(
+          site(
+            filePath,
+            call,
+            `kmsSlots does not match the scaffold: add kmsSlotsOf(kmsEnvSchema) from ${KMS_ENV_SPECIFIER}`,
+          ),
+        );
+      }
     }
     return source;
   }

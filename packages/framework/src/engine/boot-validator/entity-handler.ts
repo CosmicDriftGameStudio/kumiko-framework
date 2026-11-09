@@ -179,7 +179,7 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   }
 }
 
-const IP_BUCKETED_RATE_LIMIT_PER: ReadonlySet<string> = new Set(["ip", "ip+handler"]);
+export const IP_BUCKETED_RATE_LIMIT_PER: ReadonlySet<string> = new Set(["ip", "ip+handler"]);
 
 // Payload buckets only complement the per-IP bucket: an anonymous caller
 // who rotates IPs is what they exist for, and without the IP bucket a single

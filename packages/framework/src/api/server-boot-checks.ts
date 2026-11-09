@@ -1,7 +1,8 @@
+import { declaredRateLimitOptions } from "@cosmicdrift/kumiko-types/handlers";
+import { IP_BUCKETED_RATE_LIMIT_PER } from "../engine/boot-validator/entity-handler.ts";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.ts";
 import type { AppContext, Registry } from "../engine/types/index.ts";
 import { holdsFileRefs } from "../files/file-field-slots.ts";
-
 import type { createFallbackLogger } from "../logging/index.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state.ts";
 import { generateId } from "../utils/index.ts";
@@ -26,6 +27,30 @@ export function assertNoPayloadRateLimitsWithoutResolver(registry: Registry): vo
     `Handlers declare additionalRateLimits but no RateLimitResolver is configured: ${offenders.join(", ")}. ` +
       "Wire a Redis client on context.redis (or pass context.rateLimit), or drop the payload buckets " +
       "(for the waitlist: emailRateLimits: []).",
+  );
+}
+
+// ip buckets pass through without a client IP; tenant/user buckets always need the resolver, so
+// the first call would answer 500 (InternalError in enforceRateLimit).
+export function assertNoNonIpRateLimitsWithoutResolver(registry: Registry): void {
+  const hasNonIpBucket = (rateLimit: Parameters<typeof declaredRateLimitOptions>[0]): boolean =>
+    declaredRateLimitOptions(rateLimit).some(
+      (option) => !IP_BUCKETED_RATE_LIMIT_PER.has(option.per),
+    );
+  const offenders: string[] = [];
+  for (const feature of registry.features.values()) {
+    for (const [name, handler] of Object.entries(feature.writeHandlers)) {
+      if (hasNonIpBucket(handler.rateLimit)) offenders.push(`${feature.name}:write:${name}`);
+    }
+    for (const [name, handler] of Object.entries(feature.queryHandlers)) {
+      if (hasNonIpBucket(handler.rateLimit)) offenders.push(`${feature.name}:query:${name}`);
+    }
+  }
+  // skip: no handler has a tenant/user bucket
+  if (offenders.length === 0) return;
+  throw new Error(
+    `Handlers declare a non-ip rateLimit but no RateLimitResolver is configured: ${offenders.join(", ")}. ` +
+      "Wire a Redis client on context.redis (or pass context.rateLimit), or remove the rateLimit option.",
   );
 }
 

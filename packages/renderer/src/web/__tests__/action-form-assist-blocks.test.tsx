@@ -1,12 +1,13 @@
 // actionForm info band, label badges, chip multi-select and aiAssist.contextFields.
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, jest, test } from "bun:test";
 import type {
   ActionFormScreenDefinition,
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
@@ -151,17 +152,30 @@ describe("multiSelect display chips and aiAssist.contextFields", () => {
     return calls;
   }
 
-  test("a changed context never replaces text the user wrote", async () => {
-    const calls = renderAsk({ note: "my own text", kinds: ["front"] });
+  describe("with fake timers", () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
 
-    await userEvent.setup().click(screen.getByRole("button", { name: /back/ }));
+    test("a changed context never replaces text the user wrote", async () => {
+      jest.useFakeTimers();
+      const calls = renderAsk({ note: "my own text", kinds: ["front"] });
 
-    await waitFor(() => expect(screen.getByTestId("field-kinds").textContent).toContain("✓ back"));
-    await new Promise((resolve) => setTimeout(resolve, REFERENCE_SEARCH_DEBOUNCE_MS + 150));
-    expect(calls).toHaveLength(0);
-    expect(
-      (screen.getByTestId("field-note").querySelector("textarea") as HTMLTextAreaElement).value,
-    ).toBe("my own text");
+      await userEvent
+        .setup({ advanceTimers: jest.advanceTimersByTime })
+        .click(screen.getByRole("button", { name: /back/ }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("field-kinds").textContent).toContain("✓ back"),
+      );
+      act(() => {
+        jest.advanceTimersByTime(REFERENCE_SEARCH_DEBOUNCE_MS + 150);
+      });
+      expect(calls).toHaveLength(0);
+      expect(
+        (screen.getByTestId("field-note").querySelector("textarea") as HTMLTextAreaElement).value,
+      ).toBe("my own text");
+    });
   });
 
   test("a stored value outside the options survives a chip click", async () => {
