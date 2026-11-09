@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { useBasePath } from "../../app/base-path-context.tsx";
 import {
   PWA_SERVICE_WORKER_META_NAME,
   pwaCacheScopePrefixOf,
@@ -69,14 +70,17 @@ function registerServiceWorker(serviceWorkerUrl: string): void {
     .catch(() => undefined);
 }
 
-// Only the registration for this document's scope is touched. A worker counts as the
+// Only a registration scoped exactly to this app's base path is touched: getRegistration() also
+// returns an enclosing scope, which belongs to another app on the origin. A worker counts as the
 // framework's own when it is served as /sw.js and left a cache with this scope's kumiko-pwa-
-// prefix; app-owned workers and other apps on the origin have no such marker.
-async function retireStaleServiceWorker(): Promise<void> {
+// prefix; app-owned workers have no such marker.
+async function retireStaleServiceWorker(ownScopePath: string): Promise<void> {
   if (!("serviceWorker" in navigator) || typeof caches === "undefined") return;
-  const registration = await navigator.serviceWorker.getRegistration();
+  const registration = await navigator.serviceWorker.getRegistration(ownScopePath);
   if (!registration?.active?.scriptURL.endsWith("/sw.js")) return;
-  const cachePrefix = await pwaCacheScopePrefixOf(new URL(registration.scope).pathname);
+  const registeredScopePath = new URL(registration.scope).pathname;
+  if (registeredScopePath !== ownScopePath) return;
+  const cachePrefix = await pwaCacheScopePrefixOf(registeredScopePath);
   const pwaCacheNames = (await caches.keys()).filter((name) => name.startsWith(cachePrefix));
   if (pwaCacheNames.length === 0) return;
   await registration.unregister();
@@ -124,13 +128,14 @@ const HINT_BUTTON_CLASSES = cn(
 
 export function PwaSupport(): ReactNode {
   const t = useTranslation();
+  const basePath = useBasePath();
   const serviceWorkerUrl = readPwaServiceWorkerUrl();
   const [hint, dismiss] = useInstallHint(serviceWorkerUrl !== undefined);
 
   useEffect(() => {
     if (serviceWorkerUrl !== undefined) registerServiceWorker(serviceWorkerUrl);
-    else retireStaleServiceWorker().catch(() => undefined);
-  }, [serviceWorkerUrl]);
+    else retireStaleServiceWorker(`${basePath}/`).catch(() => undefined);
+  }, [serviceWorkerUrl, basePath]);
 
   if (hint.kind === "none") return null;
 

@@ -53,17 +53,19 @@ export function DefaultMetricBand({
 }
 
 // Below sm the narrow sub line replaces the regular one (board phone metrics are shorter).
-function useMetricSub({ sub, narrowSub }: MetricProps): string | undefined {
+function useMetricSub({ sub, narrowSub }: MetricProps): {
+  readonly sub: string | undefined;
+  readonly beside: boolean;
+} {
   const narrow = useIsBelowSmViewport();
-  return narrow && narrowSub !== undefined ? narrowSub : sub;
+  const beside = narrow && narrowSub !== undefined;
+  return { sub: beside ? narrowSub : sub, beside };
 }
 
 function MetricTile(props: MetricProps): ReactNode {
   const { label, value, testId, onPress, tone, icon } = props;
-  const sub = useMetricSub(props);
-  const narrow = useIsBelowSmViewport();
   // The phone's short sub line ("of 2,850") stands beside the value like the board; the full one sits below.
-  const subBeside = narrow && props.narrowSub !== undefined;
+  const { sub, beside: subBeside } = useMetricSub(props);
   const card = (
     <StatCard
       label={label}
@@ -87,7 +89,7 @@ function MetricTile(props: MetricProps): ReactNode {
 
 export function DefaultMetric(props: MetricProps): ReactNode {
   const insideBand = useContext(InsideMetricBandContext);
-  const sub = useMetricSub(props);
+  const { sub } = useMetricSub(props);
   if (props.tile === true) return <MetricTile {...props} />;
   const { label, value, testId, onPress } = props;
   const item = (

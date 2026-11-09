@@ -55,12 +55,6 @@ export class FrameTimeline {
     this.frames.push({ path, durationMs });
   }
 
-  extendLast(ms: number): void {
-    const last = this.frames.at(-1);
-    if (last === undefined) throw new Error("FrameTimeline.extendLast(): no frame captured yet");
-    last.durationMs += ms;
-  }
-
   async settle(): Promise<void> {
     await waitForSettledPage(this.page, trackInFlightRequests(this.page));
   }
@@ -134,7 +128,9 @@ export class FrameTimeline {
     focus: async (target) => {
       await this.settle();
       await target.scrollIntoViewIfNeeded();
-      await showFocus(this.page, await target.boundingBox());
+      const box = await target.boundingBox();
+      if (box === null) throw new Error("Video tools: target element has no bounding box");
+      await showFocus(this.page, box);
       await this.capture(FRAME_MS);
     },
   };

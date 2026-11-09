@@ -4,6 +4,7 @@ import {
   PWA_SERVICE_WORKER_META_NAME,
   pwaCacheScopePrefixOf,
 } from "../../../headless/pwa-service-worker-meta.ts";
+import { BasePathProvider } from "../../../index.ts";
 import { render } from "../../__tests__/test-utils.tsx";
 import { PWA_INSTALL_HINT_DISMISSED_KEY, PwaSupport } from "../pwa-support.tsx";
 
@@ -112,9 +113,26 @@ describe("PwaSupport without the pwa option and a leftover worker", () => {
   test("an own-scope cache under a base path is matched by that scope's prefix", async () => {
     const ownCache = `${await pwaCacheScopePrefixOf("/a/")}0123`;
     stubWorkerState("https://app.test/a/sw.js", [ownCache], "https://app.test/a/");
-    render(<PwaSupport />);
+    render(
+      <BasePathProvider basePath="/a">
+        <PwaSupport />
+      </BasePathProvider>,
+    );
     await waitFor(() => expect(unregister).toHaveBeenCalledTimes(1));
     expect(deleteCache).toHaveBeenCalledWith(ownCache);
+  });
+
+  test("leaves an enclosing app's worker alone when this app sits under a sub path", async () => {
+    const enclosingCache = `${await pwaCacheScopePrefixOf("/")}0123`;
+    stubWorkerState("https://app.test/sw.js", [enclosingCache], "https://app.test/");
+    render(
+      <BasePathProvider basePath="/b">
+        <PwaSupport />
+      </BasePathProvider>,
+    );
+    await act(async () => undefined);
+    expect(unregister).not.toHaveBeenCalled();
+    expect(deleteCache).not.toHaveBeenCalled();
   });
 
   test("leaves the worker and another app's kumiko-pwa- cache alone", async () => {

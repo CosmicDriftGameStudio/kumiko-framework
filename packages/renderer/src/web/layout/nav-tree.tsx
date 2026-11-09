@@ -758,7 +758,7 @@ function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
           <TreeActionControl
             action={create}
             ariaLabel={navLabel(t, create.label)}
-            className={`${PLUS_BUTTON_CLASS} hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground`}
+            className={`${PLUS_BUTTON_CLASS} hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground group-data-[collapsible=icon]:hidden`}
             dispatch={dispatch}
             workspaceId={nav.route?.workspaceId}
           >

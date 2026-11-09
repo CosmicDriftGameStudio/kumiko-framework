@@ -10,11 +10,11 @@ import { addVideoOverlay, showFocus } from "./cursor-overlay";
 import type { VideoDefinition, VideoSceneContext } from "./define-video";
 import { FrameTimeline } from "./frame-timeline";
 import { buildVtt, type MuxSceneAudio, muxVideo, type VttCue } from "./mux";
+import { assertAiNoticeCoversLocales, SETUP_TOOLS, sceneExtensionMs } from "./scene-plan";
 import { synthesizeSpeech } from "./tts";
 import { loadVideoTexts } from "./video-texts";
 
 const INTRO_MS = 500;
-const SCENE_TAIL_MS = 400;
 
 export interface RunVideosOptions {
   readonly videos: Readonly<Record<string, VideoDefinition>>;
@@ -75,13 +75,7 @@ export function runVideos(options: RunVideosOptions): void {
   const onlyLocales = csvFilter(process.env["VIDEO_LOCALES"]);
   const ttsCacheDir = join(videosDir, ".cache", "tts");
 
-  if (aiNotice !== undefined) {
-    for (const locale of locales) {
-      if (aiNotice[locale] === undefined) {
-        throw new Error(`runVideos(): aiNotice has no text for locale "${locale}"`);
-      }
-    }
-  }
+  assertAiNoticeCoversLocales(aiNotice, locales);
 
   for (const [id, video] of Object.entries(videos)) {
     if (onlyIds !== undefined && !onlyIds.has(id)) continue;
@@ -114,7 +108,7 @@ export function runVideos(options: RunVideosOptions): void {
               identities.push(...mappings);
             },
           };
-          await video.setup?.(page, ctx);
+          await video.setup?.(page, { ...ctx, tools: SETUP_TOOLS });
 
           await timeline.settle();
           await timeline.capture(INTRO_MS);
@@ -136,9 +130,12 @@ export function runVideos(options: RunVideosOptions): void {
             // Narration starts at the scene start, so the intro frame stays silent.
             const startMs = timeline.totalMs;
             await scene.do(page, { ...ctx, speechMs: speech.durationMs });
-            const minimumMs = speech.durationMs + SCENE_TAIL_MS;
-            const elapsedMs = timeline.totalMs - startMs;
-            if (elapsedMs < minimumMs) timeline.extendLast(minimumMs - elapsedMs);
+            const extensionMs = sceneExtensionMs(timeline.totalMs - startMs, speech.durationMs);
+            if (extensionMs > 0) {
+              // A fresh frame, not a stretched old one: the scene may end on an uncaptured action.
+              await timeline.settle();
+              await timeline.capture(extensionMs);
+            }
             await showFocus(page, null);
 
             const sceneMs = timeline.totalMs - startMs;

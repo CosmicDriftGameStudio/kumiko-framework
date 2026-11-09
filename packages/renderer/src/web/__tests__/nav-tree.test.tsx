@@ -30,6 +30,7 @@ import type { FeatureSchema, LiveEventSubscriber, NavApi } from "../../index.ts"
 import { LiveEventsProvider, NavProvider } from "../../index.ts";
 import { NavProvidersProvider } from "../app/nav-providers-context.tsx";
 import { NavTree } from "../layout/nav-tree.tsx";
+import { ShellNavStyleProvider } from "../layout/shell-style.tsx";
 import { setDispatchListener } from "../layout/target-resolver-stub.tsx";
 import { fireEvent, renderWithSidebar as render, screen } from "./test-utils.tsx";
 
@@ -1335,5 +1336,37 @@ describe("NavTree top-level runs", () => {
     expect(emptyLists.length).toBeGreaterThan(0);
     expect(emptyLists.every((ul) => ul.className.includes("empty:hidden"))).toBe(true);
     expect(menuLists(container).filter((ul) => ul.childElementCount > 0)).toHaveLength(1);
+  });
+});
+
+describe("NavTree plain section create button", () => {
+  test("the plus in the group label leaves the tab order when the sidebar collapses to the icon rail", () => {
+    const schema = {
+      featureName: "cms",
+      entities: {},
+      screens: [{ id: "leaf", type: "entityList", entity: "item", columns: [] }],
+      navs: [
+        {
+          id: "grp",
+          label: "Group",
+          order: 10,
+          createAction: {
+            icon: "plus",
+            label: "New in group",
+            target: { featureId: "cms", action: "create", args: {} },
+          },
+        },
+        { id: "leaf", label: "Leaf", parent: "grp", screen: "leaf", order: 10 },
+      ],
+    } satisfies FeatureSchema;
+    render(
+      <ShellNavStyleProvider value="plain">
+        <NavTree schema={schema} />
+      </ShellNavStyleProvider>,
+    );
+
+    const plus = screen.getByRole("button", { name: "New in group" });
+    expect(plus.closest('[data-sidebar="group-label"]')).not.toBeNull();
+    expect(plus.className).toContain("group-data-[collapsible=icon]:hidden");
   });
 });
