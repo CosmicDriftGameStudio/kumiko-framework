@@ -334,6 +334,15 @@ describe("signature :: authorizeSubject on queries", () => {
     );
     expect(forA.rows).toHaveLength(1);
   });
+
+  test("signer list with a non-uuid requestId answers an empty page, not a server error", async () => {
+    const page = await stack.http.queryOk<Page<{ id: string }>>(
+      SignatureQueries.signerList,
+      { filters: [{ field: "requestId", op: "eq", value: "not-a-uuid" }] },
+      USER_B,
+    );
+    expect(page.rows).toEqual([]);
+  });
 });
 
 describe("signature :: request file check", () => {

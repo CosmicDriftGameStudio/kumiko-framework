@@ -28,12 +28,22 @@ const SIGNATURE = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
 
 // RGBA, 8 bit, no interlace. `drawn` paints a thick diagonal stroke; without it the image is fully transparent.
 export function makePng(
-  options: { width?: number; height?: number; drawn?: boolean } = {},
+  options: {
+    width?: number;
+    height?: number;
+    drawn?: boolean;
+    background?: readonly number[];
+  } = {},
 ): Uint8Array {
   const width = options.width ?? 200;
   const height = options.height ?? 80;
   const stride = 1 + width * 4;
   const raw = new Uint8Array(stride * height);
+  if (options.background !== undefined) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) raw.set(options.background, y * stride + 1 + x * 4);
+    }
+  }
   if (options.drawn !== false) {
     for (let x = 0; x < width; x++) {
       const y = Math.floor((x * (height - 1)) / width);
