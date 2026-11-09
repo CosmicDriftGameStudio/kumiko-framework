@@ -9,12 +9,18 @@ import type {
   TenantDb,
   WhereObject,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { ConfigAccessor, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  ConfigAccessor,
+  KumikoEventTypeMap,
+  WriteHandlerDefinition,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   UnprocessableError,
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import type { BeforeTransactionWhenNested } from "@cosmicdrift/kumiko-types/handlers";
+import type { ZodType } from "zod";
 import { enforceStockCap } from "./enforce-cap.ts";
 
 // Runtime inputs a tier's cap limit may depend on, e.g. a SystemAdmin-edited
@@ -69,7 +75,23 @@ export type StockCapGuard<TCaps> = {
     spec: StockCapSpec<TCaps>,
     context?: CapLimitContext,
   ) => Promise<WriteFailure | null>;
-  readonly withStockCap: (handler: WriteHandlerDef, spec: StockCapSpec<TCaps>) => WriteHandlerDef;
+  readonly withStockCap: <
+    TName extends string,
+    TSchema extends ZodType,
+    TData,
+    TPrepared,
+    TWhenNested extends BeforeTransactionWhenNested | undefined,
+  >(
+    handler: WriteHandlerDefinition<
+      TName,
+      TSchema,
+      TData,
+      KumikoEventTypeMap,
+      TPrepared,
+      TWhenNested
+    >,
+    spec: StockCapSpec<TCaps>,
+  ) => WriteHandlerDefinition<TName, TSchema, TData, KumikoEventTypeMap, TPrepared, TWhenNested>;
 };
 
 export function createStockCapGuard<TCaps>(
@@ -97,7 +119,23 @@ export function createStockCapGuard<TCaps>(
     );
   }
 
-  function withStockCap(handler: WriteHandlerDef, spec: StockCapSpec<TCaps>): WriteHandlerDef {
+  function withStockCap<
+    TName extends string,
+    TSchema extends ZodType,
+    TData,
+    TPrepared,
+    TWhenNested extends BeforeTransactionWhenNested | undefined,
+  >(
+    handler: WriteHandlerDefinition<
+      TName,
+      TSchema,
+      TData,
+      KumikoEventTypeMap,
+      TPrepared,
+      TWhenNested
+    >,
+    spec: StockCapSpec<TCaps>,
+  ): WriteHandlerDefinition<TName, TSchema, TData, KumikoEventTypeMap, TPrepared, TWhenNested> {
     return {
       ...handler,
       handler: async (event, ctx) => {
