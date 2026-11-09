@@ -10,7 +10,13 @@ import type {
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import type { FeatureSchema } from "../../index.ts";
-import { DispatcherProvider, KumikoScreen, NavProvider, RenderEdit } from "../../index.ts";
+import {
+  DispatcherProvider,
+  KumikoScreen,
+  NavProvider,
+  REFERENCE_SEARCH_DEBOUNCE_MS,
+  RenderEdit,
+} from "../../index.ts";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.tsx";
 
 const FORM: ActionFormScreenDefinition = {
@@ -123,6 +129,48 @@ describe("multiSelect display chips and aiAssist.contextFields", () => {
         (screen.getByTestId("field-note").querySelector("textarea") as HTMLTextAreaElement).value,
       ).toBe("Draft 1"),
     );
+  });
+
+  function renderAsk(initial: Record<string, unknown>) {
+    const calls: { type: string; payload: unknown }[] = [];
+    const query = (async (type: string, payload: unknown) => {
+      calls.push({ type, payload });
+      return { isSuccess: true, data: { message: "Draft" } };
+    }) as unknown as Dispatcher["query"];
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <RenderEdit
+          screen={SCREEN}
+          entity={entityWithChips}
+          featureName="demo"
+          initial={initial}
+          writeCommand="ask:create"
+        />
+      </DispatcherProvider>,
+    );
+    return calls;
+  }
+
+  test("a changed context never replaces text the user wrote", async () => {
+    const calls = renderAsk({ note: "my own text", kinds: ["front"] });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: /back/ }));
+
+    await waitFor(() => expect(screen.getByTestId("field-kinds").textContent).toContain("✓ back"));
+    await new Promise((resolve) => setTimeout(resolve, REFERENCE_SEARCH_DEBOUNCE_MS + 150));
+    expect(calls).toHaveLength(0);
+    expect(
+      (screen.getByTestId("field-note").querySelector("textarea") as HTMLTextAreaElement).value,
+    ).toBe("my own text");
+  });
+
+  test("a stored value outside the options survives a chip click", async () => {
+    const calls = renderAsk({ note: "", kinds: ["legacy", "front"] });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: /back/ }));
+
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.payload).toEqual({ kinds: ["front", "back", "legacy"] });
   });
 });
 

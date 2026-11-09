@@ -2,6 +2,8 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useOptionalDispatcher } from "../context/dispatcher-context.tsx";
 import type { EditFieldViewModel } from "../headless/index.ts";
+import { REFERENCE_SEARCH_DEBOUNCE_MS } from "../hooks/reference-limits.ts";
+import { useDebouncedValue } from "../hooks/use-debounced-value.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { useAiAssistPayload } from "./ai-assist-payload.tsx";
@@ -41,9 +43,11 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
   const contextValues = Object.fromEntries(
     (aiAssist.contextFields ?? []).map((name) => [name, row?.[name]]),
   );
-  // Changed context (e.g. another selection) replaces the text; the first render never fetches.
-  const contextKey = JSON.stringify(contextValues);
+  // Changed context (e.g. another selection) replaces an empty or AI-written text; the first render never fetches.
+  // Debounced so a text context field does not fire one server-side LLM query per keystroke.
+  const contextKey = useDebouncedValue(JSON.stringify(contextValues), REFERENCE_SEARCH_DEBOUNCE_MS);
   const seenContextKey = useRef(contextKey);
+  const lastGeneratedText = useRef<string | undefined>(undefined);
 
   const run = async (chips: ReadonlySet<number>, typed: string | undefined): Promise<void> => {
     if (dispatcher === undefined) return;
@@ -63,9 +67,16 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
     };
     setBusy(true);
     setFailed(false);
-    const result = await dispatcher.query<unknown>(aiAssist.query, payload, {
-      signal: ctrl.signal,
-    });
+    let result: Awaited<ReturnType<typeof dispatcher.query<unknown>>>;
+    try {
+      result = await dispatcher.query<unknown>(aiAssist.query, payload, { signal: ctrl.signal });
+    } catch {
+      if (!ctrl.signal.aborted) {
+        setBusy(false);
+        setFailed(true);
+      }
+      return;
+    }
     if (ctrl.signal.aborted) return;
     setBusy(false);
     const noteText =
@@ -78,16 +89,21 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
       setFailed(true);
       return;
     }
+    lastGeneratedText.current = text;
     onChange(text);
   };
 
   // The effect reads the latest run/active through a ref so it only fires when the context changes.
   const rerunWithCurrentChips = useRef(() => {});
   rerunWithCurrentChips.current = () => void run(active, undefined);
+  const hasHandWrittenText = useRef(false);
+  hasHandWrittenText.current = field.value !== "" && field.value !== lastGeneratedText.current;
   useEffect(() => {
     // skip: nothing changed since the last run (or since mount).
     if (seenContextKey.current === contextKey) return;
     seenContextKey.current = contextKey;
+    // skip: the user's own text is never replaced silently.
+    if (hasHandWrittenText.current) return;
     rerunWithCurrentChips.current();
   }, [contextKey]);
 

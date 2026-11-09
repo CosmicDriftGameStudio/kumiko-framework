@@ -65,13 +65,15 @@ function pickDeclaredFields(
   return picked;
 }
 
+const NO_FIELDS: readonly string[] = [];
+
 /** Loads the initial values of an actionForm declaring `load`; undefined for a
  *  form without `load`. */
 export function useActionFormLoad(
   load: ActionFormLoad | undefined,
   recordId: string | undefined,
   fieldNames: readonly string[],
-  summaryFieldNames: readonly string[] = [],
+  summaryFieldNames: readonly string[] = NO_FIELDS,
   prefill?: Readonly<Record<string, unknown>>,
 ): ActionFormLoadState | undefined {
   const isSingleton = load?.singleton === true;
