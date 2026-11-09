@@ -19,6 +19,8 @@ import type { ExtensionSelectorPanel } from "@cosmicdrift/kumiko-types/config";
 import { isOptionsQueryFieldRef } from "@cosmicdrift/kumiko-types/fields";
 import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.ts";
 import type { WorkspaceSchema } from "../ui-types/index.ts";
+import { bootRuleError } from "./boot-validator/boot-rule.ts";
+import { CONFIG_KEY_RULES } from "./boot-validator/config-key-rules.ts";
 import { rolesToAccess, unionAccessRules } from "./config-access-rules.ts";
 import { isEncryptedAtRest } from "./config-helpers.ts";
 import type { ConfigScope } from "./constants.ts";
@@ -1158,9 +1160,9 @@ function collectMaskedKeys(registry: Registry): MaskedKey[] {
       );
     }
     if (def.mask?.readOnly === true && def.required === true) {
-      throw new Error(
-        `[Feature ${ownerFeature}] config key "${qn.slice(sep + ":config:".length)}" is mask.readOnly and required — nobody could fill it.`,
-      );
+      throw bootRuleError(CONFIG_KEY_RULES.maskReadOnlyRequired, {
+        message: `[Feature ${ownerFeature}] config key "${qn.slice(sep + ":config:".length)}" is mask.readOnly and required — nobody could fill it.`,
+      });
     }
     // computed keys derive their value — there is no row to set, so a
     // configEdit screen could not write them. Skip even when masked.

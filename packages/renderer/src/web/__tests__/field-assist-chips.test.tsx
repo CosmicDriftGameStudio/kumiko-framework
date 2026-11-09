@@ -112,6 +112,19 @@ describe("aiAssist", () => {
     expect(calls[3]?.payload).toEqual({ mentionWarranty: true, instruction: "friendlier" });
   });
 
+  test("a rejecting query shows the error banner and enables the chips again", async () => {
+    const query = (async () => {
+      throw new Error("network");
+    }) as unknown as Dispatcher["query"];
+    renderOffer(query);
+
+    await userEvent.setup().click(screen.getByTestId("field-ai-chip-note-0"));
+
+    await waitFor(() => expect(screen.getByTestId("field-ai-error-note")).toBeTruthy());
+    expect(screen.getByTestId("field-ai-chip-note-0").hasAttribute("disabled")).toBe(false);
+    expect(noteInput().value).toBe("hi there");
+  });
+
   test("a failing query shows the error banner and keeps the text", async () => {
     const { query } = recordingQuery({
       isSuccess: false,

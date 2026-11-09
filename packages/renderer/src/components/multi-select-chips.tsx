@@ -24,7 +24,11 @@ export function MultiSelectChips({
   const toggle = (optionValue: string): void => {
     const next = new Set(selected);
     if (!next.delete(optionValue)) next.add(optionValue);
-    onChange(options.filter((opt) => next.has(opt.value)).map((opt) => opt.value));
+    const optionValues = new Set(options.map((opt) => opt.value));
+    onChange([
+      ...options.filter((opt) => next.has(opt.value)).map((opt) => opt.value),
+      ...value.filter((stored) => !optionValues.has(stored) && next.has(stored)),
+    ]);
   };
   return (
     <Grid columns="auto" tight ariaLabelledBy={`${id}-label`}>

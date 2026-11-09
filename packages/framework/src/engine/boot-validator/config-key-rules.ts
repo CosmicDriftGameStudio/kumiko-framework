@@ -49,6 +49,11 @@ export const CONFIG_KEY_RULES = {
     summary: "A config key that declares optionsQueryPayload also declares optionsQuery.",
     fix: "Set optionsQuery or remove optionsQueryPayload.",
   },
+  maskReadOnlyRequired: {
+    id: "config-key/mask-read-only-required",
+    summary: "A config key is not both mask.readOnly and required, because nobody could fill it.",
+    fix: "Drop required or mask.readOnly.",
+  },
   optionsQueryEmpty: {
     id: "config-key/options-query-empty",
     summary: "A config key's optionsQuery is a non-empty query name when present.",
