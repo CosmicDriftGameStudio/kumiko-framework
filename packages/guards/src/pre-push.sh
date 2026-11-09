@@ -57,6 +57,15 @@ if [ -z "$REPO_NAME" ] || [ "$REPO_NAME" = "." ] || [ "$REPO_NAME" = "/" ]; then
   exit 1
 fi
 
+# A fresh worktree has no node_modules: every typecheck/test lane would fail
+# late and noisily (or resolve the wrong checkout), so refuse before any check.
+GIT_DIR_ABS="$(git rev-parse --path-format=absolute --git-dir 2>/dev/null || true)"
+if [ -n "$GIT_DIR_ABS" ] && [ "$GIT_DIR_ABS" != "$GIT_COMMON_DIR" ] \
+   && [ -f "$REPO_ROOT/package.json" ] && [ ! -d "$REPO_ROOT/node_modules" ]; then
+  echo "[pre-push] worktree not installed: run 'bun install --frozen-lockfile' in $REPO_ROOT" >&2
+  exit 1
+fi
+
 # Walk up from REPO_ROOT looking for the parent workspace's package.json —
 # a `.wt/<name>` worktree sits one level deeper than a regular checkout.
 PARENT_DIR=""

@@ -228,6 +228,7 @@ function writeParentWorkspace(tmp: string): { parentDir: string; repoDir: string
 
 function writeWorktreePackageJson(dir: string, scripts: Record<string, string>): void {
   writeFileSync(join(dir, "package.json"), JSON.stringify({ scripts }));
+  mkdirSync(join(dir, "node_modules"), { recursive: true });
 }
 
 // Each script writes a marker file in the cwd it ran with, so tests can
@@ -376,6 +377,54 @@ describe("kumiko-pre-push", () => {
 
       expect(output).not.toContain('without a package.json "test" script');
       expect(readFileSync(join(standaloneDir, "marker-a.txt"), "utf-8")).toContain("MARKER_A");
+    });
+  });
+
+  describe("worktree install check", () => {
+    const INSTALL_HINT = "worktree not installed: run 'bun install --frozen-lockfile'";
+
+    function setupWorktreeWithPackageJson(): string {
+      const { parentDir, repoDir } = writeParentWorkspace(tmp);
+      initGitRepo(repoDir);
+      const worktreeDir = join(parentDir, ".wt", "fw-4284");
+      runGit(["worktree", "add", "-q", "-b", "test-branch", worktreeDir], repoDir, tmp);
+      writeFileSync(
+        join(worktreeDir, "package.json"),
+        JSON.stringify({ scripts: WORKTREE_MARKER_SCRIPTS }),
+      );
+      return worktreeDir;
+    }
+
+    test("worktree without node_modules aborts before any check runs", () => {
+      const worktreeDir = setupWorktreeWithPackageJson();
+
+      const { output, exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).toBe(1);
+      expect(output).toContain(`${INSTALL_HINT} in ${worktreeDir}`);
+      expect(existsSync(join(worktreeDir, "marker-typecheck.txt"))).toBe(false);
+      expect(existsSync(join(worktreeDir, "marker-test.txt"))).toBe(false);
+    });
+
+    test("worktree with node_modules gets no install hint", () => {
+      const worktreeDir = setupWorktreeWithPackageJson();
+      mkdirSync(join(worktreeDir, "node_modules"));
+
+      const { output, exitCode } = runHook(worktreeDir, tmp);
+
+      expect(output).not.toContain(INSTALL_HINT);
+      expect(exitCode).toBe(0);
+    });
+
+    test("main checkout without node_modules is not aborted by this check", () => {
+      const { repoDir } = writeParentWorkspace(tmp);
+      initGitRepo(repoDir);
+      writeFileSync(join(repoDir, "package.json"), JSON.stringify({ name: "kumiko-framework" }));
+
+      const { output, exitCode } = runHook(repoDir, tmp);
+
+      expect(output).not.toContain(INSTALL_HINT);
+      expect(exitCode).toBe(0);
     });
   });
 
