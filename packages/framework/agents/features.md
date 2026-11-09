@@ -668,7 +668,7 @@ Exposes APIs: `sessions.revokeAllForUser`
 
 ## signature
 
-Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the injected print function, appends it to the unchanged original and completes the request. Events completed, declined and expired report the outcome; signer name, email, image, IP and user agent are personal data.
+Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the injected print function, appends it to the unchanged original and completes the request. Events completed, declined, expired and failed report the outcome; signer name, email, image, IP and user agent are personal data.
 
 Category: data
 
