@@ -4,7 +4,12 @@ import type { ListColumnSpec } from "@cosmicdrift/kumiko-types/screen";
 import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
-import { createEntity, createNumberField, createTimestampField } from "../../factories.ts";
+import {
+  createEntity,
+  createLocatedTimestampField,
+  createNumberField,
+  createTimestampField,
+} from "../../factories.ts";
 import { normalizeListColumn } from "../../screen-helpers.ts";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
@@ -26,6 +31,11 @@ function featureWith(kind: ScreenKind, columns: readonly ListColumnSpec[]) {
       ...createEntity({
         fields: {
           amount: createNumberField({ personal: false, reason: "test_fixture", sortable: true }),
+          pickupAt: createLocatedTimestampField({
+            personal: false,
+            reason: "test_fixture",
+            sortable: true,
+          }),
           seenAt: createTimestampField({ personal: false, reason: "test_fixture", sortable: true }),
         },
       }),
@@ -94,6 +104,12 @@ describe("validateBoot — column dateOnlyAfterDays", () => {
   test("an entityList timestamp column boots", () => {
     expect(() =>
       validateBoot([featureWith("entityList", [{ field: "seenAt", dateOnlyAfterDays: 30 }])]),
+    ).not.toThrow();
+  });
+
+  test("an entityList locatedTimestamp column boots", () => {
+    expect(() =>
+      validateBoot([featureWith("entityList", [{ field: "pickupAt", dateOnlyAfterDays: 30 }])]),
     ).not.toThrow();
   });
 

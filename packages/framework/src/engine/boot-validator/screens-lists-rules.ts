@@ -39,8 +39,9 @@ export const LIST_SCREEN_RULES = {
   },
   dateOnlyAfterDaysWrongType: {
     id: "list/date-only-after-days-wrong-type",
-    summary: "dateOnlyAfterDays sits on a timestamp or date column or a relativeTime column.",
-    fix: "Remove dateOnlyAfterDays from the column or point it at a timestamp or date field.",
+    summary:
+      "dateOnlyAfterDays sits on a timestamp, locatedTimestamp or date column or a relativeTime column.",
+    fix: "Remove dateOnlyAfterDays from the column or point it at a timestamp, locatedTimestamp or date field.",
   },
   columnSortableInert: {
     id: "list/column-sortable-inert",
