@@ -1,3 +1,4 @@
+import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { SELECT_OPTION_TONES } from "@cosmicdrift/kumiko-types/fields";
 import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
@@ -19,6 +20,7 @@ import type {
   ScreenDefinition,
 } from "../types/screen.ts";
 import { bootRuleError } from "./boot-rule.ts";
+import { entityColumnType, validateDateOnlyAfterDays } from "./date-only-after-days.ts";
 import { ENTITY_LIST_RULES } from "./entity-list-screens-rules.ts";
 import { validateListBulkActions } from "./list-bulk-actions.ts";
 import { validateListRowGuidance, validatePhotoGrid } from "./list-row-guidance.ts";
@@ -185,6 +187,13 @@ function assertReadOnlyHasNoRowInteraction(args: RelatedListSectionValidation): 
   }
 }
 
+function resolveSectionEntity(args: RelatedListSectionValidation): EntityDefinition | undefined {
+  const { section, featureName, featureMap } = args;
+  if (section.entity === undefined) return undefined;
+  const target = parseRefTarget(section.entity, featureName);
+  return featureMap.get(target.featureName)?.entities?.[target.entityName];
+}
+
 export function validateRelatedListSection(args: RelatedListSectionValidation): void {
   const { featureName, featureMap, where, section } = args;
   if (!section.query || typeof section.query !== "string") {
@@ -203,10 +212,18 @@ export function validateRelatedListSection(args: RelatedListSectionValidation): 
     );
   }
   validateListRowGuidance(featureName, args.screenId, "relatedList", section, undefined, where);
+  const sectionEntity = resolveSectionEntity(args);
   for (const col of section.columns) {
     const normalizedCol = normalizeListColumn(col);
     validateColumnRendererForm(featureName, args.screenId, normalizedCol);
     validateEnumOptionTones(`[Feature ${featureName}] ${where}`, normalizedCol);
+    validateDateOnlyAfterDays(
+      `[Feature ${featureName}] ${where}`,
+      normalizedCol,
+      sectionEntity === undefined
+        ? undefined
+        : entityColumnType(sectionEntity, normalizedCol.field),
+    );
     if (normalizedCol.refEntity !== undefined) {
       assertRefTargetRegistered(
         `[Feature ${featureName}] ${where}`,

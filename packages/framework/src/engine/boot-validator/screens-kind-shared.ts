@@ -1,4 +1,5 @@
 import { bootRuleError } from "./boot-rule.ts";
+import { entityColumnType, validateDateOnlyAfterDays } from "./date-only-after-days.ts";
 import { FORM_LAYOUT_RULES } from "./screens-forms-layout-rules.ts";
 import { SCREEN_KIND_RULES } from "./screens-kind-rules.ts";
 // Checks shared by several screen kinds; each helper takes the kind it reports under.
@@ -144,9 +145,15 @@ export function validateListColumnRendering(
   screenId: string,
   kind: "projectionList" | "entityList",
   column: ReturnType<typeof normalizeListColumn>,
+  entity?: EntityDefinition,
 ): void {
   const featureName = ctx.feature.name;
   validateColumnRendererForm(featureName, screenId, column);
+  validateDateOnlyAfterDays(
+    `[Feature ${featureName}] Screen "${screenId}" (${kind})`,
+    column,
+    entity === undefined ? undefined : entityColumnType(entity, column.field),
+  );
   rejectInertColumnSortable(featureName, screenId, kind, column);
   if (column.refEntity !== undefined) {
     assertRefTargetRegistered(

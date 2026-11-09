@@ -1,5 +1,6 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
+"@cosmicdrift/kumiko-framework": patch
 ---
 
 Review fixes (final round), signature list page-cap test.
@@ -16,4 +17,11 @@ feature: signature
 type: fix
 title: Unrecoverable finalisation ends in status failed
 detail: A request whose original PDF changed or went missing, or whose signature image is missing, used to stay `all-signed` forever while the sweep warned every five minutes. It now ends in the status `failed` with the event `signature:event:failed` and a reason (`document-changed` or `signature-image-missing`). Renderer outages and storage errors still retry on the next run.
+-->
+
+<!-- kumiko-changes
+feature: framework
+type: fix
+title: Boot validator checks dateOnlyAfterDays on list columns
+detail: A column's `dateOnlyAfterDays` must be a non-negative whole number on every list kind. On an entityList column it requires a timestamp or date field or a `relativeTime` format; on a projectionList or relatedList column a numeric `valueType` (number, decimal, bigInt, money) is rejected, and a relatedList column with an entity is checked against that entity's field type. Number columns that showed 42 as 1 January 1970 now fail at boot (rules `list/date-only-after-days-invalid` and `list/date-only-after-days-wrong-type`).
 -->
