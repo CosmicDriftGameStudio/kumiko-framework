@@ -59,6 +59,13 @@ describe("scaffold-kms-mode codemod", () => {
     expect(result.manual.length).toBeGreaterThan(0);
   });
 
+  it("reports a bin/kumiko.ts whose kmsSlotsOf call is not the scaffold initializer", () => {
+    const edited = `import { kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";\nconst slots = kmsSlotsOf(env.schema);\n`;
+    const result = transformScaffoldKmsModeSource(edited, CLI_FILE);
+    expect(result.output).toBe(edited);
+    expect(result.manual.length).toBeGreaterThan(0);
+  });
+
   it("ignores other files with the same content", () => {
     const source = fixture("old-demo-main.txt");
     const result = transformScaffoldKmsModeSource(source, "/app/src/other.ts");

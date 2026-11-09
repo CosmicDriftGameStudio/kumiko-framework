@@ -162,6 +162,61 @@ describe("buildServer — payload rate limits need a resolver", () => {
   });
 });
 
+describe("buildServer — tenant/user rate limits need a resolver", () => {
+  function featureWith(per: "ip" | "tenant" | "user+handler", kind: "write" | "query") {
+    return defineFeature("limited", (r) => {
+      const rateLimit = { per, limit: 10, windowSeconds: 60 };
+      if (kind === "write") {
+        r.writeHandler({
+          name: "act",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true as const, data: {} }),
+          access: { roles: ["anonymous"] },
+          rateLimit,
+        });
+      } else {
+        r.queryHandler({
+          name: "look",
+          schema: z.object({}),
+          handler: async () => ({}),
+          access: { roles: ["anonymous"] },
+          rateLimit,
+        });
+      }
+    });
+  }
+
+  test("a tenant bucket on a write handler throws at boot naming the handler", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([featureWith("tenant", "write")]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+      }),
+    ).toThrow(/limited:write:act/);
+  });
+
+  test("a user+handler bucket on a query handler throws at boot naming the handler", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([featureWith("user+handler", "query")]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+      }),
+    ).toThrow(/limited:query:look/);
+  });
+
+  test("an ip-only bucket still boots without a resolver", () => {
+    expect(() =>
+      buildServer({
+        registry: createRegistry([featureWith("ip", "write")]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe("buildServer — feature httpRoute PUT mounting", () => {
   const putFeature = defineFeature("put-route", (r) => {
     r.httpRoute({

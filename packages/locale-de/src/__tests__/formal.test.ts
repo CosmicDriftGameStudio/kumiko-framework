@@ -21,7 +21,7 @@ const informalImperativeRegex =
 // The default bundle is du throughout; extend the allowlist only for genuine
 // 3rd-person "Sie" referring to a noun.
 const formalAddressRegex =
-  /\b(Ihr\w*|Ihnen|(Speichern|Nutzen|Laden|Wählen|Geben|Verwenden|Klicken|Prüfen|Legen|Fügen|Löschen|Bestätigen|Verwerfen|Bearbeiten|Öffnen|Setzen|Ziehen|Versuchen|verwenden|ersetzen|ändern|prüfen|wählen|entfernen|schränken) Sie|Sie (sehen|können|müssen|haben|sind|werden|wollen|möchten|erhalten|benötigen))\b/;
+  /\b(Ihr\w*|Ihnen|\p{L}+n Sie|Sie (sehen|k\u00F6nnen|m\u00FCssen|haben|sind|werden|wollen|m\u00F6chten|erhalten|ben\u00F6tigen))\b/u;
 
 const THIRD_PERSON_SIE_ALLOWLIST: ReadonlySet<string> = new Set<string>([
   "auth.mfa.enable.recoveryHint",

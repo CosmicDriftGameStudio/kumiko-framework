@@ -2,10 +2,12 @@ import { fetchOne, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantTable } from "../../tenant/index.ts";
+import { type TenantLifecycleStatus, tenantTable } from "../../tenant/index.ts";
 import { redeemKeepAccountToken } from "../keep-token.ts";
 import { lockInactivityCycle } from "../state-store.ts";
 import { tenantInactivityStateTable } from "../state-table.ts";
+
+const KEEPABLE_TENANT_STATUS: TenantLifecycleStatus = "active";
 
 const KEEP_ACCOUNT_ESCAPE_HATCH_REASON =
   "the anonymous link holder has no tenant scope; the tenant comes from the signed token and every statement filters by that tenantId";
@@ -41,8 +43,10 @@ export function createKeepAccountHandler(opts: { readonly keepAccountTokenSecret
         commitKeep: async (tenantId, cycleId) => {
           await lockInactivityCycle(runner, tenantId);
           // A destruction request that won the lock owns the tenant now; reporting "kept" would be a lie.
-          const tenant = await fetchOne<{ status: string }>(runner, tenantTable, { id: tenantId });
-          if (tenant?.status !== "active") return false;
+          const tenant = await fetchOne<{ status: TenantLifecycleStatus }>(runner, tenantTable, {
+            id: tenantId,
+          });
+          if (tenant?.status !== KEEPABLE_TENANT_STATUS) return false;
           const updated = await updateMany(
             runner,
             tenantInactivityStateTable,

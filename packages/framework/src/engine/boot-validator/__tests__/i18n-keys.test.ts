@@ -448,6 +448,17 @@ describe("translation locale consistency per feature", () => {
     expect(findRequiredLocaleGaps([shop, localeEs], ["en", "es"])).toEqual([]);
   });
 
+  test("a blank flat plural form of a locale package leaves that locale missing", () => {
+    const shop = featureWith("shop", { items: { en: { one: "1 item", other: "{count} items" } } });
+    const localeEs = featureWith("locale-es", {
+      "shop:items.one": { es: " " },
+      "shop:items.other": { es: "{count} artículos" },
+    });
+    expect(findRequiredLocaleGaps([shop, localeEs], ["en", "es"])).toEqual([
+      { featureName: "shop", key: "items", missingLocales: ["es"] },
+    ]);
+  });
+
   test("two regular features sharing a plain key do not cover each other", () => {
     const shop = featureWith("shop", { title: { en: "T" } });
     const blog = featureWith("blog", { title: { en: "T", de: "T" } });
