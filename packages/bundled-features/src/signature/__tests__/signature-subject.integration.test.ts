@@ -295,9 +295,19 @@ describe("signature :: authorizeSubject on queries", () => {
     const aggregate = { aggregate: { groupBy: "status" } };
     const refused = await stack.http.queryErr(SignatureQueries.list, aggregate, USER_A);
     expect(refused.httpStatus).toBe(403);
-    const offset = await stack.http.queryErr(SignatureQueries.list, { offset: 2 }, USER_A);
-    expect(offset.httpStatus).toBe(403);
     await stack.http.queryOk(SignatureQueries.list, aggregate, ADMIN);
+  });
+
+  test("an offset is refused for a scoped user", async () => {
+    await createRequestOfA();
+    const refused = await stack.http.queryErr(SignatureQueries.list, { offset: 2 }, USER_A);
+    expect(refused.httpStatus).toBe(403);
+  });
+
+  test("limit 0 is refused for a scoped user", async () => {
+    await createRequestOfA();
+    const refused = await stack.http.queryErr(SignatureQueries.list, { limit: 0 }, USER_A);
+    expect(refused.httpStatus).toBe(403);
   });
 
   test("a scoped user reaches every own request by following the cursor, without duplicates", async () => {
