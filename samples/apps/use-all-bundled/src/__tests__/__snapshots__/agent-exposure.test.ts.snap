@@ -247,6 +247,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "signature:write:cancel expose=true risk=mid",
   "signature:write:decline-by-link expose=false risk=mid",
   "signature:write:expire expose=false risk=mid",
+  "signature:write:fail expose=false risk=mid",
   "signature:write:finish expose=false risk=mid",
   "signature:write:issue-link expose=true risk=mid",
   "signature:write:link-decline expose=false risk=mid",
