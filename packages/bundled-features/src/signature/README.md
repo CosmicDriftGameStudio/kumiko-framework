@@ -37,7 +37,7 @@ subjects a user may see. It runs for every signed-in handler and query; `false` 
 record. `unscopedRoles` (e.g. `["TenantAdmin"]`) skip it. For a scoped user `signatureRequest:list` keeps only the
 rows of allowed subjects, reading up to ten base pages per answer (it can still hold fewer rows than `limit`), and has no `total`; screens
 and nav stay at `access`. `signatureSigner:list` needs a `requestId` eq filter, otherwise 403. `request` also
-refuses a document the caller cannot open through `GET /files/:id`.
+refuses a document the caller cannot open through `GET /files/:id`. The list cursor of a scoped user is sealed with a key derived from `linkSecret`, so `authorizeSubject` throws at startup without a non-empty `linkSecret`.
 
 ## Handlers
 

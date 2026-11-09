@@ -9,6 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { requestExecutor } from "./entity.ts";
+import { openListCursor, sealListCursor } from "./list-cursor-seal.ts";
 import type { SubjectScope } from "./subject-scope.ts";
 
 type ListPayload = ReturnType<typeof entityListSchema.parse>;
@@ -46,7 +47,11 @@ const MAX_BASE_PAGES_PER_ANSWER = 10;
 // authorizeSubject usually queries the database; a page of 200 subjects must not take the whole pool.
 const SUBJECT_CHECKS_IN_PARALLEL = 10;
 
-export function scopeRequestList(base: QueryHandlerDef, scope: SubjectScope): QueryHandlerDef {
+export function scopeRequestList(
+  base: QueryHandlerDef,
+  scope: SubjectScope,
+  cursorSecret: string,
+): QueryHandlerDef {
   return {
     ...base,
     handler: async (query, ctx) => {
@@ -61,7 +66,14 @@ export function scopeRequestList(base: QueryHandlerDef, scope: SubjectScope): Qu
       const limit = payload.limit ?? DEFAULT_LIST_LIMIT;
       const verdicts = new Map<string, boolean>();
       const visibleRows: unknown[] = [];
-      let page: unknown = await base.handler(query, ctx);
+      const { cursor: sealedCursor, ...payloadWithoutCursor } = payload;
+      let firstQuery = query;
+      if (sealedCursor !== undefined) {
+        const openedCursor = await openListCursor(sealedCursor, user, cursorSecret);
+        if (openedCursor === null) throw new AccessDeniedError();
+        firstQuery = { ...query, payload: { ...payloadWithoutCursor, cursor: openedCursor } };
+      }
+      let page: unknown = await base.handler(firstQuery, ctx);
       for (let fetched = 1; ; fetched++) {
         if (!isRowsPage(page)) throw new Error("signature request list did not return a rows page");
         const unknownSubjects = new Map(
@@ -85,9 +97,17 @@ export function scopeRequestList(base: QueryHandlerDef, scope: SubjectScope): Qu
           fetched >= MAX_BASE_PAGES_PER_ANSWER ||
           verdicts.size >= MAX_LIST_LIMIT
         ) {
-          // `total` would count requests of foreign subjects; the cursor continues after the last base page.
-          const { total: _total, rows: _rows, ...rest } = page;
-          return { ...rest, rows: visibleRows };
+          // `total` would count requests of foreign subjects. The base cursor names the last base row,
+          // which may belong to a foreign subject, so the user only gets it sealed.
+          const { total: _total, rows: _rows, nextCursor: _baseCursor, ...rest } = page;
+          return {
+            ...rest,
+            rows: visibleRows,
+            nextCursor:
+              typeof nextCursor === "string"
+                ? await sealListCursor(nextCursor, user, cursorSecret)
+                : null,
+          };
         }
         page = await base.handler(
           {

@@ -51,7 +51,7 @@ export type SignatureOptions = {
   readonly signaturePageUrl: string;
   /** Access rule of the signed-in handlers, queries, screens and nav. Default `{ roles: ["TenantAdmin", "TenantMember"] }`; set it when the app hands out other roles. The link handlers stay anonymous. */
   readonly access?: AccessRule;
-  /** Runs for every signed-in handler and query on the subject of the request, except for `unscopedRoles`. `false` answers like "does not exist". Without it every user with `access` sees every request of the tenant. */
+  /** Runs for every signed-in handler and query on the subject of the request, except for `unscopedRoles`. `false` answers like "does not exist". Without it every user with `access` sees every request of the tenant. Needs a non-empty `linkSecret`, which also seals the list cursor. */
   readonly authorizeSubject?: AuthorizeSignatureSubject;
   /** Roles that skip `authorizeSubject`, e.g. admins. */
   readonly unscopedRoles?: readonly string[];
