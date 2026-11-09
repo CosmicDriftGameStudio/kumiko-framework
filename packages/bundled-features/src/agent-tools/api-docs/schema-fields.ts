@@ -54,6 +54,19 @@ function alternatives(node: SchemaNode): readonly SchemaNode[] {
   return [...nodeList(node["anyOf"]), ...nodeList(node["oneOf"])];
 }
 
+function typeArrayLabel(
+  node: SchemaNode,
+  type: readonly unknown[],
+  root: SchemaNode,
+  depth: number,
+): string {
+  const names = type.filter((name): name is string => typeof name === "string");
+  const labels = names
+    .filter((name) => name !== "null")
+    .map((name) => typeLabel({ ...node, type: name }, root, depth + 1));
+  return [...labels, ...(names.includes("null") ? ["null"] : [])].join(" | ") || "any";
+}
+
 export function typeLabel(rawNode: SchemaNode, root: SchemaNode = rawNode, depth = 0): string {
   const node = resolveRef(rawNode, root);
   if (depth > MAX_SCHEMA_DEPTH) return "object";
@@ -67,13 +80,7 @@ export function typeLabel(rawNode: SchemaNode, root: SchemaNode = rawNode, depth
     return node["enum"].map((value) => JSON.stringify(value)).join(" | ");
   if ("const" in node) return JSON.stringify(node["const"]);
   const type = node["type"];
-  if (Array.isArray(type)) {
-    const names = type.filter((name): name is string => typeof name === "string");
-    const labels = names
-      .filter((name) => name !== "null")
-      .map((name) => typeLabel({ ...node, type: name }, root, depth + 1));
-    return [...labels, ...(names.includes("null") ? ["null"] : [])].join(" | ") || "any";
-  }
+  if (Array.isArray(type)) return typeArrayLabel(node, type, root, depth);
   if (type === "array") {
     const items = asNode(node["items"]);
     return `array of ${items === undefined ? "any" : typeLabel(items, root, depth + 1)}`;
