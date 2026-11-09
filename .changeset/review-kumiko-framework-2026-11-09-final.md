@@ -2,7 +2,7 @@
 "@cosmicdrift/kumiko-bundled-features": patch
 ---
 
-Review fixes (final round).
+Review fixes (final round), signature list page-cap test.
 
 <!-- kumiko-changes
 feature: signature
