@@ -21,10 +21,11 @@ function isEmptyValue(value: unknown): boolean {
   );
 }
 
+/** Empty optional fields stay out: an untouched date input holds "", which a query schema rejects instead of reading it as absent. */
 function pickPayload(values: FormValueMap, fieldNames: readonly string[]): FormValueMap {
   const payload: Record<string, unknown> = {};
   for (const name of fieldNames) {
-    if (Object.hasOwn(values, name)) payload[name] = values[name];
+    if (Object.hasOwn(values, name) && !isEmptyValue(values[name])) payload[name] = values[name];
   }
   return payload;
 }

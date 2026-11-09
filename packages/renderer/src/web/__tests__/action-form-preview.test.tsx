@@ -89,6 +89,27 @@ describe("actionForm preview", () => {
     expect(screen.getByText("Prepare audit")).toBeTruthy();
   });
 
+  test("an emptied optional field is left out of the preview payload", async () => {
+    const queries: unknown[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async (_type: string, payload: unknown) => {
+        queries.push(payload);
+        return { isSuccess: true, data: { count: 0, tasks: [] } };
+      }) as unknown as Dispatcher["query"],
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: { query: "tasks:query:set-status-preview", fields: ["status", "note"] },
+    });
+
+    typeInto("note", "draft");
+    typeInto("note", "");
+    typeInto("status", "blocked");
+
+    await waitFor(() => expect(queries.length).toBeGreaterThan(0));
+    expect(queries.at(-1)).toEqual({ status: "blocked" });
+  });
+
   test("typed facts and columns render formatted: money object and date string", async () => {
     const dispatcher = createMockDispatcher({
       query: (async () => ({
