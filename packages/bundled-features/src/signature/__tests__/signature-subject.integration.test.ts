@@ -338,7 +338,8 @@ describe("signature :: authorizeSubject on queries", () => {
           SignatureHandlers.request,
           {
             ...(await requestPayload(ADMIN, `subject-foreign-${index}`)),
-            expiresInDays: 1,
+            // Later than the page-cap test's foreign requests (1 day), which run after this test in the same database.
+            expiresInDays: 2,
             title: "secret foreign title",
           },
           ADMIN,
