@@ -3,8 +3,8 @@ import { createPayloadDigest, createRateLimitResolver } from "../rate-limit/inde
 import type { ServerOptions } from "./server.ts";
 import type { BootLogger } from "./server-boot-checks.ts";
 import {
-  assertNoNonIpRateLimitsWithoutResolver,
   assertNoPayloadRateLimitsWithoutResolver,
+  warnNonIpRateLimitsWithoutResolver,
   warnUnlimitedSystemScopeFeatures,
 } from "./server-boot-checks.ts";
 
@@ -44,7 +44,7 @@ export function resolveServerRateLimit(
     (tracedRedis && wantsResolver ? createRateLimitResolver({ redis: tracedRedis }) : undefined);
   if (!rateLimitResolver) {
     assertNoPayloadRateLimitsWithoutResolver(options.registry);
-    assertNoNonIpRateLimitsWithoutResolver(options.registry);
+    warnNonIpRateLimitsWithoutResolver(options.registry, bootLog);
     warnUnlimitedSystemScopeFeatures(options.registry, bootLog);
   }
   return { resolver: rateLimitResolver, middlewareRequested: wantsL1L2, payloadDigest };

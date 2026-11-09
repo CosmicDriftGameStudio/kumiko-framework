@@ -28,9 +28,10 @@ export type ReportIngestProgressInput = {
 };
 
 // Parallel reports for one file race on the stream version, so a lost race re-reads the version and
-// appends again. The projection keeps the highest pagesDone, so landing order does not matter; past
-// the attempt limit a report only stops once the stored progress already covers it.
-const MAX_VERSION_CONFLICT_ATTEMPTS = 3;
+// appends again. The projection keeps the highest pagesDone, so landing order does not matter. A
+// conflict means another report committed, so N parallel reports need at most N-1 retries; 10
+// covers the parallelism one file sees. A report whose progress is already stored stops early.
+const MAX_VERSION_CONFLICT_ATTEMPTS = 10;
 
 // Low-level append() does not fire projections, so they run explicitly, in the same transaction as the append.
 export async function reportIngestProgress(
@@ -58,12 +59,8 @@ export async function reportIngestProgress(
       return;
     } catch (e) {
       if (!(e instanceof VersionConflictError)) throw e;
-      if (
-        attempt >= MAX_VERSION_CONFLICT_ATTEMPTS &&
-        (await storedProgressCovers(deps, aggregateId, payload.pagesDone))
-      ) {
-        return;
-      }
+      if (await storedProgressCovers(deps, aggregateId, payload.pagesDone)) return;
+      if (attempt >= MAX_VERSION_CONFLICT_ATTEMPTS) throw e;
     }
   }
 }

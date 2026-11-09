@@ -147,11 +147,20 @@ function transformCli(source: string, filePath: string, result: SiteLists): stri
       const slotCalls = sourceFile
         .getDescendantsOfKind(SyntaxKind.CallExpression)
         .filter((call) => ["runSchemaCli", "kmsSlotsOf"].includes(call.getExpression().getText()));
-      for (const call of slotCalls) {
+      const reportable =
+        slotCalls.find((call) => call.getExpression().getText() === "kmsSlotsOf") ??
+        slotCalls.find((call) => {
+          const [options] = call.getArguments();
+          return (
+            options?.isKind(SyntaxKind.ObjectLiteralExpression) === true &&
+            options.getProperty("kmsSlots") !== undefined
+          );
+        });
+      if (reportable !== undefined) {
         result.manual.push(
           site(
             filePath,
-            call,
+            reportable,
             `kmsSlots does not match the scaffold: add kmsSlotsOf(kmsEnvSchema) from ${KMS_ENV_SPECIFIER}`,
           ),
         );
