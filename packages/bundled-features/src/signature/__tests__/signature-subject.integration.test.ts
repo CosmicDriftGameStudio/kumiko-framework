@@ -2,7 +2,11 @@
 // A request file the caller cannot open through GET /files/:id is refused with or without the hook.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  encodeKeysetCursor,
+} from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
@@ -308,6 +312,51 @@ describe("signature :: authorizeSubject on queries", () => {
     } while (cursor !== null);
     expect(new Set(seen).size).toBe(seen.length);
     for (const request of own) expect(seen).toContain(request.requestId);
+  });
+
+  test("a scoped cursor never carries a foreign request id and a plain cursor is refused", async () => {
+    const foreign = await stack.http.writeOk<RequestData>(
+      SignatureHandlers.request,
+      { ...(await requestPayload(ADMIN, "subject-foreign")), title: "secret foreign title" },
+      ADMIN,
+    );
+    const leakProbe = await stack.http.queryOk<Page<RequestRow>>(
+      SignatureQueries.list,
+      { search: "secret foreign title", limit: 1, sort: "expiresAt" },
+      USER_B,
+    );
+    expect(leakProbe.rows).toEqual([]);
+    if (leakProbe.nextCursor !== null) {
+      expect(Buffer.from(leakProbe.nextCursor, "base64url").toString("latin1")).not.toContain(
+        foreign.requestId,
+      );
+      expect(leakProbe.nextCursor).not.toContain(foreign.requestId);
+    }
+
+    const plainCursor = encodeKeysetCursor(null, foreign.requestId);
+    const refused = await stack.http.queryErr(
+      SignatureQueries.list,
+      { limit: 1, cursor: plainCursor },
+      USER_B,
+    );
+    expect(refused.httpStatus).toBe(403);
+  });
+
+  test("a scoped user reaches the own request through sealed cursors", async () => {
+    const own = await createRequestOfA();
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let pages = 0; pages < 50; pages++) {
+      const page: Page<RequestRow> = await stack.http.queryOk<Page<RequestRow>>(
+        SignatureQueries.list,
+        { limit: 1, ...(cursor !== null && { cursor }) },
+        USER_A,
+      );
+      seen.push(...page.rows.map((row) => row.id));
+      if (page.nextCursor === null) break;
+      cursor = page.nextCursor;
+    }
+    expect(seen).toContain(own.requestId);
   });
 
   test("an unscoped role lists without a filter", async () => {

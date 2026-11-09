@@ -35,6 +35,9 @@ import {
 } from "./web/constants.ts";
 
 export function createSignatureFeature(opts: SignatureOptions): FeatureDefinition {
+  if (opts.authorizeSubject !== undefined && opts.linkSecret === "") {
+    throw new Error("authorizeSubject needs a non-empty linkSecret: it also seals the list cursor");
+  }
   const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;
   const scope = createSubjectScope(opts);
   const requestEntity = createSignatureRequestEntity(opts.retention);
@@ -94,7 +97,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
       description:
         "Lists the signers of requests with their status and way of signing; carries the signers' personal data.",
     });
-    r.queryHandler(scopeRequestList(requestList, scope));
+    r.queryHandler(scopeRequestList(requestList, scope, opts.linkSecret));
     r.queryHandler(scopeRequestDetail(requestDetail, scope));
     r.queryHandler(scopeSignerList(signerList, scope));
 
