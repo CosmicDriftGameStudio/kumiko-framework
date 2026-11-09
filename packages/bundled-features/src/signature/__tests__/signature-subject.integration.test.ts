@@ -331,7 +331,8 @@ describe("signature :: authorizeSubject on queries", () => {
 
   test("a scoped cursor never carries a foreign request id and a plain cursor is refused", async () => {
     const foreignRequests: RequestData[] = [];
-    for (const index of [1, 2]) {
+    // One more foreign request than base pages per answer (10), so the answer stops on a foreign row and hands out a cursor.
+    for (let index = 1; index <= 11; index++) {
       foreignRequests.push(
         await stack.http.writeOk<RequestData>(
           SignatureHandlers.request,
