@@ -449,7 +449,7 @@ function HeaderOverflow({
             screens={bellScreens}
             anchorRef={triggerRef}
             onSelect={() => setOpen(false)}
-            separated={items.length > 0 || headerActions !== undefined}
+            separated={foldsIntoOverflow(items, headerActions)}
           />
         )}
         {items.length > 0 && (
@@ -478,7 +478,7 @@ function HeaderOverflow({
             ))}
           </div>
         )}
-        {items.length > 0 && headerActions !== undefined && (
+        {items.length > 0 && foldsIntoOverflow([], headerActions) && (
           <hr className="-mx-1 my-1 border-t border-border" />
         )}
         {headerActions !== undefined && (

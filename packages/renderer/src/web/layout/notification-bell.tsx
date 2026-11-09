@@ -191,6 +191,7 @@ export function NotificationBell({
           <button
             type="button"
             role="menuitem"
+            aria-label={label}
             data-testid="notification-bell-menu-item"
             className={headerOverflowMenuItemClass}
             onClick={() => {
@@ -203,6 +204,7 @@ export function NotificationBell({
             {inbox.unreadCount > 0 && (
               <span
                 data-kumiko-layout="notification-bell-badge"
+                aria-hidden="true"
                 className="rounded-full bg-destructive px-1.5 py-0.5 text-[9.5px] font-semibold leading-none text-destructive-foreground"
               >
                 {badge}

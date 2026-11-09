@@ -34,12 +34,24 @@ describe("buildFrameConcatList", () => {
     ]);
     expect(list.split("\n")).toEqual([
       "file '/f/a.png'",
-      "duration 0.5000",
+      "duration 0.500000",
       "file '/f/b.png'",
-      "duration 0.0333",
+      "duration 0.033333",
       "file '/f/b.png'",
       "",
     ]);
+  });
+
+  test("frame durations add up to the exact total instead of drifting per frame", () => {
+    const frames = Array.from({ length: 3000 }, (_, index) => ({
+      path: `/f/${index}.png`,
+      durationMs: 1000 / 30,
+    }));
+    const seconds = buildFrameConcatList(frames)
+      .split("\n")
+      .filter((line) => line.startsWith("duration "))
+      .map((line) => Number(line.slice("duration ".length)));
+    expect(seconds.reduce((sum, value) => sum + value, 0)).toBeCloseTo(100, 5);
   });
 
   test("escapes single quotes in paths", () => {

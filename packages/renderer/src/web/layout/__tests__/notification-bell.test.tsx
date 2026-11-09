@@ -17,9 +17,11 @@ import {
   fireEvent,
   renderWithSidebar,
   screen,
+  setViewportWidth,
   waitFor,
   within,
 } from "../../__tests__/test-utils.tsx";
+import { HeaderActionPinned } from "../header-action-pinned.tsx";
 import { ShellFocusProvider } from "../shell-focus.tsx";
 import { ShellHeader } from "../shell-header.tsx";
 
@@ -298,6 +300,7 @@ describe("NotificationBell in the overflow menu", () => {
     const entry = await screen.findByTestId("notification-bell-menu-item");
     expect(entry.getAttribute("role")).toBe("menuitem");
     await waitFor(() => expect(entry.textContent).toBe("Notifications3"));
+    expect(screen.getByRole("menuitem", { name: "Notifications, 3 unread" })).toBe(entry);
   });
 
   test("the entry opens the list, the entry's row navigates, and the list outlives the closing menu", async () => {
@@ -353,6 +356,31 @@ describe("NotificationBell in the overflow menu", () => {
     );
     expect(screen.queryByTestId("shell-header-overflow-trigger")).toBeNull();
     expect(screen.queryByTestId("notification-bell-menu-item")).toBeNull();
+  });
+
+  test("on a phone with only pinned headerActions the bell entry has no dangling separator", () => {
+    const originalWidth = window.innerWidth;
+    setViewportWidth(500);
+    try {
+      mount(
+        "channel-in-app",
+        makeDispatcher({ queries: [], writes: [] }, { count: 0 }),
+        makeLive().subscriber,
+        [],
+        featureSchema("channel-in-app"),
+        {
+          ...OVERFLOW,
+          headerActions: (
+            <HeaderActionPinned>
+              <button type="button">Assistant</button>
+            </HeaderActionPinned>
+          ),
+        },
+      );
+      expect(screen.getByTestId("shell-header-overflow").querySelector("hr")).toBeNull();
+    } finally {
+      setViewportWidth(originalWidth);
+    }
   });
 
   test("from md the headerActions stay beside the menu and are not repeated in it", () => {

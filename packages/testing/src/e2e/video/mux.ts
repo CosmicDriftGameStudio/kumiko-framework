@@ -30,10 +30,16 @@ function concatFileLine(path: string): string {
 export function buildFrameConcatList(frames: readonly MuxFrame[]): string {
   const last = frames.at(-1);
   if (last === undefined) throw new Error("buildFrameConcatList(): no frames");
-  const lines = frames.flatMap((frame) => [
-    concatFileLine(frame.path),
-    `duration ${(frame.durationMs / 1000).toFixed(4)}`,
-  ]);
+  // Rounding cumulative boundaries instead of each duration keeps the sum equal to the total.
+  let elapsedMs = 0;
+  let previousBoundaryUs = 0;
+  const lines = frames.flatMap((frame) => {
+    elapsedMs += frame.durationMs;
+    const boundaryUs = Math.round(elapsedMs * 1000);
+    const durationUs = boundaryUs - previousBoundaryUs;
+    previousBoundaryUs = boundaryUs;
+    return [concatFileLine(frame.path), `duration ${(durationUs / 1_000_000).toFixed(6)}`];
+  });
   // The concat demuxer ignores the duration of the final entry unless that file is listed again.
   lines.push(concatFileLine(last.path));
   return `${lines.join("\n")}\n`;
