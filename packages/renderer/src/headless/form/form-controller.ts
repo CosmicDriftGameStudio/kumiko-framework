@@ -94,7 +94,7 @@ function valuesDiff<TValues extends FormValues>(
 // The seed of an untouched optional money field (buildInitialValues); never a valid payload value.
 // Stripped only while the initial value was that seed too: clearing a stored amount must reach the
 // server, which rejects it visibly instead of keeping the old amount silently.
-function isCurrencyOnlyMoney(value: unknown): boolean {
+export function isCurrencyOnlyMoney(value: unknown): boolean {
   return (
     typeof value === "object" &&
     value !== null &&

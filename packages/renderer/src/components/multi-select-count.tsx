@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useOptionalTranslation } from "../i18n.tsx";
+import { usePrimitives } from "../primitives.tsx";
 
 const keyAsText = (key: string): string => key;
 
@@ -12,9 +13,10 @@ export function MultiSelectCount({
   readonly value: readonly string[];
 }): ReactNode {
   const t = useOptionalTranslation() ?? keyAsText;
+  const { Text } = usePrimitives();
   return (
-    <span id={id} data-testid={`${id}-count`} className="text-sm text-foreground">
+    <Text variant="small" testId={`${id}-count`}>
       {t("kumiko.form.selection-count", { count: value.length })}
-    </span>
+    </Text>
   );
 }

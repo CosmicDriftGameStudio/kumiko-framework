@@ -110,6 +110,30 @@ describe("actionForm preview", () => {
     expect(queries.at(-1)).toEqual({ status: "blocked" });
   });
 
+  test("an untouched optional money field stays out of the preview payload", async () => {
+    const queries: unknown[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async (_type: string, payload: unknown) => {
+        queries.push(payload);
+        return { isSuccess: true, data: { count: 0, tasks: [] } };
+      }) as unknown as Dispatcher["query"],
+    });
+    renderForm(dispatcher, {
+      ...form,
+      fields: {
+        ...form.fields,
+        fee: { type: "money", currency: { kind: "literal", code: "EUR" } },
+      },
+      layout: { sections: [{ fields: ["status", "note", "fee"] }] },
+      preview: { query: "tasks:query:set-status-preview", fields: ["status", "fee"] },
+    });
+
+    typeInto("status", "blocked");
+
+    await waitFor(() => expect(queries.length).toBeGreaterThan(0));
+    expect(queries.at(-1)).toEqual({ status: "blocked" });
+  });
+
   test("typed facts and columns render formatted: money object and date string", async () => {
     const dispatcher = createMockDispatcher({
       query: (async () => ({

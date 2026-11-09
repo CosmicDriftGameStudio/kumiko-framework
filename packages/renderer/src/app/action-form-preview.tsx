@@ -1,6 +1,7 @@
 import type { ActionFormPreview } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
+import { isCurrencyOnlyMoney } from "../headless/form/form-controller.ts";
 import type { ListColumnViewModel, ListRowViewModel, Translate } from "../headless/index.ts";
 import { REFERENCE_SEARCH_DEBOUNCE_MS } from "../hooks/reference-limits.ts";
 import { useDebouncedValue } from "../hooks/use-debounced-value.ts";
@@ -17,7 +18,8 @@ function isEmptyValue(value: unknown): boolean {
     value === undefined ||
     value === null ||
     value === "" ||
-    (Array.isArray(value) && value.length === 0)
+    (Array.isArray(value) && value.length === 0) ||
+    isCurrencyOnlyMoney(value)
   );
 }
 
