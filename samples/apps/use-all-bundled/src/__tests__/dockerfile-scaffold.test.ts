@@ -78,7 +78,9 @@ describe("use-all-bundled scaffoldDeploy", () => {
     });
     const dockerfile = readFileSync(join(tmp, "deploy/Dockerfile"), "utf-8");
     // Beide Stages sind bun-native (Phase-3 bun-cutover).
-    expect(dockerfile).toMatch(/FROM oven\/bun:\$\{BUN_VERSION\}-alpine AS build/);
+    expect(dockerfile).toMatch(
+      /FROM --platform=\$BUILDPLATFORM oven\/bun:\$\{BUN_VERSION\}-alpine AS build/,
+    );
     expect(dockerfile).toMatch(/FROM oven\/bun:\$\{BUN_VERSION\}-alpine AS runtime/);
   });
 });

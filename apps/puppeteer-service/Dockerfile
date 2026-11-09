@@ -18,6 +18,15 @@
 # 512Mi, growth 1Gi, scale 2Gi). Service hat keinen internen Memory-Cap —
 # OOM-Kill durch K8s ist intended (Pod-restart-policy: Always).
 
+# bun aborts under QEMU, so the install runs on the build host for the target CPU.
+FROM --platform=$BUILDPLATFORM oven/bun:1.4.4-slim AS deps
+ARG TARGETARCH
+WORKDIR /app
+COPY apps/puppeteer-service/package.json ./
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+RUN bun -e "const f='./package.json'; const p=JSON.parse(await Bun.file(f).text()); delete p.devDependencies; await Bun.write(f, JSON.stringify(p, null, 2));" \
+    && bun install --production --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)"
+
 FROM oven/bun:1.4.4-slim AS runtime
 
 # Chromium-Dependencies für Headless-Betrieb. System-chromium (debian-package)
@@ -75,10 +84,9 @@ WORKDIR /app
 # devDependencies droppen: package.json enthält workspace:* für Integration-
 # Tests — Bun validiert die auch bei --production, obwohl kein Workspace-Root
 # im Image existiert.
-COPY --chown=puppeteer:puppeteer apps/puppeteer-service/package.json ./
+COPY --chown=puppeteer:puppeteer --from=deps /app/package.json ./
+COPY --chown=puppeteer:puppeteer --from=deps /app/node_modules ./node_modules
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-RUN bun -e "const f='./package.json'; const p=JSON.parse(await Bun.file(f).text()); delete p.devDependencies; await Bun.write(f, JSON.stringify(p, null, 2));" \
-    && bun install --production
 
 COPY --chown=puppeteer:puppeteer apps/puppeteer-service ./apps/puppeteer-service
 
