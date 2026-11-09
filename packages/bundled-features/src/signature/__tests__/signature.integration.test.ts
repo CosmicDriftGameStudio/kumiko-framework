@@ -406,6 +406,31 @@ describe("signature :: request to completed document", () => {
   });
 });
 
+describe("signature :: unrecoverable finalisation", () => {
+  test("a changed original ends the all-signed request as failed, once", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada"]);
+    await signInPerson(signerIds[0] as string);
+    const row = await requestRow(requestId);
+    expect(row["status"]).toBe("all-signed");
+
+    const refs = await selectMany(stack.db, fileRefsTable, { id: String(row["documentFileId"]) });
+    const storageKey = String(refs[0]?.["storageKey"]);
+    const changed = await PDFDocument.create();
+    changed.addPage([300, 300]);
+    changed.addPage([300, 300]);
+    await provider.write(storageKey, await changed.save(), "application/pdf");
+
+    await runSweep();
+    await runSweep();
+
+    expect((await requestRow(requestId))["status"]).toBe("failed");
+    const failed = await eventsOfType(SignatureEvents.failed);
+    expect(failed).toHaveLength(1);
+    expect(JSON.stringify(failed[0])).toContain("document-changed");
+    expect(printedHtml()).toHaveLength(0);
+  });
+});
+
 describe("signature :: links", () => {
   test("every rejection answers the same: forged, revoked, expired, used up, already signed", async () => {
     const { signerIds } = await requestSignatures(["Ada", "Grace", "Alan", "Linus"]);

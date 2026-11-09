@@ -54,9 +54,9 @@ all get the same 422. Of two simultaneous `sign-by-link` calls exactly one wins.
 
 ## Events
 
-`signature:event:completed`, `signature:event:declined`, `signature:event:expired`, each with
-request id, subject type and id (and the file id or signer id). A cron job (`signature:job:sweep`, every
-5 minutes, per tenant) expires requests, completes `all-signed` ones and re-checks races.
+`signature:event:completed`, `signature:event:declined`, `signature:event:expired`, `signature:event:failed`, each with
+request id, subject type and id (and the file id, signer id or failure reason). A cron job (`signature:job:sweep`, every
+5 minutes, per tenant) expires requests, completes `all-signed` ones (a changed or missing original or signature image ends them as `failed`) and re-checks races.
 
 ## Client
 

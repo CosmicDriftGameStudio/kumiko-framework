@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { MAX_SIGNATURE_PNG_BYTES } from "./png.ts";
-import { SIGNATURE_LEVEL } from "./web/constants.ts";
+import { SIGNATURE_FAILURE_REASON, SIGNATURE_LEVEL } from "./web/constants.ts";
 
 export const MAX_SIGNERS_PER_REQUEST = 20;
 const MAX_VALIDITY_DAYS = 365;
@@ -49,6 +49,13 @@ export const DeclineByLinkSchema = z.object({
   reason: z.string().trim().min(1).max(1000).optional(),
 });
 
+const FailureReasonSchema = z.enum([
+  SIGNATURE_FAILURE_REASON.DocumentChanged,
+  SIGNATURE_FAILURE_REASON.SignatureImageMissing,
+]);
+
+export const FailSchema = z.object({ requestId: z.uuid(), reason: FailureReasonSchema });
+
 export const FinishSchema = z.object({ requestId: z.uuid(), completedFileId: z.uuid() });
 
 const OutcomeBase = {
@@ -69,3 +76,8 @@ export const SignatureDeclinedEventSchema = z.object({
 });
 
 export const SignatureExpiredEventSchema = z.object(OutcomeBase);
+
+export const SignatureFailedEventSchema = z.object({
+  ...OutcomeBase,
+  reason: FailureReasonSchema,
+});

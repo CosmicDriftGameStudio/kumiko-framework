@@ -24,8 +24,10 @@ import {
   type SignaturePageEntry,
 } from "./signature-page.ts";
 import {
+  SIGNATURE_FAILURE_REASON,
   SIGNATURE_METHOD,
   SIGNATURE_REQUEST_STATUS,
+  type SignatureFailureReason,
   SignatureInternalHandlers,
 } from "./web/constants.ts";
 
@@ -85,8 +87,26 @@ async function signaturePageEntries(
   return entries;
 }
 
-// Appends the signature page to the unchanged original. A renderer outage throws, the request
-// stays all-signed and the next run tries again.
+async function failRequest(
+  ctx: JobContext,
+  request: RequestRow,
+  reason: SignatureFailureReason,
+): Promise<void> {
+  const failed = await ctx.dispatch.write(SignatureInternalHandlers.fail, {
+    requestId: request.id,
+    reason,
+  });
+  if (failed.isSuccess && propertyOf(failed.data, "failed") === true) {
+    ctx.obs.log.warn("[signature:sweep] request cannot be completed, marked failed", {
+      requestId: request.id,
+      reason,
+    });
+  }
+}
+
+// Appends the signature page to the unchanged original. A missing or changed original or a
+// missing signature image can never heal and ends the request as failed. A renderer outage
+// throws, the request stays all-signed and the next run tries again.
 async function finalizeRequest(
   ctx: JobContext,
   opts: SignatureOptions,
@@ -94,9 +114,7 @@ async function finalizeRequest(
 ): Promise<void> {
   const original = await readTenantFile(ctx, ctx.systemUser.tenantId, request.documentFileId);
   if (original === null || sha256Hex(original.content) !== request.documentSha256) {
-    ctx.obs.log.warn("[signature:sweep] original document missing or changed, not completing", {
-      requestId: request.id,
-    });
+    await failRequest(ctx, request, SIGNATURE_FAILURE_REASON.DocumentChanged);
     return;
   }
   const entries = await signaturePageEntries(
@@ -104,9 +122,7 @@ async function finalizeRequest(
     await listSigners(ctx, ctx.systemUser, request.id),
   );
   if (entries === null) {
-    ctx.obs.log.warn("[signature:sweep] signature image missing, not completing", {
-      requestId: request.id,
-    });
+    await failRequest(ctx, request, SIGNATURE_FAILURE_REASON.SignatureImageMissing);
     return;
   }
   const html = buildSignaturePageHtml({

@@ -23,6 +23,7 @@ const REQUEST_STATUS_OPTIONS = [
   SIGNATURE_REQUEST_STATUS.Completed,
   SIGNATURE_REQUEST_STATUS.Declined,
   SIGNATURE_REQUEST_STATUS.Expired,
+  SIGNATURE_REQUEST_STATUS.Failed,
   SIGNATURE_REQUEST_STATUS.Cancelled,
 ] as const;
 const SIGNER_STATUS_OPTIONS = [
@@ -48,7 +49,7 @@ export function createSignatureRequestEntity(
   return createEntity({
     table: "read_signature_requests",
     description:
-      "A request to sign one PDF document by several people, on a display in person or through a link, tracked through open, all-signed, completed, declined, expired and cancelled; the document is referenced by file id and hash and never changed.",
+      "A request to sign one PDF document by several people, on a display in person or through a link, tracked through open, all-signed, completed, declined, expired, failed and cancelled; the document is referenced by file id and hash and never changed.",
     retention: { keepFor: retention.keepFor, strategy: "hardDelete", reference: "createdAt" },
     fields: {
       documentFileId: createTextField({
@@ -95,6 +96,7 @@ export function createSignatureRequestEntity(
           [SIGNATURE_REQUEST_STATUS.Completed]: "ok",
           [SIGNATURE_REQUEST_STATUS.Declined]: "bad",
           [SIGNATURE_REQUEST_STATUS.Expired]: "neutral",
+          [SIGNATURE_REQUEST_STATUS.Failed]: "bad",
           [SIGNATURE_REQUEST_STATUS.Cancelled]: "neutral",
         },
       }),

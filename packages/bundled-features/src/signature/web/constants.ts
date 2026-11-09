@@ -16,6 +16,7 @@ export const SIGNATURE_REQUEST_STATUS = {
   Completed: "completed",
   Declined: "declined",
   Expired: "expired",
+  Failed: "failed",
   Cancelled: "cancelled",
 } as const;
 
@@ -64,12 +65,22 @@ export const SIGNATURE_EVENT_SHORT = {
   completed: "completed",
   declined: "declined",
   expired: "expired",
+  failed: "failed",
 } as const;
+
+export const SIGNATURE_FAILURE_REASON = {
+  DocumentChanged: "document-changed",
+  SignatureImageMissing: "signature-image-missing",
+} as const;
+
+export type SignatureFailureReason =
+  (typeof SIGNATURE_FAILURE_REASON)[keyof typeof SIGNATURE_FAILURE_REASON];
 
 export const SignatureEvents = {
   completed: `${SIGNATURE_FEATURE}:event:${SIGNATURE_EVENT_SHORT.completed}`,
   declined: `${SIGNATURE_FEATURE}:event:${SIGNATURE_EVENT_SHORT.declined}`,
   expired: `${SIGNATURE_FEATURE}:event:${SIGNATURE_EVENT_SHORT.expired}`,
+  failed: `${SIGNATURE_FEATURE}:event:${SIGNATURE_EVENT_SHORT.failed}`,
 } as const;
 
 // Every link rejection (forged, expired, revoked, used up, already signed) carries this reason, so
@@ -88,5 +99,6 @@ export const SignatureInternalHandlers = {
   linkDecline: `${SIGNATURE_FEATURE}:write:link-decline`,
   finish: `${SIGNATURE_FEATURE}:write:finish`,
   expire: `${SIGNATURE_FEATURE}:write:expire`,
+  fail: `${SIGNATURE_FEATURE}:write:fail`,
   reconcile: `${SIGNATURE_FEATURE}:write:reconcile`,
 } as const;

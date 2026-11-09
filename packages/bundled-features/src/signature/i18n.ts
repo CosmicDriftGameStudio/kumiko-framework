@@ -48,5 +48,6 @@ export const SIGNATURE_I18N: Readonly<Record<string, LocalizedString>> = {
   [`${REQUEST}:status:option:completed`]: { en: "Completed", de: "Abgeschlossen" },
   [`${REQUEST}:status:option:declined`]: { en: "Declined", de: "Abgelehnt" },
   [`${REQUEST}:status:option:expired`]: { en: "Expired", de: "Abgelaufen" },
+  [`${REQUEST}:status:option:failed`]: { en: "Failed", de: "Fehlgeschlagen" },
   [`${REQUEST}:status:option:cancelled`]: { en: "Cancelled", de: "Abgebrochen" },
 };
