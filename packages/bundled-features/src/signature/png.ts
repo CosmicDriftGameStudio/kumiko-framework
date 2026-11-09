@@ -127,21 +127,28 @@ function countInkPixels(raw: Uint8Array, header: Header): number {
   const pixelStart = (row: number, column: number): number =>
     row * stride + 1 + column * bytesPerPixel;
   const background = pixelStart(0, 0);
-  // An opaque first pixel means the image has a solid background, so ink is whatever differs from it.
-  const hasSolidBackground = (raw[background + bytesPerPixel - 1] ?? 0) > 0;
-  const differsFromBackground = (start: number): boolean => {
+  const alphaOf = (start: number): number => raw[start + bytesPerPixel - 1] ?? 0;
+  const colorMatchesBackground = (start: number): boolean => {
     for (let i = 0; i < bytesPerPixel; i++) {
-      if (raw[start + i] !== raw[background + i]) return true;
+      if (raw[start + i] !== raw[background + i]) return false;
     }
-    return false;
+    return true;
   };
+  // Only four identical, opaque corners mean a solid background; a single opaque pixel could be a stroke.
+  const corners = [
+    background,
+    pixelStart(0, header.width - 1),
+    pixelStart(header.height - 1, 0),
+    pixelStart(header.height - 1, header.width - 1),
+  ];
+  const hasSolidBackground = corners.every(
+    (corner) => alphaOf(corner) > 0 && colorMatchesBackground(corner),
+  );
   let ink = 0;
   for (let row = 0; row < header.height; row++) {
     for (let column = 0; column < header.width; column++) {
       const start = pixelStart(row, column);
-      const isInk = hasSolidBackground
-        ? differsFromBackground(start)
-        : (raw[start + bytesPerPixel - 1] ?? 0) > 0;
+      const isInk = alphaOf(start) > 0 && (!hasSolidBackground || !colorMatchesBackground(start));
       if (isInk) ink++;
     }
   }

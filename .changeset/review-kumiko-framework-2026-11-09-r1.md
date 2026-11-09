@@ -22,8 +22,8 @@ detail: A Stripe checkout session in payment mode that a 100% promo code makes f
 <!-- kumiko-changes
 feature: framework
 type: fix
-title: Boot fails on tenant or user rate limits without a RateLimitResolver
-detail: A handler `rateLimit` with a `tenant` or `user` bucket needs a `RateLimitResolver`. Without one the server now refuses to boot and names the handlers, instead of answering the first call with a 500. Wire a Redis client on `context.redis`, pass `context.rateLimit`, or remove the option.
+title: Boot warns on tenant or user rate limits without a RateLimitResolver
+detail: A handler `rateLimit` with a `tenant` or `user` bucket needs a `RateLimitResolver`. Without one the server still boots but logs a warning naming the handlers, which answer every call with a 500. Wire a Redis client on `context.redis` or pass `context.rateLimit`.
 -->
 
 <!-- kumiko-changes

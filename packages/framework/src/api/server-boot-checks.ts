@@ -31,8 +31,9 @@ export function assertNoPayloadRateLimitsWithoutResolver(registry: Registry): vo
 }
 
 // ip buckets pass through without a client IP; tenant/user buckets always need the resolver, so
-// the first call would answer 500 (InternalError in enforceRateLimit).
-export function assertNoNonIpRateLimitsWithoutResolver(registry: Registry): void {
+// the first call would answer 500 (InternalError in enforceRateLimit). Only a warning: Redis-less
+// dev and self-hosting setups must still boot.
+export function warnNonIpRateLimitsWithoutResolver(registry: Registry, bootLog: BootLogger): void {
   const hasNonIpBucket = (rateLimit: Parameters<typeof declaredRateLimitOptions>[0]): boolean =>
     declaredRateLimitOptions(rateLimit).some(
       (option) => !IP_BUCKETED_RATE_LIMIT_PER.has(option.per),
@@ -48,9 +49,10 @@ export function assertNoNonIpRateLimitsWithoutResolver(registry: Registry): void
   }
   // skip: no handler has a tenant/user bucket
   if (offenders.length === 0) return;
-  throw new Error(
-    `Handlers declare a non-ip rateLimit but no RateLimitResolver is configured: ${offenders.join(", ")}. ` +
-      "Wire a Redis client on context.redis (or pass context.rateLimit), or remove the rateLimit option.",
+  bootLog.warn(
+    `Handlers declare a tenant/user rateLimit but no RateLimitResolver is configured, so they answer ` +
+      `every call with a 500: ${offenders.join(", ")}. ` +
+      "Wire a Redis client on context.redis (or pass context.rateLimit) to enable the resolver.",
   );
 }
 

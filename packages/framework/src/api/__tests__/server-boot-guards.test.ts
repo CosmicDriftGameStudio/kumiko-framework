@@ -186,34 +186,33 @@ describe("buildServer — tenant/user rate limits need a resolver", () => {
     });
   }
 
-  test("a tenant bucket on a write handler throws at boot naming the handler", () => {
-    expect(() =>
-      buildServer({
-        registry: createRegistry([featureWith("tenant", "write")]),
-        context: {},
-        jwtSecret: JWT_SECRET,
-      }),
-    ).toThrow(/limited:write:act/);
+  function bootWarningTexts(feature: ReturnType<typeof featureWith>): string[] {
+    const texts: string[] = [];
+    const spy = spyOn(console, "warn").mockImplementation((...args) => {
+      if (typeof args[0] === "string") texts.push(args[0]);
+    });
+    try {
+      buildServer({ registry: createRegistry([feature]), context: {}, jwtSecret: JWT_SECRET });
+    } finally {
+      spy.mockRestore();
+    }
+    return texts.filter((text) => text.includes("non-ip") || text.includes("tenant/user"));
+  }
+
+  test("a tenant bucket on a write handler boots and warns naming the handler", () => {
+    const [warning] = bootWarningTexts(featureWith("tenant", "write"));
+    expect(warning).toContain("limited:write:act");
+    expect(warning).toContain("500");
+    expect(warning).toContain("context.rateLimit");
   });
 
-  test("a user+handler bucket on a query handler throws at boot naming the handler", () => {
-    expect(() =>
-      buildServer({
-        registry: createRegistry([featureWith("user+handler", "query")]),
-        context: {},
-        jwtSecret: JWT_SECRET,
-      }),
-    ).toThrow(/limited:query:look/);
+  test("a user+handler bucket on a query handler warns naming the handler", () => {
+    const [warning] = bootWarningTexts(featureWith("user+handler", "query"));
+    expect(warning).toContain("limited:query:look");
   });
 
-  test("an ip-only bucket still boots without a resolver", () => {
-    expect(() =>
-      buildServer({
-        registry: createRegistry([featureWith("ip", "write")]),
-        context: {},
-        jwtSecret: JWT_SECRET,
-      }),
-    ).not.toThrow();
+  test("an ip-only bucket boots silently without a resolver", () => {
+    expect(bootWarningTexts(featureWith("ip", "write"))).toEqual([]);
   });
 });
 

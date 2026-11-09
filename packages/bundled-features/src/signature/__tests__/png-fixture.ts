@@ -33,6 +33,10 @@ export function makePng(
     height?: number;
     drawn?: boolean;
     background?: readonly number[];
+    // Shifts the stroke down so it stays clear of the (0,0) corner pixel.
+    strokeRowOffset?: number;
+    // Paints only the (0,0) pixel opaque and nothing else.
+    onlyFirstPixelOpaque?: boolean;
   } = {},
 ): Uint8Array {
   const width = options.width ?? 200;
@@ -44,9 +48,11 @@ export function makePng(
       for (let x = 0; x < width; x++) raw.set(options.background, y * stride + 1 + x * 4);
     }
   }
-  if (options.drawn !== false) {
+  if (options.onlyFirstPixelOpaque === true) raw.set([0, 0, 0, 255], 1);
+  if (options.drawn !== false && options.onlyFirstPixelOpaque !== true) {
+    const rowOffset = options.strokeRowOffset ?? 0;
     for (let x = 0; x < width; x++) {
-      const y = Math.floor((x * (height - 1)) / width);
+      const y = Math.floor((x * (height - 1 - rowOffset)) / width) + rowOffset;
       for (let dy = 0; dy < 3 && y + dy < height; dy++) {
         const offset = (y + dy) * stride + 1 + x * 4;
         raw.set([0, 0, 0, 255], offset);
