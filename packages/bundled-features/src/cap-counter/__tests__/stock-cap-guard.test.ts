@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";
 import { createStockCapGuard } from "../stock-cap-guard.ts";
@@ -28,5 +28,22 @@ describe("withStockCap typing", () => {
     expect(name).toBe("create-thing");
     expect(guarded.schema).toBe(plainHandler.schema);
     expect(guarded.handler).not.toBe(plainHandler.handler);
+  });
+
+  test("a WriteHandlerDef caller still compiles", () => {
+    const def: WriteHandlerDef = {
+      name: "create-widget",
+      schema: z.object({ title: z.string() }),
+      access: { roles: ["User"] },
+      handler: async () => ({ isSuccess: true, data: {} }),
+    };
+    const wrapped: WriteHandlerDef = guard.withStockCap(def, {
+      table: eventsTable,
+      limit: (caps) => caps.maxItems,
+      code: "widget_cap_exceeded",
+      i18nKey: "cap.widget",
+      field: "widgets",
+    });
+    expect(wrapped.name).toBe("create-widget");
   });
 });
