@@ -2692,5 +2692,6 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "signature:entity:signatureRequest:field:status:option:completed": "Completada",
   "signature:entity:signatureRequest:field:status:option:declined": "Rechazada",
   "signature:entity:signatureRequest:field:status:option:expired": "Caducada",
+  "signature:entity:signatureRequest:field:status:option:failed": "Fallida",
   "signature:entity:signatureRequest:field:status:option:cancelled": "Cancelada",
 };
