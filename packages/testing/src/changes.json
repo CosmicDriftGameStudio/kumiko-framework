@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "Stack cleanup test tolerates the ioredis MONITOR startup race",
+    "detail": "ioredis switches a connection to monitoring one microtask after MONITOR's OK, so command lines in the same TCP read raised \"Command queue state error\" and failed the cleanup test under parallel Redis traffic. The test opens its own monitor connection and drops only that startup error."
+  },
+  {
     "version": "0.417.0",
     "type": "improvement",
     "title": "Video generator for tutorial and marketing videos",

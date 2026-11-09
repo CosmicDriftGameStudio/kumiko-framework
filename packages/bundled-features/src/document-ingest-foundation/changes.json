@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "Ingest progress only moves forward",
+    "detail": "Parallel `reportIngestProgress` calls for one file can land in any order; the progress row now keeps the highest `pagesDone`, a report whose progress is already stored stops early, and after 10 version conflicts the call throws instead of returning silently."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "Parallel ingest progress reports no longer fail after the retry budget",

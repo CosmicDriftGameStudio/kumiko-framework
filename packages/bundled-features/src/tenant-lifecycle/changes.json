@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.418.0",
+    "type": "fix",
+    "title": "The tenant destruction sweep locks per tenant",
+    "detail": "Overlapping sweeps no longer push a tenant into `destroyFailed`. Each sweep takes a session advisory lock per tenant and skips tenants another sweep holds for that tick; failed stage attempts and abandoned stages are now logged with tenant and stage."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "Held-tenant destruction test tolerates the scheduled sweep finishing first",

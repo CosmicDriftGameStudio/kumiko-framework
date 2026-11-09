@@ -1,5 +1,36 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.418.0
+
+### Patch Changes
+
+- aa8ee93: The handbook build writes a redirect page per chapter.
+  
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: Handbook chapter links resolve on static hosting
+  detail: `kumiko handbuch build` now writes `<id>/index.html` for each chapter, a small page that redirects to `../#<id>` in the single handbook page, so the `<publicPath>/<id>` links from handbook-knowledge resolve without a rewrite rule.
+  -->
+- Updated dependencies [e9a7d69]
+- Updated dependencies [21f0119]
+- Updated dependencies [d7d1009]
+- Updated dependencies [11bc811]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [aa8ee93]
+- Updated dependencies [01224e7]
+- Updated dependencies [01224e7]
+  - @cosmicdrift/kumiko-framework@0.418.0
+  - @cosmicdrift/kumiko-renderer@0.418.0
+  - @cosmicdrift/kumiko-dev-server@0.418.0
+  - @cosmicdrift/kumiko-bundled-features@0.418.0
+  - @cosmicdrift/kumiko-feature-ast@0.418.0
+  - @cosmicdrift/kumiko-testing@0.418.0
+  - @cosmicdrift/kumiko-guards@0.418.0
+  - @cosmicdrift/kumiko-server-runtime@0.418.0
+
 ## 0.417.0
 
 ### Patch Changes
