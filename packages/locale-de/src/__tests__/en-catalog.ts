@@ -2633,5 +2633,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "signature:entity:signatureRequest:field:status:option:completed": "Completed",
   "signature:entity:signatureRequest:field:status:option:declined": "Declined",
   "signature:entity:signatureRequest:field:status:option:expired": "Expired",
+  "signature:entity:signatureRequest:field:status:option:failed": "Failed",
   "signature:entity:signatureRequest:field:status:option:cancelled": "Cancelled",
 };

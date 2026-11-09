@@ -2700,5 +2700,6 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "signature:entity:signatureRequest:field:status:option:completed": "Completata",
   "signature:entity:signatureRequest:field:status:option:declined": "Rifiutata",
   "signature:entity:signatureRequest:field:status:option:expired": "Scaduta",
+  "signature:entity:signatureRequest:field:status:option:failed": "Non riuscita",
   "signature:entity:signatureRequest:field:status:option:cancelled": "Annullata",
 };
