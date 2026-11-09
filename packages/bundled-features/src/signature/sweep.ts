@@ -96,7 +96,15 @@ async function failRequest(
     requestId: request.id,
     reason,
   });
-  if (failed.isSuccess && propertyOf(failed.data, "failed") === true) {
+  if (!failed.isSuccess) {
+    ctx.obs.log.error("[signature:sweep] marking the request failed was rejected", {
+      requestId: request.id,
+      reason,
+      error: failed.error,
+    });
+    return;
+  }
+  if (propertyOf(failed.data, "failed") === true) {
     ctx.obs.log.warn("[signature:sweep] request cannot be completed, marked failed", {
       requestId: request.id,
       reason,
