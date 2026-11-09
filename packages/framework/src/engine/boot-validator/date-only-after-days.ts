@@ -5,7 +5,7 @@ import type { normalizeListColumn } from "../screen-helpers.ts";
 import { bootRuleError } from "./boot-rule.ts";
 import { LIST_SCREEN_RULES } from "./screens-lists-rules.ts";
 
-const DATE_FIELD_TYPES: readonly string[] = ["timestamp", "date"];
+const DATE_FIELD_TYPES: readonly string[] = ["timestamp", "date", "locatedTimestamp"];
 
 // Mirrors how the list view-model types a column: stored field, then derived field, then row meta.
 export function entityColumnType(entity: EntityDefinition, field: string): string | undefined {
@@ -35,6 +35,6 @@ export function validateDateOnlyAfterDays(
   const type = entityType ?? column.valueType;
   if (type === undefined || DATE_FIELD_TYPES.includes(type)) return;
   throw bootRuleError(LIST_SCREEN_RULES.dateOnlyAfterDaysWrongType, {
-    message: `${where} sets dateOnlyAfterDays on a ${type} column. It only applies to timestamp or date fields and relativeTime columns; remove it.`,
+    message: `${where} sets dateOnlyAfterDays on a ${type} column. It only applies to timestamp, locatedTimestamp or date fields and relativeTime columns; remove it.`,
   });
 }
