@@ -5,6 +5,7 @@ import {
   createTenantDb,
   fetchOne,
   selectMany,
+  tryWithSessionAdvisoryLock,
   WritePurposes,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -53,6 +54,21 @@ import {
 const tenantCrud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 
 const FEATURE_PREFIX = "tenant-lifecycle:event:";
+
+const TENANT_DESTRUCTION_LOCK_NAMESPACE = 0x74_64_65_73; // 'tdes'
+const FNV32_OFFSET = 0x81_1c_9d_c5;
+const FNV32_PRIME = 0x01_00_01_93;
+
+// Cron ticks of the destruction job overlap (concurrency:"skip" does not hold across ticks),
+// and two sweeps on one tenant make the loser's version conflict count as a failed stage
+// attempt. A hash collision between tenants only skips one tick for the other tenant.
+function tenantDestructionLockKey(tenantId: TenantId): number {
+  let hash = FNV32_OFFSET;
+  for (let i = 0; i < tenantId.length; i++) {
+    hash = Math.imul(hash ^ tenantId.charCodeAt(i), FNV32_PRIME);
+  }
+  return (hash ^ TENANT_DESTRUCTION_LOCK_NAMESPACE) | 0;
+}
 
 type StageEventName =
   | typeof TENANT_DESTRUCTION_STARTED_EVENT_SHORT
@@ -277,7 +293,11 @@ async function haltPipelineOnAbandon(args: {
   readonly stage: string;
   readonly attempts: number;
   readonly error: string;
+  readonly log?: (message: string) => void;
 }): Promise<void> {
+  args.log?.(
+    `[tenant-lifecycle] destruction halted: tenant ${args.tenantId} stage "${args.stage}" abandoned after ${args.attempts} attempt(s): ${args.error}`,
+  );
   const T = getTemporal();
   const failedAt = T.Now.instant();
   // Reload fresh instead of trusting a caller-supplied version: the failed
@@ -346,7 +366,11 @@ async function recordFailedStageAttempt(args: {
   readonly attempt: number;
   readonly error: string;
   readonly version: number;
+  readonly log?: (message: string) => void;
 }): Promise<StageTickResult> {
+  args.log?.(
+    `[tenant-lifecycle] stage attempt failed: tenant ${args.tenantId} stage "${args.stage.name}" attempt ${args.attempt}/${args.stage.maxAttempts}: ${args.error}`,
+  );
   if (args.attempt >= args.stage.maxAttempts) {
     await haltPipelineOnAbandon({
       db: args.db,
@@ -354,6 +378,7 @@ async function recordFailedStageAttempt(args: {
       stage: args.stage.name,
       attempts: args.attempt,
       error: args.error,
+      log: args.log,
     });
     return { done: false, error: args.error, halted: true };
   }
@@ -379,6 +404,7 @@ async function recordIdleStageTick(args: {
   readonly pending: boolean;
   readonly events: readonly StoredEvent[];
   readonly now: Temporal.Instant;
+  readonly log?: (message: string) => void;
 }): Promise<StageTickResult> {
   if (args.pending && isPendingWindowOpen(args.events, args.stage.name, args.now)) {
     await appendTenantStageEvent(
@@ -405,6 +431,7 @@ async function recordIdleStageTick(args: {
       ? `stage "${args.stage.name}" still pending after ${DESTRUCTION_STAGE_MAX_PENDING_MS / 60_000} min`
       : `stage "${args.stage.name}" made no progress`,
     version: lastEventVersion(args.events),
+    log: args.log,
   });
 }
 
@@ -493,6 +520,7 @@ export async function runNextDestructionStage(args: {
         pending: outcome.pending === true,
         events: eventsAfterRun,
         now,
+        log: args.log,
       });
     }
     if (!outcome.done) {
@@ -529,6 +557,7 @@ export async function runNextDestructionStage(args: {
       attempt,
       error: err instanceof Error ? err.message : String(err),
       version,
+      log: args.log,
     });
   }
 }
@@ -591,36 +620,46 @@ export async function runTenantDestructionSweep(args: {
   let triggered = 0;
   for (const row of due) {
     const tenantId = row.id;
-    const events = await loadAggregate(args.db, tenantId, SYSTEM_TENANT_ID);
-    const version = lastEventVersion(events);
-    const user = createSystemUser(tenantId);
-    const scopedDb = createTenantDb({
-      db: args.db,
-      tenantId,
-      mode: "system",
-      reason: "tenant destruction updates the tenant being destroyed, outside its request scope",
-    });
-    // Version-guarded (no skipOptimisticLock): a concurrent cancel-destruction
-    // between the `due` select above and this write also appends to the same
-    // tenant stream, so an unguarded overwrite here would silently revert the
-    // cancellation. A version conflict means we lost that race — skip, the
-    // tenant is no longer due and the next tick re-evaluates it.
-    const result = await tenantCrud.update(
-      { id: tenantId, version, changes: { status: "destroying", destroyStartedAt: now } },
-      user,
-      scopedDb,
-      { writePurpose: WritePurposes.erasure },
-    );
-    if (!result.isSuccess) continue;
-    invalidateTenantLifecycleGate(tenantId);
-    await appendTenantStageEvent(
+    const locked = await tryWithSessionAdvisoryLock(
       args.db,
-      tenantId,
-      qualified(TENANT_DESTRUCTION_STARTED_EVENT_SHORT),
-      { startedAt: now.toString() },
-      version + 1,
+      tenantDestructionLockKey(tenantId),
+      async () => {
+        // A peer sweep may have started this tenant after our `due` select.
+        if ((await tenantStatusOf(args.db, tenantId)) !== "destroyRequested") return false;
+        const events = await loadAggregate(args.db, tenantId, SYSTEM_TENANT_ID);
+        const version = lastEventVersion(events);
+        const user = createSystemUser(tenantId);
+        const scopedDb = createTenantDb({
+          db: args.db,
+          tenantId,
+          mode: "system",
+          reason:
+            "tenant destruction updates the tenant being destroyed, outside its request scope",
+        });
+        // Version-guarded (no skipOptimisticLock): a concurrent cancel-destruction
+        // between the `due` select above and this write also appends to the same
+        // tenant stream, so an unguarded overwrite here would silently revert the
+        // cancellation. A version conflict means we lost that race — skip, the
+        // tenant is no longer due and the next tick re-evaluates it.
+        const result = await tenantCrud.update(
+          { id: tenantId, version, changes: { status: "destroying", destroyStartedAt: now } },
+          user,
+          scopedDb,
+          { writePurpose: WritePurposes.erasure },
+        );
+        if (!result.isSuccess) return false;
+        invalidateTenantLifecycleGate(tenantId);
+        await appendTenantStageEvent(
+          args.db,
+          tenantId,
+          qualified(TENANT_DESTRUCTION_STARTED_EVENT_SHORT),
+          { startedAt: now.toString() },
+          version + 1,
+        );
+        return true;
+      },
     );
-    triggered++;
+    if (locked.acquired && locked.value) triggered++;
   }
 
   let advanced = 0;
@@ -636,20 +675,29 @@ export async function runTenantDestructionSweep(args: {
   for (const row of destroying) {
     const tenantDeadlineAt = Date.now() + sliceMs;
     try {
-      const result = await runNextDestructionStage({
-        deadlineAt: tenantDeadlineAt,
-        now,
-        db: args.db,
-        registry: args.registry,
-        tenantId: row.id,
-        log: args.log,
-        fileProviderResolver: args.fileProviderResolver,
-        searchAdapter: args.searchAdapter,
-        escapeHatchAuditSink: args.escapeHatchAuditSink,
-        escapeHatchAuditLog: args.escapeHatchAuditLog,
-        actor: args.actor,
-      });
-      if (!result.error && !result.halted && !result.held) advanced++;
+      const locked = await tryWithSessionAdvisoryLock(
+        args.db,
+        tenantDestructionLockKey(row.id),
+        async () => {
+          // A peer sweep may have finished or halted this tenant after our `destroying` select.
+          if ((await tenantStatusOf(args.db, row.id)) !== "destroying") return undefined;
+          return await runNextDestructionStage({
+            deadlineAt: tenantDeadlineAt,
+            now,
+            db: args.db,
+            registry: args.registry,
+            tenantId: row.id,
+            log: args.log,
+            fileProviderResolver: args.fileProviderResolver,
+            searchAdapter: args.searchAdapter,
+            escapeHatchAuditSink: args.escapeHatchAuditSink,
+            escapeHatchAuditLog: args.escapeHatchAuditLog,
+            actor: args.actor,
+          });
+        },
+      );
+      const result = locked.acquired ? locked.value : undefined;
+      if (result && !result.error && !result.halted && !result.held) advanced++;
     } catch (err) {
       // Isolate the failure to this tenant — an uncaught throw here must not
       // abort the whole sweep tick and starve every other "destroying" tenant
