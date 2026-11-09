@@ -33,6 +33,13 @@ import type { StripeCtxRuntime } from "../runtime.ts";
 
 const TEST_API_KEY = "sk_test_dummy";
 
+type DeepPartial<T> = { [K in keyof T]?: DeepPartial<T[K]> };
+
+// Minimal fixtures stand in for the full Stripe objects; the single assertion lives at this mock edge.
+function stripeMockResult<T>(partial: DeepPartial<T>): Stripe.Response<T> {
+  return { ...partial, lastResponse: {} } as Stripe.Response<T>;
+}
+
 function buildStripe(): Stripe {
   return new Stripe(TEST_API_KEY);
 }
@@ -97,9 +104,9 @@ describe("createStripeCheckoutSession", () => {
     options: Partial<Parameters<ReturnType<typeof createStripeCheckoutSession>>[1]>,
   ) {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://x" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://x" }),
+    );
     await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
       priceId: "price_x",
       tenantId: "tenant-1",
@@ -140,9 +147,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("throws FeatureDisabledError and does NOT call Stripe when billing-live is off", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://x" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://x" }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe, false));
     await expect(
@@ -159,9 +166,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("passes existing customer-id when set (plan switch flow)", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://x" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://x" }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     await checkout(stubCtx, {
@@ -220,9 +227,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("allowPromotionCodes:true: checkout shows the promotion-code field", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/promo" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://checkout.stripe.com/c/pay/promo" }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe), { allowPromotionCodes: true });
     await checkout(stubCtx, {
@@ -239,9 +246,11 @@ describe("createStripeCheckoutSession", () => {
 
   test("allowPromotionCodes:true in mode='payment': promotion-code field next to payment_intent_data and invoice_creation", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/promo-payment" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({
+        url: "https://checkout.stripe.com/c/pay/promo-payment",
+      }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe), { allowPromotionCodes: true });
     await checkout(stubCtx, {
@@ -264,9 +273,12 @@ describe("createStripeCheckoutSession", () => {
 
   test("mode='payment' sets tenantId on the session metadata too", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ id: "cs_1", url: "https://checkout.stripe.com/c/pay/m" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({
+        id: "cs_1",
+        url: "https://checkout.stripe.com/c/pay/m",
+      }),
+    );
 
     await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
       priceId: "price_once",
@@ -283,9 +295,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("default: no allow_promotion_codes in the session params", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/plain" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://checkout.stripe.com/c/pay/plain" }),
+    );
 
     await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
       priceId: "price_team",
@@ -299,9 +311,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("mode='payment' + paymentInvoiceCreation:false: invoice_creation.enabled is false", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/topup" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://checkout.stripe.com/c/pay/topup" }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe), {
       paymentInvoiceCreation: false,
@@ -321,9 +333,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("mode='subscription': NEVER invoice_creation — Stripe rejects it outside payment mode", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://x" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://x" }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     await checkout(stubCtx, {
@@ -340,9 +352,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("mode omitted defaults to 'subscription' (regression pin for existing callers)", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://x" } as any);
+    const createMock = spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: "https://x" }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     await checkout(stubCtx, {
@@ -359,9 +371,9 @@ describe("createStripeCheckoutSession", () => {
 
   test("throws when Stripe returns no url (defensive — should never happen with mode=subscription)", async () => {
     const stripe = buildStripe();
-    spyOn(stripe.checkout.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: SDK-Drift-Test
-      .mockResolvedValue({ url: null } as any);
+    spyOn(stripe.checkout.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.Checkout.Session>({ url: null }),
+    );
 
     const checkout = createStripeCheckoutSession(ctxRuntime(stripe));
     await expect(
@@ -418,8 +430,9 @@ describe("createStripeCheckoutSession", () => {
       const stripe = buildStripe();
       const createMock = spyOn(stripe.checkout.sessions, "create")
         .mockRejectedValueOnce(unknownCustomerError("customer"))
-        // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-        .mockResolvedValueOnce({ url: "https://x/fresh" } as any);
+        .mockResolvedValueOnce(
+          stripeMockResult<Stripe.Checkout.Session>({ url: "https://x/fresh" }),
+        );
 
       await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
         ...baseOptions,
@@ -490,9 +503,11 @@ describe("createStripeCheckoutSession", () => {
 describe("createStripePortalSession", () => {
   test("calls stripe.billingPortal.sessions.create with customer + return_url", async () => {
     const stripe = buildStripe();
-    const createMock = spyOn(stripe.billingPortal.sessions, "create")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ url: "https://billing.stripe.com/p/session/test" } as any);
+    const createMock = spyOn(stripe.billingPortal.sessions, "create").mockResolvedValue(
+      stripeMockResult<Stripe.BillingPortal.Session>({
+        url: "https://billing.stripe.com/p/session/test",
+      }),
+    );
 
     const portal = createStripePortalSession(ctxRuntime(stripe));
     const result = await portal(stubCtx, {
@@ -567,12 +582,12 @@ describe("createStripePortalSession", () => {
 describe("createStripeCancelSubscription", () => {
   test("when=period-end: stripe.subscriptions.update with cancel_at_period_end, no cancel", async () => {
     const stripe = buildStripe();
-    const updateMock = spyOn(stripe.subscriptions, "update")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ id: "sub_001" } as any);
-    const cancelMock = spyOn(stripe.subscriptions, "cancel")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ id: "sub_001" } as any);
+    const updateMock = spyOn(stripe.subscriptions, "update").mockResolvedValue(
+      stripeMockResult<Stripe.Subscription>({ id: "sub_001" }),
+    );
+    const cancelMock = spyOn(stripe.subscriptions, "cancel").mockResolvedValue(
+      stripeMockResult<Stripe.Subscription>({ id: "sub_001" }),
+    );
 
     await createStripeCancelSubscription(ctxRuntime(stripe))(stubCtx, {
       providerSubscriptionId: "sub_001",
@@ -585,9 +600,9 @@ describe("createStripeCancelSubscription", () => {
 
   test("when=immediately: calls stripe.subscriptions.cancel with subscription-id", async () => {
     const stripe = buildStripe();
-    const cancelMock = spyOn(stripe.subscriptions, "cancel")
-      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
-      .mockResolvedValue({ id: "sub_001", status: "canceled" } as any);
+    const cancelMock = spyOn(stripe.subscriptions, "cancel").mockResolvedValue(
+      stripeMockResult<Stripe.Subscription>({ id: "sub_001", status: "canceled" }),
+    );
 
     const cancel = createStripeCancelSubscription(ctxRuntime(stripe));
     await cancel(stubCtx, {
@@ -607,9 +622,8 @@ describe("createStripeCancelSubscription", () => {
 // constructs one cache pair per factory mount.
 // =============================================================================
 
-// biome-ignore lint/suspicious/noExplicitAny: minimal Stripe.Price fixture, cast at the mock boundary
-function stripePrice(overrides: Record<string, unknown> = {}): any {
-  return {
+function stripePrice(overrides: DeepPartial<Stripe.Price> = {}): Stripe.Response<Stripe.Price> {
+  return stripeMockResult<Stripe.Price>({
     id: "price_pro",
     unit_amount: 999,
     currency: "usd",
@@ -618,7 +632,7 @@ function stripePrice(overrides: Record<string, unknown> = {}): any {
     metadata: {},
     product: "prod_pro",
     ...overrides,
-  };
+  });
 }
 
 describe("createStripeRetrievePrices", () => {
@@ -753,16 +767,17 @@ describe("createStripeRetrievePrices", () => {
 // createPlanSwitchSession
 // =============================================================================
 
-// biome-ignore lint/suspicious/noExplicitAny: minimal Stripe.Subscription fixture, cast at the mock boundary
-function stripeSubscription(overrides: Record<string, unknown> = {}): any {
-  return {
+function stripeSubscription(
+  overrides: DeepPartial<Stripe.Subscription> = {},
+): Stripe.Response<Stripe.Subscription> {
+  return stripeMockResult<Stripe.Subscription>({
     id: "sub_switch_001",
     customer: "cus_switch_001",
     items: {
       data: [{ id: "si_001", price: stripePrice({ id: "price_switch_current" }), quantity: 1 }],
     },
     ...overrides,
-  };
+  });
 }
 
 describe("createStripePlanSwitchSession", () => {
