@@ -18,6 +18,7 @@ import type {
 import {
   applyFormatSpec,
   EMPTY_VALUE_PLACEHOLDER,
+  formatMoneyValue,
   isSafeHref,
   telHref,
 } from "../../headless/index.ts";
@@ -36,7 +37,6 @@ import { StatusBadge, type StatusBadgeTone } from "../widgets/status-badge.tsx";
 import { HintCell } from "./data-table/hint-cell.tsx";
 import { FileDisplayCell } from "./file-thumbnail.tsx";
 import { FileViewAction } from "./file-view-action.tsx";
-import { currencyDecimals, formatMoney } from "./money-input.tsx";
 import "../react-css-custom-properties.ts";
 import { useOptionalTranslation } from "../../index.ts";
 import { isPlainPrimaryClick } from "./layout-elements.tsx";
@@ -263,14 +263,7 @@ export function defaultCellRender(
   }
   if (type === "money") {
     if (!isMoneyValue(value)) return String(value);
-    // formatMoney expects minor units scaled by currencyDecimals(currency).
-    // rehydrateMoney's `amountMinor` is scaled by a flat MINOR_UNIT_SCALE=100
-    // instead, which disagrees with currencyDecimals for non-2-decimal
-    // currencies (JPY: 0 decimals → 100x too high; BHD: 3 decimals → 10x too
-    // low). Deriving minor units from `amount` keeps this consistent with
-    // render-field.tsx's moneyMinorValue.
-    const minor = Math.round(value.amount * 10 ** currencyDecimals(value.currency));
-    return formatMoney(minor, value.currency, locale);
+    return formatMoneyValue(value, locale);
   }
   if (type === "select" || type === "multiSelect") {
     const values = Array.isArray(value) ? value : [value];

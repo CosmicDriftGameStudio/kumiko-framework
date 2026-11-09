@@ -10,6 +10,21 @@ export function currencyDecimals(code: string): number {
   return 2;
 }
 
+// Major-unit amount → minor units scaled by currencyDecimals(currency), as
+// formatMoney expects. Deliberately not rehydrateMoney's `amountMinor`: that
+// uses a flat MINOR_UNIT_SCALE=100, which is wrong for JPY (0 decimals) and
+// BHD (3 decimals).
+export function moneyAmountToMinor(amount: number, currency: string): number {
+  return Math.round(amount * 10 ** currencyDecimals(currency));
+}
+
+export function formatMoneyValue(
+  value: { readonly amount: number; readonly currency: string },
+  locale?: string,
+): string {
+  return formatMoney(moneyAmountToMinor(value.amount, value.currency), value.currency, locale);
+}
+
 const FALLBACK_MONEY_LOCALE = "en-US";
 
 // An invalid tag makes Intl constructors throw a RangeError; canonicalizing up

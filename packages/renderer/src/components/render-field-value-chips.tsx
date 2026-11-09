@@ -3,6 +3,7 @@ import {
   currencyDecimals,
   type EditFieldViewModel,
   formatMoney,
+  moneyAmountToMinor,
   resolveSafeMoneyLocale,
 } from "../headless/index.ts";
 import { useOptionalLocale } from "../i18n.tsx";
@@ -67,7 +68,7 @@ export function ValueChipsControl({
       onChange(value);
       return;
     }
-    onChange(moneyPayload(Math.round(value * 10 ** currencyDecimals(currency)), currency));
+    onChange(moneyPayload(moneyAmountToMinor(value, currency), currency));
   };
   return (
     <>

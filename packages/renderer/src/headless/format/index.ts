@@ -167,7 +167,13 @@ export {
 } from "./document-values.ts";
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.ts";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template.ts";
-export { currencyDecimals, formatMoney, resolveSafeMoneyLocale } from "./money.ts";
+export {
+  currencyDecimals,
+  formatMoney,
+  formatMoneyValue,
+  moneyAmountToMinor,
+  resolveSafeMoneyLocale,
+} from "./money.ts";
 export { telHref } from "./phone.ts";
 
 // JSON.stringify throws on BigInt and circular values; a cell must degrade to text instead of crashing the screen.

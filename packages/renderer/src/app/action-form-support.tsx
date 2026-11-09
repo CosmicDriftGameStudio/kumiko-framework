@@ -7,9 +7,8 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
 import {
   applyFormatSpec,
-  currencyDecimals,
   type DispatcherError,
-  formatMoney,
+  formatMoneyValue,
   type Translate,
 } from "../headless/index.ts";
 import { useQuery } from "../hooks/use-query.ts";
@@ -175,7 +174,6 @@ export type ActionFormSuccessState = {
   readonly text: string;
   readonly links: readonly ResolvedSuccessLink[];
   readonly facts: readonly ResolvedSuccessFact[];
-  readonly testIdPrefix?: string;
   /** Per-entry hints; while any is shown they replace `text`. */
   readonly items?: readonly ResolvedSuccessItem[];
 };
@@ -186,8 +184,7 @@ function formatTypedFact(
   locale: string,
 ): string | undefined {
   if (type === "money" && isMoneyValue(entry)) {
-    const minor = Math.round(entry.amount * 10 ** currencyDecimals(entry.currency));
-    return formatMoney(minor, entry.currency, locale);
+    return formatMoneyValue(entry, locale);
   }
   if ((type === "date" || type === "timestamp") && typeof entry === "string") {
     return applyFormatSpec({ format: type, locale }, entry);
