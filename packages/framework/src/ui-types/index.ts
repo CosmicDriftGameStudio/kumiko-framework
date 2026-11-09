@@ -83,6 +83,7 @@ export type {
   ActionFormSuccessFact,
   ActionFormSuccessItems,
   ActionFormSuccessLink,
+  ActionFormValueType,
   ConfigEditAction,
   ConfigEditScreenDefinition,
   CustomScreenDefinition,

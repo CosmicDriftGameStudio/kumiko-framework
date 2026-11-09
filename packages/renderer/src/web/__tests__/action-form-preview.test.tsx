@@ -37,12 +37,12 @@ const memoryNav = {
   setSearchParams: () => {},
 };
 
-function renderForm(dispatcher: Dispatcher) {
+function renderForm(dispatcher: Dispatcher, screenDefinition: ActionFormScreenDefinition = form) {
   return render(
     <DispatcherProvider dispatcher={dispatcher}>
       <NavProvider value={memoryNav}>
         <KumikoScreen
-          schema={{ featureName: "tasks", entities: {}, screens: [form] }}
+          schema={{ featureName: "tasks", entities: {}, screens: [screenDefinition] }}
           qn="tasks:screen:set-status"
         />
       </NavProvider>
@@ -87,6 +87,45 @@ describe("actionForm preview", () => {
     expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Affected tasks: 2");
     expect(screen.getByText("Quarterly VAT filing")).toBeTruthy();
     expect(screen.getByText("Prepare audit")).toBeTruthy();
+  });
+
+  test("typed facts and columns render formatted: money object and date string", async () => {
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: {
+          total: { amount: 1234.5, currency: "EUR" },
+          dueOn: "2026-11-30",
+          rows: [{ label: "Rate 1", amount: { amount: 12.5, currency: "EUR" } }],
+        },
+      })) as unknown as Dispatcher["query"],
+    });
+    renderForm(dispatcher, {
+      ...form,
+      preview: {
+        query: "tasks:query:set-status-preview",
+        fields: ["status"],
+        facts: [
+          { field: "total", label: "Total", type: "money" },
+          { field: "dueOn", label: "Due", type: "date" },
+        ],
+        list: {
+          field: "rows",
+          columns: [
+            { field: "label", label: "Rate" },
+            { field: "amount", label: "Amount", type: "money" },
+          ],
+        },
+      },
+    });
+
+    typeInto("status", "blocked");
+    await waitFor(() => expect(screen.getByTestId("action-form-preview")).toBeTruthy());
+    expect(screen.getByTestId("action-form-preview-fact-0").textContent).toBe("Total: €1,234.50");
+    const due = screen.getByTestId("action-form-preview-fact-1").textContent ?? "";
+    expect(due).not.toContain("2026-11-30");
+    expect(due).toContain("2026");
+    expect(screen.getByText("€12.50")).toBeTruthy();
   });
 
   test("a failing preview query shows a hint and does not block the submit", async () => {

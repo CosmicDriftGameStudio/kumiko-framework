@@ -86,7 +86,7 @@ export function ActionFormPreviewPanel({
       (preview.list?.columns ?? []).map((column) => ({
         field: column.field,
         label: translate(column.label),
-        type: "text",
+        type: column.type ?? "text",
         sortable: false,
       })),
     [preview.list, translate],

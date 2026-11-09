@@ -248,6 +248,12 @@ export type ActionFormLoad = {
   readonly passPrefill?: boolean;
 };
 
+/** How a preview value or success fact is formatted, by the same formatters a list cell uses.
+ *  `number`: a number. `money`: a money object `{ amount, currency }` with `amount` in major units
+ *  (12.5 is 12.50 EUR), not minor units. `date` and `timestamp`: an ISO date or timestamp string.
+ *  `text` (default) shows the value as it is. */
+export type ActionFormValueType = "text" | "number" | "money" | "date" | "timestamp";
+
 /** Rows of the preview panel, read from an array in the preview query's result. */
 export type ActionFormPreviewList = {
   /** Flat field name of an array in the query result; an entry that is no object is skipped. */
@@ -257,6 +263,8 @@ export type ActionFormPreviewList = {
     readonly field: string;
     /** Column header (i18n key). */
     readonly label: string;
+    /** Value format of the column; default `text`. */
+    readonly type?: ActionFormValueType;
   }[];
 };
 
@@ -285,6 +293,8 @@ export type ActionFormSuccessFact = {
   readonly field: string;
   /** Label (i18n key). */
   readonly label: string;
+  /** Format of the value (a money object, a date string, a number); default `text`. Used by the preview facts and the success box alike. */
+  readonly type?: ActionFormValueType;
 };
 
 /** Per-entry hints of the success box, read from an array in the handler's success payload. */

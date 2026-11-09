@@ -221,6 +221,7 @@ export type {
   ActionFormSuccessFact,
   ActionFormSuccessItems,
   ActionFormSuccessLink,
+  ActionFormValueType,
   FormFieldDerivation,
   FormFieldDerivationWithoutList,
   SecretMintConfirmStep,

@@ -76,7 +76,7 @@ type ActionFormPreview = { // Preview panel above the submit button: runs a quer
 };
 type ActionFormPreviewList = { // Rows of the preview panel, read from an array in the preview query's result.
   field: string; // Flat field name of an array in the query result; an entry that is no object is skipped.
-  columns: { field: string; label: string; }[];
+  columns: { field: string; label: string; type?: ActionFormValueType; }[];
 };
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.
   screen: string; // Same target forms as the string `redirect`: short screen ID (same-feature) or a fully-qualified cross-feature screen QN.
@@ -87,6 +87,7 @@ type ActionFormRedirect = { // Redirect target plus the success-payload field ca
 type ActionFormSuccessFact = { // One key figure of the success box, read from the handler's success payload.
   field: string; // Flat field name in the handler's success payload.
   label: string; // Label (i18n key).
+  type?: ActionFormValueType; // Format of the value (a money object, a date string, a number); default `text`.
 };
 type ActionFormSuccessItems = { // Per-entry hints of the success box, read from an array in the handler's success payload.
   field: string; // Flat field name of an array in the success payload.
@@ -97,6 +98,7 @@ type ActionFormSuccessLink = Omit<ActionFormRedirect, "idFrom" | "searchParams">
   params?: Readonly<Record<string, string>>; // URL search params of the target, each read from a success-payload field (`{ cmd: "duplicateOfId" }` opens `?cmd=<duplicateOfId>`).
   label: string; // Link text (i18n key).
 };
+type ActionFormValueType = "text" | "number" | "money" | "date" | "timestamp"; // How a preview value or success fact is formatted, by the same formatters a list cell uses.
 type AppSchema = {
   features: FeatureSchema[];
   workspaces?: WorkspaceSchema[];
