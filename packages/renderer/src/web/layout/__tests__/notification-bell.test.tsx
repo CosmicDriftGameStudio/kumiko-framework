@@ -11,13 +11,13 @@ import {
   LiveEventsProvider,
   NavProvider,
 } from "../../../index.ts";
+import { PageHeaderCompactProvider } from "../../../page-header-slot.ts";
 import {
   act,
   createMockDispatcher,
   fireEvent,
   renderWithSidebar,
   screen,
-  setViewportWidth,
   waitFor,
   within,
 } from "../../__tests__/test-utils.tsx";
@@ -106,7 +106,11 @@ function mount(
   live: LiveEventSubscriber,
   navigated: Array<unknown> = [],
   schema: AppSchema | FeatureSchema = featureSchema(featureName),
-  extra: { readonly placement?: "header" | "overflow"; readonly headerActions?: ReactNode } = {},
+  extra: {
+    readonly placement?: "header" | "overflow";
+    readonly headerActions?: ReactNode;
+    readonly compact?: boolean;
+  } = {},
 ): void {
   const nav = {
     route: undefined,
@@ -120,12 +124,14 @@ function mount(
     <DispatcherProvider dispatcher={dispatcher}>
       <LiveEventsProvider value={live}>
         <NavProvider value={nav}>
-          <ShellHeader
-            schema={schema}
-            user={user}
-            {...(extra.placement !== undefined && { notificationBellPlacement: extra.placement })}
-            {...(extra.headerActions !== undefined && { headerActions: extra.headerActions })}
-          />
+          <PageHeaderCompactProvider value={extra.compact === true}>
+            <ShellHeader
+              schema={schema}
+              user={user}
+              {...(extra.placement !== undefined && { notificationBellPlacement: extra.placement })}
+              {...(extra.headerActions !== undefined && { headerActions: extra.headerActions })}
+            />
+          </PageHeaderCompactProvider>
         </NavProvider>
       </LiveEventsProvider>
     </DispatcherProvider>
@@ -359,28 +365,25 @@ describe("NotificationBell in the overflow menu", () => {
   });
 
   test("on a phone with only pinned headerActions the bell entry has no dangling separator", () => {
-    const originalWidth = window.innerWidth;
-    setViewportWidth(500);
-    try {
-      mount(
-        "channel-in-app",
-        makeDispatcher({ queries: [], writes: [] }, { count: 0 }),
-        makeLive().subscriber,
-        [],
-        featureSchema("channel-in-app"),
-        {
-          ...OVERFLOW,
-          headerActions: (
-            <HeaderActionPinned>
-              <button type="button">Assistant</button>
-            </HeaderActionPinned>
-          ),
-        },
-      );
-      expect(screen.getByTestId("shell-header-overflow").querySelector("hr")).toBeNull();
-    } finally {
-      setViewportWidth(originalWidth);
-    }
+    mount(
+      "channel-in-app",
+      makeDispatcher({ queries: [], writes: [] }, { count: 0 }),
+      makeLive().subscriber,
+      [],
+      featureSchema("channel-in-app"),
+      {
+        ...OVERFLOW,
+        compact: true,
+        headerActions: (
+          <HeaderActionPinned>
+            <button type="button">Assistant</button>
+          </HeaderActionPinned>
+        ),
+      },
+    );
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    expect(screen.getByTestId("notification-bell-menu-item")).toBeTruthy();
+    expect(screen.getByTestId("shell-header-overflow").querySelector("hr")).toBeNull();
   });
 
   test("from md the headerActions stay beside the menu and are not repeated in it", () => {
