@@ -8,7 +8,7 @@ import {
   listSigners,
   setRequestStatus,
 } from "../lib.ts";
-import { FinishSchema, RequestIdSchema } from "../payloads.ts";
+import { FailSchema, FinishSchema, RequestIdSchema } from "../payloads.ts";
 import { SIGNATURE_REQUEST_STATUS, SignatureEvents } from "../web/constants.ts";
 
 // The writes of the sweep job. They run as handlers because a job may only append its own
@@ -81,6 +81,38 @@ export const expireHandler = defineWriteHandler({
       subjectId: request.subjectId,
     });
     return { isSuccess: true, data: { expired: true } };
+  },
+});
+
+export const failHandler = defineWriteHandler({
+  name: "fail",
+  schema: FailSchema,
+  access: internalAccess,
+  agent: { expose: false },
+  description:
+    "Internal: ends an all-signed request that can never be completed (original changed or missing, signature image missing) as failed and emits the failed event once.",
+  handler: async (event, ctx) => {
+    const request = await requestExecutor.detail(
+      { id: event.payload.requestId },
+      event.user,
+      ctx.db,
+    );
+    if (request === null) return { isSuccess: true, data: { failed: false } };
+    const moved = await setRequestStatus(
+      ctx,
+      event.user,
+      request.id,
+      SIGNATURE_REQUEST_STATUS.AllSigned,
+      { status: SIGNATURE_REQUEST_STATUS.Failed },
+    );
+    if (!moved.isSuccess) return { isSuccess: true, data: { failed: false } };
+    await appendOutcomeEvent(ctx, SignatureEvents.failed, {
+      requestId: request.id,
+      subjectType: request.subjectType,
+      subjectId: request.subjectId,
+      reason: event.payload.reason,
+    });
+    return { isSuccess: true, data: { failed: true } };
   },
 });
 

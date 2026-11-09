@@ -10,7 +10,12 @@ import { createSignatureRequestEntity, createSignatureSignerEntity } from "./ent
 import { createAnonymousLinkHandlers } from "./handlers/anonymous.write.ts";
 import { createCancelHandler } from "./handlers/cancel.write.ts";
 import { createIssueLinkHandler } from "./handlers/issue-link.write.ts";
-import { expireHandler, finishHandler, reconcileHandler } from "./handlers/lifecycle.write.ts";
+import {
+  expireHandler,
+  failHandler,
+  finishHandler,
+  reconcileHandler,
+} from "./handlers/lifecycle.write.ts";
 import { createLinkInternalHandlers } from "./handlers/link-internal.write.ts";
 import { createRequestHandler } from "./handlers/request.write.ts";
 import { createRevokeLinkHandler } from "./handlers/revoke-link.write.ts";
@@ -22,6 +27,7 @@ import {
   SignatureCompletedEventSchema,
   SignatureDeclinedEventSchema,
   SignatureExpiredEventSchema,
+  SignatureFailedEventSchema,
 } from "./payloads.ts";
 import { createSignatureDetailScreen, createSignatureListScreen } from "./screens.ts";
 import { scopeRequestDetail, scopeRequestList, scopeSignerList } from "./subject-queries.ts";
@@ -47,7 +53,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
 
   return defineFeature(SIGNATURE_FEATURE, (r) => {
     r.describe(
-      "Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the injected print function, appends it to the unchanged original and completes the request. Events completed, declined and expired report the outcome; signer name, email, image, IP and user agent are personal data.",
+      "Signature requests: a signed-in user asks several people to sign one PDF of the tenant. Each signer draws a signature on a display in person or through a link in the URL fragment (14 days, limited opens, revocable, single-use, one answer for every rejection). The last signature moves the request to all-signed; a job renders a signature page through the injected print function, appends it to the unchanged original and completes the request. Events completed, declined, expired and failed report the outcome; signer name, email, image, IP and user agent are personal data.",
     );
     r.uiHints({ displayLabel: "Signatures", category: "data", recommended: false });
     r.requires({ features: ["files", "user-data-rights"] });
@@ -66,6 +72,9 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.defineEvent("expired", SignatureExpiredEventSchema, {
       piiFields: "none",
     });
+    r.defineEvent("failed", SignatureFailedEventSchema, {
+      piiFields: "none",
+    });
 
     r.writeHandler(createRequestHandler(signedInAccess, scope));
     r.writeHandler(createSignInPersonHandler(signedInAccess, scope));
@@ -80,6 +89,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.writeHandler(link.linkDecline);
     r.writeHandler(finishHandler);
     r.writeHandler(expireHandler);
+    r.writeHandler(failHandler);
     r.writeHandler(reconcileHandler);
 
     const requestList = defineEntityListHandler(SIGNATURE_REQUEST_ENTITY, requestEntity, {
