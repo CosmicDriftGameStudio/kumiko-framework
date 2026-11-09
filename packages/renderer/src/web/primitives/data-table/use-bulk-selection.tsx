@@ -1,5 +1,9 @@
 import { type ReactNode, useState } from "react";
-import type { DataTableBulk, DataTableBulkAction } from "../../../data-table-bulk-types.ts";
+import {
+  type DataTableBulk,
+  type DataTableBulkAction,
+  isBulkFormAction,
+} from "../../../data-table-bulk-types.ts";
 import type { ListRowViewModel, Translate } from "../../../headless/index.ts";
 import { useBulkRun } from "../../../hooks/use-bulk-run.ts";
 import { useOptionalTranslation } from "../../../i18n.tsx";
@@ -65,6 +69,10 @@ export function useBulkSelection({
 
   async function execute(action: DataTableBulkAction): Promise<void> {
     setPendingAction(undefined);
+    if (isBulkFormAction(action)) {
+      action.openForm(selection.selectedRows);
+      return;
+    }
     setResultActionLabel(action.label);
     const result = await run.start(action, selection.selectedRows);
     // Failed rows stay selected for a retry; so do rows a cancel kept from running.

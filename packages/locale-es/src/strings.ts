@@ -936,6 +936,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.list.row.collapse": "Contraer {title}",
   "kumiko.list.row.expand": "Expandir {title}",
   "kumiko.list.bulk.selected": "{count} seleccionados",
+  "kumiko.form.selection-count": "{count} seleccionados",
   "kumiko.list.bulk.clear": "Quitar selección",
   "kumiko.list.bulk.limit": "Como máximo {max} filas por selección",
   "kumiko.list.bulk.select-all": "Seleccionar todas las filas de esta página",

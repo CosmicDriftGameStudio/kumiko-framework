@@ -36,13 +36,44 @@ describe("list-table-options recipe", () => {
     });
   });
 
-  test("the bulk action resolves to the delete row action", () => {
+  test("the bulk actions resolve to the delete row action and the status form", () => {
     const screen = createRegistry([createTaskBoardFeature()]).getScreen(
       "task-board:screen:task-list",
     );
     expect(screen?.type === "entityList" ? screen.bulkActions : undefined).toEqual([
       { id: "delete", rowAction: "delete" },
+      {
+        id: "set-status",
+        label: "Set status",
+        icon: "edit",
+        screen: "task-set-status",
+        idsField: "taskIds",
+      },
     ]);
+  });
+
+  test("the form bulk action boots and a missing count field is rejected", () => {
+    expect(() => validateBoot([createTaskBoardFeature()])).not.toThrow();
+    const feature = defineFeature("bulk-form-bad", (r) => {
+      r.crud("task", taskEntity, { write: openAccess, read: openAccess });
+      r.screen({
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title"],
+        bulkActions: [{ id: "set", label: "Set", screen: "set-form", idsField: "taskIds" }],
+        access: openAccess.access,
+      });
+      r.screen({
+        id: "set-form",
+        type: "actionForm",
+        dormant: true,
+        handler: "bulk-form-bad:write:task:create",
+        fields: { taskIds: { type: "text" } },
+        layout: { sections: [{ fields: ["taskIds"] }] },
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/idsField "taskIds", which is not a list field/);
   });
 
   test("a bulk action that points at a navigate row action is rejected", () => {

@@ -1825,13 +1825,19 @@ type DataTableBulk = {
   actions: DataTableBulkAction[];
   reload: () => Promise<void>; // Reloads the list once after a run.
 };
-type DataTableBulkAction = {
+type DataTableBulkAction = DataTableBulkWriteAction | DataTableBulkFormAction;
+type DataTableBulkActionBase = {
   id: string;
-  label: string; // Translated label of the underlying row action.
+  label: string; // Translated label of the underlying row action or form action.
   style?: "primary" | "secondary" | "danger";
   icon?: IconKey;
   confirmText?: (count: number) => string; // Present: one confirm dialog for the whole selection, with this text for `count` rows.
   confirmLabel?: string;
+};
+type DataTableBulkFormAction = DataTableBulkActionBase & {
+  openForm: (rows: ListRowViewModel[]) => void; // Hands the whole selection to one form instead of running writes in the table.
+};
+type DataTableBulkWriteAction = DataTableBulkActionBase & {
   appliesTo: (row: ListRowViewModel) => boolean; // False: the row action's `visible` hides it for this row; the run skips the row.
   writeRow: (row: ListRowViewModel) => Promise<BulkRowOutcome>; // Exactly one server write for one row.
 };
@@ -2223,7 +2229,7 @@ type EditFieldViewModel = {
     query: string;
     payload: OptionsQueryPayload;
   }; // Set for `type: "select"` / `"multiSelect"` when optionsAvailabilityQuery is set: the renderer loads `{ rows: { value, disabled?, hint?
-  display?: "checkboxes" | "chips" | "dropdown" | "radio"; // Set for `type: "multiSelect"` when MultiSelectFieldDef.display is "checkboxes" — the renderer shows a checkbox grid with a select-all toggle instead of the default combobox dropdown.
+  display?: "checkboxes" | "chips" | "dropdown" | "radio" | "count"; // Set for `type: "multiSelect"` when MultiSelectFieldDef.display is "checkboxes" — the renderer shows a checkbox grid with a select-all toggle instead of the default combobox dropdown.
   optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>; // `type: "select"` only: tone per option, shown on the selected radio segment.
   columns?: 1 | 2 | 3 | 4; // Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is defined — column count for the checkbox grid at the widest breakpoint.
   maxRows?: number; // Set for `type: "multiSelect"` when MultiSelectFieldDef.maxRows is defined — grid rows visible before the checkbox grid becomes scrollable.
@@ -3966,7 +3972,7 @@ type MultiSelectFieldDef<TOptions extends string[] = string[]> = PiiAndFieldStat
   sensitive?: boolean;
   default?: TOptions[number][]; // Default selection.
   access?: FieldAccess;
-  display?: "checkboxes" | "chips" | "dropdown"; // Renderer metadata: `"checkboxes"` renders every option as a visible checkbox with a select-all toggle.
+  display?: "checkboxes" | "chips" | "dropdown" | "count"; // Renderer metadata: `"checkboxes"` renders every option as a visible checkbox with a select-all toggle.
   columns?: 1 | 2 | 3 | 4; // Renderer metadata: column count for the `"checkboxes"` grid at the widest breakpoint; narrow viewports always collapse to one column.
   maxRows?: number; // Renderer metadata: how many grid rows stay visible before the `"checkboxes"` grid becomes scrollable.
   optionsAvailabilityQuery?: string; // Query returning `{ rows: { value, disabled?, hint?
@@ -5128,6 +5134,23 @@ type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField" 
 };
 type ExpandableRowGrouping = Omit<ListTableGrouping, "field" | "userChoice" | "fields"> & { // Server-side grouping of an expandable row's sub-list: a fixed `field`, no "Group by" choice.
   field: string;
+};
+```
+
+## packages/types/src/screen-list-bulk.ts
+
+```ts
+type ListBulkFormAction = { // Opens an `actionForm` screen for the whole selection.
+  id: string; // Stable id, kebab-case, unique among the screen's bulk actions.
+  label: string; // i18n key of the button label.
+  icon?: IconKey;
+  screen: string; // Short id (same feature) or `<feature>:screen:<id>` of an `actionForm` screen.
+  idsField: string; // Field of that form which receives the selected row ids: a `multiSelect` with `display: "count"`.
+};
+type ListBulkRowAction = { // Runs a writeHandler row action once per checkbox-selected row.
+  id: string; // Stable id, kebab-case, unique among the screen's bulk actions.
+  rowAction: string; // Id of a writeHandler entry in the same screen's `rowActions`; it supplies handler, payload, label, style and `visible`.
+  confirm?: string; // i18n key of the one confirm dialog for the whole selection; gets `{count}` and `{action}`.
 };
 ```
 

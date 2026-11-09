@@ -21,7 +21,10 @@ the `table` block renders and behaves as before.
   file; `maxRows` lowers the default limit of 10000 rows.
   Reference columns export their label and timestamps use the browser time zone.
 - `bulkActions`: row checkboxes and a selection bar. "Delete" runs the delete
-  row action once per selected row; done tasks are skipped.
+  row action once per selected row (done tasks are skipped); "Set status" opens
+  an actionForm once for the whole selection. Its `taskIds` field is a
+  `multiSelect` with `display: "count"`, and the `task:set-status` handler
+  updates every id in one write.
 - `table.grouping`: the server groups the list by status; each header shows the
   group's count and estimate sum, "done" starts collapsed and the view menu
   offers grouping by priority or none.
@@ -54,6 +57,6 @@ bun test
 The test boots the feature through the boot validator and checks that a
 misspelled key, a hidden column without the picker, an unknown density, a pinned column
 without `pinning`, a width without `resizing` and a bulk action on a navigate
-row action are rejected.
+row action, and a form bulk action whose `idsField` is no count list, are rejected.
 `workload.integration.test.ts` runs the hand-written query over HTTP and checks
 the grouped sums and the filtered total.

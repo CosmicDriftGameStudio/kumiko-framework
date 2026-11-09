@@ -11,6 +11,7 @@ import type {
   EditWriteFormSection,
   EntityListExpandableRow,
   FieldTextRef,
+  ListBulkAction,
   ListEmptyStateSpec,
   RowAction,
   ScreenDefinition,
@@ -112,6 +113,11 @@ function isI18nKey(value: string): boolean {
  */
 function pushKey(out: Set<string>, value: string | undefined, treatAsKey = false): void {
   if (value !== undefined && (treatAsKey || isI18nKey(value))) out.add(value);
+}
+
+function pushBulkActionKeys(out: Set<string>, bulk: ListBulkAction): void {
+  if ("screen" in bulk) pushKey(out, bulk.label);
+  else pushKey(out, bulk.confirm);
 }
 
 function editFieldName(f: string | { readonly field: string }): string {
@@ -358,7 +364,7 @@ function pushListChromeKeys(
   pushListEmptyStateKeys(out, list.emptyState);
   for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
   for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
-  for (const bulk of list.bulkActions ?? []) pushKey(out, bulk.confirm);
+  for (const bulk of list.bulkActions ?? []) pushBulkActionKeys(out, bulk);
 }
 
 function collectEntityListKeys(
@@ -557,7 +563,7 @@ function collectProjectionDetailKeys(
     }
     if (section.kind === "relatedList") {
       pushRelatedListSectionKeys(ctx.out, section);
-      for (const bulk of section.bulkActions ?? []) pushKey(ctx.out, bulk.confirm);
+      for (const bulk of section.bulkActions ?? []) pushBulkActionKeys(ctx.out, bulk);
       continue;
     }
     if (section.kind === "stepList") {

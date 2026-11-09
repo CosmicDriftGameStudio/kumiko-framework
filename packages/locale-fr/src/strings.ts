@@ -950,6 +950,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.list.row.collapse": "Réduire {title}",
   "kumiko.list.row.expand": "Développer {title}",
   "kumiko.list.bulk.selected": "{count} sélectionné(s)",
+  "kumiko.form.selection-count": "{count} sélectionné(s)",
   "kumiko.list.bulk.clear": "Effacer la sélection",
   "kumiko.list.bulk.limit": "Au maximum {max} lignes par sélection",
   "kumiko.list.bulk.select-all": "Sélectionner toutes les lignes de cette page",

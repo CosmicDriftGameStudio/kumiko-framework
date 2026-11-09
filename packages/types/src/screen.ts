@@ -352,7 +352,11 @@ export type {
 } from "./screen-fallback.ts";
 export { fallbackTargetFor, fallbackTargets, SCREEN_FALLBACK_REASONS } from "./screen-fallback.ts";
 export type { ListBulkAction } from "./screen-list-bulk.ts";
-export { LIST_BULK_ACTION_KEYS, MAX_BULK_SELECTION } from "./screen-list-bulk.ts";
+export {
+  LIST_BULK_ACTION_KEYS,
+  LIST_BULK_FORM_ACTION_KEYS,
+  MAX_BULK_SELECTION,
+} from "./screen-list-bulk.ts";
 export type {
   BundledListsOptions,
   ListColumnPin,

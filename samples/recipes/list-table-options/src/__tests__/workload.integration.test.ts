@@ -65,3 +65,32 @@ describe("hand-written list query with aggregate", () => {
     ]);
   });
 });
+
+describe("form bulk action handler", () => {
+  test("one write sets the status of every selected task", async () => {
+    const created = await Promise.all(
+      ["Bulk A", "Bulk B"].map((title) =>
+        stack.http.writeOk<{ data: { id: string } }>(
+          "task-board:write:task:create",
+          { title },
+          user,
+        ),
+      ),
+    );
+    const taskIds = created.map((task) => task.data.id);
+    await stack.http.writeOk(
+      "task-board:write:task:set-status",
+      { taskIds, status: "blocked", note: "waiting" },
+      user,
+    );
+    const list = await stack.http.queryOk<{
+      rows: { title: string; status: string; note: string }[];
+    }>("task-board:query:task:list", { sort: "title" }, user);
+    expect(
+      list.rows.filter((row) => row.title.startsWith("Bulk")).map((row) => [row.status, row.note]),
+    ).toEqual([
+      ["blocked", "waiting"],
+      ["blocked", "waiting"],
+    ]);
+  });
+});

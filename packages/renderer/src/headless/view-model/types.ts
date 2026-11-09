@@ -300,7 +300,7 @@ export type EditFieldViewModel = {
    *  toggle instead of the default combobox dropdown. Set for
    *  `type: "select"` when SelectFieldDef.display is "radio" or "dropdown" —
    *  the renderer then skips its own radio-vs-dropdown heuristic. */
-  readonly display?: "checkboxes" | "chips" | "dropdown" | "radio";
+  readonly display?: "checkboxes" | "chips" | "dropdown" | "radio" | "count";
   /** `type: "select"` only: tone per option, shown on the selected radio segment. */
   readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.columns is

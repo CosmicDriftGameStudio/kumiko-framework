@@ -132,6 +132,8 @@ export function validateProjectionListScreen(
     `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
     screen.bulkActions,
     screen.rowActions,
+    featureName,
+    ctx,
   );
   if (screen.toolbarActions !== undefined) {
     validateProjectionListToolbarActions(ctx, screenId, screen.toolbarActions);

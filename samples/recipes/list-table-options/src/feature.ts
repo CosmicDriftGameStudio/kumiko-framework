@@ -15,6 +15,7 @@ import {
   entityListSchema,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import type { ListTableOptions } from "@cosmicdrift/kumiko-framework/ui-types";
 import { z } from "zod";
 
@@ -143,8 +144,17 @@ export function createTaskBoardFeature(
           visible: { field: "status", ne: "done" },
         },
       ],
-      // Row checkboxes and a selection bar; each selected row gets its own delete write.
-      bulkActions: [{ id: "delete", rowAction: "delete" }],
+      // Row checkboxes and a selection bar; delete writes once per row, set-status once for all.
+      bulkActions: [
+        { id: "delete", rowAction: "delete" },
+        {
+          id: "set-status",
+          label: "Set status",
+          icon: "edit",
+          screen: "task-set-status",
+          idsField: "taskIds",
+        },
+      ],
       access: openAccess.access,
     });
 
@@ -238,6 +248,50 @@ export function createTaskBoardFeature(
         grouping: { field: "assignee" },
         totals: [{ field: "estimateHours", kind: "sum" }],
       },
+    });
+
+    // One write for the whole selection: the bulk action below opens this form and
+    // `taskIds` arrives as a string array.
+    r.writeHandler({
+      name: "task:set-status",
+      schema: z.object({
+        taskIds: z.array(z.uuid()).min(1),
+        status: z.enum(taskEntity.fields.status.options),
+        note: z.string().optional(),
+      }),
+      access: openAccess.access,
+      handler: async (event, ctx) => {
+        const { taskIds, status, note } = event.payload;
+        for (const id of taskIds) {
+          const task = await taskExecutor.detail({ id }, event.user, ctx.db);
+          if (!task) return failNotFound("task", id);
+          const result = await taskExecutor.update(
+            { id, version: Number(task["version"]), changes: { status, note } },
+            event.user,
+            ctx.db,
+          );
+          if (!result.isSuccess) return result;
+        }
+        return { isSuccess: true as const, data: { count: taskIds.length } };
+      },
+    });
+
+    r.screen({
+      id: "task-set-status",
+      type: "actionForm",
+      dormant: true,
+      handler: "task-board:write:task:set-status",
+      listScreenId: "task-list",
+      redirect: "task-list",
+      fields: {
+        taskIds: { type: "multiSelect", options: [], display: "count" },
+        status: createSelectField({
+          options: ["open", "inProgress", "blocked", "done"] as const,
+          required: true,
+        }),
+        note: createTextField({ personal: false, reason: "is_business_data" }),
+      },
+      layout: { sections: [{ fields: ["taskIds", "status", "note"] }] },
     });
 
     r.nav({ id: "tasks", label: "task-board:nav.tasks", icon: "list", order: 10 });

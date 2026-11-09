@@ -522,11 +522,7 @@ type FormDerivationScreen = {
 type FormWidth = "3xl" | "4xl" | "full";
 type Formality = "formal" | "informal";
 type IconKey = NavIconKey;
-type ListBulkAction = { // An action that runs a writeHandler row action once per checkbox-selected row.
-  id: string; // Stable id, kebab-case, unique among the screen's bulk actions.
-  rowAction: string; // Id of a writeHandler entry in the same screen's `rowActions`; it supplies handler, payload, label, style and `visible`.
-  confirm?: string; // i18n key of the one confirm dialog for the whole selection; gets `{count}` and `{action}`.
-};
+type ListBulkAction = ListBulkRowAction | ListBulkFormAction; // An action over checkbox-selected rows: a writeHandler row action per row (`rowAction`) or one form for all rows (`screen` + `idsField`).
 type ListColumnHint = {
   detailField?: string; // Row field with a second, muted line (e.g. the due date as text).
   narrowDetailField?: string; // Row field shown as the detail line below `sm` instead of `detailField` (a shorter line, e.g. "5 days · Anna Schneider").

@@ -15,6 +15,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { isBulkFormAction } from "../../data-table-bulk-types.ts";
 import type { ListRowViewModel, Translate } from "../../headless/index.ts";
 import { runBulkWrites } from "../../hooks/use-bulk-run.ts";
 import { createLiveDispatcher } from "../../live/index.ts";
@@ -110,7 +111,9 @@ describe("bulk actions over /api/write", () => {
       translate: keyAsText,
       dispatcher: await memberDispatcher(),
     });
-    if (archive === undefined) throw new Error("archive bulk action did not resolve");
+    if (archive === undefined || isBulkFormAction(archive)) {
+      throw new Error("archive bulk action did not resolve to a write action");
+    }
 
     const result = await runBulkWrites({
       rows: [...ownRows, foreignRow, pinnedRow],

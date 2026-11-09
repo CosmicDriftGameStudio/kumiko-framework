@@ -282,6 +282,13 @@ rowActions: [
 bulkActions: [{ id: "delete", rowAction: "delete" }],
 ```
 
+**Form action.** An entry `{ id, label, icon, screen, idsField }` opens the actionForm `screen` once for the whole selection instead of writing per row. The ids arrive as a `string[]` in `idsField`, a `multiSelect` with `display: "count"` that shows "n selected", so the form's handler runs once. The boot validator rejects an unknown screen, a screen that is no actionForm, and an `idsField` that is missing, not a count list, sensitive or left out of the layout. No `/api/write` runs per row and no confirm dialog appears; the form is the confirmation.
+
+```ts illustration
+bulkActions: [{ id: "swap-company", label: "props.swap-company", icon: "edit", screen: "swap-company", idsField: "propertyIds" }],
+// target form: fields: { propertyIds: { type: "multiSelect", options: [], display: "count" } }
+```
+
 With at least one bulk action the table gets a checkbox column on the left, a header checkbox for the loaded rows and a checkbox on every card in the card layout. A bar above the table shows "n selected", one button per action and "Clear selection". A list without `bulkActions` renders without the column.
 
 ![Task board with two selected rows, the bar shows 2 selected, Delete and Clear selection](/screenshots/tables/bulk-actions.png)

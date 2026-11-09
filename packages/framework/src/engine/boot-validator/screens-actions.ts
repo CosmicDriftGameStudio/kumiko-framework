@@ -393,7 +393,7 @@ export function validateDrawerTargetAction(
   );
 }
 
-function renderedEditFieldNames(sections: EditLayout["sections"]): ReadonlySet<string> {
+export function renderedEditFieldNames(sections: EditLayout["sections"]): ReadonlySet<string> {
   const names = new Set<string>();
   for (const section of sections) {
     if (!isFieldsEditSection(section)) continue;
@@ -716,8 +716,8 @@ function validateRedirectSearchParams(
   }
 }
 
-function findNavTargetEntry(
-  feature: FeatureDefinition,
+export function findNavTargetEntry(
+  feature: Pick<FeatureDefinition, "name">,
   target: string,
   lookups: NavigateTargetLookups,
 ) {

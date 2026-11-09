@@ -119,6 +119,24 @@ test.describe("list bulk actions", () => {
     await expect(selectBox(page, "task-5")).toHaveAttribute("data-state", "checked");
   });
 
+  test("a form action opens one form for the whole selection and writes once", async ({
+    page,
+  }, testInfo) => {
+    await openBulkList(page);
+    await select(page, "task-1", "task-3", "task-4");
+    await page.getByTestId("bulk-action-reassign").click();
+
+    await expect(page).toHaveURL(/task-reassign/);
+    await expect(page.getByTestId("kumiko-edit-taskIds-count")).toHaveText("3 selected");
+    await page.screenshot({ path: testInfo.outputPath("bulk-form.png") });
+
+    await page.locator("#kumiko-edit-owner").fill("Gina");
+    await page.getByTestId("render-edit-submit").click();
+
+    await expect(page).toHaveURL(/task-bulk/);
+    expect(await writeLog(page)).toEqual(["reassign:task-1,task-3,task-4"]);
+  });
+
   test("Space selects the focused row", async ({ page }) => {
     await openBulkList(page);
     await page.getByTestId("row-task-2").focus();

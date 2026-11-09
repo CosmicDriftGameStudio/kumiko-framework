@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import type { BulkRowOutcome, DataTableBulkAction } from "../data-table-bulk-types.ts";
+import type { BulkRowOutcome, DataTableBulkWriteAction } from "../data-table-bulk-types.ts";
 import type { ListRowViewModel } from "../headless/index.ts";
 
 /** Parallel row writes of one run; more would crowd out the list's own requests. */
@@ -14,7 +14,7 @@ export type BulkRunResult = {
   readonly firstFailureMessage?: string;
 };
 
-type BulkRunAction = Pick<DataTableBulkAction, "appliesTo" | "writeRow">;
+type BulkRunAction = Pick<DataTableBulkWriteAction, "appliesTo" | "writeRow">;
 
 function failureOf(error: unknown): BulkRowOutcome {
   return { kind: "failed", message: error instanceof Error ? error.message : String(error) };
