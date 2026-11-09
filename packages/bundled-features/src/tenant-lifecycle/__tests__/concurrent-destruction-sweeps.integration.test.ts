@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import { createAuthFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -14,9 +15,13 @@ import {
 } from "../../compliance-profiles/index.ts";
 import { createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
+import { createSessionsFeature } from "../../sessions/index.ts";
+import { userSessionTable } from "../../sessions/schema/user-session.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
+import { tenantMembershipsTable } from "../../tenant/index.ts";
 import { tenantTable } from "../../tenant/schema/tenant.ts";
 import { TenantHandlers } from "../../tenant/web/constants.ts";
+import { createUserFeature } from "../../user/feature.ts";
 import {
   TENANT_DESTRUCTION_FAILED_EVENT_QN,
   TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_QN,
@@ -40,8 +45,11 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
+      createUserFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
+      createAuthFoundationFeature(),
+      createSessionsFeature(),
       createTenantLifecycleFeature(),
     ],
     extraContext: {
@@ -58,7 +66,13 @@ afterAll(async () => {
 
 beforeEach(async () => {
   resetTenantLifecycleGateCacheForTests();
-  await resetTestTables(db, [tenantTable, tenantComplianceProfileTable, eventsTable]);
+  await resetTestTables(db, [
+    tenantTable,
+    tenantComplianceProfileTable,
+    userSessionTable,
+    tenantMembershipsTable,
+    eventsTable,
+  ]);
 });
 
 describe("tenant-lifecycle :: overlapping destruction sweeps", () => {
