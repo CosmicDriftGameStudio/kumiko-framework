@@ -5,6 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   createEventStoreExecutor,
   createTenantDb,
+  decodeKeysetCursor,
   encodeKeysetCursor,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -329,22 +330,40 @@ describe("signature :: authorizeSubject on queries", () => {
   });
 
   test("a scoped cursor never carries a foreign request id and a plain cursor is refused", async () => {
-    const foreign = await stack.http.writeOk<RequestData>(
-      SignatureHandlers.request,
-      { ...(await requestPayload(ADMIN, "subject-foreign")), title: "secret foreign title" },
-      ADMIN,
-    );
+    const foreignRequests: RequestData[] = [];
+    for (const index of [1, 2]) {
+      foreignRequests.push(
+        await stack.http.writeOk<RequestData>(
+          SignatureHandlers.request,
+          {
+            ...(await requestPayload(ADMIN, `subject-foreign-${index}`)),
+            title: "secret foreign title",
+          },
+          ADMIN,
+        ),
+      );
+    }
+    const foreign = foreignRequests[0] as RequestData;
     const leakProbe = await stack.http.queryOk<Page<RequestRow>>(
       SignatureQueries.list,
       { search: "secret foreign title", limit: 1, sort: "expiresAt" },
       USER_B,
     );
     expect(leakProbe.rows).toEqual([]);
-    if (leakProbe.nextCursor !== null) {
-      expect(Buffer.from(leakProbe.nextCursor, "base64url").toString("latin1")).not.toContain(
-        foreign.requestId,
-      );
-      expect(leakProbe.nextCursor).not.toContain(foreign.requestId);
+    expect(typeof leakProbe.nextCursor).toBe("string");
+    const cursor = leakProbe.nextCursor as string;
+    for (const { requestId } of foreignRequests) {
+      expect(cursor).not.toContain(requestId);
+      for (const segment of cursor.split(".")) {
+        expect(Buffer.from(segment, "base64url").toString("latin1")).not.toContain(requestId);
+      }
+      let decodedId: string | null = null;
+      try {
+        decodedId = decodeKeysetCursor(cursor).id;
+      } catch {
+        // a sealed cursor is not a plain keyset cursor
+      }
+      expect(decodedId).not.toBe(requestId);
     }
 
     const plainCursor = encodeKeysetCursor(null, foreign.requestId);
