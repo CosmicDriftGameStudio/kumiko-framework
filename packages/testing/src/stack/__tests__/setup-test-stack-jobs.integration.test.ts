@@ -256,6 +256,27 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
     }
   }
 
+  // ioredis switches a connection to "monitoring" one microtask after MONITOR's OK. Command lines
+  // arriving in the same TCP read as the OK meet an empty command queue and are emitted as
+  // "Command queue state error" (redis.monitor() rejects on it). They predate the observation
+  // window, so only that startup race is dropped; any later error stays unhandled and fails.
+  async function openMonitor(redisUrl: string): Promise<Redis> {
+    const monitor = new Redis(redisUrl, { monitor: true });
+    await new Promise<void>((resolve, reject) => {
+      const onStartupError = (error: Error): void => {
+        if (error.message.startsWith("Command queue state error")) return;
+        monitor.off("error", onStartupError);
+        reject(error);
+      };
+      monitor.on("error", onStartupError);
+      monitor.once("monitoring", () => {
+        monitor.off("error", onStartupError);
+        resolve();
+      });
+    });
+    return monitor;
+  }
+
   test("cleanup() removes the BullMQ keys of the derived per-stack queues", async () => {
     laneIsolationRuns.length = 0;
     const live = await setupTestStack({
@@ -289,7 +310,7 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
     const raw = new Redis(redisUrl);
     // MONITOR sees every command the server runs; filtering on this stack's own key patterns keeps
     // parallel tests' SCANs out of the count.
-    const monitor = await raw.monitor();
+    const monitor = await openMonitor(redisUrl);
     const ownScans: string[][] = [];
     const doneMarker = `cleanup-done-${generateId()}`;
     let doneSeen = false;
