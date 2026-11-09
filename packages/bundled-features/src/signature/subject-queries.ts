@@ -59,8 +59,9 @@ export function scopeRequestList(
       if (!scope.isScoped(user)) return base.handler(query, ctx);
       const payload = entityListSchema.parse(query.payload);
       // Group counts would include requests of foreign subjects, and an offset counts base rows,
-      // not the rows this user sees; the screen pages by cursor.
-      if (payload.aggregate !== undefined || (payload.offset ?? 0) > 0) {
+      // not the rows this user sees; the screen pages by cursor. limit 0 would hand out a cursor
+      // without checking a row.
+      if (payload.aggregate !== undefined || (payload.offset ?? 0) > 0 || payload.limit === 0) {
         throw new AccessDeniedError();
       }
       const limit = payload.limit ?? DEFAULT_LIST_LIMIT;
