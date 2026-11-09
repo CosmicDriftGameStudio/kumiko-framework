@@ -37,6 +37,7 @@ const NOT_FOUND = 404;
 
 const provider = createInMemoryFileProvider();
 const deliveredLinks: string[] = [];
+const authorizedSubjectIds: string[] = [];
 let stack: TestStack;
 
 const fileRefExecutor = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
@@ -61,8 +62,10 @@ beforeAll(async () => {
         deliverLink: async (_ctx, delivery) => {
           deliveredLinks.push(delivery.signerId);
         },
-        authorizeSubject: async (_ctx, user, subject) =>
-          user.id === USER_A.id && subject.subjectId === SUBJECT_A,
+        authorizeSubject: async (_ctx, user, subject) => {
+          authorizedSubjectIds.push(String(subject.subjectId));
+          return user.id === USER_A.id && subject.subjectId === SUBJECT_A;
+        },
         unscopedRoles: ["TenantAdmin"],
       }),
     ],
@@ -76,6 +79,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   deliveredLinks.length = 0;
+  authorizedSubjectIds.length = 0;
 });
 
 async function seedDocument(uploader: SessionUser): Promise<string> {
@@ -354,6 +358,48 @@ describe("signature :: authorizeSubject on queries", () => {
       );
       seen.push(...page.rows.map((row) => row.id));
       if (page.nextCursor === null) break;
+      cursor = page.nextCursor;
+    }
+    expect(seen).toContain(own.requestId);
+  });
+
+  test("an answer stops after ten base pages and hands out a cursor that reaches the own request", async () => {
+    const limit = 2;
+    const basePagesPerAnswer = 10;
+    const foreignCount = basePagesPerAnswer * limit + 2;
+    for (let index = 0; index < foreignCount; index++) {
+      await stack.http.writeOk<RequestData>(
+        SignatureHandlers.request,
+        { ...(await requestPayload(ADMIN, `capfoe-${index}`)), expiresInDays: 1 },
+        ADMIN,
+      );
+    }
+    const own = await stack.http.writeOk<RequestData>(
+      SignatureHandlers.request,
+      { ...(await requestPayload(USER_A, SUBJECT_A)), expiresInDays: 365 },
+      USER_A,
+    );
+    authorizedSubjectIds.length = 0;
+
+    const first = await stack.http.queryOk<Page<RequestRow>>(
+      SignatureQueries.list,
+      { sort: "expiresAt", sortDirection: "asc", limit },
+      USER_A,
+    );
+    expect(first.rows).toEqual([]);
+    expect(first.nextCursor).not.toBeNull();
+    const checkedForeign = authorizedSubjectIds.filter((id) => id.startsWith("capfoe-"));
+    expect(checkedForeign.length).toBe(basePagesPerAnswer * limit);
+
+    const seen: string[] = [];
+    let cursor = first.nextCursor;
+    for (let answers = 0; cursor !== null && answers < 50; answers++) {
+      const page: Page<RequestRow> = await stack.http.queryOk<Page<RequestRow>>(
+        SignatureQueries.list,
+        { sort: "expiresAt", sortDirection: "asc", limit, cursor },
+        USER_A,
+      );
+      seen.push(...page.rows.map((row) => row.id));
       cursor = page.nextCursor;
     }
     expect(seen).toContain(own.requestId);
