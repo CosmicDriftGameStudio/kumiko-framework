@@ -25,3 +25,10 @@ type: fix
 title: Boot validator checks dateOnlyAfterDays on list columns
 detail: A column's `dateOnlyAfterDays` must be a non-negative whole number on every list kind. On an entityList column it requires a timestamp or date field or a `relativeTime` format; on a projectionList or relatedList column a numeric `valueType` (number, decimal, bigInt, money) is rejected, and a relatedList column with an entity is checked against that entity's field type. Number columns that showed 42 as 1 January 1970 now fail at boot (rules `list/date-only-after-days-invalid` and `list/date-only-after-days-wrong-type`).
 -->
+
+<!-- kumiko-changes
+feature: cap-counter
+type: fix
+title: withStockCap keeps the handler type
+detail: `withStockCap` is generic over the write handler definition and returns the type it received, so a `defineWriteHandler` result passes in without an `as unknown as WriteHandlerDef` cast. Callers passing a `WriteHandlerDef` compile unchanged.
+-->
