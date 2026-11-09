@@ -24,7 +24,9 @@ ARG APP_ENTRY=src/main.ts
 # deps — install production dependencies only. Cached separately from source so
 # source-only changes don't bust the install layer.
 # ------------------------------------------------------------------------------
-FROM oven/bun:${BUN_VERSION}-alpine AS deps
+# bun aborts under QEMU, so it runs on the build host and installs for the target CPU.
+FROM --platform=$BUILDPLATFORM oven/bun:${BUN_VERSION}-alpine AS deps
+ARG TARGETARCH
 WORKDIR /app
 COPY package.json bun.lock ./
 # Workspace-Manifeste: wenn deine App ein Workspace-Member ist, kopiere die
@@ -32,7 +34,7 @@ COPY package.json bun.lock ./
 # aufloesen kann. Beispiel:
 #   COPY packages/*/package.json packages/
 #   COPY app/package.json app/
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)"
 
 # ------------------------------------------------------------------------------
 # runtime — schlankes Image mit Non-Root-User + HEALTHCHECK.

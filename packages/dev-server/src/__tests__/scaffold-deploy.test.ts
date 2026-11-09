@@ -89,7 +89,7 @@ describe("scaffoldDeploy", () => {
     );
 
     expect(dockerfile).toContain(
-      "COPY --from=build --chown=app:app /app/dist-server ./\nRUN bun install --production --frozen-lockfile",
+      "COPY --from=build --chown=app:app /app/dist-server ./\nCOPY --from=deps --chown=app:app /app/node_modules ./node_modules",
     );
 
     expect(dockerfile).not.toContain("/app/dist-server/drizzle.config.ts");

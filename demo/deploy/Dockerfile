@@ -18,7 +18,8 @@ ARG BUILD_VERSION=dev
 ARG BUILD_TIME=unknown
 
 # ----- build: produces dist/ + dist-server/ ---------------------------------
-FROM oven/bun:${BUN_VERSION}-alpine AS build
+# bun aborts under QEMU, so every bun step runs on the build host; the output is platform-neutral.
+FROM --platform=$BUILDPLATFORM oven/bun:${BUN_VERSION}-alpine AS build
 WORKDIR /app
 
 # Standalone-repo layout: @cosmicdrift/* pulled from NPM, no workspace:*
@@ -31,17 +32,25 @@ RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
 
+# ----- deps: production node_modules for the target CPU ---------------------
+# Runs on the build host (bun aborts under QEMU); --os/--cpu fetch the target's
+# native packages. `--frozen-lockfile` installs exactly the externals the build
+# resolved, from the bun.lock kumiko-build seeded from the app's lockfile.
+FROM --platform=$BUILDPLATFORM oven/bun:${BUN_VERSION}-alpine AS deps
+ARG TARGETARCH
+WORKDIR /app
+COPY --from=build /app/dist-server ./
+RUN bun install --production --frozen-lockfile --os=linux --cpu="$(case "$TARGETARCH" in amd64) echo x64 ;; arm64) echo arm64 ;; *) echo "unsupported TARGETARCH '$TARGETARCH'" >&2; exit 1 ;; esac)"
+
 # ----- runtime: bun-alpine, knows only the bundle artefact ------------------
 FROM oven/bun:${BUN_VERSION}-alpine AS runtime
 WORKDIR /app
 
 RUN addgroup -S app && adduser -S app -G app
 
-# Server bundle + its minimal package.json + the bun.lock kumiko-build seeded
-# from the app's lockfile. `bun install --production --frozen-lockfile` pulls
-# exactly the externals the build resolved.
+# Server bundle + its minimal package.json; node_modules come from the deps stage.
 COPY --from=build --chown=app:app /app/dist-server ./
-RUN bun install --production --frozen-lockfile
+COPY --from=deps --chown=app:app /app/node_modules ./node_modules
 
 # Client build (static assets) — served by runProdApp.staticDir.
 COPY --from=build --chown=app:app /app/dist ./dist
