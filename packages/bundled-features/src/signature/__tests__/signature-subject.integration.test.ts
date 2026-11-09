@@ -126,7 +126,7 @@ type RequestRow = { id: string; status: string; subjectId: string };
 type Page<Row> = { rows: Row[]; nextCursor: string | null };
 
 function listRequests(user: SessionUser, filters: readonly object[]) {
-  return stack.http.queryOk<Page<RequestRow>>(SignatureQueries.list, { filters }, user);
+  return stack.http.queryOk<Page<RequestRow>>(SignatureQueries.list, { filters, limit: 200 }, user);
 }
 
 const subjectFilters = (subjectId: string) => [
@@ -338,6 +338,7 @@ describe("signature :: authorizeSubject on queries", () => {
           SignatureHandlers.request,
           {
             ...(await requestPayload(ADMIN, `subject-foreign-${index}`)),
+            expiresInDays: 1,
             title: "secret foreign title",
           },
           ADMIN,
@@ -347,7 +348,7 @@ describe("signature :: authorizeSubject on queries", () => {
     const foreign = foreignRequests[0] as RequestData;
     const leakProbe = await stack.http.queryOk<Page<RequestRow>>(
       SignatureQueries.list,
-      { search: "secret foreign title", limit: 1, sort: "expiresAt" },
+      { limit: 1, sort: "expiresAt", sortDirection: "asc" },
       USER_B,
     );
     expect(leakProbe.rows).toEqual([]);
