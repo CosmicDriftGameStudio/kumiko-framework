@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { createHmac } from "node:crypto";
 import { encodeKeysetCursor } from "@cosmicdrift/kumiko-framework/db";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { CompactEncrypt } from "jose";
 import { openListCursor, sealListCursor } from "../list-cursor-seal.ts";
 
 const SECRET = "list-cursor-seal-test-secret-0123456789";
@@ -37,6 +39,21 @@ describe("signature :: list cursor seal", () => {
     expect(await openListCursor(sealed, USER, "another-secret-0123456789")).toBeNull();
     expect(await openListCursor(BASE_CURSOR, USER, SECRET)).toBeNull();
     expect(await openListCursor("", USER, SECRET)).toBeNull();
+  });
+
+  test("a token with another key management algorithm opens to null", async () => {
+    const derivedKey = new Uint8Array(
+      createHmac("sha256", SECRET).update("signature-list-cursor").digest(),
+    );
+    const payload = JSON.stringify({
+      c: BASE_CURSOR,
+      u: String(USER.id),
+      t: String(USER.tenantId),
+    });
+    const foreign = await new CompactEncrypt(new TextEncoder().encode(payload))
+      .setProtectedHeader({ alg: "A256KW", enc: "A256GCM" })
+      .encrypt(derivedKey);
+    expect(await openListCursor(foreign, USER, SECRET)).toBeNull();
   });
 
   test("the sealed string shows neither the plain cursor nor the id", async () => {

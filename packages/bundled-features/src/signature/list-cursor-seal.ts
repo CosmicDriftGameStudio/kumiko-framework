@@ -44,7 +44,11 @@ export async function openListCursor(
   secret: string,
 ): Promise<string | null> {
   try {
-    const { plaintext } = await compactDecrypt(sealed, cursorKey(secret));
+    // Allowlist: a foreign header such as PBES2 would cost PBKDF2 rounds per request.
+    const { plaintext } = await compactDecrypt(sealed, cursorKey(secret), {
+      keyManagementAlgorithms: ["dir"],
+      contentEncryptionAlgorithms: ["A256GCM"],
+    });
     const payload: unknown = JSON.parse(decoder.decode(plaintext));
     if (!isSealedCursorPayload(payload)) return null;
     if (payload.u !== String(user.id) || payload.t !== String(user.tenantId)) return null;
