@@ -47,6 +47,39 @@ const MAX_BASE_PAGES_PER_ANSWER = 10;
 // authorizeSubject usually queries the database; a page of 200 subjects must not take the whole pool.
 const SUBJECT_CHECKS_IN_PARALLEL = 10;
 
+type ListQuery = Parameters<QueryHandlerDef["handler"]>[0];
+
+async function openFirstQuery(
+  query: ListQuery,
+  payload: ListPayload,
+  user: SessionUser,
+  cursorSecret: string,
+): Promise<ListQuery> {
+  const { cursor: sealedCursor, ...payloadWithoutCursor } = payload;
+  if (sealedCursor === undefined) return query;
+  const openedCursor = await openListCursor(sealedCursor, user, cursorSecret);
+  if (openedCursor === null) throw new AccessDeniedError();
+  return { ...query, payload: { ...payloadWithoutCursor, cursor: openedCursor } };
+}
+
+async function sealedPage(
+  page: RowsPage,
+  visibleRows: unknown[],
+  nextCursor: unknown,
+  user: SessionUser,
+  cursorSecret: string,
+) {
+  // `total` would count requests of foreign subjects. The base cursor names the last base row,
+  // which may belong to a foreign subject, so the user only gets it sealed.
+  const { total: _total, rows: _rows, nextCursor: _baseCursor, ...rest } = page;
+  return {
+    ...rest,
+    rows: visibleRows,
+    nextCursor:
+      typeof nextCursor === "string" ? await sealListCursor(nextCursor, user, cursorSecret) : null,
+  };
+}
+
 export function scopeRequestList(
   base: QueryHandlerDef,
   scope: SubjectScope,
@@ -67,13 +100,7 @@ export function scopeRequestList(
       const limit = payload.limit ?? DEFAULT_LIST_LIMIT;
       const verdicts = new Map<string, boolean>();
       const visibleRows: unknown[] = [];
-      const { cursor: sealedCursor, ...payloadWithoutCursor } = payload;
-      let firstQuery = query;
-      if (sealedCursor !== undefined) {
-        const openedCursor = await openListCursor(sealedCursor, user, cursorSecret);
-        if (openedCursor === null) throw new AccessDeniedError();
-        firstQuery = { ...query, payload: { ...payloadWithoutCursor, cursor: openedCursor } };
-      }
+      const firstQuery = await openFirstQuery(query, payload, user, cursorSecret);
       let page: unknown = await base.handler(firstQuery, ctx);
       for (let fetched = 1; ; fetched++) {
         if (!isRowsPage(page)) throw new Error("signature request list did not return a rows page");
@@ -98,17 +125,7 @@ export function scopeRequestList(
           fetched >= MAX_BASE_PAGES_PER_ANSWER ||
           verdicts.size >= MAX_LIST_LIMIT
         ) {
-          // `total` would count requests of foreign subjects. The base cursor names the last base row,
-          // which may belong to a foreign subject, so the user only gets it sealed.
-          const { total: _total, rows: _rows, nextCursor: _baseCursor, ...rest } = page;
-          return {
-            ...rest,
-            rows: visibleRows,
-            nextCursor:
-              typeof nextCursor === "string"
-                ? await sealListCursor(nextCursor, user, cursorSecret)
-                : null,
-          };
+          return sealedPage(page, visibleRows, nextCursor, user, cursorSecret);
         }
         page = await base.handler(
           {
