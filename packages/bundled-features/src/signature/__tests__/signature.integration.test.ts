@@ -426,7 +426,7 @@ describe("signature :: unrecoverable finalisation", () => {
     expect((await requestRow(requestId))["status"]).toBe("failed");
     const failed = await eventsOfType(SignatureEvents.failed);
     expect(failed).toHaveLength(1);
-    expect(JSON.stringify(failed[0])).toContain("document-changed");
+    expect(failed[0]?.["payload"]).toMatchObject({ reason: "document-changed" });
     expect(printedHtml()).toHaveLength(0);
   });
 });
