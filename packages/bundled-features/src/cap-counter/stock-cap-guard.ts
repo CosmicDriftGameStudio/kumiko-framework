@@ -12,6 +12,7 @@ import type {
 import type {
   ConfigAccessor,
   KumikoEventTypeMap,
+  WriteHandlerDef,
   WriteHandlerDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -69,13 +70,9 @@ function hasToJson(value: object): boolean {
   return "toJSON" in value && typeof value.toJSON === "function";
 }
 
-export type StockCapGuard<TCaps> = {
-  readonly checkStockCap: (
-    db: TenantDb,
-    spec: StockCapSpec<TCaps>,
-    context?: CapLimitContext,
-  ) => Promise<WriteFailure | null>;
-  readonly withStockCap: <
+type WriteHandlerWithStockCap<TCaps> = {
+  (handler: WriteHandlerDef, spec: StockCapSpec<TCaps>): WriteHandlerDef;
+  <
     TName extends string,
     TSchema extends ZodType,
     TData,
@@ -91,7 +88,16 @@ export type StockCapGuard<TCaps> = {
       TWhenNested
     >,
     spec: StockCapSpec<TCaps>,
-  ) => WriteHandlerDefinition<TName, TSchema, TData, KumikoEventTypeMap, TPrepared, TWhenNested>;
+  ): WriteHandlerDefinition<TName, TSchema, TData, KumikoEventTypeMap, TPrepared, TWhenNested>;
+};
+
+export type StockCapGuard<TCaps> = {
+  readonly checkStockCap: (
+    db: TenantDb,
+    spec: StockCapSpec<TCaps>,
+    context?: CapLimitContext,
+  ) => Promise<WriteFailure | null>;
+  readonly withStockCap: WriteHandlerWithStockCap<TCaps>;
 };
 
 export function createStockCapGuard<TCaps>(
@@ -119,35 +125,24 @@ export function createStockCapGuard<TCaps>(
     );
   }
 
-  function withStockCap<
-    TName extends string,
-    TSchema extends ZodType,
-    TData,
-    TPrepared,
-    TWhenNested extends BeforeTransactionWhenNested | undefined,
-  >(
-    handler: WriteHandlerDefinition<
-      TName,
-      TSchema,
-      TData,
-      KumikoEventTypeMap,
-      TPrepared,
-      TWhenNested
-    >,
+  function guardHandlerFn<TEvent, TCtx extends CapGuardContext, TResult>(
+    inner: (event: TEvent, ctx: TCtx) => Promise<TResult>,
     spec: StockCapSpec<TCaps>,
-  ): WriteHandlerDefinition<TName, TSchema, TData, KumikoEventTypeMap, TPrepared, TWhenNested> {
-    return {
-      ...handler,
-      handler: async (event, ctx) => {
-        // ctx.db is the handler's transaction, so the xact lock releases with its commit or
-        // rollback. A handler wrapped in several caps must list them in the same order
-        // everywhere; Postgres aborts one side of an inverse order with a deadlock error.
-        await ctx.db.advisoryXactLock(STOCK_CAP_LOCK_NAMESPACE, countedSetKey(spec));
-        const failure = await checkStockCap(ctx.db, spec, { config: ctx.config });
-        return failure ?? handler.handler(event, ctx);
-      },
+  ): (event: TEvent, ctx: TCtx) => Promise<TResult | WriteFailure> {
+    return async (event, ctx) => {
+      // ctx.db is the handler's transaction, so the xact lock releases with its commit or
+      // rollback. A handler wrapped in several caps must list them in the same order
+      // everywhere; Postgres aborts one side of an inverse order with a deadlock error.
+      await ctx.db.advisoryXactLock(STOCK_CAP_LOCK_NAMESPACE, countedSetKey(spec));
+      const failure = await checkStockCap(ctx.db, spec, { config: ctx.config });
+      return failure ?? inner(event, ctx);
     };
   }
+
+  const withStockCap: WriteHandlerWithStockCap<TCaps> = (
+    handler: WriteHandlerDef,
+    spec: StockCapSpec<TCaps>,
+  ) => ({ ...handler, handler: guardHandlerFn(handler.handler, spec) });
 
   return { checkStockCap, withStockCap };
 }
