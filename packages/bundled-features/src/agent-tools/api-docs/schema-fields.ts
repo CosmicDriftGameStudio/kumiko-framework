@@ -67,6 +67,13 @@ export function typeLabel(rawNode: SchemaNode, root: SchemaNode = rawNode, depth
     return node["enum"].map((value) => JSON.stringify(value)).join(" | ");
   if ("const" in node) return JSON.stringify(node["const"]);
   const type = node["type"];
+  if (Array.isArray(type)) {
+    const names = type.filter((name): name is string => typeof name === "string");
+    const labels = names
+      .filter((name) => name !== "null")
+      .map((name) => typeLabel({ ...node, type: name }, root, depth + 1));
+    return [...labels, ...(names.includes("null") ? ["null"] : [])].join(" | ") || "any";
+  }
   if (type === "array") {
     const items = asNode(node["items"]);
     return `array of ${items === undefined ? "any" : typeLabel(items, root, depth + 1)}`;
