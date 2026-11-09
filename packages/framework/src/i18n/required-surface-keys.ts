@@ -794,6 +794,29 @@ function collectLocalesByName(features: readonly FeatureDefinition[]): LocalesBy
   return { localesByName, blankLocalesByName };
 }
 
+function presentLocalesForKey(
+  effective: string,
+  key: string,
+  localesByName: ReadonlyMap<string, ReadonlySet<string>>,
+  blankLocalesByName: ReadonlyMap<string, ReadonlySet<string>>,
+): Set<string> {
+  // Locale packages spell plurals as flat `.one`/`.other` keys; `other` is the form every locale has.
+  const present = new Set<string>(
+    [effective, key, `${effective}.other`, `${key}.other`].flatMap((name) => [
+      ...(localesByName.get(name) ?? []),
+    ]),
+  );
+  // A blank flat form (`.one`) leaves the plural incomplete even when `.other` is filled.
+  for (const name of [effective, key]) {
+    for (const form of PLURAL_FORM_NAMES) {
+      for (const locale of blankLocalesByName.get(`${name}.${form}`) ?? []) {
+        present.delete(locale);
+      }
+    }
+  }
+  return present;
+}
+
 /**
  * Per translation key, the union of locales over ALL features must cover
  * `requiredLocales`. Locale packages translate other features' keys under the
@@ -821,20 +844,7 @@ export function findRequiredLocaleGaps(
       if (translatesOtherFeature) continue;
       const effective = key.includes(":") ? key : `${feature.name}:${key}`;
       if (reported.has(effective)) continue;
-      // Locale packages spell plurals as flat `.one`/`.other` keys; `other` is the form every locale has.
-      const present = new Set<string>(
-        [effective, key, `${effective}.other`, `${key}.other`].flatMap((name) => [
-          ...(localesByName.get(name) ?? []),
-        ]),
-      );
-      // A blank flat form (`.one`) leaves the plural incomplete even when `.other` is filled.
-      for (const name of [effective, key]) {
-        for (const form of PLURAL_FORM_NAMES) {
-          for (const locale of blankLocalesByName.get(`${name}.${form}`) ?? []) {
-            present.delete(locale);
-          }
-        }
-      }
+      const present = presentLocalesForKey(effective, key, localesByName, blankLocalesByName);
       const missingLocales = requiredLocales.filter((locale) => !present.has(locale));
       if (missingLocales.length > 0) {
         reported.add(effective);
