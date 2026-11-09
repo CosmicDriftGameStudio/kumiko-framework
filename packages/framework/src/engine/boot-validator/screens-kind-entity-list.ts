@@ -105,7 +105,7 @@ function validateEntityListColumns(
         ),
       });
     }
-    validateListColumnRendering(ctx, screenId, "entityList", normalized);
+    validateListColumnRendering(ctx, screenId, "entityList", normalized, fields.entityDef);
   }
 }
 

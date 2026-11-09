@@ -32,6 +32,16 @@ export const LIST_SCREEN_RULES = {
     summary: "relatedList toolbarActions use visible instead of visibleWhen.",
     fix: "Use visible, a condition on the enclosing record.",
   },
+  dateOnlyAfterDaysInvalid: {
+    id: "list/date-only-after-days-invalid",
+    summary: "A column's dateOnlyAfterDays is a non-negative whole number of days.",
+    fix: "Set dateOnlyAfterDays to 0 or a positive integer.",
+  },
+  dateOnlyAfterDaysWrongType: {
+    id: "list/date-only-after-days-wrong-type",
+    summary: "dateOnlyAfterDays sits on a timestamp or date column or a relativeTime column.",
+    fix: "Remove dateOnlyAfterDays from the column or point it at a timestamp or date field.",
+  },
   columnSortableInert: {
     id: "list/column-sortable-inert",
     summary: "A column only sets sortable where the screen type honors it.",
