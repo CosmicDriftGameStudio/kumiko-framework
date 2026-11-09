@@ -164,18 +164,25 @@ export function extractMultiStreamProjection(
   const delivery = deliveryLit
     ? (deliveryLit.getLiteralValue() as "shared" | "per-instance")
     : undefined;
-  const irreversibleLit = arg
-    .getProperty("irreversibleWithoutEntryHandler")
+  const irreversibleProperty = arg.getProperty("irreversibleWithoutEntryHandler");
+  const irreversibleValue = irreversibleProperty
     ?.asKind(SyntaxKind.PropertyAssignment)
     ?.getInitializer()
-    ?.asKind(SyntaxKind.StringLiteral);
-  const irreversibleValue = irreversibleLit?.getLiteralValue();
+    ?.asKind(SyntaxKind.StringLiteral)
+    ?.getLiteralValue();
   const irreversibleWithoutEntryHandler = isOneOf(
     IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES,
     irreversibleValue,
   )
     ? irreversibleValue
     : undefined;
+  if (irreversibleProperty !== undefined && irreversibleWithoutEntryHandler === undefined) {
+    return fail(
+      "multiStreamProjection",
+      sourceLocationFromNode(call, sourceFile),
+      `irreversibleWithoutEntryHandler must be one of ${IRREVERSIBLE_WITHOUT_ENTRY_HANDLER_CASES.join(", ")}`,
+    );
+  }
   return ok({
     kind: "multiStreamProjection",
     source: sourceLocationFromNode(call, sourceFile),

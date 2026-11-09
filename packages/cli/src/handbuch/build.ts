@@ -1,5 +1,7 @@
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
+import { writeStaticHtmlPages } from "@cosmicdrift/kumiko-server-runtime";
 import { collectBuildInfo, type WallClock } from "./buildinfo";
 import type { HandbuchConfig } from "./config";
 import { buildModel, type Model } from "./model";
@@ -43,6 +45,13 @@ async function convertImages(sharp: Sharp, outDir: string, images: ImagePlan): P
       }),
     );
   }
+}
+
+// Knowledge pages link to `<publicPath>/<chapterId>`; chapters are only anchors in the single page.
+function chapterRedirectHtml(chapterId: string, title: string): string {
+  const target = `../#${escapeHtmlAttr(chapterId)}`;
+  const label = escapeHtmlAttr(title);
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${label}</title><meta http-equiv="refresh" content="0; url=${target}"><link rel="canonical" href="${target}"></head><body><a href="${target}">${label}</a></body></html>`;
 }
 
 function directorySize(dir: string): number {
@@ -92,6 +101,15 @@ export async function buildHandbuch(
   mkdirSync(options.outDir, { recursive: true });
   await convertImages(sharp, options.outDir, images);
   writeFileSync(join(options.outDir, "index.html"), html);
+  await writeStaticHtmlPages(
+    options.outDir,
+    model.groups.flatMap((group) =>
+      group.chapters.map((chapter) => ({
+        path: chapter.id,
+        html: chapterRedirectHtml(chapter.id, chapter.screenTitle ?? chapter.id),
+      })),
+    ),
+  );
 
   return {
     outDir: options.outDir,

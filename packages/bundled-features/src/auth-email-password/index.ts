@@ -1,6 +1,7 @@
 // Convention paths for the auth pages (reset/verify/signup/invite); apps build
 // their magic-link appUrls from these. All mail now goes through delivery.
 
+export { normalizeEmail } from "../shared/index.ts";
 // Kept as a public re-export (not just internal call sites) — this feature's
 // barrel is where consumers of the published package have always found
 // hashPassword/verifyPassword; removing it is a breaking change that needs
@@ -49,7 +50,6 @@ export {
 } from "./signup-activation.ts";
 export {
   invalidateExistingSignupToken,
-  normalizeEmail,
   SIGNUP_TOKEN_KEY_PREFIXES,
   storeSignupToken,
 } from "./signup-token-store.ts";

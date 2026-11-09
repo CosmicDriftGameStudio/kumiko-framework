@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createRecordingRedisFake } from "../shared/__tests__/recording-redis-fake.ts";
-import { normalizeEmail, storeSignupToken } from "./signup-token-store.ts";
+import { normalizeEmail } from "../shared/index.ts";
+import { storeSignupToken } from "./signup-token-store.ts";
 
 // Asserts on the raw Redis key: a case-sensitivity
 // regression in the by-email key wouldn't be caught otherwise: two signups from

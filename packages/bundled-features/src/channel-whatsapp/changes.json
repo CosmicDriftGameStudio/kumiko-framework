@@ -15,7 +15,7 @@
     "version": "0.415.0",
     "type": "fix",
     "title": "WhatsApp webhook skips oversized ids and survives absurd timestamps",
-    "detail": "An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids, media ids and mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time."
+    "detail": "An entry with a wamid or phone number id above its limit is counted as skipped instead of failing the whole delivery with a 5xx. Overlong context ids and media ids are dropped to null and overlong mime types are clipped, and a timestamp beyond the Temporal range falls back to the receive time."
   },
   {
     "version": "0.415.0",

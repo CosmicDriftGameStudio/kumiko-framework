@@ -147,6 +147,44 @@ describe("verifyAndParseStripeWebhook — one-off payment (checkout.session.*)",
     expect(event.providerCheckoutId).toBe("cs_test_001");
   });
 
+  test("no_payment_required without a PaymentIntent (100% promo) → PaymentEvent with tenant from session metadata", async () => {
+    const expanded = {
+      ...buildExpandedSession({ tenantId: "unused" }),
+      payment_intent: null,
+      metadata: { tenantId: "tenant-free-1" },
+    };
+    const verify = verifyAndParseStripeWebhook(
+      webhookRuntimeWithRetrieve(async () => expanded),
+      {
+        priceToTier: {},
+      },
+    );
+    const payload = JSON.stringify(
+      buildCheckoutSessionEvent({ paymentStatus: "no_payment_required" }),
+    );
+    const sig = await signEvent(payload);
+
+    const event = await verify(payload, { "stripe-signature": sig });
+    if (!event || event.kind !== BillingEventKinds.payment) {
+      throw new Error("expected a PaymentEvent");
+    }
+    expect(event.tenantId).toBe("tenant-free-1");
+    expect(event.providerCustomerId).toBe("cus_test_checkout");
+  });
+
+  test("paid without an expanded PaymentIntent → null", async () => {
+    const expanded = { ...buildExpandedSession({}), payment_intent: null };
+    const verify = verifyAndParseStripeWebhook(
+      webhookRuntimeWithRetrieve(async () => expanded),
+      {
+        priceToTier: {},
+      },
+    );
+    const payload = JSON.stringify(buildCheckoutSessionEvent({}));
+    const sig = await signEvent(payload);
+    expect(await verify(payload, { "stripe-signature": sig })).toBeNull();
+  });
+
   test("checkout.session.completed, mode: payment, paid, missing tenantId metadata → null", async () => {
     const verify = verifyAndParseStripeWebhook(
       webhookRuntimeWithRetrieve(async () => ({

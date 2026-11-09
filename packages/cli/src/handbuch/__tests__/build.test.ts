@@ -385,6 +385,17 @@ describe("ui strings", () => {
   });
 });
 
+describe("chapter redirect pages", () => {
+  test("writes <chapterId>/index.html that redirects to the anchor in the single page", async () => {
+    await writePng("shots/alpha/de/default-light/desktop.png");
+    const outDir = join(workDir, "out");
+    await buildHandbuch(configFor(), { rootDir: workDir, outDir });
+    const stub = readFileSync(join(outDir, "alpha", "index.html"), "utf8");
+    expect(stub).toContain('http-equiv="refresh" content="0; url=../#alpha"');
+    expect(stub).toContain('<link rel="canonical" href="../#alpha">');
+  });
+});
+
 describe("lightbox", () => {
   test("links screenshots to a large WebP that is written next to the small one", async () => {
     await writePng("shots/alpha/de/default-light/desktop.png");

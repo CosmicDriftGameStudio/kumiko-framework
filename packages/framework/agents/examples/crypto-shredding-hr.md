@@ -88,7 +88,7 @@ handler marked `agent: { risk: "high" }`. A job or an event consumer has no hand
 `irreversibleWithoutEntryHandler` on `r.job` or `r.multiStreamProjection`, or the gate refuses with
 `irreversible_operation_without_entry_handler`. The value names why no entry handler exists:
 `rebuildable-derived-data` (the data is derived and a rebuild recreates it), `high-risk-or-cron-pipeline`
-(a maintenance pipeline that is high-risk by design, like `purge-archived-comments`) or
+(a manually started or cron pipeline that is high-risk by design, like `purge-archived-comments`) or
 `per-dispatch-record-key` (the key belongs to one dispatch record). Hooks and routes never inherit the
 declaration; they dispatch a `risk: "high"` handler instead.
 
@@ -365,7 +365,7 @@ export const hrFeature = defineFeature("hr", (r) => {
   r.job(
     "purge-archived-comments",
     {
-      trigger: { maintenance: true },
+      trigger: { manual: true },
       runIn: "worker",
       irreversibleWithoutEntryHandler: "high-risk-or-cron-pipeline",
     },

@@ -4,7 +4,12 @@
 // hardcoded mime allowlist or size cap — providers register via
 // EXT_DOCUMENT_INGEST_PROVIDER (see providers.ts).
 
-import { applyEntityEvent, entityEventName, upsertByPk } from "@cosmicdrift/kumiko-framework/db";
+import {
+  applyEntityEvent,
+  entityEventName,
+  selectMany,
+  upsertByPk,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createTenantConfig,
@@ -224,6 +229,13 @@ export function createDocumentIngestFoundationFeature() {
         apply: {
           [DOCUMENT_INGEST_PROGRESS_EVENT_QN]: async (event, tx) => {
             const progress = documentIngestProgressPayloadSchema.parse(event.payload);
+            const [existing] = await selectMany<{ pagesDone: number }>(
+              tx,
+              documentIngestProgressTable,
+              { id: event.aggregateId, tenantId: event.tenantId },
+            );
+            // skip: reports can land out of order, progress only moves forward
+            if (existing !== undefined && existing.pagesDone > progress.pagesDone) return;
             await upsertByPk(
               tx,
               documentIngestProgressTable,

@@ -3,7 +3,7 @@
     "version": "0.415.0",
     "type": "fix",
     "title": "unreadable ledger backfill marker no longer causes endless 503",
-    "detail": "shouldRedeliverLegacyCheckout answers 200 and logs when the marker dispatch fails, because custom_data.tenantBinding is client-settable."
+    "detail": "shouldRedeliverLegacyCheckout answers 200 and logs only when the marker dispatch fails with a configuration error (access_denied, not_found, feature_disabled), because custom_data.tenantBinding is client-settable; other dispatch failures still answer 503 so Paddle redelivers a bounded number of times."
   },
   {
     "version": "0.414.0",

@@ -203,9 +203,10 @@ describe("createStripeCheckoutSession", () => {
       success_url: "https://example.com/success",
       cancel_url: "https://example.com/cancel",
       submit_type: "pay",
-      // Drift-Pin: payment-mode carries tenantId via payment_intent_data,
+      // Drift-Pin: payment-mode carries tenantId via payment_intent_data and session metadata,
       // NOT subscription_data — Stripe rejects subscription_data outside
       // subscription-mode.
+      metadata: { tenantId: "tenant-003" },
       payment_intent_data: {
         metadata: { tenantId: "tenant-003" },
       },
@@ -233,6 +234,50 @@ describe("createStripeCheckoutSession", () => {
 
     expect(createMock).toHaveBeenCalledWith(
       expect.objectContaining({ allow_promotion_codes: true }),
+    );
+  });
+
+  test("allowPromotionCodes:true in mode='payment': promotion-code field next to payment_intent_data and invoice_creation", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://checkout.stripe.com/c/pay/promo-payment" } as any);
+
+    const checkout = createStripeCheckoutSession(ctxRuntime(stripe), { allowPromotionCodes: true });
+    await checkout(stubCtx, {
+      priceId: "price_once",
+      tenantId: "tenant-005",
+      mode: "payment",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+    });
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "payment",
+        allow_promotion_codes: true,
+        payment_intent_data: { metadata: { tenantId: "tenant-005" } },
+        invoice_creation: { enabled: true },
+      }),
+    );
+  });
+
+  test("mode='payment' sets tenantId on the session metadata too", async () => {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ id: "cs_1", url: "https://checkout.stripe.com/c/pay/m" } as any);
+
+    await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
+      priceId: "price_once",
+      tenantId: "tenant-meta",
+      mode: "payment",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+    });
+
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { tenantId: "tenant-meta" } }),
     );
   });
 
