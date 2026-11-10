@@ -1,10 +1,12 @@
-import { isUuid, parseTenantId, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import {
-  peekTokenSubject,
+  parseTenantScopedSubject,
+  peekTenantScopedSubject,
   type RowBoundGrantResult,
   redeemRowBoundGrant,
   signRowBoundGrant,
+  tenantScopedSubject,
 } from "../shared/index.ts";
 import { SIGNATURE_LINK_TTL_DAYS } from "./web/constants.ts";
 
@@ -13,30 +15,27 @@ type AnchorCommit = Parameters<typeof redeemRowBoundGrant>[0]["commitAnchor"];
 const SIGNATURE_LINK_PURPOSE = "signature-link";
 const MINUTES_PER_DAY = 24 * 60;
 
-// Signers live in the tenant of the request, but the anonymous link holder arrives in the default
-// tenant. The tenant therefore travels in the (signed) subject; "_" cannot appear in a UUID and the
-// subject must stay free of ":" and ".".
 export type SignatureLinkSubject = { readonly tenantId: TenantId; readonly signerId: string };
 
 export function signatureLinkSubject(parts: {
   readonly tenantId: string;
   readonly signerId: string;
 }): string {
-  return `${parts.tenantId}_${parts.signerId}`;
+  return tenantScopedSubject({ tenantId: parts.tenantId, rowId: parts.signerId });
+}
+
+function toSignatureLinkSubject(
+  scoped: ReturnType<typeof parseTenantScopedSubject>,
+): SignatureLinkSubject | null {
+  return scoped === null ? null : { tenantId: scoped.tenantId, signerId: scoped.rowId };
 }
 
 export function parseSignatureLinkSubject(subject: string): SignatureLinkSubject | null {
-  const [rawTenantId, signerId, ...rest] = subject.split("_");
-  const tenantId = parseTenantId(rawTenantId);
-  if (rest.length > 0 || tenantId === null || !isUuid(signerId)) return null;
-  return { tenantId, signerId };
+  return toSignatureLinkSubject(parseTenantScopedSubject(subject));
 }
 
-// Reads the unverified subject only to pick the tenant to dispatch into; the grant is still
-// verified against the signer's current anchor there.
 export function peekSignatureLinkSubject(token: string): SignatureLinkSubject | null {
-  const subject = peekTokenSubject(token);
-  return subject === null ? null : parseSignatureLinkSubject(subject);
+  return toSignatureLinkSubject(peekTenantScopedSubject(token));
 }
 
 export function signSignatureLinkToken(args: {

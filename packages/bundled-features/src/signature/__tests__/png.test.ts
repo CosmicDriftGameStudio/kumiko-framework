@@ -21,6 +21,20 @@ describe("checkSignaturePng", () => {
     expect(checkSignaturePng(makePng({ background: [255, 255, 255, 255] })).ok).toBe(true);
   });
 
+  test("rejects an opaque image without a stroke whose first pixel differs from the background", () => {
+    const png = makePng({
+      drawn: false,
+      background: [255, 255, 255, 255],
+      firstPixel: [250, 0, 0, 255],
+    });
+    expect(checkSignaturePng(png).ok).toBe(false);
+  });
+
+  test("tolerates a slightly off-white corner next to a stroke", () => {
+    const png = makePng({ background: [252, 252, 252, 255], firstPixel: [255, 255, 255, 255] });
+    expect(checkSignaturePng(png).ok).toBe(true);
+  });
+
   test("rejects an image where only the first pixel is opaque", () => {
     expect(checkSignaturePng(makePng({ onlyFirstPixelOpaque: true })).ok).toBe(false);
   });
