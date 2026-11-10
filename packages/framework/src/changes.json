@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "Modal size, labelled action menu and menu item descriptions",
+    "detail": "`Modal` takes `size: \"wide\"` for content with lists beside actions. The action menu accepts `triggerLabel` for a labelled button instead of the three-dots icon, and a `MenuItemDef` can carry a `description` line and its own `testId`."
+  },
+  {
     "version": "0.418.0",
     "type": "improvement",
     "title": "Bulk action opens an actionForm with all selected ids",

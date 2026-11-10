@@ -2,13 +2,37 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-11-08
+verified: 2026-11-10
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.419.0
+
+### @cosmicdrift/kumiko-document-designer
+
+**The template title is a rich-text field in front of the body**
+
+The title above the PDF template body is a contenteditable field now, so the first `[contenteditable]` of the editor is the title, not the body. While the editor loads, a read-only placeholder carries the body id `document-designer-content`.
+
+**Migration:** In e2e specs, target the body with `#document-designer-content[contenteditable="true"]` instead of the first `[contenteditable]` of the editor.
+
+### template-resolver
+
+**signature and imprint are no longer placeholders, company* names are reserved**
+
+In `document-pdf` and `pdf-layout` templates, `signature` and `imprint` are no longer placeholders; a template that uses them fails on save and publish. The ten `company*` names (`companyAddress`, `companyPhone`, `companyEmail`, `companyWebsite`, `companyRegister`, `companyVatId`, `companyManagement`, `companyBank`, `companyIban`, `companyBic`) are now reserved, so a notification variable with such a name fails at boot.
+
+**Migration:** Remove `signature` and `imprint` from PDF templates and layouts. Rename notification variables that collide with a reserved `company*` name.
+
+**Line grid, flush tables and the address window in PDF bodies**
+
+PDF bodies print at line height 1.2. Paragraphs, lists, headings and tables are spaced by one body line (`--doc-line`, font size times 1.2) instead of 6pt after a paragraph and browser heading margins; the last element in a cell, list item, frame or the document has no bottom margin. Tables are flush with the text margin: the outer cells lose their left and right padding unless the layout table style is `grid` or the header has a background. Address paragraphs start at the text margin, have no spacing between lines, and the sender line prints at 7pt and wraps instead of being cut off. Flow text below a frame that reserves space starts 8mm under it. In the editor, cells are top-aligned, header cells print like body text, and rules appear only where the layout table style prints them; an untouched layout shows the table style "plain", as the PDF always printed it; a dashed outline marks cells while editing. Frames snap to page margins and other frames while moving or resizing (hold Alt to move freely).
+
+**Migration:** Render existing PDF templates once and check the page breaks. A template that relied on the 6pt paragraph gap sets the spacing per paragraph instead.
 
 ## 0.417.0
 
