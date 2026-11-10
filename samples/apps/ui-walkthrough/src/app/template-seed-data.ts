@@ -174,8 +174,34 @@ export const SYSTEM_PDF_LAYOUT: SeedTemplate = {
     `<div data-header><table><tbody><tr><td><img data-resource="logo" alt="Nordlicht"></td><td><p data-align="right" data-size="small">Am Hafen 12 · 24103 Kiel</p></td></tr></tbody></table></div>`,
     "<div data-content></div>",
     "<div data-signature></div>",
-    `<div data-footer><p>Seite ${v("page")} von ${v("pages")}</p><p>${v("tenantName")} · HRB 18422 Kiel · IBAN DE12 2105 0170 0012 3456 78</p></div>`,
+    `<div data-footer><table data-borders="none"><tbody><tr><td><p>${v("tenantName")}</p></td><td><p>${v("companyAddress")}</p></td><td><p>${v("companyIban")}</p></td><td><p data-align="right">Seite ${v("page")} von ${v("pages")}</p></td></tr></tbody></table></div>`,
   ].join(""),
+};
+
+// A second letterhead for the layout-transfer walkthrough: other header and footer text, serif
+// body and its own margins, so a template that switches to it changes visibly.
+export const BRIEFBOGEN_LAYOUT_SLUG = "briefbogen";
+export const BRIEFBOGEN_HEADER_TEXT = "Hausverwaltung am Sund";
+export const BRIEFBOGEN_FOOTER_TEXT = "Sundstraße 3 · 18439 Stralsund";
+export const BRIEFBOGEN_MARGINS_MM = { top: 36, right: 24, bottom: 28, left: 30 } as const;
+
+export const SYSTEM_BRIEFBOGEN_LAYOUT: SeedTemplate = {
+  slug: BRIEFBOGEN_LAYOUT_SLUG,
+  kind: "pdf-layout",
+  locale: "en",
+  title: "Briefbogen Stralsund",
+  content: [
+    `<div data-header><p data-align="center"><strong>${BRIEFBOGEN_HEADER_TEXT}</strong></p></div>`,
+    "<div data-content></div>",
+    "<div data-signature></div>",
+    `<div data-footer><p data-align="center">${BRIEFBOGEN_FOOTER_TEXT}</p><p data-align="center">Seite ${v("page")} von ${v("pages")}</p></div>`,
+  ].join(""),
+  meta: {
+    margins: BRIEFBOGEN_MARGINS_MM,
+    fontFamily: "times",
+    fontSizePt: 11,
+    tableStyle: "lines",
+  },
 };
 
 export const TENANT_MAIL_LAYOUT_VERSIONS: readonly string[] = [

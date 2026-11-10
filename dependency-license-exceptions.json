@@ -120,6 +120,14 @@
       "reason": "MIT-Lizenz (siehe GitHub-Repo). Der License-Scanner erkennt 'null' aus den Metadata.",
       "reviewedBy": "Marc, 2026-05-12",
       "expires": "2027-05-12"
+    },
+    {
+      "package": "@fontsource/*",
+      "version": "*",
+      "license": "OFL-1.1",
+      "reason": "Metrisch kompatible freie Ersatzschriften (Arimo, Tinos, Cousine, Carlito, Caladea) fuer den PDF-Nachbau hochgeladener Vorlagen. OFL-1.1 erlaubt Buendeln, Einbetten und Weitergabe mit der Software; nur der Verkauf der Schrift allein und die Reserved Font Names sind eingeschraenkt. Unveraendert genutzt.",
+      "reviewedBy": "Marc, 2026-11-10",
+      "expires": "2027-11-10"
     }
   ]
 }

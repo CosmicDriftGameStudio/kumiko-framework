@@ -2,7 +2,9 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineWriteHandler,
   type HandlerContext,
+  type SessionUser,
   SYSTEM_TENANT_ID,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
@@ -72,6 +74,28 @@ function planStatusChange(
   return { ok: true, changes: { ...parseTemplateDraft(row.draft), ...activationChanges(row) } };
 }
 
+type LoadedTarget = Pick<Awaited<ReturnType<typeof loadTargetRow>>, "db" | "scoped">;
+
+// The gated status change every publish and archive path shares.
+export async function changeRowStatus(
+  ctx: HandlerContext,
+  user: SessionUser,
+  target: LoadedTarget,
+  row: TemplateResourceRow,
+  status: TemplateStatus,
+): Promise<WriteResult<{ readonly id: string; readonly status: TemplateStatus }>> {
+  const plan = planStatusChange(ctx, row, status);
+  if (!plan.ok) return plan.failure;
+  const result = await executor.update(
+    { id: row.id, version: row.version, changes: plan.changes },
+    user,
+    target.db,
+    target.scoped ? { streamTenantId: target.scoped.streamTenantId } : undefined,
+  );
+  if (!result.isSuccess) return result;
+  return { isSuccess: true, data: { id: String(row.id), status } };
+}
+
 function createStatusUpdateHandler(
   policy: TemplateEditPolicy,
   name: string,
@@ -96,16 +120,7 @@ function createStatusUpdateHandler(
         const refused = refuseTemplateEdit(policy, event.user, row);
         if (refused !== null) return refused;
       }
-      const plan = planStatusChange(ctx, row, status);
-      if (!plan.ok) return plan.failure;
-      const result = await executor.update(
-        { id: row.id, version: row.version, changes: plan.changes },
-        event.user,
-        db,
-        scoped ? { streamTenantId: scoped.streamTenantId } : undefined,
-      );
-      if (!result.isSuccess) return result;
-      return { isSuccess: true as const, data: { id: String(row.id), status } };
+      return changeRowStatus(ctx, event.user, { db, scoped }, row, status);
     },
   });
 }

@@ -60,6 +60,7 @@
 | `notes-history-basic` | Append-only note history — who wrote what, when — attached to any entity without changing it. | `examples/notes-history-basic.md` |
 | `ownership` | Entity- and Field-level Row-Ownership: from() helper, Straddle-safe multi-role checks, Field-level Read/Write filtering. | `examples/ownership.md` |
 | `pdf-audit-export` | Exports an audit table as a PDF: a write handler renders rows with renderTablePdf and uploads the bytes before the transaction (uploadFileBytesBeforeTransaction) and stores them as a FileRef (createFileRefFromUploadedBytes). | `examples/pdf-audit-export.md` |
+| `pdf-letterhead` | A PDF letterhead as a layout with its own appearance and company-data footer, a letter with an address frame, and the transfer of the layout to templates (apply-layout, publish-templates). | `examples/pdf-letterhead.md` |
 | `pipeline-basics` | M.1 Tier-1 step-vocabulary showcase: every step in one inventory-management feature (aggregate.{create,update,appendEvent}, read.{findOne,findMany}, branch, forEach, compute, return, unsafeProjection{Upsert,Delete}). | `examples/pipeline-basics.md` |
 | `prod-boot-options` | runProdApp boot options: mail, kmsMode, fileStorage, demoMode and signal handling declared as options instead of hand-wired in bin/main.ts. | `examples/prod-boot-options.md` |
 | `public-share-token` | Generic share-token entity: mint hash-stored token, anonymous read-by-token with IP rate-limit. | `examples/public-share-token.md` |

@@ -54,6 +54,7 @@ const TENANT_EDITABLE_TEMPLATES: readonly TenantEditableTemplate[] = [
     slug: "default",
     access: { roles: ["TenantAdmin"] },
   })),
+  { kind: "pdf-layout" as const, slug: "briefbogen", access: { roles: ["TenantAdmin"] } },
 ];
 
 export const APP_FEATURES = [

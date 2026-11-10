@@ -9,6 +9,7 @@ export {
   type EditorSaveActions,
 } from "./editor-header.tsx";
 export { RailField, RailHint, RailRow, RailSection } from "./editor-rail.tsx";
+export { EditorToolbarPill } from "./editor-toolbar-pill.tsx";
 export {
   EditorWorkbench,
   type EditorWorkbenchProps,

@@ -32,6 +32,7 @@ import {
 import { TemplateResolverQueries } from "../web/qualified-names.ts";
 import { storedRecord } from "./template-gates.ts";
 import { tenantOverrideCountsResultSchema } from "./tenant-override-counts.query.ts";
+import { defaultPdfLayoutSlug } from "./tenant-settings.ts";
 
 const OVERVIEW_KINDS = ["mail", "document-pdf", "mail-layout", "pdf-layout"] as const;
 type OverviewKind = (typeof OVERVIEW_KINDS)[number];
@@ -103,9 +104,13 @@ function isTemplateStatus(status: string): status is TemplateStatus {
   return status === "draft" || status === "active" || status === "archived";
 }
 
-function layoutSlugOf(row: TemplateResourceRow): string {
+export function ownLayoutSlugOf(row: TemplateResourceRow): string | null {
   const layoutSlug = storedRecord(row.meta)["layoutSlug"];
-  return typeof layoutSlug === "string" ? layoutSlug : DEFAULT_MAIL_LAYOUT_SLUG;
+  return typeof layoutSlug === "string" ? layoutSlug : null;
+}
+
+function layoutSlugOf(row: TemplateResourceRow, fallback = DEFAULT_MAIL_LAYOUT_SLUG): string {
+  return ownLayoutSlugOf(row) ?? fallback;
 }
 
 function preferredRow(rows: readonly TemplateResourceRow[]): TemplateResourceRow | undefined {
@@ -123,7 +128,7 @@ type EffectiveRows = {
 };
 
 // A tenant row of a template that is not unlocked is not delivered, so the system version is the effective one.
-function effectiveRowsOf(
+export function effectiveRowsOf(
   rows: readonly TemplateResourceRow[],
   policy: TemplateDeliveryPolicy,
 ): EffectiveRows | null {
@@ -275,6 +280,7 @@ function buildDrafts(
   groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
   user: { readonly tenantId: string; readonly roles: readonly string[] },
   policy: TemplateDeliveryPolicy,
+  defaultPdfLayoutSlug: string,
 ): {
   readonly drafts: OverviewDraft[];
   readonly layoutSlugByDocument: Map<string, string>;
@@ -287,7 +293,12 @@ function buildDrafts(
     if (effective === null || preferred === undefined) continue;
     if (!isOverviewKind(preferred.kind) || !isTemplateStatus(preferred.status)) continue;
     const isDocument = preferred.kind === "mail" || preferred.kind === "document-pdf";
-    const layoutSlug = isDocument ? layoutSlugOf(preferred) : null;
+    const layoutSlug = isDocument
+      ? layoutSlugOf(
+          preferred,
+          preferred.kind === "document-pdf" ? defaultPdfLayoutSlug : DEFAULT_MAIL_LAYOUT_SLUG,
+        )
+      : null;
     if (layoutSlug !== null && preferred.kind === "document-pdf") {
       layoutSlugByDocument.set(preferred.slug, layoutSlug);
     }
@@ -427,6 +438,7 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
         groupBySlugAndKind(visibleRows),
         query.user,
         deliveryPolicy,
+        await defaultPdfLayoutSlug(ctx, query.user.tenantId),
       );
       const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows, deliveryPolicy);
       const rowsWithUsage = drafts.map((draft) =>

@@ -9,3 +9,9 @@ export type PdfOrientation = (typeof PDF_ORIENTATIONS)[number];
 export const PDF_DEFAULT_MARGIN_MM = 15;
 export const PDF_HEADER_MARGIN_MM = 30;
 export const PDF_FOOTER_MARGIN_MM = 20;
+
+// Body text size of a printed document; header and footer fall back to it, so no region reads smaller than the body.
+export const PDF_DEFAULT_FONT_SIZE_PT = 10.5;
+
+export const PDF_TABLE_STYLES = ["plain", "lines", "header", "grid"] as const;
+export type PdfTableStyle = (typeof PDF_TABLE_STYLES)[number];

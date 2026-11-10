@@ -57,6 +57,7 @@ function view(
       brandingLogoFile: options.logoFile ?? "",
       showOrigin: options.showOrigin ?? false,
       overridesQuery: { data: options.overrides },
+      layoutMeta: {},
       layouts: { rows: options.layoutRows ?? [] },
     },
     ui: { generated: options.generated ?? null },

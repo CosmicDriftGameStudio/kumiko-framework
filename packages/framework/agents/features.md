@@ -740,6 +740,7 @@ Config keys:
 
 | Key | Type | Scope | Default |
 | --- | --- | --- | --- |
+| `default-pdf-layout-slug` | text | tenant | `` |
 | `resource-max-bytes` | number | system | `2097152` |
 
 ## template-resolver-user-data
@@ -762,7 +763,17 @@ Config keys:
 
 | Key | Type | Scope | Default |
 | --- | --- | --- | --- |
+| `company-address` | text | tenant | `` |
+| `company-bank` | text | tenant | `` |
+| `company-bic` | text | tenant | `` |
+| `company-email` | text | tenant | `` |
+| `company-iban` | text | tenant | `` |
+| `company-management` | text | tenant | `` |
 | `company-name` | text | tenant | `` |
+| `company-phone` | text | tenant | `` |
+| `company-register` | text | tenant | `` |
+| `company-vat-id` | text | tenant | `` |
+| `company-website` | text | tenant | `` |
 | `locale` | select | tenant | `de` |
 | `max-users` | number | system | `50` |
 | `price-model` | select | system | `basic` |

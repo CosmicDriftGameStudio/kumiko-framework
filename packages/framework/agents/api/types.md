@@ -2519,6 +2519,7 @@ type ActionMenuItemSpec = { // One item in an `ActionOverflowMenu` (header/row a
 type ActionOverflowMenuProps = {
   items: ActionMenuItemSpec[];
   label: string; // aria-label for the three-dots trigger.
+  triggerLabel?: string; // Renders a labelled button (plus icon, text, chevron) instead of the three-dots icon.
   testId?: string;
 };
 type ButtonBaseProps = {
@@ -2664,6 +2665,7 @@ type ModalProps = { // Bare content shell for hosting an existing self-contained
   title: string; // Screen-reader-only accessible title (required by the underlying dialog primitive) — not shown visually since the hosted content is expected to render its own heading.
   children: ReactNode;
   testId?: string;
+  size?: "default" | "wide"; // "wide" suits content with lists beside actions; web caps it at the viewport.
 };
 type PageHeaderProps = { // Page title area rendered by the app shell's header instead of inside the screen: `title` replaces the last breadcrumb, `status` sits right after it, `actions` at the right edge.
   title?: string;

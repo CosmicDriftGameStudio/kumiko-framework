@@ -7,7 +7,7 @@ import { createElement, type ReactNode, useMemo } from "react";
 
 const TAG_CLASSES: Readonly<Record<string, string>> = {
   div: "",
-  p: "m-0",
+  p: "m-0 whitespace-pre-line",
   span: "",
   strong: "font-semibold",
   b: "font-semibold",
@@ -74,7 +74,7 @@ function renderNode(node: Node, props: LayoutHtmlProps, path: string): ReactNode
     return (
       <span
         key={path}
-        className="mx-0.5 inline-flex rounded border border-primary/30 bg-primary/10 px-1.5 text-xs text-primary"
+        className="mx-0.5 inline-flex rounded border border-input bg-muted px-1.5 text-xs text-muted-foreground"
       >
         {props.systemLabels[variable] ?? variable}
       </span>

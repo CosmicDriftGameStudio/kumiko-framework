@@ -4,14 +4,26 @@
 // collection is rendered. Variables are inserted as `variable` nodes only,
 // never as `{{name}}` text, so the sanitizer's schema keeps them.
 
-import { TextareaContentEditor, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  TextareaContentEditor,
+  useLocale,
+  usePrimitives,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect } from "react";
+import { printDefaultLabelsOf } from "./document-print-defaults.ts";
 import { renderEditorContent } from "./document-tiptap-content.tsx";
 import { buildTiptapContext } from "./document-tiptap-context.ts";
-import { NO_LABELS, NO_NAMES, NO_PREVIEWS } from "./document-tiptap-helpers.ts";
+import { NO_LABELS, NO_NAMES, NO_PREVIEWS, printModeOf } from "./document-tiptap-helpers.ts";
 import { renderHostedEditor, renderInlineEditor } from "./document-tiptap-layout.tsx";
-import { type DocumentEditorProps, MAIL_DOCUMENT_BLOCKS } from "./document-toolbar-blocks.ts";
+import {
+  type DocumentEditorProps,
+  type DocumentLayoutValues,
+  MAIL_DOCUMENT_BLOCKS,
+} from "./document-toolbar-blocks.ts";
 import { useDocumentTiptapModel } from "./use-document-tiptap-model.ts";
+
+const NO_LAYOUT_VALUES: DocumentLayoutValues = {};
 
 export default function DocumentTiptapEditor({
   id,
@@ -25,16 +37,20 @@ export default function DocumentTiptapEditor({
   systemVariables = NO_NAMES,
   resourcePreviews = NO_PREVIEWS,
   chrome = "default",
+  layoutValues = NO_LAYOUT_VALUES,
   toolbar = "full",
   renderPaper,
   toolbarHost,
   onEditorReady,
+  onFrameControlChange,
 }: DocumentEditorProps): ReactNode {
   const t = useTranslation();
+  const locale = useLocale().locale();
   const { ActionOverflowMenu, Button, Field, Input } = usePrimitives();
   const canvas = chrome === "canvas";
   const compact = toolbar === "compact" && !canvas;
   const hosted = toolbarHost !== undefined;
+  const print = printModeOf(configuredBlocks, hosted, canvas);
   // A photo block needs an images variable to bind to; without one the button would open an empty panel.
   const blocks =
     imageVariables.length === 0
@@ -48,6 +64,8 @@ export default function DocumentTiptapEditor({
       onChange,
       readOnly,
       onEditorReady,
+      onFrameControlChange,
+      print,
       variableLabels,
       systemVariables,
       resourcePreviews,
@@ -94,6 +112,8 @@ export default function DocumentTiptapEditor({
     canvas,
     compact,
     hosted,
+    print,
+    printDefaults: printDefaultLabelsOf(t, locale, layoutValues),
     labels: model.labels,
     activeState: model.activeState,
     openPanel: model.openPanel,
@@ -108,7 +128,7 @@ export default function DocumentTiptapEditor({
     variableLabels,
     stableLabels: model.stableLabels,
   });
-  const editorContent = renderEditorContent(editor, canvas, hosted);
+  const editorContent = renderEditorContent(editor, canvas, hosted, print);
 
   if (hosted) return renderHostedEditor(context, toolbarHost, editorContent);
 

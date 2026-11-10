@@ -46,6 +46,11 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-renderer": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
+        "@fontsource/arimo": "^5.3.0",
+        "@fontsource/caladea": "^5.3.0",
+        "@fontsource/carlito": "^5.3.0",
+        "@fontsource/cousine": "^5.3.0",
+        "@fontsource/tinos": "^5.3.0",
         "@mollie/api-client": "^4.6.0",
         "@node-rs/argon2": "^2.2.2",
         "@tiptap/core": "^3.32.2",
@@ -1118,6 +1123,16 @@
         "unpdf": "^1.9.1",
       },
     },
+    "samples/recipes/pdf-letterhead": {
+      "name": "@cosmicdrift/kumiko-sample-pdf-letterhead",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/pipeline-basics": {
       "name": "@cosmicdrift/kumiko-sample-pipeline-basics",
       "dependencies": {
@@ -1652,6 +1667,8 @@
 
     "@cosmicdrift/kumiko-sample-pdf-audit-export": ["@cosmicdrift/kumiko-sample-pdf-audit-export@workspace:samples/recipes/pdf-audit-export"],
 
+    "@cosmicdrift/kumiko-sample-pdf-letterhead": ["@cosmicdrift/kumiko-sample-pdf-letterhead@workspace:samples/recipes/pdf-letterhead"],
+
     "@cosmicdrift/kumiko-sample-pipeline-basics": ["@cosmicdrift/kumiko-sample-pipeline-basics@workspace:samples/recipes/pipeline-basics"],
 
     "@cosmicdrift/kumiko-sample-prod-boot-options": ["@cosmicdrift/kumiko-sample-prod-boot-options@workspace:samples/recipes/prod-boot-options"],
@@ -1753,6 +1770,16 @@
     "@floating-ui/react-dom": ["@floating-ui/react-dom@2.1.8", "", { "dependencies": { "@floating-ui/dom": "^1.7.6" }, "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-cC52bHwM/n/CxS87FH0yWdngEZrjdtLW/qVruo68qg+prK7ZQ4YGdut2GyDVpoGeAYe/h899rVeOVm6Oi40k2A=="],
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.11", "", {}, "sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg=="],
+
+    "@fontsource/arimo": ["@fontsource/arimo@5.3.0", "", {}, "sha512-nhxZ2sTVZYX8DJBgLuyX360B5vE4mxqpmjlKTRfucIqfcWRVx9vOYzWBc1IgEX0ist48VMC10PRKbFyH+4QFvQ=="],
+
+    "@fontsource/caladea": ["@fontsource/caladea@5.3.0", "", {}, "sha512-ErBJWj9Gp/tTS33h0SUHmU3MCHzQa3RJS405ccznE8xxVK41J+mrKhjjcf3oIrnQTCgICMbl9nAH3XMXN9ANUg=="],
+
+    "@fontsource/carlito": ["@fontsource/carlito@5.3.0", "", {}, "sha512-oPqvLGK/dtVzC4KjdDcV/YzQq37sZdMXxD58ADvguPo3dm6yzbBKs40ADmevJF0wLvyvJY7/fPl5YkCQ1njWUw=="],
+
+    "@fontsource/cousine": ["@fontsource/cousine@5.3.0", "", {}, "sha512-EhVes1KpHrmPwGVCoVxYpdiIi/L2LRGxbAuv07m3TdY76f9Vmwyhd/TNqi2RC0NOvMCNt2FtYPJcAfFfkK9DoQ=="],
+
+    "@fontsource/tinos": ["@fontsource/tinos@5.3.0", "", {}, "sha512-VVDyyZdbcsLKxo/W7rClAvacD/7DsGc7J5xzzp51Tndib8kDkEe/0bqbb3Xb3iH6+IUjt07aRsvtQ9MGeGGi4w=="],
 
     "@happy-dom/global-registrator": ["@happy-dom/global-registrator@21.0.4", "", { "dependencies": { "@types/node": ">=20.0.0", "happy-dom": "^21.0.4" } }, "sha512-Bbr0hW9hhDhBf3Jp0EyDlkCbFgbr0z2jd3BMKYOYW+fOkPM4Nx195GMXyCtRCGEgoNn6i09FabXrSkNFm2ONzg=="],
 

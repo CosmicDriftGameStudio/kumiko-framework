@@ -2,10 +2,12 @@ import {
   bootRuleError,
   type ContentCollectionDefinition,
   createSystemConfig,
+  createTenantConfig,
   defineFeature,
   type TreeAction,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TEMPLATE_RESOLVER_BOOT_RULES } from "./boot-rules.ts";
+import { makeApplyLayoutWrite } from "./handlers/apply-layout.write.ts";
 import { makeBodyPreviewQuery } from "./handlers/body-preview.query.ts";
 import { bySlugQuery } from "./handlers/by-slug.query.ts";
 import { byTenantQuery } from "./handlers/by-tenant.query.ts";
@@ -28,6 +30,7 @@ import { listQuery } from "./handlers/list.query.ts";
 import { makeOverviewQuery } from "./handlers/overview.query.ts";
 import { makePatchDraftWrite } from "./handlers/patch-draft.write.ts";
 import { previewQuery } from "./handlers/preview.query.ts";
+import { makePublishTemplatesWrite } from "./handlers/publish-templates.write.ts";
 import { makeResetToSystemWrite } from "./handlers/reset-to-system.write.ts";
 import { makeResourceLinkPdfWrite } from "./handlers/resource-link-pdf.write.ts";
 import { makeResourceRemoveWrite } from "./handlers/resource-remove.write.ts";
@@ -159,6 +162,14 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     r.config({
       keys: {
         resourceMaxBytes: createSystemConfig("number", { default: 2_097_152, bounds: { min: 1 } }),
+        // Empty means the built-in default layout.
+        defaultPdfLayoutSlug: createTenantConfig("text", {
+          default: "",
+          pattern: {
+            regex:
+              "^(?:[a-z0-9]{1,40}(?:-[a-z0-9]{1,40}){0,5}(?::[a-z0-9]{1,40}(?:-[a-z0-9]{1,40}){0,5}){0,3})?$",
+          },
+        }),
       },
     });
     r.translations({ keys: TEMPLATE_RESOLVER_I18N });
@@ -188,6 +199,8 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       resourceLinkPdf: r.writeHandler(makeResourceLinkPdfWrite(policy)),
       sendTest: r.writeHandler(makeSendTestWrite(policy)),
       patchDraft: r.writeHandler(makePatchDraftWrite(policy)),
+      applyLayout: r.writeHandler(makeApplyLayoutWrite(policy)),
+      publishTemplates: r.writeHandler(makePublishTemplatesWrite(policy)),
     };
 
     const queries = {

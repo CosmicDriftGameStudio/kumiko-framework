@@ -4,6 +4,7 @@
 // the renderer did not plan for.
 
 import type { Element as ScanElement } from "happy-dom";
+import { hasFrame, IMAGES_BLOCK_SELECTOR, scanPrintOnlyFeatures } from "./document-print-only.ts";
 import {
   type DocumentViolation,
   type SanitizeBodyResult,
@@ -103,6 +104,16 @@ export function sanitizeLayoutHtml(html: string): SanitizeLayoutResult {
   for (const name of ["data-header", "data-signature", "data-footer"] as const) {
     const inner = parsed.innerHtml[name];
     if (inner === undefined || inner.trim() === "") continue;
+    if (withParsedDocument(inner, hasFrame)) {
+      violations.push(
+        violation(
+          "frame_not_top_level",
+          name,
+          `Frames are not allowed in the ${name} region; they belong in the document body`,
+        ),
+      );
+      continue;
+    }
     const result = sanitizeDocumentHtml(inner);
     if (result.ok) cleanedHtml[name] = result.html;
     else violations.push(...result.violations);
@@ -143,7 +154,7 @@ function sanitizeMailLayout(
   contentFormat: ContentFormat,
   content: string,
 ): SanitizeBodyResult {
-  if (contentFormat === "html") return fromLayoutResult(sanitizeLayoutHtml(content));
+  if (contentFormat === "html") return refusePrintOnlyFeatures(sanitizeLayoutHtml(content));
   if (contentFormat !== "mjml") {
     return rejected(
       violation(
@@ -172,6 +183,27 @@ function sanitizeMailLayout(
     );
   }
   return { ok: true, content };
+}
+
+// The shared document model survives the rebuild in a mail layout, but only a PDF applies print styling.
+function refusePrintOnlyFeatures(result: SanitizeLayoutResult): SanitizeBodyResult {
+  if (!result.ok) return result;
+  const found = withParsedDocument(result.html, scanPrintOnlyFeatures);
+  const selectors = [
+    ...found.printStyleSelectors,
+    ...(found.hasImagesBlock ? [IMAGES_BLOCK_SELECTOR] : []),
+  ];
+  if (selectors.length === 0) return { ok: true, content: result.html };
+  return {
+    ok: false,
+    violations: selectors.map((selector) =>
+      violation(
+        "print_style_pdf_only",
+        selector,
+        `Print styling (${selector}) is only allowed in layouts of kind pdf-layout`,
+      ),
+    ),
+  };
 }
 
 function fromLayoutResult(result: SanitizeLayoutResult): SanitizeBodyResult {

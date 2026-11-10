@@ -51,6 +51,7 @@ Value exports of `@cosmicdrift/kumiko-renderer/web`.
 | `EditorLocaleSwitch` |  |
 | `EditorModeSwitch` |  |
 | `EditorPanel` |  |
+| `EditorToolbarPill` |  |
 | `EditorWorkbench` |  |
 | `EmptyState` | Empty state with an optional icon and CTA, using the dashed-box style of entityList empty states as a standalone widget for custom screens. |
 | `ErrorState` | Error state based on the Banner primitive, with a retry button. |

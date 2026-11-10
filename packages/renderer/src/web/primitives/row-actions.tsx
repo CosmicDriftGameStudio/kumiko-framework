@@ -1,5 +1,5 @@
 import type { RowActionDisplay } from "@cosmicdrift/kumiko-framework/ui-types";
-import { Loader2, MoreHorizontal } from "lucide-react";
+import { ChevronDown, Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { COMPACT_TAP_CLASSES } from "../../compact-tap-classes.ts";
 import type { ListRowViewModel } from "../../headless/index.ts";
@@ -372,7 +372,12 @@ function RowActionsKebab({
 // secondary icon Button so it matches neighbouring icon buttons, including
 // the 44 px touch size on phones. Generic ActionMenuItemSpec items instead of
 // the DataTableRowAction schema (callers own confirm/danger handling per item).
-export function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): ReactNode {
+export function ActionOverflowMenu({
+  items,
+  label,
+  triggerLabel,
+  testId,
+}: ActionOverflowMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -380,12 +385,20 @@ export function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuP
         <UiButton
           type="button"
           variant="outline"
-          size="icon"
+          size={triggerLabel === undefined ? "icon" : "sm"}
           className={SECONDARY_BUTTON_EXTRA_CLASSES}
           aria-label={label}
           data-testid={testId ?? "action-overflow-menu-trigger"}
         >
-          <MoreHorizontal className="size-4" aria-hidden="true" />
+          {triggerLabel === undefined ? (
+            <MoreHorizontal className="size-4" aria-hidden="true" />
+          ) : (
+            <>
+              <Plus className="size-4" aria-hidden="true" />
+              {triggerLabel}
+              <ChevronDown className="size-3" aria-hidden="true" />
+            </>
+          )}
         </UiButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

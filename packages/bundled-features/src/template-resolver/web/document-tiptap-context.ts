@@ -1,16 +1,22 @@
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { Editor } from "@tiptap/core";
 import type { Dispatch, SetStateAction } from "react";
+import type { PrintDefaultLabels } from "./document-print-defaults.ts";
 import {
   type ActiveState,
   BLOCK_PANEL,
   HEADING_LEVELS,
+  insertPrintBlock,
   isParagraphStyle,
   type PanelKind,
   type Primitives,
   variableLabelOf,
 } from "./document-tiptap-helpers.ts";
-import type { DocumentToolbarBlock } from "./document-toolbar-blocks.ts";
+import type {
+  DocumentPrintBlock,
+  DocumentPrintMode,
+  DocumentToolbarBlock,
+} from "./document-toolbar-blocks.ts";
 import type { DocumentEditorLabels } from "./use-document-tiptap-model.ts";
 
 export type TiptapContext = {
@@ -25,6 +31,8 @@ export type TiptapContext = {
   readonly canvas: boolean;
   readonly compact: boolean;
   readonly hosted: boolean;
+  readonly print: DocumentPrintMode;
+  readonly printDefaults: PrintDefaultLabels;
   readonly labels: DocumentEditorLabels;
   readonly activeState: ActiveState | null;
   readonly openPanel: PanelKind | null;
@@ -40,6 +48,7 @@ export type TiptapContext = {
   readonly stableLabels: Readonly<Record<string, string>>;
   readonly togglePanel: (kind: PanelKind) => void;
   readonly runBlock: (block: DocumentToolbarBlock) => void;
+  readonly runPrintBlock: (block: DocumentPrintBlock) => void;
   readonly setBlockStyle: (style: string) => void;
   readonly repeatListLabel: string | undefined;
 };
@@ -57,6 +66,8 @@ export type TiptapContextInput = Pick<
   | "canvas"
   | "compact"
   | "hosted"
+  | "print"
+  | "printDefaults"
   | "labels"
   | "activeState"
   | "openPanel"
@@ -112,6 +123,7 @@ export function buildTiptapContext(input: TiptapContextInput): TiptapContext {
     ...input,
     togglePanel,
     runBlock,
+    runPrintBlock: (block) => insertPrintBlock(editor, block),
     setBlockStyle,
     repeatListLabel: repeatListLabelOf(input.activeState, input.variableLabels),
   };

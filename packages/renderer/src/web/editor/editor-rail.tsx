@@ -19,7 +19,7 @@ export function RailSection({
         <span className="min-w-0 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           {title}
         </span>
-        {action !== undefined && <div className="ml-auto">{action}</div>}
+        {action !== undefined && <div className="ml-auto whitespace-nowrap">{action}</div>}
       </div>
       {children}
     </section>

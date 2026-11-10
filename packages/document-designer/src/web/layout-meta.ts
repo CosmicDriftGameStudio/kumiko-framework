@@ -1,10 +1,16 @@
 import {
+  DOCUMENT_FONTS,
+  type DocumentFont,
+  type DocumentLayoutValues,
   HEX_COLOR_PATTERN,
   MAIL_LAYOUT_ACCENT_LINES,
   MAIL_LAYOUT_BUTTON_STYLES,
   MAIL_LAYOUT_FONTS,
   MAIL_LAYOUT_WIDTHS,
+  PDF_DEFAULT_FONT_SIZE_PT,
+  type PdfTableStyle,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import { MARGIN_SIDES, type MarginSide } from "./pdf-meta.ts";
 
 export const LAYOUT_WIDTHS = MAIL_LAYOUT_WIDTHS;
 export const LAYOUT_FONTS = MAIL_LAYOUT_FONTS;
@@ -61,5 +67,118 @@ export function metaToSave(appearance: LayoutAppearance, stored: LayoutMeta): La
     ...(keep("outerBackground") && { outerBackground: appearance.outerBackground }),
     ...(keep("accentLine") && { accentLine: appearance.accentLine }),
     ...(keep("buttonStyle") && { buttonStyle: appearance.buttonStyle }),
+  };
+}
+
+/** What a pdf-layout stores; every field is optional and a missing one means the renderer default. */
+export type PdfLayoutMeta = {
+  readonly margins?: Readonly<Partial<Record<MarginSide, number>>>;
+  readonly fontFamily?: DocumentFont;
+  readonly fontSizePt?: number;
+  readonly textColor?: string;
+  readonly tableStyle?: PdfTableStyle;
+  readonly tableHeaderBackground?: string;
+};
+
+/** The pdf-layout look as the form edits it: colors stay text while typed, empty means unset. */
+export type PdfLayoutLook = {
+  readonly margins: Readonly<Record<MarginSide, number | "">>;
+  readonly fontFamily: DocumentFont;
+  readonly fontSizePt: number | "";
+  readonly textColor: string;
+  readonly tableStyle: PdfTableStyle;
+  readonly tableHeaderBackground: string;
+};
+
+export const PDF_LAYOUT_FONT_SIZE_RANGE = { min: 6, max: 24 } as const;
+export const PDF_LAYOUT_MARGIN_RANGE = { min: 0, max: 100 } as const;
+
+// The renderer's own defaults, so an untouched layout stores nothing.
+export const DEFAULT_PDF_FONT_SIZE_PT = PDF_DEFAULT_FONT_SIZE_PT;
+
+export const DEFAULT_PDF_LAYOUT_LOOK: PdfLayoutLook = {
+  margins: { top: "", right: "", bottom: "", left: "" },
+  fontFamily: DOCUMENT_FONTS[0],
+  fontSizePt: DEFAULT_PDF_FONT_SIZE_PT,
+  textColor: "#222222",
+  tableStyle: "plain",
+  tableHeaderBackground: "",
+};
+
+export function pdfLayoutLookOf(meta: PdfLayoutMeta): PdfLayoutLook {
+  const defaults = DEFAULT_PDF_LAYOUT_LOOK;
+  return {
+    margins: {
+      top: meta.margins?.top ?? "",
+      right: meta.margins?.right ?? "",
+      bottom: meta.margins?.bottom ?? "",
+      left: meta.margins?.left ?? "",
+    },
+    fontFamily: meta.fontFamily ?? defaults.fontFamily,
+    fontSizePt: meta.fontSizePt ?? defaults.fontSizePt,
+    textColor: meta.textColor ?? defaults.textColor,
+    tableStyle: meta.tableStyle ?? defaults.tableStyle,
+    tableHeaderBackground: meta.tableHeaderBackground ?? defaults.tableHeaderBackground,
+  };
+}
+
+function inRange(value: number, range: { readonly min: number; readonly max: number }): boolean {
+  return value >= range.min && value <= range.max;
+}
+
+export function isPdfLayoutLookValid(look: PdfLayoutLook): boolean {
+  return (
+    isHexColor(look.textColor) &&
+    (look.tableHeaderBackground === "" || isHexColor(look.tableHeaderBackground)) &&
+    (look.fontSizePt === "" || inRange(look.fontSizePt, PDF_LAYOUT_FONT_SIZE_RANGE)) &&
+    MARGIN_SIDES.every((side) => {
+      const mm = look.margins[side];
+      return mm === "" || inRange(mm, PDF_LAYOUT_MARGIN_RANGE);
+    })
+  );
+}
+
+export function samePdfLayoutLook(a: PdfLayoutLook, b: PdfLayoutLook): boolean {
+  return (
+    MARGIN_SIDES.every((side) => a.margins[side] === b.margins[side]) &&
+    a.fontFamily === b.fontFamily &&
+    a.fontSizePt === b.fontSizePt &&
+    a.textColor === b.textColor &&
+    a.tableStyle === b.tableStyle &&
+    a.tableHeaderBackground === b.tableHeaderBackground
+  );
+}
+
+/** Keeps a field that was already stored, even when it now equals the default; drops every other default. */
+export function pdfLayoutMetaToSave(look: PdfLayoutLook, stored: PdfLayoutMeta): PdfLayoutMeta {
+  const defaults = DEFAULT_PDF_LAYOUT_LOOK;
+  const keep = (key: keyof PdfLayoutMeta, differs: boolean): boolean => differs || key in stored;
+  const margins: Partial<Record<MarginSide, number>> = {};
+  for (const side of MARGIN_SIDES) {
+    const mm = look.margins[side];
+    if (mm !== "") margins[side] = mm;
+  }
+  return {
+    ...(Object.keys(margins).length > 0 && { margins }),
+    ...(keep("fontFamily", look.fontFamily !== defaults.fontFamily) && {
+      fontFamily: look.fontFamily,
+    }),
+    ...(look.fontSizePt !== "" &&
+      keep("fontSizePt", look.fontSizePt !== defaults.fontSizePt) && {
+        fontSizePt: look.fontSizePt,
+      }),
+    ...(keep("textColor", look.textColor !== defaults.textColor) && { textColor: look.textColor }),
+    ...(keep("tableStyle", look.tableStyle !== defaults.tableStyle) && {
+      tableStyle: look.tableStyle,
+    }),
+    ...(look.tableHeaderBackground !== "" && { tableHeaderBackground: look.tableHeaderBackground }),
+  };
+}
+
+/** What the editor toolbar shows as the value a text select inherits. */
+export function layoutValuesOf(look: PdfLayoutLook): DocumentLayoutValues {
+  return {
+    fontFamily: look.fontFamily,
+    ...(look.fontSizePt !== "" && { fontSizePt: look.fontSizePt }),
   };
 }

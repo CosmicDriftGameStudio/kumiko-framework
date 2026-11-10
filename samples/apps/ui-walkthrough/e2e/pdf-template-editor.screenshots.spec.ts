@@ -50,7 +50,7 @@ async function openEditor(page: Page, email: string, password: string): Promise<
 test("pdf-template-editor-edit", async ({ page }) => {
   await openEditor(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
   await page.locator("tr[data-each] td").first().click();
-  const options = page.getByTestId("document-repeat-bar");
+  const options = page.getByTestId("document-repeat-strip").first();
   await expect(options).toBeVisible();
   // The options sit on the table's frame, not at the caret or the top of the page.
   await expect

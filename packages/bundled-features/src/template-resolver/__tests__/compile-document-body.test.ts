@@ -365,3 +365,63 @@ describe("compileDocumentBodyToHandlebars :: images block", () => {
     ).toEqual(["photos"]);
   });
 });
+
+describe("print styles", () => {
+  test("text style becomes CSS", () => {
+    const out = compile(
+      '<p><span data-text-style data-color="#ff0000" data-font="calibri" data-size-pt="11.5">x</span></p>',
+    );
+    expect(out).toContain("color:#ff0000");
+    expect(out).toContain("font-family:Carlito,Calibri,sans-serif");
+    expect(out).toContain("font-size:calc(11.5 * var(--paper-pt,1pt))");
+  });
+
+  test("block style becomes CSS", () => {
+    const out = compile(
+      '<p data-line-height="1.5" data-space-before="6" data-align="center">x</p>',
+    );
+    expect(out).toContain("line-height:1.5");
+    expect(out).toContain("margin-top:calc(6 * var(--paper-pt,1pt))");
+  });
+
+  test("column widths become percentages that sum to 100", () => {
+    const out = compile(
+      '<table data-borders="none"><tbody><tr><td data-colwidth="100"><p>a</p></td><td data-colwidth="300"><p>b</p></td></tr></tbody></table>',
+    );
+    expect(out).toContain("kumiko-table-plain");
+    expect(out).toContain('<col style="width:25%"><col style="width:75%">');
+  });
+
+  test("a cell background is applied", () => {
+    expect(
+      compile('<table><tbody><tr><td data-background="#eeeeee"><p>a</p></td></tr></tbody></table>'),
+    ).toContain("background-color:#eeeeee");
+  });
+
+  test("a frame is positioned and keeps its placeholders", () => {
+    const out = compile(
+      '<div data-frame data-x="20" data-y="45" data-width="85" data-height="40"><p><span data-variable="name"></span></p></div>',
+    );
+    expect(out).toContain('class="kumiko-frame"');
+    expect(out).toContain("position:absolute");
+    expect(out).toContain("width:calc(85 * var(--paper-mm,1mm))");
+    expect(out).toContain("{{name}}");
+  });
+
+  test("an address frame carries its preset on the same element as the frame class", () => {
+    const out = compile(
+      '<div data-frame data-frame-preset="address" data-x="20" data-y="45" data-width="85" data-height="40"><p>Absender</p></div>',
+    );
+    expect(out).toMatch(
+      /<div[^>]*class="kumiko-frame"[^>]*data-frame-preset="address"|<div[^>]*data-frame-preset="address"[^>]*class="kumiko-frame"/,
+    );
+  });
+
+  test("an injected value never reaches a style attribute", () => {
+    const out = compile(
+      '<p><span data-text-style data-color="red;background:url(x)">x</span></p><div data-frame data-x="1;x" data-y="1" data-width="1" data-height="1"><p>f</p></div>',
+    );
+    expect(out).not.toContain(" style=");
+    expect(out).not.toContain("kumiko-frame");
+  });
+});

@@ -1,0 +1,12 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-pdf-letterhead",
+  "description": "A PDF letterhead as a layout with its own appearance and company-data footer, a letter with an address frame, and the transfer of the layout to templates (apply-layout, publish-templates).",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  },
+  "devDependencies": {
+    "@cosmicdrift/kumiko-testing": "workspace:*"
+  }
+}

@@ -105,7 +105,7 @@ describe("sampleValuesFor", () => {
     });
   });
 
-  test("a list takes up to three example rows and fills missing rows and fields", () => {
+  test("a list takes up to three example rows and fills missing fields but adds no rows", () => {
     const withThree = sampleValuesFor({
       positions: templateVariable.list(
         { label: templateVariable.text(), price: templateVariable.money() },
@@ -131,11 +131,7 @@ describe("sampleValuesFor", () => {
         { example: [{ label: "A" }] },
       ),
     });
-    expect(withOnePartial["positions"]).toEqual([
-      { label: "A", price: 0 },
-      { label: "[label]", price: 0 },
-      { label: "[label]", price: 0 },
-    ]);
+    expect(withOnePartial["positions"]).toEqual([{ label: "A", price: 0 }]);
   });
 });
 

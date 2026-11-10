@@ -20,7 +20,12 @@ export const TemplateResolverHandlers = {
   resourceLinkPdf: "template-resolver:write:resource-link-pdf",
   sendTest: "template-resolver:write:send-test",
   patchDraft: "template-resolver:write:patch-draft",
+  applyLayout: "template-resolver:write:apply-layout",
+  publishTemplates: "template-resolver:write:publish-templates",
 } as const;
+
+// The config feature's write handler, which applyLayout dispatches to for the tenant default layout.
+export const ConfigHandlers = { set: "config:write:set" } as const;
 
 export const TemplateResolverQueries = {
   findById: "template-resolver:query:find-by-id",
@@ -66,6 +71,7 @@ export const TemplateResolverErrors = {
   systemResourcesNeedSystemTenant: "system_resources_need_system_tenant",
   systemOnlyTemplate: "system_only_template",
   templateNotTenantEditable: "template_not_tenant_editable",
+  layoutNotPublished: "layout_not_published",
   bundleLocalesDiffer: "bundle_locales_differ",
   resourceTooLarge: "template_resource_too_large",
   resourceUnsupportedImage: "template_resource_unsupported_image",

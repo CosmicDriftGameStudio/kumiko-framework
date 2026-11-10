@@ -33,7 +33,9 @@ function moveRepeatHeadersIntoThead(table: ScanElement): void {
     row.removeAttribute(REPEAT_HEADER_ATTRIBUTE);
     thead.appendChild(row);
   }
-  table.insertBefore(thead, table.firstChild);
+  // A colgroup has to stay the first child of the table.
+  const colgroup = Array.from(table.children).find((child) => child.tagName === "COLGROUP");
+  table.insertBefore(thead, colgroup === undefined ? table.firstChild : colgroup.nextSibling);
 }
 
 export function prepareDocumentForPrint(html: string): string {

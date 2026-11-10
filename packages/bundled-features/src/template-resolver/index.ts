@@ -14,6 +14,7 @@ export {
   compileDocumentBodyToHandlebars,
   toResourceDataUri,
 } from "./compile-document-body.ts";
+export { flattenFramesForPreview, readTopLevelFrames } from "./document-frames.ts";
 export {
   type DocumentViolation,
   type DocumentViolationCode,
@@ -34,6 +35,11 @@ export type {
   OverviewUsage,
 } from "./handlers/overview.query.ts";
 export { localeSchema } from "./handlers/shared.ts";
+export {
+  companyConfigKey,
+  defaultPdfLayoutSlug,
+  readTenantConfigText,
+} from "./handlers/tenant-settings.ts";
 export {
   isHexColor,
   type MailLayoutAppearance,
@@ -84,10 +90,12 @@ export {
   type MailLayoutMeta,
   type MailTemplateMeta,
   type MailTone,
+  type PdfLayoutMeta,
   type PdfTemplateMeta,
   parseTemplateMeta,
   pdfAttachmentFileNamePatternSchema,
   readMailLayoutMeta,
+  readPdfLayoutMeta,
   readPdfTemplateMeta,
   type TemplateMeta,
   type TemplateMetaIssue,
@@ -112,22 +120,27 @@ export {
   userContentEntryEntity,
 } from "./user-content-table.ts";
 export {
+  COMPANY_PLACEHOLDERS,
   CONTENT_FORMATS,
   type ContentFormat,
   DEFAULT_MAIL_LAYOUT_SLUG,
   DEFAULT_PDF_LAYOUT_SLUG,
+  DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY,
   DOCUMENT_HTML_KINDS,
   type DocumentHtmlKind,
   FALLBACK_LOCALE,
   NON_RENDER_KINDS,
   type NonRenderKind,
+  PDF_DEFAULT_FONT_SIZE_PT,
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,
   PDF_HEADER_MARGIN_MM,
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
+  PDF_TABLE_STYLES,
   type PdfOrientation,
   type PdfPageFormat,
+  type PdfTableStyle,
   RENDER_KINDS,
   type RenderKind,
   SYSTEM_TENANT_ID,
@@ -141,6 +154,13 @@ export {
   UPSERT_KINDS,
   type UpsertKind,
 } from "./web/constants.ts";
+export {
+  DOCUMENT_FONT_LABELS,
+  DOCUMENT_FONT_PRINT_STACKS,
+  DOCUMENT_FONTS,
+  type DocumentFont,
+} from "./web/document-fonts.ts";
+export type { DocumentFrameAttributes } from "./web/document-print-style.ts";
 export {
   DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_NODE_NAMES,
@@ -165,6 +185,14 @@ export {
   isDocumentReferenceName,
   isDocumentResourceKey,
 } from "./web/document-schema.ts";
+export {
+  addressParagraphCss,
+  DOCUMENT_LINE_VARIABLE,
+  documentLinePt,
+  FRAME_FLOW_GAP_MM,
+  PARAGRAPH_DEFAULT_LINE_HEIGHT,
+  SENDER_LINE_SIZE_PT,
+} from "./web/document-style-css.ts";
 export {
   TEMPLATE_RESOLVER_FEATURE,
   TemplateResolverErrors,

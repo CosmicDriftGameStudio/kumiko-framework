@@ -3,6 +3,7 @@ import type { DispatcherError } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   accentLineShown,
   appearanceFlags,
+  footerColumnCount,
   footerMessageOf,
   issueText,
   layoutSaveFlags,
@@ -88,6 +89,11 @@ describe("footerMessageOf", () => {
     const pdf = footerMessageOf({ ...base, isMail: false, checked: checked({}) })?.text ?? "";
     expect(mail).toContain("okMail");
     expect(pdf).toContain("okPdf");
+  });
+
+  test("drops the template count when no template uses the layout", () => {
+    const message = footerMessageOf({ ...base, userCount: 0, checked: checked({}) });
+    expect(message?.text).toBe("documentDesigner.editor.footer.okMail.none");
   });
 });
 
@@ -274,5 +280,21 @@ describe("saveLayout", () => {
     await saveLayout(run.input);
     expect(run.errors).toEqual([null, "Server said no"]);
     expect(run.reloads()).toBe(0);
+  });
+});
+
+describe("footerColumnCount", () => {
+  const row = (cells: number): string =>
+    `<table data-borders="none"><tbody><tr>${"<td><p>x</p></td>".repeat(cells)}</tr></tbody></table>`;
+
+  test("counts the cells of the first row of the borderless columns table", () => {
+    expect(footerColumnCount(`<p>Seite</p>${row(4)}`)).toBe(4);
+  });
+
+  test("is zero without a columns table, also for a table with borders", () => {
+    expect(footerColumnCount("<p>Seite</p>")).toBe(0);
+    expect(footerColumnCount("<table><tbody><tr><td>a</td><td>b</td></tr></tbody></table>")).toBe(
+      0,
+    );
   });
 });

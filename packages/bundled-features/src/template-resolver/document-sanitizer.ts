@@ -5,6 +5,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { JSONContent } from "@tiptap/core";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { type Element as ScanElement, Window } from "happy-dom";
+import { hasNestedFrame, scanPrintOnlyFeatures } from "./document-print-only.ts";
 import type { ContentFormat } from "./web/constants.ts";
 import { DOCUMENT_HTML_KINDS } from "./web/constants.ts";
 import {
@@ -29,6 +30,8 @@ export type DocumentViolationCode =
   | "embedded_content"
   | "unsafe_attribute_value"
   | "images_block_pdf_only"
+  | "print_style_pdf_only"
+  | "frame_not_top_level"
   | "button_href_not_placeholder"
   | "document_requires_html_format"
   | "layout_requires_mjml_format"
@@ -262,6 +265,15 @@ function scanDocumentHtml(html: string): DocumentViolation[] {
     for (const element of [body, ...Array.from(body.querySelectorAll("*"))]) {
       scanElement(element, violations);
     }
+    if (hasNestedFrame(body)) {
+      violations.push(
+        violation(
+          "frame_not_top_level",
+          "div[data-frame]",
+          "A frame must sit directly in the document body, not inside another block",
+        ),
+      );
+    }
   });
   return violations;
 }
@@ -330,30 +342,38 @@ function requiredFormatViolation(
   return null;
 }
 
-const IMAGES_BLOCK_KIND = "document-pdf";
+const PDF_ONLY_KIND = "document-pdf";
 
-// The node is part of the shared document model, so a mail body would keep it after the
-// rebuild; only a PDF resolves the record's images.
-function imagesBlockViolation(input: SanitizeBodyInput): DocumentViolation | null {
+// These nodes and attributes are part of the shared document model, so a mail body would keep
+// them after the rebuild; only a PDF resolves the record's images and applies print styling.
+function pdfOnlyViolations(input: SanitizeBodyInput): DocumentViolation[] {
   if (
-    input.kind === IMAGES_BLOCK_KIND ||
+    input.kind === PDF_ONLY_KIND ||
     !isSanitizedBody(input) ||
     input.contentFormat !== "html" ||
     input.content === null
   ) {
-    return null;
+    return [];
   }
-  const hasImagesBlock = withParsedDocument(
-    input.content,
-    (body) => body.querySelector("div[data-images]") !== null,
-  );
-  return hasImagesBlock
-    ? violation(
-        "images_block_pdf_only",
-        input.kind,
-        `Record images blocks are only allowed in templates of kind ${IMAGES_BLOCK_KIND}`,
-      )
-    : null;
+  const found = withParsedDocument(input.content, scanPrintOnlyFeatures);
+  return [
+    ...(found.hasImagesBlock
+      ? [
+          violation(
+            "images_block_pdf_only",
+            input.kind,
+            `Record images blocks are only allowed in templates of kind ${PDF_ONLY_KIND}`,
+          ),
+        ]
+      : []),
+    ...found.printStyleSelectors.map((selector) =>
+      violation(
+        "print_style_pdf_only",
+        selector,
+        `Print styling (${selector}) is only allowed in templates of kind ${PDF_ONLY_KIND}`,
+      ),
+    ),
+  ];
 }
 
 // Mails and PDFs have no base address, so compileDocumentBody turns a relative href into "#"; refuse it
@@ -378,8 +398,8 @@ function relativeLinkViolations(html: string): DocumentViolation[] {
 export function sanitizeTemplateBody(input: SanitizeBodyInput): SanitizeBodyResult {
   const formatViolation = requiredFormatViolation(input.kind, input.contentFormat);
   if (formatViolation !== null) return { ok: false, violations: [formatViolation] };
-  const imagesViolation = imagesBlockViolation(input);
-  if (imagesViolation !== null) return { ok: false, violations: [imagesViolation] };
+  const pdfOnly = pdfOnlyViolations(input);
+  if (pdfOnly.length > 0) return { ok: false, violations: pdfOnly };
   if (!isSanitizedBody(input) || input.contentFormat !== "html" || input.content === null) {
     return { ok: true, content: input.content };
   }
@@ -402,6 +422,8 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   embedded_content: "templateResolver.errors.document.embeddedContent",
   unsafe_attribute_value: "templateResolver.errors.document.unsafeAttributeValue",
   images_block_pdf_only: "templateResolver.errors.document.imagesBlockPdfOnly",
+  print_style_pdf_only: "templateResolver.errors.document.printStylePdfOnly",
+  frame_not_top_level: "templateResolver.errors.document.frameNotTopLevel",
   button_href_not_placeholder: "templateResolver.errors.document.buttonHrefNotPlaceholder",
   document_requires_html_format: "templateResolver.errors.document.documentRequiresHtmlFormat",
   layout_requires_mjml_format: "templateResolver.errors.document.layoutRequiresMjmlFormat",

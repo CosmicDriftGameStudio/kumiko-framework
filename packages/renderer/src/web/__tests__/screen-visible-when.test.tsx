@@ -339,7 +339,8 @@ describe("KumikoScreen visibleWhen inside an app shell", () => {
   test("a locked fallback chain heads the page with the screen that finally renders", async () => {
     renderInShell(false, { fallback: "upgrade", lockedFallback: true }, "Upgrade plan");
     await waitFor(() => expect(screen.getByText("UPGRADE ROW")).toBeTruthy());
-    expect(document.querySelector("h1")?.textContent).toBe("Plans");
+    // The row can paint before the shell title follows the resolved chain.
+    await waitFor(() => expect(document.querySelector("h1")?.textContent).toBe("Plans"));
     expect(crumbCount()).toBe(1);
   });
 

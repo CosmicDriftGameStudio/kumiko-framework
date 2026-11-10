@@ -2,8 +2,10 @@ import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { ModeSwitch } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
+import { CompanyDataRail } from "./company-data-rail.tsx";
 import { EditorHeader } from "./editor-header.tsx";
 import { EditorBody, EditorFooter, EditorFrame } from "./editor-shell.tsx";
+import { LayoutAppearanceSection } from "./layout-appearance-section.tsx";
 import { renderCenter } from "./layout-editor-center.tsx";
 import {
   AppearanceRail,
@@ -14,6 +16,7 @@ import {
   UsedByRail,
 } from "./layout-rails.tsx";
 import type { LayoutKind } from "./layout-types.ts";
+import { LayoutUsageSection } from "./layout-usage-section.tsx";
 import { OriginBar } from "./origin-bar.tsx";
 import {
   type LayoutEditorBodyProps,
@@ -29,7 +32,12 @@ function renderLeftRail(props: LayoutEditorBodyProps, m: LayoutEditorModel): Rea
         data={branding.data}
         unavailable={branding.error !== null || (branding.data === null && !branding.loading)}
       />
-      <PlaceholderRail validation={m.checked} />
+      {!m.isMail && <CompanyDataRail onInsert={m.insertIntoActiveRegion} />}
+      <PlaceholderRail
+        validation={m.checked}
+        isMail={m.isMail}
+        regionsHtml={`${m.header}${m.footer}`}
+      />
       <RendererRail kind={props.kind} />
     </>
   );
@@ -45,8 +53,20 @@ function renderRightRail(props: LayoutEditorBodyProps, m: LayoutEditorModel): Re
           fromMjml={m.appearanceFromMjml}
         />
       )}
+      {!m.isMail && (
+        <LayoutAppearanceSection
+          look={m.pdfLook}
+          hasHeader={m.header.trim() !== ""}
+          hasFooter={m.footer.trim() !== ""}
+          onChange={m.setPdfLook}
+        />
+      )}
       {m.isMail && !m.mjmlMode && <MjmlSourceRail mjmlSource={props.source.mjmlSource} />}
-      <UsedByRail layoutSlug={props.slug} kind={props.kind} rows={props.overviewRows} />
+      {m.isMail ? (
+        <UsedByRail layoutSlug={props.slug} kind={props.kind} rows={props.overviewRows} />
+      ) : (
+        <LayoutUsageSection slug={props.slug} />
+      )}
     </>
   );
 }

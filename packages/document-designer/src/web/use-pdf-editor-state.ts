@@ -1,9 +1,13 @@
-import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import {
+  type DocumentFrameControl,
+  TemplateResolverQueries,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useQuery, useUserRoles } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { EditorMode } from "./editor-header.tsx";
+import type { LayoutSourceView } from "./layout-types.ts";
 import { systemLabelMap, variableLabelMap } from "./mail-draft.ts";
 import {
   draftFromDetail,
@@ -18,6 +22,7 @@ import { visibleSystemPlaceholders } from "./pdf-left-rail.tsx";
 import { serializePdfMeta } from "./pdf-meta.ts";
 import { localesOf, parseJsonObject, pickRow, resolveLocale } from "./template-rows.ts";
 import {
+  DEFAULT_LAYOUT_SLUG,
   DOCUMENT_PDF_KIND,
   PDF_LAYOUT_KIND,
   type PreviewResult,
@@ -32,6 +37,8 @@ import { useBranding } from "./use-branding.ts";
 import { useFilesCapability } from "./use-files-capability.ts";
 import { useInsertTargets } from "./use-insert-targets.ts";
 import { useOverviewRows } from "./use-overview-rows.ts";
+
+const NO_LAYOUT_META: LayoutSourceView["meta"] = {};
 
 function usePdfHostServices() {
   const insert = useInsertTargets();
@@ -90,6 +97,7 @@ function usePdfUiState() {
   const [generated, setGenerated] = useState<GeneratedPdf | null>(null);
   const autoPrintedFor = useRef<string | null>(null);
   const [pendingLocale, setPendingLocale] = useState<string | null>(null);
+  const [frameControl, setFrameControl] = useState<DocumentFrameControl | null>(null);
   return {
     overridesOpen,
     setOverridesOpen,
@@ -106,10 +114,54 @@ function usePdfUiState() {
     autoPrintedFor,
     pendingLocale,
     setPendingLocale,
+    frameControl,
+    setFrameControl,
   };
 }
 
+function hasAnswered(query: { readonly data?: unknown; readonly error: unknown }): boolean {
+  return (query.data !== undefined && query.data !== null) || query.error !== null;
+}
+
 type PdfDocument = ReturnType<typeof usePdfDocument>;
+
+function usePdfLayoutPreview(input: {
+  readonly slug: string;
+  readonly scope: TemplateScope;
+  readonly doc: PdfDocument;
+  readonly variableSchema: Record<string, unknown>;
+}) {
+  const { slug, scope, variableSchema } = input;
+  const { locale, detail, current } = input.doc;
+  const layoutSlug = current?.settled.meta.layoutSlug ?? "";
+  const previewQuery = useQuery<PreviewResult>(
+    TemplateResolverQueries.preview,
+    {
+      slug,
+      kind: DOCUMENT_PDF_KIND,
+      locale,
+      content: detail?.content ?? "",
+      meta: layoutSlug === "" ? {} : { layoutSlug },
+      variableSchema,
+    },
+    { enabled: detail !== null },
+  );
+  const layout = previewQuery.error === null ? (previewQuery.data?.layout ?? null) : null;
+
+  // The template inherits margins from its layout; the preview already resolved the tenant default when none is named.
+  const shownLayoutSlug = layoutSlug === "" ? (layout?.slug ?? DEFAULT_LAYOUT_SLUG) : layoutSlug;
+  const layoutSourceQuery = useQuery<LayoutSourceView>(
+    TemplateResolverQueries.layoutSource,
+    { kind: PDF_LAYOUT_KIND, slug: shownLayoutSlug, scope },
+    // Until the preview names the tenant default, the slug is only a guess; its answer would open the paper early.
+    { enabled: detail !== null && (layoutSlug !== "" || hasAnswered(previewQuery)) },
+  );
+  const layoutMeta =
+    layoutSourceQuery.error === null
+      ? (layoutSourceQuery.data?.meta ?? NO_LAYOUT_META)
+      : NO_LAYOUT_META;
+  return { previewQuery, layout, layoutSourceQuery, layoutMeta };
+}
 
 function usePdfServerQueries(input: {
   readonly slug: string;
@@ -140,20 +192,17 @@ function usePdfServerQueries(input: {
   );
   const validation = validationQuery.data;
 
-  const layoutSlug = current?.settled.meta.layoutSlug ?? "";
-  const previewQuery = useQuery<PreviewResult>(
-    TemplateResolverQueries.preview,
-    {
-      slug,
-      kind: DOCUMENT_PDF_KIND,
-      locale,
-      content: detail?.content ?? "",
-      meta: layoutSlug === "" ? {} : { layoutSlug },
-      variableSchema,
-    },
-    { enabled: detail !== null },
-  );
-  const layout = previewQuery.error === null ? (previewQuery.data?.layout ?? null) : null;
+  const { previewQuery, layout, layoutSourceQuery, layoutMeta } = usePdfLayoutPreview({
+    slug,
+    scope,
+    doc: input.doc,
+    variableSchema,
+  });
+  // The editor rebuilds when the first vocabulary arrives and would drop the caret; the
+  // preview and layout source answers also shift the paper text. useQuery keeps previous
+  // data on key change, so later refetches do not flip this back.
+  const paperReady =
+    hasAnswered(validationQuery) && hasAnswered(previewQuery) && hasAnswered(layoutSourceQuery);
 
   const layouts = useOverviewRows(PDF_LAYOUT_KIND);
   // The built-in "logo" resource of a layout is the tenant's branding logo.
@@ -172,7 +221,9 @@ function usePdfServerQueries(input: {
     variableSchema,
     validationQuery,
     validation,
+    paperReady,
     layout,
+    layoutMeta,
     layouts,
     brandingLogoFile,
     statusQuery,

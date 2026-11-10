@@ -8,7 +8,13 @@ import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
 import { composeLayoutHtml } from "./compose-layout.ts";
 import type { FooterTone } from "./editor-shell.tsx";
 import { fileUrl } from "./file-name.ts";
-import { isHexColor, type LayoutAppearance, type LayoutWidth, metaToSave } from "./layout-meta.ts";
+import {
+  isHexColor,
+  type LayoutAppearance,
+  type LayoutWidth,
+  metaToSave,
+  type PdfLayoutMeta,
+} from "./layout-meta.ts";
 import type {
   BrandingView,
   LayoutKind,
@@ -112,18 +118,11 @@ export function footerMessageOf(input: {
   }
   const blockingIssue = [...checked.issues, ...checked.publishIssues][0];
   if (blockingIssue !== undefined) return { tone: "bad", text: issueText(t, blockingIssue) };
-  return {
-    tone: "ok",
-    text: t(
-      pluralKey(
-        input.isMail
-          ? "documentDesigner.editor.footer.okMail"
-          : "documentDesigner.editor.footer.okPdf",
-        userCount,
-      ),
-      { count: userCount },
-    ),
-  };
+  const okKey = input.isMail
+    ? "documentDesigner.editor.footer.okMail"
+    : "documentDesigner.editor.footer.okPdf";
+  if (userCount === 0) return { tone: "ok", text: t(`${okKey}.none`) };
+  return { tone: "ok", text: t(pluralKey(okKey, userCount), { count: userCount }) };
 }
 
 // A layout region has no per-mail variables, so a steps block there could never show a stage and an images block no photos.
@@ -163,6 +162,7 @@ export type SaveLayoutInput = {
   readonly isSystemAdmin: boolean;
   readonly appearanceEditable: boolean;
   readonly appearance: LayoutAppearance;
+  readonly pdfMeta?: PdfLayoutMeta;
   readonly t: Translate;
   readonly upsertTenant: UpsertMutation;
   readonly upsertSystem: UpsertMutation;
@@ -172,6 +172,7 @@ export type SaveLayoutInput = {
 };
 
 function metaOf(input: SaveLayoutInput) {
+  if (input.pdfMeta !== undefined) return input.pdfMeta;
   if (input.appearanceEditable) return metaToSave(input.appearance, input.source.meta);
   return input.isMail ? input.source.meta : {};
 }
@@ -254,4 +255,12 @@ export function layoutSaveFlags(input: {
       (input.dirty || shownStatus === "draft") &&
       !busy,
   };
+}
+
+const COLUMNS_FIRST_ROW = /<table[^>]*data-borders="none"[^>]*>[\s\S]*?<tr[^>]*>([\s\S]*?)<\/tr>/;
+
+// The columns block is the borderless table; its first row says how many columns it has.
+export function footerColumnCount(footerHtml: string): number {
+  const firstRow = COLUMNS_FIRST_ROW.exec(footerHtml)?.[1];
+  return firstRow === undefined ? 0 : (firstRow.match(/<t[dh][\s>]/g) ?? []).length;
 }

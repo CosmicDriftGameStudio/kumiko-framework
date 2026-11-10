@@ -13,7 +13,12 @@ import {
   toWorkingRow,
   type WorkingRow,
 } from "../template-draft.ts";
-import { type MailLayoutMeta, readMailLayoutMeta } from "../template-meta.ts";
+import {
+  type MailLayoutMeta,
+  type PdfLayoutMeta,
+  readMailLayoutMeta,
+  readPdfLayoutMeta,
+} from "../template-meta.ts";
 import { FALLBACK_LOCALE } from "../web/constants.ts";
 import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { localeSchema, templateSlugSchema } from "./shared.ts";
@@ -33,8 +38,8 @@ export type LayoutSourceResponse = {
   readonly regions: LayoutRegions;
   readonly effectiveFormat: "html" | "mjml" | null;
   readonly mjmlSource: string | null;
-  /** Appearance of the effective mail layout; invalid stored meta reads as defaults (empty). */
-  readonly meta: MailLayoutMeta;
+  /** Appearance of the effective layout; invalid stored meta reads as defaults (empty). */
+  readonly meta: MailLayoutMeta | PdfLayoutMeta;
   readonly locale: string;
 };
 
@@ -116,6 +121,14 @@ function readMjmlSource(systemRow: WorkingRow | null, isSystemAdmin: boolean): s
   return exposesMjml ? (systemRow.content ?? "") : null;
 }
 
+function readLayoutMeta(
+  kind: "mail-layout" | "pdf-layout",
+  effective: WorkingRow | null,
+): MailLayoutMeta | PdfLayoutMeta {
+  const stored = parseStoredJson(effective?.meta ?? null);
+  return kind === "mail-layout" ? readMailLayoutMeta(stored) : readPdfLayoutMeta(stored);
+}
+
 function buildLayoutSource(input: {
   readonly kind: "mail-layout" | "pdf-layout";
   readonly locale: string | undefined;
@@ -135,8 +148,7 @@ function buildLayoutSource(input: {
     regions: readEffectiveRegions(effective, effectiveFormat),
     effectiveFormat,
     mjmlSource: readMjmlSource(systemRow, isSystemAdmin),
-    meta:
-      kind === "mail-layout" ? readMailLayoutMeta(parseStoredJson(effective?.meta ?? null)) : {},
+    meta: readLayoutMeta(kind, effective),
     locale: effective?.locale ?? locale ?? FALLBACK_LOCALE,
   };
 }

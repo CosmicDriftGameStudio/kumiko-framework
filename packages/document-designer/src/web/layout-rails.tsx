@@ -22,6 +22,7 @@ import {
   systemPlaceholderLabel,
 } from "./mail-draft.ts";
 import type { OverviewRowView } from "./overview-row.ts";
+import { placeholdersUsedIn, railSystemPlaceholders } from "./pdf-left-rail.tsx";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 import { statusLabel } from "./status-label.ts";
 import { templateTitleText } from "./used-by-label.ts";
@@ -38,7 +39,7 @@ function hostOf(siteUrl: string): string {
 }
 
 // The color is user data, so it goes into a style attribute instead of a class.
-function ColorSwatch({ color }: { readonly color: string }): ReactNode {
+export function ColorSwatch({ color }: { readonly color: string }): ReactNode {
   return (
     <span
       data-testid="document-designer-accent-swatch"
@@ -126,11 +127,20 @@ export function BrandingRail({
 
 export function PlaceholderRail({
   validation,
+  isMail,
+  regionsHtml,
 }: {
   readonly validation: LayoutValidation | null;
+  readonly isMail: boolean;
+  /** The validation never lists system placeholders as used, so the rail reads the regions itself. */
+  readonly regionsHtml: string;
 }): ReactNode {
   const t = useTranslation();
-  const used = new Set(validation?.used ?? []);
+  const systemPlaceholders = validation?.systemPlaceholders ?? [];
+  const used = new Set([
+    ...(validation?.used ?? []),
+    ...placeholdersUsedIn(regionsHtml, systemPlaceholders),
+  ]);
   return (
     <RailSection
       title={t("documentDesigner.layoutPlaceholders.title")}
@@ -143,7 +153,7 @@ export function PlaceholderRail({
         trailing="✓"
         trailingTone="ok"
       />
-      {(validation?.systemPlaceholders ?? []).map((name) => (
+      {(isMail ? systemPlaceholders : railSystemPlaceholders(systemPlaceholders)).map((name) => (
         <RailRow
           key={name}
           testId={`document-designer-placeholder-${name}`}

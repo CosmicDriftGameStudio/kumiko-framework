@@ -84,6 +84,24 @@ function renderBlockOptionsBar(c: TiptapContext, selectedBlock: SelectedBlock): 
           <code>{selectedBlock.detail}</code>
         )}
       </span>
+      {selectedBlock.type === "resource" && c.hosted && c.print === "flow" && (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          pressed={selectedBlock.bleed}
+          testId="document-image-bleed"
+          onClick={() => {
+            editor
+              .chain()
+              .focus()
+              .updateAttributes("resource", { bleed: !selectedBlock.bleed })
+              .run();
+          }}
+        >
+          {t("documentDesigner.editor.imageBleed")}
+        </Button>
+      )}
       <Button
         type="button"
         size="sm"
@@ -102,7 +120,8 @@ function renderBubbleRepeatBar(c: TiptapContext): ReactNode {
   const { t, Button, editor } = c;
   const repeatTable = c.activeState?.repeatTable ?? null;
   return (
-    repeatTable !== null && (
+    repeatTable !== null &&
+    c.print === "none" && (
       <div data-testid="document-repeat-bar" className={BUBBLE_BAR_CLASS}>
         <span className="px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
           {repeatBarLabelOf(c)}
@@ -140,7 +159,9 @@ export function renderBubbleMenu(c: TiptapContext): ReactNode {
       shouldShow={({ editor: e, element }) =>
         // A leading image is selected by default; the bubble belongs to a deliberate selection.
         (e.isFocused || element.contains(document.activeElement)) &&
-        (e.isActive("resource") || e.isActive("button") || findRepeatTable(e) !== null)
+        (e.isActive("resource") ||
+          e.isActive("button") ||
+          (c.print === "none" && findRepeatTable(e) !== null))
       }
     >
       {selectedBlock !== null ? renderBlockOptionsBar(c, selectedBlock) : renderBubbleRepeatBar(c)}
@@ -153,6 +174,7 @@ export function renderInlineRepeatBar(c: TiptapContext): ReactNode {
   const repeatTable = c.activeState?.repeatTable ?? null;
   return (
     repeatTable !== null &&
+    c.print === "none" &&
     !c.readOnly &&
     !c.canvas && (
       <div

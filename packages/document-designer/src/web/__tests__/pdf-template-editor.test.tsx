@@ -12,6 +12,8 @@ import {
   kumikoDefaultTranslations,
   LocaleProvider,
   mergeTranslations,
+  type NavApi,
+  NavProvider,
   PrimitivesProvider,
   ScreenFocusProvider,
   UserRolesProvider,
@@ -37,6 +39,7 @@ type FakeOptions = {
   readonly singleOverride?: boolean;
   readonly puppeteer: "available" | "unavailable" | "unknown-query";
   readonly tenantOverride?: boolean;
+  readonly holdValidate?: Promise<void>;
   readonly holdDetail?: { readonly id: string; readonly until: Promise<void> };
 };
 
@@ -141,6 +144,7 @@ function createFakeDispatcher(options: FakeOptions): {
         return { isSuccess: true, data: detailRow(id.replace("row-", "")) };
       }
       case TemplateResolverQueries.validate:
+        if (options.holdValidate !== undefined) await options.holdValidate;
         return { isSuccess: true, data: validationFor(options) };
       case TemplateResolverQueries.tenantOverrides:
         return {
@@ -207,6 +211,15 @@ function createFakeDispatcher(options: FakeOptions): {
   return { dispatcher, writes, queries };
 }
 
+const nav: NavApi = {
+  route: undefined,
+  navigate: () => {},
+  replace: () => {},
+  hrefFor: () => "#",
+  searchParams: {},
+  setSearchParams: () => {},
+};
+
 function renderEditor(
   options: FakeOptions,
   onLocaleChange?: (locale: string) => void,
@@ -223,11 +236,13 @@ function renderEditor(
         <DispatcherProvider dispatcher={fake.dispatcher}>
           <UserRolesProvider roles={currentRoles}>
             <PrimitivesProvider value={defaultPrimitives}>
-              <PdfTemplateEditor
-                slug={SLUG}
-                locale="de"
-                {...(onLocaleChange && { onLocaleChange })}
-              />
+              <NavProvider value={nav}>
+                <PdfTemplateEditor
+                  slug={SLUG}
+                  locale="de"
+                  {...(onLocaleChange && { onLocaleChange })}
+                />
+              </NavProvider>
             </PrimitivesProvider>
           </UserRolesProvider>
         </DispatcherProvider>
@@ -380,6 +395,19 @@ describe("PdfTemplateEditor", () => {
     expect(Reflect.get(Object(editor.writes[0]?.payload), "content")).toBe("<p>Hello</p>");
   });
 
+  test("the page canvas mounts only after the validation answered, so the editor is not rebuilt under the caret", async () => {
+    let releaseValidation = () => {};
+    const holdValidate = new Promise<void>((resolve) => {
+      releaseValidation = resolve;
+    });
+    renderEditor({ puppeteer: "available", holdValidate });
+    await waitFor(() => expect(screen.queryByTestId("pdf-template-editor")).not.toBeNull());
+    expect(screen.queryByTestId("document-designer-page")).toBeNull();
+
+    releaseValidation();
+    await screen.findByTestId("document-designer-page");
+  });
+
   test("a SystemAdmin opens the tenant customisation drawer with the breakdown", async () => {
     renderEditor({ puppeteer: "available" }, undefined, ["SystemAdmin"]);
     await ready();
@@ -425,10 +453,12 @@ describe("PdfTemplateEditor screen focus", () => {
         <DispatcherProvider dispatcher={fake.dispatcher}>
           <UserRolesProvider roles={["TenantAdmin"]}>
             <PrimitivesProvider value={defaultPrimitives}>
-              <ScreenFocusProvider>
-                <PdfTemplateEditor slug={SLUG} locale="de" />
-                <FocusProbe />
-              </ScreenFocusProvider>
+              <NavProvider value={nav}>
+                <ScreenFocusProvider>
+                  <PdfTemplateEditor slug={SLUG} locale="de" />
+                  <FocusProbe />
+                </ScreenFocusProvider>
+              </NavProvider>
             </PrimitivesProvider>
           </UserRolesProvider>
         </DispatcherProvider>

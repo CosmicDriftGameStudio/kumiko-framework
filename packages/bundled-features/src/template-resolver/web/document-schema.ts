@@ -13,6 +13,13 @@ import {
   isAllowedDocumentUrlHref,
   isDocumentPlaceholderHref,
 } from "./document-link-policy.ts";
+import {
+  DocumentBlockStyleAttributes,
+  DocumentFrame,
+  DocumentTextStyleMark,
+  documentCellPrintAttributes,
+  documentTableBordersAttribute,
+} from "./document-print-style.ts";
 import { isDocumentReferenceName } from "./document-reference-name.ts";
 import { createDocumentStepsNode } from "./document-steps.ts";
 import { attributeParseRule } from "./tiptap-attribute-parse-rule.ts";
@@ -68,7 +75,7 @@ export const DocumentResource = Node.create({
   group: "block",
   atom: true,
   addAttributes() {
-    return { resource: { default: null }, alt: { default: null } };
+    return { resource: { default: null }, alt: { default: null }, bleed: { default: false } };
   },
   parseHTML() {
     return [
@@ -77,7 +84,11 @@ export const DocumentResource = Node.create({
         getAttrs: (element) => {
           const resource = element.getAttribute("data-resource");
           if (resource === null || !isDocumentResourceKey(resource)) return false;
-          return { resource, alt: element.getAttribute("alt") };
+          return {
+            resource,
+            alt: element.getAttribute("alt"),
+            bleed: element.hasAttribute("data-bleed"),
+          };
         },
       },
     ];
@@ -87,9 +98,11 @@ export const DocumentResource = Node.create({
     const alt = node.attrs["alt"];
     return [
       "img",
-      alt === null || alt === undefined
-        ? { "data-resource": node.attrs["resource"] }
-        : { "data-resource": node.attrs["resource"], alt },
+      {
+        "data-resource": node.attrs["resource"],
+        ...(alt === null || alt === undefined ? {} : { alt }),
+        ...(node.attrs["bleed"] === true ? { "data-bleed": "" } : {}),
+      },
     ];
   },
 });
@@ -176,13 +189,16 @@ export const DocumentTableRow = TableRow.extend({
 });
 
 export const DocumentTable = Table.extend({
-  renderHTML() {
-    return ["table", ["tbody", 0]];
+  addAttributes() {
+    return { ...(this.parent?.() ?? {}), ...documentTableBordersAttribute };
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["table", HTMLAttributes, ["tbody", 0]];
   },
 });
 
 // Span attributes are rendered only when they differ from the default, and
-// colwidth (an editor-resize artefact) never, so `<td><p>x</p></td>` is the
+// colwidth and background only when set, so `<td><p>x</p></td>` is the
 // canonical cell.
 function plainObjectOrEmpty(value: unknown): Record<string, unknown> {
   return isPlainObject(value) ? value : {};
@@ -203,8 +219,9 @@ function canonicalCellAttributes(attributes: Record<string, unknown>) {
     },
     colwidth: {
       ...plainObjectOrEmpty(attributes["colwidth"]),
-      renderHTML: () => ({}),
+      ...documentCellPrintAttributes.colwidth,
     },
+    background: documentCellPrintAttributes.background,
   };
 }
 
@@ -347,4 +364,7 @@ export const documentExtensions: Extensions = [
   DocumentTextAlign,
   DocumentTextSize,
   DocumentCondition,
+  DocumentTextStyleMark,
+  DocumentBlockStyleAttributes,
+  DocumentFrame,
 ];
