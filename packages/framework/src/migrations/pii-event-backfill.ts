@@ -118,7 +118,7 @@ export function piiAnnotationEntries(registry: Registry): readonly string[] {
 // Bump when the backfill gains a transform stage: completed states keyed by the
 // old fingerprint must run one more full pass. Kept out of piiAnnotationEntries,
 // whose emptiness gates no_pii.
-const PII_BACKFILL_TRANSFORM_VERSION = "jsonb-objects-v3";
+const PII_BACKFILL_TRANSFORM_VERSION = "self-owned-rekey-v4";
 
 export function piiAnnotationFingerprint(registry: Registry): string {
   return createHash("sha256")
@@ -344,6 +344,9 @@ function reportRunOutcome(
       {
         failureCount: progress.failures.length,
         eventIds: progress.failures.slice(0, MAX_LOGGED_FAILURE_IDS).map((f) => f.eventId),
+        failures: progress.failures
+          .slice(0, MAX_LOGGED_FAILURE_IDS)
+          .map((f) => ({ eventId: f.eventId, reason: f.reason })),
       },
     );
   }
