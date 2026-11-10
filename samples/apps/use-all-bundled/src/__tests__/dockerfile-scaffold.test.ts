@@ -82,5 +82,10 @@ describe("use-all-bundled scaffoldDeploy", () => {
       /FROM --platform=\$BUILDPLATFORM oven\/bun:\$\{BUN_VERSION\}-alpine AS build/,
     );
     expect(dockerfile).toMatch(/FROM oven\/bun:\$\{BUN_VERSION\}-alpine AS runtime/);
+    expect(dockerfile).toMatch(
+      /FROM --platform=\$BUILDPLATFORM oven\/bun:\$\{BUN_VERSION\}-alpine AS deps/,
+    );
+    expect(dockerfile).toContain("bun install --production --frozen-lockfile --os=linux --cpu=");
+    expect(dockerfile).toContain("amd64) echo x64");
   });
 });

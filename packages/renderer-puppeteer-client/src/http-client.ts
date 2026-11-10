@@ -46,7 +46,14 @@ export function postRender(config: ClientConfig, body: unknown): Promise<FetchRe
 
 // The service answers /rasterize with JSON; the caller validates its shape.
 export function postRasterize(config: ClientConfig, body: unknown): Promise<unknown> {
-  return postWithRetry(config, "/rasterize", body, (response) => response.json());
+  return postWithRetry(config, "/rasterize", body, async (response) => {
+    try {
+      return await response.json();
+    } catch (e) {
+      // A plain Error would be retried and re-run the whole rasterization on the pod.
+      throw new RendererError(`invalid /rasterize response: ${String(e)}`, "other");
+    }
+  });
 }
 
 async function postWithRetry<T>(

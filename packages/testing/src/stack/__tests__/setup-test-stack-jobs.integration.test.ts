@@ -266,6 +266,7 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
       const onStartupError = (error: Error): void => {
         if (error.message.startsWith("Command queue state error")) return;
         monitor.off("error", onStartupError);
+        monitor.disconnect();
         reject(error);
       };
       monitor.on("error", onStartupError);
@@ -308,19 +309,21 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
     const queuePrefix = keyPrefix.split(":").filter(Boolean).join("-");
     const foreignKeys = [`foreign-${generateId()}:key`, `bull:foreign-${generateId()}-api:meta`];
     const raw = new Redis(redisUrl);
-    // MONITOR sees every command the server runs; filtering on this stack's own key patterns keeps
-    // parallel tests' SCANs out of the count.
-    const monitor = await openMonitor(redisUrl);
-    const ownScans: string[][] = [];
-    const doneMarker = `cleanup-done-${generateId()}`;
-    let doneSeen = false;
-    monitor.on("monitor", (_time: string, args: string[]) => {
-      if (args.includes(doneMarker)) doneSeen = true;
-      const isOwnPattern = (arg: string): boolean =>
-        arg.startsWith(keyPrefix) || arg.startsWith(`bull:${queuePrefix}`);
-      if (args[0]?.toLowerCase() === "scan" && args.some(isOwnPattern)) ownScans.push(args);
-    });
+    let monitor: Redis | undefined;
+    let liveCleanedUp = false;
     try {
+      // MONITOR sees every command the server runs; filtering on this stack's own key patterns keeps
+      // parallel tests' SCANs out of the count.
+      monitor = await openMonitor(redisUrl);
+      const ownScans: string[][] = [];
+      const doneMarker = `cleanup-done-${generateId()}`;
+      let doneSeen = false;
+      monitor.on("monitor", (_time: string, args: string[]) => {
+        if (args.includes(doneMarker)) doneSeen = true;
+        const isOwnPattern = (arg: string): boolean =>
+          arg.startsWith(keyPrefix) || arg.startsWith(`bull:${queuePrefix}`);
+        if (args[0]?.toLowerCase() === "scan" && args.some(isOwnPattern)) ownScans.push(args);
+      });
       await Promise.all(foreignKeys.map((key) => raw.set(key, "1")));
       await live.redis.redis.set("namespace-key", "1");
       await live.jobRunner?.dispatch("laneisolation:job:record", { from: "scope-check" });
@@ -328,6 +331,7 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
         expect(laneIsolationRuns.some((run) => run.from === "scope-check")).toBe(true);
       });
 
+      liveCleanedUp = true;
       await live.cleanup();
       await raw.echo(doneMarker);
       await waitFor(() => {
@@ -339,7 +343,8 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
       expect(await raw.exists(`${keyPrefix}namespace-key`)).toBe(1);
       expect(await bullKeysFor(redisUrl, queuePrefix)).toEqual([]);
     } finally {
-      monitor.disconnect();
+      monitor?.disconnect();
+      if (!liveCleanedUp) await live.cleanup();
       await raw.del(...foreignKeys, `${keyPrefix}namespace-key`);
       raw.disconnect();
     }

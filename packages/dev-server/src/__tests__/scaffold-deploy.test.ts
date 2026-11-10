@@ -98,6 +98,19 @@ describe("scaffoldDeploy", () => {
     expect(dockerfile).not.toContain("migration-hooks.js");
   });
 
+  it("Dockerfile installs the target-arch node_modules on the build platform, runtime stays on the target", () => {
+    scaffoldDeploy({ appName: "multi-arch", destination: tmp });
+    const dockerfile = readFileSync(join(tmp, "deploy", "Dockerfile"), "utf-8");
+
+    expect(dockerfile).toMatch(
+      /FROM --platform=\$BUILDPLATFORM oven\/bun:\$\{BUN_VERSION\}-alpine AS deps/,
+    );
+    expect(dockerfile).toContain("bun install --production --frozen-lockfile --os=linux --cpu=");
+    expect(dockerfile).toContain("amd64) echo x64");
+    expect(dockerfile).toContain("arm64) echo arm64");
+    expect(dockerfile).toMatch(/FROM oven\/bun:\$\{BUN_VERSION\}-alpine AS runtime/);
+  });
+
   it("migrate-step.sh invokes the schema-CLI subcommand registered in kumiko.ts", () => {
     // Regression guard: the deploy step was calling
     // `bun /app/kumiko.js migrate apply`, but the CLI only registers

@@ -4,7 +4,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import type { ClientConfig } from "../config";
-import { postRender } from "../http-client";
+import { postRasterize, postRender } from "../http-client";
 import { rasterizePdf } from "../rasterize";
 import { installFetchMock } from "./install-fetch-mock";
 
@@ -284,6 +284,18 @@ describe("rasterizePdf", () => {
     installFetchMock(fetchMock);
     await expect(rasterizePdf(new Uint8Array([1]))).rejects.toMatchObject({
       code: "invalid_payload",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("postRasterize :: unparseable 2xx body", () => {
+  test("non-JSON 200 body is a final RendererError code=other, exactly one fetch", async () => {
+    const fetchMock = mock().mockResolvedValue(mockResponse(200, "<truncated", "text/plain"));
+    installFetchMock(fetchMock);
+    await expect(postRasterize(CONFIG, {})).rejects.toMatchObject({
+      name: "RendererError",
+      code: "other",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

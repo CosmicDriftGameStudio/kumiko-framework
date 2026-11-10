@@ -56,6 +56,7 @@ export {
   createFormController,
   groupIssuesByPath,
   I18N_KEY_PARAM,
+  isCurrencyOnlyMoney,
   relevantFieldIssues,
   zodErrorToFieldIssues,
 } from "./form/index.ts";

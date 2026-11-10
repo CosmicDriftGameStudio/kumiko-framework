@@ -1,4 +1,4 @@
-export { createFormController } from "./form-controller.ts";
+export { createFormController, isCurrencyOnlyMoney } from "./form-controller.ts";
 export type {
   FieldConditionPredicate,
   FieldConditions,
