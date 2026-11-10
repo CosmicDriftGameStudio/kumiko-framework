@@ -1154,7 +1154,7 @@ describe("preview-png", () => {
   type PngPreview = {
     fileName: string;
     pageCount: number;
-    pages: { mimeType: string; data: string; widthPx: number; heightPx: number }[];
+    pages: { widthPx: number; heightPx: number }[];
     agentImages: { mimeType: string; data: string }[];
   };
 
@@ -1176,7 +1176,9 @@ describe("preview-png", () => {
     );
     expect(preview.fileName).toBe("Entwurf-R-77.pdf");
     expect(preview.pageCount).toBe(2);
-    expect(preview.pages).toEqual(STUB_PAGES);
+    expect(preview.pages).toEqual(
+      STUB_PAGES.map(({ widthPx, heightPx }) => ({ widthPx, heightPx })),
+    );
     expect(preview.agentImages).toEqual(
       STUB_PAGES.map(({ mimeType, data }) => ({ mimeType, data })),
     );

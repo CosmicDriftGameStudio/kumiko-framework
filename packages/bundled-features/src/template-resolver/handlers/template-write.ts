@@ -19,6 +19,7 @@ import { requireForTenant } from "../../shared/index.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { activationChanges, serializeTemplateDraft } from "../template-draft.ts";
+import { refuseReservedLayoutSlug } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplate } from "../template-system-only.ts";
 import type { TemplateValidation } from "../template-validation.ts";
 import type { ContentFormat, TemplateKind } from "../web/constants.ts";
@@ -179,6 +180,7 @@ export async function writeTemplateRow(
   const { ctx, user, tenantId, scope, status, payload } = args;
   const refused =
     refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
+    (scope === "system" ? refuseReservedLayoutSlug(payload, "slug") : null) ??
     refuseSystemOnlyTenantOverride(ctx.registry, scope, payload.slug, payload.kind);
   if (refused !== null) return refused;
   const { db, streamTenantId } = requireForTenant(ctx, tenantId);

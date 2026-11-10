@@ -9,8 +9,6 @@ import { loadClientConfigOrUnavailable } from "./render.ts";
 // depends on this exact name.
 export const AGENT_IMAGES_RESULT_KEY = "agentImages";
 
-export const RASTER_DPI_VALUES = [72, 100, 150] as const;
-
 const rasterImageSchema = z.object({
   mimeType: z.literal("image/png"),
   data: z.string().min(1),
@@ -18,7 +16,7 @@ const rasterImageSchema = z.object({
   heightPx: z.number().int().positive(),
 });
 
-const rasterizeResponseSchema = z.object({
+export const rasterizeResponseSchema = z.object({
   pages: z.array(rasterImageSchema),
   images: z.array(rasterImageSchema),
 });
@@ -28,7 +26,7 @@ export type RasterizedPdf = z.infer<typeof rasterizeResponseSchema>;
 
 export type RasterizeOptions = {
   readonly maxPages?: number;
-  readonly dpi?: (typeof RASTER_DPI_VALUES)[number];
+  readonly dpi?: 72 | 100 | 150;
   /** Also return the images embedded in the PDF. */
   readonly images?: boolean;
 };

@@ -353,7 +353,7 @@ describe("pdf-letterhead preview-png", () => {
       admin,
     );
     const preview = await stack.http.queryOk<{
-      pages: { mimeType: string; data: string }[];
+      pages: { widthPx: number; heightPx: number }[];
       agentImages: { mimeType: string; data: string }[];
     }>(
       RendererPuppeteerClientQueries.previewPng,

@@ -10,6 +10,8 @@ export const RASTER_DPI_OPTIONS = [72, 100, 150] as const;
 export const DEFAULT_RASTER_DPI = 100;
 export const MAX_EMBEDDED_IMAGES = 20;
 export const MAX_RASTER_RESPONSE_BYTES = 20_000_000;
+// A small PDF can embed a huge image; pdfimages would decode it to a PNG of that size before any byte limit applies.
+export const MAX_EMBEDDED_IMAGE_PIXELS = 25_000_000;
 
 const PDF_MAGIC = "%PDF-";
 const A4_LONG_SIDE_INCH = 297 / 25.4;
@@ -54,20 +56,39 @@ export class RasterResultTooLargeError extends Error {
   }
 }
 
+// pdfimages -list prints a table whose columns 4 and 5 are width and height; header and rule lines are not numeric.
+const LIST_WIDTH_COLUMN = 3;
+const LIST_HEIGHT_COLUMN = 4;
+
+export function hasOversizedImage(listOutput: string): boolean {
+  return listOutput.split("\n").some((line) => {
+    const columns = line.trim().split(/\s+/);
+    const width = Number(columns[LIST_WIDTH_COLUMN]);
+    const height = Number(columns[LIST_HEIGHT_COLUMN]);
+    return Number.isFinite(width) && Number.isFinite(height) && width * height > MAX_EMBEDDED_IMAGE_PIXELS;
+  });
+}
+
 async function runPoppler(
   args: readonly string[],
-  timeoutMs: number,
-): Promise<{ readonly exitCode: number; readonly stderr: string }> {
-  const child = Bun.spawn([...args], { stdout: "ignore", stderr: "pipe" });
+  deadline: number,
+): Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }> {
+  const timeoutMs = deadline - Date.now();
+  if (timeoutMs <= 0) throw new RasterizeTimeoutError(`${args[0]} had no time left`);
+  const child = Bun.spawn([...args], { stdout: "pipe", stderr: "pipe" });
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     child.kill();
   }, timeoutMs);
   try {
-    const [exitCode, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
-    if (timedOut) throw new RasterizeTimeoutError(`${args[0]} exceeded ${timeoutMs} ms`);
-    return { exitCode, stderr };
+    const [exitCode, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    if (timedOut) throw new RasterizeTimeoutError(`${args[0]} exceeded its time budget`);
+    return { exitCode, stdout, stderr };
   } finally {
     clearTimeout(timer);
   }
@@ -101,6 +122,7 @@ export async function rasterize(options: RasterizeOptions): Promise<RasterizeRes
   if (new TextDecoder().decode(pdfBytes.subarray(0, PDF_MAGIC.length)) !== PDF_MAGIC) {
     throw new InvalidPdfError("not a PDF");
   }
+  const deadline = Date.now() + timeoutMs;
   const dir = join(tmpdir(), `kumiko-rasterize-${crypto.randomUUID()}`);
   try {
     const pdfPath = join(dir, "input.pdf");
@@ -120,13 +142,21 @@ export async function rasterize(options: RasterizeOptions): Promise<RasterizeRes
         pdfPath,
         join(dir, "page"),
       ],
-      timeoutMs,
+      deadline,
     );
     if (pagesRun.exitCode !== 0) throw new InvalidPdfError(pagesRun.stderr.trim() || "pdftoppm failed");
-    if (images) {
+    let extractImages = images;
+    if (extractImages) {
+      const listRun = await runPoppler(["pdfimages", "-list", "-l", lastPage, pdfPath], deadline);
+      if (listRun.exitCode !== 0) {
+        throw new InvalidPdfError(listRun.stderr.trim() || "pdfimages failed");
+      }
+      extractImages = !hasOversizedImage(listRun.stdout);
+    }
+    if (extractImages) {
       const imagesRun = await runPoppler(
         ["pdfimages", "-png", "-l", lastPage, pdfPath, join(dir, "image")],
-        timeoutMs,
+        deadline,
       );
       if (imagesRun.exitCode !== 0) {
         throw new InvalidPdfError(imagesRun.stderr.trim() || "pdfimages failed");
@@ -136,7 +166,7 @@ export async function rasterize(options: RasterizeOptions): Promise<RasterizeRes
       count: maxPages,
       fileBytes: MAX_RASTER_RESPONSE_BYTES,
     });
-    const embedded = images
+    const embedded = extractImages
       ? await readPngs(dir, "image", {
           count: MAX_EMBEDDED_IMAGES,
           fileBytes: MAX_EMBEDDED_IMAGE_BYTES,

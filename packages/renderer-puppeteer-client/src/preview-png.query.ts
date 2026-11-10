@@ -15,7 +15,7 @@ export const previewPngQuery = defineQueryHandler({
   access: PREVIEW_ACCESS,
   rateLimit: { per: "user+handler", ...PREVIEW_RATE_LIMIT },
   description:
-    "Prints a document template draft like preview-pdf and returns the first pages (at most 5) as PNG images so you can look at the layout: pages carries each page as base64 with its pixel size, pageCount the number of pages of the whole PDF, and agentImages the same images for direct viewing. Nothing is saved. Use it after patch-draft to check the result by eye. While the PDF service does not answer it fails with puppeteer_unavailable (HTTP 503).",
+    "Prints a document template draft like preview-pdf and returns the first pages (at most 5) as PNG images so you can look at the layout: pageCount is the number of pages of the whole PDF, pages the pixel size of each returned page, and agentImages the page images themselves for direct viewing (they are not repeated anywhere else). Nothing is saved. Use it after patch-draft to check the result by eye. While the PDF service does not answer it fails with puppeteer_unavailable (HTTP 503).",
   handler: async (query, ctx) => {
     const printed = await printPreviewDraft(query.payload, query.user, ctx);
     try {
@@ -23,7 +23,7 @@ export const previewPngQuery = defineQueryHandler({
       return {
         fileName: printed.fileName,
         pageCount: countPdfPages(printed.pdfBytes),
-        pages: rasterized.pages,
+        pages: rasterized.pages.map(({ widthPx, heightPx }) => ({ widthPx, heightPx })),
         [AGENT_IMAGES_RESULT_KEY]: rasterized.pages.map(({ mimeType, data }) => ({
           mimeType,
           data,

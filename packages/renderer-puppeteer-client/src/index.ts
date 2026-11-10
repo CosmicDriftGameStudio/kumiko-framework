@@ -10,6 +10,7 @@ export {
   type RasterizedPdf,
   type RasterizeOptions,
   rasterizePdf,
+  rasterizeResponseSchema,
 } from "./rasterize.ts";
 export { puppeteerRender } from "./render.ts";
 export {

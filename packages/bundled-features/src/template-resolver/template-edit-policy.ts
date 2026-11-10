@@ -93,11 +93,11 @@ export async function refuseTemplateEditById(
     : refuseTemplateEdit(policy, user, row);
 }
 
-// A tenant may build its own layouts as soon as it may edit any PDF template; layouts have no entry of their own.
-function mayEditTenantLayouts(policy: TemplateEditPolicy, user: EditUser): boolean {
-  return policy.tenantEditable.some(
-    (entry) => entry.kind === "document-pdf" && hasAccess(user, entry.access),
-  );
+// A tenant layout reaches every template that names it, so building one needs the right on all PDF
+// templates (and at least one must exist: every() on an empty list is true).
+export function mayEditTenantLayouts(policy: TemplateEditPolicy, user: EditUser): boolean {
+  const pdfEntries = policy.tenantEditable.filter((entry) => entry.kind === "document-pdf");
+  return pdfEntries.length > 0 && pdfEntries.every((entry) => hasAccess(user, entry.access));
 }
 
 // System layouts must not take a slug from the tenant namespace.

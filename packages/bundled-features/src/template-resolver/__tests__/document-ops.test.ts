@@ -387,6 +387,25 @@ describe("template-resolver :: structured blocks", () => {
     expect(out).toBe("<p>Neu</p>");
   });
 
+  test("a block inserted at the start after replaceBody lands before the new body", () => {
+    const ops = documentOpsSchema.parse([
+      { op: "replaceBody", blocks: [{ type: "paragraph", text: "Neu" }] },
+      { op: "insertBlock", after: null, block: { type: "paragraph", text: "Vorn" } },
+    ]);
+    const result = applyDocumentOps({ doc: doc(), meta: {}, variableSchema: {}, kind: PDF, ops });
+    expect(html(result)).toBe("<p>Vorn</p><p>Neu</p>");
+  });
+
+  test("formatBlock on a block of the replaced body is refused as block_removed", () => {
+    const ops = documentOpsSchema.parse([
+      { op: "replaceBody", blocks: [{ type: "paragraph", text: "Neu" }] },
+      { op: "formatBlock", blockId: "b1", align: "center" },
+    ]);
+    expect(
+      codes(applyDocumentOps({ doc: doc(), meta: {}, variableSchema: {}, kind: PDF, ops })),
+    ).toEqual(["ops.1.blockId:block_removed"]);
+  });
+
   test("replaceBody counts blocks inside frames against the limit of 300", () => {
     const inner = { type: "paragraph", text: "x" };
     const frames = Array.from({ length: 100 }, () => ({

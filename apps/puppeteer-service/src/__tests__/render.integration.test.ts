@@ -3,7 +3,10 @@
 // The README smoke test is manual and prone to drift.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { countPdfPages } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+import {
+  countPdfPages,
+  rasterizeResponseSchema,
+} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import type { ServiceConfig } from "../config";
 import { closeIdleBrowser, isBrowserRunning, shutdownBrowser } from "../render";
 import { createApp } from "../server";
@@ -285,6 +288,15 @@ describe("POST /rasterize — echtes poppler", () => {
       expect(page.heightPx).toBeLessThan(1220);
     }
     expect(body.images).toEqual([]);
+  });
+
+  test("the real response satisfies the client's response schema", async () => {
+    const { app } = createApp(CONFIG);
+    const pdfBase64 = await renderTwoPagePdf(app);
+    const res = await rasterize(app, { pdfBase64, images: true });
+    expect(res.status).toBe(200);
+    const parsed = rasterizeResponseSchema.parse(await res.json());
+    expect(parsed.pages).toHaveLength(2);
   });
 
   test("maxPages 1 returns one page", async () => {

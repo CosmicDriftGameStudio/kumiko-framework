@@ -29,13 +29,25 @@ const NEW_LAYOUT = `${TENANT_LAYOUT_SLUG_PREFIX}${NEW_NAME}`;
 const SYSTEM_LAYOUT = "sys-layout";
 const LETTER = "musterbrief-text";
 const WELCOME_MAIL = "welcome";
+const SECOND_LETTER = "zweiter-brief";
 
 const TENANT_EDITABLE = [
   ...tenantEditableTemplates(["document-pdf"], [LETTER]),
+  { kind: "document-pdf" as const, slug: SECOND_LETTER, access: { roles: ["SecondLetterEditor"] } },
   { kind: "mail" as const, slug: WELCOME_MAIL, access: { roles: ["MailAdmin"] } },
 ];
 
-const admin = createTestUser({ id: 1, roles: ["TenantAdmin"], tenantId: testTenantId(1) });
+// Edits every PDF template, so it may build tenant layouts.
+const admin = createTestUser({
+  id: 1,
+  roles: ["TenantAdmin", "SecondLetterEditor"],
+  tenantId: testTenantId(1),
+});
+const firstLetterOnly = createTestUser({
+  id: 4,
+  roles: ["TenantAdmin"],
+  tenantId: testTenantId(1),
+});
 const mailAdmin = createTestUser({ id: 2, roles: ["MailAdmin"], tenantId: testTenantId(1) });
 
 let stack: TestStack;
@@ -227,6 +239,16 @@ describe("template-resolver :: create-layout", () => {
       admin,
     );
     expect(res.status).toBe(403);
+  });
+
+  test("the right on one PDF template is not enough: create-layout and apply-layout all are refused", async () => {
+    expect((await create("only-first", firstLetterOnly)).status).toBe(403);
+    const applied = await stack.http.write(
+      TemplateResolverHandlers.applyLayout,
+      { layoutSlug: NEW_LAYOUT, target: { mode: "all" } },
+      firstLetterOnly,
+    );
+    expect(applied.status).toBe(403);
   });
 
   test("a TenantAdmin without the right to edit a PDF template cannot create layouts", async () => {
