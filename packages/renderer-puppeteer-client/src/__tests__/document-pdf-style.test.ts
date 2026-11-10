@@ -1,12 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { FRAME_FLOW_GAP_MM } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
-import { PRINT_CSS } from "../document-pdf.ts";
 import {
-  chromiumRegionHtml,
+  FRAME_FLOW_GAP_MM,
   flattenAddressSenderLine,
-  layoutAppearanceCss,
-  planFirstPage,
-} from "../document-pdf-style.ts";
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import { PRINT_CSS } from "../document-pdf.ts";
+import { chromiumRegionHtml, layoutAppearanceCss, planFirstPage } from "../document-pdf-style.ts";
 
 const regionOf = (layoutMeta: Parameters<typeof chromiumRegionHtml>[0]["layoutMeta"]) =>
   chromiumRegionHtml({
@@ -101,6 +99,17 @@ describe("flattenAddressSenderLine", () => {
     expect(flat).toContain(small("Muster GmbH · Weg 1 · 12345 Berlin"));
     expect(flat).toContain("border-bottom:1px solid");
     expect(flat).toContain("<p>Empfaenger\nStrasse 2</p>");
+  });
+
+  test("keeps tags and attributes intact when a line break sits next to them", () => {
+    const html = frame(
+      `<p>${small("Muster GmbH\n")}<span\ndata-size-pt="7" title="a\nb">Weg 1</span></p>`,
+    );
+    const flat = flattenAddressSenderLine(html);
+    expect(flat).toContain(`title="a\nb"`);
+    expect(flat).toContain("Muster GmbH · ");
+    expect(flat).not.toContain("<span ·");
+    expect(flat).toContain("border-bottom:1px solid");
   });
 
   test("a recipient as first paragraph gets no line and keeps its line breaks", () => {

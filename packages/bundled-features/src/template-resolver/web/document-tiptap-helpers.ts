@@ -1,6 +1,7 @@
 import type { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Editor, JSONContent } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import {
   addressFrameContent,
   columnsTableContent,
@@ -178,6 +179,31 @@ export type RepeatTableState = {
   readonly firstRowPos: number;
 };
 
+export function repeatListsOf(table: ProseMirrorNode): string[] {
+  const lists: string[] = [];
+  table.forEach((row) => {
+    const each: unknown = row.attrs["each"];
+    if (typeof each === "string" && each !== "" && !lists.includes(each)) lists.push(each);
+  });
+  return lists;
+}
+
+export function toggleRepeatHeaderAt(editor: Editor, firstRowPos: number): void {
+  editor
+    .chain()
+    .focus()
+    .command(({ tr }) => {
+      const row = tr.doc.nodeAt(firstRowPos);
+      if (row === null) return false;
+      tr.setNodeMarkup(firstRowPos, undefined, {
+        ...row.attrs,
+        repeatHeader: row.attrs["repeatHeader"] !== true,
+      });
+      return true;
+    })
+    .run();
+}
+
 // print-document moves the leading rows flagged repeatHeader into thead, so the
 // toggle reads and writes the table's first row.
 export function findRepeatTable(editor: Editor): RepeatTableState | null {
@@ -185,11 +211,7 @@ export function findRepeatTable(editor: Editor): RepeatTableState | null {
   for (let depth = $from.depth; depth > 0; depth--) {
     const node = $from.node(depth);
     if (node.type.name !== "table") continue;
-    const lists: string[] = [];
-    node.forEach((row) => {
-      const each: unknown = row.attrs["each"];
-      if (typeof each === "string" && each !== "" && !lists.includes(each)) lists.push(each);
-    });
+    const lists = repeatListsOf(node);
     if (lists.length === 0) return null;
     return {
       lists,
@@ -204,19 +226,7 @@ export function toggleRepeatHeader(editor: Editor): void {
   const found = findRepeatTable(editor);
   // skip: the cursor is not inside a repeat table
   if (found === null) return;
-  editor
-    .chain()
-    .focus()
-    .command(({ tr }) => {
-      const row = tr.doc.nodeAt(found.firstRowPos);
-      if (row === null) return false;
-      tr.setNodeMarkup(found.firstRowPos, undefined, {
-        ...row.attrs,
-        repeatHeader: !found.headerRepeats,
-      });
-      return true;
-    })
-    .run();
+  toggleRepeatHeaderAt(editor, found.firstRowPos);
 }
 
 const PARAGRAPH_STYLES = ["paragraph", "1", "2", "3"] as const;

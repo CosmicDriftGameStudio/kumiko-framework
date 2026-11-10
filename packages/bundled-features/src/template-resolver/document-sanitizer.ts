@@ -5,7 +5,7 @@ import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { JSONContent } from "@tiptap/core";
 import { generateHTML, generateJSON } from "@tiptap/html/server";
 import { type Element as ScanElement, Window } from "happy-dom";
-import { hasNestedFrame, scanPrintOnlyFeatures } from "./document-print-only.ts";
+import { framesOutsidePage, hasNestedFrame, scanPrintOnlyFeatures } from "./document-print-only.ts";
 import type { ContentFormat } from "./web/constants.ts";
 import { DOCUMENT_HTML_KINDS } from "./web/constants.ts";
 import {
@@ -18,6 +18,7 @@ import {
   isDocumentResourceKey,
 } from "./web/document-schema.ts";
 import { isDocumentStepKey } from "./web/document-steps.ts";
+import { PDF_MAX_PAGE_EDGE_MM } from "./web/pdf-constants.ts";
 
 export type DocumentViolationCode =
   | "script_element"
@@ -32,6 +33,7 @@ export type DocumentViolationCode =
   | "images_block_pdf_only"
   | "print_style_pdf_only"
   | "frame_not_top_level"
+  | "frame_outside_page"
   | "button_href_not_placeholder"
   | "document_requires_html_format"
   | "layout_requires_mjml_format"
@@ -274,6 +276,15 @@ function scanDocumentHtml(html: string): DocumentViolation[] {
         ),
       );
     }
+    for (const box of framesOutsidePage(body)) {
+      violations.push(
+        violation(
+          "frame_outside_page",
+          box,
+          `A frame (${box}) must lie within the largest supported paper size (${PDF_MAX_PAGE_EDGE_MM} mm)`,
+        ),
+      );
+    }
   });
   return violations;
 }
@@ -424,6 +435,7 @@ const VIOLATION_I18N_KEYS: Readonly<Record<DocumentViolationCode, string>> = {
   images_block_pdf_only: "templateResolver.errors.document.imagesBlockPdfOnly",
   print_style_pdf_only: "templateResolver.errors.document.printStylePdfOnly",
   frame_not_top_level: "templateResolver.errors.document.frameNotTopLevel",
+  frame_outside_page: "templateResolver.errors.document.frameOutsidePage",
   button_href_not_placeholder: "templateResolver.errors.document.buttonHrefNotPlaceholder",
   document_requires_html_format: "templateResolver.errors.document.documentRequiresHtmlFormat",
   layout_requires_mjml_format: "templateResolver.errors.document.layoutRequiresMjmlFormat",

@@ -72,6 +72,8 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.missing_required_placeholder": "A required placeholder is missing.",
     "templateResolver.errors.document.frameNotTopLevel":
       "A frame must sit directly in the document body, not inside another block or a layout region.",
+    "templateResolver.errors.document.frameOutsidePage":
+      'The frame "{detail}" extends past the largest supported paper size.',
     "templateResolver.errors.document.buttonHrefNotPlaceholder":
       "The button target “{detail}” must be a placeholder.",
     "templateResolver.errors.document.disallowedLinkHref":

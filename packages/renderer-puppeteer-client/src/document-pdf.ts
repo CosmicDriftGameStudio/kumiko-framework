@@ -23,9 +23,10 @@ import {
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
+  DEFAULT_PDF_LAYOUT_SLUG,
   DOCUMENT_LINE_VARIABLE,
-  defaultPdfLayoutSlug,
   documentLinePt,
+  flattenAddressSenderLine,
   flattenFramesForPreview,
   isResourceImageContentType,
   type LayoutRegions,
@@ -39,6 +40,7 @@ import {
   readPdfTemplateMeta,
   readTemplateResourceMaxBytes,
   readTopLevelFrames,
+  resolveDefaultPdfLayout,
   resolveTemplateVariables,
   sanitizeDocumentHtml,
   sanitizeLayoutHtml,
@@ -60,7 +62,6 @@ import {
 } from "@cosmicdrift/kumiko-renderer-mail-html";
 import {
   chromiumRegionHtml,
-  flattenAddressSenderLine,
   flowSpacerHtml,
   layoutAppearanceCss,
   type PageMarginsMm,
@@ -172,14 +173,17 @@ async function resolvePdfLayout(
   ctx: RendererContext,
   slug: string,
   locale: string,
+  alreadyResolved: TemplateResource | null = null,
 ): Promise<PdfLayout & { readonly ref: RenderedTemplateRef | null }> {
   try {
-    let layout = await tplApi.resolveLayout({
-      tenantId: ctx.tenantId,
-      slug,
-      kind: "pdf-layout",
-      locale,
-    });
+    let layout =
+      alreadyResolved ??
+      (await tplApi.resolveLayout({
+        tenantId: ctx.tenantId,
+        slug,
+        kind: "pdf-layout",
+        locale,
+      }));
     let html = layout.content;
     if (layout.scope !== "system") {
       const sanitized = sanitizeLayoutHtml(html);
@@ -517,8 +521,18 @@ async function assembleDocument(
           locale,
         );
   const meta = readPdfTemplateMeta(template.meta);
-  const layoutSlug = meta?.layoutSlug ?? (await defaultPdfLayoutSlug(ctx, ctx.tenantId, locale));
-  const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale);
+  const defaultLayout =
+    meta?.layoutSlug === undefined
+      ? await resolveDefaultPdfLayout(ctx, ctx.tenantId, locale)
+      : null;
+  const layoutSlug = meta?.layoutSlug ?? defaultLayout?.slug ?? DEFAULT_PDF_LAYOUT_SLUG;
+  const layout = await resolvePdfLayout(
+    tplApi,
+    ctx,
+    layoutSlug,
+    locale,
+    defaultLayout?.resolved ?? null,
+  );
   const layoutMeta = readPdfLayoutMeta(layout.template?.meta ?? null);
 
   try {

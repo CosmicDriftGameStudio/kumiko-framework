@@ -1490,6 +1490,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "El formato de impresión (fuentes, colores, espaciado, marcos) solo se permite en documentos PDF.",
   "templateResolver.errors.document.frameNotTopLevel":
     "Un marco debe estar directamente en el cuerpo del documento, no dentro de otro bloque ni de una zona del diseño.",
+  "templateResolver.errors.document.frameOutsidePage":
+    "El marco «{detail}» sobrepasa el mayor formato de papel admitido.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "El destino del botón «{detail}» debe ser un marcador.",
   "templateResolver.errors.document.disallowedLinkHref":
