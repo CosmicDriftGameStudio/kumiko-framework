@@ -1496,6 +1496,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Druckformatierung (Schriften, Farben, Abstände, Rahmen) ist nur in PDF-Dokumenten erlaubt.",
   "templateResolver.errors.document.frameNotTopLevel":
     "Ein Rahmen muss direkt im Dokumentkörper stehen, nicht in einem anderen Block oder Layoutbereich.",
+  "templateResolver.errors.document.frameOutsidePage":
+    "Der Rahmen „{detail}“ ragt über das größte unterstützte Papierformat hinaus.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "Das Ziel der Schaltfläche „{detail}“ muss ein Platzhalter sein.",
   "templateResolver.errors.document.disallowedLinkHref":

@@ -2,6 +2,9 @@
 export const PDF_PAGE_FORMATS = ["A4", "Letter"] as const;
 export type PdfPageFormat = (typeof PDF_PAGE_FORMATS)[number];
 
+// Long edge of the largest supported paper; the sanitizer has no template meta, so a frame is held to this on both axes.
+export const PDF_MAX_PAGE_EDGE_MM = 297;
+
 export const PDF_ORIENTATIONS = ["portrait", "landscape"] as const;
 export type PdfOrientation = (typeof PDF_ORIENTATIONS)[number];
 

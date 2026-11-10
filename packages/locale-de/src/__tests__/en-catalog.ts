@@ -1455,6 +1455,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Print styling (fonts, colors, spacing, frames) is only allowed in PDF documents.",
   "templateResolver.errors.document.frameNotTopLevel":
     "A frame must sit directly in the document body, not inside another block or a layout region.",
+  "templateResolver.errors.document.frameOutsidePage":
+    "The frame “{detail}” extends past the largest supported paper size.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "The button target “{detail}” must be a placeholder.",
   "templateResolver.errors.document.disallowedLinkHref":

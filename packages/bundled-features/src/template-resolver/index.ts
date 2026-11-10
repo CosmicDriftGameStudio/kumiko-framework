@@ -14,7 +14,11 @@ export {
   compileDocumentBodyToHandlebars,
   toResourceDataUri,
 } from "./compile-document-body.ts";
-export { flattenFramesForPreview, readTopLevelFrames } from "./document-frames.ts";
+export {
+  flattenAddressSenderLine,
+  flattenFramesForPreview,
+  readTopLevelFrames,
+} from "./document-frames.ts";
 export {
   type DocumentViolation,
   type DocumentViolationCode,
@@ -39,6 +43,7 @@ export {
   companyConfigKey,
   defaultPdfLayoutSlug,
   readTenantConfigText,
+  resolveDefaultPdfLayout,
 } from "./handlers/tenant-settings.ts";
 export {
   isHexColor,

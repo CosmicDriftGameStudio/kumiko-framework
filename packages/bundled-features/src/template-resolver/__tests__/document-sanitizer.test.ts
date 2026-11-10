@@ -505,6 +505,18 @@ describe("print styling attributes", () => {
     expect(violationCodes(html)).toContain("frame_not_top_level");
   });
 
+  const frameAt = (y: number, height: number) =>
+    `<div data-frame="" data-x="20" data-y="${y}" data-width="80" data-height="${height}"><p>x</p></div>`;
+
+  test("rejects a frame that reaches past the largest paper", () => {
+    expect(violationCodes(frameAt(900, 20))).toContain("frame_outside_page");
+    expect(violationCodes(frameAt(290, 20))).toContain("frame_outside_page");
+  });
+
+  test("accepts a frame inside the paper", () => {
+    expect(violationCodes(frameAt(250, 40))).not.toContain("frame_outside_page");
+  });
+
   test.each(roundTrips)("a mail rejects the PDF-only feature %s", (content) => {
     const result = sanitizeTemplateBody({ kind: "mail", contentFormat: "html", content });
     expect(result.ok).toBe(false);

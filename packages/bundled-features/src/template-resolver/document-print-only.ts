@@ -1,6 +1,8 @@
 // Server-only (happy-dom). Features of the shared document model that only a PDF can render:
 // a mail body would keep them through the rebuild, so every other kind refuses them on write.
 import type { Element as ScanElement } from "happy-dom";
+import { readFrameAttributes } from "./web/document-print-style.ts";
+import { PDF_MAX_PAGE_EDGE_MM } from "./web/pdf-constants.ts";
 
 export const IMAGES_BLOCK_SELECTOR = "div[data-images]";
 
@@ -34,6 +36,19 @@ export function hasNestedFrame(body: ScanElement): boolean {
   return Array.from(body.querySelectorAll("div[data-frame]")).some(
     (frame) => frame.parentElement !== body,
   );
+}
+
+export function framesOutsidePage(body: ScanElement): string[] {
+  return Array.from(body.querySelectorAll("div[data-frame]")).flatMap((element) => {
+    const frame = readFrameAttributes(element);
+    if (frame === null) return [];
+    const overshootsPage =
+      frame.xMm + frame.widthMm > PDF_MAX_PAGE_EDGE_MM ||
+      frame.yMm + frame.heightMm > PDF_MAX_PAGE_EDGE_MM;
+    return overshootsPage
+      ? [`${frame.xMm}/${frame.yMm} ${frame.widthMm}x${frame.heightMm} mm`]
+      : [];
+  });
 }
 
 export function hasFrame(body: ScanElement): boolean {

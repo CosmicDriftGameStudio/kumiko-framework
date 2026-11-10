@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Decoration } from "@tiptap/pm/view";
+import { repeatListsOf, toggleRepeatHeaderAt } from "./document-tiptap-helpers.ts";
 
 export type RepeatStripOptions = {
   readonly label: (listNames: readonly string[]) => string;
@@ -18,31 +19,6 @@ const BUTTON_CLASS =
   "cursor-pointer rounded-full border px-1.5 py-px text-[1em] font-medium leading-none normal-case tracking-normal";
 const BUTTON_OFF_CLASS = `${BUTTON_CLASS} border-input bg-card text-foreground`;
 const BUTTON_ON_CLASS = `${BUTTON_CLASS} border-foreground bg-card text-foreground`;
-
-function repeatListsOf(table: ProseMirrorNode): string[] {
-  const lists: string[] = [];
-  table.forEach((row) => {
-    const each: unknown = row.attrs["each"];
-    if (typeof each === "string" && each !== "" && !lists.includes(each)) lists.push(each);
-  });
-  return lists;
-}
-
-function toggleHeaderAt(editor: Editor, rowPos: number): void {
-  editor
-    .chain()
-    .focus()
-    .command(({ tr }) => {
-      const row = tr.doc.nodeAt(rowPos);
-      if (row === null) return false;
-      tr.setNodeMarkup(rowPos, undefined, {
-        ...row.attrs,
-        repeatHeader: row.attrs["repeatHeader"] !== true,
-      });
-      return true;
-    })
-    .run();
-}
 
 function createStrip(
   editor: Editor,
@@ -66,7 +42,7 @@ function createStrip(
   button.addEventListener("mousedown", (event) => event.preventDefault());
   button.addEventListener("click", () => {
     const pos = getPos();
-    if (pos !== undefined) toggleHeaderAt(editor, pos - FIRST_ROW_OFFSET_FROM_WIDGET);
+    if (pos !== undefined) toggleRepeatHeaderAt(editor, pos - FIRST_ROW_OFFSET_FROM_WIDGET);
   });
   strip.append(name, button);
   return strip;

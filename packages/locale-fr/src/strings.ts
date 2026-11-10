@@ -1507,6 +1507,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "La mise en forme d'impression (polices, couleurs, espacements, cadres) n'est autorisée que dans les documents PDF.",
   "templateResolver.errors.document.frameNotTopLevel":
     "Un cadre doit se trouver directement dans le corps du document, pas dans un autre bloc ni dans une zone de la mise en page.",
+  "templateResolver.errors.document.frameOutsidePage":
+    "Le cadre « {detail} » dépasse le plus grand format de papier pris en charge.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La cible du bouton « {detail} » doit être un espace réservé.",
   "templateResolver.errors.document.disallowedLinkHref":

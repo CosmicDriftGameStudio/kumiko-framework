@@ -1,7 +1,6 @@
 // CSS and page geometry of a printed document: margins, layout appearance, frame planning and the
 // header/footer templates Chromium prints on every page.
 import {
-  addressParagraphCss,
   DOCUMENT_FONT_PRINT_STACKS,
   DOCUMENT_LINE_VARIABLE,
   type DocumentFrameAttributes,
@@ -13,7 +12,6 @@ import {
   PDF_HEADER_MARGIN_MM,
   type PdfLayoutMeta,
   type PdfTemplateMeta,
-  SENDER_LINE_SIZE_PT,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
 // Chromium pads header and footer templates by about this much. The padding is reset so a
@@ -146,55 +144,6 @@ export function planFirstPage(
     css,
     flowHeightMm: textStartMm > firstTopMm ? textStartMm - firstTopMm : null,
   };
-}
-
-const ADDRESS_FRAME_PARAGRAPHS =
-  /(data-frame-preset="address"[^>]*>\s*)(<p(?:\s[^>]*)?>)([\s\S]*?)(<\/p>)/g;
-const HTML_TOKEN = /<(\/?)([a-zA-Z][\w-]*)[^>]*?(\/?)>|([^<]+)/g;
-const SENDER_SIZE_ATTRIBUTE = `data-size-pt="${SENDER_LINE_SIZE_PT}"`;
-const VOID_TAGS: ReadonlySet<string> = new Set(["br", "img", "hr"]);
-
-// The sender line is the first paragraph made only of sender-size text; without the sender checkbox the
-// first paragraph is the recipient and must stay as written.
-function isSenderLineHtml(inner: string): boolean {
-  const insideSender: boolean[] = [];
-  let hasText = false;
-  for (const token of inner.matchAll(HTML_TOKEN)) {
-    const [whole, closing, tag, selfClosing, text] = token;
-    if (text !== undefined) {
-      if (text.trim() === "") continue;
-      hasText = true;
-      if (!insideSender.includes(true)) return false;
-    } else if (closing === "/") {
-      insideSender.pop();
-    } else if (tag !== undefined && selfClosing !== "/" && !VOID_TAGS.has(tag.toLowerCase())) {
-      insideSender.push(whole.includes(SENDER_SIZE_ATTRIBUTE));
-    }
-  }
-  return hasText;
-}
-
-function withStyle(open: string, style: string): string {
-  return /\sstyle="/.test(open)
-    ? open.replace(/\sstyle="/, ` style="${style};`)
-    : // html-ok: style is addressParagraphCss output, built only from numeric constants
-      open.replace(/^<p/, `<p style="${style}"`);
-}
-
-// The sender line is a single line, so a multi-line company address has to read with the same
-// separator the editor uses between name and address. Its rule and spacing come from the same
-// CSS builder as the editor decoration.
-export function flattenAddressSenderLine(html: string): string {
-  return html.replace(
-    ADDRESS_FRAME_PARAGRAPHS,
-    (match, lead: string, open: string, inner: string, close: string) =>
-      isSenderLineHtml(inner)
-        ? lead +
-          withStyle(open, addressParagraphCss(true)) +
-          inner.replace(/\s*\r?\n\s*/g, " · ") +
-          close
-        : match,
-  );
 }
 
 export function flowSpacerHtml(plan: FirstPagePlan): string {

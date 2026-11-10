@@ -1493,6 +1493,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "La formattazione di stampa (caratteri, colori, spaziatura, riquadri) è consentita solo nei documenti PDF.",
   "templateResolver.errors.document.frameNotTopLevel":
     "Un riquadro deve trovarsi direttamente nel corpo del documento, non in un altro blocco né in un'area del layout.",
+  "templateResolver.errors.document.frameOutsidePage":
+    "Il riquadro «{detail}» supera il formato di carta più grande supportato.",
   "templateResolver.errors.document.buttonHrefNotPlaceholder":
     "La destinazione del pulsante «{detail}» deve essere un segnaposto.",
   "templateResolver.errors.document.disallowedLinkHref":

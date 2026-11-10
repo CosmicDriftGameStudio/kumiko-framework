@@ -1,6 +1,6 @@
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { toKebab } from "@cosmicdrift/kumiko-types/kebab-case";
-import { createTemplateResolverApi, TemplateNotFoundError } from "../api.ts";
+import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResource } from "../api.ts";
 import { withParsedDocument } from "../document-sanitizer.ts";
 import { parseTemplateMeta, readPdfTemplateMeta } from "../template-meta.ts";
 import {
@@ -33,25 +33,41 @@ type DefaultLayoutContext = Pick<HandlerContext, "config" | "registry"> & {
 
 // A configured default that no longer resolves (archived or deleted) must not leave documents
 // without letterhead, so it falls back to the built-in layout.
-export async function defaultPdfLayoutSlug(
+export type DefaultPdfLayout = {
+  readonly slug: string;
+  // Set only when the configured default was resolved to check it; the built-in fallback is not looked up here.
+  readonly resolved: TemplateResource | null;
+};
+
+export async function resolveDefaultPdfLayout(
   ctx: DefaultLayoutContext,
   tenantId: string,
   locale: string = FALLBACK_LOCALE,
-): Promise<string> {
+): Promise<DefaultPdfLayout> {
   const slug = await readTenantConfigText(ctx, DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY);
-  if (slug === "") return DEFAULT_PDF_LAYOUT_SLUG;
+  if (slug === "") return { slug: DEFAULT_PDF_LAYOUT_SLUG, resolved: null };
   try {
-    await createTemplateResolverApi(ctx.db, ctx.registry).resolveLayout({
+    const resolved = await createTemplateResolverApi(ctx.db, ctx.registry).resolveLayout({
       tenantId,
       slug,
       kind: "pdf-layout",
       locale,
     });
-    return slug;
+    return { slug, resolved };
   } catch (e) {
-    if (e instanceof TemplateNotFoundError) return DEFAULT_PDF_LAYOUT_SLUG;
+    if (e instanceof TemplateNotFoundError) {
+      return { slug: DEFAULT_PDF_LAYOUT_SLUG, resolved: null };
+    }
     throw e;
   }
+}
+
+export async function defaultPdfLayoutSlug(
+  ctx: DefaultLayoutContext,
+  tenantId: string,
+  locale: string = FALLBACK_LOCALE,
+): Promise<string> {
+  return (await resolveDefaultPdfLayout(ctx, tenantId, locale)).slug;
 }
 
 export function isCompanyPlaceholder(name: string): boolean {
@@ -77,14 +93,19 @@ async function layoutHtmlOf(
   const parsedMeta = parseTemplateMeta("document-pdf", meta);
   const pdfMeta = parsedMeta.ok ? readPdfTemplateMeta(parsedMeta.meta) : null;
   const effectiveLocale = locale ?? FALLBACK_LOCALE;
-  const slug = pdfMeta?.layoutSlug ?? (await defaultPdfLayoutSlug(ctx, tenantId, effectiveLocale));
+  const ownSlug = pdfMeta?.layoutSlug;
+  const defaultLayout =
+    ownSlug === undefined ? await resolveDefaultPdfLayout(ctx, tenantId, effectiveLocale) : null;
+  const slug = ownSlug ?? defaultLayout?.slug ?? DEFAULT_PDF_LAYOUT_SLUG;
   try {
-    const layout = await createTemplateResolverApi(ctx.db, ctx.registry).resolveLayout({
-      tenantId,
-      slug,
-      kind: "pdf-layout",
-      locale: effectiveLocale,
-    });
+    const layout =
+      defaultLayout?.resolved ??
+      (await createTemplateResolverApi(ctx.db, ctx.registry).resolveLayout({
+        tenantId,
+        slug,
+        kind: "pdf-layout",
+        locale: effectiveLocale,
+      }));
     return layout.content ?? "";
   } catch (e) {
     if (e instanceof TemplateNotFoundError) return "";

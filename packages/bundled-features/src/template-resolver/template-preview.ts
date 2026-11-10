@@ -37,7 +37,7 @@ import {
 } from "./api.ts";
 import { collectDocumentResourceKeys } from "./compile-document-body.ts";
 import { parseStoredJson } from "./handlers/template-gates.ts";
-import { defaultPdfLayoutSlug } from "./handlers/tenant-settings.ts";
+import { resolveDefaultPdfLayout } from "./handlers/tenant-settings.ts";
 import { validateTemplateDraft } from "./handlers/validate.query.ts";
 import {
   type LayoutRegions,
@@ -356,9 +356,11 @@ async function resolvePdfLayout(
   user: SessionUser,
   slug: string,
   locale: string,
+  resolvedForCaller: TemplateResource | null = null,
 ): Promise<PreviewLayout | null> {
   const api = createTemplateResolverApi(ctx.db, ctx.registry);
   const find = async (tenantId: string): Promise<TemplateResource | null> => {
+    if (resolvedForCaller !== null && tenantId === user.tenantId) return resolvedForCaller;
     try {
       return await api.resolveLayout({ tenantId, slug, kind: "pdf-layout", locale });
     } catch (e) {
@@ -379,6 +381,17 @@ async function resolvePdfLayout(
   }
   if (layout === null) return null;
   return { slug, scope: layout.scope, html, regions: readLayoutRegions(html) };
+}
+
+async function resolvePreviewPdfLayout(
+  ctx: HandlerContext,
+  user: SessionUser,
+  ownSlug: string | undefined,
+  locale: string,
+): Promise<PreviewLayout | null> {
+  if (ownSlug !== undefined) return resolvePdfLayout(ctx, user, ownSlug, locale);
+  const fallback = await resolveDefaultPdfLayout(ctx, user.tenantId, locale);
+  return resolvePdfLayout(ctx, user, fallback.slug, locale, fallback.resolved);
 }
 
 function missingResourceCheck(missing: readonly string[]): PreviewCheck {
@@ -454,12 +467,7 @@ async function renderDocumentPreview(
         html: content,
         text: null,
         attachments: [],
-        layout: await resolvePdfLayout(
-          ctx,
-          user,
-          pdfMeta?.layoutSlug ?? (await defaultPdfLayoutSlug(ctx, user.tenantId, input.locale)),
-          input.locale,
-        ),
+        layout: await resolvePreviewPdfLayout(ctx, user, pdfMeta?.layoutSlug, input.locale),
         sampleValues,
         checks: [missingResourceCheck(validation.warnings.map((w) => w.detail)), requiredCheck],
         validation,
