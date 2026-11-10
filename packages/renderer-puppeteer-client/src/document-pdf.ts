@@ -23,9 +23,9 @@ import {
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
-  DEFAULT_PDF_LAYOUT_SLUG,
   DOCUMENT_LINE_VARIABLE,
   documentLinePt,
+  effectivePdfLayout,
   flattenAddressSenderLine,
   flattenFramesForPreview,
   isResourceImageContentType,
@@ -40,7 +40,6 @@ import {
   readPdfTemplateMeta,
   readTemplateResourceMaxBytes,
   readTopLevelFrames,
-  resolveDefaultPdfLayout,
   resolveTemplateVariables,
   sanitizeDocumentHtml,
   sanitizeLayoutHtml,
@@ -521,18 +520,13 @@ async function assembleDocument(
           locale,
         );
   const meta = readPdfTemplateMeta(template.meta);
-  const defaultLayout =
-    meta?.layoutSlug === undefined
-      ? await resolveDefaultPdfLayout(ctx, ctx.tenantId, locale)
-      : null;
-  const layoutSlug = meta?.layoutSlug ?? defaultLayout?.slug ?? DEFAULT_PDF_LAYOUT_SLUG;
-  const layout = await resolvePdfLayout(
-    tplApi,
+  const { slug: layoutSlug, resolved: resolvedLayout } = await effectivePdfLayout(
     ctx,
-    layoutSlug,
+    ctx.tenantId,
+    meta?.layoutSlug,
     locale,
-    defaultLayout?.resolved ?? null,
   );
+  const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale, resolvedLayout);
   const layoutMeta = readPdfLayoutMeta(layout.template?.meta ?? null);
 
   try {

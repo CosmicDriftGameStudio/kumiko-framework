@@ -42,6 +42,7 @@ export { localeSchema } from "./handlers/shared.ts";
 export {
   companyConfigKey,
   defaultPdfLayoutSlug,
+  effectivePdfLayout,
   readTenantConfigText,
   resolveDefaultPdfLayout,
 } from "./handlers/tenant-settings.ts";

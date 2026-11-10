@@ -52,14 +52,17 @@ function isSenderLine(paragraph: ScanElement): boolean {
 // separator the editor uses between name and address. Its rule and spacing come from the same
 // CSS builder as the editor decoration.
 export function flattenAddressSenderLine(compiledHtml: string): string {
+  if (!compiledHtml.includes("data-frame-preset")) return compiledHtml;
   return withParsedDocument(compiledHtml, (body) => {
+    let changed = false;
     for (const paragraph of Array.from(body.querySelectorAll(ADDRESS_FIRST_PARAGRAPH_SELECTOR))) {
       if (!isSenderLine(paragraph)) continue;
       for (const text of nonBlankTextNodes(paragraph)) {
         text.textContent = (text.textContent ?? "").replace(/\s*\r?\n\s*/g, " · ");
       }
       appendStyle(paragraph, addressParagraphCss(true));
+      changed = true;
     }
-    return body.innerHTML;
+    return changed ? body.innerHTML : compiledHtml;
   });
 }

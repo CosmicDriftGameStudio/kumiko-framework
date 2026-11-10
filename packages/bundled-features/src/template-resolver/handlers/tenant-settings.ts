@@ -62,6 +62,17 @@ export async function resolveDefaultPdfLayout(
   }
 }
 
+// A layout the document names itself wins; only without one is the tenant default resolved (once, so callers reuse it).
+export async function effectivePdfLayout(
+  ctx: DefaultLayoutContext,
+  tenantId: string,
+  ownSlug: string | undefined,
+  locale: string = FALLBACK_LOCALE,
+): Promise<DefaultPdfLayout> {
+  if (ownSlug !== undefined) return { slug: ownSlug, resolved: null };
+  return resolveDefaultPdfLayout(ctx, tenantId, locale);
+}
+
 export async function defaultPdfLayoutSlug(
   ctx: DefaultLayoutContext,
   tenantId: string,
@@ -93,13 +104,15 @@ async function layoutHtmlOf(
   const parsedMeta = parseTemplateMeta("document-pdf", meta);
   const pdfMeta = parsedMeta.ok ? readPdfTemplateMeta(parsedMeta.meta) : null;
   const effectiveLocale = locale ?? FALLBACK_LOCALE;
-  const ownSlug = pdfMeta?.layoutSlug;
-  const defaultLayout =
-    ownSlug === undefined ? await resolveDefaultPdfLayout(ctx, tenantId, effectiveLocale) : null;
-  const slug = ownSlug ?? defaultLayout?.slug ?? DEFAULT_PDF_LAYOUT_SLUG;
+  const { slug, resolved } = await effectivePdfLayout(
+    ctx,
+    tenantId,
+    pdfMeta?.layoutSlug,
+    effectiveLocale,
+  );
   try {
     const layout =
-      defaultLayout?.resolved ??
+      resolved ??
       (await createTemplateResolverApi(ctx.db, ctx.registry).resolveLayout({
         tenantId,
         slug,
