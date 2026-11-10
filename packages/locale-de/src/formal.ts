@@ -310,6 +310,16 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Die Antwort kommt per Mail an die Adresse Ihres Kontos, meist am selben Werktag.",
   "helpdesk:report.section": "Ihre Meldung",
   "helpdesk:report.success": "Danke, Ihre Meldung ist angekommen. Die Antwort kommt per Mail.",
+  "documentDesigner.applyLayout.tooMany":
+    "{count} Einträge gewählt, höchstens {max} pro Durchgang. Wählen Sie weniger Vorlagen aus.",
+  "documentDesigner.applyLayout.note":
+    "Mail-Vorlagen erscheinen hier nicht. Sie brauchen das Bearbeitungsrecht auf jede gewählte Vorlage.",
+  "templateResolver.errors.template_not_tenant_editable":
+    "Diese Vorlage dürfen Sie nicht bearbeiten.",
+  "documentDesigner.applyLayout.systemWarning.one":
+    "1 System-Vorlage wird zur Anpassung Ihres Mandanten. Neue Texte dieser System-Vorlage kommen dann nicht mehr automatisch an.",
+  "documentDesigner.applyLayout.systemWarning.other":
+    "{count} System-Vorlagen werden zu Anpassungen Ihres Mandanten. Neue Texte dieser System-Vorlagen kommen dann nicht mehr automatisch an.",
 };
 
 export function germanBundleFor(address: GermanAddress): Readonly<Record<string, string>> {

@@ -38,6 +38,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     chromium \
     curl \
+    fonts-crosextra-caladea \
+    fonts-crosextra-carlito \
     fonts-liberation \
     tini \
     libasound2 \

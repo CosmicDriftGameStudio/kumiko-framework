@@ -16,6 +16,7 @@ export function DefaultModal({
   title,
   children,
   testId,
+  size = "default",
 }: ModalProps): ReactNode {
   const t = useTranslation();
   return (
@@ -25,7 +26,10 @@ export function DefaultModal({
       testId={testId}
       closeLabel={t("kumiko.dialog.close")}
       noAriaDescription
-      contentClassName={cn("grid w-full max-w-lg gap-4 border bg-card p-6 shadow-lg rounded-lg")}
+      contentClassName={cn(
+        "grid w-full gap-4 border bg-card p-6 shadow-lg rounded-lg",
+        size === "wide" ? "max-w-[min(830px,calc(100vw-2rem))]" : "max-w-lg",
+      )}
     >
       <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight">
         {title}

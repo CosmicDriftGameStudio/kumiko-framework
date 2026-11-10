@@ -1,15 +1,18 @@
 import {
+  type DocumentFrameControl,
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
   PlaceholderLineEditor,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+import { FrameSettingsSection } from "./frame-settings-section.tsx";
 import type { EditorVocabulary } from "./mail-edit-center.tsx";
 import { languageName } from "./mail-origin-bar.tsx";
 import { layoutOptionLabel } from "./mail-right-rail.tsx";
 import { VersionsSection } from "./mail-versions.tsx";
 import type { OverviewRowView } from "./overview-row.ts";
+import { EMPTY_MARGIN_INPUT, type MarginsMm, type PaperSize } from "./paper-geometry.ts";
 import { MARGIN_SIDES, type MarginSide, type PdfMetaDraft } from "./pdf-meta.ts";
 import { RailField, RailHint, RailSection } from "./rail.tsx";
 import { DEFAULT_LAYOUT_SLUG, type TemplateStatus } from "./types.ts";
@@ -29,6 +32,12 @@ export type SettingsPanelProps = {
   readonly version: VersionInfo;
   readonly vocabulary: EditorVocabulary;
   readonly insert: InsertTargets;
+  readonly frameControl: DocumentFrameControl | null;
+  readonly paper: PaperSize;
+  /** Margins as the renderer will apply them: template, then layout, then default. */
+  readonly marginsMm: MarginsMm;
+  /** Margins without the template's own values, i.e. what the layout hands down. */
+  readonly inheritedMarginsMm: MarginsMm;
   /** Changes when the draft is replaced from outside, so the single-line editors re-read it. */
   readonly draftKey: string;
 };
@@ -48,14 +57,33 @@ export function SettingsPanel({
   version,
   vocabulary,
   insert,
+  frameControl,
+  paper,
+  marginsMm,
+  inheritedMarginsMm,
   draftKey,
 }: SettingsPanelProps): ReactNode {
   const t = useTranslation();
-  const { Field, Input, Text } = usePrimitives();
+  const { Button, Field, Input, Text } = usePrimitives();
+  const [overrideOpened, setOverrideOpened] = useState(false);
+  const hasMarginOverride = MARGIN_SIDES.some((side) => meta.margins[side] !== "");
+  const showMarginFields = overrideOpened || hasMarginOverride;
+  const recipientOptions = vocabulary.names.map((name) => ({
+    value: name,
+    label: vocabulary.labels[name] ?? name,
+  }));
   const patch = (changes: Partial<PdfMetaDraft>): void => onMetaChange({ ...meta, ...changes });
 
   return (
     <div data-testid="document-designer-settings">
+      {frameControl !== null && (
+        <FrameSettingsSection
+          control={frameControl}
+          paper={paper}
+          margins={marginsMm}
+          recipientOptions={recipientOptions}
+        />
+      )}
       <RailSection title={t("documentDesigner.settings.page")} testId="pdf-editor-document">
         <RailField>
           <Field id="dd-layout" label={t("documentDesigner.settings.layout")}>
@@ -115,32 +143,69 @@ export function SettingsPanel({
               />
             </Field>
           </div>
-          <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
-            <legend className="p-0 text-sm font-medium">
-              {t("documentDesigner.settings.margins")}
-            </legend>
-            <div className="grid grid-cols-4 gap-1">
-              {MARGIN_SIDES.map((side) => (
-                <Field
-                  key={side}
-                  id={`dd-margin-${side}`}
-                  label={t(SIDE_LABEL_KEYS[side])}
-                  hideLabel
-                >
-                  <Input
-                    kind="number"
+          {showMarginFields ? (
+            <fieldset
+              className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0"
+              data-testid="pdf-override-margins"
+            >
+              <legend className="p-0 text-sm font-medium">
+                {t("documentDesigner.margins.legendShort")}
+              </legend>
+              <div className="grid grid-cols-4 gap-1">
+                {MARGIN_SIDES.map((side) => (
+                  <Field
+                    key={side}
                     id={`dd-margin-${side}`}
-                    name={`margin-${side}`}
-                    value={meta.margins[side]}
-                    onChange={(value) =>
-                      patch({ margins: { ...meta.margins, [side]: value ?? "" } })
-                    }
-                    placeholder="15"
-                  />
-                </Field>
-              ))}
+                    label={t(SIDE_LABEL_KEYS[side])}
+                    hideLabel
+                  >
+                    <Input
+                      kind="number"
+                      id={`dd-margin-${side}`}
+                      name={`margin-${side}`}
+                      value={meta.margins[side]}
+                      onChange={(value) =>
+                        patch({ margins: { ...meta.margins, [side]: value ?? "" } })
+                      }
+                      placeholder={String(inheritedMarginsMm[side])}
+                    />
+                  </Field>
+                ))}
+              </div>
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => {
+                  patch({ margins: EMPTY_MARGIN_INPUT });
+                  setOverrideOpened(false);
+                }}
+                testId="pdf-reset-margins"
+              >
+                {t("documentDesigner.margins.useLayout")}
+              </Button>
+            </fieldset>
+          ) : (
+            <div className="flex flex-col gap-1" data-testid="pdf-inherited-margins">
+              <span className="text-sm font-medium">
+                {t("documentDesigner.margins.legendShort")}
+              </span>
+              <Text>
+                {t("documentDesigner.margins.fromLayout", {
+                  margins: MARGIN_SIDES.map((side) => inheritedMarginsMm[side]).join(" · "),
+                })}
+              </Text>
+              <div className="flex justify-start">
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setOverrideOpened(true)}
+                  testId="pdf-override-margins-open"
+                >
+                  {t("documentDesigner.margins.override")}
+                </Button>
+              </div>
             </div>
-          </fieldset>
+          )}
           <Field
             id="dd-print-background"
             label={t("documentDesigner.settings.printBackground")}
@@ -168,6 +233,7 @@ export function SettingsPanel({
             />
           </Field>
         </RailField>
+        <RailHint>{t("documentDesigner.pdf.lookFromLayout")}</RailHint>
       </RailSection>
 
       <RailSection title={t("documentDesigner.settings.metadata")} testId="pdf-editor-metadata">

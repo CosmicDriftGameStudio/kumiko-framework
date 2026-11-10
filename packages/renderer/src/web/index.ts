@@ -137,6 +137,7 @@ export {
   EditorInfoBar,
   EditorLocaleSwitch,
   EditorModeSwitch,
+  EditorToolbarPill,
   EditorWorkbench,
   formatRelativeWhen,
   RailField,

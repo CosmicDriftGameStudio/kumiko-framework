@@ -14,6 +14,7 @@ import {
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TENANT_BOOT_RULES } from "./boot-rules.ts";
+import { companyDataConfig } from "./company-config.ts";
 import { activeTenantIdsQuery } from "./handlers/active-tenant-ids.query.ts";
 import { addMemberWrite } from "./handlers/add-member.write.ts";
 import { cancelInvitationWrite } from "./handlers/cancel-invitation.write.ts";
@@ -103,6 +104,16 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
       keys: {
         // Core tenant settings — tenant admins can change them; all users can read them.
         companyName: createTenantConfig("text", { default: "" }),
+        companyAddress: companyDataConfig("companyAddress"),
+        companyPhone: companyDataConfig("companyPhone"),
+        companyEmail: companyDataConfig("companyEmail"),
+        companyWebsite: companyDataConfig("companyWebsite"),
+        companyRegister: companyDataConfig("companyRegister"),
+        companyVatId: companyDataConfig("companyVatId"),
+        companyManagement: companyDataConfig("companyManagement"),
+        companyBank: companyDataConfig("companyBank"),
+        companyIban: companyDataConfig("companyIban"),
+        companyBic: companyDataConfig("companyBic"),
         // Curated subset of IANA time zones covering the most relevant practical cases.
         // Extend it when a real need arises.
         timezone: createTenantConfig("select", {

@@ -8,6 +8,7 @@ import type { Element as ScanElement } from "happy-dom";
 import * as z from "zod";
 import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.ts";
 import type { TemplateMeta } from "./template-meta.ts";
+import { COMPANY_PLACEHOLDERS } from "./web/constants.ts";
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   isDocumentPlaceholderHref,
@@ -24,10 +25,16 @@ export const SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set([
 const PAGE_PLACEHOLDERS = ["page", "pages"] as const;
 const PAGED_KINDS: ReadonlySet<string> = new Set(["document-pdf", "pdf-layout"]);
 
+// A PDF has no signature or imprint block, so both stay empty there and are not offered.
+const PDF_EMPTY_PLACEHOLDERS: ReadonlySet<string> = new Set(["signature", "imprint"]);
+
 export function systemPlaceholdersFor(kind: string): ReadonlySet<string> {
-  return PAGED_KINDS.has(kind)
-    ? new Set([...SYSTEM_PLACEHOLDERS, ...PAGE_PLACEHOLDERS])
-    : SYSTEM_PLACEHOLDERS;
+  if (!PAGED_KINDS.has(kind)) return SYSTEM_PLACEHOLDERS;
+  return new Set([
+    ...[...SYSTEM_PLACEHOLDERS].filter((name) => !PDF_EMPTY_PLACEHOLDERS.has(name)),
+    ...PAGE_PLACEHOLDERS,
+    ...COMPANY_PLACEHOLDERS,
+  ]);
 }
 
 const BASE_RESOURCE_KEYS = ["logo"] as const;

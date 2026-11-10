@@ -3046,6 +3046,29 @@
       "extensionsUsed": [],
       "configKeys": [
         {
+          "key": "default-pdf-layout-slug",
+          "qualifiedName": "template-resolver:config:default-pdf-layout-slug",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": {
+            "regex": "^(?:[a-z0-9]{1,40}(?:-[a-z0-9]{1,40}){0,5}(?::[a-z0-9]{1,40}(?:-[a-z0-9]{1,40}){0,5}){0,3})?$"
+          },
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
           "key": "resource-max-bytes",
           "qualifiedName": "template-resolver:config:resource-max-bytes",
           "type": "number",
@@ -3071,6 +3094,7 @@
       ],
       "secrets": [],
       "writeHandlers": [
+        "template-resolver:write:apply-layout",
         "template-resolver:write:archive",
         "template-resolver:write:archive-system",
         "template-resolver:write:copy-locale",
@@ -3081,6 +3105,7 @@
         "template-resolver:write:patch-draft",
         "template-resolver:write:publish",
         "template-resolver:write:publish-system",
+        "template-resolver:write:publish-templates",
         "template-resolver:write:reply-snippets-set",
         "template-resolver:write:reset-to-system",
         "template-resolver:write:resource-link-pdf",
@@ -3136,8 +3161,218 @@
       "extensionsUsed": [],
       "configKeys": [
         {
+          "key": "company-address",
+          "qualifiedName": "tenant:config:company-address",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-bank",
+          "qualifiedName": "tenant:config:company-bank",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-bic",
+          "qualifiedName": "tenant:config:company-bic",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-email",
+          "qualifiedName": "tenant:config:company-email",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-iban",
+          "qualifiedName": "tenant:config:company-iban",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-management",
+          "qualifiedName": "tenant:config:company-management",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
           "key": "company-name",
           "qualifiedName": "tenant:config:company-name",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-phone",
+          "qualifiedName": "tenant:config:company-phone",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-register",
+          "qualifiedName": "tenant:config:company-register",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-vat-id",
+          "qualifiedName": "tenant:config:company-vat-id",
+          "type": "text",
+          "scope": "tenant",
+          "default": "",
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": null,
+          "pattern": null,
+          "writeRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ],
+          "readRoles": [
+            "all"
+          ]
+        },
+        {
+          "key": "company-website",
+          "qualifiedName": "tenant:config:company-website",
           "type": "text",
           "scope": "tenant",
           "default": "",

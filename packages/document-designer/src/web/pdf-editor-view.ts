@@ -1,9 +1,19 @@
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { fileUrl } from "./file-name.ts";
+import {
+  EMPTY_MARGIN_INPUT,
+  layoutRegionFlags,
+  paperSizeMm,
+  resolveMarginsMm,
+} from "./paper-geometry.ts";
 import type { EditorState } from "./pdf-editor-draft.ts";
 import { snapshotOf } from "./pdf-editor-draft.ts";
 import { pdfFooterMessage } from "./pdf-footer.ts";
-import { visibleSystemPlaceholders } from "./pdf-left-rail.tsx";
+import {
+  companyNamesUsedIn,
+  railSystemPlaceholders,
+  withoutCompanyNames,
+} from "./pdf-left-rail.tsx";
 import { draftBesideActiveSentence } from "./status-label.ts";
 import { parseJsonObject } from "./template-rows.ts";
 import { DEFAULT_LAYOUT_SLUG, type TemplateDetail } from "./types.ts";
@@ -62,8 +72,8 @@ function placeholderSourceOf(s: PdfEditorState) {
     ? null
     : {
         ...validation,
-        variables: s.vocabulary.variables,
-        systemPlaceholders: visibleSystemPlaceholders(validation.systemPlaceholders),
+        variables: withoutCompanyNames(s.vocabulary.variables),
+        systemPlaceholders: railSystemPlaceholders(validation.systemPlaceholders),
       };
 }
 
@@ -85,8 +95,30 @@ export function buildPdfView(input: {
   const overviewRow = s.host.overview.rows.find((candidate) => candidate.slug === slug);
   const systemVersion = overviewRow?.systemVersion ?? null;
   const showOverrideLinks = s.server.showOrigin && detail.scope === "system";
+  const { meta } = current.draft;
+  const { hasHeader, hasFooter } = layoutRegionFlags(
+    meta.layoutHeaderFooter,
+    layout?.regions ?? null,
+  );
+  const layoutMargins = s.server.layoutMeta.margins ?? {};
+
+  const marginsMm = resolveMarginsMm({
+    template: meta.margins,
+    layout: layoutMargins,
+    hasHeader,
+    hasFooter,
+  });
+  const inheritedMarginsMm = resolveMarginsMm({
+    template: EMPTY_MARGIN_INPUT,
+    layout: layoutMargins,
+    hasHeader,
+    hasFooter,
+  });
 
   return {
+    paper: paperSizeMm(meta.pageFormat, meta.orientation),
+    marginsMm,
+    inheritedMarginsMm,
     dirty: snapshotOf(current.draft) !== current.snapshot,
     generatedFresh: generated !== null && generated.forSnapshot === snapshotOf(current.draft),
     canPublish: validation?.canPublish === true,
@@ -97,6 +129,7 @@ export function buildPdfView(input: {
     layoutResourceSrc: (key: string): string | undefined =>
       key === "logo" && brandingLogoFile !== "" ? fileUrl(brandingLogoFile) : undefined,
     placeholderSource: placeholderSourceOf(s),
+    companyDataUsed: companyNamesUsedIn(current.draft.content),
     layoutFills: (name: string): boolean =>
       layout !== null &&
       (layout.html.includes(`data-variable="${name}"`) || layout.html.includes(`{{${name}}}`)),

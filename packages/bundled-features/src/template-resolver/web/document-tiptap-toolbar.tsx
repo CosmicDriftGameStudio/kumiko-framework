@@ -1,16 +1,20 @@
 import type { ActionMenuItemSpec } from "@cosmicdrift/kumiko-renderer";
-import { cn } from "@cosmicdrift/kumiko-renderer/web";
+import { ActionMenu, cn } from "@cosmicdrift/kumiko-renderer/web";
 import {
   AlignLeft,
   Braces,
   ChevronDown,
+  Columns3,
   GalleryThumbnails,
   Image as ImageIcon,
   ListChecks,
+  Mail,
   Minus,
   MousePointerClick,
+  Plus,
   Repeat,
   Scissors,
+  SquareDashed,
   Table as TableIcon,
 } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
@@ -21,16 +25,17 @@ import {
   renderListButtons,
   renderMarkButtons,
   renderParagraphStyleSelect,
+  renderPrintTableGroup,
+  renderPrintTextStyleGroup,
+  Separator,
 } from "./document-tiptap-toolbar-groups.tsx";
-import type { DocumentToolbarBlock } from "./document-toolbar-blocks.ts";
+import type {
+  DocumentPrintBlock,
+  DocumentPrintMode,
+  DocumentToolbarBlock,
+} from "./document-toolbar-blocks.ts";
 
 type BlockButtons = Record<DocumentToolbarBlock, { label: string; icon: ReactNode }>;
-
-function Separator({ compact = false }: { readonly compact?: boolean }): ReactNode {
-  return (
-    <span aria-hidden="true" className={cn("h-5 w-px bg-border", compact ? "mx-0.5" : "mx-2")} />
-  );
-}
 
 function blockButtonsOf(c: TiptapContext): BlockButtons {
   const { t } = c;
@@ -132,7 +137,82 @@ function overflowItemsOf(
   ];
 }
 
+const PRINT_BLOCKS_BY_MODE: Readonly<Record<DocumentPrintMode, readonly DocumentPrintBlock[]>> = {
+  none: [],
+  flow: ["columns"],
+  page: ["address", "textFrame", "columns"],
+};
+
+const PRINT_BLOCK_TEST_IDS: Readonly<Record<DocumentPrintBlock, string>> = {
+  address: "document-block-address",
+  textFrame: "document-block-textframe",
+  columns: "document-block-columns",
+};
+
+const PRINT_BLOCK_ICONS: Readonly<Record<DocumentPrintBlock, ReactNode>> = {
+  address: <Mail size={16} />,
+  textFrame: <SquareDashed size={16} />,
+  columns: <Columns3 size={16} />,
+};
+
+function renderPrintBlockMenu(c: TiptapContext): ReactNode {
+  const { t } = c;
+  const blocks = PRINT_BLOCKS_BY_MODE[c.print];
+  if (blocks.length === 0) return null;
+  return (
+    <ActionMenu
+      testId="document-block-menu"
+      triggerLabel={t("documentDesigner.editor.blockMenu")}
+      align="start"
+      minWidth="18rem"
+      trigger={
+        <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 text-xs font-medium text-primary">
+          <Plus size={14} />
+          {t("documentDesigner.editor.blockMenu")}
+          <ChevronDown size={12} />
+        </span>
+      }
+      items={blocks.map((block) => ({
+        kind: "item",
+        id: block,
+        label: t(`documentDesigner.editor.block.${block}`),
+        description: t(`documentDesigner.editor.block.${block}.hint`),
+        icon: PRINT_BLOCK_ICONS[block],
+        testId: PRINT_BLOCK_TEST_IDS[block],
+        disabled: c.readOnly,
+        onSelect: () => c.runPrintBlock(block),
+      }))}
+    />
+  );
+}
+
+function renderPrintStyleRow(c: TiptapContext): ReactNode {
+  const { canvas } = c;
+  return (
+    <div
+      className={cn(
+        "flex items-center border-b border-input",
+        canvas
+          ? "min-h-9 flex-wrap gap-1.5 bg-background px-1.5 py-1 [&>*]:shrink-0"
+          : "flex-wrap gap-1 p-1",
+      )}
+    >
+      {renderPrintTextStyleGroup(c)}
+      {renderPrintTableGroup(c)}
+    </div>
+  );
+}
+
 export function renderToolbarBar(c: TiptapContext): ReactNode {
+  return (
+    <>
+      {renderMainToolbarRow(c)}
+      {c.print !== "none" && renderPrintStyleRow(c)}
+    </>
+  );
+}
+
+function renderMainToolbarRow(c: TiptapContext): ReactNode {
   const { t, id, canvas, compact, ActionOverflowMenu } = c;
   const blockButtons = blockButtonsOf(c);
   // The canvas toolbar never scrolls sideways: the rarer blocks and the HTML view sit in the menu.
@@ -168,6 +248,8 @@ export function renderToolbarBar(c: TiptapContext): ReactNode {
       })}
       {inlineBlocks.length > 0 && <Separator compact={compact || canvas} />}
       {inlineBlocks.map((block) => renderInlineBlock(c, block, blockButtons))}
+      {c.print !== "none" && <Separator compact={compact || canvas} />}
+      {renderPrintBlockMenu(c)}
       {overflowItems.length > 0 && ActionOverflowMenu !== undefined && (
         <span className="ml-auto shrink-0">
           <ActionOverflowMenu

@@ -2,17 +2,23 @@ import type { Extensions, NodeViewRenderer } from "@tiptap/core";
 import { ListKeymap } from "@tiptap/extension-list";
 import { Dropcursor, Gapcursor, Placeholder, UndoRedo } from "@tiptap/extensions";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import type { DocumentFrameControl } from "./document-frame-control.ts";
+import { createFrameView, type FrameViewLabels } from "./document-frame-node-view.tsx";
+import { DocumentPrintEditing, loadDocumentEditorFonts } from "./document-print-decorations.ts";
+import { DocumentFrame } from "./document-print-style.ts";
+import type { RepeatStripOptions } from "./document-repeat-strip.ts";
 import {
   DocumentButton,
   DocumentImages,
   DocumentPageBreak,
   DocumentResource,
   DocumentSteps,
+  DocumentTable,
   DocumentVariable,
   documentExtensions,
 } from "./document-schema.ts";
 import { readDocumentStepsAttribute } from "./document-steps.ts";
-import type { DocumentResourcePreview } from "./document-toolbar-blocks.ts";
+import type { DocumentPrintMode, DocumentResourcePreview } from "./document-toolbar-blocks.ts";
 
 const DOCUMENT_RESOURCE_SIZE_TOKEN = "{size}";
 export const DOCUMENT_BLOCK_ATTRIBUTE = "data-document-block";
@@ -31,6 +37,11 @@ export type DocumentEditorLabels = {
   readonly resourcePreviews?: Readonly<Record<string, DocumentResourcePreview>>;
   /** Canvas chrome labels every block with its type. */
   readonly blockLabels?: boolean;
+  readonly print?: DocumentPrintMode;
+  /** Tag text per frame kind; frames render as movable boxes only with these. */
+  readonly frameLabels?: FrameViewLabels;
+  readonly reportFrameControl?: (control: DocumentFrameControl | null) => void;
+  readonly repeatStrip?: RepeatStripOptions;
 };
 
 function createElementWithClass<K extends keyof HTMLElementTagNameMap>(
@@ -44,7 +55,7 @@ function createElementWithClass<K extends keyof HTMLElementTagNameMap>(
   return element;
 }
 
-const CHIP_CLASS = "mx-0.5 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs";
+const CHIP_CLASS = "mx-0.5 inline-flex items-center gap-1 rounded border px-1.5 text-[0.9em]";
 const USER_CHIP_CLASS = `${CHIP_CLASS} border-primary/30 bg-primary/10 text-primary`;
 const SYSTEM_CHIP_CLASS = `${CHIP_CLASS} border-input bg-muted text-muted-foreground`;
 
@@ -252,6 +263,16 @@ export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Ex
         return DocumentSteps.extend({ addNodeView: () => createStepsView(labels) });
       case DocumentImages.name:
         return DocumentImages.extend({ addNodeView: () => createImagesView(labels) });
+      case DocumentTable.name:
+        return labels.print !== undefined && labels.print !== "none"
+          ? DocumentTable.configure({ resizable: true })
+          : extension;
+      case DocumentFrame.name: {
+        const { frameLabels } = labels;
+        return frameLabels === undefined
+          ? extension
+          : DocumentFrame.extend({ addNodeView: () => createFrameView(frameLabels) });
+      }
       case DocumentPageBreak.name:
         return DocumentPageBreak.extend({
           addNodeView: () => createPageBreakView(labels.pageBreak),
@@ -260,9 +281,20 @@ export function createDocumentEditorExtensions(labels: DocumentEditorLabels): Ex
         return extension;
     }
   });
+  const print = labels.print ?? "none";
+  if (print !== "none") void loadDocumentEditorFonts();
   // No TrailingNode: it appends an empty paragraph that breaks the HTML roundtrip.
   return [
     ...base,
+    ...(print === "none"
+      ? []
+      : [
+          DocumentPrintEditing.configure({
+            frames: print === "page",
+            reportFrameControl: labels.reportFrameControl ?? null,
+            repeatStrip: labels.repeatStrip ?? null,
+          }),
+        ]),
     UndoRedo,
     Gapcursor,
     Dropcursor,

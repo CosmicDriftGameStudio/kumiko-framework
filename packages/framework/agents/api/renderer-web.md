@@ -41,6 +41,7 @@ function EditorInfoBar(props: { tone: InfoBarTone; testId: string; origin?: Reac
 function EditorLocaleSwitch(props: { testIdPrefix: string; locales: string[]; locale: string; onLocale: (locale: string) => void; }): ReactNode;
 function EditorModeSwitch(props: { testIdPrefix: string; mode: EditorMode; onMode: (mode: EditorMode) => void; }): ReactNode;
 function EditorPanel(props: EditorPanelProps): ReactNode;
+function EditorToolbarPill(props: { children: ReactNode; }): ReactNode;
 function EditorWorkbench(props: EditorWorkbenchProps): ReactNode;
 function EmptyState(props: { icon?: ReactNode; title: string; description?: string; action?: ReactNode; testId?: string; }): ReactNode; // Empty state with an optional icon and CTA, using the dashed-box style of entityList empty states as a standalone widget for custom screens.
 function ErrorState(props: { error: DispatcherError; onRetry?: () => void; testId?: string; }): ReactNode; // Error state based on the Banner primitive, with a retry button.
@@ -1042,6 +1043,8 @@ type MenuItemDef =
     kind: "item";
     id: string;
     label: string;
+    description?: string;
+    testId?: string;
     icon?: ReactNode; // Optional icon displayed before the label (16px).
     shortcut?: string; // Display-only shortcut hint on the right (monospace, muted).
     onSelect: () => void;

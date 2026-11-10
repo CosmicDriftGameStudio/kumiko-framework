@@ -120,6 +120,17 @@ const RESERVED_TEMPLATE_VARIABLE_NAMES = new Set([
   "signature",
   "imprint",
   "unsubscribeUrl",
+  // Mirrors COMPANY_PLACEHOLDERS: the renderer fills them from the tenant's company data.
+  "companyAddress",
+  "companyPhone",
+  "companyEmail",
+  "companyWebsite",
+  "companyRegister",
+  "companyVatId",
+  "companyManagement",
+  "companyBank",
+  "companyIban",
+  "companyBic",
   // Handlebars helpers of the mail renderer win over context values of the
   // same name, so a variable called like a helper would never render.
   "link",

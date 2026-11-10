@@ -63,22 +63,18 @@ describe("DocumentTiptapEditor designer surface", () => {
     expect(sanitizeDocumentHtml(currentHtml())).toEqual({ ok: true, html: currentHtml() });
   });
 
-  test("repeat bar toggles the header row repeat", async () => {
-    await renderEditor({ variableLabels: VARIABLE_LABELS });
-    await click("Repeat");
-    fireEvent.click(await screen.findByTestId(`combobox-${CONTENT_EDITOR_ELEMENT_ID}-panel-list`));
-    fireEvent.click(
-      await screen.findByTestId(`combobox-${CONTENT_EDITOR_ELEMENT_ID}-panel-list-option-lines`),
-    );
-    await click("Insert");
-    await waitFor(() => expect(currentHtml()).toContain('<tr data-each="lines">'));
-    const bar = await screen.findByTestId("document-repeat-bar");
-    expect(bar.textContent).toContain("Repeat · Invoice lines");
+  test("repeat strip toggles the header row repeat", async () => {
+    await renderEditor({
+      variableLabels: VARIABLE_LABELS,
+      chrome: "canvas",
+      value: '<table><tbody><tr data-each="lines"><td><p>Position</p></td></tr></tbody></table>',
+    });
+    const bar = await screen.findByTestId("document-repeat-strip");
     expect(bar.textContent).not.toContain("Keep rows together");
-    await click("Repeat header row");
+    fireEvent.click(await screen.findByTestId("document-repeat-header-toggle"));
     await waitFor(() => expect(currentHtml()).toContain("data-repeat-header"));
     expect(sanitizeDocumentHtml(currentHtml())).toEqual({ ok: true, html: currentHtml() });
-    await click("Repeat header row");
+    fireEvent.click(await screen.findByTestId("document-repeat-header-toggle"));
     await waitFor(() => expect(currentHtml()).not.toContain("data-repeat-header"));
   });
 

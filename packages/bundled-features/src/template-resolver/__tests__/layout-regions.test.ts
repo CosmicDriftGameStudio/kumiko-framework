@@ -116,3 +116,37 @@ describe("sanitizeTemplateWriteBody layout rules", () => {
     expect(noSlot.ok).toBe(false);
   });
 });
+
+describe("print styling in layout regions", () => {
+  const FRAME =
+    '<div data-frame data-x="1" data-y="1" data-width="10" data-height="10"><p>x</p></div>';
+
+  test("a frame in a region is refused", () => {
+    expect(
+      codes(sanitizeLayoutHtml(`<div data-header>${FRAME}</div><div data-content></div>`)),
+    ).toEqual(["frame_not_top_level"]);
+  });
+
+  test("text and block styles are kept", () => {
+    const html =
+      '<div data-header><p data-line-height="1.5"><span data-text-style="" data-color="#112233">x</span></p></div><div data-content></div>';
+    expect(sanitizeLayoutHtml(html)).toEqual({ ok: true, html });
+  });
+});
+
+describe("print styling in a mail layout", () => {
+  const body = (content: string) => `<div data-header>${content}</div><div data-content></div>`;
+  const write = (scope: "tenant" | "system", content: string) =>
+    sanitizeTemplateWriteBody({ kind: "mail-layout", scope, contentFormat: "html", content });
+
+  test("a tenant html mail layout refuses print-only styling", () => {
+    const result = write("tenant", body('<p data-line-height="1.5">x</p>'));
+    expect(!result.ok && result.violations.map((item) => item.code)).toEqual([
+      "print_style_pdf_only",
+    ]);
+  });
+
+  test("a mail layout without print styling is kept", () => {
+    expect(write("tenant", body("<p>x</p>")).ok).toBe(true);
+  });
+});

@@ -1,6 +1,22 @@
 import type { ContentEditorProps } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import type { DocumentToolbarBlock } from "./document-blocks.ts";
+import type { DocumentFont } from "./document-fonts.ts";
+import type { DocumentFrameControl } from "./document-frame-control.ts";
+
+/** The text values the layout gives; a missing one makes the matching toolbar default show the control's name. */
+export type DocumentLayoutValues = {
+  readonly fontFamily?: DocumentFont;
+  readonly fontSizePt?: number;
+  readonly lineHeight?: number;
+  readonly spaceBeforePt?: number;
+  readonly spaceAfterPt?: number;
+};
+
+/** "none" = mail; "flow" = PDF text flow (styling, columns); "page" = PDF body on a canvas paper, which also places frames. */
+export type DocumentPrintMode = "none" | "flow" | "page";
+
+export type DocumentPrintBlock = "address" | "textFrame" | "columns";
 
 /** Imperative access for an outside panel (placeholder list, resource list). */
 export type DocumentEditorHandle = {
@@ -31,6 +47,8 @@ export type DocumentEditorProps = ContentEditorProps & {
   /** Image previews by resource key; resources without one show a key placeholder. */
   readonly resourcePreviews?: Readonly<Record<string, DocumentResourcePreview>>;
   readonly chrome?: DocumentEditorChrome;
+  /** Print toolbar only: what the "inherit" option of each text select resolves to. */
+  readonly layoutValues?: DocumentLayoutValues;
   /** "compact" renders the placeholder and block buttons icon-only with a tooltip, for narrow columns. Default "full". */
   readonly toolbar?: "full" | "compact";
   /** Canvas only: wraps the editable area in a caller-owned page (letterhead, margins) instead of the default mail paper. */
@@ -40,6 +58,8 @@ export type DocumentEditorProps = ContentEditorProps & {
   readonly toolbarHost?: HTMLElement | null;
   /** Called with the handle once the editor exists and with null when it is destroyed (unmount or rebuild), so a held handle never outlives its editor. */
   readonly onEditorReady?: (handle: DocumentEditorHandle | null) => void;
+  /** PDF body on a canvas paper only: reports the frame the selection is in or on (null otherwise), with controls for a side panel. */
+  readonly onFrameControlChange?: (control: DocumentFrameControl | null) => void;
 };
 
 export {

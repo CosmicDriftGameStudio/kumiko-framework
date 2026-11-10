@@ -1,13 +1,41 @@
+import { COMPANY_PLACEHOLDERS } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { UploadZone } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
+import { CompanyDataRail } from "./company-data-rail.tsx";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";
 
-// unsubscribeUrl belongs to mail; the PDF designer never offers it.
-const HIDDEN_SYSTEM_PLACEHOLDERS: ReadonlySet<string> = new Set(["unsubscribeUrl"]);
+const COMPANY_DATA_NAMES: readonly string[] = ["tenantName", ...COMPANY_PLACEHOLDERS];
 
+// unsubscribeUrl belongs to mail.
 export function visibleSystemPlaceholders(names: readonly string[]): readonly string[] {
-  return names.filter((name) => !HIDDEN_SYSTEM_PLACEHOLDERS.has(name));
+  return names.filter((name) => name !== "unsubscribeUrl");
+}
+
+// The company names have their own rail in the PDF designer, so the placeholder lists skip them.
+export function railSystemPlaceholders(names: readonly string[]): readonly string[] {
+  return visibleSystemPlaceholders(names).filter((name) => !COMPANY_DATA_NAMES.includes(name));
+}
+
+// The validation never lists system placeholders as used, so the rail reads the draft itself.
+export function placeholdersUsedIn(content: string, names: readonly string[]): ReadonlySet<string> {
+  return new Set(
+    names.filter(
+      (name) => content.includes(`data-variable="${name}"`) || content.includes(`{{${name}}}`),
+    ),
+  );
+}
+
+export function companyNamesUsedIn(content: string): ReadonlySet<string> {
+  return placeholdersUsedIn(content, COMPANY_DATA_NAMES);
+}
+
+export function withoutCompanyNames<T>(
+  variables: Readonly<Record<string, T>>,
+): Readonly<Record<string, T>> {
+  return Object.fromEntries(
+    Object.entries(variables).filter(([name]) => !COMPANY_DATA_NAMES.includes(name)),
+  );
 }
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
@@ -63,4 +91,15 @@ export function PdfResourceSection({
       <RailHint>{t("documentDesigner.placeholders.layoutHint", { layout: layoutName })}</RailHint>
     </RailSection>
   );
+}
+
+// Company data of the tenant as placeholders, shown in the left rail beside the resources.
+export function PdfCompanyDataSection({
+  onInsertPlaceholder,
+  used,
+}: {
+  readonly onInsertPlaceholder: (name: string) => void;
+  readonly used: ReadonlySet<string>;
+}): ReactNode {
+  return <CompanyDataRail onInsert={onInsertPlaceholder} used={used} />;
 }

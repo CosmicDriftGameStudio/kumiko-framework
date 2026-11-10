@@ -1,10 +1,11 @@
 import {
+  type DocumentEditorHandle,
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useMutation, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   accentLineShown,
   appearanceFlags,
@@ -20,7 +21,13 @@ import {
   saveLayout,
   shownRowOf,
 } from "./layout-editor-logic.ts";
-import { appearanceOf } from "./layout-meta.ts";
+import {
+  appearanceOf,
+  isPdfLayoutLookValid,
+  pdfLayoutLookOf,
+  pdfLayoutMetaToSave,
+  samePdfLayoutLook,
+} from "./layout-meta.ts";
 import type {
   LayoutKind,
   LayoutSourceView,
@@ -60,7 +67,10 @@ export function useLayoutEditorState(props: LayoutEditorBodyProps, t: Translate)
   const [mjml, setMjml] = useState(source.mjmlSource ?? "");
   const storedAppearance = appearanceOf(source.meta);
   const [appearance, setAppearance] = useState(storedAppearance);
+  const storedPdfLook = pdfLayoutLookOf(source.meta);
+  const [pdfLook, setPdfLook] = useState(storedPdfLook);
   const [activeRegion, setActiveRegion] = useState<Region>("header");
+  const regionHandles = useRef<Partial<Record<Region, DocumentEditorHandle>>>({});
   const [toolbarHost, setToolbarHost] = useState<HTMLElement | null>(null);
   const [pendingKind, setPendingKind] = useState<LayoutKind | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -77,17 +87,21 @@ export function useLayoutEditorState(props: LayoutEditorBodyProps, t: Translate)
     source,
     appearance,
   });
-  const dirty = layoutDirty({
-    mjmlMode,
-    mjml,
-    header,
-    signature,
-    footer,
-    appearance,
-    storedAppearance,
-    appearanceEditable,
-    source,
-  });
+  const pdfLookDirty = !isMail && !samePdfLayoutLook(pdfLook, storedPdfLook);
+  const pdfLookValid = isMail || isPdfLayoutLookValid(pdfLook);
+  const dirty =
+    pdfLookDirty ||
+    layoutDirty({
+      mjmlMode,
+      mjml,
+      header,
+      signature,
+      footer,
+      appearance,
+      storedAppearance,
+      appearanceEditable,
+      source,
+    });
 
   const content = layoutContent({ mjmlMode, mjml, header, signature, footer, isMail });
   const debouncedContent = useDebouncedValue(content, VALIDATE_DEBOUNCE_MS);
@@ -125,6 +139,7 @@ export function useLayoutEditorState(props: LayoutEditorBodyProps, t: Translate)
       isSystemAdmin,
       appearanceEditable,
       appearance,
+      ...(isMail ? {} : { pdfMeta: pdfLayoutMetaToSave(pdfLook, source.meta) }),
       t,
       upsertTenant,
       upsertSystem,
@@ -137,16 +152,29 @@ export function useLayoutEditorState(props: LayoutEditorBodyProps, t: Translate)
   const { canSave, canPublish } = layoutSaveFlags({
     dirty,
     checked,
-    appearanceValid,
+    appearanceValid: appearanceValid && pdfLookValid,
     busy,
     shownRow,
   });
-  const footerMessage = footerMessageOf({ t, checked, appearanceValid, isMail, userCount });
+  const checkedFooterMessage = footerMessageOf({ t, checked, appearanceValid, isMail, userCount });
+  const footerMessage: typeof checkedFooterMessage = pdfLookValid
+    ? checkedFooterMessage
+    : { tone: "bad", text: t("documentDesigner.appearance.pdfInvalid") };
 
   const accentColor = branding.data?.accentColor ?? "";
   const showAccentLine = accentLineShown({ isMail, appearanceEditable, appearance, accentColor });
   const blocks = layoutBlocks(isMail);
   const resourcePreviews = resourcePreviewsOf(branding.data, isMail, t);
+
+  // The region editors are lazy and report their handle once loaded; company data goes into the focused region.
+  const registerRegion =
+    (region: Region) =>
+    (handle: DocumentEditorHandle | null): void => {
+      if (handle === null) delete regionHandles.current[region];
+      else regionHandles.current[region] = handle;
+    };
+  const insertIntoActiveRegion = (name: string): void =>
+    regionHandles.current[activeRegion]?.insertPlaceholder(name);
 
   const discard = (): void => {
     setHeader(source.regions.header);
@@ -154,6 +182,7 @@ export function useLayoutEditorState(props: LayoutEditorBodyProps, t: Translate)
     setFooter(source.regions.footer);
     setMjml(source.mjmlSource ?? "");
     setAppearance(storedAppearance);
+    setPdfLook(storedPdfLook);
     setSaveError(null);
   };
 
@@ -171,6 +200,10 @@ export function useLayoutEditorState(props: LayoutEditorBodyProps, t: Translate)
     mjml,
     setMjml,
     appearance,
+    pdfLook,
+    setPdfLook,
+    registerRegion,
+    insertIntoActiveRegion,
     setAppearance,
     activeRegion,
     setActiveRegion,

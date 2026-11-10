@@ -2,6 +2,7 @@ import type { TemplateVariableDef, TemplateVariables } from "@cosmicdrift/kumiko
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
 import { isResourceImageContentType } from "../shared/index.ts";
+import { appendStyle, applyDocumentPrintStyles } from "./compile-document-styles.ts";
 import { rewriteStepsBlock } from "./compile-steps-block.ts";
 import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.ts";
 import {
@@ -253,12 +254,6 @@ const MAIL_HEADING_STYLES: Readonly<Record<string, string>> = {
   h3: "margin:20px 0 8px 0;font-size:17px;line-height:1.3;font-weight:600;color:#0B0D12",
 };
 
-// Appended after an existing style (data-align) so the alignment survives.
-function appendStyle(element: ScanElement, style: string): void {
-  const existing = element.getAttribute("style");
-  element.setAttribute("style", existing === null ? style : `${existing};${style}`);
-}
-
 function collectUniqueValidAttributes(
   html: string,
   selector: string,
@@ -335,8 +330,7 @@ export function toResourceDataUri(contentType: string, bytes: Uint8Array): strin
 function rewriteAlignment(element: ScanElement): void {
   const align = element.getAttribute("data-align");
   element.removeAttribute("data-align");
-  if (isOneOf(DOCUMENT_TEXT_ALIGNMENTS, align))
-    element.setAttribute("style", `text-align:${align}`);
+  if (isOneOf(DOCUMENT_TEXT_ALIGNMENTS, align)) appendStyle(element, `text-align:${align}`);
 }
 
 function rewriteResourceImage(
@@ -431,6 +425,7 @@ export function compileDocumentBodyToHandlebars(
   const scrubbed = html.replaceAll(EXPRESSION_OPEN, "").replaceAll(EXPRESSION_CLOSE, "");
   const compiled = withParsedDocument(scrubbed, (root) => {
     stripScriptsAndActiveContent(root, options);
+    applyDocumentPrintStyles(root);
     if (options.alignmentAsInlineStyle === true) applyAlignmentInlineStyles(root);
     if (options.headingAsInlineStyle === true) applyHeadingInlineStyles(root);
     if (options.tableAsInlineStyle === true) applyTableInlineStyles(root);

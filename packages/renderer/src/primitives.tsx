@@ -1266,6 +1266,8 @@ export type ModalProps = {
   readonly title: string;
   readonly children: ReactNode;
   readonly testId?: string;
+  /** "wide" suits content with lists beside actions; web caps it at the viewport. */
+  readonly size?: "default" | "wide";
 };
 
 /** Side panel for hosting an existing self-contained form/widget (own
@@ -1547,6 +1549,8 @@ export type ActionOverflowMenuProps = {
   readonly items: readonly ActionMenuItemSpec[];
   /** aria-label for the three-dots trigger. */
   readonly label: string;
+  /** Renders a labelled button (plus icon, text, chevron) instead of the three-dots icon. */
+  readonly triggerLabel?: string;
   readonly testId?: string;
 };
 

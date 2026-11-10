@@ -176,3 +176,19 @@ describe("validateTemplatePlaceholders :: images", () => {
     expect(run('<span data-variable="photos"></span>').unknown).toEqual(["photos"]);
   });
 });
+
+describe("company placeholders by kind", () => {
+  const body = '<span data-variable="companyIban"></span><span data-variable="imprint"></span>';
+  const run = (kind: string) =>
+    validateTemplatePlaceholders({ kind, body, meta: null, variables: {} }).unknown;
+
+  test("PDF kinds offer company data but not imprint", () => {
+    for (const kind of ["document-pdf", "pdf-layout"]) {
+      expect(run(kind)).toEqual(["imprint"]);
+    }
+  });
+
+  test("mail keeps imprint and has no company data", () => {
+    expect(run("mail")).toEqual(["companyIban"]);
+  });
+});

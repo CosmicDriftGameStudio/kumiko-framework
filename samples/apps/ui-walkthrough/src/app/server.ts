@@ -23,6 +23,7 @@ import {
   UNSUBSCRIBE_SECRET,
 } from "./auth-constants";
 import { seedTasks } from "./seed";
+import { seedPrintEditorTenants } from "./seed-print-editor-tenants";
 import { seedRental } from "./seed-rental";
 import { seedTemplates } from "./seed-templates";
 import { seedVehicles } from "./seed-vehicles";
@@ -35,7 +36,14 @@ import { seedVehicles } from "./seed-vehicles";
 
 await runDevApp({
   features: [...APP_FEATURES],
-  seeds: [seedTasks, seedRental, seedVehicles, seedTemplates, seedPlanTerms],
+  seeds: [
+    seedTasks,
+    seedRental,
+    seedVehicles,
+    seedTemplates,
+    seedPrintEditorTenants,
+    seedPlanTerms,
+  ],
   // PORT env var override for Playwright e2e runs (config points to 4174);
   // otherwise local default 4173.
   port: Number.parseInt(process.env["PORT"] ?? "4173", 10),

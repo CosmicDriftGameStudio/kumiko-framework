@@ -61,6 +61,17 @@ export const defaultTranslations: TranslationsByLocale = {
     "template-resolver.editor.saved": "Saved.",
     "templateResolver.errors.document.imagesBlockPdfOnly":
       "Photo blocks are only allowed in PDF documents.",
+    "templateResolver.errors.document.printStylePdfOnly":
+      "Print styling (fonts, colors, spacing, frames) is only allowed in PDF documents.",
+    "templateResolver.errors.template_not_tenant_editable": "You may not edit this template.",
+    "templateResolver.errors.template_already_active": "Nothing to publish, no open draft.",
+    "templateResolver.errors.layout_not_published": "Publish the layout first.",
+    "templateResolver.errors.template_resource_not_found": "Template not found.",
+    "templateResolver.errors.invalid_meta": "The template settings are invalid.",
+    "templateResolver.errors.unknown_placeholder": "The template uses an unknown placeholder.",
+    "templateResolver.errors.missing_required_placeholder": "A required placeholder is missing.",
+    "templateResolver.errors.document.frameNotTopLevel":
+      "A frame must sit directly in the document body, not inside another block or a layout region.",
     "templateResolver.errors.document.buttonHrefNotPlaceholder":
       "The button target “{detail}” must be a placeholder.",
     "templateResolver.errors.document.disallowedLinkHref":

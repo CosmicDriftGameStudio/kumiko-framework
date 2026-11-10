@@ -28,6 +28,8 @@ export type MenuItemDef =
       readonly kind: "item";
       readonly id: string;
       readonly label: string;
+      readonly description?: string;
+      readonly testId?: string;
       /** Optional icon displayed before the label (16px). */
       readonly icon?: ReactNode;
       /** Display-only shortcut hint on the right (monospace, muted).
@@ -91,13 +93,18 @@ export function ActionMenu({
               key={item.id}
               onSelect={item.onSelect}
               disabled={item.disabled === true}
-              data-testid={`action-menu-item-${item.id}`}
+              data-testid={item.testId ?? `action-menu-item-${item.id}`}
               className={
                 item.variant === "danger" ? "text-destructive focus:text-destructive" : undefined
               }
             >
               {item.icon !== undefined && <span className="size-4 shrink-0">{item.icon}</span>}
-              <span className="flex-1">{item.label}</span>
+              <span className="flex flex-1 flex-col">
+                {item.label}
+                {item.description !== undefined && (
+                  <span className="text-xs text-muted-foreground">{item.description}</span>
+                )}
+              </span>
               {item.shortcut !== undefined && (
                 <span className="ml-auto text-xs text-muted-foreground tracking-wider font-mono">
                   {item.shortcut}

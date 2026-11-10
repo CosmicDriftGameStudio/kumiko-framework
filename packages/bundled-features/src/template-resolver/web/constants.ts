@@ -82,17 +82,39 @@ export const ACTIVE_TEMPLATE_STATUS = "active" satisfies TemplateStatus;
 
 export { HEX_COLOR_PATTERN } from "./mail-layout-constants.ts";
 export {
+  PDF_DEFAULT_FONT_SIZE_PT,
   PDF_DEFAULT_MARGIN_MM,
   PDF_FOOTER_MARGIN_MM,
   PDF_HEADER_MARGIN_MM,
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
+  PDF_TABLE_STYLES,
   type PdfOrientation,
   type PdfPageFormat,
+  type PdfTableStyle,
 } from "./pdf-constants.ts";
 
 export const DEFAULT_MAIL_LAYOUT_SLUG = "default";
 export const DEFAULT_PDF_LAYOUT_SLUG = "default";
+
+// Same names as the tenant feature's company config keys: the placeholder is the key name.
+export const COMPANY_PLACEHOLDERS = [
+  "companyAddress",
+  "companyPhone",
+  "companyEmail",
+  "companyWebsite",
+  "companyRegister",
+  "companyVatId",
+  "companyManagement",
+  "companyBank",
+  "companyIban",
+  "companyBic",
+] as const;
+export const MAX_SELECTED_TEMPLATES = 200;
+
+// Tenant setting that picks the layout of PDF templates which name none.
+export const DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY =
+  "template-resolver:config:default-pdf-layout-slug";
 
 // The mail transport enforces no size limit of its own; 10 MiB is a common provider ceiling.
 export const MAIL_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;

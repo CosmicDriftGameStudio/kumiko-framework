@@ -16,6 +16,7 @@ import { resolveTemplateVariables, systemPlaceholdersFor } from "../template-val
 import type { ContentFormat, UpsertKind } from "../web/constants.ts";
 import { contentFormatSchema, kindSchema, localeSchema, templateSlugSchema } from "./shared.ts";
 import { evaluateTemplateWrite } from "./template-gates.ts";
+import { emptyCompanyData } from "./tenant-settings.ts";
 
 async function knownResourceKeys(
   db: Parameters<typeof selectMany>[0],
@@ -116,6 +117,15 @@ export async function validateTemplateDraft(
     })),
     variables,
     systemPlaceholders: [...systemPlaceholdersFor(kind)].sort(),
+    emptyCompanyData: [
+      ...(await emptyCompanyData(ctx, {
+        kind,
+        body: payload.contentFormat === "html" ? payload.content : "",
+        meta: payload.meta,
+        locale,
+        tenantId: user.tenantId,
+      })),
+    ],
   };
   return { response, evaluation };
 }

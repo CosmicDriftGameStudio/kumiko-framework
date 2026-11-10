@@ -1,9 +1,20 @@
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { useEditor, useEditorState } from "@tiptap/react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { createDocumentEditorExtensions } from "./document-editor-extensions.ts";
-import { activeStateOf, type PanelKind, previewsKey } from "./document-tiptap-helpers.ts";
-import type { DocumentEditorProps, DocumentResourcePreview } from "./document-toolbar-blocks.ts";
+import type { DocumentFrameControl } from "./document-frame-control.ts";
+import type { FrameViewLabels } from "./document-frame-node-view.tsx";
+import {
+  activeStateOf,
+  type PanelKind,
+  previewsKey,
+  variableLabelOf,
+} from "./document-tiptap-helpers.ts";
+import type {
+  DocumentEditorProps,
+  DocumentPrintMode,
+  DocumentResourcePreview,
+} from "./document-toolbar-blocks.ts";
 import { useEditorHandleReport } from "./editor-handle.ts";
 import { useStableByKey } from "./use-stable-by-key.ts";
 
@@ -21,14 +32,38 @@ export function documentEditorLabels(t: Translate) {
 
 export type DocumentEditorLabels = ReturnType<typeof documentEditorLabels>;
 
+function frameLabelsOf(t: Translate): FrameViewLabels {
+  return {
+    addressFormA: t("documentDesigner.editor.frame.addressFormA"),
+    addressFormB: t("documentDesigner.editor.frame.addressFormB"),
+    address: t("documentDesigner.editor.frame.address"),
+    text: t("documentDesigner.editor.frame.text"),
+  };
+}
+
 function useDocumentExtensions(input: {
   readonly labels: DocumentEditorLabels;
   readonly canvas: boolean;
+  readonly print: DocumentPrintMode;
+  readonly frameLabels: FrameViewLabels | undefined;
+  readonly reportFrameControl: (control: DocumentFrameControl | null) => void;
+  readonly repeatStripName: (listLabel: string) => string;
+  readonly repeatHeaderLabel: string;
   readonly variableLabels: Readonly<Record<string, string>>;
   readonly systemVariables: readonly string[];
   readonly resourcePreviews: Readonly<Record<string, DocumentResourcePreview>>;
 }) {
-  const { canvas, variableLabels, systemVariables, resourcePreviews } = input;
+  const {
+    canvas,
+    print,
+    reportFrameControl,
+    repeatStripName,
+    repeatHeaderLabel,
+    variableLabels,
+    systemVariables,
+    resourcePreviews,
+  } = input;
+  const frameLabels = useStableByKey(input.frameLabels, JSON.stringify(input.frameLabels ?? null));
   const {
     placeholderLabel,
     imageLabel,
@@ -55,6 +90,16 @@ function useDocumentExtensions(input: {
         systemVariables: stableSystem,
         resourcePreviews: stablePreviews,
         blockLabels: canvas,
+        print,
+        reportFrameControl,
+        ...(print !== "none" && {
+          repeatStrip: {
+            label: (lists: readonly string[]) =>
+              repeatStripName(lists.map((list) => variableLabelOf(list, stableLabels)).join(", ")),
+            headerLabel: repeatHeaderLabel,
+          },
+        }),
+        ...(frameLabels !== undefined && { frameLabels }),
       }),
     [
       placeholderLabel,
@@ -68,6 +113,11 @@ function useDocumentExtensions(input: {
       stableSystem,
       stablePreviews,
       canvas,
+      print,
+      reportFrameControl,
+      repeatStripName,
+      repeatHeaderLabel,
+      frameLabels,
     ],
   );
   return { extensions, stableLabels };
@@ -75,8 +125,9 @@ function useDocumentExtensions(input: {
 
 export type DocumentTiptapModelInput = Pick<
   DocumentEditorProps,
-  "id" | "value" | "onChange" | "readOnly" | "onEditorReady"
+  "id" | "value" | "onChange" | "readOnly" | "onEditorReady" | "onFrameControlChange"
 > & {
+  readonly print: DocumentPrintMode;
   readonly variableLabels: Readonly<Record<string, string>>;
   readonly systemVariables: readonly string[];
   readonly resourcePreviews: Readonly<Record<string, DocumentResourcePreview>>;
@@ -89,9 +140,27 @@ export function useDocumentTiptapModel(input: DocumentTiptapModelInput, t: Trans
   const [canvasScroller, setCanvasScroller] = useState<HTMLElement | null>(null);
   const [showHtml, setShowHtml] = useState(false);
   const labels = documentEditorLabels(t);
+  // Callers pass a fresh function per render; the extension list must not rebuild the editor for it.
+  const frameControlRef = useRef(input.onFrameControlChange);
+  frameControlRef.current = input.onFrameControlChange;
+  const translateRef = useRef(t);
+  translateRef.current = t;
+  const repeatStripName = useCallback(
+    (name: string) => translateRef.current("documentDesigner.editor.table.repeatStrip", { name }),
+    [],
+  );
+  const reportFrameControl = useCallback(
+    (control: DocumentFrameControl | null) => frameControlRef.current?.(control),
+    [],
+  );
   const { extensions, stableLabels } = useDocumentExtensions({
     labels,
     canvas: input.canvas,
+    print: input.print,
+    frameLabels: input.print === "page" ? frameLabelsOf(t) : undefined,
+    reportFrameControl,
+    repeatStripName,
+    repeatHeaderLabel: t("template-resolver.documentEditor.repeatHeader"),
     variableLabels: input.variableLabels,
     systemVariables: input.systemVariables,
     resourcePreviews: input.resourcePreviews,

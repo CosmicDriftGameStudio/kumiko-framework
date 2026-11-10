@@ -1,9 +1,10 @@
 import { PreviewPane } from "@cosmicdrift/kumiko-renderer";
+import { LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { PlaceholderSection, SystemPlaceholderSection } from "./mail-left-rail.tsx";
 import { PageCanvas } from "./page-canvas.tsx";
 import type { PdfRenderContext } from "./pdf-editor-context.ts";
-import { PdfResourceSection } from "./pdf-left-rail.tsx";
+import { PdfCompanyDataSection, PdfResourceSection } from "./pdf-left-rail.tsx";
 import { serializePdfMeta } from "./pdf-meta.ts";
 import { type PdfPreviewController, PdfPreviewControllerContext } from "./pdf-preview-renderer.tsx";
 import { SettingsPanel } from "./settings-panel.tsx";
@@ -18,6 +19,10 @@ export function renderPdfLeftRail(c: PdfRenderContext): ReactNode {
         validation={view.placeholderSource}
         onInsert={insert.insertPlaceholder}
         idPrefix="pdf"
+      />
+      <PdfCompanyDataSection
+        onInsertPlaceholder={insert.insertPlaceholder}
+        used={view.companyDataUsed}
       />
       <SystemPlaceholderSection
         validation={view.placeholderSource}
@@ -46,21 +51,27 @@ export function renderPdfEditCanvas(c: PdfRenderContext): ReactNode {
       className="flex min-h-0 min-w-0 flex-1 flex-col"
       onFocusCapture={insert.markFocused("body")}
     >
-      <PageCanvas
-        meta={current.draft.meta}
-        content={current.draft.content}
-        onContentChange={(content) => actions.updateDraft({ ...current.draft, content })}
-        regions={s.server.layout?.regions ?? null}
-        layoutName={view.layoutName}
-        resourceSrc={view.layoutResourceSrc}
-        variableLabels={vocabulary.variableLabels}
-        systemVariables={vocabulary.systemVariables}
-        systemLabels={vocabulary.systemLabels}
-        variableNames={vocabulary.variableNames}
-        imageVariables={vocabulary.imageVariables}
-        resourcePreviews={vocabulary.resourcePreviews}
-        onEditorReady={insert.register("body")}
-      />
+      {s.server.paperReady ? (
+        <PageCanvas
+          meta={current.draft.meta}
+          layoutMeta={s.server.layoutMeta}
+          content={current.draft.content}
+          onContentChange={(content) => actions.updateDraft({ ...current.draft, content })}
+          regions={s.server.layout?.regions ?? null}
+          layoutName={view.layoutName}
+          resourceSrc={view.layoutResourceSrc}
+          variableLabels={vocabulary.variableLabels}
+          systemVariables={vocabulary.systemVariables}
+          systemLabels={vocabulary.systemLabels}
+          variableNames={vocabulary.variableNames}
+          imageVariables={vocabulary.imageVariables}
+          resourcePreviews={vocabulary.resourcePreviews}
+          onEditorReady={insert.register("body")}
+          onFrameControlChange={s.ui.setFrameControl}
+        />
+      ) : (
+        <LoadingState />
+      )}
     </div>
   );
 }
@@ -106,6 +117,10 @@ export function renderPdfSettings(c: PdfRenderContext): ReactNode {
       version={{ id: detail.id, version: detail.version, status: detail.status }}
       vocabulary={view.vocabulary}
       insert={s.host.insert}
+      frameControl={s.ui.frameControl}
+      paper={view.paper}
+      marginsMm={view.marginsMm}
+      inheritedMarginsMm={view.inheritedMarginsMm}
       draftKey={`${current.key}:${s.ui.draftEpoch}`}
     />
   );

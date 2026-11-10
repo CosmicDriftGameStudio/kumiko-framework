@@ -3,6 +3,7 @@ import { mailLayoutAppearance } from "../layout-appearance";
 import {
   parseTemplateMeta,
   readMailLayoutMeta,
+  readPdfLayoutMeta,
   readPdfTemplateMeta,
   templateSlugSchema,
 } from "../template-meta";
@@ -180,5 +181,37 @@ describe("mail layout appearance meta", () => {
       outerBackground: "#f5f5f5",
       accentLine: false,
     });
+  });
+});
+
+describe("pdf-layout meta", () => {
+  test("accepts appearance settings and margins", () => {
+    const meta = {
+      margins: { top: 20, left: 25 },
+      fontFamily: "calibri",
+      fontSizePt: 10,
+      textColor: "#333333",
+      tableStyle: "plain",
+      tableHeaderBackground: "#eeeeee",
+    };
+    expect(parseTemplateMeta("pdf-layout", meta)).toEqual({ ok: true, meta });
+  });
+
+  test("rejects a bad color, unknown font, out-of-range size and unknown keys", () => {
+    for (const bad of [
+      { textColor: "red" },
+      { fontFamily: "comic" },
+      { fontSizePt: 99 },
+      { margins: { top: 500 } },
+      { nope: 1 },
+    ]) {
+      expect(parseTemplateMeta("pdf-layout", bad).ok).toBe(false);
+    }
+  });
+
+  test("readPdfLayoutMeta falls back to an empty object", () => {
+    expect(readPdfLayoutMeta({ fontFamily: "times" })).toEqual({ fontFamily: "times" });
+    expect(readPdfLayoutMeta({ fontFamily: "comic" })).toEqual({});
+    expect(readPdfLayoutMeta(null)).toEqual({});
   });
 });

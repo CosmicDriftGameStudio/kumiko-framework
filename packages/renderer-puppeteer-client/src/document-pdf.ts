@@ -18,21 +18,27 @@ import {
   type RenderRequest,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
+  addressParagraphCss,
   collectDocumentImageVariables,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
-  DEFAULT_PDF_LAYOUT_SLUG,
+  DOCUMENT_LINE_VARIABLE,
+  defaultPdfLayoutSlug,
+  documentLinePt,
+  flattenFramesForPreview,
   isResourceImageContentType,
   type LayoutRegions,
-  PDF_DEFAULT_MARGIN_MM,
-  PDF_FOOTER_MARGIN_MM,
-  PDF_HEADER_MARGIN_MM,
+  PARAGRAPH_DEFAULT_LINE_HEIGHT,
+  PDF_DEFAULT_FONT_SIZE_PT,
+  type PdfLayoutMeta,
   type PdfTemplateMeta,
   prepareDocumentForPrint,
   readLayoutRegions,
+  readPdfLayoutMeta,
   readPdfTemplateMeta,
   readTemplateResourceMaxBytes,
+  readTopLevelFrames,
   resolveTemplateVariables,
   sanitizeDocumentHtml,
   sanitizeLayoutHtml,
@@ -52,6 +58,17 @@ import {
   readTenantName,
   resolveResourceFileRefs,
 } from "@cosmicdrift/kumiko-renderer-mail-html";
+import {
+  chromiumRegionHtml,
+  flattenAddressSenderLine,
+  flowSpacerHtml,
+  layoutAppearanceCss,
+  type PageMarginsMm,
+  planFirstPage,
+  resolvePageMargins,
+  TEXT_ALIGN_CSS_RULES,
+} from "./document-pdf-style.ts";
+import { readCompanyData } from "./document-tenant-config.ts";
 
 export type DocumentPdfRequest = {
   readonly html: string;
@@ -71,19 +88,24 @@ const EMPTY_CHROMIUM_REGION = "<span></span>";
 const PAGE_NUMBER_HTML = '<span class="pageNumber"></span>';
 const TOTAL_PAGES_HTML = '<span class="totalPages"></span>';
 
-const PRINT_CSS = [
-  "body{font-family:Helvetica,Arial,sans-serif;font-size:10.5pt;color:#222;margin:0}",
+export const PRINT_CSS = [
+  `body{font-family:Helvetica,Arial,sans-serif;font-size:${PDF_DEFAULT_FONT_SIZE_PT}pt;line-height:${PARAGRAPH_DEFAULT_LINE_HEIGHT};color:#222;margin:0;${DOCUMENT_LINE_VARIABLE}:${documentLinePt(PDF_DEFAULT_FONT_SIZE_PT)}pt}`,
+  `p,table,ul,ol{margin:0 0 var(${DOCUMENT_LINE_VARIABLE})}`,
+  `h1,h2,h3{margin:0 0 var(${DOCUMENT_LINE_VARIABLE})}`,
+  "td p,th p,li p{margin:0}",
+  "td>:last-child,th>:last-child,li>:last-child,.kumiko-frame>:last-child,body>:last-child{margin-bottom:0}",
   "table{width:100%;border-collapse:collapse}",
   "th,td{padding:4px 6px;text-align:left;vertical-align:top}",
+  "tr>:first-child{padding-left:0}",
+  "tr>:last-child{padding-right:0}",
   "thead{display:table-header-group}",
   "tr{page-break-inside:avoid;break-inside:avoid}",
   "[data-page-break]{page-break-before:always;break-before:page}",
-  "[data-align=left]{text-align:left}",
-  "[data-align=center]{text-align:center}",
-  "[data-align=right]{text-align:right}",
-  "[data-align=justify]{text-align:justify}",
+  ...TEXT_ALIGN_CSS_RULES,
   "[data-size=small]{font-size:8pt;color:#555}",
   "img{max-width:100%}",
+  ".kumiko-frame p{white-space:pre-line}",
+  `.kumiko-frame[data-frame-preset=address]>p{${addressParagraphCss(false)}}`,
   ".kumiko-doc-images{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}",
   ".kumiko-doc-images:empty{display:none}",
   ".kumiko-doc-images img{width:100%;break-inside:avoid;page-break-inside:avoid}",
@@ -326,16 +348,20 @@ function renderRegion(
   return prepareDocumentForPrint(compileDocumentSource(hbs, source)(context));
 }
 
-function renderChromiumRegion(
-  regionHtml: string,
-  marginLeftMm: number,
-  marginRightMm: number,
-): string {
-  if (regionHtml.trim() === "") return EMPTY_CHROMIUM_REGION;
-  return (
-    "<style>img{max-height:20mm}</style>" +
-    `<div style="width:100%;box-sizing:border-box;font-family:Helvetica,Arial,sans-serif;font-size:9px;color:#333;padding:0 ${marginRightMm}mm 0 ${marginLeftMm}mm;-webkit-print-color-adjust:exact">${regionHtml}</div>`
-  );
+function renderChromiumRegion(args: {
+  readonly regionHtml: string;
+  readonly position: "header" | "footer";
+  readonly margins: PageMarginsMm;
+  readonly layoutMeta: PdfLayoutMeta;
+}): string {
+  if (args.regionHtml.trim() === "") return EMPTY_CHROMIUM_REGION;
+  return chromiumRegionHtml({
+    regionHtml: args.regionHtml,
+    position: args.position,
+    marginLeftMm: args.margins.left,
+    marginRightMm: args.margins.right,
+    layoutMeta: args.layoutMeta,
+  });
 }
 
 // Chromium prints the same header and footer on every page, so a letterhead that
@@ -345,31 +371,22 @@ function frameDocument(args: {
   readonly title: string;
   readonly bodyHtml: string;
   readonly signatureHtml: string;
+  readonly extraCss: string;
+  readonly leadingHtml: string;
 }): string {
   const signatureBlockHtml =
     args.signatureHtml === "" ? "" : `<div class="kumiko-signature">${args.signatureHtml}</div>`;
-  return `<!DOCTYPE html><html lang="${escapeHtml(args.locale)}"><head><meta charset="utf-8"><title>${escapeHtml(args.title)}</title><style>${PRINT_CSS}</style></head><body>${args.bodyHtml}${signatureBlockHtml}</body></html>`;
+  // html-ok: extraCss is layoutAppearanceCss and planFirstPage output, built only from enum stacks, #rrggbb colors and numbers
+  return `<!DOCTYPE html><html lang="${escapeHtml(args.locale)}"><head><meta charset="utf-8"><title>${escapeHtml(args.title)}</title><style>${PRINT_CSS}${args.extraCss}</style></head><body>${args.leadingHtml}${args.bodyHtml}${signatureBlockHtml}</body></html>`;
 }
 
-function resolveOptions(
-  meta: PdfTemplateMeta | null,
-  hasHeader: boolean,
-  hasFooter: boolean,
-): { readonly options: PdfOptions; readonly left: number; readonly right: number } {
-  const left = meta?.margins?.left ?? PDF_DEFAULT_MARGIN_MM;
-  const right = meta?.margins?.right ?? PDF_DEFAULT_MARGIN_MM;
-  const options: PdfOptions = {
+function resolveOptions(meta: PdfTemplateMeta | null, margins: PageMarginsMm): PdfOptions {
+  return {
     format: meta?.pageFormat ?? "A4",
     printBackground: meta?.printBackground ?? true,
     ...(meta?.orientation === "landscape" && { landscape: true }),
-    marginMm: {
-      top: meta?.margins?.top ?? (hasHeader ? PDF_HEADER_MARGIN_MM : PDF_DEFAULT_MARGIN_MM),
-      right,
-      bottom: meta?.margins?.bottom ?? (hasFooter ? PDF_FOOTER_MARGIN_MM : PDF_DEFAULT_MARGIN_MM),
-      left,
-    },
+    marginMm: margins,
   };
-  return { options, left, right };
 }
 
 type DocumentInput = {
@@ -392,6 +409,7 @@ type AssembledDocument = {
   readonly layout: PdfLayout & { readonly ref: RenderedTemplateRef | null };
   readonly layoutSlug: string;
   readonly meta: PdfTemplateMeta | null;
+  readonly layoutMeta: PdfLayoutMeta;
   readonly bodyHtml: string;
   readonly signatureHtml: string;
   readonly headerHtml: string;
@@ -499,14 +517,16 @@ async function assembleDocument(
           locale,
         );
   const meta = readPdfTemplateMeta(template.meta);
-  const layoutSlug = meta?.layoutSlug ?? DEFAULT_PDF_LAYOUT_SLUG;
+  const layoutSlug = meta?.layoutSlug ?? (await defaultPdfLayoutSlug(ctx, ctx.tenantId, locale));
   const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale);
+  const layoutMeta = readPdfLayoutMeta(layout.template?.meta ?? null);
 
   try {
-    const [format, tenantName, accentColor] = await Promise.all([
+    const [format, tenantName, accentColor, companyData] = await Promise.all([
       readDocumentFormat(ctx, locale),
       readTenantName(ctx),
       readBrandingAccentColor(ctx),
+      readCompanyData(ctx),
     ]);
     const hbs = createDocumentHandlebars(format);
     const variableDefinitions = resolveTemplateVariables(
@@ -527,6 +547,7 @@ async function assembleDocument(
     const context = {
       ...imagesAsPresenceFlags(variables, variableDefinitions, recordImages, recordImageUris),
       tenantName,
+      ...companyData,
       signature: "",
       imprint: "",
       page: "",
@@ -552,7 +573,11 @@ async function assembleDocument(
       recordImagesPlaceholder: recordImages === "placeholder",
       ...(accentColor !== undefined && { stepsColor: accentColor }),
     });
-    const bodyHtml = prepareDocumentForPrint(compileDocumentSource(hbs, bodySource)(context));
+    const printableBodyHtml = prepareDocumentForPrint(
+      compileDocumentSource(hbs, bodySource)(context),
+    );
+    const bodyHtml =
+      markers === "preview" ? flattenFramesForPreview(printableBodyHtml) : printableBodyHtml;
     const signatureHtml = renderRegion(hbs, layout.regions.signature, context, resourceSrc);
 
     const pagedContext =
@@ -578,6 +603,7 @@ async function assembleDocument(
       layout,
       layoutSlug,
       meta,
+      layoutMeta,
       bodyHtml,
       signatureHtml,
       headerHtml,
@@ -620,21 +646,38 @@ function toPdfRequest(document: AssembledDocument, locale: string): DocumentPdfR
   const showLayoutRegions = document.meta?.layoutHeaderFooter !== false;
   const hasHeader = showLayoutRegions && document.headerHtml.trim() !== "";
   const hasFooter = showLayoutRegions && document.footerHtml.trim() !== "";
-  const { options, left, right } = resolveOptions(document.meta, hasHeader, hasFooter);
+  const margins = resolvePageMargins(document.meta, document.layoutMeta, hasHeader, hasFooter);
+  const firstPage = planFirstPage(
+    readTopLevelFrames(document.template.content),
+    margins.top,
+    margins.left,
+  );
+  const options = resolveOptions(document.meta, { ...margins, left: firstPage.pageLeftMm });
+  const regionArgs = { margins, layoutMeta: document.layoutMeta };
   return {
     html: frameDocument({
       locale,
       title: document.title,
-      bodyHtml: document.bodyHtml,
+      bodyHtml: flattenAddressSenderLine(document.bodyHtml),
       signatureHtml: document.signatureHtml,
+      extraCss: layoutAppearanceCss(document.layoutMeta) + firstPage.css,
+      leadingHtml: flowSpacerHtml(firstPage),
     }),
     options:
       hasHeader || hasFooter
         ? {
             ...options,
             displayHeaderFooter: true,
-            headerTemplate: renderChromiumRegion(document.headerHtml, left, right),
-            footerTemplate: renderChromiumRegion(document.footerHtml, left, right),
+            headerTemplate: renderChromiumRegion({
+              ...regionArgs,
+              regionHtml: document.headerHtml,
+              position: "header",
+            }),
+            footerTemplate: renderChromiumRegion({
+              ...regionArgs,
+              regionHtml: document.footerHtml,
+              position: "footer",
+            }),
           }
         : { ...options, displayHeaderFooter: false },
     fileName: document.fileName,

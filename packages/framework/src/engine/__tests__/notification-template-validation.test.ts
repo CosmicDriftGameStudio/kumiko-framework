@@ -85,7 +85,14 @@ describe("r.notification template declaration", () => {
   });
 
   test("a variable named like a system placeholder is rejected", () => {
-    for (const reserved of ["tenantName", "signature", "imprint", "unsubscribeUrl"]) {
+    for (const reserved of [
+      "tenantName",
+      "signature",
+      "imprint",
+      "unsubscribeUrl",
+      "companyIban",
+      "companyAddress",
+    ]) {
       expect(() =>
         createRegistry([
           featureWithNotification("welcome-mail", {

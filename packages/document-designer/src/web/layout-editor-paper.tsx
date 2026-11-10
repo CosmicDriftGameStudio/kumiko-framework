@@ -1,8 +1,16 @@
 import { DocumentContentEditor } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
-import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
+import { pluralKey, type Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
-import { PAPER_WIDTH_CLASS, REGION_EDITOR_IDS, type Region } from "./layout-editor-logic.ts";
+import {
+  footerColumnCount,
+  PAPER_WIDTH_CLASS,
+  REGION_EDITOR_IDS,
+  type Region,
+} from "./layout-editor-logic.ts";
+import { layoutValuesOf } from "./layout-meta.ts";
+import { paperLookOf, paperSizeMm, resolveMarginsMm } from "./paper-geometry.ts";
+import { PaperSheet } from "./paper-sheet.tsx";
 import type { LayoutEditorModel } from "./use-layout-editor-state.ts";
 
 // A dashed, labelled area of the paper; the focused one owns the shared toolbar.
@@ -10,26 +18,46 @@ function PaperRegion({
   label,
   testId,
   children,
+  active,
+  className,
   onFocus,
 }: {
   readonly label: string;
   readonly testId: string;
   readonly children: ReactNode;
+  readonly active: boolean;
+  readonly className?: string;
   readonly onFocus?: () => void;
 }): ReactNode {
   return (
     <div
-      className="relative rounded-sm border border-dashed border-input p-3"
+      className={cn(
+        "relative rounded-sm p-3",
+        active
+          ? "border-[1.5px] border-solid border-primary bg-primary/5"
+          : "border border-dashed border-input",
+        className,
+      )}
       data-testid={testId}
+      data-active={active}
       onFocusCapture={onFocus}
     >
-      <span className="absolute -top-2.5 left-2.5 bg-card px-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      <span
+        className={cn(
+          "absolute -top-2.5 left-2.5 bg-card px-1.5 text-[10px] uppercase tracking-wide",
+          active ? "font-medium text-primary" : "text-muted-foreground",
+        )}
+      >
         {label}
       </span>
       {children}
     </div>
   );
 }
+
+// Chips at the draft's scale (8.5px on a 2.9 px/mm paper), so they stay proportional to the sheet.
+const PAPER_SCALED_CHIPS_CLASS =
+  "[&_[data-variable-chip]]:text-[length:calc(2.93*var(--paper-mm))] [&_[data-variable-chip]]:leading-[calc(4.14*var(--paper-mm))]";
 
 function renderRegionEditor(
   m: LayoutEditorModel,
@@ -49,7 +77,9 @@ function renderRegionEditor(
       readOnly={false}
       blocks={m.blocks}
       {...(resourcePreviews && { resourcePreviews })}
+      {...(!m.isMail && { layoutValues: layoutValuesOf(m.pdfLook) })}
       chrome="canvas"
+      onEditorReady={m.registerRegion(region)}
       toolbarHost={m.activeRegion === region ? m.toolbarHost : null}
     />
   );
@@ -58,7 +88,10 @@ function renderRegionEditor(
 function renderContentSlot(t: Translate, isMail: boolean): ReactNode {
   return (
     <div
-      className="rounded-sm border-2 border-dashed border-primary bg-primary/10 px-3 py-9 text-center font-medium text-primary"
+      className={cn(
+        "rounded-sm border-2 border-dashed border-primary bg-primary/10 px-3 text-center font-medium text-primary",
+        isMail ? "py-9" : "flex min-h-40 flex-1 flex-col items-center justify-center py-9 text-sm",
+      )}
       data-testid="document-designer-region-content"
     >
       ⊞ {t("documentDesigner.editor.region.content")}
@@ -74,6 +107,7 @@ function renderSignatureRegion(t: Translate, m: LayoutEditorModel): ReactNode {
     <PaperRegion
       label={t("documentDesigner.editor.region.signature")}
       testId="document-designer-region-signature"
+      active={m.activeRegion === "signature"}
       onFocus={() => m.setActiveRegion("signature")}
     >
       {renderRegionEditor(m, "signature", m.signature, m.setSignature)}
@@ -81,12 +115,25 @@ function renderSignatureRegion(t: Translate, m: LayoutEditorModel): ReactNode {
   );
 }
 
+function footerLabel(t: Translate, m: LayoutEditorModel): string {
+  const columns = m.isMail ? 0 : footerColumnCount(m.footer);
+  return columns === 0
+    ? t("documentDesigner.editor.region.footer")
+    : t(pluralKey("documentDesigner.editor.region.footerColumns", columns), { count: columns });
+}
+
+// The PDF footer sits 4 mm above the paper edge (CHROMIUM_REGION_PADDING_MM) at the page-margin columns, independent of the bottom margin.
+const PDF_FOOTER_WRAPPER_CLASS =
+  "absolute right-[calc(var(--paper-margin-right)-0.25rem)] bottom-[calc(4*var(--paper-mm))] left-[calc(var(--paper-margin-left)-0.25rem)] bg-card";
+
 function renderFooterRegion(t: Translate, m: LayoutEditorModel): ReactNode {
   return (
-    <div className={cn(m.isMail && "-mx-8 -mb-6 bg-muted px-8 py-4")}>
+    <div className={cn(m.isMail ? "-mx-8 -mb-6 bg-muted px-8 py-4" : PDF_FOOTER_WRAPPER_CLASS)}>
       <PaperRegion
-        label={t("documentDesigner.editor.region.footer")}
+        label={footerLabel(t, m)}
         testId="document-designer-region-footer"
+        active={m.activeRegion === "footer"}
+        className={cn(!m.isMail && "px-1 pt-1.5 pb-5", !m.isMail && PAPER_SCALED_CHIPS_CLASS)}
         onFocus={() => m.setActiveRegion("footer")}
       >
         {renderRegionEditor(m, "footer", m.footer, m.setFooter)}
@@ -95,12 +142,50 @@ function renderFooterRegion(t: Translate, m: LayoutEditorModel): ReactNode {
   );
 }
 
+function renderPdfPaper(t: Translate, m: LayoutEditorModel): ReactNode {
+  const size = paperSizeMm("A4", "portrait");
+  const margins = resolveMarginsMm({
+    template: m.pdfLook.margins,
+    layout: {},
+    hasHeader: m.header.trim() !== "",
+    hasFooter: m.footer.trim() !== "",
+  });
+  return (
+    <div className="mx-auto flex w-full flex-col items-center">
+      <PaperSheet
+        size={size}
+        margins={margins}
+        look={paperLookOf(m.pdfLook)}
+        testId="document-designer-paper"
+      >
+        {/* The PDF header text starts 4 mm (region padding) plus the line's leading below the paper edge, inside the top margin. */}
+        <div className="absolute top-[calc(1*var(--paper-mm))] right-[calc(var(--paper-margin-right)-0.25rem)] left-[calc(var(--paper-margin-left)-0.25rem)] bg-card">
+          <PaperRegion
+            label={t("documentDesigner.editor.region.header")}
+            testId="document-designer-region-header"
+            active={m.activeRegion === "header"}
+            className={cn("px-1 pt-[calc(3*var(--paper-mm))] pb-1", PAPER_SCALED_CHIPS_CLASS)}
+            onFocus={() => m.setActiveRegion("header")}
+          >
+            {renderRegionEditor(m, "header", m.header, m.setHeader)}
+          </PaperRegion>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col pt-(--paper-margin-top) pr-(--paper-margin-right) pb-(--paper-margin-bottom) pl-(--paper-margin-left)">
+          {renderContentSlot(t, false)}
+        </div>
+        {renderFooterRegion(t, m)}
+      </PaperSheet>
+    </div>
+  );
+}
+
 export function renderPaper(t: Translate, m: LayoutEditorModel): ReactNode {
+  if (!m.isMail) return renderPdfPaper(t, m);
   return (
     <div
       className={cn(
         "mx-auto flex w-full flex-col gap-5 bg-card px-8 py-6 shadow-md",
-        m.isMail ? PAPER_WIDTH_CLASS[m.appearance.width] : "min-h-[842px] max-w-[595px]",
+        PAPER_WIDTH_CLASS[m.appearance.width],
         m.showAccentLine && "border-t-4 border-t-(--layout-accent)",
       )}
       ref={(element) => element?.style.setProperty("--layout-accent", m.accentColor)}
@@ -109,12 +194,13 @@ export function renderPaper(t: Translate, m: LayoutEditorModel): ReactNode {
       <PaperRegion
         label={t("documentDesigner.editor.region.header")}
         testId="document-designer-region-header"
+        active={m.activeRegion === "header"}
         onFocus={() => m.setActiveRegion("header")}
       >
         {renderRegionEditor(m, "header", m.header, m.setHeader)}
       </PaperRegion>
-      {renderContentSlot(t, m.isMail)}
-      {m.isMail && renderSignatureRegion(t, m)}
+      {renderContentSlot(t, true)}
+      {renderSignatureRegion(t, m)}
       {renderFooterRegion(t, m)}
     </div>
   );

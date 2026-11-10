@@ -24,6 +24,7 @@ import {
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
+  DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY,
   SYSTEM_TENANT_ID,
   TemplateResolverHandlers,
   TemplateResolverQueries,
@@ -250,6 +251,7 @@ beforeAll(async () => {
       createTemplateResolverFeature({
         tenantEditable: [
           { kind: "document-pdf", slug: "invoice", access: { roles: ["TenantAdmin"] } },
+          { kind: "pdf-layout", slug: "own-default", access: { roles: ["TenantAdmin"] } },
         ],
       }),
       createRendererFoundationFeature(),
@@ -956,5 +958,179 @@ describe("record images in document-pdf", () => {
     const { html } = onlyStubRequest();
     expect(html).toContain("kumiko-doc-image-placeholder");
     expect(html).not.toContain("data:image");
+  });
+});
+
+describe("document-pdf layout appearance, frames and company data", () => {
+  const upsertLayout = (slug: string, meta: Record<string, unknown>, content = LAYOUT_BODY) =>
+    stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertSystem,
+      {
+        slug,
+        kind: "pdf-layout",
+        locale: "de",
+        content,
+        contentFormat: "html",
+        meta,
+        variableSchema: {},
+        linkedResources: {},
+      },
+      TestUsers.systemAdmin,
+    );
+
+  const FRAME_HIGH =
+    '<div data-frame data-x="20" data-y="10" data-width="80" data-height="30"><p>Adresse</p></div><p>Fliesstext</p>';
+
+  beforeAll(async () => {
+    await upsertLayout("styled", {
+      margins: { top: 40, left: 30 },
+      fontFamily: "calibri",
+      fontSizePt: 10,
+      textColor: "#223344",
+      tableStyle: "lines",
+      tableHeaderBackground: "#eeeeee",
+    });
+    await upsertLayout("configured", { fontFamily: "cambria" });
+    await upsertLayout(
+      "default",
+      {},
+      "<div data-header><p>Standard Briefkopf</p></div><div data-content></div><div data-footer></div>",
+    );
+    const bleeding = await upsertLayout(
+      "bleeding",
+      {},
+      '<div data-header><img data-resource="logo" data-bleed alt="Kopf"></div><div data-content></div><div data-footer><p>Fuss</p></div>',
+    );
+    await uploadImageFor(bleeding.id, "logo");
+  });
+
+  const print = async (
+    content: string,
+    meta: Record<string, unknown>,
+    user: SessionUser = adminTenantA,
+  ) => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({ content, meta, variableSchema: {} }),
+      user,
+    );
+    return onlyStubRequest();
+  };
+
+  test("margins: template over layout over fallback, per side", async () => {
+    const { options } = await print("<p>x</p>", { layoutSlug: "styled", margins: { top: 50 } });
+    expect(options.marginMm).toMatchObject({ top: 50, left: 30, bottom: 20 });
+  });
+
+  test("layout margins apply when the template sets none", async () => {
+    const { options } = await print("<p>x</p>", { layoutSlug: "styled" });
+    expect(options.marginMm).toMatchObject({ top: 40, left: 30 });
+  });
+
+  test("the layout font, size, color and table style reach the CSS and the regions", async () => {
+    const { html, options } = await print("<p>x</p>", { layoutSlug: "styled" });
+    expect(html).toContain("font-family:Carlito,Calibri,sans-serif");
+    expect(html).toContain("font-size:10pt");
+    expect(html).toContain("color:#223344");
+    expect(html).toContain("th{background-color:#eeeeee}");
+    expect(options.headerTemplate).toContain("font-family:Carlito,Calibri,sans-serif");
+  });
+
+  test("a frame above the top margin lowers the first page margin and reserves flow space", async () => {
+    const { html } = await print(FRAME_HIGH, { layoutSlug: "styled" });
+    expect(html).toContain("@page:first{margin-top:10mm}");
+    expect(html).toContain('class="kumiko-frame-flow" style="height:38mm"');
+    expect(html).toContain('class="kumiko-frame"');
+  });
+
+  test("a frame inside the margin area needs neither", async () => {
+    const { html } = await print(
+      '<div data-frame data-x="20" data-y="60" data-width="80" data-height="30"><p>A</p></div>',
+      { layoutSlug: "styled" },
+    );
+    expect(html).not.toContain("@page:first");
+  });
+
+  test("a frame over the text in the top margin keeps the text at the margin", async () => {
+    const { html } = await print(
+      '<div data-frame data-x="20" data-y="10" data-width="80" data-height="30" data-frame-flow="over"><p>A</p></div>',
+      { layoutSlug: "styled" },
+    );
+    expect(html).toContain("@page:first{margin-top:10mm}");
+    expect(html).toContain('class="kumiko-frame-flow" style="height:30mm"');
+  });
+
+  test("a frame over the text below the top margin adds no spacer", async () => {
+    const { html } = await print(
+      '<div data-frame data-x="20" data-y="60" data-width="80" data-height="30" data-frame-flow="over"><p>A</p></div>',
+      { layoutSlug: "styled" },
+    );
+    expect(html).not.toContain('class="kumiko-frame-flow"');
+  });
+
+  test("header and footer reset the Chromium padding and let a bleed image reach the edge", async () => {
+    const { options } = await print("<p>x</p>", { layoutSlug: "bleeding" });
+    expect(options.headerTemplate).toContain("#header,#footer{padding:0!important}");
+    expect(options.headerTemplate).toContain("img[data-bleed]{position:absolute;top:0");
+    expect(options.footerTemplate).toContain("padding:0mm");
+  });
+
+  test("the tenant's default layout applies when the template names none", async () => {
+    const tenant = tenantAdmin(47);
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY, value: "configured", scope: "tenant" },
+      tenant,
+    );
+    const { html } = await print("<p>x</p>", { fileName: "x.pdf" }, tenant);
+    expect(html).toContain("font-family:Caladea,Cambria,serif");
+  });
+
+  test("a tenant default layout that was archived falls back to the built-in layout", async () => {
+    const tenant = tenantAdmin(49);
+    const ownDefault = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "own-default",
+        kind: "pdf-layout",
+        locale: "de",
+        content:
+          "<div data-header><p>Eigener Briefkopf</p></div><div data-content></div><div data-footer></div>",
+        contentFormat: "html",
+        meta: {},
+        variableSchema: {},
+        linkedResources: {},
+        status: "active",
+      },
+      tenant,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY, value: "own-default", scope: "tenant" },
+      tenant,
+    );
+    const before = await print("<p>x</p>", { fileName: "x.pdf" }, tenant);
+    stubRequests.length = 0;
+    expect(before.options.headerTemplate).toContain("Eigener Briefkopf");
+
+    await stack.http.writeOk(TemplateResolverHandlers.archive, { id: ownDefault.id }, tenant);
+    const after = await print("<p>x</p>", { fileName: "x.pdf" }, tenant);
+    expect(after.options.headerTemplate).not.toContain("Eigener Briefkopf");
+    expect(after.options.headerTemplate).toContain("Standard Briefkopf");
+  });
+
+  test("company data from the tenant config fills its placeholders", async () => {
+    const tenant = tenantAdmin(48);
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: "tenant:config:company-iban", value: "DE02 1203 0000 0000 2020 51", scope: "tenant" },
+      tenant,
+    );
+    const { html } = await print(
+      '<p>IBAN <span data-variable="companyIban"></span> Fax <span data-variable="companyPhone"></span>.</p>',
+      { layoutSlug: "letterhead" },
+      tenant,
+    );
+    expect(html).toContain("IBAN DE02 1203 0000 0000 2020 51 Fax .");
   });
 });

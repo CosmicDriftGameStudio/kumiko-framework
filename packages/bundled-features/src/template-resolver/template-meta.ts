@@ -5,6 +5,7 @@ import {
   PDF_PAGE_FORMATS,
   type TemplateKind,
 } from "./web/constants.ts";
+import { DOCUMENT_FONTS } from "./web/document-fonts.ts";
 import { MAIL_TONES, type MailTone } from "./web/mail-constants.ts";
 import {
   MAIL_LAYOUT_ACCENT_LINES,
@@ -12,6 +13,7 @@ import {
   MAIL_LAYOUT_FONTS,
   MAIL_LAYOUT_WIDTHS,
 } from "./web/mail-layout-constants.ts";
+import { PDF_TABLE_STYLES } from "./web/pdf-constants.ts";
 
 // One or more kebab segments joined by ":" — notification templates are seeded
 // under their qualified name `feature:notify:name`.
@@ -63,6 +65,9 @@ const mailMetaSchema = z.preprocess(
 );
 
 const marginMm = z.number().finite().min(0).max(100).optional();
+const pdfMargins = z
+  .object({ top: marginMm, right: marginMm, bottom: marginMm, left: marginMm })
+  .strict();
 
 // The file name ends up in a Content-Disposition header and on disk.
 const FORBIDDEN_FILE_NAME = /[/\\";]|\.\./;
@@ -80,10 +85,7 @@ const pdfMetaSchema = z
     orientation: z.enum(PDF_ORIENTATIONS).optional(),
     printBackground: z.boolean().optional(),
     layoutHeaderFooter: z.boolean().optional(),
-    margins: z
-      .object({ top: marginMm, right: marginMm, bottom: marginMm, left: marginMm })
-      .strict()
-      .optional(),
+    margins: pdfMargins.optional(),
     fileName: singleLine(200)
       .min(1)
       .refine((value) => !FORBIDDEN_FILE_NAME.test(value), 'must not contain / \\ " ; or ..')
@@ -111,12 +113,24 @@ const mailLayoutMetaSchema = z
   })
   .strict();
 
-const pdfLayoutMetaSchema = z.object({}).strict();
+const hexColor = z.string().regex(HEX_COLOR_PATTERN, "must be a #rrggbb color");
+
+const pdfLayoutMetaSchema = z
+  .object({
+    margins: pdfMargins.optional(),
+    fontFamily: z.enum(DOCUMENT_FONTS).optional(),
+    fontSizePt: z.number().finite().min(6).max(24).optional(),
+    textColor: hexColor.optional(),
+    tableStyle: z.enum(PDF_TABLE_STYLES).optional(),
+    tableHeaderBackground: hexColor.optional(),
+  })
+  .strict();
 
 export type MailTemplateMeta = z.infer<typeof mailMetaSchema>;
 export type PdfTemplateMeta = z.infer<typeof pdfMetaSchema>;
 export type MailLayoutMeta = z.infer<typeof mailLayoutMetaSchema>;
-export type LayoutTemplateMeta = MailLayoutMeta | z.infer<typeof pdfLayoutMetaSchema>;
+export type PdfLayoutMeta = z.infer<typeof pdfLayoutMetaSchema>;
+export type LayoutTemplateMeta = MailLayoutMeta | PdfLayoutMeta;
 export type TemplateMeta = MailTemplateMeta | PdfTemplateMeta | LayoutTemplateMeta;
 
 export function isMailTemplateMeta(meta: TemplateMeta | null): meta is MailTemplateMeta {
@@ -130,6 +144,11 @@ export function readPdfTemplateMeta(meta: TemplateMeta | null): PdfTemplateMeta 
 
 export function readMailLayoutMeta(meta: unknown): MailLayoutMeta {
   const parsed = mailLayoutMetaSchema.safeParse(meta ?? {});
+  return parsed.success ? parsed.data : {};
+}
+
+export function readPdfLayoutMeta(meta: unknown): PdfLayoutMeta {
+  const parsed = pdfLayoutMetaSchema.safeParse(meta ?? {});
   return parsed.success ? parsed.data : {};
 }
 

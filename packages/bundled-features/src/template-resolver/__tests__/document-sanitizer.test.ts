@@ -460,3 +460,60 @@ describe("images block", () => {
     ).not.toEqual({ ok: true, content: '<div data-images="a b"></div>' });
   });
 });
+
+describe("print styling attributes", () => {
+  const FRAME =
+    '<div data-frame="" data-x="20" data-y="45" data-width="85" data-height="40" data-frame-preset="address" data-frame-flow="over"><p>Hi</p></div>';
+  const roundTrips = [
+    '<p><span data-text-style="" data-color="#ff0000" data-font="calibri" data-size-pt="11.5">x</span></p>',
+    '<p data-line-height="1.5" data-space-before="6" data-space-after="12">x</p>',
+    '<table data-borders="none"><tbody><tr><td data-colwidth="100" data-background="#eeeeee"><p>x</p></td></tr></tbody></table>',
+    '<img data-resource="logo" data-bleed="">',
+    FRAME,
+  ];
+
+  test.each(roundTrips)("keeps %s", (html) => {
+    expect(sanitizeDocumentHtml(html)).toEqual({ ok: true, html });
+  });
+
+  test("drops invalid values instead of keeping them", () => {
+    expect(
+      sanitizeDocumentHtml(
+        '<p><span data-text-style="" data-color="red;background:url(x)" data-font="comic" data-size-pt="999">x</span></p>',
+      ),
+    ).toEqual({ ok: true, html: "<p>x</p>" });
+    expect(sanitizeDocumentHtml('<p data-line-height="9" data-space-before="-1">x</p>')).toEqual({
+      ok: true,
+      html: "<p>x</p>",
+    });
+  });
+
+  test("a frame with an out-of-range dimension is unwrapped", () => {
+    expect(
+      sanitizeDocumentHtml(
+        '<div data-frame="" data-x="1" data-y="1" data-width="5000" data-height="1"><p>x</p></div>',
+      ),
+    ).toEqual({ ok: true, html: "<p>x</p>" });
+  });
+
+  const NESTED =
+    '<div data-frame="" data-x="1" data-y="1" data-width="1" data-height="1"><div data-frame="" data-x="1" data-y="1" data-width="1" data-height="1"><p>x</p></div></div>';
+  const IN_CELL =
+    '<table><tbody><tr><td><div data-frame="" data-x="1" data-y="1" data-width="1" data-height="1"><p>x</p></div></td></tr></tbody></table>';
+
+  test.each([NESTED, IN_CELL])("rejects a frame that is not top level", (html) => {
+    expect(violationCodes(html)).toContain("frame_not_top_level");
+  });
+
+  test.each(roundTrips)("a mail rejects the PDF-only feature %s", (content) => {
+    const result = sanitizeTemplateBody({ kind: "mail", contentFormat: "html", content });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.violations[0]?.code).toBe("print_style_pdf_only");
+  });
+
+  test("a document-pdf keeps them", () => {
+    expect(
+      sanitizeTemplateBody({ kind: "document-pdf", contentFormat: "html", content: FRAME }),
+    ).toEqual({ ok: true, content: FRAME });
+  });
+});

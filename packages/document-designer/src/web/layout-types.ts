@@ -1,4 +1,4 @@
-import type { LayoutMeta } from "./layout-meta.ts";
+import type { LayoutMeta, PdfLayoutMeta } from "./layout-meta.ts";
 import type { ServedVersionView } from "./types.ts";
 
 export type LayoutKind = "mail-layout" | "pdf-layout";
@@ -66,6 +66,6 @@ export type LayoutSourceView = {
   };
   readonly effectiveFormat: "html" | "mjml" | null;
   readonly mjmlSource: string | null;
-  readonly meta: LayoutMeta;
+  readonly meta: LayoutMeta & PdfLayoutMeta;
   readonly locale: string;
 };

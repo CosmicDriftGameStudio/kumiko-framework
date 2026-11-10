@@ -37,6 +37,7 @@ import {
 } from "./api.ts";
 import { collectDocumentResourceKeys } from "./compile-document-body.ts";
 import { parseStoredJson } from "./handlers/template-gates.ts";
+import { defaultPdfLayoutSlug } from "./handlers/tenant-settings.ts";
 import { validateTemplateDraft } from "./handlers/validate.query.ts";
 import {
   type LayoutRegions,
@@ -57,7 +58,6 @@ import {
 } from "./template-meta.ts";
 import {
   DEFAULT_MAIL_LAYOUT_SLUG,
-  DEFAULT_PDF_LAYOUT_SLUG,
   MAIL_PREVIEW_MAX_BYTES,
   SYSTEM_TENANT_ID,
   type TemplateScope,
@@ -121,11 +121,10 @@ function sampleRow(
 }
 
 function sampleList(def: TemplateListVariableDef, labelText: LabelText): Record<string, unknown>[] {
-  const rows = (def.example ?? [])
-    .slice(0, SAMPLE_LIST_ROWS)
-    .map((given) => sampleRow(def.item, labelText, given));
-  while (rows.length < SAMPLE_LIST_ROWS) rows.push(sampleRow(def.item, labelText));
-  return rows;
+  const declared = (def.example ?? []).slice(0, SAMPLE_LIST_ROWS);
+  // Declared rows are the whole sample: padding them shows rows the data does not have.
+  if (declared.length > 0) return declared.map((given) => sampleRow(def.item, labelText, given));
+  return Array.from({ length: SAMPLE_LIST_ROWS }, () => sampleRow(def.item, labelText));
 }
 
 function sampleValueFor(name: string, def: TemplateVariableDef, labelText: LabelText): unknown {
@@ -458,7 +457,7 @@ async function renderDocumentPreview(
         layout: await resolvePdfLayout(
           ctx,
           user,
-          pdfMeta?.layoutSlug ?? DEFAULT_PDF_LAYOUT_SLUG,
+          pdfMeta?.layoutSlug ?? (await defaultPdfLayoutSlug(ctx, user.tenantId, input.locale)),
           input.locale,
         ),
         sampleValues,

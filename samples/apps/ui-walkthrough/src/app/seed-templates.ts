@@ -28,6 +28,7 @@ import {
   PAYMENT_REMINDER_TEMPLATES,
   type SeedTemplate,
   SYSTEM_AUTH_MAILS,
+  SYSTEM_BRIEFBOGEN_LAYOUT,
   SYSTEM_INVOICE_DOCUMENTS,
   SYSTEM_INVOICE_ISSUED,
   SYSTEM_PDF_LAYOUT,
@@ -165,6 +166,7 @@ export const seedTemplates: SeedFn = async (stack) => {
     platformAdmin,
   );
   await upsertSystem(SYSTEM_PDF_LAYOUT);
+  await upsertSystem(SYSTEM_BRIEFBOGEN_LAYOUT);
   for (const mail of SYSTEM_AUTH_MAILS) await upsertSystem(mail);
   await upsertSystem(SYSTEM_INVOICE_ISSUED);
   await upsertSystem(SYSTEM_TERMS_CHANGED);
