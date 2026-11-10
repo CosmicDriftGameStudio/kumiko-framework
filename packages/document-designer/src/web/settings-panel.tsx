@@ -36,8 +36,8 @@ export type SettingsPanelProps = {
   readonly paper: PaperSize;
   /** Margins as the renderer will apply them: template, then layout, then default. */
   readonly marginsMm: MarginsMm;
-  /** Margins without the template's own values, i.e. what the layout hands down. */
-  readonly inheritedMarginsMm: MarginsMm;
+  /** Margins without the template's own values, i.e. what the layout hands down; null until the layout is loaded. */
+  readonly inheritedMarginsMm: MarginsMm | null;
   /** Changes when the draft is replaced from outside, so the single-line editors re-read it. */
   readonly draftKey: string;
 };
@@ -167,7 +167,9 @@ export function SettingsPanel({
                       onChange={(value) =>
                         patch({ margins: { ...meta.margins, [side]: value ?? "" } })
                       }
-                      placeholder={String(inheritedMarginsMm[side])}
+                      placeholder={
+                        inheritedMarginsMm === null ? "" : String(inheritedMarginsMm[side])
+                      }
                     />
                   </Field>
                 ))}
@@ -189,11 +191,13 @@ export function SettingsPanel({
               <span className="text-sm font-medium">
                 {t("documentDesigner.margins.legendShort")}
               </span>
-              <Text>
-                {t("documentDesigner.margins.fromLayout", {
-                  margins: MARGIN_SIDES.map((side) => inheritedMarginsMm[side]).join(" · "),
-                })}
-              </Text>
+              {inheritedMarginsMm !== null && (
+                <Text>
+                  {t("documentDesigner.margins.fromLayout", {
+                    margins: MARGIN_SIDES.map((side) => inheritedMarginsMm[side]).join(" · "),
+                  })}
+                </Text>
+              )}
               <div className="flex justify-start">
                 <Button
                   variant="link"
