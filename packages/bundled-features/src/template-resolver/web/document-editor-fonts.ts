@@ -1,3 +1,4 @@
+/// <reference path="./fontsource-css.d.ts" />
 // Loaded only through loadDocumentEditorFonts (a dynamic import), so the font CSS stays out of the
 // main bundle and is evaluated once per session.
 import "@fontsource/arimo/latin-400.css";
