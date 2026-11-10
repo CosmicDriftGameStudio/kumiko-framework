@@ -44,7 +44,7 @@ import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualif
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const TENANT_EDITABLE = tenantEditableTemplates(
-  ["mail-layout", "pdf-layout", "mail"],
+  ["mail-layout", "pdf-layout", "mail", "document-pdf"],
   ["default", "contract-frame", "patch-free", "base", "b1", "b2", "inv-mailer:notify:invoice"],
 );
 
@@ -461,5 +461,200 @@ describe("template-resolver :: patch-draft write", () => {
       admin,
     );
     expectErrorIncludes(err, "variables_declared_by_feature");
+  });
+});
+
+type TargetKind = "mail" | "document-pdf" | "pdf-layout";
+
+const targetBlocksOf = (slug: string, kind: TargetKind, region: string | undefined, as: Admin) =>
+  stack.http.queryOk<Blocks & { region?: string }>(
+    TemplateResolverQueries.documentBlocks,
+    { slug, kind, locale: LOCALE, ...(region === undefined ? {} : { region }) },
+    as,
+  );
+
+const targetPatch = (
+  target: { slug: string; kind: TargetKind; region?: string },
+  base: Blocks["base"],
+  ops: unknown[],
+  as: Admin,
+) =>
+  stack.http.write(
+    TemplateResolverHandlers.patchDraft,
+    { ...target, locale: LOCALE, base, ops },
+    as,
+  );
+
+const LETTER_BLOCKS = [
+  {
+    type: "frame",
+    xMm: 20,
+    yMm: 45,
+    widthMm: 85,
+    heightMm: 45,
+    preset: "address",
+    blocks: [{ type: "paragraph", text: "Musterfirma GmbH" }],
+  },
+  {
+    type: "paragraph",
+    runs: [
+      { text: "Rechnung ", bold: true },
+      { text: "{{name}}", sizePt: 14 },
+    ],
+  },
+  {
+    type: "table",
+    header: { cells: [{ text: "Posten" }, { text: "Preis" }] },
+    rows: [],
+    repeat: { each: "positions", row: { cells: [{ text: "{{label}}" }, { text: "{{price}}" }] } },
+  },
+];
+
+describe("template-resolver :: patch-draft structured blocks", () => {
+  test("replaceBody builds a letter with address frame, runs and a repeat table in a PDF template", async () => {
+    const admin = adminOf(81);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: FREE_BODY,
+        contentFormat: "html",
+        variableSchema: {
+          name: { type: "text", required: true },
+          positions: { type: "list", item: { label: { type: "text" }, price: { type: "text" } } },
+        },
+      },
+      admin,
+    );
+    const before = await targetBlocksOf(FREE_SLUG, "document-pdf", undefined, admin);
+    expect(before.allowedBlocks).toContain("frame");
+    await stack.http.writeOk(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        base: before.base,
+        ops: [{ op: "replaceBody", blocks: LETTER_BLOCKS }],
+      },
+      admin,
+    );
+    const after = await targetBlocksOf(FREE_SLUG, "document-pdf", undefined, admin);
+    expect(after.blocks.map((block) => block.type)).toEqual(["frame", "paragraph", "repeat"]);
+    expect(after.blocks[0]?.text).toBe("Musterfirma GmbH");
+    expect(after.blocks[2]).toMatchObject({ each: "positions" });
+  });
+
+  test("a frame and print styling are refused in a mail with the op path", async () => {
+    const admin = adminOf(82);
+    await storeFreeTemplate(admin);
+    const base = (await blocksOf(FREE_SLUG, admin)).base;
+    const err = await stack.http.writeErr(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: FREE_SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        base,
+        ops: [{ op: "replaceBody", blocks: [LETTER_BLOCKS[0]] }],
+      },
+      admin,
+    );
+    expectErrorIncludes(err, "ops.0.blocks.0.type");
+    expectErrorIncludes(err, "block_not_allowed");
+    const styled = await stack.http.writeErr(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: FREE_SLUG,
+        kind: "mail",
+        locale: LOCALE,
+        base,
+        ops: [{ op: "formatBlock", blockId: "b0", style: { lineHeight: 2 } }],
+      },
+      admin,
+    );
+    expectErrorIncludes(styled, "print_style_not_allowed");
+  });
+
+  test("a pdf-layout is edited per region and the other regions stay", async () => {
+    const admin = adminOf(83);
+    const header = await targetBlocksOf("contract-frame", "pdf-layout", "header", admin);
+    expect(header.blocks[0]?.text).toBe("PDF_HEADER");
+    expect(header.allowedBlocks).not.toContain("frame");
+    const res = await targetPatch(
+      { slug: "contract-frame", kind: "pdf-layout", region: "header" },
+      header.base,
+      [
+        {
+          op: "replaceBody",
+          blocks: [
+            {
+              type: "paragraph",
+              align: "center",
+              runs: [{ text: "Musterfirma GmbH", bold: true }],
+            },
+          ],
+        },
+        { op: "setMeta", meta: { fontSizePt: 11, tableStyle: "lines" } },
+      ],
+      admin,
+    );
+    expect(res.status).toBe(200);
+    const after = await targetBlocksOf("contract-frame", "pdf-layout", "header", admin);
+    expect(after.status).toBe("draft");
+    expect(after.blocks[0]?.text).toBe("Musterfirma GmbH");
+    expect(after.meta).toMatchObject({ fontSizePt: 11, tableStyle: "lines" });
+    const footer = await targetBlocksOf("contract-frame", "pdf-layout", "footer", admin);
+    expect(footer.blocks[0]?.text).toBe("PDF_FOOTER");
+  });
+
+  test("a layout needs a region, other kinds take none, frames and bad layout meta are refused", async () => {
+    const admin = adminOf(84);
+    const base = (await targetBlocksOf("contract-frame", "pdf-layout", "footer", admin)).base;
+    const ops = [{ op: "setMeta", meta: { tableStyle: "lines" } }];
+    expectErrorIncludes(
+      await stack.http.writeErr(
+        TemplateResolverHandlers.patchDraft,
+        { slug: "contract-frame", kind: "pdf-layout", locale: LOCALE, base, ops },
+        admin,
+      ),
+      "region_required",
+    );
+    expectErrorIncludes(
+      await stack.http.writeErr(
+        TemplateResolverHandlers.patchDraft,
+        { slug: FREE_SLUG, kind: "mail", region: "header", locale: LOCALE, base, ops },
+        admin,
+      ),
+      "region_not_allowed",
+    );
+    const framed = await stack.http.writeErr(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: "contract-frame",
+        kind: "pdf-layout",
+        region: "footer",
+        locale: LOCALE,
+        base,
+        ops: [{ op: "replaceBody", blocks: [LETTER_BLOCKS[0]] }],
+      },
+      admin,
+    );
+    expectErrorIncludes(framed, "block_not_allowed");
+    const badMeta = await stack.http.writeErr(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: "contract-frame",
+        kind: "pdf-layout",
+        region: "footer",
+        locale: LOCALE,
+        base,
+        ops: [{ op: "setMeta", meta: { fontSizePt: 400 } }],
+      },
+      admin,
+    );
+    expectErrorIncludes(badMeta, "fontSizePt");
   });
 });

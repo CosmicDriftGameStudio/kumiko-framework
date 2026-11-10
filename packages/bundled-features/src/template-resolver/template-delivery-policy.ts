@@ -1,6 +1,6 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { SYSTEM_TENANT_ID } from "./web/constants.ts";
+import { SYSTEM_TENANT_ID, TENANT_LAYOUT_SLUG_PREFIX } from "./web/constants.ts";
 import { TEMPLATE_RESOLVER_FEATURE } from "./web/qualified-names.ts";
 
 type DeliveryTarget = { readonly kind: string; readonly slug: string };
@@ -15,12 +15,22 @@ export type TemplateDeliveryPolicy = {
 
 const NOTHING_UNLOCKED: TemplateDeliveryPolicy = { tenantEditable: [], collectionKinds: [] };
 
+// Tenant-created layouts have no entry of their own: they are served and edited once the app unlocks any PDF template.
+export function isTenantLayout(target: DeliveryTarget): boolean {
+  return target.kind === "pdf-layout" && target.slug.startsWith(TENANT_LAYOUT_SLUG_PREFIX);
+}
+
+function unlocksTenantLayouts(policy: TemplateDeliveryPolicy): boolean {
+  return policy.tenantEditable.some((entry) => entry.kind === "document-pdf");
+}
+
 export function isTenantOverrideServed(
   policy: TemplateDeliveryPolicy,
   target: DeliveryTarget,
 ): boolean {
   return (
     policy.collectionKinds.includes(target.kind) ||
+    (isTenantLayout(target) && unlocksTenantLayouts(policy)) ||
     policy.tenantEditable.some((entry) => entry.kind === target.kind && entry.slug === target.slug)
   );
 }

@@ -201,3 +201,265 @@ describe("template-resolver :: applyDocumentOps", () => {
     expect(documentOpsSchema.safeParse([op]).success).toBe(true);
   });
 });
+
+const PDF = "document-pdf" as const;
+const ADDRESS_FRAME = {
+  type: "frame",
+  xMm: 20,
+  yMm: 45,
+  widthMm: 85,
+  heightMm: 45,
+  preset: "address",
+  blocks: [{ type: "paragraph", text: "Musterfirma GmbH" }],
+} as const;
+
+function replaceBody(blocks: unknown[], kind: "mail" | "document-pdf" | "pdf-layout" = PDF) {
+  const parsed = documentOpsSchema.parse([{ op: "replaceBody", blocks }]);
+  return applyDocumentOps({ doc: doc(), meta: {}, variableSchema: {}, kind, ops: parsed });
+}
+
+describe("template-resolver :: structured blocks", () => {
+  test("runs carry bold, italic, underline and a text style, placeholders stay chips", () => {
+    const out = html(
+      replaceBody([
+        {
+          type: "paragraph",
+          runs: [
+            { text: "Fett ", bold: true },
+            {
+              text: "Groß {{name}}",
+              italic: true,
+              underline: true,
+              sizePt: 14,
+              color: "#112233",
+              font: "times",
+            },
+          ],
+        },
+      ]),
+    );
+    expect(out).toContain("<strong>Fett </strong>");
+    expect(out).toContain('data-size-pt="14"');
+    expect(out).toContain('data-color="#112233"');
+    expect(out).toContain('data-font="times"');
+    expect(out).toContain('<span data-variable="name"></span>');
+  });
+
+  test("text and runs together, or neither, are refused", () => {
+    expect(codes(replaceBody([{ type: "paragraph", text: "a", runs: [{ text: "b" }] }]))).toEqual([
+      "ops.0.blocks.0:text_or_runs_required",
+    ]);
+    expect(codes(replaceBody([{ type: "paragraph" }]))).toEqual([
+      "ops.0.blocks.0:text_or_runs_required",
+    ]);
+  });
+
+  test("block formatting lands on paragraph and heading", () => {
+    const out = html(
+      replaceBody([
+        {
+          type: "heading",
+          level: 2,
+          text: "Titel",
+          align: "center",
+          style: { lineHeight: 1.5, spaceBeforePt: 6, spaceAfterPt: 12 },
+          textStyle: { font: "arial", sizePt: 20 },
+        },
+      ]),
+    );
+    expect(out).toContain('data-align="center"');
+    expect(out).toContain('data-line-height="1.5"');
+    expect(out).toContain('data-space-before="6"');
+    expect(out).toContain('data-space-after="12"');
+    expect(out).toContain('data-size-pt="20"');
+  });
+
+  test("a list is ordered or bullet and takes strings or runs as items", () => {
+    const ordered = html(
+      replaceBody([
+        { type: "list", ordered: true, items: ["Eins", [{ text: "Zwei", bold: true }]] },
+      ]),
+    );
+    expect(ordered).toContain("<ol>");
+    expect(ordered).toContain("<strong>Zwei</strong>");
+    expect(html(replaceBody([{ type: "list", ordered: false, items: ["Eins"] }]))).toContain(
+      "<ul>",
+    );
+  });
+
+  test("a table has a repeating header, a repeat row, borders, widths and cell backgrounds", () => {
+    const out = html(
+      replaceBody([
+        {
+          type: "table",
+          borders: "none",
+          columnWidthsPx: [200, 100],
+          header: {
+            cells: [
+              { text: "Posten", background: "#eeeeee" },
+              { text: "Preis", align: "right" },
+            ],
+          },
+          rows: [{ cells: [{ text: "Summe" }, { text: "{{total}}" }] }],
+          repeat: {
+            each: "positions",
+            row: { cells: [{ text: "{{label}}" }, { text: "{{price}}" }] },
+          },
+        },
+      ]),
+    );
+    expect(out).toContain('data-borders="none"');
+    expect(out).toContain("data-repeat-header");
+    expect(out).toContain('data-each="positions"');
+    expect(out).toContain('data-background="#eeeeee"');
+    expect(out).toContain('data-colwidth="200"');
+    expect(out).toContain("<th");
+  });
+
+  test("table refusals: ragged rows, widths that do not match, an empty table, a bad repeat name", () => {
+    const row2 = { cells: [{ text: "a" }, { text: "b" }] };
+    const row1 = { cells: [{ text: "a" }] };
+    expect(codes(replaceBody([{ type: "table", rows: [row2, row1] }]))).toEqual([
+      "ops.0.blocks.0:invalid_table",
+    ]);
+    expect(codes(replaceBody([{ type: "table", rows: [row2], columnWidthsPx: [10] }]))).toContain(
+      "ops.0.blocks.0.rows.0.cells:invalid_table",
+    );
+    expect(codes(replaceBody([{ type: "table", rows: [] }]))).toEqual([
+      "ops.0.blocks.0:invalid_table",
+    ]);
+    expect(
+      codes(replaceBody([{ type: "table", rows: [row1], repeat: { each: "no good", row: row1 } }])),
+    ).toEqual(["ops.0.blocks.0.repeat.each:invalid_repeat_variable"]);
+  });
+
+  test("a frame keeps its position, preset and inner blocks", () => {
+    const out = html(replaceBody([ADDRESS_FRAME]));
+    expect(out).toContain("data-frame");
+    expect(out).toContain('data-x="20"');
+    expect(out).toContain('data-frame-preset="address"');
+    expect(out).toContain("Musterfirma GmbH");
+    const applied = replaceBody([ADDRESS_FRAME]);
+    if (!applied.ok) throw new Error(JSON.stringify(applied.issues));
+    const blocks = documentBlocksOf(applied.doc);
+    expect(blocks[0]).toMatchObject({
+      type: "frame",
+      text: "Musterfirma GmbH",
+      frame: { xMm: 20, yMm: 45, widthMm: 85, heightMm: 45, preset: "address" },
+    });
+  });
+
+  test("a frame is refused in a mail and in a layout region", () => {
+    expect(codes(replaceBody([ADDRESS_FRAME], "mail"))).toContain(
+      "ops.0.blocks.0.type:block_not_allowed",
+    );
+    expect(codes(replaceBody([ADDRESS_FRAME], "pdf-layout"))).toContain(
+      "ops.0.blocks.0.type:block_not_allowed",
+    );
+  });
+
+  test("print styling is refused in a mail", () => {
+    expect(
+      codes(replaceBody([{ type: "paragraph", text: "x", style: { lineHeight: 2 } }], "mail")),
+    ).toEqual(["ops.0.blocks.0:print_style_not_allowed"]);
+    expect(
+      codes(replaceBody([{ type: "paragraph", runs: [{ text: "x", color: "#000000" }] }], "mail")),
+    ).toEqual(["ops.0.blocks.0:print_style_not_allowed"]);
+    expect(
+      codes(
+        replaceBody(
+          [{ type: "table", rows: [{ cells: [{ text: "x", background: "#ffffff" }] }] }],
+          "mail",
+        ),
+      ),
+    ).toEqual(["ops.0.blocks.0:print_style_not_allowed"]);
+  });
+
+  test("replaceBody replaces everything and old ids are gone afterwards", () => {
+    const ops = documentOpsSchema.parse([
+      { op: "replaceBody", blocks: [{ type: "paragraph", text: "Neu" }] },
+      { op: "removeBlock", blockId: "b0" },
+    ]);
+    expect(
+      codes(applyDocumentOps({ doc: doc(), meta: {}, variableSchema: {}, kind: PDF, ops })),
+    ).toEqual(["ops.1.blockId:block_removed"]);
+    const out = html(replaceBody([{ type: "paragraph", text: "Neu" }]));
+    expect(out).toBe("<p>Neu</p>");
+  });
+
+  test("replaceBody counts blocks inside frames against the limit of 300", () => {
+    const inner = { type: "paragraph", text: "x" };
+    const frames = Array.from({ length: 100 }, () => ({
+      ...ADDRESS_FRAME,
+      blocks: [inner, inner, inner],
+    }));
+    expect(documentOpsSchema.safeParse([{ op: "replaceBody", blocks: frames }]).success).toBe(true);
+    expect(codes(replaceBody(frames))).toEqual(["ops.0.blocks:too_many_blocks"]);
+    const tooManyTop = Array.from({ length: 301 }, () => inner);
+    expect(documentOpsSchema.safeParse([{ op: "replaceBody", blocks: tooManyTop }]).success).toBe(
+      false,
+    );
+  });
+
+  test("the schema refuses values outside the print ranges, fonts, colors and presets", () => {
+    const parse = (block: unknown) =>
+      documentOpsSchema.safeParse([{ op: "replaceBody", blocks: [block] }]).success;
+    expect(parse({ type: "paragraph", text: "x", style: { lineHeight: 9 } })).toBe(false);
+    expect(parse({ type: "paragraph", runs: [{ text: "x", sizePt: 2 }] })).toBe(false);
+    expect(parse({ type: "paragraph", runs: [{ text: "x", font: "comic-sans" }] })).toBe(false);
+    expect(parse({ type: "paragraph", runs: [{ text: "x", color: "red" }] })).toBe(false);
+    expect(parse({ ...ADDRESS_FRAME, preset: "banner" })).toBe(false);
+    expect(parse({ ...ADDRESS_FRAME, xMm: 5000 })).toBe(false);
+    expect(parse({ ...ADDRESS_FRAME, blocks: [ADDRESS_FRAME] })).toBe(false);
+    expect(parse({ type: "table", columnWidthsPx: [0], rows: [] })).toBe(false);
+  });
+
+  test("formatBlock formats a paragraph and a list, keeping the other settings", () => {
+    const ops = documentOpsSchema.parse([
+      {
+        op: "formatBlock",
+        blockId: "b1",
+        align: "right",
+        textStyle: { sizePt: 12, color: "#ff0000" },
+      },
+      { op: "formatBlock", blockId: "b2", style: { spaceAfterPt: 8 } },
+    ]);
+    const out = html(
+      applyDocumentOps({ doc: doc(), meta: {}, variableSchema: {}, kind: PDF, ops }),
+    );
+    expect(out).toContain('data-align="right"');
+    expect(out).toContain('data-size-pt="12"');
+    expect(out).toContain("<strong>");
+    expect(out).toContain('data-space-after="8"');
+  });
+
+  test("formatBlock refuses an empty format, a wrong block, and print styling in a mail", () => {
+    const run = (op: unknown, kind: "mail" | "document-pdf" = PDF) =>
+      codes(
+        applyDocumentOps({
+          doc: doc(),
+          meta: {},
+          variableSchema: {},
+          kind,
+          ops: documentOpsSchema.parse([op]),
+        }),
+      );
+    expect(run({ op: "formatBlock", blockId: "b1" })).toEqual(["ops.0:empty_format"]);
+    expect(run({ op: "formatBlock", blockId: "b4", align: "left" })).toEqual([
+      "ops.0.blockId:block_type_mismatch",
+    ]);
+    expect(run({ op: "formatBlock", blockId: "b1", style: { lineHeight: 2 } }, "mail")).toEqual([
+      "ops.0:print_style_not_allowed",
+    ]);
+  });
+
+  test("a layout region takes tables and text but follows the PDF set", () => {
+    const out = html(
+      replaceBody(
+        [{ type: "table", borders: "none", rows: [{ cells: [{ text: "{{companyIban}}" }] }] }],
+        "pdf-layout",
+      ),
+    );
+    expect(out).toContain('data-borders="none"');
+  });
+});

@@ -14,6 +14,10 @@ export type RenderKind = (typeof RENDER_KINDS)[number];
 export const DOCUMENT_HTML_KINDS = ["mail", "document-pdf"] as const;
 export type DocumentHtmlKind = (typeof DOCUMENT_HTML_KINDS)[number];
 
+// Kinds structured document ops can edit: the two document kinds plus the regions of a PDF layout.
+export const DOCUMENT_OPS_KINDS = [...DOCUMENT_HTML_KINDS, "pdf-layout"] as const;
+export type DocumentOpsKind = (typeof DOCUMENT_OPS_KINDS)[number];
+
 // Kinds without a renderer plugin: `notification` is the retired sections-JSON
 // notification kind, kept so rows stored before mails moved to `mail` stay
 // valid on replay; nothing writes or renders it any more. `text-block` is the Markdown text store
@@ -133,3 +137,6 @@ export const FALLBACK_LOCALE = "de";
 
 // A collection mounted without `access` is maintained by the platform only; TenantAdmin access is an explicit mount decision.
 export const DEFAULT_COLLECTION_ACCESS = { roles: ["SystemAdmin"] } as const;
+
+// Tenant-created PDF layouts live under this slug prefix; system layouts may not use it, so the two namespaces never meet.
+export const TENANT_LAYOUT_SLUG_PREFIX = "tenant-layout-";

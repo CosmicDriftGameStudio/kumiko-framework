@@ -147,6 +147,7 @@ export {
   TEMPLATE_KINDS,
   TEMPLATE_SCOPES,
   TEMPLATE_STATUSES,
+  TENANT_LAYOUT_SLUG_PREFIX,
   TEXT_BLOCK_KIND,
   type TemplateKind,
   type TemplateScope,

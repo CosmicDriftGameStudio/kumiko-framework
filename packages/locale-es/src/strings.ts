@@ -1540,6 +1540,22 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.sizeUnderCap": "El correo está dentro del límite de 10 MiB",
   "templateResolver.checks.requiredPlaceholders": "Se usan todos los marcadores obligatorios",
   "templateResolver.errors.preview.renderFailed": "No se pudo generar la vista previa.",
+  "templateResolver.errors.patch.printStyleNotAllowed":
+    "Las fuentes, tamaños, colores, espaciados, bordes y fondos solo existen en plantillas PDF, no en {kind}.",
+  "templateResolver.errors.patch.textOrRunsRequired": "Indica text o runs, no ambos y no ninguno.",
+  "templateResolver.errors.patch.invalidTable": "La tabla no es válida: {problem}.",
+  "templateResolver.errors.patch.invalidRepeatVariable":
+    "El nombre {each} no es una variable de lista válida para una fila repetida.",
+  "templateResolver.errors.patch.tooManyBlocks":
+    "El contenido puede tener como máximo {max} bloques, incluidos los de los marcos.",
+  "templateResolver.errors.patch.regionRequired":
+    "Un diseño PDF se edita por zonas; define region como header, signature o footer.",
+  "templateResolver.errors.patch.regionNotAllowed":
+    "Una zona solo se aplica a diseños PDF, no a {kind}.",
+  "templateResolver.errors.patch.layoutExists": "Ya existe un diseño con el identificador {slug}.",
+  "templateResolver.errors.template.reservedLayoutSlug":
+    "El prefijo {prefix} está reservado para los diseños propios de cada organización.",
+  "templateResolver.errors.patch.emptyFormat": "Indica al menos uno de align, style o textStyle.",
   "templateResolver.errors.patch.unknownBlock": "El bloque {blockId} no existe en la plantilla.",
   "templateResolver.errors.patch.blockRemoved":
     "El bloque {blockId} ya fue eliminado por un paso anterior.",
@@ -2809,6 +2825,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "documentDesigner.margins.override": "Cambiar para esta plantilla",
   "documentDesigner.margins.useLayout": "Como en el diseño",
   "template-resolver:write:apply-layout:title": "Aplicar diseño PDF",
+  "template-resolver:write:create-layout:title": "Crear diseño PDF",
   "template-resolver:write:publish-templates:title": "Publicar varias plantillas",
   "documentDesigner.company.title": "Datos de la empresa",
   "documentDesigner.company.edit": "Editar",

@@ -15,6 +15,7 @@ import { makeCollectionItemQuery } from "./handlers/collection-item.query.ts";
 import { makeCollectionListQuery } from "./handlers/collection-list.query.ts";
 import { makeCollectionSetWrite } from "./handlers/collection-set.write.ts";
 import { makeCopyLocaleWrite } from "./handlers/copy-locale.write.ts";
+import { makeCreateLayoutWrite } from "./handlers/create-layout.write.ts";
 import { diffToSystemQuery } from "./handlers/diff-to-system.query.ts";
 import {
   makeDiscardDraftSystemWrite,
@@ -200,6 +201,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       sendTest: r.writeHandler(makeSendTestWrite(policy)),
       patchDraft: r.writeHandler(makePatchDraftWrite(policy)),
       applyLayout: r.writeHandler(makeApplyLayoutWrite(policy)),
+      createLayout: r.writeHandler(makeCreateLayoutWrite(policy)),
       publishTemplates: r.writeHandler(makePublishTemplatesWrite(policy)),
     };
 

@@ -7,12 +7,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
+  ValidationError,
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
+import { isTenantLayout } from "./template-delivery-policy.ts";
 import { isSystemAdmin } from "./template-draft.ts";
-import type { TemplateKind } from "./web/constants.ts";
+import { TENANT_LAYOUT_SLUG_PREFIX, type TemplateKind } from "./web/constants.ts";
 import { TemplateResolverErrors } from "./web/qualified-names.ts";
 
 export type TenantEditableTemplate = {
@@ -44,6 +46,7 @@ export function mayEditTemplate(
   target: EditTarget,
 ): boolean {
   if (isSystemAdmin(user)) return true;
+  if (isTenantLayout(target)) return mayEditTenantLayouts(policy, user);
   const entry = policy.tenantEditable.find(
     (candidate) => candidate.slug === target.slug && candidate.kind === target.kind,
   );
@@ -88,4 +91,28 @@ export async function refuseTemplateEditById(
   return row === undefined
     ? refuseMissingTemplate(policy, user)
     : refuseTemplateEdit(policy, user, row);
+}
+
+// A tenant may build its own layouts as soon as it may edit any PDF template; layouts have no entry of their own.
+function mayEditTenantLayouts(policy: TemplateEditPolicy, user: EditUser): boolean {
+  return policy.tenantEditable.some(
+    (entry) => entry.kind === "document-pdf" && hasAccess(user, entry.access),
+  );
+}
+
+// System layouts must not take a slug from the tenant namespace.
+export function refuseReservedLayoutSlug(target: EditTarget, path: string): WriteFailure | null {
+  if (!isTenantLayout(target)) return null;
+  return writeFailure(
+    new ValidationError({
+      fields: [
+        {
+          path,
+          code: "reserved_layout_slug",
+          i18nKey: "templateResolver.errors.template.reservedLayoutSlug",
+          params: { prefix: TENANT_LAYOUT_SLUG_PREFIX },
+        },
+      ],
+    }),
+  );
 }

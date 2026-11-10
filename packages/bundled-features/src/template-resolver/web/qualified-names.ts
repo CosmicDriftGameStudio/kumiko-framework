@@ -21,6 +21,7 @@ export const TemplateResolverHandlers = {
   sendTest: "template-resolver:write:send-test",
   patchDraft: "template-resolver:write:patch-draft",
   applyLayout: "template-resolver:write:apply-layout",
+  createLayout: "template-resolver:write:create-layout",
   publishTemplates: "template-resolver:write:publish-templates",
 } as const;
 

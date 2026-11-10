@@ -1,13 +1,23 @@
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import { getSchema, type JSONContent } from "@tiptap/core";
 import * as z from "zod";
-import { toVariableDef } from "./template-validation.ts";
-import type { DocumentHtmlKind } from "./web/constants.ts";
-import { documentBlocksForKind } from "./web/document-blocks.ts";
 import {
-  DOCUMENT_TEXT_ALIGNMENTS,
+  type BlockInput,
+  type BuildContext,
+  blockFormatSchema,
+  blockInputSchema,
+  blockNode,
+  countBlocks,
+  FORMATTABLE_NODE_TYPES,
+  formatNode,
+  MAX_BODY_BLOCKS,
+  patchIssue,
+  refusePrintStyling,
+} from "./document-op-blocks.ts";
+import { toVariableDef } from "./template-validation.ts";
+import type { DocumentOpsKind } from "./web/constants.ts";
+import {
   documentExtensions,
-  isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
 } from "./web/document-schema.ts";
@@ -24,6 +34,7 @@ export type DocumentBlockType =
   | "list"
   | "table"
   | "repeat"
+  | "frame"
   | "image"
   | "button"
   | "divider"
@@ -42,6 +53,15 @@ export type DocumentBlock = {
   readonly alt?: string;
   readonly href?: string;
   readonly each?: string;
+  readonly frame?: FrameBox;
+};
+
+export type FrameBox = {
+  readonly xMm: number;
+  readonly yMm: number;
+  readonly widthMm: number;
+  readonly heightMm: number;
+  readonly preset?: string;
 };
 
 const TEXT_BLOCK_TYPES: ReadonlySet<string> = new Set(["paragraph", "heading", "button"]);
@@ -62,6 +82,8 @@ function blockTypeOf(node: JSONContent): DocumentBlockType | null {
       return eachOf(node) === undefined ? "table" : "repeat";
     case "resource":
       return "image";
+    case "documentFrame":
+      return "frame";
     default:
       return null;
   }
@@ -112,6 +134,23 @@ function setTypeSpecificAttrs(block: MutableBlock, node: JSONContent): void {
   if (block.type === "button" && href !== undefined) block.href = href;
   const each = eachOf(node);
   if (block.type === "repeat" && each !== undefined) block.each = each;
+  if (block.type === "frame") block.frame = frameBoxOf(node);
+}
+
+function numberAttr(node: JSONContent, name: string): number {
+  const value: unknown = node.attrs?.[name];
+  return typeof value === "number" ? value : 0;
+}
+
+function frameBoxOf(node: JSONContent): FrameBox {
+  const preset = stringAttr(node, "preset");
+  return {
+    xMm: numberAttr(node, "xMm"),
+    yMm: numberAttr(node, "yMm"),
+    widthMm: numberAttr(node, "widthMm"),
+    heightMm: numberAttr(node, "heightMm"),
+    ...(preset === undefined ? {} : { preset }),
+  };
 }
 
 function blockOf(node: JSONContent, id: string): DocumentBlock | null {
@@ -133,30 +172,8 @@ export function documentBlocksOf(doc: JSONContent): DocumentBlock[] {
 }
 
 const blockIdSchema = z.string().min(1).max(20);
-const singleLineText = z.string().max(2000);
 
-const blockInputSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("paragraph"),
-    text: singleLineText,
-    align: z.enum(DOCUMENT_TEXT_ALIGNMENTS).optional(),
-  }),
-  z.object({
-    type: z.literal("heading"),
-    level: z.number().int().min(1).max(3),
-    text: singleLineText,
-  }),
-  z.object({
-    type: z.literal("image"),
-    resource: z.string().min(1).max(200),
-    alt: z.string().max(500).optional(),
-  }),
-  z.object({ type: z.literal("button"), text: singleLineText, href: z.string().max(300) }),
-  z.object({ type: z.literal("divider") }),
-  z.object({ type: z.literal("pageBreak") }),
-]);
-
-export type BlockInput = z.infer<typeof blockInputSchema>;
+export type { BlockInput };
 
 export const documentOpSchema = z.discriminatedUnion("op", [
   z.object({
@@ -171,6 +188,11 @@ export const documentOpSchema = z.discriminatedUnion("op", [
     replace: z.string().max(2000),
   }),
   z.object({ op: z.literal("removeBlock"), blockId: blockIdSchema }),
+  z.object({
+    op: z.literal("replaceBody"),
+    blocks: z.array(blockInputSchema).min(1).max(MAX_BODY_BLOCKS),
+  }),
+  blockFormatSchema.extend({ op: z.literal("formatBlock"), blockId: blockIdSchema }),
   z.object({
     op: z.literal("setResource"),
     blockId: blockIdSchema,
@@ -193,7 +215,7 @@ export type DocumentOpsInput = {
   readonly doc: JSONContent;
   readonly meta: Readonly<Record<string, unknown>>;
   readonly variableSchema: Readonly<Record<string, unknown>>;
-  readonly kind: DocumentHtmlKind;
+  readonly kind: DocumentOpsKind;
   readonly ops: readonly DocumentOp[];
 };
 
@@ -207,20 +229,6 @@ export type DocumentOpsResult =
   | { readonly ok: false; readonly issues: FieldIssue[] };
 
 type Entry = { node: JSONContent; removed: boolean; readonly insertedAfter: JSONContent[] };
-
-function patchIssue(
-  path: string,
-  code: string,
-  params?: Readonly<Record<string, unknown>>,
-): FieldIssue {
-  const camel = code.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
-  return {
-    path,
-    code,
-    i18nKey: `templateResolver.errors.patch.${camel}`,
-    ...(params === undefined ? {} : { params }),
-  };
-}
 
 function textNodesIn(nodes: readonly JSONContent[]): JSONContent[] {
   return nodes.flatMap((node) => (node.type === "text" ? [node] : textNodesIn(node.content ?? [])));
@@ -263,58 +271,6 @@ function replaceInContent(
   });
 }
 
-function nodeOfInput(input: BlockInput): JSONContent {
-  switch (input.type) {
-    case "paragraph":
-      return {
-        type: "paragraph",
-        ...(input.align === undefined ? {} : { attrs: { textAlign: input.align } }),
-        content: lineToContent(singleLine(input.text)),
-      };
-    case "heading":
-      return {
-        type: "heading",
-        attrs: { level: input.level },
-        content: lineToContent(singleLine(input.text)),
-      };
-    case "image":
-      return { type: "resource", attrs: { resource: input.resource, alt: input.alt ?? null } };
-    case "button":
-      return {
-        type: "button",
-        attrs: { href: input.href },
-        content: lineToContent(singleLine(input.text)),
-      };
-    case "divider":
-    case "pageBreak":
-      return { type: input.type };
-  }
-}
-
-const TOOLBAR_BLOCK_OF_INPUT = {
-  image: "image",
-  button: "button",
-  divider: "divider",
-  pageBreak: "pageBreak",
-} as const;
-
-function isBlockAllowed(input: BlockInput, kind: DocumentHtmlKind): boolean {
-  if (input.type === "paragraph" || input.type === "heading") return true;
-  return documentBlocksForKind(kind).includes(TOOLBAR_BLOCK_OF_INPUT[input.type]);
-}
-
-function inputIssue(input: BlockInput, path: string): FieldIssue | null {
-  if (input.type === "image" && !isDocumentResourceKey(input.resource)) {
-    return patchIssue(`${path}.block.resource`, "invalid_resource_key", {
-      resource: input.resource,
-    });
-  }
-  if (input.type === "button" && !isDocumentPlaceholderHref(input.href)) {
-    return patchIssue(`${path}.block.href`, "invalid_button_href", { href: input.href });
-  }
-  return null;
-}
-
 let cachedSchema: ReturnType<typeof getSchema> | null = null;
 
 function documentSchema(): ReturnType<typeof getSchema> {
@@ -332,7 +288,8 @@ function isValidDocument(doc: JSONContent): boolean {
 }
 
 type OpState = {
-  readonly kind: DocumentHtmlKind;
+  readonly kind: DocumentOpsKind;
+  replacement: JSONContent[] | null;
   readonly entries: Map<string, Entry>;
   readonly insertedAtStart: JSONContent[];
   readonly meta: Record<string, unknown>;
@@ -350,32 +307,75 @@ function lookupEntry(state: OpState, blockId: string, fieldPath: string): EntryL
 
 type InsertBlockOp = Extract<DocumentOp, { op: "insertBlock" }>;
 
-function blockInputIssue(
-  op: InsertBlockOp,
-  path: string,
-  kind: DocumentHtmlKind,
-): FieldIssue | null {
-  if (!isBlockAllowed(op.block, kind)) {
-    return patchIssue(`${path}.block.type`, "block_not_allowed", { type: op.block.type, kind });
-  }
-  if (
-    op.block.type === "paragraph" &&
-    op.block.align !== undefined &&
-    !documentBlocksForKind(kind).includes("align")
-  ) {
-    return patchIssue(`${path}.block.align`, "block_not_allowed", { type: "align", kind });
-  }
-  return inputIssue(op.block, path);
+function buildBlocks(
+  state: OpState,
+  blocks: readonly BlockInput[],
+  pathOf: (index: number) => string,
+): { readonly nodes: JSONContent[]; readonly issues: FieldIssue[] } {
+  const ctx: BuildContext = { kind: state.kind, issues: [] };
+  const nodes = blocks.map((block, index) => blockNode(ctx, pathOf(index), block));
+  nodes.forEach((node, index) => {
+    const refused = refusePrintStyling(state.kind, node, pathOf(index));
+    if (refused !== null) ctx.issues.push(refused);
+  });
+  return { nodes, issues: ctx.issues };
 }
 
-function insertBlockOp(state: OpState, op: InsertBlockOp, path: string): FieldIssue | null {
+function insertBlockOp(state: OpState, op: InsertBlockOp, path: string): FieldIssue[] {
   const anchor = op.after === null ? null : lookupEntry(state, op.after, `${path}.after`);
-  if (anchor !== null && "issue" in anchor) return anchor.issue;
-  const invalid = blockInputIssue(op, path, state.kind);
-  if (invalid !== null) return invalid;
+  if (anchor !== null && "issue" in anchor) return [anchor.issue];
+  const built = buildBlocks(state, [op.block], () => `${path}.block`);
+  if (built.issues.length > 0) return built.issues;
   const target = anchor === null ? state.insertedAtStart : anchor.entry.insertedAfter;
-  target.push(nodeOfInput(op.block));
-  return null;
+  target.push(...built.nodes);
+  return [];
+}
+
+function replaceBodyOp(
+  state: OpState,
+  op: Extract<DocumentOp, { op: "replaceBody" }>,
+  path: string,
+): FieldIssue[] {
+  if (countBlocks(op.blocks) > MAX_BODY_BLOCKS) {
+    return [patchIssue(`${path}.blocks`, "too_many_blocks", { max: MAX_BODY_BLOCKS })];
+  }
+  const built = buildBlocks(state, op.blocks, (index) => `${path}.blocks.${index}`);
+  if (built.issues.length > 0) return built.issues;
+  for (const entry of state.entries.values()) {
+    entry.removed = true;
+    entry.insertedAfter.length = 0;
+  }
+  state.insertedAtStart.length = 0;
+  state.replacement = built.nodes;
+  return [];
+}
+
+function formatBlockOp(
+  state: OpState,
+  op: Extract<DocumentOp, { op: "formatBlock" }>,
+  path: string,
+): FieldIssue[] {
+  const found = lookupEntry(state, op.blockId, `${path}.blockId`);
+  if ("issue" in found) return [found.issue];
+  const { entry } = found;
+  if (op.align === undefined && op.style === undefined && op.textStyle === undefined) {
+    return [patchIssue(path, "empty_format")];
+  }
+  if (!FORMATTABLE_NODE_TYPES.has(entry.node.type ?? "")) {
+    return [
+      patchIssue(`${path}.blockId`, "block_type_mismatch", {
+        expected: "paragraph, heading or list",
+        actual: entry.node.type ?? "unknown",
+      }),
+    ];
+  }
+  const ctx: BuildContext = { kind: state.kind, issues: [] };
+  const formatted = formatNode(ctx, path, entry.node, op);
+  const refused = refusePrintStyling(state.kind, formatted, path);
+  if (refused !== null) ctx.issues.push(refused);
+  if (ctx.issues.length > 0) return ctx.issues;
+  entry.node = formatted;
+  return [];
 }
 
 function removeBlockOp(
@@ -484,21 +484,29 @@ function setVariableOp(
   return null;
 }
 
-function applyOp(state: OpState, op: DocumentOp, path: string): FieldIssue | null {
+function applyOp(state: OpState, op: DocumentOp, path: string): FieldIssue[] {
   switch (op.op) {
     case "insertBlock":
       return insertBlockOp(state, op, path);
+    case "replaceBody":
+      return replaceBodyOp(state, op, path);
+    case "formatBlock":
+      return formatBlockOp(state, op, path);
     case "removeBlock":
-      return removeBlockOp(state, op, path);
+      return singleIssue(removeBlockOp(state, op, path));
     case "replaceText":
-      return replaceTextOp(state, op, path);
+      return singleIssue(replaceTextOp(state, op, path));
     case "setResource":
-      return setResourceOp(state, op, path);
+      return singleIssue(setResourceOp(state, op, path));
     case "setMeta":
-      return setMetaOp(state, op, path);
+      return singleIssue(setMetaOp(state, op, path));
     case "setVariable":
-      return setVariableOp(state, op, path);
+      return singleIssue(setVariableOp(state, op, path));
   }
+}
+
+function singleIssue(issue: FieldIssue | null): FieldIssue[] {
+  return issue === null ? [] : [issue];
 }
 
 // Ops address blocks by the ids of the document as it was read, so inserted blocks are
@@ -514,19 +522,21 @@ export function applyDocumentOps(input: DocumentOpsInput): DocumentOpsResult {
   });
   const state: OpState = {
     kind: input.kind,
+    replacement: null,
     entries,
     insertedAtStart: [],
     meta: { ...input.meta },
     variableSchema: { ...input.variableSchema },
   };
-  const issues = input.ops.flatMap((op, index) => applyOp(state, op, `ops.${index}`) ?? []);
+  const issues = input.ops.flatMap((op, index) => applyOp(state, op, `ops.${index}`));
   if (issues.length > 0) return { ok: false, issues };
 
   const content = [
     ...state.insertedAtStart,
-    ...[...entries.values()].flatMap((entry) =>
-      entry.removed ? entry.insertedAfter : [entry.node, ...entry.insertedAfter],
-    ),
+    ...(state.replacement ??
+      [...entries.values()].flatMap((entry) =>
+        entry.removed ? entry.insertedAfter : [entry.node, ...entry.insertedAfter],
+      )),
   ];
   const doc: JSONContent = { ...input.doc, content };
   if (!isValidDocument(doc)) return { ok: false, issues: [patchIssue("ops", "invalid_document")] };

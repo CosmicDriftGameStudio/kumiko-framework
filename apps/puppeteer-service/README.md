@@ -32,6 +32,14 @@ Content-Type: application/json
 - `500 render_failed`: Puppeteer-Error
 - `504 render_failed` (timeout-keyword): Render hat `RENDER_TIMEOUT_MS` überschritten
 
+### `POST /rasterize`
+
+Macht aus einem PDF PNG-Seiten (poppler: `pdftoppm`, optional `pdfimages`), damit ein Agent das Ergebnis sehen kann. Gleiche Auth und gleicher Concurrency-Zähler wie `/render`.
+
+**Request (JSON):** `{ pdfBase64, maxPages?, dpi?, images? }`. `maxPages` höchstens `MAX_RASTER_PAGES`, `dpi` 72, 100 (Default) oder 150, `images: true` liefert zusätzlich die eingebetteten Bilder (höchstens 20).
+
+**Response:** `200 { pages: [{ mimeType, data, widthPx, heightPx }], images: [...] }` (`data` ist Base64). `400 invalid_pdf`, `400 invalid_payload`, `401`, `413 payload_too_large` / `pdf_too_large` / `result_too_large`, `503 busy`, `504 rasterize_failed` (Timeout `RENDER_TIMEOUT_MS`).
+
 ### `GET /healthz`
 
 K8s liveness/readiness probe. Returnt `200 "ok"`. Kein Auth.
@@ -62,6 +70,8 @@ Der Service lädt nichts aus dem Netz. Erlaubt sind nur `data:`, `about:` und `b
 | `PUPPETEER_AUTH_TOKEN` | **required** | Shared Secret mit Plugin (>=16 chars) |
 | `RENDER_TIMEOUT_MS` | `30000` | Per-Render-Timeout |
 | `MAX_HTML_BYTES` | `2000000` | Maximum HTML-Größe (2 MB default) |
+| `MAX_PDF_BYTES` | `10000000` | Maximale PDF-Größe für `/rasterize` (10 MB default) |
+| `MAX_RASTER_PAGES` | `5` | Maximale Seitenzahl, die `/rasterize` pro Aufruf rendert |
 | `BROWSER_IDLE_TIMEOUT_MS` | `300000` | Chromium wird nach so vielen ms ohne Render geschlossen (spart ~460 MiB RAM im Leerlauf); der nächste Render startet ihn neu und zahlt den Kaltstart |
 | `PUPPETEER_EXECUTABLE_PATH` | undefined | Custom Chromium-Pfad (z.B. system-chromium statt prebuilt) |
 

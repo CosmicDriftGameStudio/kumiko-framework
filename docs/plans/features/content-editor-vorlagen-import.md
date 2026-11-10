@@ -1,7 +1,7 @@
 ---
 status: idea
-verified: 2026-11-09
-next: Stufe 1 ist im Branch docs/content-editor-vorlagen-import gebaut. Offen sind die Abnahme gegen den Entwurf und der Handvergleich mit den drei Beispielvorlagen.
+verified: 2026-11-10
+next: Stufe 1 ist erledigt (PR #4294, #4296, 2026-11-10). Stufe 2 und der Framework-Teil von Stufe 3 sind gebaut, noch nicht erledigt. Offen: der Enterprise-Teil von Stufe 3 (`ai-agent`), danach Stufe 4.
 track: framework
 depends: [kumiko-framework:docs/plans/features/document-designer.md]
 ---
@@ -82,6 +82,8 @@ Die Originale enthalten echte Namen, Adressen und Bankdaten und bleiben außerha
 
 ### Stufe 1: Editor und PDF-Ausgabe können es (Framework)
 
+Erledigt: PR #4294 und #4296, gemergt am 2026-11-10.
+
 - Dokumentmodell, Sanitizer und Toolbar: Textfarbe, Schriftart, Größe in pt, Abstände und Zeilenhöhe. Tabellen mit Spaltenbreiten, Rahmen an oder aus, Zellfarbe.
 - `documentFrame` in `PDF_DOCUMENT_BLOCKS`, im Editor an der echten Position gezeichnet, Maße im Einstellungsfeld. Nur auf Seite 1, das reicht für Adressfeld und Infoblock.
 - Menü „Baustein“ in der Leiste: Adressfeld, Textrahmen, Spalten. Im Layout stehen die Spalten für Kopf und Fuß bereit.
@@ -100,11 +102,16 @@ Abnahme ohne KI: Die Beispielvorlagen lassen sich von Hand im Editor nachbauen, 
 
 ### Stufe 2: Die KI kommt an alles heran (Framework)
 
+Gebaut im Branch feat/vorlagen-import-ki-ops: `patch-draft` und `document-blocks` nehmen Runs, Listen, Tabellen mit Wiederholzeile, Rahmen und die Ops `replaceBody` und `formatBlock` an, dazu `kind: pdf-layout` mit `region`, und `create-layout` legt ein neues Layout an.
+
 - Ops: Tabelle mit Wiederholzeile, Formatierung, `documentFrame`, `replaceBody`.
 - Neues Layout anlegen und befüllen, unter denselben Rechten wie `patch-draft`.
 - `agent: { risk: "low", effect: "proposal" }` auf `patch-draft`.
+- Eigene Layouts der Mandanten: `create-layout` legt sie unter dem Präfix `tenant-layout-` an. Ein Mandant darf sie bearbeiten, veröffentlichen und nutzen, sobald er irgendeine PDF-Vorlage bearbeiten darf. System-Layouts dürfen das Präfix nicht tragen (`reserved_layout_slug`).
 
 ### Stufe 3: Die KI sieht das Ergebnis (Framework, Enterprise)
+
+Framework-Teil gebaut, nicht erledigt: `POST /rasterize` im `puppeteer-service` (poppler in Image und CI), `rasterizePdf` und `AGENT_IMAGES_RESULT_KEY` im Client, die Query `preview-png` mit `agentImages`. Der Enterprise-Teil (`ai-agent`) läuft parallel.
 
 - `puppeteer-service`: PDF zu PNG und eingebettete Bilder ausgeben (`pdftoppm`, `pdfimages`), mit Grenzen für Seiten und Größe. Hochgeladene PDFs sind fremde Daten und bleiben in diesem Dienst.
 - Query für den Entwurf als PNG je Seite, über denselben Weg wie das Original.
@@ -112,6 +119,7 @@ Abnahme ohne KI: Die Beispielvorlagen lassen sich von Hand im Editor nachbauen, 
 
 ### Stufe 4: Der Import (Enterprise, Framework)
 
+- Fähigkeits-Vorprüfung: Vor dem Start prüft der Ablauf, ob das gewählte Modell Tool-Use und Bildeingabe kann (`kumiko-enterprise/packages/ai-provider-openai-compat/src/capabilities.ts`). Fehlt eines von beiden, kommt eine klare Meldung, welches Modell was nicht kann, statt eines Laufs, der mitten drin scheitert.
 - Ablauf: Vorlage finden, Platzhalter lesen, Upload lesen, Werte den Platzhaltern zuordnen, Entwurf bauen, rendern, vergleichen, höchstens drei Korrekturrunden.
 - Logo aus den eingebetteten Bildern des PDFs als Ressource, sonst aus dem Branding. Bei einem Scan ist die ganze Seite ein Bild, dort kommt das Logo aus einem Zuschnitt des Seitenbilds oder aus einem eigenen Upload.
 - Die KI legt alles Gemeinsame ins Layout und formatiert im Text nur Abweichungen, sonst ließe sich der Look nicht übertragen.
@@ -123,6 +131,13 @@ Abnahme ohne KI: Die Beispielvorlagen lassen sich von Hand im Editor nachbauen, 
 ### Stufe 5: Rollout
 
 Framework-Release durch Marc, Bump in der ersten App, Deploy des `puppeteer-service`, Guide und What's new.
+
+Modellmessung vor dem Rollout:
+
+- Drei anonymisierte Nachbauten der Beispielvorlagen, je Vorlage vier Modelle: ein starkes, günstiges Cloud-Modell und zwei selbst gehostete über Ollama oder vLLM.
+- Höchstens drei Korrekturrunden je Lauf. Bewertet werden der Bildvergleich mit dem Original, die Zahl der Runden und die Kosten.
+- Marc bekommt vor dem Lauf eine Kostenschätzung und gibt sie frei.
+- Ergebnis ist eine Tabelle in der Doku „welche Modelle gehen“ und ein dev.to-Artikel dazu.
 
 ## Tests
 

@@ -1543,6 +1543,23 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.sizeUnderCap": "L'e-mail rispetta il limite di dimensione di 10 MiB",
   "templateResolver.checks.requiredPlaceholders": "Tutti i segnaposto obbligatori sono utilizzati",
   "templateResolver.errors.preview.renderFailed": "Non è stato possibile generare l'anteprima.",
+  "templateResolver.errors.patch.printStyleNotAllowed":
+    "Caratteri, dimensioni, colori, spaziature, bordi e sfondi esistono solo nei modelli PDF, non in {kind}.",
+  "templateResolver.errors.patch.textOrRunsRequired":
+    "Indica text oppure runs, non entrambi e non nessuno.",
+  "templateResolver.errors.patch.invalidTable": "La tabella non è valida: {problem}.",
+  "templateResolver.errors.patch.invalidRepeatVariable":
+    "Il nome {each} non è una variabile di elenco valida per una riga ripetuta.",
+  "templateResolver.errors.patch.tooManyBlocks":
+    "Il contenuto può avere al massimo {max} blocchi, compresi quelli nei riquadri.",
+  "templateResolver.errors.patch.regionRequired":
+    "Un layout PDF si modifica una zona alla volta; imposta region su header, signature o footer.",
+  "templateResolver.errors.patch.regionNotAllowed":
+    "Una zona vale solo per i layout PDF, non per {kind}.",
+  "templateResolver.errors.patch.layoutExists": "Esiste già un layout con lo slug {slug}.",
+  "templateResolver.errors.template.reservedLayoutSlug":
+    "Il prefisso {prefix} è riservato ai layout propri di ogni organizzazione.",
+  "templateResolver.errors.patch.emptyFormat": "Indica almeno uno tra align, style o textStyle.",
   "templateResolver.errors.patch.unknownBlock": "Il blocco {blockId} non esiste nel modello.",
   "templateResolver.errors.patch.blockRemoved":
     "Il blocco {blockId} è già stato rimosso da un passaggio precedente.",
@@ -2817,6 +2834,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.margins.override": "Modifica per questo modello",
   "documentDesigner.margins.useLayout": "Come nel layout",
   "template-resolver:write:apply-layout:title": "Applica layout PDF",
+  "template-resolver:write:create-layout:title": "Crea layout PDF",
   "template-resolver:write:publish-templates:title": "Pubblica più modelli",
   "documentDesigner.company.title": "Dati aziendali",
   "documentDesigner.company.edit": "Modifica",

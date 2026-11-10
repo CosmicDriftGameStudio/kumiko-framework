@@ -46,6 +46,7 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
   DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY,
@@ -59,7 +60,16 @@ import {
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature, userEntity } from "@cosmicdrift/kumiko-bundled-features/user";
+import {
+  createFilesFeature,
+  createInMemoryFileProvider,
+} from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import {
+  createRendererPuppeteerClientFeature,
+  RendererPuppeteerClientQueries,
+  renderedPdfEntity,
+} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import {
   setupTestStack,
   type TestStack,
@@ -73,6 +83,11 @@ import {
   LETTERHEAD_LAYOUT_HTML,
   LETTERHEAD_LAYOUT_META,
   LETTERHEAD_LAYOUT_SLUG,
+  REBUILT_HEADER_BLOCKS,
+  REBUILT_LAYOUT_NAME,
+  REBUILT_LAYOUT_SLUG,
+  REBUILT_LETTER_BLOCKS,
+  REBUILT_LETTER_SLUG,
   TENANT_EDITABLE,
 } from "../letterhead";
 
@@ -85,11 +100,15 @@ let letterId: string;
 beforeAll(async () => {
   stack = await setupTestStack({
     features: [
+      createFilesFeature(),
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
       createTemplateResolverFeature({ tenantEditable: [...TENANT_EDITABLE] }),
+      createRendererFoundationFeature(),
+      createRendererPuppeteerClientFeature(),
     ],
+    files: { storageProvider: createInMemoryFileProvider() },
     extraContext: ({ registry }) => {
       const resolver = createConfigResolver();
       return {
@@ -101,6 +120,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, templateResourceEntity);
+  await unsafeCreateEntityTable(stack.db, renderedPdfEntity, "rendered-pdf");
   await unsafePushTables(stack.db, { configValuesTable, tenantMembershipsTable });
 
   await stack.http.writeOk(
@@ -203,6 +223,155 @@ describe("pdf-letterhead", () => {
     );
     expect(values[DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY]?.value).toBe(LETTERHEAD_LAYOUT_SLUG);
   });
+
+  test("create-layout and patch-draft rebuild a letterhead and a letter from structured blocks", async () => {
+    type Blocks = {
+      base: { scope: string; version: number };
+      blocks: { type: string; text?: string; each?: string }[];
+    };
+    const layout = await stack.http.writeOk<{ base: Blocks["base"] }>(
+      TemplateResolverHandlers.createLayout,
+      { name: REBUILT_LAYOUT_NAME, title: "Briefkopf Musterfirma", locale: LETTER_LOCALE },
+      admin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: REBUILT_LAYOUT_SLUG,
+        kind: "pdf-layout",
+        region: "header",
+        locale: LETTER_LOCALE,
+        base: layout.base,
+        ops: [{ op: "replaceBody", blocks: REBUILT_HEADER_BLOCKS }],
+      },
+      admin,
+    );
+    const header = await stack.http.queryOk<Blocks>(
+      TemplateResolverQueries.documentBlocks,
+      { slug: REBUILT_LAYOUT_SLUG, kind: "pdf-layout", region: "header", locale: LETTER_LOCALE },
+      admin,
+    );
+    expect(header.blocks.map((block) => block.text)).toEqual([
+      "Musterfirma GmbH",
+      "Musterstraße 1, 12345 Musterstadt",
+    ]);
+
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: REBUILT_LETTER_SLUG,
+        kind: "document-pdf",
+        locale: LETTER_LOCALE,
+        content: "<p>Platzhalter</p>",
+        contentFormat: "html",
+        variableSchema: {
+          invoiceNumber: { type: "text" },
+          positions: { type: "list", item: { label: { type: "text" }, amount: { type: "text" } } },
+        },
+      },
+      admin,
+    );
+    const letterRef = { slug: REBUILT_LETTER_SLUG, kind: "document-pdf", locale: LETTER_LOCALE };
+    const before = await stack.http.queryOk<Blocks>(
+      TemplateResolverQueries.documentBlocks,
+      letterRef,
+      admin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.patchDraft,
+      {
+        ...letterRef,
+        base: before.base,
+        ops: [
+          { op: "replaceBody", blocks: REBUILT_LETTER_BLOCKS },
+          { op: "setMeta", meta: { layoutSlug: REBUILT_LAYOUT_SLUG } },
+        ],
+      },
+      admin,
+    );
+    const after = await stack.http.queryOk<Blocks & { meta: Record<string, unknown> }>(
+      TemplateResolverQueries.documentBlocks,
+      letterRef,
+      admin,
+    );
+    expect(after.blocks.map((block) => block.type)).toEqual(["frame", "heading", "repeat"]);
+    expect(after.blocks[0]?.text).toBe("Max Mustermann\nBeispielweg 2");
+    expect(after.meta["layoutSlug"]).toBe(REBUILT_LAYOUT_SLUG);
+  });
+});
+
+describe("pdf-letterhead preview-png", () => {
+  const SERVICE_TOKEN = "recipe-service-token-0123456789abcdef";
+  const ONE_PIXEL_PNG =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47];
+  const renderedHtml: string[] = [];
+  const envKeys = ["PUPPETEER_SERVICE_URL", "PUPPETEER_AUTH_TOKEN", "PUPPETEER_CLIENT_MAX_RETRIES"];
+  const savedEnv = new Map<string, string | undefined>();
+
+  // Stands in for puppeteer-service so the recipe runs without Chromium or poppler.
+  const service = Bun.serve({
+    port: 0,
+    async fetch(request) {
+      const { pathname } = new URL(request.url);
+      if (request.headers.get("Authorization") !== `Bearer ${SERVICE_TOKEN}`) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      if (pathname === "/render") {
+        renderedHtml.push(JSON.stringify(await request.json()));
+        return new Response("%PDF-1.4\n1 0 obj<< /Type /Pages /Kids [] /Count 1 >>endobj\n%%EOF", {
+          headers: { "Content-Type": "application/pdf" },
+        });
+      }
+      if (pathname === "/rasterize") {
+        const page = { mimeType: "image/png", data: ONE_PIXEL_PNG, widthPx: 1, heightPx: 1 };
+        return Response.json({ pages: [page], images: [] });
+      }
+      return new Response("not found", { status: 404 });
+    },
+  });
+
+  beforeAll(() => {
+    for (const key of envKeys) savedEnv.set(key, process.env[key]);
+    process.env["PUPPETEER_SERVICE_URL"] = `http://127.0.0.1:${service.port}`;
+    process.env["PUPPETEER_AUTH_TOKEN"] = SERVICE_TOKEN;
+    process.env["PUPPETEER_CLIENT_MAX_RETRIES"] = "0";
+  });
+
+  afterAll(async () => {
+    for (const [key, value] of savedEnv) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await service.stop(true);
+  });
+
+  test("the rebuilt letterhead is printed and comes back as a PNG page the agent can look at", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.publishTemplates,
+      { templates: [{ slug: REBUILT_LAYOUT_SLUG, kind: "pdf-layout", locale: LETTER_LOCALE }] },
+      admin,
+    );
+    const preview = await stack.http.queryOk<{
+      pages: { mimeType: string; data: string }[];
+      agentImages: { mimeType: string; data: string }[];
+    }>(
+      RendererPuppeteerClientQueries.previewPng,
+      {
+        slug: REBUILT_LETTER_SLUG,
+        locale: LETTER_LOCALE,
+        content: "<p>Sehr geehrte Damen und Herren</p>",
+        meta: { layoutSlug: REBUILT_LAYOUT_SLUG },
+      },
+      admin,
+    );
+
+    expect(renderedHtml.join("")).toContain("Musterfirma GmbH");
+    expect(preview.pages).toHaveLength(1);
+    expect(preview.agentImages).toHaveLength(1);
+    const bytes = Buffer.from(preview.agentImages[0]?.data ?? "", "base64");
+    expect([...bytes.subarray(0, 4)]).toEqual(PNG_MAGIC);
+  });
 });
 ```
 
@@ -212,7 +381,10 @@ describe("pdf-letterhead", () => {
 // The pieces an app ships for a letterhead: a system layout with its own look, a letter that places
 // the recipient in the DIN address window, and the list of templates tenants may edit.
 
-import type { TenantEditableTemplate } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import {
+  TENANT_LAYOUT_SLUG_PREFIX,
+  type TenantEditableTemplate,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
 export const LETTERHEAD_LAYOUT_SLUG = "letterhead";
 export const LETTER_SLUG = "letter";
@@ -247,8 +419,55 @@ export const LETTER_HTML = [
   "<p>anbei erhalten Sie die Unterlagen.</p>",
 ].join("");
 
+// What an AI assistant sends through create-layout and patch-draft to rebuild an uploaded letter:
+// structured blocks only, never HTML. Names and addresses are made up.
+export const REBUILT_LAYOUT_NAME = "rebuilt-letterhead";
+export const REBUILT_LAYOUT_SLUG = `${TENANT_LAYOUT_SLUG_PREFIX}${REBUILT_LAYOUT_NAME}`;
+export const REBUILT_LETTER_SLUG = "rebuilt-letter";
+
+export const REBUILT_HEADER_BLOCKS = [
+  {
+    type: "paragraph",
+    align: "right",
+    runs: [{ text: "Musterfirma GmbH", bold: true, sizePt: 14, color: "#1f5468" }],
+  },
+  { type: "paragraph", align: "right", text: "Musterstraße 1, 12345 Musterstadt" },
+] as const;
+
+export const REBUILT_LETTER_BLOCKS = [
+  {
+    type: "frame",
+    xMm: 20,
+    yMm: 45,
+    widthMm: 85,
+    heightMm: 45,
+    preset: "address",
+    blocks: [
+      { type: "paragraph", text: "Max Mustermann" },
+      { type: "paragraph", text: "Beispielweg 2" },
+    ],
+  },
+  { type: "heading", level: 2, text: "Rechnung {{invoiceNumber}}" },
+  {
+    type: "table",
+    columnWidthsPx: [320, 120],
+    header: {
+      cells: [
+        { text: "Leistung", background: "#eeeeee" },
+        { text: "Betrag", align: "right" },
+      ],
+    },
+    rows: [],
+    repeat: {
+      each: "positions",
+      row: { cells: [{ text: "{{label}}" }, { text: "{{amount}}", align: "right" }] },
+    },
+  },
+] as const;
+
 export const TENANT_EDITABLE: readonly TenantEditableTemplate[] = [
   { kind: "pdf-layout", slug: LETTERHEAD_LAYOUT_SLUG, access: { roles: ["TenantAdmin"] } },
   { kind: "document-pdf", slug: LETTER_SLUG, access: { roles: ["TenantAdmin"] } },
+  { kind: "document-pdf", slug: REBUILT_LETTER_SLUG, access: { roles: ["TenantAdmin"] } },
 ];
 ```

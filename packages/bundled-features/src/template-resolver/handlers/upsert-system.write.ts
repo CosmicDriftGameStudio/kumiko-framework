@@ -1,4 +1,5 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import { refuseReservedLayoutSlug } from "../template-edit-policy.ts";
 import { resolveTemplateVariables } from "../template-validation.ts";
 import { upsertPayloadSchema } from "./shared.ts";
 import { writeTemplateRow } from "./template-write.ts";
@@ -12,8 +13,10 @@ export const upsertSystemWrite = defineWriteHandler({
   access: { roles: ["SystemAdmin"] },
   description:
     "Creates or overwrites a system-default template under the system tenant with its full variable schema (resource files go through the resource upload), active straight away with no draft stage; SystemAdmin only, since tenants shadow these defaults through upsert-tenant instead.",
-  handler: (event, ctx) =>
-    writeTemplateRow({
+  handler: async (event, ctx) => {
+    const refused = refuseReservedLayoutSlug(event.payload, "slug");
+    if (refused !== null) return refused;
+    return writeTemplateRow({
       ctx,
       user: event.user,
       tenantId: SYSTEM_TENANT_ID,
@@ -25,5 +28,6 @@ export const upsertSystemWrite = defineWriteHandler({
         event.payload.variableSchema,
       ),
       payload: event.payload,
-    }),
+    });
+  },
 });

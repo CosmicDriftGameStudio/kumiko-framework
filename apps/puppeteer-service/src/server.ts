@@ -1,5 +1,6 @@
 // HTTP server. Endpoints:
 //   POST /render — main endpoint, renders HTML to PDF/image
+//   POST /rasterize — turns a PDF into PNG pages (and embedded images) so an agent can look at it
 //   GET /healthz — Liveness probe for K8s (HTTP 200 while the service is up)
 //   GET /metrics — Prometheus-format metrics (renders-total, render-errors-total, render-duration-ms)
 //
@@ -11,6 +12,15 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { TimeoutError } from "puppeteer";
 import type { ServiceConfig } from "./config";
+import {
+  DEFAULT_RASTER_DPI,
+  InvalidPdfError,
+  RasterResultTooLargeError,
+  type RasterizeRequest,
+  RasterizeTimeoutError,
+  rasterize,
+  rasterizeRequestSchema,
+} from "./rasterize";
 import { isBrowserRunning, type RenderRequest, render, renderRequestSchema } from "./render";
 
 // Hashing first gives timingSafeEqual equal-length inputs without leaking the token length.
@@ -20,26 +30,38 @@ function isAuthorized(authHeader: string | undefined, authToken: string): boolea
 }
 
 type Metrics = {
-  rendersTotal: { pdf: number; image: number };
+  rendersTotal: { pdf: number; image: number; rasterize: number };
   renderErrorsTotal: number;
   renderRejectedBusyTotal: number;
   renderDurationMs: number[];
 };
 
-export type AppDeps = { readonly render: typeof render };
+export type AppDeps = {
+  readonly render: typeof render;
+  readonly rasterize: typeof rasterize;
+};
 
 export function createApp(
   config: ServiceConfig,
-  deps: AppDeps = { render },
+  overrides: Partial<AppDeps> = {},
 ): { app: Hono; metrics: Metrics } {
+  const deps: AppDeps = { render, rasterize, ...overrides };
   const metrics: Metrics = {
-    rendersTotal: { pdf: 0, image: 0 },
+    rendersTotal: { pdf: 0, image: 0, rasterize: 0 },
     renderErrorsTotal: 0,
     renderRejectedBusyTotal: 0,
     renderDurationMs: [],
   };
   const app = new Hono();
   let rendersInFlight = 0;
+
+  const recordDuration = (ms: number) => {
+    metrics.renderDurationMs.push(ms);
+    // Keep only last 1000 samples to bound memory.
+    if (metrics.renderDurationMs.length > 1000) {
+      metrics.renderDurationMs.splice(0, metrics.renderDurationMs.length - 1000);
+    }
+  };
 
   app.get("/healthz", (c) => c.text("ok"));
 
@@ -55,6 +77,7 @@ export function createApp(
         "# TYPE puppeteer_renders_total counter",
         `puppeteer_renders_total{kind="document-pdf"} ${metrics.rendersTotal.pdf}`,
         `puppeteer_renders_total{kind="image-snapshot"} ${metrics.rendersTotal.image}`,
+        `puppeteer_renders_total{kind="rasterize"} ${metrics.rendersTotal.rasterize}`,
         "# HELP puppeteer_render_errors_total Total render-Errors.",
         "# TYPE puppeteer_render_errors_total counter",
         `puppeteer_render_errors_total ${metrics.renderErrorsTotal}`,
@@ -125,11 +148,7 @@ export function createApp(
       const ms = performance.now() - t0;
       if (body.kind === "document-pdf") metrics.rendersTotal.pdf += 1;
       else metrics.rendersTotal.image += 1;
-      metrics.renderDurationMs.push(ms);
-      // Keep only last 1000 samples to bound memory.
-      if (metrics.renderDurationMs.length > 1000) {
-        metrics.renderDurationMs.splice(0, metrics.renderDurationMs.length - 1000);
-      }
+      recordDuration(ms);
       return new Response(result.bytes as unknown as BodyInit, {
         status: 200,
         headers: {
@@ -145,6 +164,69 @@ export function createApp(
       // localization or lib updates.
       const status = e instanceof TimeoutError ? 504 : 500;
       return c.json({ error: "render_failed", details: message }, status);
+    } finally {
+      rendersInFlight -= 1;
+    }
+  });
+
+  app.post("/rasterize", async (c) => {
+    if (!isAuthorized(c.req.header("Authorization"), config.authToken)) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    // Base64 inflates by 4/3; the +10k buffer covers the JSON envelope.
+    const maxBodyBytes = Math.ceil((config.maxPdfBytes * 4) / 3) + 10_000;
+    const contentLength = Number.parseInt(c.req.header("Content-Length") ?? "0", 10);
+    if (contentLength > maxBodyBytes) {
+      return c.json(
+        { error: "payload_too_large", maxBytes: config.maxPdfBytes, gotBytes: contentLength },
+        413,
+      );
+    }
+
+    let body: RasterizeRequest;
+    try {
+      body = rasterizeRequestSchema.parse(await c.req.json());
+    } catch (e) {
+      return c.json({ error: "invalid_payload", details: describe(e) }, 400);
+    }
+
+    const pdfBytes = Buffer.from(body.pdfBase64, "base64");
+    if (pdfBytes.byteLength > config.maxPdfBytes) {
+      return c.json(
+        { error: "pdf_too_large", maxBytes: config.maxPdfBytes, gotBytes: pdfBytes.byteLength },
+        413,
+      );
+    }
+
+    if (rendersInFlight >= config.maxConcurrentRenders) {
+      metrics.renderRejectedBusyTotal += 1;
+      return c.json({ error: "busy" }, 503, { "Retry-After": "1" });
+    }
+    rendersInFlight += 1;
+
+    const t0 = performance.now();
+    try {
+      const result = await deps.rasterize({
+        pdfBytes,
+        maxPages: Math.min(body.maxPages ?? config.maxRasterPages, config.maxRasterPages),
+        dpi: body.dpi ?? DEFAULT_RASTER_DPI,
+        images: body.images ?? false,
+        timeoutMs: config.renderTimeoutMs,
+      });
+      metrics.rendersTotal.rasterize += 1;
+      recordDuration(performance.now() - t0);
+      return c.json(result, 200);
+    } catch (e) {
+      metrics.renderErrorsTotal += 1;
+      if (e instanceof InvalidPdfError) {
+        return c.json({ error: "invalid_pdf", details: describe(e) }, 400);
+      }
+      if (e instanceof RasterResultTooLargeError) {
+        return c.json({ error: "result_too_large", gotBytes: e.gotBytes }, 413);
+      }
+      const status = e instanceof RasterizeTimeoutError ? 504 : 500;
+      return c.json({ error: "rasterize_failed", details: describe(e) }, status);
     } finally {
       rendersInFlight -= 1;
     }

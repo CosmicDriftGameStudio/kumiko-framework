@@ -20,11 +20,10 @@ type RegionAttribute = (typeof REGION_ATTRIBUTES)[number];
 
 const MAIL_LAYOUT_CONTENT_SLOT = /\{\{\{\s*content\s*\}\}\}/g;
 
-export type LayoutRegions = {
-  readonly header: string;
-  readonly signature: string;
-  readonly footer: string;
-};
+export const LAYOUT_REGION_NAMES = ["header", "signature", "footer"] as const;
+export type LayoutRegionName = (typeof LAYOUT_REGION_NAMES)[number];
+
+export type LayoutRegions = Readonly<Record<LayoutRegionName, string>>;
 
 export type SanitizeLayoutResult =
   | { readonly ok: true; readonly html: string }
@@ -119,18 +118,13 @@ export function sanitizeLayoutHtml(html: string): SanitizeLayoutResult {
     else violations.push(...result.violations);
   }
   if (violations.length > 0) return { ok: false, violations };
-  const part = (name: RegionAttribute) => {
-    const regionHtml = cleanedHtml[name];
-    return regionHtml === undefined ? "" : `<div ${name}>${regionHtml}</div>`;
-  };
   return {
     ok: true,
-    html: [
-      part("data-header"),
-      "<div data-content></div>",
-      part("data-signature"),
-      part("data-footer"),
-    ].join(""),
+    html: composeLayoutHtml({
+      header: cleanedHtml["data-header"] ?? "",
+      signature: cleanedHtml["data-signature"] ?? "",
+      footer: cleanedHtml["data-footer"] ?? "",
+    }),
   };
 }
 
@@ -141,6 +135,18 @@ export function readLayoutRegions(html: string): LayoutRegions {
     signature: innerHtml["data-signature"] ?? "",
     footer: innerHtml["data-footer"] ?? "",
   };
+}
+
+// Empty regions are left out, the form the sanitizer stores.
+export function composeLayoutHtml(regions: LayoutRegions): string {
+  const part = (name: RegionAttribute, regionHtml: string) =>
+    regionHtml.trim() === "" ? "" : `<div ${name}>${regionHtml}</div>`;
+  return [
+    part("data-header", regions.header),
+    "<div data-content></div>",
+    part("data-signature", regions.signature),
+    part("data-footer", regions.footer),
+  ].join("");
 }
 
 export type TemplateWriteScope = "system" | "tenant";
