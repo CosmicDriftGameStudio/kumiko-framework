@@ -6,6 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
   AppFeaturesProvider,
+  type ClientActionsMap,
+  ClientActionsProvider,
   createStaticLocaleResolver,
   DispatcherProvider,
   type FeatureSchema,
@@ -24,7 +26,11 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { RendererPuppeteerClientQueries } from "@cosmicdrift/kumiko-renderer-puppeteer-client/qualified-names";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { documentDesignerClient } from "../client-plugin.tsx";
-import { BRANDING_QUERY_QN, MANAGED_PAGES_FEATURE_NAME } from "../constants.ts";
+import {
+  BRANDING_QUERY_QN,
+  MANAGED_PAGES_FEATURE_NAME,
+  TEMPLATE_IMPORT_CLIENT_ACTION,
+} from "../constants.ts";
 import { PdfTemplateEditor } from "../pdf-template-editor.tsx";
 
 const translations = mergeTranslations(
@@ -225,6 +231,7 @@ function renderEditor(
   onLocaleChange?: (locale: string) => void,
   roles: readonly string[] = ["TenantAdmin"],
   features: readonly FeatureSchema[] = [],
+  clientActions: ClientActionsMap = {},
 ) {
   const fake = createFakeDispatcher(options);
   const tree = (currentRoles: readonly string[]) => (
@@ -237,11 +244,13 @@ function renderEditor(
           <UserRolesProvider roles={currentRoles}>
             <PrimitivesProvider value={defaultPrimitives}>
               <NavProvider value={nav}>
-                <PdfTemplateEditor
-                  slug={SLUG}
-                  locale="de"
-                  {...(onLocaleChange && { onLocaleChange })}
-                />
+                <ClientActionsProvider value={clientActions}>
+                  <PdfTemplateEditor
+                    slug={SLUG}
+                    locale="de"
+                    {...(onLocaleChange && { onLocaleChange })}
+                  />
+                </ClientActionsProvider>
               </NavProvider>
             </PrimitivesProvider>
           </UserRolesProvider>
@@ -473,5 +482,44 @@ describe("PdfTemplateEditor screen focus", () => {
       }),
     );
     expect(screen.getByTestId("screen-focus").textContent).not.toContain("Hello");
+  });
+
+  test("the template-import button is hidden while no client feature registers the action", async () => {
+    renderEditor({ puppeteer: "available" });
+    await ready();
+    expect(screen.queryByTestId("pdf-import-from-template")).toBeNull();
+  });
+
+  test("the template-import button calls the handler with slug, locale and title", async () => {
+    const calls: Record<string, unknown>[] = [];
+    renderEditor({ puppeteer: "available" }, undefined, ["TenantAdmin"], [], {
+      [TEMPLATE_IMPORT_CLIENT_ACTION]: async (payload) => {
+        calls.push({ ...payload });
+        return { ok: true };
+      },
+    });
+    await ready();
+    const button = await screen.findByTestId("pdf-import-from-template");
+    expect(button.textContent).toContain("Import from a template");
+    fireEvent.click(button);
+    await waitFor(() => expect(calls).toEqual([{ slug: SLUG, locale: "de", title: SLUG }]));
+  });
+
+  test("the template-import button is disabled while the draft has unsaved changes", async () => {
+    const calls: Record<string, unknown>[] = [];
+    renderEditor({ puppeteer: "available" }, undefined, ["TenantAdmin"], [], {
+      [TEMPLATE_IMPORT_CLIENT_ACTION]: async (payload) => {
+        calls.push({ ...payload });
+        return { ok: true };
+      },
+    });
+    await ready();
+    fireEvent.change(document.getElementById("dd-file-name") as HTMLInputElement, {
+      target: { value: "dirty.pdf" },
+    });
+    const button = await screen.findByTestId("pdf-import-from-template");
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(true));
+    fireEvent.click(button);
+    expect(calls).toEqual([]);
   });
 });

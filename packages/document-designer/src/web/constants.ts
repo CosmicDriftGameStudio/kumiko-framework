@@ -22,6 +22,9 @@ export const FILES_FEATURE_NAME = "files" as const;
 export const PROFILE_FEATURE_NAME = "user-profile" as const;
 export const PROFILE_SCREEN_ID = "profile" as const;
 
+// Pinned: registered by the AI assistant client feature, which lives outside this repo.
+export const TEMPLATE_IMPORT_CLIENT_ACTION = "ai-agent:import-template" as const;
+
 export const DEFAULT_LAYOUT_SLUG = "default" as const;
 
 export type TemplateEditorKind = "mail" | "document-pdf" | "mail-layout" | "pdf-layout";

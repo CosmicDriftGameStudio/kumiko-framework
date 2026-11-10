@@ -3,6 +3,7 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 export const documentDesignerTranslations: TranslationsByLocale = {
   en: {
     "documentDesigner.actions.generatePdf": "Generate PDF",
+    "documentDesigner.actions.importFromTemplate": "Import from a template",
     "documentDesigner.canvas.caption":
       'Page 1 · {format} · The preview shows page breaks only roughly; "Generate PDF" is authoritative.',
     "documentDesigner.canvas.fromLayout": 'from layout "{layout}"',
@@ -98,6 +99,7 @@ export const documentDesignerTranslations: TranslationsByLocale = {
   },
   de: {
     "documentDesigner.actions.generatePdf": "PDF erzeugen",
+    "documentDesigner.actions.importFromTemplate": "Aus Vorlage übernehmen",
     "documentDesigner.canvas.caption":
       'Seite 1 · {format} · Die Vorschau zeigt Seitengrenzen nur ungefähr, verbindlich ist "PDF erzeugen".',
     "documentDesigner.canvas.fromLayout": "aus Layout „{layout}“",
@@ -195,6 +197,7 @@ export const documentDesignerTranslations: TranslationsByLocale = {
   },
   es: {
     "documentDesigner.actions.generatePdf": "Generar PDF",
+    "documentDesigner.actions.importFromTemplate": "Importar desde una plantilla",
     "documentDesigner.canvas.caption":
       "Página 1 · {format} · La vista previa solo muestra los saltos de página de forma aproximada; lo que vale es «Generar PDF».",
     "documentDesigner.canvas.fromLayout": "del diseño «{layout}»",
