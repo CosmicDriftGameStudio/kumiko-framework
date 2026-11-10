@@ -109,3 +109,17 @@ describe("seedSystemTemplate", () => {
     expect(row?.version).toBe(1);
   });
 });
+
+describe("seedSystemTemplate :: reserved layout namespace", () => {
+  test("a system layout cannot take a tenant-layout- slug", async () => {
+    await expect(
+      seedSystemTemplate(stack.db, {
+        slug: "tenant-layout-brief",
+        kind: "pdf-layout",
+        locale: "de",
+        content: "<div data-content></div>",
+        contentFormat: "html",
+      }),
+    ).rejects.toThrow("reserved_layout_slug");
+  });
+});

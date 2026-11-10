@@ -4,6 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ServiceConfig } from "../config";
+import { InvalidPdfError, RasterizeTimeoutError } from "../rasterize";
 import type { RenderResult } from "../render";
 import { createApp } from "../server";
 
@@ -12,6 +13,8 @@ const CONFIG: ServiceConfig = {
   authToken: "test-token-0123456789abcdef0123456789",
   renderTimeoutMs: 5000,
   maxHtmlBytes: 100_000,
+  maxPdfBytes: 1_000_000,
+  maxRasterPages: 5,
   maxConcurrentRenders: 4,
   browserIdleTimeoutMs: 300_000,
   puppeteerExecutablePath: undefined,
@@ -198,5 +201,100 @@ describe("POST /render — concurrency limit", () => {
     expect(await (await app.request("/metrics")).text()).toContain(
       "puppeteer_render_rejected_busy_total 1",
     );
+  });
+});
+
+describe("POST /rasterize", () => {
+  const PAGE = { mimeType: "image/png" as const, data: "AAAA", widthPx: 1, heightPx: 1 };
+  const PDF_BASE64 = Buffer.from("%PDF-1.4 stub").toString("base64");
+
+  function postRasterize(
+    app: ReturnType<typeof createApp>["app"],
+    body: unknown,
+    headers: Record<string, string> = makeAuthHeader(),
+  ): Promise<Response> {
+    return Promise.resolve(
+      app.request("/rasterize", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  }
+
+  test("without a token is 401 and never rasterizes", async () => {
+    let called = false;
+    const { app } = createApp(CONFIG, {
+      rasterize: async () => {
+        called = true;
+        return { pages: [], images: [] };
+      },
+    });
+    expect((await postRasterize(app, { pdfBase64: PDF_BASE64 }, {})).status).toBe(401);
+    expect(called).toBe(false);
+  });
+
+  test("a dpi outside the list or a missing pdf is 400 invalid_payload", async () => {
+    const { app } = createApp(CONFIG);
+    for (const body of [{ pdfBase64: PDF_BASE64, dpi: 300 }, { dpi: 100 }, { pdfBase64: "" }]) {
+      const res = await postRasterize(app, body);
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("invalid_payload");
+    }
+  });
+
+  test("a Content-Length above the PDF limit is 413 before parsing", async () => {
+    const { app } = createApp({ ...CONFIG, maxPdfBytes: 100 });
+    const res = await app.request("/rasterize", {
+      method: "POST",
+      headers: { ...makeAuthHeader(), "Content-Type": "application/json", "Content-Length": "999999" },
+      body: "{}",
+    });
+    expect(res.status).toBe(413);
+    expect(((await res.json()) as { error: string }).error).toBe("payload_too_large");
+  });
+
+  test("a decoded PDF above the limit is 413 pdf_too_large", async () => {
+    const { app } = createApp({ ...CONFIG, maxPdfBytes: 5 });
+    const res = await postRasterize(app, { pdfBase64: PDF_BASE64 });
+    expect(res.status).toBe(413);
+    expect(((await res.json()) as { error: string }).error).toBe("pdf_too_large");
+  });
+
+  test("passes the defaults and caps maxPages at the configured limit", async () => {
+    const seen: { maxPages: number; dpi: number; images: boolean }[] = [];
+    const { app, metrics } = createApp(CONFIG, {
+      rasterize: async (options) => {
+        seen.push({ maxPages: options.maxPages, dpi: options.dpi, images: options.images });
+        return { pages: [PAGE], images: [] };
+      },
+    });
+    const res = await postRasterize(app, { pdfBase64: PDF_BASE64 });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ pages: [PAGE], images: [] });
+    await postRasterize(app, { pdfBase64: PDF_BASE64, maxPages: 99, dpi: 150, images: true });
+    expect(seen).toEqual([
+      { maxPages: 5, dpi: 100, images: false },
+      { maxPages: 5, dpi: 150, images: true },
+    ]);
+    expect(metrics.rendersTotal.rasterize).toBe(2);
+  });
+
+  test("an invalid PDF is 400 invalid_pdf, a timeout 504", async () => {
+    const failing = (error: Error) =>
+      createApp(CONFIG, {
+        rasterize: async () => {
+          throw error;
+        },
+      }).app;
+    const invalid = await postRasterize(failing(new InvalidPdfError("broken")), {
+      pdfBase64: PDF_BASE64,
+    });
+    expect(invalid.status).toBe(400);
+    expect(((await invalid.json()) as { error: string }).error).toBe("invalid_pdf");
+    const slow = await postRasterize(failing(new RasterizeTimeoutError("slow")), {
+      pdfBase64: PDF_BASE64,
+    });
+    expect(slow.status).toBe(504);
   });
 });

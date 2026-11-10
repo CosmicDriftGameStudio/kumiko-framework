@@ -3,7 +3,10 @@
 // The README smoke test is manual and prone to drift.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { countPdfPages } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
+import {
+  countPdfPages,
+  rasterizeResponseSchema,
+} from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import type { ServiceConfig } from "../config";
 import { closeIdleBrowser, isBrowserRunning, shutdownBrowser } from "../render";
 import { createApp } from "../server";
@@ -13,6 +16,8 @@ const CONFIG: ServiceConfig = {
   authToken: "integration-test-token-0123456789abcdef0123",
   renderTimeoutMs: 15_000,
   maxHtmlBytes: 100_000,
+  maxPdfBytes: 1_000_000,
+  maxRasterPages: 5,
   maxConcurrentRenders: 4,
   browserIdleTimeoutMs: 300_000,
   puppeteerExecutablePath: undefined,
@@ -234,5 +239,79 @@ describe("Idle browser close", () => {
 
     expect((await renderOnce()).status).toBe(200);
     expect(isBrowserRunning()).toBe(true);
+  });
+});
+
+describe("POST /rasterize — echtes poppler", () => {
+  const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${CONFIG.authToken}`,
+  };
+
+  type RasterizeBody = {
+    pages: { mimeType: string; data: string; widthPx: number; heightPx: number }[];
+    images: unknown[];
+  };
+
+  async function renderTwoPagePdf(app: ReturnType<typeof createApp>["app"]): Promise<string> {
+    const res = await app.request("/render", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        kind: "document-pdf",
+        html: '<html><body><p style="break-after: page">Seite eins</p><p>Seite zwei</p></body></html>',
+      }),
+    });
+    expect(res.status).toBe(200);
+    return Buffer.from(await res.arrayBuffer()).toString("base64");
+  }
+
+  const rasterize = (app: ReturnType<typeof createApp>["app"], body: unknown) =>
+    app.request("/rasterize", { method: "POST", headers, body: JSON.stringify(body) });
+
+  test("a two-page PDF becomes two PNG pages of A4 proportions at 100 dpi", async () => {
+    const { app } = createApp(CONFIG);
+    const pdfBase64 = await renderTwoPagePdf(app);
+    const res = await rasterize(app, { pdfBase64 });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as RasterizeBody;
+    expect(body.pages).toHaveLength(2);
+    for (const page of body.pages) {
+      expect(page.mimeType).toBe("image/png");
+      const bytes = Buffer.from(page.data, "base64");
+      expect([...bytes.subarray(0, 8)]).toEqual(PNG_MAGIC);
+      expect(bytes.byteLength).toBeGreaterThan(500);
+      expect(page.widthPx).toBeGreaterThan(780);
+      expect(page.widthPx).toBeLessThan(870);
+      expect(page.heightPx).toBeGreaterThan(1130);
+      expect(page.heightPx).toBeLessThan(1220);
+    }
+    expect(body.images).toEqual([]);
+  });
+
+  test("the real response satisfies the client's response schema", async () => {
+    const { app } = createApp(CONFIG);
+    const pdfBase64 = await renderTwoPagePdf(app);
+    const res = await rasterize(app, { pdfBase64, images: true });
+    expect(res.status).toBe(200);
+    const parsed = rasterizeResponseSchema.parse(await res.json());
+    expect(parsed.pages).toHaveLength(2);
+  });
+
+  test("maxPages 1 returns one page", async () => {
+    const { app } = createApp(CONFIG);
+    const pdfBase64 = await renderTwoPagePdf(app);
+    const body = (await (await rasterize(app, { pdfBase64, maxPages: 1 })).json()) as RasterizeBody;
+    expect(body.pages).toHaveLength(1);
+  });
+
+  test("a broken PDF is 400 invalid_pdf", async () => {
+    const { app } = createApp(CONFIG);
+    for (const bytes of ["this is not a pdf", "%PDF-1.4 truncated garbage"]) {
+      const res = await rasterize(app, { pdfBase64: Buffer.from(bytes).toString("base64") });
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe("invalid_pdf");
+    }
   });
 });

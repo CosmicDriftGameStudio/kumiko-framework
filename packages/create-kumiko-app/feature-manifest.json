@@ -3098,6 +3098,7 @@
         "template-resolver:write:archive",
         "template-resolver:write:archive-system",
         "template-resolver:write:copy-locale",
+        "template-resolver:write:create-layout",
         "template-resolver:write:discard-draft",
         "template-resolver:write:discard-draft-system",
         "template-resolver:write:import-bundle",

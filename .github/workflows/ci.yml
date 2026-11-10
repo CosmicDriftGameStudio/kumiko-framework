@@ -547,6 +547,10 @@ jobs:
           meilisearch-port: "17700"
           object-storage-port: "19000"
 
+      # The /rasterize integration tests call pdftoppm and pdfimages.
+      - name: Install poppler
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
+
       - name: Run integration tests
         env:
           # Meili is started + health-checked above — a down Meili here is a

@@ -70,6 +70,7 @@ import * as z from "zod";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";
 import { RendererPuppeteerClientQueries } from "../qualified-names";
+import { AGENT_IMAGES_RESULT_KEY } from "../rasterize";
 import { renderPdfBeforeTransaction, storeRenderedPdf } from "../render-and-store";
 
 const FEATURE = "invoice-pdf";
@@ -107,11 +108,25 @@ type StubRequest = {
 };
 
 const stubRequests: StubRequest[] = [];
+const rasterizeRequests: { readonly pdfBase64: string }[] = [];
+const STUB_PAGES = [1, 2].map((width) => ({
+  mimeType: "image/png",
+  data: Buffer.from(PNG_BYTES).toString("base64"),
+  widthPx: width,
+  heightPx: 1,
+}));
 const stubService = Bun.serve({
   port: 0,
   async fetch(request) {
     const { pathname } = new URL(request.url);
     if (pathname === "/healthz") return new Response("ok");
+    if (
+      pathname === "/rasterize" &&
+      request.headers.get("Authorization") === `Bearer ${AUTH_TOKEN}`
+    ) {
+      rasterizeRequests.push((await request.json()) as { pdfBase64: string });
+      return Response.json({ pages: STUB_PAGES, images: [] });
+    }
     if (pathname !== "/render" || request.headers.get("Authorization") !== `Bearer ${AUTH_TOKEN}`) {
       return new Response("unauthorized", { status: 401 });
     }
@@ -1132,5 +1147,51 @@ describe("document-pdf layout appearance, frames and company data", () => {
       tenant,
     );
     expect(html).toContain("IBAN DE02 1203 0000 0000 2020 51 Fax .");
+  });
+});
+
+describe("preview-png", () => {
+  type PngPreview = {
+    fileName: string;
+    pageCount: number;
+    pages: { widthPx: number; heightPx: number }[];
+    agentImages: { mimeType: string; data: string }[];
+  };
+
+  beforeEach(() => {
+    rasterizeRequests.length = 0;
+  });
+
+  test("prints the draft to a PDF, rasterizes it and returns the pages as agentImages", async () => {
+    const preview = await stack.http.queryOk<PngPreview>(
+      RendererPuppeteerClientQueries.previewPng,
+      draftPayload(),
+      adminTenantA,
+    );
+
+    expect(onlyStubRequest().html).toContain("ENTWURF R-77");
+    expect(rasterizeRequests).toHaveLength(1);
+    expect(Buffer.from(rasterizeRequests[0]?.pdfBase64 ?? "", "base64")).toEqual(
+      Buffer.from(STUB_PDF),
+    );
+    expect(preview.fileName).toBe("Entwurf-R-77.pdf");
+    expect(preview.pageCount).toBe(2);
+    expect(preview.pages).toEqual(
+      STUB_PAGES.map(({ widthPx, heightPx }) => ({ widthPx, heightPx })),
+    );
+    expect(preview.agentImages).toEqual(
+      STUB_PAGES.map(({ mimeType, data }) => ({ mimeType, data })),
+    );
+    expect(Object.keys(preview).includes(AGENT_IMAGES_RESULT_KEY)).toBe(true);
+  });
+
+  test("a User role is refused and nothing is printed", async () => {
+    const error = await stack.http.queryErr(
+      RendererPuppeteerClientQueries.previewPng,
+      draftPayload(),
+      TestUsers.user,
+    );
+    expect(error.httpStatus).toBe(403);
+    expect(stubRequests).toHaveLength(0);
   });
 });

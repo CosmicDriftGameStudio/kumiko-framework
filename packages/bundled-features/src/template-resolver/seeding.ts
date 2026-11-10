@@ -39,6 +39,7 @@ import { evaluateTemplateWrite } from "./handlers/template-gates.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import type { TemplateBundle } from "./template-bundle.ts";
 import { activeStampChanges, servedStampChanges } from "./template-draft.ts";
+import { refuseReservedLayoutSlug } from "./template-edit-policy.ts";
 import { templateSlugSchema } from "./template-meta.ts";
 import { variablesFromSchema } from "./template-validation.ts";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./web/constants.ts";
@@ -123,6 +124,9 @@ export async function seedSystemTemplate(
   const label = `seedSystemTemplate ${opts.slug}/${opts.kind}/${opts.locale}`;
   const slug = templateSlugSchema.safeParse(opts.slug);
   if (!slug.success) throw new Error(`${label} rejected: ${slug.error.issues[0]?.message}`);
+  if (refuseReservedLayoutSlug({ slug: opts.slug, kind: opts.kind }, "slug") !== null) {
+    throw new Error(`${label} rejected: reserved_layout_slug`);
+  }
   const title = seedTitleColumn(opts, label);
   const evaluated = evaluateTemplateWrite({
     kind: opts.kind,

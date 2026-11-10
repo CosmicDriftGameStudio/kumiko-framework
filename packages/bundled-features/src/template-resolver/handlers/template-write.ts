@@ -19,6 +19,7 @@ import { requireForTenant } from "../../shared/index.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { activationChanges, serializeTemplateDraft } from "../template-draft.ts";
+import { refuseReservedSystemLayoutSlug } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplate } from "../template-system-only.ts";
 import type { TemplateValidation } from "../template-validation.ts";
 import type { ContentFormat, TemplateKind } from "../web/constants.ts";
@@ -169,6 +170,19 @@ function versionConflictFor(
   );
 }
 
+function refuseScopeViolation(
+  registry: HandlerContext["registry"],
+  scope: TemplateWriteScope,
+  tenantId: TenantId,
+  payload: TemplateRowWrite["payload"],
+): WriteResult<never> | WriteFailure | null {
+  return (
+    refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
+    refuseReservedSystemLayoutSlug(scope, payload, "slug") ??
+    refuseSystemOnlyTenantOverride(registry, scope, payload.slug, payload.kind)
+  );
+}
+
 // Shared by every template write: validate through the one pipeline, then
 // create or update the (tenant, slug, kind, locale) row via the event-store
 // executor. linkedResources is never part of an update; resources are attached
@@ -177,9 +191,7 @@ export async function writeTemplateRow(
   args: TemplateRowWrite,
 ): Promise<WriteResult<WrittenTemplateRow>> {
   const { ctx, user, tenantId, scope, status, payload } = args;
-  const refused =
-    refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
-    refuseSystemOnlyTenantOverride(ctx.registry, scope, payload.slug, payload.kind);
+  const refused = refuseScopeViolation(ctx.registry, scope, tenantId, payload);
   if (refused !== null) return refused;
   const { db, streamTenantId } = requireForTenant(ctx, tenantId);
 

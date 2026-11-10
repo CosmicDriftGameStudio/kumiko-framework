@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-crosextra-caladea \
     fonts-crosextra-carlito \
     fonts-liberation \
+    poppler-utils \
     tini \
     libasound2 \
     libatk-bridge2.0-0 \

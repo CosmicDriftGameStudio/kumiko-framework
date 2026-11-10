@@ -10,7 +10,7 @@ import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
-import type { DocumentHtmlKind } from "../web/constants.ts";
+import type { DocumentOpsKind } from "../web/constants.ts";
 import { parseStoredJson } from "./template-gates.ts";
 
 export type DocumentBase = {
@@ -41,7 +41,7 @@ function recordOrEmpty(raw: string | null): Readonly<Record<string, unknown>> {
 export async function loadDocumentBase(
   ctx: HandlerContext,
   user: SessionUser,
-  where: { readonly slug: string; readonly kind: DocumentHtmlKind; readonly locale: string },
+  where: { readonly slug: string; readonly kind: DocumentOpsKind; readonly locale: string },
 ): Promise<LoadedDocument | null> {
   const own = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
     tenantId: user.tenantId,

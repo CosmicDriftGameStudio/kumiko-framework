@@ -23,5 +23,6 @@ export const TEMPLATE_RESOLVER_I18N: Readonly<Record<string, { readonly en: stri
   [handlerTitleKey(H.sendTest)]: { en: "Send test mail" },
   [handlerTitleKey(H.patchDraft)]: { en: "Edit template draft" },
   [handlerTitleKey(H.applyLayout)]: { en: "Apply PDF layout" },
+  [handlerTitleKey(H.createLayout)]: { en: "Create PDF layout" },
   [handlerTitleKey(H.publishTemplates)]: { en: "Publish several templates" },
 };

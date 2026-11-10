@@ -1557,6 +1557,24 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.requiredPlaceholders":
     "Tous les espaces réservés obligatoires sont utilisés",
   "templateResolver.errors.preview.renderFailed": "L'aperçu n'a pas pu être généré.",
+  "templateResolver.errors.patch.printStyleNotAllowed":
+    "Les polices, tailles, couleurs, espacements, bordures et arrière-plans n'existent que dans les modèles PDF, pas dans {kind}.",
+  "templateResolver.errors.patch.textOrRunsRequired":
+    "Indiquez text ou runs, pas les deux et pas aucun.",
+  "templateResolver.errors.patch.invalidTable": "Le tableau n'est pas valide : {problem}.",
+  "templateResolver.errors.patch.invalidRepeatVariable":
+    "Le nom {each} n'est pas une variable de liste valide pour une ligne répétée.",
+  "templateResolver.errors.patch.tooManyBlocks":
+    "Le contenu peut avoir au plus {max} blocs, y compris ceux des cadres.",
+  "templateResolver.errors.patch.regionRequired":
+    "Une mise en page PDF se modifie zone par zone ; définissez region sur header, signature ou footer.",
+  "templateResolver.errors.patch.regionNotAllowed":
+    "Une zone ne s'applique qu'aux mises en page PDF, pas à {kind}.",
+  "templateResolver.errors.patch.layoutExists":
+    "Une mise en page avec l'identifiant {slug} existe déjà.",
+  "templateResolver.errors.template.reservedLayoutSlug":
+    "Le préfixe {prefix} est réservé aux mises en page propres à chaque organisation.",
+  "templateResolver.errors.patch.emptyFormat": "Indiquez au moins un de align, style ou textStyle.",
   "templateResolver.errors.patch.unknownBlock": "Le bloc {blockId} n'existe pas dans le modèle.",
   "templateResolver.errors.patch.blockRemoved":
     "Le bloc {blockId} a déjà été supprimé par une étape précédente.",
@@ -2839,6 +2857,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.margins.override": "Modifier pour ce modèle",
   "documentDesigner.margins.useLayout": "Comme dans la mise en page",
   "template-resolver:write:apply-layout:title": "Appliquer la mise en page PDF",
+  "template-resolver:write:create-layout:title": "Créer une mise en page PDF",
   "template-resolver:write:publish-templates:title": "Publier plusieurs modèles",
   "documentDesigner.company.title": "Données de l'entreprise",
   "documentDesigner.company.edit": "Modifier",

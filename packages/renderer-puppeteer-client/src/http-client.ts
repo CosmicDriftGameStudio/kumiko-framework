@@ -40,7 +40,21 @@ export function serviceEgress(
   return egress({ kind: "internal", allowOrigins: [parsed.origin] });
 }
 
-export async function postRender(config: ClientConfig, body: unknown): Promise<FetchResult> {
+export function postRender(config: ClientConfig, body: unknown): Promise<FetchResult> {
+  return postWithRetry(config, "/render", body, readRenderBody);
+}
+
+// The service answers /rasterize with JSON; the caller validates its shape.
+export function postRasterize(config: ClientConfig, body: unknown): Promise<unknown> {
+  return postWithRetry(config, "/rasterize", body, (response) => response.json());
+}
+
+async function postWithRetry<T>(
+  config: ClientConfig,
+  path: string,
+  body: unknown,
+  readSuccess: (response: Response) => Promise<T>,
+): Promise<T> {
   const postToService = serviceEgress(config.serviceUrl);
   let lastError: Error | null = null;
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
@@ -55,7 +69,7 @@ export async function postRender(config: ClientConfig, body: unknown): Promise<F
       await sleep(baseMs + jitter);
     }
     try {
-      return await tryFetch(config, body, postToService);
+      return await tryFetch(config, path, body, postToService, readSuccess);
     } catch (e) {
       // A RendererError is final (4xx, deterministic render failure, client timeout);
       // only plain Errors (network failure, 502/503) fall through to the next attempt.
@@ -75,15 +89,17 @@ const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([502, 503]);
 
 // The timer covers headers AND body: a service that sends headers and then stalls
 // must not block the caller forever.
-async function tryFetch(
+async function tryFetch<T>(
   config: ClientConfig,
+  path: string,
   body: unknown,
   postToService: (raw: string, init?: RequestInit) => Promise<Response>,
-): Promise<FetchResult> {
+  readSuccess: (response: Response) => Promise<T>,
+): Promise<T> {
   const controller = new AbortController();
   const timeoutHandle = setTimeout(() => controller.abort(), config.requestTimeoutMs);
   try {
-    const response = await postToService(`${config.serviceUrl}/render`, {
+    const response = await postToService(`${config.serviceUrl}${path}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.authToken}`,
@@ -92,7 +108,7 @@ async function tryFetch(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    return await readRenderResponse(response);
+    return await readServiceResponse(response, readSuccess);
   } catch (e) {
     // The service keeps rendering after the client gives up; a retry would start a
     // second parallel render on the same pod.
@@ -105,14 +121,19 @@ async function tryFetch(
   }
 }
 
-async function readRenderResponse(response: Response): Promise<FetchResult> {
-  if (response.status >= 200 && response.status < 300) {
-    const buffer = await response.arrayBuffer();
-    return {
-      contentType: response.headers.get("Content-Type") ?? "application/octet-stream",
-      bytes: new Uint8Array(buffer),
-    };
-  }
+async function readRenderBody(response: Response): Promise<FetchResult> {
+  const buffer = await response.arrayBuffer();
+  return {
+    contentType: response.headers.get("Content-Type") ?? "application/octet-stream",
+    bytes: new Uint8Array(buffer),
+  };
+}
+
+async function readServiceResponse<T>(
+  response: Response,
+  readSuccess: (response: Response) => Promise<T>,
+): Promise<T> {
+  if (response.status >= 200 && response.status < 300) return readSuccess(response);
 
   const detail = await safeReadErrorJson(response);
   if (response.status >= 400 && response.status < 500) {

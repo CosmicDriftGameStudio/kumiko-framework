@@ -2,6 +2,7 @@ import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framew
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { templateBundleSchema } from "../template-bundle.ts";
+import { refuseReservedLayoutSlug } from "../template-edit-policy.ts";
 import { importTemplateBundle, prepareTemplateBundleBeforeTransaction } from "./bundle-import.ts";
 
 export const importBundleSystemWrite = defineWriteHandler({
@@ -14,6 +15,8 @@ export const importBundleSystemWrite = defineWriteHandler({
     "Imports a template bundle as system-default templates, active straight away and overwriting existing system rows; SystemAdmin only. Bundles with resource files need a caller in the system tenant, because the files are stored in the caller's file space.",
   beforeTransaction: async (event, ctx) => {
     const { bundle } = event.payload;
+    const reserved = refuseReservedLayoutSlug(bundle, "bundle.slug");
+    if (reserved !== null) return reserved;
     // Must run before any upload.
     if (Object.keys(bundle.resources).length > 0 && event.user.tenantId !== SYSTEM_TENANT_ID) {
       return writeFailure(

@@ -1547,6 +1547,24 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.checks.sizeUnderCap": "Die Mail liegt unter dem Größenlimit von 10 MiB",
   "templateResolver.checks.requiredPlaceholders": "Alle Pflicht-Platzhalter werden verwendet",
   "templateResolver.errors.preview.renderFailed": "Die Vorschau konnte nicht erzeugt werden.",
+  "templateResolver.errors.patch.printStyleNotAllowed":
+    "Schriften, Größen, Farben, Abstände, Rahmenlinien und Hintergründe gibt es nur in PDF-Vorlagen, nicht in {kind}.",
+  "templateResolver.errors.patch.textOrRunsRequired":
+    "Es braucht entweder text oder runs, nicht beides und nicht keines.",
+  "templateResolver.errors.patch.invalidTable": "Die Tabelle ist ungültig: {problem}.",
+  "templateResolver.errors.patch.invalidRepeatVariable":
+    "Der Name {each} ist keine gültige Listenvariable für eine Wiederholzeile.",
+  "templateResolver.errors.patch.tooManyBlocks":
+    "Der Inhalt darf höchstens {max} Blöcke haben, Blöcke in Rahmen eingerechnet.",
+  "templateResolver.errors.patch.regionRequired":
+    "Ein PDF-Layout wird je Bereich bearbeitet; setze region auf header, signature oder footer.",
+  "templateResolver.errors.patch.regionNotAllowed":
+    "Ein Bereich gilt nur für PDF-Layouts, nicht für {kind}.",
+  "templateResolver.errors.patch.layoutExists": "Ein Layout mit dem Kürzel {slug} gibt es schon.",
+  "templateResolver.errors.template.reservedLayoutSlug":
+    "Das Präfix {prefix} ist für Layouts der Mandanten reserviert.",
+  "templateResolver.errors.patch.emptyFormat":
+    "Es braucht mindestens eines von align, style oder textStyle.",
   "templateResolver.errors.patch.unknownBlock":
     "Der Block {blockId} existiert in der Vorlage nicht.",
   "templateResolver.errors.patch.blockRemoved":
@@ -2813,6 +2831,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.margins.override": "Für diese Vorlage ändern",
   "documentDesigner.margins.useLayout": "Wie im Layout",
   "template-resolver:write:apply-layout:title": "PDF-Layout anwenden",
+  "template-resolver:write:create-layout:title": "PDF-Layout anlegen",
   "template-resolver:write:publish-templates:title": "Mehrere Vorlagen veröffentlichen",
   "documentDesigner.company.title": "Firmendaten",
   "documentDesigner.company.edit": "Bearbeiten",

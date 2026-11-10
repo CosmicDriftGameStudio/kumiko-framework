@@ -4,6 +4,14 @@ export { PuppeteerUnavailableError } from "./errors.ts";
 export { createRendererPuppeteerClientFeature } from "./feature.ts";
 export { countPdfPages } from "./pdf-page-count.ts";
 export { RendererPuppeteerClientQueries } from "./qualified-names.ts";
+export {
+  AGENT_IMAGES_RESULT_KEY,
+  type RasterImage,
+  type RasterizedPdf,
+  type RasterizeOptions,
+  rasterizePdf,
+  rasterizeResponseSchema,
+} from "./rasterize.ts";
 export { puppeteerRender } from "./render.ts";
 export {
   type RenderedPdfBytes,

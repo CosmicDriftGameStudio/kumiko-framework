@@ -17,6 +17,8 @@ describe("loadConfig", () => {
     expect(config.port).toBe(3000);
     expect(config.renderTimeoutMs).toBe(30_000);
     expect(config.maxHtmlBytes).toBe(2_000_000);
+    expect(config.maxPdfBytes).toBe(10_000_000);
+    expect(config.maxRasterPages).toBe(5);
     expect(config.browserIdleTimeoutMs).toBe(300_000);
   });
 

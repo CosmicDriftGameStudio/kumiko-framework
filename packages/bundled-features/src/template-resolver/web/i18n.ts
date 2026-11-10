@@ -96,6 +96,23 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.checks.sizeUnderCap": "The mail is within the 10 MiB size limit",
     "templateResolver.checks.requiredPlaceholders": "All required placeholders are used",
     "templateResolver.errors.preview.renderFailed": "The preview could not be rendered.",
+    "templateResolver.errors.patch.printStyleNotAllowed":
+      "Fonts, sizes, colors, spacing, borders and backgrounds are only available in PDF templates, not in {kind}.",
+    "templateResolver.errors.patch.textOrRunsRequired":
+      "Give either text or runs, not both and not neither.",
+    "templateResolver.errors.patch.invalidTable": "The table is not valid: {problem}.",
+    "templateResolver.errors.patch.invalidRepeatVariable":
+      "The name {each} is not a valid list variable for a repeat row.",
+    "templateResolver.errors.patch.tooManyBlocks":
+      "The body may have at most {max} blocks, including the ones inside frames.",
+    "templateResolver.errors.patch.regionRequired":
+      "A PDF layout is edited one region at a time; set region to header, signature or footer.",
+    "templateResolver.errors.patch.regionNotAllowed":
+      "A region only applies to PDF layouts, not to {kind}.",
+    "templateResolver.errors.patch.layoutExists": "A layout with the slug {slug} already exists.",
+    "templateResolver.errors.template.reservedLayoutSlug":
+      "The prefix {prefix} is reserved for tenant layouts.",
+    "templateResolver.errors.patch.emptyFormat": "Give at least one of align, style or textStyle.",
     "templateResolver.errors.patch.unknownBlock":
       "The block {blockId} does not exist in the template.",
     "templateResolver.errors.patch.blockRemoved":

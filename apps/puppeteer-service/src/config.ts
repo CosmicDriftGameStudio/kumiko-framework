@@ -6,6 +6,8 @@
 //   - growth  (default): RENDER_TIMEOUT_MS=30000   MAX_HTML_BYTES=2_000_000
 //   - scale   (loose):   RENDER_TIMEOUT_MS=60000   MAX_HTML_BYTES=10_000_000
 //
+// MAX_PDF_BYTES (default 10_000_000) caps the PDF /rasterize accepts, MAX_RASTER_PAGES (default 5)
+// the pages it renders per call; /rasterize shares the render concurrency limit.
 // MAX_CONCURRENT_RENDERS (default 4) caps in-flight renders per pod; beyond it
 // /render answers 503 busy and the client retries. Size it to the pod memory limit.
 // BROWSER_IDLE_TIMEOUT_MS (default 300000) closes Chromium after that long without a render;
@@ -20,6 +22,8 @@ export type ServiceConfig = {
   readonly authToken: string;
   readonly renderTimeoutMs: number;
   readonly maxHtmlBytes: number;
+  readonly maxPdfBytes: number;
+  readonly maxRasterPages: number;
   readonly maxConcurrentRenders: number;
   readonly browserIdleTimeoutMs: number;
   readonly puppeteerExecutablePath: string | undefined;
@@ -37,6 +41,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServiceConfig 
     authToken,
     renderTimeoutMs: parseIntEnv(env["RENDER_TIMEOUT_MS"], 30_000),
     maxHtmlBytes: parseIntEnv(env["MAX_HTML_BYTES"], 2_000_000),
+    maxPdfBytes: parseIntEnv(env["MAX_PDF_BYTES"], 10_000_000),
+    maxRasterPages: parseIntEnv(env["MAX_RASTER_PAGES"], 5),
     maxConcurrentRenders: parseIntEnv(env["MAX_CONCURRENT_RENDERS"], 4),
     browserIdleTimeoutMs: parseIntEnv(env["BROWSER_IDLE_TIMEOUT_MS"], 300_000, MAX_TIMER_MS),
     puppeteerExecutablePath: env["PUPPETEER_EXECUTABLE_PATH"],

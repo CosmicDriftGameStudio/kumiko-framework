@@ -1,7 +1,10 @@
 // The pieces an app ships for a letterhead: a system layout with its own look, a letter that places
 // the recipient in the DIN address window, and the list of templates tenants may edit.
 
-import type { TenantEditableTemplate } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
+import {
+  TENANT_LAYOUT_SLUG_PREFIX,
+  type TenantEditableTemplate,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 
 export const LETTERHEAD_LAYOUT_SLUG = "letterhead";
 export const LETTER_SLUG = "letter";
@@ -36,7 +39,54 @@ export const LETTER_HTML = [
   "<p>anbei erhalten Sie die Unterlagen.</p>",
 ].join("");
 
+// What an AI assistant sends through create-layout and patch-draft to rebuild an uploaded letter:
+// structured blocks only, never HTML. Names and addresses are made up.
+export const REBUILT_LAYOUT_NAME = "rebuilt-letterhead";
+export const REBUILT_LAYOUT_SLUG = `${TENANT_LAYOUT_SLUG_PREFIX}${REBUILT_LAYOUT_NAME}`;
+export const REBUILT_LETTER_SLUG = "rebuilt-letter";
+
+export const REBUILT_HEADER_BLOCKS = [
+  {
+    type: "paragraph",
+    align: "right",
+    runs: [{ text: "Musterfirma GmbH", bold: true, sizePt: 14, color: "#1f5468" }],
+  },
+  { type: "paragraph", align: "right", text: "Musterstraße 1, 12345 Musterstadt" },
+] as const;
+
+export const REBUILT_LETTER_BLOCKS = [
+  {
+    type: "frame",
+    xMm: 20,
+    yMm: 45,
+    widthMm: 85,
+    heightMm: 45,
+    preset: "address",
+    blocks: [
+      { type: "paragraph", text: "Max Mustermann" },
+      { type: "paragraph", text: "Beispielweg 2" },
+    ],
+  },
+  { type: "heading", level: 2, text: "Rechnung {{invoiceNumber}}" },
+  {
+    type: "table",
+    columnWidthsPx: [320, 120],
+    header: {
+      cells: [
+        { text: "Leistung", background: "#eeeeee" },
+        { text: "Betrag", align: "right" },
+      ],
+    },
+    rows: [],
+    repeat: {
+      each: "positions",
+      row: { cells: [{ text: "{{label}}" }, { text: "{{amount}}", align: "right" }] },
+    },
+  },
+] as const;
+
 export const TENANT_EDITABLE: readonly TenantEditableTemplate[] = [
   { kind: "pdf-layout", slug: LETTERHEAD_LAYOUT_SLUG, access: { roles: ["TenantAdmin"] } },
   { kind: "document-pdf", slug: LETTER_SLUG, access: { roles: ["TenantAdmin"] } },
+  { kind: "document-pdf", slug: REBUILT_LETTER_SLUG, access: { roles: ["TenantAdmin"] } },
 ];
