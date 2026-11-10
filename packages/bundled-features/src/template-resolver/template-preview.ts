@@ -37,7 +37,7 @@ import {
 } from "./api.ts";
 import { collectDocumentResourceKeys } from "./compile-document-body.ts";
 import { parseStoredJson } from "./handlers/template-gates.ts";
-import { resolveDefaultPdfLayout } from "./handlers/tenant-settings.ts";
+import { effectivePdfLayout } from "./handlers/tenant-settings.ts";
 import { validateTemplateDraft } from "./handlers/validate.query.ts";
 import {
   type LayoutRegions,
@@ -389,9 +389,8 @@ async function resolvePreviewPdfLayout(
   ownSlug: string | undefined,
   locale: string,
 ): Promise<PreviewLayout | null> {
-  if (ownSlug !== undefined) return resolvePdfLayout(ctx, user, ownSlug, locale);
-  const fallback = await resolveDefaultPdfLayout(ctx, user.tenantId, locale);
-  return resolvePdfLayout(ctx, user, fallback.slug, locale, fallback.resolved);
+  const { slug, resolved } = await effectivePdfLayout(ctx, user.tenantId, ownSlug, locale);
+  return resolvePdfLayout(ctx, user, slug, locale, resolved);
 }
 
 function missingResourceCheck(missing: readonly string[]): PreviewCheck {

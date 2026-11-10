@@ -112,6 +112,13 @@ describe("flattenAddressSenderLine", () => {
     expect(flat).toContain("border-bottom:1px solid");
   });
 
+  test("returns a body without a rewritten paragraph byte-identical", () => {
+    const entities = "<p class='x' title=a&amp;b>Tom &amp; Jerry &nbsp;&lt;3<br></p><p>";
+    expect(flattenAddressSenderLine(entities)).toBe(entities);
+    const recipientFirst = frame("<p class='x'>Tom &amp; Jerry\nStrasse 2<br></p><p>");
+    expect(flattenAddressSenderLine(recipientFirst)).toBe(recipientFirst);
+  });
+
   test("a recipient as first paragraph gets no line and keeps its line breaks", () => {
     const html = frame("<p>Empfaenger\nStrasse 2</p>");
     expect(flattenAddressSenderLine(html)).toBe(html);
