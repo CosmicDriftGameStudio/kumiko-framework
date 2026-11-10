@@ -58,7 +58,23 @@ const unlockedSlugs: readonly (readonly [TemplateKind, readonly string[]])[] = [
     ],
   ],
   ["document-pdf", ["exact-system", "json-empty"]],
-  ["mail-layout", ["rl-1", "rl-2", "rl-3", "rl-4", "rl-5", "rl-6", "rl-none"]],
+  [
+    "mail-layout",
+    [
+      "rl-1",
+      "rl-2",
+      "rl-3",
+      "rl-4",
+      "rl-5",
+      "rl-6",
+      "rl-none",
+      "rlw-1",
+      "rlw-2",
+      "rlw-3",
+      "rlw-4",
+      "rlw-5",
+    ],
+  ],
 ];
 
 const feature = createTemplateResolverFeature({
@@ -666,6 +682,69 @@ describe("template-resolver :: resolveLayout", () => {
     await layout("rl-5", TENANT_A, "tenant", "en", { status: "archived", content: "archived" });
     await layout("rl-5", SYSTEM_TENANT_ID, "system", "en", { content: "system-en" });
     expect((await api.resolveLayout(layoutArgs("rl-5", "de"))).content).toBe("system-en");
+  });
+
+  describe("working", () => {
+    const workingArgs = (slug: string) => ({ ...layoutArgs(slug, "de"), working: true });
+    const openDraft = JSON.stringify({
+      content: "open-draft",
+      contentFormat: "html",
+      variableSchema: "{}",
+      meta: null,
+      title: null,
+      folder: null,
+      parentTemplateId: null,
+    });
+    const layoutWithOpenDraft = (slug: string, tenantId: string, scope: TemplateScope) =>
+      seedRowViaEventStore(db, templateResourcesTable, {
+        tenantId,
+        slug,
+        kind: "mail-layout",
+        locale: "de",
+        scope,
+        status: "active",
+        content: "active-content",
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: "{}",
+        draft: openDraft,
+      });
+
+    test("a tenant layout that exists only as a draft is found, but not without working", async () => {
+      await layout("rlw-1", TENANT_A, "tenant", "de", { status: "draft", content: "draft-only" });
+      expect((await api.resolveLayout(workingArgs("rlw-1"))).content).toBe("draft-only");
+      await expect(api.resolveLayout(layoutArgs("rlw-1", "de"))).rejects.toBeInstanceOf(
+        TemplateNotFoundError,
+      );
+    });
+
+    test("an open draft over an active row wins with working and not without", async () => {
+      await layoutWithOpenDraft("rlw-2", TENANT_A, "tenant");
+      expect((await api.resolveLayout(workingArgs("rlw-2"))).content).toBe("open-draft");
+      expect((await api.resolveLayout(layoutArgs("rlw-2", "de"))).content).toBe("active-content");
+    });
+
+    test("archived rows never count", async () => {
+      await layout("rlw-3", TENANT_A, "tenant", "de", { status: "archived", content: "archived" });
+      await expect(api.resolveLayout(workingArgs("rlw-3"))).rejects.toBeInstanceOf(
+        TemplateNotFoundError,
+      );
+    });
+
+    test("a system layout resolves to its active content, never to its open draft", async () => {
+      await layoutWithOpenDraft("rlw-4", SYSTEM_TENANT_ID, "system");
+      expect((await api.resolveLayout(workingArgs("rlw-4"))).content).toBe("active-content");
+    });
+
+    test("a system draft row is not found even with working", async () => {
+      await layout("rlw-5", SYSTEM_TENANT_ID, "system", "de", {
+        status: "draft",
+        content: "system-draft",
+      });
+      await expect(api.resolveLayout(workingArgs("rlw-5"))).rejects.toBeInstanceOf(
+        TemplateNotFoundError,
+      );
+    });
   });
 
   test("among several other locales the choice is stable: highest version, then locale order", async () => {

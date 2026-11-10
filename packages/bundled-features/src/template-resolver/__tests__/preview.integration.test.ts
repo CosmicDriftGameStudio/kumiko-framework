@@ -29,7 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.ts";
-import { createConfigFeature } from "../../config/index.ts";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/index.ts";
 import { createConfigResolver } from "../../config/resolver.ts";
 import { configValuesTable } from "../../config/table.ts";
 import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.ts";
@@ -43,7 +43,7 @@ import { userEntity } from "../../user/schema/user.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import { seedNotificationTemplates } from "../seeding.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
-import { SYSTEM_TENANT_ID } from "../web/constants.ts";
+import { DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY, SYSTEM_TENANT_ID } from "../web/constants.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
@@ -53,6 +53,9 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "default",
     "contract-frame",
     "contract",
+    "draft-frame",
+    "default-frame",
+    "framed",
     "viel",
     "morgen",
     "x",
@@ -143,10 +146,14 @@ beforeAll(async () => {
       }),
       invMailer,
     ],
-    extraContext: (deps) => ({
-      ...createDeliveryTestContext(deps),
-      configResolver: createConfigResolver(),
-    }),
+    extraContext: (deps) => {
+      const resolver = createConfigResolver();
+      return {
+        ...createDeliveryTestContext(deps),
+        configResolver: resolver,
+        configAccessorFactory: createConfigAccessorFactory(deps.registry, resolver),
+      };
+    },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, tenantEntity);
@@ -369,6 +376,108 @@ describe("template-resolver :: preview query", () => {
     expect(preview.layout?.slug).toBe("contract-frame");
     expect(preview.layout?.regions.header).toContain("PDF_HEADER");
     expect(preview.layout?.regions.footer).toContain("PDF_FOOTER");
+  });
+
+  test("a document-pdf draft shows a tenant layout that exists only as a draft; a preview without draft content does not", async () => {
+    const admin = adminOf(71);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "draft-frame",
+        kind: "pdf-layout",
+        locale: LOCALE,
+        content:
+          "<div data-header><p>DRAFT_LAYOUT_HEADER</p></div><div data-content></div><div data-footer></div>",
+        contentFormat: "html",
+        variableSchema: {},
+        linkedResources: {},
+        status: "draft",
+      },
+      admin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "framed",
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: "<p>Gespeichert</p>",
+        contentFormat: "html",
+        meta: { layoutSlug: "draft-frame" },
+        variableSchema: {},
+        linkedResources: {},
+        status: "active",
+      },
+      admin,
+    );
+    const withDraft = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      {
+        slug: "framed",
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: "<p>Entwurf</p>",
+        meta: { layoutSlug: "draft-frame" },
+      },
+      admin,
+    );
+    expect(withDraft.layout?.slug).toBe("draft-frame");
+    expect(withDraft.layout?.regions.header).toContain("DRAFT_LAYOUT_HEADER");
+
+    const stored = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      { slug: "framed", kind: "document-pdf", locale: LOCALE },
+      admin,
+    );
+    expect(stored.layout).toBeNull();
+  });
+
+  test("a draft without its own layout shows the open draft of the tenant's default layout", async () => {
+    const admin = adminOf(72);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "default-frame",
+        kind: "pdf-layout",
+        locale: LOCALE,
+        content:
+          "<div data-header><p>ACTIVE_DEFAULT_HEADER</p></div><div data-content></div><div data-footer></div>",
+        contentFormat: "html",
+        variableSchema: {},
+        linkedResources: {},
+        status: "active",
+      },
+      admin,
+    );
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY, value: "default-frame", scope: "tenant" },
+      admin,
+    );
+    const active = await stack.http.queryOk<{ base: unknown }>(
+      TemplateResolverQueries.documentBlocks,
+      { slug: "default-frame", kind: "pdf-layout", region: "header", locale: LOCALE },
+      admin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: "default-frame",
+        kind: "pdf-layout",
+        region: "header",
+        locale: LOCALE,
+        base: active.base,
+        ops: [{ op: "replaceBody", blocks: [{ type: "paragraph", text: "DRAFT_DEFAULT_HEADER" }] }],
+      },
+      admin,
+    );
+    const preview = await stack.http.queryOk<Preview>(
+      TemplateResolverQueries.preview,
+      { slug: "contract", kind: "document-pdf", locale: LOCALE, content: "<p>Entwurf</p>" },
+      admin,
+    );
+    expect(preview.layout?.slug).toBe("default-frame");
+    expect(preview.layout?.regions.header).toContain("DRAFT_DEFAULT_HEADER");
   });
 
   test("variables override the sample values and the rest keep their examples", async () => {

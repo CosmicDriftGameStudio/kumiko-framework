@@ -43,6 +43,7 @@ export async function resolveDefaultPdfLayout(
   ctx: DefaultLayoutContext,
   tenantId: string,
   locale: string = FALLBACK_LOCALE,
+  working = false,
 ): Promise<DefaultPdfLayout> {
   const slug = await readTenantConfigText(ctx, DEFAULT_PDF_LAYOUT_SLUG_CONFIG_KEY);
   if (slug === "") return { slug: DEFAULT_PDF_LAYOUT_SLUG, resolved: null };
@@ -52,6 +53,7 @@ export async function resolveDefaultPdfLayout(
       slug,
       kind: "pdf-layout",
       locale,
+      working,
     });
     return { slug, resolved };
   } catch (e) {
@@ -68,9 +70,10 @@ export async function effectivePdfLayout(
   tenantId: string,
   ownSlug: string | undefined,
   locale: string = FALLBACK_LOCALE,
+  working = false,
 ): Promise<DefaultPdfLayout> {
   if (ownSlug !== undefined) return { slug: ownSlug, resolved: null };
-  return resolveDefaultPdfLayout(ctx, tenantId, locale);
+  return resolveDefaultPdfLayout(ctx, tenantId, locale, working);
 }
 
 export async function defaultPdfLayoutSlug(

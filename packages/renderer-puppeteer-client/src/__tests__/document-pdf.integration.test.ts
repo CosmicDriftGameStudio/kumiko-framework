@@ -634,6 +634,33 @@ describe("preview-pdf", () => {
     expect(preview.durationMs).toBeGreaterThanOrEqual(0);
   });
 
+  test("a draft pointing at a layout that is itself only a draft prints with that layout", async () => {
+    const tenant = tenantAdmin(51);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: "own-default",
+        kind: "pdf-layout",
+        locale: "de",
+        content:
+          "<div data-header><p>Briefkopf im Entwurf</p></div><div data-content></div><div data-footer></div>",
+        contentFormat: "html",
+        meta: {},
+        variableSchema: {},
+        linkedResources: {},
+        status: "draft",
+      },
+      tenant,
+    );
+    stubRequests.length = 0;
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({ meta: { layoutSlug: "own-default" } }),
+      tenant,
+    );
+    expect(onlyStubRequest().options.headerTemplate).toContain("Briefkopf im Entwurf");
+  });
+
   test("an image linked only by the caller's draft row is printed although no row is active", async () => {
     const adminTenantE = tenantAdmin(45);
     const draftRow = await stack.http.writeOk<{ id: string }>(
