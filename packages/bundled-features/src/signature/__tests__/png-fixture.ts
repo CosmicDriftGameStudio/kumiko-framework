@@ -37,6 +37,8 @@ export function makePng(
     strokeRowOffset?: number;
     // Paints only the (0,0) pixel opaque and nothing else.
     onlyFirstPixelOpaque?: boolean;
+    // Overwrites the (0,0) pixel after the background and the stroke are painted.
+    firstPixel?: readonly number[];
   } = {},
 ): Uint8Array {
   const width = options.width ?? 200;
@@ -59,6 +61,7 @@ export function makePng(
       }
     }
   }
+  if (options.firstPixel !== undefined) raw.set(options.firstPixel, 1);
   const header = new Uint8Array(13);
   const view = new DataView(header.buffer);
   view.setUint32(0, width);

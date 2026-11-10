@@ -120,6 +120,7 @@
     "./shared/signed-token": "./src/shared/signed-token.ts",
     "./shared/stream-tenant-backfill": "./src/shared/stream-tenant-backfill.ts",
     "./shared/row-bound-grant": "./src/shared/row-bound-grant.ts",
+    "./shared/tenant-scoped-subject": "./src/shared/tenant-scoped-subject.ts",
     "./shared/mail-template-body": "./src/shared/mail-template-body.ts",
     "./shared/acknowledged-system-db": "./src/shared/acknowledged-system-db.ts",
     "./delivery": "./src/delivery/index.ts",
@@ -610,6 +611,10 @@
       "./shared/row-bound-grant": {
         "types": "./dist/shared/row-bound-grant.d.ts",
         "default": "./dist/shared/row-bound-grant.js"
+      },
+      "./shared/tenant-scoped-subject": {
+        "types": "./dist/shared/tenant-scoped-subject.d.ts",
+        "default": "./dist/shared/tenant-scoped-subject.js"
       },
       "./shared/mail-template-body": {
         "types": "./dist/shared/mail-template-body.d.ts",

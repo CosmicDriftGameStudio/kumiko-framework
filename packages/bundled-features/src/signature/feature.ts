@@ -41,7 +41,7 @@ import {
 } from "./web/constants.ts";
 
 export function createSignatureFeature(opts: SignatureOptions): FeatureDefinition {
-  if (opts.authorizeSubject !== undefined && opts.linkSecret === "") {
+  if (opts.authorizeSubject !== undefined && opts.linkSecret.trim() === "") {
     throw new Error("authorizeSubject needs a non-empty linkSecret: it also seals the list cursor");
   }
   const signedInAccess = opts.access ?? DEFAULT_SIGNATURE_ACCESS;

@@ -9,6 +9,7 @@ import {
   encodeKeysetCursor,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -16,6 +17,7 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
+import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { PDFDocument } from "pdf-lib";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
@@ -24,6 +26,7 @@ import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { createUserFeature } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
+import { signatureRequestTable, signatureSignerTable } from "../entity.ts";
 import { createSignatureFeature } from "../feature.ts";
 import { SIGNATURE_REQUEST_STATUS, SignatureHandlers, SignatureQueries } from "../web/constants.ts";
 import { makePng, toBase64 } from "./png-fixture.ts";
@@ -78,7 +81,13 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(() => {
+beforeEach(async () => {
+  await resetTestTables(stack.db, [
+    signatureRequestTable,
+    signatureSignerTable,
+    fileRefsTable,
+    eventsTable,
+  ]);
   deliveredLinks.length = 0;
   authorizedSubjectIds.length = 0;
 });
@@ -338,8 +347,6 @@ describe("signature :: authorizeSubject on queries", () => {
           SignatureHandlers.request,
           {
             ...(await requestPayload(ADMIN, `subject-foreign-${index}`)),
-            // Later than the page-cap test's foreign requests (1 day), which run after this test in the same database.
-            expiresInDays: 2,
             title: "secret foreign title",
           },
           ADMIN,

@@ -5,6 +5,7 @@ const MAX_DIMENSION = 3000;
 const MIN_DIMENSION = 16;
 const MAX_PIXELS = 4_000_000;
 const MIN_INK_PIXELS = 20;
+const BACKGROUND_TOLERANCE = 8;
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
 const COLOR_TYPE_GRAY_ALPHA = 4;
@@ -126,24 +127,44 @@ function countInkPixels(raw: Uint8Array, header: Header): number {
   const stride = header.width * bytesPerPixel + 1;
   const pixelStart = (row: number, column: number): number =>
     row * stride + 1 + column * bytesPerPixel;
-  const background = pixelStart(0, 0);
   const alphaOf = (start: number): number => raw[start + bytesPerPixel - 1] ?? 0;
+  const pixelKey = (start: number): string => raw.subarray(start, start + bytesPerPixel).join(",");
+
+  const borderStarts: number[] = [];
+  for (let column = 0; column < header.width; column++) {
+    borderStarts.push(pixelStart(0, column), pixelStart(header.height - 1, column));
+  }
+  for (let row = 1; row < header.height - 1; row++) {
+    borderStarts.push(pixelStart(row, 0), pixelStart(row, header.width - 1));
+  }
+  const opaqueBorderStarts = borderStarts.filter((start) => alphaOf(start) > 0);
+  const colorCounts = new Map<string, { count: number; start: number }>();
+  for (const start of opaqueBorderStarts) {
+    const key = pixelKey(start);
+    const entry = colorCounts.get(key);
+    if (entry === undefined) colorCounts.set(key, { count: 1, start });
+    else entry.count++;
+  }
+  let background = -1;
+  let backgroundCount = 0;
+  for (const entry of colorCounts.values()) {
+    if (entry.count > backgroundCount) {
+      background = entry.start;
+      backgroundCount = entry.count;
+    }
+  }
   const colorMatchesBackground = (start: number): boolean => {
+    if (background < 0) return false;
     for (let i = 0; i < bytesPerPixel; i++) {
-      if (raw[start + i] !== raw[background + i]) return false;
+      const difference = Math.abs((raw[start + i] ?? 0) - (raw[background + i] ?? 0));
+      if (difference > BACKGROUND_TOLERANCE) return false;
     }
     return true;
   };
-  // Only four identical, opaque corners mean a solid background; a single opaque pixel could be a stroke.
-  const corners = [
-    background,
-    pixelStart(0, header.width - 1),
-    pixelStart(header.height - 1, 0),
-    pixelStart(header.height - 1, header.width - 1),
-  ];
-  const hasSolidBackground = corners.every(
-    (corner) => alphaOf(corner) > 0 && colorMatchesBackground(corner),
-  );
+  // Most of the border must be opaque and alike for a solid background; a few opaque border pixels
+  // on a transparent canvas could be a stroke.
+  const nearBackgroundCount = opaqueBorderStarts.filter(colorMatchesBackground).length;
+  const hasSolidBackground = nearBackgroundCount * 2 > borderStarts.length;
   let ink = 0;
   for (let row = 0; row < header.height; row++) {
     for (let column = 0; column < header.width; column++) {

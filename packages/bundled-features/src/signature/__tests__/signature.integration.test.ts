@@ -429,6 +429,30 @@ describe("signature :: unrecoverable finalisation", () => {
     expect(failed[0]?.["payload"]).toMatchObject({ reason: "document-changed" });
     expect(printedHtml()).toHaveLength(0);
   });
+
+  test("a deleted signature image ends the all-signed request as failed, once", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada"]);
+    await signInPerson(signerIds[0] as string);
+    expect((await requestRow(requestId))["status"]).toBe("all-signed");
+    const imageFileId = String((await signerRow(signerIds[0] as string))["imageFileId"]);
+    const tenantDb = createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test removes the signature image the way an erasure does",
+    });
+    const deleted = await fileRefExecutor.delete({ id: imageFileId }, USER, tenantDb);
+    expect(deleted.isSuccess).toBe(true);
+
+    await runSweep();
+    await runSweep();
+
+    expect((await requestRow(requestId))["status"]).toBe("failed");
+    const failed = await eventsOfType(SignatureEvents.failed);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.["payload"]).toMatchObject({ reason: "signature-image-missing" });
+    expect(printedHtml()).toHaveLength(0);
+  });
 });
 
 describe("signature :: links", () => {
