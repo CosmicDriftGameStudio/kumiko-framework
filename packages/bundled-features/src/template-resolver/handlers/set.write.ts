@@ -9,7 +9,7 @@ import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
-  refuseReservedLayoutSlug,
+  refuseReservedSystemLayoutSlug,
   refuseTemplateEdit,
   type TemplateEditPolicy,
   templateEditAccess,
@@ -79,10 +79,11 @@ export function makeSetWrite(policy: TemplateEditPolicy) {
       });
 
       const scope = tenantId === SYSTEM_TENANT_ID ? ("system" as const) : ("tenant" as const);
-      const reserved =
-        scope === "system"
-          ? refuseReservedLayoutSlug({ slug: event.payload.slug, kind }, "slug")
-          : null;
+      const reserved = refuseReservedSystemLayoutSlug(
+        scope,
+        { slug: event.payload.slug, kind },
+        "slug",
+      );
       if (reserved !== null) return reserved;
       let content = event.payload.content;
       if (isOneOf(UPSERT_KINDS, kind)) {

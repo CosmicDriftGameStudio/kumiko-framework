@@ -11,6 +11,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import type { TemplateWriteScope } from "./layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import { isTenantLayout } from "./template-delivery-policy.ts";
 import { isSystemAdmin } from "./template-draft.ts";
@@ -98,6 +99,14 @@ export async function refuseTemplateEditById(
 export function mayEditTenantLayouts(policy: TemplateEditPolicy, user: EditUser): boolean {
   const pdfEntries = policy.tenantEditable.filter((entry) => entry.kind === "document-pdf");
   return pdfEntries.length > 0 && pdfEntries.every((entry) => hasAccess(user, entry.access));
+}
+
+export function refuseReservedSystemLayoutSlug(
+  scope: TemplateWriteScope,
+  target: EditTarget,
+  path: string,
+): WriteFailure | null {
+  return scope === "system" ? refuseReservedLayoutSlug(target, path) : null;
 }
 
 // System layouts must not take a slug from the tenant namespace.

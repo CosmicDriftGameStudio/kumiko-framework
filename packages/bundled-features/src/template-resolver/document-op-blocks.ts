@@ -410,6 +410,51 @@ function tableNode(ctx: BuildContext, path: string, block: Extract<BlockInput, {
   };
 }
 
+function frameNode(
+  ctx: BuildContext,
+  path: string,
+  input: Extract<BlockInput, { type: "frame" }>,
+): JSONContent {
+  return {
+    type: "documentFrame",
+    attrs: {
+      xMm: input.xMm,
+      yMm: input.yMm,
+      widthMm: input.widthMm,
+      heightMm: input.heightMm,
+      preset: input.preset ?? null,
+      reserveFlow: input.reserveFlow ?? true,
+    },
+    content: input.blocks.map((inner, index) => blockNode(ctx, `${path}.blocks.${index}`, inner)),
+  };
+}
+
+function imageNode(
+  ctx: BuildContext,
+  path: string,
+  input: Extract<BlockInput, { type: "image" }>,
+): JSONContent {
+  if (!isDocumentResourceKey(input.resource)) {
+    report(ctx, `${path}.resource`, "invalid_resource_key", { resource: input.resource });
+  }
+  return { type: "resource", attrs: { resource: input.resource, alt: input.alt ?? null } };
+}
+
+function buttonNode(
+  ctx: BuildContext,
+  path: string,
+  input: Extract<BlockInput, { type: "button" }>,
+): JSONContent {
+  if (!isDocumentPlaceholderHref(input.href)) {
+    report(ctx, `${path}.href`, "invalid_button_href", { href: input.href });
+  }
+  return {
+    type: "button",
+    attrs: { href: input.href },
+    content: lineToContent(singleLine(input.text)),
+  };
+}
+
 export function blockNode(ctx: BuildContext, path: string, input: BlockInput): JSONContent {
   if (!isBlockTypeAllowed(input.type, ctx.kind)) {
     report(ctx, `${path}.type`, "block_not_allowed", { type: input.type, kind: ctx.kind });
@@ -424,34 +469,11 @@ export function blockNode(ctx: BuildContext, path: string, input: BlockInput): J
     case "table":
       return tableNode(ctx, path, input);
     case "frame":
-      return {
-        type: "documentFrame",
-        attrs: {
-          xMm: input.xMm,
-          yMm: input.yMm,
-          widthMm: input.widthMm,
-          heightMm: input.heightMm,
-          preset: input.preset ?? null,
-          reserveFlow: input.reserveFlow ?? true,
-        },
-        content: input.blocks.map((inner, index) =>
-          blockNode(ctx, `${path}.blocks.${index}`, inner),
-        ),
-      };
+      return frameNode(ctx, path, input);
     case "image":
-      if (!isDocumentResourceKey(input.resource)) {
-        report(ctx, `${path}.resource`, "invalid_resource_key", { resource: input.resource });
-      }
-      return { type: "resource", attrs: { resource: input.resource, alt: input.alt ?? null } };
+      return imageNode(ctx, path, input);
     case "button":
-      if (!isDocumentPlaceholderHref(input.href)) {
-        report(ctx, `${path}.href`, "invalid_button_href", { href: input.href });
-      }
-      return {
-        type: "button",
-        attrs: { href: input.href },
-        content: lineToContent(singleLine(input.text)),
-      };
+      return buttonNode(ctx, path, input);
     case "divider":
     case "pageBreak":
       return { type: input.type };
