@@ -20,4 +20,6 @@ export type PdfRenderContext = {
   readonly detail: TemplateDetail;
   readonly onLocaleChange: ((locale: string) => void) | undefined;
   readonly exportBundle: () => Promise<void>;
+  /** Undefined when no client feature registers the template-import action. */
+  readonly startTemplateImport: (() => void) | undefined;
 };

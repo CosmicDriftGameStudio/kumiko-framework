@@ -9,6 +9,7 @@ export {
   MAIL_EDITOR_SCREEN_ID,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
   TEMPLATE_EDITOR_SCREENS,
+  TEMPLATE_IMPORT_CLIENT_ACTION,
   type TemplateEditorKind,
 } from "./constants.ts";
 export { documentDesignerTranslations } from "./default-translations.ts";

@@ -1,6 +1,9 @@
 import { TemplateResolverQueries } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
+  runClientAction,
   type ScreenFocus,
+  useClientActionHandler,
+  useClientActionRuntime,
   useDispatcher,
   usePrimitives,
   useSetScreenFocus,
@@ -8,7 +11,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { ErrorState, LoadingState } from "@cosmicdrift/kumiko-renderer/web";
 import { type ReactNode, useMemo } from "react";
-import { TEMPLATE_RESOURCE_ENTITY } from "./constants.ts";
+import { TEMPLATE_IMPORT_CLIENT_ACTION, TEMPLATE_RESOURCE_ENTITY } from "./constants.ts";
 import { EditorBody, EditorFrame } from "./editor-shell.tsx";
 import { describeError } from "./errors.ts";
 import { buildPdfActions } from "./pdf-editor-actions.ts";
@@ -61,6 +64,8 @@ export function PdfTemplateEditor({
     [row, detail, slug],
   );
   useSetScreenFocus(focus);
+  const clientActionRuntime = useClientActionRuntime();
+  const hasTemplateImport = useClientActionHandler(TEMPLATE_IMPORT_CLIENT_ACTION) !== undefined;
   if (rowsQuery.loading && rowsQuery.data === null) return <LoadingState />;
   if (rowsQuery.error !== null) return <ErrorState error={rowsQuery.error} />;
   if (row === undefined)
@@ -92,6 +97,7 @@ export function PdfTemplateEditor({
     detail,
     onLocaleChange,
     exportBundle,
+    startTemplateImport: hasTemplateImport ? () => void startTemplateImport() : undefined,
   };
   const editing = s.ui.mode === "edit";
 
@@ -109,6 +115,26 @@ export function PdfTemplateEditor({
       {renderPdfLocaleDialog(context)}
     </EditorFrame>
   );
+
+  async function startTemplateImport(): Promise<void> {
+    s.ui.setActionError(null);
+    try {
+      await runClientAction({
+        action: {
+          kind: "clientAction",
+          id: "import-template",
+          label: "documentDesigner.actions.importFromTemplate",
+          action: TEMPLATE_IMPORT_CLIENT_ACTION,
+          successMessage: false,
+        },
+        payload: { slug, locale: s.doc.locale, title: view.title },
+        runtime: clientActionRuntime,
+        translate: t,
+      });
+    } catch (error) {
+      s.ui.setActionError(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   async function exportBundle(): Promise<void> {
     const result = await dispatcher.query<unknown>(TemplateResolverQueries.exportBundle, {

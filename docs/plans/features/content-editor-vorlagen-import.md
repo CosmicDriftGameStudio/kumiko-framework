@@ -1,7 +1,7 @@
 ---
-status: idea
+status: in-progress
 verified: 2026-11-10
-next: Stufe 1 ist erledigt (PR #4294, #4296, 2026-11-10). Stufe 2 und der Framework-Teil von Stufe 3 sind gebaut, noch nicht erledigt. Offen: der Enterprise-Teil von Stufe 3 (`ai-agent`), danach Stufe 4.
+next: Stufen 1 bis 3 sind erledigt (FW #4294, #4296, #4297 in 0.419.0, Enterprise #937). Stufe 4 läuft in kumiko-enterprise#938 und im Button-PR im Framework. Danach Stufe 5 mit der Modellmessung.
 track: framework
 depends: [kumiko-framework:docs/plans/features/document-designer.md]
 ---
@@ -102,7 +102,7 @@ Abnahme ohne KI: Die Beispielvorlagen lassen sich von Hand im Editor nachbauen, 
 
 ### Stufe 2: Die KI kommt an alles heran (Framework)
 
-Gebaut im Branch feat/vorlagen-import-ki-ops: `patch-draft` und `document-blocks` nehmen Runs, Listen, Tabellen mit Wiederholzeile, Rahmen und die Ops `replaceBody` und `formatBlock` an, dazu `kind: pdf-layout` mit `region`, und `create-layout` legt ein neues Layout an.
+Erledigt in #4297 (0.419.0): `patch-draft` und `document-blocks` nehmen Runs, Listen, Tabellen mit Wiederholzeile, Rahmen und die Ops `replaceBody` und `formatBlock` an, dazu `kind: pdf-layout` mit `region`, und `create-layout` legt ein neues Layout an.
 
 - Ops: Tabelle mit Wiederholzeile, Formatierung, `documentFrame`, `replaceBody`.
 - Neues Layout anlegen und befüllen, unter denselben Rechten wie `patch-draft`.
@@ -111,7 +111,7 @@ Gebaut im Branch feat/vorlagen-import-ki-ops: `patch-draft` und `document-blocks
 
 ### Stufe 3: Die KI sieht das Ergebnis (Framework, Enterprise)
 
-Framework-Teil gebaut, nicht erledigt: `POST /rasterize` im `puppeteer-service` (poppler in Image und CI), `rasterizePdf` und `AGENT_IMAGES_RESULT_KEY` im Client, die Query `preview-png` mit `agentImages`. Der Enterprise-Teil (`ai-agent`) läuft parallel.
+Erledigt: `POST /rasterize` im `puppeteer-service` (poppler in Image und CI), `rasterizePdf` und `AGENT_IMAGES_RESULT_KEY` im Client, die Query `preview-png` mit `agentImages` (#4297). Im `ai-agent` bleibt pro Tool das letzte Bild-Set im Request (kumiko-enterprise#937).
 
 - `puppeteer-service`: PDF zu PNG und eingebettete Bilder ausgeben (`pdftoppm`, `pdfimages`), mit Grenzen für Seiten und Größe. Hochgeladene PDFs sind fremde Daten und bleiben in diesem Dienst.
 - Query für den Entwurf als PNG je Seite, über denselben Weg wie das Original.
@@ -123,9 +123,9 @@ Framework-Teil gebaut, nicht erledigt: `POST /rasterize` im `puppeteer-service` 
 - Ablauf: Vorlage finden, Platzhalter lesen, Upload lesen, Werte den Platzhaltern zuordnen, Entwurf bauen, rendern, vergleichen, höchstens drei Korrekturrunden.
 - Logo aus den eingebetteten Bildern des PDFs als Ressource, sonst aus dem Branding. Bei einem Scan ist die ganze Seite ein Bild, dort kommt das Logo aus einem Zuschnitt des Seitenbilds oder aus einem eigenen Upload.
 - Die KI legt alles Gemeinsame ins Layout und formatiert im Text nur Abweichungen, sonst ließe sich der Look nicht übertragen.
-- Karte am Ende: Original neben Entwurf, „als fester Text geblieben“, „nicht abbildbar“. Echte Kundendaten aus dem Upload sollen so nicht unbemerkt im Entwurf bleiben.
+- Karte am Ende: Original neben Entwurf, „als fester Text geblieben“, „nicht abbildbar“. Echte Kundendaten aus dem Upload sollen so nicht unbemerkt im Entwurf bleiben. Die KI schließt mit der Query `import-result`. Die Karte lädt Original und Entwurf beim Anzeigen neu, weil der gespeicherte Turn keine Bilder enthält.
 - Auf der Karte „Auf weitere Vorlagen anwenden“. Positionen im Text wie das Adressfeld stehen in jeder Vorlage selbst, die gleicht die KI auf Wunsch je Vorlage an, mit demselben Vergleich und einer gemeinsamen Karte.
-- Button „Aus Vorlage übernehmen“ im Content-Editor, öffnet den Assistenten mit der Vorlage. Vergleichskarte und Button erst nach Abnahme des Boards.
+- Button „Aus Vorlage übernehmen“ im Content-Editor, öffnet den Assistenten mit der Vorlage. Der Editor zeigt ihn nur, wenn die clientAction `ai-agent:import-template` registriert ist, das Framework hängt also nicht vom Assistenten ab. Karte und Button nimmt Marc beim Import-Test ab, ein eigenes Board entfällt (2026-11-10).
 - Inhalte aus dem Upload sind für die KI fremde Daten. Ohne Freigabe kann sie nur den Entwurf ändern.
 
 ### Stufe 5: Rollout
