@@ -1123,6 +1123,16 @@
         "unpdf": "^1.9.1",
       },
     },
+    "samples/recipes/pdf-letterhead": {
+      "name": "@cosmicdrift/kumiko-sample-pdf-letterhead",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+      "devDependencies": {
+        "@cosmicdrift/kumiko-testing": "workspace:*",
+      },
+    },
     "samples/recipes/pipeline-basics": {
       "name": "@cosmicdrift/kumiko-sample-pipeline-basics",
       "dependencies": {
@@ -1656,6 +1666,8 @@
     "@cosmicdrift/kumiko-sample-ownership": ["@cosmicdrift/kumiko-sample-ownership@workspace:samples/recipes/ownership"],
 
     "@cosmicdrift/kumiko-sample-pdf-audit-export": ["@cosmicdrift/kumiko-sample-pdf-audit-export@workspace:samples/recipes/pdf-audit-export"],
+
+    "@cosmicdrift/kumiko-sample-pdf-letterhead": ["@cosmicdrift/kumiko-sample-pdf-letterhead@workspace:samples/recipes/pdf-letterhead"],
 
     "@cosmicdrift/kumiko-sample-pipeline-basics": ["@cosmicdrift/kumiko-sample-pipeline-basics@workspace:samples/recipes/pipeline-basics"],
 
