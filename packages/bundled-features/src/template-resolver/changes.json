@@ -1,5 +1,43 @@
 [
   {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "Frames and text styles in PDF templates",
+    "detail": "A PDF body can hold positioned frames (address window at DIN 5008 form B or A, free text frame, as `div[data-frame]` with `data-x`, `data-y`, `data-width`, `data-height` in mm) and text styles (`span[data-text-style]` with font, size in pt and colour, plus line height and paragraph spacing on blocks). Both go through the sanitizer and compile to inline CSS. The font catalog is Arial, Times New Roman, Courier New, Calibri and Cambria; the puppeteer-service image needs the metric-compatible fonts (Carlito, Caladea) next to the Liberation ones, so rebuild it."
+  },
+  {
+    "version": "0.419.0",
+    "type": "breaking",
+    "title": "signature and imprint are no longer placeholders, company* names are reserved",
+    "detail": "In `document-pdf` and `pdf-layout` templates, `signature` and `imprint` are no longer placeholders; a template that uses them fails on save and publish. The ten `company*` names (`companyAddress`, `companyPhone`, `companyEmail`, `companyWebsite`, `companyRegister`, `companyVatId`, `companyManagement`, `companyBank`, `companyIban`, `companyBic`) are now reserved, so a notification variable with such a name fails at boot.",
+    "migration": "Remove `signature` and `imprint` from PDF templates and layouts. Rename notification variables that collide with a reserved `company*` name."
+  },
+  {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "Header and footer use the layout font size",
+    "detail": "PDF header and footer take the layout's `fontSizePt` and fall back to 10.5pt, the size the editor always showed; before they printed at 9px. Paragraphs in header and footer no longer carry margins. Existing PDF layouts therefore change on the next render: a footer taller than the bottom margin minus 4mm reaches into the page body, so check multi-line footers."
+  },
+  {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "Default PDF layout per tenant, apply-layout and publish-templates",
+    "detail": "The tenant config key `template-resolver:config:default-pdf-layout-slug` picks the layout of PDF templates that name none. `template-resolver:write:apply-layout` sets it (mode `all`, no copies) or writes the layout into a tenant draft per chosen template (mode `selected`, text unchanged); `template-resolver:write:publish-templates` activates drafts together and reports per template what failed. The usage query lists the templates a layout serves, with `hasOwnLayout` for those that follow the default."
+  },
+  {
+    "version": "0.419.0",
+    "type": "breaking",
+    "title": "Line grid, flush tables and the address window in PDF bodies",
+    "detail": "PDF bodies print at line height 1.2. Paragraphs, lists, headings and tables are spaced by one body line (`--doc-line`, font size times 1.2) instead of 6pt after a paragraph and browser heading margins; the last element in a cell, list item, frame or the document has no bottom margin. Tables are flush with the text margin: the outer cells lose their left and right padding unless the layout table style is `grid` or the header has a background. Address paragraphs start at the text margin, have no spacing between lines, and the sender line prints at 7pt and wraps instead of being cut off. Flow text below a frame that reserves space starts 8mm under it. In the editor, cells are top-aligned, header cells print like body text, and rules appear only where the layout table style prints them; an untouched layout shows the table style \"plain\", as the PDF always printed it; a dashed outline marks cells while editing. Frames snap to page margins and other frames while moving or resizing (hold Alt to move freely).",
+    "migration": "Render existing PDF templates once and check the page breaks. A template that relied on the 6pt paragraph gap sets the spacing per paragraph instead."
+  },
+  {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "patch-draft and create-layout let an agent rebuild PDF templates and layouts",
+    "detail": "patch-draft and document-blocks accept inline runs (bold, italic, underline, font, size, color), block formatting, lists, tables with a repeat row, address and text frames, a replaceBody op and a formatBlock op, all checked against the editor's print ranges and fonts. They also take kind pdf-layout with a region (header, signature or footer). The new create-layout handler creates an empty PDF layout draft under the slug tenant-layout-<name>; a tenant may edit, publish and use such layouts as soon as it may edit any PDF template, and system layouts may not take that prefix (reserved_layout_slug). patch-draft is now an agent proposal with risk low; its new refusals use the patch error codes print_style_not_allowed, invalid_table, too_many_blocks and others."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "Orphan cleanup keeps edited system templates of notifications unknown to the booting registry",

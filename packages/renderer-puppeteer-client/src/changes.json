@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "preview-png and rasterizePdf let an agent see the printed result",
+    "detail": "The puppeteer-service has a new POST /rasterize route (poppler: pdftoppm, optionally pdfimages) that turns a PDF into PNG pages, limited by MAX_PDF_BYTES and MAX_RASTER_PAGES; the service image now ships poppler-utils. The client exports rasterizePdf(bytes, options) and the constant AGENT_IMAGES_RESULT_KEY. The new preview-png query prints a draft like preview-pdf (same rights and input) and returns the page sizes in pages and the PNG images once under agentImages (no base64 in pages). Embedded images above 25 million pixels are skipped, and all poppler calls share one deadline."
+  },
+  {
     "version": "0.416.0",
     "type": "improvement",
     "title": "renderHtmlToPdf for callers that bring their own HTML",

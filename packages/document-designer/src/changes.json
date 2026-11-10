@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "Layout appearance, ruler and company data rail",
+    "detail": "A PDF layout sets font, size, text colour, table style, table header colour and page margins in its `meta`. The editor paper shows them with a cm ruler and the margin zones; a template inherits the layout margins (\"Aus Layout: ...\") and can override them. Footer and header accept a columns block. The company data rail lists the tenant's company settings next to the placeholders and inserts them on click; a placeholder without a value is flagged by the validate query (`emptyCompanyData`). Company placeholder names (`companyAddress`, `companyIban`, ...) are reserved and cannot be declared as template variables."
+  },
+  {
+    "version": "0.419.0",
+    "type": "improvement",
+    "title": "PDF paper opens once its layout and placeholders are known",
+    "detail": "The PDF template editor shows a loading state in the canvas until the first validate, preview and layout source answers are in, so the editor no longer rebuilds right after opening and drops the caret, and the text no longer shifts when the layout arrives. A tenant default layout that was archived or deleted falls back to the built-in letterhead in the PDF, the preview and the usage lists."
+  },
+  {
+    "version": "0.419.0",
+    "type": "breaking",
+    "title": "The template title is a rich-text field in front of the body",
+    "detail": "The title above the PDF template body is a contenteditable field now, so the first `[contenteditable]` of the editor is the title, not the body. While the editor loads, a read-only placeholder carries the body id `document-designer-content`.",
+    "migration": "In e2e specs, target the body with `#document-designer-content[contenteditable=\"true\"]` instead of the first `[contenteditable]` of the editor."
+  },
+  {
+    "version": "0.419.0",
+    "type": "fix",
+    "title": "Visible loading state in the PDF template editor",
+    "detail": "While the layout loads, the canvas shows skeleton rows on a white sheet; before, they had the colour of the canvas background and the editor looked empty. The \"From layout\" margin line appears once the layout is in instead of showing the default margins first."
+  },
+  {
     "version": "0.414.0",
     "type": "improvement",
     "title": "mail and PDF previews register in the preview registry",
