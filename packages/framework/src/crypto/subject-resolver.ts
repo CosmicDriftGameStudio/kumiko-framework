@@ -4,7 +4,8 @@ import { isFileField } from "../engine/field-helpers.ts";
 import type { EntityDefinition } from "../engine/types/fields.ts";
 import type { TenantId } from "../engine/types/identifiers.ts";
 import { isSelfPiiField } from "./is-self-pii-field.ts";
-import { RECORD_ENTITY_PATTERN, type SubjectId } from "./kms-adapter.ts";
+import { PII_ERASED_SENTINEL, RECORD_ENTITY_PATTERN, type SubjectId } from "./kms-adapter.ts";
+import { isPiiCiphertext } from "./pii-ciphertext-format.ts";
 
 // Thrown when a field IS pii-annotated but the row can't name its subject —
 // that must surface as an error, not fall back to plaintext.
@@ -35,6 +36,12 @@ export interface ResolveSubjectOptions {
 
 export function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+// A stored ciphertext or the erased sentinel in an owner column is not a user id.
+export function usableOwnerId(value: unknown): string | null {
+  const id = nonEmptyString(value);
+  return id === null || id === PII_ERASED_SENTINEL || isPiiCiphertext(id) ? null : id;
 }
 
 function rowIdAsString(row: Record<string, unknown>): string | null {
@@ -68,8 +75,7 @@ function resolveUserOwnedSubject(
   opts: ResolveSubjectOptions,
 ): SubjectId {
   const { ownerField } = userOwned;
-  const userId =
-    nonEmptyString(row[ownerField]) ?? nonEmptyString(opts.ownerFallback?.[ownerField]);
+  const userId = usableOwnerId(row[ownerField]) ?? usableOwnerId(opts.ownerFallback?.[ownerField]);
   if (userId !== null) return { kind: "user", userId };
   if (opts.ignoreWhenAbsent !== true) {
     if (userOwned.whenAbsent === "tenant") return resolveTenantSubject(fieldName, row, opts);

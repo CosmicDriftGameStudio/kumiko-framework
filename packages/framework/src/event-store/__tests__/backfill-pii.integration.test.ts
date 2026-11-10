@@ -124,7 +124,17 @@ const slipEntity = createEntity({
 });
 const slipTable = buildEntityTable("slip", slipEntity);
 
+// The field is its own owner, like tenant-invitation.invitedBy.
+const inviteEntity = createEntity({
+  fields: {
+    label: createTextField({ personal: false, reason: "test_fixture" }),
+    invitedBy: createTextField({ personal: { of: "invitedBy" }, find: "none" }),
+  },
+});
+const inviteTable = buildEntityTable("invite", inviteEntity);
+
 const notesFeature = defineFeature("notes", (r) => {
+  r.entity({ name: "invite", ...inviteEntity });
   r.entity({ name: "note", ...noteEntity });
   r.entity({ name: "memo", ...memoEntity });
   r.entity({ name: "slip", ...slipEntity });
@@ -179,6 +189,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, noteEntity, "note");
   await unsafeCreateEntityTable(testDb.db, memoEntity, "memo");
   await unsafeCreateEntityTable(testDb.db, slipEntity, "slip");
+  await unsafeCreateEntityTable(testDb.db, inviteEntity, "invite");
   await unsafeCreateEntityTable(testDb.db, surveyEntity, "survey");
 });
 
@@ -192,7 +203,7 @@ beforeEach(async () => {
   await raw.unsafe(`TRUNCATE "${contactTable.tableName}"`);
   await raw.unsafe(`TRUNCATE "${noteTable.tableName}"`);
   await raw.unsafe(`TRUNCATE "${memoTable.tableName}"`);
-  await resetTestTables(testDb.db, [slipTable]);
+  await resetTestTables(testDb.db, [slipTable, inviteTable]);
   await raw.unsafe(`TRUNCATE "${surveyTable.tableName}"`);
   // Plaintext era: NO KMS while the legacy events are appended.
   resetPiiSubjectKmsForTests();
@@ -1501,5 +1512,166 @@ describe("backfillEventPiiEncryption: whenAbsent self", () => {
 
     expect(result.rekeyedFields).toBe(1);
     expect(await slipBody(slipId)).toBe(before);
+  });
+});
+
+describe("backfillEventPiiEncryption: self-owned personal field", () => {
+  const REKEY = { resolveOwnerFromProjection: true, rekeyTenantKeyedOwnerFields: true } as const;
+  const kmsCtx = { requestId: "test" };
+  const INVITER = "inviter-user-id";
+
+  async function invitedByOf(
+    id: string,
+    index: number,
+    section: "payload" | "previous",
+  ): Promise<string> {
+    const events = await loadAggregate(testDb.db, id, TENANT);
+    const payload = events[index]?.payload as Record<string, unknown>;
+    const holder =
+      section === "previous" ? (payload["previous"] as Record<string, unknown>) : payload;
+    return String(holder["invitedBy"]);
+  }
+
+  async function insertProjection(id: string, invitedBy: string): Promise<void> {
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO "${inviteTable.tableName}" (id, tenant_id, invited_by) VALUES ($1, $2, $3)`,
+      [id, TENANT, invitedBy],
+    );
+  }
+
+  test("tenant-keyed value moves under the user it names; a second run keeps the length", async () => {
+    armKms();
+    const id = generateId();
+    const tenantKeyed = await encryptPiiValueForSubject(
+      kms,
+      { kind: "tenant", tenantId: TENANT },
+      INVITER,
+      kmsCtx,
+      "invitedBy",
+    );
+    await appendPlain(id, "invite", "invite.created", { id, invitedBy: tenantKeyed });
+    await insertProjection(id, tenantKeyed);
+
+    const first = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+    expect(first.failures).toEqual([]);
+    const afterFirst = await invitedByOf(id, 0, "payload");
+    expect(afterFirst).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${INVITER}:`);
+
+    const second = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+    expect(second.failures).toEqual([]);
+    const afterSecond = await invitedByOf(id, 0, "payload");
+    expect(afterSecond.length).toBe(afterFirst.length);
+    expect(await decryptPiiValueForSubject(kms, afterSecond, kmsCtx, "invitedBy")).toBe(INVITER);
+  });
+
+  test("value keyed under a ciphertext-as-user subject is repaired, also in previous", async () => {
+    armKms();
+    const id = generateId();
+    const garbageUserId = await encryptPiiValueForSubject(
+      kms,
+      { kind: "tenant", tenantId: TENANT },
+      "some other value",
+      kmsCtx,
+      "label",
+    );
+    const garbageKeyed = await encryptPiiValueForSubject(
+      kms,
+      { kind: "user", userId: garbageUserId },
+      INVITER,
+      kmsCtx,
+      "invitedBy",
+    );
+    await appendPlain(id, "invite", "invite.created", { id, invitedBy: garbageKeyed });
+    await appendPlain(
+      id,
+      "invite",
+      "invite.updated",
+      { changes: { label: "accepted" }, previous: { id, label: "new", invitedBy: garbageKeyed } },
+      1,
+    );
+    await insertProjection(id, garbageKeyed);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    for (const [index, section] of [
+      [0, "payload"],
+      [1, "previous"],
+    ] as const) {
+      const repaired = await invitedByOf(id, index, section);
+      expect(repaired).toStartWith(`${PII_CIPHERTEXT_PREFIX}user:${INVITER}:`);
+      expect(await decryptPiiValueForSubject(kms, repaired, kmsCtx, "invitedBy")).toBe(INVITER);
+    }
+  });
+
+  test("value the live path keyed correctly stays byte-identical over two runs", async () => {
+    armKms();
+    const id = generateId();
+    const liveKeyed = await encryptPiiValueForSubject(
+      kms,
+      { kind: "user", userId: INVITER },
+      INVITER,
+      kmsCtx,
+      "invitedBy",
+    );
+    await appendPlain(id, "invite", "invite.created", { id, invitedBy: liveKeyed });
+    await insertProjection(id, liveKeyed);
+
+    for (const run of [1, 2]) {
+      const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+      expect(result.failures, `run ${run}`).toEqual([]);
+      expect(await invitedByOf(id, 0, "payload")).toBe(liveKeyed);
+    }
+  });
+
+  async function seedTenantKeyedInvite(tenantId: TenantId): Promise<{ id: string; value: string }> {
+    const id = generateId();
+    const value = await encryptPiiValueForSubject(
+      kms,
+      { kind: "tenant", tenantId },
+      INVITER,
+      kmsCtx,
+      "invitedBy",
+    );
+    await appendPlain(id, "invite", "invite.created", { id, invitedBy: value });
+    await insertProjection(id, value);
+    return { id, value };
+  }
+
+  test("owner already forgotten: the value becomes the erased sentinel", async () => {
+    armKms();
+    const { id } = await seedTenantKeyedInvite(TENANT);
+    await kms.createKey({ kind: "user", userId: INVITER });
+    await kms.eraseKey({ kind: "user", userId: INVITER });
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.failures).toEqual([]);
+    expect(await invitedByOf(id, 0, "payload")).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("dryRun leaves the payload unchanged", async () => {
+    armKms();
+    const { id, value } = await seedTenantKeyedInvite(TENANT);
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, {
+      ...REKEY,
+      dryRun: true,
+    });
+
+    expect(result.rekeyedFields).toBe(1);
+    expect(await invitedByOf(id, 0, "payload")).toBe(value);
+  });
+
+  test("ciphertext keyed under another tenant is untouched", async () => {
+    armKms();
+    const { id, value } = await seedTenantKeyedInvite(
+      "00000000-0000-4000-8000-0000000000aa" as TenantId,
+    );
+
+    const result = await backfillEventPiiEncryption(testDb.db, registry, REKEY);
+
+    expect(result.rekeyedFields).toBe(0);
+    expect(await invitedByOf(id, 0, "payload")).toBe(value);
   });
 });

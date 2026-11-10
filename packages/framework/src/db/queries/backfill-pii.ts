@@ -85,11 +85,11 @@ import {
 } from "../../crypto/pii-field-encryption.ts";
 import {
   collectPiiEncryptedFields,
-  nonEmptyString,
   type ResolveSubjectOptions,
   resolveEventSubject,
   resolveSubjectForField,
   SubjectResolutionError,
+  usableOwnerId,
 } from "../../crypto/subject-resolver.ts";
 import type { Registry, TenantId } from "../../engine/types/index.ts";
 
@@ -778,6 +778,7 @@ async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Prom
   const { entity, field, ciphertext } = target;
   const fieldDef = entity.fields[field];
   if (fieldDef === undefined || !isPlainUserOwnedField(fieldDef)) return { kind: "unchanged" };
+  if (fieldDef.userOwned.ownerField === field) return rekeySelfOwnedValue(deps, target);
 
   const keyedUnder = ciphertextSubjectOrNull(ciphertext);
   const userSubject =
@@ -794,18 +795,55 @@ async function rekeyTenantKeyedValue(deps: RekeyDeps, target: RekeyTarget): Prom
     return { kind: "unchanged" };
   }
 
-  if (await deps.isForgottenSubject(userSubject)) return { kind: "erased" };
-  if (deps.dryRun) {
-    return (await deps.predictOutcome(userSubject)) === "erased"
-      ? { kind: "erased" }
-      : { kind: "rekeyed", value: ciphertext };
-  }
+  return moveUnderUserSubject(deps, userSubject, ciphertext, field, () =>
+    decryptPiiValueForSubject(deps.subjectKms, ciphertext, deps.kmsCtx, field),
+  );
+}
+
+// The field is its own owner: the key follows the value, so no event history or
+// projection decides it, and a stored ciphertext must never be read as the owner id.
+async function rekeySelfOwnedValue(deps: RekeyDeps, target: RekeyTarget): Promise<RekeyOutcome> {
+  const { field, ciphertext } = target;
+  const keyedUnder = ciphertextSubjectOrNull(ciphertext);
+  if (keyedUnder === null) return { kind: "unchanged" };
+  const ownTenantKey = keyedUnder.kind === "tenant" && keyedUnder.tenantId === target.tenantId;
+  if (!ownTenantKey && keyedUnder.kind !== "user") return { kind: "unchanged" };
+
   const plaintext = await decryptPiiValueForSubject(
     deps.subjectKms,
     ciphertext,
     deps.kmsCtx,
     field,
   );
+  if (plaintext === PII_ERASED_SENTINEL) return { kind: "erased" };
+  const ownerId = usableOwnerId(plaintext);
+  if (ownerId === null) return { kind: "unchanged" };
+  if (keyedUnder.kind === "user" && keyedUnder.userId === ownerId) return { kind: "unchanged" };
+
+  return moveUnderUserSubject(
+    deps,
+    { kind: "user", userId: ownerId },
+    ciphertext,
+    field,
+    async () => plaintext,
+  );
+}
+
+// Forgotten and dryRun are decided before the plaintext is read.
+async function moveUnderUserSubject(
+  deps: RekeyDeps,
+  userSubject: SubjectId,
+  ciphertext: string,
+  field: string,
+  readPlaintext: () => Promise<string>,
+): Promise<RekeyOutcome> {
+  if (await deps.isForgottenSubject(userSubject)) return { kind: "erased" };
+  if (deps.dryRun) {
+    return (await deps.predictOutcome(userSubject)) === "erased"
+      ? { kind: "erased" }
+      : { kind: "rekeyed", value: ciphertext };
+  }
+  const plaintext = await readPlaintext();
   if (plaintext === PII_ERASED_SENTINEL) return { kind: "erased" };
   try {
     const value = await encryptPiiValueForSubject(
@@ -848,7 +886,7 @@ function currentProjectionOwnerIfOther(
   ownerField: string,
   keyedUserId: string,
 ): SubjectId | null {
-  const owner = nonEmptyString(target.projectionOwnerRow?.[ownerField]);
+  const owner = usableOwnerId(target.projectionOwnerRow?.[ownerField]);
   return owner === null || owner === keyedUserId ? null : { kind: "user", userId: owner };
 }
 
