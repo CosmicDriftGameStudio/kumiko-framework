@@ -176,6 +176,21 @@ describe("multiSelect display chips and aiAssist.contextFields", () => {
         (screen.getByTestId("field-note").querySelector("textarea") as HTMLTextAreaElement).value,
       ).toBe("my own text");
     });
+
+    test("a null note counts as empty, so a changed context regenerates it once", async () => {
+      jest.useFakeTimers();
+      const calls = renderAsk({ note: null, kinds: ["front"] });
+
+      await userEvent
+        .setup({ advanceTimers: jest.advanceTimersByTime })
+        .click(screen.getByRole("button", { name: /back/ }));
+      act(() => {
+        jest.advanceTimersByTime(REFERENCE_SEARCH_DEBOUNCE_MS + 150);
+      });
+
+      await waitFor(() => expect(calls).toHaveLength(1));
+      expect(calls[0]?.payload).toEqual({ kinds: ["front", "back"] });
+    });
   });
 
   test("a stored value outside the options survives a chip click", async () => {

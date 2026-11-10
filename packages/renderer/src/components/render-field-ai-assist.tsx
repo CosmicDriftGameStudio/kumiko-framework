@@ -97,7 +97,8 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
   const rerunWithCurrentChips = useRef(() => {});
   rerunWithCurrentChips.current = () => void run(active, undefined);
   const hasHandWrittenText = useRef(false);
-  hasHandWrittenText.current = field.value !== "" && field.value !== lastGeneratedText.current;
+  const isFieldEmpty = field.value === "" || field.value === null || field.value === undefined;
+  hasHandWrittenText.current = !isFieldEmpty && field.value !== lastGeneratedText.current;
   useEffect(() => {
     // skip: nothing changed since the last run (or since mount).
     if (seenContextKey.current === contextKey) return;

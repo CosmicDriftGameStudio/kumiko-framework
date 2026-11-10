@@ -1,4 +1,4 @@
-import { isValidQn, parseQn, qualifyEntityName } from "../qualified-name.ts";
+import { qualifyEntityName } from "../qualified-name.ts";
 import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type {
@@ -15,6 +15,7 @@ import {
   rowFieldExtractorKeys,
   validateDrawerPrefillKeys,
 } from "./screens.ts";
+import { findScreenEntryForNavTarget } from "./screens-actions.ts";
 import { SCREEN_RULES } from "./screens-rules.ts";
 
 type NavigateParamsSource = {
@@ -203,7 +204,8 @@ export function collectUrlPrefillFieldsByScreenQn(
 }
 
 // Runtime resolution: a bare screen id matches the first feature registering
-// it (create-app's router); an entity target opens its detailFor screen with an id.
+// it (create-app's router), a screen QN the screen of exactly that feature;
+// an entity target opens its detailFor screen with an id.
 function resolveTarget(
   source: NavigateParamsSource,
   screensByShortId: ReturnType<typeof collectScreensByShortId>,
@@ -216,14 +218,7 @@ function resolveTarget(
   | undefined {
   if (source.entity !== undefined) return detailForByEntity.get(source.entity);
   if (source.screen === undefined) return undefined;
-  if (isValidQn(source.screen)) {
-    const { scope, type, name } = parseQn(source.screen);
-    if (type !== "screen") return undefined;
-    const match = screensByShortId.get(name)?.find((entry) => entry.featureName === scope);
-    return match === undefined ? undefined : { ...match, shortId: name };
-  }
-  const match = screensByShortId.get(source.screen)?.[0];
-  return match === undefined ? undefined : { ...match, shortId: source.screen };
+  return findScreenEntryForNavTarget(screensByShortId, source.screen);
 }
 
 function assertHiddenRequiredFieldsSeeded(

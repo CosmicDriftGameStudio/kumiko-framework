@@ -8,7 +8,7 @@ import {
   type ScreenFallbackByReason,
 } from "@cosmicdrift/kumiko-types/screen";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.ts";
+import { isKebabSegment, isValidQn, parseQn, qualifyEntityName } from "../qualified-name.ts";
 import { isFieldsEditSection, normalizeEditField, sectionFieldSpecs } from "../screen-helpers.ts";
 import type { FeatureDefinition } from "../types/index.ts";
 import type {
@@ -316,6 +316,22 @@ export function resolveScreenTargetQn(featureName: string, target: string): stri
   return isValidQn(target) ? target : qualifyEntityName(featureName, "screen", target);
 }
 
+// A navigate `screen` target is a short id (first feature registering it, like the
+// router) or a screen QN (the entry of exactly that feature).
+export function findScreenEntryForNavTarget<E extends { readonly featureName: string }>(
+  screensByShortId: ReadonlyMap<string, ReadonlyArray<E>>,
+  target: string,
+): (E & { readonly shortId: string }) | undefined {
+  if (!isValidQn(target)) {
+    const match = screensByShortId.get(target)?.[0];
+    return match === undefined ? undefined : { ...match, shortId: target };
+  }
+  const { scope, type, name } = parseQn(target);
+  if (type !== "screen") return undefined;
+  const match = screensByShortId.get(name)?.find((entry) => entry.featureName === scope);
+  return match === undefined ? undefined : { ...match, shortId: name };
+}
+
 export function validateScreenNavTarget(
   featureName: string,
   screenId: string,
@@ -565,15 +581,7 @@ export function resolveRowActionNavigateTarget(
         `navigate-target "${action.screen}" does not resolve to a registered screen in any feature. Use "<feature>:screen:<id>" of an existing screen.`,
     });
   }
-  const targetIsQn = isValidQn(action.screen);
-  const screensWithShortId = screensByShortId.get(
-    targetIsQn ? action.screen.slice(action.screen.lastIndexOf(":") + 1) : action.screen,
-  );
-  const target = targetIsQn
-    ? screensWithShortId?.find(
-        (entry) => qualifyEntityName(entry.featureName, "screen", entry.screen.id) === candidateQn,
-      )
-    : screensWithShortId?.[0];
+  const target = findScreenEntryForNavTarget(screensByShortId, action.screen);
   validateRowActionNavigateTab(featureName, screenId, screenType, actionLabel, action, target);
   return target;
 }
