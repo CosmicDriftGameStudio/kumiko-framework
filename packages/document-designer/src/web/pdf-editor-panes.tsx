@@ -70,7 +70,10 @@ export function renderPdfEditCanvas(c: PdfRenderContext): ReactNode {
           onFrameControlChange={s.ui.setFrameControl}
         />
       ) : (
-        <LoadingState />
+        // The canvas background has the skeleton colour, so the rows sit on a sheet.
+        <div className="m-6 rounded-md bg-card p-6 shadow-sm">
+          <LoadingState rows={8} />
+        </div>
       )}
     </div>
   );
@@ -120,7 +123,7 @@ export function renderPdfSettings(c: PdfRenderContext): ReactNode {
       frameControl={s.ui.frameControl}
       paper={view.paper}
       marginsMm={view.marginsMm}
-      inheritedMarginsMm={view.inheritedMarginsMm}
+      inheritedMarginsMm={s.server.paperReady ? view.inheritedMarginsMm : null}
       draftKey={`${current.key}:${s.ui.draftEpoch}`}
     />
   );
