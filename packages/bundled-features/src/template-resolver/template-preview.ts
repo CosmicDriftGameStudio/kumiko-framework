@@ -357,12 +357,19 @@ async function resolvePdfLayout(
   slug: string,
   locale: string,
   resolvedForCaller: TemplateResource | null = null,
+  working = false,
 ): Promise<PreviewLayout | null> {
   const api = createTemplateResolverApi(ctx.db, ctx.registry);
   const find = async (tenantId: string): Promise<TemplateResource | null> => {
     if (resolvedForCaller !== null && tenantId === user.tenantId) return resolvedForCaller;
     try {
-      return await api.resolveLayout({ tenantId, slug, kind: "pdf-layout", locale });
+      return await api.resolveLayout({
+        tenantId,
+        slug,
+        kind: "pdf-layout",
+        locale,
+        working,
+      });
     } catch (e) {
       if (e instanceof TemplateNotFoundError) return null;
       throw e;
@@ -388,9 +395,10 @@ async function resolvePreviewPdfLayout(
   user: SessionUser,
   ownSlug: string | undefined,
   locale: string,
+  working: boolean,
 ): Promise<PreviewLayout | null> {
-  const { slug, resolved } = await effectivePdfLayout(ctx, user.tenantId, ownSlug, locale);
-  return resolvePdfLayout(ctx, user, slug, locale, resolved);
+  const { slug, resolved } = await effectivePdfLayout(ctx, user.tenantId, ownSlug, locale, working);
+  return resolvePdfLayout(ctx, user, slug, locale, resolved, working);
 }
 
 function missingResourceCheck(missing: readonly string[]): PreviewCheck {
@@ -466,7 +474,13 @@ async function renderDocumentPreview(
         html: content,
         text: null,
         attachments: [],
-        layout: await resolvePreviewPdfLayout(ctx, user, pdfMeta?.layoutSlug, input.locale),
+        layout: await resolvePreviewPdfLayout(
+          ctx,
+          user,
+          pdfMeta?.layoutSlug,
+          input.locale,
+          input.content !== undefined,
+        ),
         sampleValues,
         checks: [missingResourceCheck(validation.warnings.map((w) => w.detail)), requiredCheck],
         validation,

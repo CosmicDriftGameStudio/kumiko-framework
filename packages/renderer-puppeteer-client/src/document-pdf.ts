@@ -173,6 +173,7 @@ async function resolvePdfLayout(
   slug: string,
   locale: string,
   alreadyResolved: TemplateResource | null = null,
+  working = false,
 ): Promise<PdfLayout & { readonly ref: RenderedTemplateRef | null }> {
   try {
     let layout =
@@ -182,6 +183,7 @@ async function resolvePdfLayout(
         slug,
         kind: "pdf-layout",
         locale,
+        working,
       }));
     let html = layout.content;
     if (layout.scope !== "system") {
@@ -520,13 +522,15 @@ async function assembleDocument(
           locale,
         );
   const meta = readPdfTemplateMeta(template.meta);
+  const working = input.draft !== undefined;
   const { slug: layoutSlug, resolved: resolvedLayout } = await effectivePdfLayout(
     ctx,
     ctx.tenantId,
     meta?.layoutSlug,
     locale,
+    working,
   );
-  const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale, resolvedLayout);
+  const layout = await resolvePdfLayout(tplApi, ctx, layoutSlug, locale, resolvedLayout, working);
   const layoutMeta = readPdfLayoutMeta(layout.template?.meta ?? null);
 
   try {

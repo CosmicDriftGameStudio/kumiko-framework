@@ -22,7 +22,7 @@ import {
   isServedByCollectionOnly,
   type TemplateDeliveryPolicy,
 } from "./template-delivery-policy.ts";
-import { activeVersionOf, isSystemAdmin, servedVersionOf } from "./template-draft.ts";
+import { activeVersionOf, isSystemAdmin, servedVersionOf, toWorkingRow } from "./template-draft.ts";
 import { parseTemplateMeta, type TemplateMeta } from "./template-meta.ts";
 import type { ContentFormat, TemplateKind } from "./web/constants.ts";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./web/constants.ts";
@@ -70,6 +70,8 @@ export type ResolveLayoutRequest = {
   readonly slug: string;
   readonly kind: LayoutKind;
   readonly locale: string;
+  /** Preview of unpublished content: the tenant's own layout counts in its working version (draft rows and open drafts). System layouts always resolve to their active version. */
+  readonly working?: boolean;
 };
 
 export type TemplateResolverApi = {
@@ -142,7 +144,7 @@ export function createTemplateResolverApi(
       throw new TemplateNotFoundError({ slug, kind, locale });
     },
 
-    resolveLayout: async ({ tenantId, slug, kind, locale }) => {
+    resolveLayout: async ({ tenantId, slug, kind, locale, working = false }) => {
       for (const tid of [tenantId, SYSTEM_TENANT_ID]) {
         if (!isRowServed(deliveryPolicy, { tenantId: tid, kind, slug })) continue;
         const rows = await selectMany<TemplateResourceRow>(db, templateResourcesTable, {
@@ -150,7 +152,7 @@ export function createTemplateResolverApi(
           slug,
           kind,
         });
-        const row = pickActiveLayoutRow(rows, locale);
+        const row = pickLayoutRow(rows, locale, working && tid !== SYSTEM_TENANT_ID ? tid : null);
         if (row !== null) return toPublic(row);
       }
       throw new TemplateNotFoundError({ slug, kind, locale });
@@ -230,13 +232,21 @@ export async function systemTemplateExists(
   return rows.length > 0;
 }
 
-function pickActiveLayoutRow(
+// workingTenantId set: draft rows count too, each shown in its working version.
+function pickLayoutRow(
   rows: readonly TemplateResourceRow[],
   locale: string,
+  workingTenantId: string | null,
 ): TemplateResourceRow | null {
-  const active = rows
-    .filter((row) => row.status === "active")
-    .sort((a, b) => activeVersionOf(b) - activeVersionOf(a) || a.locale.localeCompare(b.locale));
+  const candidates =
+    workingTenantId === null
+      ? rows.filter((row) => row.status === "active")
+      : rows
+          .filter((row) => row.status === "active" || row.status === "draft")
+          .map((row) => toWorkingRow(row, workingTenantId));
+  const active = candidates.sort(
+    (a, b) => activeVersionOf(b) - activeVersionOf(a) || a.locale.localeCompare(b.locale),
+  );
   return (
     active.find((row) => row.locale === locale) ??
     active.find((row) => row.locale === FALLBACK_LOCALE) ??
