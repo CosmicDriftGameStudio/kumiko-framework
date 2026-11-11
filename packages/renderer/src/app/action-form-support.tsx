@@ -5,6 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useMemo } from "react";
+import { fileIdsOf } from "../file-ids-of.ts";
 import {
   applyFormatSpec,
   type DispatcherError,
@@ -162,6 +163,8 @@ export type ResolvedSuccessFact = {
   readonly key: string;
   readonly label: string;
   readonly lines: readonly string[];
+  /** Set for a `file` fact: stored file ids shown as a file list instead of lines. */
+  readonly fileIds?: readonly string[];
 };
 
 export type ResolvedSuccessItem = {
@@ -210,9 +213,17 @@ export function resolveSuccessFacts(
   const resolved: ResolvedSuccessFact[] = [];
   (facts ?? []).forEach((fact, index) => {
     const value = propertyOf(data, fact.field);
+    const valueType = fact.type;
+    if (valueType === "file") {
+      const fileIds = fileIdsOf(value);
+      if (fileIds.length > 0) {
+        resolved.push({ key: String(index), label: translate(fact.label), lines: [], fileIds });
+      }
+      return;
+    }
     const entries = Array.isArray(value) ? value : [value];
     const lines = entries.flatMap(
-      (entry) => formatTypedFact(entry, fact.type, locale) ?? factLine(entry, locale) ?? [],
+      (entry) => formatTypedFact(entry, valueType, locale) ?? factLine(entry, locale) ?? [],
     );
     if (lines.length > 0) {
       resolved.push({ key: String(index), label: translate(fact.label), lines });
@@ -269,9 +280,18 @@ export function ActionFormFacts({
   readonly facts: readonly ResolvedSuccessFact[];
   readonly testIdPrefix?: string;
 }): ReactNode {
-  const { Grid, Text } = usePrimitives();
+  const { FileValueList, Grid, Text } = usePrimitives();
   return facts.map((fact) => {
     const factTestId = `${testIdPrefix}-${fact.key}`;
+    if (fact.fileIds !== undefined) {
+      if (FileValueList === undefined) return null;
+      return (
+        <Grid key={fact.key} columns={1} testId={factTestId}>
+          <Text>{fact.label}:</Text>
+          <FileValueList fileIds={fact.fileIds} testId={`${factTestId}-files`} />
+        </Grid>
+      );
+    }
     if (fact.lines.length === 1) {
       return (
         <Text key={fact.key} testId={factTestId}>

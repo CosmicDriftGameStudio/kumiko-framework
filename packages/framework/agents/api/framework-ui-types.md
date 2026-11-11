@@ -88,7 +88,7 @@ type ActionFormRedirect = { // Redirect target plus the success-payload field ca
 type ActionFormSuccessFact = { // One key figure of the success box, read from the handler's success payload.
   field: string; // Flat field name in the handler's success payload.
   label: string; // Label (i18n key).
-  type?: ActionFormValueType; // Format of the value (a money object, a date string, a number); default `text`.
+  type?: ActionFormValueType | "file"; // Format of the value (a money object, a date string, a number); default `text`.
 };
 type ActionFormSuccessItems = { // Per-entry hints of the success box, read from an array in the handler's success payload.
   field: string; // Flat field name of an array in the success payload.
