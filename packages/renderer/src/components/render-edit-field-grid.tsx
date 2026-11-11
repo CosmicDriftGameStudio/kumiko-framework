@@ -118,15 +118,14 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
   };
 }
 
-// The flow layout sizes each field by its type and ignores `columns`; a section that declares
-// several columns asks for equal grid cells, so every field fills its cell instead.
+// The flow layout sizes each field by its type and ignores `columns`; a section opts out with
+// `flow: false` to get equal grid cells instead.
 function usesFlowLayout<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
+  section: FieldsSection,
   facts: boolean,
-  columns: number,
-  columnsDeclared: boolean,
 ): boolean {
-  return model.titles.usesFieldFlow && !facts && !(columnsDeclared && columns > 1);
+  return model.titles.usesFieldFlow && !facts && section.flow !== false;
 }
 
 // Read-only text values with a declared column count form a label/value grid; the flow layout
@@ -161,7 +160,7 @@ export function renderFieldGrid<TValues extends FormValues, TCtx>(
   const dirty = Object.keys(model.engine.form.snapshot.changes).length > 0;
   const { isSettingsList } = model.footer;
   const facts = isReadOnlyFactsGrid(model, fields, columns, columnsDeclared);
-  const flows = usesFlowLayout(model, facts, columns, columnsDeclared);
+  const flows = usesFlowLayout(model, section, facts);
   const renderCell = createFieldCellRenderer(model, section, columns, flows, facts);
   return (
     <Grid

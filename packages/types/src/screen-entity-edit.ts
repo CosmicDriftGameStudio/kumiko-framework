@@ -234,6 +234,9 @@ type EditFieldsSectionBase = EditSectionPresentation & {
   /** i18n key of a short text shown instead of `description` below `sm`. */
   readonly descriptionNarrow?: string;
   readonly columns?: number;
+  /** Screen forms and drawers lay fields out as a flow: each field is sized by its type and
+   *  `columns` is ignored. `flow: false` switches the section to a grid of `columns` equal cells. */
+  readonly flow?: boolean;
   /** Rendered left of the section title, `text-muted-foreground` — closed
    *  IconKey vocabulary into the ICONS registry (renderer/web), analogous
    *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives

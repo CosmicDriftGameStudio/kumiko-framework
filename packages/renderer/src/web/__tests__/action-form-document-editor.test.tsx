@@ -169,12 +169,20 @@ describe("document field with aiAssist", () => {
 });
 
 describe("actionForm field width in a columns section", () => {
-  const widthForm = (columns?: number): ActionFormScreenDefinition => ({
+  const widthForm = (columns?: number, flow?: boolean): ActionFormScreenDefinition => ({
     id: "new-message",
     type: "actionForm",
     handler: "mail:write:send",
     fields: { subject: { type: "text" } },
-    layout: { sections: [{ ...(columns !== undefined && { columns }), fields: ["subject"] }] },
+    layout: {
+      sections: [
+        {
+          ...(columns !== undefined && { columns }),
+          ...(flow !== undefined && { flow }),
+          fields: ["subject"],
+        },
+      ],
+    },
   });
 
   function cellClass(): string {
@@ -182,9 +190,14 @@ describe("actionForm field width in a columns section", () => {
     return input.closest("div.max-w-full")?.className ?? "";
   }
 
-  test("a declared two-column section lets the field fill its cell", () => {
-    renderForm(widthForm(2));
+  test("flow: false lets the field fill its grid cell", () => {
+    renderForm(widthForm(2, false));
     expect(cellClass()).not.toContain("sm:w-60");
+  });
+
+  test("columns alone keep the flow width", () => {
+    renderForm(widthForm(2));
+    expect(cellClass()).toContain("sm:w-60");
   });
 
   test("without columns the field keeps its type width", () => {

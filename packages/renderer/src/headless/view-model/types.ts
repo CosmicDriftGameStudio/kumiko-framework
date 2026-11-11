@@ -510,6 +510,8 @@ export type EditFieldsSectionViewModel = {
   /** True when the author declared `columns` (section or group); only then may a read-only
    *  section draw a label/value grid. */
   readonly columnsDeclared?: true;
+  /** From `EditFieldsSection.flow`; only `false` is carried. */
+  readonly flow?: false;
   readonly fields: readonly EditFieldViewModel[];
   /** From `EditFieldsSection.groups` — each entry's `fields` are the same
    *  view-model objects as `fields` above, re-grouped (not recomputed). */

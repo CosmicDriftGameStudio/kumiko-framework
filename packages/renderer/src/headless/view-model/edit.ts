@@ -986,6 +986,7 @@ export function computeEditViewModel<
       ...(sectionSpec.summaryField !== undefined && { summaryField: sectionSpec.summaryField }),
       columns: sectionSpec.columns ?? defaultColumns,
       ...(sectionSpec.columns !== undefined && { columnsDeclared: true as const }),
+      ...(sectionSpec.flow === false && { flow: false as const }),
       fields,
       ...(groups !== undefined && { groups }),
       ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),

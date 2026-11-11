@@ -390,6 +390,7 @@ initialTab: [{ when: { field: "status", eq: "open" }, tab: "overview" }],
 | `layout.allRequiredHint` | edit layouts | `false` keeps the per-field asterisks instead of the "all fields are required" hint |
 | `aiAssist` | text, longText field | helper under the input, see below |
 | `editor: "document"` | longText field | rich-text editor registered for "document" instead of a textarea; the value is an HTML string. Textarea when no editor is registered; with `aiAssist` the result is inserted as `<p>` paragraphs and `contextFields` naming a document field send its plain text. The value is HTML from the browser: the write handler must sanitize it server-side (for example `sanitizeDocumentHtml` from template-resolver). Not combinable with `fillAction` or `valueChips` |
+| `flow: false` | fields section | screen forms and drawers size fields by type and ignore `columns`; `flow: false` renders `columns` equal grid cells so every field fills its cell |
 | `valueChips` | number, decimal, bigInt, money field | `{ from }`: quick-pick chips from an array field of the same form |
 | `display: "chips"` | multiSelect field | toggle chips with a check mark instead of checkboxes or a dropdown |
 | `readOnly` | config `mask` | `mask: { title, readOnly: true }` keeps the key on the generated settings screen as a read-only value. A readOnly key that is also `required` fails at boot |
