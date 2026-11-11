@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useContentEditor } from "../app/content-editors.tsx";
+import { documentHtmlToText } from "./document-text.ts";
 
 export function DocumentFieldEditor({
   id,
@@ -20,7 +21,8 @@ export function DocumentFieldEditor({
       readOnly={readOnly}
       variables={[]}
       formatting="text"
-      onChange={(v) => onChange(v)}
+      // An emptied tiptap document is "<p></p>"; required and empty checks need "".
+      onChange={(html) => onChange(documentHtmlToText(html) === "" ? "" : html)}
     />
   );
 }

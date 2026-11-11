@@ -404,6 +404,8 @@ export type EditFieldViewModel = {
   readonly aiAssist?: FieldAiAssist;
   /** From EditFieldSpec.editor. */
   readonly editor?: "document";
+  /** aiAssist.contextFields that name a document-editor field of the same form (their HTML is sent as text). */
+  readonly contextDocumentFields?: readonly string[];
   /** From EditFieldSpec.valueChips. */
   readonly valueChips?: FieldValueChips;
   /** From EditFieldSpec.concealed. */

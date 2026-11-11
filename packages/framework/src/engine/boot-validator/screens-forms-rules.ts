@@ -63,8 +63,8 @@ export const FORM_FIELD_RULES = {
   },
   editorFieldType: {
     id: "form/editor-field-type",
-    summary: "The editor option targets a longText field.",
-    fix: "Remove editor or use a longText field.",
+    summary: "The editor option targets a longText field without fillAction or valueChips.",
+    fix: "Remove editor, or use a longText field and drop fillAction and valueChips.",
   },
   aiAssistContextFieldUnknown: {
     id: "form/ai-assist-context-field-unknown",

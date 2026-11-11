@@ -144,6 +144,20 @@ describe("validateBoot — form blocks (aiAssist, valueChips, fieldDescriptions)
     expect(withNote({ type: "text" })).toEqual(["form/editor-field-type"]);
   });
 
+  test("editor document rejects fillAction and valueChips", () => {
+    const withExtra = (extra: Record<string, unknown>) =>
+      bootRuleIds(
+        actionFormFeature({
+          fields: { note: { type: "longText" }, count: { type: "number" } },
+          layoutFields: [{ field: "note", editor: "document", ...extra }, "count"],
+        }),
+      );
+    expect(
+      withExtra({ fillAction: { query: "shop:query:draft", label: "k.fill", resultField: "x" } }),
+    ).toContain("form/editor-field-type");
+    expect(withExtra({ valueChips: { from: "count" } })).toContain("form/editor-field-type");
+  });
+
   test("preview.section must name a fields section id", () => {
     const withSection = (section: string) =>
       bootRuleIds(

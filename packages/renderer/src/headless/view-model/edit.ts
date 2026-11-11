@@ -312,6 +312,16 @@ type FieldAffixHints = Pick<
   | "hideOnNarrow"
 >;
 
+function contextDocumentHints(
+  normalized: NormalizedEditField,
+  documentFieldNames: ReadonlySet<string>,
+): Pick<EditFieldViewModel, "contextDocumentFields"> {
+  const names = (normalized.aiAssist?.contextFields ?? []).filter((name) =>
+    documentFieldNames.has(name),
+  );
+  return names.length > 0 ? { contextDocumentFields: names } : {};
+}
+
 function deriveFieldAffixHints(
   normalized: NormalizedEditField,
   translate: Translate,
@@ -809,6 +819,15 @@ export function computeEditViewModel<
   const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
     mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
 
+  const documentFieldNames = new Set(
+    screen.layout.sections.filter(isFieldsEditSection).flatMap((sectionSpec) =>
+      sectionFieldSpecs(sectionSpec)
+        .map(normalizeEditField)
+        .filter((n) => n.editor === "document")
+        .map((n) => n.field),
+    ),
+  );
+
   const baseSections: EditSectionViewModel[] = screen.layout.sections.map((sectionSpec) => {
     if (!isFieldsEditSection(sectionSpec)) {
       return computeNonFieldsSectionViewModel(
@@ -924,6 +943,7 @@ export function computeEditViewModel<
           ...fileHints,
           ...(normalized.icon !== undefined && { icon: normalized.icon }),
           ...deriveFieldAffixHints(normalized, translate),
+          ...contextDocumentHints(normalized, documentFieldNames),
           ...embeddedListHints,
         };
         return view;

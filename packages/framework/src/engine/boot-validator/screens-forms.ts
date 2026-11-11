@@ -189,6 +189,11 @@ function validateAssistTargets(
         message: `${where} editor "${editor}" needs a longText field, not "${fieldDef.type}".`,
       });
     }
+    if (fieldSpec.fillAction !== undefined || valueChips !== undefined) {
+      throw bootRuleError(FORM_FIELD_RULES.editorFieldType, {
+        message: `${where} editor "${editor}" cannot be combined with fillAction or valueChips; they target a plain input.`,
+      });
+    }
   }
   if (valueChips !== undefined && !VALUE_CHIPS_FIELD_TYPES.includes(fieldDef.type)) {
     throw bootRuleError(FORM_FIELD_RULES.valueChipsFieldType, {

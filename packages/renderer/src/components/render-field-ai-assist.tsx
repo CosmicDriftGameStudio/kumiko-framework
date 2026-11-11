@@ -47,7 +47,7 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
       const value = row?.[name];
       return [
         name,
-        isDocument && name === field.field && typeof value === "string"
+        typeof value === "string" && field.contextDocumentFields?.includes(name)
           ? documentHtmlToText(value)
           : value,
       ];

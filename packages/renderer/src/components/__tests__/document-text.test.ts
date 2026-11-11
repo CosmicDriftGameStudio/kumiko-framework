@@ -21,3 +21,11 @@ describe("textToDocumentHtml", () => {
     expect(documentHtmlToText(textToDocumentHtml(text))).toBe(text);
   });
 });
+
+describe("textToDocumentHtml with hostile model output", () => {
+  test("markup from the model lands as escaped text inside a paragraph", () => {
+    expect(textToDocumentHtml("<img src=x onerror=alert(1)>")).toBe(
+      "<p>&lt;img src=x onerror=alert(1)&gt;</p>",
+    );
+  });
+});

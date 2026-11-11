@@ -3,6 +3,7 @@ import { type EditFieldViewModel, type FieldIssue, telHref } from "../headless/i
 import type { usePrimitives } from "../primitives.tsx";
 import { AvailabilityOptionsSelect } from "./availability-options-select.tsx";
 import { DocumentFieldEditor } from "./document-field-editor.tsx";
+import { documentHtmlToText } from "./document-text.ts";
 import { EmbeddedListField } from "./embedded-list-field.tsx";
 import { QueryOptionsSelect } from "./query-options-select.tsx";
 import { AiAssistControl } from "./render-field-ai-assist.tsx";
@@ -144,6 +145,18 @@ function contactHref(field: EditFieldViewModel): string | undefined {
   return undefined;
 }
 
+function displayTextOf(
+  field: EditFieldViewModel,
+  appLocale: string,
+  t: ControlContext["t"],
+): string {
+  const plain =
+    field.editor === "document" && typeof field.value === "string"
+      ? { ...field, value: documentHtmlToText(field.value) }
+      : field;
+  return readOnlyDisplayText(plain, appLocale, t);
+}
+
 const readOnlyTextRule: ControlRule = ({ field, Text, Link, appLocale, t, readOnlyText }) => {
   if (!readOnlyText || isComplexFieldType(field.type) || isFileFieldType(field.type)) {
     return undefined;
@@ -152,7 +165,7 @@ const readOnlyTextRule: ControlRule = ({ field, Text, Link, appLocale, t, readOn
   if (href !== undefined) {
     return (
       <Link href={href} className="underline" testId={`field-value-${field.field}`}>
-        {readOnlyDisplayText(field, appLocale, t)}
+        {displayTextOf(field, appLocale, t)}
       </Link>
     );
   }
@@ -161,7 +174,7 @@ const readOnlyTextRule: ControlRule = ({ field, Text, Link, appLocale, t, readOn
       testId={`field-value-${field.field}`}
       {...(field.concealed === true && { concealed: true })}
     >
-      {readOnlyDisplayText(field, appLocale, t)}
+      {displayTextOf(field, appLocale, t)}
     </Text>
   );
 };

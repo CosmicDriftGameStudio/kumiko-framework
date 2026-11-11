@@ -2266,6 +2266,7 @@ type EditFieldViewModel = {
   fillAction?: FieldFillAction; // From EditFieldSpec.fillAction, `label` already translated.
   aiAssist?: FieldAiAssist; // From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated.
   editor?: "document"; // From EditFieldSpec.editor.
+  contextDocumentFields?: string[]; // aiAssist.contextFields that name a document-editor field of the same form (their HTML is sent as text).
   valueChips?: FieldValueChips; // From EditFieldSpec.valueChips.
   concealed?: true; // From EditFieldSpec.concealed.
   badge?: FieldBadge; // From EditFieldSpec.badge, a fixed `label` already translated.

@@ -192,3 +192,61 @@ describe("actionForm field width in a columns section", () => {
     expect(cellClass()).toContain("sm:w-60");
   });
 });
+
+describe("document field as aiAssist context", () => {
+  test("another document field named in contextFields is sent as plain text", async () => {
+    const payloads: unknown[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async (type: string, payload: unknown) => {
+        if (type === "mail:query:load") {
+          return { isSuccess: true, data: { quote: "<p>Hi <strong>Anna</strong></p>", body: "" } };
+        }
+        payloads.push(payload);
+        return { isSuccess: true, data: { message: "ok" } };
+      }) as unknown as Dispatcher["query"],
+    });
+    const contextForm: ActionFormScreenDefinition = {
+      id: "new-message",
+      type: "actionForm",
+      handler: "mail:write:send",
+      fields: { quote: { type: "longText" }, body: { type: "longText" } },
+      load: { query: "mail:query:load" },
+      layout: {
+        sections: [
+          {
+            fields: [
+              { field: "quote", editor: "document" },
+              {
+                field: "body",
+                editor: "document",
+                aiAssist: {
+                  query: "mail:query:draft",
+                  resultField: "message",
+                  contextFields: ["quote"],
+                  autoRun: false,
+                  chips: [{ label: "Shorter", params: { style: "short" } }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider value={memoryNav}>
+          <ContentEditorsProvider value={{ document: FakeDocumentEditor }}>
+            <KumikoScreen
+              schema={{ featureName: "mail", entities: {}, screens: [contextForm] }}
+              entityId="r1"
+              qn="mail:screen:new-message"
+            />
+          </ContentEditorsProvider>
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+    fireEvent.click(await screen.findByTestId("field-ai-chip-body-0"));
+    await waitFor(() => expect(payloads).toHaveLength(1));
+    expect(payloads[0]).toMatchObject({ quote: "Hi Anna", style: "short" });
+  });
+});
