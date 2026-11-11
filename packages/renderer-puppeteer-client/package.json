@@ -22,7 +22,8 @@
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-renderer-mail-html": "workspace:*",
-    "@cosmicdrift/kumiko-types": "workspace:*"
+    "@cosmicdrift/kumiko-types": "workspace:*",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@cosmicdrift/kumiko-testing": "workspace:*"

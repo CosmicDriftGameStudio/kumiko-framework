@@ -54,3 +54,52 @@ describe("pdf layout look", () => {
     ).toBe(false);
   });
 });
+
+describe("pdf layout letter settings", () => {
+  test("fold marks, line colour and first-page switches are stored only when they differ", () => {
+    expect(
+      pdfLayoutMetaToSave(
+        {
+          ...DEFAULT_PDF_LAYOUT_LOOK,
+          foldMarks: "din-b",
+          tableLineColor: "#336699",
+          headerOnFirstPage: false,
+        },
+        {},
+      ),
+    ).toEqual({ foldMarks: "din-b", tableLineColor: "#336699", headerOnFirstPage: false });
+  });
+
+  test("round-trips the stored meta and keeps an explicit default", () => {
+    const meta = {
+      foldMarks: "din-a",
+      footerOnFirstPage: false,
+      tableLineColor: "#000000",
+    } as const;
+    expect(pdfLayoutMetaToSave(pdfLayoutLookOf(meta), meta)).toEqual(meta);
+    expect(
+      pdfLayoutMetaToSave(pdfLayoutLookOf({ headerOnFirstPage: true }), {
+        headerOnFirstPage: true,
+      }),
+    ).toEqual({ headerOnFirstPage: true });
+  });
+
+  test("corner marks are stored only when on, or when already stored", () => {
+    expect(pdfLayoutMetaToSave({ ...DEFAULT_PDF_LAYOUT_LOOK, cornerMarks: true }, {})).toEqual({
+      cornerMarks: true,
+    });
+    expect(pdfLayoutMetaToSave(DEFAULT_PDF_LAYOUT_LOOK, {})).toEqual({});
+    expect(
+      pdfLayoutMetaToSave(pdfLayoutLookOf({ cornerMarks: false }), { cornerMarks: false }),
+    ).toEqual({ cornerMarks: false });
+  });
+
+  test("rejects a table line colour the schema would refuse", () => {
+    expect(isPdfLayoutLookValid({ ...DEFAULT_PDF_LAYOUT_LOOK, tableLineColor: "blue" })).toBe(
+      false,
+    );
+    expect(isPdfLayoutLookValid({ ...DEFAULT_PDF_LAYOUT_LOOK, tableLineColor: "#abcdef" })).toBe(
+      true,
+    );
+  });
+});

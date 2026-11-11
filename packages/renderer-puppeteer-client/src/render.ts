@@ -10,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { type ClientConfig, loadClientConfig } from "./config.ts";
 import { buildDocumentPdfRequest } from "./document-pdf.ts";
+import { printDocumentPdf } from "./document-pdf-print.ts";
 import { postRender } from "./http-client.ts";
 import { readImageDimensions } from "./image-dimensions.ts";
 import { countPdfPages } from "./pdf-page-count.ts";
@@ -38,16 +39,12 @@ export async function puppeteerRender(
 
   if (req.kind === "document-pdf") {
     const built = await buildDocumentPdfRequest(req, ctx);
-    const result = await postRender(config, {
-      kind: "document-pdf",
-      html: built.html,
-      options: built.options,
-    });
+    const pdfBytes = await printDocumentPdf(config, built);
     return {
       kind: "document-pdf",
-      pdfBytes: result.bytes,
-      pageCount: countPdfPages(result.bytes),
-      sizeBytes: result.bytes.byteLength,
+      pdfBytes,
+      pageCount: countPdfPages(pdfBytes),
+      sizeBytes: pdfBytes.byteLength,
       fileName: built.fileName,
       template: built.template,
       ...(built.layout !== null && { layout: built.layout }),

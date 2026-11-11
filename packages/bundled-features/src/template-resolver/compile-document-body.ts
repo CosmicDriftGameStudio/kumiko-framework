@@ -8,10 +8,12 @@ import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_TEXT_ALIGNMENTS,
+  type DocumentDateStyle,
   isAllowedDocumentUrlHref,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
   isDocumentResourceKey,
+  readDocumentDateStyle,
 } from "./web/document-schema.ts";
 
 // Private-use characters mark where a Handlebars expression goes. Author text
@@ -69,9 +71,12 @@ function valueExpression(
   path: string,
   def: TemplateVariableDef | undefined,
   isWholeBlock: boolean,
+  dateStyle: DocumentDateStyle | null,
 ): string {
   if (def?.type === "money") return `{{money ${path}}}`;
-  if (def?.type === "date") return `{{date ${path}}}`;
+  if (def?.type === "date") {
+    return dateStyle === null ? `{{date ${path}}}` : `{{date ${path} dateStyle="${dateStyle}"}}`;
+  }
   if (def?.type === "percent") return `{{percent ${path}}}`;
   if (def?.type === "richText") {
     return isWholeBlock ? `{{richText ${path}}}` : `{{richText ${path} inline=true}}`;
@@ -93,6 +98,7 @@ function rewriteVariable(element: ScanElement, state: CompileState): void {
           valueExpression(
             ...pathAndDef(name, element, state),
             state.blockRichTextSpans.has(element),
+            readDocumentDateStyle(element),
           ),
         )
       : "",

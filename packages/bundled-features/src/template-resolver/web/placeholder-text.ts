@@ -1,11 +1,11 @@
 import type { JSONContent } from "@tiptap/core";
-import { isDocumentReferenceName } from "./document-schema.ts";
+import { type DocumentDateStyle, isDocumentReferenceName } from "./document-schema.ts";
 
 const PLACEHOLDER_TOKEN = /\{\{([^{}]*)\}\}/g;
 
 // Names the schema refuses stay plain text, so a typo never becomes a chip
 // that the server would reject.
-export function lineToContent(text: string): JSONContent[] {
+export function lineToContent(text: string, dateStyle?: DocumentDateStyle): JSONContent[] {
   const content: JSONContent[] = [];
   let cursor = 0;
   const pushText = (value: string): void => {
@@ -15,7 +15,10 @@ export function lineToContent(text: string): JSONContent[] {
     const name = match[1] ?? "";
     if (!isDocumentReferenceName(name)) continue;
     pushText(text.slice(cursor, match.index));
-    content.push({ type: "variable", attrs: { name } });
+    content.push({
+      type: "variable",
+      attrs: dateStyle === undefined ? { name } : { name, dateStyle },
+    });
     cursor = match.index + match[0].length;
   }
   pushText(text.slice(cursor));

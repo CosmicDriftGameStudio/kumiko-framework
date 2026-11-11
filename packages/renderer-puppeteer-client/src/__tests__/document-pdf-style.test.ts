@@ -29,7 +29,7 @@ describe("chromiumRegionHtml", () => {
     "keeps the region style attribute intact with font %s",
     (fontFamily) => {
       expect(regionOf({ fontFamily, fontSizePt: 10 })).toMatch(
-        /<div style="[^"]*font-size:10pt[^"]*">/,
+        /<div class="kumiko-header" style="[^"]*font-size:10pt[^"]*">/,
       );
     },
   );

@@ -32,6 +32,7 @@ import {
   type LayoutRegions,
   PARAGRAPH_DEFAULT_LINE_HEIGHT,
   PDF_DEFAULT_FONT_SIZE_PT,
+  type PdfFoldMarks,
   type PdfLayoutMeta,
   type PdfTemplateMeta,
   prepareDocumentForPrint,
@@ -76,6 +77,12 @@ export type DocumentPdfRequest = {
   readonly fileName: string;
   readonly template: RenderedTemplateRef;
   readonly layout: RenderedTemplateRef | null;
+  /** Chromium prints one header and footer for all pages, so a letterhead that skips page 1 is a second print of page 1 swapped in. */
+  readonly firstPageOptions: PdfOptions | null;
+  readonly foldMarks: PdfFoldMarks;
+  readonly cornerMarks: boolean;
+  /** Tinted paper (#rrggbb) filled behind the whole page after printing, so margins, header and footer are covered whatever Chromium does with them. */
+  readonly paperColor: string | null;
 };
 
 const LINE_BREAKS = /[\r\n]+/g;
@@ -369,8 +376,6 @@ function renderChromiumRegion(args: {
   });
 }
 
-// Chromium prints the same header and footer on every page, so a letterhead that
-// differs on the first page is not possible.
 function frameDocument(args: {
   readonly locale: string;
   readonly title: string;
@@ -409,7 +414,7 @@ type PageMarkers = "chromium" | "preview";
 // variables a TenantAdmin can choose, so they must not read files by those ids.
 type RecordImages = "resolve" | "placeholder";
 
-type AssembledDocument = {
+export type AssembledDocument = {
   readonly template: TemplateResource;
   readonly layout: PdfLayout & { readonly ref: RenderedTemplateRef | null };
   readonly layoutSlug: string;
@@ -654,7 +659,7 @@ export async function buildDocumentDraftPdfRequest(
   return toPdfRequest(await assembleDocument(req, ctx, "chromium"), req.locale);
 }
 
-function toPdfRequest(document: AssembledDocument, locale: string): DocumentPdfRequest {
+export function toPdfRequest(document: AssembledDocument, locale: string): DocumentPdfRequest {
   const showLayoutRegions = document.meta?.layoutHeaderFooter !== false;
   const hasHeader = showLayoutRegions && document.headerHtml.trim() !== "";
   const hasFooter = showLayoutRegions && document.footerHtml.trim() !== "";
@@ -666,6 +671,25 @@ function toPdfRequest(document: AssembledDocument, locale: string): DocumentPdfR
   );
   const options = resolveOptions(document.meta, { ...margins, left: firstPage.pageLeftMm });
   const regionArgs = { margins, layoutMeta: document.layoutMeta };
+  const printOptions = (showHeader: boolean, showFooter: boolean): PdfOptions =>
+    showHeader || showFooter
+      ? {
+          ...options,
+          displayHeaderFooter: true,
+          headerTemplate: renderChromiumRegion({
+            ...regionArgs,
+            regionHtml: showHeader ? document.headerHtml : "",
+            position: "header",
+          }),
+          footerTemplate: renderChromiumRegion({
+            ...regionArgs,
+            regionHtml: showFooter ? document.footerHtml : "",
+            position: "footer",
+          }),
+        }
+      : { ...options, displayHeaderFooter: false };
+  const skipsHeaderOnFirstPage = hasHeader && document.layoutMeta.headerOnFirstPage === false;
+  const skipsFooterOnFirstPage = hasFooter && document.layoutMeta.footerOnFirstPage === false;
   return {
     html: frameDocument({
       locale,
@@ -675,23 +699,14 @@ function toPdfRequest(document: AssembledDocument, locale: string): DocumentPdfR
       extraCss: layoutAppearanceCss(document.layoutMeta) + firstPage.css,
       leadingHtml: flowSpacerHtml(firstPage),
     }),
-    options:
-      hasHeader || hasFooter
-        ? {
-            ...options,
-            displayHeaderFooter: true,
-            headerTemplate: renderChromiumRegion({
-              ...regionArgs,
-              regionHtml: document.headerHtml,
-              position: "header",
-            }),
-            footerTemplate: renderChromiumRegion({
-              ...regionArgs,
-              regionHtml: document.footerHtml,
-              position: "footer",
-            }),
-          }
-        : { ...options, displayHeaderFooter: false },
+    options: printOptions(hasHeader, hasFooter),
+    firstPageOptions:
+      skipsHeaderOnFirstPage || skipsFooterOnFirstPage
+        ? printOptions(hasHeader && !skipsHeaderOnFirstPage, hasFooter && !skipsFooterOnFirstPage)
+        : null,
+    foldMarks: document.layoutMeta.foldMarks ?? "none",
+    cornerMarks: document.layoutMeta.cornerMarks === true,
+    paperColor: document.layoutMeta.paperColor ?? null,
     fileName: document.fileName,
     template: {
       templateId: document.template.id,

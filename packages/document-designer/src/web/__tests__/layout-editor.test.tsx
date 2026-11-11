@@ -429,3 +429,89 @@ describe("LayoutEditor", () => {
     expect(screen.queryByLabelText("Width")).toBeNull();
   });
 });
+
+describe("pdf layout letter settings", () => {
+  const pdfSource: LayoutSourceView = { ...tenantSource, meta: {} };
+  const pdfParams = { ...nav.searchParams, kind: "pdf-layout" };
+
+  test("fold marks and the first-page switches are drawn on the paper and saved as layout meta", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], pdfSource, calls, pdfParams);
+    await screen.findByTestId("document-designer-paper");
+    expect(screen.queryAllByTestId("paper-fold-mark")).toHaveLength(0);
+
+    fireEvent.click(await screen.findByLabelText("Fold marks"));
+    fireEvent.click(await screen.findByRole("option", { name: "DIN 5008 form A" }));
+    const tops = screen
+      .getAllByTestId("paper-fold-mark")
+      .map((mark) => mark.getAttribute("data-fold-mark-top-mm"));
+    expect(tops).toEqual(["87", "192", "148.5"]);
+
+    const header = screen.getByTestId("document-designer-region-header");
+    expect(header.textContent).not.toContain("from page 2");
+    fireEvent.click(screen.getByLabelText("Header on page 1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("document-designer-region-header").textContent).toContain(
+        "from page 2",
+      ),
+    );
+
+    fireEvent.change(screen.getByTestId("layout-table-line"), { target: { value: "#336699" } });
+    fireEvent.click(screen.getByTestId("document-designer-save"));
+    await waitFor(() =>
+      expect(calls.find((call) => call.type.includes("upsert-tenant"))).toBeDefined(),
+    );
+    expect(calls.find((call) => call.type.includes("upsert-tenant"))?.payload).toMatchObject({
+      meta: {
+        foldMarks: "din-a",
+        headerOnFirstPage: false,
+        tableLineColor: "#336699",
+      },
+    });
+  });
+
+  test("corner marks appear in all four paper corners and are saved as layout meta", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], pdfSource, calls, pdfParams);
+    await screen.findByTestId("document-designer-paper");
+    expect(screen.queryAllByTestId("paper-corner-mark")).toHaveLength(0);
+    fireEvent.click(await screen.findByLabelText("Corner marks"));
+    expect(screen.getAllByTestId("paper-corner-mark")).toHaveLength(4);
+    fireEvent.click(screen.getByTestId("document-designer-save"));
+    await waitFor(() =>
+      expect(calls.find((call) => call.type.includes("upsert-tenant"))).toBeDefined(),
+    );
+    expect(calls.find((call) => call.type.includes("upsert-tenant"))?.payload).toMatchObject({
+      meta: { cornerMarks: true },
+    });
+  });
+
+  test("the paper colour tints the paper, is saved as layout meta and resets to white", async () => {
+    const calls: Call[] = [];
+    renderEditor(["TenantAdmin"], pdfSource, calls, pdfParams);
+    const paper = await screen.findByTestId("document-designer-paper");
+    expect(paper.className).toContain("bg-card");
+    fireEvent.change(await screen.findByTestId("layout-paper-color"), {
+      target: { value: "#f4f1e2" },
+    });
+    expect(paper.style.getPropertyValue("--paper-color")).toBe("#f4f1e2");
+    expect(paper.className).not.toContain("bg-card");
+    fireEvent.click(screen.getByTestId("document-designer-save"));
+    await waitFor(() =>
+      expect(calls.find((call) => call.type.includes("upsert-tenant"))).toBeDefined(),
+    );
+    expect(calls.find((call) => call.type.includes("upsert-tenant"))?.payload).toMatchObject({
+      meta: { paperColor: "#f4f1e2" },
+    });
+    fireEvent.click(screen.getByTestId("layout-paper-color-reset"));
+    expect(paper.className).toContain("bg-card");
+  });
+
+  test("an invalid table line colour blocks saving", async () => {
+    renderEditor(["TenantAdmin"], pdfSource, [], pdfParams);
+    fireEvent.change(await screen.findByTestId("layout-table-line"), { target: { value: "blue" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("document-designer-save").hasAttribute("disabled")).toBe(true),
+    );
+  });
+});

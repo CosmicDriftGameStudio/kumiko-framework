@@ -161,6 +161,7 @@ export const UNIT_FORMAT_KEYS: readonly string[] = [
 export {
   DOCUMENT_FALLBACK_CURRENCY,
   type DocumentDateOptions,
+  type DocumentDateStyle,
   formatDocumentDate,
   formatDocumentMoney,
   formatDocumentPercent,

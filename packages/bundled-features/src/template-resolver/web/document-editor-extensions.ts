@@ -1,3 +1,4 @@
+import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Extensions, NodeViewRenderer } from "@tiptap/core";
 import { ListKeymap } from "@tiptap/extension-list";
 import { Dropcursor, Gapcursor, Placeholder, UndoRedo } from "@tiptap/extensions";
@@ -5,9 +6,10 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { DocumentFrameControl } from "./document-frame-control.ts";
 import { createFrameView, type FrameViewLabels } from "./document-frame-node-view.tsx";
 import { DocumentPrintEditing, loadDocumentEditorFonts } from "./document-print-decorations.ts";
-import { DocumentFrame } from "./document-print-style.ts";
+import { DOCUMENT_IMAGE_ALIGNMENTS, DocumentFrame } from "./document-print-style.ts";
 import type { RepeatStripOptions } from "./document-repeat-strip.ts";
 import {
+  DOCUMENT_DATE_STYLES,
   DocumentButton,
   DocumentImages,
   DocumentPageBreak,
@@ -18,6 +20,7 @@ import {
   documentExtensions,
 } from "./document-schema.ts";
 import { readDocumentStepsAttribute } from "./document-steps.ts";
+import { documentImageCss } from "./document-style-css.ts";
 import type { DocumentPrintMode, DocumentResourcePreview } from "./document-toolbar-blocks.ts";
 
 const DOCUMENT_RESOURCE_SIZE_TOKEN = "{size}";
@@ -70,6 +73,9 @@ function repeatRowListAt(doc: ProseMirrorNode, position: number | undefined): st
   return null;
 }
 
+// Language-neutral: the real value is formatted per locale at render time.
+const DATE_STYLE_CHIP_HINTS = { short: "15.01.2026", long: "15. Jan 2026" } as const;
+
 // The chip is display only: the stored node carries just the name, so a
 // label never reaches the document.
 export function createVariableView(
@@ -90,6 +96,11 @@ export function createVariableView(
     const hasOwnLabel = label !== undefined && label !== "" && label !== name;
     dom.append(document.createTextNode(hasOwnLabel ? label : name));
     if (hasOwnLabel) dom.title = name;
+    const dateStyle: unknown = node.attrs["dateStyle"];
+    if (isOneOf(DOCUMENT_DATE_STYLES, dateStyle)) {
+      dom.setAttribute("data-date-style", dateStyle);
+      dom.append(document.createTextNode(` · ${DATE_STYLE_CHIP_HINTS[dateStyle]}`));
+    }
     return { dom };
   };
 }
@@ -106,6 +117,53 @@ function createBlockLabel(text: string): HTMLSpanElement {
   );
   label.contentEditable = "false";
   return label;
+}
+
+type ResourcePreview = NonNullable<DocumentEditorLabels["resourcePreviews"]>[string];
+
+function appendResourceImage(
+  dom: HTMLElement,
+  node: ProseMirrorNode,
+  key: string,
+  preview: ResourcePreview,
+): void {
+  const widthMm = node.attrs["widthMm"];
+  const align = node.attrs["align"];
+  const sized = typeof widthMm === "number";
+  const bleeds = node.attrs["bleed"] === true;
+  const image = createElementWithClass(
+    "img",
+    sized || bleeds ? "rounded" : "max-w-[180px] rounded",
+  );
+  // The same builder as the PDF, so the editor size follows the paper scale.
+  image.style.cssText = documentImageCss({
+    widthMm: typeof widthMm === "number" ? widthMm : null,
+    align: isOneOf(DOCUMENT_IMAGE_ALIGNMENTS, align) ? align : null,
+  });
+  if (bleeds) image.style.width = "100%";
+  if (sized || bleeds) dom.style.display = "block";
+  image.src = preview.src;
+  image.alt = typeof node.attrs["alt"] === "string" ? node.attrs["alt"] : key;
+  dom.append(image);
+  // An empty caption means "no caption", not the key.
+  const caption = preview.caption ?? key;
+  if (caption !== "") {
+    const captionElement = createElementWithClass(
+      "span",
+      "whitespace-nowrap text-[11px]",
+      caption.replace(` · ${DOCUMENT_RESOURCE_SIZE_TOKEN}`, ""),
+    );
+    // The size is only known once the browser decoded the image (possibly already, from cache).
+    const showSize = (): void => {
+      captionElement.textContent = caption.replace(
+        DOCUMENT_RESOURCE_SIZE_TOKEN,
+        `${image.naturalWidth} × ${image.naturalHeight} px`,
+      );
+    };
+    image.addEventListener("load", showSize);
+    if (image.complete && image.naturalWidth > 0) showSize();
+    dom.append(captionElement);
+  }
 }
 
 function createResourceView(labels: DocumentEditorLabels): NodeViewRenderer {
@@ -130,29 +188,7 @@ function createResourceView(labels: DocumentEditorLabels): NodeViewRenderer {
       dom.append(label);
     }
     if (hasImage) {
-      const image = createElementWithClass("img", "max-w-[180px] rounded");
-      image.src = preview.src;
-      image.alt = typeof node.attrs["alt"] === "string" ? node.attrs["alt"] : key;
-      dom.append(image);
-      // An empty caption means "no caption", not the key.
-      const caption = preview.caption ?? key;
-      if (caption !== "") {
-        const captionElement = createElementWithClass(
-          "span",
-          "whitespace-nowrap text-[11px]",
-          caption.replace(` · ${DOCUMENT_RESOURCE_SIZE_TOKEN}`, ""),
-        );
-        // The size is only known once the browser decoded the image (possibly already, from cache).
-        const showSize = (): void => {
-          captionElement.textContent = caption.replace(
-            DOCUMENT_RESOURCE_SIZE_TOKEN,
-            `${image.naturalWidth} × ${image.naturalHeight} px`,
-          );
-        };
-        image.addEventListener("load", showSize);
-        if (image.complete && image.naturalWidth > 0) showSize();
-        dom.append(captionElement);
-      }
+      appendResourceImage(dom, node, key, preview);
     } else {
       dom.append(
         createElementWithClass("span", "font-medium", labels.image),

@@ -64,6 +64,7 @@ export {
   applyFormatSpec,
   currencyDecimals,
   DOCUMENT_FALLBACK_CURRENCY,
+  type DocumentDateStyle,
   EMPTY_VALUE_PLACEHOLDER,
   escapeHtml,
   escapeHtmlAttr,

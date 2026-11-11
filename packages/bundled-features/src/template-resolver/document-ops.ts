@@ -14,6 +14,7 @@ import {
   patchIssue,
   refusePrintStyling,
 } from "./document-op-blocks.ts";
+import type { LayoutRegionName } from "./layout-regions.ts";
 import { toVariableDef } from "./template-validation.ts";
 import type { DocumentOpsKind } from "./web/constants.ts";
 import {
@@ -51,6 +52,10 @@ export type DocumentBlock = {
   readonly showIf?: string;
   readonly resource?: string;
   readonly alt?: string;
+  readonly widthMm?: number;
+  readonly bleed?: boolean;
+  readonly color?: string;
+  readonly weightPt?: number;
   readonly href?: string;
   readonly each?: string;
   readonly frame?: FrameBox;
@@ -102,8 +107,15 @@ function eachOf(table: JSONContent): string | undefined {
   return undefined;
 }
 
+// A line break reads back as "\n"; writing text collapses it again, so a break is set with runs.
+function lineWithBreaks(content: readonly JSONContent[] | undefined): string {
+  return (content ?? [])
+    .map((node) => (node.type === "hardBreak" ? "\n" : contentToLine([node])))
+    .join("");
+}
+
 function textLinesOf(node: JSONContent): string[] {
-  if (TEXT_BLOCK_TYPES.has(node.type ?? "")) return [contentToLine(node.content)];
+  if (TEXT_BLOCK_TYPES.has(node.type ?? "")) return [lineWithBreaks(node.content)];
   return (node.content ?? []).flatMap(textLinesOf);
 }
 
@@ -123,6 +135,21 @@ function setOptionalAttrs(block: MutableBlock, node: JSONContent): void {
   if (showIf !== undefined) block.showIf = showIf;
 }
 
+function setImagePrintAttrs(block: MutableBlock, node: JSONContent): void {
+  const widthMm: unknown = node.attrs?.["widthMm"];
+  if (typeof widthMm === "number") block.widthMm = widthMm;
+  if (node.attrs?.["bleed"] === true) block.bleed = true;
+  const align = stringAttr(node, "align");
+  if (align !== undefined) block.align = align;
+}
+
+function setDividerAttrs(block: MutableBlock, node: JSONContent): void {
+  const color = stringAttr(node, "color");
+  if (color !== undefined) block.color = color;
+  const weightPt: unknown = node.attrs?.["weightPt"];
+  if (typeof weightPt === "number") block.weightPt = weightPt;
+}
+
 function setTypeSpecificAttrs(block: MutableBlock, node: JSONContent): void {
   const level: unknown = node.attrs?.["level"];
   if (block.type === "heading" && typeof level === "number") block.level = level;
@@ -130,6 +157,8 @@ function setTypeSpecificAttrs(block: MutableBlock, node: JSONContent): void {
   if (block.type === "image" && resource !== undefined) block.resource = resource;
   const alt = stringAttr(node, "alt");
   if (block.type === "image" && alt !== undefined) block.alt = alt;
+  if (block.type === "image") setImagePrintAttrs(block, node);
+  if (block.type === "divider") setDividerAttrs(block, node);
   const href = stringAttr(node, "href");
   if (block.type === "button" && href !== undefined) block.href = href;
   const each = eachOf(node);
@@ -216,6 +245,7 @@ export type DocumentOpsInput = {
   readonly meta: Readonly<Record<string, unknown>>;
   readonly variableSchema: Readonly<Record<string, unknown>>;
   readonly kind: DocumentOpsKind;
+  readonly region?: LayoutRegionName | undefined;
   readonly ops: readonly DocumentOp[];
 };
 
@@ -289,6 +319,7 @@ function isValidDocument(doc: JSONContent): boolean {
 
 type OpState = {
   readonly kind: DocumentOpsKind;
+  readonly region: LayoutRegionName | undefined;
   replacement: JSONContent[] | null;
   readonly entries: Map<string, Entry>;
   readonly insertedAtStart: JSONContent[];
@@ -312,7 +343,7 @@ function buildBlocks(
   blocks: readonly BlockInput[],
   pathOf: (index: number) => string,
 ): { readonly nodes: JSONContent[]; readonly issues: FieldIssue[] } {
-  const ctx: BuildContext = { kind: state.kind, issues: [] };
+  const ctx: BuildContext = { kind: state.kind, region: state.region, issues: [] };
   const nodes = blocks.map((block, index) => blockNode(ctx, pathOf(index), block));
   nodes.forEach((node, index) => {
     const refused = refusePrintStyling(state.kind, node, pathOf(index));
@@ -444,7 +475,7 @@ function setResourceOp(
     return patchIssue(`${path}.resource`, "invalid_resource_key", { resource: op.resource });
   }
   const alt = op.alt === undefined ? (entry.node.attrs?.["alt"] ?? null) : op.alt;
-  entry.node = { ...entry.node, attrs: { resource: op.resource, alt } };
+  entry.node = { ...entry.node, attrs: { ...entry.node.attrs, resource: op.resource, alt } };
   return null;
 }
 
@@ -522,6 +553,7 @@ export function applyDocumentOps(input: DocumentOpsInput): DocumentOpsResult {
   });
   const state: OpState = {
     kind: input.kind,
+    region: input.region,
     replacement: null,
     entries,
     insertedAtStart: [],

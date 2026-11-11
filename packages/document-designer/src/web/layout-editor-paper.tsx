@@ -117,10 +117,17 @@ function renderSignatureRegion(t: Translate, m: LayoutEditorModel): ReactNode {
 
 function footerLabel(t: Translate, m: LayoutEditorModel): string {
   const columns = m.isMail ? 0 : footerColumnCount(m.footer);
-  return columns === 0
-    ? t("documentDesigner.editor.region.footer")
-    : t(pluralKey("documentDesigner.editor.region.footerColumns", columns), { count: columns });
+  const label =
+    columns === 0
+      ? t("documentDesigner.editor.region.footer")
+      : t(pluralKey("documentDesigner.editor.region.footerColumns", columns), { count: columns });
+  return !m.isMail && !m.pdfLook.footerOnFirstPage
+    ? `${label} · ${t("documentDesigner.editor.region.fromPage2")}`
+    : label;
 }
+
+// One sheet shows page 1, so a region that only prints from page 2 on is dimmed and labelled.
+const SKIPPED_ON_FIRST_PAGE_CLASS = "opacity-50";
 
 // The PDF footer sits 4 mm above the paper edge (CHROMIUM_REGION_PADDING_MM) at the page-margin columns, independent of the bottom margin.
 const PDF_FOOTER_WRAPPER_CLASS =
@@ -133,7 +140,11 @@ function renderFooterRegion(t: Translate, m: LayoutEditorModel): ReactNode {
         label={footerLabel(t, m)}
         testId="document-designer-region-footer"
         active={m.activeRegion === "footer"}
-        className={cn(!m.isMail && "px-1 pt-1.5 pb-5", !m.isMail && PAPER_SCALED_CHIPS_CLASS)}
+        className={cn(
+          !m.isMail && "px-1 pt-1.5 pb-5",
+          !m.isMail && PAPER_SCALED_CHIPS_CLASS,
+          !m.isMail && !m.pdfLook.footerOnFirstPage && SKIPPED_ON_FIRST_PAGE_CLASS,
+        )}
         onFocus={() => m.setActiveRegion("footer")}
       >
         {renderRegionEditor(m, "footer", m.footer, m.setFooter)}
@@ -161,10 +172,18 @@ function renderPdfPaper(t: Translate, m: LayoutEditorModel): ReactNode {
         {/* The PDF header text starts 4 mm (region padding) plus the line's leading below the paper edge, inside the top margin. */}
         <div className="absolute top-[calc(1*var(--paper-mm))] right-[calc(var(--paper-margin-right)-0.25rem)] left-[calc(var(--paper-margin-left)-0.25rem)] bg-card">
           <PaperRegion
-            label={t("documentDesigner.editor.region.header")}
+            label={
+              m.pdfLook.headerOnFirstPage
+                ? t("documentDesigner.editor.region.header")
+                : `${t("documentDesigner.editor.region.header")} · ${t("documentDesigner.editor.region.fromPage2")}`
+            }
             testId="document-designer-region-header"
             active={m.activeRegion === "header"}
-            className={cn("px-1 pt-[calc(3*var(--paper-mm))] pb-1", PAPER_SCALED_CHIPS_CLASS)}
+            className={cn(
+              "px-1 pt-[calc(3*var(--paper-mm))] pb-1",
+              PAPER_SCALED_CHIPS_CLASS,
+              !m.pdfLook.headerOnFirstPage && SKIPPED_ON_FIRST_PAGE_CLASS,
+            )}
             onFocus={() => m.setActiveRegion("header")}
           >
             {renderRegionEditor(m, "header", m.header, m.setHeader)}

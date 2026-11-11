@@ -3,12 +3,13 @@
 // the sanitizer keeps its guarantee that no CSS comes from the input; compile-document-styles.ts
 // turns the validated values into CSS. The read* functions are the single place that validates a
 // raw attribute, used by the tiptap parse rules here and by the compile step.
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { Extension, Mark, mergeAttributes, Node } from "@tiptap/core";
 import { DOCUMENT_FONTS, type DocumentFont } from "./document-fonts.ts";
 import type {
   DocumentBlockStyle,
   DocumentFrameBox,
+  DocumentRowLine,
   DocumentTextStyle,
 } from "./document-style-css.ts";
 import { HEX_COLOR_PATTERN } from "./mail-layout-constants.ts";
@@ -18,6 +19,16 @@ export const LINE_HEIGHT_RANGE = { min: 0.8, max: 3 } as const;
 export const PARAGRAPH_SPACE_PT_RANGE = { min: 0, max: 200 } as const;
 export const FRAME_MM_RANGE = { min: 0, max: 1000 } as const;
 export const COLWIDTH_PX_RANGE = { min: 1, max: 5000 } as const;
+export const IMAGE_WIDTH_MM_RANGE = { min: 0.1, max: 210 } as const;
+export const DIVIDER_WEIGHT_PT_RANGE = { min: 0.25, max: 4 } as const;
+export const CELL_PADDING_MM_RANGE = { min: 0, max: 10 } as const;
+export const TABLE_WIDTH_MM_RANGE = IMAGE_WIDTH_MM_RANGE;
+
+export const DOCUMENT_IMAGE_ALIGNMENTS = ["left", "center", "right"] as const;
+export type DocumentImageAlignment = (typeof DOCUMENT_IMAGE_ALIGNMENTS)[number];
+
+export const DOCUMENT_TABLE_ALIGNMENTS = DOCUMENT_IMAGE_ALIGNMENTS;
+export type DocumentTableAlignment = DocumentImageAlignment;
 
 export const FRAME_PRESETS = ["address", "text"] as const;
 export type DocumentFramePreset = (typeof FRAME_PRESETS)[number];
@@ -78,6 +89,63 @@ export function readFrameAttributes(element: AttributeSource): DocumentFrameAttr
     preset: isOneOf(FRAME_PRESETS, preset) ? preset : null,
     reserveFlow: element.getAttribute("data-frame-flow") !== "over",
   };
+}
+
+export function readImageWidthMm(element: AttributeSource): number | null {
+  return readNumber(element.getAttribute("data-width-mm"), IMAGE_WIDTH_MM_RANGE);
+}
+
+export function readImageAlign(element: AttributeSource): DocumentImageAlignment | null {
+  const align = element.getAttribute("data-align");
+  return isOneOf(DOCUMENT_IMAGE_ALIGNMENTS, align) ? align : null;
+}
+
+export function readDividerColor(element: AttributeSource): string | null {
+  return readHexColor(element.getAttribute("data-color"));
+}
+
+export function readDividerWeightPt(element: AttributeSource): number | null {
+  return readNumber(element.getAttribute("data-weight-pt"), DIVIDER_WEIGHT_PT_RANGE);
+}
+
+export function readCellPaddingMm(element: AttributeSource): number | null {
+  return readNumber(element.getAttribute("data-cell-padding-mm"), CELL_PADDING_MM_RANGE);
+}
+
+export function readTableWidthMm(element: AttributeSource): number | null {
+  return readNumber(element.getAttribute("data-table-width-mm"), TABLE_WIDTH_MM_RANGE);
+}
+
+export function readTableAlign(element: AttributeSource): DocumentTableAlignment | null {
+  const align = element.getAttribute("data-table-align");
+  return isOneOf(DOCUMENT_TABLE_ALIGNMENTS, align) ? align : null;
+}
+
+export const ROW_LINE_ABOVE_ATTRIBUTE = "data-line-above";
+export const ROW_LINE_BELOW_ATTRIBUTE = "data-line-below";
+
+// Serialized as "#rrggbb 0.75": one attribute per edge keeps the data-* allowlist small.
+export function readRowLine(element: AttributeSource, attribute: string): DocumentRowLine | null {
+  const raw = element.getAttribute(attribute);
+  if (raw === null) return null;
+  const [color, weight, ...rest] = raw.split(" ");
+  const weightPt = readNumber(weight ?? null, DIVIDER_WEIGHT_PT_RANGE);
+  const hexColor = readHexColor(color ?? null);
+  return rest.length === 0 && hexColor !== null && weightPt !== null
+    ? { color: hexColor, weightPt }
+    : null;
+}
+
+function isRowLine(value: unknown): value is DocumentRowLine {
+  if (!isPlainObject(value)) return false;
+  const { color, weightPt } = value;
+  return (
+    typeof color === "string" &&
+    HEX_COLOR_PATTERN.test(color) &&
+    typeof weightPt === "number" &&
+    weightPt >= DIVIDER_WEIGHT_PT_RANGE.min &&
+    weightPt <= DIVIDER_WEIGHT_PT_RANGE.max
+  );
 }
 
 export function readCellBackground(element: AttributeSource): string | null {
@@ -168,7 +236,7 @@ export const DocumentBlockStyleAttributes = Extension.create({
   },
 });
 
-export const documentTableBordersAttribute = {
+export const documentTablePrintAttributes = {
   borders: {
     default: null,
     parseHTML: (element: AttributeSource) =>
@@ -176,7 +244,58 @@ export const documentTableBordersAttribute = {
     renderHTML: (attributes: Record<string, unknown>) =>
       attributes["borders"] === "none" ? { "data-borders": "none" } : {},
   },
+  cellPaddingMm: {
+    default: null,
+    parseHTML: (element: AttributeSource) => readCellPaddingMm(element),
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const value: unknown = attributes["cellPaddingMm"];
+      return typeof value === "number" ? { "data-cell-padding-mm": String(value) } : {};
+    },
+  },
+  widthMm: {
+    default: null,
+    parseHTML: (element: AttributeSource) => readTableWidthMm(element),
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const value: unknown = attributes["widthMm"];
+      return typeof value === "number" ? { "data-table-width-mm": String(value) } : {};
+    },
+  },
+  align: {
+    default: null,
+    parseHTML: (element: AttributeSource) => readTableAlign(element),
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const value: unknown = attributes["align"];
+      return isOneOf(DOCUMENT_TABLE_ALIGNMENTS, value) ? { "data-table-align": value } : {};
+    },
+  },
 };
+
+function rowLineAttribute(attribute: string, key: string) {
+  return {
+    default: null,
+    parseHTML: (element: AttributeSource) => readRowLine(element, attribute),
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const line: unknown = attributes[key];
+      return isRowLine(line) ? { [attribute]: `${line.color} ${line.weightPt}` } : {};
+    },
+  };
+}
+
+export const documentRowLineAttributes = {
+  lineAbove: rowLineAttribute(ROW_LINE_ABOVE_ATTRIBUTE, "lineAbove"),
+  lineBelow: rowLineAttribute(ROW_LINE_BELOW_ATTRIBUTE, "lineBelow"),
+};
+
+export function readRowLineAttributes(attrs: Readonly<Record<string, unknown>>): {
+  readonly lineAbove: DocumentRowLine | null;
+  readonly lineBelow: DocumentRowLine | null;
+} {
+  const { lineAbove, lineBelow } = attrs;
+  return {
+    lineAbove: isRowLine(lineAbove) ? lineAbove : null,
+    lineBelow: isRowLine(lineBelow) ? lineBelow : null,
+  };
+}
 
 export const documentCellPrintAttributes = {
   background: {
@@ -200,6 +319,22 @@ export const documentCellPrintAttributes = {
     },
   },
 };
+
+export function imagePrintHtmlAttributes(attrs: Record<string, unknown>): Record<string, string> {
+  const { widthMm, align } = attrs;
+  return {
+    ...(typeof widthMm === "number" ? { "data-width-mm": String(widthMm) } : {}),
+    ...(isOneOf(DOCUMENT_IMAGE_ALIGNMENTS, align) ? { "data-align": align } : {}),
+  };
+}
+
+export function dividerPrintHtmlAttributes(attrs: Record<string, unknown>): Record<string, string> {
+  const { color, weightPt } = attrs;
+  return {
+    ...(typeof color === "string" && HEX_COLOR_PATTERN.test(color) ? { "data-color": color } : {}),
+    ...(typeof weightPt === "number" ? { "data-weight-pt": String(weightPt) } : {}),
+  };
+}
 
 export const DocumentFrame = Node.create({
   name: "documentFrame",

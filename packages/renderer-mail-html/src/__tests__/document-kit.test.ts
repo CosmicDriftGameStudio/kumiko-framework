@@ -39,6 +39,17 @@ describe("renderer-mail-html :: date helper", () => {
   });
 });
 
+describe("renderer-mail-html :: date helper dateStyle", () => {
+  const hbs = createDocumentHandlebars({ locale: "de", currency: "EUR" });
+  const render = (source: string) => compileDocumentSource(hbs, source)({ value: "2026-10-18" });
+
+  test("short prints the numeric date, long and an unknown style print the long date", () => {
+    expect(render('{{date value dateStyle="short"}}')).toBe("18.10.2026");
+    expect(render('{{date value dateStyle="long"}}')).toBe("18. Oktober 2026");
+    expect(render('{{date value dateStyle="medium"}}')).toBe("18. Oktober 2026");
+  });
+});
+
 describe("renderer-mail-html :: date helper with time", () => {
   const renderWith = (timeZone: string | undefined, value: unknown) =>
     compileDocumentSource(

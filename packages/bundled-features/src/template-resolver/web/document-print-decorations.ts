@@ -18,14 +18,18 @@ import {
   frameLocationOf,
   isSenderLine,
 } from "./document-frame-control.ts";
+import { DOCUMENT_TABLE_ALIGNMENTS, readRowLineAttributes } from "./document-print-style.ts";
 import { type RepeatStripOptions, repeatStripDecorations } from "./document-repeat-strip.ts";
 import {
   addressParagraphCss,
   DOCUMENT_LINE_VARIABLE,
   documentBlockStyleCss,
   documentCellStyleCss,
+  documentDividerCss,
+  documentTableCss,
   documentTextStyleCss,
   PARAGRAPH_DEFAULT_LINE_HEIGHT,
+  resolveRowEdges,
 } from "./document-style-css.ts";
 
 // Metric-compatible web fonts (@fontsource) stand in for the print service's installed fonts.
@@ -97,14 +101,59 @@ function nodeDecoration(
       .join(";");
     return style === "" ? null : Decoration.node(from, to, { style });
   }
-  if (CELL_NODES.includes(name)) {
-    const style = documentCellStyleCss({ background: stringOrNull(node.attrs["background"]) });
+  if (name === "divider") {
+    const style = documentDividerCss({
+      color: stringOrNull(node.attrs["color"]),
+      weightPt: numberOrNull(node.attrs["weightPt"]),
+    });
     return style === "" ? null : Decoration.node(from, to, { style });
   }
-  if (name === "table" && node.attrs["borders"] === "none") {
-    return Decoration.node(from, to, { "data-borders": "none" });
-  }
   return null;
+}
+
+// Cell padding, outer-column insets and row rules depend on the table and row around a cell, so
+// the table decorates its own cells; the rules mirror the PDF compile's edge resolution.
+function tableDecorations(table: ProseMirrorNode, from: number): Decoration[] {
+  const align = table.attrs["align"];
+  const tableStyle = documentTableCss({
+    widthMm: numberOrNull(table.attrs["widthMm"]),
+    align: isOneOf(DOCUMENT_TABLE_ALIGNMENTS, align) ? align : null,
+  });
+  const decorations: Decoration[] = [];
+  const tableAttrs: Record<string, string> = {
+    ...(table.attrs["borders"] === "none" ? { "data-borders": "none" } : {}),
+    ...(tableStyle === "" ? {} : { style: tableStyle }),
+  };
+  if (Object.keys(tableAttrs).length > 0) {
+    decorations.push(Decoration.node(from, from + table.nodeSize, tableAttrs));
+  }
+  const paddingMm = numberOrNull(table.attrs["cellPaddingMm"]);
+  const rows: { node: ProseMirrorNode; pos: number }[] = [];
+  table.forEach((row, offset) => {
+    rows.push({ node: row, pos: from + 1 + offset });
+  });
+  const edges = resolveRowEdges(
+    rows.map((row) => ({
+      ...readRowLineAttributes(row.node.attrs),
+      repeats: typeof row.node.attrs["each"] === "string",
+    })),
+  );
+  rows.forEach((row, rowIndex) => {
+    row.node.forEach((cell, offset, cellIndex) => {
+      if (!CELL_NODES.includes(cell.type.name)) return;
+      const style = documentCellStyleCss({
+        background: stringOrNull(cell.attrs["background"]),
+        paddingMm,
+        isFirstInRow: cellIndex === 0,
+        isLastInRow: cellIndex === row.node.childCount - 1,
+        edges: edges[rowIndex],
+      });
+      if (style === "") return;
+      const cellFrom = row.pos + 1 + offset;
+      decorations.push(Decoration.node(cellFrom, cellFrom + cell.nodeSize, { style }));
+    });
+  });
+  return decorations;
 }
 
 // Frames are not rebuilt by the selection alone, so the selected one is marked by a decoration the
@@ -122,6 +171,7 @@ function buildDecorations(
         Decoration.node(pos, pos + node.nodeSize, { [FRAME_SELECTED_ATTRIBUTE]: "" }),
       );
     }
+    if (node.type.name === "table") decorations.push(...tableDecorations(node, pos));
     const decoration = node.isInline
       ? textStyleDecoration(node, pos)
       : nodeDecoration(node, pos, parent, index);

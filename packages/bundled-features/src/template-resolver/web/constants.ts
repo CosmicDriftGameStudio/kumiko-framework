@@ -86,13 +86,17 @@ export const ACTIVE_TEMPLATE_STATUS = "active" satisfies TemplateStatus;
 
 export { HEX_COLOR_PATTERN } from "./mail-layout-constants.ts";
 export {
+  PDF_CORNER_MARK_INSET_MM,
+  PDF_CORNER_MARK_LEG_MM,
   PDF_DEFAULT_FONT_SIZE_PT,
   PDF_DEFAULT_MARGIN_MM,
+  PDF_FOLD_MARKS,
   PDF_FOOTER_MARGIN_MM,
   PDF_HEADER_MARGIN_MM,
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
   PDF_TABLE_STYLES,
+  type PdfFoldMarks,
   type PdfOrientation,
   type PdfPageFormat,
   type PdfTableStyle,
