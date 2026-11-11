@@ -27,6 +27,8 @@ export type ContentEditorProps = {
    *  here. */
   readonly variables: readonly string[];
   readonly readOnly: boolean;
+  /** "text" asks for plain text formatting only (bold, italic, lists, link): no images, tables or other blocks. Editors that cannot restrict themselves ignore it. */
+  readonly formatting?: "text";
 };
 
 export type ContentEditorComponent = ComponentType<ContentEditorProps>;

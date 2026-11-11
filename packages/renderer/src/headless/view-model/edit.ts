@@ -304,12 +304,23 @@ type FieldAffixHints = Pick<
   | "suffix"
   | "fillAction"
   | "aiAssist"
+  | "editor"
   | "valueChips"
   | "concealed"
   | "badge"
   | "hintField"
   | "hideOnNarrow"
 >;
+
+function contextDocumentHints(
+  normalized: NormalizedEditField,
+  documentFieldNames: ReadonlySet<string>,
+): Pick<EditFieldViewModel, "contextDocumentFields"> {
+  const names = (normalized.aiAssist?.contextFields ?? []).filter((name) =>
+    documentFieldNames.has(name),
+  );
+  return names.length > 0 ? { contextDocumentFields: names } : {};
+}
 
 function deriveFieldAffixHints(
   normalized: NormalizedEditField,
@@ -336,6 +347,9 @@ function deriveFieldAffixHints(
         ...(normalized.aiAssist.contextFields !== undefined && {
           contextFields: normalized.aiAssist.contextFields,
         }),
+        ...(normalized.aiAssist.autoRun !== undefined && {
+          autoRun: normalized.aiAssist.autoRun,
+        }),
         ...(normalized.aiAssist.chips !== undefined && {
           chips: normalized.aiAssist.chips.map((chip) => ({
             ...chip,
@@ -352,6 +366,7 @@ function deriveFieldAffixHints(
         }),
       },
     }),
+    ...(normalized.editor !== undefined && { editor: normalized.editor }),
     ...(normalized.valueChips !== undefined && { valueChips: normalized.valueChips }),
     ...(normalized.concealed === true && { concealed: true as const }),
     ...(normalized.badge !== undefined && {
@@ -804,6 +819,15 @@ export function computeEditViewModel<
   const isHiddenByExclusion = (fieldSpec: EditFieldSpec): boolean =>
     mode === "create" && excludedFields.has(normalizeEditField(fieldSpec).field);
 
+  const documentFieldNames = new Set(
+    screen.layout.sections.filter(isFieldsEditSection).flatMap((sectionSpec) =>
+      sectionFieldSpecs(sectionSpec)
+        .map(normalizeEditField)
+        .filter((n) => n.editor === "document")
+        .map((n) => n.field),
+    ),
+  );
+
   const baseSections: EditSectionViewModel[] = screen.layout.sections.map((sectionSpec) => {
     if (!isFieldsEditSection(sectionSpec)) {
       return computeNonFieldsSectionViewModel(
@@ -919,6 +943,7 @@ export function computeEditViewModel<
           ...fileHints,
           ...(normalized.icon !== undefined && { icon: normalized.icon }),
           ...deriveFieldAffixHints(normalized, translate),
+          ...contextDocumentHints(normalized, documentFieldNames),
           ...embeddedListHints,
         };
         return view;
@@ -961,6 +986,7 @@ export function computeEditViewModel<
       ...(sectionSpec.summaryField !== undefined && { summaryField: sectionSpec.summaryField }),
       columns: sectionSpec.columns ?? defaultColumns,
       ...(sectionSpec.columns !== undefined && { columnsDeclared: true as const }),
+      ...(sectionSpec.flow === false && { flow: false as const }),
       fields,
       ...(groups !== undefined && { groups }),
       ...(sectionSpec.icon !== undefined && { icon: sectionSpec.icon }),

@@ -203,6 +203,67 @@ describe("multiSelect display chips and aiAssist.contextFields", () => {
   });
 });
 
+describe("aiAssist autoRun false", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test("a context change sends no request, the typed instruction does and carries the context", async () => {
+    jest.useFakeTimers();
+    const manual: EntityEditScreenDefinition = {
+      ...SCREEN,
+      layout: {
+        sections: [
+          {
+            title: "Ask",
+            fields: [
+              { field: "kinds" },
+              {
+                field: "note",
+                aiAssist: {
+                  query: "demo:query:draft",
+                  resultField: "message",
+                  contextFields: ["kinds"],
+                  autoRun: false,
+                  prompt: { param: "instruction" },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const calls: { payload: unknown }[] = [];
+    const query = (async (_type: string, payload: unknown) => {
+      calls.push({ payload });
+      return { isSuccess: true, data: { message: "Draft" } };
+    }) as unknown as Dispatcher["query"];
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <RenderEdit
+          screen={manual}
+          entity={entityWithChips}
+          featureName="demo"
+          initial={{ note: "", kinds: ["front"] }}
+          writeCommand="ask:create"
+        />
+      </DispatcherProvider>,
+    );
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    await user.click(screen.getByRole("button", { name: /back/ }));
+    act(() => {
+      jest.advanceTimersByTime(REFERENCE_SEARCH_DEBOUNCE_MS + 150);
+    });
+    expect(calls).toHaveLength(0);
+
+    await user.type(screen.getByTestId("field-ai-prompt-note"), "friendlier");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.payload).toEqual({ kinds: ["front", "back"], instruction: "friendlier" });
+  });
+});
+
 describe("actionForm summary.paramsFromLoad", () => {
   test("a placeholder is filled from a load field that is not a form field", async () => {
     const form: ActionFormScreenDefinition = {

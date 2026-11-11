@@ -61,6 +61,11 @@ export const FORM_FIELD_RULES = {
     summary: "actionForm fieldBadges keys name fields of the form.",
     fix: "Name a field of the form or remove the entry.",
   },
+  editorFieldType: {
+    id: "form/editor-field-type",
+    summary: "The editor option targets a longText field without fillAction or valueChips.",
+    fix: "Remove editor, or use a longText field and drop fillAction and valueChips.",
+  },
   aiAssistContextFieldUnknown: {
     id: "form/ai-assist-context-field-unknown",
     summary: "aiAssist.contextFields names fields of the same form.",

@@ -6,6 +6,8 @@ import { TextareaContentEditor } from "@cosmicdrift/kumiko-renderer";
 import { createContext, lazy, type ReactNode, Suspense, useContext } from "react";
 import type { DocumentEditorProps, DocumentToolbarBlock } from "./document-toolbar-blocks.ts";
 
+const NO_BLOCKS: readonly DocumentToolbarBlock[] = [];
+
 const LazyDocumentTiptapEditor = lazy(() => import("./document-tiptap-editor.tsx"));
 
 // The editor registry only hands ContentEditorProps to an editor, so the
@@ -17,7 +19,8 @@ export const DocumentBlocksContext = createContext<readonly DocumentToolbarBlock
 
 export function DocumentContentEditor(props: DocumentEditorProps): ReactNode {
   const contextBlocks = useContext(DocumentBlocksContext);
-  const editorProps = props.blocks === undefined ? { ...props, blocks: contextBlocks } : props;
+  const blocks = props.blocks ?? (props.formatting === "text" ? NO_BLOCKS : contextBlocks);
+  const editorProps = { ...props, blocks };
   return (
     <Suspense
       // Read-only without chips: a textarea would insert {{name}} text and plaintext into a document body.

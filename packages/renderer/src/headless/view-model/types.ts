@@ -402,6 +402,10 @@ export type EditFieldViewModel = {
   readonly fillAction?: FieldFillAction;
   /** From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated. */
   readonly aiAssist?: FieldAiAssist;
+  /** From EditFieldSpec.editor. */
+  readonly editor?: "document";
+  /** aiAssist.contextFields that name a document-editor field of the same form (their HTML is sent as text). */
+  readonly contextDocumentFields?: readonly string[];
   /** From EditFieldSpec.valueChips. */
   readonly valueChips?: FieldValueChips;
   /** From EditFieldSpec.concealed. */
@@ -506,6 +510,8 @@ export type EditFieldsSectionViewModel = {
   /** True when the author declared `columns` (section or group); only then may a read-only
    *  section draw a label/value grid. */
   readonly columnsDeclared?: true;
+  /** From `EditFieldsSection.flow`; only `false` is carried. */
+  readonly flow?: false;
   readonly fields: readonly EditFieldViewModel[];
   /** From `EditFieldsSection.groups` — each entry's `fields` are the same
    *  view-model objects as `fields` above, re-grouped (not recomputed). */

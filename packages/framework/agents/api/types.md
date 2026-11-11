@@ -1605,6 +1605,7 @@ type ContentEditorProps = {
   onChange: (value: string) => void;
   variables: string[]; // Variable names insertable as chips (from the collection's variableSchema).
   readOnly: boolean;
+  formatting?: "text"; // "text" asks for plain text formatting only (bold, italic, lists, link): no images, tables or other blocks.
 };
 ```
 
@@ -2264,6 +2265,8 @@ type EditFieldViewModel = {
   suffix?: FieldAffix;
   fillAction?: FieldFillAction; // From EditFieldSpec.fillAction, `label` already translated.
   aiAssist?: FieldAiAssist; // From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated.
+  editor?: "document"; // From EditFieldSpec.editor.
+  contextDocumentFields?: string[]; // aiAssist.contextFields that name a document-editor field of the same form (their HTML is sent as text).
   valueChips?: FieldValueChips; // From EditFieldSpec.valueChips.
   concealed?: true; // From EditFieldSpec.concealed.
   badge?: FieldBadge; // From EditFieldSpec.badge, a fixed `label` already translated.
@@ -5071,6 +5074,7 @@ type EditFieldsSectionBase = EditSectionPresentation & {
   description?: string; // Optional help text under the block heading (i18n key or raw string, like `title`) — makes a form usable without training instead of falling back to custom JSX for help text.
   descriptionNarrow?: string; // i18n key of a short text shown instead of `description` below `sm`.
   columns?: number;
+  flow?: boolean; // Screen forms and drawers lay fields out as a flow: each field is sized by its type and `columns` is ignored.
   icon?: IconKey; // Rendered left of the section title, `text-muted-foreground` — closed IconKey vocabulary into the ICONS registry (renderer/web), analogous to EditFieldSpec.icon.
   countField?: string; // Record field rendered as a count badge in the tab label when the enclosing `EditLayout.mode` is "tabs" (e.g. an open-items counter).
   subtitle?: string; // Short line (i18n key) under this step's title in the wizard step rail and in the "up next" box.

@@ -12,6 +12,7 @@
 | <a id="action-form-preview-field-unknown"></a>`action-form-preview/field-unknown` | preview.fields names fields of the form. | Name an existing field of the form, or drop fields to send all of them. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
 | <a id="action-form-preview-label-missing"></a>`action-form-preview/label-missing` | Every preview fact and list column has a label. | Add label: the i18n key of the fact or column header. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
 | <a id="action-form-preview-list-field-missing"></a>`action-form-preview/list-field-missing` | preview.list names the result field of its rows and at least one column. | Set list.field to the array in the query result and list the columns to show. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
+| <a id="action-form-preview-section-unknown"></a>`action-form-preview/section-unknown` | preview.section names a fields section of the layout. | Give a layout section that id, or drop section to show the preview below the form. | `packages/framework/src/engine/boot-validator/action-form-preview-rules.ts` |
 
 ## agent-effect
 
@@ -476,6 +477,7 @@
 | <a id="form-confirm-layout-mode"></a>`form/confirm-layout-mode` | A secretMint confirm layout is a single-step form. | Remove mode or set it to "single". | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-draft-feature-missing"></a>`form/draft-feature-missing` | A draft layout needs the form-draft feature mounted. | Add createFormDraftFeature() from @cosmicdrift/kumiko-bundled-features to the app's features. | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
 | <a id="form-draft-without-wizard"></a>`form/draft-without-wizard` | layout.draft is set only on a wizard layout. | Remove draft: true or set mode: "wizard". | `packages/framework/src/engine/boot-validator/screens-forms-layout-rules.ts` |
+| <a id="form-editor-field-type"></a>`form/editor-field-type` | The editor option targets a longText field without fillAction or valueChips. | Remove editor, or use a longText field and drop fillAction and valueChips. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-embedded-list-card-hidden-editable"></a>`form/embedded-list-card-hidden-editable` | embeddedList.cardHiddenCells lists only read-only cells. | Add the cell to readOnlyCells or remove it from cardHiddenCells. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-embedded-list-on-non-list-field"></a>`form/embedded-list-on-non-list-field` | embeddedList is set only on an embedded list field. | Remove embeddedList or point it at an embedded list field. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |
 | <a id="form-embedded-list-unknown-sub-field"></a>`form/embedded-list-unknown-sub-field` | embeddedList cell options name sub-fields of the embedded schema. | Name an existing sub-field. | `packages/framework/src/engine/boot-validator/screens-forms-rules.ts` |

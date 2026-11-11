@@ -64,6 +64,10 @@ export type EditFieldSpec =
       /** Helper under a `text` or `longText` input: stackable chips and an optional free
        *  instruction call a query and write its `resultField` into the field. */
       readonly aiAssist?: FieldAiAssist;
+      /** `longText` fields only: edits the value with the rich-text editor registered for
+       *  "document" (the value is an HTML string) instead of a textarea. Without a registered
+       *  editor the textarea shows. With `aiAssist`, the assist text is inserted as paragraphs and `contextFields` naming this field send its plain text. */
+      readonly editor?: "document";
       /** Quick-pick chips under a `number`, `decimal`, `bigInt` or `money` input; a chip sets
        *  the field to its value. The values come from another field of the same form that
        *  holds an array of numbers (e.g. hidden and `submit: false`, seeded by prefill). */
@@ -133,6 +137,8 @@ export type FieldAiAssist = {
   /** Other fields of the same form whose current values are sent in the payload (under their
    *  field names). Changing one of them runs the query again and replaces the text. */
   readonly contextFields?: readonly string[];
+  /** Default `true`: a change of a `contextFields` field re-runs the query while the field is empty or AI-written. `false`: the context values are only sent along; just a chip or the typed instruction runs the query. */
+  readonly autoRun?: boolean;
   readonly chips?: readonly FieldAiAssistChip[];
   /** Adds an input where the user types a free instruction; it is sent under `param`. */
   readonly prompt?: {
@@ -228,6 +234,9 @@ type EditFieldsSectionBase = EditSectionPresentation & {
   /** i18n key of a short text shown instead of `description` below `sm`. */
   readonly descriptionNarrow?: string;
   readonly columns?: number;
+  /** Screen forms and drawers lay fields out as a flow: each field is sized by its type and
+   *  `columns` is ignored. `flow: false` switches the section to a grid of `columns` equal cells. */
+  readonly flow?: boolean;
   /** Rendered left of the section title, `text-muted-foreground` — closed
    *  IconKey vocabulary into the ICONS registry (renderer/web), analogous
    *  to EditFieldSpec.icon. No title → no icon, and no heuristic derives

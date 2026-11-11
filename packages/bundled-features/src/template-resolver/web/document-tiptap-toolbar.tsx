@@ -212,6 +212,23 @@ export function renderToolbarBar(c: TiptapContext): ReactNode {
   );
 }
 
+function renderPlaceholderButton(c: TiptapContext): ReactNode {
+  if (c.variables.length === 0) return null;
+  return (
+    <>
+      <Separator compact={c.compact || c.canvas} />
+      {labelledButton(c, {
+        label: c.t("template-resolver.documentEditor.insertPlaceholder"),
+        icon: <Braces size={16} />,
+        showIcon: true,
+        trailingIcon: c.canvas ? <ChevronDown size={12} /> : undefined,
+        expanded: c.openPanel === "placeholder",
+        onClick: () => c.togglePanel("placeholder"),
+      })}
+    </>
+  );
+}
+
 function renderMainToolbarRow(c: TiptapContext): ReactNode {
   const { t, id, canvas, compact, ActionOverflowMenu } = c;
   const blockButtons = blockButtonsOf(c);
@@ -237,15 +254,7 @@ function renderMainToolbarRow(c: TiptapContext): ReactNode {
       {renderMarkButtons(c)}
       <Separator compact={compact || canvas} />
       {renderListButtons(c)}
-      <Separator compact={compact || canvas} />
-      {labelledButton(c, {
-        label: t("template-resolver.documentEditor.insertPlaceholder"),
-        icon: <Braces size={16} />,
-        showIcon: true,
-        trailingIcon: canvas ? <ChevronDown size={12} /> : undefined,
-        expanded: c.openPanel === "placeholder",
-        onClick: () => c.togglePanel("placeholder"),
-      })}
+      {renderPlaceholderButton(c)}
       {inlineBlocks.length > 0 && <Separator compact={compact || canvas} />}
       {inlineBlocks.map((block) => renderInlineBlock(c, block, blockButtons))}
       {c.print !== "none" && <Separator compact={compact || canvas} />}
