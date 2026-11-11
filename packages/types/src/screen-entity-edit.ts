@@ -368,6 +368,14 @@ export type RelatedListRowTone = Exclude<FieldCondition, boolean> & {
   readonly tone: SelectOptionTone;
 };
 
+/** Page-header help explaining every option of one select field (typically a status). The sentence of an
+ *  option is the i18n key `<option label key>:help`. `entity` defaults to the screen entity on an entityList
+ *  and is required on a projectionDetail, which has no entity of its own. */
+export type PageHelpSpec = {
+  readonly statusField: string;
+  readonly entity?: string;
+};
+
 /** Replacement for the default "no rows" box of a list. `title`/`description`
  *  are i18n keys. `action` is a record action evaluated against an empty
  *  record on list screens (the parent record on a relatedList); its icon must

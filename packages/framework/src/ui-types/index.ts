@@ -161,6 +161,7 @@ export type {
   ListTableSummaryRow,
   ListToolbarActionsPlacement,
   MetricNavigate,
+  PageHelpSpec,
   PlatformComponent,
   ProjectionDetailInitialTab,
   ProjectionDetailScreenDefinition,

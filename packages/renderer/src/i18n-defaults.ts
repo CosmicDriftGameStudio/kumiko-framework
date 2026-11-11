@@ -384,6 +384,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",
     "kumiko.dialog.close": "Close",
+    "kumiko.pageHelp.button": "Statuses explained",
+    "kumiko.pageHelp.title": "Status",
     "kumiko.lightbox.previous": "Previous image",
     "kumiko.lightbox.next": "Next image",
     "kumiko.lightbox.position": "{current} / {total}",

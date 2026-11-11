@@ -2593,6 +2593,7 @@ type DialogProps = { // Modal dialog for confirmations or compact sub-forms.
   description?: string; // Optional description, typically a sentence explaining the consequence ("This action cannot be undone.").
   confirmLabel?: string; // Confirm-button label.
   cancelLabel?: string; // Cancel-Button-Label.
+  hideCancel?: boolean; // Leaves out the cancel button, for an information dialog whose only button closes it.
   variant?: "default" | "danger"; // `default` = Confirm primary, `danger` = Confirm danger.
   initialFocus?: "confirm" | "cancel"; // Which button takes focus on open.
   onConfirm: () => void | Promise<void>; // Called when the user confirms.

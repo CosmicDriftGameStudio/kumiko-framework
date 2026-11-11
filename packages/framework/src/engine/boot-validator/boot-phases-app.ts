@@ -23,6 +23,7 @@ import {
 } from "./i18n-keys.ts";
 import { validateListSortAndSummary } from "./list-sort-summary.ts";
 import { validateNavCycles } from "./nav.ts";
+import { validatePageHelp } from "./page-help.ts";
 import {
   validateProjectionListScreens,
   validateRelatedListSectionQueries,
@@ -52,6 +53,7 @@ const APP_CHECKS_AFTER_I18N: readonly AppCheck[] = [
       validateFieldValueTranslations(c.features, c.options?.requireFieldValueTranslations),
   },
   { check: "validateEntityListScreens", run: (c) => validateEntityListScreens(c.features) },
+  { check: "validatePageHelp", run: (c) => validatePageHelp(c.features) },
   {
     check: "validateSubmitPrefilledHiddenFields",
     run: (c) => validateSubmitPrefilledHiddenFields(c.features),

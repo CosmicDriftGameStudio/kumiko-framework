@@ -786,6 +786,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.dashboard.today": "Today",
   "kumiko.dialog.cancel": "Cancel",
   "kumiko.dialog.close": "Close",
+  "kumiko.pageHelp.button": "Statuses explained",
+  "kumiko.pageHelp.title": "Status",
   "kumiko.list.actions": "Actions",
   "kumiko.sidebar.toggle": "Toggle sidebar",
   "kumiko.focusRail.more": "More",

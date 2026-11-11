@@ -734,7 +734,7 @@ export type TranslationLocaleGap = {
   readonly missingLocales: readonly string[];
 };
 
-function hasLocaleValue(value: TranslationValue | undefined): boolean {
+export function hasLocaleValue(value: TranslationValue | undefined): boolean {
   if (value === undefined) return false;
   const forms = typeof value === "string" ? [value] : Object.values(value);
   return forms.every((form) => form.trim() !== "");

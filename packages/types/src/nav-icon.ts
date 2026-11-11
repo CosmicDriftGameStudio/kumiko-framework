@@ -95,6 +95,7 @@ export const NAV_ICON_KEYS = [
   "alert-triangle",
   "info",
   "check-circle",
+  "help-circle",
   "x-circle",
   "loader",
   "mic",

@@ -338,6 +338,15 @@ export function fieldOptionLabelKey(
   return `${fieldOptionLabelKeyPrefix(featureName, entityName, fieldName)}${value}`;
 }
 
+export function fieldOptionHelpKey(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  value: string,
+): string {
+  return `${fieldOptionLabelKey(featureName, entityName, fieldName, value)}:help`;
+}
+
 // Embedded-list cell label key — one level deeper than fieldLabelKey,
 // keyed by the sub-field name inside an embedded-LIST field's `schema`
 // (invoice-positions-style tables built via createEmbeddedListField()).

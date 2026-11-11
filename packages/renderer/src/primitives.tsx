@@ -1237,6 +1237,8 @@ export type DialogProps = {
   readonly confirmLabel?: string;
   /** Cancel-Button-Label. Default `kumiko.dialog.cancel`. */
   readonly cancelLabel?: string;
+  /** Leaves out the cancel button, for an information dialog whose only button closes it. */
+  readonly hideCancel?: boolean;
   /** `default` = Confirm primary, `danger` = Confirm danger. */
   readonly variant?: "default" | "danger";
   /** Which button takes focus on open. Default: Confirm for a bare dialog

@@ -38,6 +38,7 @@ import { LIST_TABLE_RULES } from "./list-table-rules.ts";
 import { NAMED_FILTER_RULES } from "./named-filter-rules.ts";
 import { NAV_RULES } from "./nav-rules.ts";
 import { OWNERSHIP_RULES } from "./ownership-rules.ts";
+import { PAGE_HELP_RULES } from "./page-help-rules.ts";
 import { PII_RULES } from "./pii-retention-rules.ts";
 import { QUERY_RULES } from "./query-rules.ts";
 import { SCREEN_ACTION_RULES } from "./screens-actions-rules.ts";
@@ -53,6 +54,7 @@ import { SCREEN_RULES } from "./screens-rules.ts";
 export const FRAMEWORK_BOOT_RULE_TABLES = [
   PII_RULES,
   ENTITY_LIST_RULES,
+  PAGE_HELP_RULES,
   NAMED_FILTER_RULES,
   I18N_RULES,
   CARD_META_OVERFLOW_RULES,

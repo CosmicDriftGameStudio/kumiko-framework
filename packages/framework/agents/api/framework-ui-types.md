@@ -571,6 +571,10 @@ type ListTableSummaryRow = { // The query receives the list's current search, fi
 };
 type ListToolbarActionsPlacement = (typeof LIST_TOOLBAR_ACTIONS_PLACEMENTS)[number];
 type OptionsQueryPayload = Readonly<Record<string, OptionsQueryPayloadValue>>;
+type PageHelpSpec = { // Page-header help explaining every option of one select field (typically a status).
+  statusField: string;
+  entity?: string;
+};
 type ParsedRefTarget = {
   featureName: string;
   entityName: string;

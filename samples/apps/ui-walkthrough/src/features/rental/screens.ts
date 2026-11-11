@@ -47,6 +47,7 @@ export const leaseListScreen: EntityListScreenDefinition = {
   id: "lease-list",
   type: "entityList",
   entity: "lease",
+  pageHelp: { statusField: "status" },
   columns: [...OPEN_FILL_COLUMNS],
   defaultSort: { field: "beginn", dir: "desc" },
   pageSize: 25,

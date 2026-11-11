@@ -5,7 +5,12 @@ import type { NamedFilterFacetOptions, NamedListFilterRef } from "./named-list-f
 import type { NavIconKey } from "./nav-icon.ts";
 import type { FormatSpec, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { DashboardStatTone, ScreenVisibility } from "./screen-dashboard.ts";
-import type { EditLayout, EntityEditAction, ListEmptyStateSpec } from "./screen-entity-edit.ts";
+import type {
+  EditLayout,
+  EntityEditAction,
+  ListEmptyStateSpec,
+  PageHelpSpec,
+} from "./screen-entity-edit.ts";
 import type {
   ListColumnSpec,
   ListPaginationMode,
@@ -356,6 +361,8 @@ export type ProjectionDetailScreenDefinition = {
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
+  /** Help button in the page header; its dialog explains each option of a select field of `pageHelp.entity` with badge and sentence. */
+  readonly pageHelp?: PageHelpSpec;
   /** Header action buttons. Reuses `RowAction` — the screen's single
    *  displayed record stands in for the "row", so `pick`/`map`, `visible`,
    *  `confirm`/`confirmLabel` and `style` keep their meaning unchanged.

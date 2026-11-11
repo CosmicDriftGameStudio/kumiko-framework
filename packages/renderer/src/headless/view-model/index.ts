@@ -20,6 +20,7 @@ export {
   embeddedCellLabelKey,
   embeddedCellOptionLabelKey,
   fieldLabelKey,
+  fieldOptionHelpKey,
   fieldOptionLabelKey,
   fieldOptionLabelKeyPrefix,
 } from "./list.ts";

@@ -700,6 +700,7 @@ type EntityListScreenDefinition = {
   toolbarSort?: true; // From `sm` up, a "Sorted by" select in the filter row (same options as the narrow sort control); column headers stay sortable.
   narrowFacets?: ListNarrowFacets; // "pills": below `sm` the select facets render as rounded pill triggers with a stronger border; from `sm` up unchanged.
   toolbarActionsPlacement?: ListToolbarActionsPlacement; // "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header.
+  pageHelp?: PageHelpSpec; // Help button in the page header; its dialog explains each option of `pageHelp.statusField` with badge and sentence.
   itemNounKey?: string; // i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised).
   searchPlaceholder?: string; // i18n key for the search field placeholder (default `kumiko.list.search-placeholder`).
   searchable?: boolean;
@@ -1443,6 +1444,7 @@ type ProjectionDetailScreenDefinition = {
   listScreenId?: string; // Parent list screen (short id) for a "back" navigation.
   slots?: ScreenSlots;
   access?: AccessRule;
+  pageHelp?: PageHelpSpec; // Help button in the page header; its dialog explains each option of a select field of `pageHelp.entity` with badge and sentence.
   actions?: EntityEditAction[]; // Header action buttons.
   primaryAction?: string; // Id of the action that stays the visible header button when the actions collapse into a menu (and the one that keeps the phone icon slot when it has an icon and no confirm).
   inlineActions?: string[]; // Action ids that stay visible buttons next to the primary action when the rest collapses into the menu.

@@ -89,7 +89,11 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:lease:field:vorgaenger": "Vorgänger",
     "rental:entity:lease:field:status": "Status",
     "rental:entity:lease:field:status:option:active": "Aktiv",
+    "rental:entity:lease:field:status:option:active:help":
+      "Der Vertrag läuft und die Miete wird gebucht.",
     "rental:entity:lease:field:status:option:terminated": "Gekündigt",
+    "rental:entity:lease:field:status:option:terminated:help":
+      "Der Vertrag ist gekündigt und endet zum eingetragenen Datum.",
     "rental:entity:lease:field:grundmiete": "Grundmiete pro Monat",
     "rental:entity:lease:field:kuendigungsfrist": "Kündigungsfrist",
     "rental:entity:lease:field:zahltag": "Zahltag",
@@ -252,7 +256,11 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental:entity:lease:field:vorgaenger": "Predecessor",
     "rental:entity:lease:field:status": "Status",
     "rental:entity:lease:field:status:option:active": "Active",
+    "rental:entity:lease:field:status:option:active:help":
+      "The lease is running and rent is being booked.",
     "rental:entity:lease:field:status:option:terminated": "Terminated",
+    "rental:entity:lease:field:status:option:terminated:help":
+      "The lease is terminated and ends on the entered date.",
     "rental:entity:lease:field:grundmiete": "Base rent per month",
     "rental:entity:lease:field:kuendigungsfrist": "Notice period",
     "rental:entity:lease:field:zahltag": "Due day",

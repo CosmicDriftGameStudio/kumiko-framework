@@ -145,6 +145,7 @@ export {
   embeddedCellLabelKey,
   embeddedCellOptionLabelKey,
   fieldLabelKey,
+  fieldOptionHelpKey,
   fieldOptionLabelKey,
   fieldOptionLabelKeyPrefix,
   fieldTextKey,

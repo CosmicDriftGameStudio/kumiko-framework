@@ -11,7 +11,7 @@ import type { IconKey } from "./nav-icon.ts";
 import type { FieldRenderer, PlatformComponent, ScreenNavSugar, ScreenSlots } from "./screen.ts";
 import type { ActionFormRedirect } from "./screen-action-form.ts";
 import type { DashboardPanelVisibility, ScreenVisibility } from "./screen-dashboard.ts";
-import type { ListEmptyStateSpec } from "./screen-entity-edit.ts";
+import type { ListEmptyStateSpec, PageHelpSpec } from "./screen-entity-edit.ts";
 import type { EntityListExpandableRow } from "./screen-expandable-row.ts";
 import type { ScreenFallback } from "./screen-fallback.ts";
 import type { ListBulkAction } from "./screen-list-bulk.ts";
@@ -682,6 +682,8 @@ export type EntityListScreenDefinition = {
   readonly narrowFacets?: ListNarrowFacets;
   /** "toolbar": from `md` up the `toolbarActions` end the filter row, after the "Sorted by" select and the create button, instead of standing in the page header. Below `md` they stay in the header. Default "header". Needs `toolbarActions`. */
   readonly toolbarActionsPlacement?: ListToolbarActionsPlacement;
+  /** Help button in the page header; its dialog explains each option of `pageHelp.statusField` with badge and sentence. */
+  readonly pageHelp?: PageHelpSpec;
   /** i18n key of the plural noun for the list size in the phone sort line (`{count}` pluralised). Default `<feature>:entity:<entity>:noun`. */
   readonly itemNounKey?: string;
   /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */
