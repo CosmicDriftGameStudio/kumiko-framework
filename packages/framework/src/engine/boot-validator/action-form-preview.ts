@@ -1,3 +1,4 @@
+import { isFieldsEditSection } from "../screen-helpers.ts";
 import type { ActionFormPreview, ActionFormScreenDefinition } from "../types/screen.ts";
 import { ACTION_FORM_PREVIEW_RULES } from "./action-form-preview-rules.ts";
 import { bootRuleError } from "./boot-rule.ts";
@@ -17,6 +18,22 @@ function validateSentFields(
       message: `${where} sends field "${field}", which the form does not declare. Form fields: ${[...fieldNames].sort().join(", ") || "(none)"}.`,
     });
   }
+}
+
+function validateSection(
+  where: string,
+  preview: ActionFormPreview,
+  screen: ActionFormScreenDefinition,
+): void {
+  // skip: no placement, the panel stays below the form
+  if (preview.section === undefined) return;
+  const sectionIds = screen.layout.sections.flatMap((section) =>
+    isFieldsEditSection(section) && section.id !== undefined ? [section.id] : [],
+  );
+  if (sectionIds.includes(preview.section)) return;
+  throw bootRuleError(ACTION_FORM_PREVIEW_RULES.sectionUnknown, {
+    message: `${where} section "${preview.section}" is no fields section id of the layout. Section ids: ${sectionIds.join(", ") || "(none)"}.`,
+  });
 }
 
 function validateFacts(where: string, facts: NonNullable<ActionFormPreview["facts"]>): void {
@@ -53,6 +70,7 @@ export function validateActionFormPreview(
   if (preview === undefined) return;
   const where = `[Feature ${featureName}] Screen "${screenId}" (actionForm) preview`;
   validateSentFields(where, preview, fieldNames);
+  validateSection(where, preview, screen);
   const facts = preview.facts ?? [];
   if (facts.length === 0 && preview.list === undefined) {
     throw bootRuleError(ACTION_FORM_PREVIEW_RULES.empty, {

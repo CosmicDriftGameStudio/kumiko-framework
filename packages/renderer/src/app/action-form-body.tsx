@@ -557,6 +557,16 @@ export function ActionFormBody({
     );
   }
   const { preview } = screen;
+  const renderPreview = (values: FormValues): ReactNode =>
+    preview === undefined ? null : (
+      <ActionFormPreviewPanel
+        preview={preview}
+        fields={screen.fields}
+        values={values}
+        translate={effectiveTranslate}
+        locale={locale}
+      />
+    );
   return (
     <AiAssistPayloadProvider value={aiAssistPayload}>
       <RenderEdit
@@ -626,17 +636,13 @@ export function ActionFormBody({
           },
         })}
         {...(summary !== undefined && { summary })}
-        {...(preview !== undefined && {
-          belowSections: (values: FormValues) => (
-            <ActionFormPreviewPanel
-              preview={preview}
-              fields={screen.fields}
-              values={values}
-              translate={effectiveTranslate}
-              locale={locale}
-            />
-          ),
-        })}
+        {...(preview !== undefined &&
+          (preview.section === undefined
+            ? { belowSections: renderPreview }
+            : {
+                afterSection: (sectionId: string, values: FormValues) =>
+                  sectionId === preview.section ? renderPreview(values) : undefined,
+              }))}
         {...(translate !== undefined && { translate })}
       />
     </AiAssistPayloadProvider>

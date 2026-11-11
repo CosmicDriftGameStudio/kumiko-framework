@@ -304,6 +304,7 @@ type FieldAffixHints = Pick<
   | "suffix"
   | "fillAction"
   | "aiAssist"
+  | "editor"
   | "valueChips"
   | "concealed"
   | "badge"
@@ -336,6 +337,9 @@ function deriveFieldAffixHints(
         ...(normalized.aiAssist.contextFields !== undefined && {
           contextFields: normalized.aiAssist.contextFields,
         }),
+        ...(normalized.aiAssist.autoRun !== undefined && {
+          autoRun: normalized.aiAssist.autoRun,
+        }),
         ...(normalized.aiAssist.chips !== undefined && {
           chips: normalized.aiAssist.chips.map((chip) => ({
             ...chip,
@@ -352,6 +356,7 @@ function deriveFieldAffixHints(
         }),
       },
     }),
+    ...(normalized.editor !== undefined && { editor: normalized.editor }),
     ...(normalized.valueChips !== undefined && { valueChips: normalized.valueChips }),
     ...(normalized.concealed === true && { concealed: true as const }),
     ...(normalized.badge !== undefined && {

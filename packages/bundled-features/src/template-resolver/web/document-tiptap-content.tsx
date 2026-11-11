@@ -52,6 +52,7 @@ export function renderEditorContent(
   canvas: boolean,
   hosted: boolean,
   print: DocumentPrintMode,
+  mailSpacing = false,
 ): ReactNode {
   const page = print === "page";
   return (
@@ -70,6 +71,9 @@ export function renderEditorContent(
         // The PDF gives every body paragraph this spacing (see PRINT_CSS); cells and list items stay flush.
         page &&
           "[&_p]:mb-(--doc-line) [&_ul]:mb-(--doc-line) [&_ol]:mb-(--doc-line) [&_td>p]:mb-0 [&_th>p]:mb-0 [&_li>p]:mb-0 [&_td>:last-child]:mb-0 [&_th>:last-child]:mb-0 [&_li>:last-child]:mb-0 [&_.ProseMirror>:last-child]:mb-0",
+        // Preflight strips paragraph and list margins; a mail body in a form field needs them back.
+        mailSpacing &&
+          "[&_p]:my-3 [&_ul]:my-3 [&_ol]:my-3 [&_li>p]:my-0 [&_.ProseMirror>:first-child]:mt-0 [&_.ProseMirror>:last-child]:mb-0",
         print !== "none" &&
           "[&_td]:relative [&_th]:relative [&_.column-resize-handle]:pointer-events-none [&_.column-resize-handle]:absolute [&_.column-resize-handle]:-right-0.5 [&_.column-resize-handle]:bottom-0 [&_.column-resize-handle]:top-0 [&_.column-resize-handle]:w-1 [&_.column-resize-handle]:bg-primary",
         "[&_[data-borders=none]_td]:border-transparent [&_[data-borders=none]_th]:border-transparent",

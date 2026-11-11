@@ -10,6 +10,7 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { sanitizeDocumentHtml } from "../../document-sanitizer.ts";
+import { DocumentContentEditor } from "../document-editor.tsx";
 import DocumentTiptapEditor from "../document-tiptap-editor.tsx";
 import { type DocumentToolbarBlock, PDF_DOCUMENT_BLOCKS } from "../document-toolbar-blocks.ts";
 import { defaultTranslations } from "../i18n.ts";
@@ -305,5 +306,64 @@ describe("DocumentTiptapEditor asynchronously loaded value", () => {
     expect(edits).toHaveLength(1);
     expect(currentHtml()).toContain("<strong>ab</strong>");
     expectCanonical(currentHtml());
+  });
+});
+
+describe("DocumentContentEditor as a form field", () => {
+  test("formatting text without variables shows only text formatting", async () => {
+    render(
+      <LocaleProvider
+        resolver={localeResolver}
+        fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
+      >
+        <PrimitivesProvider value={defaultPrimitives}>
+          <DocumentContentEditor
+            id={CONTENT_EDITOR_ELEMENT_ID}
+            value=""
+            onChange={() => {}}
+            variables={[]}
+            readOnly={false}
+            formatting="text"
+          />
+        </PrimitivesProvider>
+      </LocaleProvider>,
+    );
+    await screen.findByRole("button", { name: "Bold" });
+    expect(screen.getByRole("button", { name: "Link" })).toBeTruthy();
+    for (const name of ["Placeholder", "Image", "Table", "Button", "Divider", "Repeat", "Steps"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+  });
+});
+
+describe("DocumentContentEditor spacing", () => {
+  async function renderWith(formatting?: "text"): Promise<string> {
+    render(
+      <LocaleProvider
+        resolver={localeResolver}
+        fallbackBundles={[kumikoDefaultTranslations, defaultTranslations]}
+      >
+        <PrimitivesProvider value={defaultPrimitives}>
+          <DocumentContentEditor
+            id={CONTENT_EDITOR_ELEMENT_ID}
+            value="<p>a</p><p>b</p>"
+            onChange={() => {}}
+            variables={[]}
+            readOnly={false}
+            {...(formatting !== undefined && { formatting })}
+          />
+        </PrimitivesProvider>
+      </LocaleProvider>,
+    );
+    await screen.findByRole("button", { name: "Bold" });
+    return document.body.innerHTML;
+  }
+
+  test("the form editor spaces paragraphs and lists", async () => {
+    expect(await renderWith("text")).toContain("[&amp;_p]:my-3");
+  });
+
+  test("the template editor keeps its own spacing", async () => {
+    expect(await renderWith()).not.toContain("[&amp;_p]:my-3");
   });
 });

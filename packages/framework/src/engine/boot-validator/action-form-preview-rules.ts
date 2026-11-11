@@ -16,6 +16,11 @@ export const ACTION_FORM_PREVIEW_RULES = {
     summary: "preview.list names the result field of its rows and at least one column.",
     fix: "Set list.field to the array in the query result and list the columns to show.",
   },
+  sectionUnknown: {
+    id: "action-form-preview/section-unknown",
+    summary: "preview.section names a fields section of the layout.",
+    fix: "Give a layout section that id, or drop section to show the preview below the form.",
+  },
   empty: {
     id: "action-form-preview/empty",
     summary: "A preview shows facts or a list.",

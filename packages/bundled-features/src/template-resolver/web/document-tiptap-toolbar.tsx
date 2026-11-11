@@ -237,15 +237,16 @@ function renderMainToolbarRow(c: TiptapContext): ReactNode {
       {renderMarkButtons(c)}
       <Separator compact={compact || canvas} />
       {renderListButtons(c)}
-      <Separator compact={compact || canvas} />
-      {labelledButton(c, {
-        label: t("template-resolver.documentEditor.insertPlaceholder"),
-        icon: <Braces size={16} />,
-        showIcon: true,
-        trailingIcon: canvas ? <ChevronDown size={12} /> : undefined,
-        expanded: c.openPanel === "placeholder",
-        onClick: () => c.togglePanel("placeholder"),
-      })}
+      {c.variables.length > 0 && <Separator compact={compact || canvas} />}
+      {c.variables.length > 0 &&
+        labelledButton(c, {
+          label: t("template-resolver.documentEditor.insertPlaceholder"),
+          icon: <Braces size={16} />,
+          showIcon: true,
+          trailingIcon: canvas ? <ChevronDown size={12} /> : undefined,
+          expanded: c.openPanel === "placeholder",
+          onClick: () => c.togglePanel("placeholder"),
+        })}
       {inlineBlocks.length > 0 && <Separator compact={compact || canvas} />}
       {inlineBlocks.map((block) => renderInlineBlock(c, block, blockButtons))}
       {c.print !== "none" && <Separator compact={compact || canvas} />}

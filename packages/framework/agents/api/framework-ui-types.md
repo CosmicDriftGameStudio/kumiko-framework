@@ -71,6 +71,7 @@ type ActionFormPreview = { // Preview panel above the submit button: runs a quer
   query: string; // Query QN.
   fields?: string[]; // Form fields sent to the query; they also trigger a rerun when they change.
   title?: string; // Panel title (i18n key).
+  section?: string; // Id of a layout section: the panel renders at the end of that section instead of below the form.
   facts?: ActionFormSuccessFact[]; // Key figures from the query result, shown like the success box facts.
   list?: ActionFormPreviewList; // Table of rows from the query result.
 };
@@ -490,6 +491,7 @@ type FieldAiAssist = {
   resultField: string; // Key in the query result written into the field; the value must be a string.
   noteField?: string; // Key in the query result with a short note for the user (e.g. "could not rewrite, draft unchanged").
   contextFields?: string[]; // Other fields of the same form whose current values are sent in the payload (under their field names).
+  autoRun?: boolean; // Default `true`: a change of a `contextFields` field re-runs the query while the field is empty or AI-written.
   chips?: FieldAiAssistChip[];
   prompt?: {
     param: string;

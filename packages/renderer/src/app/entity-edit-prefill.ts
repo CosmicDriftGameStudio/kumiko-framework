@@ -405,6 +405,26 @@ export type InitialValueSources = {
   readonly handoffValues?: Readonly<Record<string, unknown>>;
 };
 
+// Row-action navigate stringifies arrays via String(arr) → "a,b" (or JSON when the navigate helper
+// JSON.stringifies); a single value is a one-element list. JSON first, then comma-split.
+function parseListPrefill(raw: string): string[] {
+  const splitComma = (): string[] =>
+    raw === ""
+      ? []
+      : raw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((v) => String(v));
+    if (typeof parsed === "string") return [parsed];
+    return splitComma();
+  } catch {
+    return splitComma();
+  }
+}
+
 function coercePrefillString(
   raw: string,
   name: string,
@@ -423,32 +443,10 @@ function coercePrefillString(
     return coerced === undefined ? fallback : coerced;
   }
   if (shape.type === "boolean") return raw === "true";
+  if (shape.type === "reference" && shape.multiple === true) return parseListPrefill(raw);
   if (shape.type === "multiSelect") {
-    // Row-action navigate stringifies arrays via String(arr) → "a,b" (or
-    // JSON when the navigate helper JSON.stringifies). Try JSON first
-    // (even without a "[" prefix), then comma-split; filter against
-    // field.options when present so unknown values never reach the form.
+    const values = parseListPrefill(raw);
     const optionValues = multiSelectOptionValues(shape);
-    const splitComma = (): string[] =>
-      raw === ""
-        ? []
-        : raw
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
-    let values: string[];
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        values = parsed.map((v) => String(v));
-      } else if (typeof parsed === "string") {
-        values = [parsed];
-      } else {
-        values = splitComma();
-      }
-    } catch {
-      values = splitComma();
-    }
     return optionValues !== undefined ? values.filter((v) => optionValues.has(v)) : values;
   }
   if (shape.type === "embedded" && shape.multiple === true) {

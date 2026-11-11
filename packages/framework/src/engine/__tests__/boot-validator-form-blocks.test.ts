@@ -25,6 +25,8 @@ function actionFormFeature(opts: {
   readonly fields?: Record<string, Field>;
   readonly layoutFields: readonly (string | Field)[];
   readonly fieldDescriptions?: Record<string, unknown>;
+  readonly sectionId?: string;
+  readonly preview?: Record<string, unknown>;
 }): Feature {
   return defineFeature("shop", (r) => {
     r.queryHandler({
@@ -48,7 +50,16 @@ function actionFormFeature(opts: {
         count: { type: "number" },
         hints: { type: "jsonb" },
       }) as never,
-      layout: { sections: [{ title: "s", fields: opts.layoutFields as never }] },
+      layout: {
+        sections: [
+          {
+            ...(opts.sectionId !== undefined && { id: opts.sectionId }),
+            title: "s",
+            fields: opts.layoutFields as never,
+          },
+        ],
+      },
+      ...(opts.preview !== undefined && { preview: opts.preview as never }),
       ...(opts.fieldDescriptions !== undefined && {
         fieldDescriptions: opts.fieldDescriptions as never,
       }),
@@ -119,6 +130,31 @@ describe("validateBoot — form blocks (aiAssist, valueChips, fieldDescriptions)
         }),
       ),
     ).toEqual(["form/ai-assist-sensitive-field"]);
+  });
+
+  test("editor document needs a longText field", () => {
+    const withNote = (note: Field) =>
+      bootRuleIds(
+        actionFormFeature({
+          fields: { note, count: { type: "number" } },
+          layoutFields: [{ field: "note", editor: "document" }, "count"],
+        }),
+      );
+    expect(withNote({ type: "longText" })).toEqual([]);
+    expect(withNote({ type: "text" })).toEqual(["form/editor-field-type"]);
+  });
+
+  test("preview.section must name a fields section id", () => {
+    const withSection = (section: string) =>
+      bootRuleIds(
+        actionFormFeature({
+          layoutFields: ["note"],
+          sectionId: "recipients",
+          preview: { query: "shop:query:draft", facts: [{ field: "n", label: "k.n" }], section },
+        }),
+      );
+    expect(withSection("recipients")).toEqual([]);
+    expect(withSection("ghost")).toEqual(["action-form-preview/section-unknown"]);
   });
 
   test("aiAssist with neither chips nor prompt", () => {

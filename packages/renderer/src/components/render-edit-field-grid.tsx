@@ -70,13 +70,13 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
   section: FieldsSection,
   columns: number,
+  flows: boolean,
   facts: boolean,
 ): (field: EditFieldViewModel) => ReactNode {
   const { props, state, form } = model.engine;
   const { snapshot } = form;
   const { GridCell } = state.primitives;
   const { isSettingsList, isCreate } = model.footer;
-  const usesFieldFlow = model.titles.usesFieldFlow && !facts;
   const { disabled, fieldAccent } = props;
   const showsChangedMarker = !isCreate || props.markChangedFields;
   const clearErrorsAndValidate = (fieldName: string): void => {
@@ -90,7 +90,7 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
         key={field.field}
         field={disabled ? { ...field, readOnly: true } : field}
         columns={columns}
-        {...(!isSettingsList && usesFieldFlow && { flow: true })}
+        {...(!isSettingsList && flows && { flow: true })}
         {...(isSettingsList && {
           layout: "row" as const,
           accent: fieldAccent?.(field.field) === true,
@@ -116,6 +116,17 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
       />
     );
   };
+}
+
+// The flow layout sizes each field by its type and ignores `columns`; a section that declares
+// several columns asks for equal grid cells, so every field fills its cell instead.
+function usesFlowLayout<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+  facts: boolean,
+  columns: number,
+  columnsDeclared: boolean,
+): boolean {
+  return model.titles.usesFieldFlow && !facts && !(columnsDeclared && columns > 1);
 }
 
 // Read-only text values with a declared column count form a label/value grid; the flow layout
@@ -149,15 +160,15 @@ export function renderFieldGrid<TValues extends FormValues, TCtx>(
   const { rowAfterField } = model.engine.props;
   const dirty = Object.keys(model.engine.form.snapshot.changes).length > 0;
   const { isSettingsList } = model.footer;
-  const { usesFieldFlow } = model.titles;
   const facts = isReadOnlyFactsGrid(model, fields, columns, columnsDeclared);
-  const renderCell = createFieldCellRenderer(model, section, columns, facts);
+  const flows = usesFlowLayout(model, facts, columns, columnsDeclared);
+  const renderCell = createFieldCellRenderer(model, section, columns, flows, facts);
   return (
     <Grid
       key={gridKey}
       columns={columns}
       {...(facts && { facts: true })}
-      {...(isSettingsList ? { list: true } : usesFieldFlow && !facts && { flow: true })}
+      {...(isSettingsList ? { list: true } : flows && { flow: true })}
     >
       {fields.map((field: EditFieldViewModel) => {
         const extraRow = rowAfterField?.(field.field, { dirty });

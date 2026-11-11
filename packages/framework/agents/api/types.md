@@ -1605,6 +1605,7 @@ type ContentEditorProps = {
   onChange: (value: string) => void;
   variables: string[]; // Variable names insertable as chips (from the collection's variableSchema).
   readOnly: boolean;
+  formatting?: "text"; // "text" asks for plain text formatting only (bold, italic, lists, link): no images, tables or other blocks.
 };
 ```
 
@@ -2264,6 +2265,7 @@ type EditFieldViewModel = {
   suffix?: FieldAffix;
   fillAction?: FieldFillAction; // From EditFieldSpec.fillAction, `label` already translated.
   aiAssist?: FieldAiAssist; // From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated.
+  editor?: "document"; // From EditFieldSpec.editor.
   valueChips?: FieldValueChips; // From EditFieldSpec.valueChips.
   concealed?: true; // From EditFieldSpec.concealed.
   badge?: FieldBadge; // From EditFieldSpec.badge, a fixed `label` already translated.

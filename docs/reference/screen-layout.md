@@ -389,6 +389,7 @@ initialTab: [{ when: { field: "status", eq: "open" }, tab: "overview" }],
 | `load.passPrefill` | actionForm | `true` sends the drawer's prefill values (for example `vehicleId`) in the load payload; the query's schema must accept them |
 | `layout.allRequiredHint` | edit layouts | `false` keeps the per-field asterisks instead of the "all fields are required" hint |
 | `aiAssist` | text, longText field | helper under the input, see below |
+| `editor: "document"` | longText field | rich-text editor registered for "document" instead of a textarea; the value is an HTML string. Textarea when no editor is registered; with `aiAssist` the result is inserted as `<p>` paragraphs and `contextFields` naming this field send its plain text |
 | `valueChips` | number, decimal, bigInt, money field | `{ from }`: quick-pick chips from an array field of the same form |
 | `display: "chips"` | multiSelect field | toggle chips with a check mark instead of checkboxes or a dropdown |
 | `readOnly` | config `mask` | `mask: { title, readOnly: true }` keeps the key on the generated settings screen as a read-only value. A readOnly key that is also `required` fails at boot |
@@ -404,7 +405,7 @@ aiAssist: {
 },
 ```
 
-- `aiAssist`: an active chip's `params` and the typed instruction are sent to `query` together with the form's context payload (the `load` id of an actionForm, else the drawer row's prefill values). Chips stack. The string at `resultField` of the result is written into the field. `noteField` shows a short note from the result under the field until the next result without one. `contextFields` sends other form fields under their names and re-runs the query when one changes. The prompt input submits with Enter; there is no Apply button.
+- `aiAssist`: an active chip's `params` and the typed instruction are sent to `query` together with the form's context payload (the `load` id of an actionForm, else the drawer row's prefill values). Chips stack. The string at `resultField` of the result is written into the field. `noteField` shows a short note from the result under the field until the next result without one. `contextFields` sends other form fields under their names and re-runs the query when one changes; `autoRun: false` turns that re-run off, so only a chip or the typed instruction runs the query (the context values still go along). The prompt input submits with Enter; there is no Apply button.
 - `valueChips` format the text by field type (money with locale and currency, numbers with locale); the chip equal to the current value is shown pressed with a check mark.
 - A read-only config field offers no "reset override" button.
 - Boot rejects unknown fields, wrong field types, invalid chips, `contextFields` or `fieldBadges` that name no form field.

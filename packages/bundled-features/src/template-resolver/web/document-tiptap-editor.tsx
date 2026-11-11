@@ -43,6 +43,7 @@ export default function DocumentTiptapEditor({
   toolbarHost,
   onEditorReady,
   onFrameControlChange,
+  formatting,
 }: DocumentEditorProps): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
@@ -128,7 +129,7 @@ export default function DocumentTiptapEditor({
     variableLabels,
     stableLabels: model.stableLabels,
   });
-  const editorContent = renderEditorContent(editor, canvas, hosted, print);
+  const editorContent = renderEditorContent(editor, canvas, hosted, print, formatting === "text");
 
   if (hosted) return renderHostedEditor(context, toolbarHost, editorContent);
 

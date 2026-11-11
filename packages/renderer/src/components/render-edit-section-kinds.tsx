@@ -270,7 +270,16 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
         : undefined;
   const titleClass =
     section.titleOnNarrow === false ? "max-sm:[&_[data-section-title]]:hidden" : undefined;
-  if (section.after === undefined && narrowClass === undefined && titleClass === undefined) {
+  const sectionTail =
+    section.kind === "fields" && section.id !== undefined
+      ? props.afterSection?.(section.id, form.snapshot.values)
+      : undefined;
+  if (
+    section.after === undefined &&
+    sectionTail === undefined &&
+    narrowClass === undefined &&
+    titleClass === undefined
+  ) {
     return node;
   }
   return (
@@ -279,6 +288,7 @@ function withSectionPresentation<TValues extends FormValues, TCtx>(
       className={[narrowClass, titleClass, "gap-3"].filter((c) => c !== undefined).join(" ")}
     >
       {node}
+      {sectionTail}
       {section.after !== undefined && (
         <EditSlotMount
           slot={section.after}

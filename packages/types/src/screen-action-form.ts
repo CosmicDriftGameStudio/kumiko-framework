@@ -277,8 +277,10 @@ export type ActionFormPreview = {
   readonly query: string;
   /** Form fields sent to the query; they also trigger a rerun when they change. Default: all fields. */
   readonly fields?: readonly string[];
-  /** Panel title (i18n key). */
+  /** Panel title (i18n key). Without it the panel has no title row. */
   readonly title?: string;
+  /** Id of a layout section: the panel renders at the end of that section instead of below the form. */
+  readonly section?: string;
   /** Key figures from the query result, shown like the success box facts. */
   readonly facts?: readonly ActionFormSuccessFact[];
   /** Table of rows from the query result. */

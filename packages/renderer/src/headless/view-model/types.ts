@@ -402,6 +402,8 @@ export type EditFieldViewModel = {
   readonly fillAction?: FieldFillAction;
   /** From EditFieldSpec.aiAssist, chip labels and the prompt placeholder already translated. */
   readonly aiAssist?: FieldAiAssist;
+  /** From EditFieldSpec.editor. */
+  readonly editor?: "document";
   /** From EditFieldSpec.valueChips. */
   readonly valueChips?: FieldValueChips;
   /** From EditFieldSpec.concealed. */

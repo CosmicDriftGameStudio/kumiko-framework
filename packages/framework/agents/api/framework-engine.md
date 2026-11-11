@@ -538,6 +538,7 @@ type EditFieldSpec =
     suffix?: FieldAffix; // Same as `prefix`, shown after the input.
     fillAction?: FieldFillAction; // Button beside the input that runs a query and writes one scalar of its result into this field.
     aiAssist?: FieldAiAssist; // Helper under a `text` or `longText` input: stackable chips and an optional free instruction call a query and write its `resultField` into the field.
+    editor?: "document"; // `longText` fields only: edits the value with the rich-text editor registered for "document" (the value is an HTML string) instead of a textarea.
     valueChips?: FieldValueChips; // Quick-pick chips under a `number`, `decimal`, `bigInt` or `money` input; a chip sets the field to its value.
     concealed?: true; // Read-only display of a value the viewer may not see: the value (or the mask the query returns) shows muted with a lock icon instead of a replacement text.
     badge?: FieldBadge; // Pill next to the label, e.g. "price source open" in `warn`.

@@ -629,3 +629,22 @@ describe("money currency sources on an entity-less form", () => {
     expect(buildInitialValues(amountField(), "USD")["amount"]).toEqual({ currency: "USD" });
   });
 });
+
+describe("mergeSearchParamsIntoInitial: multi reference", () => {
+  const fields: Record<string, FieldDef> = { contactIds: { type: "reference", multiple: true } };
+  const prefilled = (raw: string) =>
+    mergeWithAllFieldsUrlPrefillable(fields, { contactIds: raw })["contactIds"];
+
+  test("a single id becomes a one-element list", () => {
+    expect(prefilled("c1")).toEqual(["c1"]);
+  });
+
+  test("a comma list and a JSON array become several ids", () => {
+    expect(prefilled("c1, c2")).toEqual(["c1", "c2"]);
+    expect(prefilled('["c1","c2"]')).toEqual(["c1", "c2"]);
+  });
+
+  test("an empty param gives no ids", () => {
+    expect(prefilled("")).toEqual([]);
+  });
+});

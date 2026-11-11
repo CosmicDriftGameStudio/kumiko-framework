@@ -182,7 +182,14 @@ function validateAssistTargets(
 ): void {
   // skip: the field is unknown (reported elsewhere)
   if (fieldDef === undefined) return;
-  const { aiAssist, valueChips } = fieldSpec;
+  const { aiAssist, valueChips, editor } = fieldSpec;
+  if (editor !== undefined) {
+    if (fieldDef.type !== "longText") {
+      throw bootRuleError(FORM_FIELD_RULES.editorFieldType, {
+        message: `${where} editor "${editor}" needs a longText field, not "${fieldDef.type}".`,
+      });
+    }
+  }
   if (valueChips !== undefined && !VALUE_CHIPS_FIELD_TYPES.includes(fieldDef.type)) {
     throw bootRuleError(FORM_FIELD_RULES.valueChipsFieldType, {
       message: `${where} valueChips needs a ${VALUE_CHIPS_FIELD_TYPES.join(", ")} field, not "${fieldDef.type}".`,

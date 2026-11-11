@@ -8,6 +8,7 @@ import { useTranslation } from "../i18n.tsx";
 import { usePrimitives } from "../primitives.tsx";
 import { useAiAssistPayload } from "./ai-assist-payload.tsx";
 import { choiceChipClass } from "./choice-chip-class.ts";
+import { documentHtmlToText, textToDocumentHtml } from "./document-text.ts";
 
 type AiAssist = NonNullable<EditFieldViewModel["aiAssist"]>;
 
@@ -40,8 +41,17 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
   const [note, setNote] = useState<string | undefined>(undefined);
   const activeRun = useRef<AbortController | null>(null);
 
+  const isDocument = field.editor === "document";
   const contextValues = Object.fromEntries(
-    (aiAssist.contextFields ?? []).map((name) => [name, row?.[name]]),
+    (aiAssist.contextFields ?? []).map((name) => {
+      const value = row?.[name];
+      return [
+        name,
+        isDocument && name === field.field && typeof value === "string"
+          ? documentHtmlToText(value)
+          : value,
+      ];
+    }),
   );
   // Changed context (e.g. another selection) replaces an empty or AI-written text; the first render never fetches.
   // Debounced so a text context field does not fire one server-side LLM query per keystroke.
@@ -89,8 +99,9 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
       setFailed(true);
       return;
     }
-    lastGeneratedText.current = text;
-    onChange(text);
+    const written = isDocument ? textToDocumentHtml(text) : text;
+    lastGeneratedText.current = written;
+    onChange(written);
   };
 
   // The effect reads the latest run/active through a ref so it only fires when the context changes.
@@ -101,12 +112,13 @@ function AiAssistChips({ field, aiAssist, onChange, input, row }: AiAssistContro
   hasHandWrittenText.current = !isFieldEmpty && field.value !== lastGeneratedText.current;
   useEffect(() => {
     // skip: nothing changed since the last run (or since mount).
+    if (aiAssist.autoRun === false) return;
     if (seenContextKey.current === contextKey) return;
     seenContextKey.current = contextKey;
     // skip: the user's own text is never replaced silently.
     if (hasHandWrittenText.current) return;
     rerunWithCurrentChips.current();
-  }, [contextKey]);
+  }, [contextKey, aiAssist.autoRun]);
 
   const toggle = (index: number): void => {
     const next = new Set(active);

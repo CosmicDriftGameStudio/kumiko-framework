@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { type EditFieldViewModel, type FieldIssue, telHref } from "../headless/index.ts";
 import type { usePrimitives } from "../primitives.tsx";
 import { AvailabilityOptionsSelect } from "./availability-options-select.tsx";
+import { DocumentFieldEditor } from "./document-field-editor.tsx";
 import { EmbeddedListField } from "./embedded-list-field.tsx";
 import { QueryOptionsSelect } from "./query-options-select.tsx";
 import { AiAssistControl } from "./render-field-ai-assist.tsx";
@@ -12,6 +13,7 @@ import { isComplexFieldType, isFileFieldType } from "./render-field-meta.ts";
 import { FieldRendererOutput, readOnlyDisplayText } from "./render-field-read-only.tsx";
 import { ReadOnlyReferenceValue, ReferenceInput } from "./render-field-reference.tsx";
 import { ValueChipsControl } from "./render-field-value-chips.tsx";
+import { stringValue } from "./render-field-values.ts";
 import { WriteOnlyTextInput } from "./render-field-write-only.tsx";
 
 export type ControlContext = RenderInputArgs & {
@@ -194,6 +196,25 @@ const fillActionRule: ControlRule = (ctx) => {
   );
 };
 
+// Without a registered "document" editor useContentEditor falls back to a textarea.
+function documentEditorInput({ field, id, onChange }: ControlContext): ReactNode {
+  if (field.editor !== "document" || field.type !== "longText") return undefined;
+  return (
+    <DocumentFieldEditor
+      id={id}
+      value={stringValue(field.value)}
+      readOnly={field.readOnly}
+      onChange={onChange}
+    />
+  );
+}
+
+const documentEditorRule: ControlRule = (ctx) => {
+  // skip: the assist rule wraps this same editor
+  if (ctx.field.aiAssist !== undefined && !ctx.field.readOnly) return undefined;
+  return documentEditorInput(ctx);
+};
+
 const aiAssistRule: ControlRule = (ctx) => {
   const { field, onChange } = ctx;
   if (field.aiAssist === undefined || field.readOnly) return undefined;
@@ -203,7 +224,7 @@ const aiAssistRule: ControlRule = (ctx) => {
       row={rowOf(ctx)}
       aiAssist={field.aiAssist}
       onChange={onChange}
-      input={renderInput(ctx)}
+      input={documentEditorInput(ctx) ?? renderInput(ctx)}
     />
   );
 };
@@ -230,6 +251,7 @@ const CONTROL_RULES: readonly ControlRule[] = [
   selectAvailabilityRule,
   readOnlyTextRule,
   writeOnlyRule,
+  documentEditorRule,
   fillActionRule,
   aiAssistRule,
   valueChipsRule,
