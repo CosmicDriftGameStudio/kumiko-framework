@@ -1,4 +1,10 @@
-import { STAGE_ACCENT_COLOR, STAGE_MONO_FONT, STAGE_TEXT_COLOR, stageMs } from "./stage-window";
+import {
+  escapeHtml,
+  STAGE_ACCENT_COLOR,
+  STAGE_MONO_FONT,
+  STAGE_TEXT_COLOR,
+  stageMsHtml,
+} from "./stage-window";
 import type { TypedStage } from "./terminal-stage";
 
 export interface PreviewBox {
@@ -46,27 +52,28 @@ function paddedWithinImage(box: PreviewBox, width: number, height: number): Prev
   return { x, y, width: right - x, height: bottom - y };
 }
 
-const percent = (value: number, total: number): string => `${+((value / total) * 100).toFixed(3)}%`;
+const percentHtml = (value: number, total: number): string =>
+  `${+((value / total) * 100).toFixed(3)}%`;
 
 interface PreviewParts {
-  readonly css: string;
-  readonly html: string;
+  readonly styleHtml: string;
+  readonly bodyHtml: string;
   readonly durationMs: number;
 }
 
 export function previewParts(preview: StagePreview, switchMs: number): PreviewParts {
   const { imageWidthPx: width, imageHeightPx: height } = preview;
   const cards = preview.cards ?? [];
-  const focusAt = stageMs(switchMs);
+  const focusAt = stageMsHtml(switchMs);
   const highlightAt = switchMs + FOCUS_TRANSITION_MS;
   const lastCardStartMs = switchMs + CARD_FIRST_DELAY_MS + (cards.length - 1) * CARD_STAGGER_MS;
   const durationMs = Math.max(
     highlightAt + PREVIEW_HOLD_MS,
     cards.length > 0 ? lastCardStartMs + CARD_FLY_MS + PREVIEW_HOLD_MS : 0,
   );
-  const css = `
+  const styleHtml = `
 .window { inset: 5vh 51vw 5vh 3vw; animation: focus-left ${FOCUS_TRANSITION_MS}ms ease-in-out ${focusAt} both; }
-.preview { position: absolute; top: 5vh; bottom: 5vh; left: 51vw; right: 3vw; display: flex; align-items: center; justify-content: center; }
+.preview { position: absolute; top: 5vh; bottom: 5vh; left: 51vw; right: 3vw; display: flex; align-items: center; justify-contentHtml: center; }
 .shot { position: relative; width: min(100%, calc(90vh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; opacity: .35; filter: saturate(.6); transform: scale(.97); animation: focus-right ${FOCUS_TRANSITION_MS}ms ease-in-out ${focusAt} both; }
 .shot img { width: 100%; height: 100%; display: block; border-radius: 12px; box-shadow: 0 40px 120px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.08); }
 .shot img.after { position: absolute; inset: 0; opacity: 0; animation: crossfade-in ${FOCUS_TRANSITION_MS}ms ease-in-out ${focusAt} both; }
@@ -86,22 +93,22 @@ export function previewParts(preview: StagePreview, switchMs: number): PreviewPa
     .map((highlight) => paddedWithinImage(highlight, width, height))
     .map(
       (box) =>
-        `<div class="highlight" style="left:${percent(box.x, width)};top:${percent(box.y, height)};width:${percent(box.width, width)};height:${percent(box.height, height)};animation: highlight-in ${HIGHLIGHT_FADE_MS}ms ease-out ${stageMs(highlightAt)} both, highlight-pulse 1200ms ease-in-out ${stageMs(highlightAt + HIGHLIGHT_FADE_MS)} 1 both"></div>`,
+        `<div class="highlight" style="left:${percentHtml(box.x, width)};top:${percentHtml(box.y, height)};width:${percentHtml(box.width, width)};height:${percentHtml(box.height, height)};animation: highlight-in ${HIGHLIGHT_FADE_MS}ms ease-out ${stageMsHtml(highlightAt)} both, highlight-pulse 1200ms ease-in-out ${stageMsHtml(highlightAt + HIGHLIGHT_FADE_MS)} 1 both"></div>`,
     )
     .join("");
-  const afterUrl = Bun.escapeHTML(preview.imageUrl);
+  const afterUrlHtml = escapeHtml(preview.imageUrl);
   const imagesHtml = preview.beforeImageUrl
-    ? `<img src="${Bun.escapeHTML(preview.beforeImageUrl)}" alt=""><img class="after" src="${afterUrl}" alt="">`
-    : `<img src="${afterUrl}" alt="">`;
+    ? `<img src="${escapeHtml(preview.beforeImageUrl)}" alt=""><img class="after" src="${afterUrlHtml}" alt="">`
+    : `<img src="${afterUrlHtml}" alt="">`;
   const cardsHtml = cards
     .map((card, index) => {
       const startMs = switchMs + CARD_FIRST_DELAY_MS + index * CARD_STAGGER_MS;
       const lines = card.lines
-        .map((line) => `<div class="card-line">${Bun.escapeHTML(line)}</div>`)
+        .map((line) => `<div class="card-line">${escapeHtml(line)}</div>`)
         .join("");
-      return `<div class="card" style="animation: card-in ${CARD_FLY_MS}ms ease-out ${stageMs(startMs)} both"><div class="card-title">${Bun.escapeHTML(card.title)}</div>${lines}</div>`;
+      return `<div class="card" style="animation: card-in ${CARD_FLY_MS}ms ease-out ${stageMsHtml(startMs)} both"><div class="card-title">${escapeHtml(card.title)}</div>${lines}</div>`;
     })
     .join("");
-  const html = `<div class="preview"><div class="shot">${imagesHtml}${highlightHtml}</div>${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}</div>`;
-  return { css, html, durationMs };
+  const bodyHtml = `<div class="preview"><div class="shot">${imagesHtml}${highlightHtml}</div>${cardsHtml ? `<div class="cards">${cardsHtml}</div>` : ""}</div>`;
+  return { styleHtml, bodyHtml, durationMs };
 }

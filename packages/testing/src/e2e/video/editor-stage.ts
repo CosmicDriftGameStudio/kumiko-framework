@@ -1,13 +1,14 @@
 import type { PreviewStage, StagePreview } from "./preview-pane";
 import { FOCUS_SWITCH_DELAY_MS, previewParts } from "./preview-pane";
 import {
-  blinkAnimation,
+  blinkAnimationHtml,
+  escapeHtml,
   STAGE_TEXT_COLOR,
   STAGE_WINDOW_BACKGROUND,
   stageCommonCss,
-  stageMs,
-  visibleBetweenAnimation,
-  windowFrame,
+  stageMsHtml,
+  visibleBetweenAnimationHtml,
+  windowFrameHtml,
 } from "./stage-window";
 import { seededRandom, typedWidthKeyframes, typingOffsetsMs } from "./typing";
 
@@ -30,7 +31,7 @@ const END_HOLD_MS = 1500;
 
 type TokenKind = "comment" | "string" | "number" | "keyword" | "function" | "type" | "plain";
 
-const TOKEN_COLORS: Record<TokenKind, string> = {
+const TOKEN_COLORS = {
   comment: "#6b7280",
   string: "#a5d6a7",
   number: "#f0b27a",
@@ -38,7 +39,7 @@ const TOKEN_COLORS: Record<TokenKind, string> = {
   function: "#82aaff",
   type: "#ffcb6b",
   plain: STAGE_TEXT_COLOR,
-};
+} as const satisfies Record<TokenKind, string>;
 
 const KEYWORDS = new Set([
   "import",
@@ -78,12 +79,14 @@ function identifierKind(name: string, followedByParen: boolean): TokenKind {
   return "plain";
 }
 
-function highlightTypeScript(code: string): string {
+function highlightTypeScriptHtml(code: string): string {
   const parts: string[] = [];
   const emit = (kind: TokenKind, text: string): void => {
-    const escaped = Bun.escapeHTML(text);
+    const escapedHtml = escapeHtml(text);
     parts.push(
-      kind === "plain" ? escaped : `<span style="color:${TOKEN_COLORS[kind]}">${escaped}</span>`,
+      kind === "plain"
+        ? escapedHtml
+        : `<span style="color:${TOKEN_COLORS[kind]}">${escapedHtml}</span>`,
     );
   };
   for (const match of code.matchAll(TOKEN_PATTERN)) {
@@ -110,16 +113,16 @@ export function editorStage(options: EditorStageOptions): PreviewStage {
   let clock = options.startDelayMs ?? 600;
   let typingEndMs = clock;
 
-  const rows = options.lines.map((line, index) => {
+  const rowsHtml = options.lines.map((line, index) => {
     const number = `<span class="gutter">${firstNumber + index}</span>`;
     if (typeof line === "string") {
-      return `<div class="line">${number}<span class="code">${highlightTypeScript(line)}</span></div>`;
+      return `<div class="line">${number}<span class="code">${highlightTypeScriptHtml(line)}</span></div>`;
     }
     const indent = line.typed.match(/^\s*/)?.[0] ?? "";
     const rest = line.typed.slice(indent.length);
     const offsets = typingOffsetsMs(rest, EDITOR_RHYTHM, random);
     if (offsets.length === 0) {
-      return `<div class="line">${number}<span class="code">${Bun.escapeHTML(indent)}</span></div>`;
+      return `<div class="line">${number}<span class="code">${escapeHtml(indent)}</span></div>`;
     }
     const keyframes = typedWidthKeyframes(`type-${index}`, offsets);
     keyframeCss.push(keyframes.css);
@@ -127,36 +130,37 @@ export function editorStage(options: EditorStageOptions): PreviewStage {
     const endMs = startMs + keyframes.durationMs;
     clock = endMs + LINE_PAUSE_MS;
     typingEndMs = endMs;
-    const cursorAnimation =
+    const cursorAnimationHtml =
       index === lastTypedIndex
-        ? `${visibleBetweenAnimation(startMs)}, ${blinkAnimation(endMs)}`
-        : visibleBetweenAnimation(startMs, endMs);
-    const highlight = `<span class="active-line" style="animation: ${visibleBetweenAnimation(startMs, endMs)}"></span>`;
-    const typed = `<span class="typed" style="animation: type-${index} ${stageMs(keyframes.durationMs)} linear ${stageMs(startMs)} forwards">${highlightTypeScript(rest)}</span>`;
-    const cursor = `<span class="caret" style="animation: ${cursorAnimation}"></span>`;
-    return `<div class="line">${highlight}${number}<span class="code"><span class="indent">${Bun.escapeHTML(indent)}</span>${typed}${cursor}</span></div>`;
+        ? `${visibleBetweenAnimationHtml(startMs)}, ${blinkAnimationHtml(endMs)}`
+        : visibleBetweenAnimationHtml(startMs, endMs);
+    const highlight = `<span class="active-line" style="animation: ${visibleBetweenAnimationHtml(startMs, endMs)}"></span>`;
+    const typed = `<span class="typed" style="animation: type-${index} ${stageMsHtml(keyframes.durationMs)} linear ${stageMsHtml(startMs)} forwards">${highlightTypeScriptHtml(rest)}</span>`;
+    const cursor = `<span class="caret" style="animation: ${cursorAnimationHtml}"></span>`;
+    return `<div class="line">${highlight}${number}<span class="code"><span class="indent">${escapeHtml(indent)}</span>${typed}${cursor}</span></div>`;
   });
 
-  const css = `${stageCommonCss}
+  const styleHtml = `${stageCommonCss}
 ${keyframeCss.join("\n")}
 .tabs { flex: none; display: flex; background: #23252e; height: ${Math.round(fontSize * 1.9)}px; font-size: ${Math.round(fontSize * 0.7)}px; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
 .tab { display: flex; align-items: center; padding: 0 ${Math.round(fontSize * 1.1)}px; background: ${STAGE_WINDOW_BACKGROUND}; color: ${STAGE_TEXT_COLOR}; border-top: 2px solid #5fd7e6; }
 .editor { flex: 1 1 0; min-height: 0; overflow: hidden; padding: ${Math.round(fontSize * 0.7)}px 0; font-size: ${fontSize}px; line-height: ${lineHeight}px; }
 .line { position: relative; display: flex; height: ${lineHeight}px; white-space: pre; }
-.gutter { flex: none; width: ${gutterChars}ch; box-sizing: content-box; padding: 0 ${Math.round(fontSize * 1.2)}px; text-align: right; color: #4b5263; }
+.gutter { flex: none; width: ${gutterChars}ch; box-sizing: contentHtml-box; padding: 0 ${Math.round(fontSize * 1.2)}px; text-align: right; color: #4b5263; }
 .code { position: relative; }
 .active-line { position: absolute; inset: 0; background: rgba(255,255,255,0.05); opacity: 0; }
 .typed { display: inline-block; overflow: hidden; vertical-align: bottom; width: 0; }
 .caret { display: inline-block; width: 3px; height: ${Math.round(fontSize * 1.25)}px; vertical-align: bottom; background: ${STAGE_TEXT_COLOR}; opacity: 0; }
 `;
+  const joinedRowsHtml = rowsHtml.join("");
   const switchMs = typingEndMs + FOCUS_SWITCH_DELAY_MS;
   const previewPart = options.preview ? previewParts(options.preview, switchMs) : undefined;
   const titleBarPx = Math.round(fontSize * 1.8);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}${previewPart?.css ?? ""}</style></head><body>${windowFrame(
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${styleHtml}${previewPart?.styleHtml ?? ""}</style></head><body>${windowFrameHtml(
     "",
-    `<div class="tabs"><div class="tab">${Bun.escapeHTML(options.fileName)}</div></div><div class="editor">${rows.join("")}</div>`,
+    `<div class="tabs"><div class="tab">${escapeHtml(options.fileName)}</div></div><div class="editor">${joinedRowsHtml}</div>`,
     titleBarPx,
-  )}${previewPart?.html ?? ""}</body></html>`;
+  )}${previewPart?.bodyHtml ?? ""}</body></html>`;
   if (!previewPart) return { html, durationMs: typingEndMs + END_HOLD_MS };
   return { html, durationMs: previewPart.durationMs, focusSwitchMs: switchMs };
 }

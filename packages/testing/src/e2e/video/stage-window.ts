@@ -4,7 +4,7 @@ export const STAGE_WINDOW_BACKGROUND = "#1d1f27";
 export const STAGE_ACCENT_COLOR = "#5fd7e6";
 const BLINK_PERIOD_MS = 1060;
 
-export const stageMs = (value: number): string => `${Math.round(value)}ms`;
+export const stageMsHtml = (value: number): string => `${Math.round(value)}ms`;
 
 export const stageCommonCss = `
 html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: radial-gradient(ellipse at 30% 20%, #2b2f3d 0%, #14151b 70%); }
@@ -17,16 +17,24 @@ html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; backgroun
 @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
 `;
 
-export function windowFrame(titlebarHtml: string, bodyHtml: string, titleBarPx: number): string {
+export function windowFrameHtml(
+  titlebarHtml: string,
+  bodyHtml: string,
+  titleBarPx: number,
+): string {
   return `<div class="window"><div class="titlebar" style="height:${titleBarPx}px"><div class="dots"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div>${titlebarHtml}</div>${bodyHtml}</div>`;
 }
 
 // Visible from fromMs until toMs (forever when omitted); both edges are 1ms steps.
-export function visibleBetweenAnimation(fromMs: number, toMs?: number): string {
-  const on = `on 1ms steps(1) ${stageMs(fromMs)} both`;
-  return toMs === undefined ? on : `${on}, off 1ms steps(1) ${stageMs(toMs)} forwards`;
+export function visibleBetweenAnimationHtml(fromMs: number, toMs?: number): string {
+  const on = `on 1ms steps(1) ${stageMsHtml(fromMs)} both`;
+  return toMs === undefined ? on : `${on}, off 1ms steps(1) ${stageMsHtml(toMs)} forwards`;
 }
 
-export function blinkAnimation(delayMs: number): string {
-  return `blink ${BLINK_PERIOD_MS}ms steps(1) ${stageMs(delayMs)} infinite`;
+export function blinkAnimationHtml(delayMs: number): string {
+  return `blink ${BLINK_PERIOD_MS}ms steps(1) ${stageMsHtml(delayMs)} infinite`;
+}
+
+export function escapeHtml(value: string): string {
+  return Bun.escapeHTML(value);
 }
