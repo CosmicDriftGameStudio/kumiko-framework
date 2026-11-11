@@ -10,7 +10,7 @@ Long terminal commands in the preview variant wrap with stable lines and reveal 
 
 <!-- kumiko-changes
 feature: testing
-type: feature
+type: improvement
 title: Terminal and code editor stages for e2e videos
 detail: `terminalStage` and `editorStage` from `@cosmicdrift/kumiko-testing/e2e` return `{ html, durationMs }` for `tools.stage` and `tools.animate`. Typing rhythm is seeded, so the same options always produce the same video. The editor stage highlights TypeScript without extra dependencies.
 -->
