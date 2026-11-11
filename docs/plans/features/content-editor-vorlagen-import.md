@@ -1,7 +1,7 @@
 ---
 status: in-progress
-verified: 2026-11-10
-next: Stufen 1 bis 3 sind erledigt (FW #4294, #4296, #4297 in 0.419.0, Enterprise #937). Stufe 4 läuft in kumiko-enterprise#938 und im Button-PR im Framework. Danach Stufe 5 mit der Modellmessung.
+verified: 2026-11-11
+next: Stufen 1 bis 4 und die Modellmessung sind erledigt. Offen sind der Enterprise-PR mit dem Logo-Zuschnitt und dessen Release, danach der Rollout in der ersten App.
 track: framework
 depends: [kumiko-framework:docs/plans/features/document-designer.md]
 ---
@@ -132,12 +132,38 @@ Erledigt: `POST /rasterize` im `puppeteer-service` (poppler in Image und CI), `r
 
 Framework-Release durch Marc, Bump in der ersten App, Deploy des `puppeteer-service`, Guide und What's new.
 
-Modellmessung vor dem Rollout:
+#### Welche Modelle gehen (Messung 2026-11-11)
 
-- Drei anonymisierte Nachbauten der Beispielvorlagen, je Vorlage vier Modelle: ein starkes, günstiges Cloud-Modell und zwei selbst gehostete über Ollama oder vLLM.
-- Höchstens drei Korrekturrunden je Lauf. Bewertet werden der Bildvergleich mit dem Original, die Zahl der Runden und die Kosten.
-- Marc bekommt vor dem Lauf eine Kostenschätzung und gibt sie frei.
-- Ergebnis ist eine Tabelle in der Doku „welche Modelle gehen“ und ein dev.to-Artikel dazu.
+Gemessen wurde mit drei anonymisierten Nachbauten der Beispielvorlagen:
+
+- Vereinsrechnung mit eingebettetem Logo
+- zweiseitige Steuerbescheinigung mit Vektorlogo und Seitenzahlen
+- Lieferschein als Scan ohne Textebene
+
+Jeder Lauf ging über den echten Stack mit `puppeteer-service`, mit höchstens zwei Nachfragen und drei Korrekturrunden. Die Note (1 sehr gut bis 6 unbrauchbar) kommt aus dem Vergleich von Original und Entwurf. Gemessen wurde ein Lauf je Vorlage und Modell. Die Noten streuen zwischen zwei Läufen um etwa eine halbe Stufe. Skripte: `kumiko-enterprise/packages/ai-agent/scripts/template-import-benchmark/`.
+
+| Modell | Betrieb | Ergebnis | Kosten je Vorlage | Dauer | Note |
+| --- | --- | --- | --- | --- | --- |
+| Claude Opus 5.5 | Anthropic-API | 3 von 3 | 0,67 bis 0,88 $ | 90 bis 140 s | 1-2 bis 2 |
+| gpt-6-luna | OpenRouter | 3 von 3 | 0,02 bis 0,04 $ | 140 bis 280 s | 3 bis 3-4 |
+| Qwen 3.5 9B | Ollama auf einem Mac | 0 von 3, in zwei Runden | 0 $ | - | - |
+
+- **Opus** baut Kopf, Fuß, Logo und Platzhalter fast vollständig nach. Logos aus Scan und Vektorgrafik holt Opus per Zuschnitt aus dem Seitenbild. 62 bis 73 % der Kosten fallen für den Cache an, weil jede Runde den Verlauf samt Seitenbildern neu schickt.
+- **Luna** übernimmt Inhalt und Platzhalter. Kopf oder Fuß landen aber oft im Text oder fehlen. Das reicht für einen ersten Entwurf, den jemand im Editor nacharbeitet.
+- **Qwen 9B** scheitert an Kapazität und Tempo:
+  - Zeitüberschreitung, sobald die Seitenbilder ankommen.
+  - Sonst nur Text oder fehlerhafte Tool-Calls.
+
+  Kleine selbst gehostete Modelle auf einem Laptop gehen damit nicht. Größere selbst gehostete Modelle mit Bildeingabe und Tool-Use, etwa über vLLM auf einer GPU, sind nicht gemessen. Der Plan sah zwei selbst gehostete Modelle vor.
+- Opus lief ohne die zwei letzten Prompt-Hinweise (Seitenzahl-Platzhalter, Layout per `setMeta` statt `apply-layout`). Luna lief beim Scan mit dem zweiten Hinweis, bei den anderen Vorlagen ohne beide.
+- SSIM trennt die Qualität nicht. Fertige Nachbauten lagen bei 0,69 bis 0,74, die unveränderte Startvorlage bei 0,77 bis 0,84.
+
+Die Messung hat diese Fehler aufgedeckt, alle sind behoben:
+
+- Die Logo-Referenz kam nicht beim Modell an (Enterprise #940).
+- Die Vorschau ignorierte Entwurfs-Layouts (#4301).
+- Tool-Fehler nennen jetzt den Feldpfad (#940).
+- Neu sind der Zuschnitt für Scan- und Vektorlogos und der Prompt-Hinweis gegen `apply-layout` (Enterprise, Branch `feat/template-import-logo-crop`).
 
 ## Tests
 
@@ -147,3 +173,4 @@ Modellmessung vor dem Rollout:
 ## Offen
 
 - Die erste App und eine Mail-Beispielvorlage, die erst der Mail-Teil in Stufe 4 braucht.
+- Ein Bild im Layout lässt sich nicht ausrichten, `textAlign` gibt es nur bei Textblöcken. Ein rechtsbündiges Logo landet im Nachbau deshalb links.
