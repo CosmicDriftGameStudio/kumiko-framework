@@ -295,8 +295,9 @@ export type ActionFormSuccessFact = {
   readonly field: string;
   /** Label (i18n key). */
   readonly label: string;
-  /** Format of the value (a money object, a date string, a number); default `text`. Used by the preview facts and the success box alike. */
-  readonly type?: ActionFormValueType;
+  /** Format of the value (a money object, a date string, a number); default `text`. Used by the preview facts and the success box alike.
+   *  `file`: a FileRef id or an array of them, shown with name, download link and PDF preview. */
+  readonly type?: ActionFormValueType | "file";
 };
 
 /** Per-entry hints of the success box, read from an array in the handler's success payload. */

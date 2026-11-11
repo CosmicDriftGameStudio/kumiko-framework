@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "../../headless/index.ts";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "../../index.ts";
+import { clearFileMetaCache } from "../primitives/file-thumbnail.tsx";
 import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.tsx";
 
 const form: ActionFormScreenDefinition = {
@@ -199,5 +200,51 @@ describe("actionForm preview", () => {
 
     fireEvent.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(writes).toEqual([{ status: "blocked" }]));
+  });
+
+  test("a file fact lists the stored file with name and download link", async () => {
+    const attachmentId = "11111111-2222-4333-8444-555555555555";
+    clearFileMetaCache();
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      if (!String(input).startsWith("/api/files/meta?ids=")) {
+        return new Response("not found", { status: 404 });
+      }
+      const files = [
+        { id: attachmentId, fileName: "Mahnung.pdf", mimeType: "application/pdf", size: 1 },
+      ];
+      return new Response(JSON.stringify({ files }), { status: 200 });
+    }) as unknown as typeof fetch;
+    try {
+      const dispatcher = createMockDispatcher({
+        query: (async () => ({
+          isSuccess: true,
+          data: { attachment: attachmentId, missing: null },
+        })) as unknown as Dispatcher["query"],
+      });
+      renderForm(dispatcher, {
+        ...form,
+        preview: {
+          query: "tasks:query:set-status-preview",
+          fields: ["status"],
+          facts: [
+            { field: "attachment", label: "Attachment", type: "file" },
+            { field: "missing", label: "Other", type: "file" },
+          ],
+        },
+      });
+
+      typeInto("status", "blocked");
+      await screen.findByText("Mahnung.pdf");
+      expect(
+        screen
+          .getByTestId(`action-form-preview-fact-0-files-${attachmentId}-download`)
+          .getAttribute("href"),
+      ).toBe(`/api/files/${attachmentId}`);
+      expect(screen.queryByTestId("action-form-preview-fact-1")).toBeNull();
+    } finally {
+      globalThis.fetch = realFetch;
+      clearFileMetaCache();
+    }
   });
 });
