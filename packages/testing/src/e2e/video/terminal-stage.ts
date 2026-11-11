@@ -1,8 +1,8 @@
 import {
-  type EditorPreview,
-  type EditorStage,
   FOCUS_SWITCH_DELAY_MS,
+  type PreviewStage,
   previewParts,
+  type StagePreview,
 } from "./preview-pane";
 import {
   blinkAnimation,
@@ -42,7 +42,7 @@ export interface TerminalStageOptions {
   readonly fontSizePx?: number;
   readonly seed?: number;
   // app screenshot on the right; the terminal moves left and focus switches after the last output line
-  readonly preview?: EditorPreview;
+  readonly preview?: StagePreview;
 }
 
 export interface TypedStage {
@@ -110,7 +110,7 @@ const pathSwitcherHtml = (segments: readonly PathSegment[]): string =>
     )
     .join("")}</span>`;
 
-export function terminalStage(options: TerminalStageOptions): EditorStage {
+export function terminalStage(options: TerminalStageOptions): PreviewStage {
   const fontSize = options.fontSizePx ?? 26;
   const lineHeight = Math.round(fontSize * 1.5);
   const titleBarPx = Math.round(fontSize * 1.8);

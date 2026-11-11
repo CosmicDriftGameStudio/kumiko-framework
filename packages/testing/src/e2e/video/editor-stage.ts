@@ -1,4 +1,4 @@
-import type { EditorPreview, EditorStage } from "./preview-pane";
+import type { PreviewStage, StagePreview } from "./preview-pane";
 import { FOCUS_SWITCH_DELAY_MS, previewParts } from "./preview-pane";
 import {
   blinkAnimation,
@@ -21,7 +21,7 @@ export interface EditorStageOptions {
   readonly startDelayMs?: number;
   readonly fontSizePx?: number;
   readonly seed?: number;
-  readonly preview?: EditorPreview;
+  readonly preview?: StagePreview;
 }
 
 const EDITOR_RHYTHM = { charMs: 28, jitterMs: 14, spaceExtraMs: 20 } as const;
@@ -66,13 +66,6 @@ const KEYWORDS = new Set([
   "keyof",
   "extends",
   "void",
-  "as",
-  "satisfies",
-  "readonly",
-  "typeof",
-  "keyof",
-  "extends",
-  "void",
 ]);
 
 const TOKEN_PATTERN =
@@ -106,7 +99,7 @@ function highlightTypeScript(code: string): string {
   return parts.join("");
 }
 
-export function editorStage(options: EditorStageOptions): EditorStage {
+export function editorStage(options: EditorStageOptions): PreviewStage {
   const fontSize = options.fontSizePx ?? 24;
   const lineHeight = Math.round(fontSize * 1.6);
   const firstNumber = options.firstLineNumber ?? 1;

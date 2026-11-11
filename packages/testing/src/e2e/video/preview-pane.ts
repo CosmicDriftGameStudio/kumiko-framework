@@ -8,12 +8,12 @@ export interface PreviewBox {
   readonly height: number;
 }
 
-export interface EditorPreviewCard {
+export interface StagePreviewCard {
   readonly title: string;
   readonly lines: readonly string[];
 }
 
-export interface EditorPreview {
+export interface StagePreview {
   // data: or file URL of an app screenshot, typically tools.snapshot()
   readonly imageUrl: string;
   readonly imageWidthPx: number;
@@ -22,10 +22,10 @@ export interface EditorPreview {
   readonly beforeImageUrl?: string;
   // in screenshot pixels, e.g. from locator.boundingBox() taken at the screenshot's viewport
   readonly highlights?: readonly PreviewBox[];
-  readonly cards?: readonly EditorPreviewCard[];
+  readonly cards?: readonly StagePreviewCard[];
 }
 
-export type EditorStage = TypedStage & { readonly focusSwitchMs?: number };
+export type PreviewStage = TypedStage & { readonly focusSwitchMs?: number };
 
 export const FOCUS_SWITCH_DELAY_MS = 300;
 const FOCUS_TRANSITION_MS = 500;
@@ -54,7 +54,7 @@ interface PreviewParts {
   readonly durationMs: number;
 }
 
-export function previewParts(preview: EditorPreview, switchMs: number): PreviewParts {
+export function previewParts(preview: StagePreview, switchMs: number): PreviewParts {
   const { imageWidthPx: width, imageHeightPx: height } = preview;
   const cards = preview.cards ?? [];
   const focusAt = stageMs(switchMs);

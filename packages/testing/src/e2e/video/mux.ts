@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { MAX_PLAYBACK_RATE, MIN_PLAYBACK_RATE, type VideoMusic } from "./define-video";
+import { assertPlaybackRate, type VideoMusic } from "./define-video";
 
 export const VIDEO_FPS = 30;
 
@@ -61,14 +61,6 @@ function vttCueText(text: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll("-->", "--&gt;")
     .replace(/\n\s*\n/g, "\n");
-}
-
-export function assertPlaybackRate(rate: number): void {
-  if (!(rate >= MIN_PLAYBACK_RATE && rate <= MAX_PLAYBACK_RATE)) {
-    throw new Error(
-      `playbackRate ${rate} must be between ${MIN_PLAYBACK_RATE} and ${MAX_PLAYBACK_RATE}`,
-    );
-  }
 }
 
 export function buildVtt(cues: readonly VttCue[], playbackRate = 1): string {
