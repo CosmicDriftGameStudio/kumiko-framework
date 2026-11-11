@@ -97,5 +97,18 @@ export {
   type VideoTools,
   type VideoVoice,
 } from "./video/define-video";
+export {
+  type EditorLine,
+  type EditorStageOptions,
+  editorStage,
+} from "./video/editor-stage";
 export { type RunVideosOptions, runVideos } from "./video/run-videos";
+export {
+  type StageOutputLine,
+  type StageTone,
+  type TerminalCommand,
+  type TerminalStageOptions,
+  type TypedStage,
+  terminalStage,
+} from "./video/terminal-stage";
 export { findVideoTextGaps, loadVideoTexts } from "./video/video-texts";
