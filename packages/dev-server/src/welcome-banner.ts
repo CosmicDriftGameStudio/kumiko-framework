@@ -21,16 +21,16 @@ export function renderWelcomeBanner(input: WelcomeBannerInput): string {
   const docsUrl = input.docsUrl ?? "https://docs.kumiko.rocks/quickstart";
 
   const lines: string[] = [];
-  lines.push(`✓ kumiko-app läuft`);
+  lines.push(`✓ Kumiko app running`);
   lines.push(`→ Browser:        ${input.url}`);
   if (input.admin) {
     lines.push(
       input.admin.password === undefined
-        ? `→ Login als:      ${input.admin.email}`
-        : `→ Login als:      ${input.admin.email} / ${input.admin.password}`,
+        ? `→ Login:          ${input.admin.email}`
+        : `→ Login:          ${input.admin.email} / ${input.admin.password}`,
     );
   }
-  lines.push(`→ Feature add:    edit ${featuresDir}`);
+  lines.push(`→ Add a feature:  edit ${featuresDir}`);
   lines.push(`→ Docs:           ${docsUrl}`);
 
   const innerWidth = Math.max(...lines.map((l) => stringWidth(l)));
