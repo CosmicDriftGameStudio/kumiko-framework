@@ -150,4 +150,37 @@ describe("buildMuxArgs", () => {
   test("omits metadata without a comment", () => {
     expect(buildMuxArgs(base, "list.txt")).not.toContain("-metadata");
   });
+
+  test("playbackRate speeds up picture and audio together", () => {
+    const args = buildMuxArgs({ ...base, playbackRate: 1.1 }, "list.txt");
+    const filter = args[args.indexOf("-filter_complex") + 1];
+    expect(filter).toContain("setpts=PTS/1.1,fps=30");
+    expect(filter).toContain("[aout]atempo=1.1[afast]");
+    expect(args[args.lastIndexOf("-map") + 1]).toBe("[afast]");
+  });
+
+  test("without playbackRate the filters stay untouched", () => {
+    const args = buildMuxArgs(base, "list.txt");
+    expect(args.join(" ")).not.toContain("atempo");
+    expect(args.join(" ")).not.toContain("setpts");
+  });
+
+  test("playbackRate outside 0.5 to 2 is rejected", () => {
+    expect(() => buildMuxArgs({ ...base, playbackRate: 2.5 }, "list.txt")).toThrow(/playbackRate/);
+    expect(() => buildMuxArgs({ ...base, playbackRate: 0.2 }, "list.txt")).toThrow(/playbackRate/);
+  });
+});
+
+describe("buildVtt playbackRate", () => {
+  test("divides cue times by the rate", () => {
+    const vtt = buildVtt([{ startMs: 1100, endMs: 2200, text: "A" }], 1.1);
+    expect(vtt).toContain("00:00:01.000 --> 00:00:02.000");
+  });
+
+  test("defineVideo rejects an unsupported playbackRate", () => {
+    const scene = { id: "a", do: async () => {} };
+    expect(() => defineVideo({ voice: { voice: "v" }, scenes: [scene], playbackRate: 3 })).toThrow(
+      /playbackRate/,
+    );
+  });
 });

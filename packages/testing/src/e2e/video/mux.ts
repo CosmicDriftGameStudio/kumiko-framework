@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { VideoMusic } from "./define-video";
+import { assertPlaybackRate, type VideoMusic } from "./define-video";
 
 export const VIDEO_FPS = 30;
 
@@ -63,10 +63,11 @@ function vttCueText(text: string): string {
     .replace(/\n\s*\n/g, "\n");
 }
 
-export function buildVtt(cues: readonly VttCue[]): string {
+export function buildVtt(cues: readonly VttCue[], playbackRate = 1): string {
+  assertPlaybackRate(playbackRate);
   const blocks = cues.map(
     (cue) =>
-      `${formatVttTimestamp(cue.startMs)} --> ${formatVttTimestamp(cue.endMs)}\n${vttCueText(cue.text)}`,
+      `${formatVttTimestamp(cue.startMs / playbackRate)} --> ${formatVttTimestamp(cue.endMs / playbackRate)}\n${vttCueText(cue.text)}`,
   );
   return `WEBVTT\n\n${blocks.join("\n\n")}\n`;
 }
@@ -110,15 +111,22 @@ export function buildMusicMixFilter(
 }
 
 // Video lives in filter_complex too: -vf cannot be mixed with -filter_complex.
-export function buildVideoFilter(brandInputIndex: number | undefined): string {
-  if (brandInputIndex === undefined) return `[0:v]fps=${VIDEO_FPS}[vout]`;
-  return `[0:v]fps=${VIDEO_FPS}[base];[base][${brandInputIndex}:v]overlay=W-w-40:H-h-40[vout]`;
+export function buildVideoFilter(brandInputIndex: number | undefined, playbackRate = 1): string {
+  const speedUp = playbackRate === 1 ? "" : `setpts=PTS/${playbackRate},`;
+  if (brandInputIndex === undefined) return `[0:v]${speedUp}fps=${VIDEO_FPS}[vout]`;
+  return `[0:v]${speedUp}fps=${VIDEO_FPS}[base];[base][${brandInputIndex}:v]overlay=W-w-40:H-h-40[vout]`;
+}
+
+// Keeps the pitch; applied to the final mix so narration and music speed up together.
+export function buildAudioSpeedFilter(playbackRate: number): string {
+  return `[aout]atempo=${playbackRate}[afast]`;
 }
 
 export interface MuxVideoOptions {
   readonly music?: VideoMusic;
   readonly metadataComment?: string;
   readonly brandPng?: string;
+  readonly playbackRate?: number;
   readonly frames: readonly MuxFrame[];
   readonly sceneAudio: readonly MuxSceneAudio[];
   readonly outMp4: string;
@@ -141,6 +149,9 @@ export function muxVideo(options: MuxVideoOptions): void {
 
 export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string[] {
   const { frames, sceneAudio, outMp4, brandPng, music, metadataComment } = options;
+  const playbackRate = options.playbackRate ?? 1;
+  assertPlaybackRate(playbackRate);
+  const sped = playbackRate !== 1;
   const audioInputs = sceneAudio.flatMap((scene) => ["-i", scene.wavPath]);
   const musicInputIndex = music === undefined ? undefined : 1 + sceneAudio.length;
   const brandInputIndex =
@@ -165,11 +176,11 @@ export function buildMuxArgs(options: MuxVideoOptions, listPath: string): string
     ...(music === undefined ? [] : ["-i", music.file]),
     ...(brandPng === undefined ? [] : ["-i", brandPng]),
     "-filter_complex",
-    `${buildVideoFilter(brandInputIndex)};${audioFilter}`,
+    `${buildVideoFilter(brandInputIndex, playbackRate)};${audioFilter}${sped ? `;${buildAudioSpeedFilter(playbackRate)}` : ""}`,
     "-map",
     "[vout]",
     "-map",
-    "[aout]",
+    sped ? "[afast]" : "[aout]",
     "-c:v",
     "libx264",
     // CRF 28 halves the size of animated stages at no visible loss; faststart puts the

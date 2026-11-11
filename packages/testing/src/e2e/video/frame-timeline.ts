@@ -94,7 +94,8 @@ export class FrameTimeline {
     type: async (target, text) => {
       await this.tools.click(target);
       for (const char of text) {
-        await target.pressSequentially(char);
+        // pressSequentially refocuses the field per call, which resets segmented inputs like time to their first segment.
+        await this.page.keyboard.type(char);
         await this.capture(TYPE_FRAME_MS);
       }
     },
@@ -103,7 +104,11 @@ export class FrameTimeline {
     },
     snapshot: async () => {
       const png = await withPresentedIdentities(this.page, this.identities, () =>
-        this.page.screenshot({ animations: "disabled" }),
+        this.page.screenshot({
+          animations: "disabled",
+          // The snapshot becomes stage content; a cursor baked into it would sit there frozen.
+          style: "#kumiko-video-overlay { display: none !important; }",
+        }),
       );
       return `data:image/png;base64,${png.toString("base64")}`;
     },

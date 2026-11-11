@@ -28,6 +28,7 @@ export function installVideoOverlay(): void {
   const TOP = "2147483647";
 
   const layer = document.createElement("div");
+  layer.id = "kumiko-video-overlay";
   layer.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:${TOP};`;
 
   const cursor = document.createElementNS(SVG_NS, "svg");

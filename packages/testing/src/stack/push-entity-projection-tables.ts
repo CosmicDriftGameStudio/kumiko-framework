@@ -78,9 +78,7 @@ async function syncExistingProjectionTable(
   const liveColumns = await columnNamesOf(ddlDbOf(stack), physical);
   const missingColumns = meta.columns.filter((c) => !liveColumns.has(c.name));
   if (missingColumns.length === 0) {
-    logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
     await addMissingIndexes(ddlDbOf(stack), physical, meta.indexes);
-    // skip: table is already in sync, only indexes needed backfilling
     return;
   }
 

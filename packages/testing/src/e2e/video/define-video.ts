@@ -50,8 +50,21 @@ export interface VideoMusic {
   readonly volume?: number;
 }
 
+export const MIN_PLAYBACK_RATE = 0.5;
+export const MAX_PLAYBACK_RATE = 2;
+
+export function assertPlaybackRate(rate: number): void {
+  if (!(rate >= MIN_PLAYBACK_RATE && rate <= MAX_PLAYBACK_RATE)) {
+    throw new Error(
+      `playbackRate ${rate} must be between ${MIN_PLAYBACK_RATE} and ${MAX_PLAYBACK_RATE}`,
+    );
+  }
+}
+
 export interface VideoDefinition {
   readonly music?: VideoMusic;
+  // Speeds picture, narration and subtitles up together, default 1; ffmpeg's atempo allows 0.5 to 2.
+  readonly playbackRate?: number;
   readonly voice: VideoVoice;
   readonly viewport?: { readonly width: number; readonly height: number };
   // Login/seed work; runs before recording starts.
@@ -70,6 +83,7 @@ export function defineVideo(definition: VideoDefinition): VideoDefinition {
       throw new Error(`defineVideo(): viewport ${width}x${height} must have even width and height`);
     }
   }
+  if (definition.playbackRate !== undefined) assertPlaybackRate(definition.playbackRate);
   const seen = new Set<string>();
   for (const scene of definition.scenes) {
     if (seen.has(scene.id)) throw new Error(`defineVideo(): duplicate scene id "${scene.id}"`);

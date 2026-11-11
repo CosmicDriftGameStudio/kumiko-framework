@@ -27,7 +27,7 @@ describe("renderWelcomeBanner", () => {
   test("admin is optional (no-auth dev runs still get a banner)", () => {
     const banner = renderWelcomeBanner({ url: "http://localhost:3000" });
     expect(banner).toContain("http://localhost:3000");
-    expect(banner).not.toContain("Login als");
+    expect(banner).not.toContain("Login:");
   });
 
   test("featuresDir + docsUrl overridable", () => {
