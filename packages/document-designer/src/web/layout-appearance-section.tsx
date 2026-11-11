@@ -2,6 +2,7 @@ import {
   DOCUMENT_FONT_LABELS,
   DOCUMENT_FONTS,
   FONT_SIZES_PT,
+  PDF_FOLD_MARKS,
   PDF_TABLE_STYLES,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { useLocale, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
@@ -45,10 +46,12 @@ export function LayoutAppearanceSection({
     hasFooter,
   });
   const t = useTranslation();
-  const { Field, Input } = usePrimitives();
+  const { Button, Field, Input } = usePrimitives();
   const locale = useLocale().locale();
   const patch = (changes: Partial<PdfLayoutLook>): void => onChange({ ...look, ...changes });
+  const paperColorInvalid = look.paperColor !== "" && !isHexColor(look.paperColor);
   const textColorInvalid = !isHexColor(look.textColor);
+  const lineInvalid = look.tableLineColor !== "" && !isHexColor(look.tableLineColor);
   const headerInvalid =
     look.tableHeaderBackground !== "" && !isHexColor(look.tableHeaderBackground);
 
@@ -151,6 +154,108 @@ export function LayoutAppearanceSection({
             </div>
           </Field>
         )}
+        <Field id="dd-layout-pdf-table-line" label={t("documentDesigner.appearance.tableLine")}>
+          <div className="flex items-center gap-2">
+            {look.tableLineColor !== "" && !lineInvalid && (
+              <ColorSwatch color={look.tableLineColor} />
+            )}
+            <Input
+              kind="text"
+              id="dd-layout-pdf-table-line"
+              name="tableLineColor"
+              value={look.tableLineColor}
+              onChange={(tableLineColor) => patch({ tableLineColor })}
+              hasError={lineInvalid}
+              placeholder="#bbbbbb"
+              testId="layout-table-line"
+            />
+          </div>
+        </Field>
+        <Field id="dd-layout-pdf-paper-color" label={t("documentDesigner.appearance.paperColor")}>
+          <div className="flex items-center gap-2">
+            {look.paperColor !== "" && !paperColorInvalid && (
+              <ColorSwatch color={look.paperColor} />
+            )}
+            <Input
+              kind="text"
+              id="dd-layout-pdf-paper-color"
+              name="paperColor"
+              value={look.paperColor}
+              onChange={(paperColor) => patch({ paperColor })}
+              hasError={paperColorInvalid}
+              placeholder="#ffffff"
+              testId="layout-paper-color"
+            />
+            {look.paperColor !== "" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => patch({ paperColor: "" })}
+                testId="layout-paper-color-reset"
+              >
+                {t("documentDesigner.appearance.paperColorReset")}
+              </Button>
+            )}
+          </div>
+        </Field>
+        <div data-testid="layout-fold-marks">
+          <Field id="dd-layout-pdf-fold-marks" label={t("documentDesigner.appearance.foldMarks")}>
+            <Input
+              kind="select"
+              id="dd-layout-pdf-fold-marks"
+              name="foldMarks"
+              value={look.foldMarks}
+              onChange={(value) => {
+                const foldMarks = PDF_FOLD_MARKS.find((candidate) => candidate === value);
+                if (foldMarks !== undefined) patch({ foldMarks });
+              }}
+              display="dropdown"
+              options={PDF_FOLD_MARKS.map((marks) => ({
+                value: marks,
+                label: t(`documentDesigner.appearance.foldMarks.${marks}`),
+              }))}
+            />
+          </Field>
+        </div>
+        <Field
+          id="dd-layout-pdf-corner-marks"
+          layout="inline"
+          label={t("documentDesigner.appearance.cornerMarks")}
+        >
+          <Input
+            kind="boolean"
+            id="dd-layout-pdf-corner-marks"
+            name="cornerMarks"
+            value={look.cornerMarks}
+            onChange={(cornerMarks) => patch({ cornerMarks })}
+          />
+        </Field>
+        <Field
+          id="dd-layout-pdf-header-first"
+          layout="inline"
+          label={t("documentDesigner.appearance.headerOnFirstPage")}
+        >
+          <Input
+            kind="boolean"
+            id="dd-layout-pdf-header-first"
+            name="headerOnFirstPage"
+            value={look.headerOnFirstPage}
+            onChange={(headerOnFirstPage) => patch({ headerOnFirstPage })}
+          />
+        </Field>
+        <Field
+          id="dd-layout-pdf-footer-first"
+          layout="inline"
+          label={t("documentDesigner.appearance.footerOnFirstPage")}
+        >
+          <Input
+            kind="boolean"
+            id="dd-layout-pdf-footer-first"
+            name="footerOnFirstPage"
+            value={look.footerOnFirstPage}
+            onChange={(footerOnFirstPage) => patch({ footerOnFirstPage })}
+          />
+        </Field>
         <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
           <legend className="p-0 text-sm font-medium">
             {t("documentDesigner.margins.legend")}

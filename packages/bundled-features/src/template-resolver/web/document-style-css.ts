@@ -64,8 +64,115 @@ export function documentFrameCss(frame: DocumentFrameBox): string {
   ]);
 }
 
-export function documentCellStyleCss(style: { readonly background?: string | null }): string {
-  return style.background == null ? "" : `background-color:${style.background}`;
+export type DocumentImageStyle = {
+  readonly widthMm?: number | null;
+  readonly align?: "left" | "center" | "right" | null;
+};
+
+const IMAGE_ALIGN_MARGINS = {
+  left: "margin-left:0;margin-right:auto",
+  center: "margin-left:auto;margin-right:auto",
+  right: "margin-left:auto;margin-right:0",
+} as const;
+
+// An explicit width replaces the region's height cap, so a layout logo can be as large as the author set it.
+export function documentImageCss(style: DocumentImageStyle): string {
+  return declarations([
+    style.widthMm == null
+      ? null
+      : `width:${mm(style.widthMm)};max-width:100%;height:auto;max-height:none`,
+    style.align == null ? null : `display:block;${IMAGE_ALIGN_MARGINS[style.align]}`,
+  ]);
+}
+
+const DIVIDER_DEFAULT_COLOR = "#bbb";
+const DIVIDER_DEFAULT_WEIGHT_PT = 0.75;
+
+export function documentDividerCss(style: {
+  readonly color?: string | null;
+  readonly weightPt?: number | null;
+}): string {
+  if (style.color == null && style.weightPt == null) return "";
+  return declarations([
+    "border:0",
+    `border-top:${pt(style.weightPt ?? DIVIDER_DEFAULT_WEIGHT_PT)} solid ${style.color ?? DIVIDER_DEFAULT_COLOR}`,
+  ]);
+}
+
+export type DocumentRowLine = { readonly color: string; readonly weightPt: number };
+
+export type DocumentRowEdges = {
+  readonly top: DocumentRowLine | null;
+  readonly bottom: DocumentRowLine | null;
+};
+
+// The rule between two rows is one edge: a row's own line wins, otherwise it mirrors its
+// neighbour's, so a thin dark rule is not outvoted by the table style's rule on the other cell.
+// A repeat row expands into any number of rows at render time, so a neighbour's line cannot be
+// mirrored onto it (it would hit every copy) and its own lines are never mirrored outward.
+export function resolveRowEdges(
+  rows: ReadonlyArray<{
+    readonly lineAbove: DocumentRowLine | null;
+    readonly lineBelow: DocumentRowLine | null;
+    readonly repeats?: boolean;
+  }>,
+): DocumentRowEdges[] {
+  const mirrorable = (index: number): boolean => rows[index]?.repeats !== true;
+  return rows.map((row, index) => {
+    const own = mirrorable(index);
+    return {
+      top:
+        row.lineAbove ??
+        (own && mirrorable(index - 1) ? (rows[index - 1]?.lineBelow ?? null) : null),
+      bottom:
+        row.lineBelow ??
+        (own && mirrorable(index + 1) ? (rows[index + 1]?.lineAbove ?? null) : null),
+    };
+  });
+}
+
+export type DocumentCellStyle = {
+  readonly background?: string | null;
+  readonly paddingMm?: number | null;
+  readonly isFirstInRow?: boolean;
+  readonly isLastInRow?: boolean;
+  readonly edges?: DocumentRowEdges | undefined;
+};
+
+// 6px, the inset the layout's header background restores: a filled cell must not run flush against its text.
+export const FILLED_CELL_EDGE_INSET_MM = 1.5875;
+
+function ruleCss(side: "top" | "bottom", line: DocumentRowLine | null | undefined): string | null {
+  return line == null ? null : `border-${side}:${pt(line.weightPt)} solid ${line.color}`;
+}
+
+// The outer columns of a table print flush with the text margin; a filled outer cell keeps an inset so its text stays inside the fill.
+export function documentCellStyleCss(style: DocumentCellStyle): string {
+  const hasBackground = style.background != null;
+  const padding = style.paddingMm ?? null;
+  const outerMm = hasBackground ? (padding ?? FILLED_CELL_EDGE_INSET_MM) : null;
+  const left = style.isFirstInRow === true ? outerMm : padding;
+  const right = style.isLastInRow === true ? outerMm : padding;
+  return declarations([
+    hasBackground ? `background-color:${style.background}` : null,
+    padding === null ? null : `padding-top:${mm(padding)};padding-bottom:${mm(padding)}`,
+    left === null ? null : `padding-left:${mm(left)}`,
+    right === null ? null : `padding-right:${mm(right)}`,
+    ruleCss("top", style.edges?.top),
+    ruleCss("bottom", style.edges?.bottom),
+  ]);
+}
+
+export type DocumentTableStyle = {
+  readonly widthMm?: number | null;
+  readonly align?: "left" | "center" | "right" | null;
+};
+
+export function documentTableCss(style: DocumentTableStyle): string {
+  return declarations([
+    style.widthMm == null ? null : `width:${mm(style.widthMm)};max-width:100%`,
+    style.align == null ? null : IMAGE_ALIGN_MARGINS[style.align],
+  ]);
 }
 
 // Gap between the bottom of a flow-reserving frame and the first flowing line, shared by the

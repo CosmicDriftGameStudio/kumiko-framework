@@ -209,6 +209,34 @@ describe("pdf-layout meta", () => {
     }
   });
 
+  test("accepts the letter keys: table line color, fold marks and header or footer on page 1", () => {
+    const meta = {
+      tableLineColor: "#336699",
+      foldMarks: "din-b" as const,
+      headerOnFirstPage: false,
+      footerOnFirstPage: true,
+      cornerMarks: true,
+      paperColor: "#f4f1e2",
+    };
+    expect(parseTemplateMeta("pdf-layout", meta)).toEqual({ ok: true, meta });
+    for (const foldMarks of ["none", "din-a"]) {
+      expect(parseTemplateMeta("pdf-layout", { foldMarks }).ok).toBe(true);
+    }
+  });
+
+  test("rejects a bad table line color, unknown fold marks and non-boolean page 1 flags", () => {
+    for (const bad of [
+      { tableLineColor: "gray" },
+      { foldMarks: "din-c" },
+      { headerOnFirstPage: "no" },
+      { footerOnFirstPage: 0 },
+      { cornerMarks: "yes" },
+      { paperColor: "cream" },
+    ]) {
+      expect(parseTemplateMeta("pdf-layout", bad).ok).toBe(false);
+    }
+  });
+
   test("readPdfLayoutMeta falls back to an empty object", () => {
     expect(readPdfLayoutMeta({ fontFamily: "times" })).toEqual({ fontFamily: "times" });
     expect(readPdfLayoutMeta({ fontFamily: "comic" })).toEqual({});

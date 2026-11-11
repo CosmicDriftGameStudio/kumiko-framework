@@ -1,9 +1,15 @@
-import type { PdfTableStyle } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import {
+  PDF_CORNER_MARK_INSET_MM,
+  PDF_CORNER_MARK_LEG_MM,
+  type PdfTableStyle,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { cn } from "@cosmicdrift/kumiko-renderer/web";
 import type { ReactNode } from "react";
 import { PageRuler } from "./page-ruler.tsx";
 import {
   applyCssVariables,
+  CORNER_MARK_PLACEMENTS,
+  foldMarkLines,
   type MarginsMm,
   type PaperLook,
   type PaperSize,
@@ -18,7 +24,8 @@ const FLUSH_CELLS_CLASS = "[&_tr>:first-child]:pl-0 [&_tr>:last-child]:pr-0";
 const FLUSH_BODY_CELLS_CLASS = "[&_tr>td:first-child]:pl-0 [&_tr>td:last-child]:pr-0";
 
 // Same grey as the PDF table rule (TABLE_LINE in document-pdf-style.ts).
-const PRINT_RULE_COLOR_CLASS = "[&_td]:border-[#bbb] [&_th]:border-[#bbb]";
+const PRINT_RULE_COLOR_CLASS =
+  "[&_td]:border-(--paper-table-line,#bbb) [&_th]:border-(--paper-table-line,#bbb)";
 
 const TABLE_STYLE_CLASS: Readonly<Record<PdfTableStyle, string>> = {
   plain: "[&_td]:border-0 [&_th]:border-0",
@@ -60,7 +67,8 @@ export function PaperSheet({
         data-paper-margin-right-mm={margins.right}
         data-paper-margin-top-mm={margins.top}
         className={cn(
-          "relative flex min-h-(--paper-height) w-full flex-col bg-card text-(length:--paper-font-size) text-(color:--paper-text-color) font-(family-name:--paper-font-family) shadow-md [&_th]:bg-(--paper-table-header)",
+          "relative flex min-h-(--paper-height) w-full flex-col text-(length:--paper-font-size) text-(color:--paper-text-color) font-(family-name:--paper-font-family) shadow-md [&_th]:bg-(--paper-table-header)",
+          look.paperColor === null ? "bg-card" : "bg-(--paper-color)",
           TABLE_STYLE_CLASS[look.tableStyle],
           look.tableStyle !== "grid" &&
             (look.tableHeaderBackground === null ? FLUSH_CELLS_CLASS : FLUSH_BODY_CELLS_CLASS),
@@ -69,6 +77,38 @@ export function PaperSheet({
         ref={(element) => applyCssVariables(element, paperVariables({ size, margins, look }))}
       >
         <PageRuler size={size} margins={margins} />
+        {foldMarkLines(look.foldMarks).map((line) => (
+          <span
+            key={line.topMm}
+            data-testid="paper-fold-mark"
+            data-fold-mark-top-mm={line.topMm}
+            className="pointer-events-none absolute left-0 h-px bg-muted-foreground/60 top-[calc(var(--fold-top)*var(--paper-mm))] w-[calc(var(--fold-length)*var(--paper-mm))]"
+            ref={(element) => {
+              element?.style.setProperty("--fold-top", String(line.topMm));
+              element?.style.setProperty("--fold-length", String(line.lengthMm));
+            }}
+          />
+        ))}
+        {look.cornerMarks &&
+          CORNER_MARK_PLACEMENTS.map(({ vertical, horizontal }) => (
+            <span
+              key={`${vertical}-${horizontal}`}
+              data-testid="paper-corner-mark"
+              className={cn(
+                "pointer-events-none absolute size-[calc(var(--corner-leg)*var(--paper-mm))] border-0 border-muted-foreground/60",
+                vertical === "top"
+                  ? "top-[calc(var(--corner-inset)*var(--paper-mm))] border-t"
+                  : "bottom-[calc(var(--corner-inset)*var(--paper-mm))] border-b",
+                horizontal === "left"
+                  ? "left-[calc(var(--corner-inset)*var(--paper-mm))] border-l"
+                  : "right-[calc(var(--corner-inset)*var(--paper-mm))] border-r",
+              )}
+              ref={(element) => {
+                element?.style.setProperty("--corner-inset", String(PDF_CORNER_MARK_INSET_MM));
+                element?.style.setProperty("--corner-leg", String(PDF_CORNER_MARK_LEG_MM));
+              }}
+            />
+          ))}
         {children}
       </div>
     </div>

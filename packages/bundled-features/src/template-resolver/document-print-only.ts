@@ -13,9 +13,18 @@ export const PRINT_STYLE_SELECTORS = [
   "[data-space-before]",
   "[data-space-after]",
   "table[data-borders]",
+  "table[data-cell-padding-mm]",
+  "table[data-table-width-mm]",
+  "table[data-table-align]",
+  "tr[data-line-above]",
+  "tr[data-line-below]",
   "[data-background]",
   "[data-colwidth]",
   "img[data-bleed]",
+  "img[data-width-mm]",
+  "img[data-align]",
+  "hr[data-color]",
+  "hr[data-weight-pt]",
 ] as const;
 
 export type PrintOnlyFeatures = {

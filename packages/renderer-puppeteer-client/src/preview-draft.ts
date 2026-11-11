@@ -7,7 +7,7 @@ import {
 import type { HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { buildDocumentDraftPdfRequest } from "./document-pdf.ts";
-import { postRender } from "./http-client.ts";
+import { printDocumentPdf } from "./document-pdf-print.ts";
 import { loadClientConfigOrUnavailable } from "./render.ts";
 import { clientErrorForRenderFailure } from "./render-and-store.ts";
 
@@ -64,12 +64,8 @@ export async function printPreviewDraft(
         filesForTenant: (fileTenantId) => fileContextForTenant(ctx, user.tenantId, fileTenantId),
       },
     );
-    const printed = await postRender(loadClientConfigOrUnavailable(), {
-      kind: "document-pdf",
-      html: built.html,
-      options: built.options,
-    });
-    return { fileName: built.fileName, pdfBytes: printed.bytes, startedAt };
+    const pdfBytes = await printDocumentPdf(loadClientConfigOrUnavailable(), built);
+    return { fileName: built.fileName, pdfBytes, startedAt };
   } catch (e) {
     throw clientErrorForRenderFailure(e, ctx, slug);
   }

@@ -43,7 +43,7 @@ export function ColorSwatch({ color }: { readonly color: string }): ReactNode {
   return (
     <span
       data-testid="document-designer-accent-swatch"
-      className="inline-block size-3.5 shrink-0 rounded-sm border"
+      className="inline-block size-3.5 shrink-0 rounded-sm border border-foreground/30"
       style={{ backgroundColor: color }}
     />
   );

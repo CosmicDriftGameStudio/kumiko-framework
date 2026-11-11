@@ -28,6 +28,7 @@ import { TENANT_TIMEZONE_CONFIG_KEY } from "@cosmicdrift/kumiko-framework/pipeli
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import {
   DOCUMENT_FALLBACK_CURRENCY,
+  type DocumentDateStyle,
   formatDocumentDate,
   formatDocumentMoney,
   formatDocumentPercent,
@@ -48,6 +49,10 @@ export type DocumentFormat = {
   readonly timeZone?: string;
 };
 
+function documentDateStyleOption(value: unknown): { dateStyle?: DocumentDateStyle } {
+  return value === "short" || value === "long" ? { dateStyle: value } : {};
+}
+
 export function createDocumentHandlebars(format: DocumentFormat): typeof Handlebars {
   const hbs = Handlebars.create();
   hbs.registerHelper("money", (value: unknown): string =>
@@ -56,6 +61,7 @@ export function createDocumentHandlebars(format: DocumentFormat): typeof Handleb
   hbs.registerHelper("date", (value: unknown, options?: Handlebars.HelperOptions): string =>
     formatDocumentDate(value, format.locale, {
       time: options?.hash?.["time"] === true,
+      ...documentDateStyleOption(options?.hash?.["dateStyle"]),
       ...(format.timeZone !== undefined && { timeZone: format.timeZone }),
     }),
   );

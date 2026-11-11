@@ -105,3 +105,55 @@ describe("DocumentTiptapEditor designer surface", () => {
     expect(stepsHead?.textContent).toContain("Steps · Invoice lines");
   });
 });
+
+describe("DocumentTiptapEditor table print controls", () => {
+  const TABLE =
+    "<table><tbody><tr><td><p>a</p></td><td><p>b</p></td></tr><tr><td><p>c</p></td><td><p>d</p></td></tr></tbody></table>";
+
+  // The toolbar follows the caret: put it into the first cell the way a click would.
+  async function placeCaretInFirstCell(): Promise<void> {
+    const cell = await waitFor(() => {
+      const found = document.querySelector("td p");
+      if (found === null) throw new Error("table not rendered");
+      return found;
+    });
+    const surface = document.querySelector<HTMLElement>(".ProseMirror");
+    surface?.focus();
+    window.getSelection()?.collapse(cell.firstChild ?? cell, 0);
+    document.dispatchEvent(new Event("selectionchange"));
+  }
+
+  async function setNumber(testId: string, value: string): Promise<void> {
+    fireEvent.change(await screen.findByTestId(testId), { target: { value } });
+  }
+
+  test("cell padding, width and alignment are written to the table and removed again", async () => {
+    await renderEditor({ value: TABLE });
+    await placeCaretInFirstCell();
+    await setNumber("document-table-padding", "3");
+    await setNumber("document-table-width", "120");
+    fireEvent.click(await screen.findByTestId("document-table-align-center"));
+    await waitFor(() => expect(currentHtml()).toContain('data-table-align="center"'));
+    expect(currentHtml()).toContain('data-cell-padding-mm="3"');
+    expect(currentHtml()).toContain('data-table-width-mm="120"');
+    expect(sanitizeDocumentHtml(currentHtml())).toEqual({ ok: true, html: currentHtml() });
+    fireEvent.click(await screen.findByTestId("document-table-align-center"));
+    await waitFor(() => expect(currentHtml()).not.toContain("data-table-align"));
+  });
+
+  test("a row line is set per edge with colour and weight, and removed again", async () => {
+    await renderEditor({ value: TABLE });
+    await placeCaretInFirstCell();
+    fireEvent.click(await screen.findByTestId("document-row-line-above"));
+    await waitFor(() => expect(currentHtml()).toContain('data-line-above="#000000 0.5"'));
+    await setNumber("document-row-line-above-weight", "2");
+    await waitFor(() => expect(currentHtml()).toContain('data-line-above="#000000 2"'));
+    fireEvent.change(screen.getByTestId("document-row-line-above-color"), {
+      target: { value: "#336699" },
+    });
+    await waitFor(() => expect(currentHtml()).toContain('data-line-above="#336699 2"'));
+    expect(sanitizeDocumentHtml(currentHtml())).toEqual({ ok: true, html: currentHtml() });
+    fireEvent.click(await screen.findByTestId("document-row-line-above"));
+    await waitFor(() => expect(currentHtml()).not.toContain("data-line-above"));
+  });
+});

@@ -8,6 +8,8 @@ import {
   insertFrame,
   textFrameContent,
 } from "./document-frame-control.ts";
+import { readRowLineAttributes } from "./document-print-style.ts";
+import type { DocumentRowLine } from "./document-style-css.ts";
 import type {
   DocumentPrintBlock,
   DocumentPrintMode,
@@ -76,7 +78,14 @@ export type PrintBlockStyleState = {
 export type PrintTableState = {
   readonly bordersOff: boolean;
   readonly cellBackground: string | null;
+  readonly cellPaddingMm: number | null;
+  readonly widthMm: number | null;
+  readonly align: string | null;
+  readonly lineAbove: DocumentRowLine | null;
+  readonly lineBelow: DocumentRowLine | null;
 };
+
+export const DEFAULT_ROW_LINE: DocumentRowLine = { color: "#000000", weightPt: 0.5 };
 
 const TEXT_STYLE_MARK = "documentTextStyle";
 
@@ -129,7 +138,53 @@ function printTableOf(e: Editor): PrintTableState | null {
       break;
     }
   }
-  return { bordersOff: table.attrs["borders"] === "none", cellBackground };
+  const row = readRowLineAttributes(rowNodeOf(e)?.attrs ?? {});
+  return {
+    bordersOff: table.attrs["borders"] === "none",
+    cellBackground,
+    cellPaddingMm: numberOrNull(table.attrs["cellPaddingMm"]),
+    widthMm: numberOrNull(table.attrs["widthMm"]),
+    align: stringOrNull(table.attrs["align"]),
+    lineAbove: row.lineAbove,
+    lineBelow: row.lineBelow,
+  };
+}
+
+function rowNodeOf(e: Editor): ProseMirrorNode | null {
+  const { $from } = e.state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name === "tableRow") return $from.node(depth);
+  }
+  return null;
+}
+
+// The table's own print attributes; an empty field removes the attribute again.
+export function setTableAttributes(
+  editor: Editor,
+  attributes: Readonly<Record<string, unknown>>,
+): void {
+  const table = tableLocationOf(editor);
+  if (table === null) return;
+  editor
+    .chain()
+    .focus()
+    .command(({ tr }) => {
+      tr.setNodeMarkup(table.pos, undefined, { ...table.attrs, ...attributes });
+      return true;
+    })
+    .run();
+}
+
+export function setRowLine(
+  editor: Editor,
+  edge: "lineAbove" | "lineBelow",
+  line: DocumentRowLine | null,
+): void {
+  editor
+    .chain()
+    .focus()
+    .updateAttributes("tableRow", { [edge]: line })
+    .run();
 }
 
 type TextStylePatch = { readonly [K in keyof PrintTextStyleState]?: PrintTextStyleState[K] };
@@ -282,12 +337,37 @@ function blockStyleOf(e: Editor): "1" | "2" | "3" | "paragraph" {
 function selectedBlockOf(e: Editor): SelectedBlock | null {
   if (e.isActive("resource")) {
     const attrs = e.getAttributes("resource");
-    return { type: "resource", detail: String(attrs["resource"]), bleed: attrs["bleed"] === true };
+    return {
+      type: "resource",
+      detail: String(attrs["resource"]),
+      bleed: attrs["bleed"] === true,
+      widthMm: numberOrNull(attrs["widthMm"]),
+      align: stringOrNull(attrs["align"]),
+    };
   }
   if (e.isActive("button")) {
-    return { type: "button", detail: String(e.getAttributes("button")["href"]), bleed: false };
+    return {
+      type: "button",
+      detail: String(e.getAttributes("button")["href"]),
+    };
   }
-  return null; // skip: no resource or button selected
+  if (e.isActive("divider")) {
+    const attrs = e.getAttributes("divider");
+    return {
+      type: "divider",
+      color: stringOrNull(attrs["color"]),
+      weightPt: numberOrNull(attrs["weightPt"]),
+    };
+  }
+  if (e.isActive("variable")) {
+    const attrs = e.getAttributes("variable");
+    return {
+      type: "variable",
+      detail: String(attrs["name"]),
+      dateStyle: stringOrNull(attrs["dateStyle"]),
+    };
+  }
+  return null; // skip: no resource, button, divider or placeholder selected
 }
 
 export function activeStateOf(e: Editor, showHtml: boolean) {
@@ -310,10 +390,28 @@ export function activeStateOf(e: Editor, showHtml: boolean) {
 
 export type Primitives = ReturnType<typeof usePrimitives>;
 
-export type SelectedBlock = {
-  readonly type: "resource" | "button";
+export type ResourceBlock = {
+  readonly type: "resource";
   readonly detail: string;
   readonly bleed: boolean;
+  readonly widthMm: number | null;
+  readonly align: string | null;
 };
+export type ButtonBlock = { readonly type: "button"; readonly detail: string };
+export type DividerBlock = {
+  readonly type: "divider";
+  readonly color: string | null;
+  readonly weightPt: number | null;
+};
+export type VariableBlock = {
+  readonly type: "variable";
+  readonly detail: string;
+  readonly dateStyle: string | null;
+};
+export type SelectedBlock = ResourceBlock | ButtonBlock | DividerBlock | VariableBlock;
+
+export function addPlainRowBelow(editor: Editor): void {
+  editor.chain().focus().addRowAfter().run();
+}
 
 export type ActiveState = ReturnType<typeof activeStateOf>;

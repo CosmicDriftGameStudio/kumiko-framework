@@ -13,7 +13,7 @@ import {
   MAIL_LAYOUT_FONTS,
   MAIL_LAYOUT_WIDTHS,
 } from "./web/mail-layout-constants.ts";
-import { PDF_TABLE_STYLES } from "./web/pdf-constants.ts";
+import { PDF_FOLD_MARKS, PDF_TABLE_STYLES } from "./web/pdf-constants.ts";
 
 // One or more kebab segments joined by ":" — notification templates are seeded
 // under their qualified name `feature:notify:name`.
@@ -123,6 +123,12 @@ const pdfLayoutMetaSchema = z
     textColor: hexColor.optional(),
     tableStyle: z.enum(PDF_TABLE_STYLES).optional(),
     tableHeaderBackground: hexColor.optional(),
+    tableLineColor: hexColor.optional(),
+    foldMarks: z.enum(PDF_FOLD_MARKS).optional(),
+    cornerMarks: z.boolean().optional(),
+    paperColor: hexColor.optional(),
+    headerOnFirstPage: z.boolean().optional(),
+    footerOnFirstPage: z.boolean().optional(),
   })
   .strict();
 

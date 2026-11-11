@@ -18,7 +18,7 @@ import {
 // full-bleed image can reach the paper edge, and this wrapper padding keeps text where
 // existing letterheads were laid out.
 const CHROMIUM_REGION_PADDING_MM = 4;
-const TABLE_LINE = "1px solid #bbb";
+const DEFAULT_TABLE_LINE_COLOR = "#bbb";
 export const TEXT_ALIGN_CSS_RULES: readonly string[] = [
   "[data-align=left]{text-align:left}",
   "[data-align=center]{text-align:center}",
@@ -56,16 +56,17 @@ const CELL_PADDING_X_PX = 6;
 
 function tableCss(layoutMeta: PdfLayoutMeta): string[] {
   const rules: string[] = [];
+  const tableLine = `1px solid ${layoutMeta.tableLineColor ?? DEFAULT_TABLE_LINE_COLOR}`;
   if (layoutMeta.tableStyle === "plain") rules.push("td,th{border:0}");
   if (layoutMeta.tableStyle === "lines") {
-    rules.push(`td,th{border:0;border-bottom:${TABLE_LINE}}`);
+    rules.push(`td,th{border:0;border-bottom:${tableLine}}`);
   }
   if (layoutMeta.tableStyle === "header") {
-    rules.push("td,th{border:0}", `th{border-bottom:${TABLE_LINE}}`);
+    rules.push("td,th{border:0}", `th{border-bottom:${tableLine}}`);
   }
   if (layoutMeta.tableStyle === "grid") {
     rules.push(
-      `td,th{border:${TABLE_LINE}}`,
+      `td,th{border:${tableLine}}`,
       `tr>:first-child{padding-left:${CELL_PADDING_X_PX}px}`,
       `tr>:last-child{padding-right:${CELL_PADDING_X_PX}px}`,
     );
@@ -162,10 +163,12 @@ export function chromiumRegionHtml(args: {
   readonly layoutMeta: PdfLayoutMeta;
 }): string {
   const { regionHtml, position, marginLeftMm, marginRightMm, layoutMeta } = args;
+  // Header and footer templates share one document in Chromium, so an unscoped bleed rule from one
+  // region also moves the other region's image (footer image jumped to the top edge).
   const edge = position === "header" ? "top:0" : "bottom:0";
   const style =
-    "<style>#header,#footer{padding:0!important}html,body{margin:0}table{width:100%;border-collapse:collapse}p{margin:0;white-space:pre-line}img{max-height:20mm}" +
-    `img[data-bleed]{position:absolute;${edge};left:0;width:100%;max-height:none}${TEXT_ALIGN_CSS}</style>`;
+    "<style>#header,#footer{padding:0!important}html,body{margin:0}table{width:100%;border-collapse:collapse}td,th{vertical-align:top}p{margin:0;white-space:pre-line}img{max-height:20mm}" +
+    `.kumiko-${position} img[data-bleed]{position:absolute;${edge};left:0;width:100%;max-height:none}${TEXT_ALIGN_CSS}</style>`;
   const font = `font-family:${
     layoutMeta.fontFamily === undefined
       ? DEFAULT_REGION_FONT
@@ -178,6 +181,6 @@ export function chromiumRegionHtml(args: {
   return (
     style +
     // html-ok: font is an enum-keyed print stack, color a #rrggbb-validated meta value, the rest numbers
-    `<div style="width:100%;box-sizing:border-box;${font};font-size:${fontSize};color:${color};padding:${paddingTop}mm ${marginRightMm}mm ${paddingBottom}mm ${marginLeftMm}mm;-webkit-print-color-adjust:exact">${regionHtml}</div>`
+    `<div class="kumiko-${position}" style="width:100%;box-sizing:border-box;${font};font-size:${fontSize};color:${color};padding:${paddingTop}mm ${marginRightMm}mm ${paddingBottom}mm ${marginLeftMm}mm;-webkit-print-color-adjust:exact">${regionHtml}</div>`
   );
 }

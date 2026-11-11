@@ -1,6 +1,7 @@
 import type { FieldIssue } from "@cosmicdrift/kumiko-framework/errors";
 import type { JSONContent } from "@tiptap/core";
 import * as z from "zod";
+import type { LayoutRegionName } from "./layout-regions.ts";
 import type { DocumentOpsKind } from "./web/constants.ts";
 import {
   type DocumentToolbarBlock,
@@ -9,14 +10,21 @@ import {
 } from "./web/document-blocks.ts";
 import { DOCUMENT_FONTS } from "./web/document-fonts.ts";
 import {
+  CELL_PADDING_MM_RANGE,
   COLWIDTH_PX_RANGE,
+  DIVIDER_WEIGHT_PT_RANGE,
+  DOCUMENT_IMAGE_ALIGNMENTS,
+  DOCUMENT_TABLE_ALIGNMENTS,
   FRAME_MM_RANGE,
   FRAME_PRESETS,
+  IMAGE_WIDTH_MM_RANGE,
   LINE_HEIGHT_RANGE,
   PARAGRAPH_SPACE_PT_RANGE,
+  TABLE_WIDTH_MM_RANGE,
   TEXT_SIZE_PT_RANGE,
 } from "./web/document-print-style.ts";
 import {
+  DOCUMENT_DATE_STYLES,
   DOCUMENT_TEXT_ALIGNMENTS,
   isDocumentPlaceholderHref,
   isDocumentReferenceName,
@@ -98,8 +106,14 @@ const runSchema = textStyleSchema.extend({
   bold: z.boolean().optional(),
   italic: z.boolean().optional(),
   underline: z.boolean().optional(),
+  dateStyle: z.enum(DOCUMENT_DATE_STYLES).optional(),
 });
-const runsSchema = z.array(runSchema).min(1).max(50);
+// A line break inside a paragraph or table cell; the lines around it keep their own formatting.
+const hardBreakSchema = z.object({ hardBreak: z.literal(true) });
+const runsSchema = z
+  .array(z.union([runSchema, hardBreakSchema]))
+  .min(1)
+  .max(50);
 
 const blockStyleSchema = z.object({
   lineHeight: rangeNumber(LINE_HEIGHT_RANGE).optional(),
@@ -121,7 +135,16 @@ const cellSchema = z.object({
   background: hexColor.optional(),
   align: alignSchema.optional(),
 });
-const rowSchema = z.object({ cells: z.array(cellSchema).min(1).max(20) });
+// A rule over or under a row, e.g. the dark line under a table header or above a total.
+const rowLineSchema = z.object({
+  color: hexColor,
+  weightPt: rangeNumber(DIVIDER_WEIGHT_PT_RANGE),
+});
+const rowSchema = z.object({
+  cells: z.array(cellSchema).min(1).max(20),
+  lineAbove: rowLineSchema.optional(),
+  lineBelow: rowLineSchema.optional(),
+});
 
 const paragraphSchema = z.object({
   type: z.literal("paragraph"),
@@ -146,15 +169,27 @@ const listSchema = z.object({
 const tableSchema = z.object({
   type: z.literal("table"),
   borders: z.literal("none").optional(),
+  cellPaddingMm: rangeNumber(CELL_PADDING_MM_RANGE).optional(),
+  widthMm: rangeNumber(TABLE_WIDTH_MM_RANGE).optional(),
+  align: z.enum(DOCUMENT_TABLE_ALIGNMENTS).optional(),
   columnWidthsPx: z.array(rangeNumber(COLWIDTH_PX_RANGE)).min(1).max(20).optional(),
   header: rowSchema.optional(),
   rows: z.array(rowSchema).max(100),
   repeat: z.object({ each: z.string().min(1).max(100), row: rowSchema }).optional(),
+  rowsAfterRepeat: z.array(rowSchema).max(100).optional(),
 });
 const imageSchema = z.object({
   type: z.literal("image"),
   resource: z.string().min(1).max(200),
   alt: z.string().max(500).optional(),
+  widthMm: rangeNumber(IMAGE_WIDTH_MM_RANGE).optional(),
+  align: z.enum(DOCUMENT_IMAGE_ALIGNMENTS).optional(),
+  bleed: z.boolean().optional(),
+});
+const dividerSchema = z.object({
+  type: z.literal("divider"),
+  color: hexColor.optional(),
+  weightPt: rangeNumber(DIVIDER_WEIGHT_PT_RANGE).optional(),
 });
 
 const frameSchema = z.object({
@@ -187,7 +222,7 @@ export const blockInputSchema = z.discriminatedUnion("type", [
   frameSchema,
   imageSchema,
   z.object({ type: z.literal("button"), text: singleLineText, href: z.string().max(300) }),
-  z.object({ type: z.literal("divider") }),
+  dividerSchema,
   z.object({ type: z.literal("pageBreak") }),
 ]);
 
@@ -197,13 +232,18 @@ export type TextFormat = z.infer<typeof blockFormatSchema>;
 type Mark = NonNullable<JSONContent["marks"]>[number];
 type TextStyle = z.infer<typeof textStyleSchema>;
 type Run = z.infer<typeof runSchema>;
+type RunOrBreak = z.infer<typeof runsSchema>[number];
 type Row = z.infer<typeof rowSchema>;
 type InlineSource = {
   readonly text?: string | undefined;
-  readonly runs?: readonly Run[] | undefined;
+  readonly runs?: readonly RunOrBreak[] | undefined;
 };
 
-export type BuildContext = { readonly kind: DocumentOpsKind; readonly issues: FieldIssue[] };
+export type BuildContext = {
+  readonly kind: DocumentOpsKind;
+  readonly region?: LayoutRegionName | undefined;
+  readonly issues: FieldIssue[];
+};
 
 function report(
   ctx: BuildContext,
@@ -272,11 +312,13 @@ function inlineNodes(
   if (runs === undefined) {
     return withMarks(lineToContent(singleLine(text ?? "")), textStyleMarks(base));
   }
-  return runs.flatMap((run) =>
-    withMarks(lineToContent(singleLine(run.text)), [
-      ...runMarks(run),
-      ...textStyleMarks({ ...base, ...definedStyle(run) }),
-    ]),
+  return runs.flatMap((run): JSONContent[] =>
+    "hardBreak" in run
+      ? [{ type: "hardBreak" }]
+      : withMarks(lineToContent(singleLine(run.text), run.dateStyle), [
+          ...runMarks(run),
+          ...textStyleMarks({ ...base, ...definedStyle(run) }),
+        ]),
   );
 }
 
@@ -344,9 +386,14 @@ function rowNode(
       problem: "columnWidthsPx must match the cells per row",
     });
   }
+  const attrs = {
+    ...options.attrs,
+    ...(row.lineAbove === undefined ? {} : { lineAbove: row.lineAbove }),
+    ...(row.lineBelow === undefined ? {} : { lineBelow: row.lineBelow }),
+  };
   return {
     type: "tableRow",
-    ...(options.attrs === undefined ? {} : { attrs: options.attrs }),
+    ...(Object.keys(attrs).length === 0 ? {} : { attrs }),
     content: row.cells.map((cell, index): JSONContent => {
       const width = options.widths?.[index];
       const attrs = {
@@ -363,17 +410,38 @@ function rowNode(
   };
 }
 
+function reportInvalidRepeat(
+  ctx: BuildContext,
+  path: string,
+  repeat: Extract<BlockInput, { type: "table" }>["repeat"],
+): void {
+  if (repeat === undefined) return;
+  if (!isDocumentReferenceName(repeat.each)) {
+    report(ctx, `${path}.repeat.each`, "invalid_repeat_variable", { each: repeat.each });
+  }
+  if (!allowedBlocksFor(ctx.kind).includes("repeat")) {
+    report(ctx, `${path}.repeat`, "block_not_allowed", { type: "repeat", kind: ctx.kind });
+  }
+}
+
+function tableAttrsOf(block: Extract<BlockInput, { type: "table" }>) {
+  return {
+    ...(block.borders === undefined ? {} : { borders: block.borders }),
+    ...(block.cellPaddingMm === undefined ? {} : { cellPaddingMm: block.cellPaddingMm }),
+    ...(block.widthMm === undefined ? {} : { widthMm: block.widthMm }),
+    ...(block.align === undefined ? {} : { align: block.align }),
+  };
+}
+
 function tableNode(ctx: BuildContext, path: string, block: Extract<BlockInput, { type: "table" }>) {
   const widths = block.columnWidthsPx;
-  const { header, repeat } = block;
-  if (repeat !== undefined) {
-    if (!isDocumentReferenceName(repeat.each)) {
-      report(ctx, `${path}.repeat.each`, "invalid_repeat_variable", { each: repeat.each });
-    }
-    if (!allowedBlocksFor(ctx.kind).includes("repeat")) {
-      report(ctx, `${path}.repeat`, "block_not_allowed", { type: "repeat", kind: ctx.kind });
-    }
+  const { header, repeat, rowsAfterRepeat } = block;
+  if (rowsAfterRepeat !== undefined && repeat === undefined) {
+    report(ctx, `${path}.rowsAfterRepeat`, "invalid_table", {
+      problem: "rowsAfterRepeat needs a repeat row to follow",
+    });
   }
+  reportInvalidRepeat(ctx, path, repeat);
   const rows = [
     ...(header === undefined
       ? []
@@ -396,6 +464,9 @@ function tableNode(ctx: BuildContext, path: string, block: Extract<BlockInput, {
             attrs: { each: repeat.each },
           }),
         ]),
+    ...(rowsAfterRepeat ?? []).map((row, index) =>
+      rowNode(ctx, `${path}.rowsAfterRepeat.${index}`, row, { header: false, widths }),
+    ),
   ];
   const cellCounts = new Set(rows.map((row) => row.content?.length ?? 0));
   if (rows.length === 0 || cellCounts.size > 1) {
@@ -403,9 +474,10 @@ function tableNode(ctx: BuildContext, path: string, block: Extract<BlockInput, {
       problem: "needs a row and the same number of cells in every row",
     });
   }
+  const tableAttrs = tableAttrsOf(block);
   return {
     type: "table",
-    ...(block.borders === undefined ? {} : { attrs: { borders: block.borders } }),
+    ...(Object.keys(tableAttrs).length === 0 ? {} : { attrs: tableAttrs }),
     content: rows,
   };
 }
@@ -429,6 +501,19 @@ function frameNode(
   };
 }
 
+// Only the header and footer print outside the page margins, so only they can reach the paper edge.
+function isBleedRegion(region: LayoutRegionName | undefined): boolean {
+  return region === "header" || region === "footer";
+}
+
+function dividerNode(input: Extract<BlockInput, { type: "divider" }>): JSONContent {
+  const attrs = {
+    ...(input.color === undefined ? {} : { color: input.color }),
+    ...(input.weightPt === undefined ? {} : { weightPt: input.weightPt }),
+  };
+  return { type: "divider", ...(Object.keys(attrs).length === 0 ? {} : { attrs }) };
+}
+
 function imageNode(
   ctx: BuildContext,
   path: string,
@@ -437,7 +522,19 @@ function imageNode(
   if (!isDocumentResourceKey(input.resource)) {
     report(ctx, `${path}.resource`, "invalid_resource_key", { resource: input.resource });
   }
-  return { type: "resource", attrs: { resource: input.resource, alt: input.alt ?? null } };
+  if (input.bleed === true && !(ctx.kind === "pdf-layout" && isBleedRegion(ctx.region))) {
+    report(ctx, `${path}.bleed`, "bleed_not_allowed", { kind: ctx.kind });
+  }
+  return {
+    type: "resource",
+    attrs: {
+      resource: input.resource,
+      alt: input.alt ?? null,
+      ...(input.widthMm === undefined ? {} : { widthMm: input.widthMm }),
+      ...(input.align === undefined ? {} : { align: input.align }),
+      ...(input.bleed === true ? { bleed: true } : {}),
+    },
+  };
 }
 
 function buttonNode(
@@ -475,6 +572,7 @@ export function blockNode(ctx: BuildContext, path: string, input: BlockInput): J
     case "button":
       return buttonNode(ctx, path, input);
     case "divider":
+      return dividerNode(input);
     case "pageBreak":
       return { type: input.type };
   }
@@ -487,16 +585,32 @@ const PRINT_ATTRIBUTES = [
   "background",
   "colwidth",
   "borders",
+  "cellPaddingMm",
+  "lineAbove",
+  "lineBelow",
 ] as const;
 
 function isPresent(value: unknown): boolean {
   return value !== undefined && value !== null;
 }
 
+// An image's bleed defaults to false, so a present attribute alone says nothing there.
+function hasPrintOnlyBoxAttributes(node: JSONContent): boolean {
+  const attrs = node.attrs;
+  if (node.type === "resource") {
+    return (
+      attrs?.["bleed"] === true || isPresent(attrs?.["widthMm"]) || isPresent(attrs?.["align"])
+    );
+  }
+  if (node.type === "table") return isPresent(attrs?.["widthMm"]) || isPresent(attrs?.["align"]);
+  return node.type === "divider" && (isPresent(attrs?.["color"]) || isPresent(attrs?.["weightPt"]));
+}
+
 // Frames are refused as blocks, so only the styling that would ride along in other blocks counts here.
 export function usesPrintStyling(node: JSONContent): boolean {
   if (node.marks?.some((mark) => mark.type === "documentTextStyle")) return true;
   if (PRINT_ATTRIBUTES.some((name) => isPresent(node.attrs?.[name]))) return true;
+  if (hasPrintOnlyBoxAttributes(node)) return true;
   return (node.content ?? []).some(usesPrintStyling);
 }
 

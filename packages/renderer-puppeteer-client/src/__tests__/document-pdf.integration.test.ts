@@ -66,6 +66,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { PDFDocument } from "pdf-lib";
 import * as z from "zod";
 import { renderedPdfEntity, renderedPdfsTable } from "../entity";
 import { createRendererPuppeteerClientFeature } from "../feature";
@@ -79,9 +80,13 @@ const MAIL = qn(FEATURE, QnTypes.notify, "invoice");
 const SEND_MAIL = qn(FEATURE, QnTypes.write, "send-mail");
 
 const AUTH_TOKEN = "stub-token-0123456789abcdef";
-const STUB_PDF = new TextEncoder().encode(
-  "%PDF-1.4\n1 0 obj<< /Type /Pages /Kids [] /Count 2 >>endobj\n%%EOF",
-);
+// Loadable by pdf-lib: a header that skips page 1 or fold marks make the client open the print.
+const STUB_PDF = await (async () => {
+  const doc = await PDFDocument.create();
+  doc.addPage();
+  doc.addPage();
+  return doc.save({ useObjectStreams: false });
+})();
 const PNG_BYTES = Uint8Array.from(
   Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
@@ -131,7 +136,7 @@ const stubService = Bun.serve({
       return new Response("unauthorized", { status: 401 });
     }
     stubRequests.push((await request.json()) as StubRequest);
-    return new Response(STUB_PDF, { headers: { "Content-Type": "application/pdf" } });
+    return new Response(Buffer.from(STUB_PDF), { headers: { "Content-Type": "application/pdf" } });
   },
 });
 const STUB_URL = `http://127.0.0.1:${stubService.port}`;
@@ -1044,6 +1049,16 @@ describe("document-pdf layout appearance, frames and company data", () => {
       '<div data-header><img data-resource="logo" data-bleed alt="Kopf"></div><div data-content></div><div data-footer><p>Fuss</p></div>',
     );
     await uploadImageFor(bleeding.id, "logo");
+    await upsertLayout(
+      "skipped-first-page",
+      {
+        headerOnFirstPage: false,
+        foldMarks: "din-a",
+        tableLineColor: "#336699",
+        tableStyle: "lines",
+      },
+      "<div data-header><p>Briefkopf</p></div><div data-content></div><div data-footer><p>Fuss</p></div>",
+    );
   });
 
   const print = async (
@@ -1115,6 +1130,27 @@ describe("document-pdf layout appearance, frames and company data", () => {
     expect(options.headerTemplate).toContain("#header,#footer{padding:0!important}");
     expect(options.headerTemplate).toContain("img[data-bleed]{position:absolute;top:0");
     expect(options.footerTemplate).toContain("padding:0mm");
+  });
+
+  test("a header that skips page 1 is a second print without it, and the table lines take the layout color", async () => {
+    await stack.http.queryOk<PdfPreview>(
+      RendererPuppeteerClientQueries.previewPdf,
+      draftPayload({
+        content: "<table><tr><td>Zelle</td></tr></table>",
+        meta: { layoutSlug: "skipped-first-page" },
+        variableSchema: {},
+      }),
+      adminTenantA,
+    );
+    expect(stubRequests).toHaveLength(2);
+    const [allPages, firstPage] = stubRequests;
+    expect(allPages?.options.headerTemplate).toContain("Briefkopf");
+    expect(allPages?.options.footerTemplate).toContain("Fuss");
+    expect(firstPage?.options.headerTemplate).not.toContain("Briefkopf");
+    expect(firstPage?.options.footerTemplate).toContain("Fuss");
+    expect(firstPage?.html).toBe(allPages?.html ?? "");
+    expect(allPages?.html).toContain("1px solid #336699");
+    stubRequests.length = 0;
   });
 
   test("the tenant's default layout applies when the template names none", async () => {

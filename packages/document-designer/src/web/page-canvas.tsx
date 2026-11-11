@@ -70,7 +70,7 @@ function HeaderBand({
 }): ReactNode {
   return (
     <div
-      className="absolute inset-x-0 top-0 min-h-(--paper-margin-top) border-b border-border bg-muted pt-[calc(4*var(--paper-mm))] pr-(--paper-margin-right) pb-[calc(2*var(--paper-mm))] pl-(--paper-margin-left) text-(length:--paper-font-size) text-foreground [&_td]:border-0! [&_th]:border-0! [&_p]:text-[length:inherit] [&_p]:leading-[inherit] [&_td]:align-middle [&_td:last-child]:whitespace-nowrap"
+      className="absolute inset-x-0 top-0 min-h-(--paper-margin-top) border-b border-border bg-muted pt-[calc(4*var(--paper-mm))] pr-(--paper-margin-right) pb-[calc(2*var(--paper-mm))] pl-(--paper-margin-left) text-(length:--paper-font-size) text-foreground [&_td]:border-0! [&_th]:border-0! [&_p]:text-[length:inherit] [&_p]:leading-[inherit] [&_td]:align-top [&_td:last-child]:whitespace-nowrap"
       data-testid="document-designer-letterhead"
     >
       <span className="absolute right-(--paper-margin-right) top-0.5 text-[9px] leading-none uppercase tracking-wide text-muted-foreground">
@@ -99,7 +99,7 @@ function FooterBand({
 }): ReactNode {
   return (
     <div
-      className="absolute inset-x-0 top-(--paper-height) flex min-h-(--paper-margin-bottom) -translate-y-full flex-col border-t border-border bg-muted pt-[calc(1.5*var(--paper-mm))] pr-(--paper-margin-right) pb-[calc(2*var(--paper-mm))] pl-(--paper-margin-left) text-(length:--paper-font-size) text-foreground [&_td]:border-0! [&_th]:border-0! [&_p]:text-[length:inherit] [&_p]:leading-[inherit] [&_td]:align-middle [&_td:last-child]:whitespace-nowrap"
+      className="absolute inset-x-0 top-(--paper-height) flex min-h-(--paper-margin-bottom) -translate-y-full flex-col border-t border-border bg-muted pt-[calc(1.5*var(--paper-mm))] pr-(--paper-margin-right) pb-[calc(2*var(--paper-mm))] pl-(--paper-margin-left) text-(length:--paper-font-size) text-foreground [&_td]:border-0! [&_th]:border-0! [&_p]:text-[length:inherit] [&_p]:leading-[inherit] [&_td]:align-top [&_td:last-child]:whitespace-nowrap"
       data-testid="document-designer-footer-band"
     >
       <span className="mb-[calc(1*var(--paper-mm))] block text-[10px] leading-none uppercase tracking-wide text-muted-foreground">

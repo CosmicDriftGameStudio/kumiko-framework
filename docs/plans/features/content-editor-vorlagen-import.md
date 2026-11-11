@@ -1,7 +1,7 @@
 ---
 status: in-progress
 verified: 2026-11-11
-next: Stufen 1 bis 4 und die Modellmessung sind erledigt. Offen sind der Enterprise-PR mit dem Logo-Zuschnitt und dessen Release, danach der Rollout in der ersten App.
+next: Stufen 1 bis 4 und die Modellmessung sind erledigt. Offen sind die Releases der Brief-Funktionen (Framework) und des Logo-Zuschnitts (Enterprise #941), danach der Rollout in der ersten App.
 track: framework
 depends: [kumiko-framework:docs/plans/features/document-designer.md]
 ---
@@ -137,33 +137,43 @@ Framework-Release durch Marc, Bump in der ersten App, Deploy des `puppeteer-serv
 Gemessen wurde mit drei anonymisierten Nachbauten der Beispielvorlagen:
 
 - Vereinsrechnung mit eingebettetem Logo
-- zweiseitige Steuerbescheinigung mit Vektorlogo und Seitenzahlen
-- Lieferschein als Scan ohne Textebene
+- zweiseitige Steuerbescheinigung mit Vektorlogo, Eck- und Falzmarken und Seitenzahlen
+- Werkstattrechnung als Scan ohne Textebene, mit Wellen am oberen und unteren Papierrand und cremefarbenem Papier
 
-Jeder Lauf ging über den echten Stack mit `puppeteer-service`, mit höchstens zwei Nachfragen und drei Korrekturrunden. Die Note (1 sehr gut bis 6 unbrauchbar) kommt aus dem Vergleich von Original und Entwurf. Gemessen wurde ein Lauf je Vorlage und Modell. Die Noten streuen zwischen zwei Läufen um etwa eine halbe Stufe. Skripte: `kumiko-enterprise/packages/ai-agent/scripts/template-import-benchmark/`.
+Jeder Lauf ging über den echten Stack mit `puppeteer-service`, mit höchstens zwei Nachfragen und drei Korrekturrunden, zwei Läufe je Vorlage und Modell. Bewertet hat Marc, indem er Original und Entwurf nebeneinander gesehen hat. Skripte: `kumiko-enterprise/packages/ai-agent/scripts/template-import-benchmark/`.
 
-| Modell | Betrieb | Ergebnis | Kosten je Vorlage | Dauer | Note |
+| Modell | Betrieb | Ergebnis | Kosten je Vorlage | Dauer | Abnahme |
 | --- | --- | --- | --- | --- | --- |
-| Claude Opus 5.5 | Anthropic-API | 3 von 3 | 0,67 bis 0,88 $ | 90 bis 140 s | 1-2 bis 2 |
-| gpt-6-luna | OpenRouter | 3 von 3 | 0,02 bis 0,04 $ | 140 bis 280 s | 3 bis 3-4 |
+| Claude Opus 5.5, effort high | Anthropic-API | 11 von 12 in zwei Runden | 0,93 bis 1,80 $ | 130 bis 340 s | Nah am Original, abgenommen |
+| Claude Opus 5.5, effort low | Anthropic-API | 5 von 6 | 0,29 bis 0,97 $ | 47 bis 114 s | Brief und Bescheinigung nah dran, beim Scan fehlen Kopfwelle und Papierfarbe |
+| gpt-6-luna | OpenRouter | 5 von 6 | 0,03 bis 0,10 $ | 260 bis 480 s | Unbrauchbar: Kopf, Fuß und Abstände stimmen nicht |
 | Qwen 3.5 9B | Ollama auf einem Mac | 0 von 3, in zwei Runden | 0 $ | - | - |
 
-- **Opus** baut Kopf, Fuß, Logo und Platzhalter fast vollständig nach. Logos aus Scan und Vektorgrafik holt Opus per Zuschnitt aus dem Seitenbild. 62 bis 73 % der Kosten fallen für den Cache an, weil jede Runde den Verlauf samt Seitenbildern neu schickt.
-- **Luna** übernimmt Inhalt und Platzhalter. Kopf oder Fuß landen aber oft im Text oder fehlen. Das reicht für einen ersten Entwurf, den jemand im Editor nacharbeitet.
+- **Opus mit effort high** baut Kopf, Fuß, Logo, Tabellen, Eck- und Falzmarken, Papierfarbe und Platzhalter nach. Logos aus Scan und Vektorgrafik holt Opus per Zuschnitt aus dem Seitenbild. Der Import braucht high, das ist die Werkseinstellung des Mandanten (`ai-foundation.defaultEffort`). Der Import ist kein eigener Agent, sondern Werkzeuge im Assistenten, deshalb gilt der Effort des Mandanten.
+- **Opus mit effort low** kostet etwa die Hälfte. Beim Scan ruft es nur rund fünf Werkzeuge auf, macht keine Vorschau-Runde und lässt Kopfwelle und Papierfarbe weg.
+- Gezählt wird der Import gegen das Monatsbudget des Mandanten auf dem Plattform-Key, mit 120.000 bis 170.000 Tokens je Vorlage (Input, Output und Cache-Schreiben).
+- **Luna** ist billig, aber für den Import nicht geeignet.
 - **Qwen 9B** scheitert an Kapazität und Tempo:
   - Zeitüberschreitung, sobald die Seitenbilder ankommen.
   - Sonst nur Text oder fehlerhafte Tool-Calls.
 
-  Kleine selbst gehostete Modelle auf einem Laptop gehen damit nicht. Größere selbst gehostete Modelle mit Bildeingabe und Tool-Use, etwa über vLLM auf einer GPU, sind nicht gemessen. Der Plan sah zwei selbst gehostete Modelle vor.
-- Opus lief ohne die zwei letzten Prompt-Hinweise (Seitenzahl-Platzhalter, Layout per `setMeta` statt `apply-layout`). Luna lief beim Scan mit dem zweiten Hinweis, bei den anderen Vorlagen ohne beide.
-- SSIM trennt die Qualität nicht. Fertige Nachbauten lagen bei 0,69 bis 0,74, die unveränderte Startvorlage bei 0,77 bis 0,84.
+  Kleine selbst gehostete Modelle auf einem Laptop gehen damit nicht. Größere selbst gehostete Modelle mit Bildeingabe und Tool-Use, etwa über vLLM auf einer GPU, sind nicht gemessen.
+- Zwei von 18 Opus-Läufen endeten mit `agent.tool_not_allowed`: Ein `run_action` blieb übrig, das der Agent keiner Aktion zuordnen konnte. Die Entwürfe waren da schon fertig. `run_action` nimmt den Input jetzt auch als JSON-Text an. Der Benchmark protokolliert Name und Art des Inputs, damit der nächste Fall die Ursache zeigt.
+- SSIM trennt die Qualität nicht. Fertige Nachbauten lagen bei 0,66 bis 0,83, die unveränderte Startvorlage bei 0,77 bis 0,84.
 
-Die Messung hat diese Fehler aufgedeckt, alle sind behoben:
+Eine frühere Fassung dieses Abschnitts (#4303) gab Opus die Noten 1-2 bis 2. Das war geschönt: Farbflächen, Wellen, Tabellenlinien, Logo-Lage, Kopfdaten und Seitenzahl fehlten damals. Die Lücken im Editor dahinter sind jetzt geschlossen, siehe unten.
+
+Die Messung hat diese Fehler und Lücken aufgedeckt, alle sind behoben:
 
 - Die Logo-Referenz kam nicht beim Modell an (Enterprise #940).
 - Die Vorschau ignorierte Entwurfs-Layouts (#4301).
 - Tool-Fehler nennen jetzt den Feldpfad (#940).
-- Neu sind der Zuschnitt für Scan- und Vektorlogos und der Prompt-Hinweis gegen `apply-layout` (Enterprise, Branch `feat/template-import-logo-crop`).
+- Zuschnitt für Scan- und Vektorlogos, Prompt-Hinweis gegen `apply-layout` (Enterprise #941).
+- Was ein Geschäftsbrief braucht, kann der Editor jetzt, und der Handnachbau ohne KI hat es belegt:
+  - Bildbreite, Ausrichtung und Bilder bis an den Papierrand
+  - Zellabstand, Breite und Ausrichtung von Tabellen, Linien über und unter einer Zeile, Farbe der Tabellenlinien
+  - Datum kurz oder lang
+  - Eck- und Falzmarken, Kopf und Fuß erst ab Seite 2, Papierfarbe
 
 ## Tests
 
@@ -173,4 +183,4 @@ Die Messung hat diese Fehler aufgedeckt, alle sind behoben:
 ## Offen
 
 - Die erste App und eine Mail-Beispielvorlage, die erst der Mail-Teil in Stufe 4 braucht.
-- Ein Bild im Layout lässt sich nicht ausrichten, `textAlign` gibt es nur bei Textblöcken. Ein rechtsbündiges Logo landet im Nachbau deshalb links.
+- Der Folgekopf im Layout kennt als Platzhalter nur Seitenzahlen und Firmendaten. Werte der Vorlage wie Jahr oder Depotnummer stehen dort nur als fester Text.

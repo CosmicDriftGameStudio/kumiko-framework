@@ -17,8 +17,15 @@ import {
   DocumentBlockStyleAttributes,
   DocumentFrame,
   DocumentTextStyleMark,
+  dividerPrintHtmlAttributes,
   documentCellPrintAttributes,
-  documentTableBordersAttribute,
+  documentRowLineAttributes,
+  documentTablePrintAttributes,
+  imagePrintHtmlAttributes,
+  readDividerColor,
+  readDividerWeightPt,
+  readImageAlign,
+  readImageWidthMm,
 } from "./document-print-style.ts";
 import { isDocumentReferenceName } from "./document-reference-name.ts";
 import { createDocumentStepsNode } from "./document-steps.ts";
@@ -47,26 +54,46 @@ export const DOCUMENT_NODE_NAMES = [
   "images",
 ] as const;
 
+// "long" is what a date placeholder prints without a style, "short" is the numeric 15.01.2026.
+export const DOCUMENT_DATE_STYLES = ["short", "long"] as const;
+export type DocumentDateStyle = (typeof DOCUMENT_DATE_STYLES)[number];
+
+export function readDocumentDateStyle(element: {
+  getAttribute(name: string): string | null;
+}): DocumentDateStyle | null {
+  const style = element.getAttribute("data-date-style");
+  return isOneOf(DOCUMENT_DATE_STYLES, style) ? style : null;
+}
+
 export const DocumentVariable = Node.create({
   name: "variable",
   group: "inline",
   inline: true,
   atom: true,
   addAttributes() {
-    return { name: { default: null } };
+    return { name: { default: null }, dateStyle: { default: null } };
   },
   parseHTML() {
     return [
-      attributeParseRule({
+      {
         tag: "span[data-variable]",
-        attribute: "data-variable",
-        key: "name",
-        isValid: isDocumentReferenceName,
-      }),
+        getAttrs: (element) => {
+          const name = element.getAttribute("data-variable");
+          if (name === null || !isDocumentReferenceName(name)) return false;
+          return { name, dateStyle: readDocumentDateStyle(element) };
+        },
+      },
     ];
   },
   renderHTML({ node }) {
-    return ["span", { "data-variable": node.attrs["name"] }];
+    const style: unknown = node.attrs["dateStyle"];
+    return [
+      "span",
+      {
+        "data-variable": node.attrs["name"],
+        ...(isOneOf(DOCUMENT_DATE_STYLES, style) ? { "data-date-style": style } : {}),
+      },
+    ];
   },
 });
 
@@ -75,7 +102,13 @@ export const DocumentResource = Node.create({
   group: "block",
   atom: true,
   addAttributes() {
-    return { resource: { default: null }, alt: { default: null }, bleed: { default: false } };
+    return {
+      resource: { default: null },
+      alt: { default: null },
+      bleed: { default: false },
+      widthMm: { default: null },
+      align: { default: null },
+    };
   },
   parseHTML() {
     return [
@@ -88,6 +121,8 @@ export const DocumentResource = Node.create({
             resource,
             alt: element.getAttribute("alt"),
             bleed: element.hasAttribute("data-bleed"),
+            widthMm: readImageWidthMm(element),
+            align: readImageAlign(element),
           };
         },
       },
@@ -102,6 +137,7 @@ export const DocumentResource = Node.create({
         "data-resource": node.attrs["resource"],
         ...(alt === null || alt === undefined ? {} : { alt }),
         ...(node.attrs["bleed"] === true ? { "data-bleed": "" } : {}),
+        ...imagePrintHtmlAttributes(node.attrs),
       },
     ];
   },
@@ -138,11 +174,22 @@ export const DocumentDivider = Node.create({
   name: "divider",
   group: "block",
   atom: true,
-  parseHTML() {
-    return [{ tag: "hr" }];
+  addAttributes() {
+    return { color: { default: null }, weightPt: { default: null } };
   },
-  renderHTML() {
-    return ["hr"];
+  parseHTML() {
+    return [
+      {
+        tag: "hr",
+        getAttrs: (element) => ({
+          color: readDividerColor(element),
+          weightPt: readDividerWeightPt(element),
+        }),
+      },
+    ];
+  },
+  renderHTML({ node }) {
+    return ["hr", dividerPrintHtmlAttributes(node.attrs)];
   },
 });
 
@@ -184,13 +231,14 @@ export const DocumentTableRow = TableRow.extend({
         renderHTML: (attributes) =>
           attributes["repeatHeader"] ? { "data-repeat-header": "" } : {},
       },
+      ...documentRowLineAttributes,
     };
   },
 });
 
 export const DocumentTable = Table.extend({
   addAttributes() {
-    return { ...(this.parent?.() ?? {}), ...documentTableBordersAttribute };
+    return { ...(this.parent?.() ?? {}), ...documentTablePrintAttributes };
   },
   renderHTML({ HTMLAttributes }) {
     return ["table", HTMLAttributes, ["tbody", 0]];

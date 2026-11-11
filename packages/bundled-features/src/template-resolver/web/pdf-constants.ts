@@ -16,5 +16,12 @@ export const PDF_FOOTER_MARGIN_MM = 20;
 // Body text size of a printed document; header and footer fall back to it, so no region reads smaller than the body.
 export const PDF_DEFAULT_FONT_SIZE_PT = 10.5;
 
+export const PDF_FOLD_MARKS = ["none", "din-a", "din-b"] as const;
+export type PdfFoldMarks = (typeof PDF_FOLD_MARKS)[number];
+
 export const PDF_TABLE_STYLES = ["plain", "lines", "header", "grid"] as const;
 export type PdfTableStyle = (typeof PDF_TABLE_STYLES)[number];
+
+// Corner marks: an angle in each paper corner, its vertex this far from both edges and its legs running toward the sheet's centre.
+export const PDF_CORNER_MARK_INSET_MM = 10;
+export const PDF_CORNER_MARK_LEG_MM = 5;

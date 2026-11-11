@@ -11,13 +11,25 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { DOCUMENT_FONT_LABELS, DOCUMENT_FONTS } from "./document-fonts.ts";
+import {
+  CELL_PADDING_MM_RANGE,
+  DIVIDER_WEIGHT_PT_RANGE,
+  DOCUMENT_TABLE_ALIGNMENTS,
+  TABLE_WIDTH_MM_RANGE,
+} from "./document-print-style.ts";
+import type { DocumentRowLine } from "./document-style-css.ts";
 import type { TiptapContext } from "./document-tiptap-context.ts";
 import {
+  addPlainRowBelow,
+  DEFAULT_ROW_LINE,
   FONT_SIZES_PT,
   LINE_HEIGHTS,
   PARAGRAPH_SPACES_PT,
+  type PrintTableState,
   setPrintBlockStyle,
   setPrintTextStyle,
+  setRowLine,
+  setTableAttributes,
   toggleTableBorders,
 } from "./document-tiptap-helpers.ts";
 
@@ -243,7 +255,7 @@ function printSelect(c: TiptapContext, spec: PrintSelectSpec): ReactNode {
   );
 }
 
-function colorPicker(
+export function colorPicker(
   c: TiptapContext,
   testId: string,
   label: string,
@@ -373,6 +385,124 @@ export function renderPrintTextStyleGroup(c: TiptapContext): ReactNode {
   );
 }
 
+const NUMBER_FIELD_CLASS = "w-16 [&_input]:h-5 [&_input]:px-1 [&_input]:text-[10px]";
+
+export function renderNumberField(
+  c: TiptapContext,
+  spec: {
+    readonly id: string;
+    readonly label: string;
+    readonly value: number | null;
+    readonly range: { readonly min: number; readonly max: number };
+    readonly onChange: (value: number | null) => void;
+  },
+): ReactNode {
+  const { Field, Input } = c;
+  return (
+    <span className="inline-flex items-center gap-1" data-testid={`${spec.id}-field`}>
+      <span className="whitespace-nowrap text-xs text-muted-foreground">{spec.label}</span>
+      <span className={NUMBER_FIELD_CLASS}>
+        <Field id={`${c.id}-${spec.id}`} label={spec.label} hideLabel>
+          <Input
+            kind="number"
+            id={`${c.id}-${spec.id}`}
+            name={spec.id}
+            value={spec.value ?? ""}
+            onChange={(value) =>
+              spec.onChange(
+                value === null || value === undefined
+                  ? null
+                  : Math.min(spec.range.max, Math.max(spec.range.min, value)),
+              )
+            }
+            testId={spec.id}
+          />
+        </Field>
+      </span>
+    </span>
+  );
+}
+
+function renderRowLineControls(
+  c: TiptapContext,
+  edge: "lineAbove" | "lineBelow",
+  line: DocumentRowLine | null,
+): ReactNode {
+  const { t, editor, Button } = c;
+  const id = edge === "lineAbove" ? "document-row-line-above" : "document-row-line-below";
+  const label = t(`documentDesigner.editor.table.${edge}`);
+  return (
+    <>
+      <EditorToolbarPill>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          pressed={line !== null}
+          disabled={c.readOnly}
+          testId={id}
+          onClick={() => setRowLine(editor, edge, line === null ? DEFAULT_ROW_LINE : null)}
+        >
+          {label}
+        </Button>
+      </EditorToolbarPill>
+      {line !== null && (
+        <>
+          {colorPicker(c, `${id}-color`, label, line.color, (color) =>
+            setRowLine(editor, edge, { ...line, color: color ?? line.color }),
+          )}
+          {renderNumberField(c, {
+            id: `${id}-weight`,
+            label: t("documentDesigner.editor.table.lineWeight"),
+            value: line.weightPt,
+            range: DIVIDER_WEIGHT_PT_RANGE,
+            onChange: (weightPt) =>
+              setRowLine(editor, edge, { ...line, weightPt: weightPt ?? line.weightPt }),
+          })}
+        </>
+      )}
+    </>
+  );
+}
+
+function renderTableLayoutControls(c: TiptapContext, table: PrintTableState): ReactNode {
+  const { t, editor, Button } = c;
+  return (
+    <EditorToolbarPill>
+      {renderNumberField(c, {
+        id: "document-table-padding",
+        label: t("documentDesigner.editor.table.cellPadding"),
+        value: table.cellPaddingMm,
+        range: CELL_PADDING_MM_RANGE,
+        onChange: (cellPaddingMm) => setTableAttributes(editor, { cellPaddingMm }),
+      })}
+      {renderNumberField(c, {
+        id: "document-table-width",
+        label: t("documentDesigner.editor.table.width"),
+        value: table.widthMm,
+        range: TABLE_WIDTH_MM_RANGE,
+        onChange: (widthMm) => setTableAttributes(editor, { widthMm }),
+      })}
+      {DOCUMENT_TABLE_ALIGNMENTS.map((align) => (
+        <Button
+          key={align}
+          type="button"
+          variant="ghost"
+          size="sm"
+          pressed={table.align === align}
+          disabled={c.readOnly}
+          testId={`document-table-align-${align}`}
+          onClick={() =>
+            setTableAttributes(editor, { align: table.align === align ? null : align })
+          }
+        >
+          {t(`documentDesigner.editor.imageAlign.${align}`)}
+        </Button>
+      ))}
+    </EditorToolbarPill>
+  );
+}
+
 export function renderPrintTableGroup(c: TiptapContext): ReactNode {
   const { t, editor, Button } = c;
   const table = c.activeState?.printTable ?? null;
@@ -392,6 +522,9 @@ export function renderPrintTableGroup(c: TiptapContext): ReactNode {
           {t("documentDesigner.editor.tableBorders")}
         </Button>
       </EditorToolbarPill>
+      {renderTableLayoutControls(c, table)}
+      {renderRowLineControls(c, "lineAbove", table.lineAbove)}
+      {renderRowLineControls(c, "lineBelow", table.lineBelow)}
       {colorPicker(
         c,
         "document-cell-color",
@@ -399,6 +532,32 @@ export function renderPrintTableGroup(c: TiptapContext): ReactNode {
         table.cellBackground,
         (color) => editor.chain().focus().setCellAttribute("background", color).run(),
       )}
+      <EditorToolbarPill>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={c.readOnly}
+          testId="document-table-add-row"
+          onClick={() => addPlainRowBelow(editor)}
+        >
+          {t("documentDesigner.editor.table.addRow")}
+        </Button>
+      </EditorToolbarPill>
+      <EditorToolbarPill>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={c.readOnly}
+          testId="document-table-remove-row"
+          onClick={() => {
+            editor.chain().focus().deleteRow().run();
+          }}
+        >
+          {t("documentDesigner.editor.table.removeRow")}
+        </Button>
+      </EditorToolbarPill>
       <EditorToolbarPill>
         <Button
           type="button"

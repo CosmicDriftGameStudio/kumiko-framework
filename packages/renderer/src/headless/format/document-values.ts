@@ -29,7 +29,17 @@ export function formatDocumentMoney(
   return value === undefined || value === null ? "" : String(value);
 }
 
+/** "long" is "15. Januar 2026", "short" the numeric "15.01.2026" of the locale. */
+export type DocumentDateStyle = "short" | "long";
+
+const SHORT_DATE_FIELDS = { day: "2-digit", month: "2-digit", year: "numeric" } as const;
+
+function dateFields(style: DocumentDateStyle | undefined): Intl.DateTimeFormatOptions {
+  return style === "short" ? SHORT_DATE_FIELDS : { dateStyle: "long" };
+}
+
 export type DocumentDateOptions = {
+  readonly dateStyle?: DocumentDateStyle;
   /** Append the time of day. Only instants and offset date-times carry one; a
    *  date-only value prints just the date. */
   readonly time?: boolean;
@@ -38,16 +48,28 @@ export type DocumentDateOptions = {
   readonly timeZone?: string;
 };
 
-function formatOffsetDateTime(value: string, locale: string, withTime: boolean): string {
+function formatOffsetDateTime(
+  value: string,
+  locale: string,
+  withTime: boolean,
+  dateStyle: DocumentDateStyle | undefined,
+): string {
   const wallClock = Temporal.PlainDateTime.from(value);
-  return withTime
-    ? wallClock.toLocaleString(locale, { dateStyle: "long", timeStyle: "short" })
-    : wallClock.toPlainDate().toLocaleString(locale, { dateStyle: "long" });
+  if (!withTime) return wallClock.toPlainDate().toLocaleString(locale, dateFields(dateStyle));
+  return wallClock.toLocaleString(locale, timeFields(dateStyle));
+}
+
+// Intl rejects dateStyle and individual date fields in one call, so a short date with a time
+// spells the time as fields too.
+function timeFields(dateStyle: DocumentDateStyle | undefined): Intl.DateTimeFormatOptions {
+  return dateStyle === "short"
+    ? { ...SHORT_DATE_FIELDS, hour: "2-digit", minute: "2-digit" }
+    : { dateStyle: "long", timeStyle: "short" };
 }
 
 function instantFormatOptions(options: DocumentDateOptions): Intl.DateTimeFormatOptions {
-  if (options.time !== true) return { dateStyle: "long", timeZone: "UTC" };
-  return { dateStyle: "long", timeStyle: "short", timeZone: options.timeZone ?? "UTC" };
+  if (options.time !== true) return { ...dateFields(options.dateStyle), timeZone: "UTC" };
+  return { ...timeFields(options.dateStyle), timeZone: options.timeZone ?? "UTC" };
 }
 
 // The long date a rendered mail or PDF prints for a `date` placeholder; the editor's
@@ -65,12 +87,15 @@ export function formatDocumentDate(
     // A date-only string has no zone; going through an instant would show the
     // previous day west of UTC.
     if (typeof value === "string" && DATE_ONLY.test(value)) {
-      return Temporal.PlainDate.from(value).toLocaleString(safeLocale, { dateStyle: "long" });
+      return Temporal.PlainDate.from(value).toLocaleString(
+        safeLocale,
+        dateFields(options.dateStyle),
+      );
     }
     // An explicit offset names the sender's zone: the calendar date is the wall-clock
     // date of the string, not the date at UTC.
     if (typeof value === "string" && DATE_TIME_WITH_OFFSET.test(value)) {
-      return formatOffsetDateTime(value, safeLocale, options.time === true);
+      return formatOffsetDateTime(value, safeLocale, options.time === true, options.dateStyle);
     }
     const instant =
       typeof value === "number"

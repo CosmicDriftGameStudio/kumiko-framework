@@ -657,4 +657,218 @@ describe("template-resolver :: patch-draft structured blocks", () => {
     );
     expectErrorIncludes(badMeta, "fontSizePt");
   });
+
+  test("image size and alignment, a hard break in a cell, rows after the repeat row and a divider color survive a draft round trip", async () => {
+    const admin = adminOf(85);
+    const created = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: FREE_BODY,
+        contentFormat: "html",
+        variableSchema: {
+          positions: { type: "list", item: { label: { type: "text" }, price: { type: "text" } } },
+          name: { type: "text" },
+          net: { type: "text" },
+        },
+      },
+      admin,
+    );
+    const before = await targetBlocksOf(FREE_SLUG, "document-pdf", undefined, admin);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        base: before.base,
+        ops: [
+          {
+            op: "replaceBody",
+            blocks: [
+              { type: "image", resource: "logo", widthMm: 45, align: "right" },
+              { type: "divider", color: "#ff6600", weightPt: 2 },
+              {
+                type: "table",
+                rows: [],
+                repeat: {
+                  each: "positions",
+                  row: {
+                    cells: [
+                      {
+                        runs: [
+                          { text: "{{label}}" },
+                          { hardBreak: true },
+                          { text: "Detail", sizePt: 8 },
+                        ],
+                      },
+                      { text: "{{price}}" },
+                    ],
+                  },
+                },
+                rowsAfterRepeat: [{ cells: [{ text: "Netto" }, { text: "{{net}}" }] }],
+              },
+            ],
+          },
+        ],
+      },
+      admin,
+    );
+    const after = await targetBlocksOf(FREE_SLUG, "document-pdf", undefined, admin);
+    expect(after.blocks[0]).toMatchObject({
+      type: "image",
+      resource: "logo",
+      widthMm: 45,
+      align: "right",
+    });
+    expect(after.blocks[1]).toMatchObject({ type: "divider", color: "#ff6600", weightPt: 2 });
+    expect(after.blocks[2]).toMatchObject({ type: "repeat", each: "positions" });
+    const row = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      id: created.id,
+    });
+    const draftHtml = row?.draft ?? row?.content ?? "";
+    expect(draftHtml).toContain("<br>");
+    expect(draftHtml).toContain("Netto");
+    expect(draftHtml.indexOf("data-each")).toBeLessThan(draftHtml.indexOf("Netto"));
+  });
+
+  test("table padding, width, alignment, row lines and a placeholder date format survive a draft round trip, cornerMarks is layout meta", async () => {
+    const admin = adminOf(87);
+    const created = await stack.http.writeOk<{ id: string }>(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: FREE_BODY,
+        contentFormat: "html",
+        variableSchema: { due: { type: "date" }, name: { type: "text" } },
+      },
+      admin,
+    );
+    const before = await targetBlocksOf(FREE_SLUG, "document-pdf", undefined, admin);
+    const line = { color: "#112233", weightPt: 1.5 };
+    await stack.http.writeOk(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        base: before.base,
+        ops: [
+          {
+            op: "replaceBody",
+            blocks: [
+              { type: "paragraph", runs: [{ text: "Fällig {{due}}", dateStyle: "short" }] },
+              {
+                type: "table",
+                cellPaddingMm: 2,
+                widthMm: 120,
+                align: "right",
+                rows: [{ cells: [{ text: "a" }, { text: "b" }], lineAbove: line, lineBelow: line }],
+              },
+            ],
+          },
+        ],
+      },
+      admin,
+    );
+    const row = await fetchOne<TemplateResourceRow>(stack.db, templateResourcesTable, {
+      id: created.id,
+    });
+    const draftHtml = row?.draft ?? row?.content ?? "";
+    expect(draftHtml).toContain('<span data-variable="due" data-date-style="short"></span>');
+    expect(draftHtml).toContain('data-cell-padding-mm="2"');
+    expect(draftHtml).toContain('data-table-width-mm="120"');
+    expect(draftHtml).toContain('data-table-align="right"');
+    expect(draftHtml).toContain('data-line-above="#112233 1.5"');
+    expect(draftHtml).toContain('data-line-below="#112233 1.5"');
+
+    const refused = await stack.http.writeErr(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        base: (await targetBlocksOf(FREE_SLUG, "document-pdf", undefined, admin)).base,
+        ops: [
+          {
+            op: "replaceBody",
+            blocks: [{ type: "table", cellPaddingMm: 11, rows: [{ cells: [{ text: "a" }] }] }],
+          },
+        ],
+      },
+      admin,
+    );
+    expectErrorIncludes(refused, "cellPaddingMm");
+
+    const header = await targetBlocksOf("contract-frame", "pdf-layout", "header", admin);
+    const meta = await targetPatch(
+      { slug: "contract-frame", kind: "pdf-layout", region: "header" },
+      header.base,
+      [{ op: "setMeta", meta: { cornerMarks: true } }],
+      admin,
+    );
+    expect(meta.status).toBe(200);
+    expect(
+      (await targetBlocksOf("contract-frame", "pdf-layout", "header", admin)).meta,
+    ).toMatchObject({ cornerMarks: true });
+  });
+
+  test("a bleed image is accepted in the header of a layout and refused in its signature and in a document", async () => {
+    const admin = adminOf(86);
+    const header = await targetBlocksOf("contract-frame", "pdf-layout", "header", admin);
+    const bleed = { type: "image", resource: "letterhead", widthMm: 210, bleed: true };
+    const ok = await targetPatch(
+      { slug: "contract-frame", kind: "pdf-layout", region: "header" },
+      header.base,
+      [
+        { op: "replaceBody", blocks: [bleed] },
+        {
+          op: "setMeta",
+          meta: { foldMarks: "din-a", headerOnFirstPage: false, tableLineColor: "#cccccc" },
+        },
+      ],
+      admin,
+    );
+    expect(ok.status).toBe(200);
+    const after = await targetBlocksOf("contract-frame", "pdf-layout", "header", admin);
+    expect(after.blocks[0]).toMatchObject({ type: "image", resource: "letterhead", bleed: true });
+    expect(after.meta).toMatchObject({
+      foldMarks: "din-a",
+      headerOnFirstPage: false,
+      tableLineColor: "#cccccc",
+    });
+
+    const signature = await targetBlocksOf("contract-frame", "pdf-layout", "signature", admin);
+    const refusedInSignature = await stack.http.writeErr(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: "contract-frame",
+        kind: "pdf-layout",
+        region: "signature",
+        locale: LOCALE,
+        base: signature.base,
+        ops: [{ op: "replaceBody", blocks: [bleed] }],
+      },
+      admin,
+    );
+    expectErrorIncludes(refusedInSignature, "bleed_not_allowed");
+    const documentBase = (await targetBlocksOf(FREE_SLUG, "document-pdf", undefined, adminOf(85)))
+      .base;
+    const refusedInDocument = await stack.http.writeErr(
+      TemplateResolverHandlers.patchDraft,
+      {
+        slug: FREE_SLUG,
+        kind: "document-pdf",
+        locale: LOCALE,
+        base: documentBase,
+        ops: [{ op: "replaceBody", blocks: [bleed] }],
+      },
+      adminOf(85),
+    );
+    expectErrorIncludes(refusedInDocument, "bleed_not_allowed");
+  });
 });

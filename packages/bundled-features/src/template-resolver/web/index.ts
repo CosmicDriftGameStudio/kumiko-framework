@@ -56,13 +56,17 @@ export {
   MAIL_LAYOUT_WIDTHS,
 } from "./mail-layout-constants.ts";
 export {
+  PDF_CORNER_MARK_INSET_MM,
+  PDF_CORNER_MARK_LEG_MM,
   PDF_DEFAULT_FONT_SIZE_PT,
   PDF_DEFAULT_MARGIN_MM,
+  PDF_FOLD_MARKS,
   PDF_FOOTER_MARGIN_MM,
   PDF_HEADER_MARGIN_MM,
   PDF_ORIENTATIONS,
   PDF_PAGE_FORMATS,
   PDF_TABLE_STYLES,
+  type PdfFoldMarks,
   type PdfTableStyle,
 } from "./pdf-constants.ts";
 export {

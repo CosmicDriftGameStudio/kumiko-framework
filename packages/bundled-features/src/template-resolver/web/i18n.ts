@@ -128,6 +128,8 @@ export const defaultTranslations: TranslationsByLocale = {
       "The placeholder {find} cannot be replaced as text; set the text around it with another operation or remove the block.",
     "templateResolver.errors.patch.blockNotAllowed":
       "The block type {type} is not available in {kind} templates.",
+    "templateResolver.errors.patch.bleedNotAllowed":
+      "An image can only run to the paper edge (bleed) in the header or footer of a PDF layout, not in {kind}.",
     "templateResolver.errors.patch.blockTypeMismatch":
       "This step needs a {expected} block, but the block is a {actual}.",
     "templateResolver.errors.patch.invalidResourceKey": "The image key {resource} is not valid.",
