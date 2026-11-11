@@ -80,7 +80,12 @@ test("print-layout-image-bubble", async ({ page }) => {
   await loginAs(page, PRINT_EDITOR_TENANTS.appearance.adminEmail, PRINT_EDITOR_PASSWORD);
   await page.goto("/layout-editor?kind=pdf-layout&slug=default");
   const header = page.getByTestId("document-designer-region-header");
+  // The placeholder vocabulary arrives after the first paint and rebuilds the editors, which drops focus and selection.
+  await page.waitForLoadState("networkidle");
   await header.getByText("Am Hafen 12").click();
+  // A leading image starts out selected. The click only counts once the editor has moved off it; keys sent
+  // earlier act on the still-selected image and end on the gap cursor instead of selecting it.
+  await expect(header.locator(".ProseMirror-selectednode")).toHaveCount(0);
   // Two arrow steps from the next cell reach the image: the first lands on a gap cursor, the second selects the node.
   await page.keyboard.press("Home");
   await page.keyboard.press("ArrowLeft");
