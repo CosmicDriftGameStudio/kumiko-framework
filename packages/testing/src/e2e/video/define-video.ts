@@ -50,8 +50,13 @@ export interface VideoMusic {
   readonly volume?: number;
 }
 
+export const MIN_PLAYBACK_RATE = 0.5;
+export const MAX_PLAYBACK_RATE = 2;
+
 export interface VideoDefinition {
   readonly music?: VideoMusic;
+  // Speeds picture, narration and subtitles up together, default 1; ffmpeg's atempo allows 0.5 to 2.
+  readonly playbackRate?: number;
   readonly voice: VideoVoice;
   readonly viewport?: { readonly width: number; readonly height: number };
   // Login/seed work; runs before recording starts.
@@ -69,6 +74,12 @@ export function defineVideo(definition: VideoDefinition): VideoDefinition {
     if (width % 2 !== 0 || height % 2 !== 0) {
       throw new Error(`defineVideo(): viewport ${width}x${height} must have even width and height`);
     }
+  }
+  const rate = definition.playbackRate;
+  if (rate !== undefined && !(rate >= MIN_PLAYBACK_RATE && rate <= MAX_PLAYBACK_RATE)) {
+    throw new Error(
+      `defineVideo(): playbackRate ${rate} must be between ${MIN_PLAYBACK_RATE} and ${MAX_PLAYBACK_RATE}`,
+    );
   }
   const seen = new Set<string>();
   for (const scene of definition.scenes) {

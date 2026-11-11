@@ -102,6 +102,12 @@ export {
   type EditorStageOptions,
   editorStage,
 } from "./video/editor-stage";
+export type {
+  EditorPreview,
+  EditorPreviewCard,
+  EditorStage,
+  PreviewBox,
+} from "./video/preview-pane";
 export { type RunVideosOptions, runVideos } from "./video/run-videos";
 export {
   type StageOutputLine,

@@ -1,3 +1,5 @@
+import type { EditorPreview, EditorStage } from "./preview-pane";
+import { FOCUS_SWITCH_DELAY_MS, previewParts } from "./preview-pane";
 import {
   blinkAnimation,
   STAGE_TEXT_COLOR,
@@ -7,7 +9,6 @@ import {
   visibleBetweenAnimation,
   windowFrame,
 } from "./stage-window";
-import type { TypedStage } from "./terminal-stage";
 import { seededRandom, typedWidthKeyframes, typingOffsetsMs } from "./typing";
 
 export type EditorLine = string | { readonly typed: string };
@@ -20,6 +21,7 @@ export interface EditorStageOptions {
   readonly startDelayMs?: number;
   readonly fontSizePx?: number;
   readonly seed?: number;
+  readonly preview?: EditorPreview;
 }
 
 const EDITOR_RHYTHM = { charMs: 28, jitterMs: 14, spaceExtraMs: 20 } as const;
@@ -104,7 +106,7 @@ function highlightTypeScript(code: string): string {
   return parts.join("");
 }
 
-export function editorStage(options: EditorStageOptions): TypedStage {
+export function editorStage(options: EditorStageOptions): EditorStage {
   const fontSize = options.fontSizePx ?? 24;
   const lineHeight = Math.round(fontSize * 1.6);
   const firstNumber = options.firstLineNumber ?? 1;
@@ -154,11 +156,14 @@ ${keyframeCss.join("\n")}
 .typed { display: inline-block; overflow: hidden; vertical-align: bottom; width: 0; }
 .caret { display: inline-block; width: 3px; height: ${Math.round(fontSize * 1.25)}px; vertical-align: bottom; background: ${STAGE_TEXT_COLOR}; opacity: 0; }
 `;
+  const switchMs = typingEndMs + FOCUS_SWITCH_DELAY_MS;
+  const previewPart = options.preview ? previewParts(options.preview, switchMs) : undefined;
   const titleBarPx = Math.round(fontSize * 1.8);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${windowFrame(
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>${css}${previewPart?.css ?? ""}</style></head><body>${windowFrame(
     "",
     `<div class="tabs"><div class="tab">${Bun.escapeHTML(options.fileName)}</div></div><div class="editor">${rows.join("")}</div>`,
     titleBarPx,
-  )}</body></html>`;
-  return { html, durationMs: typingEndMs + END_HOLD_MS };
+  )}${previewPart?.html ?? ""}</body></html>`;
+  if (!previewPart) return { html, durationMs: typingEndMs + END_HOLD_MS };
+  return { html, durationMs: previewPart.durationMs, focusSwitchMs: switchMs };
 }

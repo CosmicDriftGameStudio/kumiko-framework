@@ -14,7 +14,11 @@ import { assertAiNoticeCoversLocales, SETUP_TOOLS, sceneExtensionMs } from "./sc
 import { synthesizeSpeech } from "./tts";
 import { loadVideoTexts } from "./video-texts";
 
-const INTRO_MS = 500;
+// Silent lead-in held on the first scene frame; a frame from before the first scene shows whatever setup left on the page.
+const LEAD_IN_MS = 500;
+
+// A video walks through the app page by page on purpose; the default budget guards specs that should boot once.
+const VIDEO_APP_BOOT_BUDGET = 60;
 
 export interface RunVideosOptions {
   readonly videos: Readonly<Record<string, VideoDefinition>>;
@@ -82,7 +86,10 @@ export function runVideos(options: RunVideosOptions): void {
     for (const locale of locales) {
       if (onlyLocales !== undefined && !onlyLocales.has(locale)) continue;
       test.describe(locale, () => {
-        test.use({ locale: resolveLocaleTag(locale, undefined) });
+        test.use({
+          locale: resolveLocaleTag(locale, undefined),
+          maxAppBootsPerTest: VIDEO_APP_BOOT_BUDGET,
+        });
         test(`${id} [${locale}]`, async ({ page, seedTenant }, testInfo) => {
           const videoDir = join(videosDir, id);
           const texts = loadVideoTexts(videoDir, locale);
@@ -111,7 +118,6 @@ export function runVideos(options: RunVideosOptions): void {
           await video.setup?.(page, { ...ctx, tools: SETUP_TOOLS });
 
           await timeline.settle();
-          await timeline.capture(INTRO_MS);
 
           const sceneAudio: MuxSceneAudio[] = [];
           const cues: VttCue[] = [];
@@ -127,7 +133,6 @@ export function runVideos(options: RunVideosOptions): void {
               apiKey: process.env["OPENROUTER_API_KEY"],
             });
 
-            // Narration starts at the scene start, so the intro frame stays silent.
             const startMs = timeline.totalMs;
             await scene.do(page, { ...ctx, speechMs: speech.durationMs });
             const extensionMs = sceneExtensionMs(timeline.totalMs - startMs, speech.durationMs);
@@ -139,14 +144,17 @@ export function runVideos(options: RunVideosOptions): void {
             await showFocus(page, null);
 
             const sceneMs = timeline.totalMs - startMs;
+            const videoStartMs = LEAD_IN_MS + startMs;
             sceneAudio.push({
               wavPath: speech.wavPath,
-              startMs,
+              startMs: videoStartMs,
               durationMs: speech.durationMs,
               sceneMs,
             });
-            cues.push({ startMs, endMs: startMs + sceneMs, text });
+            cues.push({ startMs: videoStartMs, endMs: videoStartMs + sceneMs, text });
           }
+          const [firstFrame] = timeline.allFrames;
+          if (firstFrame !== undefined) firstFrame.durationMs += LEAD_IN_MS;
 
           const outDir = join(videoDir, "out");
           mkdirSync(outDir, { recursive: true });
@@ -163,12 +171,13 @@ export function runVideos(options: RunVideosOptions): void {
             ...(brandPng !== undefined && { brandPng }),
             ...(notice !== undefined && { metadataComment: notice }),
             ...(video.music !== undefined && { music: video.music }),
+            ...(video.playbackRate !== undefined && { playbackRate: video.playbackRate }),
             frames: timeline.allFrames,
             sceneAudio,
             outMp4,
             workDir: muxDir,
           });
-          writeFileSync(join(outDir, `${locale}.vtt`), buildVtt(cues));
+          writeFileSync(join(outDir, `${locale}.vtt`), buildVtt(cues, video.playbackRate));
         });
       });
     }
