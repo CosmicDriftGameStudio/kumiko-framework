@@ -106,6 +106,7 @@ const PRODUCTION_BOOT_ENV: Readonly<Record<string, string>> = {
   S3_REGION: "eu-central",
   S3_ACCESS_KEY: "access",
   S3_SECRET_KEY: "secret",
+  PREVIEW_LOGIN_KEY: "a".repeat(64),
 };
 
 function withoutKey(key: string): Record<string, string> {
@@ -163,6 +164,19 @@ describe("prod boot options recipe", () => {
     await expect(bootValidate(envSource)).rejects.toThrow(/kmsMode "required"/);
   });
 });
+
+describe("prod boot options recipe: previewLogin", () => {
+  test("a loginKey shorter than 32 characters aborts the boot", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await expect(
+        bootValidate({ ...PRODUCTION_BOOT_ENV, PREVIEW_LOGIN_KEY: "too-short" }),
+      ).rejects.toThrow(/previewLogin\.loginKey/);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+});
 ```
 
 ### src/app.ts
@@ -185,7 +199,7 @@ export function appFeatures(): RunProdAppOptions["features"] {
 
 type BootOptions = Pick<
   RunProdAppOptions,
-  "mail" | "kmsMode" | "fileStorage" | "demoMode" | "signals"
+  "mail" | "kmsMode" | "fileStorage" | "demoMode" | "signals" | "previewLogin"
 >;
 
 export function bootOptions(envSource: Record<string, string | undefined>): BootOptions {
@@ -198,6 +212,7 @@ export function bootOptions(envSource: Record<string, string | undefined>): Boot
       notice: { text: { en: "This demo is read-only.", de: "Diese Demo ist schreibgeschützt." } },
     },
     signals: { drainTimeoutMs: 20_000 },
+    previewLogin: { loginKey: envSource["PREVIEW_LOGIN_KEY"] ?? "" },
   };
 }
 ```
