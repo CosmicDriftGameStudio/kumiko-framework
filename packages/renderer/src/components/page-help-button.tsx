@@ -96,10 +96,14 @@ export function pageHelpButtonOf(
 ): ReactNode {
   if (spec === undefined) return undefined;
   const target = parseRefTarget(spec.entity ?? context.entityName, context.featureName);
+  const contextTarget = parseRefTarget(context.entityName, context.featureName);
+  const ownsContextEntity =
+    target.featureName === contextTarget.featureName &&
+    target.entityName === contextTarget.entityName;
   const entity =
     context.appFeatures.find((f) => f.featureName === target.featureName)?.entities[
       target.entityName
-    ] ?? (target.featureName === context.featureName ? context.entity : undefined);
+    ] ?? (ownsContextEntity ? context.entity : undefined);
   if (entity === undefined) return undefined;
   return (
     <PageHelpButton
@@ -109,5 +113,16 @@ export function pageHelpButtonOf(
       featureName={target.featureName}
       translate={context.translate}
     />
+  );
+}
+
+/** Puts the page help in front of the other header actions. */
+export function withPageHelp(pageHelp: ReactNode, actions: ReactNode): ReactNode {
+  if (pageHelp === undefined) return actions;
+  return (
+    <>
+      {pageHelp}
+      {actions}
+    </>
   );
 }

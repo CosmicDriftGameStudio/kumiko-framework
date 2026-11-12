@@ -135,3 +135,62 @@ describe("page help placement", () => {
     await expectLegend();
   });
 });
+
+describe("page help placement, more cases", () => {
+  const section: EditRelatedListSectionViewModel = {
+    kind: "relatedList",
+    title: "Verträge",
+    query: "cases:query:lease:list",
+    columns: ["status"],
+    entity: "rentals:lease",
+    pageHelp: { statusField: "status" },
+  };
+  const emptyRows = createMockDispatcher({
+    query: (async () => ({
+      isSuccess: true,
+      data: { rows: [], nextCursor: null },
+    })) as unknown as Dispatcher["query"],
+  });
+
+  function mountSection(
+    sectionSpec: EditRelatedListSectionViewModel,
+    props: { readonly hideTitle?: boolean; readonly features?: readonly FeatureSchema[] },
+  ): void {
+    render(
+      <Locale>
+        <DispatcherProvider dispatcher={emptyRows}>
+          <AppFeaturesProvider features={props.features ?? [rentals]}>
+            <RelatedListSection
+              section={sectionSpec}
+              parentId="c1"
+              record={{ id: "c1" }}
+              featureName="cases"
+              {...(props.hideTitle === true && { hideTitle: true })}
+            />
+          </AppFeaturesProvider>
+        </DispatcherProvider>
+      </Locale>,
+    );
+  }
+
+  test("in tabs mode the button sits in the framed table toolbar and opens the legend", async () => {
+    mountSection(section, { hideTitle: true });
+    const button = await screen.findByTestId("page-help-button");
+    expect(button.closest('[data-testid="related-list-card"]')).not.toBeNull();
+    await expectLegend();
+  });
+
+  test("a pageHelp entity of the same feature that appFeatures does not know renders no button", async () => {
+    const own: FeatureSchema = {
+      featureName: "cases",
+      entities: { lease: leaseEntity },
+      screens: [],
+    };
+    mountSection(
+      { ...section, entity: "lease", pageHelp: { statusField: "status", entity: "ghost" } },
+      { features: [own] },
+    );
+    await screen.findByTestId("related-list-Verträge");
+    expect(screen.queryByTestId("page-help-button")).toBeNull();
+  });
+});

@@ -4,7 +4,7 @@
 "@cosmicdrift/kumiko-renderer": minor
 ---
 
-An entityList, a projectionDetail or a relatedList section can mount a page help in the page header: `pageHelp: { statusField }` (plus `entity` on a projectionDetail; on a relatedList section the button sits next to the title and `entity` defaults to the section entity) adds a "Statuses explained" button that opens a dialog with the badge and a sentence for every option of that select field. `entity` may be `<feature>:<entity>` to explain a status of another feature, whose translations are then used. The sentences are the i18n keys `<option label key>:help`; the boot rules `page-help/status-field-invalid` and `page-help/option-help-missing` check the field and the texts in every locale of the option labels. `Dialog` takes `hideCancel`, and the icon key `help-circle` joins the icon vocabulary.
+An entityList, a projectionDetail or a relatedList section can mount a page help in the page header: `pageHelp: { statusField }` (plus `entity` on a projectionDetail; on a relatedList section the button sits next to the title, in tabs mode in the table toolbar, and `entity` defaults to the section entity) adds a "Statuses explained" button that opens a dialog with the badge and a sentence for every option of that select field. `entity` may be `<feature>:<entity>` to explain a status of another feature, whose translations are then used. The sentences are the i18n keys `<option label key>:help`; the boot rules `page-help/status-field-invalid` and `page-help/option-help-missing` check the field and the texts in every locale of the option labels. `Dialog` takes `hideCancel`, and the icon key `help-circle` joins the icon vocabulary.
 
 <!-- kumiko-changes
 feature: renderer

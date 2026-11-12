@@ -96,6 +96,8 @@ export type RenderListProps = {
    *  RenderList renders the buttons on the right side of the toolbar,
    *  before "+ New". */
   readonly toolbarActions?: readonly ToolbarActionButton[];
+  /** Rendered at the start of the toolbar's action group (the relatedList page help in tabs mode). */
+  readonly toolbarLead?: ReactNode;
   /** Faceted filter dropdowns. KumikoScreen builds them from filterable
    *  select/boolean fields; RenderList passes them through to DataTable. */
   readonly filterFacets?: readonly DataTableFacet[];
