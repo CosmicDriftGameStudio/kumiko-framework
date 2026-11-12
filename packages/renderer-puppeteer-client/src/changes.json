@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.420.0",
+    "type": "fix",
+    "title": "An unparseable /rasterize response is a final error",
+    "detail": "An unparseable 2xx `/rasterize` body is a final `RendererError` instead of being retried."
+  },
+  {
     "version": "0.419.0",
     "type": "improvement",
     "title": "preview-png and rasterizePdf let an agent see the printed result",

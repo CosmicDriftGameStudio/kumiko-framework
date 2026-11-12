@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.420.0",
+    "type": "improvement",
+    "title": "Action-form facts can show a stored file",
+    "detail": "A preview or success fact with type \"file\" reads a FileRef id or an array of ids from the result and renders the file list with name, download link and inline PDF preview."
+  },
+  {
+    "version": "0.420.0",
+    "type": "improvement",
+    "title": "Document editor for longText fields, preview inside a section",
+    "detail": "Field option `editor: \"document\"` (longText only; works with `aiAssist`: the text is inserted as paragraphs) renders the registered document editor instead of a textarea; boot rule `form/editor-field-type`. New fields-section option `flow: false` gives a screen form or drawer section a grid of `columns` equal cells; without it the flow layout (field width by type) stays as before. `ActionFormPreview.section` places the preview panel at the end of a fields section with that id (boot rule `action-form-preview/section-unknown`); without it the panel stays below the form, and without `title` it has no title row."
+  },
+  {
+    "version": "0.420.0",
+    "type": "improvement",
+    "title": "General page help",
+    "detail": "Set `pageHelp: { sections: [{ kind: \"status\", field: \"status\" }] }` on an entityList or a projectionDetail (with `entity` on the detail) and the page gets an \"Explanations\" button in the shell header. Its drawer shows each option of the select field with the same badge as the list and a sentence from the i18n key `<option label key>:help`; `{ kind: \"text\", title, text }` adds free text. relatedList sections contribute their sections to the page's help instead of rendering a button. Boot fails when a status field is not a select field or an option has no help text in a locale its label has. New `PageHeader.help`, `Dialog.hideCancel` and icon key `help-circle`."
+  },
+  {
+    "version": "0.420.0",
+    "type": "fix",
+    "title": "A null field value no longer blocks AI-assist regeneration",
+    "detail": "A `null` field value no longer blocks AI-assist regeneration. `isCurrencyOnlyMoney` is exported from the renderer headless barrel."
+  },
+  {
     "version": "0.417.0",
     "type": "breaking",
     "title": "Board look for lists, forms, record pages and the shell",

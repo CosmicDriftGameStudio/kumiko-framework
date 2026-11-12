@@ -1,5 +1,44 @@
 # @cosmicdrift/kumiko-document-designer
 
+## 0.420.0
+
+### Minor Changes
+
+- c8da12e: The template editor exposes the letter features: the image bubble sets the print width and alignment, the divider bubble sets color and weight, the table toolbar adds and removes plain rows (a row under the repeat row prints once), and the layout settings offer a table line color, fold marks, header/footer on page 1 switches and corner marks; the table toolbar sets cell padding, width, alignment and the lines above and below the cursor row, and the placeholder bubble switches a date between short and long. The layout settings also take a paper color (`paperColor`, `#rrggbb`, reset to white) that tints the whole printed page, margins, header and footer included, and the editor paper. The editor paper draws the image size, alignment, divider style and fold marks, and dims a header or footer that starts on page 2.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Editor controls for letter features
+  detail: The content editor bubble gains image width in mm and left/center/right alignment (plus the existing full-bleed switch in layout regions) and a divider bubble with color and weight. The table toolbar gets add-row and remove-row buttons; a row added under the repeat row is a plain row. The pdf-layout settings gain table line color, fold marks and header/footer on page 1 switches; the layout paper shows fold marks on the left edge and dims a region that starts on page 2.
+  -->
+- ba53683: The PDF template editor shows an "Import from a template" button when a client feature registers the `ai-agent:import-template` action.
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: improvement
+  title: PDF template editor can hand a template to the AI assistant
+  detail: When a client feature registers the ai-agent:import-template client action, the PDF editor header shows an "Import from a template" button that calls it with the slug, the current locale and the template title.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [ac5f57f]
+- Updated dependencies [cc4aeb4]
+- Updated dependencies [c8da12e]
+- Updated dependencies [c8da12e]
+- Updated dependencies [cb56293]
+- Updated dependencies [cce0ca1]
+- Updated dependencies [2f9a416]
+- Updated dependencies [253b33a]
+- Updated dependencies [3cbb084]
+- Updated dependencies [4640dba]
+  - @cosmicdrift/kumiko-types@0.420.0
+  - @cosmicdrift/kumiko-framework@0.420.0
+  - @cosmicdrift/kumiko-renderer@0.420.0
+  - @cosmicdrift/kumiko-bundled-features@0.420.0
+  - @cosmicdrift/kumiko-renderer-puppeteer-client@0.420.0
+
 ## 0.419.0
 
 ### Minor Changes

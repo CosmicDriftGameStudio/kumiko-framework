@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.420.0",
+    "type": "fix",
+    "title": "PII event backfill stops growing self-owned personal fields",
+    "detail": "A personal field that is its own owner (for example invitedBy) was re-keyed under its own ciphertext on every boot. The backfill now keys it under the decrypted user id, repairs values already keyed wrongly, and logs the failure reason per event."
+  },
+  {
+    "version": "0.420.0",
+    "type": "fix",
+    "title": "Navigate targets resolve through one shared boot-validator helper",
+    "detail": "Navigate targets given as a screen QN or a short id now resolve through one shared boot-validator helper."
+  },
+  {
     "version": "0.419.0",
     "type": "improvement",
     "title": "Modal size, labelled action menu and menu item descriptions",
