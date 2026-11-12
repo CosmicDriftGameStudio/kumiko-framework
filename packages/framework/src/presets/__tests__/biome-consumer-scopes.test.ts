@@ -10,8 +10,12 @@ const PLUGIN = "plugin";
 // Assembled so this file does not trip the font CDN plugin it tests.
 const googleFontsHost = ["fonts", "googleapis", "com"].join(".");
 
+// Biome emits diagnostics of one file in no fixed order under load.
 function findingsFor(findings: readonly Finding[], file: string, category = PLUGIN): number[] {
-  return findings.filter((f) => f.file === file && f.category === category).map((f) => f.line);
+  return findings
+    .filter((f) => f.file === file && f.category === category)
+    .map((f) => f.line)
+    .sort((a, b) => a - b);
 }
 
 const SERVER_SNIPPETS: Readonly<Record<string, string>> = {
