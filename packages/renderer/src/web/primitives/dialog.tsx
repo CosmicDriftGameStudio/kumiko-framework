@@ -16,6 +16,7 @@ export function DefaultDialog({
   description,
   confirmLabel,
   cancelLabel,
+  hideCancel = false,
   variant = "default",
   initialFocus,
   onConfirm,
@@ -77,17 +78,19 @@ export function DefaultDialog({
       </div>
       {children !== undefined && <div>{children}</div>}
       <div className="flex items-center justify-end gap-2">
-        <DialogPrimitive.Close asChild>
-          <button
-            ref={cancelButtonRef}
-            type="button"
-            disabled={loading}
-            data-testid={testId !== undefined ? `${testId}-cancel` : undefined}
-            className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-          >
-            {effectiveCancelLabel}
-          </button>
-        </DialogPrimitive.Close>
+        {!hideCancel && (
+          <DialogPrimitive.Close asChild>
+            <button
+              ref={cancelButtonRef}
+              type="button"
+              disabled={loading}
+              data-testid={testId !== undefined ? `${testId}-cancel` : undefined}
+              className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+            >
+              {effectiveCancelLabel}
+            </button>
+          </DialogPrimitive.Close>
+        )}
         <button
           ref={confirmButtonRef}
           type="button"

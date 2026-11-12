@@ -1,10 +1,12 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useIsStandInScreen } from "../app/locked-screen-header.tsx";
 import type { Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
+import { pageHelpButtonOf, withPageHelp } from "./page-help-button.tsx";
 import { renderReferenceLookupBridges } from "./render-list-reference-bridge.tsx";
 import { rowMutedFromField, rowToneFromField } from "./render-list-row-tone.ts";
 import {
@@ -87,6 +89,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     bulk,
     rowTone,
     toolbarActions,
+    toolbarLead,
     filterFacets,
     filterValues,
     onFilterChange,
@@ -106,6 +109,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // As in RenderEdit, fall back to the i18next context for translation;
   // otherwise column headers would display raw i18n keys.
   const t = useTranslation();
+  const appFeatures = useAppFeatures();
   const translate: Translate = translateProp ?? t;
   const isStandIn = useIsStandInScreen();
   const { DataTable, Button, Dialog, Input, Banner, PageHeader } = usePrimitives();
@@ -182,8 +186,15 @@ export function RenderList(props: RenderListProps): ReactNode {
     setMenuActionBusyId,
     setMenuActionError,
   });
-  const headerActions = renderHeaderActions(toolbarModel, createButton);
-  const toolbarEnd = renderToolbarEnd(toolbarModel, createButton);
+  const pageHelp = pageHelpButtonOf(screen.pageHelp, {
+    entityName: screen.entity,
+    entity,
+    featureName,
+    translate,
+    appFeatures,
+  });
+  const headerActions = withPageHelp(pageHelp, renderHeaderActions(toolbarModel, createButton));
+  const toolbarEnd = withPageHelp(toolbarLead, renderToolbarEnd(toolbarModel, createButton));
   const composedEmptyState = composeEmptyState({
     Button,
     emptyState,

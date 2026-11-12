@@ -314,6 +314,7 @@ export type {
   FieldValueChips,
   FormWidth,
   ListEmptyStateSpec,
+  PageHelpSpec,
   RelatedListEmptyStateSpec,
   RelatedListEmptyStateVariant,
   RelatedListRowTone,

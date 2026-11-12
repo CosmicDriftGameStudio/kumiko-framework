@@ -816,6 +816,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.dashboard.today": "Heute",
   "kumiko.dialog.cancel": "Abbrechen",
   "kumiko.dialog.close": "Schließen",
+  "kumiko.pageHelp.button": "Status erklärt",
+  "kumiko.pageHelp.title": "Status",
   "kumiko.dialog.confirm": "Bestätigen",
   "kumiko.drawer.discard.body": "Deine Eingaben in diesem Formular gehen verloren.",
   "kumiko.drawer.discard.cancel": "Weiter bearbeiten",

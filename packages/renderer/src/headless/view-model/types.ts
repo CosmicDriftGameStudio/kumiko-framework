@@ -17,6 +17,7 @@ import type {
   ListSortSpec,
   ListTableOptions,
   OptionsQueryPayload,
+  PageHelpSpec,
   PlatformComponent,
   RelatedListEmptyStateVariant,
   RelatedListRowTone,
@@ -572,6 +573,7 @@ export type EditRelatedListSectionViewModel = {
   readonly kind: "relatedList";
   readonly id?: string;
   readonly title: string;
+  readonly pageHelp?: PageHelpSpec;
   readonly query: string;
   readonly parentParam?: string;
   readonly parentFilter?: { readonly field: string };

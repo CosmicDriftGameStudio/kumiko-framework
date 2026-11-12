@@ -811,6 +811,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.dashboard.today": "Hoy",
   "kumiko.dialog.cancel": "Cancelar",
   "kumiko.dialog.close": "Cerrar",
+  "kumiko.pageHelp.button": "Estados explicados",
+  "kumiko.pageHelp.title": "Estado",
   "kumiko.dialog.confirm": "Confirmar",
   "kumiko.drawer.discard.body": "Los datos introducidos en este formulario se perderán.",
   "kumiko.drawer.discard.cancel": "Seguir editando",

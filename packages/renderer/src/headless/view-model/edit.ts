@@ -232,6 +232,7 @@ export function computeRelatedListSectionViewModel(
 
 function relatedListQueryProps(sectionSpec: EditRelatedListSection) {
   return {
+    ...(sectionSpec.pageHelp !== undefined && { pageHelp: sectionSpec.pageHelp }),
     ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
     ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
     ...(sectionSpec.entity !== undefined && { entity: sectionSpec.entity }),

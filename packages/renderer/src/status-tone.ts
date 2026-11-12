@@ -65,3 +65,14 @@ export function statusToneForValue(value: string): StatusTone | undefined {
 export function isSelectOptionTone(value: unknown): value is SelectOptionTone {
   return isOneOf(SELECT_OPTION_TONES, value);
 }
+
+/** Tone of one select value: the declared option tone, else the value heuristic. */
+export function statusToneForOption(
+  value: string,
+  optionTones: { readonly [value: string]: SelectOptionTone | undefined } | undefined,
+): StatusBadgeOptionTone | undefined {
+  const declared =
+    optionTones !== undefined && Object.hasOwn(optionTones, value) ? optionTones[value] : undefined;
+  const declaredTone = declared !== undefined ? statusToneForOptionTone(declared) : undefined;
+  return declaredTone ?? statusToneForValue(value);
+}

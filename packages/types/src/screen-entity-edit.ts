@@ -368,6 +368,15 @@ export type RelatedListRowTone = Exclude<FieldCondition, boolean> & {
   readonly tone: SelectOptionTone;
 };
 
+/** Page-header help explaining every option of one select field (typically a status). The sentence of an
+ *  option is the i18n key `<option label key>:help`, owned by the feature of the entity. `entity` defaults to the
+ *  screen entity on an entityList and the section entity on a relatedList; it is required on a projectionDetail,
+ *  which has no entity of its own. A qualified name `<feature>:<entity>` points at an entity of another feature. */
+export type PageHelpSpec = {
+  readonly statusField: string;
+  readonly entity?: string;
+};
+
 /** Replacement for the default "no rows" box of a list. `title`/`description`
  *  are i18n keys. `action` is a record action evaluated against an empty
  *  record on list screens (the parent record on a relatedList); its icon must
@@ -393,6 +402,8 @@ export type EditRelatedListSection = EditSectionPresentation & {
   readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly kind: "relatedList";
   readonly title: string;
+  /** Help button next to the section title; the entity defaults to `entity` of this section. */
+  readonly pageHelp?: PageHelpSpec;
   /** Rows are aggregates or other values with no record of their own, so they lead nowhere on
    *  purpose. Declares that to the screen-conventions guard; with `rowClick`/`rowActions` it is a
    *  boot error. */

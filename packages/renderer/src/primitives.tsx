@@ -1165,6 +1165,9 @@ export type GridProps = {
   readonly tight?: boolean;
   /** Read-only label/value facts: a true `columns`-wide grid with a tight gap, at most 2 columns below `sm`. Wins over `flow`. */
   readonly facts?: boolean;
+  /** Legend rows as flat child pairs (term, explanation): the first column is as wide as its widest
+   *  term and never wraps, the second takes the rest, with a fixed gap between them. Wins over `columns`/`flow`. */
+  readonly legend?: boolean;
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
@@ -1237,6 +1240,8 @@ export type DialogProps = {
   readonly confirmLabel?: string;
   /** Cancel-Button-Label. Default `kumiko.dialog.cancel`. */
   readonly cancelLabel?: string;
+  /** Leaves out the cancel button, for an information dialog whose only button closes it. */
+  readonly hideCancel?: boolean;
   /** `default` = Confirm primary, `danger` = Confirm danger. */
   readonly variant?: "default" | "danger";
   /** Which button takes focus on open. Default: Confirm for a bare dialog
@@ -1479,6 +1484,7 @@ export type TabsProps = {
 export {
   type StatusBadgeOptionTone,
   type StatusTone,
+  statusToneForOption,
   statusToneForOptionTone,
   statusToneForValue,
 } from "./status-tone.ts";

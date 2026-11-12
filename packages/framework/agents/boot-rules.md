@@ -900,6 +900,13 @@
 | <a id="ownership-where-on-field-read"></a>`ownership/where-on-field-read` | A field-level read access map uses from(...) rules, not where(...). | Replace the where rule with a from rule on the field read path. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
 | <a id="ownership-where-on-write-path"></a>`ownership/where-on-write-path` | A write access map uses from(...) rules, not where(...), because where is read-only SQL. | Replace the where rule with a from rule on the write path. | `packages/framework/src/engine/boot-validator/ownership-rules.ts` |
 
+## page-help
+
+| Rule | Summary | Fix | Source |
+| --- | --- | --- | --- |
+| <a id="page-help-option-help-missing"></a>`page-help/option-help-missing` | Every option of the pageHelp field has a `:help` translation, in the feature that owns the entity, in each locale its option label has. | Add `<option label key>:help` via r.translations(...) in the owning feature for the listed options and locales. | `packages/framework/src/engine/boot-validator/page-help-rules.ts` |
+| <a id="page-help-status-field-invalid"></a>`page-help/status-field-invalid` | pageHelp names a select field of an existing entity, bare for the own feature or `<feature>:<entity>` for another one (entity is required on a projectionDetail; a relatedList defaults to its section entity). | Point pageHelp.statusField at a select field and pageHelp.entity at an existing entity (`<feature>:<entity>` for a foreign one). | `packages/framework/src/engine/boot-validator/page-help-rules.ts` |
+
 ## parent-ref
 
 | Rule | Summary | Fix | Source |
