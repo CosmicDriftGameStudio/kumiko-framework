@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.420.0",
+    "type": "improvement",
+    "title": "Terminal and code editor stages for e2e videos",
+    "detail": "`terminalStage` and `editorStage` from `@cosmicdrift/kumiko-testing/e2e` return `{ html, durationMs }` for `tools.stage` and `tools.animate`. Typing rhythm is seeded, so the same options always produce the same video. The editor stage highlights TypeScript without extra dependencies."
+  },
+  {
     "version": "0.418.0",
     "type": "fix",
     "title": "Stack cleanup test tolerates the ioredis MONITOR startup race",

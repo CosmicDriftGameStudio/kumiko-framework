@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.420.0
+
+### Minor Changes
+
+- 44819e6: The e2e video tooling gains two typed stages: `terminalStage` and `editorStage` build a self-contained HTML document with a macOS-style window, character-by-character typing and a blinking cursor, plus the total duration to pass to `tools.animate`. Both optionally show an app screenshot on the right (`preview`) with a focus switch, highlights (one or several boxes) and cards. The preview can show a `beforeImageUrl` while typing that crossfades to the result at the focus switch. All motion is pure CSS keyframes, so the frame-stepped video renderer captures it deterministically.
+  
+  Long terminal commands in the preview variant wrap with stable lines and reveal character by character, and the `exit 0` meta no longer breaks mid-text. A video definition accepts an optional `playbackRate` (0.5 to 2) that speeds up picture, narration and subtitles together.
+  
+  `tools.type` now types into the focused field with the keyboard, so segmented inputs like time keep their cursor between keys instead of jumping back to the first segment. Videos run with an app boot budget of 60, because a video walks through the app page by page on purpose.
+  
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Terminal and code editor stages for e2e videos
+  detail: `terminalStage` and `editorStage` from `@cosmicdrift/kumiko-testing/e2e` return `{ html, durationMs }` for `tools.stage` and `tools.animate`. Typing rhythm is seeded, so the same options always produce the same video. The editor stage highlights TypeScript without extra dependencies.
+  -->
+
+### Patch Changes
+
+- 44819e6: The `bun dev` welcome banner is in English, and booting a persistent dev DB no longer logs one line per projection table that already exists.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: English welcome banner and a quieter dev boot
+  detail: The welcome banner of scaffolded apps mixed German and English ("kumiko-app läuft", "Login als"). It now reads "Kumiko app running", "Login" and "Add a feature". The stack no longer prints "table … already exists, skipping create" for every projection table on each boot.
+  -->
+- Updated dependencies [ac5f57f]
+- Updated dependencies [cc4aeb4]
+- Updated dependencies [cb56293]
+- Updated dependencies [cce0ca1]
+- Updated dependencies [253b33a]
+  - @cosmicdrift/kumiko-types@0.420.0
+  - @cosmicdrift/kumiko-framework@0.420.0
+  - @cosmicdrift/kumiko-guards@0.420.0
+
 ## 0.419.0
 
 ### Patch Changes

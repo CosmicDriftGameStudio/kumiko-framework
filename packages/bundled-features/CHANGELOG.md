@@ -1,5 +1,73 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.420.0
+
+### Minor Changes
+
+- cc4aeb4: A `longText` form field takes `editor: "document"` and then uses the rich-text editor registered for "document" (value: HTML string), falling back to the textarea without one. An actionForm `preview` takes `section: "<section-id>"` to render at the end of that layout section instead of below the form. A form field with `editor: "document"` shows text formatting only (new `ContentEditorProps.formatting: "text"`), and the document editor hides the placeholder button when it has no variables. `aiAssist.autoRun: false` stops the query from re-running on every `contextFields` change; chips and the instruction field still run it with the context values. A URL or handoff prefill of a multi-reference field now accepts a single id, a comma list or a JSON array (a single id used to give an empty selection).
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Document editor for longText fields, preview inside a section
+  detail: Field option `editor: "document"` (longText only; works with `aiAssist`: the text is inserted as paragraphs) renders the registered document editor instead of a textarea; boot rule `form/editor-field-type`. New fields-section option `flow: false` gives a screen form or drawer section a grid of `columns` equal cells; without it the flow layout (field width by type) stays as before. `ActionFormPreview.section` places the preview panel at the end of a fields section with that id (boot rule `action-form-preview/section-unknown`); without it the panel stays below the form, and without `title` it has no title row.
+  -->
+- c8da12e: The template editor exposes the letter features: the image bubble sets the print width and alignment, the divider bubble sets color and weight, the table toolbar adds and removes plain rows (a row under the repeat row prints once), and the layout settings offer a table line color, fold marks, header/footer on page 1 switches and corner marks; the table toolbar sets cell padding, width, alignment and the lines above and below the cursor row, and the placeholder bubble switches a date between short and long. The layout settings also take a paper color (`paperColor`, `#rrggbb`, reset to white) that tints the whole printed page, margins, header and footer included, and the editor paper. The editor paper draws the image size, alignment, divider style and fold marks, and dims a header or footer that starts on page 2.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: Editor controls for letter features
+  detail: The content editor bubble gains image width in mm and left/center/right alignment (plus the existing full-bleed switch in layout regions) and a divider bubble with color and weight. The table toolbar gets add-row and remove-row buttons; a row added under the repeat row is a plain row. The pdf-layout settings gain table line color, fold marks and header/footer on page 1 switches; the layout paper shows fold marks on the left edge and dims a region that starts on page 2.
+  -->
+- c8da12e: PDF templates can express a typical business letter: images with a print width, alignment and a full-bleed header or footer image, hard line breaks in paragraphs and table cells, table rows after the repeat row, divider color and weight, a table line color, DIN 5008 fold marks, a header or footer that starts on page 2, per-table cell padding, width and alignment, row lines above and below a row, a short or long date format per placeholder, corner marks on every page, and a paper color for the whole page.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: PDF templates cover typical business letters
+  detail: patch-draft accepts image `widthMm`, `align` and `bleed` (bleed only in the header or footer of a pdf-layout, otherwise `bleed_not_allowed`), the run `{hardBreak:true}`, table `rowsAfterRepeat`, and divider `color` and `weightPt`. Layout meta gains `tableLineColor`, `foldMarks` (none, din-a, din-b) and `headerOnFirstPage` / `footerOnFirstPage`, plus `cornerMarks` (boolean, angles 10 mm from the paper edge, drawn by pdf-lib like the fold marks) and `paperColor` (`#rrggbb`, pdf-lib fills each page with it underneath all content, bleed images included; absent means white). Tables take `cellPaddingMm` (0 to 10), `widthMm` and `align`; table rows take `lineAbove` / `lineBelow` `{color, weightPt}` that beat `tableLineColor` on that edge, also on the repeat row and `rowsAfterRepeat`; a text run takes `dateStyle` (`short` 15.01.2026 or `long`, the default) for the placeholders in it, which `{{date x dateStyle="short"}}` renders in PDFs and mails. Filled cells in the outer columns keep a small inset so their text no longer sticks out of the fill, and the footer region's table cells are top-aligned like the body. The editor schema loads and writes the new attributes unchanged. renderer-puppeteer-client prints a header or footer that skips page 1 as a second render merged with pdf-lib and draws fold marks on every page. The full-bleed rule is now scoped per region, because Chromium shares one document for header and footer and an unscoped rule moved the footer image to the top edge.
+  -->
+
+### Patch Changes
+
+- 2f9a416: Previews of an unsaved PDF template now show a tenant letterhead (also the tenant default letterhead) in its working version, so a layout that is still a draft (or has an open draft) is no longer replaced by the system layout. Sending and rendering stored templates are unchanged.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: PDF preview shows a draft letterhead
+  detail: A preview that carries draft content resolves the tenant's own PDF layout in its working version, including layouts that were never published, instead of falling back to the system layout. `resolveLayout` takes an optional `working` flag for this; system layouts always resolve to their active version and real renders are unchanged.
+  -->
+- 3cbb084: Signature: an empty signature is rejected even when one corner of the image differs from the background, a blank `linkSecret` is refused together with `authorizeSubject`, and the tenant-in-subject encoding of link grants is a shared helper (`shared/tenant-scoped-subject`).
+  
+  <!-- kumiko-changes
+  feature: signature
+  type: fix
+  title: Empty signature images are rejected on any background
+  detail: The background of a signature image is now the dominant opaque colour of its border (within a small tolerance) instead of four identical corners, so an opaque blank image with one differing corner pixel no longer passes as signed. A `linkSecret` of only whitespace is refused when `authorizeSubject` is set. The tenant-scoped subject of the signing link is available as `tenantScopedSubject`, `parseTenantScopedSubject` and `peekTenantScopedSubject` in `@cosmicdrift/kumiko-bundled-features/shared/tenant-scoped-subject`.
+  -->
+- 4640dba: PDF templates: saving a body with a frame that reaches past the largest paper is refused, the address sender line is flattened on the parsed document instead of by regex, and the tenant default PDF layout is resolved once per render.
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: A frame past the paper edge is refused on save
+  detail: A document-pdf body whose frame reaches past 297 mm (x + width or y + height, the long edge of the largest supported paper) is refused with frame_outside_page instead of printing blank pages before the text. The sender line of an address frame is now flattened on the parsed document, so a line break next to a tag or attribute can no longer corrupt the markup. The configured default PDF layout is looked up once per render and preview.
+  -->
+- Updated dependencies [ac5f57f]
+- Updated dependencies [44819e6]
+- Updated dependencies [cc4aeb4]
+- Updated dependencies [c8da12e]
+- Updated dependencies [cb56293]
+- Updated dependencies [cce0ca1]
+- Updated dependencies [253b33a]
+- Updated dependencies [44819e6]
+  - @cosmicdrift/kumiko-types@0.420.0
+  - @cosmicdrift/kumiko-framework@0.420.0
+  - @cosmicdrift/kumiko-renderer@0.420.0
+  - @cosmicdrift/kumiko-testing@0.420.0
+
 ## 0.419.0
 
 ### Minor Changes

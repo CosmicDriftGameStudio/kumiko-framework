@@ -1,5 +1,71 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.420.0
+
+### Minor Changes
+
+- ac5f57f: An action-form preview fact or success fact can take `type: "file"`: the value is a stored file id (or an array of them) and shows with name, download link and PDF preview, so a user can open a mail attachment before sending.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Action-form facts can show a stored file
+  detail: A preview or success fact with type "file" reads a FileRef id or an array of ids from the result and renders the file list with name, download link and inline PDF preview.
+  -->
+- cc4aeb4: A `longText` form field takes `editor: "document"` and then uses the rich-text editor registered for "document" (value: HTML string), falling back to the textarea without one. An actionForm `preview` takes `section: "<section-id>"` to render at the end of that layout section instead of below the form. A form field with `editor: "document"` shows text formatting only (new `ContentEditorProps.formatting: "text"`), and the document editor hides the placeholder button when it has no variables. `aiAssist.autoRun: false` stops the query from re-running on every `contextFields` change; chips and the instruction field still run it with the context values. A URL or handoff prefill of a multi-reference field now accepts a single id, a comma list or a JSON array (a single id used to give an empty selection).
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Document editor for longText fields, preview inside a section
+  detail: Field option `editor: "document"` (longText only; works with `aiAssist`: the text is inserted as paragraphs) renders the registered document editor instead of a textarea; boot rule `form/editor-field-type`. New fields-section option `flow: false` gives a screen form or drawer section a grid of `columns` equal cells; without it the flow layout (field width by type) stays as before. `ActionFormPreview.section` places the preview panel at the end of a fields section with that id (boot rule `action-form-preview/section-unknown`); without it the panel stays below the form, and without `title` it has no title row.
+  -->
+- cb56293: An entityList or a projectionDetail can mount a general page help: `pageHelp: { sections }`, each section either `{ kind: "status", field, entity? }` (explains every option of a select field with its badge and the sentence from the i18n key `<option label key>:help`; `entity` is bare or `<feature>:<entity>`) or `{ kind: "text", title, text }` (i18n keys). A button labelled "Explanations" (key `kumiko.pageHelp.buttonLabel`, soft primary tint, icon only below `sm`) in the shell header, left of the assistant button, opens a drawer with one card per section; a status card is headed with its optional `title` key, else the tab title of a relatedList section, else the screen title. relatedList sections take `pageHelp` too but render no button: their sections join the help of the projectionDetail around them, after its own, so a page with several tabs gets one help. The boot rules `page-help/status-field-invalid` and `page-help/option-help-missing` check every status section, and `page-help/unsupported-site` rejects pageHelp on a relatedList of an entityEdit, where nothing shows it; text keys join the required surface keys. `PageHeader` takes a `help` node that sits at the end of the header actions. `Button` takes `collapseLabel` (icon only below `sm`, the label stays the accessible name), a `legend` `Grid` takes `ruled` (fixed term column and hairlines between rows), `Dialog` takes `hideCancel`, and the icon key `help-circle` joins the icon vocabulary.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: General page help
+  detail: Set `pageHelp: { sections: [{ kind: "status", field: "status" }] }` on an entityList or a projectionDetail (with `entity` on the detail) and the page gets an "Explanations" button in the shell header. Its drawer shows each option of the select field with the same badge as the list and a sentence from the i18n key `<option label key>:help`; `{ kind: "text", title, text }` adds free text. relatedList sections contribute their sections to the page's help instead of rendering a button. Boot fails when a status field is not a select field or an option has no help text in a locale its label has. New `PageHeader.help`, `Dialog.hideCancel` and icon key `help-circle`.
+  -->
+
+### Patch Changes
+
+- cce0ca1: The PII event backfill no longer re-keys self-owned personal fields under their own ciphertext, repairs values already keyed that way, and logs the failure reason per event.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: PII event backfill stops growing self-owned personal fields
+  detail: A personal field that is its own owner (for example invitedBy) was re-keyed under its own ciphertext on every boot. The backfill now keys it under the decrypted user id, repairs values already keyed wrongly, and logs the failure reason per event.
+  -->
+- 253b33a: Navigate targets given as a screen QN or a short id now resolve through one shared boot-validator helper, an unparseable 2xx `/rasterize` body is a final `RendererError` instead of being retried, a `null` field value no longer blocks AI-assist regeneration, and `isCurrencyOnlyMoney` is exported from the renderer headless barrel.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Navigate targets resolve through one shared boot-validator helper
+  detail: Navigate targets given as a screen QN or a short id now resolve through one shared boot-validator helper.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: A null field value no longer blocks AI-assist regeneration
+  detail: A `null` field value no longer blocks AI-assist regeneration. `isCurrencyOnlyMoney` is exported from the renderer headless barrel.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: fix
+  title: An unparseable /rasterize response is a final error
+  detail: An unparseable 2xx `/rasterize` body is a final `RendererError` instead of being retried.
+  -->
+- Updated dependencies [ac5f57f]
+- Updated dependencies [cc4aeb4]
+- Updated dependencies [cb56293]
+  - @cosmicdrift/kumiko-types@0.420.0
+
 ## 0.419.0
 
 ### Minor Changes
