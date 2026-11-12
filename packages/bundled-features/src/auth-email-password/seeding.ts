@@ -24,6 +24,7 @@ import {
   createSystemUser,
   type SessionUser,
   SYSTEM_TENANT_ID,
+  SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
@@ -517,7 +518,7 @@ export async function seedBootstrapAdmin(
 
 /**
  * Boot top-up for the bootstrap owner: adds the roles the owner's existing membership in the tenant
- * lacks. Only an account that already has a membership there is touched (a squatter has none).
+ * lacks. Only a membership the bootstrap seed itself created (inserted by the system user) is touched, so a foreign member with the same mail is never escalated.
  */
 export async function ensureBootstrapAdminRoles(
   db: DbConnection,
@@ -533,5 +534,6 @@ export async function ensureBootstrapAdminRoles(
     userId: owner["id"],
     tenantId: options.tenantId,
     roles: options.roles,
+    onlyIfInsertedBy: SYSTEM_USER_ID,
   });
 }

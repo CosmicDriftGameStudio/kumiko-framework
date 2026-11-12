@@ -21,6 +21,7 @@ import {
 } from "./file-storage-option.ts";
 import { type KmsMode, type ResolvedKmsMode, resolveKmsMode } from "./kms-mode.ts";
 import { CHANNEL_EMAIL_FEATURE, type MailBootOption, resolveMailOption } from "./mail-option.ts";
+import { assertPreviewLoginKey, type PreviewLoginOption } from "./preview-login-option.ts";
 import { type DbSeedFn, type ProdSeedsConfig, resolveSeedShortcuts } from "./seed-shortcuts.ts";
 import { stackBootWarnings } from "./stack-boot-requirements.ts";
 
@@ -32,6 +33,7 @@ export type BootOptionFields = {
   readonly billing?: BillingBootOption;
   readonly featureToggles?: boolean;
   readonly demoMode?: DemoModeOption;
+  readonly previewLogin?: PreviewLoginOption;
   readonly seeds?: readonly ProdSeedFn[] | ProdSeedsConfig;
   readonly kms?: ResolvedKmsMode["kms"];
   readonly blindIndexKey?: string;
@@ -172,6 +174,7 @@ export async function resolveBootOptionWiring(
   const features: FeatureDefinition[] = [];
   const extraRoutes: ExtraRouteDefinition[] = [];
   let envDefaults: Readonly<Record<string, string>> = {};
+  assertPreviewLoginKey(options.previewLogin);
 
   if (options.mail) {
     requireFeatures(mounted, "mail", [DELIVERY_FEATURE], "channel-email sends through delivery.");

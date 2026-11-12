@@ -42,6 +42,19 @@ export function isValidPreviewLoginLink(args: {
   return expected.length === given.length && timingSafeEqual(expected, given);
 }
 
+// ponytail: per-process single-use store (sig -> exp seconds); enough for a one-instance preview,
+// use a shared KV (Redis SET NX) if previews ever run multi-instance.
+
+function consumeOnce(consumedSigs: Map<string, number>, sig: string, expSeconds: number): boolean {
+  const now = Math.floor(Date.now() / 1000);
+  for (const [key, exp] of consumedSigs) {
+    if (exp + PREVIEW_LOGIN_CLOCK_TOLERANCE_SECONDS < now) consumedSigs.delete(key);
+  }
+  if (consumedSigs.has(sig)) return false;
+  consumedSigs.set(sig, expSeconds);
+  return true;
+}
+
 /** Separate from createAuthRoutes: the path lies outside /api, so it must not ride the /api guard chain. */
 export function createPreviewLoginRoutes(
   dispatcher: Dispatcher,
@@ -51,6 +64,7 @@ export function createPreviewLoginRoutes(
   const previewLogin = config.previewLogin;
   if (previewLogin === undefined || previewLogin.loginKey === "") return undefined;
   const ctx = createAuthRouteContext(dispatcher, jwt, config);
+  const consumedSigs = new Map<string, number>();
   const app = new Hono();
   app.get(PREVIEW_LOGIN_PATH, async (c) => {
     c.header("Cache-Control", "no-store");
@@ -61,9 +75,12 @@ export function createPreviewLoginRoutes(
       nowSeconds: Math.floor(Date.now() / 1000),
     });
     if (!valid) return c.body(null, 403);
+    const sig = (c.req.query("sig") ?? "").toLowerCase();
+    if (!consumeOnce(consumedSigs, sig, Number(c.req.query("exp")))) return c.body(null, 403);
     const owner = await previewLogin.resolveOwnerSession(dispatcher);
     if (owner === undefined) {
-      log.error("preview login refused: the owner account does not exist yet");
+      consumedSigs.delete(sig);
+      log.error("preview login refused: the owner account is missing or not active");
       return c.body(null, 503);
     }
     const claims = await dispatcher.resolveAuthClaims(owner);

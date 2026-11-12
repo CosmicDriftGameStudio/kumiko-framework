@@ -101,6 +101,7 @@ function devBootOptionWiringInput(
     ...(options.billing && { billing: options.billing }),
     ...(options.featureToggles && { featureToggles: true }),
     ...(options.demoMode && { demoMode: options.demoMode }),
+    ...(options.previewLogin && { previewLogin: options.previewLogin }),
     ...(seedsConfig && { seeds: { ...seedsConfig, run: [] } }),
     ...(options.kms && { kms: options.kms }),
     ...(options.blindIndexKey !== undefined && { blindIndexKey: options.blindIndexKey }),

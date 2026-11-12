@@ -32,6 +32,7 @@ import {
 import { createUserFeature, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
@@ -46,6 +47,7 @@ registerMailTranslations("de", localeDeBundle);
 
 const TENANT_ID = "00000000-0000-4000-8000-0000000000b1" as TenantId;
 const CREATOR_EMAIL = "creator@example.com";
+const FOREIGN_ACTOR_ID = "00000000-0000-4000-8000-0000000000f1";
 const NEW_PASSWORD = "chosen-by-creator-12345";
 const APP_RESET_URL = "https://app.example.com/reset-password";
 
@@ -329,5 +331,23 @@ describe("bootstrap admin ensureRoles", () => {
     await bootSeeds(withCreator, { roles: ["Admin", "Editor"], ensureRoles: true });
 
     expect(await membershipRoles()).toEqual(["Admin", "Editor"]);
+  });
+
+  test("ensureRoles never escalates a membership the bootstrap seed did not create", async () => {
+    await seedTenant(stack.db, { id: TENANT_ID, key: "app", name: "App" });
+    const { id: userId } = await seedUser(stack.db, {
+      email: CREATOR_EMAIL,
+      displayName: "Same mail, other origin",
+    });
+    await seedTenantMembership(stack.db, {
+      userId,
+      tenantId: TENANT_ID,
+      roles: ["Member"],
+      by: { ...createSystemUser(TENANT_ID), id: FOREIGN_ACTOR_ID },
+    });
+
+    await bootSeeds(withCreator, { roles: ["Admin"], ensureRoles: true });
+
+    expect(await membershipRoles()).toEqual(["Member"]);
   });
 });

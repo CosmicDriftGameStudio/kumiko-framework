@@ -22,10 +22,16 @@ import {
   createTenantFeature,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import { createUserFeature, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import {
+  createUserFeature,
+  USER_STATUS,
+  userEntity,
+  userTable,
+} from "@cosmicdrift/kumiko-bundled-features/user";
+import { KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetTestTables, updateRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import { buildPreviewLoginConfig } from "../../boot-options/preview-login-option.ts";
@@ -34,7 +40,7 @@ import { applyStandardBootSeeds } from "../shared-boot-steps.ts";
 
 const TENANT_ID = "00000000-0000-4000-8000-0000000000c1" as TenantId;
 const OWNER_EMAIL = "owner@example.com";
-const LOGIN_KEY = "test-login-key";
+const LOGIN_KEY = "k".repeat(64);
 const LINK_PATH = "/__kumiko/preview-login";
 
 function featuresList() {
@@ -122,6 +128,9 @@ function link(exp: number, key = LOGIN_KEY): string {
 }
 
 const inSeconds = (seconds: number) => Math.floor(Date.now() / 1000) + seconds;
+let expOffset = 0;
+// A link is single-use per sig, so each test needs its own exp.
+const freshExp = () => inSeconds(10 + expOffset++);
 
 function cookieHeader(res: Response): { cookie: string; csrf: string } {
   const setCookies = res.headers.getSetCookie();
@@ -136,7 +145,7 @@ describe("preview login", () => {
   test("a valid link redirects to / and the cookies authenticate the owner", async () => {
     await seedOwner(withLink);
 
-    const res = await withLink.http.raw("GET", link(inSeconds(60)));
+    const res = await withLink.http.raw("GET", link(freshExp()));
 
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe("/");
@@ -163,7 +172,7 @@ describe("preview login", () => {
   });
 
   test("a valid link before the owner exists answers 503", async () => {
-    const res = await withLink.http.raw("GET", link(inSeconds(60)));
+    const res = await withLink.http.raw("GET", link(freshExp()));
 
     expect(res.status).toBe(503);
   });
@@ -171,8 +180,38 @@ describe("preview login", () => {
   test("without the option the route does not exist", async () => {
     await seedOwner(withoutLink);
 
-    const res = await withoutLink.http.raw("GET", link(inSeconds(60)));
+    const res = await withoutLink.http.raw("GET", link(freshExp()));
 
     expect(res.status).toBe(404);
+  });
+
+  test("a link works once, the second use answers 403", async () => {
+    await seedOwner(withLink);
+    const url = link(freshExp());
+
+    expect((await withLink.http.raw("GET", url)).status).toBe(302);
+    expect((await withLink.http.raw("GET", url)).status).toBe(403);
+  });
+
+  test("a restricted owner gets no session", async () => {
+    await seedOwner(withLink);
+    await updateRowViaEventStore(
+      withLink.db,
+      { table: userTable, entity: userEntity, entityName: "user" },
+      { email: OWNER_EMAIL },
+      { status: USER_STATUS.Restricted },
+    );
+
+    const res = await withLink.http.raw("GET", link(freshExp()));
+
+    expect(res.status).toBe(503);
+    expect(res.headers.getSetCookie()).toHaveLength(0);
+  });
+
+  test("a loginKey shorter than 32 characters is a boot error, an empty one means off", () => {
+    expect(() => buildPreviewLoginConfig({ loginKey: "too-short" }, OWNER_EMAIL)).toThrow(
+      KumikoBootError,
+    );
+    expect(buildPreviewLoginConfig({ loginKey: "" }, OWNER_EMAIL)).toBeUndefined();
   });
 });

@@ -387,36 +387,48 @@ export async function addTenantMembershipRoles(
     readonly userId: string;
     readonly tenantId: TenantId;
     readonly roles: readonly string[];
+    /** Only touch a membership created by this user id (boot seeds pass SYSTEM_USER_ID). */
+    readonly onlyIfInsertedBy?: string;
   },
 ): Promise<{ readonly added: readonly string[] }> {
   assertAssignableMembershipRoles(options.roles);
-  const existing = await fetchOne<{ id: string; version: number; roles: unknown }>(
-    db,
-    tenantMembershipsTable,
-    { userId: options.userId, tenantId: options.tenantId },
-  );
-  if (!existing) return { added: [] };
-  const currentRoles = parseRoles(existing.roles);
-  const added = options.roles.filter((role) => !currentRoles.includes(role));
-  if (added.length === 0) return { added };
-  const result = await executor.update(
-    {
-      id: existing.id,
-      version: existing.version,
-      changes: { roles: JSON.stringify([...currentRoles, ...added]) },
-    },
-    createSystemUser(options.tenantId),
-    createTenantDb({
-      db,
-      tenantId: options.tenantId,
-      mode: "system",
-      reason: "boot seed tops up the owner's membership roles in the seeded tenant",
-    }),
-  );
-  if (!result.isSuccess) {
+  // One re-read on version_conflict: a concurrent boot (second pod) may have added the same roles.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const existing = await fetchOne<{
+      id: string;
+      version: number;
+      roles: unknown;
+      insertedById: string | null;
+    }>(db, tenantMembershipsTable, { userId: options.userId, tenantId: options.tenantId });
+    if (!existing) return { added: [] };
+    if (
+      options.onlyIfInsertedBy !== undefined &&
+      existing.insertedById !== options.onlyIfInsertedBy
+    ) {
+      return { added: [] };
+    }
+    const currentRoles = parseRoles(existing.roles);
+    const added = options.roles.filter((role) => !currentRoles.includes(role));
+    if (added.length === 0) return { added };
+    const result = await executor.update(
+      {
+        id: existing.id,
+        version: existing.version,
+        changes: { roles: JSON.stringify([...currentRoles, ...added]) },
+      },
+      createSystemUser(options.tenantId),
+      createTenantDb({
+        db,
+        tenantId: options.tenantId,
+        mode: "system",
+        reason: "boot seed tops up the owner's membership roles in the seeded tenant",
+      }),
+    );
+    if (result.isSuccess) return { added };
+    if (result.error.code === "version_conflict" && attempt === 0) continue;
     throw new Error(
       `addTenantMembershipRoles failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
     );
   }
-  return { added };
+  return { added: [] };
 }
