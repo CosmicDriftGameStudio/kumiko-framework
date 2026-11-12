@@ -698,6 +698,7 @@ type GridProps = { // Column-based layout.
   ariaLabelledBy?: string; // Id of the element naming this grid (a Field label).
   tight?: boolean; // With `columns: "auto"`: the small gap of a chip row instead of the tile gap.
   facts?: boolean; // Read-only label/value facts: a true `columns`-wide grid with a tight gap, at most 2 columns below `sm`.
+  legend?: boolean; // Legend rows as flat child pairs (term, explanation): the first column is as wide as its widest term and never wraps, the second takes the rest, with a fixed gap between them.
 };
 type HeaderActionGroupProps = {
   children: ReactNode;

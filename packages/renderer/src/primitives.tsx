@@ -1165,6 +1165,9 @@ export type GridProps = {
   readonly tight?: boolean;
   /** Read-only label/value facts: a true `columns`-wide grid with a tight gap, at most 2 columns below `sm`. Wins over `flow`. */
   readonly facts?: boolean;
+  /** Legend rows as flat child pairs (term, explanation): the first column is as wide as its widest
+   *  term and never wraps, the second takes the rest, with a fixed gap between them. Wins over `columns`/`flow`. */
+  readonly legend?: boolean;
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */

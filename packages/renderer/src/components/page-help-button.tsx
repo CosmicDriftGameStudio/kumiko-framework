@@ -1,6 +1,6 @@
 import type { EntityDefinition, PageHelpSpec } from "@cosmicdrift/kumiko-framework/ui-types";
 import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
-import { type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import type { FeatureSchema } from "../app/feature-schema.ts";
 import { fieldOptionHelpKey, fieldOptionLabelKey, type Translate } from "../headless/index.ts";
 import { usePrimitives } from "../primitives.tsx";
@@ -47,14 +47,14 @@ export function PageHelpButton({
         onConfirm={() => undefined}
         testId="page-help-dialog"
       >
-        <Grid columns={1} testId="page-help-options">
+        <Grid columns={2} legend testId="page-help-options">
           {field.options.map((value) => {
             const label = translate(
               fieldOptionLabelKey(featureName, entityName, spec.statusField, value),
             );
             const tone = statusToneForOption(value, field.optionTones) ?? "muted";
             return (
-              <Grid columns={3} key={value} testId={`page-help-option-${value}`}>
+              <Fragment key={value}>
                 <GridCell span={1}>
                   {StatusBadge !== undefined ? (
                     <StatusBadge value={label} tone={tone} testId={`page-help-badge-${value}`} />
@@ -62,14 +62,14 @@ export function PageHelpButton({
                     <Text testId={`page-help-badge-${value}`}>{label}</Text>
                   )}
                 </GridCell>
-                <GridCell span={2}>
+                <GridCell span={1}>
                   <Text variant="muted" testId={`page-help-text-${value}`}>
                     {translate(
                       fieldOptionHelpKey(featureName, entityName, spec.statusField, value),
                     )}
                   </Text>
                 </GridCell>
-              </Grid>
+              </Fragment>
             );
           })}
         </Grid>

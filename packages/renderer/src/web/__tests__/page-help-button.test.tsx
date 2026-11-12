@@ -51,13 +51,24 @@ describe("PageHelpButton", () => {
     const dialog = screen.getByTestId("page-help-dialog");
     expect(within(dialog).getByText("Status")).toBeTruthy();
     const rows = within(dialog)
-      .getAllByTestId(/^page-help-option-/)
+      .getAllByTestId(/^page-help-badge-/)
       .map((row) => row.getAttribute("data-testid"));
     expect(rows).toEqual([
-      "page-help-option-draft",
-      "page-help-option-checked",
-      "page-help-option-rejected",
+      "page-help-badge-draft",
+      "page-help-badge-checked",
+      "page-help-badge-rejected",
     ]);
+
+    // One legend grid: badge cell and text cell alternate, so the badge column is as wide as the widest badge.
+    const options = within(dialog).getByTestId("page-help-options");
+    expect(options.hasAttribute("data-legend")).toBe(true);
+    expect(options.children).toHaveLength(6);
+    for (const value of ["draft", "checked", "rejected"]) {
+      const badgeCell = within(dialog).getByTestId(`page-help-badge-${value}`).parentElement;
+      expect(
+        badgeCell?.nextElementSibling?.querySelector(`[data-testid="page-help-text-${value}"]`),
+      ).not.toBeNull();
+    }
 
     const draft = within(dialog).getByTestId("page-help-badge-draft");
     expect(draft.textContent).toContain("Ungeprüft");

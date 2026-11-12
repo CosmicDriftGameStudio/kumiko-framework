@@ -239,6 +239,7 @@ export function DefaultGrid({
   ariaLabelledBy,
   tight,
   facts,
+  legend,
 }: GridProps): ReactNode {
   const insideDrawerBody = useContext(DrawerBodyContext);
   const groupProps =
@@ -248,6 +249,18 @@ export function DefaultGrid({
   if (list === true) {
     return (
       <div {...groupProps} data-testid={testId} className="flex flex-col divide-y divide-border">
+        {children}
+      </div>
+    );
+  }
+  if (legend === true) {
+    return (
+      <div
+        {...groupProps}
+        data-testid={testId}
+        data-legend=""
+        className="grid grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-4 gap-y-3 [&>:nth-child(odd)]:whitespace-nowrap"
+      >
         {children}
       </div>
     );
