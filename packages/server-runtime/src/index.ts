@@ -30,6 +30,10 @@ export {
   resolveStoredUserEmail,
 } from "./boot-options/mail-option.ts";
 export { withBootOptionEnvBlocks } from "./boot-options/option-env-schema.ts";
+export {
+  buildPreviewLoginConfig,
+  type PreviewLoginOption,
+} from "./boot-options/preview-login-option.ts";
 export type { SignalsOption } from "./boot-options/process-signals.ts";
 export {
   type BootOptionFields,

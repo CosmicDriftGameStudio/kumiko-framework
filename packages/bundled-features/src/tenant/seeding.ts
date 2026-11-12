@@ -50,6 +50,7 @@ import {
   createDeferringNotify,
   createLifecycleHooks,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { assertAssignableMembershipRoles } from "./membership-roles.ts";
 import { findLiveMembershipStreamId } from "./membership-stream-history.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.ts";
@@ -373,4 +374,49 @@ function extractMembershipId(data: unknown): string {
   throw new Error(
     `seedTenantMembership: executor.create returned no string id (got ${JSON.stringify(data)})`,
   );
+}
+
+/**
+ * Add-only top-up for an EXISTING membership: roles the membership lacks are appended through the
+ * event-store executor (one update event), nothing is removed. No event when all roles are present;
+ * no membership is created.
+ */
+export async function addTenantMembershipRoles(
+  db: DbRunner,
+  options: {
+    readonly userId: string;
+    readonly tenantId: TenantId;
+    readonly roles: readonly string[];
+  },
+): Promise<{ readonly added: readonly string[] }> {
+  assertAssignableMembershipRoles(options.roles);
+  const existing = await fetchOne<{ id: string; version: number; roles: unknown }>(
+    db,
+    tenantMembershipsTable,
+    { userId: options.userId, tenantId: options.tenantId },
+  );
+  if (!existing) return { added: [] };
+  const currentRoles = parseRoles(existing.roles);
+  const added = options.roles.filter((role) => !currentRoles.includes(role));
+  if (added.length === 0) return { added };
+  const result = await executor.update(
+    {
+      id: existing.id,
+      version: existing.version,
+      changes: { roles: JSON.stringify([...currentRoles, ...added]) },
+    },
+    createSystemUser(options.tenantId),
+    createTenantDb({
+      db,
+      tenantId: options.tenantId,
+      mode: "system",
+      reason: "boot seed tops up the owner's membership roles in the seeded tenant",
+    }),
+  );
+  if (!result.isSuccess) {
+    throw new Error(
+      `addTenantMembershipRoles failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,
+    );
+  }
+  return { added };
 }

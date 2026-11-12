@@ -1,4 +1,5 @@
 import type { SessionUser } from "../engine/types/index.ts";
+import type { Dispatcher } from "../pipeline/dispatcher.ts";
 import type { AuthSessionChecker, TokenVerifier } from "./auth-middleware.ts";
 import type { ClientIpResolver } from "./client-ip.ts";
 import type { PostAuthLandingResolver } from "./post-auth-landing.ts";
@@ -281,6 +282,16 @@ export type AuthRoutesConfig = {
   // Only standalone callers of createAuthRoutes
   // (no buildServer) should rely on `trustedProxyHops` instead.
   resolver?: ClientIpResolver;
+  // Studio preview login: GET /__kumiko/preview-login?exp=&sig= mints the owner session when the
+  // HMAC is valid. Wired by runProdApp/runDevApp from their `previewLogin` option; unmounted when absent
+  // or loginKey is empty.
+  previewLogin?: PreviewLoginConfig;
+};
+
+export type PreviewLoginConfig = {
+  readonly loginKey: string;
+  // The session to mint (owner), or undefined while the owner does not exist yet.
+  readonly resolveOwnerSession: (dispatcher: Dispatcher) => Promise<SessionUser | undefined>;
 };
 
 export type PasswordResetConfig = {

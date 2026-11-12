@@ -39,6 +39,7 @@ import type {
   FileStorageBootOption,
   KmsMode,
   MailBootOption,
+  PreviewLoginOption,
   ProdSeedsConfig,
 } from "@cosmicdrift/kumiko-server-runtime";
 import type { resolveBootCrypto } from "@cosmicdrift/kumiko-server-runtime/boot/boot-crypto";
@@ -272,6 +273,8 @@ export type RunDevAppOptions = {
   readonly featureToggles?: boolean;
   /** Same as `RunProdAppOptions["demoMode"]`. */
   readonly demoMode?: DemoModeOption;
+  /** Same as `RunProdAppOptions["previewLogin"]`; the owner is the `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` account, else the dev admin. */
+  readonly previewLogin?: PreviewLoginOption;
   /** Composed env schema (see `RunProdAppOptions["envSchema"]`). When set, the env is validated
    *  against it plus the blocks the boot options above need, and a violation throws a
    *  `KumikoBootError`. Dev does not run the dry-run modes. */

@@ -75,6 +75,7 @@ type AuthRoutesConfig = {
   trustedProxyHops?: number;
   postAuthLanding?: PostAuthLandingResolver;
   resolver?: ClientIpResolver;
+  previewLogin?: PreviewLoginConfig;
 };
 type EmailVerificationConfig = {
   requestHandler: string;
@@ -93,6 +94,10 @@ type LoginRateLimiter = {
 type PasswordResetConfig = {
   requestHandler: string;
   confirmHandler: string;
+};
+type PreviewLoginConfig = {
+  loginKey: string;
+  resolveOwnerSession: (dispatcher: Dispatcher) => Promise<SessionUser | undefined>;
 };
 type SessionChecker = AuthSessionChecker;
 type SessionCreator = (user: SessionUser, meta: SessionMetadata) => Promise<string>;

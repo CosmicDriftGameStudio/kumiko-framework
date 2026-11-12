@@ -91,6 +91,7 @@ import type { DemoModeOption } from "./boot-options/demo-mode.ts";
 import type { FileStorageBootOption } from "./boot-options/file-storage-option.ts";
 import type { KmsMode } from "./boot-options/kms-mode.ts";
 import type { MailBootOption } from "./boot-options/mail-option.ts";
+import type { PreviewLoginOption } from "./boot-options/preview-login-option.ts";
 import type { SignalsOption } from "./boot-options/process-signals.ts";
 import type { ProdSeedsConfig } from "./boot-options/seed-shortcuts.ts";
 import type { SystemWireDeps } from "./extra-routes-deps.ts";
@@ -556,6 +557,10 @@ export type RunProdAppOptions = {
    *  @example
    *  demoMode: { readOnly: env.DEMO_READ_ONLY === "true", notice: { text: { en: "Read-only demo" } } } */
   readonly demoMode?: DemoModeOption;
+  /** Studio preview login: `GET /__kumiko/preview-login?exp=&sig=` signs the bootstrap owner in when `sig` is
+   *  HMAC-SHA256(loginKey, "kumiko-preview-login:" + exp) and exp lies at most ~90 s ahead. No route when unset or
+   *  `loginKey` is empty. The owner is the account of `KUMIKO_BOOTSTRAP_ADMIN_EMAIL`. */
+  readonly previewLogin?: PreviewLoginOption;
   /** SIGTERM/SIGINT handling of `listen()`: drains via `stop()` (default
    *  timeout 25 s), exits 0, or 1 when the drain fails or times out. `false`
    *  leaves the signals to the app.

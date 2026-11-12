@@ -7,6 +7,7 @@ import {
   AUTH_MFA_FEATURE,
   bindMfaTokenSecretsFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { BOOTSTRAP_ADMIN_EMAIL_ENV } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   PAT_FEATURE,
   patRateLimitFromFeature,
@@ -20,6 +21,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { assertMfaSwitchTenantGate, buildSharedAuthRoutes } from "./boot/shared-boot-steps.ts";
+import {
+  buildPreviewLoginConfig,
+  type PreviewLoginOption,
+} from "./boot-options/preview-login-option.ts";
 import { buildProdSessionAuth, wireProdPatAutoRevoke } from "./run-prod-app-boot-context.ts";
 import type { ProdBootConfig, ProdComposedFeatures } from "./run-prod-app-config.ts";
 import type { ProdConnections } from "./run-prod-app-connections.ts";
@@ -120,8 +125,13 @@ export function buildProdAuthRoutes(
   composed: ProdComposedFeatures,
   connections: ProdConnections,
   authWiring: ProdAuthWiring,
+  previewLoginOption: PreviewLoginOption | undefined,
 ): AuthRoutesConfig {
   const { redis } = connections;
+  const previewLogin = buildPreviewLoginConfig(
+    previewLoginOption,
+    config.envSource[BOOTSTRAP_ADMIN_EMAIL_ENV],
+  );
   const { authPublicOrigin } = composed;
   const { trustedProxyHops } = config;
   return {
@@ -137,6 +147,7 @@ export function buildProdAuthRoutes(
       secureCookies: effectiveAuth.secureCookies,
     }),
     ...(authPublicOrigin !== undefined && { publicOrigin: authPublicOrigin }),
+    ...(previewLogin && { previewLogin }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
     ...authWiring.sessionAuthFragment,
     ...authWiring.patAuthFragment,

@@ -1,3 +1,5 @@
+import { BOOTSTRAP_ADMIN_EMAIL_ENV } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
+import { buildPreviewLoginConfig } from "@cosmicdrift/kumiko-server-runtime";
 import { buildSharedAuthRoutes } from "@cosmicdrift/kumiko-server-runtime/boot/shared-boot-steps";
 import type { CreateKumikoServerOptions } from "./create-kumiko-server.ts";
 import type { RunDevAppOptions } from "./run-dev-app.ts";
@@ -44,6 +46,10 @@ export function buildDevServerOptions(deps: {
 }): DevServerOptions {
   const { options, config, auth, extraContext, trustedProxyHops, effectiveFeatures } = deps;
   const { effectiveAuth, extraRoutes, wiring } = config;
+  const previewLogin = buildPreviewLoginConfig(
+    options.previewLogin,
+    config.envSource[BOOTSTRAP_ADMIN_EMAIL_ENV] ?? effectiveAuth?.admin?.email,
+  );
   return {
     features: config.features,
     ...pickDevClientOptions(options),
@@ -61,6 +67,7 @@ export function buildDevServerOptions(deps: {
         }),
         ...auth.sessionAuthFragment,
         ...auth.patAuthFragment,
+        ...(previewLogin && { previewLogin }),
       },
     }),
   };

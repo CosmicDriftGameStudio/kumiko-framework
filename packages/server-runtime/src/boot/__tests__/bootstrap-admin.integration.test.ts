@@ -95,14 +95,17 @@ beforeEach(async () => {
   emailTransport.sent.length = 0;
 });
 
-function bootSeeds(envSource: Record<string, string | undefined>) {
+function bootSeeds(
+  envSource: Record<string, string | undefined>,
+  options: { readonly roles?: readonly string[]; readonly ensureRoles?: boolean } = {},
+) {
   return applyStandardBootSeeds({
     db: stack.db,
     registry: stack.registry,
     admin: undefined,
     shortcutSeeds: resolveSeedShortcuts(
       {
-        bootstrapAdminFromEnv: { tenant: { id: TENANT_ID, key: "app", name: "App" } },
+        bootstrapAdminFromEnv: { tenant: { id: TENANT_ID, key: "app", name: "App" }, ...options },
       },
       { envSource, hasAuth: true, hasAuthAdmin: false },
     ),
@@ -267,5 +270,64 @@ describe("bootstrap admin seed", () => {
     await bootSeeds({});
 
     expect(await selectMany(stack.db, userTable)).toHaveLength(0);
+  });
+});
+
+describe("bootstrap admin ensureRoles", () => {
+  async function membershipRoles(): Promise<unknown> {
+    const [user] = await creatorRows();
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: user?.["id"] as string,
+      tenantId: TENANT_ID,
+    });
+    return rolesOf(memberships[0]?.["roles"]);
+  }
+
+  async function membershipEventCount(): Promise<number> {
+    const events = await selectMany(stack.db, eventsTable, {});
+    return events.filter((event) => String(event["type"]).startsWith("tenantMembership")).length;
+  }
+
+  test("a later boot with an extra role adds it and keeps the existing ones", async () => {
+    await bootSeeds(withCreator, { roles: ["Admin"] });
+
+    await bootSeeds(withCreator, { roles: ["Admin", "Editor"], ensureRoles: true });
+
+    expect(await membershipRoles()).toEqual(["Admin", "Editor"]);
+  });
+
+  test("without ensureRoles the existing membership keeps its roles", async () => {
+    await bootSeeds(withCreator, { roles: ["Admin"] });
+
+    await bootSeeds(withCreator, { roles: ["Admin", "Editor"] });
+
+    expect(await membershipRoles()).toEqual(["Admin"]);
+  });
+
+  test("ensureRoles never removes roles and writes no event when nothing is missing", async () => {
+    await bootSeeds(withCreator, { roles: ["Admin", "Editor"] });
+    const before = await membershipEventCount();
+
+    await bootSeeds(withCreator, { roles: ["Admin"], ensureRoles: true });
+
+    expect(await membershipRoles()).toEqual(["Admin", "Editor"]);
+    expect(await membershipEventCount()).toBe(before);
+  });
+
+  test("ensureRoles also tops up after the owner has set a password", async () => {
+    await bootSeeds(withCreator, { roles: ["Admin"] });
+    await stack.http.raw("POST", "/api/auth/request-password-reset", { email: CREATOR_EMAIL });
+    const token = emailTransport.sent
+      .find((sent) => sent.to === CREATOR_EMAIL)
+      ?.text?.match(/\?token=([^&\s\]]+)/)?.[1];
+    if (token === undefined) throw new Error("reset mail with token missing");
+    await stack.http.raw("POST", "/api/auth/reset-password", {
+      token: decodeURIComponent(token),
+      newPassword: NEW_PASSWORD,
+    });
+
+    await bootSeeds(withCreator, { roles: ["Admin", "Editor"], ensureRoles: true });
+
+    expect(await membershipRoles()).toEqual(["Admin", "Editor"]);
   });
 });
