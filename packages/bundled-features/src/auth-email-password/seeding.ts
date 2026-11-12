@@ -518,7 +518,7 @@ export async function seedBootstrapAdmin(
 
 /**
  * Boot top-up for the bootstrap owner: adds the roles the owner's existing membership in the tenant
- * lacks. Only a membership the bootstrap seed itself created (inserted by the system user) is touched, so a foreign member with the same mail is never escalated.
+ * lacks. Only a membership the system user created and last wrote is touched, so a human role change since then is not reverted at boot; the mail is unique per account, so the account is the owner named in the env.
  */
 export async function ensureBootstrapAdminRoles(
   db: DbConnection,

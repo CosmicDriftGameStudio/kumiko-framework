@@ -27,6 +27,7 @@ import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-fea
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   createTenantFeature,
+  TenantHandlers,
   tenantMembershipsTable,
 } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -35,6 +36,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
+import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { createRendererMailHtmlFeature } from "@cosmicdrift/kumiko-renderer-mail-html";
 import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
@@ -349,5 +351,22 @@ describe("bootstrap admin ensureRoles", () => {
     await bootSeeds(withCreator, { roles: ["Admin"], ensureRoles: true });
 
     expect(await membershipRoles()).toEqual(["Member"]);
+  });
+
+  test("ensureRoles never reverts a role change a human made through the handler", async () => {
+    await bootSeeds(withCreator, { roles: ["Admin"] });
+    const [owner] = await creatorRows();
+    const admin = createTestUser({ id: 7, tenantId: TENANT_ID, roles: [ROLES.SystemAdmin] });
+    await stack.http.writeOk(
+      TenantHandlers.updateMemberRoles,
+      { userId: owner?.["id"] as string, tenantId: TENANT_ID, roles: ["Admin"] },
+      admin,
+    );
+    const afterHumanChange = await membershipRoles();
+
+    await bootSeeds(withCreator, { roles: ["Admin", "Editor"], ensureRoles: true });
+
+    expect(await membershipRoles()).toEqual(afterHumanChange);
+    expect(await membershipRoles()).not.toContain("Editor");
   });
 });

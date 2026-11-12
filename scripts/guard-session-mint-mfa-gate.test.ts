@@ -14,7 +14,10 @@ const AUTH_MINT_FILE = "framework/src/api/auth-routes-context.ts";
 
 // evidence: the token the route block must contain to show where its gate runs.
 type MintGate =
-  | { readonly kind: "handler-gate" | "route-gate"; readonly evidence: string }
+  | {
+      readonly kind: "handler-gate" | "route-gate" | "signed-link";
+      readonly evidence: string;
+    }
   | { readonly kind: "second-factor" };
 
 const JWT_SIGN_FILES: Record<string, string> = {
@@ -32,6 +35,8 @@ const MINTING_ROUTES: Record<string, MintGate> = {
   authSwitchTenant: { kind: "route-gate", evidence: "switchTenantMfaGate(" },
   authMfaVerify: { kind: "second-factor" },
   authMfaPreauthConfirm: { kind: "second-factor" },
+  // Only mounted when previewLogin is configured (preview deployments); Studio signs the link after its own login, so the preview app's MFA policy is deliberately not applied.
+  PREVIEW_LOGIN_PATH: { kind: "signed-link", evidence: "isValidPreviewLoginLink(" },
 };
 
 function stripComments(source: string): string {
@@ -61,8 +66,10 @@ function productionSourceFiles(): string[] {
     .sort();
 }
 
+const ROUTE_START = /(?:api|app)\.(?:post|get)\((?:Routes\.)?(\w+)/g;
+
 function routeStarts(code: string): { name: string; index: number }[] {
-  return [...code.matchAll(/api\.post\(Routes\.(\w+)/g)].map((m) => ({
+  return [...code.matchAll(ROUTE_START)].map((m) => ({
     name: m[1] as string,
     index: m.index,
   }));
@@ -81,9 +88,9 @@ function mintingRouteNames(code: string): string[] {
 }
 
 function routeBlock(code: string, routeName: string): string {
-  const start = code.indexOf(`api.post(Routes.${routeName}`);
+  const start = routeStarts(code).find((s) => s.name === routeName)?.index ?? -1;
   const rest = code.slice(start + 1);
-  const next = rest.search(/api\.(post|get)\(|registerToken\w*Route\(/);
+  const next = rest.search(/(?:api|app)\.(?:post|get)\(|registerToken\w*Route\(/);
   return next === -1 ? rest : rest.slice(0, next);
 }
 

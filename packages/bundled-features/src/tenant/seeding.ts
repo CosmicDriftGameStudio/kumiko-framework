@@ -376,6 +376,17 @@ function extractMembershipId(data: unknown): string {
   );
 }
 
+// ponytail: checks creator and last writer only; a human demotion followed by a system write
+// (invite acceptance) passes. Scan the membership's event stream for non-system actors if that matters.
+function wasOnlyWrittenBy(
+  row: { readonly insertedById: string | null; readonly modifiedById: string | null },
+  actorId: string,
+): boolean {
+  return (
+    row.insertedById === actorId && (row.modifiedById === null || row.modifiedById === actorId)
+  );
+}
+
 /**
  * Add-only top-up for an EXISTING membership: roles the membership lacks are appended through the
  * event-store executor (one update event), nothing is removed. No event when all roles are present;
@@ -387,7 +398,7 @@ export async function addTenantMembershipRoles(
     readonly userId: string;
     readonly tenantId: TenantId;
     readonly roles: readonly string[];
-    /** Only touch a membership created by this user id (boot seeds pass SYSTEM_USER_ID). */
+    /** Only touch a membership this id created and last wrote (boot seeds pass SYSTEM_USER_ID), so a human role change since then is not reverted. */
     readonly onlyIfInsertedBy?: string;
   },
 ): Promise<{ readonly added: readonly string[] }> {
@@ -399,11 +410,12 @@ export async function addTenantMembershipRoles(
       version: number;
       roles: unknown;
       insertedById: string | null;
+      modifiedById: string | null;
     }>(db, tenantMembershipsTable, { userId: options.userId, tenantId: options.tenantId });
     if (!existing) return { added: [] };
     if (
       options.onlyIfInsertedBy !== undefined &&
-      existing.insertedById !== options.onlyIfInsertedBy
+      !wasOnlyWrittenBy(existing, options.onlyIfInsertedBy)
     ) {
       return { added: [] };
     }

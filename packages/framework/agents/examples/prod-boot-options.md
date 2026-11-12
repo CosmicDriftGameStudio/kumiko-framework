@@ -212,6 +212,7 @@ export function bootOptions(envSource: Record<string, string | undefined>): Boot
       notice: { text: { en: "This demo is read-only.", de: "Diese Demo ist schreibgeschützt." } },
     },
     signals: { drainTimeoutMs: 20_000 },
+    // Preview deployments only: the link signs the owner in without the MFA gate.
     previewLogin: { loginKey: envSource["PREVIEW_LOGIN_KEY"] ?? "" },
   };
 }
