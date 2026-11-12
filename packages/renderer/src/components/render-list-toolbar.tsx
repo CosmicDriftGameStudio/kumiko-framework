@@ -180,12 +180,14 @@ export function composeEmptyState(model: EmptyStateModel): ReactNode {
 export function renderPageHeader(
   PageHeader: NonNullable<Primitives["PageHeader"]>,
   headerActions: ReactNode,
+  help: ReactNode,
   promotedInOverflowMenu: boolean,
   promotedMenuItems: readonly ActionMenuItemSpec[],
 ): ReactNode {
   return (
     <PageHeader
       actions={headerActions}
+      {...(help !== undefined && { help })}
       {...(promotedInOverflowMenu && { overflowItems: promotedMenuItems })}
     />
   );

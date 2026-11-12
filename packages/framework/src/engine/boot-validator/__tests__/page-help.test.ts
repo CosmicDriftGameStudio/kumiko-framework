@@ -21,6 +21,10 @@ function violationsOf(features: Parameters<typeof validateBootRaw>[0]): readonly
   return [];
 }
 
+const statusHelp = (field: string, entity?: string) => ({
+  sections: [{ kind: "status", field, ...(entity !== undefined && { entity }) }],
+});
+
 function pageHelpFeature(
   pageHelp: Record<string, unknown>,
   helpTexts: Record<string, Record<string, string>>,
@@ -64,11 +68,21 @@ function pageHelpViolations(feature: ReturnType<typeof pageHelpFeature>): readon
 
 describe("pageHelp boot rules", () => {
   test("a select field with help text for every option and locale boots", () => {
-    expect(pageHelpViolations(pageHelpFeature({ statusField: "status" }, ALL_HELP))).toEqual([]);
+    expect(pageHelpViolations(pageHelpFeature(statusHelp("status"), ALL_HELP))).toEqual([]);
+  });
+
+  test("each status section of one pageHelp is checked, text sections are not", () => {
+    const sections = [
+      { kind: "text", title: "docs:t", text: "docs:b" },
+      { kind: "status", field: "status" },
+      { kind: "status", field: "title" },
+    ];
+    const found = pageHelpViolations(pageHelpFeature({ sections }, ALL_HELP));
+    expect(found.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
   });
 
   test("a field that is not a select field is page-help/status-field-invalid", () => {
-    const found = pageHelpViolations(pageHelpFeature({ statusField: "title" }, ALL_HELP));
+    const found = pageHelpViolations(pageHelpFeature(statusHelp("title"), ALL_HELP));
     expect(found.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
     expect(found[0]?.message).toContain('screen "doc-list"');
     expect(found[0]?.message).toContain('"title"');
@@ -76,7 +90,7 @@ describe("pageHelp boot rules", () => {
 
   test("an option without help text names screen, field, option and key", () => {
     const { [`${OPTION}:checked:help`]: _omitted, ...onlyDraft } = ALL_HELP;
-    const found = pageHelpViolations(pageHelpFeature({ statusField: "status" }, onlyDraft));
+    const found = pageHelpViolations(pageHelpFeature(statusHelp("status"), onlyDraft));
     expect(found.map((v) => v.ruleId)).toEqual(["page-help/option-help-missing"]);
     const message = found[0]?.message ?? "";
     expect(message).toContain('screen "doc-list"');
@@ -87,10 +101,10 @@ describe("pageHelp boot rules", () => {
 
   test("a locale of the option label that the help text lacks is reported", () => {
     const found = pageHelpViolations(
-      pageHelpFeature(
-        { statusField: "status" },
-        { ...ALL_HELP, [`${OPTION}:draft:help`]: { de: "Noch nicht angesehen." } },
-      ),
+      pageHelpFeature(statusHelp("status"), {
+        ...ALL_HELP,
+        [`${OPTION}:draft:help`]: { de: "Noch nicht angesehen." },
+      }),
     );
     expect(found.map((v) => v.ruleId)).toContain("page-help/option-help-missing");
     expect(found.map((v) => v.message).join("\n")).toContain("(en)");
@@ -134,28 +148,63 @@ describe("pageHelp boot rules", () => {
     }
 
     test("a relatedList section resolves entity and help texts from the owning feature", () => {
-      const docs = pageHelpFeature({ statusField: "status" }, ALL_HELP);
-      expect(violationsFor(docs, { statusField: "status" })).toEqual([]);
-      expect(violationsFor(docs, { statusField: "status", entity: "docs:doc" })).toEqual([]);
+      const docs = pageHelpFeature(statusHelp("status"), ALL_HELP);
+      expect(violationsFor(docs, statusHelp("status"))).toEqual([]);
+      expect(violationsFor(docs, statusHelp("status", "docs:doc"))).toEqual([]);
     });
 
     test("a missing help key is reported with the owning feature's key", () => {
       const { [`${OPTION}:checked:help`]: _omitted, ...onlyDraft } = ALL_HELP;
-      const found = violationsFor(pageHelpFeature({ statusField: "status" }, onlyDraft), {
-        statusField: "status",
-      });
+      const found = violationsFor(
+        pageHelpFeature(statusHelp("status"), onlyDraft),
+        statusHelp("status"),
+      );
       const message = found.find((v) => v.message.includes("relatedList"))?.message;
       expect(message).toContain('relatedList "cases.docs"');
       expect(message).toContain(`checked -> docs:${OPTION}:checked:help`);
     });
 
     test("an unknown feature or entity stays an error", () => {
-      const docs = pageHelpFeature({ statusField: "status" }, ALL_HELP);
-      const unknownFeature = violationsFor(docs, { statusField: "status", entity: "nope:doc" });
+      const docs = pageHelpFeature(statusHelp("status"), ALL_HELP);
+      const unknownFeature = violationsFor(docs, statusHelp("status", "nope:doc"));
       expect(unknownFeature.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
       expect(unknownFeature[0]?.message).toContain('unknown feature "nope"');
-      const unknownEntity = violationsFor(docs, { statusField: "status", entity: "docs:nope" });
+      const unknownEntity = violationsFor(docs, statusHelp("status", "docs:nope"));
       expect(unknownEntity.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
     });
+  });
+
+  test("a relatedList pageHelp on an entityEdit is rejected, it would never be shown", () => {
+    const feature = defineFeature("docs", (r) => {
+      r.entity({
+        name: "doc",
+        ...createEntity({ fields: { title: createTextField({ ...PII, sortable: true }) } }),
+      });
+      r.queryHandler({
+        name: "related",
+        schema: z.object({}),
+        handler: async () => [],
+        access: { roles: ["Admin"] },
+      });
+      r.screen({
+        id: "doc-edit",
+        type: "entityEdit",
+        entity: "doc",
+        layout: {
+          sections: [
+            {
+              kind: "relatedList",
+              title: "docs.related",
+              query: "docs:query:related",
+              columns: ["title"],
+              pageHelp: statusHelp("status", "doc"),
+            },
+          ],
+        },
+      } as never);
+    });
+    const found = pageHelpViolations(feature);
+    expect(found.map((v) => v.ruleId)).toEqual(["page-help/unsupported-site"]);
+    expect(found[0]?.message).toContain('relatedList "docs.related"');
   });
 });

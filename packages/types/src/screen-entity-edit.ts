@@ -368,13 +368,31 @@ export type RelatedListRowTone = Exclude<FieldCondition, boolean> & {
   readonly tone: SelectOptionTone;
 };
 
-/** Page-header help explaining every option of one select field (typically a status). The sentence of an
- *  option is the i18n key `<option label key>:help`, owned by the feature of the entity. `entity` defaults to the
- *  screen entity on an entityList and the section entity on a relatedList; it is required on a projectionDetail,
- *  which has no entity of its own. A qualified name `<feature>:<entity>` points at an entity of another feature. */
-export type PageHelpSpec = {
-  readonly statusField: string;
+/** Explains every option of one select field (typically a status). The sentence of an option is the i18n key
+ *  `<option label key>:help`, owned by the feature of the entity. `entity` defaults to the screen entity on an
+ *  entityList and the section entity on a relatedList; it is required on a projectionDetail, which has no entity of
+ *  its own. A qualified name `<feature>:<entity>` points at an entity of another feature. */
+export type PageHelpStatusSection = {
+  readonly kind: "status";
+  readonly field: string;
   readonly entity?: string;
+  /** i18n key of the card heading. Default: the tab title for a relatedList section, else the screen title. */
+  readonly title?: string;
+};
+
+/** Free help text; `title` and `text` are i18n keys. */
+export type PageHelpTextSection = {
+  readonly kind: "text";
+  readonly title: string;
+  readonly text: string;
+};
+
+export type PageHelpSection = PageHelpStatusSection | PageHelpTextSection;
+
+/** General help of a page: a question-mark button at the end of the shell header actions opens a drawer with one card per section.
+ *  The sections of relatedList sections join the help of the screen around them, after its own sections. */
+export type PageHelpSpec = {
+  readonly sections: readonly PageHelpSection[];
 };
 
 /** Replacement for the default "no rows" box of a list. `title`/`description`
@@ -402,7 +420,7 @@ export type EditRelatedListSection = EditSectionPresentation & {
   readonly visibleWhen?: Exclude<FieldCondition, boolean>;
   readonly kind: "relatedList";
   readonly title: string;
-  /** Help button next to the section title; the entity defaults to `entity` of this section. */
+  /** Joins the help of the surrounding screen; a status section's entity defaults to `entity` of this section. */
   readonly pageHelp?: PageHelpSpec;
   /** Rows are aggregates or other values with no record of their own, so they lead nowhere on
    *  purpose. Declares that to the screen-conventions guard; with `rowClick`/`rowActions` it is a

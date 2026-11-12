@@ -15,12 +15,12 @@ test("page-help-status-dialog", async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto("/lease-list");
   const helpButton = page.getByTestId("page-help-button");
-  await expect(helpButton).toHaveText("Status erklärt");
+  await expect(helpButton).toHaveAttribute("title", "Hilfe zu dieser Seite");
   await page.evaluate(() => document.fonts.ready);
   await captureScreenshot(page, "seitenhilfe-knopf");
 
   await helpButton.click();
-  const dialog = page.getByTestId("page-help-dialog");
+  const dialog = page.getByTestId("page-help-drawer");
   await expect(dialog.getByTestId("page-help-text-active")).toHaveText(
     "Der Vertrag läuft und die Miete wird gebucht.",
   );

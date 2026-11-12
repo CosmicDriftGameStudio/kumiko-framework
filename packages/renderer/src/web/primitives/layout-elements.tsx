@@ -240,6 +240,7 @@ export function DefaultGrid({
   tight,
   facts,
   legend,
+  ruled,
 }: GridProps): ReactNode {
   const insideDrawerBody = useContext(DrawerBodyContext);
   const groupProps =
@@ -259,9 +260,27 @@ export function DefaultGrid({
         {...groupProps}
         data-testid={testId}
         data-legend=""
-        className="grid grid-cols-[max-content_minmax(0,1fr)] items-start gap-x-4 gap-y-3 [&>:nth-child(odd)]:whitespace-nowrap"
+        className={cn(
+          "grid items-start [&>:nth-child(odd)]:whitespace-nowrap",
+          ruled === true
+            ? "grid-cols-[13rem_minmax(0,1fr)]"
+            : "grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-3",
+        )}
       >
-        {children}
+        {ruled === true
+          ? Children.map(children, (child, index) => (
+              // Each cell carries its own hairline so it runs across the whole row, the term sits at content width inside.
+              <div
+                className={cn(
+                  "flex flex-wrap items-baseline border-t border-border py-3",
+                  index % 2 === 0 ? "pr-4" : "",
+                  index < 2 ? "border-t-0" : "",
+                )}
+              >
+                {child}
+              </div>
+            ))
+          : children}
       </div>
     );
   }

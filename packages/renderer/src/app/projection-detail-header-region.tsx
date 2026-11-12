@@ -172,15 +172,69 @@ function shortTitleOf(
   return typeof value === "string" && value !== "" ? value : undefined;
 }
 
+function renderPageHeaderElement(
+  model: DetailRegionModel,
+  pieces: DetailRegionPieces,
+  PageHeader: NonNullable<DetailRegionPieces["PageHeader"]>,
+  titleText: string | undefined,
+): ReactNode {
+  const { screen, record, hasHeaderActions } = model;
+  const { pageHeaderCompact, recordTitle, statusBadge } = pieces;
+  const header = screen.header;
+  const hasTitleBlock = titleText !== undefined;
+  return (
+    <PageHeader
+      {...(hasTitleBlock && { bodyTitle: true })}
+      {...(hasTitleBlock && { recordTitle: shortTitleOf(header, record) ?? titleText })}
+      {...(header?.narrowTitle !== undefined && {
+        narrowRecordTitle: model.effectiveTranslate(header.narrowTitle),
+      })}
+      {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
+      {...(!hasTitleBlock &&
+        !pageHeaderCompact &&
+        statusBadge !== undefined && {
+          status: statusBadge,
+        })}
+      {...(model.pageHelp !== undefined && { help: model.pageHelp })}
+      {...(hasHeaderActions && {
+        actions: renderHeaderActionsContent(model, { compact: pageHeaderCompact, PageHeader }),
+      })}
+    />
+  );
+}
+
+function renderPageHeaderBand(
+  model: DetailRegionModel,
+  pieces: DetailRegionPieces,
+  headerSlot: ReactNode | undefined,
+  bandSubtitle: ReactNode,
+): ReactNode {
+  const { MetricBand } = model.primitives;
+  return (
+    <>
+      {/* The band owns the horizontal inset; the slot is its unstyled lead
+          row so it lines up with the metrics below. */}
+      {MetricBand === undefined && bandSubtitle}
+      {MetricBand === undefined && headerSlot}
+      {(model.hasMetrics || bandSubtitle !== undefined || headerSlot !== undefined) &&
+        (MetricBand !== undefined || model.hasMetrics) &&
+        renderBandWithNarrowMetrics(
+          model,
+          pieces.metricItems,
+          bandSubtitle,
+          MetricBand !== undefined ? headerSlot : undefined,
+        )}
+    </>
+  );
+}
+
 function renderPageHeaderBranch(
   model: DetailRegionModel,
   pieces: DetailRegionPieces,
   headerSlot: ReactNode | undefined,
   PageHeader: NonNullable<DetailRegionPieces["PageHeader"]>,
 ): ReactNode {
-  const { screen, record, primitives, hasHeaderActions, hasMetrics } = model;
-  const { MetricBand } = primitives;
-  const { pageHeaderCompact, recordTitle, statusBadge, metricItems } = pieces;
+  const { screen, record } = model;
   const header = screen.header;
   // Only an explicit `header` gets the body title block; recordTitleField alone keeps the shell
   // header title and breadcrumb.
@@ -190,38 +244,18 @@ function renderPageHeaderBranch(
   const bandSubtitle = hasTitleBlock ? undefined : pieces.bandSubtitle;
   return (
     <>
-      <PageHeader
-        {...(hasTitleBlock && { bodyTitle: true })}
-        {...(hasTitleBlock && { recordTitle: shortTitleOf(header, record) ?? titleText })}
-        {...(header?.narrowTitle !== undefined && {
-          narrowRecordTitle: model.effectiveTranslate(header.narrowTitle),
-        })}
-        {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
-        {...(!hasTitleBlock &&
-          !pageHeaderCompact &&
-          statusBadge !== undefined && {
-            status: statusBadge,
-          })}
-        {...(hasHeaderActions && {
-          actions: renderHeaderActionsContent(model, { compact: pageHeaderCompact, PageHeader }),
-        })}
-      />
+      {renderPageHeaderElement(model, pieces, PageHeader, titleText)}
       {titleText !== undefined &&
-        renderRecordTitleBlock(model, titleText, statusBadge, pieces.headerSubtitleSlot, false)}
+        renderRecordTitleBlock(
+          model,
+          titleText,
+          pieces.statusBadge,
+          pieces.headerSubtitleSlot,
+          false,
+        )}
       {hasTitleBlock && renderMobileSummary(model)}
       {hasTitleBlock && renderDetailSummary(model)}
-      {/* The band owns the horizontal inset; the slot is its unstyled lead
-          row so it lines up with the metrics below. */}
-      {MetricBand === undefined && bandSubtitle}
-      {MetricBand === undefined && headerSlot}
-      {(hasMetrics || bandSubtitle !== undefined || headerSlot !== undefined) &&
-        (MetricBand !== undefined || hasMetrics) &&
-        renderBandWithNarrowMetrics(
-          model,
-          metricItems,
-          bandSubtitle,
-          MetricBand !== undefined ? headerSlot : undefined,
-        )}
+      {renderPageHeaderBand(model, pieces, headerSlot, bandSubtitle)}
       {!hasTitleBlock && renderMobileSummary(model)}
       {!hasTitleBlock && renderDetailSummary(model)}
       {pieces.actionErrorBanner}
@@ -235,8 +269,18 @@ function renderHeaderCardBranch(
   headerSlot: ReactNode | undefined,
 ): ReactNode {
   const { primitives, hasHeaderActions, hasMetrics, hasHeaderCard } = model;
-  const { Card } = primitives;
-  const { recordTitle, headerTitleSlot, headerSubtitleSlot, headerActionsContent } = pieces;
+  const { Card, Grid } = primitives;
+  const { recordTitle, headerSubtitleSlot, headerActionsContent } = pieces;
+  const titleSlot = pieces.headerTitleSlot ?? recordTitle;
+  const actionsSlot =
+    model.pageHelp !== undefined ? (
+      <Grid columns="auto">
+        {headerActionsContent}
+        {model.pageHelp}
+      </Grid>
+    ) : (
+      headerActionsContent
+    );
   // Metrics must leave the head card to take part in the narrow reordering.
   const metricsOutsideCard = usesNarrowMetricsOrder(model) && hasMetrics;
   return (
@@ -244,12 +288,12 @@ function renderHeaderCardBranch(
       {(hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined) && (
         <Card
           slots={{
-            ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
-            ...(headerTitleSlot === undefined &&
-              recordTitle !== undefined && { title: recordTitle }),
+            ...(titleSlot !== undefined && { title: titleSlot }),
             ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
             ...(headerSlot !== undefined && { headerContent: headerSlot }),
-            ...(hasHeaderActions && { headerActions: headerActionsContent }),
+            ...((hasHeaderActions || model.pageHelp !== undefined) && {
+              headerActions: actionsSlot,
+            }),
           }}
         >
           {hasMetrics && !metricsOutsideCard && renderMetricsBlock(model, pieces.metricItems)}

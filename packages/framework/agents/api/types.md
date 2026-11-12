@@ -2534,6 +2534,7 @@ type ButtonBaseProps = {
   size?: "sm" | "md" | "icon"; // Size—default="md".
   ariaLabel?: string; // Accessible label—required for icon-only buttons (when children contain only an icon or character), otherwise the button has no accessible name.
   title?: string; // Tooltip — rendered as the `title` attribute.
+  collapseLabel?: boolean; // Below the `sm` breakpoint only the icon shows (in a square), the label stays the accessible name.
   pressed?: boolean; // Toggle state for toggle buttons — web sets `aria-pressed`; leave unset for plain buttons.
   expanded?: boolean; // Disclosure state for buttons that open a menu or panel — web sets `aria-expanded`.
   width?: "full" | "auto"; // Width—default="auto" (content width).
@@ -2676,6 +2677,7 @@ type PageHeaderProps = { // Page title area rendered by the app shell's header i
   recordTitle?: string; // Name of the loaded record; shown as an extra breadcrumb before the last one.
   narrowRecordTitle?: string; // Short record title for the phone top bar; wins over `recordTitle` there.
   status?: ReactNode;
+  help?: ReactNode; // Page help trigger, shown at the end of the shell header actions.
   actions?: ReactNode;
   bodyTitle?: boolean; // Screen renders its own h1: the shell header shows only the parent crumb, as text.
   overflowItems?: ActionMenuItemSpec[]; // Land in the shell header's overflow menu at phone width.
@@ -5134,7 +5136,7 @@ type ScreenFilterOp = "eq" | "ne" | "lt" | "gt" | "lte" | "gte" | "in";
 ## packages/types/src/screen-expandable-row.ts
 
 ```ts
-type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField" | "count" | "table" | "bulkActions"> & { // Expandable area of an `entityList` row: a relatedList of the row's record.
+type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField" | "count" | "table" | "bulkActions" | "pageHelp"> & { // Expandable area of an `entityList` row: a relatedList of the row's record.
   table?: {
     grouping?: ExpandableRowGrouping;
   };

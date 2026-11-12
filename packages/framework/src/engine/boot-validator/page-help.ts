@@ -1,4 +1,4 @@
-import type { PageHelpSpec } from "@cosmicdrift/kumiko-types/screen";
+import type { PageHelpSpec, PageHelpStatusSection } from "@cosmicdrift/kumiko-types/screen";
 import { hasLocaleValue, selectFacetOptionKey } from "../../i18n/required-surface-keys.ts";
 import { parseRefTarget } from "../parse-ref-target.ts";
 import type { FeatureDefinition } from "../types/index.ts";
@@ -11,32 +11,60 @@ type PageHelpSite = {
   readonly where: string;
   /** Entity used when the spec names none: the entityList entity or the relatedList section entity. */
   readonly defaultEntity?: string;
-  readonly pageHelp: PageHelpSpec;
+  readonly section: PageHelpStatusSection;
 };
+
+function statusSitesOf(
+  where: string,
+  pageHelp: PageHelpSpec | undefined,
+  defaultEntity: string | undefined,
+): readonly PageHelpSite[] {
+  const found: PageHelpSite[] = [];
+  for (const section of pageHelp?.sections ?? []) {
+    if (section.kind !== "status") continue;
+    found.push({ where, section, ...(defaultEntity !== undefined && { defaultEntity }) });
+  }
+  return found;
+}
 
 function pageHelpSitesOf(feature: FeatureDefinition): readonly PageHelpSite[] {
   const found: PageHelpSite[] = [];
   for (const screen of Object.values(feature.screens)) {
     const where = `screen "${screen.id}"`;
-    if (
-      (screen.type === "entityList" || screen.type === "projectionDetail") &&
-      screen.pageHelp !== undefined
-    ) {
-      found.push({
-        where,
-        pageHelp: screen.pageHelp,
-        ...(screen.type === "entityList" && { defaultEntity: screen.entity }),
-      });
+    if (screen.type === "entityList" || screen.type === "projectionDetail") {
+      found.push(
+        ...statusSitesOf(
+          where,
+          screen.pageHelp,
+          screen.type === "entityList" ? screen.entity : undefined,
+        ),
+      );
     }
-    if (screen.type !== "entityEdit" && screen.type !== "projectionDetail") continue;
+    if (screen.type !== "projectionDetail") continue;
     for (const section of screen.layout.sections) {
       if (!("kind" in section) || section.kind !== "relatedList") continue;
-      if (section.pageHelp === undefined) continue;
-      found.push({
-        where: `${where} relatedList "${section.title}"`,
-        pageHelp: section.pageHelp,
-        ...(section.entity !== undefined && { defaultEntity: section.entity }),
-      });
+      found.push(
+        ...statusSitesOf(
+          `${where} relatedList "${section.title}"`,
+          section.pageHelp,
+          section.entity,
+        ),
+      );
+    }
+  }
+  return found;
+}
+
+/** Places a relatedList carries a pageHelp that no screen renders: only a projectionDetail shows it. */
+function unsupportedSitesOf(feature: FeatureDefinition): readonly string[] {
+  const found: string[] = [];
+  for (const screen of Object.values(feature.screens)) {
+    if (screen.type !== "entityEdit") continue;
+    for (const section of screen.layout.sections) {
+      if (!("kind" in section) || section.kind !== "relatedList") continue;
+      if (section.pageHelp !== undefined) {
+        found.push(`screen "${screen.id}" relatedList "${section.title}"`);
+      }
     }
   }
   return found;
@@ -53,8 +81,8 @@ function checkPageHelpSite(
   site: PageHelpSite,
 ): void {
   const prefix = `[pageHelp] Feature "${feature.name}" ${site.where}`;
-  const { statusField } = site.pageHelp;
-  const rawEntity = site.pageHelp.entity ?? site.defaultEntity;
+  const statusField = site.section.field;
+  const rawEntity = site.section.entity ?? site.defaultEntity;
   if (rawEntity === undefined) {
     throw bootRuleError(PAGE_HELP_RULES.statusFieldInvalid, {
       message: `${prefix}: pageHelp.entity is required on a projectionDetail.`,
@@ -77,7 +105,7 @@ function checkPageHelpSite(
   const field = entity.fields[statusField];
   if (field === undefined || field.type !== "select") {
     throw bootRuleError(PAGE_HELP_RULES.statusFieldInvalid, {
-      message: `${prefix}: pageHelp.statusField "${statusField}" is not a select field of entity "${entityName}".`,
+      message: `${prefix}: pageHelp status field "${statusField}" is not a select field of entity "${entityName}".`,
     });
   }
   const missing: string[] = [];
@@ -98,10 +126,13 @@ function checkPageHelpSite(
 }
 
 export function validatePageHelp(features: readonly FeatureDefinition[]): void {
-  const sites = features.flatMap((feature) =>
-    pageHelpSitesOf(feature).map((site) => ({ feature, site })),
-  );
-  collectBootRuleViolations(sites, ({ feature, site }) =>
-    checkPageHelpSite(features, feature, site),
-  );
+  const checks = features.flatMap((feature) => [
+    ...unsupportedSitesOf(feature).map((where) => () => {
+      throw bootRuleError(PAGE_HELP_RULES.unsupportedSite, {
+        message: `[pageHelp] Feature "${feature.name}" ${where}: pageHelp on a relatedList of an entityEdit is never shown.`,
+      });
+    }),
+    ...pageHelpSitesOf(feature).map((site) => () => checkPageHelpSite(features, feature, site)),
+  ]);
+  collectBootRuleViolations(checks, (check) => check());
 }

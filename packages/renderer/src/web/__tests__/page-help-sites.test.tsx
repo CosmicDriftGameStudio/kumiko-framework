@@ -1,5 +1,5 @@
-// The page help sits in the projectionDetail header and in a relatedList section header; the
-// relatedList one resolves the entity, labels and help sentences of another feature.
+// The page help is one question-mark button per page: the projectionDetail owns it and collects the
+// sections of its relatedList sections, which render no button of their own.
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -8,7 +8,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import type { Dispatcher, EditRelatedListSectionViewModel } from "../../headless/index.ts";
+import type { Dispatcher } from "../../headless/index.ts";
 import {
   AppFeaturesProvider,
   createStaticLocaleResolver,
@@ -16,7 +16,6 @@ import {
   type FeatureSchema,
   KumikoScreen,
   LocaleProvider,
-  RelatedListSection,
 } from "../../index.ts";
 import { createMockDispatcher, render, screen, within } from "./test-utils.tsx";
 
@@ -30,15 +29,29 @@ const leaseEntity = {
   },
 } as unknown as EntityDefinition;
 
+const claimEntity = {
+  fields: { status: { type: "select", options: ["open", "closed"] } },
+} as unknown as EntityDefinition;
+
 const BUNDLE = {
   de: {
-    "kumiko.pageHelp.button": "Status erklärt",
-    "kumiko.pageHelp.title": "Status",
+    "kumiko.pageHelp.button": "Hilfe zu dieser Seite",
+    "kumiko.pageHelp.buttonLabel": "Erklärungen",
+    "kumiko.pageHelp.statusIntro": "Was die Status bedeuten",
     "kumiko.dialog.close": "Schließen",
+    "rentals:entity:lease:noun": "Mietvertrag",
+    "rentals:entity:lease:field:status": "Status",
     "rentals:entity:lease:field:status:option:active": "Laufend",
     "rentals:entity:lease:field:status:option:active:help": "Der Vertrag läuft.",
     "rentals:entity:lease:field:status:option:terminated": "Gekündigt",
     "rentals:entity:lease:field:status:option:terminated:help": "Der Vertrag wurde beendet.",
+    "screen:case-detail.title": "Fall",
+    "cases:entity:claim:noun": "Vorgang",
+    "cases:entity:claim:field:status": "Status",
+    "cases:entity:claim:field:status:option:open": "Offen",
+    "cases:entity:claim:field:status:option:open:help": "Der Vorgang wartet.",
+    "cases:entity:claim:field:status:option:closed": "Erledigt",
+    "cases:entity:claim:field:status:option:closed:help": "Der Vorgang ist fertig.",
   },
 };
 
@@ -59,138 +72,93 @@ function Locale({ children }: { readonly children: ReactNode }): ReactNode {
   );
 }
 
-async function expectLegend(): Promise<void> {
-  await userEvent.click(await screen.findByTestId("page-help-button"));
-  const dialog = screen.getByTestId("page-help-dialog");
-  const active = within(dialog).getByTestId("page-help-badge-active");
-  expect(active.textContent).toContain("Laufend");
-  expect(active.className).toContain("text-status-ok");
-  expect(within(dialog).getByTestId("page-help-text-active").textContent).toBe(
-    "Der Vertrag läuft.",
-  );
-  const terminated = within(dialog).getByTestId("page-help-badge-terminated");
-  expect(terminated.textContent).toContain("Gekündigt");
-  expect(terminated.className).toContain("text-status-bad");
-  expect(within(dialog).getByTestId("page-help-text-terminated").textContent).toBe(
-    "Der Vertrag wurde beendet.",
-  );
-}
+const detailAndRows = createMockDispatcher({
+  query: (async () => ({
+    isSuccess: true,
+    data: { status: "active", rows: [], nextCursor: null },
+  })) as unknown as Dispatcher["query"],
+});
 
 describe("page help placement", () => {
-  test("the projectionDetail header button opens the legend of the named entity", async () => {
+  test("the projectionDetail button opens the legend of the named entity", async () => {
     const detail: ProjectionDetailScreenDefinition = {
       id: "lease-detail",
       type: "projectionDetail",
       query: "rentals:query:lease:detail",
       idParam: "id",
-      pageHelp: { entity: "lease", statusField: "status" },
+      pageHelp: { sections: [{ kind: "status", field: "status", entity: "lease" }] },
       layout: { sections: [{ title: "Lease", fields: ["status"] }] },
     };
     const schema: FeatureSchema = { ...rentals, screens: [detail] };
-    const query = (async () => ({
-      isSuccess: true,
-      data: { status: "active" },
-    })) as unknown as Dispatcher["query"];
     render(
       <Locale>
-        <DispatcherProvider dispatcher={createMockDispatcher({ query })}>
+        <DispatcherProvider dispatcher={detailAndRows}>
           <KumikoScreen schema={schema} qn="rentals:screen:lease-detail" entityId="l-1" />
         </DispatcherProvider>
       </Locale>,
     );
-    await expectLegend();
-  });
-
-  test("a relatedList section header button shows labels and help of another feature's entity", async () => {
-    const section: EditRelatedListSectionViewModel = {
-      kind: "relatedList",
-      title: "Verträge",
-      query: "cases:query:lease:list",
-      columns: ["status"],
-      entity: "rentals:lease",
-      pageHelp: { statusField: "status" },
-    };
-    const dispatcher = createMockDispatcher({
-      query: (async () => ({
-        isSuccess: true,
-        data: { rows: [], nextCursor: null },
-      })) as unknown as Dispatcher["query"],
-    });
-    render(
-      <Locale>
-        <DispatcherProvider dispatcher={dispatcher}>
-          <AppFeaturesProvider features={[rentals]}>
-            <RelatedListSection
-              section={section}
-              parentId="c1"
-              record={{ id: "c1" }}
-              featureName="cases"
-            />
-          </AppFeaturesProvider>
-        </DispatcherProvider>
-      </Locale>,
+    await userEvent.click(await screen.findByTestId("page-help-button"));
+    const drawer = screen.getByTestId("page-help-drawer");
+    const active = within(drawer).getByTestId("page-help-badge-active");
+    expect(active.textContent).toContain("Laufend");
+    expect(active.className).toContain("text-status-ok");
+    expect(within(drawer).getByTestId("page-help-text-active").textContent).toBe(
+      "Der Vertrag läuft.",
     );
-    const header = await screen.findByTestId("related-list-Verträge");
-    expect(within(header).getByTestId("page-help-button")).toBeTruthy();
-    await expectLegend();
-  });
-});
-
-describe("page help placement, more cases", () => {
-  const section: EditRelatedListSectionViewModel = {
-    kind: "relatedList",
-    title: "Verträge",
-    query: "cases:query:lease:list",
-    columns: ["status"],
-    entity: "rentals:lease",
-    pageHelp: { statusField: "status" },
-  };
-  const emptyRows = createMockDispatcher({
-    query: (async () => ({
-      isSuccess: true,
-      data: { rows: [], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
-  });
-
-  function mountSection(
-    sectionSpec: EditRelatedListSectionViewModel,
-    props: { readonly hideTitle?: boolean; readonly features?: readonly FeatureSchema[] },
-  ): void {
-    render(
-      <Locale>
-        <DispatcherProvider dispatcher={emptyRows}>
-          <AppFeaturesProvider features={props.features ?? [rentals]}>
-            <RelatedListSection
-              section={sectionSpec}
-              parentId="c1"
-              record={{ id: "c1" }}
-              featureName="cases"
-              {...(props.hideTitle === true && { hideTitle: true })}
-            />
-          </AppFeaturesProvider>
-        </DispatcherProvider>
-      </Locale>,
+    expect(within(drawer).getByTestId("page-help-badge-terminated").className).toContain(
+      "text-status-bad",
     );
-  }
-
-  test("in tabs mode the button sits in the framed table toolbar and opens the legend", async () => {
-    mountSection(section, { hideTitle: true });
-    const button = await screen.findByTestId("page-help-button");
-    expect(button.closest('[data-testid="related-list-card"]')).not.toBeNull();
-    await expectLegend();
   });
 
-  test("a pageHelp entity of the same feature that appFeatures does not know renders no button", async () => {
-    const own: FeatureSchema = {
+  test("the screen's own status section and a relatedList's section share one drawer, in order", async () => {
+    const cases: FeatureSchema = {
       featureName: "cases",
-      entities: { lease: leaseEntity },
+      entities: { claim: claimEntity },
       screens: [],
     };
-    mountSection(
-      { ...section, entity: "lease", pageHelp: { statusField: "status", entity: "ghost" } },
-      { features: [own] },
+    const detail: ProjectionDetailScreenDefinition = {
+      id: "case-detail",
+      type: "projectionDetail",
+      query: "cases:query:case:detail",
+      idParam: "id",
+      pageHelp: { sections: [{ kind: "status", field: "status", entity: "claim" }] },
+      layout: {
+        sections: [
+          { title: "Case", fields: ["status"] },
+          {
+            kind: "relatedList",
+            title: "Verträge",
+            query: "cases:query:lease:list",
+            columns: ["status"],
+            entity: "rentals:lease",
+            pageHelp: { sections: [{ kind: "status", field: "status" }] },
+          },
+        ],
+      },
+    };
+    render(
+      <Locale>
+        <DispatcherProvider dispatcher={detailAndRows}>
+          <AppFeaturesProvider features={[rentals, cases]}>
+            <KumikoScreen
+              schema={{ ...cases, screens: [detail] }}
+              qn="cases:screen:case-detail"
+              entityId="c-1"
+            />
+          </AppFeaturesProvider>
+        </DispatcherProvider>
+      </Locale>,
     );
-    await screen.findByTestId("related-list-Verträge");
-    expect(screen.queryByTestId("page-help-button")).toBeNull();
+    expect(await screen.findAllByTestId("page-help-button")).toHaveLength(1);
+    await userEvent.click(screen.getByTestId("page-help-button"));
+    const drawer = screen.getByTestId("page-help-drawer");
+    const own = within(drawer).getByTestId("page-help-section-0");
+    expect(own.textContent).toContain("Fall");
+    expect(own.textContent).toContain("Was die Status bedeuten");
+    expect(own.textContent).toContain("Der Vorgang wartet.");
+    const tab = within(drawer).getByTestId("page-help-section-1");
+    expect(tab.textContent).toContain("Verträge");
+    expect(tab.textContent).toContain("Der Vertrag läuft.");
+    expect(within(drawer).queryByTestId("page-help-section-2")).toBeNull();
   });
 });

@@ -361,7 +361,7 @@ export type ProjectionDetailScreenDefinition = {
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
-  /** Help button in the page header; its dialog explains each option of a select field of `pageHelp.entity` with badge and sentence. */
+  /** General help of the page, plus the help sections of its relatedList sections; a status section needs `entity` here. */
   readonly pageHelp?: PageHelpSpec;
   /** Header action buttons. Reuses `RowAction` — the screen's single
    *  displayed record stands in for the "row", so `pick`/`map`, `visible`,
