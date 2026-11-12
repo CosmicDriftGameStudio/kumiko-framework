@@ -8,11 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FormatSpec } from "@cosmicdrift/kumiko-types/screen";
 import { applyFormatSpec, type Translate } from "../headless/index.ts";
-import {
-  type StatusBadgeOptionTone,
-  statusToneForOptionTone,
-  statusToneForValue,
-} from "../primitives.tsx";
+import { type StatusBadgeOptionTone, statusToneForOption } from "../primitives.tsx";
 import { isAbsoluteHttpUrl, withUiLocale } from "./projection-detail-navigation.ts";
 
 export function headerStatusTone(
@@ -22,12 +18,7 @@ export function headerStatusTone(
   // skip: a header without status has no tone
   if (header.status === undefined) return undefined;
   const value = String(record[header.statusToneField ?? header.status] ?? "");
-  const declared =
-    header.statusTones !== undefined && Object.hasOwn(header.statusTones, value)
-      ? header.statusTones[value]
-      : undefined;
-  const declaredTone = declared !== undefined ? statusToneForOptionTone(declared) : undefined;
-  return declaredTone ?? statusToneForValue(value);
+  return statusToneForOption(value, header.statusTones);
 }
 
 function layoutStatusFormat(

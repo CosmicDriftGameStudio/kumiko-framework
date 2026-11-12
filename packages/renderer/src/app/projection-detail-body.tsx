@@ -125,7 +125,7 @@ export function ProjectionDetailBody({
       activeTabId: activeSection?.id,
       writeForms,
     });
-  const pageHelp = detailPageHelpOf(screen, schema, effectiveTranslate);
+  const pageHelp = detailPageHelpOf(screen, schema, effectiveTranslate, appFeatures);
   const { hasMetrics, headerActionsList, hasHeaderActions, hasHeaderCard, renderedDetailScreen } =
     useProjectionDetailLayout({ screen, headerActions, hasTabs, detailScreen, pageHelp });
 
@@ -245,6 +245,7 @@ function detailPageHelpOf(
   screen: ProjectionDetailScreenWithTarget,
   schema: FeatureSchema,
   translate: Translate,
+  appFeatures: readonly FeatureSchema[],
 ): ReactNode {
   const entityName = screen.pageHelp?.entity ?? "";
   return pageHelpButtonOf(screen.pageHelp, {
@@ -252,5 +253,6 @@ function detailPageHelpOf(
     entity: schema.entities[entityName],
     featureName: schema.featureName,
     translate,
+    appFeatures,
   });
 }

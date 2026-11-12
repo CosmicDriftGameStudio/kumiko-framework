@@ -55,6 +55,7 @@ import { useOptionalLocale, useTranslation } from "../i18n.tsx";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.ts";
 import { type DataTableFacet, type DataTableProps, usePrimitives } from "../primitives.tsx";
 import { ListGroupPageBridges } from "./list-group-page-bridges.tsx";
+import { pageHelpButtonOf } from "./page-help-button.tsx";
 import { RelatedPhotoGrid } from "./related-photo-grid.tsx";
 import { RenderEditActionButton } from "./render-edit-action-button.tsx";
 import type { RenderEditAction } from "./render-edit-types.ts";
@@ -203,6 +204,16 @@ function buildRelatedListRowClick(
       runDrawerRowAction(rowClickAction, onOpenDrawer, row);
     }
   };
+}
+
+function withPageHelp(pageHelp: ReactNode, actions: ReactNode): ReactNode {
+  if (pageHelp === undefined) return actions;
+  return (
+    <>
+      {pageHelp}
+      {actions}
+    </>
+  );
 }
 
 export function RelatedListSection({
@@ -619,6 +630,14 @@ export function RelatedListSection({
   const bridges = (
     <ReferenceFacetBridges specs={facetSpecs} selected={filters} onState={handleFacetOptions} />
   );
+  const pageHelp = pageHelpButtonOf(section.pageHelp, {
+    entityName: section.entity ?? "",
+    entity: sourceEntity,
+    featureName,
+    translate: effectiveTranslate,
+    appFeatures,
+  });
+  const headerActions = withPageHelp(pageHelp, actions);
 
   if (embedded === true) {
     const countSuffix = listRows.hasData
@@ -629,7 +648,7 @@ export function RelatedListSection({
         {bridges}
         <EmbeddedRelatedListCard
           title={`${section.title}${countSuffix}`}
-          actions={actions}
+          actions={headerActions}
           testId={`related-list-${section.title}-${parentId}`}
         >
           {content}
@@ -642,6 +661,7 @@ export function RelatedListSection({
     return (
       <>
         {bridges}
+        {pageHelp}
         {FillContainer !== undefined ? (
           <FillContainer
             testId="related-list-card"
@@ -663,7 +683,7 @@ export function RelatedListSection({
         {...(omitTitle !== true && { title: section.title })}
         {...(labelTitle === true && { titleStyle: "label" as const })}
         {...(anchorId !== undefined && { id: anchorId })}
-        {...(actions !== undefined && { actions })}
+        {...(headerActions !== undefined && { actions: headerActions })}
         testId={`related-list-${section.title}`}
       >
         {content}

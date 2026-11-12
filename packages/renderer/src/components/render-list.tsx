@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { useAppFeatures } from "../app/app-features-context.tsx";
 import { useIsStandInScreen } from "../app/locked-screen-header.tsx";
 import type { Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
@@ -107,6 +108,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // As in RenderEdit, fall back to the i18next context for translation;
   // otherwise column headers would display raw i18n keys.
   const t = useTranslation();
+  const appFeatures = useAppFeatures();
   const translate: Translate = translateProp ?? t;
   const isStandIn = useIsStandInScreen();
   const { DataTable, Button, Dialog, Input, Banner, PageHeader } = usePrimitives();
@@ -188,6 +190,7 @@ export function RenderList(props: RenderListProps): ReactNode {
     entity,
     featureName,
     translate,
+    appFeatures,
   });
   const headerActions =
     pageHelp === undefined ? (

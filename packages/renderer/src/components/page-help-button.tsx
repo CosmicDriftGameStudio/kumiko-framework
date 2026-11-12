@@ -1,8 +1,10 @@
 import type { EntityDefinition, PageHelpSpec } from "@cosmicdrift/kumiko-framework/ui-types";
+import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type ReactNode, useState } from "react";
+import type { FeatureSchema } from "../app/feature-schema.ts";
 import { fieldOptionHelpKey, fieldOptionLabelKey, type Translate } from "../headless/index.ts";
 import { usePrimitives } from "../primitives.tsx";
-import { statusToneForOptionTone, statusToneForValue } from "../status-tone.ts";
+import { statusToneForOption } from "../status-tone.ts";
 
 export type PageHelpButtonProps = {
   readonly spec: PageHelpSpec;
@@ -50,11 +52,7 @@ export function PageHelpButton({
             const label = translate(
               fieldOptionLabelKey(featureName, entityName, spec.statusField, value),
             );
-            const declaredTone = field.optionTones?.[value];
-            const tone =
-              (declaredTone !== undefined ? statusToneForOptionTone(declaredTone) : undefined) ??
-              statusToneForValue(value) ??
-              "muted";
+            const tone = statusToneForOption(value, field.optionTones) ?? "muted";
             return (
               <Grid columns={3} key={value} testId={`page-help-option-${value}`}>
                 <GridCell span={1}>
@@ -81,24 +79,35 @@ export function PageHelpButton({
 }
 
 export type PageHelpContext = {
+  /** Entity used when the spec names none; may be empty on a projectionDetail. */
   readonly entityName: string;
+  /** Entity of `entityName` in the screen's own feature, used when `appFeatures` does not know it. */
   readonly entity: PageHelpButtonProps["entity"] | undefined;
   readonly featureName: string;
   readonly translate: Translate;
+  readonly appFeatures: readonly FeatureSchema[];
 };
 
-/** The help button for a screen's `pageHelp`; `entityName` is the screen entity unless the spec names one. */
+/** The help button for a `pageHelp`; the entity is `spec.entity` (bare or `<feature>:<entity>`), else the context entity.
+ *  Labels and help texts come from the feature owning the entity. */
 export function pageHelpButtonOf(
   spec: PageHelpSpec | undefined,
   context: PageHelpContext,
 ): ReactNode {
-  if (spec === undefined || context.entity === undefined) return undefined;
+  if (spec === undefined) return undefined;
+  const target = parseRefTarget(spec.entity ?? context.entityName, context.featureName);
+  const entity =
+    context.appFeatures.find((f) => f.featureName === target.featureName)?.entities[
+      target.entityName
+    ] ?? (target.featureName === context.featureName ? context.entity : undefined);
+  if (entity === undefined) return undefined;
   return (
     <PageHelpButton
       spec={spec}
-      {...context}
-      entityName={spec.entity ?? context.entityName}
-      entity={context.entity}
+      entityName={target.entityName}
+      entity={entity}
+      featureName={target.featureName}
+      translate={context.translate}
     />
   );
 }

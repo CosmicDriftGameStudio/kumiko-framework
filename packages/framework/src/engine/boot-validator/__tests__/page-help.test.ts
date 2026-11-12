@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { withBootValidatorFixture } from "@cosmicdrift/kumiko-testing/helpers";
+import * as z from "zod";
 import { validateBoot as validateBootRaw } from "../../boot-validator.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createSelectField, createTextField } from "../../factories.ts";
@@ -93,5 +94,68 @@ describe("pageHelp boot rules", () => {
     );
     expect(found.map((v) => v.ruleId)).toContain("page-help/option-help-missing");
     expect(found.map((v) => v.message).join("\n")).toContain("(en)");
+  });
+
+  describe("entity of another feature", () => {
+    function casesFeature(pageHelp: Record<string, unknown>) {
+      return defineFeature("cases", (r) => {
+        for (const name of ["case-detail", "doc-list"]) {
+          r.queryHandler({
+            name,
+            schema: z.object({}),
+            handler: async () => [],
+            access: { roles: ["Admin"] },
+          });
+        }
+        r.screen({
+          id: "case-detail",
+          type: "projectionDetail",
+          query: "cases:query:case-detail",
+          layout: {
+            sections: [
+              {
+                kind: "relatedList",
+                title: "cases.docs",
+                query: "cases:query:doc-list",
+                entity: "docs:doc",
+                columns: ["title"],
+                pageHelp,
+              },
+            ],
+          },
+        } as never);
+      });
+    }
+
+    function violationsFor(docs: ReturnType<typeof pageHelpFeature>, pageHelp: object) {
+      return violationsOf([docs, casesFeature(pageHelp as Record<string, unknown>)]).filter((v) =>
+        v.ruleId.startsWith("page-help/"),
+      );
+    }
+
+    test("a relatedList section resolves entity and help texts from the owning feature", () => {
+      const docs = pageHelpFeature({ statusField: "status" }, ALL_HELP);
+      expect(violationsFor(docs, { statusField: "status" })).toEqual([]);
+      expect(violationsFor(docs, { statusField: "status", entity: "docs:doc" })).toEqual([]);
+    });
+
+    test("a missing help key is reported with the owning feature's key", () => {
+      const { [`${OPTION}:checked:help`]: _omitted, ...onlyDraft } = ALL_HELP;
+      const found = violationsFor(pageHelpFeature({ statusField: "status" }, onlyDraft), {
+        statusField: "status",
+      });
+      const message = found.find((v) => v.message.includes("relatedList"))?.message;
+      expect(message).toContain('relatedList "cases.docs"');
+      expect(message).toContain(`checked -> docs:${OPTION}:checked:help`);
+    });
+
+    test("an unknown feature or entity stays an error", () => {
+      const docs = pageHelpFeature({ statusField: "status" }, ALL_HELP);
+      const unknownFeature = violationsFor(docs, { statusField: "status", entity: "nope:doc" });
+      expect(unknownFeature.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
+      expect(unknownFeature[0]?.message).toContain('unknown feature "nope"');
+      const unknownEntity = violationsFor(docs, { statusField: "status", entity: "docs:nope" });
+      expect(unknownEntity.map((v) => v.ruleId)).toEqual(["page-help/status-field-invalid"]);
+    });
   });
 });

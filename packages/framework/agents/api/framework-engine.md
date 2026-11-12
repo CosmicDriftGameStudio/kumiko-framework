@@ -556,6 +556,7 @@ type EditRelatedListSection = EditSectionPresentation & {
   visibleWhen?: Exclude<FieldCondition, boolean>; // projectionDetail only: shows the section (and its tab) only while the loaded record matches, same `{ field, eq | ne | in | notIn }` syntax as a field's `visibleWhen`.
   kind: "relatedList";
   title: string;
+  pageHelp?: PageHelpSpec; // Help button next to the section title; the entity defaults to `entity` of this section.
   readOnly?: boolean; // Rows are aggregates or other values with no record of their own, so they lead nowhere on purpose.
   query: string; // Fully qualified query QN.
   parentParam?: string; // Query-payload key the parent record's id is passed under.

@@ -1481,6 +1481,7 @@ export type TabsProps = {
 export {
   type StatusBadgeOptionTone,
   type StatusTone,
+  statusToneForOption,
   statusToneForOptionTone,
   statusToneForValue,
 } from "./status-tone.ts";
