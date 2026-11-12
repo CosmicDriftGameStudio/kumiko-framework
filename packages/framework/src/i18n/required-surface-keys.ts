@@ -13,6 +13,7 @@ import type {
   FieldTextRef,
   ListBulkAction,
   ListEmptyStateSpec,
+  PageHelpSpec,
   RowAction,
   ScreenDefinition,
   SecretMintScreenDefinition,
@@ -283,6 +284,13 @@ function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
   }
 }
 
+function pushPageHelpKeys(out: Set<string>, pageHelp: PageHelpSpec | undefined): void {
+  for (const section of pageHelp?.sections ?? []) {
+    pushKey(out, section.title);
+    if (section.kind === "text") pushKey(out, section.text);
+  }
+}
+
 function pushRelatedListSectionKeys(
   out: Set<string>,
   section: EntityListExpandableRow | EditRelatedListSection,
@@ -380,6 +388,7 @@ function collectEntityListKeys(
     }
   }
   pushListChromeKeys(ctx.out, list);
+  pushPageHelpKeys(ctx.out, list.pageHelp);
   if (list.expandableRow !== undefined) pushExpandableRowKeys(ctx.out, list.expandableRow);
 }
 
@@ -557,6 +566,7 @@ function collectProjectionDetailKeys(
 ): void {
   for (const metric of detail.metrics ?? []) pushKey(ctx.out, metric.label);
   pushKey(ctx.out, detail.header?.narrowTitle);
+  pushPageHelpKeys(ctx.out, detail.pageHelp);
   for (const section of detail.layout.sections) {
     pushKey(ctx.out, section.tabLabel);
     if ("descriptionNarrow" in section) pushKey(ctx.out, section.descriptionNarrow);
@@ -573,6 +583,7 @@ function collectProjectionDetailKeys(
     }
     if (section.kind === "relatedList") {
       pushRelatedListSectionKeys(ctx.out, section);
+      pushPageHelpKeys(ctx.out, section.pageHelp);
       for (const bulk of section.bulkActions ?? []) pushBulkActionKeys(ctx.out, bulk);
       continue;
     }

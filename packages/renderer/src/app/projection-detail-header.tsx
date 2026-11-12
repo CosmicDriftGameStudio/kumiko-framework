@@ -50,14 +50,13 @@ export function renderHeaderActionsContent(
   model: DetailHeaderModel,
   pageHeaderOptions?: PageHeaderActionsOptions,
 ): ReactNode {
-  const { screen, primitives, headerActionsList, setActionError, pageHelp } = model;
+  const { screen, primitives, headerActionsList, setActionError } = model;
   const { Grid, Button, Dialog, ActionOverflowMenu } = primitives;
   const menuActionIds = (screen.actions ?? [])
     .filter((action) => action.placement === "menu")
     .map((action) => action.id);
   return (
     <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
-      {pageHelp}
       <HeaderActionsBar
         actions={headerActionsList}
         Button={Button}

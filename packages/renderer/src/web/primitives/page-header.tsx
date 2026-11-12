@@ -10,6 +10,7 @@ export function DefaultPageHeader({
   recordTitle,
   narrowRecordTitle,
   status,
+  help,
   actions,
   bodyTitle,
   overflowItems,
@@ -76,6 +77,7 @@ export function DefaultPageHeader({
         {status}
         <div className={cn("ml-auto flex items-center gap-2", UNIFORM_BAR_CONTROLS_CLASSES)}>
           {actions}
+          {help}
         </div>
       </div>
     );
@@ -85,9 +87,15 @@ export function DefaultPageHeader({
       {status !== undefined &&
         slot.statusElement !== null &&
         createPortal(status, slot.statusElement)}
-      {actions !== undefined &&
+      {(actions !== undefined || help !== undefined) &&
         slot.actionsElement !== null &&
-        createPortal(actions, slot.actionsElement)}
+        createPortal(
+          <>
+            {actions}
+            {help}
+          </>,
+          slot.actionsElement,
+        )}
     </>
   );
 }

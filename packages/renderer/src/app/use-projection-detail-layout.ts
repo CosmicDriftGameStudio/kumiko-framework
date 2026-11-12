@@ -21,8 +21,8 @@ export function useProjectionDetailLayout(input: DetailLayoutInput) {
   // ?? [] rather than threading `headerActions !== undefined` through every
   // use below — an empty array is a safe no-op for .map/.length.
   const headerActionsList = headerActions ?? [];
-  const hasHeaderActions = headerActionsList.length > 0 || pageHelp !== undefined;
-  const hasHeaderCard = hasHeader || hasMetrics || hasHeaderActions;
+  const hasHeaderActions = headerActionsList.length > 0;
+  const hasHeaderCard = hasHeader || hasMetrics || hasHeaderActions || pageHelp !== undefined;
   // A header card (metric band, status, actions) needs more room than the
   // 640px form column; screens with only a record title keep the narrow one.
   const widensScreenFormColumn =

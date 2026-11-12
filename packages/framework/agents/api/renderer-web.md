@@ -699,6 +699,7 @@ type GridProps = { // Column-based layout.
   tight?: boolean; // With `columns: "auto"`: the small gap of a chip row instead of the tile gap.
   facts?: boolean; // Read-only label/value facts: a true `columns`-wide grid with a tight gap, at most 2 columns below `sm`.
   legend?: boolean; // Legend rows as flat child pairs (term, explanation): the first column is as wide as its widest term and never wraps, the second takes the rest, with a fixed gap between them.
+  ruled?: boolean; // With `legend`: the term column is a fixed 13rem (12rem plus gap) in every grid (sentences start at one x across cards) and the rows are separated by hairlines.
 };
 type HeaderActionGroupProps = {
   children: ReactNode;
@@ -1449,7 +1450,6 @@ type RenderListProps = DataTableTableBlockProps & {
   bulk?: DataTableProps["bulk"]; // Forwarded to `DataTableProps.bulk` / `rowTone`.
   rowTone?: DataTableProps["rowTone"];
   toolbarActions?: ToolbarActionButton[]; // Toolbar actions in the list header in resolved form.
-  toolbarLead?: ReactNode; // Rendered at the start of the toolbar's action group (the relatedList page help in tabs mode).
   filterFacets?: DataTableFacet[]; // Faceted filter dropdowns.
   filterValues?: Readonly<Record<string, string[]>>; // Currently selected facet values by field (from URL state).
   onFilterChange?: (field: string, values: string[]) => void; // Toggles a facet value (sets URL state and refetches).

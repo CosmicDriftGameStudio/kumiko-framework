@@ -571,9 +571,20 @@ type ListTableSummaryRow = { // The query receives the list's current search, fi
 };
 type ListToolbarActionsPlacement = (typeof LIST_TOOLBAR_ACTIONS_PLACEMENTS)[number];
 type OptionsQueryPayload = Readonly<Record<string, OptionsQueryPayloadValue>>;
-type PageHelpSpec = { // Page-header help explaining every option of one select field (typically a status).
-  statusField: string;
+type PageHelpSection = PageHelpStatusSection | PageHelpTextSection;
+type PageHelpSpec = { // General help of a page: a question-mark button at the end of the shell header actions opens a drawer with one card per section.
+  sections: PageHelpSection[];
+};
+type PageHelpStatusSection = { // Explains every option of one select field (typically a status).
+  kind: "status";
+  field: string;
   entity?: string;
+  title?: string; // i18n key of the card heading.
+};
+type PageHelpTextSection = { // Free help text; `title` and `text` are i18n keys.
+  kind: "text";
+  title: string;
+  text: string;
 };
 type ParsedRefTarget = {
   featureName: string;

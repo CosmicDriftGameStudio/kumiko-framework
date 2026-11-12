@@ -6,7 +6,7 @@ import type { Translate } from "../headless/index.ts";
 import { useTranslation } from "../i18n.tsx";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.ts";
 import { usePrimitives } from "../primitives.tsx";
-import { pageHelpButtonOf, withPageHelp } from "./page-help-button.tsx";
+import { pageHelpButtonOf } from "./page-help-button.tsx";
 import { renderReferenceLookupBridges } from "./render-list-reference-bridge.tsx";
 import { rowMutedFromField, rowToneFromField } from "./render-list-row-tone.ts";
 import {
@@ -89,7 +89,6 @@ export function RenderList(props: RenderListProps): ReactNode {
     bulk,
     rowTone,
     toolbarActions,
-    toolbarLead,
     filterFacets,
     filterValues,
     onFilterChange,
@@ -186,15 +185,15 @@ export function RenderList(props: RenderListProps): ReactNode {
     setMenuActionBusyId,
     setMenuActionError,
   });
-  const pageHelp = pageHelpButtonOf(screen.pageHelp, {
-    entityName: screen.entity,
-    entity,
+  const pageHelp = pageHelpButtonOf([{ spec: screen.pageHelp, defaultEntity: screen.entity }], {
     featureName,
+    screenId: screen.id,
+    ownEntities: { [screen.entity]: entity },
     translate,
     appFeatures,
   });
-  const headerActions = withPageHelp(pageHelp, renderHeaderActions(toolbarModel, createButton));
-  const toolbarEnd = withPageHelp(toolbarLead, renderToolbarEnd(toolbarModel, createButton));
+  const headerActions = renderHeaderActions(toolbarModel, createButton);
+  const toolbarEnd = renderToolbarEnd(toolbarModel, createButton);
   const composedEmptyState = composeEmptyState({
     Button,
     emptyState,
@@ -212,11 +211,12 @@ export function RenderList(props: RenderListProps): ReactNode {
 
   return (
     <>
-      {(headerActions !== undefined || split.promotedInOverflowMenu) &&
+      {(headerActions !== undefined || pageHelp !== undefined || split.promotedInOverflowMenu) &&
         PageHeader !== undefined &&
         renderPageHeader(
           PageHeader,
           headerActions,
+          pageHelp,
           split.promotedInOverflowMenu,
           promotedMenuItems,
         )}

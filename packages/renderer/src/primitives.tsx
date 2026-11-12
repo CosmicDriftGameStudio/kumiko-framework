@@ -146,6 +146,8 @@ type ButtonBaseProps = {
   readonly ariaLabel?: string;
   /** Tooltip — rendered as the `title` attribute. */
   readonly title?: string;
+  /** Below the `sm` breakpoint only the icon shows (in a square), the label stays the accessible name. */
+  readonly collapseLabel?: boolean;
   /** Toggle state for toggle buttons — web sets `aria-pressed`; leave unset for plain buttons. */
   readonly pressed?: boolean;
   /** Disclosure state for buttons that open a menu or panel — web sets `aria-expanded`. */
@@ -1168,6 +1170,9 @@ export type GridProps = {
   /** Legend rows as flat child pairs (term, explanation): the first column is as wide as its widest
    *  term and never wraps, the second takes the rest, with a fixed gap between them. Wins over `columns`/`flow`. */
   readonly legend?: boolean;
+  /** With `legend`: the term column is a fixed 13rem (12rem plus gap) in every grid (sentences start at one x across
+   *  cards) and the rows are separated by hairlines. */
+  readonly ruled?: boolean;
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
@@ -1527,6 +1532,8 @@ export type PageHeaderProps = {
   /** Short record title for the phone top bar; wins over `recordTitle` there. */
   readonly narrowRecordTitle?: string;
   readonly status?: ReactNode;
+  /** Page help trigger, shown at the end of the shell header actions. */
+  readonly help?: ReactNode;
   readonly actions?: ReactNode;
   /** Screen renders its own h1: the shell header shows only the parent crumb, as text. */
   readonly bodyTitle?: boolean;

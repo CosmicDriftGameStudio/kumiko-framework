@@ -48,6 +48,7 @@ export function DefaultButton({
   size = "md",
   ariaLabel,
   title,
+  collapseLabel,
   pressed,
   expanded,
   width = "auto",
@@ -72,6 +73,7 @@ export function DefaultButton({
       ? "border-primary/40 bg-accent text-accent-foreground ring-1 ring-primary/30"
       : "",
     width === "full" ? "w-full" : "",
+    collapseLabel === true ? "max-sm:size-10 max-sm:px-0" : "",
     className,
   );
   const IconStart = icon !== undefined ? NAV_ICONS[icon] : undefined;
@@ -102,7 +104,7 @@ export function DefaultButton({
       className={resolvedClassName}
     >
       {leading}
-      {children}
+      {collapseLabel === true ? <span className="max-sm:sr-only">{children}</span> : children}
       {IconEnd !== undefined && <IconEnd className="size-4" aria-hidden="true" />}
     </UiButton>
   );
