@@ -372,6 +372,7 @@ describe("compileDocumentBodyToHandlebars :: images block", () => {
     expect(out).not.toContain("data-image-columns");
     expect(render(one, { recordImagesPlaceholder: true })).toContain("width:100%");
     expect(render(block, { recordImagesSrc: () => [] })).not.toContain("grid-template-columns");
+    expect(render(block, { recordImagesPlaceholder: true })).toContain("width:50%");
   });
 
   test("renders an empty container without images and a single box as placeholder", () => {

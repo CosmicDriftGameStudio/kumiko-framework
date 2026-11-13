@@ -142,8 +142,16 @@ describe("layoutAppearanceCss tableStyle header", () => {
 describe("PRINT_CSS page breaks", () => {
   test("keeps headings with the following text and blocks in one piece", () => {
     expect(PRINT_CSS).toContain("h1,h2,h3,h4{break-after:avoid;page-break-after:avoid}");
-    expect(PRINT_CSS).toContain("p,li,table,figure{break-inside:avoid;page-break-inside:avoid}");
+    expect(PRINT_CSS).toContain("p,li,figure{break-inside:avoid;page-break-inside:avoid}");
     expect(PRINT_CSS).toContain("p,li{orphans:3;widows:3}");
+  });
+
+  test("keeps short tables whole, longer ones split between rows", () => {
+    expect(PRINT_CSS).toContain(
+      "table:not(:has(tr:nth-child(9))){page-break-inside:avoid;break-inside:avoid}",
+    );
+    expect(PRINT_CSS).toContain("tr{page-break-inside:avoid;break-inside:avoid}");
+    expect(PRINT_CSS).not.toContain("p,li,table,figure");
   });
 
   test("styles image captions", () => {

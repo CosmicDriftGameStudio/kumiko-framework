@@ -221,13 +221,14 @@ function neutralizeBraces(html: string): string {
 }
 
 // One entry of an images variable: a bare fileRefId or an object with an optional caption.
-export type DocumentImageValue = string | { readonly fileRefId: string; readonly caption?: string };
-
 export type DocumentImageEntry = { readonly fileRefId: string; readonly caption?: string };
+
+export type DocumentImageValue = string | DocumentImageEntry;
 
 export type DocumentRecordImage = { readonly src: string; readonly caption?: string };
 
 const MAX_IMAGE_CAPTION_LENGTH = 200;
+const DEFAULT_IMAGE_COLUMNS = "2";
 
 function imageEntryOf(value: unknown): DocumentImageEntry | null {
   if (typeof value === "string") return { fileRefId: value };
@@ -343,7 +344,7 @@ function rewriteImagesBlock(
   element.removeAttribute("data-image-columns");
   if (options.recordImagesPlaceholder === true) {
     element.setAttribute("class", "kumiko-doc-image-placeholder");
-    const widthStyle = columns === null ? "" : `;width:${Math.floor(100 / Number(columns))}%`;
+    const widthStyle = `;width:${Math.floor(100 / Number(columns ?? DEFAULT_IMAGE_COLUMNS))}%`;
     element.setAttribute("style", `${IMAGES_PLACEHOLDER_STYLE}${widthStyle}`);
     // skip: preview and drafts never resolve record images
     return;

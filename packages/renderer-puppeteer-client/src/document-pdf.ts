@@ -97,6 +97,10 @@ const EMPTY_CHROMIUM_REGION = "<span></span>";
 const PAGE_NUMBER_HTML = '<span class="pageNumber"></span>';
 const TOTAL_PAGES_HTML = '<span class="totalPages"></span>';
 
+// Short tables stay whole; longer ones split between rows so a big table never jumps
+// to the next page and leaves a gap.
+const SHORT_TABLE_MAX_ROWS = 8;
+
 export const PRINT_CSS = [
   `body{font-family:Helvetica,Arial,sans-serif;font-size:${PDF_DEFAULT_FONT_SIZE_PT}pt;line-height:${PARAGRAPH_DEFAULT_LINE_HEIGHT};color:#222;margin:0;${DOCUMENT_LINE_VARIABLE}:${documentLinePt(PDF_DEFAULT_FONT_SIZE_PT)}pt}`,
   `p,table,ul,ol{margin:0 0 var(${DOCUMENT_LINE_VARIABLE})}`,
@@ -109,6 +113,7 @@ export const PRINT_CSS = [
   "tr>:last-child{padding-right:0}",
   "thead{display:table-header-group}",
   "tr{page-break-inside:avoid;break-inside:avoid}",
+  `table:not(:has(tr:nth-child(${SHORT_TABLE_MAX_ROWS + 1}))){page-break-inside:avoid;break-inside:avoid}`,
   "[data-page-break]{page-break-before:always;break-before:page}",
   ...TEXT_ALIGN_CSS_RULES,
   "[data-size=small]{font-size:8pt;color:#555}",
@@ -121,7 +126,7 @@ export const PRINT_CSS = [
   ".kumiko-doc-image{margin:0}",
   ".kumiko-doc-image figcaption{font-size:8pt;color:#555;margin-top:2px;line-height:1.3}",
   "h1,h2,h3,h4{break-after:avoid;page-break-after:avoid}",
-  "p,li,table,figure{break-inside:avoid;page-break-inside:avoid}",
+  "p,li,figure{break-inside:avoid;page-break-inside:avoid}",
   "p,li{orphans:3;widows:3}",
 ].join("");
 
