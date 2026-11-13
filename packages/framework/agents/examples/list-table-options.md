@@ -378,20 +378,20 @@ describe("form bulk action handler", () => {
       ),
     );
     const taskIds = created.map((task) => task.data.id);
-    const result = await stack.http.writeOk<{ data: { count: number; via: string } }>(
+    const result = await stack.http.writeOk<{ count: number; via: string }>(
       "task-board:write:task:set-status-via",
       { via: "inbox", values: { taskIds, status: "done" } },
       user,
     );
-    expect(result.data).toEqual({ count: 2, via: "inbox" });
+    expect(result).toEqual({ count: 2, via: "inbox" });
     const list = await stack.http.queryOk<{ rows: { title: string; status: string }[] }>(
       "task-board:query:task:list",
       { sort: "title" },
       user,
     );
-    expect(
-      list.rows.filter((row) => row.title.startsWith("Via")).map((row) => row.status),
-    ).toEqual(["done", "done"]);
+    expect(list.rows.filter((row) => row.title.startsWith("Via")).map((row) => row.status)).toEqual(
+      ["done", "done"],
+    );
   });
 
   test("the preview query shows the same plan the handler applies", async () => {
@@ -772,7 +772,8 @@ export function createTaskBoardFeature(
           ...event.payload.values,
         });
         if (!inner.isSuccess) return inner;
-        return { isSuccess: true as const, data: { ...inner.data, via: event.payload.via } };
+        const innerData = typeof inner.data === "object" && inner.data !== null ? inner.data : {};
+        return { isSuccess: true as const, data: { ...innerData, via: event.payload.via } };
       },
     });
 

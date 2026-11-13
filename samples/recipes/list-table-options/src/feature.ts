@@ -324,7 +324,8 @@ export function createTaskBoardFeature(
           ...event.payload.values,
         });
         if (!inner.isSuccess) return inner;
-        return { isSuccess: true as const, data: { ...inner.data, via: event.payload.via } };
+        const innerData = typeof inner.data === "object" && inner.data !== null ? inner.data : {};
+        return { isSuccess: true as const, data: { ...innerData, via: event.payload.via } };
       },
     });
 
