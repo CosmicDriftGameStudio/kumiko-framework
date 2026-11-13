@@ -54,7 +54,7 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   /** `values` are the form values at the moment the submit succeeded. */
   readonly onSubmit?: (result: SubmitResult<unknown>, values: TValues) => void;
   readonly payloadMode?: "values" | "changes";
-  readonly buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: TValues) => unknown;
+  readonly buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: unknown) => unknown;
   /** Prefix to strip from server validation issue paths before mapping them
    *  onto form fields — see SubmitConfig.serverFieldPathPrefix. Only needed
    *  when buildPayload nests the form values under a key. */

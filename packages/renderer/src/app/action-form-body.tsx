@@ -335,7 +335,7 @@ export function ActionFormBody({
   const pendingSubmitThrough = useSubmitThroughHandoff(screen.id);
   const submitThrough = onSuccess === undefined ? pendingSubmitThrough : undefined;
   const buildSubmitThroughPayload = useCallback(
-    (_snapshot: FormSnapshot<FormValues>, shapedValues: FormValues): unknown =>
+    (_snapshot: FormSnapshot<FormValues>, shapedValues: unknown): unknown =>
       submitThrough === undefined
         ? undefined
         : { ...submitThrough.wrap, [submitThrough.valuesKey]: shapedValues },

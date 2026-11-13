@@ -428,7 +428,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
                 forceIncludeEmpty,
               ),
           submitCfg.omitFields,
-        ) as TValues; // @cast-boundary form-values
+        );
         payload = submitCfg.buildPayload(submittedSnapshot, shapedValues);
       } else if (payloadMode === "changes") {
         if (submittedSnapshot.isUnchanged) {

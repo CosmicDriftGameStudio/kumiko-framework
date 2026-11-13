@@ -293,7 +293,7 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
   // making an explicit statement about payload shape.
   // `shapedValues` is snapshot.values after the empty-seed strip and omitFields
   // removal, i.e. what the plain "values" mode would send.
-  readonly buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: TValues) => unknown;
+  readonly buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: unknown) => unknown;
   // When buildPayload nests values under a key, server issue paths carry it
   // ("changes.vin"); submit() strips this prefix so errors map onto form fields.
   readonly serverFieldPathPrefix?: string;
