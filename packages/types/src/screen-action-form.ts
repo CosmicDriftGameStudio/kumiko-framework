@@ -263,8 +263,8 @@ export type ActionFormPreviewList = {
     readonly field: string;
     /** Column header (i18n key). */
     readonly label: string;
-    /** Value format of the column; default `text`. */
-    readonly type?: ActionFormValueType;
+    /** Value format of the column; default `text`. `file`: a FileRef id, shown with name and download link. */
+    readonly type?: ActionFormValueType | "file";
   }[];
 };
 

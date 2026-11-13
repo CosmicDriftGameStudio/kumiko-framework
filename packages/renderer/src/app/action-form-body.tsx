@@ -10,6 +10,7 @@ import { RenderEdit } from "../components/render-edit.tsx";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
 import {
+  type FormSnapshot,
   type FormValues,
   resolveFieldText,
   type SubmitResult,
@@ -45,7 +46,7 @@ import {
 } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
-import { type NavApi, useInitialValuesHandoff, useNav } from "./nav.tsx";
+import { type NavApi, useHandoffForScreen, useNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
@@ -328,9 +329,18 @@ export function ActionFormBody({
     [submittableFields],
   );
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
-  const pendingHandoff = useInitialValuesHandoff(screen.id);
+  const pendingHandoff = useHandoffForScreen(screen.id);
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
-  const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
+  const handoff = onSuccess === undefined ? pendingHandoff : undefined;
+  const handoffValues = handoff?.values;
+  const submitThrough = handoff?.submitThrough;
+  const buildSubmitThroughPayload = useCallback(
+    (_snapshot: FormSnapshot<FormValues>, shapedValues: unknown): unknown =>
+      submitThrough === undefined
+        ? undefined
+        : { ...submitThrough.wrap, [submitThrough.valuesKey]: shapedValues },
+    [submitThrough],
+  );
   // This screen has no entity, so a money field here declares its own currency
   // source (boot-enforced) — without one the form would seed a bare
   // `0` the handler's schema rejects. When a tenant-declared field's config
@@ -615,8 +625,12 @@ export function ActionFormBody({
               );
             },
           })}
-        writeCommand={screen.handler}
+        writeCommand={submitThrough?.handler ?? screen.handler}
         payloadMode="values"
+        {...(submitThrough !== undefined && {
+          buildPayload: buildSubmitThroughPayload,
+          serverFieldPathPrefix: `${submitThrough.valuesKey}.`,
+        })}
         onSubmit={handleSubmitted}
         {...(handleCancel !== undefined && { onCancel: handleCancel })}
         onDirtyChange={handleDirtyChange}

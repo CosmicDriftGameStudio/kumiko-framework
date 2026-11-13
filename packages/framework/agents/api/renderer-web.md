@@ -1337,7 +1337,7 @@ type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   schema?: z.ZodType;
   onSubmit?: (result: SubmitResult<unknown>, values: TValues) => void; // `values` are the form values at the moment the submit succeeded.
   payloadMode?: "values" | "changes";
-  buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
+  buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: unknown) => unknown;
   serverFieldPathPrefix?: string; // Prefix to strip from server validation issue paths before mapping them onto form fields — see SubmitConfig.serverFieldPathPrefix.
   onDelete?: () => Promise<DispatcherError | void> | DispatcherError | void; // Returning the rejected write's error shows it in the form-error banner; returning nothing means the delete went through.
   onCancel?: () => void;

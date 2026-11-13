@@ -27,7 +27,15 @@ the `table` block renders and behaves as before.
   updates every id in one write, bounded by `.max(MAX_BULK_SELECTION)` and
   reading each id through the tenant-scoped executor. The form has a `preview`:
   the `task:set-status-preview` query returns the affected tasks with old and
-  new status from the same plan function the handler applies.
+  new status from the same plan function the handler applies. A preview list
+  column with `type: "file"` shows a FileRef id as file name and download link.
+- `submitThrough`: a screen can open the form with
+  `useNavigateWithInitialValues(screen, values, { submitThrough: { handler:
+  "task-board:write:task:set-status-via", wrap: { via: "inbox" }, valuesKey:
+  "values" } })`. The submit then goes to `task:set-status-via` as
+  `{ via, values }`; that handler calls `task:set-status` through
+  `ctx.dispatch.write` and returns its data unchanged plus `via`, because the
+  form reads its redirect and success facts from the response.
 - `table.grouping`: the server groups the list by status; each header shows the
   group's count and estimate sum, "done" starts collapsed and the view menu
   offers grouping by priority or none.

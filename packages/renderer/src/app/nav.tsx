@@ -201,9 +201,25 @@ export type NavProviderProps = {
   readonly value: NavApi;
 };
 
+/** Routes an actionForm's submit through another write handler: the form's
+ *  values are sent as `{ ...wrap, [valuesKey]: values }` to `handler`. Plain data
+ *  so it can travel with the handoff. The wrapper handler must return the inner
+ *  handler's response data unchanged (extra fields allowed): the screen's
+ *  `redirect.idField` and `successFacts` are read from `result.data`. */
+export type SubmitThrough = {
+  readonly handler: string;
+  readonly wrap: Readonly<Record<string, unknown>>;
+  readonly valuesKey: string;
+};
+
+export type NavigateWithInitialValuesOptions = {
+  readonly submitThrough?: SubmitThrough;
+};
+
 type InitialValuesHandoff = {
   readonly screenId: string;
   readonly values: Readonly<Record<string, unknown>>;
+  readonly submitThrough?: SubmitThrough;
 };
 
 // A mutable slot instead of state: offering must not re-render the app, and
@@ -235,16 +251,22 @@ export function NavProvider({ children, value }: NavProviderProps): ReactNode {
 // initial values carried in memory — never in the URL, so a link cannot
 // forge them and they are not limited to the screen's urlPrefillFields.
 // sensitive and password fields are still never prefilled.
+// `options.submitThrough` (actionForm only) sends the submit to another handler.
 export function useNavigateWithInitialValues(): (
   target: ScreenTarget,
   initialValues: Readonly<Record<string, unknown>>,
+  options?: NavigateWithInitialValuesOptions,
 ) => void {
   const nav = useNav();
   const handoffSlot = useContext(InitialValuesHandoffContext);
   return useCallback(
-    (target, initialValues) => {
+    (target, initialValues, options) => {
       if (handoffSlot !== undefined) {
-        handoffSlot.current = { screenId: lastSegment(target.screenId), values: initialValues };
+        handoffSlot.current = {
+          screenId: lastSegment(target.screenId),
+          values: initialValues,
+          ...(options?.submitThrough !== undefined && { submitThrough: options.submitThrough }),
+        };
       }
       nav.navigate(target);
     },
@@ -252,26 +274,26 @@ export function useNavigateWithInitialValues(): (
   );
 }
 
-export function useInitialValuesHandoff(
-  screenId: string,
-): Readonly<Record<string, unknown>> | undefined {
+export function useHandoffForScreen(screenId: string): InitialValuesHandoff | undefined {
   const handoffSlot = useContext(InitialValuesHandoffContext);
-  const [values] = useState(() => {
+  const [handoff] = useState(() => {
     const pending = handoffSlot?.current;
     return pending !== undefined && pending.screenId === lastSegment(screenId)
-      ? pending.values
+      ? pending
       : undefined;
   });
   useEffect(() => {
-    if (
-      handoffSlot !== undefined &&
-      values !== undefined &&
-      handoffSlot.current?.values === values
-    ) {
+    if (handoffSlot !== undefined && handoff !== undefined && handoffSlot.current === handoff) {
       handoffSlot.current = undefined;
     }
-  }, [handoffSlot, values]);
-  return values;
+  }, [handoffSlot, handoff]);
+  return handoff;
+}
+
+export function useInitialValuesHandoff(
+  screenId: string,
+): Readonly<Record<string, unknown>> | undefined {
+  return useHandoffForScreen(screenId)?.values;
 }
 
 /** Like useNav, but undefined without a provider, for views that only offer

@@ -419,7 +419,17 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // buildPayload wins over payloadMode when both are set.
       let payload: unknown;
       if (submitCfg.buildPayload) {
-        payload = submitCfg.buildPayload(submittedSnapshot);
+        const shapedValues = omitPayloadFields(
+          submitCfg.stripEmptySeeds === false
+            ? submittedValues
+            : stripUntouchedEmptyStrings(
+                submittedValues,
+                submittedSnapshot.initial,
+                forceIncludeEmpty,
+              ),
+          submitCfg.omitFields,
+        );
+        payload = submitCfg.buildPayload(submittedSnapshot, shapedValues);
       } else if (payloadMode === "changes") {
         if (submittedSnapshot.isUnchanged) {
           return {
@@ -440,7 +450,11 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         );
       }
 
-      payload = omitPayloadFields(payload, submitCfg.omitFields);
+      // A prefix means the builder nested the values under a key, so a
+      // top-level omit would hit wrapper keys instead of form fields.
+      if (submitCfg.serverFieldPathPrefix === undefined) {
+        payload = omitPayloadFields(payload, submitCfg.omitFields);
+      }
 
       // Only enforced here, right before the write actually happens — a
       // form that never reaches this point (blocked by validation, or a

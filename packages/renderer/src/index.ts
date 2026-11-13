@@ -112,11 +112,13 @@ export {
 export type {
   NavApi,
   NavigateOptions,
+  NavigateWithInitialValuesOptions,
   NavProviderProps,
   NavRoute,
   NavTarget,
   ObjectTarget,
   ScreenTarget,
+  SubmitThrough,
 } from "./app/nav.tsx";
 export {
   formatPath,

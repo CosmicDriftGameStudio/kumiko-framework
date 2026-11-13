@@ -2171,7 +2171,7 @@ type SubmitConfig<TValues extends FormValues = FormValues> = {
   payloadMode?: SubmitPayloadMode;
   stripEmptySeeds?: boolean; // Only applies to payloadMode "values".
   omitFields?: string[]; // Top-level payload keys removed right before dispatch, for fields that are shown or validated but must not reach the write handler.
-  buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
+  buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: unknown) => unknown;
   serverFieldPathPrefix?: string;
   validateScope?: string[]; // Restricts submit()'s internal validate() call to these field names — same contract as validate()'s `scope` param.
 };

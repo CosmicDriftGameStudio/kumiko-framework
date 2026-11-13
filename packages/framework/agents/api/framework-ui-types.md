@@ -77,7 +77,7 @@ type ActionFormPreview = { // Preview panel above the submit button: runs a quer
 };
 type ActionFormPreviewList = { // Rows of the preview panel, read from an array in the preview query's result.
   field: string; // Flat field name of an array in the query result; an entry that is no object is skipped.
-  columns: { field: string; label: string; type?: ActionFormValueType; }[];
+  columns: { field: string; label: string; type?: ActionFormValueType | "file"; }[];
 };
 type ActionFormRedirect = { // Redirect target plus the success-payload field carrying the navigation id.
   screen: string; // Same target forms as the string `redirect`: short screen ID (same-feature) or a fully-qualified cross-feature screen QN.
