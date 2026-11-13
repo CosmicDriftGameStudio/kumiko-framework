@@ -272,7 +272,8 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
   readonly stripEmptySeeds?: boolean;
   /** Top-level payload keys removed right before dispatch, for fields that
    *  are shown or validated but must not reach the write handler. Applied
-   *  to the built payload only when it is a plain object. */
+   *  to the built payload only when it is a plain object; skipped when
+   *  serverFieldPathPrefix is set (builder nests values, see buildPayload). */
   readonly omitFields?: readonly string[];
   // Optional payload transformer — overrides payloadMode. Used for
   // nested-writes: the submit path calls buildPayload(snapshot) once at
@@ -290,7 +291,9 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
   // When both buildPayload and payloadMode are set, buildPayload wins.
   // That's intentional: a caller choosing to write a transformer is
   // making an explicit statement about payload shape.
-  readonly buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
+  // `shapedValues` is snapshot.values after the empty-seed strip and omitFields
+  // removal, i.e. what the plain "values" mode would send.
+  readonly buildPayload?: (snapshot: FormSnapshot<TValues>, shapedValues: TValues) => unknown;
   // When buildPayload nests values under a key, server issue paths carry it
   // ("changes.vin"); submit() strips this prefix so errors map onto form fields.
   readonly serverFieldPathPrefix?: string;

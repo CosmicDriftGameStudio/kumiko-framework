@@ -9,7 +9,6 @@ import { withDerivedValues } from "../components/form-derivation-patch.ts";
 import { RenderEdit } from "../components/render-edit.tsx";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
-import { stripUntouchedEmptyStrings } from "../headless/form/form-controller.ts";
 import {
   type FormSnapshot,
   type FormValues,
@@ -336,17 +335,10 @@ export function ActionFormBody({
   const pendingSubmitThrough = useSubmitThroughHandoff(screen.id);
   const submitThrough = onSuccess === undefined ? pendingSubmitThrough : undefined;
   const buildSubmitThroughPayload = useCallback(
-    (snapshot: FormSnapshot<FormValues>): unknown =>
+    (_snapshot: FormSnapshot<FormValues>, shapedValues: FormValues): unknown =>
       submitThrough === undefined
         ? undefined
-        : {
-            ...submitThrough.wrap,
-            [submitThrough.valuesKey]: stripUntouchedEmptyStrings(
-              snapshot.values,
-              snapshot.initial,
-              new Set(),
-            ),
-          },
+        : { ...submitThrough.wrap, [submitThrough.valuesKey]: shapedValues },
     [submitThrough],
   );
   // This screen has no entity, so a money field here declares its own currency

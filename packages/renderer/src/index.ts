@@ -129,7 +129,6 @@ export {
   useNav,
   useNavigateWithInitialValues,
   useOptionalNav,
-  useSubmitThroughHandoff,
 } from "./app/nav.tsx";
 export { lastSegment } from "./app/qn.ts";
 export type { ReturnHost, ReturnTo } from "./app/return-to.tsx";

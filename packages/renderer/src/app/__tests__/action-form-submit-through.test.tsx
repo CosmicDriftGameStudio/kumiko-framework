@@ -111,21 +111,24 @@ type Opener = {
     options?: Parameters<ReturnType<typeof useNavigateWithInitialValues>>[2],
   ) => void;
   go: (screenId: string) => void;
+  initialValues: Record<string, string>;
 };
 
 function OpenerHook({ opener }: { readonly opener: Opener }): ReactNode {
   const navigateWithInitialValues = useNavigateWithInitialValues();
   opener.offer = (target, options) =>
-    navigateWithInitialValues({ screenId: target }, { subject: "Hello" }, options);
+    navigateWithInitialValues({ screenId: target }, opener.initialValues, options);
   return null;
 }
 
 function App({
   opener,
   dispatcher,
+  screenDef,
 }: {
   readonly opener: Opener;
   readonly dispatcher: Dispatcher;
+  readonly screenDef: ActionFormScreenDefinition;
 }): ReactNode {
   const [screenId, setScreenId] = useState("home");
   opener.go = setScreenId;
@@ -150,7 +153,9 @@ function App({
             <OpenerHook opener={opener} />
             {screenId === "compose" && (
               <KumikoScreen
-                schema={{ featureName: "shop", entities: {}, screens: [screen] } as FeatureSchema}
+                schema={
+                  { featureName: "shop", entities: {}, screens: [screenDef] } as FeatureSchema
+                }
                 qn="shop:screen:compose"
               />
             )}
@@ -161,14 +166,20 @@ function App({
   );
 }
 
-function mount(respond: () => unknown = () => ({ isSuccess: true, data: {} })): {
+function mount(
+  respond: () => unknown = () => ({ isSuccess: true, data: {} }),
+  screenDef: ActionFormScreenDefinition = screen,
+  initialValues: Record<string, string> = { subject: "Hello" },
+): {
   readonly opener: Opener;
   readonly writes: Write[];
   readonly view: ReturnType<typeof render>;
 } {
   const writes: Write[] = [];
-  const opener: Opener = { offer: () => {}, go: () => {} };
-  const view = render(<App opener={opener} dispatcher={makeDispatcher(writes, respond)} />);
+  const opener: Opener = { offer: () => {}, go: () => {}, initialValues };
+  const view = render(
+    <App opener={opener} dispatcher={makeDispatcher(writes, respond)} screenDef={screenDef} />,
+  );
   return { opener, writes, view };
 }
 
@@ -237,5 +248,28 @@ describe("actionForm submitThrough", () => {
 
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]?.type).toBe("shop:write:compose");
+  });
+});
+
+describe("actionForm submitThrough payload shaping", () => {
+  const excludingScreen: ActionFormScreenDefinition = {
+    ...screen,
+    writeExcludedFields: ["note"],
+  };
+
+  test("write-excluded fields stay out of values and a same-named wrap key survives", async () => {
+    const { opener, writes, view } = mount(undefined, excludingScreen, {
+      subject: "Hello",
+      note: "display only",
+    });
+    act(() =>
+      opener.offer("compose", { submitThrough: { ...submitThrough, wrap: { note: "keep" } } }),
+    );
+    await waitFor(() => view.getByTestId("input-subject"));
+
+    fireEvent.submit(view.getByTestId("form"));
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]?.payload).toEqual({ note: "keep", values: { subject: "Hello" } });
   });
 });
