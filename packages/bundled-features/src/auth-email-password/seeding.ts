@@ -24,6 +24,7 @@ import {
   createSystemUser,
   type SessionUser,
   SYSTEM_TENANT_ID,
+  SYSTEM_USER_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
@@ -32,7 +33,12 @@ import { hashPassword, verifyPassword } from "../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import bootstrap admin seed checks whether the tenant already has members
 import { tenantMembershipsTable } from "../tenant/membership-table.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding.ts";
+import {
+  addTenantMembershipRoles,
+  type SeedTenantHooks,
+  seedTenant,
+  seedTenantMembership,
+} from "../tenant/seeding.ts";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
 import { USER_STATUS, userTable } from "../user/schema/user.ts";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
@@ -508,4 +514,26 @@ export async function seedBootstrapAdmin(
     return { skipped: "has-password" };
   }
   return seeded;
+}
+
+/**
+ * Boot top-up for the bootstrap owner: adds the roles the owner's existing membership in the tenant
+ * lacks. Only a membership the system user created and last wrote is touched, so a human role change since then is not reverted at boot; the mail is unique per account, so the account is the owner named in the env.
+ */
+export async function ensureBootstrapAdminRoles(
+  db: DbConnection,
+  options: {
+    readonly email: string;
+    readonly tenantId: TenantId;
+    readonly roles: readonly string[];
+  },
+): Promise<{ readonly added: readonly string[] }> {
+  const owner = await findExistingUserRowForEmail(db, options.email);
+  if (typeof owner?.["id"] !== "string") return { added: [] };
+  return addTenantMembershipRoles(db, {
+    userId: owner["id"],
+    tenantId: options.tenantId,
+    roles: options.roles,
+    onlyIfInsertedBy: SYSTEM_USER_ID,
+  });
 }

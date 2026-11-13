@@ -25,7 +25,14 @@ the boot with a clear message when the env is incomplete.
   signals to the host.
 - **`seeds`**: `{ demoTenant, demoAdminFromEnv, sysadminFromEnv, run }`
   replaces hand-written tenant and admin seeds; needs the auth features (not
-  mounted here).
+  mounted here). `bootstrapAdminFromEnv: { ensureRoles: true }` adds roles
+  that `roles` gained since the first boot to the owner's existing membership
+  on every boot (additive, never removes).
+- **`previewLogin`**: `{ loginKey }` mounts `GET /__kumiko/preview-login?exp=&sig=`,
+  which signs the bootstrap owner in (302 to `/`, the normal auth cookies) when
+  `sig` is the hex HMAC-SHA256 of `kumiko-preview-login:<exp>` under `loginKey`
+  and `exp` lies at most about 90 seconds ahead. Any other link answers 403.
+  Without the option or with an empty key the route does not exist.
 - **`billing`**: `{ stripe: { priceToTier }, defaultTier }` mounts the Stripe
   bridge and the tier-sync webhook route; needs `billing-foundation` and
   `tier-engine`.

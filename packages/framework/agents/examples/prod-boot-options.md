@@ -33,7 +33,14 @@ the boot with a clear message when the env is incomplete.
   signals to the host.
 - **`seeds`**: `{ demoTenant, demoAdminFromEnv, sysadminFromEnv, run }`
   replaces hand-written tenant and admin seeds; needs the auth features (not
-  mounted here).
+  mounted here). `bootstrapAdminFromEnv: { ensureRoles: true }` adds roles
+  that `roles` gained since the first boot to the owner's existing membership
+  on every boot (additive, never removes).
+- **`previewLogin`**: `{ loginKey }` mounts `GET /__kumiko/preview-login?exp=&sig=`,
+  which signs the bootstrap owner in (302 to `/`, the normal auth cookies) when
+  `sig` is the hex HMAC-SHA256 of `kumiko-preview-login:<exp>` under `loginKey`
+  and `exp` lies at most about 90 seconds ahead. Any other link answers 403.
+  Without the option or with an empty key the route does not exist.
 - **`billing`**: `{ stripe: { priceToTier }, defaultTier }` mounts the Stripe
   bridge and the tier-sync webhook route; needs `billing-foundation` and
   `tier-engine`.
@@ -99,6 +106,7 @@ const PRODUCTION_BOOT_ENV: Readonly<Record<string, string>> = {
   S3_REGION: "eu-central",
   S3_ACCESS_KEY: "access",
   S3_SECRET_KEY: "secret",
+  PREVIEW_LOGIN_KEY: "a".repeat(64),
 };
 
 function withoutKey(key: string): Record<string, string> {
@@ -156,6 +164,19 @@ describe("prod boot options recipe", () => {
     await expect(bootValidate(envSource)).rejects.toThrow(/kmsMode "required"/);
   });
 });
+
+describe("prod boot options recipe: previewLogin", () => {
+  test("a loginKey shorter than 32 characters aborts the boot", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await expect(
+        bootValidate({ ...PRODUCTION_BOOT_ENV, PREVIEW_LOGIN_KEY: "too-short" }),
+      ).rejects.toThrow(/previewLogin\.loginKey/);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+});
 ```
 
 ### src/app.ts
@@ -178,7 +199,7 @@ export function appFeatures(): RunProdAppOptions["features"] {
 
 type BootOptions = Pick<
   RunProdAppOptions,
-  "mail" | "kmsMode" | "fileStorage" | "demoMode" | "signals"
+  "mail" | "kmsMode" | "fileStorage" | "demoMode" | "signals" | "previewLogin"
 >;
 
 export function bootOptions(envSource: Record<string, string | undefined>): BootOptions {
@@ -191,6 +212,8 @@ export function bootOptions(envSource: Record<string, string | undefined>): Boot
       notice: { text: { en: "This demo is read-only.", de: "Diese Demo ist schreibgeschützt." } },
     },
     signals: { drainTimeoutMs: 20_000 },
+    // Preview deployments only: the link signs the owner in without the MFA gate.
+    previewLogin: { loginKey: envSource["PREVIEW_LOGIN_KEY"] ?? "" },
   };
 }
 ```

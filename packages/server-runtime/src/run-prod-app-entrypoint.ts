@@ -76,7 +76,14 @@ export function buildProdEntrypointOptions(
     ...(options.errorDocs && { errorDocs: options.errorDocs }),
     ...(extraRoutes && { extraRoutes }),
     ...(effectiveAuth && {
-      auth: buildProdAuthRoutes(effectiveAuth, config, composed, connections, authWiring),
+      auth: buildProdAuthRoutes(
+        effectiveAuth,
+        config,
+        composed,
+        connections,
+        authWiring,
+        options.previewLogin,
+      ),
     }),
     ...(requestContext.resolvedAnonymousAccess && {
       anonymousAccess: requestContext.resolvedAnonymousAccess,

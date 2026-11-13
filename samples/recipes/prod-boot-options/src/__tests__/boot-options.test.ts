@@ -21,6 +21,7 @@ const PRODUCTION_BOOT_ENV: Readonly<Record<string, string>> = {
   S3_REGION: "eu-central",
   S3_ACCESS_KEY: "access",
   S3_SECRET_KEY: "secret",
+  PREVIEW_LOGIN_KEY: "a".repeat(64),
 };
 
 function withoutKey(key: string): Record<string, string> {
@@ -76,5 +77,18 @@ describe("prod boot options recipe", () => {
     delete envSource["SUBJECT_KEYS_DATABASE_URL"];
     delete envSource["KUMIKO_BLIND_INDEX_KEY"];
     await expect(bootValidate(envSource)).rejects.toThrow(/kmsMode "required"/);
+  });
+});
+
+describe("prod boot options recipe: previewLogin", () => {
+  test("a loginKey shorter than 32 characters aborts the boot", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await expect(
+        bootValidate({ ...PRODUCTION_BOOT_ENV, PREVIEW_LOGIN_KEY: "too-short" }),
+      ).rejects.toThrow(/previewLogin\.loginKey/);
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 });

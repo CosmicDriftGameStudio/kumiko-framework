@@ -13,6 +13,7 @@ import { collectAnonymousLiveEntities } from "./anonymous-live-entities.ts";
 import { NO_ROUTE_MATCH_HEADER_NAME } from "./api-constants.ts";
 import { identifyOptionalSession } from "./auth-middleware.ts";
 import { createAuthRoutes } from "./auth-routes.ts";
+import { createPreviewLoginRoutes } from "./auth-routes-preview-login.ts";
 import { createClientErrorRoute } from "./client-error-route.ts";
 import { collectEntityReadAccess, collectEntityRowReadMaps } from "./entity-read-access.ts";
 import { createExportRoutes } from "./export/export-route.ts";
@@ -64,6 +65,12 @@ export function mountAuthRoutes(
         resolver: clientIpResolver,
       }),
     );
+    const previewLogin = createPreviewLoginRoutes(dispatcher, jwt, {
+      ...options.auth,
+      secureCookies: sessionCookies.secure,
+      resolver: clientIpResolver,
+    });
+    if (previewLogin) app.route("/", previewLogin);
   }
 }
 

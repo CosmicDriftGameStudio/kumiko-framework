@@ -1,4 +1,5 @@
 import {
+  ensureBootstrapAdminRoles,
   type SeedAdminOptions,
   seedAdminGuarded,
   seedBootstrapAdmin,
@@ -57,6 +58,8 @@ export type ProdSeedsConfig = {
     | (SeededAccountOptions & {
         readonly tenant?: ProdSeedTenant;
         readonly globalRoles?: readonly string[];
+        /** Every boot, add `roles` the owner's existing membership lacks (additive, never removes). */
+        readonly ensureRoles?: boolean;
       });
   readonly run?: readonly ProdSeedFn[];
 };
@@ -184,15 +187,19 @@ function buildBootstrapAdminSeed(
   }
   const email = envSource[BOOTSTRAP_ADMIN_EMAIL_ENV];
   if (!email) return undefined;
+  const membershipRoles = options.roles ?? DEFAULT_DEMO_ADMIN_ROLES;
   const admin: SeedAdminOptions = {
     email,
     displayName: options.displayName ?? "Admin",
     globalRoles: options.globalRoles ?? [ROLES.SystemAdmin],
     emailVerified: options.emailVerified ?? true,
-    memberships: [membershipOf(tenant, options.roles ?? DEFAULT_DEMO_ADMIN_ROLES)],
+    memberships: [membershipOf(tenant, membershipRoles)],
   };
   return async (db) => {
     await seedBootstrapAdmin(db, admin);
+    if (options.ensureRoles) {
+      await ensureBootstrapAdminRoles(db, { email, tenantId: tenant.id, roles: membershipRoles });
+    }
   };
 }
 
