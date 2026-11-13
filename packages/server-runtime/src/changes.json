@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.421.0",
+    "type": "improvement",
+    "title": "Studio preview login and owner role top-up",
+    "detail": "`previewLogin: { loginKey }` on runProdApp and runDevApp mounts a signed, short-lived link that signs the bootstrap owner in without a password. `bootstrapAdminFromEnv: { ensureRoles: true }` adds newly declared `roles` to the owner's existing membership on every boot."
+  },
+  {
     "version": "0.417.0",
     "type": "improvement",
     "title": "The billing boot option forwards allowPromotionCodes",
