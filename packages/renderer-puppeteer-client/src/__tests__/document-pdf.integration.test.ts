@@ -194,7 +194,11 @@ const invoiceFeature = defineFeature(FEATURE, (r) => {
   r.writeHandler(
     defineWriteHandler({
       name: "generate-photos",
-      schema: z.object({ photos: z.array(z.string()) }),
+      schema: z.object({
+        photos: z.array(
+          z.union([z.string(), z.object({ fileRefId: z.string(), caption: z.string() })]),
+        ),
+      }),
       access: { roles: ["TenantAdmin"] },
       beforeTransaction: async (event, ctx) =>
         renderPdfBeforeTransaction(ctx, {
@@ -967,6 +971,27 @@ describe("record images in document-pdf", () => {
     expect(dataImages(html)).toHaveLength(1);
     expect(html).toContain('class="kumiko-doc-images"');
     for (const id of photos) expect(html).not.toContain(id);
+  });
+
+  test("a mixed array of ids and caption objects renders one captioned figure, deduplicated", async () => {
+    const plain = await uploadFile(adminTenantA, "plain.png", "image/png", PNG_BYTES);
+    const captioned = await uploadFile(adminTenantA, "kitchen.png", "image/png", PNG_BYTES);
+    await stack.http.writeOk<Generated>(
+      PHOTO_GENERATE,
+      {
+        photos: [
+          plain,
+          { fileRefId: captioned, caption: "Küche" },
+          { fileRefId: captioned, caption: "Küche" },
+        ],
+      },
+      adminTenantA,
+    );
+
+    const { html } = onlyStubRequest();
+    expect(dataImages(html)).toHaveLength(2);
+    expect(html.match(/<figure class="kumiko-doc-image">/g)).toHaveLength(1);
+    expect(html).toContain("<figcaption>Küche</figcaption>");
   });
 
   test("a condition on an images variable shows its block only when images resolve", async () => {

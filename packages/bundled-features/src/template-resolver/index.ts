@@ -12,6 +12,10 @@ export {
   collectDocumentImageVariables,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
+  type DocumentImageEntry,
+  type DocumentImageValue,
+  type DocumentRecordImage,
+  documentImageEntriesOf,
   toResourceDataUri,
 } from "./compile-document-body.ts";
 export {

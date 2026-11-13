@@ -20,6 +20,7 @@ export const PRINT_STYLE_SELECTORS = [
   "tr[data-line-below]",
   "[data-background]",
   "[data-colwidth]",
+  "div[data-image-columns]",
   "img[data-bleed]",
   "img[data-width-mm]",
   "img[data-align]",
