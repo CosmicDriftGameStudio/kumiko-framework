@@ -5,6 +5,7 @@ import {
   collectDocumentImageVariables,
   collectDocumentResourceKeys,
   compileDocumentBodyToHandlebars,
+  documentImageEntriesOf,
   toResourceDataUri,
 } from "../compile-document-body";
 import { mailLayoutAppearance } from "../layout-appearance";
@@ -331,12 +332,46 @@ describe("compileDocumentBodyToHandlebars :: images block", () => {
   test("renders one data-URI img per entry of the resolver", () => {
     const out = render(block, {
       recordImagesSrc: (name) =>
-        name === "photos" ? ["data:image/png;base64,AA", "data:image/png;base64,BB"] : [],
+        name === "photos"
+          ? [{ src: "data:image/png;base64,AA" }, { src: "data:image/png;base64,BB" }]
+          : [],
     });
     expect(out).toContain('class="kumiko-doc-images"');
     expect(out.match(/<img src="data:image\/png;base64,/g)).toHaveLength(2);
     expect(out).toContain('alt=""');
     expect(out).not.toContain("data-images");
+  });
+
+  test("a captioned entry becomes a figure with the caption as escaped text, others stay img", () => {
+    const out = render(block, {
+      recordImagesSrc: () => [
+        { src: "data:image/png;base64,AA", caption: '<b>x</b>" onerror="y' },
+        { src: "data:image/png;base64,BB" },
+      ],
+    });
+    expect(out).toContain('<figure class="kumiko-doc-image">');
+    expect(out).toContain('<figcaption>&lt;b&gt;x&lt;/b&gt;" onerror="y</figcaption>');
+    expect(out).not.toContain("<b>x</b></figcaption>");
+    expect(out).toContain('alt="<b>x</b>&quot; onerror=&quot;y"');
+    expect(out.match(/<figure/g)).toHaveLength(1);
+    expect(out.match(/<img/g)).toHaveLength(2);
+  });
+
+  test("a caption is capped at 200 characters", () => {
+    const out = render(block, {
+      recordImagesSrc: () => [{ src: "data:image/png;base64,AA", caption: "a".repeat(250) }],
+    });
+    expect(out).toContain(`<figcaption>${"a".repeat(200)}</figcaption>`);
+    expect(out).not.toContain("a".repeat(201));
+  });
+
+  test("data-image-columns sets the grid columns, also as placeholder width", () => {
+    const one = '<div data-images="photos" data-image-columns="1"></div>';
+    const out = render(one, { recordImagesSrc: () => [] });
+    expect(out).toContain("grid-template-columns:repeat(1,1fr)");
+    expect(out).not.toContain("data-image-columns");
+    expect(render(one, { recordImagesPlaceholder: true })).toContain("width:100%");
+    expect(render(block, { recordImagesSrc: () => [] })).not.toContain("grid-template-columns");
   });
 
   test("renders an empty container without images and a single box as placeholder", () => {
@@ -423,5 +458,25 @@ describe("print styles", () => {
     );
     expect(out).not.toContain(" style=");
     expect(out).not.toContain("kumiko-frame");
+  });
+});
+
+describe("documentImageEntriesOf", () => {
+  test("reads strings and caption objects, mixed, and drops invalid entries", () => {
+    expect(
+      documentImageEntriesOf([
+        "a",
+        { fileRefId: "b", caption: "Kitchen" },
+        { fileRefId: "c", caption: "  " },
+        { fileRefId: 5 },
+        42,
+        null,
+      ]),
+    ).toEqual([{ fileRefId: "a" }, { fileRefId: "b", caption: "Kitchen" }, { fileRefId: "c" }]);
+  });
+
+  test("a single string stays one entry and anything else is empty", () => {
+    expect(documentImageEntriesOf("a")).toEqual([{ fileRefId: "a" }]);
+    expect(documentImageEntriesOf(undefined)).toEqual([]);
   });
 });

@@ -1,10 +1,11 @@
 import type { TemplateVariableDef, TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Element as ScanElement } from "happy-dom";
 import { isResourceImageContentType } from "../shared/index.ts";
 import { appendStyle, applyDocumentPrintStyles } from "./compile-document-styles.ts";
 import { rewriteStepsBlock } from "./compile-steps-block.ts";
 import { conditionScopeElement, withParsedDocument } from "./document-sanitizer.ts";
+import { readDocumentImageColumns } from "./web/document-images.ts";
 import {
   DOCUMENT_CONDITION_ATTRIBUTE,
   DOCUMENT_TEXT_ALIGNMENTS,
@@ -219,6 +220,33 @@ function neutralizeBraces(html: string): string {
   return html.replace(/[{}]/g, (brace) => (brace === "{" ? "&#123;" : "&#125;"));
 }
 
+// One entry of an images variable: a bare fileRefId or an object with an optional caption.
+export type DocumentImageValue = string | { readonly fileRefId: string; readonly caption?: string };
+
+export type DocumentImageEntry = { readonly fileRefId: string; readonly caption?: string };
+
+export type DocumentRecordImage = { readonly src: string; readonly caption?: string };
+
+const MAX_IMAGE_CAPTION_LENGTH = 200;
+
+function imageEntryOf(value: unknown): DocumentImageEntry | null {
+  if (typeof value === "string") return { fileRefId: value };
+  if (!isPlainObject(value) || typeof value["fileRefId"] !== "string") return null;
+  const caption = value["caption"];
+  return typeof caption === "string" && caption.trim() !== ""
+    ? { fileRefId: value["fileRefId"], caption }
+    : { fileRefId: value["fileRefId"] };
+}
+
+// Invalid entries drop silently; a single string value stays valid.
+export function documentImageEntriesOf(value: unknown): readonly DocumentImageEntry[] {
+  const entries = Array.isArray(value) ? value : [value];
+  return entries.flatMap((entry) => {
+    const parsed = imageEntryOf(entry);
+    return parsed === null ? [] : [parsed];
+  });
+}
+
 export type CompileDocumentBodyOptions = {
   // Returns the src for an `img[data-resource]` key; undefined drops the image.
   readonly resourceSrc?: (key: string) => string | undefined;
@@ -240,7 +268,7 @@ export type CompileDocumentBodyOptions = {
   // Bar color of reached stages in a steps block; ignored unless it is a #rrggbb hex.
   readonly stepsColor?: string;
   // Data URIs of the record's images for the images block bound to `variable`.
-  readonly recordImagesSrc?: (variable: string) => readonly string[];
+  readonly recordImagesSrc?: (variable: string) => readonly DocumentRecordImage[];
   // Previews and drafts never read the record's files; each images block shows one neutral box.
   readonly recordImagesPlaceholder?: boolean;
 };
@@ -310,19 +338,35 @@ function rewriteImagesBlock(
     return;
   }
   const document = element.ownerDocument;
+  const columns = readDocumentImageColumns(element.getAttribute("data-image-columns"));
   element.removeAttribute("data-images");
+  element.removeAttribute("data-image-columns");
   if (options.recordImagesPlaceholder === true) {
     element.setAttribute("class", "kumiko-doc-image-placeholder");
-    element.setAttribute("style", IMAGES_PLACEHOLDER_STYLE);
+    const widthStyle = columns === null ? "" : `;width:${Math.floor(100 / Number(columns))}%`;
+    element.setAttribute("style", `${IMAGES_PLACEHOLDER_STYLE}${widthStyle}`);
     // skip: preview and drafts never resolve record images
     return;
   }
   element.setAttribute("class", "kumiko-doc-images");
-  for (const src of options.recordImagesSrc?.(name) ?? []) {
+  if (columns !== null) {
+    element.setAttribute("style", `grid-template-columns:repeat(${columns},1fr)`);
+  }
+  for (const { src, caption } of options.recordImagesSrc?.(name) ?? []) {
     const image = document.createElement("img");
     image.setAttribute("src", src);
-    image.setAttribute("alt", "");
-    element.append(image);
+    const text = caption?.trim().slice(0, MAX_IMAGE_CAPTION_LENGTH) ?? "";
+    image.setAttribute("alt", text);
+    if (text === "") {
+      element.append(image);
+      continue;
+    }
+    const figure = document.createElement("figure");
+    figure.setAttribute("class", "kumiko-doc-image");
+    const figcaption = document.createElement("figcaption");
+    figcaption.append(document.createTextNode(text));
+    figure.append(image, figcaption);
+    element.append(figure);
   }
 }
 

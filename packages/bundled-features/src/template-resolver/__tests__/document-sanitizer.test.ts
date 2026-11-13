@@ -459,6 +459,20 @@ describe("images block", () => {
       sanitizeTemplateBody({ ...input("document-pdf"), content: '<div data-images="a b"></div>' }),
     ).not.toEqual({ ok: true, content: '<div data-images="a b"></div>' });
   });
+
+  test("keeps data-image-columns of 1, 2 and 3 and drops any other value", () => {
+    const withColumns = (value: string) => ({
+      ...input("document-pdf"),
+      content: `<div data-images="photos" data-image-columns="${value}"></div>`,
+    });
+    for (const value of ["1", "2", "3"]) {
+      expect(sanitizeTemplateBody(withColumns(value))).toEqual({
+        ok: true,
+        content: `<div data-images="photos" data-image-columns="${value}"></div>`,
+      });
+    }
+    expect(sanitizeTemplateBody(withColumns("4"))).toEqual({ ok: true, content: images });
+  });
 });
 
 describe("print styling attributes", () => {

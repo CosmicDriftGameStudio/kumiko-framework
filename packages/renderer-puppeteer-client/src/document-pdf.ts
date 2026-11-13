@@ -24,6 +24,8 @@ import {
   compileDocumentBodyToHandlebars,
   createTemplateResolverApi,
   DOCUMENT_LINE_VARIABLE,
+  type DocumentRecordImage,
+  documentImageEntriesOf,
   documentLinePt,
   effectivePdfLayout,
   flattenAddressSenderLine,
@@ -115,7 +117,12 @@ export const PRINT_CSS = [
   `.kumiko-frame[data-frame-preset=address]>p{${addressParagraphCss(false)}}`,
   ".kumiko-doc-images{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}",
   ".kumiko-doc-images:empty{display:none}",
-  ".kumiko-doc-images img{width:100%;break-inside:avoid;page-break-inside:avoid}",
+  ".kumiko-doc-images figure,.kumiko-doc-images img{width:100%;break-inside:avoid;page-break-inside:avoid}",
+  ".kumiko-doc-image{margin:0}",
+  ".kumiko-doc-image figcaption{font-size:8pt;color:#555;margin-top:2px;line-height:1.3}",
+  "h1,h2,h3,h4{break-after:avoid;page-break-after:avoid}",
+  "p,li,table,figure{break-inside:avoid;page-break-inside:avoid}",
+  "p,li{orphans:3;widows:3}",
 ].join("");
 
 const EMPTY_REGIONS: LayoutRegions = { header: "", signature: "", footer: "" };
@@ -254,13 +261,6 @@ async function loadResourceDataUris(
   return dataUris;
 }
 
-function fileRefIdsOf(value: unknown): readonly string[] {
-  if (typeof value === "string") return [value];
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
-    : [];
-}
-
 type RecordImage = { readonly dataUri: string; readonly size: number };
 
 // Own tenant only (no system files): the ids come from the app's record, so a foreign or
@@ -291,8 +291,8 @@ async function loadRecordImageDataUris(
   ctx: RendererContext,
   variables: Readonly<Record<string, unknown>>,
   imageVariableNames: readonly string[],
-): Promise<ReadonlyMap<string, readonly string[]>> {
-  const dataUrisByVariable = new Map<string, readonly string[]>();
+): Promise<ReadonlyMap<string, readonly DocumentRecordImage[]>> {
+  const dataUrisByVariable = new Map<string, readonly DocumentRecordImage[]>();
   const { filesForTenant } = ctx;
   if (filesForTenant === undefined || imageVariableNames.length === 0) return dataUrisByVariable;
   const maxBytes = await readTemplateResourceMaxBytes(ctx.config, ctx.registry);
@@ -300,8 +300,8 @@ async function loadRecordImageDataUris(
   let loadedCount = 0;
   let loadedBytes = 0;
   for (const name of imageVariableNames) {
-    const dataUris: string[] = [];
-    for (const fileRefId of fileRefIdsOf(variables[name])) {
+    const images: DocumentRecordImage[] = [];
+    for (const { fileRefId, caption } of documentImageEntriesOf(variables[name])) {
       if (seenIds.has(fileRefId)) continue;
       if (seenIds.size >= MAX_RECORD_IMAGE_LOOKUPS) break;
       seenIds.add(fileRefId);
@@ -315,9 +315,9 @@ async function loadRecordImageDataUris(
       if (image === null) continue;
       loadedCount += 1;
       loadedBytes += image.size;
-      dataUris.push(image.dataUri);
+      images.push({ src: image.dataUri, ...(caption !== undefined && { caption }) });
     }
-    dataUrisByVariable.set(name, dataUris);
+    dataUrisByVariable.set(name, images);
   }
   return dataUrisByVariable;
 }
@@ -332,12 +332,14 @@ function imagesAsPresenceFlags(
   variables: Readonly<Record<string, unknown>>,
   definitions: TemplateVariables,
   recordImages: RecordImages,
-  recordImageUris: ReadonlyMap<string, readonly string[]>,
+  recordImageUris: ReadonlyMap<string, readonly DocumentRecordImage[]>,
 ): Record<string, unknown> {
   const hasImages = (name: string): boolean => {
     if (recordImages === "placeholder") return true;
     const resolved = recordImageUris.get(name);
-    return resolved !== undefined ? resolved.length > 0 : fileRefIdsOf(variables[name]).length > 0;
+    return resolved !== undefined
+      ? resolved.length > 0
+      : documentImageEntriesOf(variables[name]).length > 0;
   };
   return Object.fromEntries(
     Object.entries(variables).map(([name, value]) => [
@@ -560,7 +562,7 @@ async function assembleDocument(
               isImagesVariable(variableDefinitions, name),
             ),
           )
-        : new Map<string, readonly string[]>();
+        : new Map<string, readonly DocumentRecordImage[]>();
     const context = {
       ...imagesAsPresenceFlags(variables, variableDefinitions, recordImages, recordImageUris),
       tenantName,

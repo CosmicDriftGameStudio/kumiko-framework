@@ -138,3 +138,15 @@ describe("layoutAppearanceCss tableStyle header", () => {
     expect(css).not.toContain("td{border-bottom");
   });
 });
+
+describe("PRINT_CSS page breaks", () => {
+  test("keeps headings with the following text and blocks in one piece", () => {
+    expect(PRINT_CSS).toContain("h1,h2,h3,h4{break-after:avoid;page-break-after:avoid}");
+    expect(PRINT_CSS).toContain("p,li,table,figure{break-inside:avoid;page-break-inside:avoid}");
+    expect(PRINT_CSS).toContain("p,li{orphans:3;widows:3}");
+  });
+
+  test("styles image captions", () => {
+    expect(PRINT_CSS).toContain(".kumiko-doc-image figcaption{font-size:8pt");
+  });
+});
