@@ -9,7 +9,9 @@ import { withDerivedValues } from "../components/form-derivation-patch.ts";
 import { RenderEdit } from "../components/render-edit.tsx";
 import { useDispatcher } from "../context/dispatcher-context.tsx";
 import { rendererWarn } from "../dev-console.ts";
+import { stripUntouchedEmptyStrings } from "../headless/form/form-controller.ts";
 import {
+  type FormSnapshot,
   type FormValues,
   resolveFieldText,
   type SubmitResult,
@@ -45,7 +47,7 @@ import {
 } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
-import { type NavApi, useInitialValuesHandoff, useNav } from "./nav.tsx";
+import { type NavApi, useInitialValuesHandoff, useNav, useSubmitThroughHandoff } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
@@ -331,6 +333,22 @@ export function ActionFormBody({
   const pendingHandoff = useInitialValuesHandoff(screen.id);
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
   const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
+  const pendingSubmitThrough = useSubmitThroughHandoff(screen.id);
+  const submitThrough = onSuccess === undefined ? pendingSubmitThrough : undefined;
+  const buildSubmitThroughPayload = useCallback(
+    (snapshot: FormSnapshot<FormValues>): unknown =>
+      submitThrough === undefined
+        ? undefined
+        : {
+            ...submitThrough.wrap,
+            [submitThrough.valuesKey]: stripUntouchedEmptyStrings(
+              snapshot.values,
+              snapshot.initial,
+              new Set(),
+            ),
+          },
+    [submitThrough],
+  );
   // This screen has no entity, so a money field here declares its own currency
   // source (boot-enforced) — without one the form would seed a bare
   // `0` the handler's schema rejects. When a tenant-declared field's config
@@ -615,8 +633,12 @@ export function ActionFormBody({
               );
             },
           })}
-        writeCommand={screen.handler}
+        writeCommand={submitThrough?.handler ?? screen.handler}
         payloadMode="values"
+        {...(submitThrough !== undefined && {
+          buildPayload: buildSubmitThroughPayload,
+          serverFieldPathPrefix: `${submitThrough.valuesKey}.`,
+        })}
         onSubmit={handleSubmitted}
         {...(handleCancel !== undefined && { onCancel: handleCancel })}
         onDirtyChange={handleDirtyChange}
