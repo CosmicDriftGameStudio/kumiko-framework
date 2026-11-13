@@ -4,7 +4,7 @@
 "@cosmicdrift/kumiko-framework": minor
 ---
 
-`useNavigateWithInitialValues` takes `{ submitThrough: { handler, wrap, valuesKey } }` so an app can open a prefilled actionForm whose submit goes through another write handler (`{ ...wrap, [valuesKey]: values }`) while server field errors still land on the form's fields. An actionForm preview list column may have `type: "file"` and then shows the file behind a FileRef id with name and download link.
+`useNavigateWithInitialValues` takes `{ submitThrough: { handler, wrap, valuesKey } }` so an app can open a prefilled actionForm whose submit goes through another write handler (`{ ...wrap, [valuesKey]: values }`) while server field errors still land on the form's fields. The wrapper handler must return the inner handler's response data unchanged (extra fields allowed), because the screen's redirect id field and success facts are read from it. An actionForm preview list column may have `type: "file"` and then shows the file behind a FileRef id with name and download link.
 
 <!-- kumiko-changes
 feature: renderer

@@ -309,6 +309,25 @@ export function createTaskBoardFeature(
       },
     });
 
+    // Target of `useNavigateWithInitialValues(screen, values, { submitThrough })`: the form
+    // submits `{ ...wrap, [valuesKey]: values }` here. The wrapper returns the inner data
+    // unchanged (plus `via`) because the form reads its redirect id and success facts from it.
+    r.writeHandler({
+      name: "task:set-status-via",
+      schema: z.object({
+        via: z.string(),
+        values: setStatusInput.extend({ note: z.string().optional() }),
+      }),
+      access: openAccess.access,
+      handler: async (event, ctx) => {
+        const inner = await ctx.dispatch.write("task-board:write:task:set-status", {
+          ...event.payload.values,
+        });
+        if (!inner.isSuccess) return inner;
+        return { isSuccess: true as const, data: { ...inner.data, via: event.payload.via } };
+      },
+    });
+
     // The preview runs the same plan the write handler runs, so the two cannot drift apart.
     r.queryHandler({
       name: "task:set-status-preview",
@@ -322,7 +341,12 @@ export function createTaskBoardFeature(
         if ("missingId" in plan) throw new NotFoundError("task");
         return {
           count: plan.rows.filter((row) => row.before !== row.after).length,
-          tasks: plan.rows.map(({ title, before, after }) => ({ title, before, after })),
+          tasks: plan.rows.map(({ title, before, after }) => ({
+            title,
+            before,
+            after,
+            attachmentId: null,
+          })),
         };
       },
     });
@@ -355,6 +379,8 @@ export function createTaskBoardFeature(
             { field: "title", label: "Task" },
             { field: "before", label: "Now" },
             { field: "after", label: "New" },
+            // A FileRef id (null here) is shown with file name and download link.
+            { field: "attachmentId", label: "Attachment", type: "file" },
           ],
         },
       },

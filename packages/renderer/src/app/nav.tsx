@@ -203,7 +203,9 @@ export type NavProviderProps = {
 
 /** Routes an actionForm's submit through another write handler: the form's
  *  values are sent as `{ ...wrap, [valuesKey]: values }` to `handler`. Plain data
- *  so it can travel with the handoff. */
+ *  so it can travel with the handoff. The wrapper handler must return the inner
+ *  handler's response data unchanged (extra fields allowed): the screen's
+ *  `redirect.idField` and `successFacts` are read from `result.data`. */
 export type SubmitThrough = {
   readonly handler: string;
   readonly wrap: Readonly<Record<string, unknown>>;
@@ -272,7 +274,7 @@ export function useNavigateWithInitialValues(): (
   );
 }
 
-function useHandoffForScreen(screenId: string): InitialValuesHandoff | undefined {
+export function useHandoffForScreen(screenId: string): InitialValuesHandoff | undefined {
   const handoffSlot = useContext(InitialValuesHandoffContext);
   const [handoff] = useState(() => {
     const pending = handoffSlot?.current;
@@ -292,10 +294,6 @@ export function useInitialValuesHandoff(
   screenId: string,
 ): Readonly<Record<string, unknown>> | undefined {
   return useHandoffForScreen(screenId)?.values;
-}
-
-export function useSubmitThroughHandoff(screenId: string): SubmitThrough | undefined {
-  return useHandoffForScreen(screenId)?.submitThrough;
 }
 
 /** Like useNav, but undefined without a provider, for views that only offer

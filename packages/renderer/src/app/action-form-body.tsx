@@ -46,7 +46,7 @@ import {
 } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
 import { hiddenRequiredFieldsFilled, layoutFieldNames } from "./layout-fields.ts";
-import { type NavApi, useInitialValuesHandoff, useNav, useSubmitThroughHandoff } from "./nav.tsx";
+import { type NavApi, useHandoffForScreen, useNav } from "./nav.tsx";
 import { lastSegment } from "./qn.ts";
 import { qualifyScreenId } from "./qualify-screen-id.ts";
 import { QueryLoadingBanner } from "./query-state-banners.tsx";
@@ -329,11 +329,11 @@ export function ActionFormBody({
     [submittableFields],
   );
   const synthScreen = useMemo(() => synthesizeActionFormScreen(screen), [screen]);
-  const pendingHandoff = useInitialValuesHandoff(screen.id);
+  const pendingHandoff = useHandoffForScreen(screen.id);
   // A drawer-hosted form is not a navigation target, so it never takes a handoff.
-  const handoffValues = onSuccess === undefined ? pendingHandoff : undefined;
-  const pendingSubmitThrough = useSubmitThroughHandoff(screen.id);
-  const submitThrough = onSuccess === undefined ? pendingSubmitThrough : undefined;
+  const handoff = onSuccess === undefined ? pendingHandoff : undefined;
+  const handoffValues = handoff?.values;
+  const submitThrough = handoff?.submitThrough;
   const buildSubmitThroughPayload = useCallback(
     (_snapshot: FormSnapshot<FormValues>, shapedValues: unknown): unknown =>
       submitThrough === undefined

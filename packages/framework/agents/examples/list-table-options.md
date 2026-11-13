@@ -35,7 +35,15 @@ the `table` block renders and behaves as before.
   updates every id in one write, bounded by `.max(MAX_BULK_SELECTION)` and
   reading each id through the tenant-scoped executor. The form has a `preview`:
   the `task:set-status-preview` query returns the affected tasks with old and
-  new status from the same plan function the handler applies.
+  new status from the same plan function the handler applies. A preview list
+  column with `type: "file"` shows a FileRef id as file name and download link.
+- `submitThrough`: a screen can open the form with
+  `useNavigateWithInitialValues(screen, values, { submitThrough: { handler:
+  "task-board:write:task:set-status-via", wrap: { via: "inbox" }, valuesKey:
+  "values" } })`. The submit then goes to `task:set-status-via` as
+  `{ via, values }`; that handler calls `task:set-status` through
+  `ctx.dispatch.write` and returns its data unchanged plus `via`, because the
+  form reads its redirect and success facts from the response.
 - `table.grouping`: the server groups the list by status; each header shows the
   group's count and estimate sum, "done" starts collapsed and the view menu
   offers grouping by priority or none.
@@ -359,6 +367,33 @@ describe("form bulk action handler", () => {
     ]);
   });
 
+  test("the submitThrough wrapper applies the inner write and passes its data through", async () => {
+    const created = await Promise.all(
+      ["Via A", "Via B"].map((title) =>
+        stack.http.writeOk<{ data: { id: string } }>(
+          "task-board:write:task:create",
+          { title },
+          user,
+        ),
+      ),
+    );
+    const taskIds = created.map((task) => task.data.id);
+    const result = await stack.http.writeOk<{ data: { count: number; via: string } }>(
+      "task-board:write:task:set-status-via",
+      { via: "inbox", values: { taskIds, status: "done" } },
+      user,
+    );
+    expect(result.data).toEqual({ count: 2, via: "inbox" });
+    const list = await stack.http.queryOk<{ rows: { title: string; status: string }[] }>(
+      "task-board:query:task:list",
+      { sort: "title" },
+      user,
+    );
+    expect(
+      list.rows.filter((row) => row.title.startsWith("Via")).map((row) => row.status),
+    ).toEqual(["done", "done"]);
+  });
+
   test("the preview query shows the same plan the handler applies", async () => {
     const created = await Promise.all(
       ["Plan A", "Plan B"].map((title) =>
@@ -372,13 +407,13 @@ describe("form bulk action handler", () => {
     const taskIds = created.map((task) => task.data.id);
     const preview = await stack.http.queryOk<{
       count: number;
-      tasks: { title: string; before: string; after: string }[];
+      tasks: { title: string; before: string; after: string; attachmentId: null }[];
     }>("task-board:query:task:set-status-preview", { taskIds, status: "blocked" }, user);
     expect(preview).toEqual({
       count: 1,
       tasks: [
-        { title: "Plan A", before: "open", after: "blocked" },
-        { title: "Plan B", before: "blocked", after: "blocked" },
+        { title: "Plan A", before: "open", after: "blocked", attachmentId: null },
+        { title: "Plan B", before: "blocked", after: "blocked", attachmentId: null },
       ],
     });
   });
@@ -722,6 +757,25 @@ export function createTaskBoardFeature(
       },
     });
 
+    // Target of `useNavigateWithInitialValues(screen, values, { submitThrough })`: the form
+    // submits `{ ...wrap, [valuesKey]: values }` here. The wrapper returns the inner data
+    // unchanged (plus `via`) because the form reads its redirect id and success facts from it.
+    r.writeHandler({
+      name: "task:set-status-via",
+      schema: z.object({
+        via: z.string(),
+        values: setStatusInput.extend({ note: z.string().optional() }),
+      }),
+      access: openAccess.access,
+      handler: async (event, ctx) => {
+        const inner = await ctx.dispatch.write("task-board:write:task:set-status", {
+          ...event.payload.values,
+        });
+        if (!inner.isSuccess) return inner;
+        return { isSuccess: true as const, data: { ...inner.data, via: event.payload.via } };
+      },
+    });
+
     // The preview runs the same plan the write handler runs, so the two cannot drift apart.
     r.queryHandler({
       name: "task:set-status-preview",
@@ -735,7 +789,12 @@ export function createTaskBoardFeature(
         if ("missingId" in plan) throw new NotFoundError("task");
         return {
           count: plan.rows.filter((row) => row.before !== row.after).length,
-          tasks: plan.rows.map(({ title, before, after }) => ({ title, before, after })),
+          tasks: plan.rows.map(({ title, before, after }) => ({
+            title,
+            before,
+            after,
+            attachmentId: null,
+          })),
         };
       },
     });
@@ -768,6 +827,8 @@ export function createTaskBoardFeature(
             { field: "title", label: "Task" },
             { field: "before", label: "Now" },
             { field: "after", label: "New" },
+            // A FileRef id (null here) is shown with file name and download link.
+            { field: "attachmentId", label: "Attachment", type: "file" },
           ],
         },
       },

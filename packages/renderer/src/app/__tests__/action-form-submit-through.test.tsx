@@ -112,6 +112,7 @@ type Opener = {
   ) => void;
   go: (screenId: string) => void;
   initialValues: Record<string, string>;
+  navigations: NavTarget[];
 };
 
 function OpenerHook({ opener }: { readonly opener: Opener }): ReactNode {
@@ -135,6 +136,7 @@ function App({
   const nav: NavApi = {
     route: { screenId },
     navigate: (target: NavTarget) => {
+      opener.navigations.push(target);
       if ("screenId" in target) setScreenId(target.screenId);
     },
     replace: () => {},
@@ -154,7 +156,11 @@ function App({
             {screenId === "compose" && (
               <KumikoScreen
                 schema={
-                  { featureName: "shop", entities: {}, screens: [screenDef] } as FeatureSchema
+                  {
+                    featureName: "shop",
+                    entities: {},
+                    screens: [screenDef, { id: "detail", type: "entityEdit", entity: "item" }],
+                  } as FeatureSchema
                 }
                 qn="shop:screen:compose"
               />
@@ -176,7 +182,7 @@ function mount(
   readonly view: ReturnType<typeof render>;
 } {
   const writes: Write[] = [];
-  const opener: Opener = { offer: () => {}, go: () => {}, initialValues };
+  const opener: Opener = { offer: () => {}, go: () => {}, initialValues, navigations: [] };
   const view = render(
     <App opener={opener} dispatcher={makeDispatcher(writes, respond)} screenDef={screenDef} />,
   );
@@ -248,6 +254,41 @@ describe("actionForm submitThrough", () => {
 
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]?.type).toBe("shop:write:compose");
+  });
+});
+
+describe("actionForm submitThrough response data", () => {
+  const wrapperResponse = { isSuccess: true, data: { id: "rec-7", count: 917, actionId: "a1" } };
+
+  test("the redirect reads its id from the wrapper handler's data", async () => {
+    const { opener, view } = mount(() => wrapperResponse, {
+      ...screen,
+      redirect: { screen: "detail", idFrom: "id" },
+    });
+    act(() => opener.offer("compose", { submitThrough }));
+    await waitFor(() => view.getByTestId("input-subject"));
+    opener.navigations.length = 0;
+
+    fireEvent.submit(view.getByTestId("form"));
+
+    await waitFor(() =>
+      expect(opener.navigations).toContainEqual(
+        expect.objectContaining({ screenId: "detail", entityId: "rec-7" }),
+      ),
+    );
+  });
+
+  test("successFacts read their value from the wrapper handler's data", async () => {
+    const { opener, view } = mount(() => wrapperResponse, {
+      ...screen,
+      successFacts: [{ field: "count", label: "shop.fact.count" }],
+    });
+    act(() => opener.offer("compose", { submitThrough }));
+    await waitFor(() => view.getByTestId("input-subject"));
+
+    fireEvent.submit(view.getByTestId("form"));
+
+    await waitFor(() => expect(view.container.textContent).toContain("shop.fact.count: 917"));
   });
 });
 
