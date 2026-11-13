@@ -8,7 +8,7 @@
 
 <!-- kumiko-changes
 feature: renderer
-type: feature
+type: improvement
 title: Submit an actionForm through another write handler
 detail: `useNavigateWithInitialValues(target, values, { submitThrough: { handler, wrap, valuesKey } })` opens the prefilled actionForm as usual but submits `{ ...wrap, [valuesKey]: values }` to `handler`. Server field errors under `<valuesKey>.<field>` appear at the field. entityEdit and secretMint ignore the option. A preview list column may have `type: "file"` (FileRef id shown with name and download link).
 -->
