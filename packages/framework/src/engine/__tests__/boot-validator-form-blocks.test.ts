@@ -171,6 +171,20 @@ describe("validateBoot — form blocks (aiAssist, valueChips, fieldDescriptions)
     expect(withSection("ghost")).toEqual(["action-form-preview/section-unknown"]);
   });
 
+  test("preview list accepts a file column", () => {
+    expect(
+      bootRuleIds(
+        actionFormFeature({
+          layoutFields: ["note"],
+          preview: {
+            query: "shop:query:draft",
+            list: { field: "rows", columns: [{ field: "doc", label: "k.doc", type: "file" }] },
+          },
+        }),
+      ),
+    ).toEqual([]);
+  });
+
   test("aiAssist with neither chips nor prompt", () => {
     expect(
       bootRuleIds(
