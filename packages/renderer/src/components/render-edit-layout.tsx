@@ -94,8 +94,7 @@ function showsIntroBox<TValues extends FormValues, TCtx>({
     layout.titleInShell &&
     !state.insideDrawer &&
     titles.formSubtitle !== undefined &&
-    !titles.stepRail &&
-    !titles.titleInSettingsHeader
+    !titles.stepRail
   );
 }
 

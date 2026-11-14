@@ -2,7 +2,7 @@
 "@cosmicdrift/kumiko-renderer": patch
 ---
 
-When a form's title sits in the shell header, its subtitle (`screen.description` or `screen:<id>.subtitle`) renders as an info banner (`testId="render-edit-intro"`) at the top of the form instead of a bare muted line under the missing title. The "All fields are required." hint moves into that banner. Forms without a shell header, drawers, wizards with a step rail and settings headers keep the old layout.
+When a form's title sits in the shell header, its subtitle (`screen.description` or `screen:<id>.subtitle`) renders as an info banner (`testId="render-edit-intro"`) at the top of the form instead of a bare muted line under the missing title. The "All fields are required." hint moves into that banner. Forms without a shell header, drawers and wizards with a step rail keep the old layout.
 
 <!-- kumiko-changes
 feature: renderer
