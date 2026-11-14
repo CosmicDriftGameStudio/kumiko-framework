@@ -83,6 +83,40 @@ function renderWizardSideRail<TValues extends FormValues, TCtx>(
   );
 }
 
+// With the title in the shell header the subtitle is the form's intro. As a bare muted line it
+// read like a leftover, so it gets a box of its own, required hint included.
+function showsIntroBox<TValues extends FormValues, TCtx>({
+  engine: { state },
+  layout,
+  titles,
+}: RenderEditModel<TValues, TCtx>): boolean {
+  return (
+    layout.titleInShell &&
+    !state.insideDrawer &&
+    titles.formSubtitle !== undefined &&
+    !titles.stepRail
+  );
+}
+
+function renderIntroBox<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): ReactNode {
+  const { Banner } = model.engine.state.primitives;
+  return (
+    <Banner variant="primary" icon="info" testId="render-edit-intro">
+      {model.titles.formSubtitle}
+      {model.engine.sections.showsAllRequiredHint && <> {renderAllRequiredHint(model)}</>}
+    </Banner>
+  );
+}
+
+function showsSubtitleUnderTitle<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): boolean {
+  const { titles } = model;
+  return !titles.stepRail && !titles.titleInSettingsHeader && !showsIntroBox(model);
+}
+
 function buildFormHeadingProps<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
 ) {
@@ -95,8 +129,7 @@ function buildFormHeadingProps<TValues extends FormValues, TCtx>(
       !titles.titleInSettingsHeader &&
       !titles.titleInHeaderRegion && { title: titles.formTitle }),
     ...(titles.formSubtitle !== undefined &&
-      !titles.stepRail &&
-      !titles.titleInSettingsHeader && { subtitle: titles.formSubtitle }),
+      showsSubtitleUnderTitle(model) && { subtitle: titles.formSubtitle }),
     ...(layout.isScreenForm && { screenForm: true }),
     ...(unsavedCount !== undefined && (unsavedCount > 0 || hasDirtyFooter) && { unsavedCount }),
     ...(titles.sectionNavItems.length > 0 && { sectionNav: titles.sectionNavItems }),
@@ -157,8 +190,12 @@ export function renderEditLayout<TValues extends FormValues, TCtx>(
           <AllFieldsRequiredProvider
             value={sections.showsAllRequiredHint || props.screen.layout.hideRequiredMarker === true}
           >
+            {showsIntroBox(model) && renderIntroBox(model)}
             {props.leadContent}
-            {sections.showsAllRequiredHint && !state.insideDrawer && renderAllRequiredHint(model)}
+            {sections.showsAllRequiredHint &&
+              !state.insideDrawer &&
+              !showsIntroBox(model) &&
+              renderAllRequiredHint(model)}
             {renderDraftPicker(model)}
             {renderWizardProgress(model)}
             {state.isTabs && state.isStepped && renderTabStrip(model)}

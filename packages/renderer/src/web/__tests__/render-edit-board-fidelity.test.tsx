@@ -159,6 +159,30 @@ describe("RenderEdit board fidelity", () => {
     const menu = await screen.findByRole("menu");
     expect(within(menu).getAllByRole("menuitem")).toHaveLength(2);
   });
+
+  test("in the shell header slot, the description and the all-required hint share one intro box", () => {
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({})}>
+        <PageHeaderSlotProvider>
+          <ActionsHost />
+          <RenderEdit
+            screen={{ ...screenWith(["price", "reason"]), description: "Each owner gets a mail." }}
+            entity={allRequiredEntity}
+            featureName="orders"
+            initial={{}}
+            writeCommand="order:update"
+            fillScreenHeight
+          />
+        </PageHeaderSlotProvider>
+      </DispatcherProvider>,
+    );
+    const intro = screen.getByTestId("render-edit-intro");
+    expect(intro.textContent).toContain("Each owner gets a mail.");
+    expect(within(intro).getByTestId("render-edit-all-required-hint")).toBeTruthy();
+    expect(screen.getAllByTestId("render-edit-all-required-hint")).toHaveLength(1);
+    expect(screen.queryByTestId("render-edit-form-subtitle")).toBeNull();
+  });
+
   test("wizard footer: Back and Next carry chevrons, Delete and Cancel stay out of the footer", () => {
     const wizard: EntityEditScreenDefinition = {
       id: "orders:screen:order-wizard",
