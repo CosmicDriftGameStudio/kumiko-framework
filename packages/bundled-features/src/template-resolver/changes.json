@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.422.0",
+    "type": "improvement",
+    "title": "PDF image captions, image columns and page-break rules",
+    "detail": "Entries of an `images` variable can carry a caption (`{ fileRefId, caption }`), printed under the image as a figcaption. The Images block accepts `data-image-columns` 1, 2 or 3. The print CSS keeps headings with the next paragraph and avoids splitting paragraphs, list items, table rows and figures across pages; tables of up to 8 rows stay whole."
+  },
+  {
     "version": "0.420.0",
     "type": "improvement",
     "title": "Editor controls for letter features",
