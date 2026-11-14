@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.422.0
+
+### Minor Changes
+
+- 8231064: `useNavigateWithInitialValues` takes `{ submitThrough: { handler, wrap, valuesKey } }` so an app can open a prefilled actionForm whose submit goes through another write handler (`{ ...wrap, [valuesKey]: values }`) while server field errors still land on the form's fields. The wrapper handler must return the inner handler's response data unchanged (extra fields allowed), because the screen's redirect id field and success facts are read from it. An actionForm preview list column may have `type: "file"` and then shows the file behind a FileRef id with name and download link.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Submit an actionForm through another write handler
+  detail: `useNavigateWithInitialValues(target, values, { submitThrough: { handler, wrap, valuesKey } })` opens the prefilled actionForm as usual but submits `{ ...wrap, [valuesKey]: values }` to `handler`. Server field errors under `<valuesKey>.<field>` appear at the field. entityEdit and secretMint ignore the option. A preview list column may have `type: "file"` (FileRef id shown with name and download link).
+  -->
+
+### Patch Changes
+
+- bc3e5fd: When a form's title sits in the shell header, its subtitle (`screen.description` or `screen:<id>.subtitle`) renders as an info banner (`testId="render-edit-intro"`) at the top of the form instead of a bare muted line under the missing title. The "All fields are required." hint moves into that banner. Forms without a shell header, drawers and wizards with a step rail keep the old layout.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Form intro as an info banner
+  detail: With the title in the shell header, the form subtitle shows as a primary info banner at the top of the form, with the all-fields-required hint inside it. Other layouts are unchanged.
+  -->
+- Updated dependencies [8231064]
+  - @cosmicdrift/kumiko-types@0.422.0
+  - @cosmicdrift/kumiko-framework@0.422.0
+
 ## 0.421.0
 
 ### Patch Changes
