@@ -110,6 +110,13 @@ function renderIntroBox<TValues extends FormValues, TCtx>(
   );
 }
 
+function showsSubtitleUnderTitle<TValues extends FormValues, TCtx>(
+  model: RenderEditModel<TValues, TCtx>,
+): boolean {
+  const { titles } = model;
+  return !titles.stepRail && !titles.titleInSettingsHeader && !showsIntroBox(model);
+}
+
 function buildFormHeadingProps<TValues extends FormValues, TCtx>(
   model: RenderEditModel<TValues, TCtx>,
 ) {
@@ -122,9 +129,7 @@ function buildFormHeadingProps<TValues extends FormValues, TCtx>(
       !titles.titleInSettingsHeader &&
       !titles.titleInHeaderRegion && { title: titles.formTitle }),
     ...(titles.formSubtitle !== undefined &&
-      !titles.stepRail &&
-      !titles.titleInSettingsHeader &&
-      !showsIntroBox(model) && { subtitle: titles.formSubtitle }),
+      showsSubtitleUnderTitle(model) && { subtitle: titles.formSubtitle }),
     ...(layout.isScreenForm && { screenForm: true }),
     ...(unsavedCount !== undefined && (unsavedCount > 0 || hasDirtyFooter) && { unsavedCount }),
     ...(titles.sectionNavItems.length > 0 && { sectionNav: titles.sectionNavItems }),
