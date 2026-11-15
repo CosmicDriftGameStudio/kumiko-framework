@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.423.0
+
+### Patch Changes
+
+- e06bf70: `kumiko-build` writes the `dist-server` lockfile without network access. The app `bun.lock` is rewritten to the `dist-server` root dependencies (its `overrides` stay and are mirrored into `dist-server/package.json`) before `bun install --lockfile-only`, so bun resolves every locked package from the lock instead of registry manifests; build pods without internet no longer hang there. `postgres` and `pino-pretty` are no longer unconditional runtime dependencies: they land in `dist-server/package.json` only when a bundled file imports them or the app declares them.
+  
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: kumiko-build writes the server lockfile without network
+  detail: The dist-server lockfile is derived from the app lock alone, so builds in environments without internet access no longer hang on registry lookups. Packages missing from the app lock still resolve through the registry.
+  migration: Apps that run with LOG_FORMAT=pretty in production must declare pino-pretty as a dependency; dist-server no longer installs it by default.
+  -->
+- 3261e59: Client bundles set zod to `jitless` before any code runs. zod tested `new Function` once to choose its parser, and under the default `script-src 'self'` CSP Chrome reported that test as a blocked `eval` in the DevTools issues panel. The parser zod uses is unchanged, because the CSP already blocked its JIT path.
+  
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: No more CSP eval warning in the browser
+  detail: The web client no longer triggers the DevTools message "Content Security Policy of your site blocks the use of 'eval' in JavaScript". Nothing to change in the app; rebuild with this version.
+  -->
+- Updated dependencies [ed97ac9]
+- Updated dependencies [ed97ac9]
+- Updated dependencies [ed97ac9]
+- Updated dependencies [900d7b0]
+- Updated dependencies [3261e59]
+  - @cosmicdrift/kumiko-bundled-features@0.423.0
+  - @cosmicdrift/kumiko-framework@0.423.0
+  - @cosmicdrift/kumiko-renderer@0.423.0
+  - @cosmicdrift/kumiko-server-runtime@0.423.0
+  - @cosmicdrift/kumiko-renderer-mail-html@0.423.0
+  - @cosmicdrift/kumiko-testing@0.423.0
+  - @cosmicdrift/kumiko-feature-ast@0.423.0
+  - @cosmicdrift/kumiko-guards@0.423.0
+  - @cosmicdrift/kumiko-types@0.423.0
+
 ## 0.422.0
 
 ### Patch Changes

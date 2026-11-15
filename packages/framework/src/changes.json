@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.423.0",
+    "type": "breaking",
+    "title": "ROLES.TenantOwner is removed",
+    "detail": "`ROLES` no longer has a `TenantOwner` entry and `\"TenantOwner\"` is no longer a reserved platform role name, so an app may declare an `assignableRole` with that name. No bundled feature grants or checks the role any more.",
+    "migration": "Replace `ROLES.TenantOwner` and the string \"TenantOwner\" with `Admin` (or `TenantAdmin` where the handler also allows it). Remove `TenantOwner` from role lists and translations."
+  },
+  {
+    "version": "0.423.0",
+    "type": "fix",
+    "title": "Step and banner actions prefill their target form",
+    "detail": "Navigate actions under `steps.actions` and `banner.actions` of a projectionDetail screen now seed the target form's URL prefill fields from `params.map`, like the screen's own actions. A next-step button that passes a field other than the id fills the form instead of failing validation."
+  },
+  {
     "version": "0.420.0",
     "type": "fix",
     "title": "PII event backfill stops growing self-owned personal fields",

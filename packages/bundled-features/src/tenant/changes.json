@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.423.0",
+    "type": "breaking",
+    "title": "The TenantOwner role option is removed from the member roles form",
+    "detail": "The role option label `tenant:entity:__action-form__:field:roles:option:TenantOwner` is gone together with the role.",
+    "migration": "Remove any app translation or screen reference to the `TenantOwner` role option."
+  },
+  {
     "version": "0.414.0",
     "type": "fix",
     "title": "seedTenantMembership reports rowMissing",

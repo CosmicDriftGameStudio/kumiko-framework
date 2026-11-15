@@ -2,13 +2,47 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-11-10
+verified: 2026-11-15
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.423.0
+
+### framework-core
+
+**ROLES.TenantOwner is removed**
+
+`ROLES` no longer has a `TenantOwner` entry and `"TenantOwner"` is no longer a reserved platform role name, so an app may declare an `assignableRole` with that name. No bundled feature grants or checks the role any more.
+
+**Migration:** Replace `ROLES.TenantOwner` and the string "TenantOwner" with `Admin` (or `TenantAdmin` where the handler also allows it). Remove `TenantOwner` from role lists and translations.
+
+### tenant
+
+**The TenantOwner role option is removed from the member roles form**
+
+The role option label `tenant:entity:__action-form__:field:roles:option:TenantOwner` is gone together with the role.
+
+**Migration:** Remove any app translation or screen reference to the `TenantOwner` role option.
+
+### tenant-inactivity
+
+**TenantOwner is no longer a keep-account role**
+
+`TENANT_KEEP_ACCOUNT_ROLES` is now `["TenantAdmin", "Admin"]`; the inactivity warning mail and the keep-account handlers address these roles only.
+
+**Migration:** Grant `Admin` or `TenantAdmin` instead of `TenantOwner`.
+
+### tenant-lifecycle
+
+**TenantOwner no longer closes the account**
+
+`TENANT_ACCOUNT_CLOSE_ROLES` is now `["Admin"]`. `TenantAdmin` is not added, so the set of roles that may request or cancel tenant destruction only loses the removed role.
+
+**Migration:** Grant `Admin` instead of `TenantOwner` to members who close the account.
 
 ## 0.419.0
 

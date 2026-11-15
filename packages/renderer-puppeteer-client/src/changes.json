@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.423.0",
+    "type": "improvement",
+    "title": "A heading never stands alone at the end of a PDF page",
+    "detail": "A heading (level 1 to 4) moves to the next page together with the first block after it, with no setting; long paragraphs and tables after it still split across pages. Section titles must be `heading` blocks for this to apply: a bold paragraph is not kept with the next block, so move such titles of existing templates to `heading` with the same text style."
+  },
+  {
+    "version": "0.423.0",
+    "type": "improvement",
+    "title": "renderPdfBeforeTransaction and renderPdfBytes take a variant",
+    "detail": "`RenderPdfArgs` has `variant?: string`, the slug of a variant of `slug` from the template-resolver `variants` query; it is rendered instead of the base and stored as the rendered PDF's template slug. A variant that is not served to the tenant or does not belong to `slug` fails with the 422 reason `template_variant_unknown`."
+  },
+  {
     "version": "0.420.0",
     "type": "fix",
     "title": "An unparseable /rasterize response is a final error",

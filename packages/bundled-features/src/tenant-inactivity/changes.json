@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.423.0",
+    "type": "breaking",
+    "title": "TenantOwner is no longer a keep-account role",
+    "detail": "`TENANT_KEEP_ACCOUNT_ROLES` is now `[\"TenantAdmin\", \"Admin\"]`; the inactivity warning mail and the keep-account handlers address these roles only.",
+    "migration": "Grant `Admin` or `TenantAdmin` instead of `TenantOwner`."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "Keep-link redemption and the destruction request are serialized",
