@@ -40,19 +40,22 @@ export async function fetchChallenge(stack: TestStack): Promise<Challenge> {
   return body.data;
 }
 
-export function solve(challenge: Challenge): string {
+function findNonce(challenge: Challenge, solves: boolean): string {
   for (let nonce = 0; ; nonce += 1) {
-    if (
-      verifyProofOfWork({
-        challenge: challenge.challenge,
-        nonce: String(nonce),
-        bits: challenge.bits,
-      })
-    ) {
-      return String(nonce);
-    }
+    const verified = verifyProofOfWork({
+      challenge: challenge.challenge,
+      nonce: String(nonce),
+      bits: challenge.bits,
+    });
+    if (verified === solves) return String(nonce);
   }
 }
+
+export const solve = (challenge: Challenge): string => findNonce(challenge, true);
+
+// A guessed wrong nonce still solves the challenge with probability 2^-bits; at the
+// low test difficulty that flaked the dropped-submit tests.
+export const failingNonce = (challenge: Challenge): string => findNonce(challenge, false);
 
 export async function submitBody(
   stack: TestStack,
