@@ -80,6 +80,24 @@ describe("template overview cells", () => {
     expect(screen.getByText("Rechnung Hausverwaltung")).toBeTruthy();
   });
 
+  test("a variant row names its base, a base row does not", () => {
+    renderCell(TitleCell as never, {
+      ...baseRow,
+      slug: "money-horse:credit-schedule:furnished",
+      title: "Möbliert",
+      variantOf: "money-horse:credit-schedule",
+    });
+    expect(screen.getByTestId("document-designer-variant-of").textContent).toBe(
+      "Variant of money-horse:credit-schedule",
+    );
+    expect(screen.getByText("Möbliert")).toBeTruthy();
+  });
+
+  test("a base row shows no variant label", () => {
+    renderCell(TitleCell as never, { ...baseRow, title: "Base", variantsEnabled: true });
+    expect(screen.queryByTestId("document-designer-variant-of")).toBeNull();
+  });
+
   test("the overridden-by cell reads the count from the row", () => {
     renderCell(OverriddenByCell as never, {
       ...baseRow,

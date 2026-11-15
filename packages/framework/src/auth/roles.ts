@@ -8,8 +8,6 @@
 // being changed.
 //
 // Canonical names:
-//   TenantOwner            — Full tenant authority; the only role allowed
-//                            to trigger tenant destruction.
 //   TenantAdmin            — Tenant configuration and user management.
 //                            The existing "Admin" string is migrated
 //                            to this role.
@@ -28,7 +26,6 @@
  * these constants exclusively instead of string literals.
  */
 export const ROLES = {
-  TenantOwner: "TenantOwner",
   TenantAdmin: "TenantAdmin",
   DataProtectionOfficer: "DataProtectionOfficer",
   SystemAdmin: "SystemAdmin",

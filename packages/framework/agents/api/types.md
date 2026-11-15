@@ -2463,6 +2463,14 @@ type CopyButtonProps = { // Copies `text` to the clipboard; the label flips to `
   className?: string; // Layout extras, merged via cn().
   testId?: string;
 };
+type EmptyStateIcon = "unavailable" | "not-found"; // Semantic picture of an `EmptyState`; each platform maps it to its own icon, so platform-neutral code never imports an icon library.
+type EmptyStateProps = { // Calm centered "nothing here" page: icon in a soft circle, title, one explanation and the way out as `actions`.
+  icon: EmptyStateIcon;
+  title: string;
+  description?: ReactNode;
+  actions?: ReactNode;
+  testId?: string;
+};
 type PromoPanelAction =
   | {
     label: string;

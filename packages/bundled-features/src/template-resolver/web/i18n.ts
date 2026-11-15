@@ -112,6 +112,16 @@ export const defaultTranslations: TranslationsByLocale = {
     "templateResolver.errors.patch.regionNotAllowed":
       "A region only applies to PDF layouts, not to {kind}.",
     "templateResolver.errors.patch.layoutExists": "A layout with the slug {slug} already exists.",
+    "templateResolver.errors.patch.variantsNotEnabled":
+      "Variants are not enabled for the template {slug}.",
+    "templateResolver.errors.patch.variantExists": "A variant with the slug {slug} already exists.",
+    "templateResolver.errors.patch.variantNameInvalid":
+      "The short name must be lowercase letters, digits and dashes; give one or change the title.",
+    "templateResolver.errors.patch.variablesInheritedFromBase":
+      "A variant uses the variables of its base template {slug}; change them there.",
+    "templateResolver.errors.patch.invalidVariantOf":
+      "The variant must belong to the base template in its slug.",
+    "templateResolver.errors.variantUnknown": "The variant {variant} does not exist.",
     "templateResolver.errors.template.reservedLayoutSlug":
       "The prefix {prefix} is reserved for tenant layouts.",
     "templateResolver.errors.patch.emptyFormat": "Give at least one of align, style or textStyle.",

@@ -35,3 +35,27 @@ describe("mayEditTemplate :: tenant layouts", () => {
     ).toBe(false);
   });
 });
+
+describe("mayEditTemplate :: variants", () => {
+  const withVariants = {
+    tenantEditable: [
+      { kind: "document-pdf" as const, slug: "a", access: EDITOR_A, variants: true as const },
+      { kind: "document-pdf" as const, slug: "b", access: EDITOR_A },
+    ],
+  };
+  const variant = (slug: string) => ({ slug, kind: "document-pdf" });
+
+  test("a variant follows the base entry with variants", () => {
+    expect(mayEditTemplate(withVariants, EDITOR_A, variant("a:short"))).toBe(true);
+  });
+
+  test("a base without variants, an unlisted base and a nested name do not cover a variant", () => {
+    expect(mayEditTemplate(withVariants, EDITOR_A, variant("b:short"))).toBe(false);
+    expect(mayEditTemplate(withVariants, EDITOR_A, variant("c:short"))).toBe(false);
+    expect(mayEditTemplate(withVariants, EDITOR_A, variant("a:short:deep"))).toBe(false);
+  });
+
+  test("variants are a document-pdf concept only", () => {
+    expect(mayEditTemplate(withVariants, EDITOR_A, { slug: "a:short", kind: "mail" })).toBe(false);
+  });
+});

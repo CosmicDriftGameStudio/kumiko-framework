@@ -814,7 +814,10 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "kumiko.error.referenceCopied": "Copié !",
   "kumiko.screen-access-denied.title": "Vous n'avez pas accès à cette page.",
   "kumiko.screen-missing.home": "Aller à la page d'accueil",
-  "kumiko.screen-missing.hint": "Elle n'est pas activée pour votre compte ou n'existe plus.",
+  "kumiko.screen-missing.contact":
+    "Si vous en avez besoin, demandez à la personne qui gère les comptes de votre organisation.",
+  "kumiko.screen-missing.hint":
+    "Soit elle n'est pas activée pour votre compte, soit elle n'existe plus.",
   "kumiko.screen-missing.title": "Cette page n'est pas disponible",
   "kumiko.screen.forbidden": "Vous n'avez pas accès à cette page.",
   "kumiko.screen.notFound": "Cette page est introuvable.",
@@ -1729,7 +1732,6 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "tenant:entity:__action-form__:field:roles:option:Editor": "Éditeur",
   "tenant:entity:__action-form__:field:roles:option:Member": "Membre",
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": "Admin de l'organisation",
-  "tenant:entity:__action-form__:field:roles:option:TenantOwner": "Propriétaire de l'organisation",
   "tenant:entity:__action-form__:field:roles:option:DataProtectionOfficer":
     "Délégué à la protection des données",
   "tenant:entity:__action-form__:field:roles:option:User": "Utilisateur",
@@ -2894,6 +2896,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "documentDesigner.margins.useLayout": "Comme dans la mise en page",
   "template-resolver:write:apply-layout:title": "Appliquer la mise en page PDF",
   "template-resolver:write:create-layout:title": "Créer une mise en page PDF",
+  "template-resolver:write:create-variant:title": "Créer une variante de modèle PDF",
   "template-resolver:write:publish-templates:title": "Publier plusieurs modèles",
   "documentDesigner.company.title": "Données de l'entreprise",
   "documentDesigner.company.edit": "Modifier",

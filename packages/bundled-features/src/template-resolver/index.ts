@@ -125,6 +125,13 @@ export {
   validateTemplatePlaceholders,
 } from "./template-validation.ts";
 export {
+  isVariantSlugOf,
+  readVariantOf,
+  VARIANT_NAME_MAX_LENGTH,
+  variantNameSchema,
+  variantSlug,
+} from "./template-variants.ts";
+export {
   type UserContentEntryRow,
   userContentEntriesTable,
   userContentEntryEntity,

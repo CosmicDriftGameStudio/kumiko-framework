@@ -269,9 +269,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.loading": "Loading…",
     "kumiko.widget.error.title": "Couldn't load.",
     "kumiko.screen-missing.title": "This page is not available",
-    "kumiko.screen-missing.hint": "It is not enabled for your account or no longer exists.",
+    "kumiko.screen-missing.hint":
+      "Either it is not enabled for your account or it no longer exists.",
     "kumiko.screen-access-denied.title": "You do not have access to this page.",
     "kumiko.screen-missing.home": "Go to start page",
+    "kumiko.screen-missing.contact":
+      "If you need it, ask the person who manages accounts for your organization.",
     "kumiko.screen-error.title": "This screen failed to render.",
     "kumiko.error.reference": "Error ID: {id}",
     "kumiko.error.copyReference": "Copy",

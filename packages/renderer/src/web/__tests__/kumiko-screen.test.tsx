@@ -8,10 +8,11 @@ import type {
 import userEvent from "@testing-library/user-event";
 import type { Dispatcher } from "../../headless/index.ts";
 import { LIVE_REFETCH_COALESCE_MS } from "../../hooks/live-refetch-scheduler.ts";
-import type { FeatureSchema, LiveEventSubscriber, NavTarget } from "../../index.ts";
+import type { FeatureSchema, LiveEventSubscriber, NavApi, NavTarget } from "../../index.ts";
 import {
   DispatcherProvider,
   ExtensionSectionsProvider,
+  HomeScreenProvider,
   KumikoScreen,
   LIVE_RESYNC_EVENT_TYPE,
   LiveEventsProvider,
@@ -62,6 +63,29 @@ describe("KumikoScreen", () => {
       </DispatcherProvider>,
     );
     expect(screen.getByTestId("kumiko-screen-not-found")).toBeTruthy();
+  });
+
+  test("unknown qn → home button from HomeScreenProvider navigates to the start page", () => {
+    const navigate = mock((_target: unknown) => {});
+    const nav: NavApi = {
+      route: undefined,
+      navigate,
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <NavProvider value={nav}>
+          <HomeScreenProvider homeScreenId="task-list">
+            <KumikoScreen schema={schema} qn="tasks:screen:ghost" />
+          </HomeScreenProvider>
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+    fireEvent.click(screen.getByTestId("kumiko-screen-not-found-home"));
+    expect(navigate).toHaveBeenCalledWith({ screenId: "task-list" });
   });
 
   test("role-gated screen, no UserRolesProvider mounted → access-denied placeholder", () => {

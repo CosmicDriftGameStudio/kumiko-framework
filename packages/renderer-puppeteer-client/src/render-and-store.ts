@@ -5,6 +5,12 @@ import {
   type RenderedTemplateRef,
   RendererError,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import {
+  createTemplateResolverApi,
+  isVariantSlugOf,
+  readVariantOf,
+  TemplateNotFoundError,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type {
   BeforeTransactionContext,
   BeforeTransactionResult,
@@ -29,8 +35,12 @@ import { renderedPdfExecutor } from "./executor.ts";
 const PDF_MIME_TYPE = "application/pdf";
 const INVALID_REQUEST_REASON = "rendered_pdf_invalid_request";
 
+export const VARIANT_UNKNOWN_REASON = "template_variant_unknown";
+
 export type RenderPdfArgs = {
   readonly slug: string;
+  /** Slug of a variant of `slug` (`<slug>:<name>`), as listed by the template-resolver `variants` query; rendered instead of the base. */
+  readonly variant?: string;
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
   readonly attachTo?: {
@@ -86,6 +96,32 @@ function renderFailure(e: unknown, ctx: RenderContext, slug: string): WriteResul
   return writeFailure(clientErrorForRenderFailure(e, ctx, slug));
 }
 
+function renderedSlugOf(args: Pick<RenderPdfArgs, "slug" | "variant">): string {
+  return args.variant ?? args.slug;
+}
+
+// A variant counts only when the resolver serves it to this tenant and it names exactly this base.
+async function isUnknownVariant(
+  ctx: RenderContext,
+  args: Pick<RenderPdfArgs, "slug" | "variant" | "locale">,
+): Promise<boolean> {
+  const { variant } = args;
+  if (variant === undefined) return false;
+  if (!isVariantSlugOf(variant, args.slug)) return true;
+  try {
+    const resource = await createTemplateResolverApi(ctx.db, ctx.registry).resolveTemplate({
+      tenantId: ctx.user.tenantId,
+      slug: variant,
+      kind: "document-pdf",
+      locale: args.locale,
+    });
+    return readVariantOf(resource.meta) !== args.slug;
+  } catch (e) {
+    if (e instanceof TemplateNotFoundError) return true;
+    throw e;
+  }
+}
+
 export type RenderedPdfBytes = {
   readonly fileName: string;
   readonly pdfBytes: Uint8Array;
@@ -99,9 +135,18 @@ export type RenderedPdfBytes = {
 // themselves (mail attachment, download); same no-transaction rule as renderPdfBeforeTransaction.
 export async function renderPdfBytes(
   ctx: RenderContext,
-  args: Pick<RenderPdfArgs, "slug" | "locale" | "variables">,
+  args: Pick<RenderPdfArgs, "slug" | "variant" | "locale" | "variables">,
 ): Promise<WriteResult<RenderedPdfBytes>> {
   const tenantId = ctx.user.tenantId;
+  if (await isUnknownVariant(ctx, args)) {
+    return writeFailure(
+      new UnprocessableError(VARIANT_UNKNOWN_REASON, {
+        i18nKey: "templateResolver.errors.variantUnknown",
+        i18nParams: { variant: args.variant ?? args.slug },
+      }),
+    );
+  }
+  const renderedSlug = renderedSlugOf(args);
   const plugin = createRendererFoundationApi(
     collectRendererPlugins(ctx.registry),
   ).createRendererForTenant({ tenantId, kind: "document-pdf" });
@@ -111,7 +156,7 @@ export async function renderPdfBytes(
     response = await plugin.render(
       {
         kind: "document-pdf",
-        payload: { slug: args.slug, locale: args.locale, variables: args.variables },
+        payload: { slug: renderedSlug, locale: args.locale, variables: args.variables },
       },
       {
         db: ctx.db,
@@ -122,7 +167,7 @@ export async function renderPdfBytes(
       },
     );
   } catch (e) {
-    return renderFailure(e, ctx, args.slug);
+    return renderFailure(e, ctx, renderedSlug);
   }
   if (response.kind !== "document-pdf") {
     throw new RendererError(
@@ -182,7 +227,7 @@ export async function renderPdfBeforeTransaction(
     isSuccess: true,
     data: {
       upload: uploaded.data,
-      slug: args.slug,
+      slug: renderedSlugOf(args),
       locale: args.locale,
       template,
       ...(layout !== undefined && { layout }),

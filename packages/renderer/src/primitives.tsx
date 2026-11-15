@@ -1569,6 +1569,7 @@ export type ActionOverflowMenuProps = {
 
 import type {
   CopyButtonProps,
+  EmptyStateProps,
   PromoPanelProps,
   SecretRevealProps,
   ShareButtonProps,
@@ -1577,6 +1578,8 @@ import type {
 
 export type {
   CopyButtonProps,
+  EmptyStateIcon,
+  EmptyStateProps,
   PromoPanelAction,
   PromoPanelProps,
   SecretRevealProps,
@@ -1682,6 +1685,9 @@ export type CorePrimitives = {
   readonly ShareButton?: ComponentType<ShareButtonProps>;
   /** Optional — additive rollout, see StickyActionBar. */
   readonly PromoPanel?: ComponentType<PromoPanelProps>;
+  /** Optional — additive rollout, see StickyActionBar. Without it the
+   *  "not available" states fall back to a Card. */
+  readonly EmptyState?: ComponentType<EmptyStateProps>;
 };
 
 /** Extension point for app-owned primitives. Developers extend this

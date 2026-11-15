@@ -10,7 +10,10 @@ import { compileDocumentBodyToHandlebars } from "@cosmicdrift/kumiko-bundled-fea
 import type { PdfOptions } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { countPdfPages } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import type { ClientConfig } from "../../../../packages/renderer-puppeteer-client/src/config";
-import type { DocumentPdfRequest } from "../../../../packages/renderer-puppeteer-client/src/document-pdf";
+import {
+  type DocumentPdfRequest,
+  PRINT_CSS,
+} from "../../../../packages/renderer-puppeteer-client/src/document-pdf";
 import { printDocumentPdf } from "../../../../packages/renderer-puppeteer-client/src/document-pdf-print";
 import { chromiumRegionHtml } from "../../../../packages/renderer-puppeteer-client/src/document-pdf-style";
 import type { ServiceConfig } from "../config";
@@ -373,5 +376,38 @@ describe("table row lines around a repeat row", () => {
       request({ html: `<html><body style="margin:0">${expandEach(compiled)}</body></html>` }),
     );
     expect(redBands(await rasterPage(pdf, 1, 100))).toBe(2);
+  });
+});
+
+describe("headings keep with the next block", () => {
+  // The A4 content area is 242 mm high: the filler leaves room for the heading but not for the paragraph under it.
+  const FILLER_MM = 228;
+  const printBody = (body: string) =>
+    printDocumentPdf(
+      client,
+      request({ html: `<html><head><style>${PRINT_CSS}</style></head><body>${body}</body></html>` }),
+    );
+
+  test("a heading that would end page 1 moves to page 2 together with its paragraph", async () => {
+    const pdf = await printBody(
+      `<div style="height:${FILLER_MM}mm"></div><h2>Abschnittstitel</h2><p>Erste Zeile des Abschnitts. Zweite Zeile des Abschnitts. ${"Weiterer Text im Abschnitt. ".repeat(12)}</p>`,
+    );
+    expect(countPdfPages(pdf)).toBe(2);
+    expect(await pageText(pdf, 1)).not.toContain("Abschnittstitel");
+    const second = await pageText(pdf, 2);
+    expect(second).toContain("Abschnittstitel");
+    expect(second).toContain("Erste Zeile des Abschnitts");
+  });
+
+  test("a paragraph longer than a page after a heading still splits across pages", async () => {
+    const pdf = await printBody(
+      `<h2>Langer Abschnitt</h2><p>STARTMARKE ${"Fliesstext der sich ueber mehrere Zeilen erstreckt. ".repeat(130)} ENDMARKE</p>`,
+    );
+    expect(countPdfPages(pdf)).toBeGreaterThanOrEqual(2);
+    const first = await pageText(pdf, 1);
+    expect(first).toContain("Langer Abschnitt");
+    expect(first).toContain("STARTMARKE");
+    expect(first).not.toContain("ENDMARKE");
+    expect(await pageText(pdf, countPdfPages(pdf))).toContain("ENDMARKE");
   });
 });

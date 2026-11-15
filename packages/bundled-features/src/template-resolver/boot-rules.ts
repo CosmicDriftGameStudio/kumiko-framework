@@ -16,4 +16,9 @@ export const TEMPLATE_RESOLVER_BOOT_RULES = {
     summary: "Each tenantEditable entry has a non-empty slug and at least one access role.",
     fix: "Give the entry a slug and roles.",
   },
+  tenantEditableVariantsNeedPdf: {
+    id: "template-resolver/tenant-editable-variants-need-pdf",
+    summary: "Only tenantEditable entries of kind document-pdf may set variants.",
+    fix: "Remove variants from the entry or change its kind to document-pdf.",
+  },
 } as const satisfies BootRuleTable;

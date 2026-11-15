@@ -272,8 +272,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "kumiko.dashboard.record.missing":
     "Öffnen Sie diese Seite über einen Datensatz, um das Dashboard zu sehen.",
   "kumiko.screen-access-denied.title": "Sie haben keinen Zugriff auf diese Seite.",
+  "kumiko.screen-missing.contact":
+    "Brauchen Sie sie, fragen Sie die Person, die bei Ihnen die Konten verwaltet.",
   "kumiko.screen-missing.hint":
-    "Sie ist für Ihr Konto nicht freigeschaltet oder existiert nicht mehr.",
+    "Entweder ist sie für Ihr Konto nicht freigeschaltet oder es gibt sie nicht mehr.",
   "auth.mfa.setup.intro":
     "Scannen Sie den QR-Code mit einer Authenticator-App wie Google Authenticator oder 1Password.",
   "mail-foundation.provider.description":

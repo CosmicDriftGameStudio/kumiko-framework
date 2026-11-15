@@ -42,6 +42,7 @@ import {
   ExtensionSectionsProvider,
   type FeatureSchema,
   type FormWidth,
+  HomeScreenProvider,
   hasDetailScreen,
   KumikoScreen,
   kumikoDefaultTranslations,
@@ -863,7 +864,15 @@ function BrowserNavBoot({
   );
   return (
     <NavProvider value={navApi}>
-      {Shell !== undefined ? <Shell schema={app}>{screen}</Shell> : screen}
+      <HomeScreenProvider
+        homeScreenId={
+          findOwnerFeature(app.features, fallbackQn) !== undefined
+            ? lastSegment(fallbackQn)
+            : undefined
+        }
+      >
+        {Shell !== undefined ? <Shell schema={app}>{screen}</Shell> : screen}
+      </HomeScreenProvider>
     </NavProvider>
   );
 }
@@ -1036,13 +1045,7 @@ function RoutedScreen({
   }, [nav]);
 
   if (feature === undefined || activeScreen === undefined) {
-    const landingExists = findOwnerFeature(app.features, fallbackQn) !== undefined;
-    return (
-      <ScreenMissingState
-        {...(landingExists && { homeScreenId: lastSegment(fallbackQn) })}
-        screenQn={nav.route?.screenId ?? qn}
-      />
-    );
+    return <ScreenMissingState screenQn={nav.route?.screenId ?? qn} />;
   }
 
   // KumikoScreen takes a single-feature schema: the feature owning the active screen.

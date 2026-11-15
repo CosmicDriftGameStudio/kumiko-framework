@@ -81,6 +81,7 @@ export const pdfAttachmentFileNamePatternSchema = singleLine(200)
 const pdfMetaSchema = z
   .object({
     layoutSlug: templateSlugSchema.optional(),
+    variantOf: templateSlugSchema.optional(),
     pageFormat: z.enum(PDF_PAGE_FORMATS).optional(),
     orientation: z.enum(PDF_ORIENTATIONS).optional(),
     printBackground: z.boolean().optional(),

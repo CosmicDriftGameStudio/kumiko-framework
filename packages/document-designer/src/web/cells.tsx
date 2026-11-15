@@ -23,7 +23,15 @@ function withRow(
 export function TitleCell({ row }: ColumnRendererProps): ReactNode {
   const t = useTranslation();
   return withRow(row, (r) => (
-    <div>
+    <div className={r.variantOf === null ? undefined : "border-l-2 pl-3"}>
+      {r.variantOf !== null && (
+        <span
+          className="block text-xs text-muted-foreground"
+          data-testid="document-designer-variant-of"
+        >
+          {t("documentDesigner.variantOf", { base: r.variantOf })}
+        </span>
+      )}
       {/* Titles wrap and slugs are capped, so long notification names keep status, usage and date in view. */}
       <div className="max-w-48 whitespace-normal font-medium [overflow-wrap:anywhere]">
         {templateTitle(t, r)}

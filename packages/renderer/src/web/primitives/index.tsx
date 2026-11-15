@@ -11,6 +11,7 @@ import type { CorePrimitives } from "../../index.ts";
 import { DefaultDialog } from "./dialog.tsx";
 import { DefaultDrawer } from "./drawer.tsx";
 import { EmbeddedListInput } from "./embedded-list-input.tsx";
+import { DefaultEmptyState } from "./empty-state.tsx";
 import { FileValueList } from "./file-value-list.tsx";
 import { DefaultJsonView } from "./json-view.tsx";
 import { DefaultLightbox } from "./lightbox.tsx";
@@ -105,4 +106,5 @@ export const defaultPrimitives: CorePrimitives = {
   CopyButton,
   ShareButton,
   PromoPanel,
+  EmptyState: DefaultEmptyState,
 };

@@ -4,6 +4,7 @@ import { createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engi
 import { createDocumentDesignerFeature } from "../feature.ts";
 import { documentDesignerClient } from "../web/client-plugin.tsx";
 import {
+  CREATE_VARIANT_SCREEN_ID,
   DocumentDesignerCells,
   LAYOUT_EDITOR_SCREEN_ID,
   PDF_TEMPLATE_EDITOR_SCREEN_ID,
@@ -120,5 +121,27 @@ describe("document-designer PDF editor screen", () => {
     expect(screen?.dormant).toBe(true);
     expect(TEMPLATE_EDITOR_SCREENS["document-pdf"]).toBe(PDF_TEMPLATE_EDITOR_SCREEN_ID);
     expect(documentDesignerClient().components).toHaveProperty(PDF_TEMPLATE_EDITOR_SCREEN_ID);
+  });
+});
+
+describe("document-designer create-variant screen", () => {
+  test("only the tenant overview offers it, on rows whose base allows variants", () => {
+    const registry = createRegistry(features);
+    const screen = registry.getScreen(`document-designer:screen:${CREATE_VARIANT_SCREEN_ID}`);
+    expect(screen).toMatchObject({
+      type: "actionForm",
+      handler: "template-resolver:write:create-variant",
+    });
+    const drawerOf = (id: string) => {
+      const list = registry.getScreen(`document-designer:screen:${id}`);
+      return list?.type === "projectionList"
+        ? list.rowActions?.find((action) => action.id === "create-variant")
+        : undefined;
+    };
+    expect(drawerOf("templates")).toMatchObject({
+      kind: "drawer",
+      visible: { field: "variantsEnabled", eq: true },
+    });
+    expect(drawerOf("platform-templates")).toBeUndefined();
   });
 });

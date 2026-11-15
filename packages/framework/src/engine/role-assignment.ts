@@ -64,9 +64,9 @@ export function assignableAppRolesFromUsages(
         message: "assignableRole: role name must not be empty",
       });
     }
-    // Platform roles (TenantOwner, DataProtectionOfficer) gate handlers that
-    // TenantAdmin/Admin cannot reach — declaring one would let an Admin
-    // self-grant it, so they stay out of reach of app declarations.
+    // The platform role DataProtectionOfficer gates handlers that
+    // TenantAdmin/Admin cannot reach — declaring it would let an Admin
+    // self-grant it, so it stays out of reach of app declarations.
     if (ROLE_RANKS.has(role) || PLATFORM_ROLE_NAMES.has(role)) {
       throw bootRuleError(DEFINITION_ROLE_ASSIGNMENT_RULES.builtIn, {
         message: `assignableRole: "${role}" is a built-in role and cannot be redeclared`,

@@ -35,6 +35,24 @@ describe("template-resolver boot rules", () => {
     expect(error.message).toContain('tenantEditable lists "mail/welcome" twice');
   });
 
+  test("variants on a tenantEditable entry that is not a document-pdf violates tenant-editable-variants-need-pdf", () => {
+    const error = bootRuleViolationOf(() =>
+      createTemplateResolverFeature({
+        tenantEditable: [{ kind: "mail", slug: "welcome", access, variants: true }],
+      }),
+    );
+    expect(error.rule.id).toBe("template-resolver/tenant-editable-variants-need-pdf");
+    expect(error.message).toContain("which only document-pdf templates support");
+  });
+
+  test("variants on a document-pdf entry boot", () => {
+    expect(() =>
+      createTemplateResolverFeature({
+        tenantEditable: [{ kind: "document-pdf", slug: "contract", access, variants: true }],
+      }),
+    ).not.toThrow();
+  });
+
   test("a tenantEditable entry without roles violates tenant-editable-invalid-entry", () => {
     const error = bootRuleViolationOf(() =>
       createTemplateResolverFeature({

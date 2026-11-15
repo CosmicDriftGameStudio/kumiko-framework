@@ -16,6 +16,17 @@ export const DOCUMENT_DESIGNER_I18N: Readonly<Record<string, Localized>> = {
   },
   "documentDesigner.search": { en: "Search templates", de: "Vorlagen suchen" },
   "documentDesigner.action.edit": { en: "Edit", de: "Bearbeiten" },
+  "screen:create-variant.title": { en: "Create variant", de: "Variante anlegen" },
+  "documentDesigner.action.createVariant": { en: "Create variant", de: "Variante anlegen" },
+  "documentDesigner.variant.field.baseSlug": { en: "Variant of", de: "Variante von" },
+  "documentDesigner.variant.field.locale": { en: "Language", de: "Sprache" },
+  "documentDesigner.variant.field.title": { en: "Title", de: "Titel" },
+  "documentDesigner.variant.field.name": { en: "Short name", de: "Kürzel" },
+  "documentDesigner.variant.field.name.hint": {
+    en: "Optional: lowercase letters, digits and dashes. Left empty, it is built from the title.",
+    de: "Optional: Kleinbuchstaben, Ziffern und Bindestriche. Leer gelassen, wird es aus dem Titel gebildet.",
+  },
+  "documentDesigner.variantOf": { en: "Variant of {base}", de: "Variante von {base}" },
   "documentDesigner.status.lockedOverride": { en: "Not delivered", de: "Nicht ausgeliefert" },
   "documentDesigner.action.resetLockedOverride": {
     en: "Remove own version",

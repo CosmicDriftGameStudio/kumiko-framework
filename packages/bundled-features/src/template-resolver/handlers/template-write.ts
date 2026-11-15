@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import {
   type HandlerContext,
@@ -6,6 +7,7 @@ import {
   SYSTEM_TENANT_ID,
   type TemplateVariables,
   type TenantId,
+  type TenantWriteTarget,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -15,18 +17,22 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { requireForTenant } from "../../shared/index.ts";
+import { patchIssue } from "../document-op-blocks.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
-import { activationChanges, serializeTemplateDraft } from "../template-draft.ts";
+import { activationChanges, serializeTemplateDraft, toWorkingRow } from "../template-draft.ts";
 import { refuseReservedSystemLayoutSlug } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplate } from "../template-system-only.ts";
-import type { TemplateValidation } from "../template-validation.ts";
+import { resolveTemplateVariables, type TemplateValidation } from "../template-validation.ts";
+import { readVariantOf, VARIANT_KIND, variantOfMatchesSlug } from "../template-variants.ts";
 import type { ContentFormat, TemplateKind } from "../web/constants.ts";
 import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { executor } from "./shared.ts";
 import {
   evaluateTemplateWrite,
+  parseStoredJson,
   type TemplateWriteInput,
   type TemplateWriteResult,
 } from "./template-gates.ts";
@@ -59,6 +65,10 @@ export type TemplateRowWrite = {
   readonly status: "draft" | "active";
   readonly variables: TemplateVariables;
   readonly payload: TemplateRowPayload;
+  /** Stored linkedResources JSON for a row that is created; an update never touches them. */
+  readonly linkedResources?: string;
+  /** The caller typed this schema itself (upsert); a variant then must match its base instead of being re-synced. */
+  readonly explicitVariableSchema?: true;
   /** The row version the edit was made against; null means no own row may exist yet. */
   readonly expectedVersion?: number | null;
 };
@@ -170,6 +180,70 @@ function versionConflictFor(
   );
 }
 
+function refuseVariantOfSlugMismatch(payload: TemplateRowWrite["payload"]): WriteFailure | null {
+  if (variantOfMatchesSlug(payload.slug, payload.meta)) return null;
+  return writeFailure(
+    new ValidationError({ fields: [patchIssue("meta.variantOf", "invalid_variant_of")] }),
+  );
+}
+
+// The base as the tenant sees it: its own row (open draft included), else the served system default.
+export async function baseVariableSchemaOf(
+  db: TenantWriteTarget["db"],
+  tenantId: TenantId,
+  baseSlug: string,
+  locale: string,
+): Promise<unknown> {
+  const where = { slug: baseSlug, kind: VARIANT_KIND, locale };
+  const own = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+    ...where,
+    tenantId,
+  });
+  if (own !== undefined) return parseStoredJson(toWorkingRow(own, tenantId).variableSchema);
+  const system = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+    ...where,
+    tenantId: SYSTEM_TENANT_ID,
+    scope: "system",
+    status: "active",
+  });
+  return system === undefined ? undefined : parseStoredJson(system.variableSchema);
+}
+
+type VariantSchemaOutcome =
+  | { readonly refused: WriteFailure }
+  | { readonly payload: TemplateRowWrite["payload"]; readonly variables: TemplateVariables };
+
+// A variant follows its base: a write that sends no schema of its own stores the base's current one,
+// so a base that gains a variable does not lock its variants. A caller that sends a different
+// schema explicitly is refused.
+async function syncVariantSchema(
+  args: TemplateRowWrite,
+  db: TenantWriteTarget["db"],
+): Promise<VariantSchemaOutcome> {
+  const { payload } = args;
+  const baseSlug = readVariantOf(payload.meta);
+  const unchanged = { payload, variables: args.variables };
+  if (args.scope !== "tenant" || baseSlug === null) return unchanged;
+  const baseSchema = await baseVariableSchemaOf(db, args.tenantId, baseSlug, payload.locale);
+  if (!isPlainObject(baseSchema)) return unchanged;
+  if (args.explicitVariableSchema === true) {
+    if (isDeepStrictEqual(baseSchema, payload.variableSchema)) return unchanged;
+    return {
+      refused: writeFailure(
+        new ValidationError({
+          fields: [
+            patchIssue("variableSchema", "variables_inherited_from_base", { slug: baseSlug }),
+          ],
+        }),
+      ),
+    };
+  }
+  return {
+    payload: { ...payload, variableSchema: baseSchema },
+    variables: resolveTemplateVariables(args.ctx.registry, payload.slug, baseSchema),
+  };
+}
+
 function refuseScopeViolation(
   registry: HandlerContext["registry"],
   scope: TemplateWriteScope,
@@ -177,6 +251,7 @@ function refuseScopeViolation(
   payload: TemplateRowWrite["payload"],
 ): WriteResult<never> | WriteFailure | null {
   return (
+    refuseVariantOfSlugMismatch(payload) ??
     refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
     refuseReservedSystemLayoutSlug(scope, payload, "slug") ??
     refuseSystemOnlyTenantOverride(registry, scope, payload.slug, payload.kind)
@@ -190,10 +265,13 @@ function refuseScopeViolation(
 export async function writeTemplateRow(
   args: TemplateRowWrite,
 ): Promise<WriteResult<WrittenTemplateRow>> {
-  const { ctx, user, tenantId, scope, status, payload } = args;
-  const refused = refuseScopeViolation(ctx.registry, scope, tenantId, payload);
+  const { ctx, user, tenantId, scope, status } = args;
+  const refused = refuseScopeViolation(ctx.registry, scope, tenantId, args.payload);
   if (refused !== null) return refused;
   const { db, streamTenantId } = requireForTenant(ctx, tenantId);
+  const synced = await syncVariantSchema(args, db);
+  if ("refused" in synced) return synced.refused;
+  const { payload, variables } = synced;
 
   const gated = gateTemplateWrite(
     {
@@ -202,7 +280,7 @@ export async function writeTemplateRow(
       contentFormat: payload.contentFormat,
       content: payload.content,
       rawMeta: payload.meta,
-      variables: args.variables,
+      variables,
     },
     status,
   );
@@ -260,7 +338,7 @@ export async function writeTemplateRow(
   const result = await executor.create(
     {
       ...fields,
-      linkedResources: "{}",
+      linkedResources: args.linkedResources ?? "{}",
       tenantId,
       draft: null,
       ...(status === "active" ? activationChanges(null) : {}),

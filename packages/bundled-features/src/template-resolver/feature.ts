@@ -16,6 +16,7 @@ import { makeCollectionListQuery } from "./handlers/collection-list.query.ts";
 import { makeCollectionSetWrite } from "./handlers/collection-set.write.ts";
 import { makeCopyLocaleWrite } from "./handlers/copy-locale.write.ts";
 import { makeCreateLayoutWrite } from "./handlers/create-layout.write.ts";
+import { makeCreateVariantWrite } from "./handlers/create-variant.write.ts";
 import { diffToSystemQuery } from "./handlers/diff-to-system.query.ts";
 import {
   makeDiscardDraftSystemWrite,
@@ -51,10 +52,12 @@ import { upsertSystemWrite } from "./handlers/upsert-system.write.ts";
 import { makeUpsertTenantWrite } from "./handlers/upsert-tenant.write.ts";
 import { makeUsageQuery } from "./handlers/usage.query.ts";
 import { validateQuery } from "./handlers/validate.query.ts";
+import { variantsQuery } from "./handlers/variants.query.ts";
 import { TEMPLATE_RESOLVER_I18N } from "./i18n.ts";
 import { templateResourceEntity } from "./table.ts";
 import type { TemplateDeliveryPolicy } from "./template-delivery-policy.ts";
 import type { TenantEditableTemplate } from "./template-edit-policy.ts";
+import { VARIANT_KIND } from "./template-variants.ts";
 import { userContentEntryEntity } from "./user-content-table.ts";
 import { DEFAULT_COLLECTION_ACCESS, isCollectionRefusedKind } from "./web/constants.ts";
 
@@ -111,6 +114,11 @@ function assertTenantEditableValid(entries: readonly TenantEditableTemplate[]): 
         message: `template-resolver: tenantEditable entry of kind "${entry.kind}" has an empty slug`,
       });
     }
+    if (entry.variants === true && entry.kind !== VARIANT_KIND) {
+      throw bootRuleError(TEMPLATE_RESOLVER_BOOT_RULES.tenantEditableVariantsNeedPdf, {
+        message: `template-resolver: tenantEditable entry "${key}" sets variants, which only document-pdf templates support`,
+      });
+    }
     if (entry.access.roles.length === 0) {
       throw bootRuleError(TEMPLATE_RESOLVER_BOOT_RULES.tenantEditableInvalidEntry, {
         message: `template-resolver: tenantEditable entry "${entry.kind}/${entry.slug}" has no roles in access`,
@@ -134,7 +142,11 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
   assertTenantEditableValid(tenantEditable);
   const policy = { tenantEditable };
   const deliveryPolicy: TemplateDeliveryPolicy = {
-    tenantEditable: tenantEditable.map(({ kind, slug }) => ({ kind, slug })),
+    tenantEditable: tenantEditable.map(({ kind, slug, variants }) => ({
+      kind,
+      slug,
+      ...(variants === true && { variants }),
+    })),
     collectionKinds: collections
       .filter((c) => c.ownership !== "user" && c.access !== undefined)
       .map((c) => c.kind),
@@ -203,6 +215,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       applyLayout: r.writeHandler(makeApplyLayoutWrite(policy)),
       createLayout: r.writeHandler(makeCreateLayoutWrite(policy)),
       publishTemplates: r.writeHandler(makePublishTemplatesWrite(policy)),
+      createVariant: r.writeHandler(makeCreateVariantWrite(policy)),
     };
 
     const queries = {
@@ -222,6 +235,7 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
       documentBlocks: r.queryHandler(documentBlocksQuery),
       exportBundle: r.queryHandler(exportBundleQuery),
       sendTestStatus: r.queryHandler(makeSendTestStatusQuery(policy)),
+      variants: r.queryHandler(variantsQuery),
     };
 
     for (const collection of collections) {

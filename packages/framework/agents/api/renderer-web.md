@@ -388,6 +388,7 @@ type CorePrimitives = {
   CopyButton?: ComponentType<CopyButtonProps>; // Optional — additive rollout, see StickyActionBar.
   ShareButton?: ComponentType<ShareButtonProps>; // Optional — additive rollout, see StickyActionBar.
   PromoPanel?: ComponentType<PromoPanelProps>; // Optional — additive rollout, see StickyActionBar.
+  EmptyState?: ComponentType<EmptyStateProps>; // Optional — additive rollout, see StickyActionBar.
 };
 type CoreTokens = {
   color: ColorTokens;

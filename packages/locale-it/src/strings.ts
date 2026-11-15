@@ -801,7 +801,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.error.referenceCopied": "Copiato!",
   "kumiko.screen-access-denied.title": "Non hai accesso a questa pagina.",
   "kumiko.screen-missing.home": "Vai alla pagina iniziale",
-  "kumiko.screen-missing.hint": "Non è attivata per il tuo account oppure non esiste più.",
+  "kumiko.screen-missing.contact":
+    "Se ti serve, chiedi alla persona che gestisce gli account della vostra organizzazione.",
+  "kumiko.screen-missing.hint": "O non è attivata per il tuo account oppure non esiste più.",
   "kumiko.screen-missing.title": "Questa pagina non è disponibile",
   "kumiko.screen.forbidden": "Non hai accesso a questa pagina.",
   "kumiko.screen.notFound": "Questa pagina non è stata trovata.",
@@ -1711,8 +1713,6 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "tenant:entity:__action-form__:field:roles:option:Editor": "Editor",
   "tenant:entity:__action-form__:field:roles:option:Member": "Membro",
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": "Admin dell'organizzazione",
-  "tenant:entity:__action-form__:field:roles:option:TenantOwner":
-    "Proprietario dell'organizzazione",
   "tenant:entity:__action-form__:field:roles:option:DataProtectionOfficer":
     "Responsabile della protezione dei dati",
   "tenant:entity:__action-form__:field:roles:option:User": "Utente",
@@ -2871,6 +2871,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "documentDesigner.margins.useLayout": "Come nel layout",
   "template-resolver:write:apply-layout:title": "Applica layout PDF",
   "template-resolver:write:create-layout:title": "Crea layout PDF",
+  "template-resolver:write:create-variant:title": "Crea variante del modello PDF",
   "template-resolver:write:publish-templates:title": "Pubblica più modelli",
   "documentDesigner.company.title": "Dati aziendali",
   "documentDesigner.company.edit": "Modifica",

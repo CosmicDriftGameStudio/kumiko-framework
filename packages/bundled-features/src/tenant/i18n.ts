@@ -50,7 +50,6 @@ export const TENANT_I18N: Readonly<Record<string, LocalizedString>> = {
   "tenant:entity:__action-form__:field:roles:option:Member": { en: "Member" },
   "tenant:entity:__action-form__:field:roles:option:Admin": { en: "Admin" },
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": { en: "Tenant Admin" },
-  "tenant:entity:__action-form__:field:roles:option:TenantOwner": { en: "Tenant Owner" },
   "tenant:entity:__action-form__:field:roles:option:DataProtectionOfficer": {
     en: "Data Protection Officer",
   },

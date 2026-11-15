@@ -23,6 +23,7 @@ export const TemplateResolverHandlers = {
   applyLayout: "template-resolver:write:apply-layout",
   createLayout: "template-resolver:write:create-layout",
   publishTemplates: "template-resolver:write:publish-templates",
+  createVariant: "template-resolver:write:create-variant",
 } as const;
 
 // The config feature's write handler, which applyLayout dispatches to for the tenant default layout.
@@ -43,6 +44,7 @@ export const TemplateResolverQueries = {
   documentBlocks: "template-resolver:query:document-blocks",
   exportBundle: "template-resolver:query:export-bundle",
   sendTestStatus: "template-resolver:query:send-test-status",
+  variants: "template-resolver:query:variants",
   // Public pair — anonymous-reachable, kind pinned to text-block.
   bySlug: "template-resolver:query:by-slug",
   byTenant: "template-resolver:query:by-tenant",
@@ -85,4 +87,7 @@ export const TemplateResolverErrors = {
   testMailNoChannel: "template_test_mail_no_channel",
   testMailNoAddress: "template_test_mail_no_address",
   testMailFailed: "template_test_mail_failed",
+  variantsNotEnabled: "variants_not_enabled",
+  variantExists: "variant_exists",
+  variantNameInvalid: "variant_name_invalid",
 } as const;

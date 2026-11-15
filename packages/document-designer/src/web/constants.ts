@@ -7,6 +7,7 @@ export const LAYOUT_EDITOR_SCREEN_ID = "layout-editor" as const;
 export const PLATFORM_LAYOUT_EDITOR_SCREEN_ID = "platform-layout-editor" as const;
 export const PDF_TEMPLATE_EDITOR_SCREEN_ID = "pdf-template-editor" as const;
 export const MAIL_EDITOR_SCREEN_ID = "mail-editor" as const;
+export const CREATE_VARIANT_SCREEN_ID = "create-variant" as const;
 
 export const TEMPLATES_NAV_ID = "templates" as const;
 export const PLATFORM_TEMPLATES_NAV_ID = "platform-templates" as const;
