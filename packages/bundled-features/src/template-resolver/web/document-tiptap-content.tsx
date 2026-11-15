@@ -29,8 +29,16 @@ function tableClasses(canvas: boolean, page: boolean): string {
           : "[&_table]:mb-2 [&_table]:mt-6 [&_.ProseMirror>:first-child_table]:mt-0 [&_.ProseMirror>table:first-child]:mt-0",
         "[&_td:last-child>p[data-size=small][data-align=right]]:whitespace-nowrap",
       )
-    : "[&_table]:my-2";
+    : cn(
+        "[&_table]:my-2",
+        // The repeat strip is absolutely placed above its table and needs a line of room inside the wrapper.
+        "[&_.tableWrapper:has([data-testid=document-repeat-strip])_table]:mt-[var(--doc-line,1.25rem)]!",
+      );
 }
+
+// A wide table scrolls inside its wrapper instead of pushing past the editor frame. Not on the
+// paper canvas, where tables are bounded by the page.
+const TABLE_SCROLL_CLASS = "[&_.tableWrapper]:max-w-full [&_.tableWrapper]:overflow-x-auto";
 
 // The PDF prints cells top-aligned, header like body text and no rules unless the layout sets a
 // table style; the dashed outline only marks the cells while editing, like the frame outline.
@@ -82,6 +90,7 @@ export function renderEditorContent(
         "[&_a]:underline [&_a]:text-primary",
         "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
         tableClasses(canvas, page),
+        !page && TABLE_SCROLL_CLASS,
         // A layout region has no content below its table; margins there only inflate the region box.
         hosted && "[&_td>div]:my-0 [&_.ProseMirror>.tableWrapper:last-child_table]:mb-0",
         "[&_table]:w-full [&_table]:border-collapse",

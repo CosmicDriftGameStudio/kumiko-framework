@@ -71,3 +71,35 @@ describe("document editor extensions", () => {
     expectRoundtrip(body);
   });
 });
+
+const SOLON_LEASE_FRAGMENT =
+  '<table><tbody><tr data-if="rentSteps" data-repeat-header=""><th><p>Ab</p></th></tr><tr data-each="rentSteps"><td><p><span data-variable="from"></span></p></td></tr></tbody></table>' +
+  '<table><tbody><tr data-each="tenantSigners"><td><p><span data-variable="name"></span></p></td></tr></tbody></table>';
+
+const NON_CANONICAL_LEASE_FRAGMENT = `
+  <table>
+    <tr data-if="rentSteps" data-repeat-header=""><th>Ab</th></tr>
+    <tr data-each="rentSteps"><td><span data-variable="from"></span></td></tr>
+  </table>
+  <table><tr data-each="tenantSigners"><td>x</td></tr></table>`;
+
+describe("repeat tables of a lease template", () => {
+  test("a canonical repeat table survives the editor unchanged", () => {
+    expectRoundtrip(SOLON_LEASE_FRAGMENT);
+  });
+
+  test("loose markup is only reformatted, no data-attribute is lost", () => {
+    const sanitized = sanitizeDocumentHtml(NON_CANONICAL_LEASE_FRAGMENT);
+    if (!sanitized.ok) throw new Error("fragment rejected");
+    const editor = createEditor(NON_CANONICAL_LEASE_FRAGMENT);
+    const html = editor.getHTML();
+    editor.destroy();
+    expect(html).toBe(sanitized.html);
+    expect(html.match(/data-each="rentSteps"/g)).toHaveLength(1);
+    expect(html.match(/data-each="tenantSigners"/g)).toHaveLength(1);
+    expect(html.match(/data-if="rentSteps"/g)).toHaveLength(1);
+    expect(html.match(/data-repeat-header=""/g)).toHaveLength(1);
+    expect(html.match(/data-variable="from"/g)).toHaveLength(1);
+    expect(sanitizeDocumentHtml(html)).toEqual({ ok: true, html });
+  });
+});

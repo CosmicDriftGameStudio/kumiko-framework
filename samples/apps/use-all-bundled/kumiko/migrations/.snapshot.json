@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-07T10:54:11.153Z",
+  "generatedAt": "2026-11-15T18:24:39.872Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -434,6 +434,168 @@
       ],
       "source": "managed",
       "systemRowsReadable": true
+    },
+    {
+      "tableName": "read_document_drafts",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "subject_type",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "subject_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "template_slug",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "template_variant",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "template_title",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "template_id",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "template_version",
+          "pgType": "double precision",
+          "notNull": true
+        },
+        {
+          "name": "template_scope",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "locale",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "template_body",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "body",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "variables",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'{}'::jsonb"
+        },
+        {
+          "name": "meta",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'{}'::jsonb"
+        },
+        {
+          "name": "variable_schema",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'{}'::jsonb"
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'open'"
+        },
+        {
+          "name": "revision",
+          "pgType": "double precision",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "file_ref_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "file_name",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "finalized_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "last_change",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'{}'::jsonb"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_document_drafts_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_document_drafts_tenant_id_subject_type_subject_id_idx",
+          "columns": ["tenant_id", "subject_type", "subject_id"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["body", "variables", "fileName", "lastChange"]
     },
     {
       "tableName": "read_document_extracts",
@@ -5729,6 +5891,18 @@
           "kind": "PERMISSIVE",
           "rolesSql": "PUBLIC",
           "using": "\"tenant_id\" = '00000000-0000-4000-8000-000000000000'::uuid AND NULLIF(current_setting('kumiko.tenant_id', true), '') IS NOT NULL"
+        }
+      ]
+    },
+    "read_document_drafts": {
+      "policies": [
+        {
+          "name": "kumiko_tenant_isolation",
+          "command": "ALL",
+          "kind": "PERMISSIVE",
+          "rolesSql": "PUBLIC",
+          "using": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'",
+          "withCheck": "\"tenant_id\" = NULLIF(current_setting('kumiko.tenant_id', true), '')::uuid OR current_setting('kumiko.scope', true) = 'system'"
         }
       ]
     },

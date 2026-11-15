@@ -8,6 +8,22 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
   en: {
+    "template-resolver.systemPlaceholder.tenantName": "Company name",
+    "template-resolver.systemPlaceholder.signature": "Signature",
+    "template-resolver.systemPlaceholder.imprint": "Imprint",
+    "template-resolver.systemPlaceholder.unsubscribeUrl": "Unsubscribe link",
+    "template-resolver.systemPlaceholder.page": "Page number",
+    "template-resolver.systemPlaceholder.pages": "Page count",
+    "template-resolver.systemPlaceholder.companyAddress": "Address",
+    "template-resolver.systemPlaceholder.companyPhone": "Phone",
+    "template-resolver.systemPlaceholder.companyEmail": "Email",
+    "template-resolver.systemPlaceholder.companyWebsite": "Website",
+    "template-resolver.systemPlaceholder.companyRegister": "Commercial register",
+    "template-resolver.systemPlaceholder.companyVatId": "VAT ID",
+    "template-resolver.systemPlaceholder.companyManagement": "Management",
+    "template-resolver.systemPlaceholder.companyBank": "Bank",
+    "template-resolver.systemPlaceholder.companyIban": "IBAN",
+    "template-resolver.systemPlaceholder.companyBic": "BIC",
     "template-resolver.documentEditor.button": "Button",
     "template-resolver.documentEditor.buttonDefaultText": "Confirm",
     "template-resolver.documentEditor.buttonTarget": "Button target",

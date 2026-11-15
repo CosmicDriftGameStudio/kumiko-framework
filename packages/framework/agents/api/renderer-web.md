@@ -36,7 +36,7 @@ function DropdownMenuSeparator(props: ComponentPropsWithoutRef<typeof Primitive.
 function EditorBody(props: { left?: ReactNode; center: ReactNode; right: ReactNode; testId?: string; }): ReactNode;
 function EditorFooter(props: { testIdPrefix: string; actionTestIds?: EditorActionTestIds; message: { tone: FooterTone; text: string; } | null; pendingMessage?: string; saveError: string | null; modifiedAt: string | null; dirty: boolean; busy: boolean; canSave: boolean; canPublish?: boolean; onDiscard: () => void; onSave: () => void; saveLabel?: string; onPublish?: () => void; }): ReactNode;
 function EditorFrame(props: { testId: string; children: ReactNode; }): ReactNode;
-function EditorHeader(props: { title: string; status?: ReactNode; actions: EditorSaveActions; testIds?: EditorHeaderTestIds; children: ReactNode; }): ReactNode;
+function EditorHeader(props: { title: string; status?: ReactNode; actions?: EditorSaveActions; testIds?: EditorHeaderTestIds; children: ReactNode; }): ReactNode;
 function EditorInfoBar(props: { tone: InfoBarTone; testId: string; origin?: ReactNode; controls?: ReactNode; links?: ReactNode; overlays?: ReactNode; children: ReactNode; }): ReactNode;
 function EditorLocaleSwitch(props: { testIdPrefix: string; locales: string[]; locale: string; onLocale: (locale: string) => void; }): ReactNode;
 function EditorModeSwitch(props: { testIdPrefix: string; mode: EditorMode; onMode: (mode: EditorMode) => void; }): ReactNode;

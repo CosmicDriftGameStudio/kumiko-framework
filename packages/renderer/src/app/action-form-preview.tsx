@@ -122,7 +122,9 @@ export function ActionFormPreviewPanel({
     >
       <Grid columns={1}>
         <ActionFormFacts facts={facts} testIdPrefix="action-form-preview-fact" />
-        {preview.list !== undefined && <DataTable columns={columns} rows={rows} />}
+        {preview.list !== undefined && (rows.length > 0 || facts.length === 0) && (
+          <DataTable columns={columns} rows={rows} />
+        )}
       </Grid>
     </Banner>
   );

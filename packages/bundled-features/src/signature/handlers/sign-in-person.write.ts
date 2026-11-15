@@ -4,6 +4,7 @@ import {
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import type { SubjectScope } from "../../shared/index.ts";
 import { signerExecutor } from "../entity.ts";
 import { discardGeneratedFile } from "../files.ts";
 import {
@@ -19,7 +20,6 @@ import {
   recordInPersonSignature,
   storeSignatureImage,
 } from "../signing.ts";
-import type { SubjectScope } from "../subject-scope.ts";
 import { SIGNATURE_METHOD, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts";
 
 export type SignInPersonData = { readonly requestStatus: string };

@@ -258,6 +258,12 @@ describe("validateBoot — action wiring (no function values)", () => {
         });
         r.screen({ id: "overview", type: "custom", renderer: { react: "stub" } });
         r.screen({
+          id: "product-list",
+          type: "entityList",
+          entity: "product",
+          columns: [{ field: "name" }],
+        });
+        r.screen({
           id: "order-detail-target",
           type: "projectionDetail",
           query: "shop:query:order:detail",
@@ -318,10 +324,22 @@ describe("validateBoot — action wiring (no function values)", () => {
         ).toThrow(/redirect\.idFrom is empty or not a string/);
       });
 
+      test(`${site}: object-form redirect with idFrom to a custom screen → no idFrom throw`, () => {
+        let message = "";
+        try {
+          validateBoot([featureWithRedirect(site, { screen: "overview", idFrom: "id" })]);
+        } catch (e) {
+          message = e instanceof Error ? e.message : String(e);
+        }
+        expect(message).not.toMatch(/idFrom is set but target screen/);
+      });
+
       test(`${site}: object-form redirect with idFrom to a screen that carries no id → Throw`, () => {
         expect(() =>
-          validateBoot([featureWithRedirect(site, { screen: "overview", idFrom: "id" })]),
-        ).toThrow(/redirect\.idFrom is set but target screen "overview" \(custom\) carries no id/);
+          validateBoot([featureWithRedirect(site, { screen: "product-list", idFrom: "id" })]),
+        ).toThrow(
+          /redirect\.idFrom is set but target screen "product-list" \(entityList\) carries no id/,
+        );
       });
 
       test(`${site}: redirect searchParams on a record action → Throw`, () => {

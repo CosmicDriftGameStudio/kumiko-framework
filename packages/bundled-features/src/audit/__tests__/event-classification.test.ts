@@ -33,6 +33,7 @@ const FACTORIES_NEEDING_OPTIONS: ReadonlySet<string> = new Set([
   "helpdesk/createHelpdeskFeature",
   "handbook-knowledge/createHandbookKnowledgeFeature",
   "signature/createSignatureFeature",
+  "document-draft/createDocumentDraftFeature",
   "host-routing/createHostRoutingFeature",
   "auth-mfa/createAuthMfaFeature",
   "seo/createSeoFeature",

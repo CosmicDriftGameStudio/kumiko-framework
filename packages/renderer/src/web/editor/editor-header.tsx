@@ -83,7 +83,8 @@ export function EditorHeader({
   readonly title: string;
   /** Badge next to the title, e.g. the stored version's state. */
   readonly status?: ReactNode;
-  readonly actions: EditorSaveActions;
+  /** Without it the header has no save buttons and the footer carries them alone. */
+  readonly actions?: EditorSaveActions;
   readonly testIds?: EditorHeaderTestIds;
   /** View controls left of the save actions (mode or kind switch). */
   readonly children: ReactNode;
@@ -91,7 +92,7 @@ export function EditorHeader({
   const t = useTranslation();
   const { Button, PageHeader } = usePrimitives();
   if (PageHeader === undefined) return null;
-  const { onPublish } = actions;
+  const onPublish = actions?.onPublish;
   return (
     <PageHeader
       title={title}
@@ -99,30 +100,30 @@ export function EditorHeader({
       actions={
         <span className="flex items-center gap-2 [&_button]:px-2.5 [&_button]:text-sm">
           {children}
-          {/* The footer carries the same buttons; below 1280px the header leaves them to it so
-              the title keeps its room. */}
-          <span className="hidden items-center gap-2 xl:flex">
-            <Button
-              variant={onPublish === undefined ? "primary" : "secondary"}
-              size="sm"
-              disabled={!actions.canSave}
-              loading={actions.busy}
-              onClick={actions.onSave}
-              testId={testIds.save}
-            >
-              {actions.saveLabel ?? t("kumiko.actions.save")}
-            </Button>
-            {onPublish !== undefined && (
+          {actions !== undefined && (
+            <span className="hidden items-center gap-2 xl:flex">
               <Button
+                variant={onPublish === undefined ? "primary" : "secondary"}
                 size="sm"
-                disabled={actions.canPublish !== true}
-                onClick={onPublish}
-                testId={testIds.publish}
+                disabled={!actions.canSave}
+                loading={actions.busy}
+                onClick={actions.onSave}
+                testId={testIds.save}
               >
-                {t("kumiko.editor.publish")}
+                {actions.saveLabel ?? t("kumiko.actions.save")}
               </Button>
-            )}
-          </span>
+              {onPublish !== undefined && (
+                <Button
+                  size="sm"
+                  disabled={actions.canPublish !== true}
+                  onClick={onPublish}
+                  testId={testIds.publish}
+                >
+                  {t("kumiko.editor.publish")}
+                </Button>
+              )}
+            </span>
+          )}
         </span>
       }
     />

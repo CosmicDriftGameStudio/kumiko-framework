@@ -41,6 +41,8 @@ const RELEASABLE_FIELDS: Readonly<Record<string, string>> = {
     "id requestId reporterUserId authorUserId authorName fileIds channels sentAt",
   "template-resolver/template-resource":
     "id slug kind locale title folder content contentFormat variableSchema linkedResources meta scope parentTemplateId status draft activeVersion activeSince",
+  "document-draft/documentDraft":
+    "id subjectType subjectId templateSlug templateVariant templateTitle templateId templateVersion templateScope locale templateBody meta variableSchema status revision fileRefId finalizedAt",
   "template-resolver/user-content-entry": "id ownerId slug kind locale title folder contentFormat",
   "renderer-puppeteer-client/rendered-pdf":
     "id fileRefId templateSlug locale templateId templateVersion templateScope layoutId layoutVersion pageCount",

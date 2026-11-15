@@ -131,7 +131,7 @@ export const SCREEN_ACTION_RULES = {
   },
   redirectIdFromOnIdlessTarget: {
     id: "screen/redirect-id-from-on-idless-target",
-    summary: "A redirect idFrom only targets entityEdit or projectionDetail screens.",
+    summary: "A redirect idFrom only targets entityEdit, projectionDetail or custom screens.",
     fix: "Use the plain string redirect form.",
   },
   redirectSearchParamsOnlyActionForm: {

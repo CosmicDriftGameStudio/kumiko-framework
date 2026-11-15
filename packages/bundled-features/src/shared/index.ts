@@ -128,6 +128,12 @@ export {
   type StreamBackfillStepFailure,
   stepFailures,
 } from "./stream-tenant-derived-state.ts";
+export {
+  createSubjectScope,
+  type SubjectScope,
+  type SubjectScopeContext,
+  type SubjectScopeOptions,
+} from "./subject-scope.ts";
 export type { SystemQueryFn } from "./system-query.ts";
 export { createTenantDbCache } from "./tenant-db-cache.ts";
 export {

@@ -101,7 +101,10 @@ function createFieldCellRenderer<TValues extends FormValues, TCtx>(
           clearErrorsAndValidate(field.field);
         }}
         {...(props.actionFormScreenQn !== undefined && {
-          onSuggest: (value: string) => form.controller.seedField(field.field, value),
+          onSuggest: (value: string) => {
+            form.controller.seedField(field.field, value);
+            form.clearErrorsOnInput(field.field);
+          },
         })}
         GridCell={GridCell}
         featureName={props.featureName}

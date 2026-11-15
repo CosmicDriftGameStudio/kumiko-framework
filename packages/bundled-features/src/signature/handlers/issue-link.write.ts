@@ -5,12 +5,12 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import type { SubjectScope } from "../../shared/index.ts";
 import { signerExecutor } from "../entity.ts";
 import { signSignatureLinkToken } from "../grant.ts";
 import { isOpenRequest, isUnsignedSigner, loadRequestOfSigner } from "../lib.ts";
 import type { SignatureOptions } from "../options.ts";
 import { SignerIdSchema } from "../payloads.ts";
-import type { SubjectScope } from "../subject-scope.ts";
 
 export type IssueLinkData = { readonly signerId: string; readonly linkSentAt: string };
 

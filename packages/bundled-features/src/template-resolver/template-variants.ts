@@ -4,6 +4,7 @@ import * as z from "zod";
 export const VARIANT_SEPARATOR = ":";
 export const VARIANT_KIND = "document-pdf" as const;
 export const VARIANT_NAME_MAX_LENGTH = 40;
+export const VARIANT_UNKNOWN_REASON = "template_variant_unknown";
 
 // One kebab segment: the variant slug is `<base>:<name>` and a second ":" would read as another base.
 export const variantNameSchema = z

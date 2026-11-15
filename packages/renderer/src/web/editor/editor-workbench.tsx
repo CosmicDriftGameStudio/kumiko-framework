@@ -54,16 +54,7 @@ export function EditorWorkbench({
   const editing = mode === "edit";
   return (
     <EditorFrame testId={testId}>
-      <EditorHeader
-        title={title}
-        status={status}
-        actions={{
-          busy: save.busy,
-          canSave: save.canSave,
-          onSave: save.onSave,
-          ...(save.saveLabel !== undefined && { saveLabel: save.saveLabel }),
-        }}
-      >
+      <EditorHeader title={title} status={status}>
         <EditorModeSwitch testIdPrefix={testId} mode={mode} onMode={setMode} />
       </EditorHeader>
       <EditorInfoBar tone="muted" testId={`${testId}-info`} controls={controls}>

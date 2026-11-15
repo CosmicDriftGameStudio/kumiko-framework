@@ -1,3 +1,4 @@
+import { systemPlaceholderLabel } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   DOCUMENT_FALLBACK_CURRENCY,
@@ -44,17 +45,6 @@ export const LAYOUT_OWNED_PLACEHOLDERS: ReadonlySet<string> = new Set([
   "imprint",
   "unsubscribeUrl",
 ]);
-
-export const SYSTEM_PLACEHOLDER_TYPE: Readonly<Record<string, PlaceholderType>> = {
-  imprint: "link",
-  unsubscribeUrl: "link",
-};
-
-export function systemPlaceholderLabel(t: Translate, name: string): string {
-  const key = `documentDesigner.placeholder.${name}`;
-  const translated = t(key);
-  return translated === key ? name : translated;
-}
 
 // For places that show a stored {{name}} line as plain text instead of chips.
 export function labelPlaceholders(

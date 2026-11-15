@@ -254,6 +254,14 @@ Category: content
 
 Requires: `template-resolver`
 
+## document-draft
+
+Document drafts: one editable copy of a PDF document template per object (for example a lease contract). A draft is created from a template or one of its variants with the values for its placeholders, changed with the structured operations of template patch-draft or the editor, and finalized to a stored PDF through the injected print function; the template stays unchanged. Revise reopens a finalized draft. Body, variables and the last change are personal data of the draft, which is its own crypto-shredding subject.
+
+Category: data
+
+Requires: `files`, `template-resolver`, `user-data-rights`
+
 ## document-ingest-foundation
 
 Shared PDF/Scan/Image → normalized-text ingest primitive. Owns the `documentExtract` entity (fileRefId, storageKey, per-page text + metadata) as an implicit entity-projection, the per-tenant `ocrLanguage`/`maxPagesPerFile` config keys, the `documentIngestProvider` extension-point providers register accepted mimeTypes/size caps under, and a fileRef.created/fileRef.restored trigger that resolves the provider for a file's mimeType and requests ingest via `documentIngest.requested` tagged with the winning provider — a delete→restore round-trip re-requests ingest the same way a fresh upload does. An orphan-extract guard forgets any `documentExtract` whose fileRef is no longer live at processing time, regardless of how a provider's own write races the fileRef's delete/forget — providers should write through `writeDocumentExtractForLiveFileRef`.

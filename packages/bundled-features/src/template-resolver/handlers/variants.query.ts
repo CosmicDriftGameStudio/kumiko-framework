@@ -30,7 +30,14 @@ function precedence(row: TemplateResourceRow, locale: string): number {
 export const variantsQuery = defineQueryHandler({
   name: "variants",
   schema: z.object({ baseSlug: templateSlugSchema, locale: localeSchema }),
-  access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
+  access: {
+    openToAll: {
+      reason:
+        "lists only slug, title, scope and locale of the variants the caller's own tenant can print; " +
+        "whoever may create a document from the base template must be able to pick a variant, " +
+        "and the app's role names are unknown here",
+    },
+  },
   description:
     "Lists the active variants of a PDF document template (kind document-pdf, slug <baseSlug>:<name>) that the caller's tenant can use: the app's system variants and the tenant's own, each with slug, title (text or a translation key), scope (system or tenant) and locale. A tenant variant replaces a system variant of the same slug. Only published variants appear, and tenant variants only while the app still allows variants for the base template. Pass a returned slug as the variant when rendering the document.",
   handler: async (query, ctx) => {

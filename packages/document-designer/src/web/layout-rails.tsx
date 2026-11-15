@@ -1,4 +1,8 @@
 import {
+  SYSTEM_PLACEHOLDER_TYPE,
+  systemPlaceholderLabel,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import {
   useAppFeatures,
   useNav,
   usePrimitives,
@@ -16,11 +20,7 @@ import {
 } from "./layout-meta.ts";
 import type { BrandingView, LayoutKind, LayoutValidation } from "./layout-types.ts";
 import { layoutUsers } from "./layout-users.ts";
-import {
-  PLACEHOLDER_SYMBOL,
-  SYSTEM_PLACEHOLDER_TYPE,
-  systemPlaceholderLabel,
-} from "./mail-draft.ts";
+import { PLACEHOLDER_SYMBOL } from "./mail-draft.ts";
 import type { OverviewRowView } from "./overview-row.ts";
 import { placeholdersUsedIn, railSystemPlaceholders } from "./pdf-left-rail.tsx";
 import { RailField, RailHint, RailRow, RailSection } from "./rail.tsx";

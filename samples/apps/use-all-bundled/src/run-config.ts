@@ -43,6 +43,7 @@ import { createCustomFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp";
+import { createDocumentDraftFeature } from "@cosmicdrift/kumiko-bundled-features/document-draft";
 import { createDocumentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation";
 import { createDocumentsFeature } from "@cosmicdrift/kumiko-bundled-features/documents";
 import {
@@ -111,6 +112,8 @@ import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import {
   createRendererPuppeteerClientFeature,
   renderHtmlToPdf,
+  renderPdfBeforeTransaction,
+  storeRenderedPdf,
 } from "@cosmicdrift/kumiko-renderer-puppeteer-client";
 import { ADMIN_NAV_QN, ADMIN_NAV_WORKSPACES, adminNavFeature } from "./app/admin-nav-feature";
 import { DEV_TENANT_ID } from "./app/auth-constants";
@@ -389,6 +392,11 @@ export const APP_FEATURES = [
     deliverLink: async () => {
       /* smoke-only */
     },
+  }),
+  // document-draft: the app hands over the client's print and store functions as they are.
+  createDocumentDraftFeature({
+    subjectTypes: ["lease"],
+    pdf: { render: renderPdfBeforeTransaction, store: storeRenderedPdf },
   }),
   createHandbookKnowledgeFeature({
     pages: {

@@ -1,9 +1,9 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import type { SubjectScope } from "../../shared/index.ts";
 import { signerExecutor } from "../entity.ts";
 import { loadRequestOfSigner } from "../lib.ts";
 import { SignerIdSchema } from "../payloads.ts";
-import type { SubjectScope } from "../subject-scope.ts";
 
 export function createRevokeLinkHandler(access: AccessRule, scope: SubjectScope) {
   return defineWriteHandler<"revoke-link", typeof SignerIdSchema, { readonly revoked: true }>({

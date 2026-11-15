@@ -246,6 +246,25 @@ describe("template-resolver :: variants", () => {
     ]);
   });
 
+  test("the variants query is open to a user with an app-owned role, scoped to their own tenant", async () => {
+    const propertyManager = createTestUser({
+      id: 3,
+      roles: ["propertyManager"],
+      tenantId: admin.tenantId,
+    });
+    const slugs = (await variantsOf(stack, propertyManager)).map((variant) => variant.slug);
+    expect(slugs).toEqual(expect.arrayContaining([SYSTEM_VARIANT, `${BASE}:garage`]));
+
+    const foreignManager = createTestUser({
+      id: 4,
+      roles: ["propertyManager"],
+      tenantId: otherAdmin.tenantId,
+    });
+    expect((await variantsOf(stack, foreignManager)).map((variant) => variant.slug)).toEqual([
+      SYSTEM_VARIANT,
+    ]);
+  });
+
   test("the resolver serves the published tenant variant to its tenant only", async () => {
     const api = createTemplateResolverApi(stack.db, stack.registry);
     const request = { slug: `${BASE}:garage`, kind: "document-pdf" as const, locale: LOCALE };

@@ -63,10 +63,10 @@ export function EditorFooter({
   const tone = message === null ? null : FOOTER_TONE[message.tone];
   return (
     <div
-      className="flex items-center gap-4 border-t bg-background px-6 py-3"
+      className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t bg-background px-6 py-3"
       data-testid={`${testIdPrefix}-footer`}
     >
-      <div className="min-w-0 flex-1 text-sm">
+      <div className="min-w-0 basis-full text-sm sm:flex-1 sm:basis-0">
         {saveError !== null ? (
           <Banner variant="error" testId={`${testIdPrefix}-save-error`}>
             {saveError}
@@ -91,7 +91,7 @@ export function EditorFooter({
           </>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="ml-auto flex shrink-0 items-center gap-3">
         <Button
           variant="ghost"
           disabled={!dirty}

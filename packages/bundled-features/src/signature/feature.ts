@@ -6,6 +6,7 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createSubjectScope } from "../shared/index.ts";
 import { createSignatureRequestEntity, createSignatureSignerEntity } from "./entity.ts";
 import { createAnonymousLinkHandlers } from "./handlers/anonymous.write.ts";
 import { createCancelHandler } from "./handlers/cancel.write.ts";
@@ -31,7 +32,6 @@ import {
 } from "./payloads.ts";
 import { createSignatureDetailScreen, createSignatureListScreen } from "./screens.ts";
 import { scopeRequestDetail, scopeRequestList, scopeSignerList } from "./subject-queries.ts";
-import { createSubjectScope } from "./subject-scope.ts";
 import { sweepSignatureRequests } from "./sweep.ts";
 import { signatureDeleteHook, signatureExportHook } from "./user-data.ts";
 import {

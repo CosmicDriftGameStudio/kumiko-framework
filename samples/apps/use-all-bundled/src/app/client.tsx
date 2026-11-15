@@ -24,6 +24,7 @@ import { complianceProfilesClient } from "@cosmicdrift/kumiko-bundled-features/c
 import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { customFieldsClient } from "@cosmicdrift/kumiko-bundled-features/custom-fields/web";
 import { deliveryClient } from "@cosmicdrift/kumiko-bundled-features/delivery/web";
+import { documentDraftClient } from "@cosmicdrift/kumiko-bundled-features/document-draft/web";
 import { featureTogglesClient } from "@cosmicdrift/kumiko-bundled-features/feature-toggles/web";
 import { foldersClient } from "@cosmicdrift/kumiko-bundled-features/folders/web";
 import { inboundMailFoundationClient } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation/web";
@@ -137,6 +138,8 @@ createKumikoApp({
     // PDF template editor with live PDF preview, mounted as the custom screen
     // app-screens declares (no nav entry; opened by URL).
     documentDesignerClient(),
+    // Editor screen of per-object document drafts, opened by URL with the draft id.
+    documentDraftClient(),
     appScreens,
   ],
 });

@@ -23,15 +23,24 @@ export {
   flattenFramesForPreview,
   readTopLevelFrames,
 } from "./document-frames.ts";
+export { allowedBlocksFor } from "./document-op-blocks.ts";
+export {
+  applyDocumentOps,
+  type DocumentOp,
+  documentBlocksOf,
+  documentOpsSchema,
+} from "./document-ops.ts";
 export {
   type DocumentViolation,
   type DocumentViolationCode,
   documentViolationsToFieldIssues,
   flattenParagraphsToLineBreaks,
+  parseDocumentJson,
   type SanitizeBodyResult,
   type SanitizeHtmlResult,
   sanitizeDocumentHtml,
   sanitizeTemplateBody,
+  serializeDocumentJson,
 } from "./document-sanitizer.ts";
 export { createTemplateResolverFeature, type TemplateResolverOptions } from "./feature.ts";
 export type { LayoutSourceResponse, LayoutSourceRow } from "./handlers/layout-source.query.ts";
@@ -87,6 +96,11 @@ export {
 export { type TemplateBundle, templateBundleSchema } from "./template-bundle.ts";
 export type { TemplateDeliveryPolicy } from "./template-delivery-policy.ts";
 export {
+  diffTemplateBlocks,
+  splitTemplateBlocks,
+  type TemplateDiffBlock,
+} from "./template-diff.ts";
+export {
   type TemplateEditPolicy,
   type TenantEditableTemplate,
   templateEditAccess,
@@ -128,6 +142,7 @@ export {
   isVariantSlugOf,
   readVariantOf,
   VARIANT_NAME_MAX_LENGTH,
+  VARIANT_UNKNOWN_REASON,
   variantNameSchema,
   variantSlug,
 } from "./template-variants.ts";

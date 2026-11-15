@@ -689,7 +689,8 @@ function validateRedirectIdFromTarget(
   if (
     sameFeatureTarget !== undefined &&
     sameFeatureTarget.type !== "entityEdit" &&
-    sameFeatureTarget.type !== "projectionDetail"
+    sameFeatureTarget.type !== "projectionDetail" &&
+    sameFeatureTarget.type !== "custom"
   ) {
     throw bootRuleError(SCREEN_ACTION_RULES.redirectIdFromOnIdlessTarget, {
       message:

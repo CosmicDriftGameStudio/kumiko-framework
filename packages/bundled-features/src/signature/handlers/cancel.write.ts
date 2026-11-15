@@ -1,9 +1,9 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import type { SubjectScope } from "../../shared/index.ts";
 import { requestExecutor, signerExecutor } from "../entity.ts";
 import { isUnsignedSigner, listSigners, setRequestStatus } from "../lib.ts";
 import { RequestIdSchema } from "../payloads.ts";
-import type { SubjectScope } from "../subject-scope.ts";
 import { SIGNATURE_REQUEST_ENTITY, SIGNATURE_REQUEST_STATUS } from "../web/constants.ts";
 
 // Cancelling moves the request out of `open`, which already makes every link of it fail; the

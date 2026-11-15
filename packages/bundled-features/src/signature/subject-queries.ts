@@ -8,9 +8,9 @@ import {
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
+import type { SubjectScope } from "../shared/index.ts";
 import { requestExecutor } from "./entity.ts";
 import { openListCursor, sealListCursor } from "./list-cursor-seal.ts";
-import type { SubjectScope } from "./subject-scope.ts";
 
 type ListPayload = ReturnType<typeof entityListSchema.parse>;
 type ListFilter = NonNullable<ListPayload["filter"]>;

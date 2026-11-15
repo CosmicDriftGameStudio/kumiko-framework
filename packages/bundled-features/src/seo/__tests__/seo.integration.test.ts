@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
 import { createLegalPagesFeature } from "@cosmicdrift/kumiko-bundled-features/legal-pages";
 import {
   createManagedPagesFeature,
@@ -162,18 +162,25 @@ describe("seo :: GET /sitemap.xml", () => {
 describe("seo :: rate-limited managed-pages read", () => {
   // by-tenant-published allows 60 calls per IP and window; the 61st read
   // must surface as 429 instead of a sitemap that silently lost its pages.
+  // The bucket refills one token per second, so the clock stands still while the reads run;
+  // under load the 61 reads took over three seconds and the last one passed.
   test("sitemap.xml and llms.txt answer 429 with Retry-After once the bucket is exhausted", async () => {
     await stack.redis.flushNamespace();
-    for (let i = 0; i < 60; i++) {
-      const res = await stack.app.request("http://a.example.com/sitemap.xml");
-      expect(res.status).toBe(200);
+    setSystemTime(new Date("2026-06-01T12:00:00Z"));
+    try {
+      for (let i = 0; i < 60; i++) {
+        const res = await stack.app.request("http://a.example.com/sitemap.xml");
+        expect(res.status).toBe(200);
+      }
+      const sitemap = await stack.app.request("http://a.example.com/sitemap.xml");
+      expect(sitemap.status).toBe(429);
+      expect(Number(sitemap.headers.get("retry-after"))).toBeGreaterThan(0);
+      const llms = await stack.app.request("http://a.example.com/llms.txt");
+      expect(llms.status).toBe(429);
+    } finally {
+      setSystemTime();
+      await stack.redis.flushNamespace();
     }
-    const sitemap = await stack.app.request("http://a.example.com/sitemap.xml");
-    expect(sitemap.status).toBe(429);
-    expect(Number(sitemap.headers.get("retry-after"))).toBeGreaterThan(0);
-    const llms = await stack.app.request("http://a.example.com/llms.txt");
-    expect(llms.status).toBe(429);
-    await stack.redis.flushNamespace();
   });
 });
 
