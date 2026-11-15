@@ -73,7 +73,8 @@ export function withoutNonLatestPackages(
 
 export function collectPublishablePackages(packagesDir: string): PublishablePackage[] {
   const packages: PublishablePackage[] = [];
-  for (const relPath of new Glob("*/package.json").scanSync(packagesDir)) {
+  // Glob order follows the filesystem and differs between machines; sort for a stable list.
+  for (const relPath of [...new Glob("*/package.json").scanSync(packagesDir)].sort()) {
     const pkgPath = `${packagesDir}/${relPath}`;
     const pkg = parseJsonOrThrow<Record<string, unknown>>(readFileSync(pkgPath, "utf-8"), pkgPath);
     if (pkg.private === true) continue;
