@@ -3,13 +3,13 @@ import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { HelpdeskConfigKeys, HelpdeskHandlers } from "../web/constants.ts";
 import {
+  failingNonce,
   fetchChallenge,
   loadRequests,
   mailsTo,
   postSubmit,
   seedAdmin,
   seedReporter,
-  solve,
   submitBody,
 } from "./helpdesk-helpers.ts";
 import {
@@ -146,7 +146,7 @@ describe("helpdesk email limit counts only genuine submits", () => {
     const unsolved = await postSubmit(ctx.stack, {
       ...(await submitBody(ctx.stack, { email: victim })),
       challenge: stale.challenge,
-      nonce: `${Number(solve(stale)) + 1}x`,
+      nonce: failingNonce(stale),
     });
     expect(unsolved.status).toBe(200);
     expect(await loadRequests(ctx.stack)).toHaveLength(0);

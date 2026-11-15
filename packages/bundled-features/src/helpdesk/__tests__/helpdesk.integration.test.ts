@@ -3,6 +3,7 @@ import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import { HelpdeskHandlers, HelpdeskQueries } from "../web/constants.ts";
 import {
+  failingNonce,
   fetchChallenge,
   loadRequests,
   mailsTo,
@@ -81,12 +82,10 @@ describe("helpdesk submit", () => {
     expect(replay.status).toBe(200);
 
     const challenge = await fetchChallenge(ctx.stack);
-    let nonce = 0;
-    while (Number(solve(challenge)) === nonce) nonce += 1;
     const wrong = await postSubmit(ctx.stack, {
       ...(await submitBody(ctx.stack)),
       challenge: challenge.challenge,
-      nonce: String(nonce + 1_000_000),
+      nonce: failingNonce(challenge),
     });
     expect(wrong.status).toBe(200);
 
