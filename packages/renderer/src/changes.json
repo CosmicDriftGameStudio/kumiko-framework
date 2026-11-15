@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.423.0",
+    "type": "improvement",
+    "title": "The \"page not available\" and \"record not found\" pages are a calm empty state with a way back",
+    "detail": "New optional primitive `EmptyState` (`icon` \"unavailable\" or \"not-found\", `title`, `description`, `actions`) renders a centered page with an icon in a soft circle; custom primitive sets without it keep the plain card. \"This page is not available\" now always offers a primary \"Go to start page\" button (start page from the new `HomeScreenProvider`, mounted by `createKumikoApp`, so drawers and `KumikoScreen` get it too) and a line telling the user whom to ask (new i18n key `kumiko.screen-missing.contact`, en/de/fr/es/it). The \"record not found\" page uses the same look."
+  },
+  {
     "version": "0.422.0",
     "type": "improvement",
     "title": "Form intro as an info banner",

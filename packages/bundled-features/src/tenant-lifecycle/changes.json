@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.423.0",
+    "type": "breaking",
+    "title": "TenantOwner no longer closes the account",
+    "detail": "`TENANT_ACCOUNT_CLOSE_ROLES` is now `[\"Admin\"]`. `TenantAdmin` is not added, so the set of roles that may request or cancel tenant destruction only loses the removed role.",
+    "migration": "Grant `Admin` instead of `TenantOwner` to members who close the account."
+  },
+  {
     "version": "0.418.0",
     "type": "fix",
     "title": "The tenant destruction sweep locks per tenant",

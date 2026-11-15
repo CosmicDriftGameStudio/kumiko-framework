@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.423.0",
+    "type": "fix",
+    "title": "kumiko-build writes the server lockfile without network",
+    "detail": "The dist-server lockfile is derived from the app lock alone, so builds in environments without internet access no longer hang on registry lookups. Packages missing from the app lock still resolve through the registry.",
+    "migration": "Apps that run with LOG_FORMAT=pretty in production must declare pino-pretty as a dependency; dist-server no longer installs it by default."
+  },
+  {
     "version": "0.420.0",
     "type": "fix",
     "title": "English welcome banner and a quieter dev boot",
