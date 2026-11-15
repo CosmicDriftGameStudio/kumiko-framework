@@ -2,10 +2,14 @@
 // installs from dist-server/package.json, whose ranges alone resolve to whatever is newest
 // on the registry at image-build time. Seeding the app's bun.lock keeps already-locked
 // packages at their locked versions; packages the app lock does not carry resolve fresh.
+// When the seed carries every runtime dependency, the lock is written without registry access
+// (build pods have no internet).
 
 import { existsSync } from "node:fs";
-import { copyFile } from "node:fs/promises";
+import { copyFile, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import * as z from "zod";
 
 export type WriteServerLockfileOptions = {
   /** App directory: the search for a seed bun.lock starts here and walks up. */
@@ -30,6 +34,47 @@ function findSeedLockfile(startDir: string): string | undefined {
   }
 }
 
+const runtimePackageSchema = z
+  .object({ name: z.string(), dependencies: z.record(z.string(), z.string()).default({}) })
+  .passthrough();
+
+const lockSchema = z
+  .object({
+    workspaces: z.record(z.string(), z.unknown()),
+    overrides: z.record(z.string(), z.string()).optional(),
+  })
+  .passthrough();
+
+// The app lock carries the app's own root workspace, so bun would see the dist-server
+// dependencies as changed and re-resolve them through registry manifests. With the root
+// rewritten to dist-server's own dependencies, every locked package resolves from the lock
+// alone; only packages missing from the app lock still need the registry. The other
+// workspaces stay: their `workspace:` entries remain in `packages`, and dropping them makes a
+// monorepo lock inconsistent so bun re-resolves everything. The lock's overrides stay too
+// (they carry security pins for transitive packages) and move into package.json: bun compares
+// the two, and a mismatch re-resolves through the registry and drops the pins.
+async function rewriteSeedLockForRuntimePackage(lockfile: string, outDir: string): Promise<void> {
+  const manifestPath = join(outDir, "package.json");
+  const manifest = runtimePackageSchema.parse(
+    parseJsonOrThrow<unknown>(await readFile(manifestPath, "utf8"), manifestPath),
+  );
+  const lock = lockSchema.parse(Bun.JSONC.parse(await readFile(lockfile, "utf8")));
+  const rewritten = {
+    ...lock,
+    workspaces: {
+      ...lock.workspaces,
+      "": { name: manifest.name, dependencies: manifest.dependencies },
+    },
+  };
+  await writeFile(lockfile, `${JSON.stringify(rewritten, null, 2)}\n`);
+  if (lock.overrides !== undefined) {
+    await writeFile(
+      manifestPath,
+      `${JSON.stringify({ ...manifest, overrides: lock.overrides }, null, 2)}\n`,
+    );
+  }
+}
+
 type BunRun = { readonly exitCode: number; readonly output: string };
 
 async function runBun(args: readonly string[], cwd: string): Promise<BunRun> {
@@ -37,6 +82,9 @@ async function runBun(args: readonly string[], cwd: string): Promise<BunRun> {
   const proc = Bun.spawn({
     cmd: [process.execPath, ...args],
     cwd,
+    // Bun.spawn reads the env from process start, so runtime changes to process.env (proxy,
+    // cache dir) only reach the child when passed explicitly.
+    env: process.env,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -54,7 +102,10 @@ export async function writeServerLockfile(
   const outDir = resolve(options.outDir);
   const lockfile = join(outDir, "bun.lock");
   const seedLockfile = findSeedLockfile(options.cwd);
-  if (seedLockfile !== undefined) await copyFile(seedLockfile, lockfile);
+  if (seedLockfile !== undefined) {
+    await copyFile(seedLockfile, lockfile);
+    await rewriteSeedLockForRuntimePackage(lockfile, outDir);
+  }
 
   const install = await runBun(["install", "--lockfile-only"], outDir);
   if (install.exitCode !== 0) {

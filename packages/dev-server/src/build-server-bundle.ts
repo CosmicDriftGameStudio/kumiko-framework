@@ -58,25 +58,27 @@ const hasBun = typeof Bun !== "undefined";
 
 // Packages that the bundle still references at runtime (`from "<pkg>"` after
 // tree-shaking). Native bindings (argon2), worker-thread loaders (bullmq,
-// ioredis), and dynamic require (postgres, temporal-polyfill) — anything that
-// breaks under Bun bundling. (drizzle-kit/drizzle-orm are excluded: the
-// migration path now uses the framework's runMigrationsFromDir, not drizzle-kit.)
+// ioredis), and dynamic require (temporal-polyfill) — anything that breaks under Bun
+// bundling. (drizzle-kit/drizzle-orm are excluded: the migration path now uses the
+// framework's runMigrationsFromDir, not drizzle-kit.)
 const RUNTIME_EXTERNALS = [
   "@node-rs/argon2",
   "sharp",
   "bullmq",
   "ioredis",
-  "postgres",
   "temporal-polyfill",
   "pino",
-  "pino-pretty",
 ] as const;
 
-// An optional framework peer: apps that import createMeilisearchAdapter reference
-// it at runtime, so it must stay external (as BUILD_ONLY_EXTERNALS it crashed
-// money-horse with "Cannot find package 'meilisearch'"), but apps without search
-// should not install it.
-const OPTIONAL_RUNTIME_EXTERNALS = ["meilisearch"] as const;
+// Must stay external (as BUILD_ONLY_EXTERNALS meilisearch crashed money-horse with
+// "Cannot find package 'meilisearch'"), but apps that do not use them should not install
+// them. postgres is no longer imported by the framework (Bun.SQL) and pino-pretty is only
+// loaded for LOG_FORMAT=pretty; neither is in an app lock unless the app declares it, so
+// listing them unconditionally forced a registry lookup on every build. pino-pretty is only
+// named as a string transport target, which the import scan cannot see; scanning for the
+// string would match every app because the logger is always bundled. So pino-pretty enters
+// only through the app's own declaration.
+const OPTIONAL_RUNTIME_EXTERNALS = ["meilisearch", "postgres", "pino-pretty"] as const;
 
 // Packages that appear only in the build stack (transitive framework imports),
 // but are not referenced by app code. Without the external marker,
