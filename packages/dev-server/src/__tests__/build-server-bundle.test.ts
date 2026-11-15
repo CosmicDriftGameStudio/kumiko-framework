@@ -259,6 +259,34 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
   });
 });
 
+describe("buildServerBundle postgres and pino-pretty runtime dependencies", () => {
+  test("neither is installed unless a file imports it or the app declares it", async () => {
+    const dir = makeFixture();
+    try {
+      const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+      expect(result.runtimeDeps).not.toHaveProperty("postgres");
+      expect(result.runtimeDeps).not.toHaveProperty("pino-pretty");
+      expect(result.runtimeDeps).toHaveProperty("pino");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("pino-pretty is installed when the app declares it", async () => {
+    const dir = makeFixture();
+    try {
+      writeFileSync(
+        join(dir, "package.json"),
+        `${JSON.stringify({ name: "fixture-app", dependencies: { "pino-pretty": "^13.0.0" } })}\n`,
+      );
+      const result = await buildServerBundle({ cwd: dir, outDir: join(dir, "dist-server") });
+      expect(result.runtimeDeps["pino-pretty"]).toBe("^13.0.0");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("buildServerBundle meilisearch runtime dependency", () => {
   async function runtimeDepsOf(dir: string): Promise<{
     readonly result: Awaited<ReturnType<typeof buildServerBundle>>;

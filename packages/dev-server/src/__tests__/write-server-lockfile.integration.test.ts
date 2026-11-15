@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import * as z from "zod";
 import { writeServerLockfile } from "../write-server-lockfile.ts";
 
 const REPO_LOCKFILE = resolve(import.meta.dir, "../../../../bun.lock");
@@ -20,11 +21,20 @@ function lockedVersionOf(lockfilePath: string): string | undefined {
   return entry.exec(readFileSync(lockfilePath, "utf8"))?.[1];
 }
 
+function readJsonc(path: string): Record<string, unknown> {
+  return z.record(z.string(), z.unknown()).parse(Bun.JSONC.parse(readFileSync(path, "utf8")));
+}
+
 function frozenLockfileCheck(outDir: string): number {
   return Bun.spawnSync(
     [process.execPath, "install", "--production", "--frozen-lockfile", "--lockfile-only"],
-    { cwd: outDir, stdout: "pipe", stderr: "pipe" },
+    { cwd: outDir, env: process.env, stdout: "pipe", stderr: "pipe" },
   ).exitCode;
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
 }
 
 describe("writeServerLockfile", () => {
@@ -66,6 +76,43 @@ describe("writeServerLockfile", () => {
     });
     expect(lockedVersionOf(join(outDir, "bun.lock"))).toBe(seedVersion);
     expect(frozenLockfileCheck(outDir)).toBe(0);
+  });
+
+  test("resolves the server lock without network when the seed lock carries every runtime dependency", async () => {
+    const seedVersion = lockedVersionOf(REPO_LOCKFILE);
+    expect(seedVersion).toBeDefined();
+    copyFileSync(REPO_LOCKFILE, join(appDir, "bun.lock"));
+    const emptyCache = mkdtempSync(join(tmpdir(), "kumiko-empty-bun-cache-"));
+    const saved = {
+      cache: process.env["BUN_INSTALL_CACHE_DIR"],
+      https: process.env["HTTPS_PROXY"],
+      http: process.env["HTTP_PROXY"],
+      noProxy: process.env["NO_PROXY"],
+      noProxyLower: process.env["no_proxy"],
+    };
+    process.env["BUN_INSTALL_CACHE_DIR"] = emptyCache;
+    process.env["HTTPS_PROXY"] = "http://127.0.0.1:9";
+    process.env["HTTP_PROXY"] = "http://127.0.0.1:9";
+    process.env["NO_PROXY"] = "";
+    process.env["no_proxy"] = "";
+    try {
+      const result = await writeServerLockfile({ cwd: appDir, outDir });
+
+      expect(result.mode).toBe("seeded");
+      expect(lockedVersionOf(join(outDir, "bun.lock"))).toBe(seedVersion);
+      expect(frozenLockfileCheck(outDir)).toBe(0);
+      const seedOverrides = readJsonc(REPO_LOCKFILE)["overrides"];
+      expect(seedOverrides).toBeDefined();
+      expect(readJsonc(join(outDir, "package.json"))["overrides"]).toEqual(seedOverrides);
+      expect(readJsonc(join(outDir, "bun.lock"))["overrides"]).toEqual(seedOverrides);
+    } finally {
+      restoreEnv("BUN_INSTALL_CACHE_DIR", saved.cache);
+      restoreEnv("HTTPS_PROXY", saved.https);
+      restoreEnv("HTTP_PROXY", saved.http);
+      restoreEnv("NO_PROXY", saved.noProxy);
+      restoreEnv("no_proxy", saved.noProxyLower);
+      rmSync(emptyCache, { recursive: true, force: true });
+    }
   });
 
   test("resolves fresh when no bun.lock exists above the app", async () => {
