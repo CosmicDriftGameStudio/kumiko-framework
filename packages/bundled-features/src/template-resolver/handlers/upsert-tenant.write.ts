@@ -42,6 +42,7 @@ export function makeUpsertTenantWrite(policy: TemplateEditPolicy) {
           event.payload.variableSchema,
         ),
         payload: event.payload,
+        explicitVariableSchema: true,
       });
     },
   });

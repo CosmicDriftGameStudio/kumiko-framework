@@ -25,4 +25,5 @@ export const TEMPLATE_RESOLVER_I18N: Readonly<Record<string, { readonly en: stri
   [handlerTitleKey(H.applyLayout)]: { en: "Apply PDF layout" },
   [handlerTitleKey(H.createLayout)]: { en: "Create PDF layout" },
   [handlerTitleKey(H.publishTemplates)]: { en: "Publish several templates" },
+  [handlerTitleKey(H.createVariant)]: { en: "Create PDF template variant" },
 };

@@ -12,6 +12,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
+import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
 import type { TemplateResourceRow } from "../table.ts";
@@ -23,8 +24,10 @@ import {
   type TemplateEditPolicy,
   templateEditAccess,
 } from "../template-edit-policy.ts";
+import { readVariantOf } from "../template-variants.ts";
 import { executor } from "./shared.ts";
-import { publishGateIssues } from "./template-gates.ts";
+import { publishGateIssues, storedRecord } from "./template-gates.ts";
+import { baseVariableSchemaOf } from "./template-write.ts";
 
 type TemplateStatus = "active" | "archived";
 export type StatusTarget = "own" | "system";
@@ -65,13 +68,34 @@ function planStatusChange(
   ctx: HandlerContext,
   row: TemplateResourceRow,
   status: TemplateStatus,
+  baseSchema: Record<string, unknown> | undefined,
 ): StatusPlan {
   if (status === "archived") return { ok: true, changes: { status } };
-  const issues = publishGateIssues(ctx.registry, toWorkingRow(row, row.tenantId));
+  const syncedSchema =
+    baseSchema === undefined ? {} : { variableSchema: JSON.stringify(baseSchema) };
+  const issues = publishGateIssues(ctx.registry, {
+    ...toWorkingRow(row, row.tenantId),
+    ...syncedSchema,
+  });
   if (issues.length > 0) {
     return { ok: false, failure: writeFailure(new ValidationError({ fields: [...issues] })) };
   }
-  return { ok: true, changes: { ...parseTemplateDraft(row.draft), ...activationChanges(row) } };
+  return {
+    ok: true,
+    changes: { ...parseTemplateDraft(row.draft), ...syncedSchema, ...activationChanges(row) },
+  };
+}
+
+// A variant goes live with the base's current variables, so a base that gained a variable is gated and served consistently.
+async function baseSchemaForPublish(
+  db: LoadedTarget["db"],
+  row: TemplateResourceRow,
+): Promise<Record<string, unknown> | undefined> {
+  if (row.scope !== "tenant") return undefined;
+  const baseSlug = readVariantOf(storedRecord(toWorkingRow(row, row.tenantId).meta));
+  if (baseSlug === null) return undefined;
+  const schema = await baseVariableSchemaOf(db, row.tenantId, baseSlug, row.locale);
+  return isPlainObject(schema) ? schema : undefined;
 }
 
 type LoadedTarget = Pick<Awaited<ReturnType<typeof loadTargetRow>>, "db" | "scoped">;
@@ -84,7 +108,8 @@ export async function changeRowStatus(
   row: TemplateResourceRow,
   status: TemplateStatus,
 ): Promise<WriteResult<{ readonly id: string; readonly status: TemplateStatus }>> {
-  const plan = planStatusChange(ctx, row, status);
+  const baseSchema = status === "active" ? await baseSchemaForPublish(target.db, row) : undefined;
+  const plan = planStatusChange(ctx, row, status, baseSchema);
   if (!plan.ok) return plan.failure;
   const result = await executor.update(
     { id: row.id, version: row.version, changes: plan.changes },

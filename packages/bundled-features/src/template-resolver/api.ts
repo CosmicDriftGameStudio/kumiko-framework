@@ -160,7 +160,9 @@ export function createTemplateResolverApi(
   };
 }
 
-type DeliveredRowKey = Pick<TemplateResourceRow, "tenantId" | "kind" | "slug">;
+type DeliveredRowKey = Pick<TemplateResourceRow, "tenantId" | "kind" | "slug"> & {
+  readonly meta?: string | null;
+};
 
 // The one delivery rule for a stored row: unlocked, and a collection entry never shadows a system
 // template of the same slug that the app did not unlock.

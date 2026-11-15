@@ -6,6 +6,7 @@ import {
   type RowAction,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  CREATE_VARIANT_SCREEN_ID,
   DocumentDesignerCells,
   PLATFORM_LAYOUT_EDITOR_SCREEN_ID,
   TEMPLATE_EDITOR_SCREENS,
@@ -143,5 +144,18 @@ export function templateRowActions(options: { readonly platform: boolean }): Row
       },
     ];
   });
-  return [...editActions, RESET_LOCKED_OVERRIDE_ACTION];
+  // The handler creates a tenant row, which the system tenant may not own.
+  const variantActions: RowAction[] = options.platform
+    ? []
+    : [
+        {
+          kind: "drawer",
+          id: "create-variant",
+          label: i18nKey("documentDesigner.action.createVariant"),
+          screen: CREATE_VARIANT_SCREEN_ID,
+          params: { map: { baseSlug: "slug", locale: "locale" } },
+          visible: { field: "variantsEnabled", eq: true },
+        },
+      ];
+  return [...editActions, ...variantActions, RESET_LOCKED_OVERRIDE_ACTION];
 }

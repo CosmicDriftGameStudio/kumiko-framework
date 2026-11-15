@@ -177,11 +177,9 @@ describe("assignableAppRolesFromUsages", () => {
   test("rejects empty, built-in and reserved role names", () => {
     expect(() => assignableAppRolesFromUsages([{ entityName: "" }])).toThrow(/empty/);
     expect(() => assignableAppRolesFromUsages([{ entityName: "Admin" }])).toThrow(/built-in/);
-    for (const platformRole of ["TenantOwner", "DataProtectionOfficer"]) {
-      expect(() => assignableAppRolesFromUsages([{ entityName: platformRole }])).toThrow(
-        /built-in/,
-      );
-    }
+    expect(() => assignableAppRolesFromUsages([{ entityName: "DataProtectionOfficer" }])).toThrow(
+      /built-in/,
+    );
     for (const reserved of ["system", "SystemAdmin", "all", "anonymous"]) {
       expect(() => assignableAppRolesFromUsages([{ entityName: reserved }])).toThrow();
     }
@@ -218,10 +216,10 @@ describe("mergeAssignedRoles", () => {
       mergeAssignedRoles(
         ["Admin"],
         ["Editor"],
-        ["Member", "DataProtectionOfficer", "TenantOwner", "Billing"],
+        ["Member", "DataProtectionOfficer", "Billing"],
         APP_ROLES,
       ),
-    ).toEqual(["Editor", "DataProtectionOfficer", "TenantOwner", "Billing"]);
+    ).toEqual(["Editor", "DataProtectionOfficer", "Billing"]);
   });
 
   test("drops grantable roles that are not passed", () => {

@@ -1,3 +1,4 @@
+import { TemplateResolverHandlers } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import {
   access,
   defineFeature,
@@ -7,6 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TEMPLATE_FACETS, templateColumns, templateRowActions } from "./list-definition.ts";
 import {
+  CREATE_VARIANT_SCREEN_ID,
   DOCUMENT_DESIGNER_FEATURE,
   LAYOUT_EDITOR_SCREEN_ID,
   MAIL_EDITOR_SCREEN_ID,
@@ -85,6 +87,45 @@ export function createDocumentDesignerFeature(
       screen: `${DOCUMENT_DESIGNER_FEATURE}:screen:${PLATFORM_TEMPLATES_SCREEN_ID}`,
       access: { roles: access.systemAdmin },
       order: 15,
+    });
+
+    r.screen({
+      id: CREATE_VARIANT_SCREEN_ID,
+      type: "actionForm",
+      handler: TemplateResolverHandlers.createVariant,
+      fields: {
+        baseSlug: { type: "text", required: true },
+        locale: { type: "text", required: true },
+        title: { type: "text", required: true, maxLength: 200 },
+        name: { type: "text", maxLength: 40 },
+      },
+      layout: {
+        sections: [
+          {
+            fields: [
+              { field: "baseSlug", readOnly: true },
+              { field: "locale", readOnly: true },
+              "title",
+              "name",
+            ],
+          },
+        ],
+      },
+      fieldLabels: {
+        baseSlug: i18nKey("documentDesigner.variant.field.baseSlug"),
+        locale: i18nKey("documentDesigner.variant.field.locale"),
+        title: i18nKey("documentDesigner.variant.field.title"),
+        name: i18nKey("documentDesigner.variant.field.name"),
+      },
+      fieldDescriptions: { name: i18nKey("documentDesigner.variant.field.name.hint") },
+      submitLabel: i18nKey("documentDesigner.action.createVariant"),
+      redirect: {
+        screen: PDF_TEMPLATE_EDITOR_SCREEN_ID,
+        searchParams: { slug: "slug", kind: "kind" },
+      },
+      cancelTarget: TEMPLATES_SCREEN_ID,
+      dormant: true,
+      access: { roles: access.roles(...editorRoles) },
     });
 
     r.screen({

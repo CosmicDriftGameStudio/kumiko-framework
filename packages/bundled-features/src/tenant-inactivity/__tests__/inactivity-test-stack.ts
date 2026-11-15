@@ -177,7 +177,7 @@ export async function setupInactivityStack(
 
   const seedTenantWithOwner = async (tenantId: TenantId = INACTIVITY_TENANT) => {
     await seedTenant(tenantId);
-    await seedMember(OWNER_EMAIL, ["TenantOwner"], tenantId);
+    await seedMember(OWNER_EMAIL, ["Admin"], tenantId);
   };
 
   const seedTenantWithMembers = async (

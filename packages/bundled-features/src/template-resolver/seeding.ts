@@ -42,6 +42,7 @@ import { activeStampChanges, servedStampChanges } from "./template-draft.ts";
 import { refuseReservedLayoutSlug } from "./template-edit-policy.ts";
 import { templateSlugSchema } from "./template-meta.ts";
 import { variablesFromSchema } from "./template-validation.ts";
+import { variantOfMatchesSlug } from "./template-variants.ts";
 import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./web/constants.ts";
 import { TEMPLATE_RESOLVER_FEATURE, TemplateResolverHandlers } from "./web/qualified-names.ts";
 
@@ -83,6 +84,8 @@ export type SeedSystemTemplateOptions = {
    *  system admin uploaded through resource-upload. */
   readonly linkedResources?: Record<string, string>;
   readonly meta?: unknown;
+  /** Seeds the template as a variant of this base slug (kind `document-pdf`, slug `<variantOf>:<name>`); the app must also list the base with `variants: true` in tenantEditable for tenants to get their own. */
+  readonly variantOf?: string;
   readonly title?: string;
   /** Translatable title for the overview and designer, stored in the title column; the client
    *  shows the translation and falls back to the key. Mutually exclusive with `title`. */
@@ -108,6 +111,17 @@ function seedTitleColumn(opts: SeedSystemTemplateOptions, label: string): string
   return opts.titleI18nKey ?? opts.title ?? null;
 }
 
+function seedRawMeta(opts: SeedSystemTemplateOptions, label: string): unknown {
+  const rawMeta =
+    opts.variantOf === undefined
+      ? opts.meta
+      : { ...(isPlainObject(opts.meta) ? opts.meta : {}), variantOf: opts.variantOf };
+  if (!variantOfMatchesSlug(opts.slug, rawMeta)) {
+    throw new Error(`${label} rejected: invalid_variant_of (slug must be <variantOf>:<name>)`);
+  }
+  return rawMeta;
+}
+
 export async function seedSystemTemplate(
   db: DbConnection,
   opts: SeedSystemTemplateOptions,
@@ -128,12 +142,13 @@ export async function seedSystemTemplate(
     throw new Error(`${label} rejected: reserved_layout_slug`);
   }
   const title = seedTitleColumn(opts, label);
+  const rawMeta = seedRawMeta(opts, label);
   const evaluated = evaluateTemplateWrite({
     kind: opts.kind,
     scope: "system",
     contentFormat: opts.contentFormat,
     content: opts.content,
-    rawMeta: opts.meta,
+    rawMeta,
     variables: variablesFromSchema(opts.variableSchema ?? {}),
     resourceKeys: Object.keys(opts.linkedResources ?? {}),
   });

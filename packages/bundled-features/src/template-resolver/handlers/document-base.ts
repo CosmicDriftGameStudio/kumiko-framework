@@ -29,6 +29,7 @@ export type LoadedDocument = {
   readonly title: string | null;
   readonly folder: string | null;
   readonly parentTemplateId: string | null;
+  readonly linkedResources: string | null;
 };
 
 function recordOrEmpty(raw: string | null): Readonly<Record<string, unknown>> {
@@ -64,6 +65,7 @@ export async function loadDocumentBase(
       title: working.title,
       folder: working.folder,
       parentTemplateId: working.parentTemplateId,
+      linkedResources: own.linkedResources,
     };
   }
   const system = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
@@ -89,5 +91,6 @@ export async function loadDocumentBase(
     title: system.title,
     folder: system.folder,
     parentTemplateId: String(system.id),
+    linkedResources: system.linkedResources,
   };
 }

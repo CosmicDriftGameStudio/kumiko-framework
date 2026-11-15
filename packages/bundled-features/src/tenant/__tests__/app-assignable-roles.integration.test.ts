@@ -162,10 +162,10 @@ describe("updateMemberRoles keeps roles the actor cannot grant", () => {
     expect(data.roles).toEqual(["Editor", "DataProtectionOfficer"]);
   });
 
-  test("TenantAdmin save keeps TenantOwner and undeclared Billing", async () => {
-    await freshMember(["Member", "TenantOwner", "Billing"]);
+  test("TenantAdmin save keeps undeclared Billing", async () => {
+    await freshMember(["Member", "Billing"]);
     expect((await setRoles(["Editor"], "TenantAdmin")).status).toBe(200);
-    expect(await rolesOfMember()).toEqual(["Editor", "TenantOwner", "Billing"]);
+    expect(await rolesOfMember()).toEqual(["Editor", "Billing"]);
   });
 
   test("Admin cannot grant DataProtectionOfficer", async () => {

@@ -804,9 +804,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.error.copyReference": "Kopieren",
   "kumiko.error.referenceCopied": "Kopiert!",
   "kumiko.screen-access-denied.title": "Du hast keinen Zugriff auf diese Seite.",
+  "kumiko.screen-missing.contact":
+    "Brauchst du sie, frag die Person, die bei euch die Konten verwaltet.",
   "kumiko.screen-missing.home": "Zur Startseite",
   "kumiko.screen-missing.hint":
-    "Sie ist für dein Konto nicht freigeschaltet oder existiert nicht mehr.",
+    "Entweder ist sie für dein Konto nicht freigeschaltet oder es gibt sie nicht mehr.",
   "kumiko.screen-missing.title": "Diese Seite ist nicht verfügbar",
   "kumiko.screen.forbidden": "Du hast keinen Zugriff auf diese Seite.",
   "kumiko.screen.notFound": "Diese Seite wurde nicht gefunden.",
@@ -1566,6 +1568,17 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "templateResolver.errors.patch.regionNotAllowed":
     "Ein Bereich gilt nur für PDF-Layouts, nicht für {kind}.",
   "templateResolver.errors.patch.layoutExists": "Ein Layout mit dem Kürzel {slug} gibt es schon.",
+  "templateResolver.errors.patch.variantsNotEnabled":
+    "Für die Vorlage {slug} sind keine Varianten freigegeben.",
+  "templateResolver.errors.patch.variantExists":
+    "Eine Variante mit dem Kürzel {slug} gibt es schon.",
+  "templateResolver.errors.patch.variantNameInvalid":
+    "Das Kürzel darf nur aus Kleinbuchstaben, Ziffern und Bindestrichen bestehen; gib eins an oder ändere den Titel.",
+  "templateResolver.errors.patch.variablesInheritedFromBase":
+    "Eine Variante nutzt die Variablen ihrer Basisvorlage {slug}; ändere sie dort.",
+  "templateResolver.errors.patch.invalidVariantOf":
+    "Die Variante muss zu der Basisvorlage aus ihrem Kürzel gehören.",
+  "templateResolver.errors.variantUnknown": "Die Variante {variant} gibt es nicht.",
   "templateResolver.errors.template.reservedLayoutSlug":
     "Das Präfix {prefix} ist für Layouts der Mandanten reserviert.",
   "templateResolver.errors.patch.emptyFormat":
@@ -1715,7 +1728,6 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "tenant:entity:__action-form__:field:roles:option:Admin": "Admin",
   "tenant:entity:__action-form__:field:roles:option:Editor": "Editor",
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": "Mandanten-Admin",
-  "tenant:entity:__action-form__:field:roles:option:TenantOwner": "Mandanten-Inhaber",
   "tenant:entity:__action-form__:field:roles:option:DataProtectionOfficer":
     "Datenschutzbeauftragter",
   "tenant:entity:__action-form__:field:roles:option:User": "Benutzer",
@@ -1897,6 +1909,15 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.screen.layoutEditor.description": "Mail-Layout oder Briefpapier bearbeiten.",
   "documentDesigner.search": "Vorlagen suchen",
   "documentDesigner.action.edit": "Bearbeiten",
+  "screen:create-variant.title": "Variante anlegen",
+  "documentDesigner.action.createVariant": "Variante anlegen",
+  "documentDesigner.variant.field.baseSlug": "Variante von",
+  "documentDesigner.variant.field.locale": "Sprache",
+  "documentDesigner.variant.field.title": "Titel",
+  "documentDesigner.variant.field.name": "Kürzel",
+  "documentDesigner.variant.field.name.hint":
+    "Optional: Kleinbuchstaben, Ziffern und Bindestriche. Leer gelassen, wird es aus dem Titel gebildet.",
+  "documentDesigner.variantOf": "Variante von {base}",
   "documentDesigner.status.lockedOverride": "Nicht ausgeliefert",
   "documentDesigner.action.resetLockedOverride": "Eigene Fassung entfernen",
   "documentDesigner.action.resetLockedOverride.confirm":
@@ -2868,6 +2889,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "documentDesigner.margins.useLayout": "Wie im Layout",
   "template-resolver:write:apply-layout:title": "PDF-Layout anwenden",
   "template-resolver:write:create-layout:title": "PDF-Layout anlegen",
+  "template-resolver:write:create-variant:title": "PDF-Vorlagen-Variante anlegen",
   "template-resolver:write:publish-templates:title": "Mehrere Vorlagen veröffentlichen",
   "documentDesigner.company.title": "Firmendaten",
   "documentDesigner.company.edit": "Bearbeiten",

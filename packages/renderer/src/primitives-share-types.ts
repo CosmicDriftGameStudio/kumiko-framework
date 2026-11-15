@@ -74,3 +74,17 @@ export type PromoPanelProps = {
   readonly action?: PromoPanelAction;
   readonly testId?: string;
 };
+
+/** Semantic picture of an `EmptyState`; each platform maps it to its own icon, so
+ *  platform-neutral code never imports an icon library. */
+export type EmptyStateIcon = "unavailable" | "not-found";
+
+/** Calm centered "nothing here" page: icon in a soft circle, title, one explanation and
+ *  the way out as `actions`. */
+export type EmptyStateProps = {
+  readonly icon: EmptyStateIcon;
+  readonly title: string;
+  readonly description?: ReactNode;
+  readonly actions?: ReactNode;
+  readonly testId?: string;
+};

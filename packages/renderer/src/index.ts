@@ -100,6 +100,7 @@ export type {
 } from "./app/feature-schema.ts";
 export { isAppSchema, toAppSchema } from "./app/feature-schema.ts";
 export { HeaderActionsBar } from "./app/header-actions-bar.tsx";
+export { HomeScreenProvider, useHomeScreenId } from "./app/home-screen-context.tsx";
 export type { KumikoScreenProps } from "./app/kumiko-screen.tsx";
 export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen.tsx";
 export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.ts";
@@ -300,6 +301,8 @@ export type {
   EmbeddedListColumn,
   EmbeddedListInputProps,
   EmbeddedListTotal,
+  EmptyStateIcon,
+  EmptyStateProps,
   FieldCellWidth,
   FieldProps,
   FileValueListProps,

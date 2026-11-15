@@ -127,3 +127,26 @@ test("mail rows open the mail editor and PDF rows the PDF editor", async ({ page
   await expect(page).toHaveURL(/slug=billing(%3A|:)invoice/);
   await expect(page.getByTestId("pdf-template-editor")).toBeVisible();
 });
+
+test("tenant admin creates a variant of the invoice and previews it", async ({ page }) => {
+  await loginAs(page, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD);
+  await page.goto("/templates");
+
+  await page.getByTestId("row-document-pdf|billing:invoice-actions-menu").click();
+  await page.getByRole("menuitem", { name: "Variante anlegen" }).click();
+  await page.getByLabel("Titel").fill("Rechnung Gewerbe");
+  await page.getByRole("button", { name: "Variante anlegen" }).click();
+
+  await expect(page).toHaveURL(/pdf-template-editor/);
+  await expect(page).toHaveURL(/slug=billing(%3A|:)invoice(%3A|:)rechnung-gewerbe/);
+  await expect(page.getByTestId("pdf-template-editor")).toBeVisible();
+  await page.getByRole("button", { name: "Vorschau" }).click();
+  await page.getByTestId("pdf-generate-header").click();
+  await expect(page.getByTestId("document-designer-pdf-preview")).toBeVisible();
+
+  await page.goto("/templates");
+  const variantRow = await rowOf(page, "Rechnung Gewerbe");
+  await expect(variantRow.getByTestId("document-designer-variant-of")).toHaveText(
+    "Variante von billing:invoice",
+  );
+});

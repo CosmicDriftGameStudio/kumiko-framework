@@ -24,6 +24,7 @@ import {
 } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { collectTemplateUsage, type EffectiveMailLayoutSlugs } from "../template-usage.ts";
+import { readVariantOf, VARIANT_KIND } from "../template-variants.ts";
 import {
   DEFAULT_MAIL_LAYOUT_SLUG,
   FALLBACK_LOCALE,
@@ -74,6 +75,12 @@ export type OverviewRow = {
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsage[];
   readonly usedByCount: number;
+  /** Locale of the row the overview shows (German first); a row action that acts on one locale starts from it. */
+  readonly locale: string;
+  /** Base slug when this row is a variant of a PDF template. */
+  readonly variantOf: string | null;
+  /** The app allows variants of this PDF template, so "create variant" applies to the row. */
+  readonly variantsEnabled: boolean;
   /** SystemAdmin only, system-origin rows: tenants overriding this template; total is null without the tenant feature. */
   readonly overriddenBy?: { readonly active: number; readonly total: number | null };
 };
@@ -276,11 +283,24 @@ function versionFieldsOf(
   };
 }
 
+function variantFieldsOf(
+  preferred: TemplateResourceRow,
+  variantBaseSlugs: ReadonlySet<string>,
+): Pick<OverviewRow, "locale" | "variantOf" | "variantsEnabled"> {
+  const isPdf = preferred.kind === VARIANT_KIND;
+  return {
+    locale: preferred.locale,
+    variantOf: isPdf ? readVariantOf(storedRecord(preferred.meta)) : null,
+    variantsEnabled: isPdf && variantBaseSlugs.has(preferred.slug),
+  };
+}
+
 function buildDrafts(
   groups: ReadonlyMap<string, readonly TemplateResourceRow[]>,
   user: { readonly tenantId: string; readonly roles: readonly string[] },
   policy: TemplateDeliveryPolicy,
   defaultPdfLayoutSlug: string,
+  variantBaseSlugs: ReadonlySet<string>,
 ): {
   readonly drafts: OverviewDraft[];
   readonly layoutSlugByDocument: Map<string, string>;
@@ -318,6 +338,7 @@ function buildDrafts(
       lockedOverrideId: effective.lockedOverrideId,
       canResetLockedOverride: effective.lockedOverrideId !== null,
       modifiedAt: modifiedAtOf(preferred),
+      ...variantFieldsOf(preferred, variantBaseSlugs),
     });
   }
   return { drafts, layoutSlugByDocument };
@@ -398,6 +419,22 @@ const filterSchema = z.object({
   value: z.array(z.string()),
 });
 
+// A variant follows its base in the list, so the designer reads them as one group; a variant whose
+// base the filter dropped keeps its sorted place. Slugs repeat across kinds (a mail and a PDF may
+// share one), so only PDF rows count as a base.
+function variantsUnderTheirBase(rows: readonly OverviewRow[]): OverviewRow[] {
+  const isPdfBase = (row: OverviewRow) => row.kind === VARIANT_KIND && row.variantOf === null;
+  const baseSlugs = new Set(rows.filter(isPdfBase).map((row) => row.slug));
+  const isGrouped = (row: OverviewRow) => row.variantOf !== null && baseSlugs.has(row.variantOf);
+  return rows
+    .filter((row) => !isGrouped(row))
+    .flatMap((row) =>
+      isPdfBase(row)
+        ? [row, ...rows.filter((r) => isGrouped(r) && r.variantOf === row.slug)]
+        : [row],
+    );
+}
+
 export function makeOverviewQuery(policy: TemplateEditPolicy) {
   return defineQueryHandler({
     name: "overview",
@@ -439,6 +476,11 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
         query.user,
         deliveryPolicy,
         await defaultPdfLayoutSlug(ctx, query.user.tenantId),
+        new Set(
+          policy.tenantEditable
+            .filter((entry) => entry.kind === VARIANT_KIND && entry.variants === true)
+            .map((entry) => entry.slug),
+        ),
       );
       const effectiveLayouts = effectiveMailLayoutSlugs(visibleRows, deliveryPolicy);
       const rowsWithUsage = drafts.map((draft) =>
@@ -470,9 +512,10 @@ export function makeOverviewQuery(policy: TemplateEditPolicy) {
         (a, b) => direction * compareBy(sortField, a, b, shownTitle) || a.id.localeCompare(b.id),
       );
 
+      const ordered = variantsUnderTheirBase(filtered);
       const offset = payload.offset ?? 0;
       return {
-        rows: filtered.slice(offset, offset + payload.limit),
+        rows: ordered.slice(offset, offset + payload.limit),
         nextCursor: null,
         total: filtered.length,
         truncated,

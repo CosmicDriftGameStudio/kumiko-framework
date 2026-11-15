@@ -1243,6 +1243,7 @@
 | <a id="template-resolver-collection-refused-kind"></a>`template-resolver/collection-refused-kind` | Collections only use kinds that collections may write. | Pick an allowed collection kind. | `packages/bundled-features/src/template-resolver/boot-rules.ts` |
 | <a id="template-resolver-tenant-editable-duplicate"></a>`template-resolver/tenant-editable-duplicate` | tenantEditable lists each kind and slug once. | Remove the duplicate entry. | `packages/bundled-features/src/template-resolver/boot-rules.ts` |
 | <a id="template-resolver-tenant-editable-invalid-entry"></a>`template-resolver/tenant-editable-invalid-entry` | Each tenantEditable entry has a non-empty slug and at least one access role. | Give the entry a slug and roles. | `packages/bundled-features/src/template-resolver/boot-rules.ts` |
+| <a id="template-resolver-tenant-editable-variants-need-pdf"></a>`template-resolver/tenant-editable-variants-need-pdf` | Only tenantEditable entries of kind document-pdf may set variants. | Remove variants from the entry or change its kind to document-pdf. | `packages/bundled-features/src/template-resolver/boot-rules.ts` |
 
 ## tenant
 

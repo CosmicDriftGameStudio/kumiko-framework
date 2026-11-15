@@ -13,7 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { TemplateWriteScope } from "./layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
-import { isTenantLayout } from "./template-delivery-policy.ts";
+import { findPolicyEntry, isTenantLayout } from "./template-delivery-policy.ts";
 import { isSystemAdmin } from "./template-draft.ts";
 import { TENANT_LAYOUT_SLUG_PREFIX, type TemplateKind } from "./web/constants.ts";
 import { TemplateResolverErrors } from "./web/qualified-names.ts";
@@ -22,13 +22,15 @@ export type TenantEditableTemplate = {
   readonly kind: TemplateKind;
   readonly slug: string;
   readonly access: RoleAccessRule;
+  /** Lets a tenant create variants (`<slug>:<name>`) of this PDF template; they follow this entry's access and delivery. Only for kind `document-pdf`. */
+  readonly variants?: true;
 };
 
 export type TemplateEditPolicy = {
   readonly tenantEditable: readonly TenantEditableTemplate[];
 };
 
-type EditTarget = { readonly slug: string; readonly kind: string };
+type EditTarget = { readonly slug: string; readonly kind: string; readonly meta?: unknown };
 type EditUser = Pick<SessionUser, "roles">;
 
 const SYSTEM_ADMIN_ROLE = "SystemAdmin";
@@ -48,9 +50,7 @@ export function mayEditTemplate(
 ): boolean {
   if (isSystemAdmin(user)) return true;
   if (isTenantLayout(target)) return mayEditTenantLayouts(policy, user);
-  const entry = policy.tenantEditable.find(
-    (candidate) => candidate.slug === target.slug && candidate.kind === target.kind,
-  );
+  const entry = findPolicyEntry(policy.tenantEditable, target);
   return entry !== undefined && hasAccess(user, entry.access);
 }
 

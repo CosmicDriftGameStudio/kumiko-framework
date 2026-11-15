@@ -142,9 +142,9 @@ describe("tenant-inactivity activity source db", () => {
     await t.reset();
     tier = "free";
     const otherTenant = testTenantId(78);
-    await t.seedTenantWithMembers([{ email: "first@inactivity.test", roles: ["TenantOwner"] }]);
+    await t.seedTenantWithMembers([{ email: "first@inactivity.test", roles: ["TenantAdmin"] }]);
     await t.seedTenantWithMembers(
-      [{ email: "second@inactivity.test", roles: ["TenantOwner"] }],
+      [{ email: "second@inactivity.test", roles: ["TenantAdmin"] }],
       otherTenant,
     );
     await t.runJob();
@@ -161,11 +161,11 @@ describe("tenant-inactivity activity source db", () => {
 });
 
 describe("tenant-inactivity recipients", () => {
-  test("an Admin without the TenantOwner role gets the warning, once per user", async () => {
+  test("an Admin gets the warning, once per user", async () => {
     await t.reset();
     tier = "free";
     await t.seedTenantWithMembers([
-      { email: "admin@inactivity.test", roles: ["Admin", "TenantOwner"] },
+      { email: "admin@inactivity.test", roles: ["Admin"] },
       { email: "plain@inactivity.test", roles: ["User"] },
       { email: "onlyadmin@inactivity.test", roles: ["Admin"] },
     ]);
@@ -185,7 +185,7 @@ describe("tenant-inactivity recipients across tenants", () => {
     tier = "free";
     const otherTenant = testTenantId(79);
     await t.seedTenantWithMembers([
-      { email: "owner-a@inactivity.test", roles: ["TenantOwner"] },
+      { email: "owner-a@inactivity.test", roles: ["TenantAdmin"] },
       { email: "plain-a@inactivity.test", roles: ["User"] },
     ]);
     await t.seedTenantWithMembers(
@@ -212,9 +212,9 @@ describe("tenant-inactivity failing activity source", () => {
     const healthyTenant = INACTIVITY_TENANT;
     const failing = testTenantId(77);
     failingTenant = failing;
-    await t.seedTenantWithMembers([{ email: "ok@inactivity.test", roles: ["TenantOwner"] }]);
+    await t.seedTenantWithMembers([{ email: "ok@inactivity.test", roles: ["TenantAdmin"] }]);
     await t.seedTenantWithMembers(
-      [{ email: "stuck@inactivity.test", roles: ["TenantOwner"] }],
+      [{ email: "stuck@inactivity.test", roles: ["TenantAdmin"] }],
       failing,
     );
     await t.runJob();

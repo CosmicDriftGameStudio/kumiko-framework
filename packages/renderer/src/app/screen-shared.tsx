@@ -16,15 +16,18 @@ import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.ts";
 import { type ListSort, PAGE_SIZE_OPTIONS } from "../hooks/use-list-url-state.ts";
 import { referenceLookupSource, referenceRowsByIdsPayload } from "../hooks/use-reference-lookup.ts";
 import { useTranslation } from "../i18n.tsx";
-import { usePrimitives } from "../primitives.tsx";
+import { type EmptyStateIcon, usePrimitives } from "../primitives.tsx";
 import type { ResolvedSuccessItem, ResolvedSuccessLink } from "./action-form-support.tsx";
 import { ISO_DATE_PATTERN, isMoneyValue } from "./entity-edit-prefill.ts";
 import type { FeatureSchema } from "./feature-schema.ts";
+import { useHomeScreenId } from "./home-screen-context.tsx";
 import { type NavApi, type ScreenTarget, useNav } from "./nav.tsx";
 import { lastSegment, toKebab } from "./qn.ts";
 import { featureNameFromQualifiedScreenId } from "./qualify-screen-id.ts";
 import { navigateToReturn, navigateWithReturnTo, useReturnHost } from "./return-to.tsx";
 
+// Own component so useNav only runs when a start page is known: KumikoScreen
+// can render this state without a NavProvider.
 function ScreenMissingHomeButton({
   homeScreenId,
   testId,
@@ -37,7 +40,7 @@ function ScreenMissingHomeButton({
   const nav = useNav();
   return (
     <Button
-      variant="secondary"
+      variant="primary"
       onClick={() => nav.navigate({ screenId: homeScreenId })}
       testId={testId}
     >
@@ -46,8 +49,46 @@ function ScreenMissingHomeButton({
   );
 }
 
+// EmptyState is an optional primitive: a custom registry without it keeps the
+// plain card, so no page loses its title and way out.
+function NotAvailableState({
+  icon,
+  title,
+  description,
+  actions,
+  testId,
+}: {
+  readonly icon: EmptyStateIcon;
+  readonly title: string;
+  readonly description: ReactNode;
+  readonly actions?: ReactNode;
+  readonly testId: string;
+}): ReactNode {
+  const { EmptyState, Card, Text } = usePrimitives();
+  if (EmptyState !== undefined) {
+    return (
+      <EmptyState
+        icon={icon}
+        title={title}
+        description={description}
+        actions={actions}
+        testId={testId}
+      />
+    );
+  }
+  return (
+    <Card options={{ padded: true }} testId={testId}>
+      <Text testId={`${testId}-title`}>{title}</Text>
+      {description}
+      {actions}
+    </Card>
+  );
+}
+
 /** Empty state for a screen QN that is not in the schema (feature disabled for
- *  the tenant, stale link, miswired screen). The QN only goes to the console. */
+ *  the tenant, stale link, miswired screen). The QN only goes to the console.
+ *  The way back is the explicit `homeScreenId` or else the app's start page from
+ *  `HomeScreenProvider`. */
 export function ScreenMissingState({
   screenQn,
   homeScreenId,
@@ -57,26 +98,32 @@ export function ScreenMissingState({
   readonly homeScreenId?: string;
   readonly testId?: string;
 }): ReactNode {
-  const { Card, Text } = usePrimitives();
+  const { Text } = usePrimitives();
   const t = useTranslation();
+  const providedHomeScreenId = useHomeScreenId();
+  const homeTarget = homeScreenId ?? providedHomeScreenId;
   useEffect(() => {
     rendererWarn(
       `[kumiko] screen "${screenQn}" is not in the schema (feature disabled, stale link or miswired screen).`,
     );
   }, [screenQn]);
   return (
-    <Card
-      options={{ padded: true }}
-      slots={{
-        title: <Text testId={`${testId}-title`}>{t("kumiko.screen-missing.title")}</Text>,
-        subtitle: <Text variant="muted">{t("kumiko.screen-missing.hint")}</Text>,
-      }}
+    <NotAvailableState
+      icon="unavailable"
+      title={t("kumiko.screen-missing.title")}
+      description={
+        <>
+          <Text variant="muted">{t("kumiko.screen-missing.hint")}</Text>
+          <Text variant="muted">{t("kumiko.screen-missing.contact")}</Text>
+        </>
+      }
+      actions={
+        homeTarget !== undefined ? (
+          <ScreenMissingHomeButton homeScreenId={homeTarget} testId={`${testId}-home`} />
+        ) : undefined
+      }
       testId={testId}
-    >
-      {homeScreenId !== undefined ? (
-        <ScreenMissingHomeButton homeScreenId={homeScreenId} testId={`${testId}-home`} />
-      ) : null}
-    </Card>
+    />
   );
 }
 
@@ -136,19 +183,21 @@ export function RecordNotFoundState({
   readonly translate: Translate;
   readonly onBack?: () => void;
 }): ReactNode {
-  const { Card, Text, Button } = usePrimitives();
+  const { Text, Button } = usePrimitives();
   return (
-    <Card options={{ padded: true }} testId="kumiko-screen-record-missing">
-      <Text testId="kumiko-screen-record-missing-title">
-        {translate("kumiko.record.not-found.title")}
-      </Text>
-      <Text variant="muted">{translate("kumiko.record.not-found.hint")}</Text>
-      {onBack !== undefined && (
-        <Button variant="secondary" onClick={onBack} testId="kumiko-screen-record-missing-back">
-          {translate("kumiko.record.not-found.back")}
-        </Button>
-      )}
-    </Card>
+    <NotAvailableState
+      icon="not-found"
+      title={translate("kumiko.record.not-found.title")}
+      description={<Text variant="muted">{translate("kumiko.record.not-found.hint")}</Text>}
+      actions={
+        onBack !== undefined ? (
+          <Button variant="secondary" onClick={onBack} testId="kumiko-screen-record-missing-back">
+            {translate("kumiko.record.not-found.back")}
+          </Button>
+        ) : undefined
+      }
+      testId="kumiko-screen-record-missing"
+    />
   );
 }
 

@@ -48,6 +48,7 @@ const TENANT_EDITABLE_TEMPLATES: readonly TenantEditableTemplate[] = [
     kind: "document-pdf" as const,
     slug,
     access: { roles: ["TenantAdmin"] },
+    ...(slug === "billing:invoice" && { variants: true as const }),
   })),
   ...(["mail-layout", "pdf-layout"] as const).map((kind) => ({
     kind,

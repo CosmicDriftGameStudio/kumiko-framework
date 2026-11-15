@@ -74,7 +74,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
   // are session-scoped (event.user.tenantId).
   access: { roles: ["system", ...access.admin] },
   description:
-    "Sets the roles a user holds in a tenant, rejecting reserved role names and any grant that would raise the target above the caller; roles the caller could not grant (platform roles such as DataProtectionOfficer or TenantOwner, undeclared or higher-tier app roles) are kept, only the system user replaces the full list; admins act on their own tenant, SystemAdmins on any.",
+    "Sets the roles a user holds in a tenant, rejecting reserved role names and any grant that would raise the target above the caller; roles the caller could not grant (platform roles such as DataProtectionOfficer, undeclared or higher-tier app roles) are kept, only the system user replaces the full list; admins act on their own tenant, SystemAdmins on any.",
   agent: { risk: "high" },
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {

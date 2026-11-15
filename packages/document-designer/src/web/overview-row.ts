@@ -24,6 +24,8 @@ export type OverviewRowView = {
   readonly modifiedAt: string;
   readonly usedBy: readonly OverviewUsageView[];
   readonly usedByCount: number;
+  readonly variantOf: string | null;
+  readonly variantsEnabled: boolean;
   /** SystemAdmin only, system-origin rows; total is null without the tenant feature. */
   readonly overriddenBy: { readonly active: number; readonly total: number | null } | null;
 };
@@ -82,6 +84,8 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     modifiedAt,
     usedBy,
     usedByCount,
+    variantOf,
+    variantsEnabled,
     overriddenBy,
   } = row;
   if (typeof slug !== "string" || !isTemplateKind(kind) || !isStatus(status)) return null;
@@ -106,6 +110,8 @@ export function parseOverviewRow(row: Readonly<Record<string, unknown>>): Overvi
     modifiedAt: stringOr(modifiedAt, ""),
     usedBy: usages,
     usedByCount: numberOr(usedByCount, usages.length),
+    variantOf: typeof variantOf === "string" ? variantOf : null,
+    variantsEnabled: variantsEnabled === true,
     overriddenBy: overriddenByOf(overriddenBy),
   };
 }

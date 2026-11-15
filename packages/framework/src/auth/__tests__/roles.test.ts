@@ -11,7 +11,6 @@ describe("ROLES constants", () => {
         "Member": "Member",
         "SystemAdmin": "SystemAdmin",
         "TenantAdmin": "TenantAdmin",
-        "TenantOwner": "TenantOwner",
       }
     `);
   });

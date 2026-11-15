@@ -776,7 +776,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.error.referenceCopied": "Copied!",
   "kumiko.screen-access-denied.title": "You do not have access to this page.",
   "kumiko.screen-missing.home": "Go to start page",
-  "kumiko.screen-missing.hint": "It is not enabled for your account or no longer exists.",
+  "kumiko.screen-missing.contact":
+    "If you need it, ask the person who manages accounts for your organization.",
+  "kumiko.screen-missing.hint": "Either it is not enabled for your account or it no longer exists.",
   "kumiko.screen-missing.title": "This page is not available",
   "kumiko.screen.forbidden": "You do not have access to this page.",
   "kumiko.screen.notFound": "This page could not be found.",
@@ -1522,6 +1524,16 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "templateResolver.errors.patch.regionNotAllowed":
     "A region only applies to PDF layouts, not to {kind}.",
   "templateResolver.errors.patch.layoutExists": "A layout with the slug {slug} already exists.",
+  "templateResolver.errors.patch.variantsNotEnabled":
+    "Variants are not enabled for the template {slug}.",
+  "templateResolver.errors.patch.variantExists": "A variant with the slug {slug} already exists.",
+  "templateResolver.errors.patch.variantNameInvalid":
+    "The short name must be lowercase letters, digits and dashes; give one or change the title.",
+  "templateResolver.errors.patch.variablesInheritedFromBase":
+    "A variant uses the variables of its base template {slug}; change them there.",
+  "templateResolver.errors.patch.invalidVariantOf":
+    "The variant must belong to the base template in its slug.",
+  "templateResolver.errors.variantUnknown": "The variant {variant} does not exist.",
   "templateResolver.errors.template.reservedLayoutSlug":
     "The prefix {prefix} is reserved for tenant layouts.",
   "templateResolver.errors.patch.emptyFormat": "Give at least one of align, style or textStyle.",
@@ -1667,7 +1679,6 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "tenant:entity:__action-form__:field:roles:option:Admin": "Admin",
   "tenant:entity:__action-form__:field:roles:option:Editor": "Editor",
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": "Tenant Admin",
-  "tenant:entity:__action-form__:field:roles:option:TenantOwner": "Tenant Owner",
   "tenant:entity:__action-form__:field:roles:option:DataProtectionOfficer":
     "Data Protection Officer",
   "tenant:entity:__action-form__:field:roles:option:User": "User",
@@ -1846,6 +1857,15 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.screen.layoutEditor.description": "Edit the mail layout or the PDF letterhead.",
   "documentDesigner.search": "Search templates",
   "documentDesigner.action.edit": "Edit",
+  "screen:create-variant.title": "Create variant",
+  "documentDesigner.action.createVariant": "Create variant",
+  "documentDesigner.variant.field.baseSlug": "Variant of",
+  "documentDesigner.variant.field.locale": "Language",
+  "documentDesigner.variant.field.title": "Title",
+  "documentDesigner.variant.field.name": "Short name",
+  "documentDesigner.variant.field.name.hint":
+    "Optional: lowercase letters, digits and dashes. Left empty, it is built from the title.",
+  "documentDesigner.variantOf": "Variant of {base}",
   "documentDesigner.status.lockedOverride": "Not delivered",
   "documentDesigner.action.resetLockedOverride": "Remove own version",
   "documentDesigner.action.resetLockedOverride.confirm":
@@ -2804,6 +2824,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "documentDesigner.margins.useLayout": "Use the layout's margins",
   "template-resolver:write:apply-layout:title": "Apply PDF layout",
   "template-resolver:write:create-layout:title": "Create PDF layout",
+  "template-resolver:write:create-variant:title": "Create PDF template variant",
   "template-resolver:write:publish-templates:title": "Publish several templates",
   "documentDesigner.company.title": "Company data",
   "documentDesigner.company.edit": "Edit",
