@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.424.0",
+    "type": "fix",
+    "title": "Action-form preview hides an empty list next to facts",
+    "detail": "`preview.list` renders only when it has rows or the preview has no `facts`, so a preview with facts and an empty list (for example a contract PDF with no rent steps) no longer shows a dashed \"No entries yet.\" box. `EditorWorkbench` no longer renders save buttons in the page header (they were a second copy of the footer's, shown from 1280px up); `EditorHeader` takes `actions` as optional."
+  },
+  {
+    "version": "0.424.0",
+    "type": "fix",
+    "title": "Seeding the default row of a required optionsQuery select clears its required error",
+    "detail": "Seeding the suggestion (`row.default`) into an empty select now clears that field's issues the same way a typed value does, so a submit before the options query had loaded no longer leaves \"required\" next to a filled field."
+  },
+  {
     "version": "0.423.0",
     "type": "improvement",
     "title": "The \"page not available\" and \"record not found\" pages are a calm empty state with a way back",

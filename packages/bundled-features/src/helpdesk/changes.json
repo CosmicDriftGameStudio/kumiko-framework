@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.424.0",
+    "type": "fix",
+    "title": "helpdesk tests no longer flake on a guessed wrong nonce",
+    "detail": "A guessed wrong nonce still solved the challenge with probability 2^-bits at the low test difficulty, so the dropped-submit and wrong-nonce tests failed now and then. The tests now search for a nonce that fails verification. No runtime change."
+  },
+  {
     "version": "0.415.0",
     "type": "fix",
     "title": "Helpdesk forwards requests and replies without ctx.notify",

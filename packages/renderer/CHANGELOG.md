@@ -1,5 +1,74 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.424.0
+
+### Patch Changes
+
+- acd7c43: An action-form preview that shows facts no longer adds the "No entries yet." box under them when its list is empty; a preview with only a list keeps the empty state. The shared editor workbench also drops the duplicate save button in its header (the footer carries it) and, below the `md` breakpoint, scrolls editor and rail as one surface.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Action-form preview hides an empty list next to facts
+  detail: `preview.list` renders only when it has rows or the preview has no `facts`, so a preview with facts and an empty list (for example a contract PDF with no rent steps) no longer shows a dashed "No entries yet." box. `EditorWorkbench` no longer renders save buttons in the page header (they were a second copy of the footer's, shown from 1280px up); `EditorHeader` takes `actions` as optional.
+  -->
+- acd7c43: A PDF document can be edited per object before it is printed: the new `document-draft` bundle keeps one draft per object (for example a lease contract), created from a PDF template or one of its variants, changed with the same structured operations as `patch-draft` and finalized to a stored PDF. The template stays unchanged. The shared editor workbench stacks its rail under the editor below the `md` breakpoint and its footer wraps the message above the buttons on narrow widths; the document editor's toolbar rows scroll sideways instead of wrapping there.
+  
+  <!-- kumiko-changes
+  feature: document-draft
+  type: improvement
+  title: document-draft bundle for per-object PDF drafts
+  detail: `createDocumentDraftFeature({ subjectTypes, pdf: { render, store }, retention?, access?, authorizeSubject?, unscopedRoles?, subjectScreens? })` adds the entity `documentDraft` (table `read_document_drafts`, so apps that mount it need a schema migration) and the handlers `create`, `patch`, `save`, `finalize`, `revise`, `discard` and the queries `blocks` and `by-subject`. `create` copies a template or one of its variants (placeholders stay in the body) and freezes the `variables`; `patch` takes the ops of `template-resolver:write:patch-draft` except `setVariable`, `setMeta` and `setResource` (`op_not_allowed`); `finalize` prints the draft body and stores the PDF. `{ render: renderPdfBeforeTransaction, store: storeRenderedPdf }` from renderer-puppeteer-client fits `pdf` without an adapter. Body, variables and last change are personal data of the draft row; `forgetDocumentDraftsOfSubject(ctx, subject)` purges the drafts of an erased object and erases their keys. The bundle requires `user-data-rights`. The editor is the dormant custom screen `document-draft:screen:document-draft-editor`, mounted with `documentDraftClient()` from `@cosmicdrift/kumiko-bundled-features/document-draft/web`: it opens with the draft id, edits the text, lists the deviations from the template, saves, finalizes or discards (then opens `subjectScreens[subjectType]` with the subject id) and reopens a finalized draft. The subject scope (`createSubjectScope`) moved from signature to the shared barrel and is used by both bundles.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: improvement
+  title: document ops, sanitizer and block diff are exported
+  detail: The barrel exports `applyDocumentOps`, `documentOpsSchema`, `documentBlocksOf`, `allowedBlocksFor`, `parseDocumentJson`, `serializeDocumentJson`, `diffTemplateBlocks`, `splitTemplateBlocks` and `VARIANT_UNKNOWN_REASON`, so a bundle that keeps its own copy of a document can edit it with the same operations.
+  -->
+  
+  <!-- kumiko-changes
+  feature: renderer-puppeteer-client
+  type: improvement
+  title: renderPdfBeforeTransaction and renderPdfBytes print a stored draft body
+  detail: `RenderPdfArgs` and the args of `renderPdfBytes` have `draft?: DocumentPdfDraft` (`{ content, meta, variableSchema? }`). It is printed instead of the stored template; the stored template of the slug still supplies images, layout and variable schema. Used by the document-draft bundle's `finalize`.
+  -->
+  
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: fix
+  title: form-field document editor keeps tables in frame, scrolls its toolbar and leaves room for the repeat strip
+  detail: Under md the toolbar rows of the form-field editor are one line that swipes sideways instead of wrapping. Wide tables scroll inside their wrapper instead of leaving the editor frame, and a table with a repeat strip gets a line of room above it so the strip no longer covers the previous paragraph. The document-draft editor shows the template's variable label (or the company-data name) on a placeholder chip that has no value yet.
+  -->
+  
+  <!-- kumiko-changes
+  feature: document-designer
+  type: breaking
+  title: system placeholder labels moved to the template-resolver namespace
+  detail: The labels of the system placeholders (tenantName, company data, page, imprint and so on) are now `template-resolver.systemPlaceholder.<name>` instead of `documentDesigner.placeholder.<name>`. The locale packages are already updated.
+  migration: An app that overrides a `documentDesigner.placeholder.<name>` translation renames the key to `template-resolver.systemPlaceholder.<name>`.
+  -->
+- acd7c43: A required select whose options load from a query no longer keeps its "required" error after the default row is seeded: submitting before the options had loaded showed the error, and the suggestion that filled the field afterwards left it standing.
+  
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Seeding the default row of a required optionsQuery select clears its required error
+  detail: Seeding the suggestion (`row.default`) into an empty select now clears that field's issues the same way a typed value does, so a submit before the options query had loaded no longer leaves "required" next to a filled field.
+  -->
+- acd7c43: An actionForm redirect or success link to a custom screen now carries the record id when it sets `idFrom`, so a custom screen that reads its record from the route opens on it. The caller's `returnTo` no longer overrides such a redirect, and the boot validator accepts `idFrom` on a custom screen.
+  
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A redirect with idFrom opens a custom screen on its record
+  detail: `redirect: { screen, idFrom }` and success links with `idFrom` to a custom screen pass the payload field as the route id (`nav.route.entityId`) and win over the caller's `returnTo`, like a redirect to an entityEdit or projectionDetail screen. Without `idFrom` a custom target stays id-less and `returnTo` still wins. The boot rule `screen/redirect-id-from-on-idless-target` no longer rejects `idFrom` on a custom screen.
+  -->
+- Updated dependencies [acd7c43]
+  - @cosmicdrift/kumiko-framework@0.424.0
+  - @cosmicdrift/kumiko-types@0.424.0
+
 ## 0.423.0
 
 ### Patch Changes
