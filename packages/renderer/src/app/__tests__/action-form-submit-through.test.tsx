@@ -87,13 +87,20 @@ const screen: ActionFormScreenDefinition = {
 
 type Write = { readonly type: string; readonly payload: unknown };
 
-function makeDispatcher(writes: Write[], respond: () => unknown): Dispatcher {
+function makeDispatcher(
+  writes: Write[],
+  respond: () => unknown,
+  queries: Write[] = [],
+): Dispatcher {
   return {
     write: (async (type: string, payload: unknown) => {
       writes.push({ type, payload });
       return respond();
     }) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
+    query: (async (type: string, payload: unknown) => {
+      queries.push({ type, payload });
+      return { isSuccess: true, data: {} };
+    }) as unknown as Dispatcher["query"],
     batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
     statusStore: {
       getState: () => "online",
@@ -179,14 +186,20 @@ function mount(
 ): {
   readonly opener: Opener;
   readonly writes: Write[];
+  readonly queries: Write[];
   readonly view: ReturnType<typeof render>;
 } {
   const writes: Write[] = [];
+  const queries: Write[] = [];
   const opener: Opener = { offer: () => {}, go: () => {}, initialValues, navigations: [] };
   const view = render(
-    <App opener={opener} dispatcher={makeDispatcher(writes, respond)} screenDef={screenDef} />,
+    <App
+      opener={opener}
+      dispatcher={makeDispatcher(writes, respond, queries)}
+      screenDef={screenDef}
+    />,
   );
-  return { opener, writes, view };
+  return { opener, writes, queries, view };
 }
 
 const submitThrough = {
@@ -312,5 +325,24 @@ describe("actionForm submitThrough payload shaping", () => {
 
     await waitFor(() => expect(writes).toHaveLength(1));
     expect(writes[0]?.payload).toEqual({ note: "keep", values: { subject: "Hello" } });
+  });
+});
+
+describe("actionForm load.passPrefill with a handoff", () => {
+  const loadingScreen: ActionFormScreenDefinition = {
+    ...screen,
+    load: { query: "shop:query:compose-prefill", singleton: true, passPrefill: true },
+  };
+
+  test("the handoff values travel in the load payload", async () => {
+    const { opener, queries } = mount(undefined, loadingScreen);
+    act(() => opener.offer("compose", { submitThrough }));
+
+    await waitFor(() =>
+      expect(queries).toContainEqual({
+        type: "shop:query:compose-prefill",
+        payload: { subject: "Hello" },
+      }),
+    );
   });
 });
