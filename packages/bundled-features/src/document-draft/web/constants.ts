@@ -12,6 +12,12 @@ export const DOCUMENT_DRAFT_STATUS = {
 export type DocumentDraftStatus =
   (typeof DOCUMENT_DRAFT_STATUS)[keyof typeof DOCUMENT_DRAFT_STATUS];
 
+export const DOCUMENT_DRAFT_STATUS_TONE = {
+  [DOCUMENT_DRAFT_STATUS.Open]: "warn",
+  [DOCUMENT_DRAFT_STATUS.Finalized]: "ok",
+  [DOCUMENT_DRAFT_STATUS.Discarded]: "neutral",
+} as const;
+
 export const DOCUMENT_DRAFT_LAST_CHANGE_SOURCE = {
   Create: "create",
   Ops: "ops",
@@ -37,7 +43,6 @@ export const DOCUMENT_DRAFT_ERROR = {
   NotFinalized: "document_draft_not_finalized",
   TemplateNotFound: "template_not_found",
   OpNotAllowed: "op_not_allowed",
-  InvalidHtml: "document_draft_invalid_html",
 } as const;
 
 export const DOCUMENT_DRAFT_DEFAULT_LOCALE = "de";

@@ -3,10 +3,15 @@ import {
   defineWriteHandler,
   type KumikoEventTypeMap,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { VersionConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { SubjectScope } from "../../shared/index.ts";
 import { documentDraftExecutor } from "../entity.ts";
-import { draftNotFound, loadScopedDraft, notInStatus, pdfMetaOf, recordOrEmpty } from "../lib.ts";
+import {
+  checkOpenAtBase,
+  draftNotFound,
+  loadScopedDraft,
+  pdfMetaOf,
+  recordOrEmpty,
+} from "../lib.ts";
 import type { DocumentDraftPdf } from "../options.ts";
 import { DraftBaseSchema } from "../payloads.ts";
 import { DOCUMENT_DRAFT_STATUS } from "../web/constants.ts";
@@ -20,9 +25,8 @@ type FinalizeData = {
 
 export const FINALIZE_RATE_LIMIT = { per: "user+handler", limit: 10, windowSeconds: 60 } as const;
 
-// Printing takes seconds, so it runs before the transaction opens. The subject authorization needs
-// the full handler context and therefore runs in the transaction, before anything is stored; a
-// caller who may not see the subject gets NotFound there and the uploaded PDF is never stored.
+// Printing takes seconds, so it runs before the transaction opens. The subject scope is checked
+// first, so a caller who may not see the draft gets NotFound without status hints and without a print.
 export function createFinalizeHandler<TUpload>(
   access: AccessRule,
   scope: SubjectScope,
@@ -44,19 +48,10 @@ export function createFinalizeHandler<TUpload>(
       "Prints an open document draft to a PDF with the values frozen at creation and stores it: the draft becomes finalized and carries the file (fileRefId, fileName). base is the draft version from the blocks query. Further edits need revise first. Returns the draft id, the file and the revision.",
     beforeTransaction: async (event, ctx) => {
       const { id, base } = event.payload;
-      const draft = await documentDraftExecutor.detail({ id }, event.user, ctx.db);
+      const draft = await loadScopedDraft(ctx, event.user, scope, id);
       if (draft === null) return draftNotFound(id);
-      if (draft.status !== DOCUMENT_DRAFT_STATUS.Open)
-        return notInStatus(DOCUMENT_DRAFT_STATUS.Open);
-      if (draft.version !== base) {
-        return writeFailure(
-          new VersionConflictError({
-            entityId: id,
-            expectedVersion: base,
-            currentVersion: Number(draft.version),
-          }),
-        );
-      }
+      const notOpenAtBase = checkOpenAtBase(draft, id, base);
+      if (notOpenAtBase !== null) return notOpenAtBase;
       const rendered = await pdf.render(ctx, {
         slug: String(draft.templateSlug),
         ...(typeof draft.templateVariant === "string" && { variant: draft.templateVariant }),
@@ -75,6 +70,8 @@ export function createFinalizeHandler<TUpload>(
       const user = event.user;
       const draft = await loadScopedDraft(ctx, user, scope, id);
       if (draft === null) return draftNotFound(id);
+      const notOpenAtBase = checkOpenAtBase(draft, id, base);
+      if (notOpenAtBase !== null) return notOpenAtBase;
       const stored = await pdf.store(ctx, event.prepared.upload);
       if (!stored.isSuccess) return stored;
       const updated = await documentDraftExecutor.update(

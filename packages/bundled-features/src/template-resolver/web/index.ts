@@ -79,4 +79,9 @@ export {
   TemplateResolverHandlers,
   TemplateResolverQueries,
 } from "./qualified-names.ts";
+export {
+  SYSTEM_PLACEHOLDER_TYPE,
+  systemPlaceholderLabel,
+  translatedOr,
+} from "./system-placeholders.ts";
 export { WebPreviewRenderer } from "./web-preview-renderer.tsx";

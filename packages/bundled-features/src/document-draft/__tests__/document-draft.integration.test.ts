@@ -564,6 +564,30 @@ describe("access", () => {
         )
       ).httpStatus,
     ).toBe(404);
+    expect(renderCalls).toEqual([]);
+
+    // Neither a wrong base nor a finalized draft may tell a blocked user anything but NotFound.
+    const wrongBase = { id: created.id, base: Number(created.version) + 99 };
+    expect(
+      (await stack.http.writeErr(DocumentDraftHandlers.finalize, wrongBase, blockedMember))
+        .httpStatus,
+    ).toBe(404);
+    await stack.http.writeOk(
+      DocumentDraftHandlers.finalize,
+      { id: created.id, base: created.version },
+      allowedMember,
+    );
+    const printsBefore = renderCalls.length;
+    expect(
+      (
+        await stack.http.writeErr(
+          DocumentDraftHandlers.finalize,
+          { id: created.id, base: created.version },
+          blockedMember,
+        )
+      ).httpStatus,
+    ).toBe(404);
+    expect(renderCalls).toHaveLength(printsBefore);
 
     const own = await create({}, allowedMember);
     expect((await blocksOf(own.id, allowedMember)).id).toBe(own.id);

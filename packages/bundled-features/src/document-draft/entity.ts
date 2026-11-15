@@ -8,13 +8,17 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DOCUMENT_DRAFT_ENTITY, DOCUMENT_DRAFT_STATUS } from "./web/constants.ts";
+import { TEMPLATE_SCOPES } from "../template-resolver/index.ts";
+import {
+  DOCUMENT_DRAFT_ENTITY,
+  DOCUMENT_DRAFT_STATUS,
+  DOCUMENT_DRAFT_STATUS_TONE,
+} from "./web/constants.ts";
 
 export const DEFAULT_DOCUMENT_DRAFT_RETENTION_KEEP_FOR = "10y";
 
 export type DocumentDraftRetention = { readonly keepFor: string };
 
-const TEMPLATE_SCOPE_OPTIONS = ["system", "tenant"] as const;
 const STATUS_OPTIONS = [
   DOCUMENT_DRAFT_STATUS.Open,
   DOCUMENT_DRAFT_STATUS.Finalized,
@@ -72,7 +76,7 @@ export function createDocumentDraftEntity(
         maxLength: 64,
       }),
       templateVersion: createNumberField({ required: true }),
-      templateScope: createSelectField({ options: TEMPLATE_SCOPE_OPTIONS, required: true }),
+      templateScope: createSelectField({ options: [...TEMPLATE_SCOPES], required: true }),
       locale: createTextField({
         required: true,
         personal: false,
@@ -97,11 +101,7 @@ export function createDocumentDraftEntity(
         default: DOCUMENT_DRAFT_STATUS.Open,
         filterable: true,
         sortable: true,
-        optionTones: {
-          [DOCUMENT_DRAFT_STATUS.Open]: "warn",
-          [DOCUMENT_DRAFT_STATUS.Finalized]: "ok",
-          [DOCUMENT_DRAFT_STATUS.Discarded]: "neutral",
-        },
+        optionTones: DOCUMENT_DRAFT_STATUS_TONE,
       }),
       revision: createNumberField({ required: true, default: 1 }),
       fileRefId: createTextField({

@@ -1,11 +1,12 @@
-import type { AccessRule, HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import type { AccessRule, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
   UnprocessableError,
+  VersionConflictError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
-import type { SubjectScope } from "../shared/index.ts";
+import type { SubjectScope, SubjectScopeContext } from "../shared/index.ts";
 import {
   type PdfTemplateMeta,
   parseTemplateMeta,
@@ -29,7 +30,7 @@ export function draftNotFound(id?: string) {
 
 // A draft of another tenant, an unknown id and a subject the user may not see all answer the same.
 export async function loadScopedDraft(
-  ctx: HandlerContext,
+  ctx: SubjectScopeContext,
   user: SessionUser,
   scope: SubjectScope,
   id: string,
@@ -51,6 +52,21 @@ export function notInStatus(expected: DocumentDraftStatus) {
   );
 }
 
+// Null when the draft is open at the version the caller read; otherwise the failure to return.
+export function checkOpenAtBase(draft: DraftRow, id: string, base: number) {
+  if (draft.status !== DOCUMENT_DRAFT_STATUS.Open) return notInStatus(DOCUMENT_DRAFT_STATUS.Open);
+  if (draft.version !== base) {
+    return writeFailure(
+      new VersionConflictError({
+        entityId: id,
+        expectedVersion: base,
+        currentVersion: Number(draft.version),
+      }),
+    );
+  }
+  return null;
+}
+
 export function recordOrEmpty(value: unknown): Readonly<Record<string, unknown>> {
   return isPlainObject(value) ? value : {};
 }
@@ -58,8 +74,4 @@ export function recordOrEmpty(value: unknown): Readonly<Record<string, unknown>>
 export function pdfMetaOf(raw: unknown): PdfTemplateMeta | null {
   const parsed = parseTemplateMeta("document-pdf", raw);
   return parsed.ok ? readPdfTemplateMeta(parsed.meta) : null;
-}
-
-export function stringOrNull(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
 }

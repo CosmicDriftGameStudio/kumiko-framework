@@ -1,12 +1,11 @@
+import {
+  SYSTEM_PLACEHOLDER_TYPE,
+  systemPlaceholderLabel,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { Translate } from "@cosmicdrift/kumiko-renderer/headless";
 import type { ReactNode } from "react";
-import {
-  LAYOUT_OWNED_PLACEHOLDERS,
-  PLACEHOLDER_SYMBOL,
-  SYSTEM_PLACEHOLDER_TYPE,
-  systemPlaceholderLabel,
-} from "./mail-draft.ts";
+import { LAYOUT_OWNED_PLACEHOLDERS, PLACEHOLDER_SYMBOL } from "./mail-draft.ts";
 import type { LinkedResourceView, MailValidation } from "./mail-types.ts";
 import { RailHint, RailRow, RailSection } from "./rail.tsx";
 import { variableLabelText } from "./used-by-label.ts";

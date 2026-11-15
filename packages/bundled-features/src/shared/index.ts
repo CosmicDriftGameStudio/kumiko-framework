@@ -131,6 +131,7 @@ export {
 export {
   createSubjectScope,
   type SubjectScope,
+  type SubjectScopeContext,
   type SubjectScopeOptions,
 } from "./subject-scope.ts";
 export type { SystemQueryFn } from "./system-query.ts";

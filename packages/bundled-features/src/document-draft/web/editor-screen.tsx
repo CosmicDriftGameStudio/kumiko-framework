@@ -1,6 +1,7 @@
 import {
   dispatcherErrorTextWithFieldIssues,
   PreviewPane,
+  statusToneForOptionTone,
   useMutation,
   useNav,
   usePrimitives,
@@ -25,11 +26,18 @@ import {
   RailSection,
   StatusBadge,
 } from "@cosmicdrift/kumiko-renderer/web";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { type ReactNode, useRef, useState } from "react";
-import { DocumentContentEditor, PDF_DOCUMENT_BLOCKS } from "../../template-resolver/web/index.ts";
+import {
+  COMPANY_PLACEHOLDERS,
+  DocumentContentEditor,
+  PDF_DOCUMENT_BLOCKS,
+  systemPlaceholderLabel,
+  translatedOr,
+} from "../../template-resolver/web/index.ts";
 import {
   DOCUMENT_DRAFT_STATUS,
+  DOCUMENT_DRAFT_STATUS_TONE,
   DocumentDraftHandlers,
   DocumentDraftQueries,
   type DocumentDraftStatus,
@@ -59,12 +67,6 @@ const TEST_ID = "document-draft-workbench";
 const BODY_EDITOR_ID = "document-draft-body";
 const MAX_DEVIATION_TEXT_LENGTH = 120;
 
-const STATUS_TONE = {
-  [DOCUMENT_DRAFT_STATUS.Open]: "warn",
-  [DOCUMENT_DRAFT_STATUS.Finalized]: "ok",
-  [DOCUMENT_DRAFT_STATUS.Discarded]: "muted",
-} as const;
-
 function isShownValue(value: unknown): value is string | number | boolean {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
@@ -90,23 +92,55 @@ function formatVariable(
   return String(value);
 }
 
+// Filled in only when the PDF is printed, so the chip names them like the template editor does.
+const SYSTEM_VARIABLES: readonly string[] = ["tenantName", ...COMPANY_PLACEHOLDERS];
+
+function addDeclaredLabel(
+  t: Translate,
+  labels: Record<string, string>,
+  key: string,
+  label: unknown,
+): void {
+  if (typeof label === "string" && label !== "") labels[key] = translatedOr(t, label, label);
+}
+
+// A chip with a value shows it formatted; without one it shows what the variable is called, never
+// the raw key.
 function variableLabelsOf(
+  t: Translate,
   record: DraftRecord,
   currency: string | undefined,
 ): Readonly<Record<string, string>> {
   const labels: Record<string, string> = {};
+  for (const name of SYSTEM_VARIABLES) {
+    labels[name] = systemPlaceholderLabel(t, name);
+  }
   for (const [name, definition] of Object.entries(record.variableSchema)) {
     const value = record.variables[name];
-    if (!isShownValue(value) || String(value) === "") continue;
-    labels[name] = formatVariable(value, propertyOf(definition, "type"), record.locale, currency);
+    if (isShownValue(value) && String(value) !== "") {
+      labels[name] = formatVariable(value, propertyOf(definition, "type"), record.locale, currency);
+      continue;
+    }
+    addDeclaredLabel(t, labels, name, propertyOf(definition, "label"));
+    // A chip inside a repeat row is addressed as `list.field`, like the template editor does.
+    const item = propertyOf(definition, "item");
+    if (isPlainObject(item)) {
+      for (const [itemName, itemDefinition] of Object.entries(item)) {
+        addDeclaredLabel(t, labels, `${name}.${itemName}`, propertyOf(itemDefinition, "label"));
+      }
+    }
   }
   return labels;
 }
 
 // A title may be an i18n key or plain text; t() returns the key itself without a translation.
 function templateLabelOf(t: Translate, record: DraftRecord): string {
-  if (record.templateTitle === null || record.templateTitle === "") return record.templateSlug;
-  return t(record.templateTitle);
+  if (hasNoTitle(record)) return record.templateSlug;
+  return t(record.templateTitle ?? record.templateSlug);
+}
+
+function statusBadgeToneOf(status: DocumentDraftStatus) {
+  return statusToneForOptionTone(DOCUMENT_DRAFT_STATUS_TONE[status]) ?? "muted";
 }
 
 function hasNoTitle(record: DraftRecord): boolean {
@@ -314,7 +348,7 @@ function DraftEditor({
           : templateLabelOf(t, record)
       }
       status={
-        <StatusBadge tone={STATUS_TONE[record.status]} testId={`${TEST_ID}-status`}>
+        <StatusBadge tone={statusBadgeToneOf(record.status)} testId={`${TEST_ID}-status`}>
           {t(`document-draft:editor.status.${record.status}`)}
         </StatusBadge>
       }
@@ -323,14 +357,15 @@ function DraftEditor({
         preview: t("document-draft:editor.infoPreview"),
       }}
       edit={
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto px-4 py-4 md:px-8 md:py-6">
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
           <DocumentContentEditor
             key={resetCount}
             id={BODY_EDITOR_ID}
             value={html}
             onChange={setHtml}
             variables={Object.keys(record.variableSchema)}
-            variableLabels={variableLabelsOf(record, currency)}
+            variableLabels={variableLabelsOf(t, record, currency)}
+            systemVariables={SYSTEM_VARIABLES}
             blocks={PDF_DOCUMENT_BLOCKS}
             readOnly={!open}
           />

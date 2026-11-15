@@ -1,5 +1,8 @@
 import { SessionContext } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";
-import { COMPANY_PLACEHOLDERS } from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
+import {
+  COMPANY_PLACEHOLDERS,
+  systemPlaceholderLabel,
+} from "@cosmicdrift/kumiko-bundled-features/template-resolver/web";
 import {
   useAppFeatures,
   useNav,
@@ -118,7 +121,7 @@ export function CompanyDataRail({
             <MissingValueRow
               key={name}
               name={name}
-              label={t(`documentDesigner.placeholder.${name}`)}
+              label={systemPlaceholderLabel(t, name)}
               trailing={t("documentDesigner.company.enter")}
               onPress={onPress}
             />
@@ -135,7 +138,7 @@ export function CompanyDataRail({
             key={name}
             testId={`company-data-${name}`}
             {...(used === undefined ? {} : { symbol: PLACEHOLDER_SYMBOL.text })}
-            label={t(`documentDesigner.placeholder.${name}`)}
+            label={systemPlaceholderLabel(t, name)}
             trailing={status.text}
             trailingTone={status.tone}
             {...(onPress === undefined ? {} : { onPress })}

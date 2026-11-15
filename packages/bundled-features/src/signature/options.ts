@@ -1,6 +1,7 @@
 import type { AccessRule, HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { RateLimitDeclaration } from "@cosmicdrift/kumiko-types/handlers";
 import type { PdfOptions } from "../renderer-foundation/index.ts";
+import type { SubjectScopeContext } from "../shared/index.ts";
 import type { SignatureRetention } from "./entity.ts";
 
 // Injected by the app (renderer-puppeteer-client's `renderHtmlToPdf`): bundled-features cannot
@@ -33,7 +34,7 @@ export type SignatureSubject = {
 };
 
 export type AuthorizeSignatureSubject = (
-  ctx: HandlerContext,
+  ctx: SubjectScopeContext,
   user: SessionUser,
   subject: SignatureSubject,
 ) => Promise<boolean>;

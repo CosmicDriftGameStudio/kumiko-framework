@@ -1,9 +1,12 @@
 import type { HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 
+/** The part of the handler context that exists in `beforeTransaction` too, so scope checks can run before printing. */
+export type SubjectScopeContext = Pick<HandlerContext, "db" | "registry" | "services">;
+
 export type SubjectScopeOptions = {
   /** Runs for every signed-in handler and query on a subject, except for `unscopedRoles`. `false` answers like "does not exist". */
   readonly authorizeSubject?: (
-    ctx: HandlerContext,
+    ctx: SubjectScopeContext,
     user: SessionUser,
     subject: { readonly subjectType: string; readonly subjectId: string },
   ) => Promise<boolean>;
@@ -14,13 +17,13 @@ export type SubjectScopeOptions = {
 export type SubjectScope = {
   isScoped(user: SessionUser): boolean;
   allows(
-    ctx: HandlerContext,
+    ctx: SubjectScopeContext,
     user: SessionUser,
     subjectType: unknown,
     subjectId: unknown,
   ): Promise<boolean>;
   allowsRequest(
-    ctx: HandlerContext,
+    ctx: SubjectScopeContext,
     user: SessionUser,
     request: { readonly subjectType?: unknown; readonly subjectId?: unknown },
   ): Promise<boolean>;

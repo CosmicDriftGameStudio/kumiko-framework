@@ -3,6 +3,7 @@ import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/err
 import type { SubjectScope } from "../../shared/index.ts";
 import {
   applyDocumentOps,
+  type DocumentOp,
   parseDocumentJson,
   serializeDocumentJson,
 } from "../../template-resolver/index.ts";
@@ -18,7 +19,11 @@ import {
 type PatchData = { readonly id: string; readonly version: number };
 
 // The draft keeps the variables and settings of its template: only the text changes.
-const TEXT_ONLY_OPS = new Set(["setVariable", "setMeta", "setResource"]);
+const REFUSED_DRAFT_OPS: ReadonlySet<DocumentOp["op"]> = new Set([
+  "setVariable",
+  "setMeta",
+  "setResource",
+]);
 
 export function createPatchHandler(access: AccessRule, scope: SubjectScope) {
   return defineWriteHandler<"patch", typeof PatchDraftSchema, PatchData>({
@@ -36,7 +41,7 @@ export function createPatchHandler(access: AccessRule, scope: SubjectScope) {
       if (draft.status !== DOCUMENT_DRAFT_STATUS.Open)
         return notInStatus(DOCUMENT_DRAFT_STATUS.Open);
 
-      const refusedIndex = ops.findIndex((op) => TEXT_ONLY_OPS.has(op.op));
+      const refusedIndex = ops.findIndex((op) => REFUSED_DRAFT_OPS.has(op.op));
       if (refusedIndex !== -1) {
         return writeFailure(
           new ValidationError({

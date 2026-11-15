@@ -27,24 +27,24 @@ export function createBySubjectQuery(access: AccessRule, scope: SubjectScope) {
             { field: "subjectId", op: "eq", value: subjectId },
             { field: "status", op: "ne", value: DOCUMENT_DRAFT_STATUS.Discarded },
           ],
+          sort: "insertedAt",
+          sortDirection: "desc",
           limit: LIST_LIMIT,
         },
         query.user,
         ctx.db,
       );
-      return found.rows
-        .map((row) => ({
-          id: row.id,
-          status: row.status,
-          revision: row.revision,
-          version: row.version,
-          templateSlug: row.templateSlug,
-          templateVariant: row.templateVariant ?? null,
-          fileRefId: row.fileRefId ?? null,
-          fileName: row.fileName ?? null,
-          insertedAt: row.insertedAt,
-        }))
-        .sort((a, b) => String(b.insertedAt).localeCompare(String(a.insertedAt)));
+      return found.rows.map((row) => ({
+        id: row.id,
+        status: row.status,
+        revision: row.revision,
+        version: row.version,
+        templateSlug: row.templateSlug,
+        templateVariant: row.templateVariant ?? null,
+        fileRefId: row.fileRefId ?? null,
+        fileName: row.fileName ?? null,
+        insertedAt: row.insertedAt,
+      }));
     },
   });
 }

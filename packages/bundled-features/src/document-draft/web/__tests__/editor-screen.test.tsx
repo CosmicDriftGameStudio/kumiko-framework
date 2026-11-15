@@ -153,6 +153,26 @@ describe("document draft editor", () => {
     expect(screen.queryByText("85000")).toBeNull();
   });
 
+  test("a placeholder chip without a value shows the variable label, with a value the formatted value", async () => {
+    mountEditor({
+      ...OPEN_DRAFT,
+      body: '<p><span data-variable="endDate"></span> <span data-variable="rent"></span> <span data-variable="tenantName"></span></p><table><tbody><tr data-each="steps"><td><p><span data-variable="validFrom"></span></p></td></tr></tbody></table>',
+      variables: { rent: 85000 },
+      variableSchema: {
+        endDate: { type: "date", label: "End of lease" },
+        rent: { type: "money" },
+        steps: { type: "list", item: { validFrom: { type: "date", label: "Valid from" } } },
+      },
+    });
+    expect(await screen.findByText("£850.00")).toBeTruthy();
+    expect(screen.getByText("End of lease")).toBeTruthy();
+    expect(screen.getByText("Company name")).toBeTruthy();
+    expect(screen.getByText("Valid from")).toBeTruthy();
+    expect(screen.queryByText("validFrom")).toBeNull();
+    expect(screen.queryByText("endDate")).toBeNull();
+    expect(screen.queryByText("tenantName")).toBeNull();
+  });
+
   test("a draft equal to its template says so instead of listing deviations", async () => {
     mountEditor({ ...OPEN_DRAFT, deviations: [{ change: "same", content: "<p>Intro</p>" }] });
     expect(await screen.findByText("The draft matches the template.")).toBeTruthy();

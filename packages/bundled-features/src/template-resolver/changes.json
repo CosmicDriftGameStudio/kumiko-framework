@@ -1,11 +1,5 @@
 [
   {
-    "version": "0.423.0",
-    "type": "fix",
-    "title": "The variants query no longer requires TenantAdmin or User",
-    "detail": "`template-resolver:query:variants` is open to every authenticated user, because whoever may create a document from a base template must be able to list its variants and an app's role names are unknown to the framework. The result is unchanged: slug, title, scope and locale of the active system variants and the caller's own tenant's variants, never another tenant's."
-  },
-  {
     "version": "0.422.0",
     "type": "improvement",
     "title": "PDF image captions, image columns and page-break rules",
