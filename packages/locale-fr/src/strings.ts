@@ -2897,6 +2897,26 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "template-resolver:write:apply-layout:title": "Appliquer la mise en page PDF",
   "template-resolver:write:create-layout:title": "Créer une mise en page PDF",
   "template-resolver:write:create-variant:title": "Créer une variante de modèle PDF",
+  "templateResolver.errors.patch.variantsNotEnabled":
+    "Aucune variante n'est autorisée pour le modèle {slug}.",
+  "templateResolver.errors.patch.variantExists":
+    "Une variante avec l'identifiant {slug} existe déjà.",
+  "templateResolver.errors.patch.variantNameInvalid":
+    "L'identifiant ne peut contenir que des minuscules, des chiffres et des tirets ; indique-en un ou modifie le titre.",
+  "templateResolver.errors.patch.variablesInheritedFromBase":
+    "Une variante utilise les variables de son modèle de base {slug} ; modifie-les là-bas.",
+  "templateResolver.errors.patch.invalidVariantOf":
+    "La variante doit appartenir au modèle de base indiqué dans son identifiant.",
+  "templateResolver.errors.variantUnknown": "La variante {variant} n'existe pas.",
+  "screen:create-variant.title": "Créer une variante",
+  "documentDesigner.action.createVariant": "Créer une variante",
+  "documentDesigner.variant.field.baseSlug": "Variante de",
+  "documentDesigner.variant.field.locale": "Langue",
+  "documentDesigner.variant.field.title": "Titre",
+  "documentDesigner.variant.field.name": "Identifiant",
+  "documentDesigner.variant.field.name.hint":
+    "Facultatif : minuscules, chiffres et tirets. Laissé vide, il est formé à partir du titre.",
+  "documentDesigner.variantOf": "Variante de {base}",
   "template-resolver:write:publish-templates:title": "Publier plusieurs modèles",
   "documentDesigner.company.title": "Données de l'entreprise",
   "documentDesigner.company.edit": "Modifier",

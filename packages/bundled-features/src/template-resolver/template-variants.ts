@@ -32,7 +32,7 @@ export function variantOfMatchesSlug(slug: string, meta: unknown): boolean {
   return variantOf === null || isVariantSlugOf(slug, variantOf);
 }
 
-// The suggested name for a variant titled "Gewerbe-Mietvertrag Süd": umlauts and ß transliterated, the rest kebab-cased.
+// Umlauts and ß are transliterated and the rest kebab-cased, so a German title still yields a valid name.
 export function variantNameFromTitle(title: string): string {
   return title
     .toLowerCase()

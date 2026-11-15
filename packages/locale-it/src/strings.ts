@@ -2872,6 +2872,25 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "template-resolver:write:apply-layout:title": "Applica layout PDF",
   "template-resolver:write:create-layout:title": "Crea layout PDF",
   "template-resolver:write:create-variant:title": "Crea variante del modello PDF",
+  "templateResolver.errors.patch.variantsNotEnabled":
+    "Per il modello {slug} non sono abilitate varianti.",
+  "templateResolver.errors.patch.variantExists": "Esiste già una variante con il codice {slug}.",
+  "templateResolver.errors.patch.variantNameInvalid":
+    "Il codice può contenere solo minuscole, cifre e trattini; indicane uno o modifica il titolo.",
+  "templateResolver.errors.patch.variablesInheritedFromBase":
+    "Una variante usa le variabili del suo modello di base {slug}; modificale lì.",
+  "templateResolver.errors.patch.invalidVariantOf":
+    "La variante deve appartenere al modello di base indicato nel suo codice.",
+  "templateResolver.errors.variantUnknown": "La variante {variant} non esiste.",
+  "screen:create-variant.title": "Crea variante",
+  "documentDesigner.action.createVariant": "Crea variante",
+  "documentDesigner.variant.field.baseSlug": "Variante di",
+  "documentDesigner.variant.field.locale": "Lingua",
+  "documentDesigner.variant.field.title": "Titolo",
+  "documentDesigner.variant.field.name": "Codice",
+  "documentDesigner.variant.field.name.hint":
+    "Facoltativo: minuscole, cifre e trattini. Se lasci vuoto, viene ricavato dal titolo.",
+  "documentDesigner.variantOf": "Variante di {base}",
   "template-resolver:write:publish-templates:title": "Pubblica più modelli",
   "documentDesigner.company.title": "Dati aziendali",
   "documentDesigner.company.edit": "Modifica",

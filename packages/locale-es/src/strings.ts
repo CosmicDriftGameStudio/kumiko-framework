@@ -2864,6 +2864,25 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "template-resolver:write:apply-layout:title": "Aplicar diseño PDF",
   "template-resolver:write:create-layout:title": "Crear diseño PDF",
   "template-resolver:write:create-variant:title": "Crear variante de plantilla PDF",
+  "templateResolver.errors.patch.variantsNotEnabled":
+    "Para la plantilla {slug} no hay variantes habilitadas.",
+  "templateResolver.errors.patch.variantExists": "Ya existe una variante con el código {slug}.",
+  "templateResolver.errors.patch.variantNameInvalid":
+    "El código solo puede contener minúsculas, cifras y guiones; indica uno o cambia el título.",
+  "templateResolver.errors.patch.variablesInheritedFromBase":
+    "Una variante usa las variables de su plantilla base {slug}; cámbialas allí.",
+  "templateResolver.errors.patch.invalidVariantOf":
+    "La variante debe pertenecer a la plantilla base de su código.",
+  "templateResolver.errors.variantUnknown": "La variante {variant} no existe.",
+  "screen:create-variant.title": "Crear variante",
+  "documentDesigner.action.createVariant": "Crear variante",
+  "documentDesigner.variant.field.baseSlug": "Variante de",
+  "documentDesigner.variant.field.locale": "Idioma",
+  "documentDesigner.variant.field.title": "Título",
+  "documentDesigner.variant.field.name": "Código",
+  "documentDesigner.variant.field.name.hint":
+    "Opcional: minúsculas, cifras y guiones. Si lo dejas vacío, se forma a partir del título.",
+  "documentDesigner.variantOf": "Variante de {base}",
   "template-resolver:write:publish-templates:title": "Publicar varias plantillas",
   "documentDesigner.company.title": "Datos de la empresa",
   "documentDesigner.company.edit": "Editar",
