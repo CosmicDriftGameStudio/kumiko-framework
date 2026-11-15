@@ -78,13 +78,21 @@ export function EditorBody({
   readonly testId?: string;
 }): ReactNode {
   const centerColumn = (
-    <div className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-muted">{center}</div>
+    <div className="flex min-h-[70svh] min-w-0 flex-col overflow-hidden bg-muted md:min-h-0">
+      {center}
+    </div>
   );
   if (left === undefined) {
     return (
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_280px]" data-testid={testId}>
+      // Below md the rail stacks under the editor; beside it the editor would shrink to a sliver.
+      <div
+        className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_auto] content-start overflow-y-auto md:grid-cols-[minmax(0,1fr)_280px] md:grid-rows-1 md:overflow-y-visible"
+        data-testid={testId}
+      >
         {centerColumn}
-        <aside className="min-h-0 overflow-y-auto border-l bg-background">{right}</aside>
+        <aside className="border-t bg-background md:min-h-0 md:overflow-y-auto md:border-t-0 md:border-l">
+          {right}
+        </aside>
       </div>
     );
   }

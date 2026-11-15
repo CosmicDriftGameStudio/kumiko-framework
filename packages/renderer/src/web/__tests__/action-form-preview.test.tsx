@@ -90,6 +90,26 @@ describe("actionForm preview", () => {
     expect(screen.getByText("Prepare audit")).toBeTruthy();
   });
 
+  test("an empty list under facts shows no empty state, a list-only preview keeps it", async () => {
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { count: 0, tasks: [] },
+      })) as unknown as Dispatcher["query"],
+    });
+    const { unmount } = renderForm(dispatcher);
+    typeInto("status", "blocked");
+    await waitFor(() => expect(screen.getByTestId("action-form-preview-fact-0")).toBeTruthy());
+    expect(screen.queryByText(/no[- ]entries/i)).toBeNull();
+    unmount();
+
+    const { facts: _facts, ...listOnly } = form.preview ?? { query: "" };
+    renderForm(dispatcher, { ...form, preview: listOnly });
+    typeInto("status", "blocked");
+    await waitFor(() => expect(screen.getByTestId("action-form-preview")).toBeTruthy());
+    expect(screen.getByText(/no[- ]entries/i)).toBeTruthy();
+  });
+
   test("an emptied optional field is left out of the preview payload", async () => {
     const queries: unknown[] = [];
     const dispatcher = createMockDispatcher({

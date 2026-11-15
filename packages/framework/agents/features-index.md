@@ -62,6 +62,8 @@ One entry per feature a package ships: purpose, import of its factory, required 
   `import { createDerivativesSharpFeature } from "@cosmicdrift/kumiko-bundled-features/derivatives-sharp"`; requires `file-derivatives`
 - `document-designer`: Template overview and layout editor: lists the mail, PDF and layout templates of a tenant (platform admins see the system templates and how many tenants customised each) and edits the mail layout and the PDF letterhead in the browser.
   `import { createDocumentDesignerFeature } from "@cosmicdrift/kumiko-document-designer"`; requires `template-resolver`
+- `document-draft`: Document drafts: one editable copy of a PDF document template per object (for example a lease contract).
+  `import { createDocumentDraftFeature } from "@cosmicdrift/kumiko-bundled-features/document-draft"`; requires `files`, `template-resolver`, `user-data-rights`
 - `document-ingest-foundation`: Shared PDF/Scan/Image → normalized-text ingest primitive.
   `import { createDocumentIngestFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/document-ingest-foundation"`; requires `config`, `tenant-lifecycle`
 - `documents`: Filed documents with title, category, issue and expiry date and one file, shown on the records they are linked to.

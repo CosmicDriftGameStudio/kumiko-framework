@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavApi } from "../nav.tsx";
-import { navigateToRedirectTarget, resolveRedirectTarget } from "../screen-shared.tsx";
+import {
+  navigateToRedirectTarget,
+  resolveRedirectTarget,
+  returnToWinsOverRedirect,
+} from "../screen-shared.tsx";
 
 const schema: FeatureSchema = {
   featureName: "inbox",
@@ -56,6 +60,31 @@ describe("resolveRedirectTarget searchParams", () => {
     );
     expect(target.entityId).toBe("t-1");
     expect(target.searchParams).toEqual({ cmd: "t-1" });
+  });
+});
+
+describe("custom redirect target id", () => {
+  test("custom target with idFrom carries the payload id", () => {
+    const target = resolveRedirectTarget(
+      { screen: "cockpit", idFrom: "draftId" },
+      { draftId: "d-1" },
+      schema,
+      [],
+    );
+    expect(target.entityId).toBe("d-1");
+  });
+
+  test("custom target without idFrom stays id-less", () => {
+    const target = resolveRedirectTarget({ screen: "cockpit" }, { id: "d-1" }, schema, []);
+    expect(target.entityId).toBeUndefined();
+  });
+
+  test("custom redirect with idFrom wins over returnTo, without idFrom it does not", () => {
+    const returnTarget = { screenId: "origin" };
+    expect(
+      returnToWinsOverRedirect(returnTarget, { screen: "cockpit", idFrom: "draftId" }, schema, []),
+    ).toBe(false);
+    expect(returnToWinsOverRedirect(returnTarget, { screen: "cockpit" }, schema, [])).toBe(true);
   });
 });
 

@@ -16,10 +16,10 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import { PDFDocument } from "pdf-lib";
+import type { SubjectScope } from "../../shared/index.ts";
 import { requestExecutor, signerExecutor } from "../entity.ts";
 import { readTenantFile, sha256Hex } from "../files.ts";
 import { RequestSignatureSchema } from "../payloads.ts";
-import type { SubjectScope } from "../subject-scope.ts";
 import {
   SIGNATURE_DEFAULT_VALIDITY_DAYS,
   SIGNATURE_REQUEST_ENTITY,

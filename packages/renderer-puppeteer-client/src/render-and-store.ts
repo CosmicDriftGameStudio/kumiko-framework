@@ -2,7 +2,9 @@ import { fileContextForTenant } from "@cosmicdrift/kumiko-bundled-features/file-
 import {
   collectRendererPlugins,
   createRendererFoundationApi,
+  type DocumentPdfDraft,
   type RenderedTemplateRef,
+  type RendererContext,
   RendererError,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
@@ -10,6 +12,7 @@ import {
   isVariantSlugOf,
   readVariantOf,
   TemplateNotFoundError,
+  VARIANT_UNKNOWN_REASON,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import type {
   BeforeTransactionContext,
@@ -29,13 +32,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { buildDocumentDraftPdfRequest } from "./document-pdf.ts";
+import { printDocumentPdf } from "./document-pdf-print.ts";
 import { PuppeteerUnavailableError } from "./errors.ts";
 import { renderedPdfExecutor } from "./executor.ts";
+import { countPdfPages } from "./pdf-page-count.ts";
+import { loadClientConfigOrUnavailable } from "./render.ts";
 
 const PDF_MIME_TYPE = "application/pdf";
 const INVALID_REQUEST_REASON = "rendered_pdf_invalid_request";
-
-export const VARIANT_UNKNOWN_REASON = "template_variant_unknown";
 
 export type RenderPdfArgs = {
   readonly slug: string;
@@ -43,6 +48,8 @@ export type RenderPdfArgs = {
   readonly variant?: string;
   readonly locale: string;
   readonly variables: Readonly<Record<string, unknown>>;
+  /** An unsaved or per-subject version of the template to print instead of the stored one; the stored template of the slug still supplies images, layout and the variable schema. */
+  readonly draft?: DocumentPdfDraft;
   readonly attachTo?: {
     readonly entityType: string;
     readonly fieldName: string;
@@ -131,11 +138,49 @@ export type RenderedPdfBytes = {
   readonly layout?: RenderedTemplateRef;
 };
 
+function rendererContextOf(ctx: RenderContext, tenantId: string): RendererContext {
+  return {
+    db: ctx.db,
+    registry: ctx.registry,
+    tenantId,
+    ...(ctx.config !== undefined && { config: ctx.config }),
+    filesForTenant: (fileTenantId) => fileContextForTenant(ctx, tenantId, fileTenantId),
+  };
+}
+
+async function printDraftPdfBytes(
+  ctx: RenderContext,
+  args: Pick<RenderPdfArgs, "locale" | "variables">,
+  renderedSlug: string,
+  draft: DocumentPdfDraft,
+): Promise<WriteResult<RenderedPdfBytes>> {
+  try {
+    const built = await buildDocumentDraftPdfRequest(
+      { slug: renderedSlug, locale: args.locale, variables: args.variables, draft },
+      rendererContextOf(ctx, ctx.user.tenantId),
+    );
+    const pdfBytes = await printDocumentPdf(loadClientConfigOrUnavailable(), built);
+    return {
+      isSuccess: true,
+      data: {
+        fileName: built.fileName,
+        pdfBytes,
+        pageCount: countPdfPages(pdfBytes),
+        sizeBytes: pdfBytes.byteLength,
+        template: built.template,
+        ...(built.layout !== null && { layout: built.layout }),
+      },
+    };
+  } catch (e) {
+    return renderFailure(e, ctx, renderedSlug);
+  }
+}
+
 // Renders without storing: no file, no rendered-pdf row. For callers that keep the bytes
 // themselves (mail attachment, download); same no-transaction rule as renderPdfBeforeTransaction.
 export async function renderPdfBytes(
   ctx: RenderContext,
-  args: Pick<RenderPdfArgs, "slug" | "variant" | "locale" | "variables">,
+  args: Pick<RenderPdfArgs, "slug" | "variant" | "locale" | "variables" | "draft">,
 ): Promise<WriteResult<RenderedPdfBytes>> {
   const tenantId = ctx.user.tenantId;
   if (await isUnknownVariant(ctx, args)) {
@@ -147,6 +192,7 @@ export async function renderPdfBytes(
     );
   }
   const renderedSlug = renderedSlugOf(args);
+  if (args.draft !== undefined) return printDraftPdfBytes(ctx, args, renderedSlug, args.draft);
   const plugin = createRendererFoundationApi(
     collectRendererPlugins(ctx.registry),
   ).createRendererForTenant({ tenantId, kind: "document-pdf" });
@@ -158,13 +204,7 @@ export async function renderPdfBytes(
         kind: "document-pdf",
         payload: { slug: renderedSlug, locale: args.locale, variables: args.variables },
       },
-      {
-        db: ctx.db,
-        registry: ctx.registry,
-        tenantId,
-        ...(ctx.config !== undefined && { config: ctx.config }),
-        filesForTenant: (fileTenantId) => fileContextForTenant(ctx, tenantId, fileTenantId),
-      },
+      rendererContextOf(ctx, tenantId),
     );
   } catch (e) {
     return renderFailure(e, ctx, renderedSlug);

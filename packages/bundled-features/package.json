@@ -169,6 +169,8 @@
     "./waitlist/static-submit": "./src/waitlist/static-submit.ts",
     "./signature": "./src/signature/index.ts",
     "./signature/web": "./src/signature/web/index.ts",
+    "./document-draft": "./src/document-draft/index.ts",
+    "./document-draft/web": "./src/document-draft/web/index.ts",
     "./signature/static-sign": "./src/signature/static-sign.ts",
     "./handbook-knowledge": "./src/handbook-knowledge/index.ts",
     "./page-render": "./src/page-render/index.ts",
@@ -807,6 +809,14 @@
       "./signature/web": {
         "types": "./dist/signature/web/index.d.ts",
         "default": "./dist/signature/web/index.js"
+      },
+      "./document-draft": {
+        "types": "./dist/document-draft/index.d.ts",
+        "default": "./dist/document-draft/index.js"
+      },
+      "./document-draft/web": {
+        "types": "./dist/document-draft/web/index.d.ts",
+        "default": "./dist/document-draft/web/index.js"
       },
       "./signature/static-sign": {
         "types": "./dist/signature/static-sign.d.ts",

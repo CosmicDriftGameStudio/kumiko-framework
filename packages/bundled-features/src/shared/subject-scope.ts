@@ -1,5 +1,15 @@
 import type { HandlerContext, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import type { SignatureOptions } from "./options.ts";
+
+export type SubjectScopeOptions = {
+  /** Runs for every signed-in handler and query on a subject, except for `unscopedRoles`. `false` answers like "does not exist". */
+  readonly authorizeSubject?: (
+    ctx: HandlerContext,
+    user: SessionUser,
+    subject: { readonly subjectType: string; readonly subjectId: string },
+  ) => Promise<boolean>;
+  /** Roles that skip `authorizeSubject`, e.g. admins. */
+  readonly unscopedRoles?: readonly string[];
+};
 
 export type SubjectScope = {
   isScoped(user: SessionUser): boolean;
@@ -20,9 +30,7 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value !== "";
 }
 
-export function createSubjectScope(
-  opts: Pick<SignatureOptions, "authorizeSubject" | "unscopedRoles">,
-): SubjectScope {
+export function createSubjectScope(opts: SubjectScopeOptions): SubjectScope {
   const { authorizeSubject } = opts;
   const unscopedRoles = opts.unscopedRoles ?? [];
   const isScoped = (user: SessionUser): boolean =>

@@ -3087,7 +3087,7 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("redirect object with idFrom → screen without an ID (custom) → throws", () => {
+    test("redirect object with idFrom → custom screen (reads id from route) → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3095,7 +3095,15 @@ describe("boot-validator", () => {
             extraScreens: ["after-form"],
           }),
         ]),
-      ).toThrow(/redirect\.idFrom is set but target screen "after-form" \(custom\) carries no id/);
+      ).not.toThrow();
+    });
+
+    test("redirect object with idFrom → screen without an ID (actionForm) → throws", () => {
+      expect(() =>
+        validateBoot([makeFeature({ redirect: { screen: "approve-invoice", idFrom: "leaseId" } })]),
+      ).toThrow(
+        /redirect\.idFrom is set but target screen "approve-invoice" \(actionForm\) carries no id/,
+      );
     });
 
     test("redirect object → unknown screen-id → throws (unwrap does not bypass validation)", () => {
@@ -3244,7 +3252,7 @@ describe("boot-validator", () => {
       ).toThrow(/successLinks\[0\] "ghost-screen" does not resolve to a registered screen/);
     });
 
-    test("successLinks idFrom on a screen without id → Throw", () => {
+    test("successLinks idFrom on a custom screen → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({
@@ -3252,7 +3260,21 @@ describe("boot-validator", () => {
             extraScreens: ["overview"],
           }),
         ]),
-      ).toThrow(/successLinks\[0\]\.idFrom is set but target screen "overview" \(custom\)/);
+      ).not.toThrow();
+    });
+
+    test("successLinks idFrom on a screen without id → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            successLinks: [
+              { screen: "approve-invoice", idFrom: "leaseId", label: "shop.link.self" },
+            ],
+          }),
+        ]),
+      ).toThrow(
+        /successLinks\[0\]\.idFrom is set but target screen "approve-invoice" \(actionForm\)/,
+      );
     });
 
     test("successLinks without idFrom → screen that carries no id → no throw", () => {
@@ -4135,6 +4157,7 @@ describe("boot-validator", () => {
     function makeFeature(
       redirect?: string | { readonly screen: string; readonly idFrom: string },
       extraScreens: readonly string[] = [],
+      listScreens: readonly string[] = [],
     ) {
       return defineFeature("shop", (r) => {
         r.entity({
@@ -4146,6 +4169,14 @@ describe("boot-validator", () => {
             },
           }),
         });
+        for (const list of listScreens) {
+          r.screen({
+            id: list,
+            type: "entityList",
+            entity: "product",
+            columns: [{ field: "name" }],
+          });
+        }
         r.screen({
           id: "product-edit",
           type: "entityEdit",
@@ -4200,13 +4231,21 @@ describe("boot-validator", () => {
       ).not.toThrow();
     });
 
-    test("redirect object with idFrom → screen without an ID (custom) → throws", () => {
+    test("redirect object with idFrom → custom screen (reads id from route) → no throw", () => {
       expect(() =>
         validateBoot([
           makeFeature({ screen: "product-list", idFrom: "parentId" }, ["product-list"]),
         ]),
+      ).not.toThrow();
+    });
+
+    test("redirect object with idFrom → screen without an ID (entityList) → throws", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({ screen: "product-list", idFrom: "parentId" }, [], ["product-list"]),
+        ]),
       ).toThrow(
-        /redirect\.idFrom is set but target screen "product-list" \(custom\) carries no id/,
+        /redirect\.idFrom is set but target screen "product-list" \(entityList\) carries no id/,
       );
     });
 

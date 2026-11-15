@@ -445,6 +445,13 @@ function findRedirectTargetScreen(
   return searchSpace.find((s) => lastSegment(s.id) === targetId);
 }
 
+// A custom screen reads its record from the route only when the redirect names the id field.
+function redirectCarriesId(redirect: RedirectSpec, target: ScreenDefinition | undefined): boolean {
+  if (target === undefined) return false;
+  if (target.type === "entityEdit" || target.type === "projectionDetail") return true;
+  return target.type === "custom" && typeof redirect !== "string" && redirect.idFrom !== undefined;
+}
+
 // A redirect to a record screen ("show the result") is a deliberate forward
 // navigation and keeps precedence over returnTo.
 function redirectTargetsRecord(
@@ -452,10 +459,7 @@ function redirectTargetsRecord(
   schema: FeatureSchema,
   appFeatures: readonly FeatureSchema[],
 ): boolean {
-  const target = findRedirectTargetScreen(redirect, schema, appFeatures);
-  return (
-    target !== undefined && (target.type === "entityEdit" || target.type === "projectionDetail")
-  );
+  return redirectCarriesId(redirect, findRedirectTargetScreen(redirect, schema, appFeatures));
 }
 
 // Type-guard form narrows `returnTarget` for the caller's subsequent
@@ -490,8 +494,7 @@ export function resolveRedirectTarget(
   const idField = typeof redirect === "string" ? "id" : (redirect.idFrom ?? "id");
   const targetId = lastSegment(redirectScreen);
   const target = findRedirectTargetScreen(redirect, schema, appFeatures);
-  const carriesId =
-    target !== undefined && (target.type === "entityEdit" || target.type === "projectionDetail");
+  const carriesId = redirectCarriesId(redirect, target);
   const searchParams = redirectSearchParams(redirect, submittedData);
   if (!carriesId) return { screenId: targetId, entityId: undefined, tab: undefined, searchParams };
   const entityId =
@@ -544,9 +547,10 @@ export function navigateToRedirectTarget(nav: NavApi, target: ResolvedRedirectTa
 }
 
 // Links of the success box. Targets resolve like `redirect`; a link whose target
-// needs a record id (entityEdit, projectionDetail) but whose payload field holds
-// no string id is dropped instead of navigating to an id-less record screen.
-// A link without idFrom to a non-record screen always navigates id-less.
+// needs a record id (entityEdit, projectionDetail, or custom with an explicit
+// idFrom) but whose payload field holds no string id is dropped instead of
+// navigating to an id-less record screen. A link without idFrom to a custom or
+// other non-record screen always navigates id-less.
 export function resolveSuccessLinks(
   links: readonly ActionFormSuccessLink[] | undefined,
   data: unknown,

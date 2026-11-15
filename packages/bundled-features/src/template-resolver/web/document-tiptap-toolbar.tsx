@@ -193,7 +193,7 @@ function renderPrintStyleRow(c: TiptapContext): ReactNode {
       className={cn(
         "flex items-center border-b border-input",
         canvas
-          ? "min-h-9 flex-wrap gap-1.5 bg-background px-1.5 py-1 [&>*]:shrink-0"
+          ? "min-h-9 gap-1.5 bg-background px-1.5 py-1 max-md:flex-nowrap max-md:overflow-x-auto md:flex-wrap [&>*]:shrink-0"
           : "flex-wrap gap-1 p-1",
       )}
     >
@@ -245,7 +245,7 @@ function renderMainToolbarRow(c: TiptapContext): ReactNode {
       className={cn(
         "flex items-center border-b border-input",
         canvas
-          ? "min-h-9 flex-nowrap gap-0 overflow-hidden bg-background px-1.5 [&>*]:shrink-0 [&_button]:h-7 [&_button]:gap-1 [&_button]:px-1 [&_button]:text-xs"
+          ? "min-h-9 flex-nowrap gap-0 overflow-x-auto bg-background md:overflow-hidden px-1.5 [&>*]:shrink-0 [&_button]:h-7 [&_button]:gap-1 [&_button]:px-1 [&_button]:text-xs"
           : "flex-wrap gap-1 p-1",
       )}
     >
