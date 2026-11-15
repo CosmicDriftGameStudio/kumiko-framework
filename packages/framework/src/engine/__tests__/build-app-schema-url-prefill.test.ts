@@ -133,6 +133,30 @@ const leasesFeature = defineFeature("leases", (r) => {
         },
       ],
     },
+    steps: {
+      field: "nextSteps",
+      actions: [
+        {
+          kind: "navigate",
+          id: "step-note",
+          label: "Step note",
+          screen: "item-from-step",
+          params: { map: { stepRef: "id" } },
+        },
+      ],
+    },
+    banner: {
+      field: "notice",
+      actions: [
+        {
+          kind: "navigate",
+          id: "banner-note",
+          label: "Banner note",
+          screen: "item-from-banner",
+          params: { map: { bannerRef: "id" } },
+        },
+      ],
+    },
     metrics: [
       {
         field: "openItems",
@@ -173,6 +197,18 @@ const leasesFeature = defineFeature("leases", (r) => {
   });
   r.screen({
     id: "item-toolbar-filter-field",
+    type: "entityEdit",
+    entity: "item",
+    layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
+  });
+  r.screen({
+    id: "item-from-step",
+    type: "entityEdit",
+    entity: "item",
+    layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
+  });
+  r.screen({
+    id: "item-from-banner",
     type: "entityEdit",
     entity: "item",
     layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
@@ -297,5 +333,13 @@ describe("buildAppSchema — urlPrefillFields derived from navigate params", () 
 
   test("an entityEdit action targeting another entity's entityEdit opens create and reads the params", () => {
     expect(urlPrefillFieldsOf("leases", "item-from-lease")).toEqual(["name"]);
+  });
+
+  test("a steps action's params.map target gets the mapped field", () => {
+    expect(urlPrefillFieldsOf("leases", "item-from-step")).toEqual(["stepRef"]);
+  });
+
+  test("a banner action's params.map target gets the mapped field", () => {
+    expect(urlPrefillFieldsOf("leases", "item-from-banner")).toEqual(["bannerRef"]);
   });
 });

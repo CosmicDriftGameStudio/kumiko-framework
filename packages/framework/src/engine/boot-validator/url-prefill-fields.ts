@@ -73,6 +73,8 @@ function projectionDetailNavigateActions(
 ): ScopedNavigateAction[] {
   return [
     ...scopeActions(screen.actions, screen.detailFor),
+    ...scopeActions(screen.steps?.actions, screen.detailFor),
+    ...scopeActions(screen.banner?.actions, screen.detailFor),
     ...screen.layout.sections.flatMap((section) =>
       section.kind !== "relatedList"
         ? []
