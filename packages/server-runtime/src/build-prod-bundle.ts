@@ -67,6 +67,7 @@ import {
 } from "./renderer-web-fonts.ts";
 import { type BunResolver, resolveInstalledSync } from "./resolve-installed-package.ts";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli.ts";
+import { ZOD_JITLESS_BANNER } from "./security-headers.ts";
 
 // Bun runtime check as a module-level constant: every build step (Tailwind via
 // Bun.spawn, client bundling via Bun.build, and stylesheet resolution via
@@ -846,6 +847,7 @@ async function buildClientBundles(
     // reverse-engineerable source code. Development has its own sourcemaps via
     // create-kumiko-server.ts.
     sourcemap: "none",
+    banner: ZOD_JITLESS_BANNER,
     naming: {
       entry: "[name]-[hash].[ext]",
       chunk: "[name]-[hash].[ext]",

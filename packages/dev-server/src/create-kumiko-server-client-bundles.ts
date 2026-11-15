@@ -1,5 +1,6 @@
 /// <reference types="bun-types" preserve="true" />
 import { resolve } from "node:path";
+import { ZOD_JITLESS_BANNER } from "@cosmicdrift/kumiko-server-runtime";
 import type { CreateKumikoServerOptions } from "./create-kumiko-server.ts";
 import { hasBun, logError, logInfo } from "./dev-server-runtime.ts";
 
@@ -33,6 +34,7 @@ export async function buildClient(entry: string): Promise<ClientBundle> {
     minify: !unminified,
     sourcemap: prodShaped ? "none" : "linked",
     splitting: prodShaped,
+    banner: ZOD_JITLESS_BANNER,
     ...(prodShaped ? { define: { "process.env.NODE_ENV": JSON.stringify("production") } } : {}),
   });
   if (!built.success) {
