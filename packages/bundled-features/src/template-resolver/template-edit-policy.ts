@@ -30,7 +30,7 @@ export type TemplateEditPolicy = {
   readonly tenantEditable: readonly TenantEditableTemplate[];
 };
 
-type EditTarget = { readonly slug: string; readonly kind: string };
+type EditTarget = { readonly slug: string; readonly kind: string; readonly meta?: unknown };
 type EditUser = Pick<SessionUser, "roles">;
 
 const SYSTEM_ADMIN_ROLE = "SystemAdmin";

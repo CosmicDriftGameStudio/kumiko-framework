@@ -17,11 +17,12 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { requireForTenant } from "../../shared/index.ts";
 import { patchIssue } from "../document-op-blocks.ts";
 import type { TemplateWriteScope } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
+import { deliveryPolicyOf, findVariantsEntry } from "../template-delivery-policy.ts";
 import { activationChanges, serializeTemplateDraft, toWorkingRow } from "../template-draft.ts";
 import { refuseReservedSystemLayoutSlug } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplate } from "../template-system-only.ts";
@@ -54,6 +55,7 @@ export type WrittenTemplateRow = {
   readonly id: string;
   readonly slug: string;
   readonly isNew: boolean;
+  readonly version: number;
   readonly validation: TemplateValidation | null;
 };
 
@@ -180,17 +182,38 @@ function versionConflictFor(
   );
 }
 
-function refuseVariantOfSlugMismatch(payload: TemplateRowWrite["payload"]): WriteFailure | null {
-  if (variantOfMatchesSlug(payload.slug, payload.meta)) return null;
+// A tenant row under `<base>:<name>` of a base with variants must declare that base; otherwise the
+// policy would serve it as a variant while schema sync never runs for it.
+function refuseVariantOfSlugMismatch(
+  registry: HandlerContext["registry"],
+  scope: TemplateWriteScope,
+  payload: TemplateRowWrite["payload"],
+): WriteFailure | null {
+  const declaredBase = readVariantOf(payload.meta);
+  const requiredBase =
+    scope === "tenant"
+      ? findVariantsEntry(deliveryPolicyOf(registry).tenantEditable, payload)?.slug
+      : undefined;
+  const missesRequiredBase = requiredBase !== undefined && declaredBase !== requiredBase;
+  if (!missesRequiredBase && variantOfMatchesSlug(payload.slug, payload.meta)) return null;
   return writeFailure(
     new ValidationError({ fields: [patchIssue("meta.variantOf", "invalid_variant_of")] }),
   );
 }
 
+function storedKeyOf(data: unknown): { readonly id: string; readonly version: number } {
+  const id = propertyOf(data, "id");
+  const version = propertyOf(propertyOf(data, "data"), "version");
+  if ((typeof id !== "string" && typeof id !== "number") || typeof version !== "number") {
+    throw new Error("template write: executor result carries no id and version");
+  }
+  return { id: String(id), version };
+}
+
 // The base as the tenant sees it: its own row (open draft included), else the served system default.
 export async function baseVariableSchemaOf(
   db: TenantWriteTarget["db"],
-  tenantId: TenantId,
+  tenantId: string,
   baseSlug: string,
   locale: string,
 ): Promise<unknown> {
@@ -251,7 +274,7 @@ function refuseScopeViolation(
   payload: TemplateRowWrite["payload"],
 ): WriteResult<never> | WriteFailure | null {
   return (
-    refuseVariantOfSlugMismatch(payload) ??
+    refuseVariantOfSlugMismatch(registry, scope, payload) ??
     refuseTenantScopeUnderSystemTenant(scope, tenantId) ??
     refuseReservedSystemLayoutSlug(scope, payload, "slug") ??
     refuseSystemOnlyTenantOverride(registry, scope, payload.slug, payload.kind)
@@ -328,6 +351,7 @@ export async function writeTemplateRow(
       isSuccess: true,
       data: {
         id: String(existing.id),
+        version: storedKeyOf(result.data).version,
         slug: payload.slug,
         isNew: false,
         validation: evaluated.validation,
@@ -348,14 +372,12 @@ export async function writeTemplateRow(
     { streamTenantId },
   );
   if (!result.isSuccess) return result;
-  // @cast-boundary db-row — executor.create returns a row from
-  // INSERT RETURNING; the { id } shape is guaranteed because the primary key is in the
-  // RETURNING clause.
-  const createdRow = result.data as { id: string | number };
+  const created = storedKeyOf(result.data);
   return {
     isSuccess: true,
     data: {
-      id: String(createdRow.id),
+      id: created.id,
+      version: created.version,
       slug: payload.slug,
       isNew: true,
       validation: evaluated.validation,

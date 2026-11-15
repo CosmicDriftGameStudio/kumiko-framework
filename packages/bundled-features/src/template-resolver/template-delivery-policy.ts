@@ -1,25 +1,58 @@
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { isVariantSlugOf, VARIANT_KIND } from "./template-variants.ts";
+import { isVariantSlugOf, readVariantOf, VARIANT_KIND } from "./template-variants.ts";
 import { SYSTEM_TENANT_ID, TENANT_LAYOUT_SLUG_PREFIX } from "./web/constants.ts";
 import { TEMPLATE_RESOLVER_FEATURE } from "./web/qualified-names.ts";
 
 type DeliveryTarget = { readonly kind: string; readonly slug: string };
 type PolicyEntry = DeliveryTarget & { readonly variants?: true };
 
-// An entry covers its own slug and, with `variants`, the `<slug>:<name>` variants of a PDF template.
-export function findPolicyEntry<Entry extends PolicyEntry>(
+type PolicyTarget = DeliveryTarget & {
+  /** Stored JSON text or a payload object; undefined when the caller has no row or payload yet. */
+  readonly meta?: unknown;
+};
+
+function variantOfOfMeta(meta: unknown): string | null {
+  if (typeof meta !== "string") return readVariantOf(meta);
+  try {
+    return readVariantOf(JSON.parse(meta));
+  } catch {
+    return null;
+  }
+}
+
+// An exact-slug entry always wins, so a separate template that merely has a ":" in its slug
+// is never taken for a variant of another entry.
+export function findVariantsEntry<Entry extends PolicyEntry>(
   entries: readonly Entry[],
   target: DeliveryTarget,
 ): Entry | undefined {
+  if (entries.some((entry) => entry.kind === target.kind && entry.slug === target.slug)) {
+    return undefined;
+  }
   return entries.find(
     (entry) =>
+      entry.variants === true &&
+      entry.kind === VARIANT_KIND &&
       entry.kind === target.kind &&
-      (entry.slug === target.slug ||
-        (entry.variants === true &&
-          entry.kind === VARIANT_KIND &&
-          isVariantSlugOf(target.slug, entry.slug))),
+      isVariantSlugOf(target.slug, entry.slug),
   );
+}
+
+// An entry covers its own slug and, with `variants`, the variants of a PDF template: targets whose
+// meta.variantOf is the entry's slug. A target without meta (slug-only pre-check) is judged by
+// slug alone; writeTemplateRow then requires the variantOf.
+export function findPolicyEntry<Entry extends PolicyEntry>(
+  entries: readonly Entry[],
+  target: PolicyTarget,
+): Entry | undefined {
+  const exact = entries.find((entry) => entry.kind === target.kind && entry.slug === target.slug);
+  if (exact !== undefined) return exact;
+  const variantsEntry = findVariantsEntry(entries, target);
+  if (variantsEntry === undefined) return undefined;
+  return target.meta === undefined || variantOfOfMeta(target.meta) === variantsEntry.slug
+    ? variantsEntry
+    : undefined;
 }
 
 // What decides whether a tenant row may be served. Independent of who reads: delivery must not
@@ -43,7 +76,7 @@ function unlocksTenantLayouts(policy: TemplateDeliveryPolicy): boolean {
 
 export function isTenantOverrideServed(
   policy: TemplateDeliveryPolicy,
-  target: DeliveryTarget,
+  target: PolicyTarget,
 ): boolean {
   return (
     policy.collectionKinds.includes(target.kind) ||
@@ -56,7 +89,7 @@ export function isTenantOverrideServed(
 // is listed in tenantEditable. For these a system row of the same slug must win.
 export function isServedByCollectionOnly(
   policy: TemplateDeliveryPolicy,
-  target: DeliveryTarget,
+  target: PolicyTarget,
 ): boolean {
   return (
     policy.collectionKinds.includes(target.kind) &&
@@ -66,7 +99,7 @@ export function isServedByCollectionOnly(
 
 export function isRowServed(
   policy: TemplateDeliveryPolicy,
-  row: DeliveryTarget & { readonly tenantId: string },
+  row: PolicyTarget & { readonly tenantId: string },
 ): boolean {
   return row.tenantId === SYSTEM_TENANT_ID || isTenantOverrideServed(policy, row);
 }

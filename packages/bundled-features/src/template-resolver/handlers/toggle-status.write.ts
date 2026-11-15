@@ -4,7 +4,6 @@ import {
   type HandlerContext,
   type SessionUser,
   SYSTEM_TENANT_ID,
-  type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -95,7 +94,7 @@ async function baseSchemaForPublish(
   if (row.scope !== "tenant") return undefined;
   const baseSlug = readVariantOf(storedRecord(toWorkingRow(row, row.tenantId).meta));
   if (baseSlug === null) return undefined;
-  const schema = await baseVariableSchemaOf(db, row.tenantId as TenantId, baseSlug, row.locale);
+  const schema = await baseVariableSchemaOf(db, row.tenantId, baseSlug, row.locale);
   return isPlainObject(schema) ? schema : undefined;
 }
 

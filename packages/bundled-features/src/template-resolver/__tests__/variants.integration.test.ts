@@ -32,6 +32,7 @@ const LOCALE = "de";
 const BASE = "contract";
 const PLAIN_BASE = "plain-contract";
 const IMAGED_BASE = "imaged-contract";
+const LONG_BASE = `contract-${"x".repeat(100)}`;
 const LOGO_FILE_REF = "00000000-0000-4000-8000-0000000000f1";
 const SYSTEM_VARIANT = `${BASE}:commercial`;
 const BASE_CONTENT = '<p>Vertrag <span data-variable="customer"></span></p>';
@@ -119,6 +120,12 @@ describe("template-resolver :: variants", () => {
       tenantEditable: [
         { kind: "document-pdf", slug: BASE, access: { roles: ["TenantAdmin"] }, variants: true },
         { kind: "document-pdf", slug: PLAIN_BASE, access: { roles: ["TenantAdmin"] } },
+        {
+          kind: "document-pdf",
+          slug: LONG_BASE,
+          access: { roles: ["TenantAdmin"] },
+          variants: true,
+        },
         {
           kind: "document-pdf",
           slug: IMAGED_BASE,
@@ -424,6 +431,68 @@ describe("template-resolver :: variants", () => {
         admin,
       ),
       "variant_name_invalid",
+    );
+  });
+
+  test("create-variant refuses a name that makes the variant slug longer than a slug may be", async () => {
+    expectErrorIncludes(
+      await stack.http.writeErr(
+        TemplateResolverHandlers.createVariant,
+        { baseSlug: LONG_BASE, name: "abcdefghijklmnopqrst", title: "Lang", locale: LOCALE },
+        admin,
+      ),
+      "variant_name_invalid",
+    );
+  });
+
+  test("a tenant write under <base>:<name> without meta.variantOf is refused", async () => {
+    const error = await stack.http.writeErr(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: `${BASE}:x`,
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: BASE_CONTENT,
+        contentFormat: "html",
+        variableSchema: VARIABLE_SCHEMA,
+      },
+      admin,
+    );
+    expectErrorIncludes(error, "invalid_variant_of");
+  });
+
+  test("a system template that only has the slug shape of a variant is not overridable by the tenant", async () => {
+    const standalone = `${BASE}:standalone`;
+    await seedSystemTemplate(stack.db, {
+      slug: standalone,
+      kind: "document-pdf",
+      locale: LOCALE,
+      content: BASE_CONTENT,
+      contentFormat: "html",
+      variableSchema: VARIABLE_SCHEMA,
+    });
+    const error = await stack.http.writeErr(
+      TemplateResolverHandlers.upsertTenant,
+      {
+        slug: standalone,
+        kind: "document-pdf",
+        locale: LOCALE,
+        content: BASE_CONTENT,
+        contentFormat: "html",
+        variableSchema: VARIABLE_SCHEMA,
+      },
+      admin,
+    );
+    expectErrorIncludes(error, "invalid_variant_of");
+    const resolved = await createTemplateResolverApi(stack.db, stack.registry).resolveTemplate({
+      tenantId: admin.tenantId,
+      slug: standalone,
+      kind: "document-pdf",
+      locale: LOCALE,
+    });
+    expect(resolved.scope).toBe("system");
+    expect((await variantsOf(stack, admin)).map((variant) => variant.slug)).not.toContain(
+      standalone,
     );
   });
 

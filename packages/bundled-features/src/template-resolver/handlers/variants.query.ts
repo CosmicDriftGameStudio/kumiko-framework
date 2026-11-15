@@ -3,7 +3,12 @@ import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf, isRowServed } from "../template-delivery-policy.ts";
-import { isVariantSlugOf, readVariantOf, VARIANT_KIND } from "../template-variants.ts";
+import {
+  isVariantSlugOf,
+  readVariantOf,
+  VARIANT_KIND,
+  VARIANT_SEPARATOR,
+} from "../template-variants.ts";
 import { ACTIVE_TEMPLATE_STATUS, FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "../web/constants.ts";
 import { localeSchema, templateSlugSchema } from "./shared.ts";
 import { parseStoredJson } from "./template-gates.ts";
@@ -36,7 +41,14 @@ export const variantsQuery = defineQueryHandler({
       const found = await selectMany<TemplateResourceRow>(
         ctx.db,
         templateResourcesTable,
-        { kind: VARIANT_KIND, status: ACTIVE_TEMPLATE_STATUS, locale: rowLocale },
+        {
+          kind: VARIANT_KIND,
+          status: ACTIVE_TEMPLATE_STATUS,
+          locale: rowLocale,
+          tenantId: { in: [query.user.tenantId, SYSTEM_TENANT_ID] },
+          // Slugs are kebab segments joined by ":", so the base slug holds no LIKE wildcard.
+          slug: { like: `${baseSlug}${VARIANT_SEPARATOR}%` },
+        },
         { limit: VARIANT_ROW_LIMIT },
       );
       rows.push(...found);

@@ -41,6 +41,14 @@ function variantsNotEnabled(policy: TemplateEditPolicy, baseSlug: string): Write
   );
 }
 
+function variantNameInvalid(): WriteFailure {
+  return writeFailure(
+    new ValidationError({
+      fields: [patchIssue("name", TemplateResolverErrors.variantNameInvalid)],
+    }),
+  );
+}
+
 export function makeCreateVariantWrite(policy: TemplateEditPolicy) {
   return defineWriteHandler({
     name: "create-variant",
@@ -58,13 +66,7 @@ export function makeCreateVariantWrite(policy: TemplateEditPolicy) {
     handler: async (event, ctx) => {
       const { baseSlug, title, locale } = event.payload;
       const name = event.payload.name || variantNameFromTitle(title);
-      if (!variantNameSchema.safeParse(name).success) {
-        return writeFailure(
-          new ValidationError({
-            fields: [patchIssue("name", TemplateResolverErrors.variantNameInvalid)],
-          }),
-        );
-      }
+      if (!variantNameSchema.safeParse(name).success) return variantNameInvalid();
       const refused = refuseTemplateEdit(policy, event.user, {
         slug: baseSlug,
         kind: VARIANT_KIND,
@@ -74,6 +76,7 @@ export function makeCreateVariantWrite(policy: TemplateEditPolicy) {
       if (disabled !== null) return disabled;
 
       const slug = variantSlug(baseSlug, name);
+      if (!templateSlugSchema.safeParse(slug).success) return variantNameInvalid();
       const existing = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
         tenantId: event.user.tenantId,
         slug,
@@ -95,11 +98,8 @@ export function makeCreateVariantWrite(policy: TemplateEditPolicy) {
       });
       if (loaded === null) return writeFailure(new NotFoundError("template-resource", baseSlug));
 
-      const baseRow = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
-        id: loaded.rowId,
-      });
       const written = await writeTemplateRow({
-        linkedResources: baseRow?.linkedResources ?? "{}",
+        linkedResources: loaded.linkedResources ?? "{}",
         ctx,
         user: event.user,
         tenantId: event.user.tenantId,
@@ -119,11 +119,6 @@ export function makeCreateVariantWrite(policy: TemplateEditPolicy) {
         expectedVersion: null,
       });
       if (!written.isSuccess) return written;
-      const created = await fetchOne<TemplateResourceRow>(ctx.db, templateResourcesTable, {
-        tenantId: event.user.tenantId,
-        id: written.data.id,
-      });
-      if (created === undefined) throw new Error(`create-variant: row ${slug} missing after write`);
       return {
         isSuccess: true as const,
         data: {
@@ -131,7 +126,7 @@ export function makeCreateVariantWrite(policy: TemplateEditPolicy) {
           locale,
           kind: VARIANT_KIND,
           title,
-          base: { scope: "tenant" as const, version: created.version },
+          base: { scope: "tenant" as const, version: written.data.version },
         },
       };
     },
