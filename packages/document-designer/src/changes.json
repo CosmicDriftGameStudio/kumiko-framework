@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.424.0",
+    "type": "breaking",
+    "title": "system placeholder labels moved to the template-resolver namespace",
+    "detail": "The labels of the system placeholders (tenantName, company data, page, imprint and so on) are now `template-resolver.systemPlaceholder.<name>` instead of `documentDesigner.placeholder.<name>`. The locale packages are already updated.",
+    "migration": "An app that overrides a `documentDesigner.placeholder.<name>` translation renames the key to `template-resolver.systemPlaceholder.<name>`."
+  },
+  {
     "version": "0.420.0",
     "type": "improvement",
     "title": "PDF template editor can hand a template to the AI assistant",

@@ -10,6 +10,22 @@ verified: 2026-11-15
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.424.0
+
+### @cosmicdrift/kumiko-document-designer
+
+**system placeholder labels moved to the template-resolver namespace**
+
+The labels of the system placeholders (tenantName, company data, page, imprint and so on) are now `template-resolver.systemPlaceholder.<name>` instead of `documentDesigner.placeholder.<name>`. The locale packages are already updated.
+
+**Migration:** An app that overrides a `documentDesigner.placeholder.<name>` translation renames the key to `template-resolver.systemPlaceholder.<name>`.
+
+### signature
+
+**authorizeSubject receives the subject scope context instead of the full handler context**
+
+**Migration:** The ctx argument of `authorizeSubject` (`AuthorizeSignatureSubject`, `AuthorizeDocumentDraftSubject`) is now `SubjectScopeContext` from the shared barrel: `db`, `registry` and `services` only, because the check also runs in `beforeTransaction`, before a draft is printed. A callback that reads only these compiles unchanged; one that used `ctx.user`, `ctx.dispatch` or `ctx.events` takes the user from its second argument and reads through `ctx.db` instead.
+
 ## 0.423.0
 
 ### framework-core

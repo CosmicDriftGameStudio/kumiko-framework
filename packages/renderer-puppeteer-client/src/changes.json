@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.424.0",
+    "type": "improvement",
+    "title": "renderPdfBeforeTransaction and renderPdfBytes print a stored draft body",
+    "detail": "`RenderPdfArgs` and the args of `renderPdfBytes` have `draft?: DocumentPdfDraft` (`{ content, meta, variableSchema? }`). It is printed instead of the stored template; the stored template of the slug still supplies images, layout and variable schema. Used by the document-draft bundle's `finalize`."
+  },
+  {
     "version": "0.423.0",
     "type": "improvement",
     "title": "A heading never stands alone at the end of a PDF page",
