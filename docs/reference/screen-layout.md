@@ -387,7 +387,7 @@ initialTab: [{ when: { field: "status", eq: "open" }, tab: "overview" }],
 | `infoBand` | actionForm | i18n key of a short banner with a sparkles icon above the fields |
 | `fieldBadges` | actionForm | `{ field: { label, tone } }`: badge next to the field's label |
 | `summary.paramsFromLoad` | actionForm | fields of the `load` result that fill the summary `{name}` placeholders (static `params` win). Needs `load`; boot requires each field in the load query's `outputSchema` |
-| `load.passPrefill` | actionForm | `true` sends the drawer's prefill values (for example `vehicleId`) in the load payload; the query's schema must accept them |
+| `load.passPrefill` | actionForm | `true` sends the values a drawer or a navigation handoff opens the form with (for example `vehicleId`) in the load payload; the query's schema must accept them |
 | `layout.allRequiredHint` | edit layouts | `false` keeps the per-field asterisks instead of the "all fields are required" hint |
 | `aiAssist` | text, longText field | helper under the input, see below |
 | `editor: "document"` | longText field | rich-text editor registered for "document" instead of a textarea; the value is an HTML string. Textarea when no editor is registered; with `aiAssist` the result is inserted as `<p>` paragraphs and `contextFields` naming a document field send its plain text. The value is HTML from the browser: the write handler must sanitize it server-side (for example `sanitizeDocumentHtml` from template-resolver). Not combinable with `fillAction` or `valueChips` |

@@ -242,9 +242,9 @@ export type ActionFormLoad = {
    *  (same semantics as `ProjectionDetailScreenDefinition.singleton`). Boot
    *  rejects declaring `idParam` alongside it. */
   readonly singleton?: boolean;
-  /** Sends the values a drawer opens the form with (row-action params, e.g. `vehicleId`) in the
-   *  load payload next to `idParam`, so the query can pre-fill for the chosen item. The query's
-   *  schema must accept them. */
+  /** Sends the values the form is opened with, from a drawer (row-action params, e.g. `vehicleId`)
+   *  or a navigation handoff (e.g. an assistant step's values), in the load payload next to
+   *  `idParam`, so the query can pre-fill for the chosen item. The query's schema must accept them. */
   readonly passPrefill?: boolean;
 };
 

@@ -65,7 +65,7 @@ type ActionFormLoad = {
   query: string; // Query QN that returns the record.
   idParam?: string; // Payload key carrying the record id (default "id").
   singleton?: boolean; // The query picks the row from the caller's tenant/session context, so the form loads without a record id and the query is called WITHOUT `idParam` (same semantics as `ProjectionDetailScreenDefinition.singleton`).
-  passPrefill?: boolean; // Sends the values a drawer opens the form with (row-action params, e.g. `vehicleId`) in the load payload next to `idParam`, so the query can pre-fill for the chosen item.
+  passPrefill?: boolean; // Sends the values the form is opened with, from a drawer (row-action params, e.g. `vehicleId`) or a navigation handoff (e.g. an assistant step's values), in the load payload next to `idParam`, so the query can pre-fill for the chosen item.
 };
 type ActionFormPreview = { // Preview panel above the submit button: runs a query over the current form values and shows what the submit would do.
   query: string; // Query QN.

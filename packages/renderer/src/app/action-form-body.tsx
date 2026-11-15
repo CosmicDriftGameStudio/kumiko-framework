@@ -375,7 +375,7 @@ export function ActionFormBody({
     loadRecordId,
     loadableFieldNames,
     screen.summary?.paramsFromLoad,
-    initialOverrides,
+    initialOverrides ?? handoffValues,
   );
   // What an aiAssist query gets besides its chip params: the same context the form loads with.
   const aiAssistPayload = useMemo(
