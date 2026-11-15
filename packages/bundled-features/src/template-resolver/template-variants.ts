@@ -32,7 +32,7 @@ export function variantOfMatchesSlug(slug: string, meta: unknown): boolean {
   return variantOf === null || isVariantSlugOf(slug, variantOf);
 }
 
-// Umlauts and ß are transliterated and the rest kebab-cased, so a German title still yields a valid name.
+// German special letters are transliterated and the rest kebab-cased, so any title yields a valid name.
 export function variantNameFromTitle(title: string): string {
   return title
     .toLowerCase()
