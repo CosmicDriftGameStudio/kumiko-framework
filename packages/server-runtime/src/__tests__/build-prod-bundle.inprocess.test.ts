@@ -7,6 +7,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { buildProdBundle } from "../build-prod-bundle.ts";
+import { ZOD_JITLESS_BANNER } from "../security-headers.ts";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../..");
 
@@ -54,7 +55,10 @@ describe("buildProdBundle in-process (Bun.build)", () => {
 
     const assetPath = join(tmp, "dist", result.manifest["client.js"] ?? "");
     expect(existsSync(assetPath)).toBe(true);
-    expect(await readFile(assetPath, "utf8")).toContain('"hi"');
+    const asset = await readFile(assetPath, "utf8");
+    expect(asset).toContain('"hi"');
+    // zod reads its config on first schema build: the flag must run before any bundled code.
+    expect(asset.startsWith(ZOD_JITLESS_BANNER)).toBe(true);
   });
 
   test("missing index.html → error with template snippet", async () => {

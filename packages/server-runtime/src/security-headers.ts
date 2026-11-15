@@ -42,6 +42,11 @@ export const DEFAULT_CSP_DIRECTIVES: Readonly<Record<string, readonly string[]>>
   "object-src": ["'none'"],
 };
 
+// zod probes `new Function` once to choose its JIT parser; under script-src 'self' the browser
+// reports that caught probe as a CSP violation. Prepended to every client chunk so the flag is
+// set before zod builds its first schema.
+export const ZOD_JITLESS_BANNER = "(globalThis.__zod_globalConfig??={}).jitless=true;";
+
 const SCRIPT_HASH_PATTERN = /^sha256-[A-Za-z0-9+/]{43}=$/;
 const DIRECTIVE_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 // Separators that would let an extension value end its own
