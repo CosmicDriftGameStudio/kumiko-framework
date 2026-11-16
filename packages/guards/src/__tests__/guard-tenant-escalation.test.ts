@@ -263,12 +263,12 @@ export const h = defineWriteHandler({
     expect(findGlobalUserWritesMissingMembershipCheck(sfs)).toHaveLength(0);
   });
 
-  test("passes when gated via denyIfTargetOutsideAdminTenant helper (return value consumed, real lift-restriction.write.ts shape)", () => {
+  test("passes when gated via denyIfTargetBeyondAdminReach helper (return value consumed, real lift-restriction.write.ts shape)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/user-data-rights/handlers/lift-restriction.write.ts": `
 declare function defineWriteHandler(cfg: unknown): unknown;
 declare function fetchOne(...a: unknown[]): Promise<unknown>;
-declare function denyIfTargetOutsideAdminTenant(...a: unknown[]): Promise<unknown>;
+declare function denyIfTargetBeyondAdminReach(...a: unknown[]): Promise<unknown>;
 declare const access: { admin: string[] };
 declare const userTable: unknown;
 declare const z: any;
@@ -277,7 +277,7 @@ export const h = defineWriteHandler({
 	schema: z.object({ userId: z.string().uuid() }),
 	access: { roles: access.admin },
 	handler: async (event: any, ctx: any) => {
-		const outside = await denyIfTargetOutsideAdminTenant(ctx.db.raw, event.user, event.payload.userId);
+		const outside = await denyIfTargetBeyondAdminReach(ctx.db.raw, event.user, event.payload.userId);
 		if (outside) return outside;
 		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
@@ -288,12 +288,12 @@ export const h = defineWriteHandler({
     expect(findGlobalUserWritesMissingMembershipCheck(sfs)).toHaveLength(0);
   });
 
-  test("flags a bare denyIfTargetOutsideAdminTenant call whose return value is never consumed (silent no-op gate)", () => {
+  test("flags a bare denyIfTargetBeyondAdminReach call whose return value is never consumed (silent no-op gate)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/user-data-rights/handlers/restrict-account.write.ts": `
 declare function defineWriteHandler(cfg: unknown): unknown;
 declare function fetchOne(...a: unknown[]): Promise<unknown>;
-declare function denyIfTargetOutsideAdminTenant(...a: unknown[]): Promise<unknown>;
+declare function denyIfTargetBeyondAdminReach(...a: unknown[]): Promise<unknown>;
 declare const access: { admin: string[] };
 declare const userTable: unknown;
 declare const z: any;
@@ -302,7 +302,7 @@ export const h = defineWriteHandler({
 	schema: z.object({ userId: z.string().uuid() }),
 	access: { roles: access.admin },
 	handler: async (event: any, ctx: any) => {
-		await denyIfTargetOutsideAdminTenant(event, ctx);
+		await denyIfTargetBeyondAdminReach(event, ctx);
 		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
 		return { isSuccess: true, data: {} };
 	},

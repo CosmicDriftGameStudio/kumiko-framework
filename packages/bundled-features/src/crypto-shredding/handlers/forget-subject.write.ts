@@ -52,8 +52,8 @@ import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.ts
 import { purgeFilesReachingSubject } from "../../shared/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import {
-  denyIfTargetOutsideAdminTenant,
   isSystemAdminActor,
+  resolveAdminReachOverUser,
   updateUserLifecycle,
 } from "../../user-data-rights/index.ts";
 import {
@@ -188,14 +188,15 @@ async function resolveTenantScopeDenial(
   // ponytail: fail-open here, not a gap in multi-tenant apps).
   if (!features.has("tenant")) return undefined;
 
-  const memberDenied = await denyIfTargetOutsideAdminTenant(db, user, raw.userId);
-  if (!memberDenied) return undefined;
+  const reach = await resolveAdminReachOverUser(db, user, raw.userId);
+  if (reach.kind === "within-reach") return undefined;
 
-  // Not a real user in the actor's tenant — raw.userId may still be a
-  // self-owned PII subject (share-token recipient, email subscriber, ...)
-  // whose own row carries a real tenant_id.
+  // Only a subject without any membership may still be a self-owned PII subject
+  // (share-token recipient, email subscriber, ...) whose own row carries a real
+  // tenant_id. A real user beyond the admin's reach never falls back.
+  if (!reach.hasNoMembership) return reach.denial;
   const ownedInTenant = await subjectRowExistsInTenant(db, features, raw.userId, user.tenantId);
-  return ownedInTenant ? undefined : memberDenied;
+  return ownedInTenant ? undefined : reach.denial;
 }
 
 // blockDelete (legally mandated physical retention, e.g.

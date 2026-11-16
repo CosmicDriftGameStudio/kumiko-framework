@@ -169,12 +169,12 @@ export function findMembershipMintsMissingStrip(files: readonly SourceFile[]): M
 // combination is what the reviewer reads, a mention is what the guard can
 // see without following the call graph.
 const MEMBERSHIP_GATE = /\b(?:isSystemAdminActor|tenantMembershipsTable)\b/;
-// A bare-mention match on `denyIfTargetOutsideAdminTenant` isn't enough — the
+// A bare-mention match on `denyIfTargetBeyondAdminReach` isn't enough — the
 // helper returns `Promise<WriteFailure | undefined>` instead of throwing, so
-// `await denyIfTargetOutsideAdminTenant(...)` with no binding has no gate at
+// `await denyIfTargetBeyondAdminReach(...)` with no binding has no gate at
 // all despite passing a mention check. Require the return value to actually
 // be consumed, matching the real lift-restriction.write.ts call form.
-const CROSS_TENANT_HELPER_GATE = /(?:=|return)\s*await\s+denyIfTargetOutsideAdminTenant\s*\(/;
+const CROSS_TENANT_HELPER_GATE = /(?:=|return)\s*await\s+denyIfTargetBeyondAdminReach\s*\(/;
 // `userId` in the payload means the handler targets an account other than the
 // caller's own; a self-service handler reads event.user.id instead.
 const TARGETS_OTHER_USER = /\buserId\s*:/;
@@ -269,7 +269,7 @@ export const guard: AstGuard = {
       violations.push({
         file: path.relative(ROOT, g.file),
         line: g.line,
-        message: `write handler "${g.name}" reads a global user row via ctx.db.raw and is reachable by a tenant-scoped admin, but never checks the target's membership in the caller's tenant — a TenantAdmin from another tenant could act on this account. Gate it like lift-restriction.write.ts (denyIfTargetOutsideAdminTenant, or isSystemAdminActor + tenantMembershipsTable lookup).`,
+        message: `write handler "${g.name}" reads a global user row via ctx.db.raw and is reachable by a tenant-scoped admin, but never checks the target's membership in the caller's tenant — a TenantAdmin from another tenant could act on this account. Gate it like lift-restriction.write.ts (denyIfTargetBeyondAdminReach, or isSystemAdminActor + tenantMembershipsTable lookup).`,
       });
     }
 

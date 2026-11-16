@@ -721,6 +721,104 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
   });
 
+  test("DPO cannot forget a user who is also a member of another tenant → 403, key and status intact", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "two-tenant-user@example.com",
+      displayName: "Two Tenant User",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT, roles: ["Member"] });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_B, roles: ["Member"] });
+
+    const err = await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(403);
+    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
+      "target_user_in_other_tenants",
+    );
+
+    const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
+    expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
+    await expect(kms.getKey({ kind: "user", userId })).resolves.toBeDefined();
+
+    const denied = await deniedEvents(stack.db);
+    expect(denied).toHaveLength(1);
+    expect(denied[0]?.payload).toMatchObject({
+      subjectKind: "user",
+      denial: "target_user_in_other_tenants",
+    });
+  });
+
+  test("an Admin-ranked DPO cannot forget a user who outranks them in their tenant → 403", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "higher-rank-user@example.com",
+      displayName: "Higher Rank User",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT, roles: ["TenantAdmin"] });
+
+    const err = await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      { ...dpoUser, roles: ["DataProtectionOfficer", "Admin"] },
+    );
+    expect(err.httpStatus).toBe(403);
+    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
+      "target_user_outranks_actor",
+    );
+
+    const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
+    expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
+    await expect(kms.getKey({ kind: "user", userId })).resolves.toBeDefined();
+  });
+
+  test("a plain DPO cannot forget a user with a global SystemAdmin role → 403, audited", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "global-sysadmin@example.com",
+      displayName: "Global SysAdmin",
+      emailVerified: true,
+      roles: ["SystemAdmin"],
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT, roles: ["Member"] });
+
+    const err = await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+    expect(err.httpStatus).toBe(403);
+    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
+      "target_user_outranks_actor",
+    );
+
+    const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
+    expect(userRow?.["status"]).not.toBe(USER_STATUS.Deleted);
+    const denied = await deniedEvents(stack.db);
+    expect(denied).toHaveLength(1);
+    expect(denied[0]?.payload).toMatchObject({ subjectKind: "user", forgottenBy: dpoUser.id });
+  });
+
+  test("SystemAdmin can forget a user who is a member of several tenants", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "two-tenant-user-sysadmin@example.com",
+      displayName: "Two Tenant User",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT, roles: ["Member"] });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_B, roles: ["Member"] });
+
+    await stack.http.writeOk(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      { id: generateId(), tenantId: TENANT, roles: ["SystemAdmin"] },
+    );
+    const userRow = await fetchOne<Record<string, unknown>>(stack.db, userTable, { id: userId });
+    expect(userRow?.["status"]).toBe(USER_STATUS.Deleted);
+  });
+
   // Kind=user variant of the top-level "cross-tenant
   // denial ... survives the rollback" test: before the fix, deniedEvents()
   // would come back empty here too.
@@ -910,7 +1008,7 @@ describe("crypto-shredding :: forget-subject subjectRowExistsInTenant missing ta
         missingTableProbeFeature,
       ],
     });
-    await unsafePushTables(missingTableStack.db, { tenantMembershipsTable });
+    await unsafePushTables(missingTableStack.db, { tenantMembershipsTable, userTable });
     // No unsafeCreateEntityTable for missingTableProbeEntity — that's the point.
   });
 

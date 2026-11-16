@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user/index.ts";
-import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant.ts";
+import { denyIfTargetBeyondAdminReach } from "../lib/deny-if-target-beyond-admin-reach.ts";
 import { isAdminActor } from "../lib/is-admin-actor.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 
@@ -27,13 +27,11 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
 // sessionChecker and they can no longer call this (or any) endpoint
 // themselves; only an operator path reaches it at that point.
 //
-// Tenant scope: `isAdminActor` accepts access.admin, which includes TenantAdmin
-// (tenant-scoped) even though the User entity is global — see user-data-rights.md
-// "Cross-Tenant-Semantik". Without a membership check, a TenantAdmin from tenant A
-// could restrict or unrestrict a user who has never been a member of tenant A.
-// Only SystemAdmin (platform-wide) skips the check; the target must have a
-// membership row in the acting admin's `event.user.tenantId` (row existence only —
-// no active-status field).
+// Admin reach: `isAdminActor` accepts access.admin, which includes TenantAdmin
+// (tenant-scoped) even though the User entity, its status and its sessions are global.
+// Only SystemAdmin (platform-wide) skips the reach check; otherwise the target must be a
+// member of the acting admin's `event.user.tenantId` only (no other tenant) and must not
+// hold a role above the admin's rank there (row existence only — no active-status field).
 //
 // State transitions:
 //   Active → Restricted        ✓ (this handler)
@@ -47,8 +45,8 @@ export const restrictAccountWrite = defineWriteHandler({
     openToAll: {
       reason:
         "each signed-in user may restrict only their own account by default; targeting " +
-        "another userId additionally requires isAdminActor(event.user) and a membership " +
-        "row for the target in the admin's own tenant, both checked in the handler body",
+        "another userId additionally requires isAdminActor(event.user) and a target who is a " +
+        "member of the admin's own tenant only and does not outrank the admin, both checked in the handler body",
     },
   },
   escapeHatch: {
@@ -56,7 +54,7 @@ export const restrictAccountWrite = defineWriteHandler({
       "Revokes all live sessions of the (possibly self-)restricted user via ctx.dispatch.writeAs(SYSTEM, " +
       "sessions:write:user-session:revoke-all-for-user) — that handler's own access gate needs " +
       "privileged roles the acting caller doesn't necessarily have. It also checks the target " +
-      "user's membership in the admin's tenant and appends the user lifecycle status change on " +
+      "user's memberships and roles against the admin's reach and appends the user lifecycle status change on " +
       "the SYSTEM_TENANT_ID user stream, both via DbRunner helpers.",
   },
   description:
@@ -72,7 +70,7 @@ export const restrictAccountWrite = defineWriteHandler({
           }),
         );
       }
-      const outside = await denyIfTargetOutsideAdminTenant(
+      const outside = await denyIfTargetBeyondAdminReach(
         ctx.db.unsafeRaw(),
         event.user,
         targetUserId,
