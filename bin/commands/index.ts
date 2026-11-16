@@ -1,7 +1,6 @@
 // Side-effect imports: each command-file registers itself with the
 // registry on import. Add a line here when a new command is added.
 
-import "./add";
 import "./agent";
 import "./build";
 import "./changes";
@@ -17,9 +16,6 @@ import "./docs";
 import "./doctor";
 import "./eval";
 import "./events";
-import "./init-deploy";
-import "./new";
-import "./ops";
 import "./project";
 import "./reset";
 import "./schema";

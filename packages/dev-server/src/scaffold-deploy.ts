@@ -1,4 +1,4 @@
-// `kumiko init-deploy` scaffolding helper.
+// Deploy-file rendering: managed deploy/ files and the compose self-hosting migrate step.
 //
 // Generates `deploy/Dockerfile`, `deploy/Dockerfile.dockerignore`, and
 // `deploy/migrate-step.sh` in the target app from canonical templates

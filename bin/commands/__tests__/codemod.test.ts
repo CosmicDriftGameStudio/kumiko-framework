@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
-import { codemodCommand } from "../codemod";
+import { codemodPipelineCommand } from "../codemod";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -10,26 +10,18 @@ afterEach(() => {
 
 describe("codemod command", () => {
   test("registered + maintainer-only", () => {
-    expect(codemodCommand.id).toBe("codemod");
-    expect(codemodCommand.roles).toEqual(["maintainer"]);
+    expect(codemodPipelineCommand.id).toBe("codemod:pipeline");
+    expect(codemodPipelineCommand.roles).toEqual(["maintainer"]);
   });
 
-  test("no subcommand prints usage + exits 0", async () => {
+  test("--dry-run on an empty directory converts nothing and exits 0", async () => {
     const t = makeTempCwd();
     cleanups.push(t.cleanup);
     const spy = makeSpyOutput();
-    const exit = await codemodCommand.run(makeContext({ cwd: t.cwd, out: spy.out }));
-    expect(exit).toBe(0);
-    expect(spy.logs.join("\n")).toMatch(/Usage: kumiko codemod pipeline/);
-  });
-
-  test("unknown subcommand prints usage + exits 1", async () => {
-    const t = makeTempCwd();
-    cleanups.push(t.cleanup);
-    const spy = makeSpyOutput();
-    const exit = await codemodCommand.run(
-      makeContext({ cwd: t.cwd, argv: ["wrong"], out: spy.out }),
+    const exit = await codemodPipelineCommand.run(
+      makeContext({ cwd: t.cwd, argv: ["--dry-run", "--dir", t.cwd], out: spy.out }),
     );
-    expect(exit).toBe(1);
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("DRY RUN");
   });
 });

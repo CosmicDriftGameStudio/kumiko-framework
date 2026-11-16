@@ -16,7 +16,6 @@ import type { Category, Command, Role } from "../types";
 import "..";
 
 const EXPECTED_IDS = [
-  "add",
   "agent",
   "build",
   "changes",
@@ -24,7 +23,7 @@ const EXPECTED_IDS = [
   "check:fast",
   "ci:guards",
   "clean-test-dbs",
-  "codemod",
+  "codemod:pipeline",
   "consumer",
   "create",
   "dev",
@@ -32,9 +31,6 @@ const EXPECTED_IDS = [
   "doctor",
   "eval",
   "events",
-  "init-deploy",
-  "new",
-  "ops",
   "project",
   "reset",
   "schema",

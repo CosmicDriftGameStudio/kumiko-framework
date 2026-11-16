@@ -1,6 +1,5 @@
-import { join } from "node:path";
 import { wireKmsFromEnv } from "../kms-wiring";
-import { loadAppConfig } from "../load-app-config";
+import { type AppConfig, loadAppConfigWithDatabaseUrl } from "../load-app-config";
 import type { CliCommandContext } from "../types";
 
 const USAGE =
@@ -18,20 +17,14 @@ function fail(ctx: CliCommandContext, ...lines: readonly string[]): number {
   return 1;
 }
 
-type AppConfig = NonNullable<Awaited<ReturnType<typeof loadAppConfig>>>;
 type Preflight =
   | { readonly ok: true; readonly databaseUrl: string; readonly config: AppConfig }
   | { readonly ok: false; readonly exitCode: number };
 
 async function preflight(ctx: CliCommandContext): Promise<Preflight> {
-  const configPath = join(ctx.cwd, "kumiko.config.ts");
-  if (!(await Bun.file(configPath).exists())) {
-    return { ok: false, exitCode: fail(ctx, `kumiko.config.ts not found at: ${configPath}`) };
-  }
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) return { ok: false, exitCode: fail(ctx, "DATABASE_URL not set.") };
-  const config = await loadAppConfig(ctx, configPath);
-  if (config === null) return { ok: false, exitCode: 1 };
+  const loaded = await loadAppConfigWithDatabaseUrl(ctx);
+  if (loaded === null) return { ok: false, exitCode: 1 };
+  const { config, databaseUrl } = loaded;
   if (!config.features.some((feature) => feature.name === "waitlist")) {
     const message =
       "The app config does not mount the framework `waitlist` feature; add createWaitlistFeature() first.";

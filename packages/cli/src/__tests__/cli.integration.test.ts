@@ -8,6 +8,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runCli } from "../index";
 
+function readPackageVersion(): string {
+  const manifest = JSON.parse(
+    readFileSync(join(import.meta.dir, "..", "..", "package.json"), "utf-8"),
+  ) as { version: string };
+  return manifest.version;
+}
+
 type Captured = { logs: string[]; errs: string[] };
 
 function capture(): {
@@ -42,6 +49,7 @@ describe("kumiko cli", () => {
     expect(joined).toContain("kumiko new app");
     expect(joined).toContain("kumiko add feature");
     expect(joined).toContain("docs.kumiko.rocks");
+    expect(joined).toContain(`kumiko v${readPackageVersion()}`);
   });
 
   test("no args prints help", async () => {
@@ -51,11 +59,11 @@ describe("kumiko cli", () => {
     expect(captured.logs.join("\n")).toContain("kumiko new app");
   });
 
-  test("--version prints semver", async () => {
+  test("--version prints the package.json version", async () => {
     const { out, captured } = capture();
     const code = await runCli({ argv: ["--version"], out });
     expect(code).toBe(0);
-    expect(captured.logs[0]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(captured.logs).toEqual([readPackageVersion()]);
   });
 
   test("unknown command exits 1", async () => {
@@ -84,7 +92,10 @@ describe("kumiko cli", () => {
     ]) {
       expect(() => readFileSync(join(appRoot, f), "utf-8")).not.toThrow();
     }
-    expect(captured.logs.join("\n")).toContain("Scaffolded my-notes");
+    expect(captured.logs.join("\n")).toContain("my-notes scaffolded");
+    expect(readFileSync(join(appRoot, "src/run-config.ts"), "utf-8")).toContain(
+      "createDeliveryFeature",
+    );
   });
 
   test("new app writes the test template with a version-pinned testing devDependency", async () => {

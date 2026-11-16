@@ -1,6 +1,5 @@
-import { join } from "node:path";
 import { allAppFeatures } from "@cosmicdrift/kumiko-framework/config";
-import { loadAppConfig } from "./load-app-config";
+import { findAppConfigPath, loadAppConfig } from "./load-app-config";
 import type { CliCommand } from "./types";
 
 const LINT_SUBCOMMAND = "lint";
@@ -18,22 +17,8 @@ export const agentCommand: CliCommand = {
       return 1;
     }
 
-    const configPath = join(ctx.cwd, "kumiko.config.ts");
-    if (!(await Bun.file(configPath).exists())) {
-      ctx.out.err("");
-      ctx.out.err(`  kumiko.config.ts not found at: ${configPath}`);
-      ctx.out.err("");
-      ctx.out.err("  Create a file that exports your features:");
-      ctx.out.err("    // kumiko.config.ts");
-      ctx.out.err('    import { defineAppConfig } from "@cosmicdrift/kumiko-framework/config";');
-      ctx.out.err('    import { myFeature } from "./src/features/my-feature";');
-      ctx.out.err(
-        '    export default defineAppConfig({ features: [myFeature], client: { entries: ["src/client.tsx"] }, ports: { dev: 4173, e2e: 4174 } });',
-      );
-      ctx.out.err("");
-      return 1;
-    }
-
+    const configPath = await findAppConfigPath(ctx);
+    if (configPath === null) return 1;
     const config = await loadAppConfig(ctx, configPath);
     if (config === null) return 1;
     const { findAgentDocGaps, findHandlerTranslationGaps, formatAgentDocGap } = await import(

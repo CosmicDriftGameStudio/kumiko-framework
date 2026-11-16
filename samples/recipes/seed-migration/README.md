@@ -88,8 +88,7 @@ bunx kumiko ops seed:new fix-admin-roles
 # Was applied, was pending
 bunx kumiko ops seed:status
 
-# (Phase 1.5) Direct apply ohne Boot
-bunx kumiko ops seed:apply [--dry-run]
+# Anwenden: der nächste App-Boot wendet ausstehende Seeds an
 ```
 
 ## Skippable im Notfall

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-23
+verified: 2026-11-16
 ---
 
 # Infrastructure requirements by feature
@@ -18,7 +18,7 @@ S3), mail (SMTP transport). None of this touches Redis or Meilisearch.
 
 ### Database user and name for the migrate step
 
-`kumiko-init-deploy` writes `deploy/migrate-step.sh`, which connects as
+For compose self-hosting, `scaffoldDeploy` from `@cosmicdrift/kumiko-dev-server` writes `deploy/migrate-step.sh`, which connects as
 `postgresql://<dbUser>:<password>@db:5432/<dbName>`. Both default to the app
 name. When the database was created under another name, set them in the app's
 `package.json`:

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-23
+verified: 2026-11-16
 evidence: "packages/*/package.json (19 directories, none private); .changeset/config.json fixed group; codemod in packages/feature-ast/src/scripts/codemod/package-merge.ts"
 ---
 
@@ -18,8 +18,8 @@ where their code lives now.
 | `@cosmicdrift/kumiko-types` | Engine and DB type contracts without the runtime |
 | `@cosmicdrift/kumiko-bundled-features` | Ready-made features (tenant, user, auth, files, billing, jobs and more) |
 | `@cosmicdrift/kumiko-feature-ast` | Feature-file AST (parse, patch, render), the pattern library and the upgrade codemods; subpath `/codemod` is the Bun-only codemod pipeline |
-| `@cosmicdrift/kumiko-cli` | The `kumiko` CLI commands |
-| `@cosmicdrift/kumiko-dev-server` | Dev server, `kumiko-schema`, `kumiko-upgrade`, `kumiko-build` |
+| `@cosmicdrift/kumiko-cli` | The `kumiko` CLI commands and `kumiko-upgrade` |
+| `@cosmicdrift/kumiko-dev-server` | Dev server, `kumiko-dev`, `kumiko-schema`, `kumiko-build` |
 | `create-kumiko-app` | `bun create kumiko-app` scaffolding and the feature manifest |
 | `@cosmicdrift/kumiko-server-runtime` | Production boot: connections, schema-drift gate, lifecycle |
 | `@cosmicdrift/kumiko-testing` | Test stack, seeding, preloads, integration runner |

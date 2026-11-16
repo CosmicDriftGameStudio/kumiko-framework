@@ -6,7 +6,7 @@
 // App author API:
 //   - `SeedMigration`: default export type of a seed file
 //   - `runProdApp({ seedsDir })`: the framework runs pending migrations at boot
-//   - `bunx kumiko ops seed:new|status|apply` (CLI)
+//   - `bunx kumiko ops seed:new|status` (CLI)
 
 export { createSeedMigrationContext } from "./context.ts";
 export {

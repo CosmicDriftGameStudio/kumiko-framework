@@ -69,8 +69,6 @@ export type {
 export { buildFewShotCorpus, pathToId } from "./few-shot-corpus.ts";
 export { resolveFrameworkVersion } from "./framework-version.ts";
 export { type ToDevHostDispatchOptions, toDevHostDispatch } from "./host-dispatch-adapter.ts";
-export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli.ts";
-export { runInitDeployCli } from "./init-deploy-cli.ts";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app.ts";
 export { runDevApp } from "./run-dev-app.ts";
 export type {

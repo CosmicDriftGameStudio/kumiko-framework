@@ -92,7 +92,7 @@ for (let i = 0; i < 5; i++) {
 
 ### Multi-replica boot
 
-`pg_advisory_xact_lock` serializes parallel pod boots. The lock key is global (`0x65736f70` / “esop”), not migration-specific → with N pending migrations, they run sequentially N times, not in parallel. For the typical seed migration workload, this is fast enough; for very long migrations (>30s) on a multi-replica stack: run them manually first as a CLI step (`bunx kumiko ops seed:apply`), then roll out the pods.
+`pg_advisory_xact_lock` serializes parallel pod boots. The lock key is global (`0x65736f70` / “esop”), not migration-specific → with N pending migrations, they run sequentially N times, not in parallel. For the typical seed migration workload, this is fast enough; for very long migrations (>30s) on a multi-replica stack: roll out one replica first and scale up once it has applied them.
 
 ### Local smoke test before pushing
 
@@ -103,7 +103,6 @@ Required pattern: before pushing seeds to main, run the boot loop once locally a
 ```bash
 bunx kumiko ops seed:new <slug>    # scaffold seeds/<date>-<slug>.ts
 bunx kumiko ops seed:status        # what was applied, what is pending
-bunx kumiko ops seed:apply [--dry-run]  # apply pending seeds (CLI path in Phase 1.5)
 ```
 
 ## Guarantees

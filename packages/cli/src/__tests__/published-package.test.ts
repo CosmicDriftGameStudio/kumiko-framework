@@ -151,12 +151,16 @@ describe("published @cosmicdrift/kumiko-cli tarball", () => {
     expect(() => readFileSync(binTarget, "utf-8")).not.toThrow();
   });
 
-  test("framework and bundled-features ship as optional peers, not hard dependencies", () => {
-    for (const name of ["@cosmicdrift/kumiko-framework", "@cosmicdrift/kumiko-bundled-features"]) {
-      expect(manifest.peerDependencies).toHaveProperty([name]);
-      expect(manifest.peerDependenciesMeta?.[name]?.optional).toBe(true);
-      expect(manifest.dependencies ?? {}).not.toHaveProperty([name]);
+  test("framework, bundled-features and renderer ship as dependencies; sharp stays an optional peer", () => {
+    for (const name of [
+      "@cosmicdrift/kumiko-framework",
+      "@cosmicdrift/kumiko-bundled-features",
+      "@cosmicdrift/kumiko-renderer",
+    ]) {
+      expect(manifest.dependencies ?? {}).toHaveProperty([name]);
+      expect(manifest.peerDependencies ?? {}).not.toHaveProperty([name]);
     }
+    expect(manifest.peerDependenciesMeta?.["sharp"]?.optional).toBe(true);
   });
 
   test("the packed bin lists the app commands in --help", () => {

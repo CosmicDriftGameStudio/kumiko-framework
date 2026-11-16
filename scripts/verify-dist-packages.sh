@@ -169,16 +169,13 @@ if [ -d "$renderer_pkg/dist" ]; then
   fi
 fi
 
-# dev-server ships bin/*.ts that reach the package's own dist through a self-reference, and scaffold-deploy finds templates/ relative to dist/; neither shows up in an import check or the typecheck.
+# dev-server ships bin/*.ts that reach the package's own dist through a self-reference, and renderDeployFiles finds templates/ relative to dist/; neither shows up in an import check or the typecheck.
 dev_server="$consumer/node_modules/@cosmicdrift/kumiko-dev-server"
 if [ -d "$dev_server" ]; then
-  init_deploy_out="$scratch/init-deploy-smoke"
   (cd "$consumer" && bun -e 'await import("@cosmicdrift/kumiko-dev-server/cli")') >/dev/null 2>&1 \
     || problems+=("dev-server: @cosmicdrift/kumiko-dev-server/cli does not import from the installed package")
-  if ! (cd "$consumer" && bun node_modules/@cosmicdrift/kumiko-dev-server/bin/kumiko-init-deploy.ts --app smoke --out "$init_deploy_out") >/dev/null 2>&1 \
-    || [ -z "$(ls -A "$init_deploy_out" 2>/dev/null)" ]; then
-    problems+=("dev-server: bin/kumiko-init-deploy.ts failed or scaffolded nothing from the installed package")
-  fi
+  (cd "$consumer" && bun -e 'const { renderDeployFiles } = await import("@cosmicdrift/kumiko-dev-server"); if (renderDeployFiles({ appName: "smoke" }).files.length === 0) process.exit(1)') >/dev/null 2>&1 \
+    || problems+=("dev-server: renderDeployFiles found no deploy templates in the installed package")
 fi
 
 # Consumer-shaped typecheck: no bun-types (only @types/node, as any Node consumer has), skipLibCheck off, so an ambient Bun/Temporal reference in any shipped .d.ts surfaces.

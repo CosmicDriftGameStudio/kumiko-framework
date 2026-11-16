@@ -806,7 +806,7 @@ bun run schema:generate <name>
 
 ## Deploy
 
-\`deploy/Dockerfile\` + \`deploy/migrate-step.sh\` are scaffolded for container
+\`deploy/Dockerfile\` and \`deploy/Dockerfile.dockerignore\` are managed files for container
 deploys. Build context = app repo root; migrations ship in \`kumiko/migrations/\`.
 
 ## Managed files

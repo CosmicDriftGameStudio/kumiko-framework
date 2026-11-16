@@ -47,9 +47,7 @@ The plan with the remaining work is
   (anything not re-exported from a package's `index.ts`) — internals move
   without notice pre-1.0.
 
-`kumiko-upgrade` ships with `@cosmicdrift/kumiko-cli` and with
-`@cosmicdrift/kumiko-dev-server`, so a repo that only depends on the CLI and
-`@cosmicdrift/kumiko-guards` has it too. It reads the installed version from
+`kumiko-upgrade` ships with `@cosmicdrift/kumiko-cli`. It reads the installed version from
 the repo itself: its own `node_modules`, then the framework's package
 directories, then the repo's `bun.lock`. The lockfile covers the isolated
 linker, which keeps transitive packages out of `node_modules`. A parent
