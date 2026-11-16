@@ -695,6 +695,8 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "jobs.errors.onlyFailedCanRetry": "Solo le esecuzioni non riuscite possono essere ripetute.",
   "jobs.errors.payloadErased":
     "Il payload di questa esecuzione non è più leggibile: i dati dell'utente che l'ha avviata sono stati cancellati.",
+  "jobs.errors.notRetryable":
+    "Questa esecuzione non può essere ripetuta: il suo job viene eseguito per tenant o su un evento e l'esecuzione non ha salvato questo input.",
   "jobs.errors.unknownJob": "Job sconosciuto.",
   "jobs.errors.invalidCursor": "Il cursore di paginazione non è valido.",
   "jobs.runs.col.duration": "Durata (ms)",

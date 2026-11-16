@@ -672,6 +672,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "jobs.errors.onlyFailedCanRetry": "Only failed runs can be retried.",
   "jobs.errors.payloadErased":
     "This run's payload can no longer be read — the triggering user's data was erased.",
+  "jobs.errors.notRetryable":
+    "This run cannot be retried: its job runs per tenant or on an event, and the run did not record that input.",
   "jobs.errors.unknownJob": "Unknown job.",
   "jobs.errors.invalidCursor": "The pagination cursor is invalid.",
   "jobs.runs.col.duration": "Duration (ms)",

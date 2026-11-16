@@ -699,6 +699,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "jobs.errors.onlyFailedCanRetry": "Nur fehlgeschlagene Läufe können erneut gestartet werden.",
   "jobs.errors.payloadErased":
     "Der Payload dieses Laufs kann nicht mehr gelesen werden — die Daten des auslösenden Benutzers wurden gelöscht.",
+  "jobs.errors.notRetryable":
+    "Dieser Lauf kann nicht erneut gestartet werden: Sein Job läuft pro Mandant oder auf ein Ereignis, und der Lauf hat diese Eingabe nicht gespeichert.",
   "jobs.errors.unknownJob": "Unbekannter Job.",
   "jobs.errors.invalidCursor": "Der Paginierungs-Cursor ist ungültig.",
   "jobs.runs.col.duration": "Dauer in ms",

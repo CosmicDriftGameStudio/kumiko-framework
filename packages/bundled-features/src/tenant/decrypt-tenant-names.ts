@@ -1,7 +1,4 @@
-import { decryptStoredPii, mapWithConcurrency } from "../shared/index.ts";
-
-// Bounded like tenant:query:members: each decrypt hits the KMS adapter's small pool.
-const KMS_POOL_CONCURRENCY = 4;
+import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../shared/index.ts";
 
 // Raw reads of read_tenants return the stored column, which is ciphertext
 // under an active KMS; executor reads (crud.list/detail) decrypt on their own.

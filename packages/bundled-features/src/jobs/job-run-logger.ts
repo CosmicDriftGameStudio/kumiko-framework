@@ -1,6 +1,7 @@
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
+  encryptPiiValuesForSubject,
   KeyErasedError,
   type LocalKeyKmsAdapter,
   PII_ERASED_SENTINEL,
@@ -40,17 +41,11 @@ import type {
 } from "@cosmicdrift/kumiko-framework/jobs";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { mapWithConcurrency } from "../shared/index.ts";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events.ts";
 import { parseJobInstant } from "./job-instant.ts";
 import { jobRunLogsTable, jobRunsTable } from "./job-run-table.ts";
 import { tenantJobFailuresTable } from "./tenant-job-failure-table.ts";
 import { tenantJobRunsTable } from "./tenant-job-run-table.ts";
-
-// Matches PgKmsAdapter's default pool size (see tenant/handlers/*.query.ts) —
-// bounds concurrent getOrCreateDek calls so a large log batch doesn't claim
-// every connection in the pool.
-const KMS_POOL_CONCURRENCY = 4;
 
 // Direct-write job-run log: onJobStart/-Complete/-Failed write
 // straight into jobRunsTable / jobRunLogsTable instead of appending to the
@@ -136,22 +131,29 @@ async function encryptOrSentinel(
 // batched log line's `message` before insertMany into
 // jobRunLogsTable — that table is unmanaged/direct-write, so there is no
 // event-piiFields catalog to lean on here either. "message" is the AAD
-// field name and must match the field passed to decryptStoredPii on read
-// (detail.query.ts) or decrypt fails loud. Same skip rule as the payload:
-// absent KMS (rollout mode) stays plaintext. Bounded concurrency —
-// unbounded Promise.all would fire one getOrCreateDek per log line at once
-// against the KMS adapter's pool.
+// field name and must match the field passed to decryptStoredPiiValues on
+// read (detail.query.ts) or decrypt fails loud. Absent KMS (rollout mode)
+// stays plaintext. One key lookup per batch; an erased key writes the sentinel.
 async function encryptLogMessages<T extends { readonly message: string }>(
   logs: readonly T[],
   triggeredById: string | null,
 ): Promise<T[]> {
   const kms = configuredPiiSubjectKms();
   if (!kms) return [...logs];
-  const subject = jobRunSubject(triggeredById);
-  return mapWithConcurrency(logs, KMS_POOL_CONCURRENCY, async (log) => ({
-    ...log,
-    message: await encryptOrSentinel(kms, subject, log.message, "message"),
-  }));
+  let messages: string[];
+  try {
+    messages = await encryptPiiValuesForSubject(
+      kms,
+      jobRunSubject(triggeredById),
+      logs.map((log) => log.message),
+      { requestId: "jobs:job-run-logger" },
+      "message",
+    );
+  } catch (e) {
+    if (!(e instanceof KeyErasedError)) throw e;
+    messages = logs.map(() => PII_ERASED_SENTINEL);
+  }
+  return logs.map((log, index) => ({ ...log, message: messages[index] ?? PII_ERASED_SENTINEL }));
 }
 
 async function insertEncryptedRunLogs(

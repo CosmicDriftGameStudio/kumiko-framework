@@ -1,3 +1,7 @@
+// PgKmsAdapter opens at most 4 connections by default (maxConnections ?? 4);
+// more parallel KMS calls only queue at its pool.
+export const KMS_POOL_CONCURRENCY = 4;
+
 // Bounded-concurrency map — runs `fn` over `items` with at most `limit`
 // calls in flight. `Promise.all(items.map(fn))` is unbounded (as many
 // calls as rows); a plain sequential loop caps concurrency at 1, which

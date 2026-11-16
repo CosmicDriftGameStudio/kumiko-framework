@@ -1,17 +1,10 @@
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
 
 export type MemberUserRow = {
   readonly id: unknown;
   readonly email?: unknown;
   readonly displayName?: unknown;
 };
-
-// Bounded, not Promise.all/sequential: each decrypt hits the KMS adapter's
-// own small dedicated pool (PgKmsAdapter default max: 4). Promise.all fires
-// one call per user unbounded and exhausts the pool once membership counts
-// exceed a handful, surfacing as "the connection was closed"; a strict
-// sequential loop caps concurrency at 1 and leaves 3 pool slots idle.
-export const KMS_POOL_CONCURRENCY = 4;
 
 export async function decryptMemberUsers(
   users: readonly MemberUserRow[],

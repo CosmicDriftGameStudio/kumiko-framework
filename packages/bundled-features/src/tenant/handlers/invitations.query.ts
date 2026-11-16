@@ -2,16 +2,9 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
-
-// Bounded, not Promise.all/sequential: each decrypt hits the KMS adapter's
-// own small dedicated pool (PgKmsAdapter default max: 4). Promise.all fires
-// one call per row unbounded and exhausts the pool once invitation counts
-// exceed a handful, surfacing as "the connection was closed"; a strict
-// sequential loop caps concurrency at 1 and leaves 3 pool slots idle.
-const KMS_POOL_CONCURRENCY = 4;
 
 // Pending invitations for the current tenant, admin-only, filtered to
 // status="pending" — accepted/cancelled/expired don't belong in this UI

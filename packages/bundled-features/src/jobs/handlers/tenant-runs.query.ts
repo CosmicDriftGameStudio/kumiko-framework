@@ -1,4 +1,4 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { scopeTenantDbToTenant, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { serializeJobSubject } from "@cosmicdrift/kumiko-framework/jobs";
@@ -41,9 +41,13 @@ export function createTenantRunsQuery(readRoles: readonly string[]) {
             "jobs:query:tenant-runs requires ctx.systemDb (feature must declare r.systemScope())",
         });
       }
-      // assertTenantMatch returns the same unfiltered system-mode db — the
-      // explicit tenantId below is the filter, assertRowsTenant the second net.
-      const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+      // Tenant-mode db so filter and RLS are restricted to the caller's tenant;
+      // the explicit tenantId filter below also excludes SYSTEM_TENANT_ID rows,
+      // which tenant-mode reads let through.
+      const db = scopeTenantDbToTenant(
+        ctx.systemDb.assertTenantMatch(query.user.tenantId),
+        query.user.tenantId,
+      );
       const where: Record<string, unknown> = { tenantId: [query.user.tenantId] };
       if (query.payload.jobName) where["jobName"] = query.payload.jobName;
       if (query.payload.subject) where["subject"] = serializeJobSubject(query.payload.subject);
@@ -70,7 +74,7 @@ export function createTenantRunsQuery(readRoles: readonly string[]) {
       });
       const activeFirst = [...activeRows, ...finishedNewestPerKey];
       return {
-        rows: ctx.systemDb.assertRowsTenant(activeFirst.slice(0, limit), "tenantId").map((row) => ({
+        rows: activeFirst.slice(0, limit).map((row) => ({
           jobName: row.jobName,
           subject: parseSubject(row.subject),
           status: row.status,

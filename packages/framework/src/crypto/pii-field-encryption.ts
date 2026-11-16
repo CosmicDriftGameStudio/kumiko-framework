@@ -237,6 +237,62 @@ export async function decryptPiiValueForSubject(
   }
 }
 
+// One key lookup for the whole batch instead of one per value.
+export async function encryptPiiValuesForSubject(
+  kms: LocalKeyKmsAdapter,
+  subject: SubjectId,
+  values: readonly string[],
+  kmsCtx: KmsContext,
+  field: string,
+): Promise<string[]> {
+  const needsEncryption = (value: string): boolean =>
+    !isPiiCiphertext(value) && value !== PII_ERASED_SENTINEL;
+  if (!values.some(needsEncryption)) return [...values];
+  const dek = await getOrCreateDek(kms, subject, kmsCtx);
+  return values.map((value) =>
+    needsEncryption(value) ? encryptValue(subject, dek, value, field) : value,
+  );
+}
+
+// One key lookup per distinct subject; an erased subject yields the sentinel
+// for its values, like decryptPiiValueForSubject.
+export async function decryptPiiValues(
+  kms: LocalKeyKmsAdapter,
+  values: readonly string[],
+  kmsCtx: KmsContext,
+  field: string,
+): Promise<string[]> {
+  const parsedValues = values.map((value) => {
+    if (!isPiiCiphertext(value)) return null;
+    const parsed = parseCiphertextOf(value, field);
+    if (parsed.isJson) {
+      throw new Error(
+        `PII field "${field}" holds a jsonb ciphertext — decrypt it via decryptPiiFieldValues`,
+      );
+    }
+    return parsed;
+  });
+  const deks = new Map<string, SubjectDek | null>();
+  for (const parsed of parsedValues) {
+    if (parsed === null) continue;
+    const key = subjectIdToKey(parsed.subject);
+    if (deks.has(key)) continue;
+    try {
+      deks.set(key, await kms.getKey(parsed.subject, kmsCtx));
+    } catch (e) {
+      if (!(e instanceof KeyErasedError)) throw e;
+      deks.set(key, null);
+    }
+  }
+  return values.map((value, index) => {
+    const parsed = parsedValues[index];
+    if (parsed === null || parsed === undefined) return value;
+    const dek = deks.get(subjectIdToKey(parsed.subject));
+    if (dek === null || dek === undefined) return PII_ERASED_SENTINEL;
+    return decryptValue(dek, parsed.blob, parsed.subject, field, parsed.hasAad, false);
+  });
+}
+
 export const ErasedSubjectHandlings = { sentinel: "sentinel" } as const;
 export type ErasedSubjectHandling =
   (typeof ErasedSubjectHandlings)[keyof typeof ErasedSubjectHandlings];

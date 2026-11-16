@@ -695,6 +695,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "jobs.errors.onlyFailedCanRetry": "Solo se pueden reintentar las ejecuciones fallidas.",
   "jobs.errors.payloadErased":
     "El payload de esta ejecución ya no se puede leer: se borraron los datos del usuario que la inició.",
+  "jobs.errors.notRetryable":
+    "Esta ejecución no se puede reintentar: su trabajo se ejecuta por inquilino o por un evento, y la ejecución no guardó esa entrada.",
   "jobs.errors.unknownJob": "Trabajo desconocido.",
   "jobs.errors.invalidCursor": "El cursor de paginación no es válido.",
   "jobs.runs.col.duration": "Duración (ms)",

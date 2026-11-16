@@ -706,6 +706,8 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "jobs.errors.onlyFailedCanRetry": "Seules les exécutions échouées peuvent être relancées.",
   "jobs.errors.payloadErased":
     "Le payload de cette exécution n'est plus lisible — les données de l'utilisateur à l'origine du déclenchement ont été effacées.",
+  "jobs.errors.notRetryable":
+    "Cette exécution ne peut pas être relancée : sa tâche s'exécute par locataire ou sur un événement, et l'exécution n'a pas enregistré cette entrée.",
   "jobs.errors.unknownJob": "Tâche inconnue.",
   "jobs.errors.invalidCursor": "Le curseur de pagination est invalide.",
   "jobs.runs.col.duration": "Durée (ms)",

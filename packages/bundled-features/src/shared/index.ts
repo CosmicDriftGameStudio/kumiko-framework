@@ -18,7 +18,11 @@ export {
   type StoredEnvelopeClassification,
 } from "./classify-stored-envelope.ts";
 export { collectExtensionOptions } from "./collect-extension-options.ts";
-export { decryptStoredPii, decryptStoredUserEmail } from "./decrypt-stored-pii.ts";
+export {
+  decryptStoredPii,
+  decryptStoredPiiValues,
+  decryptStoredUserEmail,
+} from "./decrypt-stored-pii.ts";
 export { encryptForDirectWrite } from "./encrypt-for-direct-write.ts";
 export { entitiesOf } from "./entities-of.ts";
 export { isWithinGracePeriod } from "./grace-period.ts";
@@ -35,7 +39,7 @@ export {
   mailParagraphWithLink,
   mailRepeatedRows,
 } from "./mail-template-body.ts";
-export { mapWithConcurrency } from "./map-with-concurrency.ts";
+export { KMS_POOL_CONCURRENCY, mapWithConcurrency } from "./map-with-concurrency.ts";
 export { type AuthSessionInput, mintAuthSession } from "./mint-auth-session.ts";
 export { normalizeEmail } from "./normalize-email.ts";
 export {

@@ -34,6 +34,7 @@ export const JobErrors = {
   notManual: "job_not_manual",
   invalidPayload: "job_invalid_payload",
   payloadErased: "job_payload_erased",
+  notRetryable: "job_not_retryable",
   consumerUnknown: "consumer_unknown",
   consumerWrongStatus: "consumer_wrong_status",
   consumerNothingToSkip: "consumer_nothing_to_skip",

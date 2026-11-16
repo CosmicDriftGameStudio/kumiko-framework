@@ -3,8 +3,11 @@ import { createCipheriv, randomBytes } from "node:crypto";
 import { createEntity, createTextField } from "../../engine/factories.ts";
 import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.ts";
 import {
+  KeyErasedError,
   KeyNotFoundError,
   type KmsContext,
+  type SubjectDek,
+  type SubjectId,
   subjectIdFromKey,
   subjectIdToKey,
 } from "../kms-adapter.ts";
@@ -16,8 +19,10 @@ import {
 import {
   decryptPiiFieldValues,
   decryptPiiValueForSubject,
+  decryptPiiValues,
   encryptPiiFieldValues,
   encryptPiiValueForSubject,
+  encryptPiiValuesForSubject,
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
@@ -494,5 +499,75 @@ describe("corrupt PII ciphertext", () => {
     );
 
     await expect(attempt).rejects.toBeInstanceOf(KeyNotFoundError);
+  });
+});
+
+class CountingKmsAdapter extends InMemoryKmsAdapter {
+  getKeyCalls = 0;
+
+  override async getKey(subject: SubjectId): Promise<SubjectDek> {
+    this.getKeyCalls += 1;
+    return super.getKey(subject);
+  }
+}
+
+describe("encryptPiiValuesForSubject / decryptPiiValues", () => {
+  const subjectA: SubjectId = { kind: "user", userId: UUID_A };
+  const subjectB: SubjectId = { kind: "user", userId: UUID_B };
+  const plainValues = ["one", "two", "three", "four", "five"];
+
+  test("encrypts a batch with one key lookup and decrypts it in input order", async () => {
+    const kms = new CountingKmsAdapter();
+    await kms.createKey(subjectA, KMS_CTX);
+    kms.getKeyCalls = 0;
+
+    const stored = await encryptPiiValuesForSubject(kms, subjectA, plainValues, KMS_CTX, "note");
+    expect(kms.getKeyCalls).toBe(1);
+    expect(stored.every(isPiiCiphertext)).toBe(true);
+
+    const back = await decryptPiiValues(kms, [...stored, "plain"], KMS_CTX, "note");
+    expect(back).toEqual([...plainValues, "plain"]);
+    expect(kms.getKeyCalls).toBe(2);
+  });
+
+  test("decrypts ciphertexts of two subjects with one lookup per subject", async () => {
+    const kms = new CountingKmsAdapter();
+    const [a1, a2] = await encryptPiiValuesForSubject(
+      kms,
+      subjectA,
+      ["a1", "a2"],
+      KMS_CTX,
+      "note",
+    );
+    const [b1] = await encryptPiiValuesForSubject(kms, subjectB, ["b1"], KMS_CTX, "note");
+    kms.getKeyCalls = 0;
+
+    const back = await decryptPiiValues(kms, [a1 ?? "", b1 ?? "", a2 ?? ""], KMS_CTX, "note");
+    expect(back).toEqual(["a1", "b1", "a2"]);
+    expect(kms.getKeyCalls).toBe(2);
+  });
+
+  test("an erased subject throws on encrypt and yields the sentinel on decrypt", async () => {
+    const kms = new CountingKmsAdapter();
+    const [stored] = await encryptPiiValuesForSubject(kms, subjectA, ["secret"], KMS_CTX, "note");
+    await kms.eraseKey(subjectA);
+
+    await expect(
+      encryptPiiValuesForSubject(kms, subjectA, ["fresh"], KMS_CTX, "note"),
+    ).rejects.toBeInstanceOf(KeyErasedError);
+    expect(await decryptPiiValues(kms, [stored ?? "", "plain"], KMS_CTX, "note")).toEqual([
+      PII_ERASED_SENTINEL,
+      "plain",
+    ]);
+  });
+
+  test("ciphertext and sentinel only: no key lookup, values pass through", async () => {
+    const kms = new CountingKmsAdapter();
+    const [stored] = await encryptPiiValuesForSubject(kms, subjectA, ["secret"], KMS_CTX, "note");
+    kms.getKeyCalls = 0;
+    const input = [stored ?? "", PII_ERASED_SENTINEL];
+
+    expect(await encryptPiiValuesForSubject(kms, subjectA, input, KMS_CTX, "note")).toEqual(input);
+    expect(kms.getKeyCalls).toBe(0);
   });
 });

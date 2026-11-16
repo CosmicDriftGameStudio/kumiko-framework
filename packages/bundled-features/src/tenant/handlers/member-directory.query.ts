@@ -8,14 +8,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
-
-// Shares the KMS adapter's small dedicated pool, same rationale as
-// members.query.ts.
-const KMS_POOL_CONCURRENCY = 4;
 
 // Display names are encrypted PII, so a search cannot run in SQL: candidates
 // are decrypted and filtered in memory. The cap keeps a SystemAdmin's global

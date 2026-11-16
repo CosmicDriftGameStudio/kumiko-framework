@@ -73,6 +73,7 @@ async function createTransaction(
     description?: string;
     subjectType?: string;
     subjectId?: string;
+    status?: "draft" | "posted";
   } = {},
   user = admin,
 ): Promise<{ id: string }> {
@@ -84,6 +85,7 @@ async function createTransaction(
       lines,
       ...(opts.subjectType !== undefined && { subjectType: opts.subjectType }),
       ...(opts.subjectId !== undefined && { subjectId: opts.subjectId }),
+      ...(opts.status !== undefined && { status: opts.status }),
     },
     user,
   );
@@ -420,6 +422,54 @@ describe("ledger integration — reports (end-to-end)", () => {
     expect(r.currentResult).toBe(70000);
     expect(r.equity).toBe(570000);
     expect(r.balances).toBe(true);
+  });
+
+  test("period bounds are inclusive and drafts never count", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Miete", "income");
+    const book = (amount: number, date: string, status?: "draft" | "posted") =>
+      createTransaction(
+        [
+          { accountId: bank, amount },
+          { accountId: rent, amount: -amount },
+        ],
+        { date, ...(status !== undefined && { status }) },
+      );
+    await book(8000, "2026-01-31", "posted");
+    await book(1000, "2026-02-01", "posted");
+    await book(2000, "2026-02-28", "posted");
+    await book(4000, "2026-03-01", "posted");
+    await book(16000, "2026-02-10", "draft");
+
+    const income = await stack.http.queryOk<{ income: number }>(
+      LedgerQueries.reportIncomeStatement,
+      { from: "2026-02-01", to: "2026-02-28" },
+      admin,
+    );
+    expect(income.income).toBe(3000);
+
+    const sheet = await stack.http.queryOk<{ assets: number }>(
+      LedgerQueries.reportBalanceSheet,
+      { to: "2026-02-28" },
+      admin,
+    );
+    expect(sheet.assets).toBe(11000);
+
+    const balances = await stack.http.queryOk<{
+      accounts: Array<{ id: string; balance: number }>;
+      trialBalance: number;
+    }>(LedgerQueries.reportBalances, { from: "2026-02-01", to: "2026-02-28" }, admin);
+    expect(balances.accounts.find((a) => a.id === bank)?.balance).toBe(3000);
+    expect(balances.trialBalance).toBe(0);
+  });
+
+  test("a non-date period bound is rejected as a validation error", async () => {
+    const err = await stack.http.queryErr(
+      LedgerQueries.reportIncomeStatement,
+      { to: "2026-02" },
+      admin,
+    );
+    expect(err.httpStatus).toBe(400);
   });
 });
 

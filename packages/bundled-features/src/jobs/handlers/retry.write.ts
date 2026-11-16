@@ -59,6 +59,26 @@ export const retryWrite = defineWriteHandler({
       );
     }
 
+    const jobDef = ctx.registry.getJob(run.jobName);
+    if (!jobDef) {
+      return writeFailure(
+        new NotFoundError("job", run.jobName, { i18nKey: "jobs.errors.unknownJob" }),
+      );
+    }
+
+    // The run row stores neither the tenant of a perTenant child run nor the
+    // event payload, so a retry would fan out to every tenant or run with an
+    // empty payload.
+    const rerunInputUnrecorded = jobDef.perTenant === true || "on" in jobDef.trigger;
+    if (rerunInputUnrecorded) {
+      return writeFailure(
+        new UnprocessableError(JobErrors.notRetryable, {
+          i18nKey: "jobs.errors.notRetryable",
+          details: { jobName: run.jobName },
+        }),
+      );
+    }
+
     // payload is stored encrypted under the triggering user's DEK,
     // same mechanism as detail.query.ts/list.query.ts — decrypt before
     // parsing it as JSON. A key erased since the run finished decrypts to

@@ -92,4 +92,7 @@ export const JOBS_I18N: Readonly<Record<string, LocalizedString>> = {
   "jobs.errors.payloadErased": {
     en: "This run's payload can no longer be read — the triggering user's data was erased.",
   },
+  "jobs.errors.notRetryable": {
+    en: "This run cannot be retried: its job runs per tenant or on an event, and the run did not record that input.",
+  },
 };

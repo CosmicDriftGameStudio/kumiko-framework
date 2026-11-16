@@ -2,6 +2,7 @@ import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
+  decryptPiiValues,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 
@@ -24,6 +25,21 @@ export async function decryptStoredPii(
   });
   const decrypted = out[field];
   return typeof decrypted === "string" ? decrypted : value;
+}
+
+export async function decryptStoredPiiValues(
+  values: readonly string[],
+  field: string,
+  fallbackRequestId: string,
+): Promise<string[]> {
+  const kms = configuredPiiSubjectKms();
+  if (!kms) return [...values];
+  return decryptPiiValues(
+    kms,
+    values,
+    { requestId: requestContext.get()?.requestId ?? fallbackRequestId },
+    field,
+  );
 }
 
 // Null for an erased subject: the sentinel must never be mailed or shown as an address.

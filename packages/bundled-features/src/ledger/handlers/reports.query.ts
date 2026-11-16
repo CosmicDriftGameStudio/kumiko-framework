@@ -1,4 +1,5 @@
 import type { AccessRule, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import type { WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
 import * as z from "zod";
 import { accountTable, transactionTable } from "../executor.ts";
 import {
@@ -10,26 +11,35 @@ import {
   toAccounts,
   toEntries,
 } from "../reports.ts";
-import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
+import { DEFAULT_LEDGER_ACCESS, type TransactionStatus } from "../web/constants.ts";
+
+const POSTED: TransactionStatus = "posted";
 
 // Reports take an optional reporting period. Balance-sheet is cumulative → pass
-// { to: asOf }; income-statement is a period → { from, to }.
+// { to: asOf }; income-statement is a period → { from, to }. Both bounds are
+// inclusive ISO dates because they are compared against the date column in SQL.
 const periodSchema = z.object({
-  from: z.string().min(1).max(32).optional(),
-  to: z.string().min(1).max(32).optional(),
+  from: z.string().date().optional(),
+  to: z.string().date().optional(),
 });
+
+type ReportPeriod = z.infer<typeof periodSchema>;
 
 type QueryCtx = Parameters<QueryHandlerDef["handler"]>[1];
 
 async function loadBooks(
   ctx: QueryCtx,
+  period: ReportPeriod,
 ): Promise<{ accounts: LedgerAccount[]; entries: LedgerEntry[] }> {
   const accountRows = await ctx.db.selectMany(accountTable, { tenantId: ctx.user.tenantId });
-  const txRows = await ctx.db.selectMany(transactionTable, { tenantId: ctx.user.tenantId });
+  const where: WhereObject = { tenantId: ctx.user.tenantId, status: POSTED };
+  const dateBounds: { gte?: string; lte?: string } = {};
+  if (period.from !== undefined) dateBounds.gte = period.from;
+  if (period.to !== undefined) dateBounds.lte = period.to;
+  if (Object.keys(dateBounds).length > 0) where["date"] = dateBounds;
+  const txRows = await ctx.db.selectMany(transactionTable, where);
   return { accounts: toAccounts(accountRows), entries: toEntries(txRows) };
 }
-
-type ReportPeriod = z.infer<typeof periodSchema>;
 
 function createPeriodReportHandler(
   report: {
@@ -50,7 +60,7 @@ function createPeriodReportHandler(
     description: report.description,
     handler: async (query, ctx) => {
       const period = periodSchema.parse(query);
-      const { accounts, entries } = await loadBooks(ctx);
+      const { accounts, entries } = await loadBooks(ctx, period);
       return report.compute(accounts, entries, period);
     },
   };
