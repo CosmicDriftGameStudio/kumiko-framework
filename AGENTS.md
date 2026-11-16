@@ -82,7 +82,7 @@ The full list (19 packages; the five former shims were removed in 0.379.0) is in
 ## Releases
 
 Releases go through changesets: add `.changeset/<name>.md` with a `kumiko-changes` block.
-The Version PR is merged by the framework owner session once the work package is green; until
+The Version PR is merged by the framework owner (a person, never an agent session) once the work package is green; until
 the beta in January 2027 there is no fixed release day, then it becomes a train every two
 weeks. A changeset uses `minor` only for a breaking change. If the issue has a release note,
 start the `kumiko-changes` block from it and update the issue when the code ends up

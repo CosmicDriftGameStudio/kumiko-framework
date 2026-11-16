@@ -25,7 +25,7 @@ Gemessen am 2026-11-16 aus `git` und den `changes.json` aller Pakete:
 | 29.10. bis 12.11.2026 | 0.400 bis 0.419 | 24 |
 | 12.11. bis 15.11.2026 | 0.420 bis 0.424 | 2 |
 
-Vom 16.10. bis 15.11.2026 erschienen rund 61 Releases (0.363 bis 0.424), etwa jedes zweite
+Vom 16.10. bis 15.11.2026 erschienen 62 Versionen (0.363 bis 0.424), etwa jedes zweite
 mit einem Bruch. Die Kurve fällt deutlich: Mit mehr Apps und mehr Live-Systemen sind die
 großen Umbauten durch, und Brüche kommen seltener.
 
