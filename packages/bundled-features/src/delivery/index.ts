@@ -28,8 +28,10 @@ export {
 } from "./channel-context.ts";
 export {
   type ChatWebhookChannelOptions,
+  type ChatWebhookFeatureSpec,
   chatMessageText,
   createChatWebhookChannel,
+  registerChatWebhookChannel,
   resolveChatWebhookTarget,
   toChannelResult,
 } from "./chat-webhook-channel.ts";

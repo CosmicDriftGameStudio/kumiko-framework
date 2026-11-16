@@ -41,7 +41,7 @@ import {
   metaTextMessage,
   metaWebhookPayload,
   requestMetaVerification,
-} from "../in-memory-meta.ts";
+} from "../testing.ts";
 import type { ChannelWhatsappOptions } from "../options.ts";
 import { readWhatsappMessagePii, readWhatsappStatusPii, readWhatsappThrottledPii } from "../pii.ts";
 import { createWhatsappWebhookRoutes } from "../webhook-routes.ts";

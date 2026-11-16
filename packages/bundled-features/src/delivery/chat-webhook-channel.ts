@@ -1,12 +1,15 @@
+import type { FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import {
   type ChatSendResult,
   type ChatWebhookRequest,
   type ChatWebhookTarget,
   chatConnectionNameSchema,
+  chatWebhookUrlSchema,
   DEFAULT_CHAT_TIMEOUT_MS,
   postChatWebhook,
 } from "./chat-webhook-sender.ts";
+import { DELIVERY_CHANNEL_EXTENSION } from "./constants.ts";
 import type { ChannelContext, ChannelMessage, ChannelResult, DeliveryChannel } from "./types.ts";
 
 export type ChatWebhookChannelOptions = {
@@ -91,4 +94,61 @@ export function createChatWebhookChannel(spec: ChatWebhookChannelSpec): Delivery
       return toChannelResult(address, result);
     },
   };
+}
+
+export type ChatWebhookFeatureSpec = {
+  readonly channelName: string;
+  readonly providerLabel: string;
+  readonly defaultAllowedHosts: readonly string[];
+  readonly requiredPathPrefix?: string;
+  readonly createChannel: (keyFor: (connection: string) => string) => DeliveryChannel;
+};
+
+// r.describe and r.translations stay in each feature body: static guards map
+// them to the literal defineFeature("channel-x") name.
+export function registerChatWebhookChannel(
+  r: FeatureRegistrar,
+  spec: ChatWebhookFeatureSpec,
+  options: ChatWebhookChannelOptions,
+): void {
+  const { channelName, providerLabel } = spec;
+  r.uiHints({
+    displayLabel: `${providerLabel} Channel`,
+    category: "notifications",
+    recommended: false,
+  });
+  r.requires({ features: ["delivery"] });
+  r.requires({ features: ["secrets"] });
+
+  const webhookTarget = resolveChatWebhookTarget(
+    spec.requiredPathPrefix === undefined
+      ? { defaultAllowedHosts: spec.defaultAllowedHosts }
+      : {
+          defaultAllowedHosts: spec.defaultAllowedHosts,
+          requiredPathPrefix: spec.requiredPathPrefix,
+        },
+    options,
+  );
+  const webhooks = r.secretNamespace("webhooks", {
+    label: {
+      en: `${providerLabel} webhooks`,
+      de: `${providerLabel}-Webhooks`,
+      es: `Webhooks de ${providerLabel}`,
+    },
+    hint: {
+      en: `One secret per connection name; the value is the ${providerLabel} webhook URL. Address it with route: { ${channelName}: "<connection name>" }.`,
+      de: `Ein Secret pro Verbindungsname; der Wert ist die ${providerLabel}-Webhook-URL. Adressierung mit route: { ${channelName}: "<Verbindungsname>" }.`,
+      es: `Un secreto por nombre de conexión; el valor es la URL del webhook de ${providerLabel}. Se usa con route: { ${channelName}: "<nombre de conexión>" }.`,
+    },
+    scope: "tenant",
+    nameSchema: chatConnectionNameSchema,
+    valueSchema: chatWebhookUrlSchema(webhookTarget),
+  });
+
+  const channel = spec.createChannel(webhooks.keyFor);
+  r.useExtension(DELIVERY_CHANNEL_EXTENSION, channelName, {
+    mode: channel.mode,
+    addressKind: "connection-name",
+    send: channel.send,
+  });
 }
