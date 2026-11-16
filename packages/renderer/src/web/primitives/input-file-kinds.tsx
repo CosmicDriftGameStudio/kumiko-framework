@@ -15,6 +15,7 @@ export const renderFileKind: KindRenderer<"file" | "image"> = (props) => (
     {...(props.imageVariant !== undefined && { imageVariant: props.imageVariant })}
     {...(props.capture !== undefined && { capture: props.capture })}
     {...(props.directory !== undefined && { directory: props.directory })}
+    {...(props.multiple !== undefined && { multiple: props.multiple })}
     {...(props.onFilesPicked !== undefined && { onFilesPicked: props.onFilesPicked })}
     {...(props.pickLabel !== undefined && { pickLabel: props.pickLabel })}
     {...(props.testId !== undefined && { testId: props.testId })}

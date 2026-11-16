@@ -1,4 +1,4 @@
-import type { AccessRule, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
+import { type AccessRule, access, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import {
   NotFoundError,
   UnprocessableError,
@@ -20,7 +20,7 @@ import {
   type DocumentDraftStatus,
 } from "./web/constants.ts";
 
-export const DEFAULT_DOCUMENT_DRAFT_ACCESS: AccessRule = { roles: ["TenantAdmin", "TenantMember"] };
+export const DEFAULT_DOCUMENT_DRAFT_ACCESS: AccessRule = { roles: access.tenantMembers };
 
 export type DraftRow = NonNullable<Awaited<ReturnType<typeof documentDraftExecutor.detail>>>;
 

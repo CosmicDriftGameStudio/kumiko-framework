@@ -16,7 +16,7 @@ import {
   type SignatureRequestStatus,
 } from "./web/constants.ts";
 
-export const DEFAULT_SIGNATURE_ACCESS: AccessRule = { roles: ["TenantAdmin", "TenantMember"] };
+export const DEFAULT_SIGNATURE_ACCESS: AccessRule = { roles: access.tenantMembers };
 
 export const internalAccess = { roles: access.system } as const;
 

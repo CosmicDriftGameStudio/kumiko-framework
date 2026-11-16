@@ -3,6 +3,7 @@
 // FileRef UUID back and lifts it up as the field value. Image → uncropped
 // rectangular preview (GET /api/files/:id, or the declared variant), file →
 // file name link. A disabled input shows the value only, without controls.
+// With onFilesPicked it only picks and hands the files over.
 
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
@@ -29,9 +30,9 @@ export type FileUploadInputProps = {
   readonly subField?: string;
   readonly imageVariant?: string;
   readonly capture?: "environment" | "user";
-  /** Folder picker (web-only, `webkitdirectory`): hands the picked files with
-   *  `webkitRelativePath` to `onFilesPicked` and uploads nothing. */
+  /** Pick-only when onFilesPicked is set: files go to the callback, nothing is uploaded; directory adds webkitdirectory. */
   readonly directory?: boolean;
+  readonly multiple?: boolean;
   readonly onFilesPicked?: (files: readonly File[]) => void;
   readonly pickLabel?: string;
   readonly testId?: string;
@@ -55,6 +56,7 @@ export function FileUploadInput({
   imageVariant,
   capture,
   directory,
+  multiple,
   onFilesPicked,
   pickLabel,
   testId,
@@ -67,7 +69,7 @@ export function FileUploadInput({
   const [error, setError] = useState<string | null>(null);
 
   async function onPick(e: ChangeEvent<HTMLInputElement>): Promise<void> {
-    if (directory === true) {
+    if (onFilesPicked !== undefined || directory === true) {
       onFilesPicked?.(Array.from(e.target.files ?? []));
       if (inputRef.current) inputRef.current.value = "";
       return;
@@ -127,6 +129,7 @@ export function FileUploadInput({
         {...(acceptAttr !== undefined && { accept: acceptAttr })}
         {...(capture !== undefined && { capture })}
         {...(directory === true && DIRECTORY_INPUT_ATTRS)}
+        {...(multiple === true && onFilesPicked !== undefined && { multiple: true })}
         onChange={(e) => void onPick(e)}
         disabled={disabled}
       />

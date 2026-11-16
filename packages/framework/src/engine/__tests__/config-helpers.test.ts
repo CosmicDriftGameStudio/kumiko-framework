@@ -19,6 +19,10 @@ describe("access presets", () => {
     expect(access.admin).toEqual(["TenantAdmin", "Admin", "SystemAdmin"]);
   });
 
+  test("access.tenantMembers covers the tenant's admins and members, no platform roles", () => {
+    expect(access.tenantMembers).toEqual(["TenantAdmin", "TenantMember"]);
+  });
+
   test("access.systemAdmin", () => {
     expect(access.systemAdmin).toEqual(["SystemAdmin"]);
   });

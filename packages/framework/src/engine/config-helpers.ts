@@ -28,6 +28,9 @@ export function isEncryptedAtRest(
 
 // --- Access Presets ---
 
+// The tenant's own admins and members; bundled features use it as their default access.
+const TENANT_MEMBER_ROLES: readonly string[] = ["TenantAdmin", "TenantMember"];
+
 export const access = {
   all: ["all"] as readonly string[], // @cast-boundary schema-walk
   // Bundled features use "TenantAdmin", while app repositories historically use
@@ -41,6 +44,7 @@ export const access = {
   // is not covered. For "any signed-in user" declare `anySignedIn: true` (next to the anonymous
   // role) or `openToAll` instead.
   builtinUserRoles: ["User", "Admin", "SystemAdmin"] as readonly string[], // @cast-boundary schema-walk
+  tenantMembers: TENANT_MEMBER_ROLES,
   anonymous: ["anonymous"] as readonly string[], // @cast-boundary schema-walk
   roles: (...roles: string[]): readonly string[] => roles,
   // Tenant self-service roles PLUS the system actor — for tenant-scope keys a
