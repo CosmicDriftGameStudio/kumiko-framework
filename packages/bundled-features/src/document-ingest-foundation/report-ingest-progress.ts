@@ -1,25 +1,8 @@
-import { type DbConnection, selectMany, transaction } from "@cosmicdrift/kumiko-framework/db";
-import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  append,
-  getStreamVersion,
-  VersionConflictError,
-} from "@cosmicdrift/kumiko-framework/event-store";
-import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { documentIngestAggregateId } from "./aggregate-id.ts";
-import {
-  DOCUMENT_INGEST_AGGREGATE_TYPE,
-  DOCUMENT_INGEST_PROGRESS_EVENT_QN,
-  documentIngestProgressPayloadSchema,
-} from "./events.ts";
-import { documentIngestProgressTable } from "./tables.ts";
-
-export type ReportIngestProgressDeps = {
-  readonly db: DbConnection;
-  readonly registry: Registry;
-  readonly tenantId: string;
-  readonly actorId: string;
-};
+import { documentIngestProgressPayloadSchema } from "./events.ts";
+import { documentIngestProgressTableMeta } from "./tables.ts";
 
 export type ReportIngestProgressInput = {
   readonly fileRefId: string;
@@ -27,54 +10,30 @@ export type ReportIngestProgressInput = {
   readonly pagesTotal: number;
 };
 
-// Parallel reports for one file race on the stream version, so a lost race re-reads the version and
-// appends again. The projection keeps the highest pagesDone, so landing order does not matter. A
-// conflict means another report committed, so N parallel reports need at most N-1 retries; 10
-// covers the parallelism one file sees. Every conflict is retried so each report lands its event;
-// only when the attempts run out, a report whose progress is already stored is treated as done.
-const MAX_VERSION_CONFLICT_ATTEMPTS = 10;
-
-// Low-level append() does not fire projections, so they run explicitly, in the same transaction as the append.
+// Progress is display-only, so it is a direct-write store row instead of an event per batch.
+// The upsert only makes sure the row exists (its conflict branch touches updatedAt alone);
+// the guarded update then moves pagesDone forward and never back, also when reports for one
+// file land out of order or in parallel.
 export async function reportIngestProgress(
-  deps: ReportIngestProgressDeps,
+  db: TenantDb,
   input: ReportIngestProgressInput,
 ): Promise<void> {
-  const payload = documentIngestProgressPayloadSchema.parse(input);
-  const aggregateId = documentIngestAggregateId(deps.tenantId, payload.fileRefId);
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await transaction(deps.db, async (tx) => {
-        const expectedVersion = await getStreamVersion(tx, aggregateId, deps.tenantId);
-        const stored = await append(tx, {
-          aggregateId,
-          aggregateType: DOCUMENT_INGEST_AGGREGATE_TYPE,
-          tenantId: deps.tenantId,
-          expectedVersion,
-          type: DOCUMENT_INGEST_PROGRESS_EVENT_QN,
-          payload,
-          metadata: { userId: deps.actorId },
-        });
-        await runProjectionsForEvent(stored, deps.registry, tx);
-      });
-      // skip: event appended, nothing left to retry
-      return;
-    } catch (e) {
-      if (!(e instanceof VersionConflictError)) throw e;
-      if (attempt < MAX_VERSION_CONFLICT_ATTEMPTS) continue;
-      if (await storedProgressCovers(deps, aggregateId, payload.pagesDone)) return;
-      throw e;
-    }
-  }
-}
-
-async function storedProgressCovers(
-  deps: ReportIngestProgressDeps,
-  aggregateId: string,
-  pagesDone: number,
-): Promise<boolean> {
-  const rows = await selectMany<{ pagesDone: number }>(deps.db, documentIngestProgressTable, {
-    id: aggregateId,
-    tenantId: deps.tenantId,
-  });
-  return (rows[0]?.pagesDone ?? 0) >= pagesDone;
+  const progress = documentIngestProgressPayloadSchema.parse(input);
+  const updatedAt = Temporal.Now.instant().toString();
+  await db.upsert(
+    documentIngestProgressTableMeta,
+    {
+      id: documentIngestAggregateId(db.tenantId, progress.fileRefId),
+      fileRefId: progress.fileRefId,
+      pagesDone: progress.pagesDone,
+      pagesTotal: progress.pagesTotal,
+      updatedAt,
+    },
+    { conflictTarget: ["tenantId", "fileRefId"], update: { updatedAt } },
+  );
+  await db.updateMany(
+    documentIngestProgressTableMeta,
+    { pagesDone: progress.pagesDone, pagesTotal: progress.pagesTotal, updatedAt },
+    { fileRefId: progress.fileRefId, pagesDone: { lte: progress.pagesDone } },
+  );
 }

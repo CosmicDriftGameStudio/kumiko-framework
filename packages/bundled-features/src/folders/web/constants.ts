@@ -14,7 +14,7 @@ export const FOLDER_SECTION_EXTENSION_NAME = "FolderSection";
 
 // Qualified handler names (QN format: scope:type:name). The folder catalog uses
 // generic defineEntity*Handler (create/update/delete) → "folder:<verb>" qualified
-// to "folders:write:folder:<verb>". update covers rename (and, later, reparent).
+// to "folders:write:folder:<verb>". update covers rename and reparent.
 // set-folder/clear-folder are the hand-written single-membership handlers.
 export const FoldersHandlers = {
   createFolder: "folders:write:folder:create",
@@ -37,3 +37,6 @@ export const FoldersQueries = {
 export const DEFAULT_FOLDER_ROLES = ["TenantAdmin", "TenantMember"] as const;
 
 export const DEFAULT_FOLDER_ACCESS: AccessRule = { roles: DEFAULT_FOLDER_ROLES };
+
+// Advisory-lock namespace shared by folder:delete, set-folder and the parent guard of folder:create/update.
+export const FOLDER_LOCK_NAMESPACE = 0x66_6c_64_72; // 'fldr'

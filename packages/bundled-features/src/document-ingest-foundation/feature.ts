@@ -7,8 +7,6 @@
 import {
   applyEntityEvent,
   entityEventName,
-  selectMany,
-  upsertByPk,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -25,13 +23,10 @@ import { documentExtractEntity, documentExtractsTable } from "./entity.ts";
 import {
   DOCUMENT_EXTRACT_AGGREGATE_TYPE,
   DOCUMENT_INGEST_AGGREGATE_TYPE,
-  DOCUMENT_INGEST_PROGRESS_EVENT_QN,
-  DOCUMENT_INGEST_PROGRESS_EVENT_SHORT,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
   DOCUMENT_INGEST_SKIPPED_EVENT_QN,
   DOCUMENT_INGEST_SKIPPED_EVENT_SHORT,
-  documentIngestProgressPayloadSchema,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
 } from "./events.ts";
@@ -45,7 +40,7 @@ import {
   resolveDocumentIngestProviders,
   UNCLAIMED_PROVIDER_SENTINEL,
 } from "./providers.ts";
-import { documentIngestProgressTable, documentIngestProgressTableMeta } from "./tables.ts";
+import { documentIngestProgressTableMeta } from "./tables.ts";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook.ts";
 
 const FEATURE_NAME = "document-ingest-foundation";
@@ -215,47 +210,9 @@ export function createDocumentIngestFoundationFeature() {
         piiFields: "none",
       });
 
-      r.defineEvent(DOCUMENT_INGEST_PROGRESS_EVENT_SHORT, documentIngestProgressPayloadSchema, {
-        piiFields: "none",
-      });
-
       r.storeTable(documentIngestProgressTableMeta, {
-        reason: "read_side.document_ingest_progress",
+        reason: "read_side.document_ingest_progress_direct_write",
       });
-      r.projection({
-        name: "ingest-progress",
-        source: DOCUMENT_INGEST_AGGREGATE_TYPE,
-        table: documentIngestProgressTable,
-        apply: {
-          [DOCUMENT_INGEST_PROGRESS_EVENT_QN]: async (event, tx) => {
-            const progress = documentIngestProgressPayloadSchema.parse(event.payload);
-            const [existing] = await selectMany<{ pagesDone: number }>(
-              tx,
-              documentIngestProgressTable,
-              { id: event.aggregateId, tenantId: event.tenantId },
-            );
-            // skip: reports can land out of order, progress only moves forward
-            if (existing !== undefined && existing.pagesDone > progress.pagesDone) return;
-            await upsertByPk(
-              tx,
-              documentIngestProgressTable,
-              {
-                id: event.aggregateId,
-                tenantId: event.tenantId,
-                fileRefId: progress.fileRefId,
-                pagesDone: progress.pagesDone,
-                pagesTotal: progress.pagesTotal,
-              },
-              {
-                pagesDone: progress.pagesDone,
-                pagesTotal: progress.pagesTotal,
-                updatedAt: event.createdAt,
-              },
-            );
-          },
-        },
-      });
-
       r.multiStreamProjection({
         name: "request-ingest",
         apply: {

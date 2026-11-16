@@ -48,10 +48,6 @@
     "export": "documentExtractsTable"
   },
   {
-    "module": "document-ingest-foundation/tables",
-    "export": "documentIngestProgressTable"
-  },
-  {
     "module": "inbound-mail-foundation/projection",
     "export": "inboundMessagesProjectionTable"
   },

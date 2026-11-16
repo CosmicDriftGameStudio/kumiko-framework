@@ -1,6 +1,7 @@
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { RendererError } from "../renderer-foundation/index.ts";
 import { requestExecutor } from "./entity.ts";
 import {
   discardGeneratedFile,
@@ -112,9 +113,23 @@ async function failRequest(
   }
 }
 
-// Appends the signature page to the unchanged original. A missing or changed original or a
-// missing signature image can never heal and ends the request as failed. A renderer outage
-// throws, the request stays all-signed and the next run tries again.
+// The service's size limit does not change between runs, so an oversized page never prints;
+// an outage or any other error still throws and the next run retries.
+async function renderSignaturePages(
+  opts: SignatureOptions,
+  html: string,
+): Promise<Uint8Array | null> {
+  try {
+    return await opts.renderHtmlToPdf(html);
+  } catch (error) {
+    if (error instanceof RendererError && error.code === "payload_too_large") return null;
+    throw error;
+  }
+}
+
+// Appends the signature page to the unchanged original. A missing or changed original, a missing
+// signature image or a signature page above the renderer's size limit can never heal and ends the
+// request as failed. A renderer outage throws, the request stays all-signed and the next run tries again.
 async function finalizeRequest(
   ctx: JobContext,
   opts: SignatureOptions,
@@ -139,7 +154,11 @@ async function finalizeRequest(
     entries,
     labels: DEFAULT_SIGNATURE_PAGE_LABELS,
   });
-  const signaturePages = await opts.renderHtmlToPdf(html);
+  const signaturePages = await renderSignaturePages(opts, html);
+  if (signaturePages === null) {
+    await failRequest(ctx, request, SIGNATURE_FAILURE_REASON.SignaturePageTooLarge);
+    return;
+  }
   const completed = await appendPdfPages(original.content, signaturePages);
   const stored = await storeGeneratedFile(ctx, ctx.systemUser, {
     fileName: "signed-document.pdf",

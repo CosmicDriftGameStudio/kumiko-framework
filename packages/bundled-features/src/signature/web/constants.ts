@@ -71,6 +71,7 @@ export const SIGNATURE_EVENT_SHORT = {
 export const SIGNATURE_FAILURE_REASON = {
   DocumentChanged: "document-changed",
   SignatureImageMissing: "signature-image-missing",
+  SignaturePageTooLarge: "signature-page-too-large",
 } as const;
 
 export type SignatureFailureReason =

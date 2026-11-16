@@ -38,6 +38,7 @@ import * as z from "zod";
 import { createAuthFoundationFeature } from "../../auth-foundation/index.ts";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
+import { RendererError } from "../../renderer-foundation/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { createUserDataRightsFeature } from "../../user-data-rights/feature.ts";
@@ -72,6 +73,7 @@ const NON_WIN_ANSI_NAME = "Žofia Şahin 山田";
 const provider = createInMemoryFileProvider();
 let stack: TestStack;
 let printerDown = false;
+let printerRejectsSize = false;
 let whilePrinting: (() => Promise<void>) | null = null;
 const deliveredLinks = new Map<string, string>();
 const deliveredBy = new Map<string, { readonly issuerId: string }>();
@@ -136,6 +138,9 @@ beforeAll(async () => {
         retention: { keepFor: "10y" },
         linkSecret: LINK_SECRET,
         renderHtmlToPdf: async (html) => {
+          if (printerRejectsSize) {
+            throw new RendererError("signature page above the service limit", "payload_too_large");
+          }
           if (printerDown) throw new Error("print service unavailable");
           stubRequests.push({ html });
           await whilePrinting?.();
@@ -168,6 +173,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   printerDown = false;
+  printerRejectsSize = false;
   whilePrinting = null;
   stubRequests.length = 0;
   deliveredLinks.clear();
@@ -407,6 +413,22 @@ describe("signature :: request to completed document", () => {
 });
 
 describe("signature :: unrecoverable finalisation", () => {
+  test("a signature page above the renderer limit ends the request as failed, once", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada"]);
+    await signInPerson(signerIds[0] as string);
+    expect((await requestRow(requestId))["status"]).toBe("all-signed");
+
+    printerRejectsSize = true;
+    await runSweep();
+    await runSweep();
+
+    expect((await requestRow(requestId))["status"]).toBe("failed");
+    const failed = await eventsOfType(SignatureEvents.failed);
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.["payload"]).toMatchObject({ reason: "signature-page-too-large" });
+    expect(await eventsOfType(SignatureEvents.completed)).toHaveLength(0);
+  });
+
   test("a changed original ends the all-signed request as failed, once", async () => {
     const { requestId, signerIds } = await requestSignatures(["Ada"]);
     await signInPerson(signerIds[0] as string);

@@ -17,8 +17,6 @@ export {
 export {
   DOCUMENT_EXTRACT_AGGREGATE_TYPE,
   DOCUMENT_INGEST_AGGREGATE_TYPE,
-  DOCUMENT_INGEST_PROGRESS_EVENT_QN,
-  DOCUMENT_INGEST_PROGRESS_EVENT_SHORT,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
   DOCUMENT_INGEST_REQUESTED_EVENT_SHORT,
   DOCUMENT_INGEST_SKIPPED_EVENT_QN,
@@ -46,7 +44,6 @@ export {
   resolveDocumentIngestProviders,
 } from "./providers.ts";
 export {
-  type ReportIngestProgressDeps,
   type ReportIngestProgressInput,
   reportIngestProgress,
 } from "./report-ingest-progress.ts";

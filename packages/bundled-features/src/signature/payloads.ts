@@ -52,6 +52,7 @@ export const DeclineByLinkSchema = z.object({
 const FailureReasonSchema = z.enum([
   SIGNATURE_FAILURE_REASON.DocumentChanged,
   SIGNATURE_FAILURE_REASON.SignatureImageMissing,
+  SIGNATURE_FAILURE_REASON.SignaturePageTooLarge,
 ]);
 
 export const FailSchema = z.object({ requestId: z.uuid(), reason: FailureReasonSchema });

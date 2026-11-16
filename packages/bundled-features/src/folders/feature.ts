@@ -12,8 +12,8 @@
 //
 // Scope: folder catalog CRUD (create/update[=rename]/delete/list/detail via the
 // generic entity handlers), set-folder (put/move), clear-folder (unfile).
-// Deferred: reparenting with cycle-check (folder:update CAN change parentId, but
-// no UI exposes it in v1 — folders-view guards cycles defensively).
+// folder:update can reparent; folder-parent-guard.ts rejects unknown parents and cycles,
+// and folder:delete refuses a folder that still has child folders or live assignments.
 
 import {
   type AccessRule,
@@ -29,6 +29,7 @@ import {
 import { assertNoWhereRuleInOwnershipWrite, resolveFeatureAccess } from "../shared/index.ts";
 import { FOLDERS_BOOT_RULES } from "./boot-rules.ts";
 import { createFolderAssignmentEntity, folderEntity } from "./entity.ts";
+import { rejectInvalidFolderParent } from "./folder-parent-guard.ts";
 import { createClearFolderHandler } from "./handlers/clear-folder.write.ts";
 import { createDeleteFolderHandler } from "./handlers/delete-folder.write.ts";
 import { createSetFolderHandler } from "./handlers/set-folder.write.ts";
@@ -63,8 +64,8 @@ function registerFolders(
   r.entity({ name: "folder", ...folderEntity });
   r.entity({ name: "folder-assignment", ...folderAssignmentEntity });
 
-  // Folder catalog — plain CRUD, no custom logic. update is rename (and, in a
-  // later stage, reparent: it accepts changes.parentId, optimistic-locked).
+  // Folder catalog — generic CRUD. update renames or reparents (optimistic-locked); the
+  // preSave guard below checks the parent.
   r.writeHandler(
     defineEntityCreateHandler("folder", folderEntity, {
       access,
@@ -79,6 +80,8 @@ function registerFolders(
         "Renames a folder or moves it under a different parent folder; use it to reorganise the catalog itself, which leaves the entities filed in that folder where they are.",
     }),
   );
+  r.hook({ type: "preSave", target: "folder:create", handler: rejectInvalidFolderParent });
+  r.hook({ type: "preSave", target: "folder:update", handler: rejectInvalidFolderParent });
   // Custom, not defineEntityDeleteHandler: blocks the delete when folder-
   // assignments still point at this folder (658/1) — see delete-folder.write.ts.
   r.writeHandler(createDeleteFolderHandler(access));

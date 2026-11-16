@@ -48,11 +48,6 @@ export const documentIngestSkippedPayloadSchema = z.object({
 });
 export type DocumentIngestSkippedPayload = z.infer<typeof documentIngestSkippedPayloadSchema>;
 
-export const DOCUMENT_INGEST_PROGRESS_EVENT_SHORT = "documentIngest.progress" as const;
-
-export const DOCUMENT_INGEST_PROGRESS_EVENT_QN =
-  "document-ingest-foundation:event:document-ingest-progress" as const;
-
 export const documentIngestProgressPayloadSchema = z
   .object({
     fileRefId: z.string().min(1),

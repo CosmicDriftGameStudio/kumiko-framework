@@ -3,17 +3,15 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import * as z from "zod";
 import { hostRowIsGone } from "../../shared/index.ts";
 import { folderAssignmentExecutor, folderExecutor } from "../executor.ts";
-import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
+import { DEFAULT_FOLDER_ACCESS, FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
 
 const deleteFolderPayloadSchema = z.object({ id: z.uuid() });
 
-// delete-folder — the UI's folder-manager only blocks deleting a folder that
-// still has CHILD folders; it never checks folder-assignments. A leaf folder
-// holding entities could be deleted, leaving its folder-assignment rows
-// pointing at a folderId that no longer exists (no cascade, no cleanup path —
-// see 658/1). Block server-side instead: this is the same "referential
-// integrity has no FK here" reasoning set-folder.write.ts already applies to
-// folderId on assignment-creation.
+// delete-folder — read_folders and read_folder_assignments have no FK, so the delete refuses
+// while child folders or live folder-assignments still point at this folder (658/1); deleting it
+// would leave them dangling with no cleanup path. The advisory lock on the folder id serialises
+// with set-folder and with the parent guard of folder:create/update, so neither can attach
+// something between these checks and the delete.
 //
 // Assignments whose host is gone (hard-deleted, soft-deleted or unregistered)
 // are cleaned up here instead of blocking forever: clear-folder can't reach
@@ -28,10 +26,21 @@ export function createDeleteFolderHandler(
     schema: deleteFolderPayloadSchema,
     access,
     description:
-      "Deletes a folder from the tenant catalog and refuses while any live entity is still filed in it (assignments of deleted hosts are cleaned up); use it once that folder's contents have been unfiled or moved elsewhere.",
+      "Deletes a folder from the tenant catalog and refuses while child folders or any live entity are still in it (assignments of deleted hosts are cleaned up); use it once that folder's contents have been unfiled or moved elsewhere.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
       const payload = event.payload as { id: string }; // @cast-boundary engine-payload
+      await ctx.db.advisoryXactLock(FOLDER_LOCK_NAMESPACE, payload.id);
+      const children = await folderExecutor.list(
+        { filter: { field: "parentId", op: "eq", value: payload.id }, limit: 1 },
+        event.user,
+        ctx.db,
+      );
+      if (children.rows.length > 0) {
+        return writeFailure(
+          new UnprocessableError("folder_has_children", { details: { folderId: payload.id } }),
+        );
+      }
       const orphanAssignmentIds: string[] = [];
       let cursor: string | undefined;
       do {

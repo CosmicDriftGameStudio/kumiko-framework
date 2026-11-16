@@ -4,7 +4,7 @@ import { denyUnlessJoinRowParentVisible } from "../../shared/index.ts";
 import { folderAssignmentAggregateId } from "../aggregate-id.ts";
 import { folderAssignmentExecutor, folderExecutor } from "../executor.ts";
 import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas.ts";
-import { DEFAULT_FOLDER_ACCESS } from "../web/constants.ts";
+import { DEFAULT_FOLDER_ACCESS, FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
 
 // set-folder — puts a host entity into a folder. Single-membership: the
 // assignment id is deterministic over (tenant, entity) WITHOUT folderId, so an
@@ -55,6 +55,9 @@ export function createSetFolderHandler(
         payload.entityId,
       );
 
+      // Same lock as folder:delete: the delete must not slip in between this existence check and
+      // the assignment write, or the assignment points at a deleted folder.
+      await ctx.db.advisoryXactLock(FOLDER_LOCK_NAMESPACE, payload.folderId);
       const folder = await folderExecutor.detail({ id: payload.folderId }, event.user, ctx.db);
       if (!folder) return writeFailure(new NotFoundError("folder", payload.folderId));
 

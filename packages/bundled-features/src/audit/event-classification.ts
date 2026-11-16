@@ -23,7 +23,6 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "channel-whatsapp:event:message-received": TECHNICAL_EVENT,
   "channel-whatsapp:event:status-updated": TECHNICAL_EVENT,
   "channel-whatsapp:event:throttled": TECHNICAL_EVENT,
-  "document-ingest-foundation:event:document-ingest-progress": TECHNICAL_EVENT,
   "document-ingest-foundation:event:document-ingest-requested": TECHNICAL_EVENT,
   "document-ingest-foundation:event:document-ingest-skipped": TECHNICAL_EVENT,
   "tenant-lifecycle:event:tenant-destruction-stage-started": TECHNICAL_EVENT,
