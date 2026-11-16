@@ -27,14 +27,11 @@ import {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
   MAIL_ACCOUNT_PII_FIELDS,
-  MAIL_THREAD_PII_FIELDS,
   mailAccountEntity,
-  mailThreadEntity,
 } from "../entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
-  MAIL_THREAD_AGGREGATE_TYPE,
   mailAccountEventPayloadSchema,
 } from "../events.ts";
 import {
@@ -108,19 +105,6 @@ describe("entity field limits for PII ciphertext", () => {
     expect(entityResult?.success).toBe(true);
     const eventResult = mailAccountEventPayloadSchema.shape.address.safeParse(encrypted["address"]);
     expect(eventResult.success).toBe(true);
-  });
-
-  test("thread subject at its plaintext maximum validates", async () => {
-    const encrypted = await encryptedAtLimit(
-      mailThreadEntity,
-      MAIL_THREAD_AGGREGATE_TYPE,
-      MAIL_THREAD_PII_FIELDS,
-      { subject: INBOUND_SUBJECT_MAX_CHARS },
-    );
-    const result = buildInsertSchema(mailThreadEntity).shape["subject"]?.safeParse(
-      encrypted["subject"],
-    );
-    expect(result?.success).toBe(true);
   });
 
   test("billing event provider ids at 200 characters validate", async () => {

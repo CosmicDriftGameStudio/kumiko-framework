@@ -2,7 +2,7 @@
 //
 // **Pattern:** event-sourced — each incoming mail and account-lifecycle
 // transition becomes a domain event. Read models = inline projections
-// (read_mail_accounts / read_inbound_messages / read_mail_threads).
+// (read_mail_accounts / read_inbound_messages).
 // Future consumers (business processes: ticket creation, receipt
 // recognition, auto-replies) listen directly to `inbound-message-received`
 // and can replay the COMPLETE history retroactively via
@@ -37,7 +37,6 @@ import { senderAuthenticationFieldSchema } from "./sender-auth.ts";
 // Aggregate types for the event store.
 export const MAIL_ACCOUNT_AGGREGATE_TYPE = "mail-account" as const;
 export const INBOUND_MESSAGE_AGGREGATE_TYPE = "inbound-message" as const;
-export const MAIL_THREAD_AGGREGATE_TYPE = "mail-thread" as const;
 
 // Event-name constants — short forms (for r.defineEvent) and qualified
 // FQNs (for ctx.events.unsafeAppend and projection-apply keys).
@@ -45,7 +44,6 @@ export const MAIL_ACCOUNT_CONNECTED_EVENT_SHORT = "mail-account-connected" as co
 export const MAIL_ACCOUNT_UPDATED_EVENT_SHORT = "mail-account-updated" as const;
 export const MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT = "mail-account-disconnected" as const;
 export const INBOUND_MESSAGE_RECEIVED_EVENT_SHORT = "inbound-message-received" as const;
-export const MAIL_THREAD_UPDATED_EVENT_SHORT = "mail-thread-updated" as const;
 export const INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT =
   "inbound-message-content-fetched" as const;
 
@@ -59,8 +57,6 @@ export const INBOUND_MESSAGE_RECEIVED_EVENT_QN =
   `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${INBOUND_MESSAGE_RECEIVED_EVENT_SHORT}` as const;
 export const INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_QN =
   `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${INBOUND_MESSAGE_CONTENT_FETCHED_EVENT_SHORT}` as const;
-export const MAIL_THREAD_UPDATED_EVENT_QN =
-  `${INBOUND_MAIL_FOUNDATION_FEATURE}:event:${MAIL_THREAD_UPDATED_EVENT_SHORT}` as const;
 
 const accountStatusEnum = z.enum([
   InboundMailAccountStatuses.active,
@@ -195,17 +191,6 @@ export const inboundMessageContentFetchedEventPayloadSchema = z.object({
 export type InboundMessageContentFetchedEventPayload = z.infer<
   typeof inboundMessageContentFetchedEventPayloadSchema
 >;
-
-// ============================================================================
-// mail-thread-Stream — Thread-Rollup pro (tenantId, threadKey)
-// ============================================================================
-export const mailThreadEventPayloadSchema = z.object({
-  threadKey: z.string().min(1).max(500),
-  subject: z.string().max(piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS)),
-  lastMessageAtIso: z.string().min(1),
-  messageCount: z.number().int().min(1),
-});
-export type MailThreadEventPayload = z.infer<typeof mailThreadEventPayloadSchema>;
 
 // ============================================================================
 // Headers-Shapes — event.metadata.headers (open-shape jsonb, primitives

@@ -22,20 +22,12 @@ import {
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import {
-  asRawClient,
-  createTenantDb,
   type DbConnection,
   insertOne,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
-import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { bridgeStub, createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  append,
-  getStreamVersion,
-  loadAggregate,
-  VersionConflictError,
-} from "@cosmicdrift/kumiko-framework/event-store";
+import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
@@ -54,22 +46,12 @@ import { createInboundProviderInMemoryFeature } from "../../inbound-provider-inm
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.ts";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
+import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.ts";
 import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.ts";
-import {
-  MAIL_THREAD_AGGREGATE_TYPE,
-  MAIL_THREAD_UPDATED_EVENT_QN,
-  type MailThreadEventPayload,
-} from "../events.ts";
 import { createInboundMailFoundationFeature } from "../feature.ts";
-import { ingestMessageHandler } from "../handlers/ingest-message.write.ts";
 import { ingestFailureEntity } from "../ingest-failures.ts";
-import {
-  inboundMessagesProjectionTable,
-  mailAccountsProjectionTable,
-  mailThreadsProjectionTable,
-} from "../projection.ts";
+import { inboundMessagesProjectionTable, mailAccountsProjectionTable } from "../projection.ts";
 import { quarantineEntity } from "../quarantine-entities.ts";
 
 // =============================================================================
@@ -198,8 +180,8 @@ describe("connect-account + list with decrypt-on-read", () => {
   });
 });
 
-describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
-  test("the same providerMessageId 2× → exactly 1 row, duplicate=true; Thread counts correctly", async () => {
+describe("scenario 2: ingest-message — Dedup + threadKey", () => {
+  test("the same providerMessageId 2× → exactly 1 row, duplicate=true", async () => {
     const admin = adminFor(4002);
     const accountId = await connectSharedAccount(admin);
 
@@ -224,7 +206,7 @@ describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
     });
     expect(msgRows).toHaveLength(1);
 
-    // Reply im selben Thread (References-Root) → Thread-Count 2.
+    // Reply im selben Thread (References-Root) → same threadKey.
     const reply = (await stack.http.writeOk(
       InboundMailFoundationHandlers.ingestMessage,
       ingestPayload(accountId, {
@@ -238,16 +220,6 @@ describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
     )) as Record<string, unknown>;
     expect(reply["duplicate"]).toBe(false);
     expect(reply["threadKey"]).toBe("mid:root@example.com");
-    expect(reply["threadAggregateId"]).toBe(
-      mailThreadAggregateId(admin.tenantId, "mid:root@example.com"),
-    );
-
-    const threadRows = await selectMany(db, mailThreadsProjectionTable, {
-      id: mailThreadAggregateId(admin.tenantId, "mid:root@example.com"),
-    });
-    expect(threadRows).toHaveLength(1);
-    expect(threadRows[0]?.["messageCount"]).toBe(2);
-    expect(String(threadRows[0]?.["lastMessageAt"])).toContain("2026-07-01T11:00:00");
 
     // Raw message row contains PII ciphertext; message:list returns plaintext.
     expect(isPiiCiphertext(msgRows[0]?.["from"])).toBe(true);
@@ -261,124 +233,6 @@ describe("scenario 2: ingest-message — Dedup + Thread-Rollup", () => {
     const firstRow = list.rows.find((r) => r["messageIdHeader"] === "root@example.com");
     expect(firstRow?.["from"]).toBe("sender@example.com");
     expect(firstRow?.["subject"]).toBe("Hello");
-  });
-});
-
-describe("ingest-message — Thread rollup is self-correcting rather than cumulative", () => {
-  test("after a race-distorted (too low) messageCount event, the next ingest corrects it to the actual row count", async () => {
-    const admin = adminFor(4021);
-    const accountId = await connectSharedAccount(admin);
-
-    await stack.http.writeOk(
-      InboundMailFoundationHandlers.ingestMessage,
-      ingestPayload(accountId, {
-        providerMessageId: "self-heal-root",
-        messageIdHeader: "self-heal-root@example.com",
-      }),
-      admin,
-    );
-    await stack.http.writeOk(
-      InboundMailFoundationHandlers.ingestMessage,
-      ingestPayload(accountId, {
-        providerMessageId: "self-heal-reply-1",
-        messageIdHeader: "self-heal-reply-1@example.com",
-        references: ["self-heal-root@example.com"],
-      }),
-      admin,
-    );
-    const threadAggId = mailThreadAggregateId(admin.tenantId, "mid:self-heal-root@example.com");
-
-    // Simulates snapshot drift that a lost version-conflict retry could theoretically
-    // leave despite the retry loop: two message rows exist, but the most recently
-    // written thread event has a count that is too low. The new ingest rereads
-    // the live count from read_inbound_messages instead of trusting the event
-    // snapshot, making the correction self-healing rather than cumulative.
-    const expectedVersion = await getStreamVersion(db, threadAggId, admin.tenantId);
-    const corruptedPayload: MailThreadEventPayload = {
-      threadKey: "mid:self-heal-root@example.com",
-      subject: "corrupted-by-race",
-      lastMessageAtIso: "2026-07-01T10:00:00Z",
-      messageCount: 1,
-    };
-    await append(db, {
-      aggregateId: threadAggId,
-      aggregateType: MAIL_THREAD_AGGREGATE_TYPE,
-      tenantId: admin.tenantId,
-      expectedVersion,
-      type: MAIL_THREAD_UPDATED_EVENT_QN,
-      payload: corruptedPayload,
-      metadata: { userId: admin.id },
-    });
-    // mailThreadsProjectionTable is not writable (the type check rejects raw
-    // updateMany), so the test corruption intentionally bypasses the type guard,
-    // just as the simulated race does.
-    await asRawClient(db).unsafe(`UPDATE "read_mail_threads" SET message_count = 1 WHERE id = $1`, [
-      threadAggId,
-    ]);
-
-    await stack.http.writeOk(
-      InboundMailFoundationHandlers.ingestMessage,
-      ingestPayload(accountId, {
-        providerMessageId: "self-heal-reply-2",
-        messageIdHeader: "self-heal-reply-2@example.com",
-        references: ["self-heal-root@example.com"],
-      }),
-      admin,
-    );
-
-    const healed = await selectMany(db, mailThreadsProjectionTable, { id: threadAggId });
-    expect(healed).toHaveLength(1);
-    expect(healed[0]?.["messageCount"]).toBe(3);
-  });
-});
-
-describe("ingest-message — concurrent thread-rollup race", () => {
-  // Probabilistic — repeated because whether a concurrent thread-rollup commit
-  // lands inside the step-5 critical section depends on real transaction-timing
-  // interleaving, which a single run cannot force deterministically.
-  const ITERATIONS = 20;
-  const CONCURRENCY = 3;
-
-  test(`${CONCURRENCY} concurrent ingests of different messages in the same thread never 500 and converge on the correct messageCount, ${ITERATIONS} rounds`, async () => {
-    const admin = adminFor(4022);
-    const accountId = await connectSharedAccount(admin);
-
-    for (let round = 0; round < ITERATIONS; round++) {
-      const rootMessageIdHeader = `race-root-${round}@example.com`;
-
-      const responses = await Promise.all(
-        Array.from({ length: CONCURRENCY }, (_, n) =>
-          stack.http.write(
-            InboundMailFoundationHandlers.ingestMessage,
-            ingestPayload(accountId, {
-              providerMessageId: `race-${round}-${n}`,
-              messageIdHeader: `race-${round}-${n}@example.com`,
-              references: [rootMessageIdHeader],
-            }),
-            admin,
-          ),
-        ),
-      );
-
-      // No writer's transaction fails with a 500 — each of the CONCURRENCY
-      // distinct messages is its own aggregate, so step 4 never races; step
-      // 5 (shared threadAggId) is serialized by the pg_advisory_xact_lock,
-      // so there's nothing here for the bounded retry loop to absorb.
-      for (const res of responses) {
-        expect(res.status).toBe(200);
-        const body = (await res.json()) as { isSuccess: boolean; data: { duplicate: boolean } };
-        expect(body.isSuccess).toBe(true);
-        expect(body.data.duplicate).toBe(false);
-      }
-
-      const threadAggId = mailThreadAggregateId(admin.tenantId, `mid:${rootMessageIdHeader}`);
-      const threadRows = await selectMany(db, mailThreadsProjectionTable, { id: threadAggId });
-      expect(threadRows).toHaveLength(1);
-      // Every message's contribution landed — the advisory lock closes the
-      // TOCTOU gap between countWhere and append that used to let a stale
-      // messageCount succeed without ever surfacing as a version conflict.
-      expect(threadRows[0]?.["messageCount"]).toBe(CONCURRENCY);
-    }
   });
 });
 
@@ -425,92 +279,6 @@ describe("ingest-message — concurrent ingests of the same message", () => {
     await insertOne(db, seenMessageTable, anchor);
 
     await expect(insertOne(db, seenMessageTable, anchor)).rejects.toThrow(/duplicate key/);
-  });
-});
-
-describe("ingest-message — thread-rollup retry exhaustion", () => {
-  // The version-conflict retry loop (THREAD_ROLLUP_MAX_ATTEMPTS = 5) is
-  // exercised by scenario 2c above only on its happy path (some attempt
-  // within the bound eventually wins). New behavior added alongside it —
-  // exhausting all 5 attempts — is untested: does it actually surface as an
-  // InternalError instead of silently persisting a stale messageCount?
-  // Forces exhaustion deterministically by calling the handler directly
-  // with a ctx whose tryAppendEvent always loses the version-conflict race
-  // for the thread aggregate specifically (the message-append itself still
-  // goes through a real, conflict-free append — there's no concurrent
-  // writer for a brand-new message aggregateId).
-  //
-  // Honest scope: this drives the handler directly (no dispatcher, no
-  // enclosing TX), same as reindex-entity-job's direct-call tests — it
-  // does NOT exercise the dispatcher's own TX-rollback-on-throw behavior,
-  // only that the handler itself throws instead of returning success after
-  // exhausting the attempts.
-  test("5 lost version-conflict races → InternalError, not a silent success", async () => {
-    const admin = adminFor(4023);
-    const accountId = await connectSharedAccount(admin);
-    const messageIdHeader = "exhaustion-root@example.com";
-
-    const tenantDb = createTenantDb({
-      db,
-      tenantId: admin.tenantId,
-      mode: "system",
-      reason: "test reads inbound-mail rows of any tenant",
-      grants: {
-        unsafeRaw: { reason: "test: hand-built ctx driving ingestMessageHandler directly" },
-      },
-    });
-    let threadAppendAttempts = 0;
-    const ctx = {
-      db: tenantDb,
-      registry: stack.registry,
-      ...bridgeStub({ user: admin }),
-      events: {
-        load: (aggregateId: string) => loadAggregate(db, aggregateId, admin.tenantId),
-        tryAppend: async (args: {
-          aggregateId: string;
-          aggregateType: string;
-          type: string;
-          payload: unknown;
-          headers?: unknown;
-        }) => {
-          if (args.aggregateType === MAIL_THREAD_AGGREGATE_TYPE) {
-            threadAppendAttempts++;
-            return { ok: false as const, conflict: new VersionConflictError(args.aggregateId, 0) };
-          }
-          // Step 4 (message append): fresh aggregateId, no concurrent writer
-          // in this test — a real, conflict-free append via expectedVersion 0.
-          const event = await append(db, {
-            aggregateId: args.aggregateId,
-            aggregateType: args.aggregateType,
-            tenantId: admin.tenantId,
-            expectedVersion: 0,
-            type: args.type,
-            payload: args.payload as Record<string, unknown>,
-            metadata: { userId: String(admin.id) },
-          });
-          return { ok: true as const, event };
-        },
-      },
-      // @cast-boundary test/framework — hand-built ctx narrower than HandlerContext
-    } as unknown as HandlerContext;
-
-    await expect(
-      ingestMessageHandler.handler(
-        {
-          type: InboundMailFoundationHandlers.ingestMessage,
-          user: admin,
-          prepared: undefined,
-          payload: {
-            ...ingestPayload(accountId, { providerMessageId: "exhaustion-1", messageIdHeader }),
-            // The handler is called directly, so the schema defaults do not apply.
-            bodyText: "",
-            bodyTextTruncated: false,
-          },
-        },
-        ctx,
-      ),
-    ).rejects.toThrow(/lost the version-conflict race 5 times in a row/);
-    expect(threadAppendAttempts).toBe(5);
   });
 });
 
@@ -589,6 +357,94 @@ describe("Scope visibility (personal mailbox)", () => {
         hasOpenQuarantine: false,
       }),
     ]);
+  });
+});
+
+describe("message:list — keyset paging", () => {
+  test("pages newest first, skips other users' personal mail and ends with a null cursor", async () => {
+    const tenantNumber = 4041;
+    const admin = adminFor(tenantNumber);
+    const reader = createTestUser({
+      id: 40412,
+      tenantId: testTenantId(tenantNumber),
+      roles: ["User"],
+    });
+    const sharedId = await connectSharedAccount(admin);
+    const personal = (await stack.http.writeOk(
+      InboundMailFoundationHandlers.connectAccount,
+      {
+        provider: "inmemory",
+        authMethod: "password",
+        displayName: "Privat",
+        address: "paging-owner@tenant.example",
+        scope: "user",
+      },
+      admin,
+    )) as { accountId: string };
+
+    const sharedTimes = [
+      "2026-08-01T10:00:00Z",
+      "2026-08-01T11:00:00Z",
+      "2026-08-01T11:00:00Z",
+      "2026-08-01T12:00:00Z",
+    ];
+    const personalTimes = ["2026-08-01T10:30:00Z", "2026-08-01T11:30:00Z", "2026-08-01T12:30:00Z"];
+    for (const [index, receivedAtIso] of sharedTimes.entries()) {
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.ingestMessage,
+        ingestPayload(sharedId, {
+          providerMessageId: `paging-shared-${index}`,
+          messageIdHeader: `paging-shared-${index}@example.com`,
+          receivedAtIso,
+        }),
+        admin,
+      );
+    }
+    for (const [index, receivedAtIso] of personalTimes.entries()) {
+      await stack.http.writeOk(
+        InboundMailFoundationHandlers.ingestMessage,
+        ingestPayload(personal.accountId, {
+          ownerUserId: admin.id,
+          providerMessageId: `paging-personal-${index}`,
+          messageIdHeader: `paging-personal-${index}@example.com`,
+          receivedAtIso,
+        }),
+        admin,
+      );
+    }
+
+    type MessagePage = { rows: Array<Record<string, unknown>>; nextCursor: string | null };
+    const all = (await stack.http.queryOk(
+      InboundMailFoundationQueries.listMessages,
+      { limit: 200 },
+      reader,
+    )) as MessagePage;
+    expect(all.rows).toHaveLength(4);
+    expect(all.rows.every((row) => row["accountId"] === sharedId)).toBe(true);
+    const receivedAts = all.rows.map((row) => String(row["receivedAt"]));
+    for (let i = 1; i < receivedAts.length; i++) {
+      expect((receivedAts[i - 1] ?? "") >= (receivedAts[i] ?? "")).toBe(true);
+    }
+    expect(all.nextCursor).toBeNull();
+
+    const pagedIds: unknown[] = [];
+    let cursor: string | undefined;
+    let lastCursor: string | null = null;
+    for (let page = 0; page < 5; page++) {
+      const result = (await stack.http.queryOk(
+        InboundMailFoundationQueries.listMessages,
+        { limit: 2, ...(cursor !== undefined && { cursor }) },
+        reader,
+      )) as MessagePage;
+      expect(result.rows.length).toBeLessThanOrEqual(2);
+      pagedIds.push(...result.rows.map((row) => row["id"]));
+      lastCursor = result.nextCursor;
+      if (lastCursor === null) break;
+      cursor = lastCursor;
+    }
+    expect(lastCursor).toBeNull();
+    expect(pagedIds).toEqual(all.rows.map((row) => row["id"]));
+    expect(new Set(pagedIds).size).toBe(pagedIds.length);
   });
 });
 
@@ -680,17 +536,6 @@ describe("scenario 5: Projection-Rebuild reproduziert die Read-Models (Plan §3.
     expect(key(after as Array<Record<string, unknown>>)).toEqual(
       key(before as Array<Record<string, unknown>>),
     );
-
-    // The thread rollup can be rebuilt as well.
-    const threadResult = await rebuildProjection("inbound-mail-foundation:projection:mail-thread", {
-      db,
-      registry: stack.registry,
-    });
-    expect(threadResult.eventsProcessed).toBeGreaterThanOrEqual(2);
-    const threads = await selectMany(db, mailThreadsProjectionTable, {
-      id: mailThreadAggregateId(admin.tenantId, "mid:r1@example.com"),
-    });
-    expect(threads[0]?.["messageCount"]).toBe(2);
   });
 });
 

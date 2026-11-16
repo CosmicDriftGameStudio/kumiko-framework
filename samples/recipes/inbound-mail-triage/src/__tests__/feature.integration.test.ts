@@ -24,7 +24,6 @@ import {
   inboundMessageEntity,
   ingestFailureEntity,
   mailAccountEntity,
-  mailThreadEntity,
   quarantineEntity,
   seenMessageEntity,
   syncCursorEntity,
@@ -67,7 +66,6 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(testDb.db, mailAccountEntity);
   await unsafeCreateEntityTable(testDb.db, inboundMessageEntity);
-  await unsafeCreateEntityTable(testDb.db, mailThreadEntity);
   await unsafeCreateEntityTable(testDb.db, syncCursorEntity);
   await unsafeCreateEntityTable(testDb.db, seenMessageEntity);
   await unsafeCreateEntityTable(testDb.db, quarantineEntity);

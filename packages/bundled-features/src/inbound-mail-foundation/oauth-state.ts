@@ -1,17 +1,18 @@
 // HMAC-signed OAuth-`state` parameter for the connect flow.
 //
-// Binds {tenantId, ownerUserId?, providerKey, mailbox, nonce} to the
+// Binds {tenantId, ownerUserId?, providerKey, mailbox, browserBinding} to the
 // redirect: the anonymous callback (outside /api/*) trusts only the
 // verified state, preventing CSRF and cross-tenant or cross-user claiming
 // because an attacker cannot redirect the callback to another tenant or
 // user without breaking the signature.
+// The state is not single-use: the provider's authorization code is. browserBinding ties the state to the browser that started the flow, so a state link completed in another browser (login CSRF that would put the victim's mailbox into the attacker's account) is refused.
 //
 // Format: <payload-base64url>.<expiresAtMs>.<hmac-base64url>
 // Patterned after auth-email-password/signed-token.ts (HMAC-SHA256, purpose
 // in the HMAC input, timing-safe comparison, expiry in the clear-text
 // segment).
 
-import { randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { hmacSignatureMatches, signHmacSha256Base64Url } from "../shared/index.ts";
@@ -26,10 +27,16 @@ export type OAuthStatePayload = {
   /** Mailbox address from the connect request; after token exchange, it is
    * stored in the MailAccount. */
   readonly mailbox: string;
-  /** One-time nonce makes each state unique, preventing replay across
-   * two parallel connect flows. */
-  readonly nonce: string;
+  /** SHA-256 (base64url) of the HttpOnly cookie the connect route set in the starting browser. */
+  readonly browserBinding: string;
 };
+
+export const OAUTH_BROWSER_BINDING_COOKIE = "kumiko_inbound_mail_oauth";
+
+// Only the digest travels in the state, which passes through the provider's URLs and logs.
+export function oauthBrowserBinding(cookieValue: string): string {
+  return createHash("sha256").update(cookieValue).digest("base64url");
+}
 
 export type VerifyOAuthStateResult =
   | { readonly ok: true; readonly payload: OAuthStatePayload }
@@ -40,13 +47,12 @@ function hmacInput(payloadB64: string, expiresAtMs: number): string {
 }
 
 export function signOAuthState(
-  payload: Omit<OAuthStatePayload, "nonce">,
+  payload: OAuthStatePayload,
   ttlMinutes: number,
   secret: string,
   now: Temporal.Instant = Temporal.Now.instant(),
 ): string {
-  const full: OAuthStatePayload = { ...payload, nonce: randomUUID() };
-  const payloadB64 = Buffer.from(JSON.stringify(full), "utf8").toString("base64url");
+  const payloadB64 = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   const expiresAtMs = now.add({ minutes: ttlMinutes }).epochMilliseconds;
   const signature = signHmacSha256Base64Url(hmacInput(payloadB64, expiresAtMs), secret);
   return `${payloadB64}.${expiresAtMs}.${signature}`;
@@ -91,6 +97,6 @@ function isOAuthStatePayload(v: unknown): v is OAuthStatePayload {
     (v["ownerUserId"] === null || typeof v["ownerUserId"] === "string") &&
     typeof v["providerKey"] === "string" &&
     typeof v["mailbox"] === "string" &&
-    typeof v["nonce"] === "string"
+    typeof v["browserBinding"] === "string"
   );
 }

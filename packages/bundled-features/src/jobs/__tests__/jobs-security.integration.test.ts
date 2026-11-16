@@ -15,6 +15,7 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { createConfigFeature } from "../../config/feature.ts";
 import { createJobsFeature } from "../feature.ts";
 import { jobRunLogsTable, jobRunsTable } from "../job-run-table.ts";
@@ -145,4 +146,93 @@ describe("jobs:query:list totalCount", () => {
     expect(res.rows.length).toBe(2);
     expect(res.total).toBe(6);
   });
+});
+
+describe("jobs:query:list keyset paging", () => {
+  const jobName = "jobs-sec-app:job:keyset-probe";
+  type RunPage = {
+    rows: readonly { id: string; jobName: string; status: string }[];
+    nextCursor: string | null;
+  };
+
+  beforeAll(async () => {
+    const runs = [
+      { status: "running", startedAt: "2026-01-01T00:01:00Z", duration: null },
+      { status: "completed", startedAt: "2026-01-01T00:02:00Z", duration: 10 },
+      { status: "completed", startedAt: "2026-01-01T00:02:00Z", duration: 10 },
+      { status: "failed", startedAt: "2026-01-01T00:03:00Z", duration: 30 },
+      { status: "queued", startedAt: "2026-01-01T00:04:00Z", duration: null },
+    ];
+    for (const [i, run] of runs.entries()) {
+      await seedRow(stack.db, jobRunsTable, {
+        id: crypto.randomUUID(),
+        tenantId: SYSTEM_TENANT_ID,
+        jobName,
+        bullJobId: `keyset-${i}`,
+        attempt: 1,
+        status: run.status,
+        startedAt: Temporal.Instant.from(run.startedAt),
+        duration: run.duration,
+      });
+    }
+  });
+
+  async function pageIds(extra: Record<string, unknown>): Promise<string[]> {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const res = await stack.http.queryOk<RunPage>(
+        JobQueries.list,
+        { jobName, limit: 2, ...(cursor !== undefined && { cursor }), ...extra },
+        systemAdmin,
+      );
+      ids.push(...res.rows.map((row) => row.id));
+      if (res.nextCursor === null) return ids;
+      cursor = res.nextCursor;
+    }
+    return ids;
+  }
+
+  async function allRows(extra: Record<string, unknown>): Promise<RunPage["rows"]> {
+    const res = await stack.http.queryOk<RunPage>(
+      JobQueries.list,
+      { jobName, limit: 200, ...extra },
+      systemAdmin,
+    );
+    return res.rows;
+  }
+
+  const cases: readonly {
+    title: string;
+    extra: Record<string, unknown>;
+    expectedLength: number;
+  }[] = [
+    { title: "startedAt desc", extra: { sort: "startedAt", sortDirection: "desc" }, expectedLength: 5 },
+    { title: "duration asc", extra: { sort: "duration", sortDirection: "asc" }, expectedLength: 5 },
+    { title: "duration desc", extra: { sort: "duration", sortDirection: "desc" }, expectedLength: 5 },
+    { title: "jobName asc", extra: { sort: "jobName", sortDirection: "asc" }, expectedLength: 5 },
+    {
+      title: "status asc with a status filter",
+      extra: {
+        sort: "status",
+        sortDirection: "asc",
+        filters: [{ field: "status", op: "in", value: ["completed", "failed"] }],
+      },
+      expectedLength: 3,
+    },
+  ];
+
+  for (const { title, extra, expectedLength } of cases) {
+    test(`${title}: paged ids equal the unpaged list without duplicates`, async () => {
+      const all = await allRows(extra);
+      const paged = await pageIds(extra);
+      expect(all).toHaveLength(expectedLength);
+      expect(paged).toEqual(all.map((row) => row.id));
+      expect(new Set(paged).size).toBe(paged.length);
+      expect(all.every((row) => row.jobName === jobName)).toBe(true);
+      if (extra["filters"] !== undefined) {
+        expect(all.every((row) => ["completed", "failed"].includes(row.status))).toBe(true);
+      }
+    });
+  }
 });

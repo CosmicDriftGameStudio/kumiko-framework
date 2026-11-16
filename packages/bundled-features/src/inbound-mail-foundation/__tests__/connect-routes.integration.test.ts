@@ -11,6 +11,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stac
 import { inboundCredentialSecretKey, mailAccountsProjectionTable } from "../index.ts";
 import {
   adminFor,
+  bindingCookieFrom,
   CALLBACK_PATH,
   CALLBACK_URL,
   CONNECT_PATH,
@@ -38,7 +39,7 @@ afterAll(async () => {
 });
 
 const getConnect = (query: string, user?: ConnectTestUser) => connectOn(env.stack, query, user);
-const getCallback = (query: string) => callbackOn(env.stack, query);
+const getCallback = (query: string, cookie?: string) => callbackOn(env.stack, query, cookie);
 
 describe("connect-routes — connect", () => {
   test("401 without session user", async () => {
@@ -128,7 +129,15 @@ describe("connect-routes — oauth callback", () => {
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
     expect(state).toBeTruthy();
 
-    const callbackRes = await getCallback(callbackQuery("owner@acme.test", state!));
+    const setCookie = connectRes.headers.getSetCookie().join("\n");
+    expect(setCookie).toContain("HttpOnly");
+    expect(setCookie).toContain("SameSite=Lax");
+    expect(setCookie).toContain(`Path=${CALLBACK_PATH}`);
+
+    const callbackRes = await getCallback(
+      callbackQuery("owner@acme.test", state!),
+      bindingCookieFrom(connectRes),
+    );
     expect(callbackRes.status).toBe(200);
     const body = (await callbackRes.json()) as { connected: boolean; accountId: string };
     expect(body.connected).toBe(true);
@@ -146,17 +155,69 @@ describe("connect-routes — oauth callback", () => {
     expect(stored!.reveal()).toBe("refresh-token-abc");
   });
 
+  test("403 state_browser_mismatch when the callback carries no binding cookie", async () => {
+    const user = adminFor(4309);
+    const connectRes = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=nocookie@acme.test`,
+      user,
+    );
+    const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
+
+    const res = await getCallback(callbackQuery("nocookie@acme.test", state!));
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("state_browser_mismatch");
+    const accounts = await selectMany(env.stack.db, mailAccountsProjectionTable, {
+      tenantId: user.tenantId,
+    });
+    expect(accounts).toHaveLength(0);
+  });
+
+  test("403 when the binding cookie belongs to another connect flow", async () => {
+    const user = adminFor(4310);
+    const connectA = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=other-a@acme.test`,
+      user,
+    );
+    const connectB = await getConnect(
+      `provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=other-b@acme.test`,
+      user,
+    );
+    const stateA = new URL(connectA.headers.get("location")!).searchParams.get("state");
+
+    const res = await getCallback(
+      callbackQuery("other-a@acme.test", stateA!),
+      bindingCookieFrom(connectB),
+    );
+
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("state_browser_mismatch");
+  });
+
   test("409 when the mailbox address is already connected", async () => {
     const user = adminFor(4306);
     const query = `provider=${OAUTH_PROVIDER_KEY}&scope=user&mailbox=twice@acme.test`;
     const stateOf = async () => {
       const res = await getConnect(query, user);
-      return new URL(res.headers.get("location")!).searchParams.get("state")!;
+      return {
+        state: new URL(res.headers.get("location")!).searchParams.get("state")!,
+        cookie: bindingCookieFrom(res),
+      };
     };
-    const first = await getCallback(callbackQuery("twice@acme.test", await stateOf()));
+    const firstFlow = await stateOf();
+    const first = await getCallback(
+      callbackQuery("twice@acme.test", firstFlow.state),
+      firstFlow.cookie,
+    );
     expect(first.status).toBe(200);
 
-    const second = await getCallback(callbackQuery("twice@acme.test", await stateOf()));
+    const secondFlow = await stateOf();
+    const second = await getCallback(
+      callbackQuery("twice@acme.test", secondFlow.state),
+      secondFlow.cookie,
+    );
 
     expect(second.status).toBe(409);
     const body = (await second.json()) as { error: { code: string; message: string } };
@@ -171,7 +232,10 @@ describe("connect-routes — oauth callback", () => {
     );
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
 
-    const res = await getCallback(`code=fail-exchange&state=${encodeURIComponent(state!)}`);
+    const res = await getCallback(
+      `code=fail-exchange&state=${encodeURIComponent(state!)}`,
+      bindingCookieFrom(connectRes),
+    );
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("token_exchange_failed");
@@ -184,7 +248,10 @@ describe("connect-routes — oauth callback", () => {
     );
     const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
 
-    const res = await getCallback(`code=no-refresh&state=${encodeURIComponent(state!)}`);
+    const res = await getCallback(
+      `code=no-refresh&state=${encodeURIComponent(state!)}`,
+      bindingCookieFrom(connectRes),
+    );
     expect(res.status).toBe(502);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("no_refresh_token");
@@ -217,6 +284,7 @@ describe("connect-routes — oauth callback without a secrets context", () => {
 
     const res = await bareStack.app.request(
       `${CALLBACK_PATH}?${callbackQuery("nosecrets@acme.test", state!)}`,
+      { headers: { Cookie: bindingCookieFrom(connectRes) } },
     );
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error: { code: string } };

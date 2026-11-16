@@ -13,7 +13,6 @@ import {
   createEntity,
   createFilesField,
   createLongTextField,
-  createNumberField,
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -30,12 +29,12 @@ import {
 } from "./normalize-inbound-message.ts";
 
 // ============================================================================
-// Read models for the three event-sourced aggregates
+// Read models for the two event-sourced aggregates
 // ============================================================================
 //
 // Inline projection targets. Written EXCLUSIVELY by projection applies
 // (see feature.ts), never directly by the handler.
-// The event-store streams `mail-account` / `inbound-message` / `mail-thread`
+// The event-store streams `mail-account` / `inbound-message`
 // are the source of truth, so these tables can be rebuilt.
 //
 // **PII convention:** `personal: "tenant"` (not `encrypted`): fields must
@@ -227,6 +226,12 @@ export function createInboundMessageEntity(memberRoles: readonly string[]) {
       }),
     },
     attachedFileAccess: "record-only",
+    // message:list pages newest first per tenant or account and filters by thread; retention deletes by receivedAt per tenant.
+    indexes: [
+      { columns: ["tenantId", "receivedAt"] },
+      { columns: ["tenantId", "accountId", "receivedAt"] },
+      { columns: ["tenantId", "threadKey"] },
+    ],
   });
 }
 
@@ -236,34 +241,12 @@ export const inboundMessageEntity = createInboundMessageEntity([
   ...DEFAULT_INBOUND_MAIL_USER_ROLES,
 ]);
 
-/** Thread-Rollup. PK = aggregateId = mailThreadAggregateId(tenantId,
- *  threadKey). */
-export const mailThreadEntity = createEntity({
-  table: "read_mail_threads",
-  fields: {
-    threadKey: createTextField({
-      required: true,
-      maxLength: 500,
-      personal: false,
-      reason: "technical_reference",
-    }),
-    subject: createTextField({
-      maxLength: piiCiphertextMaxLengthFor(INBOUND_SUBJECT_MAX_CHARS),
-      personal: "tenant",
-      find: "none",
-    }),
-    lastMessageAt: createTimestampField({ required: true }),
-    messageCount: createNumberField({ required: true, integer: true }),
-  },
-});
-
 // Single source of truth for the PII field lists — encrypt (ingest/
 // connect-handler) and decrypt (list-queries) share the same list,
 // so a future tenantOwned field cannot be omitted in either location
 // (pattern from billing-foundation entities.ts).
 export const MAIL_ACCOUNT_PII_FIELDS = collectPiiSubjectFields(mailAccountEntity);
 export const INBOUND_MESSAGE_PII_FIELDS = collectPiiSubjectFields(inboundMessageEntity);
-export const MAIL_THREAD_PII_FIELDS = collectPiiSubjectFields(mailThreadEntity);
 
 // ============================================================================
 // Unmanaged direct-write stores — sync machinery, NOT event-sourced

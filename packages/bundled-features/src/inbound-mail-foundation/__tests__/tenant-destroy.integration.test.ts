@@ -51,7 +51,6 @@ import { ingestFailureEntity } from "../ingest-failures.ts";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
-  mailThreadsProjectionTable,
 } from "../projection.ts";
 import { quarantineEntity } from "../quarantine-entities.ts";
 
@@ -152,14 +151,14 @@ describe("inbound-mail-foundation :: tenant destroy", () => {
     expect(await isStreamArchived(db, tenantA.tenantId, accountIdA)).toBe(true);
   });
 
-  test("also deletes inbound-message, mail-thread, sync-cursor and seen-message rows of the destroyed tenant only", async () => {
+  test("also deletes inbound-message, sync-cursor and seen-message rows of the destroyed tenant only", async () => {
     await seedTenant(destroyedTenant);
     await seedTenant(survivingTenant);
     const accountIdA = await seedMailAccount(destroyedTenant, "inbox-a@tenant.example");
     const accountIdB = await seedMailAccount(survivingTenant, "inbox-b@tenant.example");
 
     // Real sync path: poll ingests the seeded messages, which writes the
-    // message + thread projections, the sync cursor and the seen-message dedup rows.
+    // message projection, the sync cursor and the seen-message dedup rows.
     await seedInboundMessage(accountIdA, rawMessage("tenant-a-1"));
     await seedInboundMessage(accountIdB, rawMessage("tenant-b-1"));
     await createInboundMailSupervisor({
@@ -193,13 +192,11 @@ describe("inbound-mail-foundation :: tenant destroy", () => {
 
     const ownedRows = async (tenantId: TenantId, accountId: string) => ({
       messages: await selectMany(db, inboundMessagesProjectionTable, { tenantId }),
-      threads: await selectMany(db, mailThreadsProjectionTable, { tenantId }),
       cursors: await selectMany(db, syncCursorTable, { accountId }),
       seen: await selectMany(db, seenMessageTable, { accountId }),
     });
     const beforeA = await ownedRows(destroyedTenant.tenantId, accountIdA);
     expect(beforeA.messages).toHaveLength(1);
-    expect(beforeA.threads).toHaveLength(1);
     expect(beforeA.cursors.length).toBeGreaterThan(0);
     expect(beforeA.seen).toHaveLength(1);
     const beforeB = await ownedRows(survivingTenant.tenantId, accountIdB);
@@ -211,13 +208,11 @@ describe("inbound-mail-foundation :: tenant destroy", () => {
 
     const afterA = await ownedRows(destroyedTenant.tenantId, accountIdA);
     expect(afterA.messages).toHaveLength(0);
-    expect(afterA.threads).toHaveLength(0);
     expect(afterA.cursors).toHaveLength(0);
     expect(afterA.seen).toHaveLength(0);
 
     const afterB = await ownedRows(survivingTenant.tenantId, accountIdB);
     expect(afterB.messages).toHaveLength(beforeB.messages.length);
-    expect(afterB.threads).toHaveLength(beforeB.threads.length);
     expect(afterB.cursors).toHaveLength(beforeB.cursors.length);
     expect(afterB.seen).toHaveLength(beforeB.seen.length);
     expect(afterB.messages.length).toBeGreaterThan(0);

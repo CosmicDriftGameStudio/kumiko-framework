@@ -21,14 +21,9 @@ import { seenMessageTable, syncCursorTable } from "./entities.ts";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   MAIL_ACCOUNT_AGGREGATE_TYPE,
-  MAIL_THREAD_AGGREGATE_TYPE,
 } from "./events.ts";
 import { ingestFailureTable } from "./ingest-failures.ts";
-import {
-  inboundMessagesProjectionTable,
-  mailAccountsProjectionTable,
-  mailThreadsProjectionTable,
-} from "./projection.ts";
+import { inboundMessagesProjectionTable, mailAccountsProjectionTable } from "./projection.ts";
 import { quarantineTable } from "./quarantine-entities.ts";
 
 // archiveStream sits outside TenantDb's own methods — needs the escape hatch.
@@ -55,15 +50,6 @@ export async function inboundMessageTenantDestroyHook(ctx: TenantDataHookCtx): P
     ctx,
     inboundMessagesProjectionTable,
     INBOUND_MESSAGE_AGGREGATE_TYPE,
-    INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
-  );
-}
-
-export async function mailThreadTenantDestroyHook(ctx: TenantDataHookCtx): Promise<void> {
-  await archiveAndDeleteTenantRows(
-    ctx,
-    mailThreadsProjectionTable,
-    MAIL_THREAD_AGGREGATE_TYPE,
     INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   );
 }

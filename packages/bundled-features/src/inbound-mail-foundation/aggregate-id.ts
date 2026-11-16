@@ -8,9 +8,6 @@ import { v5 as uuidv5 } from "uuid";
 /** Namespace for inbound-message streams. */
 const INBOUND_MESSAGE_NAMESPACE = "7f2a9c41-3d6b-4e0f-9c58-2b1e7a4d8f63";
 
-/** Namespace for mail-thread streams. */
-const MAIL_THREAD_NAMESPACE = "b48d1e72-5c9a-4f36-8e0d-6a3f9b2c7e15";
-
 /**
  * Deterministic aggregate ID for an inbound message. The key is
  * (accountId, providerMessageId): if the provider delivers the same message
@@ -24,15 +21,4 @@ const MAIL_THREAD_NAMESPACE = "b48d1e72-5c9a-4f36-8e0d-6a3f9b2c7e15";
  */
 export function inboundMessageAggregateId(accountId: string, providerMessageId: string): string {
   return uuidv5(`${accountId}:${providerMessageId}`, INBOUND_MESSAGE_NAMESPACE);
-}
-
-/**
- * Deterministic aggregate ID for a mail thread. The key is
- * (tenantId, threadKey): threads are tenant-wide, not account-specific, so a
- * conversation spanning two connected inboxes is one thread. threadKey is
- * normalized by the provider (References/In-Reply-To chain or provider
- * thread ID).
- */
-export function mailThreadAggregateId(tenantId: string, threadKey: string): string {
-  return uuidv5(`${tenantId}:${threadKey}`, MAIL_THREAD_NAMESPACE);
 }

@@ -197,7 +197,7 @@ export async function storeInboundMessageContent(
   };
 }
 
-// 'inmc': serializes ingest and content attachment per message; disjoint from the thread-rollup namespace.
+// 'inmc': serializes ingest and content attachment per message.
 export const MESSAGE_LOCK_NAMESPACE = 0x696e6d63;
 
 // Encrypts a single message PII field outside the batch encryption of ingest-message.

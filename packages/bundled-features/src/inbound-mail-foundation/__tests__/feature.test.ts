@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.ts";
+import { inboundMessageAggregateId } from "../aggregate-id.ts";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_PROVIDER_EXTENSION,
@@ -40,7 +40,6 @@ describe("inboundMailFoundationFeature — shape", () => {
       "mail-account-connected",
       "mail-account-disconnected",
       "mail-account-updated",
-      "mail-thread-updated",
     ]);
   });
 
@@ -61,12 +60,6 @@ describe("aggregate-ids — deterministic drift-pins", () => {
     );
   });
 
-  test("mailThreadAggregateId is stable", () => {
-    expect(
-      mailThreadAggregateId("22222222-2222-2222-2222-222222222222", "mid:root@example.com"),
-    ).toBe("45c4d3a9-0a97-5a0b-a3c5-4ba9c8740dcd");
-  });
-
   test("same account + same providerMessageId → same stream (dedup anchor)", () => {
     const a = inboundMessageAggregateId("acc", "m1");
     expect(inboundMessageAggregateId("acc", "m1")).toBe(a);
@@ -82,6 +75,7 @@ describe("oauth-state — sign/verify roundtrip", () => {
     ownerUserId: "00000000-0000-0000-0000-00000000bbbb",
     providerKey: "imap",
     mailbox: "user@example.com",
+    browserBinding: "test-browser-binding",
   };
 
   test("roundtrip carries tenantId + ownerUserId + providerKey + mailbox", () => {
@@ -93,7 +87,7 @@ describe("oauth-state — sign/verify roundtrip", () => {
     expect(verified.payload.ownerUserId).toBe(payload.ownerUserId);
     expect(verified.payload.providerKey).toBe("imap");
     expect(verified.payload.mailbox).toBe("user@example.com");
-    expect(verified.payload.nonce.length).toBeGreaterThan(0);
+    expect(verified.payload.browserBinding).toBe("test-browser-binding");
   });
 
   test("ownerUserId=null (shared mailbox) survives the roundtrip", () => {
@@ -110,7 +104,7 @@ describe("oauth-state — sign/verify roundtrip", () => {
     const evil = {
       ...payload,
       tenantId: "00000000-0000-0000-0000-00000000cccc",
-      nonce: "x",
+      browserBinding: "x",
     };
     const evilB64 = Buffer.from(JSON.stringify(evil), "utf8").toString("base64url");
     const forged = `${evilB64}.${exp}.${sig}`;

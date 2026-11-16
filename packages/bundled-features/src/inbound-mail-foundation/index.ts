@@ -5,10 +5,7 @@ export {
   registerMailAccountWakeListener,
   wakeMailAccount,
 } from "./account-wake.ts";
-export {
-  inboundMessageAggregateId,
-  mailThreadAggregateId,
-} from "./aggregate-id.ts";
+export { inboundMessageAggregateId } from "./aggregate-id.ts";
 export {
   createInboundMailConnectRoutes,
   type InboundMailConnectRoutesOptions,
@@ -36,9 +33,7 @@ export {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
   MAIL_ACCOUNT_PII_FIELDS,
-  MAIL_THREAD_PII_FIELDS,
   mailAccountEntity,
-  mailThreadEntity,
   seenMessageEntity,
   seenMessageTable,
   syncCursorEntity,
@@ -62,14 +57,9 @@ export {
   MAIL_ACCOUNT_DISCONNECTED_EVENT_SHORT,
   MAIL_ACCOUNT_UPDATED_EVENT_QN,
   MAIL_ACCOUNT_UPDATED_EVENT_SHORT,
-  MAIL_THREAD_AGGREGATE_TYPE,
-  MAIL_THREAD_UPDATED_EVENT_QN,
-  MAIL_THREAD_UPDATED_EVENT_SHORT,
   type MailAccountEventHeaders,
   type MailAccountEventPayload,
-  type MailThreadEventPayload,
   mailAccountEventPayloadSchema,
-  mailThreadEventPayloadSchema,
 } from "./events.ts";
 export { createInboundMailFoundationFeature } from "./feature.ts";
 export { type AddressMatch, findMailboxByAddress } from "./handlers/account-address.ts";
@@ -110,7 +100,9 @@ export {
   usesFoundationManagedOAuth,
 } from "./oauth-access-token.ts";
 export {
+  OAUTH_BROWSER_BINDING_COOKIE,
   type OAuthStatePayload,
+  oauthBrowserBinding,
   signOAuthState,
   type VerifyOAuthStateResult,
   verifyOAuthState,
@@ -132,7 +124,6 @@ export { isOwnLoginAddress } from "./personal-address.ts";
 export {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
-  mailThreadsProjectionTable,
 } from "./projection.ts";
 export {
   InboundAuthError,
