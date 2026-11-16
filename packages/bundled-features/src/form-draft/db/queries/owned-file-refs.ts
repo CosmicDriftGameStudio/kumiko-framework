@@ -23,6 +23,9 @@ import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 // still references them. Only uploads that happened during THIS draft's
 // lifetime (inserted after the draft row) are release-eligible.
 //
+// Refs already bound to a saved entity (entity_id set) are never eligible, in
+// either mode: the entity depends on them.
+//
 // `isCreateMode` bypasses that timestamp filter entirely: a create-mode
 // draftKey (`${screenId}:new:${draftId}`) mints its draftId lazily on the
 // first step-change, so a file uploaded on step 0 gets a file_refs row
@@ -71,6 +74,7 @@ export async function filterOwnedFileRefs(
     `SELECT "id", "storage_key" FROM "file_refs"
      WHERE "tenant_id" = $1 AND "inserted_by_id" = $2
        AND "storage_key" = ANY($3::text[]) AND "is_deleted" = false
+       AND "entity_id" IS NULL
        AND ($5::boolean OR "inserted_at" > $4::timestamptz)`,
     [
       tenantId,

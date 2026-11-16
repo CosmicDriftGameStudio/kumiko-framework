@@ -163,6 +163,26 @@ describe("form-draft discard — FileRef release", () => {
     expect(provider.keys()).not.toContain(key);
   });
 
+  test("discarding a create-mode draft does NOT release a file_refs row already bound to a saved entity", async () => {
+    const key = tenantKey("vehicle/photo/bound.jpg");
+    await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "file_refs" SET "entity_id" = $1 WHERE "storage_key" = $2`,
+      ["00000000-0000-4000-8000-000000000001", key],
+    );
+    await saveDraft("wizard:new:bound", { photo: fileRefPointer(key) });
+
+    await discardDraft("wizard:new:bound", true);
+
+    expect(provider.keys()).toContain(key);
+    const rows = await asRawClient(stack.db).unsafe(
+      `SELECT "id" FROM "file_refs" WHERE "storage_key" = $1`,
+      [key],
+    );
+    expect(rows).toHaveLength(1);
+  });
+
   test("discarding without releaseFiles leaves the storage binary intact (successful-submit default)", async () => {
     const key = tenantKey("vehicle/photo/kept.jpg");
     await provider.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");

@@ -440,6 +440,28 @@ describe("form-draft cleanup job — FileRef release", () => {
     expect(providerA.keys()).toContain(key);
   });
 
+  test("does NOT release a create-mode storageKey whose file_refs row is already bound to a saved entity", async () => {
+    const key = "tenant-a/vehicle/bound.jpg";
+    await providerA.write(key, new Uint8Array([1, 2, 3]), "image/jpeg");
+    await seedFileRef(key);
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "file_refs" SET "entity_id" = $1 WHERE "storage_key" = $2`,
+      ["00000000-0000-4000-8000-000000000001", key],
+    );
+    await saveDraft("wizard:new:bound-stale", { photo: fileRefPointer(key) });
+    await backdate("wizard:new:bound-stale", 40);
+
+    const sentinelKey = await seedReleaseSentinel("bound");
+
+    await dispatchCleanup();
+
+    await waitFor(() => {
+      expect(providerA.keys()).not.toContain(sentinelKey);
+    });
+    expect(await draftExists("wizard:new:bound-stale")).toBe(false);
+    expect(providerA.keys()).toContain(key);
+  });
+
   test("releases a storageKey whose file_refs row predates the draft when the draftKey is create-mode (:new:)", async () => {
     // Create-mode mints draftId lazily on the first step-change — the very
     // first save already carries the step-0 photo, so the file_refs row

@@ -50,6 +50,10 @@ export type SmtpTransportOptions = {
    *  the wrong name. Unset for the common case where `host` is already the
    *  hostname to validate against. */
   readonly servername?: string;
+  /** Keep up to 5 connections open for reuse. Default true for a transport
+   *  built once at boot; a transport built per send must pass false, or its
+   *  pooled sockets are never closed. */
+  readonly pooled?: boolean;
 };
 
 function fromHeader(
@@ -74,13 +78,16 @@ function toNodemailerAttachment(attachment: EmailAttachment) {
 }
 
 export function createSmtpTransport(options: SmtpTransportOptions): EmailTransport {
+  const secure = options.secure ?? false;
   const transporter: Transporter = createTransport({
     host: options.host,
     port: options.port ?? 587,
-    secure: options.secure ?? false,
+    secure,
+    // Without it nodemailer sends mail (and AUTH) in clear text when the server offers no STARTTLS.
+    requireTLS: !secure,
     ...(options.auth && { auth: options.auth }),
     ...(options.servername && { servername: options.servername }),
-    pool: true,
+    pool: options.pooled ?? true,
     maxConnections: 5,
   });
 

@@ -228,6 +228,7 @@ async function buildSmtpTransport(
     from,
     ...(auth && { auth }),
     ...(target.servername && { servername: target.servername }),
+    pooled: false,
   });
 }
 

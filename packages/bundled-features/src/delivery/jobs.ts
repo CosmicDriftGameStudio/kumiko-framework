@@ -308,19 +308,30 @@ async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext
     p.notifyIdempotencyKey,
   );
 
+  let address: string;
+  let result: Awaited<ReturnType<typeof channel.send>>;
   try {
-    const address = await openRecipientAddress(p, tenantId, ctx.services.configEncryption);
-    const result = await channel.send(address, toMessage(p), channelCtx, p.rendered);
+    address = await openRecipientAddress(p, tenantId, ctx.services.configEncryption);
+    result = await channel.send(address, toMessage(p), channelCtx, p.rendered);
+  } catch (err) {
+    return failAttempt(ctx, db, registry, p, "send_failed", err);
+  }
+
+  // The message is out: rethrowing here would make BullMQ retry and send it again.
+  try {
     await appendAttemptEvent(
       db,
       registry,
       p.deliveryAttemptId,
       entryFor(p, result.status, result.error ?? null, result.address ?? address, result.confirmed),
     );
-    // A soft failure ends the job successfully, so no retry follows and the caller's
-    // retry must not be skipped as a duplicate.
-    if (result.status === "failed") await releaseIdempotencyKey(ctx, p);
   } catch (err) {
-    return failAttempt(ctx, db, registry, p, "send_failed", err);
+    ctx.obs.log.error(
+      `delivery.${p.channelName} sent but attempt log failed: ${redactedMessageOf(err)}`,
+      { notificationType: p.notificationType, channel: p.channelName },
+    );
   }
+  // A soft failure ends the job successfully, so no retry follows and the caller's
+  // retry must not be skipped as a duplicate.
+  if (result.status === "failed") await releaseIdempotencyKey(ctx, p);
 }

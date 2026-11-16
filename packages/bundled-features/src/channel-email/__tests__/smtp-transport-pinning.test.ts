@@ -42,3 +42,24 @@ describe("createSmtpTransport — nodemailer wiring", () => {
     expect(capturedOptions?.["servername"]).toBeUndefined();
   });
 });
+
+describe("createSmtpTransport — TLS and pooling", () => {
+  test("requires STARTTLS when not using implicit TLS", () => {
+    createSmtpTransport({ host: "smtp.example", secure: false, from: "noreply@test.local" });
+    expect(capturedOptions?.["requireTLS"]).toBe(true);
+    createSmtpTransport({ host: "smtp.example", from: "noreply@test.local" });
+    expect(capturedOptions?.["requireTLS"]).toBe(true);
+  });
+
+  test("does not require STARTTLS on implicit TLS", () => {
+    createSmtpTransport({ host: "smtp.example", secure: true, from: "noreply@test.local" });
+    expect(capturedOptions?.["requireTLS"]).toBe(false);
+  });
+
+  test("pools by default and not when built per send", () => {
+    createSmtpTransport({ host: "smtp.example", from: "noreply@test.local" });
+    expect(capturedOptions?.["pool"]).toBe(true);
+    createSmtpTransport({ host: "smtp.example", from: "noreply@test.local", pooled: false });
+    expect(capturedOptions?.["pool"]).toBe(false);
+  });
+});
