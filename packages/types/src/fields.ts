@@ -404,7 +404,7 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  absent) and merges it onto `options`: `disabled` disables the option, `hint` becomes
    *  its description. The currently stored value always stays enabled; unknown values
    *  are ignored. Static `options` stay authoritative, and the write path must enforce
-   *  the same rule (see `withTierOptionGate`), the renderer only mirrors it. */
+   *  the same rule; the renderer only mirrors it. */
   readonly optionsAvailabilityQuery?: string;
   /** Options that are only available while `when` holds for the row values; options
    *  in no rule are always available. The write path enforces it, the renderer only

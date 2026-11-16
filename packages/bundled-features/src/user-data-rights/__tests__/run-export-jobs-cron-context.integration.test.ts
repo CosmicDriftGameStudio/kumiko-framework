@@ -16,7 +16,7 @@ import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   resetTestTables,
@@ -196,6 +196,7 @@ describe("run-export-jobs cron-context", () => {
       services: { configResolver, _notifyFactory: notifyFactory, extensions: {} },
       lifecycle: {},
       systemUser: createSystemUser(TENANT),
+      tz: createTzContext(),
       obs: { log: { warn() {} } },
       now: getTemporal().Now.instant(),
     };

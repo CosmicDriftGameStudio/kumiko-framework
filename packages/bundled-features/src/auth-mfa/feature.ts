@@ -1,4 +1,3 @@
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { type FeatureWithEnvSchema, featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import { createLateBoundSlot } from "../shared/index.ts";
@@ -101,7 +100,7 @@ export function createAuthMfaFeature(
         mfaReencryptJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw(),
         ),
     });
 

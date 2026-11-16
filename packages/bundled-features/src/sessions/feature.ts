@@ -3,7 +3,7 @@ import {
   type SessionStore,
   type SessionStoreProvider,
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
-import { type DbConnection, deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   defineFeature,
@@ -199,7 +199,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
           cleanupJob(
             payload,
             ctx,
-            ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+            ctx.db.unsafeRaw(),
           ),
       });
 

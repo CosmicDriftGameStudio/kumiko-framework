@@ -1,5 +1,5 @@
 export { deletionTokenSecretEnvSchema } from "./env.ts";
-export { createUserDataRightsFeature, type UserDataRightsOptions } from "./feature.ts";
+export { createUserDataRightsFeature } from "./feature.ts";
 export type { SendDeletionVerificationEmailFn } from "./handlers/request-deletion-by-email.write.ts";
 export {
   denyIfTargetBeyondAdminReach,
@@ -9,9 +9,8 @@ export {
   TARGET_USER_OUTRANKS_ACTOR,
 } from "./lib/deny-if-target-beyond-admin-reach.ts";
 export { isSystemAdminActor } from "./lib/is-admin-actor.ts";
-// Reconcile existing data once before re-enabling read_users rebuilds.
-// See the library documentation for the required procedure.
-export { backfillUserLifecycleEvents, updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
+export { updateUserLifecycle } from "./lib/update-user-lifecycle.ts";
+export type { UserDataRightsOptions } from "./options.ts";
 export type {
   SendExportFailedEmailFn,
   SendExportReadyEmailFn,

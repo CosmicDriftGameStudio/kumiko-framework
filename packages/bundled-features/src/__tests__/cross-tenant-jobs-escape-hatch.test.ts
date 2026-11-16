@@ -29,6 +29,7 @@ const crossTenantJobs: ReadonlyArray<readonly [FeatureDefinition, string]> = [
   [createSessionsFeature(), "cleanup"],
   [createTenantLifecycleFeature(), "run-tenant-destruction"],
   [createUserDataRightsFeature(), "run-export-jobs"],
+  [createUserDataRightsFeature(), "run-requested-export"],
   [createUserDataRightsFeature(), "run-forget-cleanup"],
 ];
 

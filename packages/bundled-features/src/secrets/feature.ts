@@ -1,4 +1,3 @@
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   type AccessRule,
   defineFeature,
@@ -211,7 +210,7 @@ export function createSecretsFeature(
         rotateJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw(),
         ),
     });
 

@@ -24,13 +24,6 @@ export {
   createTierEngineFeature,
 } from "./feature.ts";
 export {
-  createTierOptionGate,
-  type TierOptionAvailability,
-  type TierOptionGate,
-  type TierOptionGateDeps,
-  type TierOptionSpec,
-} from "./tier-option-gate.ts";
-export {
   createTierResolver,
   type TierResolver,
   type TierResolverDeps,

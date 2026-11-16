@@ -1,4 +1,3 @@
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { updateMany, upsertByPk } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
@@ -176,7 +175,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
         concurrency: "skip",
         escapeHatch: { reason: ATTEMPT_LOG_RETENTION_ESCAPE_HATCH_REASON },
         handler: async (_payload, ctx) => {
-          const db = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+          const db = ctx.db.unsafeRaw();
           try {
             const pruned = await runAttemptLogRetention(db, {
               olderThanDays: attemptLogRetentionDays,

@@ -19,6 +19,7 @@ import {
   type JobContext,
   type UserDataDeleteHook,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createTzContext } from "@cosmicdrift/kumiko-framework/time";
 import {
   setupTestStack,
   type TestStack,
@@ -121,6 +122,7 @@ describe("escape-hatch audit :: real run-forget-cleanup job forwards _escapeHatc
       }),
       registry: stack.registry,
       systemUser,
+      tz: createTzContext(),
       lifecycle: {},
       obs: { log: noopLog },
       services: {

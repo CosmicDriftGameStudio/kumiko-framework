@@ -39,7 +39,7 @@ import type {
 import type { Logger } from "./logger.ts";
 import type { Meter, Tracer } from "./observability/index.ts";
 import type { SearchAdapter } from "./search-adapter.ts";
-import type { CrossTenantReads, TenantDb } from "./tenant-db-types.ts";
+import type { ConnectionTenantDb, CrossTenantReads, TenantDb } from "./tenant-db-types.ts";
 import { isOneOf, propertyOf } from "./type-guards.ts";
 import type { Clock, TzContext } from "./tz-context.ts";
 
@@ -775,7 +775,7 @@ export type JobContext = {
   // Tenant-filtered to the job's own tenant. Cross-tenant raw access needs
   // `escapeHatch` on the job (`ctx.db.unsafeRaw()`) or `r.systemScope()`
   // (`ctx.systemDb`).
-  readonly db: TenantDb;
+  readonly db: ConnectionTenantDb;
   readonly events: JobEvents;
   readonly registry: Registry;
   readonly systemUser: SessionUser;

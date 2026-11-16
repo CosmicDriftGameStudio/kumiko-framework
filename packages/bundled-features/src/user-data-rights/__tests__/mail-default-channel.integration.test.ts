@@ -9,7 +9,7 @@ import { createTenantDb, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -161,6 +161,7 @@ describe("deletion-executed default mail through the email channel", () => {
       services: { configResolver, extensions: {} },
       lifecycle: {},
       systemUser: createSystemUser(TENANT_WITHOUT_PROVIDER),
+      tz: createTzContext(),
       obs: {
         log: {
           info() {},

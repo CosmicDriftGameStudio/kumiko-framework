@@ -86,8 +86,7 @@ export function createDataRetentionFeature(): FeatureDefinition {
           throw new Error("retention-cleanup: ctx.registry required (JobContext incomplete)");
         }
         const tenantId = ctx.systemUser.tenantId;
-        const cleanupDb =
-          ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+        const cleanupDb = ctx.db.unsafeRaw();
         const tenantPreset = await resolveTenantRetentionPreset({
           db: cleanupDb,
           registry: ctx.registry,

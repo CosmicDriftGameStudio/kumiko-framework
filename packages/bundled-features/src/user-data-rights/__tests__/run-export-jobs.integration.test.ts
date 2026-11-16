@@ -1319,7 +1319,7 @@ describe("runExportJobs :: Atom 5 notification-callbacks", () => {
         },
         // appExportDownloadUrl is intentionally omitted
       }),
-    ).rejects.toThrow(/appExportDownloadUrl fehlt/);
+    ).rejects.toThrow(/appExportDownloadUrl is missing/);
   });
 
   test("user without email → callback skipped + console.warn (no throw)", async () => {

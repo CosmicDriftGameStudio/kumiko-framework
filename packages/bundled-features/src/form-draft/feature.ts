@@ -4,7 +4,6 @@
 // round-trips { values, stepIndex, savedAt } through save/discard/get. See
 // entity.ts for the ownership + uniqueness model.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
 import { formDraftEntity } from "./entity.ts";
 import { cleanupDraftsJob, formDraftRetentionDaysConfig } from "./handlers/cleanup.job.ts";
@@ -51,7 +50,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
       cleanupDraftsJob(
         payload,
         ctx,
-        ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+        ctx.db.unsafeRaw(),
       ),
   });
 }

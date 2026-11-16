@@ -11,7 +11,7 @@ import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import type { TzContext } from "@cosmicdrift/kumiko-types/tz-context";
 import type { JobsOptions, Queue } from "bullmq";
 import { requestContext } from "../api/request-context.ts";
-import type { TenantDb } from "../db/tenant-db.ts";
+import type { ConnectionTenantDb } from "../db/tenant-db.ts";
 import type { AppContext, JobRunIn } from "../engine/types/index.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { InternalError } from "../errors/index.ts";
@@ -155,9 +155,9 @@ export async function resolveJobTz(
 
 // Jobs that never touch ctx.db run fine on a runner built without one; a job
 // that does gets a named error instead of a bare TypeError on undefined.
-export function missingDbProxy(jobName: string): TenantDb {
+export function missingDbProxy(jobName: string): ConnectionTenantDb {
   // @cast-boundary db-operator — every access throws, so no TenantDb member is ever returned
-  return new Proxy({} as TenantDb, {
+  return new Proxy({} as ConnectionTenantDb, {
     // guard:dup-ok a throw-only proxy trap; the message is its whole content
     get() {
       throw new InternalError({

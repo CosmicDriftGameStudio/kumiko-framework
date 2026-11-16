@@ -171,7 +171,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           return;
         }
         await runTenantDestructionSweep({
-          db: ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          db: ctx.db.unsafeRaw(),
           registry: ctx.registry,
           now,
           log: (message) => ctx.obs.log?.warn(message),

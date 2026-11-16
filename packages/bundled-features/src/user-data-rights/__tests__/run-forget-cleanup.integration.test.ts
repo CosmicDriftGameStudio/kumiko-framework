@@ -28,7 +28,7 @@ import { createSystemUser, type JobContext } from "@cosmicdrift/kumiko-framework
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
@@ -336,6 +336,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
       lifecycle: {},
       obs: { log },
       systemUser: createSystemUser(TENANT_A),
+      tz: createTzContext(),
     };
     await job?.handler({}, jobCtx as unknown as JobContext);
 
@@ -409,6 +410,7 @@ describe("run-forget-cleanup :: registered cron (autonomous Art.17)", () => {
         }),
         registry: stack.registry,
         systemUser: createSystemUser(TENANT_A),
+        tz: createTzContext(),
         services: { extensions: {} },
         lifecycle: {},
         obs: { log },

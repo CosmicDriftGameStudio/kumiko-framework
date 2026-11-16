@@ -1,5 +1,6 @@
 import type { AggregateRow, AggregateSpec } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
+import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
 import type { ExecutorManagedRunner } from "@cosmicdrift/kumiko-types/executor-brand";
 import type {
   EscapeHatchDeclaration,
@@ -11,6 +12,7 @@ import type { Meter, Tracer } from "@cosmicdrift/kumiko-types/observability";
 import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 import {
+  type ConnectionTenantDb,
   type ExecutorManagedTenantDb,
   type GlobalTableDb,
   SYSTEM_SCOPE_CHECK_BRAND,
@@ -76,6 +78,7 @@ import { registerRunnerProxyTarget } from "./transaction-serialization.ts";
 type Table = SchemaTable;
 
 export {
+  type ConnectionTenantDb,
   type ExecutorManagedTenantDb,
   SYSTEM_SCOPE_CHECK_BRAND,
   type TenantDb,
@@ -544,6 +547,9 @@ export type CreateTenantDbOptions = {
 export function createTenantDb(
   options: CreateTenantDbOptions & { readonly db: ExecutorManagedRunner },
 ): ExecutorManagedTenantDb;
+export function createTenantDb(
+  options: CreateTenantDbOptions & { readonly db: DbConnection },
+): ConnectionTenantDb;
 export function createTenantDb(options: CreateTenantDbOptions): TenantDb;
 export function createTenantDb(options: CreateTenantDbOptions): TenantDb {
   return buildTenantDb(options);

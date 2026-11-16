@@ -18,7 +18,7 @@ export function createComplianceProfilesOpsFeature() {
     "compliance-profiles-ops",
     (r) => {
       r.describe(
-        "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query (#2089): `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
+        "Platform-wide SystemAdmin counterpart to `compliance-profiles`' `needs-profile` query: `tenants-missing-profile` lists every enabled tenant with no row in `tenantComplianceProfile` at all, tenant-wide instead of scoped to the caller's own tenant. Mount alongside `compliance-profiles` and `tenant` when an operator UI needs to see which tenants still silently run on `minimal-no-region`.",
       );
       r.uiHints({
         displayLabel: "Compliance Profiles · Operator Visibility",

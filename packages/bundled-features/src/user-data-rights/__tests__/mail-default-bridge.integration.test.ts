@@ -16,7 +16,7 @@ import { asRawClient, createTenantDb, selectMany } from "@cosmicdrift/kumiko-fra
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { createTzContext, getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -155,6 +155,7 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
       services: { configResolver, extensions: {} },
       lifecycle: {},
       systemUser: createSystemUser(TENANT_A),
+      tz: createTzContext(),
       obs: {
         log: {
           info() {},

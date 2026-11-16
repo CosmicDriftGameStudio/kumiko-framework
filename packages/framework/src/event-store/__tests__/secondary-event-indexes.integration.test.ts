@@ -4,6 +4,7 @@ import {
   CREATED_AT_INDEX_NAME,
   ensureSecondaryEventIndexes,
   MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME,
+  MEMBERSHIP_PAYLOAD_USER_INDEX_NAME,
   TENANT_ID_INDEX_NAME,
 } from "../../db/queries/event-store.ts";
 import { asRawClient } from "../../db/query.ts";
@@ -49,6 +50,20 @@ describe("secondary kumiko_events indexes", () => {
     await dropIndex(MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME);
     await ensureSecondaryEventIndexes(testDb.db);
     expect(await indexDefinitions(MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)).toHaveLength(1);
+  });
+
+  test("createEventsTable leaves a partial index over payload userId for tenant-membership streams", async () => {
+    const [definition, ...rest] = await indexDefinitions(MEMBERSHIP_PAYLOAD_USER_INDEX_NAME);
+    expect(rest).toHaveLength(0);
+    expect(definition).toContain("'userId'");
+    expect(definition).toContain("tenant-membership");
+  });
+
+  test("ensuring again heals a dropped payload userId index", async () => {
+    await dropIndex(MEMBERSHIP_PAYLOAD_USER_INDEX_NAME);
+    expect(await indexDefinitions(MEMBERSHIP_PAYLOAD_USER_INDEX_NAME)).toHaveLength(0);
+    await ensureSecondaryEventIndexes(testDb.db);
+    expect(await indexDefinitions(MEMBERSHIP_PAYLOAD_USER_INDEX_NAME)).toHaveLength(1);
   });
 
   test("createEventsTable leaves a (tenant_id, id) index for the audit list", async () => {

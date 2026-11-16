@@ -82,7 +82,7 @@ export async function recordDownloadUse(args: RecordDownloadUseArgs): Promise<vo
     });
 }
 
-// extractCallerIp lives in feature.ts (extractAuditMeta) — query handlers
+// extractCallerIp lives in export-download-routes.ts (extractAuditMeta) — query handlers
 // have no direct header access because they are transport-agnostic. The
 // httpRoute wrapper extracts it and places it in payload.auditMeta.
 

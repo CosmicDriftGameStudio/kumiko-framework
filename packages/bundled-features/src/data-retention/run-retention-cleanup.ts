@@ -116,9 +116,7 @@ export interface RunRetentionCleanupArgs {
   /** Layer-2 preset from resolveTenantRetentionPreset, resolved once per tenant
    *  by the caller rather than per entity here. null = layers 1 and 3 only. */
   readonly preloadedTenantPreset: RetentionPresetKey | null;
-  /**
-   * Injects the current time so tests can pin it without mocking the date (pattern keep-for.ts).
-   */
+  /** Injected so tests pin time without mocking the date (pattern keep-for.ts). */
   readonly now: Instant;
   readonly batchLimit?: number;
   /** Tenant is being destroyed and only kept alive by its blockDelete rows: expired ones are
@@ -148,7 +146,7 @@ export interface RetentionCleanupSkip {
 export interface RunRetentionCleanupResult {
   readonly hardDeleted: number;
   readonly softDeleted: number;
-  /** Rows deren anonymize-Feld-Funktionen angewendet wurden (anonymize + abgelaufene blockDelete). */
+  /** Rows whose anonymize field functions were applied (anonymize + expired blockDelete). */
   readonly anonymized: number;
   /**
    * Anomalies where the policy references a missing table column or anonymize has no anonymize
@@ -157,8 +155,6 @@ export interface RunRetentionCleanupResult {
   readonly skipped: readonly RetentionCleanupSkip[];
 }
 
-// Select one batchLimit-sized page of matching rows and run the executor op per
-// row (event → rebuild-safe). Returns the count of successful ops.
 async function purgeMatchingRows(
   db: DbRunner,
   table: Parameters<typeof selectMany>[1],
@@ -216,7 +212,7 @@ function collectHardDeleteEraseSubjects(
 // Erases the row's own recordOwned/self-pii subject key(s) + sweeps their
 // blind indexes. Called from INSIDE the same sub-transaction as the row's forget
 // (see forgetRowAndEraseKeys) — an eraseKey throw rolls the forget back too,
-// same crash-safety contract as run-forget-cleanup.ts:477-503 (eraseKey is
+// same crash-safety contract as run-forget-cleanup.ts (eraseKey is
 // contractually idempotent per KmsAdapter, so a retried run re-erases safely).
 async function eraseHardDeletedRowKeys(args: {
   readonly kms: KmsAdapter | undefined;
@@ -313,9 +309,6 @@ async function deleteFileFailingClosed(
   }
 }
 
-// hardDelete for ONE row of an entity that has file/image/files/images
-// fields: purge the un-shared fileRefs (bytes + derivatives, then the fileRef
-// rows), then the entity row itself.
 async function purgeHardDeleteRowWithFiles(args: {
   readonly db: DbRunner;
   readonly table: Parameters<typeof selectMany>[1];
@@ -647,9 +640,7 @@ export async function runRetentionCleanup(
   const overrideByEntity = await loadOverrideByEntity(db, tenantId);
 
   for (const proj of registry.getAllProjections().values()) {
-    // Only implicit entity projections with a table are targets, as in
-    // soft-delete-cleanup. Custom projections and unmanaged tables (such as
-    // sessions) are excluded.
+    // Only implicit entity projections with a table; custom projections and unmanaged tables (sessions) are excluded.
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
     const entityName = proj.source;
 

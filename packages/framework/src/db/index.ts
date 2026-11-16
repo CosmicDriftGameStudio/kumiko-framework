@@ -147,6 +147,7 @@ export {
 export { extractTableInfo, type TableInfo } from "./table-info.ts";
 export { isSchemaTable } from "./table-introspection.ts";
 export type {
+  ConnectionTenantDb,
   ExecutorManagedTenantDb,
   TenantDb,
   UncheckedSystemDb,

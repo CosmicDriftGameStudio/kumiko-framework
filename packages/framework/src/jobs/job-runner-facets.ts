@@ -10,7 +10,7 @@ import type {
 import { crossTenantReadsGrantFor, escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbConnection, DbRow } from "../db/connection.ts";
 import { createCrossTenantReads } from "../db/cross-tenant-reads.ts";
-import type { TenantDb } from "../db/tenant-db.ts";
+import type { ConnectionTenantDb, TenantDb } from "../db/tenant-db.ts";
 import { createTenantDb, createUncheckedSystemDb } from "../db/tenant-db.ts";
 import { createDerivativesContext } from "../derivatives/derivatives-context.ts";
 import type { JobDispatch, SessionUser } from "../engine/types/index.ts";
@@ -78,7 +78,7 @@ export function buildJobDbFacets(
   facetInput: JobFacetInput,
 ): {
   tenantScopedDb: TenantDb | undefined;
-  jobDb: TenantDb | undefined;
+  jobDb: ConnectionTenantDb | undefined;
   systemDb: ReturnType<typeof createUncheckedSystemDb> | undefined;
   crossTenantReads: ReturnType<typeof createCrossTenantReads> | undefined;
 } {

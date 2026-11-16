@@ -103,9 +103,7 @@ export type SendDeletionExecutedEmailFn = (args: {
 export interface RunForgetCleanupArgs {
   readonly db: DbRunner;
   readonly registry: Registry;
-  /**
-   * Injects the current time so tests can control it without mocking the date.
-   */
+  /** Injected so tests control time without mocking the date. */
   readonly now: Instant;
 
   /** Sends an optional email notification after the delete flip. Without a
@@ -233,7 +231,6 @@ async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetClea
   const kms = args.kms ?? configuredPiiSubjectKms();
   const appTenantModel: TenantUserModel = args.tenantModel ?? "multi-user";
 
-  // Step 1: Find users with expired grace period.
   const dueUsers = await selectUsersDueForForgetCleanup(
     db,
     USER_STATUS.DeletionRequested,
@@ -244,8 +241,6 @@ async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetClea
     return { processedUserIds: [], hookCallsAttempted: 0, errors: [], incomplete: [] };
   }
 
-  // Step 2: collect all EXT_USER_DATA usages once, i.e. the
-  // (entityName, deleteHook) pairs of all registered provider features.
   const usages = registry.getExtensionUsages(EXT_USER_DATA);
   const hookEntries: HookEntry[] = usages
     .map((u): HookEntry | null => {
@@ -272,7 +267,6 @@ async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetClea
   const processedUserIds: string[] = [];
   let hookCallsAttempted = 0;
 
-  // Step 3: iterate per user, each in its own sub-transaction (see header).
   for (const user of dueUsers) {
     const userResult = await processUser({
       db,
@@ -293,14 +287,9 @@ async function forgetDueUsers(args: RunForgetCleanupArgs): Promise<RunForgetClea
     if (userResult.success) {
       processedUserIds.push(user.id);
 
-      // userEmail was cached BEFORE the transaction because the user hook
-      // anonymizes it inside the transaction.
-      //
-      // The email is best-effort: a send failure must not abort the batch after the
-      // user's sub-transaction has committed. Otherwise the job would be marked
-      // failed, and a retry would find no eligible users, causing a silent miss.
-      // console.warn is the only operator-visible reporting path because the
-      // runForgetCleanup args do not carry AppContext.log (pure-function pattern).
+      // Best-effort: a send failure must not abort the batch after the user's sub-tx committed,
+      // or the job would fail and a retry would find no eligible users. console.warn because
+      // the args carry no AppContext.log.
       if (sendDeletionExecutedEmail && userResult.userEmailBeforeDelete) {
         try {
           await sendDeletionExecutedEmail({
@@ -332,7 +321,7 @@ interface ProcessUserResult {
    * anonymizes it in the transaction. Null means the row was absent or the
    * email was empty during the pre-transaction lookup. */
   readonly userEmailBeforeDelete: string | null;
-  /** user.locale VOR Tx gecacht — Default-Mailer rendert in Empfaenger-Sprache. */
+  /** user.locale cached before the tx so the default mailer renders in the recipient's language. */
   readonly userLocaleBeforeDelete: string | null;
   /** Tenant memberships captured before the transaction deletes them, for use by
    * the email template. */
@@ -357,9 +346,7 @@ async function processUser(args: {
   const incomplete: Omit<ForgetCleanupIncomplete, "rolledBack">[] = [];
   let hookCallsAttempted = 0;
 
-  // Cache the email before the transaction because the user hook anonymizes
-  // email/displayName/passwordHash inside it. The cache lets the callback after
-  // a successful status flip receive the original email address.
+  // Cached before the tx: the user hook anonymizes email/displayName/passwordHash inside it.
   const userPreTx = await fetchOne<{ email: string | null; locale: string | null }>(db, userTable, {
     id: userId,
   });
@@ -372,9 +359,7 @@ async function processUser(args: {
   const memberships = await selectMany<{ tenantId: TenantId }>(db, tenantMembershipsTable, {
     userId,
   });
-  // Capture memberships before the transaction deletes them so the email
-  // callback receives the original tenant list. Orphan users provide an empty
-  // list.
+  // Captured before the tx deletes them; an orphan user yields an empty list.
   const tenantIdsBeforeDelete: readonly TenantId[] = memberships.map((m) => m.tenantId);
 
   // Departed tenants: removeMember deletes only the projection row, so data
@@ -390,10 +375,7 @@ async function processUser(args: {
   const tenantList: TenantId[] =
     hookTenantIds.length > 0 ? hookTenantIds : [SYSTEM_TENANT_ID_FOR_ORPHANS];
 
-  // Hooks and the status flip run atomically per user. A hook failure rolls back
-  // only that user, while other users remain commit-able. runInSubTransaction
-  // uses `.begin` (BEGIN) for a top-level connection and `.savepoint`
-  // (SAVEPOINT) when the dispatcher is already inside an outer transaction.
+  // Hooks and the status flip run atomically per user (BEGIN, or SAVEPOINT inside an outer tx).
   let txSucceeded = false;
   let currentTenantId: TenantId | null = null;
   let currentEntityName: string | null = null;
@@ -522,9 +504,7 @@ async function processUser(args: {
         );
       }
 
-      // Flip the status in the same sub-transaction. If a hook throws, execution
-      // never reaches this point, so the user remains in DeletionRequested for
-      // the next retry.
+      // Same sub-tx as the hooks: a hook throw never reaches the flip, so the user stays DeletionRequested for the next run.
       await updateUserLifecycle(
         tx,
         userId,
@@ -534,8 +514,6 @@ async function processUser(args: {
       txSucceeded = true;
     });
   } catch (e) {
-    // Track the failing hook so operators see its tenant and entity instead of a
-    // generic sub-transaction error.
     errors.push({
       userId,
       tenantId: currentTenantId ?? ("" as TenantId),
@@ -678,9 +656,6 @@ async function readHistoricalMembershipTenantIds(
 //   - "anonymize" / "blockDelete" → "anonymize": retention requirements keep
 //     the data physically present while removing its association with the person.
 //   - "hardDelete" / "softDelete" / null → "delete" (default).
-//
-// Keeping this mapping in one function makes drift between retention strategies
-// and user-data-rights hooks explicit and testable.
 export function policyToStrategy(
   retentionStrategy: "hardDelete" | "softDelete" | "anonymize" | "blockDelete" | null,
 ): UserDataDeleteStrategy {

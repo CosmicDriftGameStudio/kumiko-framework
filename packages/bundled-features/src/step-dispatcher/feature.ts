@@ -9,7 +9,6 @@
 // separate status table. The job's Redis data carries only the stream id and
 // tenant, never the (encrypted) request payload.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   type FeatureDefinition,
@@ -86,7 +85,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
       },
       async (payload, ctx) => {
         const { aggregateId } = deliverJobPayloadSchema.parse(payload);
-        const db = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+        const db = ctx.db.unsafeRaw();
         const tenantId = ctx.systemUser.tenantId;
         await deliverDispatchRequest({
           aggregateId,

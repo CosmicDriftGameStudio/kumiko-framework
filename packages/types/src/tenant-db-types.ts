@@ -1,5 +1,5 @@
 import type { AggregateRow, AggregateSpec } from "./aggregate-types.ts";
-import type { DbRunner } from "./db-connection.ts";
+import type { DbConnection, DbRunner } from "./db-connection.ts";
 import type { EntityTableMeta } from "./entity-table-meta-types.ts";
 import type { ExecutorManagedWriteCapability, Writable, WritableTable } from "./executor-brand.ts";
 import type { TenantId } from "./identifiers.ts";
@@ -111,6 +111,9 @@ export type TenantDbUpsertOptions = {
 };
 
 export type TenantDb = TenantDbNonWrites & TenantDbWrites<WritableTable>;
+
+// What a job's ctx.db is: built from the boot connection, so unsafeRaw() never returns a DbTx.
+export type ConnectionTenantDb = Omit<TenantDb, "unsafeRaw"> & { unsafeRaw(): DbConnection };
 
 // Handle for apply/rebuild/tenant-destroy contexts: may also write event-fed tables.
 export type ExecutorManagedTenantDb = TenantDbNonWrites &
