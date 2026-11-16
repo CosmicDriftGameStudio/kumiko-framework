@@ -9,8 +9,6 @@ import {
   toPostgresArrayLiteral,
   unsafeReadRetrying,
 } from "@cosmicdrift/kumiko-framework/db";
-import { parseTenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 
 const MEMBERSHIP_AGGREGATE = "tenant-membership";
 const USER_AGGREGATE = "user";
@@ -24,7 +22,6 @@ const LIFECYCLE_TYPES = [
   entityEventName(MEMBERSHIP_AGGREGATE, "updated"),
   ...ROW_REMOVING_TYPES,
 ];
-const ARCHIVED_BY = "stream-tenant-backfill";
 
 type MembershipEventRow = {
   readonly event_id: string;
@@ -42,13 +39,6 @@ type MembershipStream = {
   readonly userArchived: boolean;
   lastEventId: bigint;
   alive: boolean;
-};
-
-export type ArchivedMembershipStream = {
-  readonly aggregateId: string;
-  readonly reason: "user_archived" | "duplicate";
-  // The stream of the same pair that stays; set for duplicates.
-  readonly keptAggregateId?: string;
 };
 
 // Archived streams are left out: they do not replay and cannot be written to.
@@ -161,64 +151,4 @@ export async function findLiveMembershipStreamId(
   if (!history) return undefined;
   const kept = streamToKeep([...history.streams.values()]);
   return kept?.alive ? kept.aggregateId : undefined;
-}
-
-/**
- * Archives the membership streams a projection replay must not see: those of users whose own
- * stream is archived, and the older streams of a (user, tenant) pair whose streams collide.
- */
-export async function archiveUnreplayableMembershipStreams(
-  db: DbRunner,
-): Promise<readonly ArchivedMembershipStream[]> {
-  const archived: ArchivedMembershipStream[] = [];
-  for (const history of groupByPair(await readMembershipEvents(db)).values()) {
-    const streams = [...history.streams.values()];
-    // Every stream of a pair belongs to the same user.
-    if (streams.some((s) => s.userArchived)) {
-      for (const stream of streams) {
-        await archiveMembershipStream(db, stream, "user stream archived");
-        archived.push({ aggregateId: stream.aggregateId, reason: "user_archived" });
-      }
-      continue;
-    }
-    if (!history.collides) continue;
-    const kept = streamToKeep(streams);
-    if (!kept) continue;
-    for (const stream of streams.filter((s) => s !== kept)) {
-      await archiveMembershipStream(
-        db,
-        stream,
-        `duplicate of membership stream ${kept.aggregateId}`,
-      );
-      archived.push({
-        aggregateId: stream.aggregateId,
-        reason: "duplicate",
-        keptAggregateId: kept.aggregateId,
-      });
-    }
-  }
-  return archived;
-}
-
-async function archiveMembershipStream(
-  db: DbRunner,
-  stream: MembershipStream,
-  reason: string,
-): Promise<void> {
-  // The replay filter matches archive markers per (stream tenant, aggregate).
-  for (const streamTenantId of stream.streamTenantIds) {
-    const tenantId = parseTenantId(streamTenantId);
-    if (tenantId === null) {
-      throw new Error(
-        `membership stream ${stream.aggregateId} sits on non-uuid tenant "${streamTenantId}"`,
-      );
-    }
-    await archiveStream(db, {
-      tenantId,
-      aggregateId: stream.aggregateId,
-      aggregateType: MEMBERSHIP_AGGREGATE,
-      archivedBy: ARCHIVED_BY,
-      reason,
-    });
-  }
 }

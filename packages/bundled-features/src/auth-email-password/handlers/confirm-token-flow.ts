@@ -16,11 +16,7 @@
 // automatically.
 //
 // The user aggregate uses systemStream: its event stream lives on
-// SYSTEM_TENANT_ID deterministically, so the write targets exactly one
-// stream. The former membership-probing (`tryWriteAcrossTenants`) existed
-// for scattered streams; those need the one-time
-// backfillUserStreamTenants migration — probing them stopped working
-// the moment the executor's stream choke-point landed anyway.
+// SYSTEM_TENANT_ID deterministically, so the write targets exactly one stream.
 
 import {
   createSystemUser,

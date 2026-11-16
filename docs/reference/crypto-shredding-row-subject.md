@@ -156,8 +156,8 @@ against: the backfill changes a field's *representation*
 Replay stays deterministic — `applyEntityEvent` materializes the same
 ciphertext plus its blind-index column, which is why a backfill run must be
 followed by a projection rebuild. The framework already has a more invasive
-precedent for in-place event mutation (fw#762, `stream-tenant-backfill.ts`,
-renumbers `version` and rewrites `tenant_id` to merge split streams) —
+precedent for in-place event mutation (fw#762, the since removed stream-tenant backfill, which renumbered
+`version` and rewrote `tenant_id` to merge split streams) —
 representation-only re-encryption is the milder case of the same category.
 Refusing it in the name of append-only purity would leave stream deletion as
 the only Art. 17 remedy for the backlog, which destroys far more of the log

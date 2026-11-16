@@ -1,3 +1,4 @@
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import { PDFDocument } from "pdf-lib";
 import { SIGNATURE_METHOD, type SignatureMethod } from "./web/constants.ts";
 
@@ -27,32 +28,20 @@ export type SignaturePageEntry = {
   readonly imagePng: Uint8Array;
 };
 
-const HTML_ESCAPES: Readonly<Record<string, string>> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
-// Names and titles are free text typed by users; they reach Chromium as HTML, so every value is escaped.
-export function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char);
-}
-
 function imageDataUri(png: Uint8Array): string {
   return `data:image/png;base64,${Buffer.from(png).toString("base64")}`;
 }
 
+// Names and titles are free text typed by users; they reach Chromium as HTML, so every value is escaped.
 function entryHtml(entry: SignaturePageEntry, labels: SignaturePageLabels): string {
   const way = entry.method === SIGNATURE_METHOD.InPerson ? labels.inPerson : labels.link;
   const role = entry.role === null ? labels.noRole : entry.role;
   return `<section class="entry">
-  <img src="${escapeHtml(imageDataUri(entry.imagePng))}" alt="">
+  <img src="${escapeHtmlAttr(imageDataUri(entry.imagePng))}" alt="">
   <div class="meta">
-    <strong>${escapeHtml(entry.name)}</strong>
-    ${role === "" ? "" : `<span>${escapeHtml(role)}</span>`}
-    <span>${escapeHtml(labels.signedAt)}: ${escapeHtml(entry.signedAtIso)} (${escapeHtml(way)})</span>
+    <strong>${escapeHtmlAttr(entry.name)}</strong>
+    ${role === "" ? "" : `<span>${escapeHtmlAttr(role)}</span>`}
+    <span>${escapeHtmlAttr(labels.signedAt)}: ${escapeHtmlAttr(entry.signedAtIso)} (${escapeHtmlAttr(way)})</span>
   </div>
 </section>`;
 }
@@ -73,10 +62,10 @@ h2 { font-size: 14px; font-weight: normal; margin: 0 0 24px; }
 .meta { display: flex; flex-direction: column; gap: 2px; }
 .hash { margin-top: 24px; font-family: monospace; font-size: 10px; word-break: break-all; }
 </style></head><body>
-<h1>${escapeHtml(args.labels.heading)}</h1>
-<h2>${escapeHtml(args.title)}</h2>
+<h1>${escapeHtmlAttr(args.labels.heading)}</h1>
+<h2>${escapeHtmlAttr(args.title)}</h2>
 ${args.entries.map((entry) => entryHtml(entry, args.labels)).join("\n")}
-<p class="hash">${escapeHtml(args.labels.documentHash)}: ${escapeHtml(args.documentSha256)}</p>
+<p class="hash">${escapeHtmlAttr(args.labels.documentHash)}: ${escapeHtmlAttr(args.documentSha256)}</p>
 </body></html>`;
 }
 

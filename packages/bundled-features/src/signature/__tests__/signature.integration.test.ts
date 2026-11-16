@@ -26,7 +26,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/files";
 import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables, seedRowViaEventStore } from "@cosmicdrift/kumiko-testing/helpers";
+import {
+  createRecordingProvider,
+  resetTestTables,
+  seedRowViaEventStore,
+} from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -48,6 +52,7 @@ import {
   signatureRequestTable,
   signatureSignerEntity,
   signatureSignerTable,
+  signerExecutor,
 } from "../entity.ts";
 import { createSignatureFeature } from "../feature.ts";
 import { signSignatureLinkToken } from "../grant.ts";
@@ -58,8 +63,10 @@ import {
   SIGNATURE_MAX_LINK_OPENS,
   SIGNATURE_REQUEST_ENTITY,
   SIGNATURE_SIGNER_ENTITY,
+  SIGNATURE_SIGNER_STATUS,
   SignatureEvents,
   SignatureHandlers,
+  SignatureInternalHandlers,
   SignatureJobs,
 } from "../web/constants.ts";
 import { makePng, toBase64 } from "./png-fixture.ts";
@@ -71,6 +78,7 @@ const SIGNATURE = toBase64(makePng());
 const NON_WIN_ANSI_NAME = "Žofia Şahin 山田";
 
 const provider = createInMemoryFileProvider();
+const recorder = createRecordingProvider();
 let stack: TestStack;
 let printerDown = false;
 let printerRejectsSize = false;
@@ -160,6 +168,7 @@ beforeAll(async () => {
     jobs: { consumerLane: "worker", getActiveTenantIds: async () => [TENANT] },
     anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
     trustedProxyHops: 1,
+    observability: recorder,
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
   await unsafeCreateEntityTable(stack.db, deliveryOutboxEntity, "deliveryOutbox");
@@ -172,6 +181,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  recorder.reset();
   printerDown = false;
   printerRejectsSize = false;
   whilePrinting = null;
@@ -299,6 +309,28 @@ async function runSweep(): Promise<void> {
   if (!runner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");
   await runner.dispatch(SignatureJobs.sweep, { tenantId: TENANT });
   await stack.drainJobs();
+}
+
+function reconcileSpanCount(): number {
+  return recorder
+    .spansByName("kumiko.dispatcher.handler")
+    .filter((span) => span.attributes["kumiko.handler"] === SignatureInternalHandlers.reconcile)
+    .length;
+}
+
+async function markSignedOutsideTheSignHandler(signerId: string): Promise<void> {
+  const result = await signerExecutor.update(
+    { id: signerId, changes: { status: SIGNATURE_SIGNER_STATUS.Signed } },
+    createSystemUser(TENANT),
+    createTenantDb({
+      db: stack.db,
+      tenantId: TENANT,
+      mode: "system",
+      reason: "test signs without the sign handler, so only the sweep can advance the request",
+    }),
+    { skipOptimisticLock: true },
+  );
+  expect(result.isSuccess).toBe(true);
 }
 
 async function signInPerson(signerId: string) {
@@ -684,6 +716,22 @@ describe("signature :: outcomes", () => {
     expect(await eventsOfType(SignatureEvents.expired)).toHaveLength(1);
     const opened = await answer(await anonymous(SignatureHandlers.openByLink, { token }));
     expect(opened.status).toBe(422);
+  });
+
+  test("the sweep reconciles an open request only once every signer has signed", async () => {
+    const { requestId, signerIds } = await requestSignatures(["Ada", "Bob"]);
+    await markSignedOutsideTheSignHandler(signerIds[0] as string);
+    recorder.reset();
+    await runSweep();
+    expect(reconcileSpanCount()).toBe(0);
+    expect((await requestRow(requestId))["status"]).toBe("open");
+
+    await markSignedOutsideTheSignHandler(signerIds[1] as string);
+    recorder.reset();
+    await runSweep();
+    expect(reconcileSpanCount()).toBe(1);
+    // No signature images were stored, so the finalize step of the same sweep fails the request.
+    expect((await requestRow(requestId))["status"]).toBe("failed");
   });
 });
 

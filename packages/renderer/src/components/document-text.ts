@@ -1,3 +1,5 @@
+import { escapeHtml } from "../headless/format/escape.ts";
+
 const ENTITIES: Readonly<Record<string, string>> = {
   "&amp;": "&",
   "&lt;": "<",
@@ -16,10 +18,6 @@ export function documentHtmlToText(html: string): string {
     .replace(/&(?:amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity] ?? entity)
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** Blank line starts a paragraph, a single newline becomes a hard break. */

@@ -1,10 +1,4 @@
 export { UserCommandSchemas } from "./command-schemas.ts";
-export {
-  backfillUserStreamTenants,
-  backfillUserStreamTenantsWithDerivedState,
-  type UserStreamBackfillResult,
-  type UserStreamBackfillWithDerivedStateResult,
-} from "./db/queries/stream-tenant-backfill.ts";
 export { createUserFeature } from "./feature.ts";
 export {
   isPrincipalBlocked,

@@ -53,6 +53,7 @@ import {
   toResourceDataUri,
 } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { SYSTEM_TENANT_ID, type TemplateVariables } from "@cosmicdrift/kumiko-framework/engine";
+import { escapeHtml } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   collectRegionResourceKeys,
   compileDocumentSource,
@@ -140,14 +141,6 @@ type PdfLayout = {
 
 function describe(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }
 
 async function resolvePdfTemplate(

@@ -2,7 +2,7 @@ import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { RendererError } from "../renderer-foundation/index.ts";
-import { requestExecutor } from "./entity.ts";
+import { requestExecutor, signerExecutor } from "./entity.ts";
 import {
   discardGeneratedFile,
   PDF_MIME_TYPE,
@@ -28,6 +28,7 @@ import {
   SIGNATURE_FAILURE_REASON,
   SIGNATURE_METHOD,
   SIGNATURE_REQUEST_STATUS,
+  SIGNATURE_SIGNER_STATUS,
   type SignatureFailureReason,
   SignatureInternalHandlers,
 } from "./web/constants.ts";
@@ -38,10 +39,10 @@ const SWEEP_PAGE_SIZE = 200;
 type RequestPage = Awaited<ReturnType<typeof requestExecutor.list>>;
 
 // Keyset-paged, so rows that leave the status while the sweep works on them cannot shift the next page.
-async function forEachRequestWithStatus(
+async function forEachRequestPageWithStatus(
   ctx: JobContext,
   status: string,
-  visit: (request: RequestRow) => Promise<void>,
+  visitPage: (requests: readonly RequestRow[]) => Promise<void>,
 ): Promise<void> {
   let cursor: string | null = null;
   do {
@@ -54,9 +55,33 @@ async function forEachRequestWithStatus(
       ctx.systemUser,
       ctx.db,
     );
-    for (const request of page.rows) await visit(request);
+    await visitPage(page.rows);
     cursor = page.nextCursor;
   } while (cursor !== null);
+}
+
+// One grouped count per page instead of a reconcile write per open request: most open requests
+// still wait for a signer, and reconciling them would load the signers only to change nothing.
+async function requestIdsWithUnsignedSigners(
+  ctx: JobContext,
+  requestIds: readonly string[],
+): Promise<ReadonlySet<string> | null> {
+  if (requestIds.length === 0) return new Set();
+  const result = await signerExecutor.aggregate(
+    {
+      filters: [
+        { field: "requestId", op: "in", value: requestIds },
+        { field: "status", op: "ne", value: SIGNATURE_SIGNER_STATUS.Signed },
+      ],
+      aggregate: { groupBy: "requestId", measures: [] },
+    },
+    ctx.systemUser,
+    ctx.db,
+  );
+  if (result.truncated === true) return null;
+  return new Set(
+    result.groups.flatMap((group) => (typeof group.key === "string" ? [group.key] : [])),
+  );
 }
 
 function bySignedAt(left: SignerRow, right: SignerRow): number {
@@ -70,22 +95,27 @@ async function signaturePageEntries(
   ctx: JobContext,
   signers: readonly SignerRow[],
 ): Promise<readonly SignaturePageEntry[] | null> {
-  const entries: SignaturePageEntry[] = [];
-  for (const signer of [...signers].sort(bySignedAt)) {
-    const signedAt = instantOrNull(signer.signedAt);
-    if (signedAt === null || typeof signer.imageFileId !== "string") return null;
-    const image = await readTenantFile(ctx, ctx.systemUser.tenantId, signer.imageFileId);
-    if (image === null) return null;
-    entries.push({
-      name: signer.name,
-      role: signer.role ?? null,
-      signedAtIso: signedAt.toString(),
-      method:
-        signer.method === SIGNATURE_METHOD.Link ? SIGNATURE_METHOD.Link : SIGNATURE_METHOD.InPerson,
-      imagePng: image.content,
-    });
-  }
-  return entries;
+  const sorted = [...signers].sort(bySignedAt);
+  const entries = await Promise.all(
+    sorted.map(async (signer): Promise<SignaturePageEntry | null> => {
+      const signedAt = instantOrNull(signer.signedAt);
+      if (signedAt === null || typeof signer.imageFileId !== "string") return null;
+      const image = await readTenantFile(ctx, ctx.systemUser.tenantId, signer.imageFileId);
+      if (image === null) return null;
+      return {
+        name: signer.name,
+        role: signer.role ?? null,
+        signedAtIso: signedAt.toString(),
+        method:
+          signer.method === SIGNATURE_METHOD.Link
+            ? SIGNATURE_METHOD.Link
+            : SIGNATURE_METHOD.InPerson,
+        imagePng: image.content,
+      };
+    }),
+  );
+  const present = entries.filter((entry): entry is SignaturePageEntry => entry !== null);
+  return present.length === entries.length ? present : null;
 }
 
 async function failRequest(
@@ -185,20 +215,34 @@ export async function sweepSignatureRequests(
   opts: SignatureOptions,
 ): Promise<void> {
   const now = ctx.tz.now();
-  await forEachRequestWithStatus(ctx, SIGNATURE_REQUEST_STATUS.Open, async (request) => {
-    const qn = isPastInstant(request.expiresAt, now)
-      ? SignatureInternalHandlers.expire
-      : SignatureInternalHandlers.reconcile;
-    await ctx.dispatch.write(qn, { requestId: request.id });
+  await forEachRequestPageWithStatus(ctx, SIGNATURE_REQUEST_STATUS.Open, async (requests) => {
+    const running: RequestRow[] = [];
+    for (const request of requests) {
+      if (isPastInstant(request.expiresAt, now)) {
+        await ctx.dispatch.write(SignatureInternalHandlers.expire, { requestId: request.id });
+      } else {
+        running.push(request);
+      }
+    }
+    const unsigned = await requestIdsWithUnsignedSigners(
+      ctx,
+      running.map((request) => request.id),
+    );
+    for (const request of running) {
+      if (unsigned?.has(request.id) === true) continue;
+      await ctx.dispatch.write(SignatureInternalHandlers.reconcile, { requestId: request.id });
+    }
   });
-  await forEachRequestWithStatus(ctx, SIGNATURE_REQUEST_STATUS.AllSigned, async (request) => {
-    try {
-      await finalizeRequest(ctx, opts, request);
-    } catch (error) {
-      ctx.obs.log.warn("[signature:sweep] completing failed, retrying on the next run", {
-        requestId: request.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
+  await forEachRequestPageWithStatus(ctx, SIGNATURE_REQUEST_STATUS.AllSigned, async (requests) => {
+    for (const request of requests) {
+      try {
+        await finalizeRequest(ctx, opts, request);
+      } catch (error) {
+        ctx.obs.log.warn("[signature:sweep] completing failed, retrying on the next run", {
+          requestId: request.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
   });
 }

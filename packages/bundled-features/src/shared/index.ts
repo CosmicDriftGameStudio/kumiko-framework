@@ -119,21 +119,6 @@ export {
 } from "./signup-handover.ts";
 export { createSingleUseTokenStore, hashSingleUseToken } from "./single-use-token-store.ts";
 export {
-  backfillAggregateStreamTenants,
-  type StreamBackfillCandidate,
-  type StreamBackfillFailure,
-  type StreamBackfillOptions,
-  type StreamBackfillResult,
-  type StreamTenantTarget,
-} from "./stream-tenant-backfill.ts";
-export {
-  createSearchBucketCleanup,
-  type DerivedStateMode,
-  rebuildAndReindex,
-  type StreamBackfillStepFailure,
-  stepFailures,
-} from "./stream-tenant-derived-state.ts";
-export {
   createSubjectScope,
   type SubjectScope,
   type SubjectScopeContext,

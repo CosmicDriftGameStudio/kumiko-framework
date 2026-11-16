@@ -86,9 +86,7 @@ export const changeEmailWrite = defineWriteHandler({
       );
     }
 
-    // user is systemStream: the event stream is deterministically located
-    // on SYSTEM_TENANT_ID. Older streams require a one-time
-    // backfillUserStreamTenants.
+    // user is systemStream: the event stream is deterministically located on SYSTEM_TENANT_ID.
     const writer = createSystemUser(SYSTEM_TENANT_ID);
 
     const writeRes = await ctx.dispatch.writeAs(writer, UserHandlers.update, {

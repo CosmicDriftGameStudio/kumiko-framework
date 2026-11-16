@@ -197,7 +197,6 @@
         "!**/packages/framework/src/event-store/**",
         "!**/packages/framework/src/db/queries/event-store*.ts",
         "!**/packages/framework/src/db/queries/backfill-pii.ts",
-        "!**/packages/bundled-features/src/shared/stream-tenant-backfill.ts",
         "!**/packages/*/scripts/**",
         "!**/samples/**/scripts/**"
       ]

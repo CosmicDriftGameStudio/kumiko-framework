@@ -45,10 +45,6 @@ import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.t
 import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.ts";
 import { startSearchReindexOnBoot } from "./boot/search-reindex-on-boot.ts";
 import { withEnvDefaults } from "./boot/shared-boot-steps.ts";
-import {
-  runStreamTenantBackfillOnBoot,
-  type SearchBackendDeclaration,
-} from "./boot/stream-tenant-backfill-on-boot.ts";
 import type { DatabaseWaitClock } from "./boot/wait-for-database.ts";
 import {
   bootWorkerProcess,
@@ -104,11 +100,6 @@ export type WorkerWireDeps = SystemWireDeps & {
 export type RunWorkerAppOptions = {
   /** Row level security mode of every connection; pass appConfig.rowLevelSecurity. Default "on". */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
-  /** `"none"`: the app has no search backend in any process (no `searchAdapter` in `extraContext`),
-   *  so no search docs can be orphaned and the stream-tenant backfill runs without a reindex. Unset:
-   *  a process without a search adapter defers the backfill of searchable entities to one that has
-   *  it. Combining `"none"` with a `searchAdapter` fails the boot. Must match the API process. */
-  readonly search?: SearchBackendDeclaration;
   /** App-specific features — same array as in the API/all-in-one process,
    *  so the registry + schema stay identical across processes. */
   readonly features: readonly FeatureDefinition[];
@@ -239,23 +230,6 @@ function wireHookDb(db: DbConnection, options: RunWorkerAppOptions): DbConnectio
   return appHookScopedRunner(db, options.rowLevelSecurity ?? DEFAULT_ROW_LEVEL_SECURITY_MODE);
 }
 
-// Runs before the metrics port opens and before start() consumes jobs: a worker must not process
-// events of a feature whose streams still sit on the wrong tenant.
-async function backfillThenStartMetrics(
-  boot: Extract<WorkerBootResult, { kind: "booted" }>,
-  options: RunWorkerAppOptions,
-): Promise<ReturnType<typeof startWorkerMetricsServer> | undefined> {
-  await runStreamTenantBackfillOnBoot({
-    db: boot.db,
-    registry: boot.registry,
-    extraContext: boot.extraContext,
-    processName: "runWorkerApp",
-    ...(options.search && { search: options.search }),
-    ...(options.databaseWait && { databaseWait: options.databaseWait }),
-  });
-  return options.metrics ? startWorkerMetricsServer(options.metrics, boot.entrypoint) : undefined;
-}
-
 export async function runWorkerApp(options: RunWorkerAppOptions): Promise<WorkerAppHandle> {
   assertSeedModeNotInProduction();
   const resolvedEnvSource = await resolveGatedEnvSource(options);
@@ -301,7 +275,9 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   // hook, so a failing start() does not leak the listener.
   let metricsServer: ReturnType<typeof startWorkerMetricsServer> | undefined;
   try {
-    metricsServer = await backfillThenStartMetrics(boot, options);
+    metricsServer = options.metrics
+      ? startWorkerMetricsServer(options.metrics, boot.entrypoint)
+      : undefined;
     await entrypoint.start();
   } catch (error) {
     // The boot failure is the actionable error; a close failure on a
