@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import { formatDeviceLabel, parsedDeviceSchema, parseUserAgent } from "../web/user-agent.ts";
 
@@ -81,8 +81,7 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
               ],
         ...(query.payload.limit !== undefined && { limit: query.payload.limit }),
       });
-      const decryptedRows = await Promise.all(
-        rows.map(async (r) => {
+      const decryptedRows = await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, async (r) => {
           const userAgent = r.userAgent
             ? await decryptStoredPii(r.userAgent, "userAgent", "sessions:list")
             : r.userAgent;
@@ -98,8 +97,7 @@ export const createListQuery = (adminRoles: readonly string[] = access.admin) =>
             device,
             deviceLabel: formatDeviceLabel(device),
           };
-        }),
-      );
+      });
       return { rows: decryptedRows, nextCursor: null };
     },
   });

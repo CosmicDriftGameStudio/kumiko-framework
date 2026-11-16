@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
-import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { SessionHandlers, SessionQueries } from "../constants.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import {
@@ -62,6 +62,26 @@ describe("sessions feature — mine, revoke-all-others, ownership", () => {
     // The caller's OWN sid is flagged as current
     const currentRow = body.data.rows.find((r) => r.current);
     expect(currentRow?.id).toBe(c.sid);
+  });
+
+  test("session:mine hides an expired session that was never revoked", async () => {
+    await h.seedUser("mine-expired@example.com", "pw-long-enough");
+    const a = await h.login("mine-expired@example.com", "pw-long-enough");
+    const b = await h.login("mine-expired@example.com", "pw-long-enough");
+    await updateMany(
+      stack.db,
+      userSessionTable,
+      { expiresAt: Temporal.Now.instant().subtract({ hours: 1 }) },
+      { id: b.sid },
+    );
+
+    const res = await h.authedPost("/api/query", a.token, {
+      type: SessionQueries.mine,
+      payload: {},
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { rows: Array<{ id: string }> } };
+    expect(body.data.rows.map((r) => r.id)).toEqual([a.sid]);
   });
 
   test("session:revoke-all-others keeps the caller's session alive", async () => {

@@ -12,8 +12,7 @@ export type { SessionMassRevoker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { fetchOne, insertOne, transaction, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { append } from "@cosmicdrift/kumiko-framework/event-store";
+import { buildSessionRoles } from "@cosmicdrift/kumiko-framework/engine";
 import { generateId, parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { Clock } from "@cosmicdrift/kumiko-types/tz-context";
@@ -26,11 +25,7 @@ import {
   USER_SESSION_ENTITY_NAME,
 } from "./constants.ts";
 import { userSessionEntity, userSessionTable } from "./schema/user-session.ts";
-import {
-  SESSION_REVOKED_AGGREGATE_TYPE,
-  SESSION_REVOKED_EVENT_QN,
-  sessionRevokedSchema,
-} from "./session-revoked-event.ts";
+import { revokeSessionsAndAnnounce } from "./revoke-sessions.ts";
 
 const realClock: Clock = { now: () => Temporal.Now.instant() };
 
@@ -108,46 +103,15 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
     },
 
     async sessionRevoker(sid: string): Promise<void> {
-      // Audit-preserving: `isNull(revokedAt)` in WHERE means a second call
-      // on an already-revoked sid is a no-op instead of overwriting the
-      // original timestamp. Double-revoke races land here via logout +
-      // switch-tenant on the same sid. (Password-change uses a different
-      // callback — sessionMassRevoker — and isn't in scope for this guard.)
-      // One transaction: if the append failed after the update committed, a
-      // retried logout would match no live row (revokedAt IS NULL) and never
-      // emit the event, leaving the SSE stream of this sid open until JWT expiry.
-      await transaction(db, async (tx) => {
-        const result = await updateMany<{ userId: string }>(
-          tx,
-          userSessionTable,
-          { revokedAt: clock.now() },
-          { id: sid, revokedAt: null },
-        );
-
-        // This is the ONLY caller of sessionRevoker — logout and tenant-switch
-        // — so it's also the only source of streamScope: "revoked-sessions".
-        // Without this append, a live SSE stream on this exact sid outlives its
-        // own logout because the access-invalidation consumer never hears
-        // about it — same gap sessionMassRevoker closed for
-        // password-change.
-        const revoked = result[0];
-        if (revoked) {
-          const payload = sessionRevokedSchema.parse({
-            userId: revoked.userId,
-            sessionIds: [sid],
-            streamScope: "revoked-sessions",
-          });
-          await append(tx, {
-            aggregateId: generateId(),
-            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-            tenantId: SYSTEM_TENANT_ID,
-            expectedVersion: 0,
-            type: SESSION_REVOKED_EVENT_QN,
-            payload,
-            metadata: { userId: revoked.userId },
-          });
-        }
-      });
+      // Only caller is logout/tenant-switch, hence the only source of streamScope "revoked-sessions":
+      // without the event a live SSE stream on this sid would outlive its own logout.
+      await transaction(db, (tx) =>
+        revokeSessionsAndAnnounce(tx, {
+          where: { id: sid },
+          revokedAt: clock.now(),
+          streamScope: "revoked-sessions",
+        }),
+      );
     },
 
     // kumiko-lint-ignore complexity-budget session check + lastSeen refresh on hot path
@@ -236,81 +200,26 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
     },
 
     async sessionMassRevoker(userId: string): Promise<number> {
-      // Count is accurate because we only touch live rows — a previously
-      // revoked row stays in its state and isn't double-counted.
-      // One transaction, same reason as sessionRevoker: a failed append must
-      // not leave sessions revoked without the event.
-      return transaction(db, async (tx) => {
-        const result = await updateMany(
-          tx,
-          userSessionTable,
-          { revokedAt: clock.now() },
-          { userId, revokedAt: null },
-        );
-
-        // Lightweight append alongside the direct-write above, same pattern
-        // as revoke.write.ts — this callback is the password-change
-        // auto-revoke path (sessions/feature.ts postSave hook) and has no
-        // dispatcher ctx to call unsafeAppendEvent from, so it uses the raw
-        // append() like revoke-all-for-user.write.ts does. Without this, the
-        // access-invalidation consumer never hears about a password
-        // change and an already-open SSE stream survives it — the exact
-        // "stale JWT mid-stream" gap this feature exists to close.
-        if (result.length > 0) {
-          const payload = sessionRevokedSchema.parse({
-            userId,
-            sessionIds: result.map((row: { id: string }) => row.id),
-          });
-          await append(tx, {
-            aggregateId: generateId(),
-            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-            tenantId: SYSTEM_TENANT_ID,
-            expectedVersion: 0,
-            type: SESSION_REVOKED_EVENT_QN,
-            payload,
-            metadata: { userId },
-          });
-        }
-
-        return result.length;
-      });
+      return transaction(
+        db,
+        async (tx) =>
+          (await revokeSessionsAndAnnounce(tx, { where: { userId }, revokedAt: clock.now() }))
+            .length,
+      );
     },
 
     async sessionRevokeAllOthers(userId: string, currentSid: string | undefined): Promise<number> {
-      return transaction(db, async (tx) => {
-        const result = await updateMany(
-          tx,
-          userSessionTable,
-          { revokedAt: clock.now() },
-          currentSid
-            ? { userId, revokedAt: null, id: { ne: currentSid } }
-            : { userId, revokedAt: null },
-        );
-
-        // Same reasoning as sessionMassRevoker above — this raw callback
-        // (used by auth-mfa and other internal callers, distinct from the
-        // user-facing revoke-all-others.write.ts handler which already
-        // appends this event) needs its own append so callers reached
-        // through here also cut open SSE streams.
-        if (result.length > 0) {
-          const payload = sessionRevokedSchema.parse({
-            userId,
-            sessionIds: result.map((row: { id: string }) => row.id),
-            keptSessionId: currentSid,
-          });
-          await append(tx, {
-            aggregateId: generateId(),
-            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-            tenantId: SYSTEM_TENANT_ID,
-            expectedVersion: 0,
-            type: SESSION_REVOKED_EVENT_QN,
-            payload,
-            metadata: { userId },
-          });
-        }
-
-        return result.length;
-      });
+      return transaction(
+        db,
+        async (tx) =>
+          (
+            await revokeSessionsAndAnnounce(tx, {
+              where: currentSid ? { userId, id: { ne: currentSid } } : { userId },
+              revokedAt: clock.now(),
+              ...(currentSid !== undefined && { keptSessionId: currentSid }),
+            })
+          ).length,
+      );
     },
   };
 }

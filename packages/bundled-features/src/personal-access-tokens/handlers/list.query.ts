@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.ts";
+import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
 import { isExpiredAt } from "../expiry.ts";
 import { parseScopeNames } from "../parse-scope-names.ts";
 import { apiTokenTable } from "../schema/api-token.ts";
@@ -93,8 +93,7 @@ export const listPatQuery = definePagedQueryHandler({
         ...(query.payload.limit !== undefined && { limit: query.payload.limit }),
       },
     );
-    const decryptedRows = await Promise.all(
-      rows.map(async (r) => ({
+    const decryptedRows = await mapWithConcurrency(rows, KMS_POOL_CONCURRENCY, async (r) => ({
         id: r.id,
         name: await decryptStoredPii(r.name, "name", "pat:list"),
         prefix: r.prefix,
@@ -103,8 +102,7 @@ export const listPatQuery = definePagedQueryHandler({
         createdAt: r.createdAt,
         expiresAt: r.expiresAt,
         revokedAt: r.revokedAt,
-      })),
-    );
+    }));
     return { rows: decryptedRows, nextCursor: null };
   },
 });

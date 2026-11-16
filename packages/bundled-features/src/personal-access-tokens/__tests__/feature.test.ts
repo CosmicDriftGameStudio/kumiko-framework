@@ -6,6 +6,7 @@ import { createConfigFeature } from "../../config/index.ts";
 import { createPersonalAccessTokensFeature } from "../feature.ts";
 import { patScopeOptionTranslations } from "../i18n.ts";
 import { patScopesFromFeature } from "../index.ts";
+import { apiTokenTable } from "../schema/api-token.ts";
 import { patGrantOptions } from "../screens.ts";
 import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "../web/constants.ts";
 import { expandScopes, type PatScopeConfig, parseGrant } from "../web/scopes.ts";
@@ -218,5 +219,13 @@ describe("patScopeOptionTranslations", () => {
     );
     expect(translations[readKey]?.en).toBe("Billing (read)");
     expect(translations[writeKey]?.en).toBe("Billing (read & write)");
+  });
+});
+
+describe("store_api_tokens indexes", () => {
+  test("store_api_tokens indexes userId for per-user lookups", () => {
+    expect(apiTokenTable.indexes).toContainEqual(
+      expect.objectContaining({ name: "store_api_tokens_user_id_idx", columns: ["user_id"] }),
+    );
   });
 });

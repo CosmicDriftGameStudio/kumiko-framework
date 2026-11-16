@@ -82,7 +82,11 @@ export const apiTokenEntity = createEntity({
     expiresAt: createTimestampField({ access: { write: access.privileged } }),
     revokedAt: createTimestampField({ access: { write: access.privileged } }),
   },
-  indexes: [{ unique: true, columns: ["tokenHash"], name: "store_api_tokens_hash_unique" }],
+  // userId: the token list and the cross-tenant revoke on password change filter by user.
+  indexes: [
+    { unique: true, columns: ["tokenHash"], name: "store_api_tokens_hash_unique" },
+    { columns: ["userId"] },
+  ],
 });
 
 // deriveEntityTableMeta (not buildEntityTable): this is a direct-write store, so

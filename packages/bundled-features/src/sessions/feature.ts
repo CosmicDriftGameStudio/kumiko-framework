@@ -111,7 +111,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       const adminRoles = access[options?.adminAccess ?? "admin"];
       r.adoptsBundledLists();
       r.describe(
-        "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a manual-trigger cleanup job for pruning expired rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
+        "Tracks signed-in clients in the `store_user_sessions` table (one row per JWT, keyed by the `sid`/`jti` claim) and exposes handlers for `mine` (list your sessions), `revoke`, and `revokeAllOthers`. Session creation and revocation on the hot auth path are handled by `createSessionCallbacks()`, wired into `buildServer({ auth: { ... } })` outside the dispatcher; the same callbacks are also registered as an auth-foundation sessionStore provider, resolvable generically via `resolveSessionStore()`. The feature also ships a daily maintenance-window cleanup job that prunes expired and revoked rows and an optional `autoRevokeOnPasswordChange` hook that mass-revokes all sessions for a user whenever their `passwordHash` changes.",
       );
       r.uiHints({
         displayLabel: "Sessions · Server-side Logout",
@@ -188,12 +188,12 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
         detail: r.queryHandler(createDetailQuery(adminRoles)),
       };
 
-      // Retention: chunked DELETE of expired/revoked rows. Manual trigger
-      // only so dev environments don't churn. Ops wires a cron in the app's
-      // dispatcher config when running a long-lived deployment.
+      // Retention: chunked DELETE of rows expired or revoked more than 30 days ago, once a day in the
+      // maintenance window, so store_user_sessions and its ip/userAgent stay bounded without app wiring.
       r.job({
         name: "cleanup",
-        trigger: { manual: true },
+        trigger: { maintenance: true },
+        concurrency: "skip",
         escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
         handler: (payload, ctx) =>
           cleanupJob(

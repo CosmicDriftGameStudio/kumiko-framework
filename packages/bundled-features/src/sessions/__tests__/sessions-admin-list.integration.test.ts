@@ -1,8 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  configurePiiSubjectKms,
+  encryptPiiValueForSubject,
+  InMemoryKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { seedRows } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetPiiSubjectKmsForTests, seedRows } from "@cosmicdrift/kumiko-testing/helpers";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { KMS_POOL_CONCURRENCY } from "../../shared/index.ts";
 import { SessionQueries } from "../constants.ts";
 import { userSessionTable } from "../schema/user-session.ts";
 import {
@@ -11,6 +17,22 @@ import {
   SESSIONS_TEST_TENANT as TENANT,
 } from "./sessions-test-stack.ts";
 import type { makeSessionHelpers } from "./test-helpers.ts";
+
+class ConcurrencyTrackingKms extends InMemoryKmsAdapter {
+  inFlight = 0;
+  peakInFlight = 0;
+
+  override async getKey(...args: Parameters<InMemoryKmsAdapter["getKey"]>) {
+    this.inFlight += 1;
+    this.peakInFlight = Math.max(this.peakInFlight, this.inFlight);
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      return await super.getKey(...args);
+    } finally {
+      this.inFlight -= 1;
+    }
+  }
+}
 
 let stack: TestStack;
 let h: ReturnType<typeof makeSessionHelpers>;
@@ -220,5 +242,59 @@ describe("sessions feature — admin list", () => {
     const full = await fetchIds(26);
     expect(full).toHaveLength(26);
     expect(top3).toEqual(full.slice(0, 3));
+  });
+
+  test("session:list decrypts ip and userAgent with at most KMS_POOL_CONCURRENCY key lookups in flight", async () => {
+    await h.seedUser("pool-admin@example.com", "pw-long-enough", { roles: ["Admin"] });
+    const admin = await h.login("pool-admin@example.com", "pw-long-enough");
+
+    const kms = new ConcurrencyTrackingKms();
+    configurePiiSubjectKms(kms);
+    try {
+      const rowCount = KMS_POOL_CONCURRENCY * 3;
+      const now = Temporal.Now.instant();
+      const rows = [];
+      for (let n = 0; n < rowCount; n++) {
+        const suffix = String(n).padStart(12, "0");
+        const userId = `33333333-3333-3333-3333-${suffix}`;
+        const subject = { kind: "user", userId } as const;
+        rows.push({
+          id: `44444444-4444-4444-4444-${suffix}`,
+          tenantId: TENANT,
+          userId,
+          createdAt: now,
+          expiresAt: now.add({ hours: 1 }),
+          revokedAt: null,
+          ip: await encryptPiiValueForSubject(kms, subject, `10.0.0.${n}`, { requestId: "test" }, "ip"),
+          userAgent: await encryptPiiValueForSubject(
+            kms,
+            subject,
+            "Mozilla/5.0 (X11; Linux x86_64)",
+            { requestId: "test" },
+            "userAgent",
+          ),
+        });
+      }
+      await seedRows(stack.db, userSessionTable, rows);
+      kms.peakInFlight = 0;
+
+      const res = await h.authedPost("/api/query", admin.token, {
+        type: SessionQueries.list,
+        payload: {},
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        data: { rows: Array<{ userId: string; ip: string | null }> };
+      };
+      const ips = body.data.rows
+        .filter((r) => r.userId.startsWith("33333333-"))
+        .map((r) => r.ip)
+        .sort();
+      expect(ips).toEqual(Array.from({ length: rowCount }, (_, n) => `10.0.0.${n}`).sort());
+      expect(kms.peakInFlight).toBeGreaterThan(0);
+      expect(kms.peakInFlight).toBeLessThanOrEqual(KMS_POOL_CONCURRENCY);
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
   });
 });

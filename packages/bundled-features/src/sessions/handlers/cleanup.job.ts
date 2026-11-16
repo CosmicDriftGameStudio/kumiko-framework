@@ -12,10 +12,8 @@
 //   - NEVER delete currently-live rows. Safe by construction — the WHERE
 //     clause requires either expiresAt OR revokedAt to be past-cutoff.
 //
-// Chunked DELETE (default 1000/batch) keeps lock durations bounded. Ops
-// schedules this daily (manual trigger by default — opt-in to cron in the
-// app's feature-wiring so a dev environment doesn't churn through a fresh
-// seed). Mirror of secrets/retention.job in shape.
+// Chunked DELETE (default 1000/batch) keeps lock durations bounded. Runs once a day in the
+// maintenance window (feature.ts); operators can also start it from the job-runs screen.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobContext } from "@cosmicdrift/kumiko-framework/engine";
