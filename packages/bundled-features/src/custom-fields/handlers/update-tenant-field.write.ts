@@ -103,7 +103,3 @@ export function createUpdateTenantFieldHandler(
     },
   };
 }
-
-// Backwards-compat: existing imports of `updateTenantFieldHandler` keep
-// working — identical to createUpdateTenantFieldHandler() with default roles.
-export const updateTenantFieldHandler: WriteHandlerDef = createUpdateTenantFieldHandler();

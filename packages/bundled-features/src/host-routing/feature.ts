@@ -5,7 +5,6 @@ import {
   isSystemTenant,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import {
   EXT_TENANT_EXISTENCE,
@@ -18,6 +17,7 @@ import {
   HOST_ROUTING_FEATURE,
   TENANT_KEY_MAX_LENGTH,
 } from "./constants.ts";
+import { requireSystemDb } from "../shared/index.ts";
 import { classifyHost, normalizeHostname } from "./host.ts";
 import type { HostRoutingOptions } from "./options.ts";
 import {
@@ -117,12 +117,8 @@ const tenantKeyExistsQuery = defineQueryHandler({
   description:
     "Anonymous existence check for a tenant key, backing the unknown-tenant 404 of the host-routing hostDispatch. Returns only { exists }.",
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "host-routing:query:tenant-key-exists requires ctx.systemDb (r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const systemDb = requireSystemDb(ctx, "host-routing:query:tenant-key-exists");
+    const db = systemDb.acknowledgeCrossTenant(
       "tenant-key existence check for the host-routing 404 — publicly observable via the 404 itself",
     );
     return { exists: (await servingTenantIdByKey(db, query.payload.key)) !== null };
@@ -140,14 +136,10 @@ function hostTenantExistsQueryFor(options: HostRoutingOptions) {
     description:
       "Anonymous host check backing the unknown-host 404 of the host-routing hostDispatch in tenantBy resolver mode. Returns only { exists }.",
     handler: async (query, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: "host-routing:query:host-tenant-exists requires ctx.systemDb (r.systemScope())",
-        });
-      }
+      const systemDb = requireSystemDb(ctx, "host-routing:query:host-tenant-exists");
       const hostname = normalizeHostname(query.payload.host);
       if (hostname === null) return { exists: false };
-      const db = ctx.systemDb.acknowledgeCrossTenant(
+      const db = systemDb.acknowledgeCrossTenant(
         "host existence check for the host-routing 404 — publicly observable via the 404 itself",
       );
       return { exists: (await servingTenantIdByResolver(options, db, hostname)) !== null };

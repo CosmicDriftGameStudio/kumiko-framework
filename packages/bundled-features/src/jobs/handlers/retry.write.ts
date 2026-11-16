@@ -2,7 +2,6 @@ import { isPiiCiphertext, PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framew
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  InternalError,
   NotFoundError,
   UnprocessableError,
   writeFailure,
@@ -10,7 +9,7 @@ import {
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.ts";
+import { decryptStoredPii, requireSystemDb } from "../../shared/index.ts";
 import { jobRunsTable } from "../job-run-table.ts";
 import { JobErrors } from "../web/constants.ts";
 
@@ -31,12 +30,8 @@ export const retryWrite = defineWriteHandler({
   agent: { expose: false },
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "jobs:write:retry requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
+    const systemDb = requireSystemDb(ctx, "jobs:write:retry");
+    const db = systemDb.acknowledgeCrossTenant("cross-tenant job monitoring");
     // @cast-boundary engine-payload — JobRunner attached by app-boot via ctx-extension
     const jobRunner = ctx.services.jobRunner as JobRunner;
 

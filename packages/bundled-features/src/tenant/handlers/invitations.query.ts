@@ -1,8 +1,12 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
+import {
+  decryptStoredPii,
+  KMS_POOL_CONCURRENCY,
+  mapWithConcurrency,
+  requireSystemDb,
+} from "../../shared/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 import { isSystemAdmin } from "./is-system-admin.ts";
 
@@ -22,13 +26,8 @@ export const invitationsQuery = defineQueryHandler({
   // Decrypted invitee and inviter email.
   agent: { risk: "high" },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:invitations requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const systemDb = requireSystemDb(ctx, "tenant:query:invitations");
+    const db = systemDb.assertTenantMatch(query.user.tenantId);
     const rows = await selectMany<Record<string, unknown>>(db, tenantInvitationsTable, {
       tenantId: query.user.tenantId,
       status: INVITATION_STATUS.pending,

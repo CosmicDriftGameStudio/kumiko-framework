@@ -111,5 +111,3 @@ export function createAddNoteHandler(
     },
   };
 }
-
-export const addNoteHandler: WriteHandlerDef = createAddNoteHandler();

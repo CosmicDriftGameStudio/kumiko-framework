@@ -1,7 +1,7 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { tenantComplianceProfileTable } from "../../compliance-profiles/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 
@@ -23,14 +23,8 @@ export const tenantsMissingProfileQuery = defineQueryHandler({
   description:
     "Lists every enabled tenant that has never selected a compliance profile, for the platform operator sweeping the whole installation; needs-profile answers the same question but only for the caller's own tenant.",
   handler: async (_query, ctx): Promise<TenantsMissingProfileResponse> => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "[compliance-profiles-ops] tenants-missing-profile requires ctx.systemDb — the " +
-          "compliance-profiles-ops feature must stay r.systemScope() (see feature.ts).",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const systemDb = requireSystemDb(ctx, "compliance-profiles-ops:tenants-missing-profile");
+    const db = systemDb.acknowledgeCrossTenant(
       "platform operator scans every tenant for a missing compliance-profile selection",
     );
 

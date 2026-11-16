@@ -4,40 +4,14 @@ import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
 import { isCustomFieldsHost } from "../lib/custom-fields-host.ts";
 import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.ts";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row.ts";
-import { countTenantFieldDefinitions } from "../lib/quota.ts";
+import { countTenantFieldDefinitions } from "../db/queries/quota.ts";
 import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.ts";
 import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../web/constants.ts";
 
-// define-tenant-field — TenantAdmin defines a custom-field definition
-// for its own tenant. tenantId is derived automatically from
-// event.user.tenantId (NOT settable by the caller — prevents cross-tenant
-// mutation).
-//
-// **Same-scope-conflict** is naturally enforced by the
-// aggregate-version-conflict: the deterministic aggregate-id from
-// uuidv5(tenant, entity, fieldKey) makes a second Create for the same
-// definition a version_conflict. The dispatcher returns 409, providing a
-// clean idempotency guarantee without an extra DB round trip.
-//
-// **Cross-scope-conflict** (a tenant attempts to define a fieldKey that
-// already exists in the system scope) is NOT enforced here — the aggregate
-// IDs differ (different tenantIds in uuidv5), so both writes proceed.
-// Resolution at read time shows the system-scope value. A future version
-// could introduce an r.systemScope sub-handler to reject cross-scope-conflict
-// at write time.
-//
-// **Quota**: optional `fieldDefinitionLimitPerTenant` gate. When the tenant
-// already has ≥ limit definitions, the handler rejects with `unprocessable`
-// and reason `cap_exceeded` BEFORE attempting the insert. The factory below
-// closes over the limit; the legacy const-export preserves behavior for
-// callers that did not opt into a limit.
-//
-// Soft cap, not a hard guarantee: count-then-insert is not serialized, so
-// N concurrent defines with distinct fieldKeys can each read `current < limit`
-// and overshoot by up to N. This is acceptable because defining fields is an
-// admin-only, low-frequency action and the limit is not wired to
-// billing/tier enforcement. If an exact cap is ever needed, serialize via
-// advisory lock or add a count constraint at the insert.
+// define-tenant-field: the tenant is taken from event.user.tenantId, never from the payload.
+// Same-scope conflicts surface as a version_conflict through the deterministic aggregate id.
+// The limit is a soft cap: concurrent defines can overshoot it, which is accepted for a
+// low-frequency admin action.
 export interface DefineTenantFieldOptions {
   /** Soft cap — `>= limit` definitions per tenant rejects further defines (see header: concurrent defines may overshoot). */
   readonly fieldDefinitionLimitPerTenant?: number;
@@ -107,7 +81,3 @@ export function createDefineTenantFieldHandler(
     },
   };
 }
-
-// Backwards-compat: existing imports of `defineTenantFieldHandler` keep
-// working — the handler has no quota, identical to behavior before the quota.
-export const defineTenantFieldHandler: WriteHandlerDef = createDefineTenantFieldHandler();

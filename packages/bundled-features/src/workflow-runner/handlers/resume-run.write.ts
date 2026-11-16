@@ -64,6 +64,7 @@ import {
   type WorkflowRunFailedPayload,
   WorkflowSuspensionUnsupportedError,
 } from "../runner.ts";
+import { requireSystemDb } from "../../shared/index.ts";
 import { workflowRunPendingTable } from "../tables.ts";
 import { getWorkflow } from "../workflow-registry.ts";
 
@@ -425,13 +426,8 @@ export const resumeRunHandler: WriteHandlerDef = {
     const { runId, stepIndex } = event.payload as z.infer<typeof resumeRunSchema>;
     const tenantId = event.user.tenantId;
 
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "workflow-runner:write:resume-run requires ctx.systemDb — is r.systemScope() still set on the workflow-runner feature?",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(tenantId);
+    const systemDb = requireSystemDb(ctx, "workflow-runner:write:resume-run");
+    const db = systemDb.assertTenantMatch(tenantId);
 
     const pending = await fetchOne<{
       workflowName: string;

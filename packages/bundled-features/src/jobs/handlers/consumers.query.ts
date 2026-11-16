@@ -1,5 +1,4 @@
 import { defineQueryHandler, type Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import {
   type ConsumerProgress,
   getAllConsumerProgress,
@@ -8,6 +7,7 @@ import {
   SSE_BROADCAST_CONSUMER_NAME,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import {
   CONSUMER_ID_SEPARATOR,
   CONSUMER_STATUSES,
@@ -78,13 +78,8 @@ export const consumersQuery = defineQueryHandler({
   }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "jobs:query:consumers requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.unsafeRaw(
+    const systemDb = requireSystemDb(ctx, "jobs:query:consumers");
+    const db = systemDb.unsafeRaw(
       "event consumer state is global dispatcher state, not tenant data",
     );
     const progress = await getAllConsumerProgress(db, registeredConsumerNames(ctx.registry));
@@ -113,15 +108,10 @@ export const consumerDetailQuery = defineQueryHandler({
   schema: z.object({ consumerId: z.string().min(1) }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "jobs:query:consumer-details requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
+    const systemDb = requireSystemDb(ctx, "jobs:query:consumer-details");
     const target = splitConsumerRowId(query.payload.consumerId);
     if (!target) return null;
-    const db = ctx.systemDb.unsafeRaw(
+    const db = systemDb.unsafeRaw(
       "event consumer state is global dispatcher state, not tenant data",
     );
     const all = await getAllConsumerProgress(db, registeredConsumerNames(ctx.registry));

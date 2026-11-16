@@ -10,9 +10,8 @@ import {
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { normalizeEmail, sendBestEffort } from "../../shared/index.ts";
+import { normalizeEmail, requireSystemDb, sendBestEffort } from "../../shared/index.ts";
 import { platformActor, waitlistDb, waitlistExecutor } from "../lib.ts";
 import {
   resolveWaitlistMailLocale,
@@ -119,19 +118,15 @@ export function createSubmitHandler(opts: WaitlistOptions) {
       if (isHoneypotFilled(payload)) return SUBMITTED;
 
       const email = normalizeEmail(payload.email);
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: "waitlist:submit requires ctx.systemDb — is r.systemScope() set?",
-        });
-      }
+      const systemDb = requireSystemDb(ctx, "waitlist:submit");
       const adminRecipient = await resolveAdminRecipient(
         opts,
         ctx,
-        ctx.systemDb,
+        systemDb,
         event.user.tenantId,
       );
       await acquireNamespacedAdvisoryLock(
-        ctx.systemDb.unsafeRaw(SUBMIT_LOCK_REASON),
+        systemDb.unsafeRaw(SUBMIT_LOCK_REASON),
         SUBMIT_LOCK_NAMESPACE,
         email,
       );

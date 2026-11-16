@@ -1,10 +1,10 @@
 import { decodeKeysetCursor, encodeKeysetCursor } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, isUuid, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type { WhereObject, WhereOperator } from "@cosmicdrift/kumiko-types/where-clause-types";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.ts";
+import { decryptStoredPii, mapWithConcurrency, requireSystemDb } from "../../shared/index.ts";
 import { jobRunsTable } from "../job-run-table.ts";
 
 const KMS_POOL_CONCURRENCY = 4;
@@ -160,12 +160,8 @@ export const listQuery = defineQueryHandler({
   }),
   access: { roles: ["SystemAdmin"] },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message: "jobs:query:list requires ctx.systemDb (feature must declare r.systemScope())",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const systemDb = requireSystemDb(ctx, "jobs:query:list");
+    const db = systemDb.acknowledgeCrossTenant(
       "cross-tenant job monitoring: SystemAdmin lists job runs of every tenant",
     );
     const filters = buildFilterOperators(query.payload);

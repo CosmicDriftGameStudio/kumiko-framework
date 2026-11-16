@@ -43,6 +43,7 @@ import {
   type ChunkedMigrationStopReason,
   classifyStoredEnvelope,
   createTenantDbCache,
+  requireSystemDb,
   runChunkedMigration,
 } from "../../shared/index.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
@@ -93,12 +94,8 @@ export const reencryptJob: JobHandlerFn = async (rawPayload, ctx): Promise<void>
     });
   }
   // config is r.systemScope(), so ctx.systemDb is always present on its jobs.
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message: "[config:reencrypt] ctx.systemDb missing on a system-scoped job",
-    });
-  }
-  const db = ctx.systemDb.unsafeRaw(
+  const systemDb = requireSystemDb(ctx, "config:reencrypt");
+  const db = systemDb.unsafeRaw(
     "system-wide KEK rotation scans every tenant's encrypted config values",
   ) as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
 

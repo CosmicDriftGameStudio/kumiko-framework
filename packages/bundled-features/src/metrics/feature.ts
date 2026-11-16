@@ -7,9 +7,10 @@ import {
   type QueryHandlerDefinition,
   referenceGroupLabels,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { requireSystemDb } from "../shared/index.ts";
 import { runMetric } from "./compute.ts";
 import {
   metricFilterPayloadShape,
@@ -114,11 +115,7 @@ function createSystemMetricQuery(
     schema: systemPayloadSchema(metric),
     access: { roles: access.systemAdmin },
     handler: (query, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: `${METRICS_SYSTEM_FEATURE}:query:${metric.id} requires ctx.systemDb — is r.systemScope() set?`,
-        });
-      }
+      const systemDb = requireSystemDb(ctx, `${METRICS_SYSTEM_FEATURE}:query:${metric.id}`);
       const { tenantId } = query.payload;
       if (tenantId !== undefined && !metricHasTenantColumn(metric)) {
         throw new ValidationError({
@@ -131,7 +128,7 @@ function createSystemMetricQuery(
           ],
         });
       }
-      const db = ctx.systemDb.acknowledgeCrossTenant(
+      const db = systemDb.acknowledgeCrossTenant(
         `${METRICS_SYSTEM_FEATURE}:${metric.id} — SystemAdmin platform-wide aggregate`,
       );
       return runMetric(db, metric, {

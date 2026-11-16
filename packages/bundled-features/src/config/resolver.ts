@@ -5,7 +5,6 @@ import {
   type KmsContext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection, TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import type {
   ConfigCascade,
   ConfigCascadeLevel,
@@ -20,7 +19,6 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { selectConfigRowsForKeys, selectConfigRowsForScope } from "./db/queries/resolver.ts";
-import { configValuesTable } from "./table.ts";
 
 type ConfigRow = {
   id: string;
@@ -152,32 +150,22 @@ async function readBackingSecret(
   return secret?.reveal();
 }
 
-// Shared cascade-builder. Single-key path passes a `findRow`-bound row
-// fetcher (one SQL per lookup); batch path passes a closure over
-// pre-loaded rows. The builder itself is unaware of which.
-async function buildCascade(
-  qualifiedKey: string,
-  keyDef: ConfigKeyDefinition,
+type CascadeLookup = {
+  tenantId: string;
+  userId: string | null;
+  source: ConfigValueSource;
+  label: string;
+};
+
+// user: userId+tenantId → tenantId → SYSTEM_TENANT_ID; tenant: tenantId → SYSTEM_TENANT_ID;
+// system: SYSTEM_TENANT_ID only.
+function cascadeLookupsForScope(
+  scope: ConfigKeyDefinition["scope"],
   tenantId: string,
   userId: string,
-  db: DbConnection | TenantDb,
-  fetchRow: (
-    tenantId: string,
-    userId: string | null,
-  ) => Promise<ConfigRow | null> | ConfigRow | null,
-  appOverrides: AppConfigOverrides | undefined,
-  cipher: EnvelopeCipher | undefined,
-  secretsReader: ConfigSecretsReader | undefined,
-): Promise<ConfigCascade> {
-  type Lookup = {
-    tenantId: string;
-    userId: string | null;
-    source: ConfigValueSource;
-    label: string;
-  };
-  const lookups: Lookup[] = [];
-
-  switch (keyDef.scope) {
+): CascadeLookup[] {
+  const lookups: CascadeLookup[] = [];
+  switch (scope) {
     case "user":
       lookups.push({ tenantId, userId, source: "user-row", label: "User" });
       lookups.push({ tenantId, userId: null, source: "tenant-row", label: "Tenant" });
@@ -206,8 +194,35 @@ async function buildCascade(
       });
       break;
     default:
-      assertUnreachable(keyDef.scope, "config scope");
+      assertUnreachable(scope, "config scope");
   }
+  return lookups;
+}
+
+function findPreloadedRow(
+  rows: readonly ConfigRow[],
+  tenantId: string,
+  userId: string | null,
+): ConfigRow | null {
+  return rows.find((r) => r.tenantId === tenantId && (r.userId ?? null) === userId) ?? null;
+}
+
+// Shared cascade-builder: callers hand in a lookup over pre-loaded rows.
+async function buildCascade(
+  qualifiedKey: string,
+  keyDef: ConfigKeyDefinition,
+  tenantId: string,
+  userId: string,
+  db: DbConnection | TenantDb,
+  fetchRow: (
+    tenantId: string,
+    userId: string | null,
+  ) => Promise<ConfigRow | null> | ConfigRow | null,
+  appOverrides: AppConfigOverrides | undefined,
+  cipher: EnvelopeCipher | undefined,
+  secretsReader: ConfigSecretsReader | undefined,
+): Promise<ConfigCascade> {
+  const lookups = cascadeLookupsForScope(keyDef.scope, tenantId, userId);
 
   const levels: ConfigCascadeLevel[] = [];
   let activeIndex = -1;
@@ -328,21 +343,6 @@ async function buildCascade(
 
 export function createConfigResolver(options: ConfigResolverOptions = {}): ConfigResolver {
   const { cipher, appOverrides } = options;
-  async function findRow(
-    key: string,
-    tenantId: string,
-    userId: string | null,
-    db: DbConnection | TenantDb,
-  ): Promise<ConfigRow | null> {
-    const row = await fetchOne<ConfigRow>(db, configValuesTable, {
-      key,
-      tenantId,
-      userId,
-    });
-
-    return row ?? null;
-  }
-
   return {
     async get(qualifiedKey, keyDef, tenantId, userId, db, secretsReader) {
       // get() is a thin wrapper around getWithSource that discards the
@@ -367,58 +367,28 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       secretsReader,
     ): Promise<ConfigValueWithSource> {
       // backing="secrets": the value lives in the secrets store at the system
-      // tenant, not config_values. Read it directly (system-only by boot-guard)
-      // and skip the config-row lookups; app-override/computed/default still
-      // form the fallback ladder when the secret is unset.
+      // tenant, not config_values (system-only by boot-guard), so no row lookup;
+      // app-override/computed/default still form the fallback ladder when unset.
       if (keyDef.backing === "secrets") {
         const secret = await readBackingSecret(secretsReader, qualifiedKey);
         if (secret !== undefined) {
           return { value: deserializeValue(secret, keyDef.type), source: "system-row" };
         }
-        if (appOverrides?.has(qualifiedKey)) {
-          return { value: appOverrides.get(qualifiedKey), source: "app-override" };
-        }
-        if (keyDef.computed) {
-          const value = await keyDef.computed({ tenantId, userId, db });
-          return { value, source: "computed" };
-        }
-        if (keyDef.default !== undefined) {
-          return { value: keyDef.default, source: "default" };
-        }
-        return { value: undefined, source: "missing" };
-      }
-      // Resolution cascade based on scope
-      // user:   userId+tenantId → tenantId → SYSTEM_TENANT_ID → default
-      // tenant: tenantId → SYSTEM_TENANT_ID → default
-      // system: SYSTEM_TENANT_ID → default
-      const lookups: Array<{
-        tenantId: string;
-        userId: string | null;
-        source: ConfigValueSource;
-      }> = [];
-
-      switch (keyDef.scope) {
-        case "user":
-          lookups.push({ tenantId, userId, source: "user-row" });
-          lookups.push({ tenantId, userId: null, source: "tenant-row" });
-          lookups.push({ tenantId: SYSTEM_TENANT_ID, userId: null, source: "system-row" });
-          break;
-        case "tenant":
-          lookups.push({ tenantId, userId: null, source: "tenant-row" });
-          lookups.push({ tenantId: SYSTEM_TENANT_ID, userId: null, source: "system-row" });
-          break;
-        case "system":
-          lookups.push({ tenantId: SYSTEM_TENANT_ID, userId: null, source: "system-row" });
-          break;
-        default:
-          assertUnreachable(keyDef.scope, "config scope");
-      }
-
-      for (const lookup of lookups) {
-        const row = await findRow(qualifiedKey, lookup.tenantId, lookup.userId, db);
-        if (row?.value !== null && row?.value !== undefined) {
-          const raw = await decryptStoredValue(row.value, keyDef, cipher, qualifiedKey);
-          return { value: deserializeValue(raw, keyDef.type), source: lookup.source };
+      } else {
+        const lookups = cascadeLookupsForScope(keyDef.scope, tenantId, userId);
+        const rows = await selectConfigRowsForKeys(
+          db,
+          [qualifiedKey],
+          SYSTEM_TENANT_ID,
+          tenantId,
+          userId,
+        );
+        for (const lookup of lookups) {
+          const row = findPreloadedRow(rows, lookup.tenantId, lookup.userId);
+          if (row?.value !== null && row?.value !== undefined) {
+            const raw = await decryptStoredValue(row.value, keyDef, cipher, qualifiedKey);
+            return { value: deserializeValue(raw, keyDef.type), source: lookup.source };
+          }
         }
       }
 
@@ -477,15 +447,20 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
       db,
       secretsReader,
     ): Promise<ConfigCascade> {
-      // Single-key path uses findRow per cascade step. The batch path
-      // bulk-loads all rows up-front; both build identical levels arrays.
+      const rows = await selectConfigRowsForKeys(
+        db,
+        [qualifiedKey],
+        SYSTEM_TENANT_ID,
+        tenantId,
+        userId,
+      );
       return buildCascade(
         qualifiedKey,
         keyDef,
         tenantId,
         userId,
         db,
-        (tid, uid) => findRow(qualifiedKey, tid, uid, db),
+        (tid, uid) => findPreloadedRow(rows, tid, uid),
         appOverrides,
         cipher,
         secretsReader,
@@ -526,8 +501,7 @@ export function createConfigResolver(options: ConfigResolverOptions = {}): Confi
           tenantId,
           userId,
           db,
-          (tid, uid) =>
-            keyRows.find((r) => r.tenantId === tid && (r.userId ?? null) === uid) ?? null,
+          (tid, uid) => findPreloadedRow(keyRows, tid, uid),
           appOverrides,
           cipher,
           secretsReader,

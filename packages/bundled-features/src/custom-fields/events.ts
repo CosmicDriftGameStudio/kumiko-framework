@@ -22,3 +22,12 @@ export const customFieldClearedSchema = z.object({
   fieldKey: z.string().min(1).max(64),
 });
 export type CustomFieldClearedPayload = z.infer<typeof customFieldClearedSchema>;
+
+// Owning tenant of the deleted definition: SYSTEM_TENANT_ID means the cleanup
+// runs across all tenants, any other value only across that tenant.
+export const fieldDefinitionDeletedSchema = z.object({
+  entityName: z.string(),
+  fieldKey: z.string(),
+  tenantId: z.string().min(1),
+});
+export type FieldDefinitionDeletedPayload = z.infer<typeof fieldDefinitionDeletedSchema>;

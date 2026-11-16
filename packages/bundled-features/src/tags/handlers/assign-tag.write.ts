@@ -105,5 +105,3 @@ export function createAssignTagHandler(
     },
   };
 }
-
-export const assignTagHandler: WriteHandlerDef = createAssignTagHandler();

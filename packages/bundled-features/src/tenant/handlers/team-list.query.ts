@@ -4,13 +4,17 @@ import {
   definePagedQueryHandler,
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { userSessionTable } from "../../sessions/index.ts";
-import { decryptStoredPii, KMS_POOL_CONCURRENCY, mapWithConcurrency } from "../../shared/index.ts";
+import {
+  decryptStoredPii,
+  KMS_POOL_CONCURRENCY,
+  mapWithConcurrency,
+  requireSystemDb,
+} from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
@@ -102,13 +106,8 @@ export const teamListQuery = definePagedQueryHandler({
   description:
     "Pages through the caller's tenant team as one list of active members and pending invitations, with email, display name, roles, last-seen time and a status of active or pending, sortable and filterable by status.",
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:team:list requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const systemDb = requireSystemDb(ctx, "tenant:query:team:list");
+    const db = systemDb.assertTenantMatch(query.user.tenantId);
     const tenantId = query.user.tenantId;
 
     const membershipRows = await selectMany(db, tenantMembershipsTable, { tenantId });

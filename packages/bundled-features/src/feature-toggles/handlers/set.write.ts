@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { globalFeatureStateTable } from "../global-feature-state-table.ts";
 import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.ts";
 import {
@@ -62,13 +63,8 @@ export function createSetWriteHandler(getRuntime: (() => GlobalFeatureToggleRunt
       // not a real runtime possibility here. Guard anyway instead of a
       // non-null assertion: an app that ever un-declares r.systemScope()
       // gets an actionable error instead of a silent `undefined.acknowledgeCrossTenant`.
-      if (!ctx.systemDb) {
-        throw new Error(
-          "[feature-toggles] set-handler requires ctx.systemDb — the feature-toggles " +
-            "feature must stay r.systemScope() (see feature.ts).",
-        );
-      }
-      const db = ctx.systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
+      const systemDb = requireSystemDb(ctx, "feature-toggles:set-handler");
+      const db = systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
 
       // Guard 1: featureName must be a registered feature. Otherwise we'd
       // pile up orphan rows from typos that the gate would silently apply

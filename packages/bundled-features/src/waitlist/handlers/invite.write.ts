@@ -14,6 +14,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import { requireSystemDb } from "../../shared/index.ts";
 import { AuthErrors, AuthHandlers } from "../../auth-email-password/index.ts";
 import { TenantHandlers, tenantTable } from "../../tenant/index.ts";
 import { isOpenWaitlistStatus } from "../entity.ts";
@@ -142,11 +143,9 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
     escapeHatch: { grants: ["unsafeRaw"], reason: INVITE_LOCK_REASON },
     handler: async (event, ctx) => {
       const db = waitlistDb(ctx);
-      if (!ctx.systemDb) {
-        throw new InternalError({ message: "waitlist:invite requires ctx.systemDb" });
-      }
+      const systemDb = requireSystemDb(ctx, "waitlist:invite");
       await acquireNamespacedAdvisoryLock(
-        ctx.systemDb.unsafeRaw(INVITE_LOCK_REASON),
+        systemDb.unsafeRaw(INVITE_LOCK_REASON),
         INVITE_LOCK_NAMESPACE,
         event.payload.id,
       );

@@ -4,8 +4,8 @@ import {
   SYSTEM_ROLE,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { tenantTable } from "../schema/tenant.ts";
 
 export const activeTenantIdsQuery = defineQueryHandler({
@@ -15,13 +15,8 @@ export const activeTenantIdsQuery = defineQueryHandler({
   description:
     "Returns the ids of every tenant that is currently enabled, platform-wide; use it to drive work that has to fan out over all live tenants.",
   handler: async (_query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:activeTenantIds requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant("lists active tenant ids platform-wide");
+    const systemDb = requireSystemDb(ctx, "tenant:query:activeTenantIds");
+    const db = systemDb.acknowledgeCrossTenant("lists active tenant ids platform-wide");
     // tenants.id is a uuid string (TenantId), not a numeric surrogate.
     // Brand at the DB parse boundary — getActiveTenantIds consumers expect TenantId[].
     const rows = await selectMany<{ id: TenantId }>(db, tenantTable, { isEnabled: true });

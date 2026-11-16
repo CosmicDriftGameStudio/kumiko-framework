@@ -14,7 +14,6 @@ import {
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  InternalError,
   NotFoundError,
   type WriteFailure,
   writeFailure,
@@ -22,7 +21,7 @@ import {
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared/index.ts";
+import { decryptStoredPii, requireSystemDb } from "../../shared/index.ts";
 import { userTable } from "../../user/index.ts";
 import { cancelPendingInvitation } from "../cancel-pending-invitation.ts";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.ts";
@@ -80,13 +79,8 @@ export const removeMemberWrite = defineWriteHandler({
     "Removes a user's membership in a tenant and signs their sessions in that tenant out, refusing to strip the tenant's last TenantAdmin; use it when someone should lose access to a workspace.",
   agent: { risk: "high" },
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:write:removeMember requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const systemDb = requireSystemDb(ctx, "tenant:write:removeMember");
+    const db = systemDb.acknowledgeCrossTenant(
       "SystemAdmin manages memberships across tenants",
     );
     const streamTenantId = parseTenantId(event.payload.tenantId);
@@ -110,7 +104,7 @@ export const removeMemberWrite = defineWriteHandler({
     if (currentRoles.includes("TenantAdmin")) {
       // assertNotLastTenantAdmin issues raw SQL, so it needs the raw runner, not
       // the tenant-scoped `db` — the count is filtered by the explicit tenantId.
-      const lockRunner = ctx.systemDb.unsafeRaw(
+      const lockRunner = systemDb.unsafeRaw(
         "tenant:write:removeMember last-TenantAdmin advisory lock + membership count",
       );
       const lastAdmin = await assertNotLastTenantAdmin(

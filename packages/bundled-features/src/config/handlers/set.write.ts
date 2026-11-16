@@ -18,7 +18,8 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireConfigEncryption, requireConfigResolver, requireSystemDb } from "../feature.ts";
+import { requireSystemDb } from "../../shared/index.ts";
+import { requireConfigEncryption, requireConfigResolver } from "../feature.ts";
 import { MASKED } from "../read-redaction.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
 import {
@@ -58,7 +59,7 @@ export const setWrite = defineWriteHandler({
     },
   },
   handler: async (event, ctx) => {
-    const db = requireSystemDb(ctx, "config:write:set", event.user.tenantId);
+    const db = requireSystemDb(ctx, "config:write:set").assertTenantMatch(event.user.tenantId);
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,

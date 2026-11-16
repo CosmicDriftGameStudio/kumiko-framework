@@ -25,6 +25,7 @@
 // wait/retry/waitForEvent suspensions all resume automatically now.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { requireSystemDb } from "../shared/index.ts";
 import { selectDueWorkflowRunPending } from "./db/queries/due-runs.ts";
 import { resumeRunHandler } from "./handlers/resume-run.write.ts";
 import { registerWorkflowRunPendingProjection } from "./pending-projection.ts";
@@ -61,13 +62,11 @@ export function createWorkflowRunnerFeature() {
         "resume-due-runs",
         { trigger: { cron: "* * * * *" }, perTenant: true, concurrency: "skip" },
         async (_payload, ctx) => {
-          if (!ctx.systemDb) {
-            throw new Error("resume-due-runs: ctx.systemDb required (r.systemScope() feature)");
-          }
+          const systemDb = requireSystemDb(ctx, "resume-due-runs");
           const tenantId = ctx.systemUser.tenantId;
 
           const dueRows = await selectDueWorkflowRunPending(
-            ctx.systemDb.assertTenantMatch(tenantId),
+            systemDb.assertTenantMatch(tenantId),
           );
 
           for (const row of dueRows) {

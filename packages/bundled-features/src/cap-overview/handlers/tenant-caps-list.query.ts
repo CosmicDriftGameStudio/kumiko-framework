@@ -6,8 +6,9 @@ import {
   pageRows,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
 import { tierAssignmentEntity } from "../../tier-engine/index.ts";
@@ -187,13 +188,8 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         "cap-overview:tenant-caps:list — grants app-owned CapSpec.usage()/usageBatch() providers raw SQL for aggregates TenantDb has no typed helper for (e.g. a SUM)",
     },
     handler: async (query, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message:
-            "cap-overview:query:tenant-caps:list requires ctx.systemDb — is r.systemScope() set?",
-        });
-      }
-      const db = ctx.systemDb.acknowledgeCrossTenant(
+      const systemDb = requireSystemDb(ctx, "cap-overview:query:tenant-caps:list");
+      const db = systemDb.acknowledgeCrossTenant(
         "cap-overview:tenant-caps:list — SystemAdmin platform-wide tenant overview",
       );
 

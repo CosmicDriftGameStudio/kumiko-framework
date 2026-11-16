@@ -1,5 +1,6 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { globalFeatureStateTable } from "../global-feature-state-table.ts";
 import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../web/constants.ts";
 
@@ -16,13 +17,8 @@ export const listQuery = defineQueryHandler({
   handler: async (_event, ctx) => {
     // ctx.systemDb is populated for r.systemScope() handlers only (feature.ts
     // declares it) — guarded instead of asserted, see set.write.ts Guard 0.5.
-    if (!ctx.systemDb) {
-      throw new Error(
-        "[feature-toggles] list-query requires ctx.systemDb — the feature-toggles " +
-          "feature must stay r.systemScope() (see feature.ts).",
-      );
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
+    const systemDb = requireSystemDb(ctx, "feature-toggles:list-query");
+    const db = systemDb.acknowledgeCrossTenant(FEATURE_TOGGLE_CROSS_TENANT_REASON);
 
     type Row = {
       featureName: string;

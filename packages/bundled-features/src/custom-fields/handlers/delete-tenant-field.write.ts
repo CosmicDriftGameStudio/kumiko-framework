@@ -67,7 +67,3 @@ export function createDeleteTenantFieldHandler(
     },
   };
 }
-
-// Backwards-compat: existing imports of `deleteTenantFieldHandler` keep
-// working — identical to createDeleteTenantFieldHandler() with default roles.
-export const deleteTenantFieldHandler: WriteHandlerDef = createDeleteTenantFieldHandler();

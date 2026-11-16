@@ -1,7 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { tenantMembershipsTable } from "../membership-table.ts";
 
 // Cross-feature query: resolve user IDs by tenantId or userId.
@@ -16,13 +16,8 @@ export const resolveUserIdsQuery = defineQueryHandler({
   access: { roles: [SYSTEM_ROLE] },
   agent: { expose: false },
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:resolveUserIds requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const systemDb = requireSystemDb(ctx, "tenant:query:resolveUserIds");
+    const db = systemDb.acknowledgeCrossTenant(
       "cross-feature lookup by arbitrary tenantId/userId",
     );
     const { tenantId, userId } = query.payload;

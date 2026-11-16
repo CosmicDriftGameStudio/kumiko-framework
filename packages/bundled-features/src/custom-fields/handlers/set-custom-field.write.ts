@@ -48,92 +48,90 @@ const SET_CUSTOM_FIELD_REASON =
 // `maxLength`, `format`, and `default` from serializedField before building
 // a schema from fieldToZod — we check only the type shape. Required-on-set,
 // default application, and length/format enforcement remain out of scope.
-export const setCustomFieldHandler: WriteHandlerDef = {
-  name: "set-custom-field",
-  schema: setCustomFieldPayloadSchema,
-  access: { roles: DEFAULT_VALUE_WRITE_ROLES },
-  description:
-    "Stores one custom-field value on a single host entity row after validating it against the field definition's declared type and per-field write roles; use it to save what a user entered into a custom field.",
-  escapeHatch: {
-    grants: ["unsafeRaw"],
-    reason: SET_CUSTOM_FIELD_REASON,
-  },
-  handler: async (event, ctx) => {
-    const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
-    if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
-      return failUnprocessable("custom_fields_entity_not_wired", { entityName: payload.entityName });
-    }
-
-
-    if (
-      !(await parentRowIsVisible(
-        ctx.registry,
-        payload.entityName,
-        payload.entityId,
-        event.user,
-        ctx.db,
-      ))
-    ) {
-      return failNotFound(payload.entityName, payload.entityId);
-    }
-
-    const loaded = await loadFieldDefinition(
-      ctx.db.unsafeRaw(),
-      event.user.tenantId,
-      payload.entityName,
-      payload.fieldKey,
-    );
-    if (!loaded.found) {
-      return failNotFound("fieldDefinition", payload.fieldKey);
-    }
-    if (loaded.field === null) {
-      return failUnprocessable("field_definition_corrupt", { fieldKey: payload.fieldKey });
-    }
-
-    const deniedRoles = fieldWriteAccessDeniedRoles(loaded.field, event.user.roles);
-    if (deniedRoles) {
-      return failUnprocessable("field_access_denied", {
-        fieldKey: payload.fieldKey,
-        requiredRoles: deniedRoles,
-      });
-    }
-
-    const valueSchema = buildCustomFieldValueSchema(loaded.field);
-    if (valueSchema) {
-      const parsed = valueSchema.safeParse(payload.value);
-      if (!parsed.success) {
-        return failUnprocessable("custom_field_value_invalid", {
-          fieldKey: payload.fieldKey,
-          fieldType: loaded.field?.type,
-          issues: parsed.error.issues.map((i) => i.message),
-        });
-      }
-    }
-
-    // Emit customField.set on the host-aggregate stream. unsafeAppendEvent
-    // is used instead of strict appendEvent because event-type-map has no
-    // cross-feature augmentation for this event type; the qualified string
-    // name is used directly. The value is ALWAYS included in the event
-    // (custom fields carry no PII), so replay fully reproduces the projection.
-    await ctx.events.unsafeAppend({
-      aggregateId: payload.entityId,
-      aggregateType: payload.entityName,
-      type: createCustomFieldsFeature().exports.setEvent.name,
-      payload: { fieldKey: payload.fieldKey, value: payload.value },
-    });
-
-    return {
-      isSuccess: true as const,
-      data: { entityName: payload.entityName, entityId: payload.entityId },
-    };
-  },
-};
-
 /** Value writes use app roles instead of the bundle defaults — apps with a
  *  custom role vocabulary (e.g. "Admin"/"Editor") pass their roles here via
  *  createCustomFieldsFeature({ valueWriteRoles }). */
 export function createSetCustomFieldHandler(
   roles: readonly string[] = DEFAULT_VALUE_WRITE_ROLES,
 ): WriteHandlerDef {
-  return { ...setCustomFieldHandler, access: { roles } };
+  return {
+    name: "set-custom-field",
+    schema: setCustomFieldPayloadSchema,
+    access: { roles },
+    description:
+      "Stores one custom-field value on a single host entity row after validating it against the field definition's declared type and per-field write roles; use it to save what a user entered into a custom field.",
+    escapeHatch: {
+      grants: ["unsafeRaw"],
+      reason: SET_CUSTOM_FIELD_REASON,
+    },
+    handler: async (event, ctx) => {
+      const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
+      if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
+        return failUnprocessable("custom_fields_entity_not_wired", { entityName: payload.entityName });
+      }
+
+
+      if (
+        !(await parentRowIsVisible(
+          ctx.registry,
+          payload.entityName,
+          payload.entityId,
+          event.user,
+          ctx.db,
+        ))
+      ) {
+        return failNotFound(payload.entityName, payload.entityId);
+      }
+
+      const loaded = await loadFieldDefinition(
+        ctx.db.unsafeRaw(),
+        event.user.tenantId,
+        payload.entityName,
+        payload.fieldKey,
+      );
+      if (!loaded.found) {
+        return failNotFound("fieldDefinition", payload.fieldKey);
+      }
+      if (loaded.field === null) {
+        return failUnprocessable("field_definition_corrupt", { fieldKey: payload.fieldKey });
+      }
+
+      const deniedRoles = fieldWriteAccessDeniedRoles(loaded.field, event.user.roles);
+      if (deniedRoles) {
+        return failUnprocessable("field_access_denied", {
+          fieldKey: payload.fieldKey,
+          requiredRoles: deniedRoles,
+        });
+      }
+
+      const valueSchema = buildCustomFieldValueSchema(loaded.field);
+      if (valueSchema) {
+        const parsed = valueSchema.safeParse(payload.value);
+        if (!parsed.success) {
+          return failUnprocessable("custom_field_value_invalid", {
+            fieldKey: payload.fieldKey,
+            fieldType: loaded.field?.type,
+            issues: parsed.error.issues.map((i) => i.message),
+          });
+        }
+      }
+
+      // Emit customField.set on the host-aggregate stream. unsafeAppendEvent
+      // is used instead of strict appendEvent because event-type-map has no
+      // cross-feature augmentation for this event type; the qualified string
+      // name is used directly. The value is ALWAYS included in the event
+      // (custom fields carry no PII), so replay fully reproduces the projection.
+      await ctx.events.unsafeAppend({
+        aggregateId: payload.entityId,
+        aggregateType: payload.entityName,
+        type: createCustomFieldsFeature().exports.setEvent.name,
+        payload: { fieldKey: payload.fieldKey, value: payload.value },
+      });
+
+      return {
+        isSuccess: true as const,
+        data: { entityName: payload.entityName, entityId: payload.entityId },
+      };
+    },
+  };
 }

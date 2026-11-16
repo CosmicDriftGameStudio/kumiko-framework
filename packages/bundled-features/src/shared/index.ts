@@ -1,4 +1,4 @@
-export { acknowledgedSystemDb } from "./acknowledged-system-db.ts";
+export { acknowledgedSystemDb, requireSystemDb } from "./acknowledged-system-db.ts";
 export { assertBillingLive, isBillingLive } from "./assert-billing-live.ts";
 export { collectErasureFailure, throwIfErasureFailed } from "./assert-erased.ts";
 export { assertNoWhereRuleInOwnershipWrite } from "./assert-no-where-rule-in-ownership-write.ts";

@@ -8,7 +8,8 @@ import {
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireConfigResolver, requireSystemDb } from "../feature.ts";
+import { requireSystemDb } from "../../shared/index.ts";
+import { requireConfigResolver } from "../feature.ts";
 import { hasConfigAccess } from "../write-helpers.ts";
 
 export type ReadinessMissingKey = {
@@ -145,7 +146,7 @@ export const readinessQuery = defineQueryHandler({
       "per-tenant bucket would throttle the whole tenant, L1 IP limit still applies",
   },
   handler: async (query, ctx) => {
-    const db = requireSystemDb(ctx, "config:query:readiness", query.user.tenantId);
+    const db = requireSystemDb(ctx, "config:query:readiness").assertTenantMatch(query.user.tenantId);
     const missing = await collectMissingRequiredConfig(
       ctx,
       "config:query:readiness",

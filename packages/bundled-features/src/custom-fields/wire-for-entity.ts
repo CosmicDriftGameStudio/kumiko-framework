@@ -152,7 +152,7 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     const payload = event.payload as {
       entityName: string;
       fieldKey: string;
-      tenantId?: TenantId;
+      tenantId: TenantId;
     }; // @cast-boundary engine-payload
     // skip: fieldDefinition.deleted fires for field definitions across all
     // entities; clean rows only when the deleted definition belonged to this
@@ -164,13 +164,10 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     // definitions apply to every tenant → cascade across all rows; tenant-
     // scope deletions must only touch that tenant's rows, else deleting one
     // tenant's field strips the same kebab key from every tenant (data loss).
-    // Fallback to the event's stream tenantId for events appended before the
-    // payload carried tenantId.
-    const defTenantId = payload.tenantId ?? event.tenantId;
-    if (isSystemTenant(defTenantId)) {
+    if (isSystemTenant(payload.tenantId)) {
       await removeCustomFieldKeyFromAllTenants(tx, tableName, payload.fieldKey);
     } else {
-      await removeCustomFieldKeyForTenant(tx, tableName, payload.fieldKey, defTenantId);
+      await removeCustomFieldKeyForTenant(tx, tableName, payload.fieldKey, payload.tenantId);
     }
   };
 

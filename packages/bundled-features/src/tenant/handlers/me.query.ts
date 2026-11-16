@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { decryptTenantNames } from "../decrypt-tenant-names.ts";
 import { tenantTable } from "../schema/tenant.ts";
 
@@ -26,13 +26,8 @@ export const meQuery = defineQueryHandler({
   description:
     "Returns the record of the tenant the caller is currently signed in to, or null if it is gone; use it whenever the active tenant's own name, key or settings are needed.",
   handler: async (query, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:query:me requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
+    const systemDb = requireSystemDb(ctx, "tenant:query:me");
+    const db = systemDb.assertTenantMatch(query.user.tenantId);
     const row = await fetchOne(db, tenantTable, { id: query.user.tenantId });
     if (row === undefined) return null;
     const [decrypted] = await decryptTenantNames([row], "tenant:me");

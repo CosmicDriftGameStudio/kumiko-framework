@@ -6,15 +6,22 @@ type CrossTenantReason = Parameters<
   NonNullable<AppContext["systemDb"]>["acknowledgeCrossTenant"]
 >[0];
 
+export function requireSystemDb(
+  ctx: Pick<AppContext, "systemDb">,
+  callerName: string,
+): NonNullable<AppContext["systemDb"]> {
+  if (!ctx.systemDb) {
+    throw new InternalError({
+      message: `${callerName} requires ctx.systemDb — is r.systemScope() set on the feature?`,
+    });
+  }
+  return ctx.systemDb;
+}
+
 export function acknowledgedSystemDb(
   ctx: Pick<AppContext, "systemDb">,
   featureName: string,
   crossTenantReason: CrossTenantReason,
 ): TenantDb {
-  if (!ctx.systemDb) {
-    throw new InternalError({
-      message: `${featureName} requires ctx.systemDb — is r.systemScope() set on the feature?`,
-    });
-  }
-  return ctx.systemDb.acknowledgeCrossTenant(crossTenantReason);
+  return requireSystemDb(ctx, featureName).acknowledgeCrossTenant(crossTenantReason);
 }

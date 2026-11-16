@@ -7,9 +7,9 @@ import {
 import {
   AccessDeniedError,
   FrameworkReasons,
-  InternalError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { tierAssignmentEntity } from "../../tier-engine/index.ts";
 import type { CapSpec, CapUsageWithMeta } from "../types.ts";
 import { computeFraction, computeTone, computeUnclampedFraction } from "../web/usage-math.ts";
@@ -35,11 +35,7 @@ export function createCapsUsageQuery(
         "cap-overview:caps:usage — grants app-owned CapSpec.usage() providers that still use unsafeRaw; COUNT/SUM/AVG are covered by TenantDb.count/TenantDb.aggregate",
     },
     handler: async (query, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: "cap-overview:query:caps:usage requires ctx.systemDb — is r.systemScope() set?",
-        });
-      }
+      const systemDb = requireSystemDb(ctx, "cap-overview:query:caps:usage");
       const override = query.payload.tenantId;
       if (override !== undefined && !mayOverrideTenant(query.user)) {
         throw new AccessDeniedError({
@@ -55,10 +51,10 @@ export function createCapsUsageQuery(
       // explicit `tenantId` WHERE regardless of which branch ran.
       const db =
         override !== undefined
-          ? ctx.systemDb.acknowledgeCrossTenant(
+          ? systemDb.acknowledgeCrossTenant(
               `cap-overview:caps:usage — SystemAdmin cross-tenant read for tenant ${targetTenantId}`,
             )
-          : ctx.systemDb.assertTenantMatch(query.user.tenantId);
+          : systemDb.assertTenantMatch(query.user.tenantId);
 
       const assignmentRows = await selectMany<TierAssignmentRow>(db, tierAssignmentTable, {
         tenantId: [targetTenantId],
@@ -70,7 +66,7 @@ export function createCapsUsageQuery(
       // from the caller's own tenantId, so the check would misfire there.
       const checkedRows =
         override === undefined
-          ? ctx.systemDb.assertRowsTenant(assignmentRows, "tenantId")
+          ? systemDb.assertRowsTenant(assignmentRows, "tenantId")
           : assignmentRows;
       const tier = checkedRows[0]?.tier ?? "";
 

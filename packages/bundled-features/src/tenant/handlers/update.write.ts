@@ -2,11 +2,11 @@ import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-fra
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   AccessDeniedError,
-  InternalError,
   NotFoundError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { tenantEntity, tenantTable } from "../schema/tenant.ts";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
@@ -25,23 +25,18 @@ export const updateWrite = defineWriteHandler({
   description:
     "Renames a tenant against the version the caller read; an Admin may only rename their own tenant, a SystemAdmin any of them.",
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:write:update requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
+    const systemDb = requireSystemDb(ctx, "tenant:write:update");
 
     // "Admin" is tenant-scoped and must not touch another tenant's row —
     // SystemAdmin is the platform-wide role and stays cross-tenant by design.
     if (event.user.roles.includes("SystemAdmin")) {
-      const db = ctx.systemDb.acknowledgeCrossTenant("SystemAdmin is platform-wide by design");
+      const db = systemDb.acknowledgeCrossTenant("SystemAdmin is platform-wide by design");
       return crud.update(event.payload, event.user, db);
     }
 
     let db: TenantDb;
     try {
-      db = ctx.systemDb.assertTenantMatch(event.payload.id);
+      db = systemDb.assertTenantMatch(event.payload.id);
     } catch (err) {
       // Kept as tenant_not_found (not the underlying access_denied) so a
       // cross-tenant Admin can't use the error to enumerate tenant existence.

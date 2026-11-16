@@ -23,5 +23,3 @@ export function createCreateTagHandler(
     },
   };
 }
-
-export const createTagHandler: WriteHandlerDef = createCreateTagHandler();

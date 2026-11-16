@@ -49,5 +49,3 @@ export function createRemoveTagHandler(
     },
   };
 }
-
-export const removeTagHandler: WriteHandlerDef = createRemoveTagHandler();

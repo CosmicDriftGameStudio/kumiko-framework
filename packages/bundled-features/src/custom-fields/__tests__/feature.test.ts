@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
+import { fieldDefinitionDeletedSchema } from "../events.ts";
 import { createCustomFieldsFeature, resolveFieldDefinitionListRoles } from "../feature.ts";
 import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas.ts";
 import { SUPPORTED_FIELD_TYPES } from "../web/constants.ts";
@@ -257,5 +258,23 @@ describe("resolveFieldDefinitionListRoles", () => {
         fieldDefinitionWriteRoles: ["Admin"],
       }),
     ).toEqual(["Member", "Admin", "TenantAdmin"]);
+  });
+});
+
+describe("fieldDefinitionDeletedSchema", () => {
+  test("rejects a payload without tenantId", () => {
+    expect(
+      fieldDefinitionDeletedSchema.safeParse({ entityName: "property", fieldKey: "color" }).success,
+    ).toBe(false);
+  });
+
+  test("accepts a payload with tenantId", () => {
+    expect(
+      fieldDefinitionDeletedSchema.safeParse({
+        entityName: "property",
+        fieldKey: "color",
+        tenantId: "t1",
+      }).success,
+    ).toBe(true);
   });
 });

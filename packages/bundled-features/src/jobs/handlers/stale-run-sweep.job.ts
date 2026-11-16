@@ -1,6 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { requireSystemDb } from "../../shared/index.ts";
 import { markStaleJobRunsFailed } from "../db/queries/stale-run-sweep.ts";
 
 // 24h, not e.g. the 1h cache-TTL used elsewhere in this feature (see
@@ -18,13 +18,8 @@ export function createStaleRunSweepJob(
   queuedRetentionDays: number,
 ): JobHandlerFn {
   return async (_payload, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "[jobs:stale-run-sweep] ctx.systemDb missing — is r.systemScope() still set on the jobs feature?",
-      });
-    }
-    const db = ctx.systemDb.unsafeRaw(
+    const systemDb = requireSystemDb(ctx, "jobs:stale-run-sweep");
+    const db = systemDb.unsafeRaw(
       "stale-run sweep marks stuck runs of every tenant as failed",
     ) as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
     const result = await markStaleJobRunsFailed(db, timeoutHours, queuedRetentionDays);

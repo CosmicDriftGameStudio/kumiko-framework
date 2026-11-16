@@ -1,6 +1,5 @@
 import { defineWriteHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  InternalError,
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -14,6 +13,7 @@ import {
   skipPoisonEvent,
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import type { CONSUMER_STATE_ACTIONS } from "../events.ts";
 import {
   CONSUMER_STATE_CHANGED_EVENT_NAME,
@@ -49,12 +49,8 @@ function defineConsumerWrite(
     // Operator recovery for people only; skip drops an event for good.
     agent: { expose: false },
     handler: async (event, ctx) => {
-      if (!ctx.systemDb) {
-        throw new InternalError({
-          message: `jobs:write:${name} requires ctx.systemDb (feature must declare r.systemScope())`,
-        });
-      }
-      const db = ctx.systemDb.unsafeRaw(CONSUMER_STATE_REASON);
+      const systemDb = requireSystemDb(ctx, `jobs:write:${name}`);
+      const db = systemDb.unsafeRaw(CONSUMER_STATE_REASON);
       let next: Awaited<ReturnType<ConsumerTransition>>;
       try {
         next = await transition(db, event.payload.name, event.payload.instanceId);

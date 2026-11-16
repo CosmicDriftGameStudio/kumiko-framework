@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireSystemDb } from "../feature.ts";
+import { requireSystemDb } from "../../shared/index.ts";
 import { configValueEntity, configValuesTable } from "../table.ts";
 import { findConfigRow, prepareConfigWrite } from "../write-helpers.ts";
 
@@ -34,7 +34,7 @@ export const resetWrite = defineWriteHandler({
     },
   },
   handler: async (event, ctx) => {
-    const db = requireSystemDb(ctx, "config:write:reset", event.user.tenantId);
+    const db = requireSystemDb(ctx, "config:write:reset").assertTenantMatch(event.user.tenantId);
 
     const prep = prepareConfigWrite({
       registry: ctx.registry,

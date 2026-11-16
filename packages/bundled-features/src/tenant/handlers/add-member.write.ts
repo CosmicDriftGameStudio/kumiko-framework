@@ -8,10 +8,10 @@ import {
 import {
   AccessDeniedError,
   ConflictError,
-  InternalError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { requireSystemDb } from "../../shared/index.ts";
 import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles.ts";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.ts";
 import { TenantErrors } from "../web/constants.ts";
@@ -37,13 +37,8 @@ export const addMemberWrite = defineWriteHandler({
   description:
     "Grants an existing user membership in a tenant with the given roles, refusing reserved role names and a user who is already a member; use it to add someone to a workspace without going through an invitation.",
   handler: async (event, ctx) => {
-    if (!ctx.systemDb) {
-      throw new InternalError({
-        message:
-          "tenant:write:addMember requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
-      });
-    }
-    const db = ctx.systemDb.acknowledgeCrossTenant(
+    const systemDb = requireSystemDb(ctx, "tenant:write:addMember");
+    const db = systemDb.acknowledgeCrossTenant(
       "SystemAdmin manages memberships across tenants",
     );
     if (!isFrameworkSystemUser(event.user) && event.payload.tenantId !== event.user.tenantId) {
