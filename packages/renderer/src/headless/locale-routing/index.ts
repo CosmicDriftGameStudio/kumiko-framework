@@ -16,12 +16,21 @@ export type LocaleRouterConfig<TPage extends string> = {
   readonly homePage?: TPage;
 };
 
+export type LocaleStaticPageDispatch =
+  | { readonly kind: "html"; readonly file: string }
+  | { readonly kind: "redirect"; readonly to: string; readonly status: 301 };
+
 export type LocaleRouter<TPage extends string> = {
   detectLang(pathname: string): string;
   publicPath(page: TPage, locale: string): string;
   resolvePage(pathname: string): TPage | undefined;
   altLocalePath(pathname: string, targetLocale?: string): string;
   sectionAnchor(page: TPage, locale: string, fragment: string): string;
+  /** Canonical page → html via fileFor (undefined = not static), hint or default-locale-prefixed path → 301 to the canonical path, anything else → null. */
+  staticPageDispatch(
+    pathname: string,
+    fileFor: (page: TPage, locale: string) => string | undefined,
+  ): LocaleStaticPageDispatch | null;
 };
 
 function normalizePath(pathname: string): string {
@@ -42,6 +51,18 @@ function stripLocalePrefix(
   if (path === prefix) return "/";
   if (path.startsWith(`${prefix}/`)) return path.slice(prefix.length);
   return path;
+}
+
+function defaultLocaleRemainder(
+  path: string,
+  defaultLocale: string,
+  prefixedLocales: readonly string[],
+  prefixFor: (locale: string) => string,
+): string | undefined {
+  if (prefixedLocales.includes(defaultLocale)) return undefined;
+  const prefix = prefixFor(defaultLocale);
+  if (path !== prefix && !path.startsWith(`${prefix}/`)) return undefined;
+  return stripLocalePrefix(path, defaultLocale, prefixFor);
 }
 
 export function createLocaleRouter<TPage extends string>(
@@ -143,7 +164,28 @@ export function createLocaleRouter<TPage extends string>(
     return `${publicPath(page, locale)}#${fragment}`;
   }
 
-  return { detectLang, publicPath, resolvePage, altLocalePath, sectionAnchor };
+  function staticPageDispatch(
+    pathname: string,
+    fileFor: (page: TPage, locale: string) => string | undefined,
+  ): LocaleStaticPageDispatch | null {
+    const path = normalizePath(pathname);
+    const resolved = pathIndex.get(path);
+    if (resolved !== undefined) {
+      const canonical = publicPath(resolved.page, resolved.locale);
+      if (normalizePath(canonical) !== path) {
+        return { kind: "redirect", to: canonical, status: 301 };
+      }
+      const file = fileFor(resolved.page, resolved.locale);
+      return file === undefined ? null : { kind: "html", file };
+    }
+    const remainder = defaultLocaleRemainder(path, defaultLocale, prefixedLocales, prefixFor);
+    if (remainder === undefined) return null;
+    const legacy = pathIndex.get(remainder);
+    if (legacy === undefined || legacy.locale !== defaultLocale) return null;
+    return { kind: "redirect", to: publicPath(legacy.page, defaultLocale), status: 301 };
+  }
+
+  return { detectLang, publicPath, resolvePage, altLocalePath, sectionAnchor, staticPageDispatch };
 }
 
 export type WrapUrlLocaleResolverOptions = {

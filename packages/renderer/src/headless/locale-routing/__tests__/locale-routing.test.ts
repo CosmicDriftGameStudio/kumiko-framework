@@ -274,3 +274,100 @@ describe("wrapUrlLocaleResolver", () => {
     expect(wrapped.locale()).toBe("en");
   });
 });
+
+const moneyHorseFile = (page: MoneyHorsePage, locale: string): string | undefined =>
+  page === "home"
+    ? `pages/${locale}/index.html`
+    : page === "features"
+      ? `pages/${locale}/features/index.html`
+      : undefined;
+
+describe("staticPageDispatch money-horse config", () => {
+  const dispatch = (path: string) => moneyHorseRouter.staticPageDispatch(path, moneyHorseFile);
+
+  test("canonical pages answer html, with or without trailing slash", () => {
+    expect(dispatch("/")).toEqual({ kind: "html", file: "pages/de/index.html" });
+    expect(dispatch("/en")).toEqual({ kind: "html", file: "pages/en/index.html" });
+    expect(dispatch("/en/")).toEqual({ kind: "html", file: "pages/en/index.html" });
+    expect(dispatch("/funktionen")).toEqual({ kind: "html", file: "pages/de/features/index.html" });
+    expect(dispatch("/funktionen/")).toEqual({
+      kind: "html",
+      file: "pages/de/features/index.html",
+    });
+    expect(dispatch("/en/features")).toEqual({
+      kind: "html",
+      file: "pages/en/features/index.html",
+    });
+  });
+
+  test("default-locale prefix and hint paths redirect to the canonical path", () => {
+    expect(dispatch("/de")).toEqual({ kind: "redirect", to: "/", status: 301 });
+    expect(dispatch("/de/")).toEqual({ kind: "redirect", to: "/", status: 301 });
+    expect(dispatch("/features")).toEqual({ kind: "redirect", to: "/en/features", status: 301 });
+    expect(dispatch("/features/")).toEqual({ kind: "redirect", to: "/en/features", status: 301 });
+    expect(dispatch("/de/funktionen")).toEqual({
+      kind: "redirect",
+      to: "/funktionen",
+      status: 301,
+    });
+  });
+
+  test("non-static and unknown paths answer null", () => {
+    expect(dispatch("/rechner")).toBeNull();
+    expect(dispatch("/en/rechner")).toBeNull();
+    expect(dispatch("/login")).toBeNull();
+  });
+});
+
+type ShowPonyPage = "home" | "features" | "pricing";
+
+const showPonyRouter = createLocaleRouter<ShowPonyPage>({
+  defaultLocale: "en",
+  prefixedLocales: ["de"],
+  routes: {
+    home: { en: "/", de: "/de" },
+    features: { en: "/features", de: "/de/funktionen" },
+    pricing: { en: "/pricing", de: "/de/preise" },
+  },
+  localeHints: { de: ["/funktionen", "/preise"] },
+});
+
+const showPonyFile = (page: ShowPonyPage, locale: string): string =>
+  page === "home" ? `pages/${locale}/index.html` : `pages/${locale}/${page}/index.html`;
+
+describe("staticPageDispatch show-pony config", () => {
+  const dispatch = (path: string) => showPonyRouter.staticPageDispatch(path, showPonyFile);
+
+  test("canonical pages answer html", () => {
+    expect(dispatch("")).toEqual({ kind: "html", file: "pages/en/index.html" });
+    expect(dispatch("/")).toEqual({ kind: "html", file: "pages/en/index.html" });
+    expect(dispatch("/de")).toEqual({ kind: "html", file: "pages/de/index.html" });
+    expect(dispatch("/de/")).toEqual({ kind: "html", file: "pages/de/index.html" });
+    expect(dispatch("/features/")).toEqual({
+      kind: "html",
+      file: "pages/en/features/index.html",
+    });
+    expect(dispatch("/de/funktionen/")).toEqual({
+      kind: "html",
+      file: "pages/de/features/index.html",
+    });
+  });
+
+  test("legacy default-locale prefix and hint paths redirect", () => {
+    expect(dispatch("/en")).toEqual({ kind: "redirect", to: "/", status: 301 });
+    expect(dispatch("/en/")).toEqual({ kind: "redirect", to: "/", status: 301 });
+    expect(dispatch("/en/features")).toEqual({ kind: "redirect", to: "/features", status: 301 });
+    expect(dispatch("/funktionen")).toEqual({
+      kind: "redirect",
+      to: "/de/funktionen",
+      status: 301,
+    });
+    expect(dispatch("/preise/")).toEqual({ kind: "redirect", to: "/de/preise", status: 301 });
+    expect(dispatch("/en/pricing")).toEqual({ kind: "redirect", to: "/pricing", status: 301 });
+  });
+
+  test("unknown paths answer null", () => {
+    expect(dispatch("/en/funktionen")).toBeNull();
+    expect(dispatch("/admin")).toBeNull();
+  });
+});

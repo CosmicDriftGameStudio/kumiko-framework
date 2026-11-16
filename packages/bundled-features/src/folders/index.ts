@@ -20,3 +20,4 @@ export {
   FoldersHandlers,
   FoldersQueries,
 } from "./web/constants.ts";
+export { buildFolderTree, type FolderNode, type FolderRow, folderPath } from "./web/tree.ts";
