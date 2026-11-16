@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-09-04
-evidence: "kumiko-framework#2482 (workflow-runner Run-Envelope als bundled Feature); kumiko-framework#2513 (Resume-Loop, Phase 1+2); engine/define-workflow.ts; bundled-features/workflow-runner"
+verified: 2026-11-16
+evidence: "kumiko-framework#2482 (workflow-runner Run-Envelope als bundled Feature); kumiko-framework#2513 (Resume-Loop, Phase 1+2); engine/define-workflow.ts; bundled-features/workflow-runner; analyse-2026-11-16 (globaler Resume-Job, ein Lauf pro idempotencyKey)"
 ---
 
 # Workflow-Runner: Run-Envelope für Biz-Workflows
@@ -46,12 +46,15 @@ Pipeline:
    Ende bringt. Fehler der Pipeline propagieren zum `event-trigger`, der
    **`workflow.run-failed`** aufzeichnet.
 
+Mit `idempotencyKey` startet ein Schlüssel höchstens einen Lauf pro Mandant: Existiert der Run-Stream schon, überspringt der Event-Trigger das Trigger-Event, auch nach `workflow.run-failed`.
+
 ### Resume-Loop (fw#2513 Phase 2)
 
 Suspendierte `wait`/`retry`-Steps landen über `pending-projection.ts` in der
 `workflow_run_pending`-Tabelle. Der Cron-Job `resume-due-runs`
-(`perTenant`, minütlich) selektiert fällige Zeilen (`wakeAt < now()`) und
-dispatcht pro Zeile `workflow-runner:write:resume-run` — der Job selbst
+(ein globaler Lauf über alle Mandanten, minütlich, älteste 100 fälligen Zeilen
+zuerst) selektiert fällige Zeilen (`wakeAt < now()`) und dispatcht pro Zeile
+`workflow-runner:write:resume-run` als System-User des Mandanten der Zeile — der Job selbst
 macht nichts außer Selektieren + Dispatchen. Der Command-Handler
 `resume-run` (`r.systemScope()`, `SYSTEM_ROLE`-only) macht den
 Q7-Fingerprint-Check, claimt die Run per `WORKFLOW_RESUMED`-Event und setzt

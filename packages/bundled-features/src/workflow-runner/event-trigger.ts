@@ -134,6 +134,16 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
           ? workflowRunAggregateId(workflow.name, idempotencyKey)
           : crypto.randomUUID();
 
+        // A key starts at most one run per tenant; a crash after run-started leaves the run at its
+        // last recorded step instead of re-running its side effects on redelivery.
+        if (idempotencyKey && (await ctx.loadAggregate(runId)).length > 0) {
+          log.info("workflow trigger skipped, a run for this idempotency key exists", {
+            runId,
+            workflowName: workflow.name,
+          });
+          return;
+        }
+
         try {
           await startAndRunWorkflow({
             runId,

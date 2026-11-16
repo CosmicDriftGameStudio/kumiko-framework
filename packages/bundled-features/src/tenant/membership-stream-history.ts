@@ -96,8 +96,6 @@ async function readMembershipEvents(
 
 type PairHistory = {
   readonly streams: Map<string, MembershipStream>;
-  // A created event arrived while another stream of the pair was alive: replay collides.
-  collides: boolean;
 };
 
 function pairKeyOf(row: MembershipEventRow): string {
@@ -108,7 +106,7 @@ function groupByPair(rows: readonly MembershipEventRow[]): Map<string, PairHisto
   const pairs = new Map<string, PairHistory>();
   for (const row of rows) {
     const key = pairKeyOf(row);
-    const pair = pairs.get(key) ?? { streams: new Map(), collides: false };
+    const pair = pairs.get(key) ?? { streams: new Map() };
     pairs.set(key, pair);
     let stream = pair.streams.get(row.aggregate_id);
     if (!stream) {
@@ -124,9 +122,6 @@ function groupByPair(rows: readonly MembershipEventRow[]): Map<string, PairHisto
     stream.streamTenantIds.add(row.stream_tenant_id);
     stream.lastEventId = BigInt(row.event_id);
     if (row.type === CREATED) {
-      if ([...pair.streams.values()].some((other) => other !== stream && other.alive)) {
-        pair.collides = true;
-      }
       stream.alive = true;
     } else if (ROW_REMOVING_TYPES.includes(row.type)) {
       stream.alive = false;

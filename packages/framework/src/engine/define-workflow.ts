@@ -49,7 +49,7 @@ export type WorkflowDefinition<
     TData,
     { readonly [K in keyof TAwaits]: AwaitedEventType }
   >;
-  /** Idempotency key for deduplication — prevents duplicate runs. */
+  /** Idempotency key: at most one run per key and tenant; a later trigger with the same key starts no run, also after the first run failed. */
   readonly idempotencyKey?: string | ((event: WriteEvent<TPayload>) => string);
 };
 

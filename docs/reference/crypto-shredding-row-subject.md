@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-11
+verified: 2026-11-16
 ---
 
 # Crypto-shredding: the "record" (row) subject

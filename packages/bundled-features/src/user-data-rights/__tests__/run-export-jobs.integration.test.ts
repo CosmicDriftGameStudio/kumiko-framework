@@ -238,6 +238,43 @@ describe("runExportJobs :: happy path", () => {
   });
 });
 
+describe("runExportJobs :: per-run tenant cache", () => {
+  test("two pending jobs of one tenant build the storage provider once per run", async () => {
+    // request-export allows one open job per user, so the second job needs a second user.
+    const bobUser = createTestUser({ id: 43, tenantId: tenantA, roles: ["Member"] });
+    await seedRowViaEventStore(stack.db, userTable, {
+      id: String(bobUser.id),
+      email: "bob@example.com",
+      passwordHash: "hashed",
+      displayName: "Bob",
+      locale: "de",
+      emailVerified: true,
+      roles: '["Member"]',
+      status: USER_STATUS.Active,
+    });
+    const jobA = await seedPendingJob();
+    const jobB = await seedPendingJob({ user: bobUser });
+
+    let providerBuilds = 0;
+    const countingProvider = (tenantId: string): Promise<FileStorageProvider> => {
+      providerBuilds++;
+      return buildProvider(tenantId);
+    };
+
+    const result = await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: countingProvider,
+      now: NOW(),
+    });
+
+    expect(result.completedJobIds).toContain(jobA);
+    expect(result.completedJobIds).toContain(jobB);
+    expect(result.errors).toEqual([]);
+    expect(providerBuilds).toBe(1);
+  });
+});
+
 describe("runExportJobs :: stale-detection", () => {
   test("running job with startedAt > exportStaleTimeoutMinutes → failed", async () => {
     // Seed through the real path so the event stream exists, then directly update

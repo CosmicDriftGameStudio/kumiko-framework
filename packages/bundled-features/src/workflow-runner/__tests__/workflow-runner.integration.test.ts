@@ -431,6 +431,34 @@ describe("workflow-runner event-trigger", () => {
     ]);
   });
 
+  test("a second trigger with the same idempotencyKey starts no second run", async () => {
+    const runKey = crypto.randomUUID();
+    const runId = workflowRunAggregateId(happyWorkflow.name, runKey);
+
+    await fireTrigger("wr-test.happy", { runKey, n: 21 });
+    await fireTrigger("wr-test.happy", { runKey, n: 21 });
+
+    const rows = await loadRunEvents(runId);
+    expect(rows.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_RUN_COMPLETED_TYPE,
+    ]);
+  });
+
+  test("a trigger with the key of a suspended run leaves that run alone", async () => {
+    const runKey = crypto.randomUUID();
+    const runId = workflowRunAggregateId(suspendingWorkflow.name, runKey);
+
+    await fireTrigger("wr-test.suspend", { runKey });
+    await fireTrigger("wr-test.suspend", { runKey });
+
+    const rows = await loadRunEvents(runId);
+    expect(rows.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_WAITING_TYPE,
+    ]);
+  });
+
   test("a second resume-run for the same (runId, stepIndex) before pending-projection deletes the row reports already-resumed and never re-runs the step", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(doubleResumeWorkflow.name, runKey);

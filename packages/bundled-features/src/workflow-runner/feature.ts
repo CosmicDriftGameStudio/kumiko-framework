@@ -12,7 +12,7 @@
 // It also registers the resume loop:
 //   - the workflow_run_pending MSP materialises suspended
 //     wait/waitForEvent/retry steps into a pending-set table
-//   - the `resume-due-runs` cron job (perTenant) scans that table for
+//   - the `resume-due-runs` cron job (one global pass over all tenants, every minute) scans that table for
 //     `wakeAt < now()` rows and dispatches `resume-run` per row — the job
 //     itself does no resume logic, only SELECT + dispatch
 //   - the `resume-run` write handler (r.systemScope(), SYSTEM_ROLE-only)
@@ -24,8 +24,8 @@
 //
 // wait/retry/waitForEvent suspensions all resume automatically now.
 
-import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { requireSystemDb } from "../shared/index.ts";
+import { createSystemUser, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { acknowledgedSystemDb } from "../shared/index.ts";
 import { selectDueWorkflowRunPending } from "./db/queries/due-runs.ts";
 import { resumeRunHandler } from "./handlers/resume-run.write.ts";
 import { registerWorkflowRunPendingProjection } from "./pending-projection.ts";
@@ -48,9 +48,8 @@ export function createWorkflowRunnerFeature() {
         category: "infrastructure",
         recommended: false,
       });
-      // resume-run needs a full HandlerContext + ctx.systemDb (the pending-row
-      // scan crosses whatever tenant the row belongs to relative to the job's
-      // own tenant loop iteration) — same reasoning as tenant/feature.ts.
+      // resume-run needs a full HandlerContext and the global resume-due-runs job needs
+      // ctx.systemDb to read the pending rows of every tenant, same reasoning as tenant/feature.ts.
       r.systemScope();
       r.storeTable(workflowRunPendingTableMeta, {
         reason: "resume_loop.pending_suspended_steps",
@@ -60,27 +59,29 @@ export function createWorkflowRunnerFeature() {
 
       r.job(
         "resume-due-runs",
-        { trigger: { cron: "* * * * *" }, perTenant: true, concurrency: "skip" },
+        { trigger: { cron: "* * * * *" }, concurrency: "skip" },
         async (_payload, ctx) => {
-          const systemDb = requireSystemDb(ctx, "resume-due-runs");
-          const tenantId = ctx.systemUser.tenantId;
-
           const dueRows = await selectDueWorkflowRunPending(
-            systemDb.assertTenantMatch(tenantId),
+            acknowledgedSystemDb(
+              ctx,
+              "resume-due-runs",
+              "resume-due-runs wakes the due workflow runs of every tenant in one pass",
+            ),
           );
 
           for (const row of dueRows) {
             try {
-              await ctx.dispatch.write("workflow-runner:write:resume-run", {
-                runId: row.runId,
-                stepIndex: row.stepIndex,
-              });
+              await ctx.dispatch.writeAs(
+                createSystemUser(row.tenantId),
+                "workflow-runner:write:resume-run",
+                { runId: row.runId, stepIndex: row.stepIndex },
+              );
             } catch (error) {
               // skip: one row's dispatch failing (infra hiccup, not a business
               // outcome — resume-run itself never throws for expected cases)
-              // must not stop the rest of this tenant's due rows from resuming.
+              // must not stop the remaining due rows from resuming.
               ctx.obs.log.warn(
-                `[workflow-runner:resume-due-runs] runId=${row.runId} stepIndex=${row.stepIndex} dispatch failed: ${String(error)}`,
+                `[workflow-runner:resume-due-runs] tenantId=${row.tenantId} runId=${row.runId} stepIndex=${row.stepIndex} dispatch failed: ${String(error)}`,
               );
             }
           }

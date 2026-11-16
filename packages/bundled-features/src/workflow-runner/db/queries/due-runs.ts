@@ -1,10 +1,17 @@
 import { sql, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { workflowRunPendingTable } from "../../tables.ts";
 
-export type DueRow = { readonly runId: string; readonly stepIndex: number };
+export type DueRow = {
+  readonly runId: string;
+  readonly stepIndex: number;
+  readonly tenantId: TenantId;
+};
 
 // Oldest first and capped, so a backlog after an outage drains over several
 // ticks instead of holding one tick's `concurrency: "skip"` slot for minutes.
+// The job passes its cross-tenant system db, so the batch is the oldest due rows across all
+// tenants; a tenant-mode db narrows it to one tenant.
 export const DUE_RUNS_BATCH_SIZE = 100;
 
 // Dedup happens solely via resume-run's VersionConflictError-checked claim

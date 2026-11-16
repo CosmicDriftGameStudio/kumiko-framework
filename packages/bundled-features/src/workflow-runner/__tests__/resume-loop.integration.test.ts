@@ -36,6 +36,7 @@ import {
   defineFeature,
   defineWorkflow,
   type JobContext,
+  SYSTEM_TENANT_ID,
   stepsPipeline,
   type TenantId,
   WORKFLOW_RESUMED_TYPE,
@@ -47,7 +48,7 @@ import {
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createConfigFeature } from "../../config/index.ts";
@@ -150,11 +151,15 @@ const noopLogger: JobContext["obs"]["log"] = {
   },
 };
 
-async function fireTrigger(eventType: string, payload: Record<string, unknown>): Promise<void> {
+async function fireTrigger(
+  eventType: string,
+  payload: Record<string, unknown>,
+  tenantId: TenantId = admin.tenantId,
+): Promise<void> {
   await insertOne(stack.db, eventsTable, {
     aggregateId: crypto.randomUUID(),
     aggregateType: "rl-test-source",
-    tenantId: admin.tenantId,
+    tenantId,
     version: 1,
     type: eventType,
     eventVersion: 1,
@@ -206,15 +211,15 @@ async function runResumeDueRunsJob(): Promise<void> {
   expect(job).toBeDefined();
   if (!job) return;
 
-  const systemUser = createSystemUser(admin.tenantId);
+  const systemUser = createSystemUser(SYSTEM_TENANT_ID);
   const ctx: JobContext = {
-    db: createTenantDb({ db: stack.db, tenantId: admin.tenantId }),
+    db: createTenantDb({ db: stack.db, tenantId: SYSTEM_TENANT_ID }),
     systemDb: createSystemDbView(
       createTenantDb({
         db: stack.db,
-        tenantId: admin.tenantId,
+        tenantId: SYSTEM_TENANT_ID,
         mode: "system",
-        reason: "test seeds workflow rows for a named tenant",
+        reason: "test mirrors the global resume job's system db",
         grants: {
           unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
         },
@@ -230,7 +235,10 @@ async function runResumeDueRunsJob(): Promise<void> {
     ...bridgeStub({
       user: systemUser,
       log: noopLogger,
-      dispatch: { write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser) },
+      dispatch: {
+        write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser),
+        writeAs: (user, qn, payload) => stack.dispatcher.write(qn, payload, user),
+      },
     }),
   };
   await job.handler({}, ctx);
@@ -357,11 +365,41 @@ describe("workflow-runner resume loop", () => {
       expect(due.map((row) => row.stepIndex)).toEqual(
         Array.from({ length: DUE_RUNS_BATCH_SIZE }, (_, i) => total - i),
       );
+      expect(due.every((row) => row.tenantId === otherTenantId)).toBe(true);
     } finally {
       await asRawClient(stack.db).unsafe(`DELETE FROM workflow_run_pending WHERE tenant_id = $1`, [
         otherTenantId,
       ]);
     }
+  });
+
+  test("one resume-due-runs pass resumes the due runs of two tenants", async () => {
+    const pastIso = T.Now.instant().subtract({ hours: 1 }).toString();
+    const secondTenantId = testTenantId(7);
+    const keyA = crypto.randomUUID();
+    const keyB = crypto.randomUUID();
+    const runIdA = workflowRunAggregateId(waitWorkflow.name, keyA);
+    const runIdB = workflowRunAggregateId(waitWorkflow.name, keyB);
+
+    await fireTrigger("rl-test.wait", { runKey: keyA, forIso: pastIso });
+    await fireTrigger("rl-test.wait", { runKey: keyB, forIso: pastIso }, secondTenantId);
+    expect(await pendingRowExists(runIdA, 0)).toBe(true);
+    expect(await pendingRowExists(runIdB, 0)).toBe(true);
+
+    await runResumeDueRunsJob();
+
+    const expectedTypes = [
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_WAITING_TYPE,
+      WORKFLOW_RESUMED_TYPE,
+      WORKFLOW_RUN_COMPLETED_TYPE,
+    ];
+    const rowsA = await loadRunEvents(runIdA);
+    const rowsB = await loadRunEvents(runIdB);
+    expect(rowsA.map((row) => row["type"])).toEqual(expectedTypes);
+    expect(rowsB.map((row) => row["type"])).toEqual(expectedTypes);
+    const resumedB = rowsB.find((row) => row["type"] === WORKFLOW_RESUMED_TYPE);
+    expect(resumedB?.["tenantId"]).toBe(secondTenantId);
   });
 
   test("a racing tick on an already-completed run whose definition changed appends no second terminal event", async () => {

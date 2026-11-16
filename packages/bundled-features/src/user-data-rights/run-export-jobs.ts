@@ -172,9 +172,31 @@ export interface RunExportJobsResult {
   readonly tokenByJobId: ReadonlyMap<string, string>;
 }
 
+type TenantProfileLookup = (tenantId: TenantId) => ReturnType<typeof resolveProfileForTenant>;
+
+// One lookup per tenant and run: a pass otherwise resolves the same tenant once per job.
+// Only resolved values are cached, so a failed lookup is retried by the next candidate.
+function cachePerTenant<T>(
+  load: (tenantId: TenantId) => Promise<T>,
+): (tenantId: TenantId) => Promise<T> {
+  const resolved = new Map<TenantId, T>();
+  return async (tenantId) => {
+    const hit = resolved.get(tenantId);
+    if (hit !== undefined) return hit;
+    const value = await load(tenantId);
+    resolved.set(tenantId, value);
+    return value;
+  };
+}
+
 export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJobsResult> {
   const { db, registry, buildStorageProvider, now, sendExportReadyEmail, sendExportFailedEmail } =
     args;
+
+  const profileFor: TenantProfileLookup = cachePerTenant((tenantId) =>
+    resolveProfileForTenant({ db, tenantId }),
+  );
+  const storageProviderFor = cachePerTenant(buildStorageProvider);
 
   // Validate this configuration before the pass loop so a missing URL is not
   // swallowed by the per-job try/catch. Callback failures are best-effort, but
@@ -187,7 +209,7 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
 
   // Fail running jobs whose tenant-specific stale timeout has elapsed before
   // pickup, so a new run recovers jobs left behind by an earlier crash.
-  const staleFailedJobIds = await staleDetectionPass({ db, now });
+  const staleFailedJobIds = await staleDetectionPass({ db, now, profileFor });
 
   const completedJobIds: string[] = [];
   const failedJobIds: string[] = [];
@@ -199,7 +221,8 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
     const outcome = await processJob({
       db,
       registry,
-      buildStorageProvider,
+      buildStorageProvider: storageProviderFor,
+      profileFor,
       now,
       job,
       escapeHatchAuditSink: args.escapeHatchAuditSink,
@@ -262,7 +285,8 @@ export async function runExportJobs(args: RunExportJobsArgs): Promise<RunExportJ
   // storage object deleted and downloadStorageKey cleared in the database.
   const cleanedJobIds = await storageCleanupPass({
     db,
-    buildStorageProvider,
+    buildStorageProvider: storageProviderFor,
+    profileFor,
     now,
     metrics: args.metrics,
   });
@@ -309,6 +333,7 @@ async function processJob(args: {
   db: DbConnection;
   registry: Registry;
   buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
+  profileFor: TenantProfileLookup;
   now: Instant;
   job: JobRow;
   escapeHatchAuditSink?: EscapeHatchAuditSink;
@@ -355,30 +380,15 @@ async function processJob(args: {
       actor: args.actor,
     });
 
-    const profile = await resolveProfileForTenant({
-      db,
-      tenantId: job.requestedFromTenantId,
-    });
+    const profile = await args.profileFor(job.requestedFromTenantId);
     const ttl = profile.profile.userRights.exportDownloadTtl;
 
-    // Cross-tenant file references require a provider per tenant because storage
-    // configuration may differ. Cache each provider so a tenant is initialized
-    // only once; the requested tenant owns the write path, while reads use each
-    // file reference's tenantId.
-    const providerCache = new Map<TenantId, FileStorageProvider>();
-    const cachedProvider = async (tenantId: TenantId): Promise<FileStorageProvider> => {
-      let p = providerCache.get(tenantId);
-      if (!p) {
-        p = await buildStorageProvider(tenantId);
-        providerCache.set(tenantId, p);
-      }
-      return p;
-    };
-
-    const writeProvider = await cachedProvider(job.requestedFromTenantId);
+    // Reads use the provider of each file reference's tenantId; the requesting
+    // tenant owns the write path.
+    const writeProvider = await buildStorageProvider(job.requestedFromTenantId);
 
     const tracker = countingStream(
-      createZipStream(bundleToZipEntries(bundle, now, cachedProvider)),
+      createZipStream(bundleToZipEntries(bundle, now, buildStorageProvider)),
     );
 
     await writeProvider.writeStream(storageKey, tracker.stream, {
@@ -505,13 +515,14 @@ async function processJob(args: {
 async function staleDetectionPass(args: {
   db: DbConnection;
   now: Instant;
+  profileFor: TenantProfileLookup;
 }): Promise<readonly string[]> {
-  const { db, now } = args;
+  const { db, now, profileFor } = args;
 
   // Fetch all running jobs instead of applying a coarse one-hour filter:
   // exportStaleTimeoutMinutes is tenant-specific and may be as low as five
-  // minutes, so a coarse filter could miss stale jobs. The expected number of
-  // running jobs makes resolving each tenant's profile practical.
+  // minutes, so a coarse filter could miss stale jobs. Profiles are resolved
+  // once per run and tenant, which keeps the per-candidate check cheap.
   const candidates = await selectMany<{
     id: string;
     version: number;
@@ -522,10 +533,7 @@ async function staleDetectionPass(args: {
 
   const failed: string[] = [];
   for (const c of candidates) {
-    const profile = await resolveProfileForTenant({
-      db,
-      tenantId: c.requestedFromTenantId,
-    });
+    const profile = await profileFor(c.requestedFromTenantId);
     const cutoffMs =
       now.epochMilliseconds - profile.profile.userRights.exportStaleTimeoutMinutes * 60 * 1000;
     const startedMs = c.startedAt?.epochMilliseconds ?? Number.MAX_SAFE_INTEGER;
@@ -552,10 +560,11 @@ async function staleDetectionPass(args: {
 async function storageCleanupPass(args: {
   db: DbConnection;
   buildStorageProvider: (tenantId: TenantId) => Promise<FileStorageProvider>;
+  profileFor: TenantProfileLookup;
   now: Instant;
   metrics?: MetricsHandle;
 }): Promise<readonly string[]> {
-  const { db, buildStorageProvider, now, metrics } = args;
+  const { db, buildStorageProvider, profileFor, now, metrics } = args;
 
   // Done jobs are cleaned after expiresAt plus the tenant's grace period
   // (default 24h after expiry, so re-downloads after a dropped connection still
@@ -590,10 +599,7 @@ async function storageCleanupPass(args: {
         // Count the candidate as overdue (lower bound, grace unknown) before the
         // throwing profile lookup, so a failing pass still shows a backlog.
         overdueDoneCleanupAfterMs.set(c.id, c.expiresAt.epochMilliseconds);
-        const profile = await resolveProfileForTenant({
-          db,
-          tenantId: c.requestedFromTenantId,
-        });
+        const profile = await profileFor(c.requestedFromTenantId);
         const cleanupAfter =
           c.expiresAt.epochMilliseconds +
           profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;

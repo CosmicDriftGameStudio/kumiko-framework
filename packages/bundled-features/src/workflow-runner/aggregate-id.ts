@@ -10,9 +10,8 @@ const WORKFLOW_RUN_NAMESPACE = "1f8a6c3e-7d2b-4a91-9e3f-5c8b2a41d6f0";
  * `wf-<name>-<key>` string isn't a valid value. Same key always maps to the
  * same stream, which is what lets two *concurrent* triggers for that key
  * race on `expectedVersion` and have the loser fail the unique constraint
- * instead of silently double-running. It does NOT dedup sequential
- * re-triggers of the same key — those land as version 2, 3, ... on the same
- * stream and each starts its own run; that's out of scope.
+ * instead of silently double-running. event-trigger skips a trigger whose
+ * run stream already exists, so a key starts at most one run per tenant.
  */
 export function workflowRunAggregateId(workflowName: string, key: string): string {
   return uuidv5(`${workflowName}|${key}`, WORKFLOW_RUN_NAMESPACE);

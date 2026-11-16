@@ -1,7 +1,7 @@
 // Membership streams a projection replay must not see. Before seedTenantMembership consulted the
 // event log, a seed after lost projection rows started a second stream for the same
 // (userId, tenantId) pair, and every later rebuild of the membership projection failed on
-// read_tenant_memberships_unique. The old seed path is the plain executor create used here.
+// read_tenant_memberships_unique.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -105,7 +105,7 @@ async function rebuildMemberships(): Promise<void> {
   });
 }
 
-describe("membership streams a replay must not see", () => {
+describe("seedTenantMembership against the membership event log", () => {
   test("seedTenantMembership reuses the live stream of a pair whose row was lost", async () => {
     const first = await seedTenantMembership(stack.db, {
       userId: TestUsers.user.id,
