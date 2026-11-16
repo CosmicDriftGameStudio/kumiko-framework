@@ -30,6 +30,10 @@
       "types": "./src/run-prod-app.ts",
       "default": "./src/run-prod-app.ts"
     },
+    "./standalone-cli": {
+      "types": "./src/standalone-cli.ts",
+      "default": "./src/standalone-cli.ts"
+    },
     "./run-worker-app": {
       "types": "./src/run-worker-app.ts",
       "default": "./src/run-worker-app.ts"
@@ -131,6 +135,10 @@
       "./run-prod-app": {
         "types": "./dist/run-prod-app.d.ts",
         "default": "./dist/run-prod-app.js"
+      },
+      "./standalone-cli": {
+        "types": "./dist/standalone-cli.d.ts",
+        "default": "./dist/standalone-cli.js"
       },
       "./run-worker-app": {
         "types": "./dist/run-worker-app.d.ts",

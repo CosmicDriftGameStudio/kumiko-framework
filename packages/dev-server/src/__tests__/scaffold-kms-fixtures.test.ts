@@ -27,23 +27,17 @@ async function scaffold(name: string, starter: "demo" | "blank"): Promise<string
 }
 
 describe("feature-ast scaffold-kms-mode fixtures match the scaffold output", () => {
-  test("demo starter: bin/main.ts and bin/kumiko.ts", async () => {
+  test("demo starter: bin/main.ts", async () => {
     const destination = await scaffold("demoapp", "demo");
     expect(readFileSync(join(destination, "bin/main.ts"), "utf8")).toBe(
       fixture("new-demo-main.txt"),
     );
-    expect(readFileSync(join(destination, "bin/kumiko.ts"), "utf8")).toBe(
-      fixture("new-kumiko.txt"),
-    );
   });
 
-  test("blank starter: bin/main.ts and bin/kumiko.ts", async () => {
+  test("blank starter: bin/main.ts", async () => {
     const destination = await scaffold("blankapp", "blank");
     expect(readFileSync(join(destination, "bin/main.ts"), "utf8")).toBe(
       fixture("new-blank-main.txt"),
-    );
-    expect(readFileSync(join(destination, "bin/kumiko.ts"), "utf8")).toBe(
-      fixture("new-kumiko.txt"),
     );
   });
 });

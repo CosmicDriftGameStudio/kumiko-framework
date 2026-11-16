@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-18
+verified: 2026-11-16
 evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/registry.ts, kumiko check managed|scripts"
 ---
 
@@ -33,7 +33,7 @@ evidence: "kumiko new app scaffold, packages/dev-server/src/managed-files/regist
 | `kumiko.config.ts` | preset | `defineAppConfig(...)`, see below |
 | `bin/server.ts` | seed | Dev server (`runDevApp`) |
 | `bin/env-schema.ts` | seed | Env contract of the production processes |
-| `bin/main.ts`, `bin/kumiko.ts` | app | Production boot, bundled schema and consumer CLI |
+| `bin/main.ts`, `bin/kumiko.ts` | app | Production boot; `bin/kumiko.ts` calls `runStandaloneCli` (`@cosmicdrift/kumiko-server-runtime/standalone-cli`) for `schema`, `consumer` and `events`, bundled to `dist-server/kumiko.js` |
 | `src/run-config.ts`, `src/features/`, `src/client.tsx` | app | Features and the web entry |
 | `e2e/_helpers/`, `src/__tests__/_setup.ts` | app | Shared e2e helpers and integration stack setup |
 | `kumiko.json` | app | Repo manifest: kind, source roots, `uiRoots` |

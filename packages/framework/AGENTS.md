@@ -173,7 +173,7 @@ Files whose first line reads `kumiko-managed` (deploy/, `.github/workflows/`,
 `bunx kumiko sync-managed --write` restores them. Keep a deliberate change with
 `# kumiko-managed: local <reason>` on line 2. `biome.json` and `tsconfig.json`
 extend `@cosmicdrift/kumiko-framework/biome` and `.../tsconfig.app.json`; put
-app overrides next to `extends`. Full list: `docs/reference/app-skeleton.md`.
+app overrides next to `extends`.
 
 The scaffolded `src/features/tasks/feature.ts` and
 `src/__tests__/tasks.integration.test.ts` are the smallest complete pair of
@@ -218,6 +218,14 @@ produces code that compiles and then fails in production.
   `@cosmicdrift/kumiko-testing/helpers`; `seedRow` is for tables without
   event sourcing and throws on an entity table unless the test passes
   `{ projectionOnly: "<why>" }`.
+- Every `r.entity` table is rebuilt on deploy from its `<entity>.created`,
+  `.updated`, `.deleted` and `.restored` events, so a row written without
+  those events is gone after the next rebuild. Keep data without events in
+  a table registered with `r.storeTable(meta, { reason })`; build `meta`
+  with `defineUnmanagedTable` or `deriveEntityTableMeta(..., { source:
+  "unmanaged" })` from `@cosmicdrift/kumiko-framework/db`, and a rebuild
+  skips it. The `read_` table prefix is reserved; use `store_`. Example:
+  `agents/examples/tenant-isolation.md`.
 - Never store a value that can be computed. Derive it in a query or a
   projection.
 - Never hand-write SQL for reads that an executor `list` or `detail` covers.

@@ -163,6 +163,22 @@ describe("agent-docs-drift guard", () => {
     }
   });
 
+  test("flags an AGENTS.md reference into docs/", async () => {
+    const root = makeRepo({
+      "packages/framework/AGENTS.md": "Intro.\nFull list: `docs/reference/app-skeleton.md`.\n",
+    });
+    try {
+      writeAgentDocs(root);
+      const outcome = await runCheck(root);
+      expect(outcome.violations).toHaveLength(1);
+      expect(outcome.violations[0]?.file).toBe("packages/framework/AGENTS.md");
+      expect(outcome.violations[0]?.line).toBe(2);
+      expect(outcome.violations[0]?.message).toContain("docs/reference/app-skeleton.md");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("is not applicable without the framework package", async () => {
     const root = mkdtempSync(join(tmpdir(), "agent-docs-drift-guard-"));
     try {

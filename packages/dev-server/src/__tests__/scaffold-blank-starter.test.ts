@@ -71,7 +71,7 @@ describe("scaffoldApp starter blank", () => {
     expect(main).toContain('{ kmsMode: "required" as const }');
     expect(main).not.toContain("requireKmsWiring");
     expect(readFileSync(join(dest, "bin/kumiko.ts"), "utf-8")).toContain(
-      "kmsSlotsOf(kmsEnvSchema)",
+      "runStandaloneCli",
     );
     expect(readFileSync(join(dest, ".env.example"), "utf-8")).toContain(
       "KUMIKO_BOOTSTRAP_ADMIN_EMAIL=",

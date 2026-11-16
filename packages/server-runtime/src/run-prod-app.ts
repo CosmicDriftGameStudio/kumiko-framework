@@ -228,13 +228,8 @@ export type AuthMailOptions = {
   readonly hmacSecret?: string;
 };
 
-export type RunProdAppAuthOptions = {
-  /** Initial admin user with a password, seeded once (idempotent — re-boots
-   *  check first whether the email is already in the users table). Optional:
-   *  passwordless setups provision their first admins via `runBootstrap`
-   *  (invitation, global role granted on accept) instead. */
-  readonly admin?: SeedAdminOptions;
-  /** Optional override of the login error → HTTP status map. */
+export type AppRuntimeAuthOptions = {
+  /** Optional override of the login error → HTTP status map. Default maps invalidCredentials to 401 and noMembership to 403. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
   /** Wires all five mail flows (passwordReset, emailVerification, signup,
    *  invite, accountUnlock) from `auth.mail.baseUrl` plus the default paths,
@@ -246,7 +241,8 @@ export type RunProdAppAuthOptions = {
    *
    *  Deliberately mounts signup and invite too (self-registration on); apps
    *  that want only reset and verify leave `mail` unset and wire those flows
-   *  explicitly, so there is no implicit self-signup. */
+   *  explicitly, so there is no implicit self-signup.
+   *  In runDevApp the HMAC secret is the JWT_SECRET value, with a dev fallback when unset. */
   readonly mail?: AuthMailOptions;
   /** Password-reset flow. When set, /api/auth/request-password-reset +
    *  /api/auth/reset-password are mounted as public routes and the
@@ -277,10 +273,6 @@ export type RunProdAppAuthOptions = {
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
   readonly cookieDomain?: string;
-  /** Secure flag for the session cookies (see AuthRoutesConfig.secureCookies).
-   *  Defaults to NODE_ENV === "production"; set it to true when TLS ends at a
-   *  proxy and NODE_ENV is not "production". */
-  readonly secureCookies?: boolean;
   /** Former cookie domains cleared on login/logout (see
    *  AuthRoutesConfig.retiredCookieDomains). */
   readonly retiredCookieDomains?: readonly string[];
@@ -293,22 +285,35 @@ export type RunProdAppAuthOptions = {
    *  — accept the wide-cookie CSRF risk explicitly instead of setting
    *  `allowedOrigins`. */
   readonly unsafeSkipOriginCheck?: boolean;
-  /** Canonical public origin for the default Origin guard (see
-   *  AuthRoutesConfig.publicOrigin). Defaults to the origin of
-   *  `mail.baseUrl`, then of the APP_BASE_URL env. */
-  readonly publicOrigin?: string;
   /** Number of trusted reverse-proxy hops between the client and this
    *  process for client-IP derivation (see AuthRoutesConfig.trustedProxyHops)
    *  — closes the X-Forwarded-For spoofing hole on the auth rate-limiters.
    *  Falls back to the `KUMIKO_TRUSTED_PROXY_HOPS` env var when unset; both
    *  unset means 0 hops, the safe socket-only default (only the socket address
    *  counts, XFF ignored). Deprecated in favor of the top-level
-   *  `trustedProxyHops` option, which wins over this and the env var. */
+   *  `trustedProxyHops` option, which wins over this and the env var.
+   *  Dev usually runs unproxied, so runDevApp normally leaves it unset. */
   readonly trustedProxyHops?: number;
   /** Server-computed post-auth redirect (see AuthRoutesConfig.postAuthLanding).
    *  Result lands in the login/signup/invite response as `landingPath`; an
    *  invalid path or a throwing resolver just omits the field. */
   readonly postAuthLanding?: PostAuthLandingResolver;
+};
+
+export type RunProdAppAuthOptions = AppRuntimeAuthOptions & {
+  /** Initial admin user with a password, seeded once (idempotent — re-boots
+   *  check first whether the email is already in the users table). Optional:
+   *  passwordless setups provision their first admins via `runBootstrap`
+   *  (invitation, global role granted on accept) instead. */
+  readonly admin?: SeedAdminOptions;
+  /** Secure flag for the session cookies (see AuthRoutesConfig.secureCookies).
+   *  Defaults to NODE_ENV === "production"; set it to true when TLS ends at a
+   *  proxy and NODE_ENV is not "production". */
+  readonly secureCookies?: boolean;
+  /** Canonical public origin for the default Origin guard (see
+   *  AuthRoutesConfig.publicOrigin). Defaults to the origin of
+   *  `mail.baseUrl`, then of the APP_BASE_URL env. */
+  readonly publicOrigin?: string;
 };
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
@@ -406,7 +411,7 @@ export type HostDispatchFn = (
 // keep working unchanged.
 export type { PageHeadMeta, PageHeadResolver, PageHeadSystemQuery };
 
-export type RunProdAppOptions = {
+export type AppRuntimeOptions = {
   /** App-specific features. config/user/tenant/auth-email-password are
    *  auto-mixed when `auth:` is set — don't add them yourself. */
   readonly features: readonly FeatureDefinition[];
@@ -414,8 +419,122 @@ export type RunProdAppOptions = {
   readonly validateBootOptions?: ValidateBootOptions;
   /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. */
   readonly bundledLists?: BundledListsOptions;
-  /** Row level security mode of every connection; pass `appConfig.rowLevelSecurity`. Default "on". */
+  /** Row level security mode of every connection; pass `appConfig.rowLevelSecurity`. Default "on". runDevApp applies it to the dev stack too, so tenant-isolation bugs show up in development. */
   readonly rowLevelSecurity?: RowLevelSecurityMode;
+  /** Per-request head-metadata resolver (Open-Graph/title/description) for
+   *  the static-fallback HTML shell — see `PageHeadResolver`. Consulted on
+   *  the same two HTML-serving paths as `hostDispatch` (host-dispatched
+   *  HTML + the default single-app index.html), right before the response
+   *  is sent. On error, `null`, or a resolve time over 300ms, the shell
+   *  ships unchanged with status 200 — this must never turn into a 500 or
+   *  a blank page. `systemQuery` inside the resolver runs as the
+   *  anonymous role (not system) — the resolver is reachable by any
+   *  public visitor, same access gate as a real anonymous request. */
+  readonly resolvePageHead?: PageHeadResolver;
+  /** Installable web app: serves `/manifest.webmanifest` and `/sw.js`, adds the manifest,
+   *  theme-color and apple-touch tags to every HTML shell of `staticDir`, and the web client
+   *  then registers the service worker and offers a one-time install hint. Requires
+   *  `staticDir`. Pass the same value to `runDevApp`. Unset: none of this happens. */
+  readonly pwa?: PwaOptions;
+  /** Boot default locale (BCP-47) for ctx.locale when the request carries
+   *  no locale signal. Merged into AppContext before extraContext (app wins). */
+  readonly defaultLocale?: string;
+  /** MasterKeyProvider replacing the env KEK (`KUMIKO_SECRETS_MASTER_KEY_V<n>`)
+   *  for `ctx.services.secrets`, encrypted config keys and `encrypted: true` entity
+   *  fields. Default: `createEnvMasterKeyProvider`. Use it for KMS backends
+   *  (AWS/GCP/Azure); with it set, `KUMIKO_SECRETS_MASTER_KEY_V1` is not
+   *  required in the env. */
+  readonly masterKey?: MasterKeyProvider;
+  /** 32-byte base64 key for blind-index HMACs on `lookupable` fields
+   *  (env: KUMIKO_BLIND_INDEX_KEY, `openssl rand -base64 32`). It is separate
+   *  from PLATFORM_KEK and not part of the KmsAdapter contract. It is required
+   *  when `kms` is set and a feature declares lookupable fields; otherwise
+   *  equality lookups on ciphertext, such as login by email, fail and boot
+   *  aborts. */
+  readonly blindIndexKey?: string;
+  /** Short form over `kms` / `blindIndexKey` / `allowPlaintextPii` that wires
+   *  the subject-key KMS from the env; not combinable with them. Unset keeps
+   *  today's behavior: no KMS unless `kms` is passed, and the PII boot gate
+   *  aborts when PII fields exist without one. See `KmsMode`.
+   *  In runDevApp it replaces the dev KMS default and cannot be combined with `kms` / `blindIndexKey`.
+   *  @example
+   *  kmsMode: "required" */
+  readonly kmsMode?: KmsMode;
+  /** App-wide mail transport: mounts `channel-email` and wires the `auth.mail`
+   *  flows without an `SMTP_HOST` probe. See `MailBootOption`.
+   *  @example
+   *  mail: { transport: "smtp-env", from: "Acme <noreply@acme.example>" } */
+  readonly mail?: MailBootOption;
+  /** File provider for `file-foundation` plus the `FILE_STORAGE_PROVIDER`
+   *  default. See `FileStorageBootOption`.
+   *  @example
+   *  fileStorage: { provider: "auto" } */
+  readonly fileStorage?: FileStorageBootOption;
+  /** Billing: `subscription-stripe` and/or `subscription-paddle` plus one tier-syncing webhook
+   *  route. Needs `billing-foundation` and `tier-engine`. See `BillingBootOption`.
+   *  @example
+   *  billing: { stripe: { priceToTier: { [env.STRIPE_PRICE_PRO]: "pro" } }, defaultTier: "free" } */
+  readonly billing?: BillingBootOption;
+  /** Global operator switches: mounts `feature-toggles` and layers them over the tier resolver, so
+   *  an operator can switch a feature off for every tenant. */
+  readonly featureToggles?: boolean;
+  /** Live-demo mode: read-only gate in the fetch chain plus the anonymous
+   *  `GET /demo-mode` route. See `DemoModeOption`.
+   *  @example
+   *  demoMode: { readOnly: env.DEMO_READ_ONLY === "true", notice: { text: { en: "Read-only demo" } } } */
+  readonly demoMode?: DemoModeOption;
+  /** Studio preview login: `GET /__kumiko/preview-login?exp=&sig=` signs the bootstrap owner in when `sig` is
+   *  HMAC-SHA256(loginKey, "kumiko-preview-login:" + exp) and exp lies at most ~90 s ahead. No route when unset or
+   *  `loginKey` is empty. The owner is the account of `KUMIKO_BOOTSTRAP_ADMIN_EMAIL`.
+   *  In runDevApp the owner falls back to the dev admin when that env var is unset. */
+  readonly previewLogin?: PreviewLoginOption;
+  /** Declarative HTTP-routes outside the /api/write|query|batch pipeline —
+   *  each entry declares its access tier (`entry`: "anonymous" | "user" |
+   *  "signature"), buildServer wires the matching guard + deps. Mounted
+   *  inside buildServer, right after the r.httpRoute loop, before seeds. */
+  readonly extraRoutes?: readonly ExtraRouteDefinition[];
+  /** Framework-managed unsubscribe links. Mounts `createUnsubscribeRoutes({ secret })` and makes
+   *  delivery sign `data.unsubscribeUrl` (path `DELIVERY_UNSUBSCRIBE_PATH`) for every email
+   *  notification declared with `unsubscribe: true`, for user and `route` recipients; a link the
+   *  caller put into `data.unsubscribeUrl` wins. `secret` must be dedicated (≥32 chars), not the
+   *  session JWT secret. Links point at the origin of `auth.publicOrigin`, then `auth.mail.baseUrl`,
+   *  then the `APP_BASE_URL` env; with none of them no link is added (boot warning). Address
+   *  recipients need a blind-index key, otherwise they get no link. Do not also mount
+   *  `createUnsubscribeRoutes` via `extraRoutes`. `tenantOrigin` points a tenant's links at
+   *  its own subdomain or custom domain (the host must serve this app's `/api` routes, and
+   *  the callback must only return a verified, active domain, else null: the link carries a bearer
+   *  token a stale domain's new owner would receive); null,
+   *  a throw or a non-https value fall back to the app origin. The link carries the mail's
+   *  locale, so the confirmation pages speak the mail's language. An app reacts to an address
+   *  opt-out with an `r.job` triggered on `DeliveryHandlers.unsubscribeAddress`.
+   *  In runDevApp the link base URL comes from `auth.mail.baseUrl` or `APP_BASE_URL` (no `auth.publicOrigin`). */
+  readonly unsubscribe?: UnsubscribeOption;
+  /** Hook for app-wired co-running components that need the system-write
+   *  dispatcher (e.g. wiring a webhook plugin's system-scoped secrets, or
+   *  starting a co-running supervisor) — runs after buildServer, before
+   *  seeds, with NO `app` (routes are declared via `extraRoutes`, not
+   *  wired here). */
+  readonly wire?: (deps: SystemWireDeps) => void | Promise<void>;
+  /** App-level config values (tenant model, branding, seo ...) keyed by the qualified config
+   *  key. Validated against the registered keys at boot; they win over the key's env variable
+   *  and sit below tenant and user values. */
+  readonly appOverrides?: ConfigOverridesInput;
+  /** Override `process.env` for env-validation. Default: `process.env`.
+   *  Tests use this to feed crafted env-maps without polluting the
+   *  global. */
+  readonly envSource?: Record<string, string | undefined>;
+  /** Number of trusted reverse-proxy hops for client-IP resolution — 1:1
+   *  durchgereicht an `buildServer`s
+   *  top-level `ServerOptions.trustedProxyHops`. Wins over the deprecated
+   *  `auth.trustedProxyHops` and `KUMIKO_TRUSTED_PROXY_HOPS`. Default 0 =
+   *  trust no proxy header, only the socket address (or "unknown") counts.
+   *  Dev usually runs unproxied, so runDevApp normally leaves it unset. */
+  readonly trustedProxyHops?: number;
+  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
+  readonly errorDocs?: ErrorDocsConfig;
+};
+
+export type RunProdAppOptions = AppRuntimeOptions & {
   /** `"none"`: the app has no search backend in any process (no `searchAdapter` in `extraContext`),
    *  so no search docs can be orphaned and the stream-tenant backfill runs without a reindex. Unset:
    *  a process without a search adapter defers the backfill of searchable entities to one that has
@@ -467,21 +586,6 @@ export type RunProdAppOptions = {
    *  behind the auth middleware and only serves non-anonymous, signed-in
    *  users. Per-host CSP headers can additionally restrict asset paths. */
   readonly hostDispatch?: HostDispatchFn;
-  /** Per-request head-metadata resolver (Open-Graph/title/description) for
-   *  the static-fallback HTML shell — see `PageHeadResolver`. Consulted on
-   *  the same two HTML-serving paths as `hostDispatch` (host-dispatched
-   *  HTML + the default single-app index.html), right before the response
-   *  is sent. On error, `null`, or a resolve time over 300ms, the shell
-   *  ships unchanged with status 200 — this must never turn into a 500 or
-   *  a blank page. `systemQuery` inside the resolver runs as the
-   *  anonymous role (not system) — the resolver is reachable by any
-   *  public visitor, same access gate as a real anonymous request. */
-  readonly resolvePageHead?: PageHeadResolver;
-  /** Installable web app: serves `/manifest.webmanifest` and `/sw.js`, adds the manifest,
-   *  theme-color and apple-touch tags to every HTML shell of `staticDir`, and the web client
-   *  then registers the service worker and offers a one-time install hint. Requires
-   *  `staticDir`. Pass the same value to `runDevApp`. Unset: none of this happens. */
-  readonly pwa?: PwaOptions;
   /** Path to kumiko/migrations for the boot gate. Default "./kumiko/migrations"
    *  relative to the process cwd. Boot throws SchemaDriftError on pending
    *  migrations or missing tables. `false` disables the gate for setups that
@@ -495,16 +599,7 @@ export type RunProdAppOptions = {
    *    - `configResolver`, in auth mode (env-config-overrides)
    *  Accepts a static object or a factory
    *  `({db, redis, registry}) => Record<string, unknown>`, like `anonymousAccess`. */
-  /** Boot default locale (BCP-47) for ctx.locale when the request carries
-   *  no locale signal. Merged into AppContext before extraContext (app wins). */
-  readonly defaultLocale?: string;
   readonly extraContext?: ExtraContextOption;
-  /** MasterKeyProvider replacing the env KEK (`KUMIKO_SECRETS_MASTER_KEY_V<n>`)
-   *  for `ctx.services.secrets`, encrypted config keys and `encrypted: true` entity
-   *  fields. Default: `createEnvMasterKeyProvider`. Use it for KMS backends
-   *  (AWS/GCP/Azure); with it set, `KUMIKO_SECRETS_MASTER_KEY_V1` is not
-   *  required in the env. */
-  readonly masterKey?: MasterKeyProvider;
   /** Subject-key adapter for crypto-shredding (GDPR Art. 17). When set, it is
    *  exposed to feature code as `ctx.services.kms`, and boot checks its health so the app
    *  cannot start against an unreachable KMS. Without an adapter,
@@ -513,13 +608,6 @@ export type RunProdAppOptions = {
   /** Replaces the real clock, sleep and log sink of the boot backoff for the database, KMS and
    *  seed waits; tests use it to run the retry path without real waiting. */
   readonly databaseWait?: DatabaseWaitClock;
-  /** 32-byte base64 key for blind-index HMACs on `lookupable` fields
-   *  (env: KUMIKO_BLIND_INDEX_KEY, `openssl rand -base64 32`). It is separate
-   *  from PLATFORM_KEK and not part of the KmsAdapter contract. It is required
-   *  when `kms` is set and a feature declares lookupable fields; otherwise
-   *  equality lookups on ciphertext, such as login by email, fail and boot
-   *  aborts. */
-  readonly blindIndexKey?: string;
   /** Explicit opt-out from the strict PII boot gate. Features may declare
    *  pii/userOwned/tenantOwned fields without a provisioned `kms`; those fields
    *  remain plaintext in rows and events, and GDPR erasure through
@@ -527,40 +615,6 @@ export type RunProdAppOptions = {
    *  audit trail (for example, "kms rollout pending"). Without this flag and
    *  without `kms`, boot aborts. */
   readonly allowPlaintextPii?: string;
-  /** Short form over `kms` / `blindIndexKey` / `allowPlaintextPii` that wires
-   *  the subject-key KMS from the env; not combinable with them. Unset keeps
-   *  today's behavior: no KMS unless `kms` is passed, and the PII boot gate
-   *  aborts when PII fields exist without one. See `KmsMode`.
-   *  @example
-   *  kmsMode: "required" */
-  readonly kmsMode?: KmsMode;
-  /** App-wide mail transport: mounts `channel-email` and wires the `auth.mail`
-   *  flows without an `SMTP_HOST` probe. See `MailBootOption`.
-   *  @example
-   *  mail: { transport: "smtp-env", from: "Acme <noreply@acme.example>" } */
-  readonly mail?: MailBootOption;
-  /** File provider for `file-foundation` plus the `FILE_STORAGE_PROVIDER`
-   *  default. See `FileStorageBootOption`.
-   *  @example
-   *  fileStorage: { provider: "auto" } */
-  readonly fileStorage?: FileStorageBootOption;
-  /** Billing: `subscription-stripe` and/or `subscription-paddle` plus one tier-syncing webhook
-   *  route. Needs `billing-foundation` and `tier-engine`. See `BillingBootOption`.
-   *  @example
-   *  billing: { stripe: { priceToTier: { [env.STRIPE_PRICE_PRO]: "pro" } }, defaultTier: "free" } */
-  readonly billing?: BillingBootOption;
-  /** Global operator switches: mounts `feature-toggles` and layers them over the tier resolver, so
-   *  an operator can switch a feature off for every tenant. */
-  readonly featureToggles?: boolean;
-  /** Live-demo mode: read-only gate in the fetch chain plus the anonymous
-   *  `GET /demo-mode` route. See `DemoModeOption`.
-   *  @example
-   *  demoMode: { readOnly: env.DEMO_READ_ONLY === "true", notice: { text: { en: "Read-only demo" } } } */
-  readonly demoMode?: DemoModeOption;
-  /** Studio preview login: `GET /__kumiko/preview-login?exp=&sig=` signs the bootstrap owner in when `sig` is
-   *  HMAC-SHA256(loginKey, "kumiko-preview-login:" + exp) and exp lies at most ~90 s ahead. No route when unset or
-   *  `loginKey` is empty. The owner is the account of `KUMIKO_BOOTSTRAP_ADMIN_EMAIL`. */
-  readonly previewLogin?: PreviewLoginOption;
   /** SIGTERM/SIGINT handling of `listen()`: drains via `stop()` (default
    *  timeout 25 s), exits 0, or 1 when the drain fails or times out. `false`
    *  leaves the signals to the app.
@@ -604,42 +658,12 @@ export type RunProdAppOptions = {
      *  LISTEN/NOTIFY wiring comes with a later pgClient pass-through. */
     readonly pollIntervalMs?: number;
   };
-  /** Declarative HTTP-routes outside the /api/write|query|batch pipeline —
-   *  each entry declares its access tier (`entry`: "anonymous" | "user" |
-   *  "signature"), buildServer wires the matching guard + deps. Mounted
-   *  inside buildServer, right after the r.httpRoute loop, before seeds. */
-  readonly extraRoutes?: readonly ExtraRouteDefinition[];
-  /** Framework-managed unsubscribe links. Mounts `createUnsubscribeRoutes({ secret })` and makes
-   *  delivery sign `data.unsubscribeUrl` (path `DELIVERY_UNSUBSCRIBE_PATH`) for every email
-   *  notification declared with `unsubscribe: true`, for user and `route` recipients; a link the
-   *  caller put into `data.unsubscribeUrl` wins. `secret` must be dedicated (≥32 chars), not the
-   *  session JWT secret. Links point at the origin of `auth.publicOrigin`, then `auth.mail.baseUrl`,
-   *  then the `APP_BASE_URL` env; with none of them no link is added (boot warning). Address
-   *  recipients need a blind-index key, otherwise they get no link. Do not also mount
-   *  `createUnsubscribeRoutes` via `extraRoutes`. `tenantOrigin` points a tenant's links at
-   *  its own subdomain or custom domain (the host must serve this app's `/api` routes, and
-   *  the callback must only return a verified, active domain, else null: the link carries a bearer
-   *  token a stale domain's new owner would receive); null,
-   *  a throw or a non-https value fall back to the app origin. The link carries the mail's
-   *  locale, so the confirmation pages speak the mail's language. An app reacts to an address
-   *  opt-out with an `r.job` triggered on `DeliveryHandlers.unsubscribeAddress`. */
-  readonly unsubscribe?: UnsubscribeOption;
-  /** Hook for app-wired co-running components that need the system-write
-   *  dispatcher (e.g. wiring a webhook plugin's system-scoped secrets, or
-   *  starting a co-running supervisor) — runs after buildServer, before
-   *  seeds, with NO `app` (routes are declared via `extraRoutes`, not
-   *  wired here). */
-  readonly wire?: (deps: SystemWireDeps) => void | Promise<void>;
   /** When true (default), Bun.serve is started before runProdApp resolves —
    *  the common case: `await runProdApp({...})` boots the server and the
    *  process stays up listening on PORT. Set to false in tests that drive
    *  the fetch-handler directly (Bun.serve isn't available under vitest +
    *  node), then call handle.listen() manually if needed. */
   readonly autoListen?: boolean;
-  /** App-level config values (tenant model, branding, seo ...) keyed by the qualified config
-   *  key. Validated against the registered keys at boot; they win over the key's env variable
-   *  and sit below tenant and user values. */
-  readonly appOverrides?: ConfigOverridesInput;
   /** Composed Zod-schema for env-validation (from `composeEnvSchema({
    *  core, features, extend })` in @cosmicdrift/kumiko-framework/env):
    *  - `process.env` is parsed against it BEFORE any boot work; missing
@@ -662,10 +686,6 @@ export type RunProdAppOptions = {
    *  test-overrides honest — if a reporter returns, runProdApp falls
    *  through to a regular `throw err` as the safety net. */
   readonly bootErrorReporter?: (err: KumikoBootError) => void;
-  /** Override `process.env` for env-validation. Default: `process.env`.
-   *  Tests use this to feed crafted env-maps without polluting the
-   *  global. */
-  readonly envSource?: Record<string, string | undefined>;
   /** Observability provider (tracer and meter). Default: Noop, with no overhead
    *  or `/metrics` endpoint. Supply a provider based on
    *  `createPrometheusMeter()` together with `metrics` to expose `/metrics`. */
@@ -687,14 +707,6 @@ export type RunProdAppOptions = {
    *  disables the whole block; per-header overrides via the object form —
    *  see SecurityHeadersOption. */
   readonly securityHeaders?: SecurityHeadersOption;
-  /** Number of trusted reverse-proxy hops for client-IP resolution — 1:1
-   *  durchgereicht an `buildServer`s
-   *  top-level `ServerOptions.trustedProxyHops`. Wins over the deprecated
-   *  `auth.trustedProxyHops` and `KUMIKO_TRUSTED_PROXY_HOPS`. Default 0 =
-   *  trust no proxy header, only the socket address (or "unknown") counts. */
-  readonly trustedProxyHops?: number;
-  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
-  readonly errorDocs?: ErrorDocsConfig;
 };
 
 export type ProdAppHandle = {

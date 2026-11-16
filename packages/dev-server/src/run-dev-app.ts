@@ -14,34 +14,16 @@
 
 import type { SeedAdminOptions } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/seeding";
 import { createConfigResolver } from "@cosmicdrift/kumiko-bundled-features/config";
-import type { PostAuthLandingResolver } from "@cosmicdrift/kumiko-framework/api";
 import {
   parseTrustedProxyHopsEnv,
   TRUSTED_PROXY_HOPS_ENV,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { RowLevelSecurityMode } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  type BundledListsOptions,
-  type FeatureDefinition,
-  findTierResolverUsage,
-  type Registry,
-  type ValidateBootOptions,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { findTierResolverUsage, type Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { ComposedEnvSchema } from "@cosmicdrift/kumiko-framework/env";
-import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
-import type { EnvelopeCipher, MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import type { PageHeadResolver } from "@cosmicdrift/kumiko-renderer/headless/apex";
-import type {
-  BillingBootOption,
-  DemoModeOption,
-  FileStorageBootOption,
-  KmsMode,
-  MailBootOption,
-  PreviewLoginOption,
-  ProdSeedsConfig,
-} from "@cosmicdrift/kumiko-server-runtime";
+import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
+import type { ProdSeedsConfig } from "@cosmicdrift/kumiko-server-runtime";
 import type { resolveBootCrypto } from "@cosmicdrift/kumiko-server-runtime/boot/boot-crypto";
 import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -80,75 +62,20 @@ export type {
   SignupSetup,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
-import type {
-  AccountLockoutSetup,
-  AccountUnlockSetup,
-  AuthMailOptions,
-  EmailVerificationSetup,
-  InviteSetup,
-  PasswordResetSetup,
-  SignupSetup,
-} from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 import {
+  type AppRuntimeAuthOptions,
+  type AppRuntimeOptions,
   addConfigAccessorFactory,
   buildBootExtraContext,
   buildConfigOverrides,
   type ConfigOverridesInput,
   loggerFromExtraContext,
-  type UnsubscribeOption,
 } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 
-export type RunDevAppAuthOptions = {
+export type RunDevAppAuthOptions = AppRuntimeAuthOptions & {
   /** Admin user to seed at boot. Idempotent — re-runs in persistent-DB
    *  mode reuse the existing user. */
   readonly admin: SeedAdminOptions;
-  /** Optional override of the login error → HTTP status map. Default
-   *  maps invalidCredentials → 401, noMembership → 403. */
-  readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
-  /** Auth-mail convenience, symmetric with RunProdAppAuthOptions.mail.
-   *  Wires all four mail flows from env-based SMTP settings and the default
-   *  templates; hmacSecret is the `JWT_SECRET` environment value, with a dev
-   *  fallback when unset. Without `SMTP_HOST`, the flows remain unwired
-   *  (the null-transport guard). Explicit flow setups override the mail default. */
-  readonly mail?: AuthMailOptions;
-  /** Password-reset flow. When set, mounts /api/auth/request-password-
-   *  reset and /api/auth/reset-password as public routes and registers the
-   *  request/confirm handlers in the auth-email-password feature. Symmetric
-   *  with RunProdAppAuthOptions.passwordReset. */
-  readonly passwordReset?: PasswordResetSetup;
-  /** Email-verification flow. Symmetric to passwordReset. */
-  readonly emailVerification?: EmailVerificationSetup;
-  /** Self-signup flow (magic link). Symmetric to RunProdAppAuthOptions. */
-  readonly signup?: SignupSetup;
-  /** Tenant-invite flow (magic link). Symmetric. */
-  readonly invite?: InviteSetup;
-  /** Account-unlock flow. Symmetric to RunProdAppAuthOptions. */
-  readonly accountUnlock?: AccountUnlockSetup;
-  /** Brute-force guard on the login handler (maxFailedAttempts,
-   *  lockoutDurationMinutes). Mounts no routes. Symmetric to
-   *  RunProdAppAuthOptions.accountLockout. */
-  readonly accountLockout?: AccountLockoutSetup;
-  /** Domain attribute for both auth cookies (see
-   *  AuthRoutesConfig.cookieDomain). Symmetric to RunProdAppAuthOptions. */
-  readonly cookieDomain?: string;
-  /** Former cookie domains cleared on login/logout (see
-   *  AuthRoutesConfig.retiredCookieDomains). */
-  readonly retiredCookieDomains?: readonly string[];
-  /** Server-side Origin allowlist for the CSRF guard (see
-   *  AuthRoutesConfig.allowedOrigins). Symmetric to RunProdAppAuthOptions —
-   *  required once `cookieDomain` is set. */
-  readonly allowedOrigins?: readonly string[];
-  /** Opt out of the Origin guard. Symmetric to RunProdAppAuthOptions. */
-  readonly unsafeSkipOriginCheck?: boolean;
-  /** Number of trusted reverse-proxy hops for client-IP derivation (see
-   *  AuthRoutesConfig.trustedProxyHops). Symmetric to
-   *  RunProdAppAuthOptions — dev usually runs unproxied, so this is normally
-   *  left unset (default 0). */
-  readonly trustedProxyHops?: number;
-  /** Server-computed post-auth redirect (see AuthRoutesConfig.postAuthLanding).
-   *  Result lands in the login/signup/invite response as `landingPath`; an
-   *  invalid path or a throwing resolver just omits the field. */
-  readonly postAuthLanding?: PostAuthLandingResolver;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -163,15 +90,7 @@ export type RunDevAppSeedsConfig = Omit<ProdSeedsConfig, "run"> & {
   readonly run?: readonly SeedFn[];
 };
 
-export type RunDevAppOptions = {
-  /** App-specific features. In auth mode, config/user/tenant/
-   *  auth-email-password are mixed in automatically, so they must not be
-   *  added manually as well. */
-  readonly features: readonly FeatureDefinition[];
-  /** Opt-in boot-validator warnings — see ValidateBootOptions. */
-  readonly validateBootOptions?: ValidateBootOptions;
-  /** One table block for every list of the bundled features, see ComposeFeaturesOptions.bundledLists. */
-  readonly bundledLists?: BundledListsOptions;
+export type RunDevAppOptions = AppRuntimeOptions & {
   /** Browser entry module, bundled to /client.js. Mutually exclusive with
    *  `clientEntries`. */
   readonly clientEntry?: string;
@@ -183,13 +102,6 @@ export type RunDevAppOptions = {
   /** Multi-entry mode: per-request routing. Required with `clientEntries`,
    *  otherwise the server cannot tell which HTML to serve. */
   readonly hostDispatch?: CreateKumikoServerOptions["hostDispatch"];
-  /** Per-request head-metadata resolver — same option, same signature as
-   *  `runProdApp`'s `resolvePageHead`, so `bun dev` and every e2e that boots
-   *  through `runDevApp` show the same resolved head prod does. See
-   *  `CreateKumikoServerOptions.resolvePageHead` for the full contract. */
-  readonly resolvePageHead?: PageHeadResolver;
-  /** Installable web app, same option as `runProdApp`'s `pwa`; pass the same value to both. */
-  readonly pwa?: CreateKumikoServerOptions["pwa"];
   /** CSS entry. Defaults to the package export
    *  `@cosmicdrift/kumiko-renderer/web/styles.css` when a client entry is set.
    *  `false` disables the CSS pipeline. */
@@ -216,32 +128,13 @@ export type RunDevAppOptions = {
   /** Additional AppContext keys. `templateResolver` is always added; `secrets`
    *  is added when the secrets feature is mounted; and `configResolver` is
    *  added in auth mode. App values take precedence. Symmetric with runProdApp. */
-  /** Boot default locale (BCP-47) for ctx.locale when the request carries
-   *  no locale signal. Merged into AppContext before extraContext (app wins). */
-  readonly defaultLocale?: string;
   readonly extraContext?: CreateKumikoServerOptions["extraContext"];
-  /** App-level config values, same semantics and merge as RunProdAppOptions["appOverrides"]. */
-  readonly appOverrides?: ConfigOverridesInput;
-  /** MasterKeyProvider for the automatically wired `ctx.services.secrets`. Defaults to
-   *  `createEnvMasterKeyProvider`; override it for KMS backends. Only relevant
-   *  when the secrets feature is mounted. Symmetric with runProdApp. */
-  readonly masterKey?: MasterKeyProvider;
   /** Subject KMS for PII-annotated fields, the dev counterpart of runProdApp({ kms }).
    *  Unset: an ephemeral DB gets an InMemoryKmsAdapter plus a throwaway blind-index key;
    *  a persistent dev DB (KUMIKO_DEV_DB_NAME) stays plaintext with a boot warning, pass
    *  createPgKmsAdapter against that DB there (in-memory DEKs vanish on restart).
    *  `false`: explicit plaintext, with the boot warning. */
   readonly kms?: KmsAdapter | false;
-  /** 32-byte base64 key for blind-index HMACs. Required when `kms` is set and
-   *  lookupable fields are mounted; otherwise boot aborts. Symmetric with
-   *  runProdApp. */
-  readonly blindIndexKey?: string;
-  /** Environment source for the ENV-to-config app-override bridge. Keys with
-   *  `env:` receive their environment value as the app-override default,
-   *  symmetric with runProdApp.
-   *  Defaults to `process.env`; injectable as a test seam so tests can provide
-   *  custom environment values without mutating the global `process.env`. */
-  readonly envSource?: Record<string, string | undefined>;
   /** Anonymous access for public endpoints. Requests without a JWT proceed as
    *  a pseudo-user with the `anonymous` role when the handler includes that
    *  role in `access.roles`. */
@@ -249,32 +142,6 @@ export type RunDevAppOptions = {
   /** File-Storage-Provider — aktiviert die Upload-Routes (/api/files) +
    *  `ctx.services.files`. Demos: `{ storageProvider: createInMemoryFileProvider() }`. */
   readonly files?: CreateKumikoServerOptions["files"];
-  /** App-defined HTTP routes, such as /feed.xml and /sitemap.xml. They are
-   *  attached to the Hono app before the static-asset path. Symmetric with the
-   *  same-named option in runProdApp. */
-  readonly extraRoutes?: CreateKumikoServerOptions["extraRoutes"];
-  /** Framework-managed unsubscribe links and routes, same contract as
-   *  `RunProdAppOptions.unsubscribe`; the link base URL comes from `auth.mail.baseUrl`
-   *  or `APP_BASE_URL` (dev has no `auth.publicOrigin`). */
-  readonly unsubscribe?: UnsubscribeOption;
-  /** Hook for app-wired co-running components — symmetric to
-   *  runProdApp.wire. */
-  readonly wire?: CreateKumikoServerOptions["wire"];
-  /** Same as `RunProdAppOptions["mail"]`: mounts `channel-email` and wires the auth mail flows. */
-  readonly mail?: MailBootOption;
-  /** Same as `RunProdAppOptions["fileStorage"]`. */
-  readonly fileStorage?: FileStorageBootOption;
-  /** Same as `RunProdAppOptions["kmsMode"]`; replaces the dev KMS default and cannot be combined
-   *  with `kms` / `blindIndexKey`. */
-  readonly kmsMode?: KmsMode;
-  /** Same as `RunProdAppOptions["billing"]`. */
-  readonly billing?: BillingBootOption;
-  /** Same as `RunProdAppOptions["featureToggles"]`: global operator switches over the tier resolver. */
-  readonly featureToggles?: boolean;
-  /** Same as `RunProdAppOptions["demoMode"]`. */
-  readonly demoMode?: DemoModeOption;
-  /** Same as `RunProdAppOptions["previewLogin"]`; the owner is the `KUMIKO_BOOTSTRAP_ADMIN_EMAIL` account, else the dev admin. */
-  readonly previewLogin?: PreviewLoginOption;
   /** Composed env schema (see `RunProdAppOptions["envSchema"]`). When set, the env is validated
    *  against it plus the blocks the boot options above need, and a violation throws a
    *  `KumikoBootError`. Dev does not run the dry-run modes. */
@@ -286,17 +153,6 @@ export type RunDevAppOptions = {
    *  something the user can click. Pass an object to override the
    *  features-dir hint or the docs URL. */
   readonly welcomeBanner?: boolean | { readonly featuresDir?: string; readonly docsUrl?: string };
-  /** Forwarded to createKumikoServer → setupTestStack's top-level
-   *  `trustedProxyHops` — symmetric to
-   *  RunProdAppOptions.trustedProxyHops. Wins over the deprecated
-   *  `auth.trustedProxyHops`, which wins over the `KUMIKO_TRUSTED_PROXY_HOPS`
-   *  env var. Dev usually runs unproxied, so this is normally left unset
-   *  (default 0). */
-  readonly trustedProxyHops?: number;
-  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
-  readonly errorDocs?: ErrorDocsConfig;
-  /** Row level security of the dev stack, as in prod. Default "on", so tenant-isolation bugs show up in development. */
-  readonly rowLevelSecurity?: RowLevelSecurityMode;
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {

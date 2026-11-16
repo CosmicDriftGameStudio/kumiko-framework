@@ -2,6 +2,7 @@ import { errorCodeOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { EnqueuedTaskPromise, FilterableAttributes, Task } from "meilisearch";
 import type { EntityId, TenantId } from "../engine/types/identifiers.ts";
 import { importOptionalPeer } from "../utils/import-optional-peer.ts";
+import { createInMemorySearchAdapter } from "./in-memory-adapter.ts";
 import {
   type MeilisearchAdapterOptions,
   meilisearchTenantIndex,
@@ -465,4 +466,30 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       await deleteByFilters(tenantId, [entityPiecesFilter(entityType, entityId)]);
     },
   };
+}
+
+export type SearchAdapterEnv = {
+  readonly MEILI_URL?: string | undefined;
+  readonly MEILI_MASTER_KEY?: string | undefined;
+};
+
+/** Meilisearch when MEILI_URL and MEILI_MASTER_KEY are both set, in-memory when neither is
+ *  (dev, e2e). One without the other throws: a half-configured deploy would otherwise index
+ *  into memory and lose the index on every restart. */
+export function createSearchAdapterFromEnv(
+  env: SearchAdapterEnv,
+  options: { readonly indexPrefix?: string } = {},
+): SearchAdapter {
+  const url = env.MEILI_URL?.trim() || undefined;
+  const apiKey = env.MEILI_MASTER_KEY?.trim() || undefined;
+  if (url && apiKey) {
+    return createMeilisearchAdapter({
+      url,
+      apiKey,
+      ...(options.indexPrefix !== undefined && { indexPrefix: options.indexPrefix }),
+    });
+  }
+  if (!url && !apiKey) return createInMemorySearchAdapter();
+  const missing = url ? "MEILI_MASTER_KEY" : "MEILI_URL";
+  throw new Error(`Meilisearch needs MEILI_URL and MEILI_MASTER_KEY; ${missing} is not set.`);
 }
