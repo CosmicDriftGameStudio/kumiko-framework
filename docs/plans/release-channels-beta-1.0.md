@@ -57,7 +57,7 @@ Was es schon gibt und weiter trägt:
 ### Semver innerhalb von 0.x
 
 - Eine Changeset-Bump `minor` gibt es nur noch für einen Bruch. Fixes und Verbesserungen
-  bekommen `patch`.
+  bekommen `patch`. Das gilt ab sofort; ab Dezember erzwingt es der Guard aus A4.
 - Ein Zug ohne Bruch wird damit ein Patch-Release. Weil `^0.X.0` in 0.x nur `0.X.*` zulässt,
   zieht eine Caret-Range alle Züge ohne Bruch automatisch und bleibt vor dem nächsten Bruch
   stehen.
@@ -70,10 +70,12 @@ Was es schon gibt und weiter trägt:
 ### Hotfixes zwischen den Zügen
 
 Nur bei Security-Lücken und Datenverlust. Ablauf: Branch `release/0.X` vom letzten
-Release-Tag, Fix mit Changeset per Cherry-Pick, Patch-Release unter `latest`. Der Eintrag in
-`changes.json` kommt zurück auf `main`, damit der Weg von `0.X.1` zum nächsten Zug ihn nicht
-verliert, und der nächste Zug veröffentlicht den Fix nicht ein zweites Mal. Alles andere
-wartet auf den nächsten Zug.
+Release-Tag, Fix mit Changeset per Cherry-Pick, Patch-Release unter `latest`. Danach kommt
+der ganze Versions-Commit des Hotfixes zurück auf `main`, bevor der nächste Zug fährt:
+Paketversionen, CHANGELOG, `changes.json` und der verbrauchte Changeset. Sonst stünde `main`
+noch auf `0.X.0`, der nächste Zug ohne Bruch würde wieder `0.X.1` berechnen, und
+`publish-with-oidc.sh` würde die schon veröffentlichte Version still überspringen. Alles
+andere wartet auf den nächsten Zug.
 
 ### Weniger Brüche
 
@@ -114,7 +116,7 @@ Kanal für die eigenen Apps bestehen.
 | A2 | Canary-Job in `ci.yml` bei Push auf `main`: `changeset version --snapshot next` mit `snapshot.useCalculatedVersion` im CI-Checkout, Publish mit Tag `next`. Rescue-Publish, `publish-raced-version-pr.sh`, Renovate-Dispatch und das Warten auf npm laufen nur für den Zug. Nichts wird committet. | kumiko-framework | Probelauf, danach `npm view <paket> dist-tags` |
 | A3 | Prerelease-Versionen in den Werkzeugen: `compareVersionsLocal` (`packages/guards/src/guard-public-exports-changelog.ts`) schneidet den Prerelease-Teil ab. `kumiko-upgrade` und der Upgrade-State-Guard müssen `0.X.0-next-<sha>` richtig einordnen, sonst gilt für Apps auf `next` ein Eintrag als erledigt oder offen, obwohl er es nicht ist. | kumiko-framework | Unit-Tests mit Canary-Versionen |
 | A4 | Guard Bump gegen Typ: `minor` nur mit einem `breaking`-Eintrag im `kumiko-changes`-Block, sonst `patch`. Erweiterung von `guard-changes-json.ts`. | kumiko-framework | Guard-Tests |
-| A5 | Hotfix-Ablauf: Release-Job auch auf `release/*`, Runbook mit Cherry-Pick und Rückführung des `changes.json`-Eintrags auf `main`. | kumiko-framework | Probelauf mit einem Doku-Fix |
+| A5 | Hotfix-Ablauf: Release-Job auch auf `release/*`, Runbook mit Cherry-Pick und Rückführung des ganzen Versions-Commits auf `main`. | kumiko-framework | Probelauf mit einem Doku-Fix; danach berechnet der nächste Zug ohne Bruch `0.X.2` |
 | A6 | Kanal der Apps: Renovate folgt per Default `latest`, die stabilen Apps bekommen damit jeden Zug als Bump-PR. Apps auf `next` pinnen die Canary-Version und ziehen sie per `bun add <paket>@next` nach. Framework-Bump-Issues gibt es pro Repo und Zug. Die Builder-Images der Studio-Kunden folgen dem Zug. | infra, Apps | Renovate-Dry-Run, ein Bump-PR pro stabiler App |
 
 In diesem PR bereits erledigt: dieser Plan, die Stability-Policy mit dem Zielbild, der
@@ -128,7 +130,7 @@ den Vorlagen von `/issue-split` und `/issue-plan`.
 - Snapshot-Version landet auf `main`: Der Canary-Job darf nicht pushen. A2 prüft, dass
   der Checkout danach verworfen wird.
 - Falscher Versionsvergleich bei Apps auf `next`: A3.
-- Hotfix doppelt veröffentlicht oder auf `main` vergessen: A5 mit Runbook und Probelauf.
+- Hotfix-Version nicht auf `main` zurückgeführt: Der nächste Zug würde dieselbe Version berechnen und nichts veröffentlichen. A5 mit Runbook und Probelauf.
 - Zug fällt öfter aus, weil eine App rot ist: Dann bekommen Externe vier Wochen lang
   nichts. Gegenmittel ist die bestehende Regel, App-Ursachen im Framework zu fixen statt
   in der App zu umgehen.

@@ -26,7 +26,7 @@ The plan with the remaining work is
   `next` gets a canary version (`0.X.Y-next-<sha>`) for every merge to `main`.
   Ranges never match prerelease versions, so `next` never reaches a `latest`
   user by accident.
-- A minor bump means a breaking change; fixes and improvements are patch
+- A minor bump means a breaking change (changesets follow this already); fixes and improvements are patch
   releases. `^0.X.0` takes every train up to the next breaking one.
 - Breaking changes reach `latest` only with a train, each with a migration
   note and, where the change is mechanical, a codemod.
