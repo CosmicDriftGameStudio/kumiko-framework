@@ -63,7 +63,13 @@ import {
   RecordWriteDecisions,
 } from "./record-write-check.ts";
 import { neutralFileNameForMimeType } from "./resolve-content-type.ts";
-import { parseMaxSize, resolveServedContentType } from "./types.ts";
+import { readStreamWithPrefix } from "./read-stream-with-prefix.ts";
+import {
+  type FileStorageProvider,
+  parseMaxSize,
+  resolveServedContentType,
+  SNIFF_PREFIX_BYTE_COUNT,
+} from "./types.ts";
 import {
   isAnonymousPendingUploadAllowed,
   registryHasAnonymousUploadField,
@@ -556,15 +562,18 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     }
 
     const storageProvider = await options.resolveProvider(fileRef.tenantId);
-    const data = await storageProvider.read(fileRef.storageKey);
+    const { prefix, body } = await readStreamWithPrefix(
+      storageProvider.readStream(fileRef.storageKey),
+      SNIFF_PREFIX_BYTE_COUNT,
+    );
     // The stored mimeType is client-declared (file.type off the upload) and
     // never verified against the bytes — serving it as-is would let a
     // client label real HTML/SVG as e.g. image/png to slip active content
-    // out under a trusted-looking Content-Type. Sniff the actual bytes
-    // instead; anything that isn't a known-safe binary signature (including
-    // svg/html, which have none) goes out as application/octet-stream.
-    const contentType = resolveServedContentType(data, fileRef.mimeType);
-    return new Response(Buffer.from(data), {
+    // out under a trusted-looking Content-Type. Sniff the leading bytes
+    // instead; anything that isn't a known-safe binary signature
+    // (including svg/html, which have none) goes out as application/octet-stream.
+    const contentType = resolveServedContentType(prefix, fileRef.mimeType);
+    return new Response(body, {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": buildContentDispositionHeader(await resolveFileName(fileRef)),
@@ -609,10 +618,12 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
     // Built per request: createFileContext caches the resolved provider, so
     // one shared across requests would serve tenant A's store to tenant B.
-    const files = createFileContext(
-      () => options.resolveProvider(fileRef.tenantId),
-      fileRef.tenantId,
-    );
+    let tenantProvider: Promise<FileStorageProvider> | undefined;
+    const resolveTenantProvider = () => {
+      tenantProvider ??= options.resolveProvider(fileRef.tenantId);
+      return tenantProvider;
+    };
+    const files = createFileContext(resolveTenantProvider, fileRef.tenantId);
     const derivatives = createDerivativesContext({
       files,
       registry,
@@ -620,13 +631,16 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       tenantId: fileRef.tenantId,
     });
     const result = await derivatives.variant(id, spec, name);
-    const data = await files.refFromFileRef(result).read();
+    const { body } = await readStreamWithPrefix(
+      (await resolveTenantProvider()).readStream(result.storageKey),
+      1,
+    );
     // No Content-Length/Content-Disposition: fileRef.size is the ORIGINAL's
     // size, and a variant is rendered for display, not for download.
     // storageKey embeds specHash(spec), so the URL is content-stable until
     // the spec changes — safe to cache. "private" because the response sits
     // behind the tenant + guard gate above, not a shared CDN-cacheable asset.
-    return new Response(Buffer.from(data), {
+    return new Response(body, {
       headers: {
         "Content-Type": result.mimeType,
         "Cache-Control": "private, max-age=31536000, immutable",

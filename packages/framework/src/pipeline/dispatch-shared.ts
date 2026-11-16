@@ -350,6 +350,7 @@ export async function runHandlerInstrumented<T>(
   inner: () => Promise<T>,
 ): Promise<T> {
   const { tracer: dispatcherTracer, meter: dispatcherMeter, registry } = ctx;
+  const handlerFeature = registry.getHandlerFeature(type);
   const start = performance.now();
   // Outcome recorded inside the withSpan callback, emitted in finally so
   // success/failure/throw all hit a single metric-emit path.
@@ -360,12 +361,7 @@ export async function runHandlerInstrumented<T>(
     return await dispatcherTracer.withSpan(
       "kumiko.dispatcher.handler",
       {
-        attributes: dispatcherSpanAttributes(
-          type,
-          operation,
-          user,
-          registry.getHandlerFeature(type),
-        ),
+        attributes: dispatcherSpanAttributes(type, operation, user, handlerFeature),
       },
       async (span) => {
         try {
@@ -374,7 +370,7 @@ export async function runHandlerInstrumented<T>(
           const result = await runWithOrigin(
             {
               handler: type,
-              feature: registry.getHandlerFeature(type),
+              feature: handlerFeature,
               entryHandler: { qn: type, risk: resolveEntryHandlerRisk(registry, type, operation) },
             },
             inner,
@@ -430,8 +426,9 @@ export async function* runStreamInstrumented<T>(
   // completion.
   let completedNormally = false;
   let errorClass: string | undefined;
+  const handlerFeature = registry.getHandlerFeature(type);
   const span = dispatcherTracer.startSpan("kumiko.dispatcher.handler", {
-    attributes: dispatcherSpanAttributes(type, "stream", user, registry.getHandlerFeature(type)),
+    attributes: dispatcherSpanAttributes(type, "stream", user, handlerFeature),
   });
   const it = inner();
   // Each pull re-enters both scopes: AsyncLocalStorage does not survive a
@@ -441,7 +438,7 @@ export async function* runStreamInstrumented<T>(
     runWithOrigin(
       {
         handler: type,
-        feature: registry.getHandlerFeature(type),
+        feature: handlerFeature,
         entryHandler: { qn: type, risk: resolveEntryHandlerRisk(registry, type, "stream") },
       },
       () => observabilityContext.run({ activeSpan: span }, fn),

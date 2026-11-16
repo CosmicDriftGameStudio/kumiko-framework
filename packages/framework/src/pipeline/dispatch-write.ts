@@ -123,11 +123,13 @@ async function runLifecycle(
 ): Promise<void> {
   const { lifecycle } = ctx;
   if (!lifecycle) {
-    handlerContext.obs.log.debug(`runLifecycle: skipping ${type} — no lifecycle pipeline`);
+    handlerContext.obs.log.debug("runLifecycle: skipped, no lifecycle pipeline", { handler: type });
     return;
   }
   if (!isLifecycleResult(data)) {
-    handlerContext.obs.log.debug(`runLifecycle: skipping ${type} — result is not a lifecycle kind`);
+    handlerContext.obs.log.debug("runLifecycle: skipped, result is not a lifecycle kind", {
+      handler: type,
+    });
     return;
   }
   const result = data;

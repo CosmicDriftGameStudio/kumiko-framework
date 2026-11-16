@@ -149,6 +149,10 @@ const MAGIC_BYTE_SIGNATURES: ReadonlyArray<{
   },
 ];
 
+// The longest MAGIC_BYTE_SIGNATURES check (WEBP: "WEBP" at offset 8) reads
+// 12 bytes; raise this with any longer signature.
+export const SNIFF_PREFIX_BYTE_COUNT = 12;
+
 // ZIP entry names are stored uncompressed in the local and central headers,
 // so a byte search finds the docx part directory without unzipping. The main
 // part is resolved via _rels/.rels and may be named e.g. word/document2.xml.

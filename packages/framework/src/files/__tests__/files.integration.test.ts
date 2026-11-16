@@ -745,6 +745,78 @@ describe("download Content-Type is sniffed from bytes, not trusted from the decl
   });
 });
 
+describe("download streams the stored bytes", () => {
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+  test("a multi-chunk file downloads byte-identical with its declared length", async () => {
+    const bytes = new Uint8Array(200_000);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = i < pngSignature.length ? (pngSignature[i] ?? 0) : i % 251;
+    }
+    const uploadRes = await uploadFile(adminUser, "big.png", bytes, "image/png");
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("image/png");
+    expect(res.headers.get("Content-Length")).toBe("200000");
+    const downloaded = Buffer.from(await res.arrayBuffer());
+    expect(Buffer.compare(downloaded, Buffer.from(bytes))).toBe(0);
+  });
+
+  describe("with a provider whose read() is unusable", () => {
+    let streamingDir: string;
+    let streamingApp: Hono;
+    let streamingJwt: JwtHelper;
+
+    beforeAll(async () => {
+      streamingDir = await mkdtemp(join(tmpdir(), "kumiko-files-stream-test-"));
+      const base = createLocalProvider(streamingDir);
+      const streamingOnly: FileStorageProvider = {
+        ...base,
+        read: () => Promise.reject(new Error("download must stream")),
+      };
+      const server = buildServer({
+        registry: createRegistry([tenantFeature]),
+        context: { db: testDb.db, _fileProviderResolver: () => Promise.resolve(streamingOnly) },
+        jwtSecret: JWT_SECRET,
+      });
+      streamingApp = server.app;
+      streamingJwt = server.jwt;
+    });
+
+    afterAll(async () => {
+      await rm(streamingDir, { recursive: true, force: true });
+    });
+
+    test("upload and download work without read()", async () => {
+      const bytes = new Uint8Array(pngSignature.length + 50);
+      bytes.set(pngSignature);
+      const token = await streamingJwt.sign(adminUser);
+      const formData = new FormData();
+      formData.append("file", new File([Buffer.from(bytes)], "small.png", { type: "image/png" }));
+      const { body, contentType } = await buildMultipartBody(formData);
+      const uploadRes = await streamingApp.request("/api/files", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+        body,
+      });
+      expect(uploadRes.status).toBe(201);
+      const { id } = await uploadRes.json();
+
+      const res = await streamingApp.request(`/api/files/${id}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("image/png");
+      const downloaded = Buffer.from(await res.arrayBuffer());
+      expect(Buffer.compare(downloaded, Buffer.from(bytes))).toBe(0);
+    });
+  });
+});
+
 // --- doc/docx upload via API: content-verified independent of `accept` ---
 
 describe("doc/docx upload is content-verified against magic bytes", () => {
