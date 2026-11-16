@@ -52,7 +52,6 @@ export function createFolderAssignmentEntity(
       entityIdField: "entityId",
       ...(parents !== undefined && { allowedTypes: parents }),
     },
-    indexes: [{ columns: ["tenantId", "folderId"] }],
     fields: {
       folderId: createTextField({
         required: true,
@@ -74,6 +73,11 @@ export function createFolderAssignmentEntity(
         reason: "technical_reference",
       }),
     },
+    // A host's folder is read by (entityType, entityId); folder contents and delete-folder by folderId.
+    indexes: [
+      { columns: ["tenantId", "entityType", "entityId"] },
+      { columns: ["tenantId", "folderId"] },
+    ],
   });
 }
 

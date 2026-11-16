@@ -11,7 +11,7 @@ import type {
   VariantSpec,
 } from "@cosmicdrift/kumiko-types/derivatives-types";
 import QRCode from "qrcode";
-import type { OverlayOptions, ResizeOptions, Sharp } from "sharp";
+import type { OutputInfo, OverlayOptions, Raw, ResizeOptions, Sharp } from "sharp";
 import sharp from "sharp";
 import { assertNotSvg, SHARP_INPUT_OPTIONS } from "../shared/index.ts";
 
@@ -21,9 +21,8 @@ const MAX_SHARP_SIGMA = 1000;
 // cap, `{ maxEdge: 50000 }` allocates a multi-gigabyte buffer per encoder
 // step before any client sees a byte back.
 const MAX_OUTPUT_EDGE = 8192;
-// applyBlurRegions decodes the full image fresh for every region — an
-// unbounded region list is a CPU/RAM-multiplying DoS knob independent of
-// output size.
+// each region runs its own extract+blur pass over the decoded image; an
+// unbounded region list is still a CPU-multiplying DoS knob independent of output size.
 const MAX_BLUR_REGIONS = 64;
 // Every layer decodes and resizes separately before the composite — an
 // unbounded list is the same CPU/RAM multiplier MAX_BLUR_REGIONS caps.
@@ -52,16 +51,25 @@ function assertValidRegion(region: BlurRegion): void {
   }
 }
 
-// Burns each region into the auto-oriented base image, one extract+blur+
-// composite pass per region. Runs BEFORE resize: the regions are relative to
-// the original pixels, and a `fit: "cover"` crop shifts pixel coordinates in
-// a way a post-resize mapping can't reconstruct.
+type RawImage = { readonly data: Buffer; readonly raw: Raw };
+
+function rawOf(info: OutputInfo): Raw {
+  return { width: info.width, height: info.height, channels: info.channels };
+}
+
+function rawInputOptions(raw: Raw) {
+  return { ...SHARP_INPUT_OPTIONS, raw };
+}
+
+// Burns each region into the auto-oriented base image: the regions are cut from ONE
+// raw decoded image and burned in with a single composite. Runs BEFORE resize: the
+// regions are relative to the original pixels, and a `fit: "cover"` crop shifts pixel
+// coordinates in a way a post-resize mapping can't reconstruct.
 async function applyBlurRegions(
-  data: Buffer,
-  width: number,
-  height: number,
+  image: RawImage,
   regions: readonly BlurRegion[],
-): Promise<Buffer> {
+): Promise<RawImage> {
+  const { width, height } = image.raw;
   const overlays: OverlayOptions[] = [];
 
   for (const region of regions) {
@@ -79,15 +87,20 @@ async function applyBlurRegions(
     // input) — good enough until a caller needs to tune blur strength itself.
     const sigma = clampSigma(Math.max(4, Math.min(rectWidth, rectHeight) / 6));
 
-    const patch = await sharp(data, SHARP_INPUT_OPTIONS)
+    const patch = await sharp(image.data, rawInputOptions(image.raw))
       .extract({ left, top, width: rectWidth, height: rectHeight })
       .blur(sigma)
-      .toBuffer();
-    overlays.push({ input: patch, left, top });
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    overlays.push({ input: patch.data, raw: rawOf(patch.info), left, top });
   }
 
-  if (overlays.length === 0) return data;
-  return sharp(data, SHARP_INPUT_OPTIONS).composite(overlays).toBuffer();
+  if (overlays.length === 0) return image;
+  const composited = await sharp(image.data, rawInputOptions(image.raw))
+    .composite(overlays)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return { data: composited.data, raw: rawOf(composited.info) };
 }
 
 // Placement is anchored to the OUTPUT box (overlays run after resize, see
@@ -328,7 +341,7 @@ function assertRenderSpecBounds(spec: VariantSpec): void {
   }
   if (spec.blurRegions && spec.blurRegions.length > MAX_BLUR_REGIONS) {
     throw new Error(
-      `derivatives-sharp: blurRegions has ${spec.blurRegions.length} entries, exceeding the limit of ${MAX_BLUR_REGIONS} — each region re-decodes the full image.`,
+      `derivatives-sharp: blurRegions has ${spec.blurRegions.length} entries, exceeding the limit of ${MAX_BLUR_REGIONS} — each region runs its own extract and blur pass.`,
     );
   }
   for (const [dimension, value] of [
@@ -368,10 +381,14 @@ export const renderImage: DerivativeRendererPlugin["render"] = async (
   let pipeline = sharp(input, SHARP_INPUT_OPTIONS).rotate();
 
   if (spec.blurRegions && spec.blurRegions.length > 0) {
-    // PNG intermediate for the same reason as in applyOverlays (no extra lossy generation).
-    const { data, info } = await pipeline.png().toBuffer({ resolveWithObject: true });
-    const blurred = await applyBlurRegions(data, info.width, info.height, spec.blurRegions);
-    pipeline = sharp(blurred, SHARP_INPUT_OPTIONS);
+    // Raw intermediate: each region's extract reads pixels directly instead of
+    // inflating a full PNG per region, and raw adds no lossy generation either.
+    const decoded = await pipeline.raw().toBuffer({ resolveWithObject: true });
+    const blurred = await applyBlurRegions(
+      { data: decoded.data, raw: rawOf(decoded.info) },
+      spec.blurRegions,
+    );
+    pipeline = sharp(blurred.data, rawInputOptions(blurred.raw));
   }
 
   const fit = spec.fit ?? "inside";

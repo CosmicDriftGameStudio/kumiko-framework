@@ -188,6 +188,55 @@ describe("renderImage — blurRegions", () => {
     const farBlurred = await rawPixel(blurred, 10, 10);
     expect(farBlurred).toEqual(farBaseline);
   });
+
+  test("two disjoint regions are each blurred at their own offset, the gap between them stays untouched", async () => {
+    const input = await twoColorPngFixture(200, 200);
+    const baseline = await renderImage(input, {}, "image/png");
+    const blurred = await renderImage(
+      input,
+      {
+        blurRegions: [
+          { x: 0.35, y: 0.05, width: 0.3, height: 0.3 },
+          { x: 0.35, y: 0.65, width: 0.3, height: 0.3 },
+        ],
+      },
+      "image/png",
+    );
+
+    expect(await rawPixel(blurred, 100, 45)).not.toEqual(await rawPixel(baseline, 100, 45));
+    expect(await rawPixel(blurred, 100, 155)).not.toEqual(await rawPixel(baseline, 100, 155));
+    expect(await rawPixel(blurred, 100, 100)).toEqual(await rawPixel(baseline, 100, 100));
+    expect(await rawPixel(blurred, 10, 10)).toEqual(await rawPixel(baseline, 10, 10));
+  });
+
+  test("a JPEG source with blurRegions stays JPEG at the source size", async () => {
+    const input = await jpegFixture(120, 80);
+    const out = await renderImage(
+      input,
+      { blurRegions: [{ x: 0.1, y: 0.1, width: 0.5, height: 0.5 }] },
+      "image/jpeg",
+    );
+    const meta = await sharp(out).metadata();
+    expect(meta.format).toBe("jpeg");
+    expect(meta.width).toBe(120);
+    expect(meta.height).toBe(80);
+  });
+
+  test("alpha outside a blurred region survives the raw intermediate", async () => {
+    const input = await sharp({
+      create: { width: 100, height: 100, channels: 4, background: { r: 10, g: 200, b: 10, alpha: 0.5 } },
+    })
+      .png()
+      .toBuffer();
+    const baseline = await renderImage(input, {}, "image/png");
+    const blurred = await renderImage(
+      input,
+      { blurRegions: [{ x: 0.5, y: 0.5, width: 0.4, height: 0.4 }] },
+      "image/png",
+    );
+    expect((await sharp(blurred).metadata()).hasAlpha).toBe(true);
+    expect(await rawPixel(blurred, 5, 5)).toEqual(await rawPixel(baseline, 5, 5));
+  });
 });
 
 describe("renderImage — validation", () => {

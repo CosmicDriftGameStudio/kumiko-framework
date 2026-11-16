@@ -297,7 +297,21 @@ describe("feature-toggles runtime cache", () => {
     expect(runtime.effectiveFeatures().has("widget")).toBe(true);
   });
 
+  test("effectiveFeatures() is reused until apply() changes the snapshot", () => {
+    runtime.apply("widget", true);
+    const warm = runtime.effectiveFeatures();
+    expect(runtime.effectiveFeatures()).toBe(warm);
+    expect(warm.has("widget-tracker")).toBe(true);
+    runtime.apply("widget", false);
+    const afterFlip = runtime.effectiveFeatures();
+    expect(afterFlip.has("widget")).toBe(false);
+    expect(afterFlip.has("widget-tracker")).toBe(false);
+    runtime.apply("widget", true);
+  });
+
   test("refresh() re-reads the DB snapshot", async () => {
+    runtime.apply("widget", true);
+    expect(runtime.effectiveFeatures().has("widget")).toBe(true);
     await seedRow(
       stack.db,
       globalFeatureStateTable,

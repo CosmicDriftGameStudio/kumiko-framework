@@ -105,5 +105,11 @@ export function createDocumentLinkEntity(linkTargets: readonly string[]) {
         reason: "technical_reference",
       }),
     },
+    // The read gate's EXISTS finds a document's links by documentId; for-record and the
+    // parentRef gate look links up by host (entityType, entityId).
+    indexes: [
+      { columns: ["tenantId", "documentId"] },
+      { columns: ["tenantId", "entityType", "entityId"] },
+    ],
   });
 }

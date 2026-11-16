@@ -2,7 +2,7 @@
 //
 // Renderer selection is MIME-type-deterministic, not per-tenant, so no r.config and no r.extensionSelector.
 
-import { cachedResponse, computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
+import { cachedResponse } from "@cosmicdrift/kumiko-framework/api";
 import {
   bootRuleError,
   defineFeature,
@@ -15,7 +15,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
 import { FILE_DERIVATIVES_BOOT_RULES } from "./boot-rules.ts";
-import { PUBLIC_VARIANT_QN, publicVariantQuery } from "./handlers/public-variant.query.ts";
+import {
+  MAX_IF_NONE_MATCH_LENGTH,
+  PUBLIC_VARIANT_QN,
+  type PublicVariantResult,
+  publicVariantQuery,
+} from "./handlers/public-variant.query.ts";
 import {
   PUBLIC_VARIANT_BY_FILE_REF_QN,
   publicVariantByFileRefQuery,
@@ -61,11 +66,7 @@ export type FileDerivativesOptions = {
 
 // Raw handler-return of publicVariantQuery — systemQuery dispatches
 // directly against the handler, no `{data}` wire envelope.
-type PublicVariantQueryResult = {
-  readonly dataBase64: string;
-  readonly mimeType: string;
-  readonly revision: string;
-} | null;
+type PublicVariantQueryResult = PublicVariantResult | null;
 
 // tenantId never comes from the payload: from the Host via resolveApexTenant, or from the FileRef row in fileRef mode.
 export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}): FeatureDefinition {
@@ -132,6 +133,7 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
             const tenantId = await resolveApexTenant(host);
             if (!tenantId) return c.text("not found", 404);
 
+            const ifNoneMatch = c.req.header("if-none-match");
             let result: PublicVariantQueryResult;
             try {
               // @cast-boundary engine-payload — shape comes from
@@ -139,7 +141,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
               // returns exactly that, or null, never its own shape).
               result = (await systemQuery(
                 routeQn,
-                { fileRefId, variant },
+                {
+                  fileRefId,
+                  variant,
+                  ...(ifNoneMatch !== undefined &&
+                    ifNoneMatch.length <= MAX_IF_NONE_MATCH_LENGTH && { ifNoneMatch }),
+                },
                 tenantId,
               )) as PublicVariantQueryResult;
             } catch (err) {
@@ -155,11 +162,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
             }
             if (!result) return c.text("not found", 404);
 
-            const bytes = Buffer.from(result.dataBase64, "base64");
-            const etag = computeRevisionEtag([tenantId, fileRefId, variant, result.revision]);
             return cachedResponse(c.req.raw, {
-              body: bytes,
-              etag,
+              // notModified means the query already matched this If-None-Match against the same
+              // revision; cachedResponse repeats that check and answers 304, so the null body is
+              // never sent as a 200.
+              body: result.notModified ? null : Buffer.from(result.dataBase64, "base64"),
+              etag: result.revision,
               cache: { kind: "revalidate", maxAgeSeconds: 60 },
               // Explicit here, not left to the app-wide security-headers default, so the route stays safe standalone.
               headers: {

@@ -94,6 +94,11 @@ export function createTagAssignmentEntity(
         reason: "technical_reference",
       }),
     },
+    // A host's tags are read by (entityType, entityId); a tag's hosts by tagId.
+    indexes: [
+      { columns: ["tenantId", "entityType", "entityId"] },
+      { columns: ["tenantId", "tagId"] },
+    ],
   });
 }
 

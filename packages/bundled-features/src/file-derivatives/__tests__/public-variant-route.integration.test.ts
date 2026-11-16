@@ -126,9 +126,18 @@ const HOST_B = "tenant-b.example.com";
 const userA = createTestUser({ id: 1, tenantId: TENANT_A, roles: ["Admin"] });
 
 let stack: TestStack;
+let storageReads = 0;
 
 beforeAll(async () => {
   patchFileInstanceofForBunTest();
+  const memoryProvider = createInMemoryFileProvider();
+  const countingProvider: typeof memoryProvider = {
+    ...memoryProvider,
+    read: async (key) => {
+      storageReads++;
+      return memoryProvider.read(key);
+    },
+  };
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
@@ -143,7 +152,7 @@ beforeAll(async () => {
       }),
       widgetPredicateFeature,
     ],
-    files: { storageProvider: createInMemoryFileProvider() },
+    files: { storageProvider: countingProvider },
   });
   await unsafeCreateEntityTable(stack.db, widgetEntity, "widget");
   await unsafeCreateEntityTable(stack.db, noPredicateEntity, "nopredicate");
@@ -168,6 +177,7 @@ beforeEach(async () => {
   renderCalls = 0;
   lastRenderSpec = null;
   predicateCalls = 0;
+  storageReads = 0;
   // Fresh rate-limit bucket per test — no carry-over.
   await stack.redis.flushNamespace();
 });
@@ -267,6 +277,24 @@ describe("GET /media/:fileRefId/:variant (anonymous, default-deny)", () => {
 
     expect(revalidate.status).toBe(304);
     expect(await revalidate.arrayBuffer()).toEqual(new ArrayBuffer(0));
+  });
+
+  test("a matching If-None-Match answers 304 without reading the variant from storage", async () => {
+    const fileId = await uploadFile(userA, { entityType: "widget", entityId: publicWidgetId });
+    const url = `http://${HOST_A}/media/${fileId}/thumb`;
+    const first = await stack.app.request(url);
+    expect(first.status).toBe(200);
+    const etag = first.headers.get("ETag") ?? "";
+    expect(etag).not.toBe("");
+    storageReads = 0;
+    const revalidate = await stack.app.request(url, { headers: { "if-none-match": etag } });
+    expect(revalidate.status).toBe(304);
+    expect(revalidate.headers.get("ETag")).toBe(etag);
+    expect(storageReads).toBe(0);
+    const cold = await stack.app.request(url);
+    expect(cold.status).toBe(200);
+    expect(new Uint8Array(await cold.arrayBuffer())).toEqual(VARIANT_BYTES);
+    expect(storageReads).toBe(1);
   });
 
   test("syntactically malformed variant names → 404, pre-check runs before any DB/systemQuery work", async () => {

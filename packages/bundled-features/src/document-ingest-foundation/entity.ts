@@ -52,6 +52,8 @@ export const documentExtractEntity = createEntity({
     }),
     meta: createJsonbField(),
   },
+  // Forget hooks and extract lookups select by the source fileRefId.
+  indexes: [{ columns: ["tenantId", "fileRefId"] }],
 });
 
 export const documentExtractsTable = buildEntityTable("documentExtract", documentExtractEntity);
