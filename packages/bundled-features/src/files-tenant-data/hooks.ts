@@ -1,48 +1,10 @@
-// EXT_TENANT_DATA + EXT_STORAGE_PROVIDER destroy hooks for the `fileRef`
-// entity. Kept apart from the `files` feature (like folders-user-data
-// does for EXT_USER_DATA) so file consumers without the tenant-lifecycle
-// pipeline don't pull a hard dependency — `files` stays usable standalone.
-//
-// Two hooks cover two different destroy stages:
-//   - fileRefTenantDestroyHook ("app-data" stage, EXT_TENANT_DATA): purges
-//     every fileRef ROW for the tenant via forget() — rebuild-safe, mirrors
-//     document-ingest-foundation's documentExtractTenantDestroyHook. No
-//     isDeleted filter: tenant-destroy purges trashed rows too, a destroyed
-//     tenant has no "restore from trash" future. ALSO sweeps, per row, any
-//     storageKey that does NOT sit under one of this tenant's own
-//     tenantStoragePrefixes() — the shape a tenant-handover leaves behind:
-//     the fileRef row's tenantId moved to this tenant, but the bytes stayed
-//     under the SOURCE tenant's prefix (moving them would mean copying bytes,
-//     which the handover design explicitly rejects). Must run here, not in
-//     the "files" stage below — that stage's own prefix sweep only reaches
-//     keys under ITS tenant's prefixes by construction, and by the time it
-//     runs this hook has already forgotten (hard-deleted) the rows it would
-//     need to read the storageKey off. Deleted by STEM prefix
-//     (storageKeyStemPrefix), not the exact key: a derived variant
-//     (thumbnail, resized render) has no `file_refs` row of its own, so only
-//     the stem reaches original + derivatives together.
-//   - fileRefStorageDestroyHook ("files" stage, EXT_STORAGE_PROVIDER): wipes
-//     every BINARY (original + derivatives + anything else) under the
-//     tenant's storage prefixes. A full prefix sweep per tenantStoragePrefixes()
-//     entry, not a per-row derivative lookup — not every layout puts tenantId
-//     first (see tenantExportPrefix), so this must sweep every known prefix,
-//     stays correct even though the "files" stage runs after "app-data"
-//     already forgot the rows, and can never cross into another tenant's keys
-//     (the provider's own list() prefix already scopes it). Still catches a
-//     blob with no fileRef row at all (the orphan case the row-driven sweep
-//     above cannot see) — REFINED, not replaced, to skip a key a FOREIGN
-//     tenant's fileRef row still references (a tenant-handover leaves the
-//     row's tenantId moved but the storageKey under THIS tenant's prefix
-//     unchanged). By the time this stage runs, the "app-data" stage
-//     (stages.ts DESTRUCTION_STAGES: "app-data" before "files") has already
-//     hard-deleted every row THIS tenant owned, so any surviving row a listed
-//     key still matches is, by construction, a foreign tenant's — no tenant
-//     comparison needed, existence is enough. The exception is computed from
-//     the SURVIVING row's storageKeyStemPrefix (mirroring the deletion side
-//     above), not the listed key's exact match: a derivative has no fileRef row
-//     of its own, so excluding only exact matches would still delete it out
-//     from under the tenant that claimed its original. Batched: one existence
-//     query per chunk of listed keys, not one query per key.
+// EXT_TENANT_DATA + EXT_STORAGE_PROVIDER destroy hooks for `fileRef`: two hooks, two stages
+// ("app-data" runs before "files", see stages.ts DESTRUCTION_STAGES).
+// - fileRefTenantDestroyHook forgets every row (no isDeleted filter) and deletes bytes outside the
+//   tenant's own prefixes (tenant handover) by stem, since derivatives have no row of their own.
+// - fileRefStorageDestroyHook wipes every tenantStoragePrefixes() prefix; keys a foreign tenant's
+//   row still references stay, with their derivatives (by stem).
+// Without a provider both are a logged no-op; once a provider resolves, list/delete errors fail closed.
 
 import { createEventStoreExecutor, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -67,9 +29,7 @@ import { type ChunkedMigrationResult, runChunkedMigration } from "../shared/inde
 
 const crud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
 
-// Existence-check batch size for fileRefStorageDestroyHook's survivor lookup
-// — bounds each query instead of one `storage_key = ANY(...)` per listed key,
-// or a single unbounded array for a tenant with a huge prefix.
+// Bounds each survivor existence query per chunk of listed keys.
 const SURVIVOR_CHECK_BATCH_SIZE = 500;
 
 const DESTROY_CHUNK_SIZE = 500;
@@ -142,12 +102,9 @@ function storageKeyOwnerTenant(storageKey: string, fallback: TenantId): TenantId
 
 async function deleteHandedOverBinary(ctx: TenantDataHookCtx, storageKey: string): Promise<void> {
   if (!ctx.fileProviderResolver) {
-    // skip: same graceful-degradation stance as fileRefStorageDestroyHook —
-    // no provider wired means the binary sweep is skipped, not fail-closed.
     ctx.log?.(
       `[files-tenant-data] no fileProviderResolver wired — handed-over binary for ${storageKey} is NOT deleted`,
     );
-    // skip: no provider wired, so there is no store to delete from — logged above.
     return;
   }
   const ownerTenantId = storageKeyOwnerTenant(storageKey, ctx.tenantId);
@@ -158,7 +115,6 @@ async function deleteHandedOverBinary(ctx: TenantDataHookCtx, storageKey: string
     ctx.log?.(
       `[files-tenant-data] no file provider resolvable for tenant ${ownerTenantId}: ${err instanceof Error ? err.message : String(err)} — handed-over binary for ${storageKey} NOT deleted`,
     );
-    // skip: provider resolution failed, so there is nothing this call can delete — logged above.
     return;
   }
   for (const key of await provider.list(storageKeyStemPrefix(storageKey))) {
@@ -172,16 +128,10 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
   ctx,
 ) => {
   if (!ctx.fileProviderResolver) {
-    // Resolution unavailable (no file-provider-* feature mounted, or the job
-    // ctx didn't wire one) degrades to a no-op — same "not fail-closed"
-    // stance as the per-user forget hook's resolveProvider: a misconfigured
-    // store must not block the rest of the destroy pipeline forever. The row
-    // purge from the "app-data" stage already ran regardless.
+    // No resolver (no file-provider-* mounted) degrades to a no-op so a misconfigured store does not block the destroy pipeline.
     ctx.log?.(
       `[files-tenant-data] no fileProviderResolver wired — tenant ${tenantId}'s file binaries are NOT deleted on destroy`,
     );
-    // skip: no resolver wired for this destroy run — already logged above, and
-    // the row purge from the "app-data" stage ran regardless.
     return;
   }
   let provider: Awaited<ReturnType<typeof ctx.fileProviderResolver>>;
@@ -191,22 +141,14 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
     ctx.log?.(
       `[files-tenant-data] no file provider resolvable for tenant ${tenantId}: ${err instanceof Error ? err.message : String(err)} — binaries NOT deleted`,
     );
-    // skip: provider resolution failed for this tenant — already logged
-    // above, binaries are left in place rather than blocking the pipeline.
     return;
   }
-  // Provider resolved — a list()/delete() failure from here IS fail-closed:
-  // the "files" stage throws, tenant-lifecycle's retry/abandon handling sees
-  // it and retries up to the stage's attempt cap before abandoning the destroy
-  // (list+delete are idempotent, so a retry converges rather than
-  // double-deleting or erroring on a missing key).
+  // Past this point list()/delete() failures are fail-closed: tenant-lifecycle retries (idempotent) up to the attempt cap.
   let processed = 0;
   for (const prefix of tenantStoragePrefixes(tenantId)) {
     const keys = await provider.list(prefix);
     const keptStemPrefixes = await survivorStemPrefixes(ctx.db, keys);
-    const deletableKeys = keys.filter(
-      (key) => !keptStemPrefixes.some((stemPrefix) => key.startsWith(stemPrefix)),
-    );
+    const deletableKeys = keys.filter((key) => !isUnderKeptStem(key, keptStemPrefixes));
     const pending = [...deletableKeys];
     let firstFailure: string | undefined;
     const result = await runChunkedMigration<string>({
@@ -232,21 +174,31 @@ export const fileRefStorageDestroyHook: StorageProviderDestroyTenantHook = async
   return { done: true, processed };
 };
 
-// Any listed key that is itself a surviving row's exact storageKey means a
-// foreign tenant still owns it (see header comment) — its stem prefix then
-// also protects any derivative of that same original sitting in the same
-// listed batch, none of which have their own fileRef row.
+// A surviving row's stem also protects its derivatives, which have no row of their own.
 async function survivorStemPrefixes(
   db: StorageProviderHookCtx["db"],
   keys: readonly string[],
-): Promise<readonly string[]> {
-  const stemPrefixes: string[] = [];
+): Promise<ReadonlySet<string>> {
+  const stemPrefixes = new Set<string>();
   for (const batch of chunk(keys, SURVIVOR_CHECK_BATCH_SIZE)) {
     if (batch.length === 0) continue;
     const survivors = await selectMany<{ storageKey: string }>(db, fileRefsTable, {
       storageKey: batch,
     });
-    for (const survivor of survivors) stemPrefixes.push(storageKeyStemPrefix(survivor.storageKey));
+    for (const survivor of survivors) stemPrefixes.add(storageKeyStemPrefix(survivor.storageKey));
   }
   return stemPrefixes;
+}
+
+// Stem prefixes always end at a '.', so a key starts with one exactly when one of its own '.'-terminated prefixes is in the set.
+function isUnderKeptStem(key: string, keptStemPrefixes: ReadonlySet<string>): boolean {
+  if (keptStemPrefixes.size === 0) return false;
+  for (
+    let dotIndex = key.indexOf(".");
+    dotIndex !== -1;
+    dotIndex = key.indexOf(".", dotIndex + 1)
+  ) {
+    if (keptStemPrefixes.has(key.slice(0, dotIndex + 1))) return true;
+  }
+  return false;
 }

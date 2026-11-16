@@ -17,10 +17,8 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
-  bridgeStub,
   createSystemUser,
   type EntityId,
-  type JobContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
@@ -69,7 +67,6 @@ import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "../hooks.ts
 import { createFilesTenantDataFeature } from "../index.ts";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
-const SWEEP_JOB = "files-tenant-data:job:sweep-orphaned-derivatives";
 
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",
@@ -189,58 +186,6 @@ async function driveDestructionToCompletion(
   }
   return status;
 }
-
-describe("files-tenant-data :: job registration", () => {
-  test("registers a handler under files-tenant-data:job:sweep-orphaned-derivatives — the name jobs:write:trigger dispatches by — that actually runs the sweep", async () => {
-    const job = stack.registry.getJob(SWEEP_JOB);
-    expect(job).toBeDefined();
-    expect(job?.trigger).toEqual({ manual: true });
-
-    await seedTenant(tenantA);
-    const original = buildStorageKey(tenantA.tenantId, "fileRef", 1, "attachment", "a.jpg", "u1");
-    const lastDot = original.lastIndexOf(".");
-    const orphan = `${original.slice(0, lastDot)}.thumb-0123456789abcdef${original.slice(lastDot)}`;
-    await provider.write(orphan, new Uint8Array([1]));
-
-    const infoLines: string[] = [];
-    const log: JobContext["obs"]["log"] = {
-      info(message: string) {
-        infoLines.push(message);
-      },
-      warn() {},
-      error() {},
-      debug() {},
-      child() {
-        return log;
-      },
-    };
-    const ctx: JobContext = {
-      db: createTenantDb({
-        db: stack.db,
-        tenantId: tenantA.tenantId,
-        mode: "tenant",
-        grants: {
-          unsafeRaw: job?.escapeHatch,
-        },
-      }),
-      registry: stack.registry,
-      systemUser: tenantA,
-      triggeredBy: null,
-      attempt: 1,
-      finalAttempt: true,
-      defer: (delayMs) => ({ kind: "job-deferral", delayMs }),
-      canDefer: false,
-      ...bridgeStub({ services: { _fileProviderResolver: async () => provider }, log: log }),
-    };
-
-    await job?.handler({}, ctx);
-
-    expect(await provider.exists(orphan)).toBe(false);
-    expect(infoLines.some((line) => line.includes("[files-tenant-data:sweep] complete"))).toBe(
-      true,
-    );
-  });
-});
 
 describe("files-tenant-data :: tenant destroy", () => {
   test("purges fileRef rows and wipes every storage key under the tenant prefix, leaving other tenants untouched", async () => {
@@ -394,7 +339,7 @@ describe("files-tenant-data :: tenant destroy", () => {
       expect(await providerOfA.exists(handedOverKey)).toBe(false);
     });
 
-    test("the SOURCE tenant's destroy does not delete a file — or its derivative — a foreign tenant claimed, but still sweeps a true orphan", async () => {
+    test("the SOURCE tenant's destroy does not delete files — or their derivatives — foreign tenants claimed, but still sweeps orphans and stem-sharing siblings", async () => {
       await seedTenant(tenantA);
       await seedTenant(tenantB);
 
@@ -407,13 +352,29 @@ describe("files-tenant-data :: tenant destroy", () => {
         "u1",
       );
       const derivativeKey = `${originalKey.replace(/\.jpg$/, "")}.medium.jpg`;
+      const secondOriginalKey = buildStorageKey(
+        tenantA.tenantId,
+        "fileRef",
+        1,
+        "attachment",
+        "scan.jpg",
+        "u2",
+      );
+      const secondDerivativeKey = `${secondOriginalKey.replace(/\.jpg$/, "")}.medium.jpg`;
+      // Shares the original's leading characters but not its stem.
+      const siblingKey = `${originalKey.replace(/\.jpg$/, "")}-sibling.jpg`;
       const orphanKey = `${tenantA.tenantId}/some-other-file.bin`;
       const { id: fileRefId } = await seedFileRef(tenantA.tenantId, originalKey);
+      const { id: secondFileRefId } = await seedFileRef(tenantA.tenantId, secondOriginalKey);
       await provider.write(originalKey, new Uint8Array([1]));
       await provider.write(derivativeKey, new Uint8Array([2]));
+      await provider.write(secondOriginalKey, new Uint8Array([4]));
+      await provider.write(secondDerivativeKey, new Uint8Array([5]));
+      await provider.write(siblingKey, new Uint8Array([6]));
       await provider.write(orphanKey, new Uint8Array([3]));
 
       await handOverFileRef(fileRefId, tenantB.tenantId);
+      await handOverFileRef(secondFileRefId, tenantB.tenantId);
 
       await seedDestroyingTenant(tenantA.tenantId);
       const finalStatus = await driveDestructionToCompletion(
@@ -422,18 +383,21 @@ describe("files-tenant-data :: tenant destroy", () => {
       );
       expect(finalStatus).toBe("destroyed");
 
-      // A's own app-data stage never even sees this row — by the time it ran,
-      // the handover had already moved it to B.
+      // A's own app-data stage never even sees these rows — by the time it ran,
+      // the handover had already moved them to B.
       const rowsB = await selectMany(db, fileRefsTable, { tenantId: tenantB.tenantId });
-      expect(rowsB).toHaveLength(1);
+      expect(rowsB).toHaveLength(2);
 
       // The silent-data-loss case the whole handover design exists to
       // prevent: A's storage-prefix sweep must not delete bytes a foreign
-      // tenant's surviving row still references — original AND derivative.
+      // tenant's surviving row still references — originals AND derivatives.
       expect(await provider.exists(originalKey)).toBe(true);
       expect(await provider.exists(derivativeKey)).toBe(true);
-      // A true orphan (no fileRef row anywhere) is still swept — the
-      // exception above is narrow, not a general retreat from the sweep.
+      expect(await provider.exists(secondOriginalKey)).toBe(true);
+      expect(await provider.exists(secondDerivativeKey)).toBe(true);
+      // Orphans and stem-sharing siblings (no fileRef row anywhere) are still
+      // swept — the exception above is narrow, not a general retreat.
+      expect(await provider.exists(siblingKey)).toBe(false);
       expect(await provider.exists(orphanKey)).toBe(false);
     });
   });

@@ -1,24 +1,6 @@
-// file-provider-s3-env — S3 file provider configured entirely from
-// process.env. ONE shared bucket for ALL tenants: wire it by setting the
-// `S3_*` env vars + mounting — no per-tenant admin seeding and no
-// `secrets`-feature dependency.
-//
-// **vs the default file-provider-s3:** the config-based `"s3"` provider owns per-tenant
-// config keys + an encrypted `s3.secretAccessKey` secret (per-tenant
-// buckets, admin-seeded). This `"s3-env"` provider reads one credential set
-// from env and serves every tenant from one bucket — the
-// Hetzner-Object-Storage / single-bucket deploy case. Tenant isolation
-// still holds: file keys carry the tenant (export ZIPs:
-// `exports/<tenantId>/<jobId>.zip`) or are globally-unique UUIDs (fileRefs).
-//
-// **Pattern-Vorbild:** mirrors file-provider-inmemory (zero admin seeding,
-// only the file-foundation plugin-point required).
-//
-// **Env vars** (read by createS3ProviderFromEnv, declared in s3EnvSchema):
-//   S3_BUCKET, S3_REGION, S3_ACCESS_KEY, S3_SECRET_KEY, optional S3_ENDPOINT
-//   and S3_FORCE_PATH_STYLE. The schema keeps them optional because apps mount
-//   this provider next to another one; missing vars throw on the FIRST file op.
-// The user-data-rights boot guard surfaces that at boot instead.
+// One bucket for all tenants from `<prefix>*` env vars, no per-tenant seeding; tenant isolation comes
+// from tenant-prefixed or UUID keys. Missing vars throw on the first file op (the user-data-rights
+// boot guard reports them earlier).
 
 import type {
   FileProviderContext,
@@ -27,39 +9,51 @@ import type {
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { featureWithEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
+import type * as z from "zod";
 import { s3EnvSchema } from "./env-schema.ts";
 import { createS3ProviderFromEnv } from "./lib/env-helper.ts";
 
-const FEATURE_NAME = "file-provider-s3-env";
-
-export function createFileProviderS3EnvFeature() {
+export function defineS3EnvProviderFeature<TShape extends z.ZodRawShape>(spec: {
+  readonly featureName: string;
+  readonly providerKey: string;
+  readonly envPrefix: string;
+  readonly envSchema: z.ZodObject<TShape>;
+  readonly description: string;
+  readonly displayLabel: string;
+  readonly dedupeOptions: Readonly<Record<string, string>>;
+}) {
   const feature = defineFeature(
-    FEATURE_NAME,
+    spec.featureName,
     (r) => {
-      r.describe(
-        'Registers an `"s3-env"` provider for `file-foundation` that reads one S3 credential set from `process.env` (`S3_BUCKET`/`S3_REGION`/`S3_ACCESS_KEY`/`S3_SECRET_KEY`, optional `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE`) and serves every tenant from one shared bucket — no per-tenant config or secret seeding. Use this for single-bucket S3-compatible deploys (e.g. Hetzner Object Storage); use `file-provider-s3` instead when each tenant needs its own bucket/credentials.',
-      );
+      r.describe(spec.description);
       r.uiHints({
-        displayLabel: "File Provider · S3 (env)",
+        displayLabel: spec.displayLabel,
         category: "storage",
         recommended: false,
       });
-      // No requires on "config" or "secrets" — credentials come from
-      // env, not the per-tenant config + secrets store. Only the file-foundation
-      // plugin-extension-point must be mounted.
       r.requires({ features: ["file-foundation"] });
-      r.envSchema(s3EnvSchema);
+      r.envSchema(spec.envSchema);
 
       const plugin: FileProviderPlugin = {
-        // tenantId ignored: one shared bucket serves all tenants (isolation via
-        // tenant-prefixed / UUID keys). Built fresh per call like file-provider-s3;
-        // the S3 client opens no connection at construction.
         build: async (_ctx: FileProviderContext, _tenantId: string): Promise<FileStorageProvider> =>
-          createS3ProviderFromEnv(),
+          createS3ProviderFromEnv(spec.envPrefix),
       };
-      r.useExtension("fileProvider", "s3-env", plugin);
+      r.useExtension("fileProvider", spec.providerKey, plugin);
     },
-    { dedupeOptions: {} },
+    { dedupeOptions: spec.dedupeOptions },
   );
-  return featureWithEnvSchema(feature, s3EnvSchema);
+  return featureWithEnvSchema(feature, spec.envSchema);
+}
+
+export function createFileProviderS3EnvFeature() {
+  return defineS3EnvProviderFeature({
+    featureName: "file-provider-s3-env",
+    providerKey: "s3-env",
+    envPrefix: "S3_",
+    envSchema: s3EnvSchema,
+    description:
+      'Registers an `"s3-env"` provider for `file-foundation` that reads one S3 credential set from `process.env` (`S3_BUCKET`/`S3_REGION`/`S3_ACCESS_KEY`/`S3_SECRET_KEY`, optional `S3_ENDPOINT`/`S3_FORCE_PATH_STYLE`) and serves every tenant from one shared bucket — no per-tenant config or secret seeding. Use this for single-bucket S3-compatible deploys (e.g. Hetzner Object Storage); use `file-provider-s3` instead when each tenant needs its own bucket/credentials.',
+    displayLabel: "File Provider · S3 (env)",
+    dedupeOptions: {},
+  });
 }

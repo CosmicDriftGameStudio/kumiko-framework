@@ -4,7 +4,6 @@ import { describe, expect, test } from "bun:test";
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createAuthMfaFeature } from "../auth-mfa/feature.ts";
 import { createDataRetentionFeature } from "../data-retention/feature.ts";
-import { createFilesTenantDataFeature } from "../files-tenant-data/index.ts";
 import { createFormDraftFeature } from "../form-draft/feature.ts";
 import { createInboundMailFoundationFeature } from "../inbound-mail-foundation/feature.ts";
 import { createSecretsFeature } from "../secrets/feature.ts";
@@ -24,7 +23,6 @@ const crossTenantJobs: ReadonlyArray<readonly [FeatureDefinition, string]> = [
     "reencrypt",
   ],
   [createDataRetentionFeature(), "retention-cleanup"],
-  [createFilesTenantDataFeature(), "sweep-orphaned-derivatives"],
   [createFormDraftFeature(), "cleanup"],
   [createInboundMailFoundationFeature(), "inbound-mail-retention"],
   [createSecretsFeature(), "rotate"],

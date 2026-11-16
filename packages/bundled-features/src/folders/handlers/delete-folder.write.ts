@@ -1,22 +1,15 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { hostRowIsGone } from "../../shared/index.ts";
+import { liveHostRowIds } from "../../shared/index.ts";
 import { folderAssignmentExecutor, folderExecutor } from "../executor.ts";
 import { DEFAULT_FOLDER_ACCESS, FOLDER_LOCK_NAMESPACE } from "../web/constants.ts";
 
 const deleteFolderPayloadSchema = z.object({ id: z.uuid() });
 
-// delete-folder — read_folders and read_folder_assignments have no FK, so the delete refuses
-// while child folders or live folder-assignments still point at this folder (658/1); deleting it
-// would leave them dangling with no cleanup path. The advisory lock on the folder id serialises
-// with set-folder and with the parent guard of folder:create/update, so neither can attach
-// something between these checks and the delete.
-//
-// Assignments whose host is gone (hard-deleted, soft-deleted or unregistered)
-// are cleaned up here instead of blocking forever: clear-folder can't reach
-// them (it requires a visible host). A host-delete hook would break restore,
-// so the cleanup runs lazily at folder:delete.
+// No FK: refuse while child folders or live assignments exist. The advisory lock serialises with
+// set-folder and the parent guard. Assignments of gone hosts are removed here: clear-folder needs
+// a visible host, and a host-delete hook would break restore.
 const ASSIGNMENT_PAGE_SIZE = 200;
 export function createDeleteFolderHandler(
   access: AccessRule = DEFAULT_FOLDER_ACCESS,
@@ -53,22 +46,24 @@ export function createDeleteFolderHandler(
           event.user,
           ctx.db,
         );
+        const entityIdsByType = new Map<string, string[]>();
         for (const row of page.rows) {
-          const gone = await hostRowIsGone(
-            ctx.registry,
-            String(row["entityType"]),
-            String(row["entityId"]),
-            ctx.db,
-          );
-          if (!gone) {
+          const entityType = String(row["entityType"]);
+          const entityIds = entityIdsByType.get(entityType) ?? [];
+          entityIds.push(String(row["entityId"]));
+          entityIdsByType.set(entityType, entityIds);
+        }
+        for (const [entityType, entityIds] of entityIdsByType) {
+          const liveIds = await liveHostRowIds(ctx.registry, entityType, entityIds, ctx.db);
+          if (liveIds.size > 0) {
             return writeFailure(
               new UnprocessableError("folder_has_assignments", {
                 details: { folderId: payload.id },
               }),
             );
           }
-          orphanAssignmentIds.push(String(row["id"]));
         }
+        for (const row of page.rows) orphanAssignmentIds.push(String(row["id"]));
         cursor = page.nextCursor ?? undefined;
       } while (cursor !== undefined);
 

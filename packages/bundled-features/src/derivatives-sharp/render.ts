@@ -292,8 +292,7 @@ function assertOverlayLayerBounds(layer: ResolvedOverlayLayer): void {
         `derivatives-sharp: qr overlay data length ${layer.data.length} is out of range — must be 1–${MAX_QR_DATA_LENGTH} characters.`,
       );
     }
-    // skip: qr layers have no imageBase64 field to validate; this return also
-    // narrows the union below to the image variant without a cast.
+    // Narrows the union below to the image variant without a cast.
     return;
   }
   const byteLength = Buffer.byteLength(layer.imageBase64, "base64");
@@ -305,7 +304,6 @@ function assertOverlayLayerBounds(layer: ResolvedOverlayLayer): void {
 }
 
 function assertOverlayBounds(layers: readonly ResolvedOverlayLayer[] | undefined): void {
-  // skip: no overlays configured for this variant, nothing to validate
   if (!layers) return;
   if (layers.length > MAX_OVERLAY_LAYERS) {
     throw new Error(

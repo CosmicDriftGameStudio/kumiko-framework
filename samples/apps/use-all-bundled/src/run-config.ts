@@ -490,8 +490,7 @@ export const APP_FEATURES = [
   // (optionally) on auth-mfa + (hard) on user-data-rights — both mounted
   // above.
   createAuthMfaUserDataFeature(),
-  // files-tenant-data: tenant-destroy row purge + storage-prefix binary wipe
-  // for fileRef, plus the orphaned-derivative backfill/GC job (#2474).
+  // files-tenant-data: tenant-destroy row purge + storage-prefix binary wipe for fileRef.
   // Depends (optionally) on files + (hard) on tenant-lifecycle — both
   // mounted above.
   createFilesTenantDataFeature(),

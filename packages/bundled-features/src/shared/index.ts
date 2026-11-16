@@ -39,8 +39,8 @@ export { mapWithConcurrency } from "./map-with-concurrency.ts";
 export { normalizeEmail } from "./normalize-email.ts";
 export {
   denyUnlessJoinRowParentVisible,
-  hostRowIsGone,
   joinRowParentIsVisible,
+  liveHostRowIds,
   parentRowIsVisible,
   visibleParentRowIds,
 } from "./parent-visibility.ts";

@@ -5,7 +5,33 @@ import {
   type FileProviderPlugin,
   isFileProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
+import { createFileProviderS3NamedEnvFeature } from "../env-named-feature.ts";
 import { createFileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../feature.ts";
+
+describe("S3 env providers — names and provider keys", () => {
+  test("createFileProviderS3Feature({ fromEnv: true }) keeps the feature name and the s3-env key", () => {
+    const feature = createFileProviderS3Feature({ fromEnv: true });
+    expect(feature.name).toBe("file-provider-s3-env");
+    expect(feature.requires).toContain("file-foundation");
+    expect(feature.requires).not.toContain("secrets");
+    const usage = feature.extensionUsages.find(
+      (u) => u.extensionName === "fileProvider" && u.entityName === "s3-env",
+    );
+    expect(isFileProviderPlugin(usage?.options)).toBe(true);
+  });
+
+  test("a named provider is mounted as file-provider-s3-env-<name> under the <name> key", () => {
+    const feature = createFileProviderS3NamedEnvFeature({
+      name: "releases",
+      envPrefix: "RELEASES_S3_",
+    });
+    expect(feature.name).toBe("file-provider-s3-env-releases");
+    const usage = feature.extensionUsages.find(
+      (u) => u.extensionName === "fileProvider" && u.entityName === "releases",
+    );
+    expect(isFileProviderPlugin(usage?.options)).toBe(true);
+  });
+});
 
 describe("fileProviderS3Feature — shape", () => {
   test("has the expected name", () => {

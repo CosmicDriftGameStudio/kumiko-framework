@@ -92,8 +92,6 @@ export function FolderManager({
   renderMeta,
   filing,
 }: {
-  // Optional per-folder slot (right side of each row). The host owns the data;
-  // the manager just gives it a place to render.
   readonly renderMeta?: (folder: FolderRow) => ReactNode;
   // Optional filing mode: interleave the host's draggable entities + DnD.
   readonly filing?: FolderFiling;
@@ -112,7 +110,6 @@ export function FolderManager({
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<FolderNode | null>(null);
 
-  // Persist expand/collapse so a reload (F5) doesn't re-expand everything.
   // biome-ignore lint/plugin: DOM integration: writes to window.localStorage, no framework query/mutation equivalent
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -299,8 +296,6 @@ export function FolderManager({
     </button>
   );
 
-  // Chevron + folder icon + name = one click target that toggles (cursor-pointer).
-  // A non-expandable folder renders the same layout without the toggle affordance.
   const toggleArea = (
     id: string,
     label: string,

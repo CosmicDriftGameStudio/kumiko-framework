@@ -1,10 +1,6 @@
 // kumiko-feature-version: 1
 //
-// Same extension-point/provider-feature pattern as file-foundation — see
-// r.describe below for what this feature does. Unlike `fileProvider`,
-// renderer selection is MIME-type-deterministic, not per-tenant
-// configurable, so this feature has no `r.config` and no
-// `r.extensionSelector`.
+// Renderer selection is MIME-type-deterministic, not per-tenant, so no r.config and no r.extensionSelector.
 
 import { cachedResponse, computeRevisionEtag } from "@cosmicdrift/kumiko-framework/api";
 import {
@@ -27,17 +23,10 @@ import {
 
 const FEATURE_NAME = "file-derivatives";
 
-// Syntactic only, no registry/name-list lookup: a valid preset name plus a
-// random UUID reaches the same DB read anyway, so an allow-list of known
-// names defends nothing a determined caller can't route around — it only
-// blocks the cheaper of two equally-costly attacks. What a name actually
-// resolves to is decided by the field declaration in publicVariantQuery;
-// this just keeps pathological input (path separators, `..`, oversized
-// strings) out before that DB round-trip. `variants` keys have no runtime
-// charset constraint (`Readonly<Record<string, VariantSpec>>`), so this
-// stays permissive rather than guessing a convention — narrower than this
-// would silently 404 a legitimately declared name again. Do not reintroduce
-// a name list here "for safety".
+// Syntactic only: a name allow-list would defend nothing, since a valid name plus a random UUID
+// reaches the same DB read. This only keeps pathological input (separators, `..`, oversized) out
+// before that round-trip; `variants` keys have no charset constraint, so stay permissive.
+// Do not reintroduce a name list here "for safety".
 const VARIANT_NAME_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /** Host → tenantId for the anonymous media route.
@@ -78,22 +67,7 @@ type PublicVariantQueryResult = {
   readonly revision: string;
 } | null;
 
-// file-derivatives — derive-on-first-use file variants (thumbnails,
-// resized/reformatted images) plus an opt-in ANONYMOUS route that serves any
-// variant an app declared on the FileRef's field (`createImageField({
-// variants: {...} })`, including but not limited to the `thumb`/`card`/
-// `hero`/`full` presets exported from `./presets`), for a FileRef whose
-// entityType has a registered, default-deny `derivativePublicPredicate`.
-//
-// The route never serves the original and never accepts a free VariantSpec
-// — only a name, resolved against the field's own `variants` declaration —
-// and only after the app's registered `isPublic` predicate for the FileRef's
-// entityType says yes. tenantId is resolved from the request Host via
-// `resolveApexTenant`, NEVER read from the request payload — in
-// `publicTenantResolution: "fileRef"` mode the tenant instead comes from the
-// FileRef row matching `fileRefId` (never from the payload either), and the
-// by-file-ref handler is reachable over `/api` independently of any Host,
-// but still only returns a variant its FileRef-tenant's `isPublic` allows.
+// tenantId never comes from the payload: from the Host via resolveApexTenant, or from the FileRef row in fileRef mode.
 export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}): FeatureDefinition {
   const basePath = opts.basePath ?? "/media";
   if (opts.publicTenantResolution !== undefined && !opts.resolveApexTenant) {
@@ -114,49 +88,27 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
         category: "storage",
         recommended: false,
       });
-      // Needs a storage provider to read the original + write the variant —
-      // without file-foundation there's nothing to derive from or write to.
+      // Needs a storage provider to read the original and write the variant.
       r.requires({ features: ["file-foundation"] });
-      // variant() reads fileRefsTable, which "files" (not file-foundation)
-      // owns — without this, mounting file-derivatives + file-foundation
-      // alone boots fine but fails at request-time with a SQL error the first
-      // time variant() runs.
+      // variant() reads fileRefsTable, which "files" owns; without it the first variant() fails with a SQL error.
       r.requires({ features: ["files"] });
 
-      // Resolution (exact MIME match, then `<type>/*` wildcard) happens at request-time in
-      // resolveRenderer, mirrors file-foundation's fileProvider point.
       r.extendsRegistrar(EXT_DERIVATIVE_RENDERER, {});
-      // Resolution happens at request-time in publicVariantQuery, keyed by the FileRef's
-      // entityType.
       r.extendsRegistrar(EXT_DERIVATIVE_PUBLIC_PREDICATE, {});
-      // Resolution happens in variant(), keyed by the FileRef's entityType, before the spec
-      // hash is computed.
       r.extendsRegistrar(EXT_DERIVATIVE_OVERLAY_RESOLVER, {});
 
-      // Registered ONLY when resolveApexTenant is supplied — r.queryHandler
-      // registers publicVariantQuery into the feature's dispatch table as a
-      // side effect of being called, independent of what's done with its
-      // return value. Calling it unconditionally would make `publicVariant`
-      // (access: ["anonymous", ...]) reachable via the generic `/api` query
-      // dispatch even when the httpRoute below isn't mounted, bypassing the
-      // "tenantId comes from the host, never the payload" invariant that only
-      // `resolveApexTenant` enforces.
+      // Registered only with resolveApexTenant: r.queryHandler exposes `publicVariant` (anonymous)
+      // on `/api` as a side effect, which would bypass "tenantId comes from the host".
       if (opts.resolveApexTenant) {
         const resolveApexTenant = opts.resolveApexTenant;
         const byFileRef = opts.publicTenantResolution === "fileRef";
         const routeQn = byFileRef ? PUBLIC_VARIANT_BY_FILE_REF_QN : PUBLIC_VARIANT_QN;
 
         r.queryHandler(publicVariantQuery);
-        // publicVariantByFileRefQuery is the ONLY way "fileRef" mode is
-        // reachable — registered ONLY in that mode for the same reason
-        // publicVariantQuery is gated above: registering it unconditionally
-        // would expose its unsafeRaw, cross-tenant FileRef lookup via the
-        // generic `/api` query dispatch even in default "host" mode.
+        // Registered only in "fileRef" mode: it does an unsafeRaw cross-tenant FileRef lookup that
+        // must not be reachable via the generic `/api` dispatch in "host" mode.
         if (byFileRef) {
-          // The handler reads the FileRef-tenant's row to keep a blocked
-          // tenant's public variants from staying reachable — require the
-          // dependency so a missing mount fails boot, not the tenant check
-          // silently no-op-ing at request time.
+          // Request-time tenant check needs the tenant feature; require it so a missing mount fails boot.
           r.requires({ features: ["tenant"] });
           r.queryHandler(publicVariantByFileRefQuery);
         }
@@ -166,16 +118,12 @@ export function createFileDerivativesFeature(opts: FileDerivativesOptions = {}):
           path: `${basePath}/:fileRefId/:variant`,
           anonymous: true,
           handler: async (c, { systemQuery }) => {
-            // `param(...)` is string|undefined here — `path` is a computed
-            // template, so Hono can't infer the param type from a literal.
+            // `param(...)` is string|undefined: the computed path template defeats Hono's inference.
             const fileRefId = c.req.param("fileRefId");
             const variant = c.req.param("variant");
-            // 404, not 400 — a syntactically bad name and "doesn't exist" must
-            // answer identically, no name-oracle. fileRefsTable.id is a UUID
-            // column — a malformed id must fail here, not at the DB. Without
-            // this, an anonymous, internet-facing caller can throw a Postgres
-            // 22P02 on every request (the pooled connection is affected), a
-            // DoS primitive with no auth required.
+            // 404, not 400, so a bad name and a missing file answer identically (no name oracle);
+            // a malformed id must fail here, since the UUID column would throw 22P02 per anonymous
+            // request (DoS on the pooled connection).
             if (!fileRefId || !variant || !VARIANT_NAME_RE.test(variant) || !isUuid(fileRefId)) {
               return c.text("not found", 404);
             }

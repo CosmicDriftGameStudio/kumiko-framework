@@ -115,21 +115,27 @@ async function activeAssignmentsIn(folderId: string): Promise<number> {
 }
 
 describe("folders integration — folder:delete with assignments of deleted hosts", () => {
-  test("a soft-deleted host no longer blocks folder:delete and its assignment is removed", async () => {
+  test("soft-deleted hosts no longer block folder:delete and all their assignments are removed", async () => {
     const folderId = await createFolder();
-    const docId = await createDocIn(folderId, "team-a");
-    await asRawClient(stack.db).unsafe(`UPDATE ${DOC_TABLE} SET is_deleted = TRUE WHERE id = $1`, [
-      docId,
-    ]);
+    const doc1 = await createDocIn(folderId, "team-a");
+    const doc2 = await createDocIn(folderId, "team-a");
+    const doc3 = await createDocIn(folderId, "team-a");
+    await asRawClient(stack.db).unsafe(
+      `UPDATE ${DOC_TABLE} SET is_deleted = TRUE WHERE id = ANY($1::uuid[])`,
+      [[doc1, doc2, doc3]],
+    );
 
     await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: folderId }, userA);
     expect(await activeAssignmentsIn(folderId)).toBe(0);
   });
 
-  test("a hard-deleted host no longer blocks folder:delete", async () => {
+  test("hard-deleted hosts no longer block folder:delete", async () => {
     const folderId = await createFolder();
-    const docId = await createDocIn(folderId, "team-a");
-    await asRawClient(stack.db).unsafe(`DELETE FROM ${DOC_TABLE} WHERE id = $1`, [docId]);
+    const doc1 = await createDocIn(folderId, "team-a");
+    const doc2 = await createDocIn(folderId, "team-a");
+    await asRawClient(stack.db).unsafe(`DELETE FROM ${DOC_TABLE} WHERE id = ANY($1::uuid[])`, [
+      [doc1, doc2],
+    ]);
 
     await stack.http.writeOk(FoldersHandlers.deleteFolder, { id: folderId }, userA);
     expect(await activeAssignmentsIn(folderId)).toBe(0);
