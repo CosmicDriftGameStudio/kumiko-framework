@@ -9,8 +9,8 @@ import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/error
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { burnToken, sessionLocaleField, sessionTimezoneField } from "../../shared/index.ts";
-import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import { burnToken, mintAuthSession } from "../../shared/index.ts";
+import { isPrincipalBlockedForNewAuth, UserQueries } from "../../user/index.ts";
 import { base32Decode } from "../base32.ts";
 import { findUserMfaRow } from "../db/queries.ts";
 import {
@@ -173,16 +173,9 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
         locale?: string | null;
       } | null; // @cast-boundary engine-payload
 
-      if (!userRow) return invalidSetupToken();
-      if (
-        userRow?.status === USER_STATUS.Restricted ||
-        userRow?.status === USER_STATUS.DeletionRequested ||
-        userRow?.status === USER_STATUS.Deleted
-      ) {
-        return invalidSetupToken();
-      }
+      if (!userRow || isPrincipalBlockedForNewAuth(userRow.status)) return invalidSetupToken();
 
-      const globalRoles = parseRoles(userRow?.roles ?? null);
+      const globalRoles = parseRoles(userRow.roles ?? null);
 
       const active = await ctx.auth.resolveActiveMembership(userId, tenantId);
       if (active.kind === "rejected") return invalidSetupToken();
@@ -213,20 +206,13 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
       // verify.write.ts.
       const mergedRoles = buildSessionRoles(globalRoles, active.membership.roles);
 
-      const baseSession: SessionUser = {
-        id: userId,
+      const session = await mintAuthSession(ctx, {
+        userId,
         tenantId,
         roles: mergedRoles,
-        // This endpoint logs the user in directly, so a stored
-        // timezone must survive the preauth-MFA-enrollment login just like
-        // a plain password login does — same helper as verify.write.ts /
-        // invite-accept-with-login.write.ts.
-        ...sessionTimezoneField(userRow?.timezone),
-        ...sessionLocaleField(userRow?.locale),
-      };
-      const claims = await ctx.auth.resolveClaims(baseSession);
-      const session: SessionUser =
-        Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
+        timezone: userRow.timezone,
+        locale: userRow.locale,
+      });
 
       // Last step before returning success: every gate above (status,
       // membership, entity-write) has passed, so this is the point of no

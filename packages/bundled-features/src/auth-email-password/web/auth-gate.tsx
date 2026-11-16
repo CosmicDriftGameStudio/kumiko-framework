@@ -75,7 +75,7 @@ export function createLoginRoute(
 
   // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory (module scope or makeAuthGate); the route takes no props, so opts are bound here
   function LoginRoute(): ReactNode {
-    const { status, refresh, bootstrapFailure, logout } = useSession();
+    const { status, refresh, bootstrapFailure, logout, inputKeptOnSessionEnd } = useSession();
     const { onAuthenticated } = opts;
     // Pending challenge-token from LoginScreen's onMfaChallenge. Lives here
     // (not in SessionState) because it's a UI-only transition — the server
@@ -118,7 +118,8 @@ export function createLoginRoute(
           challengeToken={challengeToken}
           onSuccess={(landingPath) => {
             setChallengeToken(null);
-            followNextOrLandingAfterLogin(landingPath);
+            // A kept app stays where it is; navigating would drop the unsaved input.
+            if (inputKeptOnSessionEnd !== true) followNextOrLandingAfterLogin(landingPath);
           }}
           onCancel={() => setChallengeToken(null)}
         />
@@ -139,7 +140,7 @@ export function createLoginRoute(
             // success path needs to clear setupRequest.
             void refresh().then(() => {
               setSetupRequest(null);
-              followNextOrLandingAfterLogin(landingPath);
+              if (inputKeptOnSessionEnd !== true) followNextOrLandingAfterLogin(landingPath);
             });
           }}
           onCancel={() => setSetupRequest(null)}
@@ -227,22 +228,39 @@ export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
   const LoginRoute = createLoginRoute(opts);
   // biome-ignore lint/correctness/noComponentHookFactories: setup-time factory (makeSessionAuthGate or an app's mount function); gates only receive children, so opts are bound here
   function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
-    const { status } = useSession();
+    const { status, inputKeptOnSessionEnd } = useSession();
+    const loginOverApp = status === "unauthenticated" && inputKeptOnSessionEnd === true;
     const locale = useLocale().locale();
     const { origin, pathname, search, hash } = window.location;
     const loginRedirect = useMemo(
       () =>
-        loginUrl !== undefined && status === "unauthenticated"
+        loginUrl !== undefined && status === "unauthenticated" && !loginOverApp
           ? resolveLoginRedirectOrNull(loginUrl, locale, { origin, pathname, search, hash })
           : null,
-      [status, locale, origin, pathname, search, hash],
+      [status, loginOverApp, locale, origin, pathname, search, hash],
     );
     const redirectUrl = loginRedirect?.kind === "redirect" ? loginRedirect.url : null;
     // biome-ignore lint/plugin: not yet converted to the framework hook set
     useEffect(() => {
       if (redirectUrl !== null) window.location.replace(redirectUrl);
     }, [redirectUrl]);
-    if (status === "authenticated") return <>{children}</>;
+    // One element shape for both cases, so the kept children never remount.
+    if (status === "authenticated" || loginOverApp) {
+      return (
+        <>
+          {children}
+          {loginOverApp ? (
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="fixed inset-0 z-50 overflow-y-auto bg-background"
+            >
+              <LoginRoute />
+            </div>
+          ) : null}
+        </>
+      );
+    }
     if (redirectUrl !== null) return null;
     return <LoginRoute />;
   }

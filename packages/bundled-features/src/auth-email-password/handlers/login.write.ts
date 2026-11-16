@@ -11,8 +11,13 @@ import {
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { normalizeEmail, verifyDummyPassword, verifyPassword } from "../../shared/index.ts";
-import { USER_STATUS, UserQueries } from "../../user/index.ts";
+import {
+  mintAuthSession,
+  normalizeEmail,
+  verifyDummyPassword,
+  verifyPassword,
+} from "../../shared/index.ts";
+import { isPrincipalBlockedForNewAuth, USER_STATUS, UserQueries } from "../../user/index.ts";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import {
   accountLocked,
@@ -194,7 +199,7 @@ export function gateEnforceAccountStatus(found: AuthUserRow): GateOutcome<undefi
   if (found.status === USER_STATUS.Restricted) {
     return reject(accountRestricted());
   }
-  if (found.status === USER_STATUS.DeletionRequested || found.status === USER_STATUS.Deleted) {
+  if (isPrincipalBlockedForNewAuth(found.status)) {
     return reject(invalidCredentials());
   }
   return ok(undefined);
@@ -273,16 +278,13 @@ export async function gateBuildSession(
   timezone?: string | null,
   locale?: string | null,
 ): Promise<{ readonly kind: "auth-session"; readonly session: SessionUser }> {
-  const baseSession: SessionUser = {
-    id: userId,
+  const session = await mintAuthSession(ctx, {
+    userId,
     tenantId,
     roles: mergedRoles,
-    ...(timezone !== null && timezone !== undefined && { timezone }),
-    ...(locale !== null && locale !== undefined && { locale }),
-  };
-  const claims = await ctx.auth.resolveClaims(baseSession);
-  const session: SessionUser =
-    Object.keys(claims).length > 0 ? { ...baseSession, claims } : baseSession;
+    timezone,
+    locale,
+  });
   return { kind: "auth-session", session };
 }
 

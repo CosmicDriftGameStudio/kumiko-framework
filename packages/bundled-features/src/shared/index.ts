@@ -36,6 +36,7 @@ export {
   mailRepeatedRows,
 } from "./mail-template-body.ts";
 export { mapWithConcurrency } from "./map-with-concurrency.ts";
+export { type AuthSessionInput, mintAuthSession } from "./mint-auth-session.ts";
 export { normalizeEmail } from "./normalize-email.ts";
 export {
   denyUnlessJoinRowParentVisible,

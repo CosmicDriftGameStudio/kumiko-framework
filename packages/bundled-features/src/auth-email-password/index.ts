@@ -41,7 +41,7 @@ export {
 // invite-tokens) can use the same battle-tested signer/verifier
 // instead of duplicating HMAC logic. The purpose string prevents
 // cross-replay between flows.
-export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "./signed-token.ts";
+export { signToken, TokenPurpose, type VerifyResult, verifyToken } from "../shared/index.ts";
 export {
   type IssuedSignupActivation,
   type IssueSignupActivationArgs,

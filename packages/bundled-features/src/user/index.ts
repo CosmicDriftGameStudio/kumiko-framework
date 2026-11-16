@@ -8,6 +8,7 @@ export {
 export { createUserFeature } from "./feature.ts";
 export {
   isPrincipalBlocked,
+  isPrincipalBlockedForNewAuth,
   isPrincipalRowBlocked,
   principalStatusPlugin,
 } from "./principal-status.ts";

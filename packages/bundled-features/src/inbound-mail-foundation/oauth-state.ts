@@ -8,7 +8,7 @@
 // The state is not single-use: the provider's authorization code is. browserBinding ties the state to the browser that started the flow, so a state link completed in another browser (login CSRF that would put the victim's mailbox into the attacker's account) is refused.
 //
 // Format: <payload-base64url>.<expiresAtMs>.<hmac-base64url>
-// Patterned after auth-email-password/signed-token.ts (HMAC-SHA256, purpose
+// Patterned after shared/signed-token.ts (HMAC-SHA256, purpose
 // in the HMAC input, timing-safe comparison, expiry in the clear-text
 // segment).
 

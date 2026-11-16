@@ -1,4 +1,4 @@
-import { USER_STATUS, UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
+import { isPrincipalBlockedForNewAuth, UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
 import type { AuthRoutesConfig } from "@cosmicdrift/kumiko-framework/api";
 import {
   buildSessionRoles,
@@ -51,13 +51,7 @@ export function buildPreviewLoginConfig(
       if (!isPlainObject(row) || typeof row["id"] !== "string" || row["isDeleted"] === true) {
         return undefined;
       }
-      if (
-        row["status"] === USER_STATUS.Restricted ||
-        row["status"] === USER_STATUS.DeletionRequested ||
-        row["status"] === USER_STATUS.Deleted
-      ) {
-        return undefined;
-      }
+      if (isPrincipalBlockedForNewAuth(row["status"])) return undefined;
       const userId = row["id"];
       const memberships = await dispatcher.query(TENANT_MEMBERSHIPS_QUERY, { userId }, system);
       if (!Array.isArray(memberships)) return undefined;

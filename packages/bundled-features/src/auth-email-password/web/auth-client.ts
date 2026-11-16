@@ -14,6 +14,7 @@ import {
   type LoginFailure,
   parseRetryAfterSeconds,
 } from "./login-failure.ts";
+import { postJson, type StaticFailure } from "./static-client.ts";
 
 export type { KnownLoginFailureReason, LoginFailure } from "./login-failure.ts";
 export { parseRetryAfterSeconds };
@@ -159,23 +160,13 @@ export type AuthTokenFailure = {
 export type ResetPasswordFailure = AuthTokenFailure;
 export type VerifyEmailFailure = AuthTokenFailure;
 
-// Parse 4xx/5xx responses into AuthTokenFailure. 429 uses a dedicated
-// reason so the UI can display a retry hint.
-async function parseTokenFailure(res: Response): Promise<AuthTokenFailure> {
-  if (res.status === 429) {
-    // @cast-boundary engine-payload — the server sends details.retryAfterSeconds for 429
-    const body = (await res.json().catch(() => ({}))) as {
-      error?: { details?: { retryAfterSeconds?: number } };
-    };
-    const retry = body.error?.details?.retryAfterSeconds;
-    return { reason: "rate_limited", ...(retry !== undefined && { retryAfterSeconds: retry }) };
-  }
-  // @cast-boundary engine-payload — server-side schema-validated body
-  const body = (await res.json().catch(() => ({}))) as {
-    error?: { code?: string; details?: { reason?: string } };
+function tokenFailure(failure: StaticFailure): AuthTokenFailure {
+  return {
+    reason: failure.reason,
+    ...(failure.retryAfterSeconds !== undefined && {
+      retryAfterSeconds: failure.retryAfterSeconds,
+    }),
   };
-  const reason = body.error?.details?.reason ?? body.error?.code ?? "unknown";
-  return { reason };
 }
 
 type AuthTokenResult = { ok: true } | { ok: false; error: AuthTokenFailure };
@@ -184,14 +175,8 @@ async function postTokenRequest(
   path: string,
   payload: Record<string, unknown>,
 ): Promise<AuthTokenResult> {
-  const res = await fetch(path, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify(payload),
-  });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
+  const result = await postJson(path, payload);
+  return result.kind === "success" ? { ok: true } : { ok: false, error: tokenFailure(result) };
 }
 
 // POST /api/auth/request-password-reset. 200 silent-success: even if the
@@ -259,18 +244,11 @@ export async function requestSignup(
   handover?: { readonly entityType: string; readonly token: string },
   returnTo?: string,
 ): Promise<{ ok: true } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/signup-request", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({
-      email,
-      ...(handover !== undefined && { handover }),
-      ...(returnTo !== undefined && { returnTo }),
-    }),
+  return postTokenRequest("/api/auth/signup-request", {
+    email,
+    ...(handover !== undefined && { handover }),
+    ...(returnTo !== undefined && { returnTo }),
   });
-  if (res.ok) return { ok: true };
-  return { ok: false, error: await parseTokenFailure(res) };
 }
 
 // POST /api/auth/signup-confirm. On success the server sets the auth cookies
@@ -300,30 +278,23 @@ export async function confirmSignup(
   token: string,
   password: string,
 ): Promise<{ ok: true; data: SignupConfirmResult } | { ok: false; error: AuthTokenFailure }> {
-  const res = await fetch("/api/auth/signup-confirm", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...csrfHeader() },
-    body: JSON.stringify({ token, password }),
-  });
-  if (res.ok) {
-    // @cast-boundary engine-payload
-    const body = (await res.json()) as SignupConfirmSuccess & {
-      readonly mfaRequired?: boolean;
-      readonly mfaSetupRequired?: boolean;
+  const result = await postJson("/api/auth/signup-confirm", { token, password });
+  if (result.kind === "failure") return { ok: false, error: tokenFailure(result) };
+  // @cast-boundary engine-payload
+  const body = result.data as SignupConfirmSuccess & {
+    readonly mfaRequired?: boolean;
+    readonly mfaSetupRequired?: boolean;
+  };
+  if (body.mfaRequired === true || body.mfaSetupRequired === true) {
+    return {
+      ok: true,
+      data: {
+        kind: "mfa-pending",
+        ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
+      },
     };
-    if (body.mfaRequired === true || body.mfaSetupRequired === true) {
-      return {
-        ok: true,
-        data: {
-          kind: "mfa-pending",
-          ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
-        },
-      };
-    }
-    return { ok: true, data: { kind: "signed-in", ...body } };
   }
-  return { ok: false, error: await parseTokenFailure(res) };
+  return { ok: true, data: { kind: "signed-in", ...body } };
 }
 
 // GET /api/auth/tenants. Returns the current user's memberships; the server

@@ -1,20 +1,14 @@
-// Thin wrapper around signed-token.ts pinning the purpose to "verify".
-// Mirrors reset-token.ts so callers can import a flow-specific helper
-// without knowing the underlying HMAC scheme.
+// Pins the purpose so a flow can only sign and verify its own tokens.
 
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { signToken, TokenPurpose, verifyToken } from "./signed-token.ts";
-
-export type VerifyResult =
-  | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }
-  | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
+import { signToken, TokenPurpose, type VerifyResult, verifyToken } from "../shared/index.ts";
 
 export function signVerificationToken(
   userId: string,
   ttlMinutes: number,
   secret: string,
   now?: Temporal.Instant,
-): { token: string; expiresAt: Temporal.Instant } {
+): ReturnType<typeof signToken> {
   return signToken(userId, TokenPurpose.emailVerification, ttlMinutes, secret, now);
 }
 

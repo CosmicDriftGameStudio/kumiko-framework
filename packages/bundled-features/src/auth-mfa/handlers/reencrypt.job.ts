@@ -125,16 +125,21 @@ export async function mfaReencryptJob(
   let alreadyCurrent = 0;
   const targetVersion = provider.currentVersion();
 
-  // ponytail: one full candidate scan — MFA rows are user-scale, not
-  // tenant-scale like config; cursor pagination when that ever matters.
-  // Served in slices so runChunkedMigration's deadline/signal/failure
-  // checks run between chunks, not only once.
-  let pending: UserMfaRow[] | undefined;
+  // Keyset pages by id: the cursor moves past failed rows too, so a page is
+  // never served twice and a short page ends the run.
+  let cursor: string | undefined;
+  let exhausted = false;
   async function nextBatch(): Promise<readonly UserMfaRow[]> {
-    if (pending === undefined) {
-      pending = [...(await selectMany<UserMfaRow>(db, userMfaTable, {}))];
-    }
-    return pending.splice(0, batchSize);
+    if (exhausted) return [];
+    const page = await selectMany<UserMfaRow>(
+      db,
+      userMfaTable,
+      cursor === undefined ? {} : { id: { gt: cursor } },
+      { orderBy: { col: "id", direction: "asc" }, limit: batchSize },
+    );
+    if (page.length < batchSize) exhausted = true;
+    cursor = page.at(-1)?.id ?? cursor;
+    return page;
   }
 
   async function migrateRow(row: UserMfaRow): Promise<"migrated" | "skipped" | "failed"> {
