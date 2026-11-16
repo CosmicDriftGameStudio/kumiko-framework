@@ -2,10 +2,9 @@ import { extractPgError } from "../pg-error.ts";
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
 import { outsideRowLevelSecurityScope } from "../row-level-security-scope.ts";
-import { quoteLiteral } from "../sql-identifier.ts";
+import { quoteIdent, quoteLiteral } from "../sql-identifier.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 import { PROJECTION_REBUILD_SCHEMA } from "./shadow-swap.ts";
-import { quoteIdent } from "../sql-identifier.ts";
 
 // Re-exported for back-compat — the generic DDL helpers moved to ./ddl so
 // the prod-boot path (db/table-push.ts, pipeline/event-consumer-state.ts)

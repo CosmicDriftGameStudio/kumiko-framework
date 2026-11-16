@@ -126,7 +126,7 @@ export async function buildListWhere(
   const where: ListWhere = {
     whereSql: [],
     params: [],
-    colSql: (field) => `${quoteIdent(physicalColumnName(table, field))}`,
+    colSql: (field) => quoteIdent(physicalColumnName(table, field)),
   };
 
   const fieldReadClause = createFieldReadClause(ctx, user);
