@@ -10,6 +10,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-renderer/headless";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer/web";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
+import { CancelAccountDeletionScreen } from "../cancel-deletion-screen.tsx";
 import { ConfirmAccountDeletionScreen } from "../confirm-deletion-screen.tsx";
 import { defaultTranslations } from "../default-translations.ts";
 import { RequestAccountDeletionScreen } from "../request-deletion-screen.tsx";
@@ -112,5 +113,41 @@ describe("ConfirmAccountDeletionScreen", () => {
     await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
     expect(ui.queryByText(/invalid or expired/)).toBeNull();
     expect(ui.queryByText(/Deletion scheduled/)).toBeNull();
+  });
+});
+
+describe("CancelAccountDeletionScreen", () => {
+  test("without #token → missingToken, no Cancel button", () => {
+    window.history.replaceState({}, "", "/delete-account/cancel");
+    const ui = renderWith(<CancelAccountDeletionScreen />, makeDispatcher(true, []));
+    expect(ui.getByText(/No token/)).toBeTruthy();
+    expect(ui.queryByRole("button")).toBeNull();
+  });
+
+  test("with #token → Cancel dispatches cancel-deletion-by-token + Success", async () => {
+    window.history.replaceState({}, "", "/delete-account/cancel#token=tok-456");
+    const calls: WriteCall[] = [];
+    const ui = renderWith(<CancelAccountDeletionScreen />, makeDispatcher(true, calls));
+    fireEvent.click(ui.getByRole("button", { name: "Cancel deletion" }));
+    await waitFor(() => expect(ui.getByText("Deletion cancelled")).toBeTruthy());
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.type).toBe("user-data-rights:write:cancel-deletion-by-token");
+    expect(calls[0]?.payload).toEqual({ token: "tok-456" });
+  });
+
+  test("write-Failure → invalidToken-Banner, no Success", async () => {
+    window.history.replaceState({}, "", "/delete-account/cancel#token=bad");
+    const ui = renderWith(<CancelAccountDeletionScreen />, makeDispatcher(false, []));
+    fireEvent.click(ui.getByRole("button"));
+    await waitFor(() => expect(ui.getByText(/invalid or expired/)).toBeTruthy());
+    expect(ui.queryByText("Deletion cancelled")).toBeNull();
+  });
+
+  test("write throws → generic Error-Banner, NOT invalidToken", async () => {
+    window.history.replaceState({}, "", "/delete-account/cancel#token=tok-456");
+    const ui = renderWith(<CancelAccountDeletionScreen />, makeThrowingDispatcher());
+    fireEvent.click(ui.getByRole("button"));
+    await waitFor(() => expect(ui.getByText(/went wrong/)).toBeTruthy());
+    expect(ui.queryByText(/invalid or expired/)).toBeNull();
   });
 });

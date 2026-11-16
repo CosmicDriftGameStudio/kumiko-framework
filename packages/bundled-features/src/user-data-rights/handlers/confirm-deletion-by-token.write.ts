@@ -3,11 +3,15 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { redeemDeletionToken } from "../deletion-token.ts";
-import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.ts";
+import {
+  type DeletionRequestedMailOptions,
+  resolveGracePeriod,
+  type StartGracePeriodResult,
+  sendDeletionRequestedNotification,
+  startDeletionGracePeriod,
+} from "./deletion-grace-period.ts";
 
-export type ConfirmDeletionByTokenOptions = {
-  readonly deletionTokenSecret?: string;
-};
+export type ConfirmDeletionByTokenOptions = DeletionRequestedMailOptions;
 
 // Use the same generic 422 for every token-error path (malformed / bad_signature /
 // expired / missing secret) so callers cannot determine whether a token belongs to a user.
@@ -70,7 +74,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      let gracePeriodEndIso: string | undefined;
+      let started: Extract<StartGracePeriodResult, { ok: true }> | undefined;
 
       // The row's requestId is part of the verify key, so a token from a
       // cancelled or superseded cycle fails. Every error path ends in the same
@@ -90,17 +94,32 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
             { pendingDeletionRequestId: requestId },
           );
           if (!res.ok) return false;
-          gracePeriodEndIso = res.gracePeriodEnd.toString();
+          started = res;
           return true;
         },
       });
-      if (!verified.ok || gracePeriodEndIso === undefined) return writeFailure(invalidToken());
+      if (!verified.ok || started === undefined) return writeFailure(invalidToken());
+
+      // The anonymous flow never sent the deletion-requested mail, so a user
+      // who confirmed by link had no cancel path at all.
+      await sendDeletionRequestedNotification(
+        ctx,
+        opts,
+        {
+          userId: verified.subject,
+          userEmail: started.userEmail,
+          userLocale: started.userLocale,
+          tenantId: event.user.tenantId,
+          gracePeriodEnd: started.gracePeriodEnd,
+        },
+        "confirm-deletion-by-token",
+      );
 
       return {
         isSuccess: true as const,
         data: {
           status: USER_STATUS.DeletionRequested,
-          gracePeriodEnd: gracePeriodEndIso,
+          gracePeriodEnd: started.gracePeriodEnd.toString(),
         },
       };
     },

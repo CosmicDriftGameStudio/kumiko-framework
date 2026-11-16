@@ -632,6 +632,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "your {app} account and the associated personal data were deleted on {when}. This action is permanent.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Your account has been deleted",
   "gdpr.mail.deletionRequested.cancel":
+    "If you didn't request this, cancel the deletion with the button below before the deadline.",
+  "gdpr.mail.deletionRequested.cancelButton": "Cancel deletion",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "If you didn't request this, sign in and cancel the deletion in your account settings before the deadline.",
   "gdpr.mail.deletionRequested.intro":
     "we received your request to delete your {app} account. Your account and associated data will be permanently deleted on {when}.",
@@ -1739,6 +1742,18 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "user:entity:user:field:status:option:restricted": "Restricted",
   "user:entity:user:field:tenants": "Tenants",
   "user:entity:user:field:timezone": "Timezone",
+  "userDataRights.deletion.cancel.error": "Something went wrong. Please try again.",
+  "userDataRights.deletion.cancel.intro":
+    "Cancelling stops the pending deletion and your account stays active.",
+  "userDataRights.deletion.cancel.invalidToken":
+    "The link is invalid or expired, or the deletion was already cancelled.",
+  "userDataRights.deletion.cancel.missingToken":
+    "No token found in the link. Please open the link from the email again.",
+  "userDataRights.deletion.cancel.submit": "Cancel deletion",
+  "userDataRights.deletion.cancel.submitting": "…",
+  "userDataRights.deletion.cancel.successBody": "Your account stays active. You can sign in again.",
+  "userDataRights.deletion.cancel.successTitle": "Deletion cancelled",
+  "userDataRights.deletion.cancel.title": "Cancel account deletion",
   "userDataRights.deletion.confirm.error": "Something went wrong. Please try again.",
   "userDataRights.deletion.confirm.intro":
     "Confirming starts the deletion grace period. Until it ends you can cancel the deletion from your logged-in account.",

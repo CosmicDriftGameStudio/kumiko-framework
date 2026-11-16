@@ -3884,6 +3884,7 @@
       "secrets": [],
       "writeHandlers": [
         "user-data-rights:write:cancel-deletion",
+        "user-data-rights:write:cancel-deletion-by-token",
         "user-data-rights:write:confirm-deletion-by-token",
         "user-data-rights:write:lift-restriction",
         "user-data-rights:write:request-deletion",

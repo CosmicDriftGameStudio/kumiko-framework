@@ -10,10 +10,21 @@ import {
   type HandlerContext,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { decryptStoredPii } from "../../shared/index.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
+import { signDeletionCancelToken } from "../deletion-token.ts";
+import {
+  type GdprMailDefaults,
+  isGdprMailDeliveryAvailable,
+  makeDefaultDeletionRequestedEmail,
+} from "../lib/default-mailers.ts";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.ts";
+import type { SendDeletionRequestedEmailFn } from "./request-deletion.write.ts";
+import { buildDeletionVerifyUrl } from "./request-deletion-by-email.write.ts";
+
+const log = createFallbackLogger("user-data-rights");
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 
@@ -135,4 +146,62 @@ export async function startDeletionGracePeriod(
       : "",
     userLocale: userRow["locale"] ?? null,
   };
+}
+
+export type DeletionRequestedMailOptions = {
+  readonly sendDeletionRequestedEmail?: SendDeletionRequestedEmailFn;
+  readonly mailDefaults?: GdprMailDefaults;
+  /** Base URL of the screen that cancels via token; the mail links there. */
+  readonly deletionCancelUrl?: string;
+  readonly deletionTokenSecret?: string;
+};
+
+// Best-effort: a send failure must not undo the status flip, the user's action
+// is complete once the row is updated. The app callback wins; otherwise the
+// default mail goes through ctx.notify, and without delivery there is no mail.
+export async function sendDeletionRequestedNotification(
+  ctx: HandlerContext,
+  opts: DeletionRequestedMailOptions,
+  args: {
+    readonly userId: string;
+    readonly userEmail: string;
+    readonly userLocale: string | null;
+    readonly tenantId: string;
+    readonly gracePeriodEnd: Instant;
+  },
+  logLabel: string,
+): Promise<void> {
+  const send =
+    opts.sendDeletionRequestedEmail ??
+    (ctx.notify !== undefined && isGdprMailDeliveryAvailable(ctx.registry)
+      ? makeDefaultDeletionRequestedEmail(ctx.notify, opts.mailDefaults)
+      : undefined);
+  if (!send || args.userEmail.length === 0) return;
+
+  // A deletionRequested account cannot sign in, so the mail carries the way back.
+  const cancelUrl =
+    opts.deletionCancelUrl !== undefined && opts.deletionTokenSecret
+      ? buildDeletionVerifyUrl(
+          opts.deletionCancelUrl,
+          signDeletionCancelToken(args.userId, args.gracePeriodEnd, opts.deletionTokenSecret).token,
+        )
+      : undefined;
+
+  try {
+    await send({
+      userId: args.userId,
+      userEmail: args.userEmail,
+      userLocale: args.userLocale,
+      tenantId: args.tenantId,
+      gracePeriodEnd: args.gracePeriodEnd.toString(),
+      ...(cancelUrl !== undefined && { cancelUrl }),
+    });
+  } catch (err) {
+    log.warn("sendDeletionRequestedEmail failed", {
+      handler: logLabel,
+      userId: args.userId,
+      tenantId: args.tenantId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

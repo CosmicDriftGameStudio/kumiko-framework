@@ -665,6 +665,9 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
     "votre compte {app} et les données personnelles associées ont été supprimés le {when}. Cette action est définitive.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Votre compte a été supprimé",
   "gdpr.mail.deletionRequested.cancel":
+    "Si vous n'êtes pas à l'origine de cette demande, annulez la suppression avec le bouton ci-dessous avant l'échéance.",
+  "gdpr.mail.deletionRequested.cancelButton": "Annuler la suppression",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "Si vous n'êtes pas à l'origine de cette demande, connectez-vous et annulez la suppression dans les paramètres de votre compte avant l'échéance.",
   "gdpr.mail.deletionRequested.intro":
     "nous avons reçu votre demande de suppression de votre compte {app}. Votre compte et les données associées seront définitivement supprimés le {when}.",
@@ -1793,6 +1796,19 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "user:entity:user:field:status:option:restricted": "Restreint",
   "user:entity:user:field:tenants": "Organisations",
   "user:entity:user:field:timezone": "Fuseau horaire",
+  "userDataRights.deletion.cancel.error": "Une erreur s'est produite. Veuillez réessayer.",
+  "userDataRights.deletion.cancel.intro":
+    "L'annulation interrompt la suppression prévue et votre compte est conservé.",
+  "userDataRights.deletion.cancel.invalidToken":
+    "Le lien est invalide ou a expiré, ou la suppression a déjà été annulée.",
+  "userDataRights.deletion.cancel.missingToken":
+    "Aucun jeton trouvé dans le lien. Veuillez rouvrir le lien depuis l'e-mail.",
+  "userDataRights.deletion.cancel.submit": "Annuler la suppression",
+  "userDataRights.deletion.cancel.submitting": "…",
+  "userDataRights.deletion.cancel.successBody":
+    "Votre compte est conservé. Vous pouvez vous reconnecter.",
+  "userDataRights.deletion.cancel.successTitle": "Suppression annulée",
+  "userDataRights.deletion.cancel.title": "Annuler la suppression du compte",
   "userDataRights.deletion.confirm.error": "Une erreur s'est produite. Veuillez réessayer.",
   "userDataRights.deletion.confirm.intro":
     "La confirmation démarre le délai de grâce avant suppression. Jusqu'à son terme, vous pouvez annuler la suppression depuis votre compte connecté.",

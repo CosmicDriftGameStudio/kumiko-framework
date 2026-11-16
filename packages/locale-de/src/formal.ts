@@ -184,6 +184,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Ihr {app}-Konto und die zugehörigen personenbezogenen Daten wurden am {when} gelöscht. Diese Aktion ist endgültig.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Ihr Konto wurde gelöscht",
   "gdpr.mail.deletionRequested.cancel":
+    "Falls Sie das nicht angefordert haben, brechen Sie die Löschung mit dem Button unten ab, bevor die Frist abläuft.",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "Falls Sie das nicht angefordert haben, melden Sie sich an und brechen Sie die Löschung in den Kontoeinstellungen ab, bevor die Frist abläuft.",
   "gdpr.mail.deletionRequested.intro":
     "wir haben Ihren Antrag zur Löschung Ihres {app}-Kontos erhalten. Ihr Konto und die zugehörigen Daten werden am {when} endgültig gelöscht.",
@@ -233,6 +235,12 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "profile.email.success": "E-Mail geändert. Bitte bestätigen Sie Ihre neue Adresse.",
   "profile.errors.emailUnchanged": "Das ist bereits Ihre E-Mail-Adresse.",
   "tags.section.createMode": "Speichern Sie zuerst den Eintrag, um Tags zu setzen.",
+  "userDataRights.deletion.cancel.intro":
+    "Mit dem Abbrechen wird die geplante Löschung gestoppt und Ihr Konto bleibt bestehen.",
+  "userDataRights.deletion.cancel.missingToken":
+    "Kein Token im Link gefunden. Bitte öffnen Sie den Link aus der E-Mail erneut.",
+  "userDataRights.deletion.cancel.successBody":
+    "Ihr Konto bleibt bestehen. Sie können sich wieder anmelden.",
   "userDataRights.deletion.confirm.intro":
     "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft können Sie die Löschung im eingeloggten Account wieder abbrechen.",
   "userDataRights.deletion.confirm.invalidToken":

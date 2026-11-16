@@ -21,6 +21,19 @@ const apexTranslations: TranslationsByLocale = {
     "userDataRights.deletion.request.successBody":
       "If the email exists in our system, a message with a confirmation link is on its way. Please check your inbox.",
     "userDataRights.deletion.request.error": "Something went wrong. Please try again.",
+    "userDataRights.deletion.cancel.error": "Something went wrong. Please try again.",
+    "userDataRights.deletion.cancel.intro":
+      "Cancelling stops the pending deletion and your account stays active.",
+    "userDataRights.deletion.cancel.invalidToken":
+      "The link is invalid or expired, or the deletion was already cancelled.",
+    "userDataRights.deletion.cancel.missingToken":
+      "No token found in the link. Please open the link from the email again.",
+    "userDataRights.deletion.cancel.submit": "Cancel deletion",
+    "userDataRights.deletion.cancel.submitting": "…",
+    "userDataRights.deletion.cancel.successBody":
+      "Your account stays active. You can sign in again.",
+    "userDataRights.deletion.cancel.successTitle": "Deletion cancelled",
+    "userDataRights.deletion.cancel.title": "Cancel account deletion",
     "userDataRights.deletion.confirm.title": "Confirm account deletion",
     "userDataRights.deletion.confirm.intro":
       "Confirming starts the deletion grace period. Until it ends you can cancel the deletion from your logged-in account.",

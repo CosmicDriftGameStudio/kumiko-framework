@@ -138,14 +138,20 @@ export function makeDefaultDeletionRequestedEmail(
   return async (args) => {
     const type = GdprMailNotificationTypes.deletionRequested;
     const locale = mailLocaleFor(type, args.userLocale, defaults);
-    await notify(type, {
+    const options: NotifyOptions = {
       to: args.userId,
       locale,
       data: {
         appName: appNameFor(locale, defaults),
         deletionDate: formatGdprMailTimestamp(args.gracePeriodEnd),
+        ...(args.cancelUrl !== undefined
+          ? { cancelUrl: args.cancelUrl }
+          : { signInToCancel: "true" }),
       },
-    });
+    };
+    // immediate: the cancel token must not land in a delivery job payload.
+    if (args.cancelUrl !== undefined) await notifyImmediately(notify, type, options);
+    else await notify(type, options);
   };
 }
 

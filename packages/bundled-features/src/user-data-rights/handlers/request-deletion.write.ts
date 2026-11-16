@@ -3,11 +3,11 @@ import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { USER_STATUS } from "../../user/index.ts";
 import {
-  type GdprMailDefaults,
-  isGdprMailDeliveryAvailable,
-  makeDefaultDeletionRequestedEmail,
-} from "../lib/default-mailers.ts";
-import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.ts";
+  type DeletionRequestedMailOptions,
+  resolveGracePeriod,
+  sendDeletionRequestedNotification,
+  startDeletionGracePeriod,
+} from "./deletion-grace-period.ts";
 
 // Sends a best-effort email after the deletion-requested status flip, following the
 // password-reset callback pattern in auth-routes.ts. Send failures are caught and logged
@@ -23,14 +23,13 @@ export type SendDeletionRequestedEmailFn = (args: {
   readonly userLocale: string | null;
   readonly tenantId: string;
   readonly gracePeriodEnd: string;
+  /** Token link that cancels the deletion without signing in (a requested
+   *  account cannot sign in). Set only when the feature has deletionCancelUrl
+   *  and deletionTokenSecret. */
+  readonly cancelUrl?: string;
 }) => Promise<void>;
 
-export type RequestDeletionOptions = {
-  readonly sendDeletionRequestedEmail?: SendDeletionRequestedEmailFn;
-  /** Branding for the default email when sendDeletionRequestedEmail is not set
-   *  and mail-foundation is mounted. */
-  readonly mailDefaults?: GdprMailDefaults;
-};
+export type RequestDeletionOptions = DeletionRequestedMailOptions;
 
 // POST /api/user/request-deletion — GDPR Art. 17 erasure request.
 // Changes status=Active → deletionRequested and sets gracePeriodEnd from the compliance
@@ -68,31 +67,18 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       if (!res.ok) return writeFailure(res.error);
       const { gracePeriodEnd, userEmail, userLocale } = res;
 
-      // The app callback wins; otherwise the default mail goes through ctx.notify after
-      // the commit. Without delivery and an email channel there is no sender and no mail.
-      const send =
-        opts.sendDeletionRequestedEmail ??
-        (ctx.notify !== undefined && isGdprMailDeliveryAvailable(ctx.registry)
-          ? makeDefaultDeletionRequestedEmail(ctx.notify, opts.mailDefaults)
-          : undefined);
-
-      // Best-effort email notification: a send failure must not abort the write.
-      if (send && userEmail.length > 0) {
-        try {
-          await send({
-            userId: event.user.id,
-            userEmail,
-            userLocale,
-            tenantId: event.user.tenantId,
-            gracePeriodEnd: gracePeriodEnd.toString(),
-          });
-        } catch (err) {
-          // biome-ignore lint/suspicious/noConsole: operator-visibility for email-send-failure
-          console.warn(
-            `[user-data-rights:request-deletion] sendDeletionRequestedEmail failed userId=${event.user.id} tenantId=${event.user.tenantId} err=${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
+      await sendDeletionRequestedNotification(
+        ctx,
+        opts,
+        {
+          userId: event.user.id,
+          userEmail,
+          userLocale,
+          tenantId: event.user.tenantId,
+          gracePeriodEnd,
+        },
+        "request-deletion",
+      );
 
       // Returns the absolute gracePeriodEnd timestamp so the frontend, audit, and cleanup
       // runner all use the same value.

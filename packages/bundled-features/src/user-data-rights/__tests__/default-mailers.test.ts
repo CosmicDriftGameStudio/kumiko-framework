@@ -128,6 +128,39 @@ describe("default-mailers dispatch", () => {
     });
   });
 
+  test("deletion-requested with a cancel link: immediate send, link passed, no sign-in flag", async () => {
+    const cap = capturingNotify();
+    await makeDefaultDeletionRequestedEmail(cap.notify)({
+      userId: "u1",
+      userEmail: "u1@example.com",
+      userLocale: "en",
+      tenantId: TENANT_A,
+      gracePeriodEnd: "2026-07-30T09:00:00Z",
+      cancelUrl: "https://app.example.test/cancel#token=t",
+    });
+
+    expect(cap.calls[0]?.options).toMatchObject({
+      immediate: true,
+      data: { cancelUrl: "https://app.example.test/cancel#token=t" },
+    });
+    expect(cap.calls[0]?.options.data).not.toHaveProperty("signInToCancel");
+  });
+
+  test("deletion-requested without a cancel link: queued, sign-in flag set", async () => {
+    const cap = capturingNotify();
+    await makeDefaultDeletionRequestedEmail(cap.notify)({
+      userId: "u1",
+      userEmail: "u1@example.com",
+      userLocale: "en",
+      tenantId: TENANT_A,
+      gracePeriodEnd: "2026-07-30T09:00:00Z",
+    });
+
+    expect(cap.calls[0]?.options.immediate).toBeUndefined();
+    expect(cap.calls[0]?.options.data).toMatchObject({ signInToCancel: "true" });
+    expect(cap.calls[0]?.options.data).not.toHaveProperty("cancelUrl");
+  });
+
   test("deletion-executed orphan (0 memberships): no transport resolved, no mail", async () => {
     let resolverCalled = false;
     const send = makeDefaultDeletionExecutedEmail({

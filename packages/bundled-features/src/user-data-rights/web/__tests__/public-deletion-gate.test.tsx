@@ -73,6 +73,29 @@ describe("makePublicDeletionGate", () => {
     expect(ui.queryByTestId("app")).toBeNull();
   });
 
+  test("cancelPath → cancel screen, children short-circuited", () => {
+    const Gate = makePublicDeletionGate({ ...ROUTES, cancelPath: "/account/delete/cancel" });
+    const ui = renderGate(
+      "/account/delete/cancel",
+      <Gate>
+        <div data-testid="app">APP</div>
+      </Gate>,
+    );
+    expect(ui.getByText(/Cancel account deletion/)).toBeTruthy();
+    expect(ui.queryByTestId("app")).toBeNull();
+  });
+
+  test("cancel path without a configured cancelPath → children pass through", () => {
+    const Gate = makePublicDeletionGate(ROUTES);
+    const ui = renderGate(
+      "/account/delete/cancel",
+      <Gate>
+        <div data-testid="app">APP</div>
+      </Gate>,
+    );
+    expect(ui.getByTestId("app")).toBeTruthy();
+  });
+
   test("other path → children pass through, no deletion screen", () => {
     const Gate = makePublicDeletionGate(ROUTES);
     const ui = renderGate(

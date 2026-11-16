@@ -64,6 +64,9 @@ export const GDPR_MAIL_VARIABLES: Readonly<Record<GdprMailKind, TemplateVariable
   deletionRequested: {
     appName: appName(),
     deletionDate: templateVariable.text({ required: true }),
+    cancelUrl: templateVariable.link({ required: false }),
+    // Set when there is no cancelUrl; shows the sign-in instruction instead.
+    signInToCancel: templateVariable.text({ required: false }),
   },
   deletionExecuted: { appName: appName(), executedAt: templateVariable.text({ required: true }) },
 };
@@ -102,7 +105,11 @@ function mailBody(kind: GdprMailKind, locale: string): string {
       return [
         greeting(locale),
         paragraph(kind, locale, "intro"),
-        paragraph(kind, locale, "cancel"),
+        mailParagraph(mailT(locale, "gdpr.mail.deletionRequested.cancel"), { showIf: "cancelUrl" }),
+        `<p data-if="cancelUrl"><a data-button href="{{cancelUrl}}">${escapeHtml(mailT(locale, "gdpr.mail.deletionRequested.cancelButton"))}</a></p>`,
+        mailParagraph(mailT(locale, "gdpr.mail.deletionRequested.cancelSignIn"), {
+          showIf: "signInToCancel",
+        }),
       ].join("");
     case "deletionExecuted":
       return [greeting(locale), paragraph(kind, locale, "intro")].join("");

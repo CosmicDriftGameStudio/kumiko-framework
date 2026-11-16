@@ -654,6 +654,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "tu cuenta de {app} y los datos personales asociados se eliminaron el {when}. Esta acción es definitiva.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Tu cuenta ha sido eliminada",
   "gdpr.mail.deletionRequested.cancel":
+    "Si no has solicitado esto, cancela la eliminación con el botón de abajo antes de que venza el plazo.",
+  "gdpr.mail.deletionRequested.cancelButton": "Cancelar eliminación",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "Si no has solicitado esto, inicia sesión y cancela la eliminación en la configuración de la cuenta antes de que venza el plazo.",
   "gdpr.mail.deletionRequested.intro":
     "hemos recibido tu solicitud para eliminar tu cuenta de {app}. Tu cuenta y los datos asociados se eliminarán de forma permanente el {when}.",
@@ -1768,6 +1771,19 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "user:entity:user:field:status:option:restricted": "Restringido",
   "user:entity:user:field:tenants": "Organizaciones",
   "user:entity:user:field:timezone": "Zona horaria",
+  "userDataRights.deletion.cancel.error": "Algo salió mal. Inténtalo de nuevo.",
+  "userDataRights.deletion.cancel.intro":
+    "Al cancelar se detiene la eliminación programada y tu cuenta se mantiene.",
+  "userDataRights.deletion.cancel.invalidToken":
+    "El enlace no es válido o ha caducado, o la eliminación ya se canceló.",
+  "userDataRights.deletion.cancel.missingToken":
+    "No se encontró ningún token en el enlace. Abre de nuevo el enlace del correo.",
+  "userDataRights.deletion.cancel.submit": "Cancelar eliminación",
+  "userDataRights.deletion.cancel.submitting": "…",
+  "userDataRights.deletion.cancel.successBody":
+    "Tu cuenta se mantiene. Ya puedes iniciar sesión de nuevo.",
+  "userDataRights.deletion.cancel.successTitle": "Eliminación cancelada",
+  "userDataRights.deletion.cancel.title": "Cancelar la eliminación de la cuenta",
   "userDataRights.deletion.confirm.error": "Algo salió mal. Inténtalo de nuevo.",
   "userDataRights.deletion.confirm.intro":
     "Al confirmar se inicia el plazo de eliminación. Hasta que termine, puedes cancelarla iniciando sesión en tu cuenta.",

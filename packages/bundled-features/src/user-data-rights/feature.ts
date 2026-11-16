@@ -22,6 +22,7 @@ import { makeTenantMailTransportResolver } from "../mail-foundation/index.ts";
 import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.ts";
 import { deletionTokenSecretEnvSchema } from "./env.ts";
 import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.ts";
+import { createCancelDeletionByTokenHandler } from "./handlers/cancel-deletion-by-token.write.ts";
 import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write.ts";
 import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query.ts";
 import { downloadByJobQuery } from "./handlers/download-by-job.query.ts";
@@ -144,6 +145,13 @@ export type UserDataRightsOptions = {
    *  the token as a URL fragment (`#token=<token>`). Required when
    *  deletionTokenSecret is set. */
   readonly deletionVerifyUrl?: string;
+  /** Base URL of the screen that cancels a pending deletion via token, e.g.
+   *  "https://app.example.com/delete-account/cancel" (the token is appended as
+   *  a URL fragment). Enables the cancel link in the deletion-requested mail;
+   *  needs deletionTokenSecret. A requested account cannot sign in, so without
+   *  it the user has no way back after closing the session. Use the same route
+   *  as the `cancelPath` of makePublicDeletionGate. */
+  readonly deletionCancelUrl?: string;
   /** Sends the verification magic link (step 1 of the anonymous flow).
    *  Best effort and wired by the app author. It MUST be non-blocking (enqueue,
    *  e.g. via delivery.notify): a synchronous send would reintroduce a timing
@@ -261,6 +269,15 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     r.writeHandler(restrictAccountWrite);
     r.writeHandler(liftRestrictionWrite);
 
+    const tokenSecretOptions =
+      opts.deletionTokenSecret !== undefined
+        ? { deletionTokenSecret: opts.deletionTokenSecret }
+        : {};
+    const cancelLinkOptions = {
+      ...tokenSecretOptions,
+      ...(opts.deletionCancelUrl !== undefined && { deletionCancelUrl: opts.deletionCancelUrl }),
+    };
+
     // Endpoints for the GDPR Article 17 forget path with a grace period.
     r.writeHandler(
       createRequestDeletionHandler({
@@ -268,9 +285,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
           sendDeletionRequestedEmail: opts.sendDeletionRequestedEmail,
         }),
         ...(opts.mailDefaults && { mailDefaults: opts.mailDefaults }),
+        ...cancelLinkOptions,
       }),
     );
     r.writeHandler(cancelDeletionWrite);
+    r.writeHandler(createCancelDeletionByTokenHandler(tokenSecretOptions));
 
     // Anonymer, email-verifizierter Apex-Deletion-Flow (Lockout-sicher):
     // request-by-email (Schritt 1, Magic-Link) + confirm-by-token (Schritt 2,
@@ -287,11 +306,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       }),
     );
     r.writeHandler(
-      createConfirmDeletionByTokenHandler(
-        opts.deletionTokenSecret !== undefined
-          ? { deletionTokenSecret: opts.deletionTokenSecret }
-          : {},
-      ),
+      createConfirmDeletionByTokenHandler({
+        ...(opts.sendDeletionRequestedEmail && {
+          sendDeletionRequestedEmail: opts.sendDeletionRequestedEmail,
+        }),
+        ...(opts.mailDefaults && { mailDefaults: opts.mailDefaults }),
+        ...cancelLinkOptions,
+      }),
     );
 
     // Cleanup runner as a privileged handler. When

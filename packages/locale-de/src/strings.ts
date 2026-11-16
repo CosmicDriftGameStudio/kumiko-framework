@@ -659,6 +659,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "dein {app}-Konto und die zugehörigen personenbezogenen Daten wurden am {when} gelöscht. Diese Aktion ist endgültig.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Dein Konto wurde gelöscht",
   "gdpr.mail.deletionRequested.cancel":
+    "Falls du das nicht angefordert hast, brich die Löschung mit dem Button unten ab, bevor die Frist abläuft.",
+  "gdpr.mail.deletionRequested.cancelButton": "Löschung abbrechen",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "Falls du das nicht angefordert hast, melde dich an und brich die Löschung in den Kontoeinstellungen ab, bevor die Frist abläuft.",
   "gdpr.mail.deletionRequested.intro":
     "wir haben deinen Antrag zur Löschung deines {app}-Kontos erhalten. Dein Konto und die zugehörigen Daten werden am {when} endgültig gelöscht.",
@@ -1789,6 +1792,19 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "user:entity:user:field:status:option:restricted": "Eingeschränkt",
   "user:entity:user:field:tenants": "Mandanten",
   "user:entity:user:field:timezone": "Zeitzone",
+  "userDataRights.deletion.cancel.error": "Etwas ist schief gegangen. Bitte erneut versuchen.",
+  "userDataRights.deletion.cancel.intro":
+    "Mit dem Abbrechen wird die geplante Löschung gestoppt und dein Konto bleibt bestehen.",
+  "userDataRights.deletion.cancel.invalidToken":
+    "Der Link ist ungültig oder abgelaufen oder die Löschung wurde bereits abgebrochen.",
+  "userDataRights.deletion.cancel.missingToken":
+    "Kein Token im Link gefunden. Bitte öffne den Link aus der E-Mail erneut.",
+  "userDataRights.deletion.cancel.submit": "Löschung abbrechen",
+  "userDataRights.deletion.cancel.submitting": "…",
+  "userDataRights.deletion.cancel.successBody":
+    "Dein Konto bleibt bestehen. Du kannst dich wieder anmelden.",
+  "userDataRights.deletion.cancel.successTitle": "Löschung abgebrochen",
+  "userDataRights.deletion.cancel.title": "Konto-Löschung abbrechen",
   "userDataRights.deletion.confirm.error": "Etwas ist schief gegangen. Bitte erneut versuchen.",
   "userDataRights.deletion.confirm.intro":
     "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft kannst du die Löschung im eingeloggten Konto wieder abbrechen.",

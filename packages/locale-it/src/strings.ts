@@ -654,6 +654,9 @@ export const localeItBundle: Readonly<Record<string, string>> = {
     "il tuo account {app} e i dati personali associati sono stati eliminati il {when}. Questa azione è definitiva.",
   "gdpr.mail.deletionExecuted.subject": "{app} — Il tuo account è stato eliminato",
   "gdpr.mail.deletionRequested.cancel":
+    "Se non hai richiesto tu questa operazione, annulla l'eliminazione con il pulsante qui sotto prima della scadenza.",
+  "gdpr.mail.deletionRequested.cancelButton": "Annulla l'eliminazione",
+  "gdpr.mail.deletionRequested.cancelSignIn":
     "Se non hai richiesto tu questa operazione, accedi e annulla l'eliminazione nelle impostazioni dell'account prima della scadenza.",
   "gdpr.mail.deletionRequested.intro":
     "abbiamo ricevuto la tua richiesta di eliminazione dell'account {app}. Il tuo account e i dati associati verranno eliminati definitivamente il {when}.",
@@ -1774,6 +1777,19 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "user:entity:user:field:status:option:restricted": "Limitato",
   "user:entity:user:field:tenants": "Organizzazioni",
   "user:entity:user:field:timezone": "Fuso orario",
+  "userDataRights.deletion.cancel.error": "Qualcosa è andato storto. Riprova.",
+  "userDataRights.deletion.cancel.intro":
+    "L'annullamento interrompe l'eliminazione prevista e il tuo account resta attivo.",
+  "userDataRights.deletion.cancel.invalidToken":
+    "Il link non è valido o è scaduto, oppure l'eliminazione è già stata annullata.",
+  "userDataRights.deletion.cancel.missingToken":
+    "Nel link non è stato trovato alcun token. Apri di nuovo il link dall'e-mail.",
+  "userDataRights.deletion.cancel.submit": "Annulla l'eliminazione",
+  "userDataRights.deletion.cancel.submitting": "…",
+  "userDataRights.deletion.cancel.successBody":
+    "Il tuo account resta attivo. Puoi accedere di nuovo.",
+  "userDataRights.deletion.cancel.successTitle": "Eliminazione annullata",
+  "userDataRights.deletion.cancel.title": "Annulla l'eliminazione dell'account",
   "userDataRights.deletion.confirm.error": "Qualcosa è andato storto. Riprova.",
   "userDataRights.deletion.confirm.intro":
     "La conferma avvia il periodo di tolleranza per l'eliminazione. Fino alla sua scadenza puoi annullare l'eliminazione dal tuo account.",
