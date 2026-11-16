@@ -5,6 +5,7 @@ import type { Registry } from "../engine/types/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";
 import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership.ts";
 import { authEndpointRateLimit, globalIpRateLimit } from "../rate-limit/index.ts";
+import { SESSION_MINTING_PUBLIC_API_PATHS } from "./api-constants.ts";
 import { authMiddleware, type TenantLifecycleStatusResolver } from "./auth-middleware.ts";
 import { assertSessionCallbacksPaired } from "./auth-routes.ts";
 import { csrfMiddleware } from "./csrf-middleware.ts";
@@ -14,6 +15,7 @@ import {
   assertOriginGuardConfig,
   normalizeOrigin,
   resolveOriginGuard,
+  resolveSessionMintingOriginGuard,
 } from "./origin-middleware.ts";
 import { patRouteGuard } from "./pat-route-guard.ts";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard.ts";
@@ -196,6 +198,18 @@ export function installAuthGuardChain(
   const originGuard = resolveOriginGuard(options.auth);
   if (originGuard) {
     useOnProtectedApiPaths(app, isPublicApiRequest, originGuard);
+  }
+
+  // Login CSRF: public routes that mint a session skip the guard above, so a
+  // foreign page could sign the victim into the attacker's account. This runs
+  // in buildServer's guard chain, i.e. before mountAuthRoutes.
+  const sessionMintingOriginGuard = resolveSessionMintingOriginGuard(options.auth);
+  if (sessionMintingOriginGuard) {
+    app.use("/api/*", async (c, next) =>
+      SESSION_MINTING_PUBLIC_API_PATHS.has(c.req.path)
+        ? sessionMintingOriginGuard(c, next)
+        : next(),
+    );
   }
 
   // Double-submit CSRF guard — runs only on cookie-authenticated,

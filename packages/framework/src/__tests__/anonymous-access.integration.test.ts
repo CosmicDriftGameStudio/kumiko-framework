@@ -333,11 +333,13 @@ describe("anonymous access — header-supplied tenant", () => {
       { "X-Tenant": "not-a-uuid" },
     );
     expect(res.status).toBe(400);
-    const body = (await res.json()) as {
+    const text = await res.text();
+    expect(text).not.toContain("not-a-uuid");
+    const body = JSON.parse(text) as {
       error: { code: string; details: { source: string } };
     };
     expect(body.error.code).toBe("invalid_tenant_format");
-    expect(body.error.details.source).toBe("X-Tenant header");
+    expect(body.error.details).toEqual({ source: "X-Tenant header" });
   });
 
   test("missing tenant → 400 tenant_required", async () => {

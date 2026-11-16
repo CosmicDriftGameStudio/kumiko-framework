@@ -99,6 +99,39 @@ describe("origin-middleware (integration)", () => {
     expect(res.status).toBe(404);
     expect(await errorCode(res)).toBe("not_found");
   });
+
+  const LOGIN_BODY = { email: "a@example.eu", password: "x" };
+
+  test("foreign origin POST to /api/auth/login → 403 origin_not_allowed (login CSRF)", async () => {
+    const res = await stack.http.raw("POST", "/api/auth/login", LOGIN_BODY, {
+      Origin: DISALLOWED,
+      "Content-Type": "text/plain",
+    });
+    expect(res.status).toBe(403);
+    expect(await errorCode(res)).toBe("origin_not_allowed");
+  });
+
+  test("allowed origin POST to /api/auth/login is not origin-blocked", async () => {
+    const res = await stack.http.raw("POST", "/api/auth/login", LOGIN_BODY, { Origin: ALLOWED });
+    expect(res.status).not.toBe(403);
+    expect(await errorCode(res)).not.toBe("origin_not_allowed");
+  });
+
+  test("no Origin POST to /api/auth/login is not origin-blocked (native client)", async () => {
+    const res = await stack.http.raw("POST", "/api/auth/login", LOGIN_BODY);
+    expect(res.status).not.toBe(403);
+    expect(await errorCode(res)).not.toBe("origin_not_allowed");
+  });
+
+  test("foreign origin on a public non-minting path stays open", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/request-password-reset",
+      { email: "a@example.eu" },
+      { Origin: DISALLOWED },
+    );
+    expect(await errorCode(res)).not.toBe("origin_not_allowed");
+  });
 });
 
 describe("origin-middleware opt-out (unsafeSkipOriginCheck)", () => {
@@ -132,6 +165,16 @@ describe("origin-middleware opt-out (unsafeSkipOriginCheck)", () => {
     expect(res.status).toBe(403);
     // CSRF fires (no token) — NOT the origin guard. Proves the opt-out disabled it.
     expect(await errorCode(res)).toBe("csrf_token_mismatch");
+  });
+
+  test("opt-out leaves /api/auth/login without origin guard", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/login",
+      { email: "a@example.eu", password: "x" },
+      { Origin: DISALLOWED },
+    );
+    expect(await errorCode(res)).not.toBe("origin_not_allowed");
   });
 });
 

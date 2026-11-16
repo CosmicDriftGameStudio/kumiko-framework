@@ -15,6 +15,7 @@ import {
   isWebSocketOriginAllowed,
   normalizeOrigin,
   originMiddleware,
+  sessionMintingOriginMiddleware,
 } from "../origin-middleware.ts";
 import { AUTH_COOKIE_BASE } from "../session-cookies.ts";
 
@@ -212,6 +213,61 @@ describe("originMiddleware", () => {
     });
     expect(res.status).toBe(403);
     expect(await readErrorCode(res)).toBe("origin_not_allowed");
+  });
+});
+
+describe("sessionMintingOriginMiddleware", () => {
+  function buildMintingApp(options?: { allowRequestHost?: boolean }): Hono {
+    const app = new Hono();
+    app.use("/api/*", sessionMintingOriginMiddleware([ALLOWED], options));
+    app.post("/api/login", (c) => c.json({ ok: true }));
+    app.get("/api/ping", (c) => c.json({ ok: true }));
+    return app;
+  }
+
+  test("POST with a disallowed Origin → 403 origin_not_allowed", async () => {
+    const res = await buildMintingApp().request("/api/login", {
+      method: "POST",
+      headers: { Origin: DISALLOWED },
+    });
+    expect(res.status).toBe(403);
+    expect(await readErrorCode(res)).toBe("origin_not_allowed");
+  });
+
+  test("POST with an allowed Origin → 200", async () => {
+    const res = await buildMintingApp().request("/api/login", {
+      method: "POST",
+      headers: { Origin: ALLOWED },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("POST without Origin and without Sec-Fetch-Site → 200 (native client)", async () => {
+    const res = await buildMintingApp().request("/api/login", { method: "POST" });
+    expect(res.status).toBe(200);
+  });
+
+  test("POST without Origin but Sec-Fetch-Site: cross-site → 403", async () => {
+    const res = await buildMintingApp().request("/api/login", {
+      method: "POST",
+      headers: { "Sec-Fetch-Site": "cross-site" },
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("GET with a disallowed Origin → 200 (safe method)", async () => {
+    const res = await buildMintingApp().request("/api/ping", {
+      headers: { Origin: DISALLOWED },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("allowRequestHost: Origin equal to the request host passes", async () => {
+    const res = await buildMintingApp({ allowRequestHost: true }).request(
+      "http://localhost/api/login",
+      { method: "POST", headers: { Origin: "http://localhost" } },
+    );
+    expect(res.status).toBe(200);
   });
 });
 

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { NON_PUBLIC_API_PATHS, PUBLIC_API_PATHS, Routes } from "../api-constants.ts";
+import {
+  NON_PUBLIC_API_PATHS,
+  PUBLIC_API_PATHS,
+  Routes,
+  SESSION_MINTING_PUBLIC_API_PATHS,
+} from "../api-constants.ts";
 
 // PUBLIC_API_PATHS is an allowlist: a missing entry (typo, forgotten route)
 // fails CLOSED — the route stays behind auth, never accidentally public.
@@ -45,6 +50,13 @@ describe("Routes / PUBLIC_API_PATHS classification completeness", () => {
 
     expect(stalePublic).toEqual([]);
     expect(staleNonPublic).toEqual([]);
+  });
+
+  test("every session-minting path is a public path", () => {
+    const notPublic = [...SESSION_MINTING_PUBLIC_API_PATHS].filter(
+      (path) => !PUBLIC_API_PATHS.has(path),
+    );
+    expect(notPublic).toEqual([]);
   });
 
   // Regression guard for the mechanism itself: proves the completeness

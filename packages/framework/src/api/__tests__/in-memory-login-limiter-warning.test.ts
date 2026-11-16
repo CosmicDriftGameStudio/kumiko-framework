@@ -1,33 +1,70 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { inMemoryLoginRateLimiterFallback } from "../auth-routes.ts";
+import { afterEach, describe, expect, test } from "bun:test";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { createAuthRoutes, inMemoryLoginRateLimiterFallback } from "../auth-routes.ts";
+import { createJwtHelper } from "../jwt.ts";
+
+const originalNodeEnv = process.env["NODE_ENV"];
+
+function minimalDispatcher(): Dispatcher {
+  return {
+    async write(): Promise<WriteResult> {
+      throw new Error("write not available in this stub");
+    },
+    async query(): Promise<unknown> {
+      return [];
+    },
+    async *stream(): AsyncGenerator<unknown> {},
+    async command(): Promise<void> {},
+    async batch(): Promise<BatchResult> {
+      return { isSuccess: true, results: [] };
+    },
+    async resolveAuthClaims(): Promise<Record<string, unknown>> {
+      return {};
+    },
+    async resolveActiveMembership() {
+      return { kind: "rejected", reason: "not_a_member" };
+    },
+    createMemberReader() {
+      return async () => {
+        throw new Error("createMemberReader not available in this stub");
+      };
+    },
+  };
+}
 
 describe("inMemoryLoginRateLimiterFallback", () => {
-  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
-  const originalNodeEnv = process.env["NODE_ENV"];
-
-  beforeEach(() => {
-    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
-  });
-
   afterEach(() => {
-    warnSpy.mockRestore();
-    process.env["NODE_ENV"] = originalNodeEnv;
+    if (originalNodeEnv === undefined) delete process.env["NODE_ENV"];
+    else process.env["NODE_ENV"] = originalNodeEnv;
   });
 
-  test("outside production it stays silent", () => {
+  test("outside production it returns a working in-memory limiter", async () => {
     process.env["NODE_ENV"] = "test";
 
-    inMemoryLoginRateLimiterFallback();
+    const limiter = inMemoryLoginRateLimiterFallback();
 
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(await limiter.check("k")).toBe(true);
   });
 
-  test("in production it warns once per process however many limiters fall back", () => {
+  test("in production it throws instead of silently limiting per replica", () => {
     process.env["NODE_ENV"] = "production";
 
-    for (let site = 0; site < 4; site++) inMemoryLoginRateLimiterFallback();
+    expect(() => inMemoryLoginRateLimiterFallback()).toThrow(/createRedisLoginRateLimiter/);
+  });
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(warnSpy.mock.calls[0])).toContain("in-memory; limits are per replica");
+  test("in production createAuthRoutes aborts when loginRateLimit is not set", () => {
+    process.env["NODE_ENV"] = "production";
+    const jwt = createJwtHelper("test-secret-at-least-32-bytes-long-for-hs256");
+    const baseConfig = {
+      loginHandler: "x:write:login",
+      membershipQuery: "tenant:query:memberships",
+    };
+
+    expect(() => createAuthRoutes(minimalDispatcher(), jwt, baseConfig)).toThrow(
+      /createRedisLoginRateLimiter/,
+    );
+    expect(() =>
+      createAuthRoutes(minimalDispatcher(), jwt, { ...baseConfig, loginRateLimit: null }),
+    ).not.toThrow();
   });
 });

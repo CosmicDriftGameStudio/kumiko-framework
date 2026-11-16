@@ -67,7 +67,8 @@ export type AuthRoutesConfig = {
   // errors default to 400. Keeps the framework unaware of concrete auth codes.
   loginErrorStatusMap?: Readonly<Record<string, number>>;
   // Rate-limit for POST /auth/login. Defaults to in-memory 10/5min per
-  // (ip + email) bucket. Pass `null` to disable (tests, trusted networks).
+  // (ip + email) bucket outside production; in production a missing limiter
+  // aborts the boot (pass a Redis-backed one). Pass `null` to disable.
   loginRateLimit?: LoginRateLimiter | null;
   // Optional: qualified write handler completing a two-step (password +
   // TOTP/recovery-code) login. When set, POST /auth/mfa/verify dispatches
@@ -138,8 +139,8 @@ export type AuthRoutesConfig = {
   // pattern as mfaVerifyErrorStatusMap.
   mfaPreauthConfirmErrorStatusMap?: Readonly<Record<string, number>>;
   // Rate-limit for POST /auth/mfa/preauth-confirm, keyed by client IP. Same
-  // reasoning as mfaVerifyRateLimit — defaults to in-memory 10/5min, pass
-  // `null` to disable.
+  // reasoning as mfaVerifyRateLimit — defaults to in-memory 10/5min outside
+  // production (boot aborts there), pass `null` to disable.
   mfaPreauthConfirmRateLimit?: LoginRateLimiter | null;
   // Session-lifecycle callbacks. When both are wired the JWT carries a `jti`
   // (sid) and the server can revoke individual sessions (logout, compromise,

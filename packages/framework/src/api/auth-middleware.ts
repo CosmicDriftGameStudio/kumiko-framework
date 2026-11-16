@@ -425,7 +425,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
         status: 400,
         message: "JWT tenantId and X-Tenant header disagree",
         i18nKey: "auth.errors.tenantMismatch",
-        details: { jwtTenantId: payload.tenantId, headerTenantId: headerTenant },
+        details: { jwtTenantId: payload.tenantId },
       });
     }
 
@@ -493,7 +493,7 @@ async function handleVerifiedBearerUser(
       status: 400,
       message: "token tenantId and X-Tenant header disagree",
       i18nKey: "auth.errors.tenantMismatch",
-      details: { tokenTenantId: user.tenantId, headerTenantId: headerTenant },
+      details: { tokenTenantId: user.tenantId },
     });
   }
   c.set(USER_KEY, user);
@@ -664,7 +664,7 @@ function parseClientTenant(
         status: 400,
         message: `${source} is not a valid tenant id`,
         i18nKey: "auth.errors.invalidTenantFormat",
-        details: { source, value: raw },
+        details: { source },
       },
     };
   }

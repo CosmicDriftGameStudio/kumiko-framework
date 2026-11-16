@@ -68,6 +68,18 @@ export const PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.clientErrors}`,
 ]);
 
+// Public routes that answer with a fresh session cookie; a foreign page could
+// post to them and sign the victim into the attacker's account (login CSRF),
+// so the Origin guard covers them although no auth runs there.
+export const SESSION_MINTING_PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
+  `/api${Routes.authLogin}`,
+  `/api${Routes.authMfaVerify}`,
+  `/api${Routes.authMfaPreauthConfirm}`,
+  `/api${Routes.authSignupConfirm}`,
+  `/api${Routes.authInviteAcceptWithLogin}`,
+  `/api${Routes.authInviteSignupComplete}`,
+]);
+
 // Every other route in `Routes` — explicit, so a route can never fall
 // through to "public" by simply being absent from PUBLIC_API_PATHS. A
 // completeness test checks every `Routes` entry against the union of this
