@@ -7,6 +7,7 @@ describe("securePageHeaders", () => {
     expect(h["content-type"]).toBe("text/html; charset=utf-8");
     expect(h["x-content-type-options"]).toBe("nosniff");
     expect(h["content-security-policy"]).toContain("script-src 'none'");
+    expect(h["content-security-policy"]).toContain("form-action 'self'");
   });
 
   test("a caller can NEVER override a hardened security header", () => {
@@ -15,7 +16,7 @@ describe("securePageHeaders", () => {
       "x-frame-options": "ALLOWALL",
     });
     expect(h["content-security-policy"]).toBe(
-      "script-src 'none'; object-src 'none'; base-uri 'none'",
+      "script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'",
     );
     expect(h["x-frame-options"]).toBe("SAMEORIGIN");
   });

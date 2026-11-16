@@ -6,7 +6,7 @@ import {
   defineEntityUpdateHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { pageEntity } from "../table.ts";
-import { withBodyValidation } from "./page-body-guard.ts";
+import { withPageWriteValidation } from "./page-body-guard.ts";
 
 // Admin authoring runs as TenantAdmin (self-service) or SystemAdmin (app-wide
 // pages). Mirrors set.write's ACL — an app with its own role alias
@@ -18,7 +18,7 @@ const ADMIN_ACCESS = { roles: ["TenantAdmin", "SystemAdmin"] } as const;
 // `managed-pages:query:page:{list,detail}` by convention. The `set` write
 // handler in feature.ts is NOT used by them and stays the provisioning API.
 export const pageCrudWrites = [
-  withBodyValidation(
+  withPageWriteValidation(
     defineEntityCreateHandler("page", pageEntity, {
       access: ADMIN_ACCESS,
       description:
@@ -26,7 +26,7 @@ export const pageCrudWrites = [
     }),
     "create",
   ),
-  withBodyValidation(
+  withPageWriteValidation(
     defineEntityUpdateHandler("page", pageEntity, {
       access: ADMIN_ACCESS,
       description:

@@ -175,6 +175,7 @@ describe("managed-pages :: Cache + Security-Header", () => {
     expect(res.headers.get("cache-control")).toBe("public, max-age=60, must-revalidate");
     expect(res.headers.get("etag")).toBeTruthy();
     expect(res.headers.get("content-security-policy")).toContain("script-src 'none'");
+    expect(res.headers.get("content-security-policy")).toContain("form-action 'self'");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
@@ -456,6 +457,121 @@ describe("managed-pages :: by-tenant-published (Discovery-Query)", () => {
       pageAdminB,
     );
     expect(res.pages).toEqual([expect.objectContaining({ slug: "about", title: "About B" })]);
+  });
+});
+
+describe("managed-pages :: by-tenant-published ordering and columns", () => {
+  const TENANT_SORT = "44444444-4444-4444-8444-444444444444";
+  const sortAdmin = createTestUser({ id: 16, roles: ["TenantAdmin"], tenantId: TENANT_SORT });
+
+  test("returns published pages sorted by slug with only the discovery columns", async () => {
+    await seedPage(stack.db, {
+      tenantId: TENANT_SORT,
+      slug: "zeta",
+      lang: "en",
+      title: "Zeta",
+      body: "z",
+      published: true,
+    });
+    await seedPage(stack.db, {
+      tenantId: TENANT_SORT,
+      slug: "alpha",
+      lang: "en",
+      title: "Alpha",
+      body: "a",
+      published: true,
+    });
+    await seedPage(stack.db, {
+      tenantId: TENANT_SORT,
+      slug: "hidden",
+      lang: "en",
+      title: "Hidden",
+      body: "h",
+      published: false,
+    });
+    const res = await stack.http.queryOk<{ pages: Array<Record<string, unknown>> }>(
+      "managed-pages:query:by-tenant-published",
+      {},
+      sortAdmin,
+    );
+    expect(res.pages.map((p) => p["slug"])).toEqual(["alpha", "zeta"]);
+    expect(Object.keys(res.pages[0] ?? {}).sort()).toEqual(["lang", "slug", "title", "updatedAt"]);
+  });
+});
+
+describe("managed-pages :: page field rules on every write path", () => {
+  test("create rejects a slug that is not kebab-case", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug: "Foo Bar", lang: "en", title: "x", body: null },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "slug");
+  });
+
+  test("create rejects a malformed lang", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug: "valid-lang", lang: "xx_YY", title: "x", body: null },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "lang");
+  });
+
+  test("create rejects a non-https ogImage", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:create",
+      { slug: "og-js", lang: "en", title: "x", body: null, ogImage: "javascript:alert(1)" },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "ogImage");
+  });
+
+  test("update rejects a bad slug in changes", async () => {
+    await stack.http.writeOk(
+      "managed-pages:write:page:create",
+      {
+        slug: "og-ok",
+        lang: "en",
+        title: "x",
+        body: null,
+        ogImage: "https://cdn.example.com/og.png",
+      },
+      tenantAdmin,
+    );
+    const list = await stack.http.queryOk<{ rows: Array<{ id: string; slug: string }> }>(
+      "managed-pages:query:page:list",
+      {},
+      tenantAdmin,
+    );
+    const id = list.rows.find((row) => row.slug === "og-ok")?.id;
+    if (!id) throw new Error("og-ok page not listed");
+    const detail = await stack.http.queryOk<{ version: number }>(
+      "managed-pages:query:page:detail",
+      { id },
+      tenantAdmin,
+    );
+    const error = await stack.http.writeErr(
+      "managed-pages:write:page:update",
+      { id, version: detail.version, changes: { slug: "Bad Slug" } },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "slug");
+  });
+
+  test("set rejects an http ogImage", async () => {
+    const error = await stack.http.writeErr(
+      "managed-pages:write:set",
+      {
+        slug: "set-og",
+        lang: "en",
+        title: "x",
+        body: null,
+        ogImage: "http://insecure.example/og.png",
+      },
+      tenantAdmin,
+    );
+    expectErrorIncludes(error, "ogImage");
   });
 });
 

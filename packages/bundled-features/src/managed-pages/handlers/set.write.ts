@@ -6,18 +6,7 @@ import { requireForTenant } from "../../shared/index.ts";
 import { BODY_FORMATS, DEFAULT_BODY_FORMAT } from "../constants.ts";
 import { type PageRow, pageEntity, pagesTable } from "../table.ts";
 import { sanitizePageBody } from "./page-body-issues.ts";
-
-const slugSchema = z
-  .string()
-  .min(1)
-  .max(64)
-  .regex(/^[a-z0-9][a-z0-9-]*$/, "slug must be kebab-case (lowercase, digits, dashes)");
-
-const langSchema = z
-  .string()
-  .min(2)
-  .max(8)
-  .regex(/^[a-z]{2}(-[a-z]{2})?$/i, "lang must be ISO 639-1 (e.g. de, en, en-us)");
+import { pageLangSchema, pageOgImageSchema, pageSlugSchema } from "./page-field-rules.ts";
 
 const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: "page" });
 
@@ -29,13 +18,13 @@ const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: 
 export const setWrite = defineWriteHandler({
   name: "set",
   schema: z.object({
-    slug: slugSchema,
-    lang: langSchema,
+    slug: pageSlugSchema,
+    lang: pageLangSchema,
     title: z.string().min(1).max(200),
     body: z.string().max(100_000).nullable(),
     bodyFormat: z.enum(BODY_FORMATS).optional(),
     description: z.string().max(500).nullable().optional(),
-    ogImage: z.string().max(2000).nullable().optional(),
+    ogImage: pageOgImageSchema.nullable().optional(),
     published: z.boolean().optional(),
     /** Cross-tenant write — only SystemAdmin (for example, SYSTEM_TENANT_ID pages). */
     tenantIdOverride: z.string().min(1).optional(),

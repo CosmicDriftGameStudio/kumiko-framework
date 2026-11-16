@@ -108,38 +108,34 @@ anchor is `allowCustomCss` (app-level opt-in); the toggle is the commercial gate
 
 ## Custom wrapLayout (your own marketing chrome)
 
-A custom `wrapLayout` receives `branding` RAW and untrusted: `title`/
-`description` are length-capped at write but **not** HTML-escaped, and
-`customCss` is unsanitized. Emit every tenant value through the exported
-boundary helpers — never interpolate `branding.title` yourself (stored XSS):
+A custom `wrapLayout` receives ready-made parts: `titleHtml`, `descriptionHtml`,
+`langHtml`, `slugHtml`, `ogImageHtml`, `brandingStyleHtml`, `brandingHeaderHtml` and
+`bodyHtml`. All fields arrive escaped or sanitized, so raw values never reach a
+custom layout and every field can be interpolated as is.
 
 ```typescript illustration
-import {
-  brandingHeaderHtml,
-  brandingStyleBlock,
-  tenantStyleBlock,
-  TENANT_CONTENT_ATTR,
-} from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import { TENANT_CONTENT_ATTR } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 
 const wrapLayout = (o) => `<!doctype html>
-<html lang="${o.lang}">
+<html lang="${o.langHtml}">
 <head>
-  <title>${o.title}</title>
-  ${/* your layout CSS */ ""}
-  ${brandingStyleBlock(o.branding)}            <!-- escaped :root theme vars -->
-  ${tenantStyleBlock(o.branding.customCss)}    <!-- scoped + sanitized + contained -->
+  <title>${o.titleHtml}</title>
+  <meta name="description" content="${o.descriptionHtml}">
+  <style>/* your layout CSS */</style>
+  ${o.brandingStyleHtml}
 </head>
 <body>
-  ${brandingHeaderHtml(o.branding)}            <!-- escaped logo + title header -->
+  ${o.brandingHeaderHtml}
   <main ${TENANT_CONTENT_ATTR}>${o.bodyHtml}</main>
 </body>
 </html>`;
 ```
 
-`brandingHeaderHtml`/`brandingStyleBlock` escape + re-validate (hex/https) the
-branding tokens; `tenantStyleBlock` bakes in the scope selector so callers can't
-mis-scope and lose containment. The default skeleton (`wrapInLayout`) uses the
-exact same helpers.
+`brandingStyleHtml` holds the escaped `:root` theme vars plus the scoped,
+sanitized tenant CSS and goes after your own `<style>`; `brandingHeaderHtml` is
+the escaped logo and title header. Keep `TENANT_CONTENT_ATTR` on the content
+container so the tenant CSS stays contained. The default skeleton
+(`wrapInLayout`) uses the same helpers.
 
 ## Security posture
 

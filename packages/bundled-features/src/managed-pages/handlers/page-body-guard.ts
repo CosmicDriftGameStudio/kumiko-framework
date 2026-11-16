@@ -3,11 +3,13 @@ import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import {
   type FieldIssue,
   ValidationError,
+  validationErrorFromZod,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
 import { type PageRow, pagesTable } from "../table.ts";
 import { sanitizePageBody } from "./page-body-issues.ts";
+import { pageAddressFieldsSchema } from "./page-field-rules.ts";
 
 type PageWriteHandler = WriteHandlerDef["handler"];
 type PageWriteContext = Parameters<PageWriteHandler>[1];
@@ -45,13 +47,24 @@ function guardCreate(payload: unknown): Guarded {
   return { ok: true, payload: { ...payload, body: result.body } };
 }
 
-export function withBodyValidation(
+function changesOf(payload: unknown): unknown {
+  if (!isPlainObject(payload) || !isPlainObject(payload["changes"])) return undefined;
+  return payload["changes"];
+}
+
+// slug, lang and ogImage follow the same rules as managed-pages:write:set.
+export function withPageWriteValidation(
   def: WriteHandlerDef,
   verb: "create" | "update",
 ): WriteHandlerDef {
   return {
     ...def,
     handler: async (event, ctx) => {
+      const fieldSource = verb === "create" ? event.payload : changesOf(event.payload);
+      const fieldCheck = pageAddressFieldsSchema.safeParse(
+        isPlainObject(fieldSource) ? fieldSource : {},
+      );
+      if (!fieldCheck.success) return writeFailure(validationErrorFromZod(fieldCheck.error));
       const guarded =
         verb === "create" ? guardCreate(event.payload) : await guardUpdate(event.payload, ctx);
       if (!guarded.ok) return writeFailure(new ValidationError({ fields: guarded.issues }));

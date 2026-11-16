@@ -49,6 +49,7 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
 const IDEMPOTENCY_INDEX_NAME = "events_idempotency_uq";
 export const MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME = "events_membership_payload_tenant_idx";
 export const TENANT_ID_INDEX_NAME = "events_tenant_id_idx";
+export const CREATED_AT_INDEX_NAME = "events_created_at_idx";
 
 // Tenant-scoped partial unique index over metadata.idempotencyKey.
 // Expression index straight on the jsonb column — no dedicated key column,
@@ -133,7 +134,7 @@ async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
 // Plain (non-unique) indexes on kumiko_events that installs predating them get on boot.
 // forget-cleanup reads the membership history by payload->>'tenantId' (not the tenant_id
 // column — cross-tenant SystemAdmin adds land under the actor's tenant); the audit list
-// filters by tenant_id and pages by id. Same CONCURRENTLY + INVALID-rebuild handling as
+// filters by tenant_id and pages by id; the audit-writes metric counts events of all tenants by created_at. Same CONCURRENTLY + INVALID-rebuild handling as
 // the idempotency index.
 const SECONDARY_EVENT_INDEXES: ReadonlyArray<{
   readonly name: string;
@@ -144,6 +145,7 @@ const SECONDARY_EVENT_INDEXES: ReadonlyArray<{
     definition: `((("payload"->>'tenantId'))) WHERE "aggregate_type" = 'tenant-membership'`,
   },
   { name: TENANT_ID_INDEX_NAME, definition: `("tenant_id", "id")` },
+  { name: CREATED_AT_INDEX_NAME, definition: `("created_at")` },
 ];
 
 export function ensureSecondaryEventIndexes(db: AnyDb): Promise<void> {

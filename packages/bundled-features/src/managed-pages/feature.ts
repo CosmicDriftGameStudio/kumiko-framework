@@ -1,10 +1,15 @@
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-renderer/headless";
 import {
   type BrandingTokens,
+  brandingHeaderHtml,
+  brandingStyleBlock,
   cachedSecurePageResponse,
   EMPTY_BRANDING,
+  isSafeHttpsUrl,
+  tenantStyleBlock,
   wrapInLayout,
 } from "../page-render/index.ts";
 import { rateLimitedTextResponse, type SystemQueryFn } from "../shared/index.ts";
@@ -71,18 +76,39 @@ async function readBrandingViaSystemQuery(
   }
 }
 
-export type ManagedPagesWrapLayout = (opts: {
-  readonly title: string;
+// Every tenant value arrives escaped or sanitized, so a custom layout may interpolate each field
+// as is; brandingStyleHtml belongs after the layout's own <style>, the content container carries TENANT_CONTENT_ATTR.
+export type ManagedPagesWrapLayout = (parts: {
   readonly bodyHtml: string;
-  readonly lang: string;
-  readonly slug: string;
-  readonly description: string | null;
-  readonly ogImage: string | null;
-  // Per-tenant branding tokens resolved at render time (accent color, logo,
-  // layout preset, …). A custom wrapLayout may apply them however it likes;
-  // the default skeleton emits scoped :root vars + a logo/title header.
-  readonly branding: BrandingTokens;
+  readonly titleHtml: string;
+  readonly descriptionHtml: string;
+  readonly langHtml: string;
+  readonly slugHtml: string;
+  readonly ogImageHtml: string;
+  readonly brandingStyleHtml: string;
+  readonly brandingHeaderHtml: string;
 }) => string;
+
+function escapedLayoutParts(args: {
+  readonly page: NonNullable<BySlugQueryResult>;
+  readonly slug: string;
+  readonly bodyHtml: string;
+  readonly branding: BrandingTokens;
+}): Parameters<ManagedPagesWrapLayout>[0] {
+  const { page, slug, bodyHtml, branding } = args;
+  const description =
+    page.description && page.description.length > 0 ? page.description : branding.description;
+  return {
+    bodyHtml,
+    titleHtml: escapeHtmlAttr(page.title),
+    descriptionHtml: escapeHtmlAttr(description ?? ""),
+    langHtml: escapeHtmlAttr(page.lang),
+    slugHtml: escapeHtmlAttr(slug),
+    ogImageHtml: page.ogImage && isSafeHttpsUrl(page.ogImage) ? escapeHtmlAttr(page.ogImage) : "",
+    brandingStyleHtml: brandingStyleBlock(branding) + tenantStyleBlock(branding.customCss),
+    brandingHeaderHtml: brandingHeaderHtml(branding),
+  };
+}
 
 export type ManagedPagesOptions = {
   /** Host → tenantId for anonymous per-tenant delivery. NULL → 404 (no
@@ -91,17 +117,8 @@ export type ManagedPagesOptions = {
    *  tenantId (or SYSTEM_TENANT_ID). Required because the apex host has no
    *  ambient ctx.tenantId. */
   readonly resolveApexTenant: (host: string) => Promise<string | null> | string | null;
-  /** Custom layout wrapper (branding/chrome). Default: a minimal page-render
-   *  skeleton. Receives slug + SEO meta for free use.
-   *  **`branding` is RAW, untrusted tenant input.** `title`/`description`
-   *  are only length-capped on write, NOT HTML-escaped; `customCss` is
-   *  unsanitized. The wrapper MUST emit them through the boundary helpers
-   *  (all re-exported from `@cosmicdrift/kumiko-bundled-features/managed-pages`):
-   *  `brandingHeaderHtml(branding)` + `brandingStyleBlock(branding)` (which
-   *  escape header/theme) and, with allowCustomCss, `tenantStyleBlock(branding.
-   *  customCss)` in the `<head>` plus `TENANT_CONTENT_ATTR` on the body
-   *  container. A custom wrapper that interpolates `branding.title` itself is
-   *  stored XSS; the default wrapper uses the helpers throughout. */
+  /** Custom layout wrapper. Receives only escaped or sanitized parts (see
+   *  ManagedPagesWrapLayout); without it the default skeleton wrapInLayout applies. */
   readonly wrapLayout?: ManagedPagesWrapLayout;
   /** Base path for page routes. Default "/p" → GET /p/:slug. */
   readonly basePath?: string;
@@ -141,16 +158,6 @@ export type ManagedPagesOptions = {
 //     TenantAdmin. Without navigation, the screens remain dormant — no leak in
 //     flat-nav apps that use managed-pages only for public rendering.
 export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDefinition {
-  const wrapLayout: ManagedPagesWrapLayout =
-    opts.wrapLayout ??
-    ((o) =>
-      wrapInLayout({
-        title: o.title,
-        bodyHtml: o.bodyHtml,
-        lang: o.lang,
-        description: o.description,
-        branding: o.branding,
-      }));
   const basePath = opts.basePath ?? "/p";
   const defaultLang = opts.defaultLang ?? "en";
   const allowCustomCss = opts.allowCustomCss ?? false;
@@ -261,23 +268,24 @@ export function createManagedPagesFeature(opts: ManagedPagesOptions): FeatureDef
           });
         }
 
-        const html = wrapLayout({
-          title: data.title,
-          bodyHtml: renderPageBody({
-            tenantId,
-            slug,
-            lang,
-            version: data.version,
-            updatedAt: data.updatedAt,
-            body: data.body,
-            bodyFormat: data.bodyFormat,
-          }),
-          lang: data.lang,
+        const bodyHtml = renderPageBody({
+          tenantId,
           slug,
-          description: data.description,
-          ogImage: data.ogImage,
-          branding,
+          lang,
+          version: data.version,
+          updatedAt: data.updatedAt,
+          body: data.body,
+          bodyFormat: data.bodyFormat,
         });
+        const html = opts.wrapLayout
+          ? opts.wrapLayout(escapedLayoutParts({ page: data, slug, bodyHtml, branding }))
+          : wrapInLayout({
+              title: data.title,
+              bodyHtml,
+              lang: data.lang,
+              description: data.description,
+              branding,
+            });
 
         return cachedSecurePageResponse(c.req.raw, {
           body: html,

@@ -5,10 +5,15 @@ import { type PageRow, pagesTable } from "../table.ts";
 
 // Public read of all published pages for a tenant, used to discover URLs for
 // sitemap.xml/llms.txt (see the seo feature). Unlike by-slug, which fetches one
-// slug's content, this lists all published slugs in one query, filtered in SQL
+// slug's content, this lists all published slugs (sorted by slug and lang, capped) in one query, filtered in SQL
 // with `published = true`; drafts never appear, and only slug/title/updatedAt are
 // returned because discovery does not require body content.
 // Anonymous access is explicit in roles, matching text-content's by-tenant.
+// Bounds the anonymous discovery read; a larger site would need a sitemap index.
+const MAX_LISTED_PUBLISHED_PAGES = 5_000;
+
+type PublishedPageRow = Pick<PageRow, "slug" | "lang" | "title" | "updatedAt">;
+
 export type PublishedPageSummary = {
   readonly slug: string;
   readonly lang: string;
@@ -30,8 +35,17 @@ export const byTenantPublishedQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const override = query.payload.tenantIdOverride;
     const tenantId = override ?? query.user.tenantId;
-    const rows = castTenantRows<PageRow>(
-      await selectMany(ctx.db, pagesTable, { tenantId: tenantId, published: true }),
+    const rows = castTenantRows<PublishedPageRow>(
+      await selectMany(
+        ctx.db,
+        pagesTable,
+        { tenantId: tenantId, published: true },
+        {
+          fields: ["slug", "lang", "title", "updatedAt"],
+          orderBy: [{ col: "slug" }, { col: "lang" }],
+          limit: MAX_LISTED_PUBLISHED_PAGES,
+        },
+      ),
     );
     return {
       pages: rows.map((row) => ({

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import {
+  CREATED_AT_INDEX_NAME,
   ensureSecondaryEventIndexes,
   MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME,
   TENANT_ID_INDEX_NAME,
@@ -61,5 +62,18 @@ describe("secondary kumiko_events indexes", () => {
     expect(await indexDefinitions(TENANT_ID_INDEX_NAME)).toHaveLength(0);
     await ensureSecondaryEventIndexes(testDb.db);
     expect(await indexDefinitions(TENANT_ID_INDEX_NAME)).toHaveLength(1);
+  });
+
+  test("createEventsTable leaves a created_at index for time-window counts", async () => {
+    const [definition, ...rest] = await indexDefinitions(CREATED_AT_INDEX_NAME);
+    expect(rest).toHaveLength(0);
+    expect(definition).toContain("(created_at)");
+  });
+
+  test("ensuring again heals a dropped created_at index", async () => {
+    await dropIndex(CREATED_AT_INDEX_NAME);
+    expect(await indexDefinitions(CREATED_AT_INDEX_NAME)).toHaveLength(0);
+    await ensureSecondaryEventIndexes(testDb.db);
+    expect(await indexDefinitions(CREATED_AT_INDEX_NAME)).toHaveLength(1);
   });
 });
