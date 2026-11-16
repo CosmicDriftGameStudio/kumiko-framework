@@ -1,11 +1,11 @@
 import { fileContextForTenant } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   type DocumentPdfDraft,
   type RenderedTemplateRef,
   type RendererContext,
   RendererError,
+  selectRendererPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverApi,
@@ -198,9 +198,7 @@ export async function renderPdfBytes(
   }
   const renderedSlug = renderedSlugOf(args);
   if (args.draft !== undefined) return printDraftPdfBytes(ctx, args, renderedSlug, args.draft);
-  const plugin = createRendererFoundationApi(
-    collectRendererPlugins(ctx.registry),
-  ).createRendererForTenant({ tenantId, kind: "document-pdf" });
+  const plugin = selectRendererPlugin(collectRendererPlugins(ctx.registry), "document-pdf");
 
   let response: Awaited<ReturnType<typeof plugin.render>>;
   try {

@@ -10,11 +10,11 @@ import { localeDe } from "@cosmicdrift/kumiko-locale-de";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   createRendererFoundationFeature,
   RendererError,
   type RendererPlugin,
   type RenderRequest,
+  selectRendererPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverApi,
@@ -122,9 +122,7 @@ beforeAll(async () => {
   );
   await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
   await seedNotificationTemplates(stack.db, stack.registry);
-  plugin = createRendererFoundationApi(
-    collectRendererPlugins(stack.registry),
-  ).createRendererForTenant({ tenantId: tenantId(1), kind: "mail" });
+  plugin = selectRendererPlugin(collectRendererPlugins(stack.registry), "mail");
 });
 
 afterAll(async () => {

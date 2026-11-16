@@ -19,6 +19,11 @@ export const RUN_OUTCOME = { ok: "ok", failed: "failed", running: "running" } as
 
 export const DEFAULT_PROBE_TIMEOUT_MS = 10_000;
 
+// Targets of one probe (mailboxes, connections) run in waves so a tenant with many does not open them all at once.
+export const PROBE_TARGET_CONCURRENCY = 4;
+// secrets.has is one row lookup each; keeps the status query from taking the whole db pool.
+export const SECRET_PRESENCE_CONCURRENCY = 4;
+
 // An active run older than this is treated as dead (worker crash) and may be replaced.
 export const MIN_STALE_RUN_AFTER_MS = 10 * 60_000;
 export const STALE_RUN_TIMEOUT_FACTOR = 3;

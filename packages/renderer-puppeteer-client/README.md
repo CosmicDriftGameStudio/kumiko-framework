@@ -7,8 +7,8 @@ Plugin for `renderer-foundation`. Renders `kind=["document-pdf", "image-snapshot
 ```
 Caller (e.g. Solon NKA-PDF-Generator)
    │
-   │ const renderer = foundation.createRendererForTenant({ tenantId, kind: "document-pdf" })
-   │ await renderer.render({ kind: "document-pdf", payload: { content: "<html>…" } }, ctx)
+   │ const renderer = selectRendererPlugin(collectRendererPlugins(ctx.registry), "document-pdf")
+   │ await renderer.render({ kind: "document-pdf", payload: { slug, locale, variables } }, ctx)
    ▼
 renderer-puppeteer-client (THIS package)
    │
@@ -34,11 +34,6 @@ const features = [
   createRendererPuppeteerClientFeature(),
   // additional renderer plugins (renderer-mail-html, …)
 ];
-
-// In createKumikoApp's extraContext:
-extraContext: ({ db, registry }) => ({
-  rendererFoundation: createRendererFoundationApi(collectRendererPlugins(registry)),
-});
 ```
 
 ## Configuration (env vars)
@@ -68,16 +63,18 @@ After `PUPPETEER_CLIENT_MAX_RETRIES` is exhausted: `RendererError("other")` with
 ## Caller pattern
 
 ```typescript
-import { requireRendererFoundation } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import {
+  collectRendererPlugins,
+  selectRendererPlugin,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 
-async function generatePdf(ctx, tenantId, htmlContent) {
-  const foundation = requireRendererFoundation(ctx, "generatePdf");
-  const renderer = foundation.createRendererForTenant({ tenantId, kind: "document-pdf" });
+async function generatePdf(ctx, tenantId) {
+  const renderer = selectRendererPlugin(collectRendererPlugins(ctx.registry), "document-pdf");
 
   const result = await renderer.render(
     {
       kind: "document-pdf",
-      payload: { content: htmlContent },
+      payload: { slug: "my-feature:document:offer", locale: "de", variables: { /* ... */ } },
       options: { format: "A4", marginMm: { top: 15, bottom: 15 } },
     },
     { db: ctx.db, registry: ctx.registry, tenantId },

@@ -14,8 +14,7 @@ export {
   type RenderKind,
 } from "../template-resolver/index.ts";
 
-// Standard default plugin for each kind when the tenant has not set explicit configuration.
-// App bootstrap can override this through TenantConfigKey.
+// Preferred plugin per kind when several mounted plugins serve the same kind.
 export const DEFAULT_PLUGIN_BY_KIND: Readonly<Record<RenderKindLocal, string>> = {
   mail: "mail-html",
   "document-pdf": "puppeteer",

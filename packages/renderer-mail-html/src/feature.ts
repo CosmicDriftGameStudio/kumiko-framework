@@ -6,7 +6,7 @@ import { type MailHtmlRenderOptions, mailHtmlRender, readMailChrome } from "./re
 // requests to subject + email-safe HTML + plain text.
 //
 // **Caller pattern:** the caller (e.g. delivery's email-channel) selects the plugin
-// via `createRendererForTenant({ tenantId, kind: "mail" })` and calls
+// via `selectRendererPlugin(plugins, "mail")` and calls
 // `plugin.render({ kind: "mail", payload: { slug, locale, variables } }, ctx)`.
 // The plugin resolves the mail template and its layout itself through
 // template-resolver (tenant -> system), so ctx needs `db`, `registry`, `tenantId`

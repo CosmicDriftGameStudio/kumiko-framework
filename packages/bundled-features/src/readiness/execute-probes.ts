@@ -6,8 +6,9 @@ import {
   type ProbeTarget,
   type ProbeText,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { mapWithConcurrency } from "../shared/index.ts";
 import { probeTimeoutMs } from "./collect-probes.ts";
-import { ProbeTextKeys } from "./constants.ts";
+import { PROBE_TARGET_CONCURRENCY, ProbeTextKeys } from "./constants.ts";
 import type { ProbeResultRow } from "./schema/probe-run.ts";
 
 type RunOutcome = Pick<ProbeResultRow, "status" | "durationMs" | "message">;
@@ -103,7 +104,9 @@ async function runProbe(
     (target) => target.ownerUserId === undefined || target.ownerUserId === ctx.triggeredByUserId,
   );
   if (ownTargets.length === 0) return [skippedRow(probe, ProbeTextKeys.noTargets)];
-  return Promise.all(ownTargets.map((target) => runOne(ctx, probe, target)));
+  return mapWithConcurrency(ownTargets, PROBE_TARGET_CONCURRENCY, (target) =>
+    runOne(ctx, probe, target),
+  );
 }
 
 export async function executeProbes(

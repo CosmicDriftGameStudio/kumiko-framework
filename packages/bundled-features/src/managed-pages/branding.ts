@@ -4,7 +4,12 @@ import {
   type ConfigKeyDefinition,
   createTenantConfig,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { type BrandingTokens, EMPTY_BRANDING } from "../page-render/index.ts";
+import {
+  type BrandingTokens,
+  EMPTY_BRANDING,
+  OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
+  OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
+} from "../page-render/index.ts";
 
 // Per-tenant branding, lifted from the publicstatus-local branding-config
 // pattern into the framework so every app + studio-tenant gets tenant-editable
@@ -32,16 +37,11 @@ import { type BrandingTokens, EMPTY_BRANDING } from "../page-render/index.ts";
 // deliberately NOT built here — the source QNs belong to the consumer app.
 
 // Anchored, allow-empty (empty = "unset, use default"; cleared via the form).
-// Linear → ReDoS-safe on untrusted tenant input. The URL char-class mirrors
-// the render-side validator (page-render/branding.ts) so a value that saves
-// also renders. text keys carry an explicit length cap too — `validateType`
-// only checks the JS type, and the configEdit `maxLength` is client-side, so a
-// direct config:write:set would otherwise be unbounded (the page body is
-// likewise capped).
-const HEX_PATTERN = {
-  regex: "^$|^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
-} as const;
-const HTTPS_PATTERN = { regex: "^$|^https://[^\\s\"'<>]{1,2000}$" } as const;
+// Linear → ReDoS-safe on untrusted tenant input. Hex and URL patterns come from
+// page-render so a value that saves also renders. text keys carry an explicit
+// length cap too — `validateType` only checks the JS type, and the configEdit
+// `maxLength` is client-side, so a direct config:write:set would otherwise be
+// unbounded (the page body is likewise capped).
 const TITLE_PATTERN = { regex: "^[\\s\\S]{0,200}$" } as const;
 const DESCRIPTION_PATTERN = { regex: "^[\\s\\S]{0,500}$" } as const;
 // Custom CSS is too complex for a regex allowlist — the write-time pattern only
@@ -83,17 +83,17 @@ export const BRANDING_KEYS = {
   }),
   brandingSiteUrl: createTenantConfig("text", {
     default: "",
-    pattern: HTTPS_PATTERN,
+    pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
   brandingAccentColor: createTenantConfig("text", {
     default: "",
-    pattern: HEX_PATTERN,
+    pattern: OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
   brandingLogoUrl: createTenantConfig("text", {
     default: "",
-    pattern: HTTPS_PATTERN,
+    pattern: OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
     write: BRANDING_WRITE,
   }),
   // Ownership is checked where it is read (renderer-mail-html: FileRef must belong to the rendering tenant).

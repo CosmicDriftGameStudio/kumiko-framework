@@ -39,10 +39,16 @@ export const EMPTY_BRANDING: BrandingTokens = {
 // CSS hex color: #rgb | #rrggbb | #rrggbbaa, anchored. Contains no `;`/`}`/`<`/
 // whitespace, so a value passing this can never break out of `:root{--x:V}`
 // or the surrounding <style>…</style>. Linear → ReDoS-safe on untrusted input.
-const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+const HEX_COLOR_BODY = "#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})";
 // https URL, length-bounded, no whitespace/quote/angle chars. Anchored +
 // linear (no backtracking).
-const HTTPS_URL = /^https:\/\/[^\s"'<>]{1,2000}$/;
+const HTTPS_URL_BODY = "https://[^\\s\"'<>]{1,2000}";
+const HEX_COLOR = new RegExp(`^${HEX_COLOR_BODY}$`);
+const HTTPS_URL = new RegExp(`^${HTTPS_URL_BODY}$`);
+
+// Write-time config patterns: empty means unset, anything else must pass the render-side check.
+export const OPTIONAL_HEX_COLOR_CONFIG_PATTERN = { regex: `^$|^${HEX_COLOR_BODY}$` } as const;
+export const OPTIONAL_HTTPS_URL_CONFIG_PATTERN = { regex: `^$|^${HTTPS_URL_BODY}$` } as const;
 
 export function isSafeHexColor(value: string): boolean {
   return HEX_COLOR.test(value);

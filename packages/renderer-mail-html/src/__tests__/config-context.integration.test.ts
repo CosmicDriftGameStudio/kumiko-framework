@@ -17,9 +17,9 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   createRendererFoundationFeature,
   type RendererPlugin,
+  selectRendererPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import {
   createTemplateResolverFeature,
@@ -130,9 +130,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, templateResourceEntity, "template-resource");
   await unsafePushTables(stack.db, { configValuesTable });
   await seedNotificationTemplates(stack.db, stack.registry);
-  plugin = createRendererFoundationApi(
-    collectRendererPlugins(stack.registry),
-  ).createRendererForTenant({ tenantId: configuredAdmin.tenantId, kind: "mail" });
+  plugin = selectRendererPlugin(collectRendererPlugins(stack.registry), "mail");
 
   for (const [key, value] of [
     [TenantSettingsConfig.locale, "en"],

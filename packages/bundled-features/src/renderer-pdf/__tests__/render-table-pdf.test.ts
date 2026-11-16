@@ -1,18 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createRegistry, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { extractText, getDocumentProxy } from "unpdf";
-import {
-  collectRendererPlugins,
-  createRendererFoundationApi,
-  createRendererFoundationFeature,
-  type RendererContext,
-  RendererError,
-} from "../../renderer-foundation/index.ts";
-import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
-import { createRendererPdfFeature, renderTablePdfRequest } from "../feature.ts";
+import { RendererError } from "../../renderer-foundation/index.ts";
 import { type PdfTableDocument, renderTablePdf } from "../render-table-pdf.ts";
-
-const TENANT = "11111111-1111-4111-8111-111111111111" as TenantId;
 
 async function readPages(pdfBytes: Uint8Array): Promise<string[]> {
   const proxy = await getDocumentProxy(new Uint8Array(pdfBytes));
@@ -179,17 +168,14 @@ describe("renderTablePdf", () => {
 
   test("rows, columns and cell length above the limits are rejected as invalid_payload", async () => {
     const oneColumn = [{ header: "H" }];
-    const variablesOverLimit = [
+    const documentsOverLimit = [
       { title: "Zeilen", columns: oneColumn, rows: Array.from({ length: 10_001 }, () => ["x"]) },
       { title: "Spalten", columns: Array.from({ length: 31 }, () => ({ header: "H" })), rows: [] },
       { title: "Zelle", columns: oneColumn, rows: [["x".repeat(5_001)]] },
     ];
 
-    for (const variables of variablesOverLimit) {
-      const attempt = renderTablePdfRequest({
-        kind: "document-pdf",
-        payload: { slug: "table", locale: "de", variables },
-      });
+    for (const doc of documentsOverLimit) {
+      const attempt = renderTablePdf(doc);
       await expect(attempt).rejects.toMatchObject({
         name: RendererError.name,
         code: "invalid_payload",
@@ -292,77 +278,6 @@ describe("renderTablePdf", () => {
 
     await expect(attempt).rejects.toMatchObject({
       message: "margins leave no room for table columns",
-      code: "invalid_payload",
-    });
-  });
-});
-
-describe("renderer-pdf plugin", () => {
-  const registry = createRegistry([
-    createTemplateResolverFeature(),
-    createRendererFoundationFeature(),
-    createRendererPdfFeature(),
-  ]);
-  const api = createRendererFoundationApi(collectRendererPlugins(registry));
-  const ctx: RendererContext = { db: null as never, registry, tenantId: TENANT };
-
-  test("is selected for document-pdf and renders payload.variables", async () => {
-    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
-
-    const response = await renderer.render(
-      {
-        kind: "document-pdf",
-        payload: {
-          slug: "table",
-          locale: "de",
-          variables: { ...manyRowsDocument({ rows: [["01.02.2026", "Müller", "1 €"]] }) },
-        },
-        options: { format: "Letter" },
-      },
-      ctx,
-    );
-
-    if (response.kind !== "document-pdf") throw new Error("expected document-pdf response");
-    expect(renderer.name).toBe("pdf");
-    expect(response.pageCount).toBe(1);
-    expect(response.sizeBytes).toBe(response.pdfBytes.byteLength);
-    expect(response.fileName).toBe("table.pdf");
-    const [page = ""] = await readPages(response.pdfBytes);
-    expect(page).toContain("Prüfprotokoll Kessel");
-  });
-
-  test("negative margins in the request options raise invalid_payload", async () => {
-    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
-
-    const attempt = renderer.render(
-      {
-        kind: "document-pdf",
-        payload: {
-          slug: "table",
-          locale: "de",
-          variables: { ...manyRowsDocument({ rows: [] }) },
-        },
-        options: { marginMm: { top: -1 } },
-      },
-      ctx,
-    );
-
-    await expect(attempt).rejects.toMatchObject({
-      name: RendererError.name,
-      code: "invalid_payload",
-    });
-  });
-
-  test("variables that are no table document raise invalid_payload", async () => {
-    const renderer = api.createRendererForTenant({ tenantId: TENANT, kind: "document-pdf" });
-
-    const attempt = renderer.render(
-      { kind: "document-pdf", payload: { slug: "table", locale: "de", variables: { title: 5 } } },
-      ctx,
-    );
-
-    await expect(attempt).rejects.toMatchObject({
-      name: RendererError.name,
       code: "invalid_payload",
     });
   });

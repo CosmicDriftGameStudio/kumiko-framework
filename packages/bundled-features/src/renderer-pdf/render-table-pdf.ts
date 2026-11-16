@@ -249,7 +249,7 @@ export async function renderTablePdf(
   untrustedDoc: PdfTableDocument,
   options?: PdfTableOptions,
 ): Promise<PdfTableResult> {
-  // Direct callers bypass renderTablePdfRequest, so the size caps are enforced here too.
+  // Callers pass untrusted documents, so the size caps are enforced here.
   const parsed = pdfTableDocumentSchema.safeParse(untrustedDoc);
   if (!parsed.success) {
     throw new RendererError(

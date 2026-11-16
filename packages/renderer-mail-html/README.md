@@ -44,8 +44,7 @@ Mail-Texte kommen aus `r.notification({ variables, template, meta })`; `applyBoo
 ## Caller-Pattern
 
 ```typescript
-const foundation = requireRendererFoundation(ctx, "sendWelcomeMail");
-const renderer = foundation.createRendererForTenant({ tenantId, kind: "mail" });
+const renderer = selectRendererPlugin(collectRendererPlugins(ctx.registry), "mail");
 
 const result = await renderer.render(
   {

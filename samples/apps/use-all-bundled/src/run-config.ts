@@ -80,7 +80,6 @@ import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-f
 import { createPresenceFeature } from "@cosmicdrift/kumiko-bundled-features/presence";
 import { createReadinessFeature } from "@cosmicdrift/kumiko-bundled-features/readiness";
 import { createRendererFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
-import { createRendererPdfFeature } from "@cosmicdrift/kumiko-bundled-features/renderer-pdf";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createSeoFeature } from "@cosmicdrift/kumiko-bundled-features/seo";
 import { createSignatureFeature } from "@cosmicdrift/kumiko-bundled-features/signature";
@@ -378,7 +377,6 @@ export const APP_FEATURES = [
   // collection-labels: the app-side nav labels for the two collections above.
   collectionLabelsFeature,
   createRendererFoundationFeature(),
-  createRendererPdfFeature(),
   // PDF printing for document templates; the print service is reached through
   // PUPPETEER_SERVICE_URL + PUPPETEER_AUTH_TOKEN and only asked when a PDF is generated.
   createRendererPuppeteerClientFeature(),

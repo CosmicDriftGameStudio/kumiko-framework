@@ -12,9 +12,9 @@ import {
 } from "../file-foundation/index.ts";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   type MailPayload,
   RendererError,
+  selectRendererPlugin,
 } from "../renderer-foundation/index.ts";
 import { FALLBACK_LOCALE } from "../template-resolver/index.ts";
 import type { EmailAttachmentRef, RenderedPdfAttachmentRef } from "./attachment-ref.ts";
@@ -27,9 +27,7 @@ export function createTemplateMailRenderer(
   config: ConfigAccessor | undefined,
 ): (payload: MailPayload) => Promise<RenderedMail> {
   return async (payload) => {
-    const plugin = createRendererFoundationApi(
-      collectRendererPlugins(registry),
-    ).createRendererForTenant({ tenantId, kind: "mail" });
+    const plugin = selectRendererPlugin(collectRendererPlugins(registry), "mail");
     const response = await plugin.render(
       { kind: "mail", payload },
       { db, registry, tenantId, ...(config !== undefined && { config }) },
@@ -66,9 +64,7 @@ function createPdfRenderer(
   filesForTenant: (tenantId: string) => FileContext | undefined,
 ) {
   return async (ref: RenderedPdfAttachmentRef) => {
-    const plugin = createRendererFoundationApi(
-      collectRendererPlugins(registry),
-    ).createRendererForTenant({ tenantId, kind: "document-pdf" });
+    const plugin = selectRendererPlugin(collectRendererPlugins(registry), "document-pdf");
     const response = await plugin.render(
       {
         kind: "document-pdf",

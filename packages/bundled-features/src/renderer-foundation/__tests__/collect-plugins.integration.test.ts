@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverFeature } from "../../template-resolver/feature.ts";
-import { createRendererFoundationApi } from "../api.ts";
+import { selectRendererPlugin } from "../api.ts";
 import { RENDERER_EXTENSION, type RenderKind } from "../constants.ts";
 import { collectRendererPlugins, createRendererFoundationFeature } from "../feature.ts";
 import type { RenderRequest, RenderResponse } from "../types.ts";
@@ -72,13 +72,8 @@ describe("renderer-foundation :: Plugin pool from registry", () => {
 
   test("API finds the default plugin for each kind from a real pool", () => {
     const plugins = collectRendererPlugins(stack.registry);
-    const api = createRendererFoundationApi(plugins);
-    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail" }).name).toBe(
-      "mail-html",
-    );
-    expect(api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "document-pdf" }).name).toBe(
-      "puppeteer",
-    );
+    expect(selectRendererPlugin(plugins, "mail").name).toBe("mail-html");
+    expect(selectRendererPlugin(plugins, "document-pdf").name).toBe("puppeteer");
   });
 
   test("collectRendererPlugins fails loud on a registration with invalid options", async () => {
@@ -104,8 +99,7 @@ describe("renderer-foundation :: Plugin pool from registry", () => {
 
   test("Plugin.render with a real pool works end-to-end", async () => {
     const plugins = collectRendererPlugins(stack.registry);
-    const api = createRendererFoundationApi(plugins);
-    const plugin = api.createRendererForTenant({ tenantId: TEST_TENANT, kind: "mail" });
+    const plugin = selectRendererPlugin(plugins, "mail");
     const result = await plugin.render(
       { kind: "mail", payload: { slug: "welcome", locale: "en", variables: {} } },
       { db: stack.db, registry: stack.registry, tenantId: TEST_TENANT },

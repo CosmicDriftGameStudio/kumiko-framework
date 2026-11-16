@@ -4,9 +4,13 @@ import {
   requireConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type ConfigKeyDefinition,
+  defineQueryHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { ReadinessQueries } from "../constants.ts";
+import { mapWithConcurrency } from "../../shared/index.ts";
+import { ReadinessQueries, SECRET_PRESENCE_CONCURRENCY } from "../constants.ts";
 
 export type ReadinessMissingSecret = { readonly key: string };
 
@@ -41,27 +45,41 @@ export const statusQuery = defineQueryHandler({
       { secrets: ctx.services.secrets, user: ctx.user },
       ReadinessQueries.status,
     );
-    const missingSecrets: ReadinessMissingSecret[] = [];
     const resolver = requireConfigResolver(ctx, ReadinessQueries.status);
-    for (const [qualifiedName, keyDef] of ctx.registry.getAllSecretKeys()) {
-      if (!gate(qualifiedName)) continue;
-      if (keyDef.required !== true) {
-        const conditionKey = keyDef.requiredWhenConfigSet;
-        const conditionDef = conditionKey && ctx.registry.getConfigKey(conditionKey);
-        if (!conditionKey || !conditionDef) continue;
-        const conditionValue = await resolver.get(
-          conditionKey,
-          conditionDef,
-          query.user.tenantId,
-          query.user.id,
-          ctx.db,
-        );
-        if (typeof conditionValue !== "string" || conditionValue.trim() === "") continue;
-      }
-      if (!(await secrets.has(query.user.tenantId, qualifiedName))) {
-        missingSecrets.push({ key: qualifiedName });
-      }
+    const countedSecretKeys = [...ctx.registry.getAllSecretKeys()].filter(([qualifiedName]) =>
+      gate(qualifiedName),
+    );
+    const conditionKeyDefs = new Map<string, ConfigKeyDefinition>();
+    for (const [, keyDef] of countedSecretKeys) {
+      if (keyDef.required === true || !keyDef.requiredWhenConfigSet) continue;
+      const conditionDef = ctx.registry.getConfigKey(keyDef.requiredWhenConfigSet);
+      if (conditionDef) conditionKeyDefs.set(keyDef.requiredWhenConfigSet, conditionDef);
     }
+    // No secrets reader on purpose: a backing="secrets" condition would decrypt and write a read-audit event.
+    const conditions = await resolver.getCascadeBatch(
+      [...conditionKeyDefs.keys()],
+      conditionKeyDefs,
+      query.user.tenantId,
+      query.user.id,
+      ctx.db,
+    );
+    const requiredSecretKeys = countedSecretKeys
+      .filter(([, keyDef]) => {
+        if (keyDef.required === true) return true;
+        const conditionValue = keyDef.requiredWhenConfigSet
+          ? conditions.get(keyDef.requiredWhenConfigSet)?.value
+          : undefined;
+        return typeof conditionValue === "string" && conditionValue.trim() !== "";
+      })
+      .map(([qualifiedName]) => qualifiedName);
+    const present = await mapWithConcurrency(
+      requiredSecretKeys,
+      SECRET_PRESENCE_CONCURRENCY,
+      (key) => secrets.has(query.user.tenantId, key),
+    );
+    const missingSecrets: ReadinessMissingSecret[] = requiredSecretKeys
+      .filter((_, index) => present[index] !== true)
+      .map((key) => ({ key }));
 
     return {
       missingConfig,

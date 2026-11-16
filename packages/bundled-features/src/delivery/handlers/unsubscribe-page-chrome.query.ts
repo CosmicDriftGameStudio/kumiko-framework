@@ -1,24 +1,18 @@
-import { access, defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { fileContextForTenant } from "../../file-foundation/index.ts";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   type MailChrome,
   RendererError,
   type RendererPlugin,
+  selectRendererPlugin,
 } from "../../renderer-foundation/index.ts";
 
-function mailChromePlugin(
-  plugins: readonly RendererPlugin[],
-  tenantId: TenantId,
-): RendererPlugin | null {
+function mailChromePlugin(plugins: readonly RendererPlugin[]): RendererPlugin | null {
   try {
-    const plugin = createRendererFoundationApi(plugins).createRendererForTenant({
-      tenantId,
-      kind: "mail",
-    });
+    const plugin = selectRendererPlugin(plugins, "mail");
     return plugin.readMailChrome === undefined ? null : plugin;
   } catch (e) {
     if (e instanceof RendererError && e.code === "no_plugin_for_kind") return null;
@@ -42,7 +36,7 @@ export const unsubscribePageChromeQuery = defineQueryHandler({
         message: "unsubscribePageChrome: ctx.systemDb missing on a system-scoped handler",
       });
     }
-    const plugin = mailChromePlugin(collectRendererPlugins(ctx.registry), tenantId);
+    const plugin = mailChromePlugin(collectRendererPlugins(ctx.registry));
     if (plugin?.readMailChrome === undefined) return null;
     return plugin.readMailChrome(
       { locale: query.payload.locale },

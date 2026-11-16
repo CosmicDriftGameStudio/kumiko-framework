@@ -24,10 +24,10 @@ import { createEmailAttachmentReader, createTemplateMailRenderer } from "../deli
 import { fileContextForTenant } from "../file-foundation/index.ts";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
   type MailAttachmentRef,
   RendererError,
   type RendererPlugin,
+  selectRendererPlugin,
 } from "../renderer-foundation/index.ts";
 import {
   createTemplateResolverApi,
@@ -440,11 +440,9 @@ type DocumentPreviewArgs = {
 
 // Only a plugin that prints documents can show the filled-in page; without one the editor
 // still gets the body and the raw layout, just without placeholder values.
-function documentPreviewPlugin(ctx: HandlerContext, tenantId: string): RendererPlugin | null {
+function documentPreviewPlugin(ctx: HandlerContext): RendererPlugin | null {
   try {
-    const plugin = createRendererFoundationApi(
-      collectRendererPlugins(ctx.registry),
-    ).createRendererForTenant({ tenantId, kind: "document-pdf" });
+    const plugin = selectRendererPlugin(collectRendererPlugins(ctx.registry), "document-pdf");
     return plugin.previewDocument === undefined ? null : plugin;
   } catch (e) {
     if (e instanceof RendererError && e.code === "no_plugin_for_kind") return null;
@@ -460,7 +458,7 @@ async function renderDocumentPreview(
   const { input, content, meta, validation, sampleValues } = args;
   const pdfMeta = meta.ok ? readPdfTemplateMeta(meta.meta) : null;
   const requiredCheck = requiredPlaceholdersCheck(validation.missingRequired);
-  const plugin = documentPreviewPlugin(ctx, user.tenantId);
+  const plugin = documentPreviewPlugin(ctx);
 
   if (plugin?.previewDocument === undefined) {
     return {

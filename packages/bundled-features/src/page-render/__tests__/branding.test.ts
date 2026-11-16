@@ -4,6 +4,10 @@ import {
   brandingHeaderHtml,
   brandingStyleBlock,
   EMPTY_BRANDING,
+  isSafeHexColor,
+  isSafeHttpsUrl,
+  OPTIONAL_HEX_COLOR_CONFIG_PATTERN,
+  OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
 } from "../branding.ts";
 
 const tokens = (over: Partial<BrandingTokens>): BrandingTokens => ({ ...EMPTY_BRANDING, ...over });
@@ -53,5 +57,39 @@ describe("brandingStyleBlock — re-validates theme tokens", () => {
 
   test("a valid hex accent color is injected", () => {
     expect(brandingStyleBlock(tokens({ accentColor: "#ff0066" }))).toContain("--accent:#ff0066");
+  });
+});
+
+describe("write-time config patterns match the render validators", () => {
+  test("https url pattern accepts exactly what isSafeHttpsUrl accepts, plus empty", () => {
+    const values = [
+      "",
+      "https://cdn.test/logo.png",
+      "http://cdn.test/logo.png",
+      "javascript:alert(1)",
+      "https://a b",
+      'https://x"y',
+      "https://<x>",
+      `https://${"a".repeat(2001)}`,
+      `https://${"a".repeat(2000)}`,
+    ];
+    for (const value of values) {
+      expect(new RegExp(OPTIONAL_HTTPS_URL_CONFIG_PATTERN.regex).test(value)).toBe(
+        value === "" || isSafeHttpsUrl(value),
+      );
+    }
+    expect(isSafeHttpsUrl("https://cdn.test/logo.png")).toBe(true);
+    expect(isSafeHttpsUrl("http://cdn.test/logo.png")).toBe(false);
+  });
+
+  test("hex color pattern accepts exactly what isSafeHexColor accepts, plus empty", () => {
+    const values = ["", "#abc", "#AABBCC", "#aabbccdd", "#abcd", "red", "#abc;}", "#aabbcc "];
+    for (const value of values) {
+      expect(new RegExp(OPTIONAL_HEX_COLOR_CONFIG_PATTERN.regex).test(value)).toBe(
+        value === "" || isSafeHexColor(value),
+      );
+    }
+    expect(isSafeHexColor("#abcd")).toBe(false);
+    expect(isSafeHexColor("#aabbccdd")).toBe(true);
   });
 });

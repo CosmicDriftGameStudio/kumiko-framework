@@ -31,7 +31,7 @@ import {
 } from "../../delivery/index.ts";
 import {
   collectRendererPlugins,
-  createRendererFoundationApi,
+  selectRendererPlugin,
 } from "../../renderer-foundation/index.ts";
 import {
   formatGdprMailTimestamp,
@@ -183,9 +183,7 @@ export function makeDefaultDeletionExecutedEmail(
     }
     const type = GdprMailNotificationTypes.deletionExecuted;
     const locale = mailLocaleFor(type, args.userLocale, defaults);
-    const plugin = createRendererFoundationApi(
-      collectRendererPlugins(deps.registry),
-    ).createRendererForTenant({ tenantId, kind: "mail" });
+    const plugin = selectRendererPlugin(collectRendererPlugins(deps.registry), "mail");
     const config = deps.configFor(tenantId);
     const rendered = await plugin.render(
       {

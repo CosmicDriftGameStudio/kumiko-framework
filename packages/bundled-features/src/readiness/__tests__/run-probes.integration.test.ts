@@ -24,12 +24,19 @@ import {
 } from "../../secrets/index.ts";
 import { createTenantFeature } from "../../tenant/feature.ts";
 import { tenantEntity } from "../../tenant/schema/tenant.ts";
-import { ProbeTextKeys, ReadinessQueries, ReadinessWrites } from "../constants.ts";
+import {
+  PROBE_TARGET_CONCURRENCY,
+  ProbeTextKeys,
+  ReadinessQueries,
+  ReadinessWrites,
+} from "../constants.ts";
 import { createReadinessFeature } from "../feature.ts";
 
 const SECRET_IN_ERROR = "super-secret-smtp-password";
 
 let paidRuns = 0;
+let targetsInFlight = 0;
+let maxTargetsInFlight = 0;
 const okVerdict = { status: "ok", message: { key: "fixture.ok" } } as const;
 
 const fixtureFeature = defineFeature("probe-fixture", (r) => {
@@ -82,6 +89,24 @@ const fixtureFeature = defineFeature("probe-fixture", (r) => {
     cost: "free",
     run: async () => {
       throw new Error(`login failed with ${SECRET_IN_ERROR}`);
+    },
+  });
+  r.probe({
+    ...common,
+    name: "many-targets",
+    scope: "tenant",
+    cost: "free",
+    targets: async () =>
+      Array.from({ length: PROBE_TARGET_CONCURRENCY + 2 }, (_, index) => ({
+        id: `target-${index}`,
+        label: { key: "fixture.label" },
+      })),
+    run: async () => {
+      targetsInFlight += 1;
+      maxTargetsInFlight = Math.max(maxTargetsInFlight, targetsInFlight);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      targetsInFlight -= 1;
+      return okVerdict;
     },
   });
   r.probe({
@@ -164,6 +189,20 @@ const byProbe = (rows: Row[], name: string) =>
   rows.find((row) => row.probe === `probe-fixture:probe:${name}`);
 
 describe("readiness run-probes", () => {
+  test("targets of one probe run at most PROBE_TARGET_CONCURRENCY at a time and all get a row", async () => {
+    const { tenantAdmin } = usersOfFreshTenant();
+    maxTargetsInFlight = 0;
+
+    await runChecks(tenantAdmin);
+    const targetRows = (await latest(tenantAdmin)).rows.filter(
+      (row) => row.probe === "probe-fixture:probe:many-targets",
+    );
+
+    expect(targetRows).toHaveLength(PROBE_TARGET_CONCURRENCY + 2);
+    expect(targetRows.every((row) => row.status === "ok")).toBe(true);
+    expect(maxTargetsInFlight).toBe(PROBE_TARGET_CONCURRENCY);
+  });
+
   test("a TenantAdmin run shows tenant probes only; paid is skipped and never called", async () => {
     const { tenantAdmin } = usersOfFreshTenant();
     paidRuns = 0;
