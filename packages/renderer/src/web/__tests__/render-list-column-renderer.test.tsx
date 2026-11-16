@@ -56,7 +56,10 @@ describe("RenderList — column-renderer registry", () => {
   test("FormatSpec-renderer: currency formatiert Wert + Symbol", () => {
     const screenWithFmt: EntityListScreenDefinition = {
       ...baseScreen,
-      columns: ["title", { field: "color", renderer: { format: "currency", symbol: "€" } }],
+      columns: [
+        "title",
+        { field: "color", renderer: { format: "currency", currency: "EUR", locale: "de-DE" } },
+      ],
     };
     render(
       <RenderList
@@ -66,7 +69,7 @@ describe("RenderList — column-renderer registry", () => {
         featureName="tasks"
       />,
     );
-    expect(screen.getByTestId("cell-r1-color").textContent).toBe("42 €");
+    expect(screen.getByTestId("cell-r1-color").textContent).toBe("42,00\u00a0€");
   });
 
   test("__component-renderer with Provider → Component is mounted, value+row+column are passed in", () => {

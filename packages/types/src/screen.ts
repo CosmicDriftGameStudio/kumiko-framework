@@ -92,7 +92,8 @@ export interface FieldFormatRegistry {
   /** Telephone number shown as a `tel:` link in list cells, like a read-only `format: "phone"` field. */
   phone: Record<never, never>;
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
-  currency: { readonly symbol?: string };
+  /** ISO 4217 code such as "EUR"; the value is an amount in major units (42.5), formatted with Intl in the UI locale. */
+  currency: { readonly currency: string; readonly locale?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
   /** `grouping: false` renders without thousands-separators (e.g. a model
    *  year: "2021", not "2.021"). Default `true`. */

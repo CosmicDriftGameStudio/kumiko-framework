@@ -1067,6 +1067,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "kumiko.validation.too-long": "Troppo lungo (al massimo {max} caratteri).",
   "kumiko.validation.too-short": "Troppo corto (almeno {min} caratteri).",
   "kumiko.version.update-available": "È disponibile una nuova versione.",
+  "kumiko.network.offline": "Nessuna connessione al server. I dati mostrati potrebbero non essere aggiornati.",
   "kumiko.widget.drawer.maximize": "Ingrandisci la larghezza del pannello",
   "kumiko.widget.drawer.resize": "Ridimensiona il pannello",
   "kumiko.widget.drawer.restore": "Ripristina la larghezza del pannello",

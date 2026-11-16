@@ -38,6 +38,10 @@ export function resolveSafeMoneyLocale(locale: string | undefined): string {
   }
 }
 
+export function isCurrencyCode(code: string): boolean {
+  return /^[A-Za-z]{3}$/.test(code);
+}
+
 // currency is validated against the 3-letter-alpha shape Intl.NumberFormat
 // requires: a non-conforming value (e.g. from a JSONB custom field) would throw
 // a RangeError and take down the whole render instead of just this value.
@@ -47,7 +51,7 @@ export function formatMoney(
   locale?: string,
   fractionDigits?: number,
 ): string {
-  if (!/^[A-Za-z]{3}$/.test(currency)) return String(amountMinor);
+  if (!isCurrencyCode(currency)) return String(amountMinor);
   const decimals = currencyDecimals(currency);
   const displayDigits = fractionDigits ?? decimals;
   return new Intl.NumberFormat(resolveSafeMoneyLocale(locale), {

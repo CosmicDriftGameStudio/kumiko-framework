@@ -136,7 +136,7 @@ describe("applyFormatSpec — priority", () => {
 describe("applyFormatSpec — empty values for other formats", () => {
   test("collapse to ''", () => {
     expect(applyFormatSpec({ format: "boolean" }, undefined)).toBe("");
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, null)).toBe("");
+    expect(applyFormatSpec({ format: "currency", currency: "EUR" }, null)).toBe("");
     expect(applyFormatSpec({ format: "timestamp" }, "")).toBe("");
   });
 });
@@ -150,9 +150,19 @@ describe("applyFormatSpec — boolean/currency", () => {
     );
   });
 
-  test("currency appends symbol", () => {
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, 12)).toBe("12 €");
+  test("currency formats the amount with Intl in the given locale", () => {
+    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 1234.5)).toBe(
+      "1.234,50\u00a0€",
+    );
+    expect(applyFormatSpec({ format: "currency", currency: "USD", locale: "en-US" }, "99.9")).toBe(
+      "$99.90",
+    );
+    expect(applyFormatSpec({ format: "currency", currency: "JPY", locale: "en-US" }, 1234)).toBe(
+      "¥1,234",
+    );
     expect(applyFormatSpec({ format: "currency" }, 12)).toBe("12");
+    expect(applyFormatSpec({ format: "currency", currency: "€" }, 12)).toBe("12");
+    expect(applyFormatSpec({ format: "currency", currency: "EUR" }, "abc")).toBe("abc");
   });
 });
 

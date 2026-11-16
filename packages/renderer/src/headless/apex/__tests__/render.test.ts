@@ -54,6 +54,65 @@ describe("renderApexPage", () => {
     expect(html).toContain("<rect/>");
   });
 
+  test("links with an unsafe scheme render as # while safe links stay", () => {
+    const html = renderApexPage(
+      page({
+        header: {
+          brand: { href: "javascript:alert(1)", label: "Acme" },
+          navLinks: [
+            { label: "x", href: "data:text/html,<b>" },
+            {
+              kind: "menu",
+              label: "m",
+              items: [{ title: "i", href: "JaVaScRiPt:alert(2)" }],
+              footer: { label: "f", href: "vbscript:x" },
+            },
+          ],
+          actions: [{ label: "go", href: "/signup" }],
+        },
+        sections: [
+          {
+            kind: "hero",
+            title: "h",
+            tagline: "t",
+            ctas: [{ label: "c", href: "javascript&#58;alert(3)" }],
+          },
+        ],
+        footer: {
+          brand: { label: "Acme" },
+          columns: [
+            {
+              heading: "H",
+              links: [
+                { label: "mail", href: "mailto:a@b.c" },
+                { label: "anchor", href: "#pricing" },
+                { label: "ext", href: "https://example.com" },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    for (const unsafe of [
+      "javascript:",
+      "JaVaScRiPt:",
+      "data:text/html",
+      "vbscript:",
+      "javascript&amp;#58;",
+    ]) {
+      expect(html).not.toContain(unsafe);
+    }
+    for (const safe of [
+      'href="#"',
+      'href="/signup"',
+      'href="mailto:a@b.c"',
+      'href="#pricing"',
+      'href="https://example.com"',
+    ]) {
+      expect(html).toContain(safe);
+    }
+  });
+
   test("nav menu entry renders a dropdown; plain links stay anchors", () => {
     const html = renderApexPage(
       page({

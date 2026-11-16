@@ -60,7 +60,7 @@ export function createBookshopFeature(): FeatureDefinition {
         "author",
         {
           field: "price",
-          renderer: { format: "currency", symbol: "€" },
+          renderer: { format: "currency", currency: "EUR" },
         },
         "published",
       ],

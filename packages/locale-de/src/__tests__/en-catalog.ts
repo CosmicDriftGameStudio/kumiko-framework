@@ -1037,6 +1037,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.validation.too-long": "Too long (at most {max} characters).",
   "kumiko.validation.too-short": "Too short (at least {min} characters).",
   "kumiko.version.update-available": "A new version is available.",
+  "kumiko.network.offline": "No connection to the server. The data shown may be out of date.",
   "kumiko.widget.drawer.maximize": "Maximize drawer width",
   "kumiko.widget.drawer.resize": "Resize drawer",
   "kumiko.widget.drawer.restore": "Restore drawer width",

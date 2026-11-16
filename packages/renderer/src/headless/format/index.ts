@@ -5,6 +5,7 @@ import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rendererWarn } from "../../dev-console.ts";
 import { serverNowMs } from "../../server-clock.ts";
+import { formatMoneyValue, isCurrencyCode } from "./money.ts";
 import { formatRelativeTime } from "./relative-time.ts";
 
 export const EMPTY_VALUE_PLACEHOLDER = "—";
@@ -287,8 +288,13 @@ function formatBooleanCell(spec: CellFormatSpec, value: unknown, translate: Cell
 }
 
 function formatCurrencyCell(spec: CellFormatSpec, value: unknown): string {
-  const sym = stringSpec(spec, "symbol") ?? "";
-  return sym.length > 0 ? `${value} ${sym}` : String(value);
+  const currency = stringSpec(spec, "currency");
+  const amount =
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  if (currency === undefined || !isCurrencyCode(currency) || !Number.isFinite(amount)) {
+    return String(value);
+  }
+  return formatMoneyValue({ amount, currency: currency.toUpperCase() }, stringSpec(spec, "locale"));
 }
 
 function formatNumericCell(spec: CellFormatSpec, value: unknown): string {

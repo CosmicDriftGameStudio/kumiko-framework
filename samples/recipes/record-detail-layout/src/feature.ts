@@ -622,7 +622,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               {
                 field: "unitPrice",
                 label: "order-desk.col.unit-price",
-                renderer: { format: "currency", symbol: "€" },
+                renderer: { format: "currency", currency: "EUR" },
               },
             ],
           },
@@ -637,7 +637,7 @@ export function createOrderDeskFeature(): FeatureDefinition {
               {
                 field: "amount",
                 label: "order-desk.col.amount",
-                renderer: { format: "currency", symbol: "€" },
+                renderer: { format: "currency", currency: "EUR" },
               },
               { field: "method", label: "order-desk.col.method" },
               { field: "status", label: "order-desk.col.status" },

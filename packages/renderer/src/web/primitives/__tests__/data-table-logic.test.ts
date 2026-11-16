@@ -29,7 +29,7 @@ describe("isComponentRendererRef", () => {
 describe("applyFormatSpec", () => {
   test("null/undefined/empty → empty string (priority renders emptyLabel instead)", () => {
     expect(applyFormatSpec({ format: "boolean" }, null)).toBe("");
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, undefined)).toBe("");
+    expect(applyFormatSpec({ format: "currency", currency: "EUR" }, undefined)).toBe("");
     expect(applyFormatSpec({ format: "priority" }, "")).toBe("—");
   });
 
@@ -47,12 +47,13 @@ describe("applyFormatSpec", () => {
     ).toBe("Hidden");
   });
 
-  test("currency: value + Leerzeichen + symbol", () => {
-    expect(applyFormatSpec({ format: "currency", symbol: "€" }, 42)).toBe("42 €");
-    expect(applyFormatSpec({ format: "currency", symbol: "$" }, "99.90")).toBe("99.90 $");
+  test("currency: Intl amount in the locale", () => {
+    expect(applyFormatSpec({ format: "currency", currency: "EUR", locale: "de-DE" }, 42)).toBe(
+      "42,00\u00a0€",
+    );
   });
 
-  test("currency: no symbol → plain value", () => {
+  test("currency without a currency code → plain value", () => {
     expect(applyFormatSpec({ format: "currency" }, 42)).toBe("42");
   });
 

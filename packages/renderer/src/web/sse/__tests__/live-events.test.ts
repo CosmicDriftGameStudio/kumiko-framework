@@ -458,6 +458,67 @@ describe("createEventSourceLiveEvents — reconnect", () => {
     expect(FakeEventSource.instances).toHaveLength(1);
   });
 
+  function createOnlineSignal(): {
+    networkOnline: (listener: () => void) => () => void;
+    listener: () => (() => void) | undefined;
+  } {
+    let current: (() => void) | undefined;
+    return {
+      networkOnline: (listener) => {
+        current = listener;
+        return () => {
+          current = undefined;
+        };
+      },
+      listener: () => current,
+    };
+  }
+
+  test("a browser online event reconnects right away and cancels the backoff timer", async () => {
+    stubSseProbe(503, { error: { code: "unavailable", httpStatus: 503 } });
+    const { timers, scheduled } = createManualTimers();
+    const online = createOnlineSignal();
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {},
+      timers,
+      random: noJitter,
+      networkOnline: online.networkOnline,
+    });
+    liveEvents("invoice", () => {});
+
+    FakeEventSource.instances.at(-1)?.fail(FakeEventSource.CLOSED);
+    await nextTick();
+    expect(pendingTimers(scheduled)).toHaveLength(1);
+
+    online.listener()?.();
+
+    expect(FakeEventSource.instances).toHaveLength(2);
+    expect(pendingTimers(scheduled)).toHaveLength(0);
+    expect(online.listener()).toBeUndefined();
+  });
+
+  test("the last unsubscribe also stops waiting for the online event", async () => {
+    stubSseProbe(503, { error: { code: "unavailable", httpStatus: 503 } });
+    const { timers } = createManualTimers();
+    const online = createOnlineSignal();
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {},
+      timers,
+      random: noJitter,
+      networkOnline: online.networkOnline,
+    });
+    const unsubscribe = liveEvents("invoice", () => {});
+
+    FakeEventSource.instances.at(-1)?.fail(FakeEventSource.CLOSED);
+    await nextTick();
+    expect(online.listener()).toBeDefined();
+
+    unsubscribe();
+
+    expect(online.listener()).toBeUndefined();
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
   test("a probe finishing after the last unsubscribe schedules nothing", async () => {
     stubSseProbe(503, { error: { code: "unavailable", httpStatus: 503 } });
     const { timers, scheduled } = createManualTimers();

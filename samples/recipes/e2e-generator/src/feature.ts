@@ -42,7 +42,7 @@ export function createShopFeature(): FeatureDefinition {
       entity: "product",
       columns: [
         "name",
-        { field: "price", renderer: { format: "currency", symbol: "€" } },
+        { field: "price", renderer: { format: "currency", currency: "EUR" } },
         "status",
         "featured",
       ],

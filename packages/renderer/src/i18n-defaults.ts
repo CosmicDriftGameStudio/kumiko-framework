@@ -34,6 +34,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
 
     "kumiko.version.update-available": "A new version is available.",
+    "kumiko.network.offline": "No connection to the server. The data shown may be out of date.",
 
     "kumiko.pwa.dismiss": "Not now",
     "kumiko.pwa.install": "Install",

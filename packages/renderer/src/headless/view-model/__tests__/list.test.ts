@@ -73,7 +73,7 @@ describe("computeListViewModel", () => {
   });
 
   test("object-form column carries renderer through to the view model", () => {
-    const fmt = { format: "currency" as const, symbol: "€" };
+    const fmt = { format: "currency" as const, currency: "EUR" };
     const vm = computeListViewModel({
       screen: listScreen([{ field: "title", renderer: fmt }]),
       entity: taskEntity,
@@ -258,7 +258,7 @@ describe("computeListViewModel", () => {
   });
 
   test("derived columns accept an object-form renderer like stored columns", () => {
-    const fmt = { format: "currency" as const, symbol: "€" };
+    const fmt = { format: "currency" as const, currency: "EUR" };
     const vm = computeListViewModel({
       screen: listScreen([{ field: "ageDays", renderer: fmt }]),
       entity: taskEntity,
@@ -443,7 +443,7 @@ describe("computeListViewModel", () => {
   });
 
   test("row-meta column: explicit label + renderer are passed through unchanged", () => {
-    const fmt = { format: "currency" as const, symbol: "€" };
+    const fmt = { format: "currency" as const, currency: "EUR" };
     const vm = computeListViewModel({
       screen: listScreen([{ field: "insertedAt", label: "custom.created", renderer: fmt }]),
       entity: taskEntity,

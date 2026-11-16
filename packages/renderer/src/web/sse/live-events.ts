@@ -44,6 +44,8 @@ export type CreateEventSourceLiveEventsOptions = {
   readonly random?: () => number;
   /** Clock for synthetic resync events; defaults to Date.now. */
   readonly now?: () => number;
+  /** Fires when the device reports it is back online; defaults to the window `online` event. */
+  readonly networkOnline?: (listener: () => void) => () => void;
 };
 
 export type LiveEventTimers = {
@@ -64,6 +66,14 @@ const defaultTimers: LiveEventTimers = {
     return () => clearTimeout(handle);
   },
 };
+
+function subscribeWindowOnline(listener: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.addEventListener !== "function") {
+    return () => {};
+  }
+  window.addEventListener("online", listener);
+  return () => window.removeEventListener("online", listener);
+}
 
 // Equal jitter: half the exponential delay is fixed, half random, so a server
 // restart doesn't make every tab reconnect in the same instant.
@@ -125,6 +135,8 @@ export function createEventSourceLiveEvents(
 ): LiveEventSubscriber {
   const url = options.url ?? "/api/sse";
   const timers = options.timers ?? defaultTimers;
+  // An online event ends the backoff wait so live updates return right after an outage.
+  const networkOnline = options.networkOnline ?? subscribeWindowOnline;
   const stallTimers = options.stallTimers ?? defaultTimers;
   const random = options.random ?? Math.random;
   const now = options.now ?? Date.now;
@@ -263,11 +275,18 @@ export function createEventSourceLiveEvents(
     if (cancelReconnect !== undefined) return;
     const delay = reconnectDelayMs(reconnectAttempt, random());
     reconnectAttempt += 1;
-    cancelReconnect = timers.set(() => {
+    const reconnectNow = (): void => {
+      cancelReconnect?.();
       cancelReconnect = undefined;
       source = undefined;
       connect();
-    }, delay);
+    };
+    const cancelTimer = timers.set(reconnectNow, delay);
+    const stopWaitingForOnline = networkOnline(reconnectNow);
+    cancelReconnect = () => {
+      cancelTimer();
+      stopWaitingForOnline();
+    };
   };
 
   const ensureConnected = (): void => {

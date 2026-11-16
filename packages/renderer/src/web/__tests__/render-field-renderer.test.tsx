@@ -59,7 +59,7 @@ describe("RenderField — field.renderer on a readOnly head field", () => {
         screen={makeScreen({
           field: "status",
           readOnly: true,
-          renderer: { format: "currency", symbol: "€" },
+          renderer: { format: "currency", currency: "EUR", locale: "de-DE" },
         })}
         entity={invoiceEntity}
         featureName="invoices"
@@ -68,7 +68,7 @@ describe("RenderField — field.renderer on a readOnly head field", () => {
       />,
     );
 
-    expect(screen.getByTestId("field-value-status").textContent).toBe("42 €");
+    expect(screen.getByTestId("field-value-status").textContent).toBe("42,00\u00a0€");
     expect(screen.getByTestId("field-status").querySelector("input")).toBeNull();
   });
 
@@ -102,7 +102,7 @@ describe("RenderField — field.renderer on a readOnly head field", () => {
   test("renderer on an editable field is ignored — the field keeps its editable Input", () => {
     render(
       <RenderEdit
-        screen={makeScreen({ field: "status", renderer: { format: "currency", symbol: "€" } })}
+        screen={makeScreen({ field: "status", renderer: { format: "currency", currency: "EUR" } })}
         entity={invoiceEntity}
         featureName="invoices"
         initial={{ title: "Alpha", status: "42" }}

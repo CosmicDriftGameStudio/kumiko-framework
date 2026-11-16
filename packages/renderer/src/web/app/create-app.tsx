@@ -92,6 +92,7 @@ import { createBrowserDraftStorage } from "./draft-storage.ts";
 import { ListStateStoreBoot } from "./list-state-store-boot.tsx";
 import { useBrowserNavApi } from "./nav.tsx";
 import { NavProvidersProvider } from "./nav-providers-context.tsx";
+import { OfflineBanner } from "./offline-banner.tsx";
 import { type ResolverComponent, ResolversProvider } from "./resolvers-context.tsx";
 import { RootErrorFallback } from "./root-error-fallback.tsx";
 import { ScreenErrorFallback } from "./screen-error-fallback.tsx";
@@ -549,6 +550,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                                       <ToastProvider>
                                         <ToastActionNotifier>
                                           <UpdateChecker />
+                                          <OfflineBanner />
                                           <PwaSupport />
                                           <LeaveGuardDialog />
                                           <SessionEndedSignalProvider

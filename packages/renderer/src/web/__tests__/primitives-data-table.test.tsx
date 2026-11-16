@@ -1419,7 +1419,7 @@ describe("DataTable", () => {
           label: "Amount",
           type: "number",
           sortable: false,
-          renderer: { format: "currency", symbol: "€" },
+          renderer: { format: "currency", currency: "EUR", locale: "de-DE" },
         },
       ] as const;
       render(
@@ -1429,7 +1429,7 @@ describe("DataTable", () => {
           onCellChange={onCellChange}
         />,
       );
-      expect(screen.getByTestId("cell-r1-amount").textContent).toBe("42 €");
+      expect(screen.getByTestId("cell-r1-amount").textContent).toBe("42,00\u00a0€");
       expect(onCellChange).not.toHaveBeenCalled();
     });
   });
