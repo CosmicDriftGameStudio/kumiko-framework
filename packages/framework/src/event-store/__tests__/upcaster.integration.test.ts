@@ -31,7 +31,8 @@ import type { StoredEvent } from "../../event-store/index.ts";
 import { rebuildProjection } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { append } from "../index.ts";
-import { upcastStoredEvent } from "../upcaster.ts";
+import { EventVersionAheadError } from "../errors.ts";
+import { type EventUpcasters, upcastStoredEvent } from "../upcaster.ts";
 
 // --- Fixture entity + projection table ---
 
@@ -234,6 +235,82 @@ describe("upcaster: in-memory transform chain", () => {
 
     expect(upcast).toBe(raw);
   });
+
+  test("an event stored above the registered version is rejected", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "5",
+      aggregateId: "00000000-0000-4000-8000-000000000005",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "upcastshop:event:priced",
+      eventVersion: 4,
+      payload: {},
+      metadata: { userId: admin.id },
+      createdAt: Temporal.Now.instant(),
+      createdBy: admin.id,
+    };
+
+    await expect(upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId })).rejects.toThrow(
+      EventVersionAheadError,
+    );
+  });
+
+  test("an unregistered event type above version 1 is rejected", async () => {
+    const upcasters = registry.getEventUpcasters();
+    const raw: StoredEvent = {
+      id: "6",
+      aggregateId: "00000000-0000-4000-8000-000000000006",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "some:event:never-declared",
+      eventVersion: 2,
+      payload: {},
+      metadata: { userId: admin.id },
+      createdAt: Temporal.Now.instant(),
+      createdBy: admin.id,
+    };
+
+    await expect(upcastStoredEvent(raw, upcasters, { db: testDb.db, tenantId: admin.tenantId })).rejects.toThrow(
+      EventVersionAheadError,
+    );
+  });
+
+  test("a failing transform propagates its error", async () => {
+    const failing: EventUpcasters = new Map([
+      [
+        "probe.broken",
+        {
+          currentVersion: 2,
+          chain: new Map([
+            [
+              1,
+              async () => {
+                throw new Error("payload malformed: missing required field");
+              },
+            ],
+          ]),
+        },
+      ],
+    ]);
+    const raw: StoredEvent = {
+      id: "7",
+      aggregateId: "00000000-0000-4000-8000-000000000007",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      version: 1,
+      type: "probe.broken",
+      eventVersion: 1,
+      payload: {},
+      metadata: { userId: admin.id },
+      createdAt: Temporal.Now.instant(),
+      createdBy: admin.id,
+    };
+
+    await expect(upcastStoredEvent(raw, failing, { db: testDb.db, tenantId: admin.tenantId })).rejects.toThrow(/payload malformed/);
+  });
 });
 
 describe("upcaster: projection rebuild walks the chain on replay", () => {
@@ -296,6 +373,24 @@ describe("upcaster: projection rebuild walks the chain on replay", () => {
     expect(byId.get(ord1)).toMatchObject({ totalCents: 1000, currency: "EUR" });
     expect(byId.get(ord2)).toMatchObject({ totalCents: 2550, currency: "USD" });
     expect(byId.get(ord3)).toMatchObject({ totalCents: 9900, currency: "CHF" });
+  });
+
+  test("rebuild stops on an event stored above the registered version", async () => {
+    await orderExecutor.create({ customer: "c-ahead" }, admin, tdb);
+    await append(testDb.db, {
+      aggregateId: "00000000-0000-4000-8000-00000000dddd",
+      aggregateType: "upcast-order",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "upcastshop:event:priced",
+      eventVersion: 4,
+      payload: { totalCents: 1, currency: "EUR" },
+      metadata: { userId: admin.id },
+    });
+
+    await expect(
+      rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry }),
+    ).rejects.toThrow(EventVersionAheadError);
   });
 });
 

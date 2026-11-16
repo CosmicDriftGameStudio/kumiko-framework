@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
 import {
+  AGGREGATE_TYPE_ID_INDEX_NAME,
   CREATED_AT_INDEX_NAME,
   ensureSecondaryEventIndexes,
   MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME,
@@ -90,5 +91,18 @@ describe("secondary kumiko_events indexes", () => {
     expect(await indexDefinitions(CREATED_AT_INDEX_NAME)).toHaveLength(0);
     await ensureSecondaryEventIndexes(testDb.db);
     expect(await indexDefinitions(CREATED_AT_INDEX_NAME)).toHaveLength(1);
+  });
+
+  test("createEventsTable leaves an (aggregate_type, id) index for type-wide scans", async () => {
+    const [definition, ...rest] = await indexDefinitions(AGGREGATE_TYPE_ID_INDEX_NAME);
+    expect(rest).toHaveLength(0);
+    expect(definition).toContain("(aggregate_type, id)");
+  });
+
+  test("ensuring again heals a dropped aggregate type id index", async () => {
+    await dropIndex(AGGREGATE_TYPE_ID_INDEX_NAME);
+    expect(await indexDefinitions(AGGREGATE_TYPE_ID_INDEX_NAME)).toHaveLength(0);
+    await ensureSecondaryEventIndexes(testDb.db);
+    expect(await indexDefinitions(AGGREGATE_TYPE_ID_INDEX_NAME)).toHaveLength(1);
   });
 });

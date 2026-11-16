@@ -14,7 +14,6 @@ export {
   archivedStreamsTable,
   eventsTable,
   snapshotsTable,
-  upcasterDeadLetterTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
 export {
   eventConsumerStateTable,

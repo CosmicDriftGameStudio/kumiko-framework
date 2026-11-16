@@ -1,13 +1,13 @@
 ---
 status: reference
-verified: 2026-10-03
-evidence: "kumiko-framework#3530; pipeline/event-retention.ts (pruneEvents), bundled-features/src/audit/run-escape-hatch-retention.ts"
+verified: 2026-11-17
+evidence: "kumiko-framework#3530; pipeline/event-retention.ts (pruneEvents), bundled-features/src/audit/run-escape-hatch-retention.ts, event-store/archive.ts (archiveStream, selectArchivedAggregateIds)"
 ---
 
 # Measuring and reclaiming `kumiko_events` bloat
 
 When `kumiko_events` is much larger than the data it holds, the file carries dead space from
-deleted rows. This runbook measures that and gives the space back. It never deletes rows: only
+deleted rows. This runbook measures that, gives the space back and shows how to limit growth. It never deletes rows: only
 `pruneEvents` removes events, called by the audit feature's retention job
 (`audit:job:escape-hatch-retention`) and by an app's own retention jobs.
 
@@ -65,3 +65,12 @@ REINDEX TABLE CONCURRENTLY kumiko_events;
 ```
 
 Afterwards, run the queries from step 1 again and compare.
+
+## 3. Limit growth
+
+Kumiko does not partition `kumiko_events` and removes no events on its own; every event stays until a retention job prunes it. To keep the table from growing without bound:
+
+- Archive streams that are closed for good with `archiveStream(db, { tenantId, aggregateId, aggregateType, archivedBy, reason })` from `event-store/archive.ts`. An archived stream rejects new appends and is left out of reads unless `includeArchived` is set.
+- Prune old events in an app job with `pruneEvents(db, { aggregateTypes, olderThanDays, aggregateIds, dryRun, batchSize })` from `pipeline/event-retention.ts`. `aggregateTypes` is required; pass archived ids as `aggregateIds` to prune only closed streams, and run with `dryRun: true` first. It refuses with `ConsumerLagError` while a consumer's cursor is below the events it would delete.
+- A projection rebuild after pruning sees only the remaining events, so prune only types whose read model does not need the pruned history.
+- Pruning frees rows, not file space; reclaim it with step 2.

@@ -54,4 +54,3 @@ export {
   makeUpcastCtx,
   upcastStoredEvent,
 } from "./upcaster.ts";
-export { upcasterDeadLetterTable } from "./upcaster-dead-letter.ts";

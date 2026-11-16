@@ -51,6 +51,7 @@ export const MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME = "events_membership_payload_t
 export const MEMBERSHIP_PAYLOAD_USER_INDEX_NAME = "events_membership_payload_user_idx";
 export const TENANT_ID_INDEX_NAME = "events_tenant_id_idx";
 export const CREATED_AT_INDEX_NAME = "events_created_at_idx";
+export const AGGREGATE_TYPE_ID_INDEX_NAME = "events_aggregate_type_id_idx";
 
 // Tenant-scoped partial unique index over metadata.idempotencyKey.
 // Expression index straight on the jsonb column — no dedicated key column,
@@ -134,6 +135,7 @@ async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
 
 // Plain (non-unique) kumiko_events indexes that older installs get on boot (CONCURRENTLY, INVALID ones rebuilt).
 // forget-cleanup reads membership history by payload tenantId/userId, not the tenant_id column: cross-tenant SystemAdmin adds land under the actor's tenant.
+// Type-wide id-cursor scans (streamAllEventsByType, projection rebuild, PII backfill) read by (aggregate_type, id).
 const SECONDARY_EVENT_INDEXES: ReadonlyArray<{
   readonly name: string;
   readonly definition: string;
@@ -148,6 +150,7 @@ const SECONDARY_EVENT_INDEXES: ReadonlyArray<{
   },
   { name: TENANT_ID_INDEX_NAME, definition: `("tenant_id", "id")` },
   { name: CREATED_AT_INDEX_NAME, definition: `("created_at")` },
+  { name: AGGREGATE_TYPE_ID_INDEX_NAME, definition: `("aggregate_type", "id")` },
 ];
 
 export function ensureSecondaryEventIndexes(db: AnyDb): Promise<void> {

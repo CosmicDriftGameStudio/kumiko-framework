@@ -398,14 +398,17 @@ export async function loadAggregateForWriting(
 
 // Load events up to a point in time. Used for asOf queries that reconstruct
 // historical state. Includes events whose created_at is <= asOf. Same
-// archive semantics as loadAggregate.
+// archive and aggregateType semantics as loadAggregate.
 export async function loadAggregateAsOf(
   db: DbRunner,
   aggregateId: string,
   tenantId: TenantId,
   asOf: Temporal.Instant,
-  options?: { readonly includeArchived?: boolean },
+  options?: { readonly includeArchived?: boolean; readonly aggregateType?: string },
 ): Promise<readonly StoredEvent[]> {
+  if (options?.aggregateType === "") {
+    throw new Error("loadAggregateAsOf: aggregateType must be a non-empty string when provided");
+  }
   return inEventStreamScope(tenantId, async () => {
     if (!options?.includeArchived) {
       const archived = await isStreamArchived(db, tenantId, aggregateId);
@@ -414,7 +417,12 @@ export async function loadAggregateAsOf(
     const rows = await selectMany<SelectedEvent>(
       db,
       eventsTable,
-      { aggregateId, tenantId, createdAt: { lte: asOf } },
+      {
+        aggregateId,
+        tenantId,
+        createdAt: { lte: asOf },
+        ...(options?.aggregateType !== undefined && { aggregateType: options.aggregateType }),
+      },
       { orderBy: { col: "version", direction: "asc" } },
     );
     return rows.map(toStoredEvent);
@@ -455,10 +463,6 @@ export async function getUnscopedAggregateStreamMaxVersion(
   return selectAggregateMaxVersion(db, aggregateId);
 }
 
-// Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
-// projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
-// the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
-// (boot, fresh tenant, post-archive).
 /** Seed/orphan helper — prefer this over importing the restricted existence-oracle by name. */
 export async function getUnscopedStreamMaxVersionForSeed(
   ...args: Parameters<typeof getUnscopedAggregateStreamMaxVersion>
@@ -466,6 +470,10 @@ export async function getUnscopedStreamMaxVersionForSeed(
   return getUnscopedAggregateStreamMaxVersion(...args);
 }
 
+// Global high-water-mark = MAX(events.id). Marten/Wolverine standard for
+// projection/consumer lag math: lag = HWM - cursor. Single-row aggregate over
+// the bigserial PK index — sub-millisecond cost. Returns 0n on an empty log
+// (boot, fresh tenant, post-archive).
 export async function getEventsHighWaterMark(db: DbRunner): Promise<bigint> {
   return selectEventsHighWaterMark(db);
 }
@@ -479,13 +487,15 @@ export async function loadEventsAfterVersion(
   tenantId: TenantId,
   afterVersion: number,
 ): Promise<readonly StoredEvent[]> {
-  const rows = await selectMany<SelectedEvent>(
-    db,
-    eventsTable,
-    { aggregateId, tenantId, version: { gt: afterVersion } },
-    { orderBy: { col: "version", direction: "asc" } },
-  );
-  return rows.map(toStoredEvent);
+  return inEventStreamScope(tenantId, async () => {
+    const rows = await selectMany<SelectedEvent>(
+      db,
+      eventsTable,
+      { aggregateId, tenantId, version: { gt: afterVersion } },
+      { orderBy: { col: "version", direction: "asc" } },
+    );
+    return rows.map(toStoredEvent);
+  });
 }
 
 // Stream every event for an aggregate_type across all tenants, batchwise

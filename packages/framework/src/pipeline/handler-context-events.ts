@@ -186,10 +186,16 @@ export async function loadUpcastedAggregate(
 ): Promise<readonly StoredEvent[]> {
   const { db, registry, tenantId } = source;
   const includeArchived = loadOptions?.includeArchived === true;
+  const aggregateType = loadOptions?.aggregateType;
+  const typeFilter = aggregateType !== undefined ? { aggregateType } : {};
   const events = loadOptions?.asOf
-    ? await loadAggregateAsOf(db, aggregateId, tenantId, loadOptions.asOf, { includeArchived })
+    ? await loadAggregateAsOf(db, aggregateId, tenantId, loadOptions.asOf, {
+        includeArchived,
+        ...typeFilter,
+      })
     : await loadAggregate(db, aggregateId, tenantId, {
         includeArchived,
+        ...typeFilter,
         ...(loadOptions?.atVersion !== undefined && { atVersion: loadOptions.atVersion }),
       });
   return upcastStoredEvents(events, registry.getEventUpcasters(), makeUpcastCtx(db, tenantId));

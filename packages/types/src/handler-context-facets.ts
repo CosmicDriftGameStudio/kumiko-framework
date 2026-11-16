@@ -59,6 +59,7 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
   // they were written. `options.asOf` restricts to events whose createdAt is
   // ≤ the given timestamp (point-in-time query); `options.atVersion` reads only
   // the event at that stream version (upcast, tenant-scoped).
+  // `options.aggregateType` keeps only that type's events when another aggregate type shares the id.
   readonly load: (
     aggregateId: string,
     options?:
@@ -66,11 +67,13 @@ export type HandlerEvents<TMap extends object = KumikoEventTypeMap> = {
           readonly asOf?: Temporal.Instant;
           readonly atVersion?: never;
           readonly includeArchived?: boolean;
+          readonly aggregateType?: string;
         }
       | {
           readonly atVersion?: number;
           readonly asOf?: never;
           readonly includeArchived?: boolean;
+          readonly aggregateType?: string;
         },
   ) => Promise<readonly import("./event-store-types.ts").StoredEvent[]>;
   // Events of several aggregates filtered by event type in ONE query (tenant-scoped, upcasted,

@@ -139,6 +139,19 @@ const cartFeature = defineFeature("f4w", (r) => {
     access: { roles: ["Admin"] },
   });
 
+  r.writeHandler({
+    name: "cart:load-info",
+    schema: z.object({ id: z.uuid(), asOf: z.boolean() }),
+    handler: async (event, ctx) => {
+      const events = await ctx.events.load(event.payload.id, {
+        aggregateType: "f4wCart",
+        ...(event.payload.asOf && { asOf: Temporal.Now.instant() }),
+      });
+      return { isSuccess: true as const, data: { types: events.map((e) => e.type) } };
+    },
+    access: { roles: ["Admin"] },
+  });
+
   // Probes hasEvent before and after an appendOne in the same handler run.
   r.writeHandler({
     name: "cart:checkout-probe",
@@ -447,6 +460,56 @@ describe("Runde 3 / C.2a — ctx.events.fetchForWriting", () => {
     expect(result.version).toBe(3);
     const events = await loadAggregate(stack.db, created.id, admin.tenantId);
     expect(events.map((e) => e.version)).toEqual([1, 2, 3]);
+  });
+
+  test("ctx.events.load with aggregateType leaves out a foreign type on the same id", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "heidi" },
+      admin,
+    );
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "reservation",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "reservation:event:created",
+      payload: {},
+      metadata: { userId: String(admin.id) },
+    });
+
+    const info = await stack.http.writeOk<{ types: string[] }>(
+      "f4w:write:cart:load-info",
+      { id: created.id, asOf: false },
+      admin,
+    );
+
+    expect(info.types).toEqual(["f4wCart.created"]);
+  });
+
+  test("ctx.events.load with asOf and aggregateType leaves out a foreign type on the same id", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "ivan" },
+      admin,
+    );
+    await append(stack.db, {
+      aggregateId: created.id,
+      aggregateType: "reservation",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "reservation:event:created",
+      payload: {},
+      metadata: { userId: String(admin.id) },
+    });
+
+    const info = await stack.http.writeOk<{ types: string[] }>(
+      "f4w:write:cart:load-info",
+      { id: created.id, asOf: true },
+      admin,
+    );
+
+    expect(info.types).toEqual(["f4wCart.created"]);
   });
 
   test("hasEvent reflects the fetch-time snapshot for the handle's own aggregateType", async () => {

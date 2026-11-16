@@ -7,6 +7,7 @@ import { createDerivativesContext } from "../derivatives/derivatives-context.ts"
 import { runsInLane } from "../engine/run-in.ts";
 import type { AppContext, Registry } from "../engine/types/index.ts";
 
+import { makeUpcastCtx, upcastStoredEvent } from "../event-store/upcaster.ts";
 import { createTenantFileContext } from "../files/file-handle.ts";
 import type { Lifecycle } from "../lifecycle/index.ts";
 import type { ObservabilityProvider } from "../observability/index.ts";
@@ -258,6 +259,14 @@ function buildMultiStreamProjectionConsumer(
         // production. Defensive return for the type-narrowing path.
         return;
       }
+      // Same as the catch-up job consumer: a cursor behind a deploy delivers events in their
+      // stored schema. Events outside this MSP's apply map returned above, so a broken
+      // upcaster of another type cannot stall this cursor.
+      const upcastEvent = await upcastStoredEvent(
+        event,
+        registry.getEventUpcasters(),
+        makeUpcastCtx(baseDb, event.tenantId),
+      );
       // Saga/process-manager ctx: apply can call ctx.events.append to cascade
       // a follow-up event onto another aggregate. Uses the triggering event's
       // tenantId + userId so the causal chain stays tenant-consistent.
@@ -287,7 +296,7 @@ function buildMultiStreamProjectionConsumer(
           }),
         }),
       });
-      await applyFn(event, mspDb, applyCtx);
+      await applyFn(upcastEvent, mspDb, applyCtx);
       // Keep ctx reachable to satisfy the EventConsumerHandler signature.
       void ctx;
     },
