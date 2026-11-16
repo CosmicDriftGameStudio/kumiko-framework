@@ -54,6 +54,13 @@ defineFeature("notes", (r) => {
 
 The integration test pins both paths.
 
+## Event-sourced entities
+
+For an entity whose rows go through the executor, `forgetOwnRowsDeleteHook` from
+`@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults` replaces the hand-written loop. It
+forgets every row that names the user in one of `ownerFields` (default `userId`), trashed rows
+included, under both strategies. The recipe's `mute` entity uses `userId` and `mutedUserId`.
+
 ## Flow
 
 1. User creates notes → rows stored with `authorId`.
@@ -74,6 +81,7 @@ Step-by-step proof:
 1. Alice creates 2 notes → export bundle includes note snippet
 2. Deletion + expired grace → `runForgetCleanup` removes all notes
 3. Strategy `anonymize` → `authorId=null`, title/body remain
+4. Deletion + expired grace → every mute Alice set or received is forgotten, other users' mutes and other tenants stay
 
 ## Retention with files
 

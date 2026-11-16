@@ -3,11 +3,12 @@
 // **Browser lifecycle:** one browser per service instance, launched lazily on
 // the first render and closed after `browserIdleTimeoutMs` without a render
 // (idle Chromium holds ~480 MiB, renders are rare). The first render after an
-// idle close pays a cold start; that is accepted. Pages are created and closed
-// per render-call — no page pool (page reuse has memory-leak issues on
-// long-lived browsers, no OOM risk with fresh-page-per-call).
+// idle close pays a cold start; that is accepted. Every render call gets its
+// own browser context (own cookies, cache and storage) that is closed
+// afterwards — no page pool (page reuse has memory-leak issues on
+// long-lived browsers, no OOM risk with fresh-context-per-call).
 //
-// **Crash recovery:** if `browser.newPage()` throws (browser dead),
+// **Crash recovery:** if opening the render context throws (browser dead),
 // re-launch automatically. Most common cause: chromium process killed
 // (OOM from K8s pod limit) — the service pod itself keeps running,
 // browser restarts on demand.
@@ -16,7 +17,9 @@ import puppeteer, {
   type Browser,
   type ErrorCode,
   type LaunchOptions,
+  type Page,
   type PDFOptions,
+  TimeoutError,
 } from "puppeteer";
 import { z } from "zod";
 import { isBlockedRequestUrl } from "./egress-guard";
@@ -128,13 +131,55 @@ export async function attachEgressRequestGuard(page: EgressGuardPage): Promise<v
   });
 }
 
+// Minimal browser surface so the per-render isolation is testable without Chromium.
+export type IsolatingBrowser<TPage> = {
+  createBrowserContext(): Promise<{ newPage(): Promise<TPage>; close(): Promise<void> }>;
+};
+
+// Each render gets its own context so tenants never share cookies, cache or storage;
+// closing the context also closes its page.
+export async function withIsolatedPage<TPage, TResult>(
+  browser: IsolatingBrowser<TPage>,
+  work: (page: TPage) => Promise<TResult>,
+): Promise<TResult> {
+  const context = await browser.createBrowserContext();
+  try {
+    return await work(await context.newPage());
+  } finally {
+    await context.close().catch(() => {
+      // A failed close must not mask the render result or the render error.
+    });
+  }
+}
+
+// page.screenshot takes no timeout; without one a hung capture holds a render slot until the client gives up.
+export async function withRenderTimeout<T>(
+  work: Promise<T>,
+  timeoutMs: number,
+  step: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new TimeoutError(`${step} exceeded ${timeoutMs} ms`)),
+      timeoutMs,
+    );
+  });
+  // The losing work promise rejects later when the context closes; keep that from surfacing as unhandled.
+  work.catch(() => {});
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function render(req: RenderRequest, opts: RenderOptions): Promise<RenderResult> {
   // Before getBrowser so an in-flight launch counts as a running render.
   idleCloser.begin();
   try {
     const browser = await getBrowser(opts.executablePath);
-    const page = await browser.newPage();
-    try {
+    return await withIsolatedPage(browser, async (page): Promise<RenderResult> => {
       await attachEgressRequestGuard(page);
       // Template HTML for PDF/screenshot does not need JS; disabling it also
       // closes window.open / targetcreated SSRF vectors (enterprise#272).
@@ -148,21 +193,17 @@ export async function render(req: RenderRequest, opts: RenderOptions): Promise<R
         const pdfBytes = await page.pdf({ ...pdfOptions, timeout: opts.timeoutMs });
         return { contentType: "application/pdf", bytes: new Uint8Array(pdfBytes) };
       }
-      return await renderImage(page, req.options);
-    } finally {
-      await page.close().catch(() => {
-        // Do not escalate page.close failures during cleanup — the real render
-        // error (if any) was already thrown before we got here.
-      });
-    }
+      return await renderImage(page, req.options, opts.timeoutMs);
+    });
   } finally {
     idleCloser.end(opts.browserIdleTimeoutMs);
   }
 }
 
 async function renderImage(
-  page: Awaited<ReturnType<Browser["newPage"]>>,
+  page: Page,
   options: ImageRenderRequest["options"],
+  timeoutMs: number,
 ): Promise<RenderResult> {
   const width = options?.width ?? 1200;
   const height = options?.height ?? 800;
@@ -172,7 +213,7 @@ async function renderImage(
     format === "jpg"
       ? { type: "jpeg" as const, quality: options?.quality ?? 80, fullPage: true }
       : { type: "png" as const, fullPage: true };
-  const bytes = await page.screenshot(screenshotOptions);
+  const bytes = await withRenderTimeout(page.screenshot(screenshotOptions), timeoutMs, "screenshot");
   return {
     contentType: format === "jpg" ? "image/jpeg" : "image/png",
     bytes: new Uint8Array(bytes),
@@ -226,6 +267,8 @@ async function getBrowser(executablePath?: string): Promise<Browser> {
   const launchOptions: LaunchOptions = {
     headless: true,
     args: [
+      // No Chromium sandbox: the pod (seccomp RuntimeDefault, all capabilities dropped) has no user
+      // namespaces for it. Containment: JS off, egress guard, one context per render, NetworkPolicy.
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage", // cgroup limits → tmpfs too small

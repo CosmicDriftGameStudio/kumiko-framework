@@ -12,6 +12,7 @@ export {
   fileRefDeleteHook,
   fileRefExportHook,
 } from "./hooks/file-ref.userdata-hook.ts";
+export { forgetOwnRowsDeleteHook } from "./hooks/forget-own-rows-delete-hook.ts";
 export {
   inAppMessageDeleteHook,
   inAppMessageExportHook,

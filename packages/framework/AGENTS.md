@@ -84,7 +84,10 @@ flat object with those fields.
 **Nav.** A sidebar entry: `r.nav({ id, label, screen, parent, order })`.
 Parents may belong to another feature; refer to them by QN.
 
-**Events.** Declare a domain event with `r.defineEvent(name, zodSchema)`.
+**Events.** Declare a domain event with `r.defineEvent(name, schema, { piiFields })`.
+`piiFields` is required: `"none"` when the payload holds no personal data, otherwise a
+map from payload field to owner, `{ email: { personal: { of: "userId" } } }`; registration
+fails without it.
 Emit it inside a write handler with `emitEvent(ctx, def, { ... })` or
 `ctx.events.append(...)`; it commits in the same transaction as the write.
 React to it with `r.projection(...)` (state on the same stream) or

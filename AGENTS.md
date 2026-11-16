@@ -11,7 +11,11 @@ TypeScript source, and every breaking change ships a codemod or a migration note
 
 ## Canonical forms
 
-Registrar and factory calls take one options object; positional forms are rejected.
+`r.entity`, `r.writeHandler`, `r.queryHandler`, `r.hook`, `r.requires` and `r.defineWebhookEvent`
+take one options object; registration throws on their positional forms. Other registrar calls keep
+their positional signatures, such as `r.crud(name, entity, options)` and
+`r.defineEvent(name, schema, { piiFields })`;
+[`FeatureRegistrar`](packages/types/src/feature-registrar.ts) is the reference.
 
 ```ts
 const feature = defineFeature("tasks", (r) => {

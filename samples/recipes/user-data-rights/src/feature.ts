@@ -9,6 +9,8 @@
 // title, body). Pins:
 //   1. The export hook delivers note rows as a JSON snippet into the export bundle.
 //   2. The delete hook removes note rows during the forget-cleanup cron.
+//   3. An event-sourced entity needs no hand-written loop: forgetOwnRowsDeleteHook forgets
+//      every mute the user set or received, trashed rows included.
 //
 // What is not in the recipe (see samples/apps/user-data-rights-demo
 // for a complete app):
@@ -16,6 +18,7 @@
 //   - HTTP endpoints for create/list
 //   - Compliance profile wiring + cron scheduling
 
+import { forgetOwnRowsDeleteHook } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import {
   deleteMany,
   deriveEntityTableMeta,
@@ -24,6 +27,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
+  createEntityExecutor,
   createTextField,
   defineFeature,
   EXT_USER_DATA,
@@ -57,6 +61,29 @@ export const noteEntity = createEntity({
 // unmanaged direct-write store (r.storeTable below), so the forget hook may
 // updateMany/deleteMany it directly — the meta carries no executor-only brand.
 export const notesTable = deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" });
+
+export const muteEntity = createEntity({
+  table: "read_udr_recipe_mutes",
+  idType: "uuid",
+  softDelete: true,
+  fields: {
+    userId: createTextField({ personal: "ref", required: true }),
+    mutedUserId: createTextField({ personal: "ref", required: true }),
+  },
+});
+
+export const { table: mutesTable, executor: muteExecutor } = createEntityExecutor(
+  "mute",
+  muteEntity,
+);
+
+// A mute names two users; when either is erased the row goes, so no mute points at a missing user.
+export const forgetMutes = forgetOwnRowsDeleteHook({
+  entityName: "mute",
+  table: mutesTable,
+  executor: muteExecutor,
+  ownerFields: ["userId", "mutedUserId"],
+});
 
 export const notesFeature = defineFeature("notes", (r) => {
   r.requires({ features: ["user-data-rights"] });
@@ -98,4 +125,7 @@ export const notesFeature = defineFeature("notes", (r) => {
     export: exportNotes,
     delete: deleteNotes,
   });
+
+  r.entity({ name: "mute", ...muteEntity });
+  r.useExtension(EXT_USER_DATA, "mute", { delete: forgetMutes });
 });
