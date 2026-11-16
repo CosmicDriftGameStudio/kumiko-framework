@@ -1786,7 +1786,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.cancel.title": "Cancelar la eliminación de la cuenta",
   "userDataRights.deletion.confirm.error": "Algo salió mal. Inténtalo de nuevo.",
   "userDataRights.deletion.confirm.intro":
-    "Al confirmar se inicia el plazo de eliminación. Hasta que termine, puedes cancelarla iniciando sesión en tu cuenta.",
+    "Al confirmar se inicia el plazo de eliminación. Hasta que termine, puedes cancelarla mediante el enlace del correo de confirmación.",
   "userDataRights.deletion.confirm.invalidToken":
     "El enlace no es válido o ha caducado. Solicita uno nuevo.",
   "userDataRights.deletion.confirm.missingToken":
@@ -1794,7 +1794,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.confirm.submit": "Confirmar eliminación",
   "userDataRights.deletion.confirm.submitting": "…",
   "userDataRights.deletion.confirm.successBody":
-    "Tu cuenta se eliminará cuando finalice el plazo. Hasta entonces, puedes cancelar la eliminación iniciando sesión en tu cuenta.",
+    "Tu cuenta se eliminará cuando finalice el plazo. Hasta entonces, puedes cancelar la eliminación mediante el enlace del correo de confirmación.",
   "userDataRights.deletion.confirm.successTitle": "Eliminación programada",
   "userDataRights.deletion.confirm.title": "Confirmar la eliminación de la cuenta",
   "userDataRights.deletion.request.email": "Correo electrónico",

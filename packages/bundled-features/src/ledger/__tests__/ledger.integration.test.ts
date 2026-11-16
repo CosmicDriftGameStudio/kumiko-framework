@@ -254,6 +254,24 @@ describe("ledger integration — reverse-transaction (Storno)", () => {
     expect(await listTransactions()).toHaveLength(2);
   });
 
+  test("parallel reversals of the same transaction book exactly one Storno", async () => {
+    const bank = await createAccount("Bank Rev Race", "asset");
+    const rent = await createAccount("Rev Race Income", "income");
+    const tx = await createTransaction([
+      { accountId: bank, amount: 30000 },
+      { accountId: rent, amount: -30000 },
+    ]);
+
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        stack.http.write(LedgerHandlers.reverseTransaction, { id: tx.id }, admin),
+      ),
+    );
+
+    expect(responses.filter((r) => r.status === 200)).toHaveLength(1);
+    expect(await listTransactions()).toHaveLength(2);
+  });
+
   test("the Storno inherits the original's subject — an eq filter on subjectId finds both", async () => {
     const bank = await createAccount("Bank Subj", "asset");
     const rent = await createAccount("Subj Income", "income");

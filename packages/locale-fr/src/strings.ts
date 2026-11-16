@@ -1811,7 +1811,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.cancel.title": "Annuler la suppression du compte",
   "userDataRights.deletion.confirm.error": "Une erreur s'est produite. Veuillez réessayer.",
   "userDataRights.deletion.confirm.intro":
-    "La confirmation démarre le délai de grâce avant suppression. Jusqu'à son terme, vous pouvez annuler la suppression depuis votre compte connecté.",
+    "La confirmation démarre le délai de grâce avant suppression. Jusqu'à son terme, vous pouvez annuler la suppression via le lien de l'e-mail de confirmation.",
   "userDataRights.deletion.confirm.invalidToken":
     "Le lien est invalide ou a expiré. Demandez-en un nouveau.",
   "userDataRights.deletion.confirm.missingToken":
@@ -1819,7 +1819,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.confirm.submit": "Confirmer la suppression",
   "userDataRights.deletion.confirm.submitting": "…",
   "userDataRights.deletion.confirm.successBody":
-    "Votre compte sera supprimé après le délai de grâce. Vous pouvez annuler la suppression depuis votre compte connecté jusque-là.",
+    "Votre compte sera supprimé après le délai de grâce. Jusque-là, vous pouvez annuler la suppression via le lien de l'e-mail de confirmation.",
   "userDataRights.deletion.confirm.successTitle": "Suppression programmée",
   "userDataRights.deletion.confirm.title": "Confirmer la suppression du compte",
   "userDataRights.deletion.request.email": "E-mail",

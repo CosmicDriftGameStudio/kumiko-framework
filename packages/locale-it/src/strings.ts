@@ -1792,7 +1792,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.cancel.title": "Annulla l'eliminazione dell'account",
   "userDataRights.deletion.confirm.error": "Qualcosa è andato storto. Riprova.",
   "userDataRights.deletion.confirm.intro":
-    "La conferma avvia il periodo di tolleranza per l'eliminazione. Fino alla sua scadenza puoi annullare l'eliminazione dal tuo account.",
+    "La conferma avvia il periodo di tolleranza per l'eliminazione. Fino alla sua scadenza puoi annullare l'eliminazione tramite il link nell'e-mail di conferma.",
   "userDataRights.deletion.confirm.invalidToken":
     "Il link non è valido o è scaduto. Richiedine uno nuovo.",
   "userDataRights.deletion.confirm.missingToken":
@@ -1800,7 +1800,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.confirm.submit": "Conferma l'eliminazione",
   "userDataRights.deletion.confirm.submitting": "…",
   "userDataRights.deletion.confirm.successBody":
-    "Il tuo account verrà eliminato al termine del periodo di tolleranza. Fino ad allora puoi annullare l'eliminazione dal tuo account.",
+    "Il tuo account verrà eliminato al termine del periodo di tolleranza. Fino ad allora puoi annullare l'eliminazione tramite il link nell'e-mail di conferma.",
   "userDataRights.deletion.confirm.successTitle": "Eliminazione programmata",
   "userDataRights.deletion.confirm.title": "Conferma l'eliminazione dell'account",
   "userDataRights.deletion.request.email": "E-mail",

@@ -242,13 +242,13 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "userDataRights.deletion.cancel.successBody":
     "Ihr Konto bleibt bestehen. Sie können sich wieder anmelden.",
   "userDataRights.deletion.confirm.intro":
-    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft können Sie die Löschung im eingeloggten Account wieder abbrechen.",
+    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft können Sie die Löschung über den Link in der Bestätigungs-E-Mail abbrechen.",
   "userDataRights.deletion.confirm.invalidToken":
     "Der Link ist ungültig oder abgelaufen. Bitte fordern Sie einen neuen an.",
   "userDataRights.deletion.confirm.missingToken":
     "Kein Token im Link gefunden. Bitte öffnen Sie den Link aus der E-Mail erneut.",
   "userDataRights.deletion.confirm.successBody":
-    "Ihr Account wird nach Ablauf der Frist gelöscht. Sie können die Löschung bis dahin im eingeloggten Account abbrechen.",
+    "Ihr Account wird nach Ablauf der Frist gelöscht. Bis dahin können Sie die Löschung über den Link in der Bestätigungs-E-Mail abbrechen.",
   "userDataRights.deletion.request.intro":
     "Geben Sie die E-Mail-Adresse Ihres Kontos ein. Falls ein Konto existiert, schicken wir Ihnen einen Bestätigungs-Link zum Löschen.",
   "userDataRights.deletion.request.successBody":

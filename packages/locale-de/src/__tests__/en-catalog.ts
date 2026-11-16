@@ -1756,7 +1756,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "userDataRights.deletion.cancel.title": "Cancel account deletion",
   "userDataRights.deletion.confirm.error": "Something went wrong. Please try again.",
   "userDataRights.deletion.confirm.intro":
-    "Confirming starts the deletion grace period. Until it ends you can cancel the deletion from your logged-in account.",
+    "Confirming starts the deletion grace period. Until it ends you can cancel the deletion via the link in the confirmation email.",
   "userDataRights.deletion.confirm.invalidToken":
     "The link is invalid or expired. Please request a new one.",
   "userDataRights.deletion.confirm.missingToken":
@@ -1764,7 +1764,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "userDataRights.deletion.confirm.submit": "Confirm deletion",
   "userDataRights.deletion.confirm.submitting": "…",
   "userDataRights.deletion.confirm.successBody":
-    "Your account will be deleted after the grace period. You can cancel the deletion from your logged-in account until then.",
+    "Your account will be deleted after the grace period. Until then you can cancel the deletion via the link in the confirmation email.",
   "userDataRights.deletion.confirm.successTitle": "Deletion scheduled",
   "userDataRights.deletion.confirm.title": "Confirm account deletion",
   "userDataRights.deletion.request.email": "Email",

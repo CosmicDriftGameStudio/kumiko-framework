@@ -6,6 +6,7 @@
 // its side effect to prove the lane is actually being consumed.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
+  createJobRunLogger,
   createJobsFeature,
   jobRunLogsTable,
   jobRunsTable,
@@ -275,5 +276,47 @@ describe("startDevJobRunners isolates queues by queueNamePrefix", () => {
       await runnerA.stop();
       await runnerB.stop();
     }
+  });
+});
+
+// BullMQ job ids are only unique per queue, so two jobs can complete under the
+// same bullJobId; each run row must be resolved by (jobName, bullJobId).
+describe("createJobRunLogger — run resolution", () => {
+  const readRunStatuses = async (bullJobId: string) => {
+    const rows = await selectMany<{ jobName: string; status: string }>(db, jobRunsTable, {
+      bullJobId,
+    });
+    return Object.fromEntries(rows.map((r) => [r.jobName, r.status]));
+  };
+
+  test("completion resolves the run of its own job when another job shares the bullJobId", async () => {
+    const logger = createJobRunLogger({
+      db,
+      registry: createRegistry([createJobsFeature()]),
+    });
+    await logger.onJobStart?.("probe:job:first", "shared-cached", {});
+    await logger.onJobStart?.("probe:job:second", "shared-cached", {});
+
+    await logger.onJobComplete?.("probe:job:first", "shared-cached", 5, []);
+
+    expect(await readRunStatuses("shared-cached")).toEqual({
+      "probe:job:first": "completed",
+      "probe:job:second": "running",
+    });
+  });
+
+  test("a cache miss falls back to the run of its own job, not any run with that bullJobId", async () => {
+    const registry = createRegistry([createJobsFeature()]);
+    const starter = createJobRunLogger({ db, registry });
+    await starter.onJobStart?.("probe:job:other", "shared-uncached", {});
+    await starter.onJobStart?.("probe:job:wanted", "shared-uncached", {});
+
+    const freshLogger = createJobRunLogger({ db, registry });
+    await freshLogger.onJobComplete?.("probe:job:wanted", "shared-uncached", 5, []);
+
+    expect(await readRunStatuses("shared-uncached")).toEqual({
+      "probe:job:other": "running",
+      "probe:job:wanted": "completed",
+    });
   });
 });

@@ -154,7 +154,8 @@ export function isLateStateEvent(
 
 type SubscriptionStreamEvent = Awaited<ReturnType<HandlerContext["events"]["load"]>>[number];
 
-async function lockAndLoadSubscriptionStream(
+// Locks per aggregate id, so the payment stream reuses it too.
+export async function lockAndLoadSubscriptionStream(
   ctx: HandlerContext,
   aggId: string,
 ): Promise<readonly SubscriptionStreamEvent[]> {

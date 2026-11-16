@@ -14,6 +14,7 @@ import {
   insertMany,
   insertOnConflictDoNothing,
   insertOne,
+  selectMany,
   transaction,
   updateMany,
   upsertOnConflict,
@@ -527,39 +528,54 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
   };
   const runIdByBullJobId = new Map<string, CacheEntry>();
 
-  function cachePut(bullJobId: string, runId: string, triggeredById: string | null): void {
+  // BullMQ job ids are only unique per queue (one queue per job), so two jobs
+  // can share a bullJobId; the cache and DB lookup key on both.
+  function runCacheKey(jobName: string, bullJobId: string): string {
+    return JSON.stringify([jobName, bullJobId]);
+  }
+
+  function cachePut(
+    jobName: string,
+    bullJobId: string,
+    runId: string,
+    triggeredById: string | null,
+  ): void {
     // Enforce max-size BEFORE insert. Map iteration returns insertion
     // order, so dropping the first entry is the oldest.
     if (runIdByBullJobId.size >= DEFAULT_CACHE_MAX_ENTRIES) {
       const oldest = runIdByBullJobId.keys().next().value;
       if (oldest !== undefined) runIdByBullJobId.delete(oldest);
     }
-    runIdByBullJobId.set(bullJobId, {
+    runIdByBullJobId.set(runCacheKey(jobName, bullJobId), {
       runId,
       triggeredById,
       expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS,
     });
   }
 
-  function cacheGet(bullJobId: string): CacheEntry | undefined {
-    const entry = runIdByBullJobId.get(bullJobId);
+  function cacheGet(jobName: string, bullJobId: string): CacheEntry | undefined {
+    const key = runCacheKey(jobName, bullJobId);
+    const entry = runIdByBullJobId.get(key);
     if (!entry) return undefined;
     if (Date.now() >= entry.expiresAt) {
-      runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
+      runIdByBullJobId.delete(key); // immediate cleanup on terminal callback
       return undefined;
     }
     return entry;
   }
 
   async function resolveRun(
+    jobName: string,
     bullJobId: string,
   ): Promise<{ readonly runId: string; readonly triggeredById: string | null } | undefined> {
-    const cached = cacheGet(bullJobId);
+    const cached = cacheGet(jobName, bullJobId);
     if (cached) return { runId: cached.runId, triggeredById: cached.triggeredById };
-    const row = await fetchOne<{ id: string | number; triggeredById: string | null }>(
+    // A retried/deferred job id starts a fresh run row; the newest one is live.
+    const [row] = await selectMany<{ id: string | number; triggeredById: string | null }>(
       db,
       jobRunsTable,
-      { bullJobId },
+      { jobName, bullJobId },
+      { orderBy: { col: "startedAt", direction: "desc" }, limit: 1 },
     );
     if (!row) return undefined;
     // buildBaseColumns's signature types `id` as `string | number` because
@@ -571,7 +587,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     // softDelete × serial/uuid).
     const runId = String(row.id);
     const triggeredById = row.triggeredById ?? null;
-    cachePut(bullJobId, runId, triggeredById);
+    cachePut(jobName, bullJobId, runId, triggeredById);
     return { runId, triggeredById };
   }
 
@@ -599,11 +615,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobName,
         bullJobId,
       );
-      const resolved = await resolveRun(bullJobId);
+      const resolved = await resolveRun(jobName, bullJobId);
       // skip: run row already gone (cache evicted and row unreachable)
       if (!resolved) return;
       await deleteMany(db, jobRunsTable, { id: resolved.runId });
-      runIdByBullJobId.delete(bullJobId);
+      runIdByBullJobId.delete(runCacheKey(jobName, bullJobId));
     },
 
     onJobStart: async (jobName: string, bullJobId: string, meta: JobMeta) => {
@@ -614,7 +630,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       );
       const runId = generateId();
       const triggeredById = meta.triggeredById ?? null;
-      cachePut(bullJobId, runId, triggeredById);
+      cachePut(jobName, bullJobId, runId, triggeredById);
       // Parse against the registered schema so out-of-dispatcher writes
       // get the same validation guarantee as ctx.events.append. A shape
       // drift between feature + logger fails loudly at the source
@@ -663,7 +679,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobName,
         bullJobId,
       );
-      const resolved = await resolveRun(bullJobId);
+      const resolved = await resolveRun(jobName, bullJobId);
       // skip: state loss between start + complete (worker restart, cache
       // evicted AND DB has no matching bull_job_id). Rare edge case; we
       // drop the completion write rather than forging a run row from
@@ -696,7 +712,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         { id: runId },
       );
       await insertEncryptedRunLogs(db, runId, triggeredById, payload.logs);
-      runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
+      runIdByBullJobId.delete(runCacheKey(jobName, bullJobId)); // immediate cleanup on terminal callback
     },
 
     onJobFailed: async (
@@ -718,7 +734,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         jobName,
         bullJobId,
       );
-      const resolved = await resolveRun(bullJobId);
+      const resolved = await resolveRun(jobName, bullJobId);
       // skip: same rare state-loss case as in onJobComplete — drop the
       // failure write rather than forge a run row from scratch.
       if (!resolved) return;
@@ -756,7 +772,7 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
         { id: runId },
       );
       await insertEncryptedRunLogs(db, runId, triggeredById, payload.logs);
-      runIdByBullJobId.delete(bullJobId); // immediate cleanup on terminal callback
+      runIdByBullJobId.delete(runCacheKey(jobName, bullJobId)); // immediate cleanup on terminal callback
     },
   };
 }

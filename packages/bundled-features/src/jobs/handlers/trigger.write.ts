@@ -25,6 +25,7 @@ export const triggerWrite = defineWriteHandler({
     jobName: z.string(),
     payload: z.union([z.record(z.string(), z.unknown()), z.string()]).optional(),
   }),
+  agent: { expose: false },
   access: { roles: ["SystemAdmin"] },
   handler: async (event, ctx) => {
     const registry = ctx.registry;

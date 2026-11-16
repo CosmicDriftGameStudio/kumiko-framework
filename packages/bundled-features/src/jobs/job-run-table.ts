@@ -65,7 +65,8 @@ export const jobRunEntity = createEntity({
     duration: createNumberField({ integer: true }),
     triggeredById: createTextField({ personal: false, reason: "pseudonymous_fk" }),
   },
-  indexes: [{ columns: ["startedAt"] }],
+  // Terminal callbacks resolve the run by (jobName, bullJobId) on a cache miss.
+  indexes: [{ columns: ["startedAt"] }, { columns: ["jobName", "bullJobId"] }],
 });
 
 // Unmanaged meta, NOT buildEntityTable (its table is not Writable and only the
@@ -99,6 +100,7 @@ export const jobRunLogsTable = pgTable("store_job_run_logs", {
 // for migration generation.
 export const jobRunLogsTableMeta: EntityTableMeta = defineUnmanagedTable({
   tableName: "store_job_run_logs",
+  indexes: [{ name: "store_job_run_logs_run_id_idx", columns: ["run_id"] }],
   columns: [
     { name: "id", pgType: "serial", notNull: true, primaryKey: true },
     { name: "run_id", pgType: "text", notNull: true },

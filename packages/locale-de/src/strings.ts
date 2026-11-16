@@ -1807,7 +1807,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.cancel.title": "Konto-Löschung abbrechen",
   "userDataRights.deletion.confirm.error": "Etwas ist schief gegangen. Bitte erneut versuchen.",
   "userDataRights.deletion.confirm.intro":
-    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft kannst du die Löschung im eingeloggten Konto wieder abbrechen.",
+    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft kannst du die Löschung über den Link in der Bestätigungs-E-Mail abbrechen.",
   "userDataRights.deletion.confirm.invalidToken":
     "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
   "userDataRights.deletion.confirm.missingToken":
@@ -1815,7 +1815,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.confirm.submit": "Löschung bestätigen",
   "userDataRights.deletion.confirm.submitting": "…",
   "userDataRights.deletion.confirm.successBody":
-    "Dein Konto wird nach Ablauf der Frist gelöscht. Du kannst die Löschung bis dahin im eingeloggten Konto abbrechen.",
+    "Dein Konto wird nach Ablauf der Frist gelöscht. Bis dahin kannst du die Löschung über den Link in der Bestätigungs-E-Mail abbrechen.",
   "userDataRights.deletion.confirm.successTitle": "Löschung vorgemerkt",
   "userDataRights.deletion.confirm.title": "Konto-Löschung bestätigen",
   "userDataRights.deletion.request.email": "E-Mail",

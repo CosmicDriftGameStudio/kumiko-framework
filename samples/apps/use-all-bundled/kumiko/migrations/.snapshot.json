@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-11-15T18:24:39.872Z",
+  "generatedAt": "2026-11-16T20:49:24.792Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -2096,6 +2096,10 @@
         {
           "name": "read_ledger_transactions_tenant_id_subject_type_subject_id_idx",
           "columns": ["tenant_id", "subject_type", "subject_id"]
+        },
+        {
+          "name": "read_ledger_transactions_tenant_id_reference_idx",
+          "columns": ["tenant_id", "reference"]
         }
       ],
       "source": "managed"
@@ -4997,7 +5001,12 @@
           "notNull": true
         }
       ],
-      "indexes": [],
+      "indexes": [
+        {
+          "name": "store_job_run_logs_run_id_idx",
+          "columns": ["run_id"]
+        }
+      ],
       "source": "unmanaged"
     },
     {
@@ -5102,6 +5111,10 @@
         {
           "name": "store_job_runs_started_at_idx",
           "columns": ["started_at"]
+        },
+        {
+          "name": "store_job_runs_job_name_bull_job_id_idx",
+          "columns": ["job_name", "bull_job_id"]
         }
       ],
       "source": "unmanaged",

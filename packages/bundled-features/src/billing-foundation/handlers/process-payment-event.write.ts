@@ -29,6 +29,7 @@ import {
   PROVIDER_ID_MAX_CHARS,
 } from "../events.ts";
 import { hasSeenProviderEvent } from "../provider-event-seen.ts";
+import { lockAndLoadSubscriptionStream } from "./process-event.write.ts";
 
 export const processPaymentEventSchema = z.object({
   providerEventId: z.string().min(1).max(200),
@@ -60,7 +61,8 @@ export const processPaymentEventHandler: WriteHandlerDef = {
     //    (a tenant with hundreds of purchases scans hundreds of events;
     //    optimize via a per-tenant providerEventId-index if that bites).
     // ---------------------------------------------------------------
-    const existingEvents = await ctx.events.load(aggId);
+    // Locked so two replays of one providerEventId cannot both pass the scan.
+    const existingEvents = await lockAndLoadSubscriptionStream(ctx, aggId);
     if (hasSeenProviderEvent(existingEvents, payload)) {
       return {
         isSuccess: true as const,

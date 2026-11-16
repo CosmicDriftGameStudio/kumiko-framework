@@ -12,6 +12,9 @@ import { type ReverseTransactionPayload, reverseTransactionPayloadSchema } from 
 import { readSubjectReference } from "../subject-reference.ts";
 import { DEFAULT_LEDGER_ACCESS } from "../web/constants.ts";
 
+// Keyed by the original transaction id; own namespace, distinct from the confirm-period lock.
+const REVERSE_TRANSACTION_LOCK_NAMESPACE = 0x6c_72_74_78; // 'lrtx'
+
 // reverse-transaction (Storno) — the ONLY correction path for a posted entry.
 // Books the mirror image (every amount negated) as a new posted entry that
 // references the original, leaving the original untouched. This is why
@@ -49,6 +52,7 @@ export function createReverseTransactionHandler(
       // an independently-balanced Storno (the global trial balance stays 0
       // either way, masking the bug), doubling the per-account effect. The
       // reference column ties a Storno back to its original 1:1.
+      await ctx.db.advisoryXactLock(REVERSE_TRANSACTION_LOCK_NAMESPACE, payload.id);
       const alreadyReversed = await ctx.db.selectMany(transactionTable, {
         tenantId: event.user.tenantId,
         reference: payload.id,

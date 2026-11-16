@@ -72,8 +72,9 @@ export function createConfirmSchedulePeriodHandler(
       // normally 0 or 1 row, never O(tenant's-full-history); (2) any Storno
       // that mirrors one of those candidates (a tx is reversed when ANOTHER
       // tx's `reference` names its id).
-      // No unique index on (tenantId, reference): a Storno makes re-confirming the
-      // same reference legitimate, so the check-then-write is serialized by a lock.
+      // Not unique on (tenantId, reference): a Storno makes re-confirming the
+      // same reference legitimate, so the check-then-write is serialized by a lock;
+      // the non-unique index serves the lookup.
       await ctx.db.advisoryXactLock(CONFIRM_PERIOD_LOCK_NAMESPACE, reference);
       const candidates = await ctx.db.selectMany(transactionTable, {
         tenantId: event.user.tenantId,
