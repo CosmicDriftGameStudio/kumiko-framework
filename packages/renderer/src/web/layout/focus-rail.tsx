@@ -164,7 +164,7 @@ export function FocusRail({
             type="button"
             title={moreLabel}
             aria-label={moreLabel}
-            data-active={hidden.some(isActive)}
+            data-active={hidden.some(isActive) && !shown.some(isActive)}
             className={RAIL_TILE_CLASS}
             onClick={() => setOpen(true)}
           >
