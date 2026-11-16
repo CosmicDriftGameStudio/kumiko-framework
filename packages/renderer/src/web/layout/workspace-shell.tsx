@@ -94,8 +94,8 @@ export type WorkspaceShellProps = {
    *  build information. It stays at the bottom via `mt-auto` (see
    *  Sidebar.footer). Symmetric with DefaultAppShell.sidebarFooter. */
   readonly sidebarFooter?: ReactNode;
-  /** Top-level nav QNs the focus rail shows as tiles; the others sit behind a
-   *  "More" tile that opens the full sidebar. Unset: every top-level entry. */
+  /** Nav QNs (any depth) the focus rail shows as tiles, in this order; unlisted
+   *  top-level entries sit behind a "More" tile that opens the full sidebar. Unset: every top-level entry. */
   readonly focusRailNavQns?: readonly string[];
   /** Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell. */
   readonly navBadges?: ReadonlyMap<string, ReactNode>;

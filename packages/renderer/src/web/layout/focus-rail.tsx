@@ -129,7 +129,7 @@ export function FocusRail({
   const shown =
     railNavQns === undefined
       ? tree
-      : railNavQns.flatMap((qn) => {
+      : [...new Set(railNavQns)].flatMap((qn) => {
           const node = findNavNode(tree, qn);
           return node === undefined ? [] : [node];
         });

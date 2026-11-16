@@ -114,6 +114,31 @@ describe("WorkspaceShell focus mode", () => {
     expect(screen.getByRole("button", { name: "More" })).toBeTruthy();
   });
 
+  test("More stays plain when a shown nested tile holds the active screen of an unlisted group", () => {
+    const nav: NavApi = {
+      route: { screenId: "units" },
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+    render(
+      <NavProvider value={nav}>
+        <WorkspaceShell
+          brand={<span>Brand</span>}
+          schema={schema}
+          focusRailNavQns={["inbox:nav:units"]}
+        >
+          <FocusedScreen />
+        </WorkspaceShell>
+      </NavProvider>,
+    );
+    const tile = document.querySelector('[data-kumiko-layout="focus-rail"] nav > *');
+    expect(tile?.getAttribute("data-active")).toBe("true");
+    expect(screen.getByRole("button", { name: "More" }).getAttribute("data-active")).toBe("false");
+  });
+
   test("rail tiles and brand tile follow the design: 40px md tiles, muted icons, 32px md brand tile", () => {
     render(
       <WorkspaceShell brand={<SidebarBrand name="Vermieter" />} schema={schema}>
