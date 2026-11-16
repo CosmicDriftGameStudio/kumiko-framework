@@ -273,29 +273,15 @@ export function toTableName(entityName: string): string {
   return `${READ_MODEL_PREFIX}${plural}`;
 }
 
-// Drizzle's PgTableWithColumns<any> inherits a `[k: string]: any` index
-// signature that, in strict mode (noUncheckedIndexedAccess + TS4111), forces
-// consumers to use bracket notation even for known columns. Because the
-// table is built dynamically from EntityDefinition, TypeScript cannot provide
-// Drizzle's full column inference. Instead, we mirror the `fieldToColumns`
-// logic in the type system: each field type maps to a concrete data type, and
-// ColumnsForEntity builds the complete property bag.
-//
-// With a concretely inferred `F` (via createEntity({ fields: { ... } })),
-// Drizzle's full data typing reaches `eq()`/`select()`/`row.x` at the call
-// site. The old `EntityDefinition` without a generic parameter falls back to
-// `FieldsMap` for backwards compatibility; without known field types, the
-// mapping collapses to `AnyPgColumn`.
-//
-// Every branch here must match the runtime decision in fieldToColumns. Type
-// tests against representative entities in db/__tests__/drizzle-table-types.test.ts
-// catch drift.
+// The table is built at runtime from the EntityDefinition, so its columns cannot be inferred
+// from the builder; the types below mirror fieldToColumns (each field type maps to a concrete
+// data type, ColumnsForEntity builds the bag). A concretely inferred `F` types column access at
+// the call site; a plain EntityDefinition falls back to FieldsMap. Every branch must match
+// fieldToColumns; db/__tests__/entity-table-types.test.ts catches drift.
 
-// Single column handle with concrete data + nullability phantom. After the
-// drizzle removal the runtime carries only the snake_case name + pg type
-// (see ColumnHandle); the phantom-typed wrapper preserves the existing
-// generic-inference call-sites without recreating drizzle's full column
-// brand graph.
+// Single column handle with concrete data + nullability phantom.
+// The runtime column carries only the snake_case name and pg type (ColumnHandle); the
+// phantom-typed wrapper adds value type and nullability.
 //
 // `__value` carries the TS value type of the column (optional phantom, never present at runtime).
 // It is the one place the field → TS-type mapping lives: EntityRow reads it back out of the
@@ -402,7 +388,7 @@ type ColumnsForEntity<F extends FieldsMap> = UnionToIntersection<
 
 // Base columns from buildBaseColumns — `idType: "serial"` returns number;
 // otherwise, UUID-as-string. `insertedAt` has `default(now())`, so it is
-// structurally non-null (Drizzle's `notNull` flag matches this).
+// structurally non-null.
 type BaseColumnsType<E extends EntityDefinition> = {
   readonly id: E extends { idType: "serial" } ? Col<number> : Col<string>;
   readonly tenantId: Col<string>;
@@ -510,13 +496,7 @@ export function buildBaseColumns(softDelete: boolean, idType: "serial" | "uuid" 
     id: idColumn,
     tenantId: uuid("tenant_id").notNull(),
     version: integer("version").default(1).notNull(),
-    // Temporal.Instant is used throughout (see instant() in dialect.ts).
-    // Previously the default mode was "date", which was inconsistent with
-    // user-defined timestamp fields (mode "string"). A single mode is now
-    // used for all timestamps.
-    // customType doesn't expose Drizzle's `defaultNow()` shortcut — use raw
-    // SQL so PG sets the value on insert and callers need not pass an
-    // Instant for every row creation.
+    // now() in SQL so PG sets inserted_at and callers need not pass an Instant.
     insertedAt: instant("inserted_at").default(sql`now()`).notNull(),
     modifiedAt: instant("modified_at"),
     // User-IDs are stringified UUIDs post-ES migration. Text (not uuid) so the

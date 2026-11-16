@@ -122,10 +122,6 @@
       "types": "./src/db-connection.ts",
       "default": "./src/db-connection.ts"
     },
-    "./entity-cache": {
-      "types": "./src/entity-cache.ts",
-      "default": "./src/entity-cache.ts"
-    },
     "./file-handle-types": {
       "types": "./src/file-handle-types.ts",
       "default": "./src/file-handle-types.ts"
@@ -436,10 +432,6 @@
       "./db-connection": {
         "types": "./dist/db-connection.d.ts",
         "default": "./dist/db-connection.js"
-      },
-      "./entity-cache": {
-        "types": "./dist/entity-cache.d.ts",
-        "default": "./dist/entity-cache.js"
       },
       "./file-handle-types": {
         "types": "./dist/file-handle-types.d.ts",

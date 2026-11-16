@@ -6,6 +6,7 @@ import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
 import type { PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 // Body schema for POST /auth/login. Enforced BEFORE rate-limit so that a
 // malformed body (`email: 42`, missing password, …) returns 400 instead of
@@ -63,7 +64,7 @@ export function registerLoginRoute(ctx: AuthRouteContext): void {
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
         const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for

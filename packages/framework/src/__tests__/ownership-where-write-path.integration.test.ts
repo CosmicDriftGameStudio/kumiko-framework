@@ -18,13 +18,8 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { OwnershipRule } from "@cosmicdrift/kumiko-types/ownership";
 import { asRawClient } from "../db/query.ts";
-import {
-  createEntity,
-  createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
-  defineFeature,
-} from "../engine/index.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
+import { createEntity, createTextField, defineFeature } from "../engine/index.ts";
 import type { SessionUser, WhereRule } from "../engine/types/index.ts";
 
 import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";

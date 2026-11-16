@@ -9,8 +9,10 @@ import {
   createEntity,
   createLongTextField,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityListHandler,
+  defineEntityRestoreHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
@@ -48,10 +50,10 @@ export const productFeature = defineFeature("shop", (r) => {
   r.entity({ name: "article", ...articleEntity });
 
   const articleAccess = { access: { roles: ["Admin"] } };
-  for (const verb of ["create", "delete", "restore"] as const) {
-    r.writeHandler(defineEntityWriteHandler(`article:${verb}`, articleEntity, articleAccess));
-  }
-  r.queryHandler(defineEntityQueryHandler("article:list", articleEntity, articleAccess));
+  r.writeHandler(defineEntityCreateHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityDeleteHandler("article", articleEntity, articleAccess));
+  r.writeHandler(defineEntityRestoreHandler("article", articleEntity, articleAccess));
+  r.queryHandler(defineEntityListHandler("article", articleEntity, articleAccess));
 
   r.writeHandler({
     name: "product:create",

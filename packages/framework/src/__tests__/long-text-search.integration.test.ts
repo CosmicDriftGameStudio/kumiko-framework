@@ -16,12 +16,11 @@ import {
   createTenantDb,
   selectMany,
 } from "../db/index.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import {
   createEntity,
   createLongTextField,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
   defineFeature,
   from,
 } from "../engine/index.ts";

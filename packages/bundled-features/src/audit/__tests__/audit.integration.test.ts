@@ -7,7 +7,9 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDeleteHandler,
+  defineEntityUpdateHandler,
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -38,13 +40,10 @@ const widgetEntity = createEntity({
 
 const widgetFeature = defineFeature("widgets", (r) => {
   r.entity({ name: "widget", ...widgetEntity });
-  for (const verb of ["create", "update", "delete"] as const) {
-    r.writeHandler(
-      defineEntityWriteHandler(`widget:${verb}`, widgetEntity, {
-        access: { roles: ["Admin", "User", "SystemAdmin"] },
-      }),
-    );
-  }
+  const widgetAccess = { access: { roles: ["Admin", "User", "SystemAdmin"] } };
+  r.writeHandler(defineEntityCreateHandler("widget", widgetEntity, widgetAccess));
+  r.writeHandler(defineEntityUpdateHandler("widget", widgetEntity, widgetAccess));
+  r.writeHandler(defineEntityDeleteHandler("widget", widgetEntity, widgetAccess));
 });
 
 let stack: TestStack;

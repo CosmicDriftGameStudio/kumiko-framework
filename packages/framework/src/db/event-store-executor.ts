@@ -2,7 +2,6 @@ import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-e
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import type { LocalKeyKmsAdapter } from "../crypto/index.ts";
 
-import type { EntityCache } from "../pipeline/entity-cache.ts";
 import type { SearchAdapter } from "../search/types.ts";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
 import { buildExecutorContext, type Table } from "./event-store-executor-context.ts";
@@ -38,7 +37,6 @@ export { entityEventName } from "./event-store-executor-context.ts";
 export type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;
   entityName: string; // required — the aggregateType marker on every event
-  entityCache?: EntityCache;
   /** Override the boot-injected cipher for fields marked `encrypted: true`. */
   encryption?: EnvelopeCipher;
   /** Override the boot-injected subject KMS for pii-annotated fields. */

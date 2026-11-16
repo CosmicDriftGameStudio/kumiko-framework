@@ -14,13 +14,8 @@ import { buildParentRefClause } from "../db/parent-ref-clause.ts";
 import { withGlobalParentHosts } from "../db/parent-ref-global-hosts.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { createTenantDb } from "../db/tenant-db.ts";
-import {
-  createEntity,
-  createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
-  defineFeature,
-} from "../engine/index.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
+import { createEntity, createTextField, defineFeature } from "../engine/index.ts";
 import { from } from "../engine/ownership.ts";
 import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
 import { createTestUser, testTenantId } from "../seeding/seed-users.ts";

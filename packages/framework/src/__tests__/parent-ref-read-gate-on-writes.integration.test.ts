@@ -10,13 +10,8 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { buildEntityTable } from "../db/table-builder.ts";
-import {
-  createEntity,
-  createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
-  defineFeature,
-} from "../engine/index.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
+import { createEntity, createTextField, defineFeature } from "../engine/index.ts";
 import { createTestUser } from "../seeding/seed-users.ts";
 
 const hostAccess: NonNullable<EntityDefinition["access"]> = {

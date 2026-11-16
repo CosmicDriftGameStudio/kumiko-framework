@@ -39,7 +39,7 @@ flowchart LR
 | `ctx.dispatch` | `query`, `write`, `queryAs`, `writeAs`, `queryAsMember`, `queryProjection` | calling other handlers |
 | `ctx.lifecycle` | `afterCommit`, `afterRollback`, `signal`, `runPreSave` | work after commit or rollback, cancellation |
 | `ctx.obs` | `log`, `tracer`, `metrics`, `metricsFor`, `meter` | logging, traces and metrics |
-| `ctx.services` | `redis`, `cacheSync`, `jobRunner`, `searchAdapter`, `entityCache`, `secrets`, `kms`, `files`, `derivatives`, `configResolver`, `configEncryption`, `rateLimit`, `effectiveFeatures`, `masterKeyProvider`, `extensions` | injected infrastructure; unknown `extraContext` keys of the app land in `extensions` |
+| `ctx.services` | `redis`, `cacheSync`, `jobRunner`, `searchAdapter`, `secrets`, `kms`, `files`, `derivatives`, `configResolver`, `configEncryption`, `rateLimit`, `effectiveFeatures`, `masterKeyProvider`, `extensions` | injected infrastructure; unknown `extraContext` keys of the app land in `extensions` |
 | `ctx.tenants` | `config(tenantId)`, `writeTarget(tenantId)` | config of a tenant, writes into another tenant's stream |
 | `ctx.auth` | `resolveClaims`, `resolveActiveMembership` | auth features |
 

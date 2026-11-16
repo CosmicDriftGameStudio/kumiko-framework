@@ -7,6 +7,7 @@ import { Routes } from "./api-constants.ts";
 import { inMemoryLoginRateLimiterFallback } from "./auth-rate-limiters.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
 import type { PublicAuthErrorStatus } from "./auth-routes-shared.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 // Body schema for POST /auth/mfa/verify. challengeToken is opaque to the
 // framework — it's minted and verified entirely by the mfaVerifyHandler
@@ -93,7 +94,7 @@ export function registerMfaVerifyRoute(ctx: AuthRouteContext): void {
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
         const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for mfa-verify handler
@@ -177,7 +178,7 @@ export function registerMfaPreauthEnableStartRoute(ctx: AuthRouteContext): void 
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
         const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for
@@ -240,7 +241,7 @@ export function registerMfaPreauthConfirmRoute(ctx: AuthRouteContext): void {
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
         const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for mfa-preauth-confirm handler

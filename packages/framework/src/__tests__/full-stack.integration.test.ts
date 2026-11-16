@@ -3,7 +3,6 @@ import {
   expectErrorIncludes,
   sharedUserEntity,
   sharedUserTable,
-  updateRows,
 } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -34,18 +33,11 @@ const featurePostSaveLog: SaveContext[] = [];
 
 // --- Feature definition ---
 
-function userExecutor({
-  services,
-}: {
-  services: { searchAdapter?: unknown; entityCache?: unknown };
-}) {
+function userExecutor({ services }: { services: { searchAdapter?: unknown } }) {
   return createEventStoreExecutor(userTable, userEntity, {
     entityName: "user",
     ...(services.searchAdapter
       ? { searchAdapter: services.searchAdapter as import("../search/index.ts").SearchAdapter }
-      : {}),
-    ...(services.entityCache
-      ? { entityCache: services.entityCache as import("../pipeline/entity-cache.ts").EntityCache }
       : {}),
   });
 }
@@ -720,85 +712,6 @@ describe("full stack: request context", () => {
     expect(body.isSuccess).toBe(false);
     // requestId lives inside the serialized error body under the new contract
     expect(body.error.requestId).toBe("err-req-99");
-  });
-});
-
-// =============================================================================
-// Entity Cache
-// =============================================================================
-
-describe("full stack: entity cache", () => {
-  test("detail returns cached data after create (no second DB hit needed)", async () => {
-    const created = await stack.http.writeOk(
-      "users:write:user:create",
-      { email: "cached@test.de", firstName: "Cached" },
-      adminUser,
-    );
-
-    // Detail should return the same data (from cache or DB — both valid)
-    const detail = await stack.http.queryOk<Record<string, unknown>>(
-      "users:query:user:detail",
-      { id: created["id"] },
-      adminUser,
-    );
-    expect(detail["email"]).toBe("cached@test.de");
-  });
-
-  test("cache serves stale data until invalidated by update", async () => {
-    const created = await stack.http.writeOk(
-      "users:write:user:create",
-      { email: "stale@test.de", firstName: "Before" },
-      adminUser,
-    );
-    const id = created["id"] as string;
-
-    // First detail populates cache
-    await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
-
-    // Raw DB update — bypasses cache invalidation
-    await updateRows(stack.db, userTable, { firstName: "RawDbChange" }, { id: id });
-
-    // Detail still returns cached (old) value
-    const stale = await stack.http.queryOk<Record<string, unknown>>(
-      "users:query:user:detail",
-      { id },
-      adminUser,
-    );
-    expect(stale["firstName"]).toBe("Before");
-
-    // Update via API — invalidates cache
-    await stack.http.writeOk(
-      "users:write:user:update",
-      { id, changes: { firstName: "AfterUpdate" }, version: 1 },
-      adminUser,
-    );
-
-    // Now detail returns fresh data
-    const fresh = await stack.http.queryOk<Record<string, unknown>>(
-      "users:query:user:detail",
-      { id },
-      adminUser,
-    );
-    expect(fresh["firstName"]).toBe("AfterUpdate");
-  });
-
-  test("delete invalidates cache", async () => {
-    const created = await stack.http.writeOk(
-      "users:write:user:create",
-      { email: "delcache@test.de" },
-      adminUser,
-    );
-    const id = created["id"] as string;
-
-    // Populate cache
-    await stack.http.queryOk("users:query:user:detail", { id }, adminUser);
-
-    // Delete via API
-    await stack.http.writeOk("users:write:user:delete", { id }, adminUser);
-
-    // Detail returns null (soft deleted + cache invalidated)
-    const gone = await stack.http.queryOk<null>("users:query:user:detail", { id }, adminUser);
-    expect(gone).toBeNull();
   });
 });
 

@@ -13,7 +13,6 @@ export type { Dispatcher } from "./dispatcher.ts";
 export { createDispatcher, dispatcherToWriteRef } from "./dispatcher.ts";
 export type { DistributedLock } from "./distributed-lock.ts";
 export { createDistributedLock } from "./distributed-lock.ts";
-export { createEntityCache } from "./entity-cache.ts";
 export {
   ConsumerStatuses,
   createEventConsumerStateTable,

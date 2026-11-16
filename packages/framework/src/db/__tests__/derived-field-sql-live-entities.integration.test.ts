@@ -9,11 +9,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
+import { defineEntityQueryHandler } from "../../engine/entity-handlers.ts";
 import {
   createDerivedField,
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
   defineFeature,
 } from "../../engine/index.ts";
 import { createTestUser, TestUsers } from "../../seeding/seed-users.ts";

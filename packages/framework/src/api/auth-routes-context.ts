@@ -23,6 +23,7 @@ import {
   resolveSessionCookies,
 } from "./session-cookies.ts";
 import { generateToken } from "./tokens.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 // Double-entry cookie write used at login and switch-tenant. The auth cookie is
 // the HttpOnly carrier of the JWT; the csrf cookie is the JS-readable token the
@@ -199,7 +200,9 @@ export function createAuthRouteContext(
     );
     if (!gate.isSuccess) {
       const status = gate.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
-      return { response: c.json({ isSuccess: false, error: gate.error }, status) };
+      return {
+        response: c.json({ isSuccess: false, error: toClientWriteErrorInfo(gate.error) }, status),
+      };
     }
     // @cast-boundary engine-payload — the gate handler's three-shape result
     const gateData = gate.data as

@@ -5,7 +5,11 @@ import type {
 import { NotFoundError, UnprocessableError } from "./classes.ts";
 import { KumikoError } from "./kumiko-error.ts";
 import { FrameworkReasons } from "./reasons.ts";
-import { exposesCauseDetails } from "./serialize.ts";
+import {
+  exposesCauseDetails,
+  GENERIC_INTERNAL_ERROR_MESSAGE,
+  hidesInternalErrorText,
+} from "./serialize.ts";
 import { buildInvalidTransitionDetails } from "./transition-details.ts";
 
 // Re-exported so a caller importing this module directly (instead of via
@@ -95,6 +99,17 @@ export function toWriteErrorInfo(err: KumikoError): WriteErrorInfo {
   };
   if (err.cause instanceof Error) causeByWriteErrorInfo.set(info, err.cause);
   return info;
+}
+
+export function toClientWriteErrorInfo(info: WriteErrorInfo): WriteErrorInfo {
+  if (!hidesInternalErrorText(info.code)) return info;
+  return {
+    code: info.code,
+    httpStatus: info.httpStatus,
+    i18nKey: info.i18nKey,
+    message: GENERIC_INTERNAL_ERROR_MESSAGE,
+    ...(info.retryAfterSeconds !== undefined && { retryAfterSeconds: info.retryAfterSeconds }),
+  };
 }
 
 // Reconstitutes an error from WriteErrorInfo so command() (throw-based) can

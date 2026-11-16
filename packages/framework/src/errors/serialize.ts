@@ -33,13 +33,21 @@ export type ErrorResponseBody = {
 // just to see what went wrong (real footgun, not theoretical). The exposure
 // is gated on NODE_ENV being explicitly "development" or "test": a missing or
 // misspelled NODE_ENV (a misconfigured prod deploy) must not leak stack traces,
-// paths or upstream URLs over the wire.
+// paths or upstream URLs over the wire. Outside development/test the message
+// and i18nParams are replaced too, because InternalError texts name handlers
+// and config keys; the server log keeps them.
 const CODES_WITHOUT_CLIENT_DETAILS = new Set(["internal_error"]);
+
+export const GENERIC_INTERNAL_ERROR_MESSAGE = "internal error";
 
 export const exposesCauseDetails = (): boolean => {
   const env = process.env["NODE_ENV"];
   return env === "development" || env === "test";
 };
+
+export function hidesInternalErrorText(code: string): boolean {
+  return CODES_WITHOUT_CLIENT_DETAILS.has(code) && !exposesCauseDetails();
+}
 
 // Snapshot of the cause chain (top-most error only) suitable for inclusion
 // in dev-mode error responses. Stack is truncated to keep the body small.
@@ -63,7 +71,7 @@ export function serializeError(
   requestId?: string,
   errorDocs?: ErrorDocsConfig,
 ): ErrorResponseBody {
-  const stripped = CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && !exposesCauseDetails();
+  const stripped = hidesInternalErrorText(err.code);
   const exposeDeclaredDetails = err.details !== undefined && !stripped;
 
   // For internal_error in dev/test, surface the cause chain so the
@@ -83,8 +91,8 @@ export function serializeError(
     error: {
       code: err.code,
       i18nKey: err.i18nKey,
-      ...(err.i18nParams && { i18nParams: err.i18nParams }),
-      message: err.message,
+      ...(!stripped && err.i18nParams && { i18nParams: err.i18nParams }),
+      message: stripped ? GENERIC_INTERNAL_ERROR_MESSAGE : err.message,
       ...(detailsForResponse !== undefined && { details: detailsForResponse }),
       ...(docsUrl !== undefined && { docsUrl }),
       ...(requestId && { requestId }),

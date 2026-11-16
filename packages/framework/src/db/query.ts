@@ -557,8 +557,7 @@ export async function selectInnerJoin<
 }
 
 // Bulk INSERT — same shape as insertOne but takes an array of rows and
-// produces one multi-VALUES statement. Mirrors drizzle's
-// `db.insert(t).values(rows[])`. Empty input is a no-op.
+// produces one multi-VALUES statement. Empty input is a no-op.
 export function insertMany<TRow = AnyRow>(
   db: AnyDb,
   table: WritableTable,
@@ -581,7 +580,7 @@ export async function insertMany<TRow = AnyRow>(
   const info = extractTableInfo(table);
   // Union of all rows' keys, so a field only a later row sets is not dropped; rows that omit it
   // get DEFAULT, like a single insertOne without that key. Keys that aren't table columns are
-  // filtered out (like drizzle did implicitly).
+  // filtered out.
   const fields = [...new Set(rows.flatMap((row) => Object.keys(row)))].filter((k) =>
     info.hasColumn(k),
   );
@@ -755,8 +754,8 @@ export function insertEntries(info: TableInfo, values: Record<string, unknown>):
     });
 }
 
-// Exported for the shadow-proof regression test — `table.columns` would be the
-// drizzle handle (not the PK list) when an entity has a field named `columns`.
+// Exported for the shadow-proof regression test: `table.columns` would resolve to the handle of
+// a field named `columns` instead of the PK list.
 export function resolveConflictColumns(
   table: TableLike,
   info: TableInfo,

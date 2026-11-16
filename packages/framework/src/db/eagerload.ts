@@ -102,7 +102,7 @@ export type EagerLoadViewer = {
 };
 
 // Referenced rows are read via a raw selectMany, not the referenced entity's
-// own executor context (that would need table/searchAdapter/entityCache wiring
+// own executor context (that would need table/searchAdapter wiring
 // per ref). Access is enforced separately by readableRefIds. Mirrors
 // event-store-executor-context's decryptForRead ordering: PII is the outer
 // layer, peel it before the envelope-encrypted fields, or the envelope

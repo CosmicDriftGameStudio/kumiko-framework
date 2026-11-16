@@ -11,7 +11,6 @@ export const APP_CONTEXT_KEY_ROLES = {
   userLiveSignals: "service",
   jobRunner: "service",
   searchAdapter: "service",
-  entityCache: "service",
   secrets: "service",
   kms: "service",
   files: "service",

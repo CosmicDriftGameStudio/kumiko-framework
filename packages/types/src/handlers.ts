@@ -11,7 +11,6 @@ import type {
   NotifyDeliveryStatus,
 } from "./delivery-attempt-types.ts";
 import type { DerivativesContext } from "./derivatives-types.ts";
-import type { EntityCache } from "./entity-cache.ts";
 import type { EventMetadata, WriteOrigin } from "./event-store-types.ts";
 import type { KumikoEventTypeMap } from "./event-type-map.ts";
 import type { FileContext } from "./file-handle-types.ts";
@@ -583,7 +582,6 @@ type SharedContextFields = {
   readonly files?: FileContext;
   readonly derivatives?: DerivativesContext;
   readonly _fileProviderResolver?: FileProviderResolver;
-  readonly entityCache?: EntityCache;
   readonly notify?: NotifyFn;
   readonly _notifyFactory?: NotifyFactory;
   readonly _notifyInTransactionFactory?: (user: SessionUser, tenantId: TenantId) => NotifyFn;
@@ -1305,7 +1303,7 @@ export type WriteHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: WriteHandlerFn;
-  /** Set only by defineEntityWriteHandler, which wires the parent-ref visibility gate.
+  /** Set only by the entity write factories (defineEntityUpdateHandler, …), which wire the parent-ref visibility gate.
    *  The boot-validator requires it on a `parentRef` entity's update/delete/restore handler. */
   readonly [ENTITY_CONVENTION_WRITE_BRAND]?: true;
   readonly access: AccessRule;
@@ -1357,20 +1355,20 @@ export type WriteHandlerDef = {
   readonly perform?: import("./step.ts").PipelineDef;
 };
 
-// Marker set by defineEntityQueryHandler on both of its verbs. A string, not
+// Marker set by defineEntityListHandler/defineEntityDetailHandler. A string, not
 // a Symbol(), for the same reason as PAGED_QUERY_HANDLER_BRAND: a symlinked
 // workspace can evaluate a module twice, and two Symbol() calls would not
 // compare equal across those instances.
 export const ENTITY_CONVENTION_QUERY_BRAND = "__kumikoEntityConventionQuery";
 
-// Same brand for the update/delete/restore handlers built by defineEntityWriteHandler.
+// Same brand for the update/delete/restore handlers built by the entity write factories (defineEntityUpdateHandler, …).
 export const ENTITY_CONVENTION_WRITE_BRAND = "__kumikoEntityConventionWrite";
 
 export type QueryHandlerDef = {
   readonly name: string;
   readonly schema: ZodType;
   readonly handler: QueryHandlerFn;
-  /** Set only by defineEntityQueryHandler, which wires the parent-ref
+  /** Set only by defineEntityListHandler/defineEntityDetailHandler, which wire the parent-ref
    *  read-gate. The boot-validator requires it on a `parentRef` entity's
    *  list/detail handler — see boot-validator/parent-ref.ts. */
   readonly [ENTITY_CONVENTION_QUERY_BRAND]?: true;

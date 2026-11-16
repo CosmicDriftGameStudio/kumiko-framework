@@ -42,7 +42,6 @@ function buildSeedContext(run: ProdSeedRun) {
     {
       db,
       redis,
-      entityCache: run.requestContext.entityCache,
       registry,
       ...run.requestContext.extraContext,
       rateLimit: createUnlimitedRateLimitResolver(),

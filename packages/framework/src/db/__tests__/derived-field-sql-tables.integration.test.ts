@@ -8,11 +8,11 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { defineEntityQueryHandler } from "../../engine/entity-handlers.ts";
 import {
   createDerivedField,
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
   defineFeature,
 } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";

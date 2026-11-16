@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
+  defineEntityDetailHandler,
   defineFeature,
   from,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -49,7 +49,7 @@ function featureWith(access: Parameters<typeof createEntity>[0]["access"]) {
   return defineFeature("fwbootguard", (r) => {
     r.entity({ name: "memo", ...entity });
     r.queryHandler(
-      defineEntityQueryHandler("memo:detail", entity, { access: { roles: ["Member"] } }),
+      defineEntityDetailHandler("memo", entity, { access: { roles: ["Member"] } }),
     );
   });
 }

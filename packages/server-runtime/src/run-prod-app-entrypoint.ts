@@ -53,7 +53,6 @@ export function buildProdEntrypointOptions(
     context: {
       db,
       redis,
-      entityCache: requestContext.entityCache,
       registry,
       ...requestContext.extraContext,
     },

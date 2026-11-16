@@ -31,7 +31,7 @@ export const ENTITY_DECLARATION_RULES = {
     id: "parent-ref/hand-written-write-handler",
     summary:
       "Update/delete/restore handlers on an entity with parentRef carry the entity-convention brand, so the parent visibility gate applies.",
-    fix: "Register the handler via defineEntityWriteHandler, or pass parentVisibility: parentVisibilityFor(ctx, event.user) to the executor.",
+    fix: "Register the handler via defineEntityUpdateHandler, defineEntityDeleteHandler or defineEntityRestoreHandler, or pass parentVisibility: parentVisibilityFor(ctx, event.user) to the executor.",
   },
   readGateWithParentRef: {
     id: "read-gate/with-parent-ref",

@@ -33,11 +33,7 @@ import {
   assertKumikoSchemaCurrent,
   SchemaDriftError,
 } from "@cosmicdrift/kumiko-framework/migrations";
-import {
-  createEntityCache,
-  createEventDedup,
-  createIdempotencyGuard,
-} from "@cosmicdrift/kumiko-framework/pipeline";
+import { createEventDedup, createIdempotencyGuard } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createRedisCacheSyncBus,
   redisClientOptionsFromEnv,
@@ -283,7 +279,6 @@ export async function bootWorkerProcess(
 
   const idempotency = createIdempotencyGuard(redis, { ttlSeconds: 60 });
   const eventDedup = createEventDedup(redis, { ttlSeconds: 60 });
-  const entityCache = createEntityCache(redis, { ttlSeconds: 60 });
 
   // Same crypto wiring as the API, otherwise this process writes
   // rows the API can no longer read (different cipher, missing blind index).
@@ -330,7 +325,7 @@ export async function bootWorkerProcess(
     sseBroker,
     registry,
     rowLevelSecurity,
-    context: { db, redis, entityCache, registry, ...extraContext },
+    context: { db, redis, registry, ...extraContext },
     jwtSecret: jwtSecretOrKeyring,
     dispatcherOptions: {
       idempotency,

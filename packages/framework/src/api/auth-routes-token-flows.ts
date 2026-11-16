@@ -7,6 +7,7 @@ import { Routes } from "./api-constants.ts";
 import type { AuthRouteContext } from "./auth-routes-context.ts";
 import type { PublicAuthErrorStatus } from "./auth-routes-shared.ts";
 import { registerTokenRequestRoute } from "./auth-routes-shared.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 const ResetPasswordBody = z.object({
   token: z.string().min(1),
@@ -38,7 +39,7 @@ function registerTokenConfirmRoute(opts: {
     );
     if (!result.isSuccess) {
       const status = result.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
-      return c.json({ isSuccess: false, error: result.error }, status);
+      return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
     }
     return c.json({ isSuccess: true });
   });

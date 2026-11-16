@@ -31,7 +31,6 @@ import {
 import { ArchivedStreamError } from "../event-store/errors.ts";
 import { type EventMetadata, isStreamArchived } from "../event-store/index.ts";
 
-import type { EntityCache } from "../pipeline/entity-cache.ts";
 import type { SearchAdapter } from "../search/types.ts";
 import type { EnvelopeCipher } from "../secrets/envelope-cipher.ts";
 import { assertUnreachable } from "../utils/index.ts";
@@ -190,7 +189,6 @@ export type ExecutorContext = {
   readonly table: Table;
   readonly entity: EntityDefinition;
   readonly entityName: string;
-  readonly entityCache?: EntityCache;
   readonly searchAdapter?: SearchAdapter;
   readonly softDelete: boolean;
   readonly streamTenantCreateFailure: (
@@ -211,13 +209,6 @@ export type ExecutorContext = {
     options?: { readonly includeDeleted?: boolean },
   ) => Promise<Record<string, unknown> | null>;
   readonly assertStreamWritable: (db: TenantDb, id: EntityId, tenantId: TenantId) => Promise<void>;
-  readonly probeOwnershipWithStreamVersion: (
-    db: TenantDb,
-    idWhere: WhereObject,
-    ownership: { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ) => Promise<{ readonly owned: boolean; readonly streamVersion: number }>;
   readonly isRowReadable: (
     id: EntityId,
     user: SessionUser,
@@ -271,7 +262,7 @@ export function buildExecutorContext(
   entity: EntityDefinition,
   options: EventStoreExecutorOptions,
 ): ExecutorContext {
-  const { searchAdapter, entityName, entityCache } = options;
+  const { searchAdapter, entityName } = options;
   const softDelete = entity.softDelete ?? false;
 
   // Without systemStream: true, a "global" entity would silently fork one event stream per creating tenant.
@@ -578,32 +569,6 @@ export function buildExecutorContext(
     );
   }
 
-  // Cache-hit revalidation: ownership predicate and live stream version in ONE
-  // statement, so a cache hit costs the same single roundtrip as the cold path.
-  async function probeOwnershipWithStreamVersion(
-    db: TenantDb,
-    idWhere: WhereObject,
-    ownership: { kind: "sql"; sqlText: string; params: readonly unknown[] },
-    streamTenantId: TenantId,
-    aggregateId: string,
-  ): Promise<{ readonly owned: boolean; readonly streamVersion: number }> {
-    const tableName = String(schemaTableName(table));
-    const { whereParts, params } = buildRawIdWhere(db, idWhere, ownership);
-    params.push(aggregateId, streamTenantId);
-    const sqlText =
-      `SELECT 1 AS "__owned", ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
-      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
-    const rows = await executeRawQueryRead<Record<string, unknown>>(
-      tenantDbRunnerForTable(db, table),
-      sqlText,
-      params,
-    );
-    const first = rows[0];
-    if (!first) return { owned: false, streamVersion: 0 };
-    const version = first["__streamVersion"];
-    return { owned: true, streamVersion: typeof version === "number" ? version : 0 };
-  }
-
   // Same read predicate detail applies (access.read plus the parent-ref gate), evaluated
   // for one row. The row's own isDeleted is not filtered because restore targets a
   // soft-deleted row; includeDeleted below only concerns the parent host. Writers use it
@@ -736,7 +701,6 @@ export function buildExecutorContext(
     table,
     entity,
     entityName,
-    entityCache,
     searchAdapter,
     softDelete,
     streamTenantFor,
@@ -745,7 +709,6 @@ export function buildExecutorContext(
     idFilter,
     loadById,
     assertStreamWritable,
-    probeOwnershipWithStreamVersion,
     isRowReadable,
     loadDetailSnapshot,
     loadExpectSnapshot,

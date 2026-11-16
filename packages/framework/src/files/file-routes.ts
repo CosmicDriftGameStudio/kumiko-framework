@@ -289,7 +289,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
 
   // loadFileForTenant is a raw selectMany — unlike executor.detail() (used by
   // /meta), it never decrypts. Decrypting via detail() here would add its
-  // getStreamVersion/entity-cache overhead to these binary-serving hot
+  // getStreamVersion overhead to these binary-serving hot
   // paths, so this calls the same PII cipher directly on the already-
   // fetched row: one KMS key fetch instead of detail()'s full read path.
   async function resolveFileName(fileRef: FileRef): Promise<string> {

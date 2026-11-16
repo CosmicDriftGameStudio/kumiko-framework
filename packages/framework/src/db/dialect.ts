@@ -12,10 +12,6 @@
 //
 // The framework no longer imports drizzle-orm at runtime — schema-files
 // use only this module.
-//
-// Static import of the shared Temporal module, not the ambient global: the
-// global may be absent (Hermes/Safari) or torn down in tests, and instantToDriver
-// crashed on timestamptz writes without it.
 
 import type { WritableSchemaTable } from "@cosmicdrift/kumiko-types/executor-brand";
 import {
@@ -25,7 +21,7 @@ import {
   KUMIKO_NAME_SYMBOL,
   type SchemaTable,
 } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
+import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import type {
   ColumnMeta,
   CompositePrimaryKeyMeta,
@@ -244,16 +240,13 @@ export function jsonb(name: string): ColumnBuilder<Record<string, unknown>> {
   return buildColumn<Record<string, unknown>>(name, "jsonb");
 }
 
-// Legacy alias kept for compat — timestamptz with no precision.
+// timestamptz without precision; the options are accepted and ignored.
 export function timestamp(
   name: string,
   _opts?: { withTimezone?: boolean; mode?: "string" | "date" },
 ): ColumnBuilder<Temporal.Instant | string> {
   return buildColumn<Temporal.Instant | string>(name, "timestamptz");
 }
-
-// numeric → text (we don't currently use Decimal); kept for compat with
-// legacy schema imports that won't actually instantiate at runtime.
 
 export function instant(
   name: string,
@@ -557,17 +550,4 @@ export function extractTableName(table: unknown, context = "extractTableName"): 
     throw new Error(`${context}: table missing kumiko:schema:Name symbol`);
   }
   return name;
-}
-
-// Helper used by `instantToDriver` callers in legacy code — kept identical
-// to the previous behaviour. The native dialect handles parse/serialize
-// implicitly via the Bun driver; this function is a defensive coerce at
-// the API boundary.
-export function instantToDriver(value: Temporal.Instant | string): string {
-  if (typeof value === "string") {
-    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
-    const iso = dateOnly ? `${value}T00:00:00Z` : value;
-    return Temporal.Instant.from(iso).toString();
-  }
-  return value.toString();
 }

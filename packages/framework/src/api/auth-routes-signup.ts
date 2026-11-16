@@ -10,6 +10,7 @@ import {
   registerTokenRequestRoute,
   SignupRequestBody,
 } from "./auth-routes-shared.ts";
+import { toClientWriteErrorInfo } from "../errors/write-error-info.ts";
 
 const SignupConfirmBody = z.object({
   token: z.string().min(1),
@@ -54,7 +55,7 @@ export function registerSignupRoutes(ctx: AuthRouteContext): void {
         // 422 for invalid_signup_token (handler-level UnprocessableError).
         // @cast-boundary engine-payload — KumikoError.httpStatus narrows to the http-status union
         const status = result.error.httpStatus as PublicAuthErrorStatus;
-        return c.json({ isSuccess: false, error: result.error }, status);
+        return c.json({ isSuccess: false, error: toClientWriteErrorInfo(result.error) }, status);
       }
 
       // @cast-boundary engine-payload — generic dispatcher.write result for signup-confirm

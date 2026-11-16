@@ -11,12 +11,11 @@ import {
 import { createEventStoreExecutor } from "../db/event-store-executor.ts";
 import { buildEntityTable } from "../db/table-builder.ts";
 import { createTenantDb } from "../db/tenant-db.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
 import {
   createEntity,
   createSystemUser,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
   defineFeature,
   from,
 } from "../engine/index.ts";

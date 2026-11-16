@@ -19,8 +19,8 @@ import type {
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityListHandler,
   defineFeature,
   from,
   HookPhases,
@@ -131,7 +131,6 @@ const TRIES_JOB_RUNNER_QN = "queryasmemberprobe:query:tries-job-runner";
 const PROBE_ENTITY_ID = crypto.randomUUID() as EntityId;
 const TRIES_SEARCH_REMOVE_QN = "queryasmemberprobe:query:tries-search-remove";
 const TRIES_REDIS_WRITE_QN = "queryasmemberprobe:query:tries-redis-write";
-const TRIES_CACHE_WRITE_QN = "queryasmemberprobe:query:tries-cache-write";
 const READS_SEARCH_REDIS_CACHE_QN = "queryasmemberprobe:query:reads-search-redis-cache";
 const TRIES_DB_WRITE_QN = "queryasmemberprobe:query:tries-db-write";
 const TRIES_UNSAFE_RAW_WRITE_QN = "queryasmemberprobe:query:tries-unsafe-raw-write";
@@ -151,10 +150,10 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
   r.entity({ name: "hookNoteB", ...hookNoteBEntity });
 
   r.writeHandler(
-    defineEntityWriteHandler("note:create", noteEntity, { access: { roles: ["Admin"] } }),
+    defineEntityCreateHandler("note", noteEntity, { access: { roles: ["Admin"] } }),
   );
   r.queryHandler(
-    defineEntityQueryHandler("note:list", noteEntity, { access: { roles: ["Admin", "User"] } }),
+    defineEntityListHandler("note", noteEntity, { access: { roles: ["Admin", "User"] } }),
   );
 
   r.queryHandler({
@@ -239,26 +238,12 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     access: { roles: ["Admin", "User"] },
   });
   r.queryHandler({
-    name: "tries-cache-write",
-    schema: z.object({}),
-    handler: async (query, ctx) => {
-      await ctx.services.entityCache?.del(query.user.tenantId, "note", PROBE_ENTITY_ID);
-      return { ok: true };
-    },
-    access: { roles: ["Admin", "User"] },
-  });
-  r.queryHandler({
     name: "reads-search-redis-cache",
     schema: z.object({}),
     handler: async (query, ctx) => {
       const hits = await ctx.services.searchAdapter?.search(query.user.tenantId, "anything");
       const redisValue = await ctx.services.redis?.get("queryasmemberprobe:absent");
-      const cached = await ctx.services.entityCache?.get(
-        query.user.tenantId,
-        "note",
-        PROBE_ENTITY_ID,
-      );
-      return { hits: hits?.length ?? -1, redisValue: redisValue ?? null, cached: cached ?? null };
+      return { hits: hits?.length ?? -1, redisValue: redisValue ?? null };
     },
     access: { roles: ["Admin", "User"] },
   });
@@ -457,13 +442,13 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
 
   // A hook's own escapeHatch grants independently of the handler it fires on, in both directions.
   r.writeHandler({
-    ...defineEntityWriteHandler("hook-note-a:create", hookNoteAEntity, {
+    ...defineEntityCreateHandler("hook-note-a", hookNoteAEntity, {
       access: { roles: ["Admin"] },
     }),
     escapeHatch: { reason: "test: handler has its own grant" },
   });
   r.writeHandler(
-    defineEntityWriteHandler("hook-note-b:create", hookNoteBEntity, {
+    defineEntityCreateHandler("hook-note-b", hookNoteBEntity, {
       access: { roles: ["Admin"] },
     }),
   );
@@ -972,7 +957,6 @@ describe("ctx.dispatch.queryAsMember — the resolved principal is read-only (no
   test.each([
     ["searchAdapter.remove", TRIES_SEARCH_REMOVE_QN],
     ["redis.set", TRIES_REDIS_WRITE_QN],
-    ["entityCache.del", TRIES_CACHE_WRITE_QN],
   ])(
     "target query handler calling write surface %s → denied with member_resolution_read_only",
     async (_label, qn) => {
@@ -986,13 +970,13 @@ describe("ctx.dispatch.queryAsMember — the resolved principal is read-only (no
     },
   );
 
-  test("target query handler can still use searchAdapter.search, redis.get and entityCache.get", async () => {
+  test("target query handler can still use searchAdapter.search and redis.get", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("readsSurfaces@example.com", "pw-long-enough-15");
     await addMembership(userId, TENANT_A);
 
     const result = await readAsMember(userId, READS_SEARCH_REDIS_CACHE_QN);
-    expect(result).toMatchObject({ hits: 0, redisValue: null, cached: null });
+    expect(result).toMatchObject({ hits: 0, redisValue: null });
   });
 
   test("target query handler calling ctx.events.fetchForWriting(...).appendOne → denied with member_resolution_read_only", async () => {

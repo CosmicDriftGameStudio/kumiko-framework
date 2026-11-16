@@ -9,7 +9,7 @@ import {
   createLongTextField,
   createRegistry,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { SearchAdapter } from "@cosmicdrift/kumiko-framework/search";
@@ -59,7 +59,7 @@ function featureWith(bodyFind: "none" | "fuzzy") {
   return defineFeature("findchange", (r) => {
     r.entity({ name: "memo", ...entity });
     r.writeHandler(
-      defineEntityWriteHandler("memo:create", entity, { access: { roles: ["Admin"] } }),
+      defineEntityCreateHandler("memo", entity, { access: { roles: ["Admin"] } }),
     );
   });
 }

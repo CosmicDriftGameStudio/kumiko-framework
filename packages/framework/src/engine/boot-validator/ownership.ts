@@ -150,9 +150,8 @@ export function validateOwnershipRules(
       });
     }
 
-    // Field-level access — OwnershipMap form goes through checkOwnershipMap,
-    // legacy string[] through checkLegacyRoleList. Both enforce role-name
-    // existence against knownRoles so typos fail loud.
+    // Field-level access: OwnershipMap via checkOwnershipMap, the role-list shorthand via
+    // checkRoleListAccess; both reject unknown role names.
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       checkFieldAccess({
         access: field.access?.read,
@@ -194,16 +193,14 @@ export function checkFieldAccess(args: {
   // skip: no access rules on this field, nothing to validate
   if (!args.access) return;
   if (Array.isArray(args.access)) {
-    // Legacy string[] form — every entry is a role name. Ref/column
-    // validation is n/a here (no claim refs in this shape), but the
-    // role-existence check applies.
-    checkLegacyRoleList(
+    // Role-list shorthand: every entry is a role name, no claim refs.
+    checkRoleListAccess(
       args.access as readonly string[], // @cast-boundary schema-walk
       args.knownRoles,
       args.scope,
       args.featureName,
     );
-    // skip: legacy form validated, OwnershipMap check below doesn't apply
+    // skip: role list validated, the OwnershipMap check below doesn't apply
     return;
   }
   checkOwnershipMap({
@@ -218,7 +215,7 @@ export function checkFieldAccess(args: {
   });
 }
 
-export function checkLegacyRoleList(
+export function checkRoleListAccess(
   roles: readonly string[],
   knownRoles: ReadonlySet<string> | undefined,
   scope: string,

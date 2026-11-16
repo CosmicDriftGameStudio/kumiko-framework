@@ -5,6 +5,7 @@ import {
   failTransition,
   failUnprocessable,
   reraiseAsKumikoError,
+  toClientWriteErrorInfo,
   toWriteErrorInfo,
 } from "../write-error-info.ts";
 
@@ -163,5 +164,47 @@ describe("toWriteErrorInfo / reraiseAsKumikoError — cause round-trip", () => {
     const info = toWriteErrorInfo(new InternalError({ cause: new Error("connection was closed") }));
     const replayed = { ...info };
     expect(reraiseAsKumikoError(replayed).cause).toBeUndefined();
+  });
+});
+
+describe("toClientWriteErrorInfo", () => {
+  function withNodeEnv(env: string, run: () => void): void {
+    const original = process.env["NODE_ENV"];
+    process.env["NODE_ENV"] = env;
+    try {
+      run();
+    } finally {
+      if (original === undefined) delete process.env["NODE_ENV"];
+      else process.env["NODE_ENV"] = original;
+    }
+  }
+
+  const leaky = () =>
+    toWriteErrorInfo(
+      new InternalError({ message: "secret config X", details: { a: 1 }, i18nParams: { b: 2 } }),
+    );
+
+  test("production replaces the internal_error text and drops details and i18nParams", () => {
+    withNodeEnv("production", () => {
+      const client = toClientWriteErrorInfo(leaky());
+      expect(client.message).toBe("internal error");
+      expect(client).not.toHaveProperty("details");
+      expect(client).not.toHaveProperty("i18nParams");
+      expect(client.httpStatus).toBe(500);
+    });
+  });
+
+  test("test env returns the same object", () => {
+    withNodeEnv("test", () => {
+      const info = leaky();
+      expect(toClientWriteErrorInfo(info)).toBe(info);
+    });
+  });
+
+  test("production leaves other codes untouched", () => {
+    withNodeEnv("production", () => {
+      const info = toWriteErrorInfo(new NotFoundError("invoice", "inv-1"));
+      expect(toClientWriteErrorInfo(info)).toBe(info);
+    });
   });
 });

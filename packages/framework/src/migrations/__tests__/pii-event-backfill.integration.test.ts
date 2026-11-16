@@ -22,11 +22,13 @@ import { createDbConnection } from "../../db/connection.ts";
 import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect.ts";
 import { asRawClient } from "../../db/query.ts";
 import {
+  defineEntityQueryHandler,
+  defineEntityWriteHandler,
+} from "../../engine/entity-handlers.ts";
+import {
   createEntity,
   createRegistry,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
   defineFeature,
 } from "../../engine/index.ts";
 import type { Registry, TenantId } from "../../engine/types/index.ts";

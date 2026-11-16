@@ -68,7 +68,6 @@ beforeAll(async () => {
   dispatcher = createDispatcher(registry, {
     db: testDb.db,
     redis: undefined as never,
-    entityCache: undefined as never,
     registry,
   });
 

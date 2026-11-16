@@ -38,7 +38,6 @@ function allowlistedReadOnlyProxy<T extends object>(
 
 const MEMBER_READ_SEARCH_METHODS: ReadonlySet<string> = new Set(["search"]);
 const MEMBER_READ_SECRETS_METHODS: ReadonlySet<string> = new Set(["get", "has"]);
-const MEMBER_READ_ENTITY_CACHE_METHODS: ReadonlySet<string> = new Set(["get", "mget"]);
 const MEMBER_READ_REDIS_METHODS: ReadonlySet<string> = new Set([
   "get",
   "mget",
@@ -63,7 +62,7 @@ const MEMBER_READ_REDIS_METHODS: ReadonlySet<string> = new Set([
 ]);
 
 function readOnlyServices(services: HandlerContext["services"]): HandlerContext["services"] {
-  const { searchAdapter, redis, entityCache, jobRunner, secrets } = services;
+  const { searchAdapter, redis, jobRunner, secrets } = services;
   // A read as a member gets no file storage, no notify factory and no job runner; the read-only
   // proxies keep the rest. The resolver and factories would reopen what files/notify close.
   // kms, masterKeyProvider and the audit sink write through their own connections, which the
@@ -89,9 +88,6 @@ function readOnlyServices(services: HandlerContext["services"]): HandlerContext[
       secrets: allowlistedReadOnlyProxy(secrets, MEMBER_READ_SECRETS_METHODS),
     }),
     ...(redis && { redis: allowlistedReadOnlyProxy(redis, MEMBER_READ_REDIS_METHODS) }),
-    ...(entityCache && {
-      entityCache: allowlistedReadOnlyProxy(entityCache, MEMBER_READ_ENTITY_CACHE_METHODS),
-    }),
   };
 }
 
@@ -99,7 +95,7 @@ function readOnlyServices(services: HandlerContext["services"]): HandlerContext[
 // if a handler tries ctx.dispatch.write directly on a resolved member principal.
 // Deliberately open: `db` and, for r.systemScope() handlers, `systemDb` (both ride the READ ONLY
 // transaction; the systemDb is a view whose unsafeRaw follows db's memberReadOnly denial and that has
-// no outside-transaction source), plus read-only methods of searchAdapter / redis / entityCache.
+// no outside-transaction source), plus read-only methods of searchAdapter / redis.
 export function applyMemberResolutionReadOnly(handlerContext: HandlerContext): HandlerContext {
   // executeQuery runs the whole handler in a Postgres READ ONLY transaction, and `db`'s
   // `memberReadOnly` grant denies every raw-runner handout. crossTenantReads and the

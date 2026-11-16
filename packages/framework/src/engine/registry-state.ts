@@ -102,20 +102,20 @@ export function buildImplicitProjection(
   // collectTableMetas — restoring the invariant (test-push == generate).
   // Validated as a superset of the field-derived columns so a field/table
   // disagreement fails at boot, not as a silent thin-vs-rich row.
-  const drizzleTable =
+  const entityTable =
     backingTable !== undefined
       ? resolveBackingTable(entityName, entity, backingTable)
       : buildEntityTable(entityName, entity);
   // Push paths read the table's own meta, so the reference-data-derived flag must land there too.
-  if (readsSystemRows) declareSystemRowsReadable(drizzleTable);
-  markExecutorManagedTable(drizzleTable, { entityName, entity });
+  if (readsSystemRows) declareSystemRowsReadable(entityTable);
+  markExecutorManagedTable(entityTable, { entityName, entity });
   // applyEntityEvent returns ApplyResult, but SingleStreamApplyFn expects
   // Promise<void>. The row is irrelevant during rebuild, so we discard it.
   const handler = async (
     event: Parameters<ProjectionDefinition["apply"][string]>[0],
     tx: Parameters<ProjectionDefinition["apply"][string]>[1],
   ): Promise<void> => {
-    await applyEntityEvent(event, drizzleTable, entity, tx);
+    await applyEntityEvent(event, entityTable, entity, tx);
   };
   const apply: Record<string, ProjectionDefinition["apply"][string]> = {
     [`${entityName}.created`]: handler,
@@ -151,7 +151,7 @@ export function buildImplicitProjection(
     source: entityName,
     ...(extraSources.length > 0 && { extraSources }),
     ...(Object.keys(extraSourceRowIds).length > 0 && { extraSourceRowIds }),
-    table: drizzleTable,
+    table: entityTable,
     apply,
     isImplicit: true,
   };
@@ -241,7 +241,7 @@ function collectExtensionSources(
 // Validates a r.entity backing table is a superset of the entity's field-
 // derived columns, then hands it back as the projection table. The cast is a
 // system-boundary reconstitution: the table is stored as `unknown` on
-// FeatureDefinition only to keep drizzle out of the plain-data shape, and
+// FeatureDefinition only to keep the table object out of the plain-data shape, and
 // asEntityTableMeta confirms the kumiko-table shape at runtime.
 function resolveBackingTable(
   entityName: string,

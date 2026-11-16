@@ -68,33 +68,12 @@ export type {
   RegisterEntityCrudOptions,
 } from "./types/entity-handlers.ts";
 
-// Convention-based handler factories for event-sourced aggregates.
-//
-// You register one handler per call (no auto-generation of a whole CRUD set),
-// but the Schema and the executor body are inferred from the entity + verb.
-// Pick the verbs you need — leave out the ones you don't.
-//
-// Two API shapes — pick one per project, don't mix:
-//
-//   PREFERRED — full standard CRUD set in one call:
-//     r.crud("note", noteEntity, { write: { access }, read: { access } })
-//
-//   PREFERRED — one function per verb, type-safe, no magic strings:
-//     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
-//     r.writeHandler(defineEntityUpdateHandler("note", noteEntity, { access }))
-//     r.writeHandler(defineEntityDeleteHandler("note", noteEntity, { access }))
-//     r.queryHandler(defineEntityListHandler("note", noteEntity, { access }))
-//     r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }))
-//
-//   LEGACY — single function with verb in the name-string. Kept for
-//   backwards-compat; existing apps work as before. New code should use
-//   the verb-specific factories above:
-//     r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))
-//     r.queryHandler(defineEntityDetailHandler("note", noteEntity, { access }))
-//
-// For custom logic (default values, business rules, side effects, custom
-// executors with ctx.services.searchAdapter, ...) write the handler explicitly with
-// r.writeHandler / r.queryHandler — these helpers cover the standard path only.
+// Convention-based handler factories for event-sourced aggregates: schema and executor
+// body are inferred from entity + verb. Two API shapes: `r.crud("note", noteEntity, { write:
+// { access }, read: { access } })` for the full set, or one factory per verb
+// (`r.writeHandler(defineEntityCreateHandler("note", noteEntity, { access }))`, likewise
+// Update/Delete/Restore and `r.queryHandler(defineEntityListHandler(...))`/Detail).
+// Custom logic gets a hand-written r.writeHandler / r.queryHandler.
 //
 // Note on the `as` casts in the handler bodies: WriteHandlerDef.handler's
 // payload type is `unknown` because the dispatcher hands the parsed payload
@@ -342,6 +321,7 @@ export type EntityWriteHandlerDef = WriteHandlerDef & {
   readonly beforeTransactionWhenNested?: undefined;
 };
 
+// Module-internal: parses "<entity>:<verb>"; the public surface is the verb factories below.
 export function defineEntityWriteHandler(
   name: string,
   entity: EntityDefinition,
@@ -557,6 +537,7 @@ function augmentDerivedFields(
   });
 }
 
+// Module-internal: parses "<entity>:<verb>"; the public surface is the verb factories below.
 export function defineEntityQueryHandler(
   name: string,
   entity: EntityDefinition,
@@ -687,25 +668,11 @@ export function defineEntityQueryHandler(
   };
 }
 
-// ─── Verb-specific factories (preferred) ──────────────────────────────
+// ─── Verb factories ───────────────────────────────────────────────────
 //
-// One function per verb — verb is the function name, no magic-string
-// parsing. Each delegates to the legacy `defineEntityWriteHandler` /
-// `defineEntityQueryHandler` with a fixed verb-suffix; the schema +
-// handler-body logic is unchanged. Migration from the legacy API is a
-// 1:1 rename — same arguments minus the verb-prefix in the name-string.
-//
-// Why prefer these over the legacy form:
-//   - Verb is checked at compile-time (no runtime "Unknown verb" throw)
-//   - IDE auto-completes the four/two verbs after typing `defineEntity`
-//   - Function name is self-documenting; no comment needed to explain
-//   - Entity-name appears once (used to be doubled: once in the string,
-//     once as the entity-arg)
-//
-// Restore-specific note: defineEntityRestoreHandler still validates at
-// runtime that entity.softDelete === true. A compile-time-only check
-// would need a Branded-EntityDefinition with `softDelete: true` literal
-// — feasible but not yet wired; the runtime guard catches misuse.
+// The verb is the function name, each delegates to defineEntityWriteHandler/
+// defineEntityQueryHandler with a fixed suffix. defineEntityRestoreHandler still
+// checks entity.softDelete at runtime.
 
 export function defineEntityCreateHandler(
   entityName: string,
@@ -756,15 +723,12 @@ export function defineEntityDetailHandler(
 }
 
 // Bundle the two calls every custom write-handler opens with: build the
-// Drizzle table from the entity, then wire an event-store executor onto it.
+// entity table, then wire an event-store executor onto it.
 // The pair is identical in every sample that hand-writes handlers, so the
 // helper collapses 3-4 lines + the { entityName } bookkeeping into one.
 //
-//   const { table, executor } = createEntityExecutor("counter", counterEntity);
-//
-// Keep using the explicit buildEntityTable / createEventStoreExecutor duo
-// when you need search-adapter / entity-cache options on the executor — this
-// helper covers the zero-config case.
+// Use buildEntityTable + createEventStoreExecutor directly when the executor needs a
+// searchAdapter. This helper covers the zero-config case.
 export function createEntityExecutor<E extends EntityDefinition>(
   entityName: string,
   entity: E,

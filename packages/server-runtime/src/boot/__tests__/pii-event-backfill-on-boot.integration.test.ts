@@ -13,8 +13,8 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
+  defineEntityDetailHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { runPiiEventBackfill } from "@cosmicdrift/kumiko-framework/migrations";
@@ -36,10 +36,10 @@ const contactEntity = createEntity({
 const crmFeature = defineFeature("crm", (r) => {
   r.entity({ name: "contact", ...contactEntity });
   r.writeHandler(
-    defineEntityWriteHandler("contact:create", contactEntity, { access: { roles: ["Admin"] } }),
+    defineEntityCreateHandler("contact", contactEntity, { access: { roles: ["Admin"] } }),
   );
   r.queryHandler(
-    defineEntityQueryHandler("contact:detail", contactEntity, { access: { roles: ["Admin"] } }),
+    defineEntityDetailHandler("contact", contactEntity, { access: { roles: ["Admin"] } }),
   );
 });
 

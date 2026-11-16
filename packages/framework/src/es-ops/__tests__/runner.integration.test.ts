@@ -97,10 +97,9 @@ beforeAll(async () => {
   registry = createRegistry([seedTestFeature]);
   dispatcher = createDispatcher(registry, {
     db: testDb.db,
-    // The seed-migration path uses neither redis nor entityCache — undefined
+    // The seed-migration path does not use redis — undefined
     // is safe here; the `as never` cast only suppresses the required types.
     redis: undefined as never,
-    entityCache: undefined as never,
     registry,
   });
 });

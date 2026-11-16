@@ -9,12 +9,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { defineEntityQueryHandler } from "../../engine/entity-handlers.ts";
 import {
   createDateField,
   createDerivedField,
   createEntity,
   createTextField,
-  defineEntityQueryHandler,
   defineFeature,
 } from "../../engine/index.ts";
 import type { SessionUser } from "../../engine/types/index.ts";

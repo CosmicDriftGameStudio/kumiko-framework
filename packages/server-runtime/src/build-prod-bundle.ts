@@ -316,10 +316,7 @@ const SOURCE_EXTENSION_PATTERN = /\.(?:tsx?|jsx?)$/;
  *   1. `declared.clientEntry` and `declared.clientEntries` both set → throw.
  *   2. `declared.clientEntries` (non-empty) → one entry per declaration.
  *   3. `declared.clientEntry` → single entry, name "client".
- *   4. Neither → convention: src/client.tsx | src/client.ts (name "client").
- *      If that convention finds nothing but src/ still has legacy
- *      `client-<suffix>.tsx` files, throws a migration error instead of
- *      silently shipping a build without their bundles. */
+ *   4. Neither → convention: src/client.tsx | src/client.ts (name "client"). */
 export function resolveClientEntries(
   cwd: string,
   declared: ClientEntriesConfig,
@@ -458,49 +455,7 @@ function resolveConventionEntries(cwd: string): readonly ClientEntry[] {
       ];
     }
   }
-  const legacyEntries = findLegacyClientFiles(cwd);
-  if (legacyEntries.length > 0) {
-    throw new Error(buildLegacyMultiEntryMigrationError(legacyEntries));
-  }
   return [];
-}
-
-type LegacyClientFile = { readonly name: string; readonly file: string };
-
-// Legacy multi-entry convention: any src/client-<suffix>.tsx(x) became
-// its own bundle. Detecting these without a declaration means an unmigrated
-// app would silently ship without their bundles — throw instead.
-function findLegacyClientFiles(cwd: string): readonly LegacyClientFile[] {
-  const srcDir = resolve(cwd, "src");
-  if (!existsSync(srcDir)) return [];
-  let files: readonly string[];
-  try {
-    files = readdirSync(srcDir);
-  } catch {
-    return [];
-  }
-  const found: LegacyClientFile[] = [];
-  for (const file of files) {
-    const match = /^client-([a-z][a-z0-9-]*)\.tsx?$/.exec(file);
-    if (match?.[1]) found.push({ name: match[1], file });
-  }
-  return found.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-function buildLegacyMultiEntryMigrationError(entries: readonly LegacyClientFile[]): string {
-  const fileNames = entries.map((e) => `src/${e.file}`).join(", ");
-  const snippet = entries
-    .map((e) => `      { "name": "${e.name}", "sourceFile": "./src/${e.file}" }`)
-    .join(",\n");
-  return (
-    `[kumiko build] found ${fileNames} but no "kumiko.clientEntries" declaration in ` +
-    `package.json — production builds no longer infer entries from filenames (fw#2320). Add:\n\n` +
-    `  "kumiko": {\n` +
-    `    "clientEntries": [\n` +
-    `${snippet}\n` +
-    `    ]\n` +
-    `  }\n`
-  );
 }
 
 function resolveWithinCwd(cwd: string, value: string, label: string): string {

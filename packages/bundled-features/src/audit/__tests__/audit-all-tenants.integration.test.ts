@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import {
   createEntity,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
   defineFeature,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -38,7 +38,7 @@ const widgetEntity = createEntity({
 const widgetFeature = defineFeature("audit-all-widgets", (r) => {
   r.entity({ name: "widget", ...widgetEntity });
   r.writeHandler(
-    defineEntityWriteHandler("widget:create", widgetEntity, {
+    defineEntityCreateHandler("widget", widgetEntity, {
       access: { roles: ["Admin", "User", "SystemAdmin", "TenantAdmin"] },
     }),
   );

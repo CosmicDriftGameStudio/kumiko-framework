@@ -1,8 +1,5 @@
-import type { EntityId } from "@cosmicdrift/kumiko-types/identifiers";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { extractTableInfo } from "../db/table-info.ts";
-
-import { getStreamVersion } from "../event-store/index.ts";
 import { buildDerivedSelect } from "./derived-field-sql.ts";
 import type { EventStoreExecutor } from "./event-store-executor.ts";
 import type { ExecutorContext } from "./event-store-executor-context.ts";
@@ -46,14 +43,10 @@ export function createReadVerbs(
   const {
     table,
     entity,
-    entityName,
-    entityCache,
     streamTenantFor,
     idFilter,
-    probeOwnershipWithStreamVersion,
     loadDetailSnapshot,
     decryptForRead,
-    encryptForStorage,
   } = ctx;
 
   return {
@@ -129,18 +122,7 @@ export function createReadVerbs(
       // clients a stale optimistic-lock base. Rows without events keep theirs.
       const storedRows = decryptedRows.map((r, i) => withStreamVersion(r, streamVersions[i] ?? 0));
 
-      // Cache the still-encrypted raw rows (read-row version): same at-rest guarantee as
-      // detail()'s encryptForStorage round-trip, without a re-encrypt; detail() rejects
-      // a cached version that differs from the stream.
-      if (entityCache && entityName && storedRows.length > 0) {
-        await entityCache.mset(
-          user.tenantId,
-          entityName,
-          encryptedRows.map((r) => ({ id: r["id"] as EntityId, data: r })), // @cast-boundary engine-payload
-        );
-      }
-
-      // Viewer-dependent, so attached only after the cache write, as new row objects.
+      // Viewer-dependent, so attached as new row objects.
       const rows =
         derivedValues === undefined
           ? storedRows
@@ -194,45 +176,6 @@ export function createReadVerbs(
       // out the stale row.version dooms the next CRUD update built on it
       // (entityEdit loads detail.version as its optimistic-lock base) to a
       // guaranteed version_conflict.
-      // A cache hit only counts when its version equals the live stream version:
-      // a late entityCache.set() can resurrect an old row after the writer's del().
-      if (entityCache && entityName) {
-        const cached = await entityCache.get(user.tenantId, entityName, payload.id);
-        if (cached) {
-          let streamVersion: number;
-          if (ownership.kind === "sql") {
-            // Re-check ownership predicate (incl. the parent-ref gate) against
-            // the live row — the cache is keyed only by tenant + id, not by
-            // role, so a cache hit can't bypass either gate. The probe carries
-            // the stream version in the same statement.
-            const probe = await probeOwnershipWithStreamVersion(
-              db,
-              idWhere,
-              ownership,
-              streamTenantFor(user),
-              String(payload.id),
-            );
-            if (!probe.owned) return null;
-            streamVersion = probe.streamVersion;
-          } else {
-            streamVersion = await getStreamVersion(
-              tenantDbRunnerForTable(db, table),
-              String(payload.id),
-              streamTenantFor(user),
-            );
-          }
-          if (!(streamVersion > 0 && cached["version"] !== streamVersion)) {
-            // Cached rows are stored re-encrypted (see the `set` below) so an
-            // `encrypted` field's plaintext never sits in a second at-rest
-            // store (Redis) the field-encryption feature doesn't cover.
-            return withStreamVersion(
-              await decryptForRead(cached, { degradeUndecryptable: () => {} }),
-              streamVersion,
-            );
-          }
-        }
-      }
-
       const snapshot = await loadDetailSnapshot(
         db,
         idWhere,
@@ -242,25 +185,11 @@ export function createReadVerbs(
       );
       const raw = snapshot.row;
       if (!raw) return null;
-      const undecryptableFields: string[] = [];
       const coerced = await decryptForRead(
         coerceAndRehydrateRow(raw, extractTableInfo(table), entity),
-        { degradeUndecryptable: (field) => undecryptableFields.push(field) },
+        { degradeUndecryptable: () => {} },
       );
-      const result = withStreamVersion(coerced, snapshot.streamVersion);
-
-      // A degraded row must not be cached: re-encrypting its null would
-      // replay the missing value on later cache hits without any error log.
-      if (entityCache && entityName && undecryptableFields.length === 0) {
-        await entityCache.set(
-          user.tenantId,
-          entityName,
-          payload.id,
-          await encryptForStorage(result, user),
-        );
-      }
-
-      return result;
+      return withStreamVersion(coerced, snapshot.streamVersion);
     },
   };
 }

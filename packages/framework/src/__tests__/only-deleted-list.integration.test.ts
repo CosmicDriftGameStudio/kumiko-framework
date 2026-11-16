@@ -8,14 +8,8 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
-import {
-  createEntity,
-  createTextField,
-  defineEntityQueryHandler,
-  defineEntityWriteHandler,
-  defineFeature,
-  from,
-} from "../engine/index.ts";
+import { defineEntityQueryHandler, defineEntityWriteHandler } from "../engine/entity-handlers.ts";
+import { createEntity, createTextField, defineFeature, from } from "../engine/index.ts";
 import type { SessionUser } from "../engine/types/index.ts";
 import { createTestUser, TestUsers, testTenantId } from "../seeding/seed-users.ts";
 

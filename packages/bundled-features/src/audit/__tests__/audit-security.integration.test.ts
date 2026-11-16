@@ -7,7 +7,7 @@ import {
   access,
   createEntity,
   createTextField,
-  defineEntityWriteHandler,
+  defineEntityCreateHandler,
   defineFeature,
   type SessionUser,
   type TenantId,
@@ -51,7 +51,7 @@ const widgetEntity = createEntity({
 const widgetFeature = defineFeature("audit-sec-widgets", (r) => {
   r.entity({ name: "widget", ...widgetEntity });
   r.writeHandler(
-    defineEntityWriteHandler("widget:create", widgetEntity, {
+    defineEntityCreateHandler("widget", widgetEntity, {
       access: { roles: ["Admin", "User", "SystemAdmin", "TenantAdmin"] },
     }),
   );

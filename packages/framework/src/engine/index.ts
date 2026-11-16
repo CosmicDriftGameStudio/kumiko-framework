@@ -273,13 +273,8 @@ export {
   defineEntityDeleteHandler,
   defineEntityDetailHandler,
   defineEntityListHandler,
-  // Legacy single-fn-with-verb-string API. Backwards compatibility — new
-  // apps use the verb-specific wrappers above. Existing callers (integration
-  // tests, old bundled-features) remain runnable without changes.
-  defineEntityQueryHandler,
   defineEntityRestoreHandler,
   defineEntityUpdateHandler,
-  defineEntityWriteHandler,
   defineProjectionQueryHandler,
   entityListSchema,
   MAX_LIST_LIMIT,

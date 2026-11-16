@@ -84,7 +84,6 @@ export function createWriteVerbs(
     table,
     entity,
     entityName,
-    entityCache,
     softDelete,
     streamTenantFor,
     streamTenantOverrideFailure,
@@ -401,16 +400,6 @@ export function createWriteVerbs(
     return await decryptForRead(rehydrateCompoundTypes(row, entity) as DbRow);
   }
 
-  async function evictCachedEntity(
-    user: SessionUser,
-    streamTenantId: TenantId | undefined,
-    id: EntityId,
-  ): Promise<void> {
-    if (entityCache && entityName) {
-      await entityCache.del(streamTenantId ?? user.tenantId, entityName, id);
-    }
-  }
-
   async function encryptUpdatePayload(
     user: SessionUser,
     streamTenantId: TenantId | undefined,
@@ -541,7 +530,6 @@ export function createWriteVerbs(
     const projected = await applyProjection(runner, event, "projection update returned no row");
     if ("failure" in projected) return projected;
     const data = await readProjectedRow(projected.row);
-    await evictCachedEntity(user, streamTenantId, id);
 
     const echoEvent = {
       ...event,
@@ -633,7 +621,6 @@ export function createWriteVerbs(
       const projected = await applyProjection(runner, event, "projection insert returned no row");
       if ("failure" in projected) return projected.failure;
       const projection = await readProjectedRow(projected.row);
-      await evictCachedEntity(user, streamTenantId, aggregateId);
 
       // The echoed event is the one projections see (and the dispatcher later
       // skips), so build it before projecting.
@@ -874,7 +861,6 @@ export function createWriteVerbs(
         );
       }
 
-      await evictCachedEntity(user, streamTenantId, payload.id);
 
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
       await projectEntityEvent(db, runner, echoEvent);
@@ -977,7 +963,6 @@ export function createWriteVerbs(
         );
       }
 
-      await evictCachedEntity(user, streamTenantId, payload.id);
 
       const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
       await projectEntityEvent(db, runner, echoEvent);
@@ -1071,7 +1056,6 @@ export function createWriteVerbs(
       const projected = await applyProjection(runner, event, "projection restore returned no row");
       if ("failure" in projected) return projected.failure;
 
-      await evictCachedEntity(user, streamTenantId, payload.id);
 
       // Read-side auto-convert for compound types, same as update/list.
       // decryptForRead matches create/update/list/detail: the caller-facing

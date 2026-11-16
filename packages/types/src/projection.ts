@@ -5,12 +5,9 @@ import type { EntityDefinition } from "./fields.ts";
 import type { MultiStreamApplyContext } from "./multi-stream-apply-context-types.ts";
 import type { SchemaTable } from "./schema-table-types.ts";
 
-// Drizzle pgTable shape — projections hand their table through to apply() so
-// user code writes upserts/updates directly instead of going through a
-// framework-managed state reducer. Using the native dialect's `SchemaTable`
-// (drizzle-compat surface) keeps typing honest: typed paths work inside
-// apply(), but the column union is erased so framework code doesn't need
-// to know the schema shape of every user table.
+// Projections hand their table to apply() so user code writes upserts/updates directly
+// instead of through a framework-managed reducer. SchemaTable keeps typed paths inside
+// apply() but erases the column union, so framework code needs no schema shape per user table.
 export type ProjectionTable = SchemaTable;
 
 // Single-stream projection apply: runs inline in the write-TX of the event
@@ -64,7 +61,7 @@ export type ProjectionDefinition = {
   // its events. The rebuild's ghost-row guard counts a live row as backed when
   // its id is the derived id of a source event of that type.
   readonly extraSourceRowIds?: Readonly<Record<string, ProjectionRowIdOf>>;
-  // Drizzle-table the projection materializes into. User owns the schema —
+  // Table the projection materializes into. User owns the schema —
   // framework just guarantees the TX and event delivery.
   readonly table: ProjectionTable;
   // Optional: the EntityDefinition the table was built from, for projections
