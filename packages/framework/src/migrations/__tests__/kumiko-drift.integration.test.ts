@@ -146,16 +146,15 @@ describe("kumiko-drift boot-gate", () => {
     );
   });
 
-  test("missing migrations dir → ok (no migrations to validate)", async () => {
-    // Regression: an existing-app upgrade without
-    // ./kumiko/migrations must not throw a raw ENOENT (which would produce a
-    // plain Error instead of SchemaDriftError and omit the remediation hint from
-    // the boot log).
+  test("missing migrations dir → drift (SchemaDriftError, not a raw ENOENT)", async () => {
     rmSync(dir, { recursive: true, force: true });
     const report = await detectKumikoDrift(testDb.db, dir);
-    expect(report.ok).toBe(true);
+    expect(report.ok).toBe(false);
+    expect(report.migrationsDirMissing).toBe(true);
     expect(report.pending).toEqual([]);
-    await expect(assertKumikoSchemaCurrent(testDb.db, dir)).resolves.toBeUndefined();
+    const error = await assertKumikoSchemaCurrent(testDb.db, dir).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SchemaDriftError);
+    expect(String(error instanceof Error ? error.message : error)).toContain("migrations: false");
   });
 
   test("mixed-case snapshot tableName resolves via quote_ident round-trip", async () => {

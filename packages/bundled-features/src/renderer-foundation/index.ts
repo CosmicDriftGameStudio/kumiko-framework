@@ -34,6 +34,7 @@ export {
   type RenderedTemplateRef,
   type RendererContext,
   RendererError,
+  type RendererPayloadLimits,
   type RendererPlugin,
   type RendererRegistrationPlugin,
   type RenderProvenance,

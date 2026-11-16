@@ -102,6 +102,18 @@ describe("postRender :: 4xx (no retry)", () => {
     await expect(postRender(CONFIG, PAYLOAD)).rejects.toThrow(/too_large/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  test("413 → RendererError code payload_too_large with the service limits", async () => {
+    const fetchMock = mock().mockResolvedValueOnce(
+      mockResponse(413, { error: "html_too_large", maxBytes: 100, gotBytes: 200 }),
+    );
+    installFetchMock(fetchMock);
+    const error = await postRender(CONFIG, PAYLOAD).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(RendererError);
+    if (!(error instanceof RendererError)) return;
+    expect(error.code).toBe("payload_too_large");
+    expect(error.limits).toEqual({ maxBytes: 100, gotBytes: 200 });
+  });
 });
 
 describe("postRender :: 5xx", () => {

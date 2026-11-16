@@ -41,6 +41,7 @@ import { loadClientConfigOrUnavailable } from "./render.ts";
 
 const PDF_MIME_TYPE = "application/pdf";
 const INVALID_REQUEST_REASON = "rendered_pdf_invalid_request";
+const PDF_TOO_LARGE_REASON = "rendered_pdf_too_large";
 
 export type RenderPdfArgs = {
   readonly slug: string;
@@ -95,6 +96,10 @@ export function clientErrorForRenderFailure(
     // The cause names the service response or the template; the client only gets the reason code.
     log.error("PDF request rejected", { slug, cause: e.message });
     return new UnprocessableError(INVALID_REQUEST_REASON);
+  }
+  if (e instanceof RendererError && e.code === "payload_too_large") {
+    log.error("PDF request too large for the service", { slug, cause: e.message });
+    return new UnprocessableError(PDF_TOO_LARGE_REASON, { details: { ...e.limits } });
   }
   throw e;
 }

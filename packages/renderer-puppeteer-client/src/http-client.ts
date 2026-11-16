@@ -3,7 +3,10 @@
 // is a retry candidate). Exponential backoff with jitter to avoid
 // thundering-herd effects.
 
-import { RendererError } from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
+import {
+  RendererError,
+  type RendererPayloadLimits,
+} from "@cosmicdrift/kumiko-bundled-features/renderer-foundation";
 import { egress } from "@cosmicdrift/kumiko-framework/http";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { ClientConfig } from "./config.ts";
@@ -142,7 +145,15 @@ async function readServiceResponse<T>(
 ): Promise<T> {
   if (response.status >= 200 && response.status < 300) return readSuccess(response);
 
-  const detail = await safeReadErrorJson(response);
+  const json = await safeReadJson(response);
+  const detail = describeErrorJson(json);
+  if (response.status === 413) {
+    throw new RendererError(
+      `puppeteer-service rejected request: ${response.status} ${detail}`,
+      "payload_too_large",
+      limitsOf(json),
+    );
+  }
   if (response.status >= 400 && response.status < 500) {
     throw new RendererError(
       `puppeteer-service rejected request: ${response.status} ${detail}`,
@@ -155,15 +166,28 @@ async function readServiceResponse<T>(
   throw new RendererError(`puppeteer-service failed: ${response.status} ${detail}`, "other");
 }
 
-async function safeReadErrorJson(response: Response): Promise<string> {
+async function safeReadJson(response: Response): Promise<unknown> {
   try {
-    const json: unknown = await response.json();
-    return [propertyOf(json, "error"), propertyOf(json, "details")]
-      .filter((field): field is string => typeof field === "string" && field !== "")
-      .join(" — ");
+    return await response.json();
   } catch {
-    return `<no parseable body>`;
+    return undefined;
   }
+}
+
+function describeErrorJson(json: unknown): string {
+  if (json === undefined) return "<no parseable body>";
+  return [propertyOf(json, "error"), propertyOf(json, "details")]
+    .filter((field): field is string => typeof field === "string" && field !== "")
+    .join(" — ");
+}
+
+function limitsOf(json: unknown): RendererPayloadLimits {
+  const maxBytes = propertyOf(json, "maxBytes");
+  const gotBytes = propertyOf(json, "gotBytes");
+  return {
+    ...(typeof maxBytes === "number" && { maxBytes }),
+    ...(typeof gotBytes === "number" && { gotBytes }),
+  };
 }
 
 function sleep(ms: number): Promise<void> {

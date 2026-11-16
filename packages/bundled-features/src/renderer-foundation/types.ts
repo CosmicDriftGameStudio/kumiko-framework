@@ -216,10 +216,18 @@ export type RendererPlugin = {
   readMailChrome?(req: MailChromeRequest, ctx: RendererContext): Promise<MailChrome>;
 };
 
+export type RendererPayloadLimits = { readonly maxBytes?: number; readonly gotBytes?: number };
+
 export class RendererError extends Error {
   constructor(
     message: string,
-    public readonly code: "no_plugin_for_kind" | "invalid_payload" | "unavailable" | "other",
+    public readonly code:
+      | "no_plugin_for_kind"
+      | "invalid_payload"
+      | "payload_too_large"
+      | "unavailable"
+      | "other",
+    public readonly limits?: RendererPayloadLimits,
   ) {
     super(message);
     this.name = "RendererError";

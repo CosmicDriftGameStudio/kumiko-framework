@@ -14,6 +14,7 @@ const empty: KumikoDriftReport = {
   missingTables: [],
   missingColumns: [],
   tablesMissingFromSnapshot: [],
+  migrationsDirMissing: false,
 };
 
 describe("formatKumikoDriftReport", () => {
