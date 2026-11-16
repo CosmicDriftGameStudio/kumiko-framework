@@ -83,14 +83,16 @@ function createTenantConfigFileProviderS3Feature() {
             write: access.roles("TenantAdmin", "SystemAdmin"),
             read: access.roles("TenantAdmin", "SystemAdmin"),
           }),
+          // SystemAdmin-only: the server connects to this endpoint with the stored credentials,
+          // so a tenant-chosen host would be an SSRF vector.
           endpoint: createTenantConfig("text", {
             default: "",
-            write: access.roles("TenantAdmin", "SystemAdmin"),
+            write: access.roles("SystemAdmin"),
             read: access.roles("TenantAdmin", "SystemAdmin"),
           }),
           forcePathStyle: createTenantConfig("boolean", {
             default: false,
-            write: access.roles("TenantAdmin", "SystemAdmin"),
+            write: access.roles("SystemAdmin"),
           }),
           accessKeyId: createTenantConfig("text", {
             required: true,

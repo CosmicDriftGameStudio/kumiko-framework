@@ -53,7 +53,24 @@ export async function resolveGracePeriod(
 // a TenantAdmin can set its own gracePeriod to 0 days via compliance-profiles set-profile.
 export const MIN_DELETION_GRACE_PERIOD: DurationSpec = { days: 7 };
 
-// Longest grace period over every tenant the user belongs to, never below the platform floor.
+// Symmetric ceiling: one tenant's profile must not postpone a global deletion indefinitely.
+export const MAX_DELETION_GRACE_PERIOD: DurationSpec = { days: 90 };
+
+function durationSpecMs(spec: DurationSpec): number {
+  return "days" in spec ? spec.days * 24 * 60 * 60 * 1000 : spec.hours * 60 * 60 * 1000;
+}
+
+function clampToDeletionBounds(spec: DurationSpec): DurationSpec {
+  if (durationSpecMs(spec) < durationSpecMs(MIN_DELETION_GRACE_PERIOD)) {
+    return MIN_DELETION_GRACE_PERIOD;
+  }
+  if (durationSpecMs(spec) > durationSpecMs(MAX_DELETION_GRACE_PERIOD)) {
+    return MAX_DELETION_GRACE_PERIOD;
+  }
+  return spec;
+}
+
+// Longest grace period over every tenant the user belongs to, clamped to [floor, ceiling].
 // Falls back to the calling tenant for a user without memberships.
 export async function resolveDeletionGracePeriod(
   ctx: HandlerContext,
@@ -68,11 +85,8 @@ export async function resolveDeletionGracePeriod(
   if (tenantIds.length === 0) tenantIds.push(callerTenantId);
 
   const specs = await Promise.all(tenantIds.map((tenantId) => resolveGracePeriod(ctx, tenantId)));
-  const now = getTemporal().Now.instant();
-  return [MIN_DELETION_GRACE_PERIOD, ...specs].reduce((longest, spec) =>
-    addDurationSpec(now, spec).epochMilliseconds > addDurationSpec(now, longest).epochMilliseconds
-      ? spec
-      : longest,
+  return [MIN_DELETION_GRACE_PERIOD, ...specs.map(clampToDeletionBounds)].reduce((longest, spec) =>
+    durationSpecMs(spec) > durationSpecMs(longest) ? spec : longest,
   );
 }
 

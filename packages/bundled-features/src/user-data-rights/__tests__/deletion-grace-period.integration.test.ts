@@ -26,6 +26,7 @@ import { createUserDataRightsFeature } from "../feature.ts";
 
 const REQUEST_DELETION = "user-data-rights:write:request-deletion";
 const PLATFORM_FLOOR_DAYS = 7;
+const PLATFORM_CEILING_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const tenantA = testTenantId(1);
@@ -117,5 +118,15 @@ describe("request-deletion grace period", () => {
 
     expect(days).toBeGreaterThan(29.99);
     expect(days).toBeLessThan(30.01);
+  });
+
+  test("a tenant profile with 3650 days is capped at the platform ceiling", async () => {
+    await setGraceDays(tenantA, 3650);
+    await seedMembership(tenantA);
+
+    const days = await requestedGraceDays();
+
+    expect(days).toBeGreaterThan(PLATFORM_CEILING_DAYS - 0.01);
+    expect(days).toBeLessThan(PLATFORM_CEILING_DAYS + 0.01);
   });
 });

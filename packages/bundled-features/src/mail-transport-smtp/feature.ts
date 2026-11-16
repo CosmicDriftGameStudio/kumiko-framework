@@ -200,9 +200,10 @@ async function buildSmtpTransport(
       : { user: authUser, pass: await readPassword(ctx, tenantId) };
 
   let target: MailConnectTarget;
+  const allowedPrivateMailHosts = readAllowedPrivateMailHostsFromEnv();
   try {
     target = await resolveMailConnectTarget(host, {
-      allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(),
+      allowedPrivateMailHosts,
       lookupFn: mailHostLookup,
     });
   } catch (err) {
@@ -229,6 +230,7 @@ async function buildSmtpTransport(
     ...(auth && { auth }),
     ...(target.servername && { servername: target.servername }),
     pooled: false,
+    allowedPrivateMailHosts,
   });
 }
 
