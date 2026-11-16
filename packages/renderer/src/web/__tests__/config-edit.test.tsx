@@ -714,6 +714,58 @@ describe("KumikoScreen / configEdit", () => {
     await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("kumiko-screen-error")).toBeNull();
   });
+
+  test("a failed refetch after saving keeps the form and its input and shows the error with retry", async () => {
+    let valuesCalls = 0;
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (name: string) => {
+        if (name !== "config:query:values") return { isSuccess: true, data: {} };
+        valuesCalls += 1;
+        if (valuesCalls === 1) {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": { value: "Acme", scope: "tenant" },
+              "demo:config:max-upload-mb": { value: 25, scope: "tenant" },
+            },
+          };
+        }
+        return {
+          isSuccess: false,
+          error: {
+            code: "network_error",
+            httpStatus: 0,
+            i18nKey: "kumiko.errors.network",
+            message: "offline",
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+      batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const siteInput = screen.getByTestId("field-siteName").querySelector("input");
+    if (!siteInput) throw new Error("expected siteName input");
+    await user.clear(siteInput);
+    await user.type(siteInput, "Other");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => screen.getByTestId("kumiko-screen-error"));
+    expect(screen.getByTestId("render-edit-form")).toBeTruthy();
+    const uploadInput = screen.getByTestId("field-maxUploadMb").querySelector("input");
+    if (!uploadInput) throw new Error("expected maxUploadMb input");
+    await user.clear(uploadInput);
+    await user.type(uploadInput, "30");
+    expect(uploadInput.value).toBe("30");
+    expect(siteInput.value).toBe("Other");
+    expect(screen.getByTestId("kumiko-screen-retry")).toBeTruthy();
+  });
 });
 
 describe("KumikoScreen / configEdit bounds and row alignment", () => {

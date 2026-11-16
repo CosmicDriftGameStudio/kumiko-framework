@@ -277,3 +277,7 @@ export function mergeResourceFileRefs(
 ): ReadonlyMap<string, string> {
   return new Map([...layoutRefs, ...bodyRefs]);
 }
+
+export function describeError(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}

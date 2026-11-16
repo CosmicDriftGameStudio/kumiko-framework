@@ -93,6 +93,29 @@ describe("POST /render — echtes Puppeteer-Rendering", () => {
     expect(metrics.rendersTotal.pdf).toBe(initialPdfCount + 1);
     expect(metrics.renderDurationMs.length).toBeGreaterThan(0);
   });
+
+  test("pageRanges 1 prints only the first page of a multi-page document", async () => {
+    const { app } = createApp(CONFIG);
+    const blocks = Array.from(
+      { length: 12 },
+      (_, i) => `<div style="page-break-after: always;"><h2>Block ${i}</h2></div>`,
+    ).join("");
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${CONFIG.authToken}`,
+      },
+      body: JSON.stringify({
+        kind: "document-pdf",
+        html: `<html><body>${blocks}</body></html>`,
+        options: { pageRanges: "1" },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect(countPdfPages(bytes)).toBe(1);
+  });
 });
 
 // The page.on("request") + abort wiring is also covered chromium-free by

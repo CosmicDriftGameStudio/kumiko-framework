@@ -148,6 +148,20 @@ describe("POST /render — Validation", () => {
     });
     expect(res.status).toBe(400);
   });
+
+  test("document-pdf with malformed pageRanges → 400", async () => {
+    const { app } = createApp(CONFIG);
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...makeAuthHeader() },
+      body: JSON.stringify({
+        kind: "document-pdf",
+        html: "<p>test</p>",
+        options: { pageRanges: "1; drop" },
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("POST /render — body limit and error shape", () => {

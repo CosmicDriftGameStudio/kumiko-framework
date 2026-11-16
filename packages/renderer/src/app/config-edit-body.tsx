@@ -449,7 +449,7 @@ export function ConfigEditBody({
     : secretsQuery.error && !secretsDenied
       ? secretsQuery
       : null;
-  if (failedQuery?.error) {
+  if (failedQuery?.error && failedQuery.data === null) {
     return (
       <QueryErrorBanner
         error={failedQuery.error}
@@ -458,6 +458,14 @@ export function ConfigEditBody({
       />
     );
   }
+  // A failed refetch keeps the last good values on screen; only a first load without data blocks the form.
+  const refetchErrorBanner = failedQuery?.error ? (
+    <QueryErrorBanner
+      error={failedQuery.error}
+      translate={effectiveTranslate}
+      onRetry={failedQuery.refetch}
+    />
+  ) : null;
   if (initial === null) return <QueryLoadingBanner />;
   // Cascade values of a select show the option label the select itself shows,
   // not the stored value (a UUID for optionsQuery selects).
@@ -531,7 +539,7 @@ export function ConfigEditBody({
       }}
     />
   );
-  return compact ? (
+  const body = compact ? (
     // The prefix icon of a field is dropped together with the padding it reserved. The column cap sits
     // on the form shell only, so the pinned save bar stays full width at the page bottom like on a record page.
     <div
@@ -542,5 +550,11 @@ export function ConfigEditBody({
     </div>
   ) : (
     form
+  );
+  return (
+    <>
+      {refetchErrorBanner}
+      {body}
+    </>
   );
 }

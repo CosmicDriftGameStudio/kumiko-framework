@@ -39,14 +39,10 @@ import { collectDocumentResourceKeys } from "./compile-document-body.ts";
 import { parseStoredJson } from "./handlers/template-gates.ts";
 import { effectivePdfLayout } from "./handlers/tenant-settings.ts";
 import { validateTemplateDraft } from "./handlers/validate.query.ts";
-import {
-  type LayoutRegions,
-  readLayoutRegions,
-  sanitizeLayoutHtml,
-  type TemplateWriteScope,
-} from "./layout-regions.ts";
+import { type LayoutRegions, readLayoutRegions, type TemplateWriteScope } from "./layout-regions.ts";
 import { type LinkedResourceEntry, parseLinkedResourceEntries } from "./linked-resources.ts";
 import { buildDisplayHtml } from "./preview-display-html.ts";
+import { resolveTrustedLayout } from "./stored-template-body.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.ts";
 import { deliveryPolicyOf } from "./template-delivery-policy.ts";
 import {
@@ -59,7 +55,6 @@ import {
 import {
   DEFAULT_MAIL_LAYOUT_SLUG,
   MAIL_PREVIEW_MAX_BYTES,
-  SYSTEM_TENANT_ID,
   type TemplateScope,
 } from "./web/constants.ts";
 import { TemplateResolverErrors } from "./web/qualified-names.ts";
@@ -360,34 +355,22 @@ async function resolvePdfLayout(
   working = false,
 ): Promise<PreviewLayout | null> {
   const api = createTemplateResolverApi(ctx.db, ctx.registry);
-  const find = async (tenantId: string): Promise<TemplateResource | null> => {
-    if (resolvedForCaller !== null && tenantId === user.tenantId) return resolvedForCaller;
-    try {
-      return await api.resolveLayout({
-        tenantId,
-        slug,
-        kind: "pdf-layout",
-        locale,
-        working,
-      });
-    } catch (e) {
-      if (e instanceof TemplateNotFoundError) return null;
-      throw e;
-    }
-  };
-  let layout = await find(user.tenantId);
-  let html = layout?.content ?? "";
-  if (layout !== null && layout.scope !== "system") {
-    // Re-checked like the mail renderer does: a tenant row that predates the write gate must not pass.
-    const sanitized = sanitizeLayoutHtml(html);
-    if (sanitized.ok) html = sanitized.html;
-    else {
-      layout = await find(SYSTEM_TENANT_ID);
-      html = layout?.content ?? "";
-    }
+  try {
+    const layout = await resolveTrustedLayout(
+      api,
+      { tenantId: user.tenantId, slug, kind: "pdf-layout", locale, working },
+      resolvedForCaller ?? undefined,
+    );
+    return {
+      slug,
+      scope: layout.scope,
+      html: layout.content,
+      regions: readLayoutRegions(layout.content),
+    };
+  } catch (e) {
+    if (e instanceof TemplateNotFoundError) return null;
+    throw e;
   }
-  if (layout === null) return null;
-  return { slug, scope: layout.scope, html, regions: readLayoutRegions(html) };
 }
 
 async function resolvePreviewPdfLayout(

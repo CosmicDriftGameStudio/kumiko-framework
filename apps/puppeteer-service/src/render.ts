@@ -62,6 +62,8 @@ const pdfMarginsSchema = z.object({
   left: z.number().min(0).max(100).optional(),
 });
 
+const PAGE_RANGES_PATTERN = /^\d+(-\d+)?(\s*,\s*\d+(-\d+)?)*$/;
+
 const pdfOptionsSchema = z.object({
   format: z.enum(["A4", "Letter"]).optional(),
   marginMm: pdfMarginsSchema.optional(),
@@ -70,6 +72,7 @@ const pdfOptionsSchema = z.object({
   footerTemplate: z.string().optional(),
   displayHeaderFooter: z.boolean().optional(),
   landscape: z.boolean().optional(),
+  pageRanges: z.string().max(64).regex(PAGE_RANGES_PATTERN).optional(),
 });
 
 const imageOptionsSchema = z.object({
@@ -229,6 +232,7 @@ function mapPdfOptions(opts: PdfRenderRequest["options"]): PDFOptions {
     landscape: opts?.landscape ?? false,
     ...(opts?.headerTemplate !== undefined && { headerTemplate: opts.headerTemplate }),
     ...(opts?.footerTemplate !== undefined && { footerTemplate: opts.footerTemplate }),
+    ...(opts?.pageRanges !== undefined && { pageRanges: opts.pageRanges }),
     margin: margin
       ? {
           top: `${margin.top ?? 10}mm`,

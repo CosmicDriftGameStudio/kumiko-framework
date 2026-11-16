@@ -104,6 +104,7 @@ type StubRequest = {
     readonly printBackground?: boolean;
     readonly headerTemplate?: string;
     readonly footerTemplate?: string;
+    readonly pageRanges?: string;
     readonly marginMm?: {
       readonly top: number;
       readonly bottom: number;
@@ -1218,6 +1219,8 @@ describe("document-pdf layout appearance, frames and company data", () => {
     expect(firstPage?.options.footerTemplate).toContain("Fuss");
     expect(firstPage?.html).toBe(allPages?.html ?? "");
     expect(allPages?.html).toContain("1px solid #336699");
+    expect(firstPage?.options.pageRanges).toBe("1");
+    expect(allPages?.options.pageRanges).toBeUndefined();
     stubRequests.length = 0;
   });
 

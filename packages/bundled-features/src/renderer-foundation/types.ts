@@ -148,6 +148,8 @@ export type PdfOptions = {
   readonly printBackground?: boolean;
   readonly displayHeaderFooter?: boolean;
   readonly landscape?: boolean;
+  /** Chromium page ranges such as "1" or "1-3, 5"; absent prints every page. */
+  readonly pageRanges?: string;
 };
 
 export type ImageOptions = {

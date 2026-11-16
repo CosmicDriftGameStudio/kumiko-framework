@@ -14,6 +14,7 @@ import type { DocumentPdfRequest } from "./document-pdf.ts";
 import { postRender } from "./http-client.ts";
 
 const POINTS_PER_MM = 72 / 25.4;
+const FIRST_PAGE_ONLY = "1";
 const FOLD_MARK_LENGTH_MM = 5;
 const PUNCH_MARK_LENGTH_MM = 8;
 const FOLD_MARK_THICKNESS_PT = 0.5;
@@ -83,17 +84,10 @@ function fillPaperBehindContent(doc: PDFDocument, paperColor: string): void {
   }
 }
 
-async function swapInFirstPage(
-  doc: PDFDocument,
-  firstPagePdf: Uint8Array,
-  pageCount: number,
-): Promise<void> {
+async function swapInFirstPage(doc: PDFDocument, firstPagePdf: Uint8Array): Promise<void> {
   const firstPageDoc = await PDFDocument.load(firstPagePdf, { updateMetadata: false });
-  if (firstPageDoc.getPageCount() !== pageCount) {
-    throw new RendererError(
-      `renderer-puppeteer-client: the first-page print has ${firstPageDoc.getPageCount()} pages, the document ${pageCount}`,
-      "other",
-    );
+  if (firstPageDoc.getPageCount() === 0) {
+    throw new RendererError("renderer-puppeteer-client: the first-page print has no pages", "other");
   }
   const [firstPage] = await doc.copyPages(firstPageDoc, [0]);
   if (firstPage === undefined) return;
@@ -122,9 +116,9 @@ export async function printDocumentPdf(
     const firstPrint = await postRender(config, {
       kind: "document-pdf",
       html: built.html,
-      options: built.firstPageOptions,
+      options: { ...built.firstPageOptions, pageRanges: FIRST_PAGE_ONLY },
     });
-    await swapInFirstPage(doc, firstPrint.bytes, doc.getPageCount());
+    await swapInFirstPage(doc, firstPrint.bytes);
   }
   if (built.paperColor !== null) fillPaperBehindContent(doc, built.paperColor);
   if (built.foldMarks !== "none") drawFoldMarks(doc, built.foldMarks);

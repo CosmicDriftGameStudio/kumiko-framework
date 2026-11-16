@@ -88,7 +88,7 @@ export {
   type StoredTemplateResource,
   storePreparedTemplateResource,
 } from "./store-template-resource.ts";
-export { revalidateStoredTemplateBody } from "./stored-template-body.ts";
+export { resolveTrustedLayout, revalidateStoredTemplateBody } from "./stored-template-body.ts";
 export {
   type TemplateResourceRow,
   templateResourceEntity,

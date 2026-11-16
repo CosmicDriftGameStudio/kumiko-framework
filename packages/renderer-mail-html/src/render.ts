@@ -16,7 +16,6 @@ import {
   type MailChromeRequest,
   type MailDraft,
   type MailChrome as MailPageChrome,
-  type RenderedTemplateRef,
   type RendererContext,
   RendererError,
   type RenderRequest,
@@ -39,7 +38,6 @@ import {
   resolveTemplateVariables,
   revalidateStoredTemplateBody,
   sanitizeDocumentHtml,
-  sanitizeLayoutHtml,
   TemplateNotFoundError,
   type TemplateResolverApi,
   type TemplateResource,
@@ -48,15 +46,13 @@ import { SYSTEM_TENANT_ID, type TemplateVariables } from "@cosmicdrift/kumiko-fr
 import { convert as htmlToText } from "html-to-text";
 import mjml2html from "mjml";
 import { readChromeLogoSrc } from "./chrome-logo.ts";
-import { DEFAULT_MAIL_LAYOUT_SLUG } from "./default-layout.ts";
 import {
-  collectRegionResourceKeys,
   compileDocumentSource,
   createDocumentHandlebars,
+  describeError,
   LOGO_RESOURCE_KEY,
   mergeResourceFileRefs,
   readBrandingAccentColor,
-  readBrandingLogo,
   readBrandingLogoUrl,
   readBrandingSiteUrl,
   readDocumentFormat,
@@ -85,6 +81,12 @@ import {
   safeFooterUrl,
   webHost,
 } from "./mail-footer.ts";
+import {
+  inCodeLayout,
+  type ResolvedLayout,
+  resolveLayoutFileRefs,
+  resolveMailLayout,
+} from "./mail-layout.ts";
 import { mailChromeText } from "./mail-strings.ts";
 import { MAIL_IMAGE_MAX_WIDTH_PX, renderStructuredLayoutMjml } from "./structured-layout.ts";
 
@@ -116,29 +118,6 @@ const META_FORMAT_HELPER_BY_TYPE: Readonly<Record<string, string>> = {
   richText: "richTextPlain",
 };
 
-function describe(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
-
-type ResolvedLayout = {
-  readonly content: string;
-  readonly format: "mjml" | "html";
-  readonly ref: RenderedTemplateRef | null;
-  readonly template: TemplateResource | null;
-  readonly appearanceMeta: unknown;
-  readonly fileRefs?: ReadonlyMap<string, string>;
-  /** Set for the in-code layout: its header is the brand row built in code. */
-  readonly brandHeader?: { readonly hasLogo: boolean };
-};
-
-// Without a seeded layout every mail still carries the tenant's branding: accent
-// line and button color, and a brand row with the logo (or an initial tile) and the name.
-const IN_CODE_LAYOUT_META = {
-  accentLine: "branding",
-  width: 640,
-  outerBackground: "#ecedea",
-} as const;
-
 function mailResourceSrc(
   resourceFileRefs: ReadonlyMap<string, string>,
   brandingLogoUrl: string | undefined,
@@ -149,79 +128,6 @@ function mailResourceSrc(
       : key === LOGO_RESOURCE_KEY
         ? brandingLogoUrl
         : undefined;
-}
-
-async function inCodeLayout(ctx: RendererContext): Promise<ResolvedLayout> {
-  const logoFileRefId = await readBrandingLogo(ctx);
-  return {
-    content: "<div data-content></div>",
-    format: "html",
-    ref: null,
-    template: null,
-    appearanceMeta: IN_CODE_LAYOUT_META,
-    brandHeader: { hasLogo: logoFileRefId !== undefined },
-    fileRefs:
-      logoFileRefId === undefined ? new Map() : new Map([[LOGO_RESOURCE_KEY, logoFileRefId]]),
-  };
-}
-
-// Only system layouts are trusted as written: a tenant mjml row left over from
-// before that rule, or a tenant html row failing the layout sanitizer, is
-// replaced by the system layout of the same slug.
-async function resolveLayout(
-  tplApi: TemplateResolverApi,
-  ctx: RendererContext,
-  meta: MailTemplateMeta,
-  locale: string,
-): Promise<ResolvedLayout | null> {
-  const slug = meta.layoutSlug ?? DEFAULT_MAIL_LAYOUT_SLUG;
-  try {
-    let layout = await tplApi.resolveLayout({
-      tenantId: ctx.tenantId,
-      slug,
-      kind: "mail-layout",
-      locale,
-    });
-    let content = layout.content;
-    let useSystemLayout = false;
-    if (layout.scope !== "system") {
-      if (layout.contentFormat === "html") {
-        // Re-checked on every render: rows written before the write gate existed
-        // or through another path must not reach the mail unsanitized.
-        const sanitized = sanitizeLayoutHtml(content);
-        if (sanitized.ok) content = sanitized.html;
-        else useSystemLayout = true;
-      } else {
-        useSystemLayout = true;
-      }
-    }
-    if (useSystemLayout) {
-      layout = await tplApi.resolveLayout({
-        tenantId: SYSTEM_TENANT_ID,
-        slug,
-        kind: "mail-layout",
-        locale,
-      });
-      content = layout.content;
-    }
-    return {
-      content,
-      format: layout.contentFormat === "html" ? "html" : "mjml",
-      ref: { templateId: layout.id, templateVersion: layout.version, scope: layout.scope },
-      template: layout,
-      appearanceMeta: layout.meta,
-    };
-  } catch (e) {
-    // Only "no layout seeded" falls back to the in-code layout. Connection or
-    // schema errors must not be masked, or every mail silently loses its branding.
-    if (!(e instanceof TemplateNotFoundError)) {
-      throw new RendererError(
-        `renderer-mail-html: layout resolution failed — ${describe(e)}`,
-        "other",
-      );
-    }
-    return null;
-  }
 }
 
 async function findStoredMailTemplate(
@@ -242,29 +148,7 @@ async function findStoredMailTemplate(
   } catch (e) {
     if (e instanceof TemplateNotFoundError) return null;
     throw new RendererError(
-      `renderer-mail-html: template resolution failed — ${describe(e)}`,
-      "other",
-    );
-  }
-}
-
-async function resolveLayoutFileRefs(
-  tplApi: TemplateResolverApi,
-  ctx: RendererContext,
-  layout: ResolvedLayout,
-): Promise<ReadonlyMap<string, string>> {
-  if (layout.fileRefs !== undefined) return layout.fileRefs;
-  if (layout.format !== "html" || layout.template === null) return new Map();
-  try {
-    return await resolveResourceFileRefs(
-      tplApi,
-      ctx,
-      layout.template,
-      collectRegionResourceKeys(readLayoutRegions(layout.content)),
-    );
-  } catch (e) {
-    throw new RendererError(
-      `renderer-mail-html: resolving the layout images failed — ${describe(e)}`,
+      `renderer-mail-html: template resolution failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -399,7 +283,7 @@ async function renderMailBody(
     };
   } catch (e) {
     throw new RendererError(
-      `renderer-mail-html: rendering the body of "${template.slug}" failed — ${describe(e)}`,
+      `renderer-mail-html: rendering the body of "${template.slug}" failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -440,7 +324,7 @@ function renderFileNamePattern(
     return renderSubjectLine(hbs, pattern, context, {});
   } catch (e) {
     throw new RendererError(
-      `renderer-mail-html: rendering the attachment file name "${pattern}" of "${slug}" failed — ${describe(e)}`,
+      `renderer-mail-html: rendering the attachment file name "${pattern}" of "${slug}" failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -463,7 +347,7 @@ function renderSubjectLines(
     };
   } catch (e) {
     throw new RendererError(
-      `renderer-mail-html: rendering subject or preview text of "${slug}" failed — ${describe(e)}`,
+      `renderer-mail-html: rendering subject or preview text of "${slug}" failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -499,7 +383,7 @@ function renderMailChrome(
     };
   } catch (e) {
     throw new RendererError(
-      `renderer-mail-html: rendering chip, tone or footer note of "${slug}" failed — ${describe(e)}`,
+      `renderer-mail-html: rendering chip, tone or footer note of "${slug}" failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -528,7 +412,7 @@ async function resolveSystemAttachments(
   } catch (e) {
     if (e instanceof TemplateNotFoundError) return {};
     throw new RendererError(
-      `renderer-mail-html: resolving the system attachments of "${template.slug}" failed — ${describe(e)}`,
+      `renderer-mail-html: resolving the system attachments of "${template.slug}" failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -630,7 +514,7 @@ function compileLayoutMjml(args: {
   } catch (e) {
     // "other": the caller's payload is fine, the layout template is broken.
     throw new RendererError(
-      `renderer-mail-html: Handlebars compile failed for layout — ${describe(e)}`,
+      `renderer-mail-html: Handlebars compile failed for layout — ${describeError(e)}`,
       "other",
     );
   }
@@ -705,7 +589,7 @@ async function resolveMailFooter(
     return await options.footer({ locale, ctx });
   } catch (e) {
     throw new RendererError(
-      `renderer-mail-html: the mail footer resolver failed — ${describe(e)}`,
+      `renderer-mail-html: the mail footer resolver failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -748,7 +632,7 @@ async function resolveBrandSuffix(
     return (await options.brandSuffix({ locale, ctx })) ?? "";
   } catch (e) {
     throw new RendererError(
-      `renderer-mail-html: the brand suffix resolver failed — ${describe(e)}`,
+      `renderer-mail-html: the brand suffix resolver failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -765,7 +649,7 @@ async function resolveMailSiteUrl(
     return (await options.siteUrl({ locale, ctx })) ?? undefined;
   } catch (e) {
     throw new RendererError(
-      `renderer-mail-html: the site URL resolver failed — ${describe(e)}`,
+      `renderer-mail-html: the site URL resolver failed — ${describeError(e)}`,
       "other",
     );
   }
@@ -872,7 +756,7 @@ export async function mailHtmlRender(
     resolveBrandSuffix(options, ctx, locale),
     readBrandingLogoUrl(ctx),
   ]);
-  const layout = (await resolveLayout(tplApi, ctx, meta, locale)) ?? (await inCodeLayout(ctx));
+  const layout = (await resolveMailLayout(tplApi, ctx, meta, locale)) ?? (await inCodeLayout(ctx));
   const hbs = createDocumentHandlebars(format);
   const systemPlaceholders = {
     tenantName,

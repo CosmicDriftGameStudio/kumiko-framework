@@ -44,9 +44,9 @@ import {
   readTemplateResourceMaxBytes,
   readTopLevelFrames,
   resolveTemplateVariables,
+  resolveTrustedLayout,
   revalidateStoredTemplateBody,
   sanitizeDocumentHtml,
-  sanitizeLayoutHtml,
   TemplateNotFoundError,
   type TemplateResolverApi,
   type TemplateResource,
@@ -186,8 +186,6 @@ async function resolvePdfTemplate(
   return template;
 }
 
-// Only system layouts are trusted as written: a tenant row is re-checked on every render
-// and replaced by the system layout of the same slug when it fails the layout sanitizer.
 async function resolvePdfLayout(
   tplApi: TemplateResolverApi,
   ctx: RendererContext,
@@ -197,32 +195,13 @@ async function resolvePdfLayout(
   working = false,
 ): Promise<PdfLayout & { readonly ref: RenderedTemplateRef | null }> {
   try {
-    let layout =
-      alreadyResolved ??
-      (await tplApi.resolveLayout({
-        tenantId: ctx.tenantId,
-        slug,
-        kind: "pdf-layout",
-        locale,
-        working,
-      }));
-    let html = layout.content;
-    if (layout.scope !== "system") {
-      const sanitized = sanitizeLayoutHtml(html);
-      if (sanitized.ok) {
-        html = sanitized.html;
-      } else {
-        layout = await tplApi.resolveLayout({
-          tenantId: SYSTEM_TENANT_ID,
-          slug,
-          kind: "pdf-layout",
-          locale,
-        });
-        html = layout.content;
-      }
-    }
+    const layout = await resolveTrustedLayout(
+      tplApi,
+      { tenantId: ctx.tenantId, slug, kind: "pdf-layout", locale, working },
+      alreadyResolved ?? undefined,
+    );
     return {
-      regions: readLayoutRegions(html),
+      regions: readLayoutRegions(layout.content),
       template: layout,
       ref: { templateId: layout.id, templateVersion: layout.version, scope: layout.scope },
     };
