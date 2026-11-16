@@ -200,7 +200,9 @@ Full docs: [docs.kumiko.rocks](https://docs.kumiko.rocks).
 
 ## Status
 
-Kumiko is pre-1.0 and under active development. APIs may change between minor versions until 1.0 ([stability policy](docs/reference/stability-policy.md)). Every breaking change ships with a migration note in its package changelog, indexed in [CHANGELOG.md](./CHANGELOG.md). In an app, `bunx kumiko-upgrade` lists what changed since your installed version and `--apply` runs the codemods.
+Kumiko is pre-1.0 and under active development. APIs may change between minor versions until 1.0 ([stability policy](docs/reference/stability-policy.md)).
+
+A minor version already means a breaking change. The beta starts in January 2027: from then on, `latest` moves with a release train every two weeks and `next` carries a canary build of every merge to `main`. 1.0 is targeted for June 2027 ([plan](docs/plans/release-channels-beta-1.0.md)). Every breaking change ships with a migration note in its package changelog, indexed in [CHANGELOG.md](./CHANGELOG.md). In an app, `bunx kumiko-upgrade` lists what changed since your installed version and `--apply` runs the codemods.
 
 Used in production at [publicstatus.eu](https://publicstatus.eu), [offlot.app](https://offlot.app) and [cashcolt.kumiko.rocks](https://cashcolt.kumiko.rocks).
 

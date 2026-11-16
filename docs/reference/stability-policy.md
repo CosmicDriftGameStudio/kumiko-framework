@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-17
+verified: 2026-11-16
 ---
 
 # Stability & deprecation policy
@@ -8,7 +8,7 @@ verified: 2026-10-17
 What you can rely on before Kumiko cuts a 1.0, and what changes as it
 approaches one.
 
-## Current status: pre-1.0 (`0.x`)
+## Current status: pre-1.0 (`0.x`) until January 2027
 
 Kumiko is pre-1.0. Breaking changes land directly on `main` and ship in the
 next minor release. There is no deprecation window and no parallel-support
@@ -16,11 +16,30 @@ period. Every breaking change carries a migration note in its package's
 `CHANGELOG.md` and `changes.json`; some also ship a codemod. The root
 [`CHANGELOG.md`](../../CHANGELOG.md) links all package changelogs.
 
+## Beta from January 2027
+
+The first release train in the first week of January 2027 starts the beta.
+The plan with the remaining work is
+[`docs/plans/release-channels-beta-1.0.md`](../plans/release-channels-beta-1.0.md).
+
+- The npm dist-tag `latest` moves only with a release train, every two weeks.
+  `next` gets a canary version (`0.X.Y-next-<sha>`) for every merge to `main`.
+  Ranges never match prerelease versions, so `next` never reaches a `latest`
+  user by accident.
+- A minor bump means a breaking change (changesets follow this already); fixes and improvements are patch
+  releases. `^0.X.0` takes every train up to the next breaking one.
+- Breaking changes reach `latest` only with a train, each with a migration
+  note and, where the change is mechanical, a codemod.
+- Hotfixes between trains are limited to security issues and data loss and
+  ship as a patch release from a `release/0.X` branch.
+- A train runs only when every Cosmic Drift app is green against `main`;
+  otherwise it is skipped and the next one runs two weeks later.
+
 ## What this means if you build on Kumiko today
 
-- Pin the exact version you depend on (workspace `resolutions` or a locked
-  npm version) rather than a range — a minor bump can remove or rename an
-  API.
+- Until the beta, pin the exact version you depend on (workspace `resolutions`
+  or a locked npm version) rather than a range, because a minor bump can remove
+  or rename an API. From the beta on, `^0.X.0` on `latest` is safe.
 - Before bumping, run `bunx kumiko-upgrade` to list every change between your
   installed and the target version, and `bunx kumiko-upgrade --apply` to run
   the codemods of pending breaking changes.
@@ -73,7 +92,7 @@ do not fail it, so review the list after every upgrade.
 
 ## Release window
 
-- The Version PR is merged only by the framework owner (a person, never an agent session) once the work package is green; there is no fixed release day.
+- The Version PR is merged only by the framework owner (a person, never an agent session) once the work package is green. Until the beta there is no fixed release day; from January 2027 the Version PR is the release train and is merged every two weeks on the same weekday.
 - A `breaking` entry needs a non-empty `migration` text, and `codemod` where one
   can be automated. Without a codemod it lands in the consumer's `pendingManual`
   list, see above. `scripts/guard-changes-json.ts` enforces `migration`;
@@ -82,14 +101,18 @@ do not fail it, so review the list after every upgrade.
 
 ## Path to 1.0
 
-There is no committed date. The signal for "close to 1.0" is: the core
-request pipeline (dispatcher, event-store, registry) has gone through a
-release cycle without a breaking rework, and the god-file refactors tracked
-in `docs/plans/` have landed (large single-author files are exactly where
-an API reshuffle is still likely). Once 1.0 ships, semantic versioning
-applies, and breaking changes move to
-major-version bumps with a deprecation window in the changelog before
-removal.
+The target is June 2027. The date moves until all of these hold:
+
+- three trains in a row with at most three breaking entries each;
+- every stable Cosmic Drift app runs on `latest` and was green at each train;
+- the core request pipeline (dispatcher, event-store, registry) has gone
+  through a release cycle without a breaking rework, and the god-file
+  refactors tracked in `docs/plans/` have landed (large single-author files
+  are exactly where an API reshuffle is still likely).
+
+Once 1.0 ships, semantic versioning applies. Trains bring fixes, additions
+and deprecations with a warning and a codemod; removals move to major
+versions, batched at most twice a year. `next` stays available.
 
 ## Reporting a breaking change you hit
 
