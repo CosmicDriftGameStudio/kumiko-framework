@@ -2,7 +2,7 @@
 // remove through the real dispatcher + entity-projection + DB. Proves the
 // architecture end-to-end WITHOUT any host wiring (tags are host-agnostic — the
 // host is just the entityType/entityId strings on the assignment):
-//   - create-tag projects into read_tags
+//   - tag:create projects into read_tags
 //   - assign-tag projects a join row keyed by (entityType, entityId)
 //   - read-layer composition both directions (tags of an entity / entities of a tag)
 //   - assign + remove are idempotent (re-assign = one row, remove-missing = ok)
@@ -19,7 +19,7 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -165,7 +165,7 @@ async function countAssignments(tenantId: string): Promise<number> {
 }
 
 describe("tags integration — catalog + assignment roundtrip", () => {
-  test("create-tag lands in read_tags", async () => {
+  test("tag:create lands in read_tags", async () => {
     const id = await createTag("Kunde Müller");
     const tags = await listTags();
     expect(tags).toHaveLength(1);
@@ -206,7 +206,7 @@ describe("tags integration — catalog + assignment roundtrip", () => {
 });
 
 describe("tags integration — rename", () => {
-  test("rename-tag updates name, preserves color, bumps version", async () => {
+  test("tag:update rename updates name, preserves color, bumps version", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Mandant Alt", color: "#abc" },
@@ -219,7 +219,11 @@ describe("tags integration — rename", () => {
     expect(typeof before?.["version"]).toBe("number");
     const version = before?.["version"] as number;
 
-    await stack.http.writeOk(TagsHandlers.updateTag, { id, version, name: "Mandant Neu" }, admin);
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { name: "Mandant Neu" } },
+      admin,
+    );
 
     const after = await tagById(id);
     expect(after?.["name"]).toBe("Mandant Neu");
@@ -227,18 +231,22 @@ describe("tags integration — rename", () => {
     expect(after?.["version"]).toBe(version + 1);
   });
 
-  test("rename-tag with a stale version is rejected (409), name unchanged", async () => {
+  test("tag:update with a stale version is rejected (409), name unchanged", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Konflikt" },
       admin,
     );
     const stale = (await tagById(id))?.["version"] as number;
-    await stack.http.writeOk(TagsHandlers.updateTag, { id, version: stale, name: "Erster" }, admin);
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version: stale, changes: { name: "Erster" } },
+      admin,
+    );
 
     const err = await stack.http.writeErr(
       TagsHandlers.updateTag,
-      { id, version: stale, name: "Zweiter" }, // stale: the row already moved to stale+1
+      { id, version: stale, changes: { name: "Zweiter" } }, // stale: the row already moved to stale+1
       admin,
     );
     expect(err.httpStatus).toBe(409);
@@ -255,7 +263,7 @@ describe("tags integration — rename", () => {
 
     const err = await stack.http.writeErr(
       TagsHandlers.updateTag,
-      { id, version, name: "B-Übernahme" },
+      { id, version, changes: { name: "B-Übernahme" } },
       otherTenant,
     );
     expect(err.httpStatus).toBe(404);
@@ -264,7 +272,7 @@ describe("tags integration — rename", () => {
 });
 
 describe("tags integration — update (recolor / re-scope)", () => {
-  test("update-tag changes color + scope, preserves the untouched name", async () => {
+  test("tag:update changes color + scope, preserves the untouched name", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Projekt", color: "#111111" },
@@ -273,7 +281,7 @@ describe("tags integration — update (recolor / re-scope)", () => {
     const version = (await tagById(id))?.["version"] as number;
     await stack.http.writeOk(
       TagsHandlers.updateTag,
-      { id, version, color: "#22cc88", scope: "note" },
+      { id, version, changes: { color: "#22cc88", scope: "note" } },
       admin,
     );
     const after = await tagById(id);
@@ -282,19 +290,39 @@ describe("tags integration — update (recolor / re-scope)", () => {
     expect(after?.["scope"]).toBe("note");
   });
 
-  test("update-tag with empty color clears it", async () => {
+  test("tag:update with empty color clears it", async () => {
     const { id } = await stack.http.writeOk<{ id: string }>(
       TagsHandlers.createTag,
       { name: "Farbe", color: "#abcdef" },
       admin,
     );
     const version = (await tagById(id))?.["version"] as number;
-    await stack.http.writeOk(TagsHandlers.updateTag, { id, version, color: "" }, admin);
+    await stack.http.writeOk(
+      TagsHandlers.updateTag,
+      { id, version, changes: { color: "" } },
+      admin,
+    );
     expect((await tagById(id))?.["color"]).toBe("");
+  });
+
+  test("tag:update rejects a colour that is not a hex code", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Farbe streng", color: "#abcdef" },
+      admin,
+    );
+    const version = (await tagById(id))?.["version"] as number;
+    const err = await stack.http.writeErr(
+      TagsHandlers.updateTag,
+      { id, version, changes: { color: "red" } },
+      admin,
+    );
+    expectErrorIncludes(err, "invalid_color");
+    expect((await tagById(id))?.["color"]).toBe("#abcdef");
   });
 });
 
-describe("tags integration — delete-tag cascade", () => {
+describe("tags integration — tag:delete cascade", () => {
   test("deletes the tag and detaches it from every entity (multiple types)", async () => {
     const target = await createTag("Sammelmappe");
     const other = await createTag("bleibt");

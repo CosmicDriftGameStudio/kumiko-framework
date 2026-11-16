@@ -9,7 +9,7 @@
 //
 // Flow (see the integration test):
 //   1. App-author defines a plain `note` entity — nothing tag-specific.
-//   2. A tenant creates a tag via `tags:write:create-tag`.
+//   2. A tenant creates a tag via `tags:write:tag:create`.
 //   3. The tag is attached to a note via `tags:write:assign-tag`
 //      with { tagId, entityType: "note", entityId: <noteId> }.
 //   4. "Which tags does this note have?" / "Which notes carry this tag?"

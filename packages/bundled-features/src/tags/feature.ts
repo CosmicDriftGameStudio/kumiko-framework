@@ -12,10 +12,9 @@
 // tag-assignments filtered on entityId (tags of an entity) or tagId (entities
 // with a tag). See entity.ts.
 //
-// Handlers: create-tag, update-tag (rename/recolor/re-scope), delete-tag
-// (cascades over assignments), assign-tag, remove-tag, list tags, list assignments.
-// Convention aliases tag:{create,update,delete} + tag:detail back the
-// entityList/entityEdit catalog screens (legacy QNs stay for TagManager).
+// Handlers: tag:create, tag:update (rename/recolor/re-scope), tag:delete
+// (cascades over assignments), assign-tag, remove-tag, list tags, list assignments,
+// tag:detail. They back the entityList/entityEdit catalog screens and TagManager.
 // Deferred: optional host-projection decoration (`wireTagsFor`), search indexing.
 
 import {
@@ -36,8 +35,8 @@ import { createAssignTagHandler } from "./handlers/assign-tag.write.ts";
 import { createCreateTagHandler } from "./handlers/create-tag.write.ts";
 import { createDeleteTagHandler } from "./handlers/delete-tag.write.ts";
 import { createRemoveTagHandler } from "./handlers/remove-tag.write.ts";
-import { createUpdateTagHandler } from "./handlers/update-tag.write.ts";
 import { TAGS_FEATURE_I18N } from "./i18n.ts";
+import { rejectInvalidTagColorChange } from "./schemas.ts";
 import { createTagEditScreen, createTagListScreen } from "./screens.ts";
 import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./web/constants.ts";
 
@@ -58,7 +57,7 @@ function registerTags(
 ): void {
   r.adoptsBundledLists();
   r.describe(
-    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. Catalog screens are declarative (`entityList` + `entityEdit`) and use convention QNs `tag:{create,update,delete}`; TagManager/TagPicker keep `create-tag`/`update-tag`/`delete-tag`. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. The catalog is written through `tag:create`, `tag:update` (`{ id, version, changes }`) and `tag:delete` (cascades over the assignments), used by the declarative catalog screens and by TagManager/TagPicker alike. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
   r.uiHints({
     displayLabel: "Tags",
@@ -75,34 +74,18 @@ function registerTags(
   r.entity({ name: "tag-assignment", ...tagAssignmentEntity });
 
   r.writeHandler(createCreateTagHandler(access));
-  r.writeHandler(createUpdateTagHandler(access));
+  const tagUpdate = r.writeHandler(
+    defineEntityUpdateHandler("tag", tagEntity, {
+      access,
+      description:
+        "Renames, recolours or re-scopes a catalog tag from the `{ id, version, changes }` envelope with optimistic locking; omitted fields stay untouched and color or scope accept an empty string to clear them.",
+    }),
+  );
+  r.hook({ type: "validation", target: tagUpdate, handler: rejectInvalidTagColorChange });
   r.writeHandler(createDeleteTagHandler(access));
   const assignmentExecutor = createTagAssignmentExecutor(ownership);
   r.writeHandler(createAssignTagHandler(access, assignmentExecutor));
   r.writeHandler(createRemoveTagHandler(access, assignmentExecutor));
-
-  // Convention aliases for entityList/entityEdit — create stays flat-payload
-  // (payloadMode=values); update must accept the {id,version,changes} envelope
-  // entityEdit sends (legacy update-tag stays for TagManager). delete stays
-  // legacy so assignment cascade is preserved (convention delete would orphan).
-  r.writeHandler({
-    ...createCreateTagHandler(access, "tag:create"),
-    description:
-      "Adds a tag to the caller's tenant tag catalog and mints its id; this is the convention name the declarative tag catalog screens dispatch, with the same effect as the legacy create-tag.",
-  });
-  r.writeHandler(
-    defineEntityUpdateHandler("tag", tagEntity, {
-      access,
-      description:
-        "Renames, recolours or re-scopes a catalog tag from the entity-edit `{ id, version, changes }` envelope; this is the convention name the tag edit screen submits, unlike the flat-payload legacy update-tag.",
-    }),
-  );
-  r.writeHandler({
-    ...createDeleteTagHandler(access, "tag:delete"),
-    description:
-      "Deletes a catalog tag and detaches it from every entity carrying it; this is the convention name the tag catalog list screen's delete row-action dispatches, with the same cascade as the legacy delete-tag.",
-    agent: { risk: "high" },
-  });
 
   r.queryHandler(
     defineEntityListHandler("tag", tagEntity, {
@@ -127,7 +110,7 @@ function registerTags(
   );
 
   // Standalone catalog: entityList + entityEdit. App navs via
-  // r.nav("tags:screen:tag-list"). TagManager stays for picker/section only.
+  // r.nav("tags:screen:tag-list"). TagManager serves picker/section only.
   r.screen(createTagListScreen(access));
   r.screen(createTagEditScreen(access));
   r.translations({ keys: TAGS_FEATURE_I18N });

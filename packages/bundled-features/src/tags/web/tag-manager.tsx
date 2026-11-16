@@ -187,9 +187,7 @@ export function TagManager({
       const ok = await writeOk(TagsHandlers.updateTag, {
         id: tag.id,
         version: tag.version,
-        name,
-        color: editColor.trim(),
-        scope: editScope.trim(),
+        changes: { name, color: editColor.trim(), scope: editScope.trim() },
       });
       if (ok) setEditingId(null);
       return ok;

@@ -182,9 +182,7 @@ describe("TagManager — catalog CRUD", () => {
       expect(dispatchSpy).toHaveBeenCalledWith(TagsHandlers.updateTag, {
         id: "t1",
         version: 1,
-        name: "renamed",
-        color: "#3b82f6",
-        scope: "",
+        changes: { name: "renamed", color: "#3b82f6", scope: "" },
       }),
     );
     await waitFor(() => expect(screen.queryByTestId("tag-manager-edit-t1")).toBeNull());

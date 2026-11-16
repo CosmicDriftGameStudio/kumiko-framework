@@ -56,6 +56,15 @@ describe("createSubscriptionPaddleFeature — shape", () => {
     expect(plugin?.["createPlanSwitchSession"]).toBeUndefined();
     expect(plugin?.["displayName"]).toBe("Paddle");
   });
+
+  test("registers no ledger backfill job, marker handler or redelivery hook", () => {
+    const feature = createSubscriptionPaddleFeature(OPTIONS);
+    const usage = feature.extensionUsages.find((u) => u.entityName === PADDLE_PROVIDER_NAME);
+    const plugin = usage?.options as Record<string, unknown> | undefined;
+    expect(Object.keys(feature.jobs)).not.toContain("backfill-checkout-ledger");
+    expect(Object.keys(feature.writeHandlers).join(" ")).not.toContain("ledger-backfill-marker");
+    expect(plugin?.["shouldRedeliverIgnoredEvent"]).toBeUndefined();
+  });
 });
 
 describe("createSubscriptionPaddleFeature — oneOffPriceIds validation", () => {

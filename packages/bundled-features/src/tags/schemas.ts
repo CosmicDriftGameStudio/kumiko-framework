@@ -1,35 +1,18 @@
+import type { ValidationError } from "@cosmicdrift/kumiko-types/hooks";
+import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
+
+export const TAG_COLOR_PATTERN = /^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}))?$/;
 
 export const createTagPayloadSchema = z.object({
   name: z.string().trim().min(1).max(64),
   color: z
     .string()
-    .regex(/^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}))?$/, "color must be a hex code (#rgb or #rrggbb)")
+    .regex(TAG_COLOR_PATTERN, "color must be a hex code (#rgb or #rrggbb)")
     .optional(),
   scope: z.string().max(64).optional(),
 });
 export type CreateTagPayload = z.infer<typeof createTagPayloadSchema>;
-
-// update-tag — id + the version the client read (optimistic lock, mirrors
-// tenant:update) + the fields to change. name/color/scope are each optional so
-// the management UI can rename, recolor or re-scope independently; the executor
-// shallow-merges, so any field left undefined is preserved. color/scope accept ""
-// to clear them. At least one mutable field must be present (no-op guard).
-export const updateTagPayloadSchema = z
-  .object({
-    id: z.string().min(1),
-    version: z.number().int().nonnegative(),
-    name: z.string().trim().min(1).max(64).optional(),
-    color: z
-      .string()
-      .regex(/^(#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}))?$/, "color must be a hex code (#rgb or #rrggbb)")
-      .optional(),
-    scope: z.string().max(64).optional(),
-  })
-  .refine((p) => p.name !== undefined || p.color !== undefined || p.scope !== undefined, {
-    message: "update-tag needs at least one of name, color or scope",
-  });
-export type UpdateTagPayload = z.infer<typeof updateTagPayloadSchema>;
 
 // delete-tag — hard-deletes the catalog tag AND cascades a soft-delete over
 // every assignment carrying it (no FK, so the handler does the cascade). No
@@ -59,3 +42,14 @@ export type AssignTagPayload = z.infer<typeof assignTagPayloadSchema>;
 
 export const removeTagPayloadSchema = z.object(entityTagRef);
 export type RemoveTagPayload = z.infer<typeof removeTagPayloadSchema>;
+
+// tag:update derives its schema from the entity, so the hex check on the changed colour runs as a validation hook.
+export function rejectInvalidTagColorChange(
+  data: Readonly<Record<string, unknown>>,
+): readonly ValidationError[] | null {
+  const color = propertyOf(propertyOf(data, "changes"), "color");
+  if (typeof color === "string" && !TAG_COLOR_PATTERN.test(color)) {
+    return [{ field: "color", error: "invalid_color" }];
+  }
+  return null;
+}

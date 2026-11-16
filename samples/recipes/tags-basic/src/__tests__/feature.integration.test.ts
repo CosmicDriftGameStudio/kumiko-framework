@@ -61,7 +61,7 @@ async function createNote(id: string, title: string) {
 }
 
 async function createTag(name: string): Promise<string> {
-  const tag = await stack.http.writeOk<{ id: string }>("tags:write:create-tag", { name }, admin);
+  const tag = await stack.http.writeOk<{ id: string }>("tags:write:tag:create", { name }, admin);
   return tag.id;
 }
 

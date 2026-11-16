@@ -5,7 +5,6 @@ import { TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "../web/constants.ts";
 
 // QN convention: entityList loads tags:query:tag:list; entityEdit loads
 // tags:query:tag:detail and saves via tags:write:tag:{create,update,delete}.
-// Legacy create-tag/update-tag/delete-tag stay registered for TagManager.
 
 describe("tags catalog screens (entityList + entityEdit)", () => {
   const feature = createTagsFeature();
@@ -26,17 +25,13 @@ describe("tags catalog screens (entityList + entityEdit)", () => {
     expect(edit?.access).toEqual({ roles: ["TenantAdmin", "TenantMember"] });
   });
 
-  test("convention handlers sit beside legacy create-tag/update-tag/delete-tag", () => {
+  test("catalog writes run only through the convention handlers", () => {
     expect(Object.keys(feature.writeHandlers)).toEqual(
-      expect.arrayContaining([
-        "create-tag",
-        "update-tag",
-        "delete-tag",
-        "tag:create",
-        "tag:update",
-        "tag:delete",
-      ]),
+      expect.arrayContaining(["tag:create", "tag:update", "tag:delete"]),
     );
+    expect(Object.keys(feature.writeHandlers)).not.toContain("create-tag");
+    expect(Object.keys(feature.writeHandlers)).not.toContain("update-tag");
+    expect(Object.keys(feature.writeHandlers)).not.toContain("delete-tag");
     expect(Object.keys(feature.queryHandlers)).toEqual(
       expect.arrayContaining(["tag:list", "tag:detail", "tag-assignment:list"]),
     );

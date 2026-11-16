@@ -5,7 +5,7 @@ import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 
 const CASCADE_PAGE = 200;
 
-// delete-tag — removes a tag from the catalog and detaches it everywhere. No FK
+// tag:delete — removes a tag from the catalog and detaches it everywhere. No FK
 // (event-sourced, no JOIN), so the handler cascades: soft-delete every
 // assignment carrying this tag, then hard-delete the catalog tag.
 //
@@ -18,14 +18,14 @@ const CASCADE_PAGE = 200;
 // rows and terminates when none are left.
 export function createDeleteTagHandler(
   access: AccessRule = DEFAULT_TAG_ACCESS,
-  name = "delete-tag",
+  name = "tag:delete",
 ): WriteHandlerDef {
   return {
     name,
     schema: deleteTagPayloadSchema,
     access,
     description:
-      "Deletes a catalog tag and cascades a detach over every assignment still carrying it, so the tag disappears from all entities at once; this is the legacy name the TagManager dispatches.",
+      "Deletes a catalog tag and cascades a detach over every assignment still carrying it, so the tag disappears from all entities at once.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
       const payload = event.payload as DeleteTagPayload; // @cast-boundary engine-payload

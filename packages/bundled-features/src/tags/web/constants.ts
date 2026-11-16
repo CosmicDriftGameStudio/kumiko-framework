@@ -32,9 +32,9 @@ export const TAGS_EDIT_SCREEN_ID = "tag-edit";
 // Qualified handler names (QN format: scope:type:name). Clients reference the
 // object instead of magic strings (mirror custom-fields' Handlers/Queries).
 export const TagsHandlers = {
-  createTag: "tags:write:create-tag",
-  updateTag: "tags:write:update-tag",
-  deleteTag: "tags:write:delete-tag",
+  createTag: "tags:write:tag:create",
+  updateTag: "tags:write:tag:update",
+  deleteTag: "tags:write:tag:delete",
   assignTag: "tags:write:assign-tag",
   removeTag: "tags:write:remove-tag",
 } as const;

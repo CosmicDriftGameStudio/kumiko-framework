@@ -47,7 +47,6 @@ export const AUDIT_EVENT_STANCES: Readonly<Record<string, AuditEventStance>> = {
   "billing-foundation:event:payment-received": label("payment-received"),
   "billing-foundation:event:checkout-consent-recorded": label("checkout-consent-recorded"),
   "billing-foundation:event:checkout-opened": TECHNICAL_EVENT,
-  "subscription-paddle:event:ledger-backfill-sweep-completed": TECHNICAL_EVENT,
   "billing-foundation:event:contract-confirmation-issued": label("contract-confirmation-issued"),
   "billing-foundation:event:contract-termination-requested": label(
     "contract-termination-requested",

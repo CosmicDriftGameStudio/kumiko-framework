@@ -18,10 +18,6 @@ export {
   removeTagHandler,
 } from "./handlers/remove-tag.write.ts";
 export {
-  createUpdateTagHandler,
-  updateTagHandler,
-} from "./handlers/update-tag.write.ts";
-export {
   type AssignTagPayload,
   assignTagPayloadSchema,
   type CreateTagPayload,
@@ -30,8 +26,6 @@ export {
   deleteTagPayloadSchema,
   type RemoveTagPayload,
   removeTagPayloadSchema,
-  type UpdateTagPayload,
-  updateTagPayloadSchema,
 } from "./schemas.ts";
 export { createTagEditScreen, createTagListScreen } from "./screens.ts";
 export {
