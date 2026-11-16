@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { capCounterEntity } from "../entity.ts";
-import { capReservationsTableMeta } from "../tables.ts";
+import { capReservationsTableMeta, rollingCapUsageTableMeta } from "../tables.ts";
 
 function pgTypeOf(table: unknown, dbName: string): string | undefined {
   const cols = (table as { columns?: ReadonlyArray<{ name: string; pgType?: string }> }).columns;
@@ -17,5 +17,36 @@ describe("capCounterEntity — DDL", () => {
   test("reservation table carries the nullable settled_at tombstone column", () => {
     const column = capReservationsTableMeta.columns.find((c) => c.name === "settled_at");
     expect(column).toEqual({ name: "settled_at", pgType: "timestamptz", notNull: false });
+  });
+
+  test("reservation table meta matches the hand-frozen DDL", () => {
+    expect(capReservationsTableMeta.tableName).toBe("store_cap_reservations");
+    expect(capReservationsTableMeta.columns).toEqual([
+      { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
+      { name: "tenant_id", pgType: "uuid", notNull: true },
+      { name: "cap_name", pgType: "text", notNull: true },
+      { name: "kind", pgType: "text", notNull: true },
+      { name: "period_start_iso", pgType: "text", notNull: false },
+      { name: "amount", pgType: "integer", notNull: true },
+      { name: "expires_at", pgType: "timestamptz", notNull: true },
+      { name: "created_at", pgType: "timestamptz", notNull: true },
+      { name: "settled_at", pgType: "timestamptz", notNull: false },
+      { name: "consumed_amount", pgType: "integer", notNull: true, defaultSql: "0" },
+      { name: "released_at", pgType: "timestamptz", notNull: false },
+    ]);
+    expect(capReservationsTableMeta.indexes).toMatchObject([
+      {
+        name: "store_cap_reservations_tenant_id_cap_name_expires_at_idx",
+        columns: ["tenant_id", "cap_name", "expires_at"],
+      },
+    ]);
+  });
+
+  test("rolling usage table is keyed per tenant, cap and hour", () => {
+    expect(rollingCapUsageTableMeta.tableName).toBe("store_cap_rolling_usage");
+    expect(rollingCapUsageTableMeta.compositePrimaryKey).toMatchObject({
+      columns: ["tenant_id", "cap_name", "bucket_start"],
+    });
+    expect(pgTypeOf(rollingCapUsageTableMeta, "amount")).toBe("bigint");
   });
 });

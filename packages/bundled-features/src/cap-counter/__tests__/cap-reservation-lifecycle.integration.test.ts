@@ -4,7 +4,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
 import {
-  createTenantDb,
   type DbConnection,
   insertOne,
   selectMany,
@@ -31,13 +30,12 @@ import type {
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { readRollingCapUsage } from "../book-cap-usage.ts";
-import { CapCounterHandlers, ROLLING_RELEASED_EVENT_QN } from "../constants.ts";
+import { CapCounterHandlers } from "../constants.ts";
 import type { SoftHitNotifier } from "../enforce-cap.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
 import { capReservationsTable } from "../tables.ts";
-import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.ts";
+import { withCapEnforcement } from "../with-cap-enforcement.ts";
 import { fetchCounterRow } from "./read-counter.ts";
 
 const PERIOD = "2026-07-01T00:00:00Z";
@@ -143,7 +141,6 @@ const capturingUnknownCommit: WriteHandlerDef = {
 };
 const UNKNOWN_COMMIT_QN = "capgate:write:unknown-commit-send";
 
-const ROLLING_WINDOW_DAYS = 7;
 const INNER_CAP = "composition-inner-cap";
 const OUTER_CAP = "composition-outer-cap";
 const composedBase: WriteHandlerDef = {
@@ -156,9 +153,9 @@ const composedBase: WriteHandlerDef = {
     return { isSuccess: true as const, data: {} };
   },
 };
-const composedWithInnerCap = withRollingCapEnforcement(composedBase, () => ({
+const composedWithInnerCap = withCapEnforcement(composedBase, () => ({
   capName: INNER_CAP,
-  windowDays: ROLLING_WINDOW_DAYS,
+  periodStartIso: PERIOD,
   limit: 5,
   profile: "hardSlot",
   notify: recordingNotifier,
@@ -172,48 +169,7 @@ const composed = withCapEnforcement(composedWithInnerCap, () => ({
 }));
 const COMPOSED_QN = "capgate:write:composed-send";
 
-const ROLLING_CAP = "rolling-lifecycle-cap";
-let rollingHandlerFails = false;
-const rollingHandler: WriteHandlerDef = {
-  name: "rolling-send",
-  schema: z.object({}),
-  access: { roles: ["TenantAdmin"] },
-  handler: async () => {
-    if (rollingHandlerFails) {
-      return {
-        isSuccess: false as const,
-        error: {
-          code: "send_rejected",
-          httpStatus: 422,
-          message: "rejected",
-          i18nKey: "errors.send",
-          details: {},
-        },
-      };
-    }
-    return { isSuccess: true as const, data: {} };
-  },
-};
-const wrappedRolling = withRollingCapEnforcement(rollingHandler, () => ({
-  capName: ROLLING_CAP,
-  windowDays: ROLLING_WINDOW_DAYS,
-  limit: 3,
-  profile: "hardSlot",
-  notify: recordingNotifier,
-}));
-const ROLLING_QN = "capgate:write:rolling-send";
-
-const nestedCaller: WriteHandlerDef = {
-  name: "nested-caller",
-  schema: z.object({}),
-  access: { roles: ["TenantAdmin"] },
-  handler: async (_event, ctx) => ctx.dispatch.write(ROLLING_QN, {}),
-};
-const NESTED_CALLER_QN = "capgate:write:nested-caller";
-
 const capGateFeature = defineFeature("capgate", (r) => {
-  r.writeHandler(nestedCaller);
-  r.writeHandler(wrappedRolling);
   r.writeHandler(wrappedGated);
   r.writeHandler(capturingUnknownCommit);
   r.writeHandler(composed);
@@ -247,7 +203,6 @@ beforeEach(async () => {
   softHitNotifications.length = 0;
   rateLimitBuckets.clear();
   rateLimitCharges.length = 0;
-  rollingHandlerFails = false;
 });
 
 function userFor(tenantNumber: number, userNumber: number, roles: string[] = ["TenantAdmin"]) {
@@ -256,14 +211,6 @@ function userFor(tenantNumber: number, userNumber: number, roles: string[] = ["T
 
 function readCounter(user: ReturnType<typeof userFor>, capName: string) {
   return fetchCounterRow(stack, user, capName, PERIOD);
-}
-
-async function rollingUsage(tenantNumber: number, capName: string) {
-  const tenantId = testTenantId(tenantNumber);
-  return readRollingCapUsage(createTenantDb({ db, tenantId }), tenantId, {
-    capName,
-    windowDays: ROLLING_WINDOW_DAYS,
-  });
 }
 
 async function reservationRows(tenantNumber: number) {
@@ -405,7 +352,7 @@ describe("withCapEnforcement - wrapped around another capped handler", () => {
 
     await stack.http.writeOk(COMPOSED_QN, {}, user);
 
-    expect(await rollingUsage(tenantNumber, INNER_CAP)).toBe(1);
+    expect((await readCounter(user, INNER_CAP))?.["value"]).toBe(1);
     expect((await readCounter(user, OUTER_CAP))?.["value"]).toBe(1);
     expect(rateLimitCharges).toEqual([
       `tenant+handler:${testTenantId(tenantNumber)}:${COMPOSED_QN}`,
@@ -421,113 +368,8 @@ describe("withCapEnforcement - wrapped around another capped handler", () => {
 
     expect(error.code).toBe("cap_exceeded");
     expect(handlerRuns).toBe(1);
-    expect(await rollingUsage(tenantNumber, INNER_CAP)).toBe(1);
+    expect((await readCounter(user, INNER_CAP))?.["value"]).toBe(1);
     expect((await readCounter(user, OUTER_CAP))?.["value"]).toBe(1);
-    expect(await reservationRows(tenantNumber)).toHaveLength(0);
-  });
-});
-
-// =============================================================================
-// Rolling reservation
-// =============================================================================
-
-describe("withRollingCapEnforcement - reservation lifecycle", () => {
-  test("a successful write keeps its amount in the window and leaves no reservation row", async () => {
-    const tenantNumber = 3401;
-
-    await stack.http.writeOk(ROLLING_QN, {}, userFor(tenantNumber, 1));
-
-    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(1);
-    expect(await reservationRows(tenantNumber)).toHaveLength(0);
-  });
-
-  test("a failed write releases its amount: reserve and release net out", async () => {
-    const tenantNumber = 3402;
-    const user = userFor(tenantNumber, 1);
-    await stack.http.writeOk(ROLLING_QN, {}, user);
-    rollingHandlerFails = true;
-
-    await stack.http.writeErr(ROLLING_QN, {}, user);
-
-    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(1);
-    expect(await reservationRows(tenantNumber)).toHaveLength(0);
-    const events = await selectMany(db, eventsTable, { tenantId: testTenantId(tenantNumber) });
-    expect(events.map((event) => event["type"]).sort()).toEqual([
-      "cap-counter:event:rolling-incremented",
-      "cap-counter:event:rolling-incremented",
-      "cap-counter:event:rolling-released",
-    ]);
-  });
-
-  test("the hard cap blocks once the window is full", async () => {
-    const tenantNumber = 3403;
-    const user = userFor(tenantNumber, 1);
-    for (let i = 0; i < 3; i++) await stack.http.writeOk(ROLLING_QN, {}, user);
-
-    const error = await stack.http.writeErr(ROLLING_QN, {}, user);
-
-    expect(error.code).toBe("cap_exceeded");
-    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(3);
-  });
-
-  test("parallel writes cannot overshoot the hard cap", async () => {
-    const tenantNumber = 3405;
-    const user = userFor(tenantNumber, 1);
-
-    const results = await Promise.all(
-      Array.from({ length: 6 }, () => stack.http.write(ROLLING_QN, {}, user)),
-    );
-
-    expect(results.filter((response) => response.status === 200)).toHaveLength(3);
-    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(3);
-    expect(await reservationRows(tenantNumber)).toHaveLength(0);
-  });
-
-  test("the next reserve gives back an expired rolling reservation", async () => {
-    const tenantNumber = 3404;
-    const tenantId = testTenantId(tenantNumber);
-    // An orphaned booking of 2 as a crashed process would leave it: its event plus an expired row.
-    await stack.http.writeOk(
-      CapCounterHandlers.incrementRolling,
-      { capName: ROLLING_CAP, amount: 2 },
-      userFor(tenantNumber, 1, ["TenantAdmin", "SystemAdmin"]),
-    );
-    const now = Temporal.Now.instant();
-    // Whole milliseconds, so the stored timestamp round-trips to the same string.
-    const reservedAt = Temporal.Instant.fromEpochMilliseconds(now.epochMilliseconds - 61 * 60_000);
-    await insertOne(db, capReservationsTable, {
-      id: generateId(),
-      tenantId,
-      capName: ROLLING_CAP,
-      kind: "rolling",
-      periodStartIso: null,
-      amount: 2,
-      expiresAt: now.subtract({ minutes: 1 }),
-      createdAt: reservedAt,
-    });
-    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(2);
-
-    await stack.http.writeOk(ROLLING_QN, {}, userFor(tenantNumber, 2));
-
-    // 2 orphaned - 2 expired + 1 new
-    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(1);
-    expect(await reservationRows(tenantNumber)).toHaveLength(0);
-    const released = (await selectMany(db, eventsTable, { tenantId })).filter(
-      (event) => event["type"] === ROLLING_RELEASED_EVENT_QN,
-    );
-    expect(released).toHaveLength(1);
-    expect(released[0]?.["payload"]).toMatchObject({ incrementedAt: reservedAt.toString() });
-  });
-});
-
-describe("withRollingCapEnforcement - nested write", () => {
-  test("a nested ctx.dispatch.write of a rolling-capped handler is rejected and books nothing", async () => {
-    const tenantNumber = 3406;
-
-    const error = await stack.http.writeErr(NESTED_CALLER_QN, {}, userFor(tenantNumber, 1));
-
-    expect(error.httpStatus).toBe(500);
-    expect(await rollingUsage(tenantNumber, ROLLING_CAP)).toBe(0);
     expect(await reservationRows(tenantNumber)).toHaveLength(0);
   });
 });

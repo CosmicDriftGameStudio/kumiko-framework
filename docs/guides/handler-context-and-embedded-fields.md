@@ -125,8 +125,6 @@ In the reservation phase the same surfaces are blocked as in `beforeTransaction`
 
 No connection is held across the handler, so capped requests cannot exhaust the pool, and the counter stream is not locked while the handler runs. A reservation covers one top-level command. A capped handler reached through a nested `ctx.dispatch.write`, `ctx.dispatch.writeAs` or a second run of the same type finds the reservation spent and fails with an `InternalError`. Book the nested work from the top-level handler instead, or make the capped handler the top-level command. If a commit fails with an unknown outcome, the release can under-count, so a wrapped handler must not book the same counter itself.
 
-`withRollingCapEnforcement` is unchanged: it checks inside the handler and books through the SystemAdmin-only `increment-rolling` handler, with no reservation.
-
 ## External calls run before the transaction
 
 A call to a slow external service (the PDF print service, later AI providers) must not run inside the handler transaction, because the transaction holds a pool connection for as long as the call takes. A write handler declares a `beforeTransaction` phase for it. The dispatcher runs the phases in a fixed order: pre-handler gates, then `reserveBeforeTransaction` (if any), then `beforeTransaction`, then the transaction with the handler.

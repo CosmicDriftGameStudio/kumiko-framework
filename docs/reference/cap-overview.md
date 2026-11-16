@@ -44,11 +44,7 @@ usage: (db, tenantId) => db.count(table, { tenantId, ... }),
 usage: (db, tenantId) => db.fetchOne(table, { tenantId, ... }),
 ```
 
-Für ein Rolling-Window-Cap (z.B. AI-Tokens/7d) das `cap-counter`-Feature
-nutzen: Buchen per `ctx.dispatch.write(CapCounterHandlers.incrementRolling, { capName, amount })`
-(SystemAdmin-only Handler, Konstante aus `cap-counter`; `withRollingCapEnforcement`
-verdrahtet das für Handler), `readRollingCapUsage(db, tenantId, { capName, windowDays })`
-als `usage`-Callback.
+Für ein Rolling-Window-Cap (z.B. AI-Tokens/7d) das `cap-counter`-Feature nutzen: Buchen per `ctx.dispatch.write(CapCounterHandlers.incrementRolling, { capName, amount })` (SystemAdmin-only Handler, Konstante aus `cap-counter`; addiert in einen Stunden-Bucket in `store_cap_rolling_usage`), `readRollingCapUsage(db, tenantId, { capName, windowDays })` (1 bis 90 ganze Tage) als `usage`-Callback.
 
 ## Registrierte Screens
 

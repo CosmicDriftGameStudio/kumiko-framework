@@ -1,4 +1,4 @@
-// Integration test for withCapEnforcement / withRollingCapEnforcement.
+// Integration test for withCapEnforcement.
 // Proves the wrapper wiring end to end:
 //   1. Pre-call: enforceCapAndMaybeNotify is dispatched (the notifier fires,
 //      and the mark-soft-warned handler updates the database flag)
@@ -12,7 +12,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 
 import {
   asRawClient,
-  createTenantDb,
   type DbConnection,
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
@@ -38,12 +37,12 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { capCounterAggregateId } from "../aggregate-id.ts";
-import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.ts";
+import { bookCapUsage, markCapSoftWarned } from "../book-cap-usage.ts";
 import { CapCounterHandlers } from "../constants.ts";
 import type { SoftHitNotifier } from "../enforce-cap.ts";
 import { capCounterEntity } from "../entity.ts";
 import { createCapCounterFeature } from "../feature.ts";
-import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.ts";
+import { withCapEnforcement } from "../with-cap-enforcement.ts";
 import { fetchCounterRow } from "./read-counter.ts";
 
 // =============================================================================
@@ -89,24 +88,12 @@ const wrappedCalendar = withCapEnforcement(innerSendHandler, () => ({
   notify: recordingNotifier,
 }));
 
-const wrappedRolling = withRollingCapEnforcement(
-  { ...innerSendHandler, name: "send-rolling" },
-  () => ({
-    capName: "newsletter-rolling-cap",
-    windowDays: 7,
-    limit: 5,
-    profile: "burstable",
-    notify: recordingNotifier,
-  }),
-);
-
 const NEWSLETTER_QN = "newsletter:write:send-newsletter";
-const NEWSLETTER_ROLLING_QN = "newsletter:write:send-rolling";
 
 // =============================================================================
 // TenantAdmin-only probes (access-control gap): the users above carry BOTH
 // TenantAdmin and SystemAdmin, which hid the bug that enforceCapAndMaybeNotify
-// / withCapEnforcement / withRollingCapEnforcement used to dispatch
+// / withCapEnforcement used to dispatch
 // SystemAdmin-only handlers (ctx.dispatch.write(CapCounterHandlers.increment) etc.) —
 // a plain TenantAdmin caller with no escapeHatch would have gotten
 // access_denied. These handlers carry ONLY TenantAdmin and no escapeHatch,
@@ -291,7 +278,6 @@ const BOOK_CAP_USAGE_OUTSIDE_TX_QN = "newsletter:write:book-cap-usage-outside-tx
 
 const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(wrappedCalendar);
-  r.writeHandler(wrappedRolling);
   r.writeHandler(wrappedCalendarTenantOnly);
   r.writeHandler(wrappedAtomic);
   r.writeHandler(nestedAtomicCaller);
@@ -431,77 +417,6 @@ describe("withCapEnforcement — calendar", () => {
 });
 
 // =============================================================================
-// Rolling-wrapper scenarios — shorter because notification wiring and the base flow
-// are already covered by the calendar test.
-// =============================================================================
-
-describe("withRollingCapEnforcement — rolling", () => {
-  test("under-cap: handler runs, rolling increment events accumulate", async () => {
-    resetState();
-    const admin = adminFor(1301);
-
-    await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "a@x.de" }, admin);
-    await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "b@x.de" }, admin);
-    expect(sendCallCount).toBe(2);
-    // Read via enforceRollingCap—there is no direct getter, but we can issue
-    // another write and verify its result. The important point is that the handler ran.
-  });
-
-  test("hard-hit: rolling-counter blockiert weitere sends", async () => {
-    resetState();
-    const admin = adminFor(1302);
-
-    // limit=5, soft=5.5, hard=6. 6 sends bringen value=6 → 7. send blockiert.
-    for (let i = 0; i < 6; i++) {
-      await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: `${i}@x.de` }, admin);
-    }
-    expect(sendCallCount).toBe(6);
-
-    const error = await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "blocked@x.de" }, admin);
-    expect(error.code).toBe("cap_exceeded");
-    expect(error.httpStatus).toBe(429);
-    expect(sendCallCount).toBe(6); // the handler was not called again
-  });
-
-  test("failed handler: no rolling increment event is added (cap quota not consumed)", async () => {
-    // Mirrors the calendar test "failed handler: counter not incremented". Proves
-    // that the rolling wrapper provides the same atomicity contract: only successful
-    // handlers consume quota.
-    resetState();
-    const admin = adminFor(1303);
-
-    // 1. send: success → increment-rolling-event #1
-    await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "first@x.de" }, admin);
-    expect(sendCallCount).toBe(1);
-
-    // 2. send: the handler throws → no increment-rolling event
-    failNextSend = true;
-    await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "fail@x.de" }, admin);
-    expect(sendCallCount).toBe(2);
-
-    // 3. send: success → increment-rolling event #2 (regression guard: the counter
-    // is 2, not 3—the failed send #2 did not consume quota). We advance the counter
-    // to exactly hard-1, which works only if #2 was not counted.
-    for (let i = 0; i < 4; i++) {
-      await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: `s-${i}@x.de` }, admin);
-    }
-    expect(sendCallCount).toBe(6);
-
-    // Seventh send (= hard@6): the pre-call check sees 5 < hard@6, so the handler
-    // runs and increments the counter to 6; the next send is then blocked.
-    // If the failed send had been counted incorrectly, the counter would already
-    // be 6 and this allowed send would be blocked.
-    await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "last-allowed@x.de" }, admin);
-    expect(sendCallCount).toBe(7);
-
-    const blocked = await stack.http.writeErr(NEWSLETTER_ROLLING_QN, { to: "blocked@x.de" }, admin);
-    expect(blocked.code).toBe("cap_exceeded");
-    expect(blocked.httpStatus).toBe(429);
-    expect(sendCallCount).toBe(7); // the wrapper did not call the blocked handler
-  });
-});
-
-// =============================================================================
 // TenantAdmin-only calendar callers (no SystemAdmin, no escapeHatch)
 // =============================================================================
 
@@ -553,27 +468,6 @@ describe("withCapEnforcement — calendar, TenantAdmin-only callers", () => {
     const row = await readCounter(user, OUTSIDE_TX_CAP_NAME, TENANT_ONLY_PERIOD);
     expect(row).not.toBeNull();
     expect(row!["value"]).toBe(1);
-  });
-
-  test("readRollingCapUsage: tenant B reads 0 for the same capName after tenant A booked", async () => {
-    const tenantA = adminFor(2501);
-    const tenantB = adminFor(2502);
-
-    await stack.http.writeOk(NEWSLETTER_ROLLING_QN, { to: "a@x.de" }, tenantA);
-
-    const usageA = await readRollingCapUsage(
-      createTenantDb({ db: stack.db, tenantId: tenantA.tenantId }),
-      tenantA.tenantId,
-      { capName: "newsletter-rolling-cap", windowDays: 7 },
-    );
-    expect(usageA).toBe(1);
-
-    const usageB = await readRollingCapUsage(
-      createTenantDb({ db: stack.db, tenantId: tenantB.tenantId }),
-      tenantB.tenantId,
-      { capName: "newsletter-rolling-cap", windowDays: 7 },
-    );
-    expect(usageB).toBe(0);
   });
 });
 

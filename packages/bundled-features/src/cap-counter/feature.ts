@@ -6,25 +6,21 @@
 //   2. increment handler — atomic counter increment via deterministic
 //      aggregate-id (try-create / executor-update), made race-free by the
 //      event-store optimistic lock.
-//   3. increment-rolling handler — append-only custom-event stream for
-//      rolling-window caps (AI-tokens-7d, egress-24h). No projection; the
-//      value is read from the event stream.
+//   3. increment-rolling handler — adds the amount to the current UTC hour's
+//      bucket row (store_cap_rolling_usage) for rolling-window caps.
 //   4. mark-soft-warned handler — flips the anti-notification-storm flag
 //      (calendar-period counters only).
 //   5. get-counter query — synchronous read of the current counter value
 //      (calendar period).
-//   6. enforceCap + enforceRollingCap helpers (see enforce-cap.ts) —
-//      pre-save wrappers with asymmetric soft and hard tolerances per
-//      cap profile.
+//   6. enforceCap helper (see enforce-cap.ts) — pre-save wrapper with
+//      asymmetric soft and hard tolerances per cap profile.
 //
 // **Calendar vs. rolling — when to use which:**
 //   - **Calendar period** (bookCapUsage + enforceCap): the cap resets at
 //     period start (the first of the month, etc.). The counter is one row in
 //     the projection, enabling fast reads.
-//   - **Rolling window** (CapCounterHandlers.incrementRolling + enforceRollingCap):
-//     the cap rolls continuously (e.g. "last 7 days"). Values expire event
-//     by event without a reset. There is no projection; reads sum the events
-//     from the last N days.
+//   - **Rolling window** (CapCounterHandlers.incrementRolling + readRollingCapUsage):
+//     hourly buckets, reads sum the buckets of the last N days.
 //
 // **What this feature does NOT do:**
 //   - **No foundation wiring.** mail-foundation / file-foundation /
@@ -49,23 +45,14 @@ import {
   defineEntityListHandler,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import {
-  CAP_COUNTER_FEATURE,
-  CAP_COUNTER_LIST_SCREEN_ID,
-  ROLLING_INCREMENTED_EVENT_SHORT,
-  ROLLING_RELEASED_EVENT_SHORT,
-} from "./constants.ts";
+import { CAP_COUNTER_FEATURE, CAP_COUNTER_LIST_SCREEN_ID } from "./constants.ts";
 import { capCounterEntity } from "./entity.ts";
 import { getCounterQuery } from "./handlers/get-counter.query.ts";
 import { incrementCapHandler } from "./handlers/increment.write.ts";
-import {
-  incrementRollingCapHandler,
-  rollingIncrementedSchema,
-  rollingReleasedSchema,
-} from "./handlers/increment-rolling.write.ts";
+import { incrementRollingCapHandler } from "./handlers/increment-rolling.write.ts";
 import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write.ts";
 import { CAP_COUNTER_I18N } from "./i18n.ts";
-import { capReservationsTableMeta } from "./tables.ts";
+import { capReservationsTableMeta, rollingCapUsageTableMeta } from "./tables.ts";
 
 export function createCapCounterFeature() {
   return defineFeature(
@@ -73,7 +60,7 @@ export function createCapCounterFeature() {
     (r) => {
       r.adoptsBundledLists();
       r.describe(
-        "Tracks per-tenant usage against configurable limits using two complementary storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (append-only event stream, no projection). Use `enforceCap` / `enforceRollingCap` (or the `withCapEnforcement` / `withRollingCapEnforcement` handler wrappers) in your write-handlers to check limits with soft-warn and hard-block tolerances; call `enforceCapAndMaybeNotify` when you also want to trigger a delivery notification on soft-threshold hits.",
+        "Tracks per-tenant usage against configurable limits using two storage models: calendar-period counters (one projection row per tenant/capName/period, reset implicitly by period rollover) and rolling-window counters (hourly usage buckets in a store table, summed over the last N days). Wrap write-handlers with `withCapEnforcement` (or call `enforceCap` / `enforceCapAndMaybeNotify`) for calendar caps with soft-warn and hard-block tolerances; book rolling usage through the SystemAdmin-only `increment-rolling` handler and read it with `readRollingCapUsage`.",
       );
       r.uiHints({
         displayLabel: "Cap Counter · Usage Limits",
@@ -84,20 +71,11 @@ export function createCapCounterFeature() {
       r.storeTable(capReservationsTableMeta, {
         reason: "coordination.cap_reservation_ledger",
       });
-
-      // Custom domain event for the rolling counter. r.defineEvent registers the
-      // schema with the registry; ctx.events.unsafeAppend in the handler reuses the
-      // same schema for append-time validation. QN after prefixing:
-      // "cap-counter:event:rolling-incremented" (see
-      // ROLLING_INCREMENTED_EVENT_QN).
-      r.defineEvent(ROLLING_INCREMENTED_EVENT_SHORT, rollingIncrementedSchema, {
-        piiFields: "none",
-      });
-      r.defineEvent(ROLLING_RELEASED_EVENT_SHORT, rollingReleasedSchema, { piiFields: "none" });
+      r.storeTable(rollingCapUsageTableMeta, { reason: "coordination.cap_rolling_usage_buckets" });
 
       // Custom write-handlers.
       // - increment: calendar period (CRUD via projection row).
-      // - increment-rolling: rolling window (custom event, no projection).
+      // - increment-rolling: rolling window (hourly bucket upsert).
       // - mark-soft-warned: anti-notification-storm flag (calendar only).
       r.writeHandler(incrementCapHandler);
       r.writeHandler(incrementRollingCapHandler);

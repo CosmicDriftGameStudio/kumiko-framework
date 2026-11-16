@@ -11,16 +11,13 @@ import {
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { eventsTable, VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
+import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
-import { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id.ts";
-import {
-  CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-  ROLLING_INCREMENTED_EVENT_QN,
-  ROLLING_RELEASED_EVENT_QN,
-} from "./constants.ts";
+import { capCounterAggregateId } from "./aggregate-id.ts";
+import { ROLLING_CAP_MAX_WINDOW_DAYS } from "./constants.ts";
 import { capCounterEntity } from "./entity.ts";
+import { rollingCapUsageTable } from "./tables.ts";
 
 const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
 
@@ -281,62 +278,28 @@ export type ReadRollingCapUsageOptions = {
   readonly windowDays: number;
 };
 
-// A release is written up to a reservation TTL after its increment; once the increment left the
-// window the release must not subtract from other increments still inside it.
-function isBefore(isoInstant: string, cutoff: Temporal.Instant): boolean {
-  return Temporal.Instant.compare(Temporal.Instant.from(isoInstant), cutoff) < 0;
+export function rollingBucketStart(at: Temporal.Instant): Temporal.Instant {
+  return at.round({ smallestUnit: "hour", roundingMode: "floor" });
 }
 
-async function sumRollingEventAmounts(
-  db: TenantDb,
-  tenantId: TenantId,
-  options: ReadRollingCapUsageOptions,
-  type: string,
-): Promise<number> {
-  const aggregateId = rollingCapAggregateId(tenantId, options.capName);
-  const cutoff = Temporal.Now.instant().subtract({ hours: options.windowDays * 24 });
+const readRollingCapUsageSchema = z.object({
+  capName: z.string().min(1).max(100),
+  windowDays: z.number().int().min(1).max(ROLLING_CAP_MAX_WINDOW_DAYS),
+});
 
-  const rows = await db.selectMany<{ payload: { amount?: number; incrementedAt?: string } }>(
-    eventsTable,
-    {
-      tenantId,
-      aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-      aggregateId,
-      type,
-      createdAt: { gte: cutoff },
-    },
-  );
-
-  let total = 0;
-  for (const row of rows) {
-    // @cast-boundary engine-payload — events.payload is jsonb (typed as
-    // unknown by drizzle's $type<Record<string,unknown>>); narrowing the
-    // shape here mirrors enforceRollingCap's own read-side contract.
-    const payload = row["payload"] as { amount?: number; incrementedAt?: string };
-    if (typeof payload.incrementedAt === "string" && isBefore(payload.incrementedAt, cutoff)) {
-      continue;
-    }
-    if (typeof payload.amount === "number") {
-      total += payload.amount;
-    }
-  }
-  return total;
-}
-
-// Sums usage without throwing — for callers that only need the raw number
-// (e.g. a CapSpec.usage callback), not the enforce-and-throw path.
-// Incremented minus released amounts inside the window; a release whose increment already left the window cannot push it below 0.
+// Sums the hourly buckets of the window. The cutoff is floored to the hour, so a read can include up
+// to one extra hour at the window's old edge: it over-counts, never under-counts.
 export async function readRollingCapUsage(
   db: TenantDb,
   tenantId: TenantId,
   options: ReadRollingCapUsageOptions,
 ): Promise<number> {
-  const incremented = await sumRollingEventAmounts(
-    db,
-    tenantId,
-    options,
-    ROLLING_INCREMENTED_EVENT_QN,
+  const { capName, windowDays } = readRollingCapUsageSchema.parse(options);
+  const cutoff = rollingBucketStart(Temporal.Now.instant().subtract({ hours: windowDays * 24 }));
+  const [total] = await db.aggregate(
+    rollingCapUsageTable,
+    { measure: { fn: "sum", field: "amount" } },
+    { tenantId, capName, bucketStart: { gte: cutoff } },
   );
-  const released = await sumRollingEventAmounts(db, tenantId, options, ROLLING_RELEASED_EVENT_QN);
-  return Math.max(0, incremented - released);
+  return total?.value ?? 0;
 }

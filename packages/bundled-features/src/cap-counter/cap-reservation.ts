@@ -6,40 +6,30 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
-import {
-  appendEventInTenantDb,
-  getStreamVersionInTenantDb,
-} from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type {
   ReservationConfirmContext,
   ReservationHandle,
 } from "@cosmicdrift/kumiko-types/handlers";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { rollingCapAggregateId } from "./aggregate-id.ts";
 import {
   applyCapDeltaOn,
   type BookCapUsageOptions,
   type CapCounterContext,
-  type ReadRollingCapUsageOptions,
-  readRollingCapUsage,
   resolveCapCounterScope,
   retryCounterWriteOnVersionConflict,
   retryOnStreamVersionConflict,
 } from "./book-cap-usage.ts";
 import {
-  CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
   CAP_RESERVATION_TTL_MINUTES,
   CAP_SETTLED_TOMBSTONE_TTL_MINUTES,
-  ROLLING_INCREMENTED_EVENT_QN,
-  ROLLING_RELEASED_EVENT_QN,
 } from "./constants.ts";
 import { capReservationsTable } from "./tables.ts";
 
 type CapReservationRow = {
   readonly id: string;
   readonly capName: string;
-  readonly kind: "calendar" | "rolling";
+  readonly kind: "calendar";
   readonly periodStartIso: string | null;
   readonly amount: number;
   readonly expiresAt: Temporal.Instant;
@@ -138,60 +128,6 @@ export async function reserveCalendarCap(
   };
 }
 
-export type ReserveRollingCapOptions = ReadRollingCapUsageOptions & {
-  readonly amount: number;
-  // Runs on every attempt with the usage seen by that attempt's append.
-  readonly guardCurrentValue?: (currentValue: number) => void;
-};
-
-function rollingEvent(
-  user: SessionUser,
-  capName: string,
-  amount: number,
-  expectedVersion: number,
-  type: string,
-  extraPayload: { readonly incrementedAt?: string } = {},
-) {
-  return {
-    aggregateId: rollingCapAggregateId(user.tenantId, capName),
-    aggregateType: CAP_COUNTER_ROLLING_AGGREGATE_TYPE,
-    expectedVersion,
-    type,
-    payload: { capName, amount, ...extraPayload },
-    metadata: { userId: user.id },
-  };
-}
-
-// The append is version-guarded: a booker that read the usage before another one appended loses the
-// race and repeats the whole attempt, so the hard-cap check always sees the stream it appends to.
-export async function reserveRollingCap(
-  ctx: CapCounterContext,
-  options: ReserveRollingCapOptions,
-  outsideTransaction = true,
-): Promise<ReservationHandle> {
-  const { user, writeDb } = resolveCapCounterScope(ctx, outsideTransaction);
-  const id = generateId();
-  const aggregateId = rollingCapAggregateId(user.tenantId, options.capName);
-  await retryOnStreamVersionConflict(() =>
-    runInOwnTransaction(writeDb, async (txDb) => {
-      const version = await getStreamVersionInTenantDb(txDb, aggregateId);
-      const usage = await readRollingCapUsage(txDb, user.tenantId, options);
-      options.guardCurrentValue?.(usage);
-      await appendEventInTenantDb(
-        txDb,
-        rollingEvent(user, options.capName, options.amount, version, ROLLING_INCREMENTED_EVENT_QN),
-      );
-      await insertReservationRow(txDb, user, id, {
-        capName: options.capName,
-        kind: "rolling",
-        amount: options.amount,
-      });
-      return NOTHING_TO_RELEASE;
-    }),
-  );
-  return toHandle(ctx, id, outsideTransaction);
-}
-
 // Deleting the row takes its row lock inside the handler transaction, so a release started after a
 // failed COMMIT waits for the real outcome and finds the row gone when the commit went through.
 async function confirmCapReservation(
@@ -224,25 +160,6 @@ async function giveBackCalendar(
   );
 }
 
-async function giveBackRolling(
-  txDb: TenantDb,
-  user: SessionUser,
-  row: CapReservationRow,
-): Promise<WriteResult> {
-  const version = await getStreamVersionInTenantDb(
-    txDb,
-    rollingCapAggregateId(user.tenantId, row.capName),
-  );
-  await appendEventInTenantDb(
-    txDb,
-    // The window filter must use the increment's time: a sweep releases up to a TTL later.
-    rollingEvent(user, row.capName, row.amount, version, ROLLING_RELEASED_EVENT_QN, {
-      incrementedAt: row.createdAt.toString(),
-    }),
-  );
-  return NOTHING_TO_RELEASE;
-}
-
 async function giveBackReservation(
   txDb: TenantDb,
   user: SessionUser,
@@ -256,13 +173,10 @@ async function giveBackReservation(
   if (!row) return NOTHING_TO_RELEASE;
   const claimed = await claimReservationRow(txDb, user, row);
   if (!claimed || claimed.releasedAt !== null) return NOTHING_TO_RELEASE;
-  const given =
-    claimed.kind === "rolling"
-      ? await giveBackRolling(txDb, user, claimed)
-      : await giveBackCalendar(txDb, user, claimed);
+  const given = await giveBackCalendar(txDb, user, claimed);
   if (!given.isSuccess) return given;
   // Only consumed units need remembering: a later settle or consume must not count them twice.
-  if (claimed.kind === "rolling" || claimed.consumedAmount === 0) {
+  if (claimed.consumedAmount === 0) {
     await txDb.deleteMany(capReservationsTable, ownRow);
     return given;
   }
