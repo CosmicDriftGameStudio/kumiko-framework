@@ -304,7 +304,6 @@ describe("validateProjectionAllowlist", () => {
     const futureKind = `test:future-builder:${randomUUID()}`;
     defineStep({
       kind: futureKind,
-      defaultFailureStrategy: "throw",
       subPaths: ["children"],
       run: () => undefined,
     });
@@ -353,7 +352,6 @@ describe("validateProjectionAllowlist", () => {
       const kind = `test:sub-walker:${randomUUID()}`;
       defineStep({
         kind,
-        defaultFailureStrategy: "throw",
         subPaths: ["children"],
         run: () => undefined,
       });

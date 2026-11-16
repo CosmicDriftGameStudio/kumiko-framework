@@ -36,7 +36,6 @@ type UnsafeProjectionDeleteArgs = {
 
 defineStep<UnsafeProjectionDeleteArgs, void>({
   kind: "unsafeProjectionDelete",
-  defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);
     // The `unsafe*`-step IS the sanctioned direct projection write — it exists

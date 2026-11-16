@@ -36,7 +36,6 @@ type WebhookSendArgs = {
 defineStep<WebhookSendArgs, void>({
   kind: "webhook.send",
   tier: 2,
-  defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const url = resolveRequired(args.url, ctx);
     const headers = resolveOptional(args.headers, ctx) ?? {};

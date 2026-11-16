@@ -145,7 +145,13 @@ async function seedFileRef(tenantId: TenantId, storageKey: string) {
 // Stands in for a tenant-handover claim: the row's
 // tenantId moves, the storageKey — and the bytes behind it — do not.
 async function handOverFileRef(fileRefId: EntityId, toTenantId: TenantId): Promise<void> {
-  await updateRows(db, fileRefsTable, { tenantId: toTenantId }, { id: String(fileRefId) });
+  await updateRows(
+    db,
+    fileRefsTable,
+    { tenantId: toTenantId },
+    { id: String(fileRefId) },
+    { projectionOnly: "stands in for the tenant-handover move, which writes the row directly" },
+  );
 }
 
 // Sidesteps the `request-destruction` write handler (needs user/auth/sessions

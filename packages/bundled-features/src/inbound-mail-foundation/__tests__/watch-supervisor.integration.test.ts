@@ -209,6 +209,7 @@ describe("watch-supervisor — undecryptable account", () => {
       mailAccountsProjectionTable,
       { address: numericAddress },
       { id: brokenAccountId },
+      { projectionOnly: "corrupts the address ciphertext on the projection to exercise the skip path" },
     );
     await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-1" }));
     const lines: string[] = [];
@@ -253,6 +254,7 @@ describe("watch-supervisor — undecryptable account", () => {
       mailAccountsProjectionTable,
       { address: wrongFieldCiphertext },
       { id: brokenAccountId },
+      { projectionOnly: "corrupts the address ciphertext on the projection to exercise the skip path" },
     );
     await seedInboundMessage(healthyAccountId, rawMsg({ providerMessageId: "healthy-2" }));
     const lines: string[] = [];

@@ -32,7 +32,6 @@ type RetryStepArgs = {
 defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
   kind: "workflow.retry",
   tier: 3,
-  defaultFailureStrategy: "throw",
   subPaths: ["do"],
   run: async (args, ctx: PipelineCtx): Promise<undefined | typeof SUSPEND_SENTINEL> => {
     if (!ctx.workflow) {

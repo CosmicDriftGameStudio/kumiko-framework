@@ -58,6 +58,7 @@ const probeFeature = defineFeature("where-merge-probe", (r) => {
         noteTable,
         { tenantId: event.payload.tenantId },
         { title: event.payload.title },
+        { projectionOnly: "primitive test of the TenantDb where-merge below the executor" },
       );
       return { isSuccess: true as const, data: { count } };
     },

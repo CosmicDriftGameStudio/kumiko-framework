@@ -32,7 +32,6 @@ function resolveColumnName(table: unknown, field: string): string {
 
 defineStep<UnsafeProjectionUpsertArgs, void>({
   kind: "unsafeProjectionUpsert",
-  defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const resolvedRow = resolveRequired(args.row, ctx);
 

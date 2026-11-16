@@ -34,7 +34,6 @@ type ReadFindOneArgs = {
 
 defineStep<ReadFindOneArgs, Record<string, unknown> | null>({
   kind: "read.findOne",
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveRequired(args.where, ctx);

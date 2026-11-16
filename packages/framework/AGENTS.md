@@ -215,9 +215,10 @@ produces code that compiles and then fails in production.
   helpers and `ctx.db` throw `AccessDeniedError` on such a write, also
   through `ctx.db.unsafeRaw()`. Test seeds on an entity table use
   `seedRowViaEventStore` / `seedRowsViaEventStore` from
-  `@cosmicdrift/kumiko-testing/helpers`; `seedRow` is for tables without
-  event sourcing and throws on an entity table unless the test passes
-  `{ projectionOnly: "<why>" }`.
+  `@cosmicdrift/kumiko-testing/helpers`; `seedRow`, `updateRows` and
+  `deleteRows` are for tables without event sourcing and throw on an entity
+  table unless the test passes `{ projectionOnly: "<why>" }`; change entity
+  rows with `updateRowViaEventStore` / `deleteRowViaEventStore`.
 - Every `r.entity` table is rebuilt on deploy from its `<entity>.created`,
   `.updated`, `.deleted` and `.restored` events, so a row written without
   those events is gone after the next rebuild. Keep data without events in

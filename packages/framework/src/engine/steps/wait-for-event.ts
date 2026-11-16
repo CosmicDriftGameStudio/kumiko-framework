@@ -47,7 +47,6 @@ type WaitForEventArgs = {
 defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
   kind: "workflow.waitForEvent",
   tier: 3,
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.event,
   run: async (args, ctx: PipelineCtx): Promise<undefined | typeof SUSPEND_SENTINEL> => {
     if (!ctx.workflow) {

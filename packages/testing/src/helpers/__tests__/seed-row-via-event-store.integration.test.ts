@@ -5,7 +5,7 @@ import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack/index.ts";
 import { resetTestTables } from "../db-cleanup.ts";
 import { seedRowsViaEventStore, seedRowViaEventStore } from "../event-store-writes.ts";
-import { seedRow, seedRows } from "../seed.ts";
+import { deleteRows, seedRow, seedRows, updateRows } from "../seed.ts";
 
 const gadgetEntity = createEntity({
   table: "read_seed_via_es_gadgets",
@@ -117,7 +117,7 @@ describe("seedRow on an event-sourced entity table", () => {
 
   test("seedRows throws the same way", () => {
     expect(() => seedRows(stack.db, gadgetTable, [{ id: GADGET_ID, label: "x" }])).toThrow(
-      /use seedRowViaEventStore/,
+      /use seedRowsViaEventStore/,
     );
   });
 
@@ -136,5 +136,59 @@ describe("seedRow on an event-sourced entity table", () => {
     expect(() =>
       seedRow(stack.db, gadgetTable, { id: GADGET_ID, label: "x" }, { projectionOnly: " " }),
     ).toThrow(/use seedRowViaEventStore/);
+  });
+});
+
+describe("updateRows and deleteRows on an event-sourced entity table", () => {
+  async function arrangeRow(): Promise<void> {
+    await seedRow(
+      stack.db,
+      gadgetTable,
+      { id: GADGET_ID, tenantId: TENANT_ID, label: "before" },
+      { projectionOnly: "arrange" },
+    );
+  }
+
+  test("updateRows throws and points to updateRowViaEventStore, the row is unchanged", async () => {
+    await arrangeRow();
+    expect(() => updateRows(stack.db, gadgetTable, { label: "after" }, { id: GADGET_ID })).toThrow(
+      /use updateRowViaEventStore/,
+    );
+    expect(await selectMany(stack.db, gadgetTable, {})).toMatchObject([{ label: "before" }]);
+  });
+
+  test("deleteRows throws and points to deleteRowViaEventStore, the row stays", async () => {
+    await arrangeRow();
+    expect(() => deleteRows(stack.db, gadgetTable, { id: GADGET_ID })).toThrow(
+      /use deleteRowViaEventStore/,
+    );
+    expect(await selectMany(stack.db, gadgetTable, {})).toHaveLength(1);
+  });
+
+  test("projectionOnly with a reason lifts the check for both", async () => {
+    await arrangeRow();
+    await updateRows(
+      stack.db,
+      gadgetTable,
+      { label: "drifted" },
+      { id: GADGET_ID },
+      { projectionOnly: "drift scenario" },
+    );
+    expect(await selectMany(stack.db, gadgetTable, {})).toMatchObject([{ label: "drifted" }]);
+    expect(await selectMany(stack.db, eventsTable, { aggregateId: GADGET_ID })).toHaveLength(0);
+
+    expect(
+      await deleteRows(stack.db, gadgetTable, { id: GADGET_ID }, { projectionOnly: "drift scenario" }),
+    ).toBe(1);
+    expect(await selectMany(stack.db, gadgetTable, {})).toHaveLength(0);
+  });
+
+  test("a whitespace-only reason does not lift the check", () => {
+    expect(() =>
+      updateRows(stack.db, gadgetTable, { label: "x" }, { id: GADGET_ID }, { projectionOnly: " " }),
+    ).toThrow(/use updateRowViaEventStore/);
+    expect(() =>
+      deleteRows(stack.db, gadgetTable, { id: GADGET_ID }, { projectionOnly: " " }),
+    ).toThrow(/use deleteRowViaEventStore/);
   });
 });

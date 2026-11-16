@@ -35,7 +35,6 @@ type AggregateAppendEventArgs = {
 
 defineStep<AggregateAppendEventArgs, void>({
   kind: "aggregate.appendEvent",
-  defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const aggregateId = resolveRequired(args.aggregateId, ctx);
     const payload = resolveRequired(args.payload, ctx);

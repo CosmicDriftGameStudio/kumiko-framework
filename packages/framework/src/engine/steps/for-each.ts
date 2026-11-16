@@ -51,7 +51,6 @@ type ForEachArgs<TItem = unknown> = {
 
 defineStep<ForEachArgs, undefined | typeof SUSPEND_SENTINEL>({
   kind: "forEach",
-  defaultFailureStrategy: "throw",
   subPaths: ["do"],
   run: async (args, ctx: PipelineCtx) => {
     const items = resolveRequired(args.over, ctx);

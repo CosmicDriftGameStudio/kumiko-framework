@@ -23,20 +23,33 @@ import {
 type SeedTable = EntityTable | EntityTableMeta;
 
 export type SeedOptions = {
-  // Plants a projection row of an event-sourced entity without its event, on purpose (legacy,
-  // drift or corrupt-row scenarios). The reason names the scenario.
+  // Writes or changes a projection row of an event-sourced entity without its event, on purpose
+  // (legacy, drift or corrupt-row scenarios). The reason names the scenario.
   readonly projectionOnly?: string;
 };
 
-// A row seeded on an event-sourced entity table has no event, so a rebuild erases it. The
-// entity-source registry sees tables the guard's file-local scan cannot (imported ones).
-function assertSeedable(table: SeedTable, options: SeedOptions | undefined): void {
+type SeedHelperName = "seedRow" | "seedRows" | "updateRows" | "deleteRows";
+
+const EVENT_STORE_REPLACEMENT: Readonly<Record<SeedHelperName, string>> = {
+  seedRow: "seedRowViaEventStore",
+  seedRows: "seedRowsViaEventStore",
+  updateRows: "updateRowViaEventStore",
+  deleteRows: "deleteRowViaEventStore",
+};
+
+// A row seeded or changed on an event-sourced entity table has no event, so a rebuild undoes
+// it. The entity-source registry sees tables the guard's file-local scan cannot (imported ones).
+function assertSeedable(
+  table: SeedTable,
+  options: SeedOptions | undefined,
+  helper: SeedHelperName,
+): void {
   const isEventSourced = executorManagedEntitySourceOf(table) !== undefined;
   const hasProjectionOnlyReason =
     options?.projectionOnly !== undefined && options.projectionOnly.trim() !== "";
   if (isEventSourced && !hasProjectionOnlyReason) {
     throw new Error(
-      "seedRow on an event-sourced entity table writes the projection without its event: use seedRowViaEventStore, or pass { projectionOnly: reason } for a deliberate event-less row",
+      `${helper} on an event-sourced entity table writes the projection without its event: use ${EVENT_STORE_REPLACEMENT[helper]}, or pass { projectionOnly: reason } for a deliberate event-less row`,
     );
   }
 }
@@ -47,7 +60,7 @@ export function seedRow<TRow = unknown>(
   values: Record<string, unknown>,
   options?: SeedOptions,
 ): Promise<TRow | undefined> {
-  assertSeedable(table, options);
+  assertSeedable(table, options, "seedRow");
   return insertOne<TRow>(withExecutorManagedWritesForTests(db), table, values);
 }
 
@@ -57,7 +70,7 @@ export function seedRows<TRow = unknown>(
   rows: ReadonlyArray<Record<string, unknown>>,
   options?: SeedOptions,
 ): Promise<readonly TRow[]> {
-  assertSeedable(table, options);
+  assertSeedable(table, options, "seedRows");
   return insertMany<TRow>(withExecutorManagedWritesForTests(db), table, rows);
 }
 
@@ -66,10 +79,18 @@ export function updateRows<TRow = unknown>(
   table: SeedTable,
   set: Record<string, unknown>,
   where: WhereObject,
+  options?: SeedOptions,
 ): Promise<readonly TRow[]> {
+  assertSeedable(table, options, "updateRows");
   return updateMany<TRow>(withExecutorManagedWritesForTests(db), table, set, where);
 }
 
-export function deleteRows(db: AnyDb, table: SeedTable, where: WhereObject): Promise<number> {
+export function deleteRows(
+  db: AnyDb,
+  table: SeedTable,
+  where: WhereObject,
+  options?: SeedOptions,
+): Promise<number> {
+  assertSeedable(table, options, "deleteRows");
   return deleteMany(withExecutorManagedWritesForTests(db), table, where);
 }

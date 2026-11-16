@@ -106,18 +106,8 @@ export type EventMatchExpr =
 
 export type EventMatch = { readonly version: 1; readonly expr: EventMatchExpr };
 
-/**
- * Per-step error strategy. M.1.1 only supports "throw" — the type is
- * deliberately narrowed so callers cannot pass an unsupported strategy
- * past the type-checker. The doc lists "return" / "skip" / fallback as
- * future strategies; each lands together with its own runtime support
- * + integration test in a later slice (no untested type expansion).
- */
-export type StepFailureStrategy = "throw";
-
 export type StepDef<TArgs = unknown, TResult = unknown> = {
   readonly kind: StepKind;
-  readonly defaultFailureStrategy: StepFailureStrategy;
   // Returns the result-key for this step instance, or undefined when the
   // step doesn't surface a result. The first-position name on the call
   // (e.g. r.step.compute("startedAt", fn) → "startedAt") becomes the key.
@@ -136,14 +126,13 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
   readonly tier?: 1 | 2 | 3;
   // Runtime: resolve the args against the ctx, perform the work, return
   // the value to land in steps.{resultKey}. Thrown errors propagate to
-  // the dispatcher's catch (M.1.1 supports "throw"-strategy only).
+  // the dispatcher's catch.
   readonly run: (args: TArgs, ctx: PipelineCtx) => Promise<TResult> | TResult;
 };
 
 /**
  * An instance of a step in a pipeline — what users build via the
- * step-builder (`r.step.compute(...)`). Carries the kind + resolved-or-
- * resolver args + the user-chosen onFailure override.
+ * step-builder (`r.step.compute(...)`). Carries the kind and the resolved-or-resolver args.
  *
  * `args` is `unknown` at this layer — the registered StepDef knows the
  * concrete shape and casts at run() time. Cross-step type-safety lives
@@ -152,7 +141,6 @@ export type StepDef<TArgs = unknown, TResult = unknown> = {
 export type StepInstance = {
   readonly kind: StepKind;
   readonly args: unknown;
-  readonly onFailure?: StepFailureStrategy;
 };
 
 /**

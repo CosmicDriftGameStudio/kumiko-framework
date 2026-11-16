@@ -27,7 +27,6 @@ type WaitStepArgs = {
 defineStep<WaitStepArgs, undefined | typeof SUSPEND_SENTINEL>({
   kind: "workflow.wait",
   tier: 3,
-  defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx): Promise<undefined | typeof SUSPEND_SENTINEL> => {
     if (!ctx.workflow) {
       throw new Error(

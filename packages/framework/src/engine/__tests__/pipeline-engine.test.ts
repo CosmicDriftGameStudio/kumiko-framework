@@ -207,10 +207,10 @@ describe("pipeline engine (return / compute / registry guards)", () => {
     // already throw against the registration left from the first run.
     const kind = `test-only:duplicate-guard:${randomUUID()}`;
 
-    defineStep({ kind, defaultFailureStrategy: "throw", run: () => undefined });
+    defineStep({ kind, run: () => undefined });
 
     expect(() =>
-      defineStep({ kind, defaultFailureStrategy: "throw", run: () => "different" }),
+      defineStep({ kind, run: () => "different" }),
     ).toThrow(/already registered/);
   });
 

@@ -41,7 +41,6 @@ type BranchArgs = {
 
 defineStep<BranchArgs, undefined | typeof SUSPEND_SENTINEL>({
   kind: "branch",
-  defaultFailureStrategy: "throw",
   subPaths: ["onTrue", "onFalse"],
   run: async (args, ctx: PipelineCtx) => {
     const condition = resolveRequired(args.if, ctx);

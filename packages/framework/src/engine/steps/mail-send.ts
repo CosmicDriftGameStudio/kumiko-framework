@@ -21,7 +21,6 @@ type MailSendArgs = {
 defineStep<MailSendArgs, void>({
   kind: "mail.send",
   tier: 2,
-  defaultFailureStrategy: "throw",
   run: async (args, ctx: PipelineCtx) => {
     const to = resolveRequired(args.to, ctx);
     const subject = resolveRequired(args.subject, ctx);

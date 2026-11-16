@@ -26,7 +26,6 @@ type ReadFindManyArgs = {
 
 defineStep<ReadFindManyArgs, readonly Record<string, unknown>[]>({
   kind: "read.findMany",
-  defaultFailureStrategy: "throw",
   resultKey: (args) => args.name,
   run: async (args, ctx: PipelineCtx) => {
     const where = resolveOptional(args.where, ctx);
