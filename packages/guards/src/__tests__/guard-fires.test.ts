@@ -246,7 +246,7 @@ const ENFORCING: Record<string, Violating> = {
 // here is bookkeeping about what does NOT block, not a free pass.
 const WARNING_ONLY: Record<string, string> = {
   "Complexity Check":
-    "baseline-ratchet pattern — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
+    "baseline-ratchet against the repo's committed `.kumiko-complexity-baseline.json`; no fixture here because the hard-cap path needs a 40+ branch function",
 };
 
 describe("every registered guard catches its own violation", () => {

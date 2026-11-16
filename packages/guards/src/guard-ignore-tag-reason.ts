@@ -3,8 +3,8 @@
  * Ignore-Tag-Reason Guard: every `kumiko-lint-ignore <slug> <reason>` and `biome-ignore[-all|-start] <rule>: <reason>` comment states a real reason.
  * A missing reason, a generic one (`todo`, `legacy`, ...) or one shorter than three words ("invite-flow")
  * only silences a guard without telling the next reader why the exception is safe. Existing hits are
- * frozen per file in `.kumiko-ignore-tag-reason-baseline.json` and may not grow; without a baseline
- * file (consumer repos) the guard only warns. Documentation placeholders (`<reason>`) never count.
+ * frozen per file in `.kumiko-ignore-tag-reason-baseline.json` and may not grow. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
+ * Documentation placeholders (`<reason>`) never count.
  */
 
 import path from "node:path";

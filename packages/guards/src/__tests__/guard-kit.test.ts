@@ -53,9 +53,13 @@ describe("baselineRatchet", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("check() passes without failing when no baseline file exists yet", () => {
+  test("check() without a baseline file fails every unfrozen entry", () => {
     const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
-    expect(ratchet.check({ "a.ts": 5 }, "fix it")).toEqual([]);
+    const violations = ratchet.check({ "a.ts": 5, "b.ts": 0 }, "fix it");
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("a.ts");
+    expect(violations[0]?.message).toContain("without a baseline file");
+    expect(violations[0]?.message).toContain("--write-baseline");
   });
 
   test("check() with no baseline file and no findings passes silently", () => {
@@ -70,21 +74,12 @@ describe("baselineRatchet", () => {
     }
   });
 
-  test("check() with no baseline file but findings still warns", () => {
-    const logSpy = spyOn(console, "log").mockImplementation(() => {});
-    try {
-      const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
-      expect(ratchet.check({ "a.ts": 1 }, "fix it")).toEqual([]);
-      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("No baseline found"));
-    } finally {
-      logSpy.mockRestore();
-    }
-  });
-
-  test("failClosed still passes with no baseline file and no findings, and fails with findings", () => {
-    const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)", failClosed: true });
+  test("no baseline file: passes without findings, fails with findings and resolves the line", () => {
+    const ratchet = baselineRatchet({ file, formatVersion: 1, unit: "hit(s)" });
     expect(ratchet.check({}, "fix it")).toEqual([]);
-    expect(ratchet.check({ "a.ts": 2 }, "fix it")).toHaveLength(1);
+    const violations = ratchet.check({ "a.ts": 2 }, "fix it", { resolveLine: () => 7 });
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.line).toBe(7);
   });
 
   test("write() then check() with the same counts passes", () => {

@@ -33,7 +33,7 @@
  *     repo-local files only)
  *   • an unknown or missing `@cast-boundary` reason in a repo-local file
  *   • an unreadable or format-drifted baseline
- * Without a baseline file (e.g. consumer repos) nothing fails: warnings only.
+ * A missing baseline file counts as an empty baseline: every repo-local suspect cast and unknown reason fails until the state is frozen with `--write-baseline`.
  * Sibling checkouts (`../`) never fail.
  * `.kumiko-cast-legit-baseline.json` additionally caps legit-bridge and
  * legit-boundary casts per package (`<package-dir>:<category>`), so a new
@@ -734,12 +734,6 @@ export function reportBaseline(
   const repoLocalTotal = totalOf(repoLocalSuspects);
 
   const loaded = loadBaseline(baselineFile);
-  if (loaded.kind === "missing") {
-    console.log(
-      "\n  No baseline found. Freeze one with `--write-baseline` first — warning, no fail until then.",
-    );
-    return [];
-  }
   if (loaded.kind === "invalid") {
     // A corrupt baseline must not read as "no regressions".
     return [
@@ -760,9 +754,10 @@ export function reportBaseline(
       },
     ];
   }
-  const { baseline } = loaded;
+  const baselinePerFile = loaded.kind === "ok" ? loaded.baseline.perFile : {};
+  const baselineTotal = loaded.kind === "ok" ? loaded.baseline.totalSuspect : 0;
 
-  const { regressions, reduced } = compareCastsToBaseline(repoLocalSuspects, baseline.perFile);
+  const { regressions, reduced } = compareCastsToBaseline(repoLocalSuspects, baselinePerFile);
   if (regressions.length > 0) {
     printCastRegressions(regressions);
   }
@@ -773,7 +768,7 @@ export function reportBaseline(
   ];
   if (violations.length > 0) return violations;
 
-  console.log(`\n  ✓ Baseline (${baseline.totalSuspect}) — current ${repoLocalTotal}`);
+  console.log(`\n  ✓ Baseline (${baselineTotal}) — current ${repoLocalTotal}`);
   if (reduced > 0) {
     console.log(
       `  ✓ ${reduced} suspect cast(s) reduced since baseline. Run \`--write-baseline\` if appropriate.`,
@@ -790,8 +785,8 @@ function analyseCasts(files: readonly SourceFile[], compareBaseline: boolean): G
     console.log("\n  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
-  // Fails on regressions, repo-local unknown reasons (both only with a valid
-  // baseline) and an unreadable or drifted baseline; see the module header.
+  // Fails on regressions, repo-local unknown reasons (a missing baseline counts
+  // as empty) and an unreadable or drifted baseline; see the module header.
   return {
     violations: [
       ...reportBaseline(all),

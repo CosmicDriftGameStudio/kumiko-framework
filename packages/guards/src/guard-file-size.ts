@@ -2,8 +2,7 @@
 /**
  * File Size Guard — production files above 1200 lines are frozen in
  * `.kumiko-file-size-baseline.json` (key = file, value = line count) and may
- * not grow; a new file above the threshold is a violation. Without a baseline
- * file (consumer repos) it only warns.
+ * not grow; a new file above the threshold is a violation. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  *
  * Excluded: tests, declaration files, generated files and the translation
  * data in the locale packages' `src/strings.ts`.

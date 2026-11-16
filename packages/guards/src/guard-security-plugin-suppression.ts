@@ -320,7 +320,6 @@ function suppressionBaselineFor(baselineRoot: string) {
     file: path.join(baselineRoot, ".kumiko-security-plugin-suppression-baseline.json"),
     formatVersion: 1,
     unit: "suppressed security plugin finding(s)",
-    failClosed: true,
   });
 }
 

@@ -52,8 +52,7 @@ merged on top. A security exception that expires within 14 days blocks.
 marker on the call's line or the line above only suppresses while its
 (file, reason) pair is frozen in `.kumiko-raw-sql-baseline.json` at the repo
 root. A new or reworded marker without a baseline entry fails the check, so
-every exception shows up as a baseline diff in review. Without a baseline file
-the guard only warns, so consumers do not break on bump. Prefer a typed
+every exception shows up as a baseline diff in review. A missing baseline file counts as an empty baseline, so every marker fails until the repo freezes it. Prefer a typed
 `db/query` helper; freeze a deliberate exception with:
 
 ```

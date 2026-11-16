@@ -12,6 +12,9 @@
  *     `"../B/contract"` and `"../B/schema/entity"` (with or without
  *     extension). Anything else — `from "../B/types"`,
  *     `from "../B/handlers/foo"`, `from "../B/feature"` — is rejected.
+ *   - Re-exports with a module specifier (`export { x } from "../B/types"`,
+ *     `export * from "../B/feature"`) are checked like imports; dynamic
+ *     `import()` stays unchecked.
  *   - Same-feature relative imports (`./x`, `../sibling-in-same-feature`)
  *     stay unrestricted.
  *   - Non-relative imports (`@cosmicdrift/kumiko-framework`, `drizzle-orm`, `zod`)
@@ -43,7 +46,7 @@
  */
 
 import * as path from "node:path";
-import type { SourceFile } from "ts-morph";
+import type { ExportDeclaration, ImportDeclaration, SourceFile } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { lineHasIgnoreTag } from "./_lib/ignore-tag";
 
@@ -171,13 +174,12 @@ function isDeepImport(resolvedAbs: string, featureRoot: string): boolean {
 // Resolve a relative import to its absolute on-disk path. ts-morph's
 // SourceFile.getModuleSpecifierSourceFile() walks the same resolution the
 // compiler uses; we use it so the guard agrees with TS exactly.
-function resolveImport(sf: SourceFile, specifier: string): string | null {
-  if (!specifier.startsWith(".")) return null;
-  const importDecl = sf
-    .getImportDeclarations()
-    .find((d) => d.getModuleSpecifierValue() === specifier);
-  if (!importDecl) return null;
-  const target = importDecl.getModuleSpecifierSourceFile();
+function resolveModuleSpecifier(
+  sf: SourceFile,
+  decl: ImportDeclaration | ExportDeclaration,
+  specifier: string,
+): string {
+  const target = decl.getModuleSpecifierSourceFile();
   if (target) return target.getFilePath();
   // The import may resolve to a barrel directory whose index.ts ts-morph
   // didn't add to the project. Fall back to a manual join + .ts probe.
@@ -199,12 +201,11 @@ function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
 
   const violations: Omit<Violation, "file">[] = [];
 
-  for (const importDecl of sf.getImportDeclarations()) {
-    const specifier = importDecl.getModuleSpecifierValue();
-    if (!specifier.startsWith(".")) continue;
+  for (const decl of [...sf.getImportDeclarations(), ...sf.getExportDeclarations()]) {
+    const specifier = decl.getModuleSpecifierValue();
+    if (specifier === undefined || !specifier.startsWith(".")) continue;
 
-    const resolved = resolveImport(sf, specifier);
-    if (!resolved) continue;
+    const resolved = resolveModuleSpecifier(sf, decl, specifier);
 
     const importedFeature = locateFeature(resolved);
     if (!importedFeature) continue;
@@ -212,7 +213,7 @@ function findCrossFeatureViolations(sf: SourceFile): Omit<Violation, "file">[] {
 
     if (!isDeepImport(resolved, importedFeature.root)) continue;
 
-    const line = importDecl.getStartLineNumber();
+    const line = decl.getStartLineNumber();
     if (isIgnored(sf, line)) continue;
 
     violations.push({

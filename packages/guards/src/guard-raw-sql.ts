@@ -11,8 +11,8 @@
  *
  * A marker only suppresses while its (file, reason) pair is frozen in
  * `.kumiko-raw-sql-baseline.json` at the repo root, so every new or reworded
- * marker shows up as a baseline diff in review. Without a baseline file the
- * guard only warns (consumers do not break on bump). Freeze with:
+ * marker shows up as a baseline diff in review. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
+ * Freeze with:
  *   bun packages/guards/src/guard-raw-sql.ts --write-baseline
  *   (or `kumiko-guards checks --write-baseline --guard=guard-raw-sql`)
  */

@@ -1,12 +1,11 @@
 // Convention paths for the auth pages (reset/verify/signup/invite); apps build
 // their magic-link appUrls from these. All mail now goes through delivery.
 
-export { normalizeEmail } from "../shared/index.ts";
 // Kept as a public re-export (not just internal call sites) — this feature's
 // barrel is where consumers of the published package have always found
 // hashPassword/verifyPassword; removing it is a breaking change that needs
 // its own changeset + deliberate deprecation window, not a silent drop.
-export { hashPassword, verifyPassword } from "../shared/password-hashing.ts";
+export { hashPassword, normalizeEmail, verifyPassword } from "../shared/index.ts";
 export type {
   BootstrapConfigValue,
   BootstrapDeps,

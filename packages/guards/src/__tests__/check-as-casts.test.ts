@@ -92,8 +92,12 @@ describe("cast baseline file", () => {
     expect(reportBaseline([], file)).toEqual([]);
   });
 
-  test("a missing baseline is still only a warning", () => {
-    expect(reportBaseline([suspectSite("a.ts", 1)], file)).toEqual([]);
+  test("a missing baseline counts as empty: a suspect cast is a violation", () => {
+    expect(reportBaseline([suspectSite("a.ts", 1)], file)).toHaveLength(1);
+  });
+
+  test("a sibling-path cast stays green without a baseline", () => {
+    expect(reportBaseline([suspectSite("../sibling/src/a.ts", 4)], file)).toEqual([]);
   });
 
   function writeValidBaseline(perFile: Record<string, Record<string, number>>): void {
@@ -165,8 +169,10 @@ describe("cast baseline file", () => {
     expect(reportBaseline([suspectSite("../sibling/src/a.ts", 4)], file)).toEqual([]);
   });
 
-  test("an unknown boundary reason without a baseline is only a warning", () => {
-    expect(reportBaseline([boundarySite("src/a.ts", 4, "made-up")], file)).toEqual([]);
+  test("an unknown boundary reason without a baseline is a violation", () => {
+    const violations = reportBaseline([boundarySite("src/a.ts", 4, "made-up")], file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("Unknown @cast-boundary reason");
   });
 
   test("a baseline with an outdated format is a violation, not a silent pass", () => {

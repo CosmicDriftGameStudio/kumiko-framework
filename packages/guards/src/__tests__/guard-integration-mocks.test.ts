@@ -50,7 +50,9 @@ describe("check.run", () => {
       });
 
       const withoutBaseline = await check.run([root]);
-      expect(withoutBaseline.violations).toEqual([]);
+      expect(withoutBaseline.violations).toHaveLength(1);
+      expect(withoutBaseline.violations[0]?.file).toBe("src/a.integration.test.ts");
+      expect(withoutBaseline.violations[0]?.message).toContain("without a baseline file");
       expect(withoutBaseline.matchedFiles).toBe(1);
 
       await check.writeBaseline?.([root]);

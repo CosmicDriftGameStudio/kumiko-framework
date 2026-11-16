@@ -12,14 +12,48 @@ import { isSecret } from "./types.ts";
 // pathologically-deep user input smuggled into a response.
 const MAX_DEPTH = 12;
 
-export function assertNoSecretLeak(value: unknown, path = "$", depth = 0): void {
+type LeakPathSegment =
+  | string
+  | number
+  | { readonly mapEntry: number; readonly part: "key" | "val" }
+  | { readonly setEntry: number };
+
+// Built only on a hit: the walker runs on every handler result, so eager path
+// strings would allocate one per node.
+function formatLeakPath(segments: readonly LeakPathSegment[]): string {
+  let path = "$";
+  for (const segment of segments) {
+    if (typeof segment === "number") path += `[${segment}]`;
+    else if (typeof segment === "string") path += `.${segment}`;
+    else if ("mapEntry" in segment) path += `.<map[${segment.mapEntry}].${segment.part}>`;
+    else path += `.<set[${segment.setEntry}]>`;
+  }
+  return path;
+}
+
+export function assertNoSecretLeak(value: unknown): void {
+  walkForSecrets(value, [], 0);
+}
+
+function walkChild(
+  child: unknown,
+  segment: LeakPathSegment,
+  segments: LeakPathSegment[],
+  depth: number,
+): void {
+  segments.push(segment);
+  walkForSecrets(child, segments, depth + 1);
+  segments.pop();
+}
+
+function walkForSecrets(value: unknown, segments: LeakPathSegment[], depth: number): void {
   // skip: nothing to walk at null/undefined leaves.
   if (value === null || value === undefined) return;
 
   if (isSecret(value)) {
     throw new InternalError({
       message:
-        `[secrets] Secret<> leaked into response at ${path}. ` +
+        `[secrets] Secret<> leaked into response at ${formatLeakPath(segments)}. ` +
         "Feature code must call .reveal() and use the plaintext in an " +
         "external call (SMTP, HTTP header, etc.) — never return the branded " +
         "value, even unwrapped, unless you've stripped it from the response first.",
@@ -44,8 +78,8 @@ export function assertNoSecretLeak(value: unknown, path = "$", depth = 0): void 
   if (value instanceof Map) {
     let i = 0;
     for (const [k, v] of value) {
-      assertNoSecretLeak(k, `${path}.<map[${i}].key>`, depth + 1);
-      assertNoSecretLeak(v, `${path}.<map[${i}].val>`, depth + 1);
+      walkChild(k, { mapEntry: i, part: "key" }, segments, depth);
+      walkChild(v, { mapEntry: i, part: "val" }, segments, depth);
       i++;
     }
     // skip: map fully walked, nothing else at this level.
@@ -54,7 +88,7 @@ export function assertNoSecretLeak(value: unknown, path = "$", depth = 0): void 
   if (value instanceof Set) {
     let i = 0;
     for (const v of value) {
-      assertNoSecretLeak(v, `${path}.<set[${i}]>`, depth + 1);
+      walkChild(v, { setEntry: i }, segments, depth);
       i++;
     }
     // skip: set fully walked, nothing else at this level.
@@ -74,14 +108,14 @@ export function assertNoSecretLeak(value: unknown, path = "$", depth = 0): void 
 
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      assertNoSecretLeak(value[i], `${path}[${i}]`, depth + 1);
+      walkChild(value[i], i, segments, depth);
     }
     // skip: array fully walked, nothing else at this level.
     return;
   }
 
   const obj = value as Record<string, unknown>; // @cast-boundary recursive-walk
-  for (const [k, v] of Object.entries(obj)) {
-    assertNoSecretLeak(v, `${path}.${k}`, depth + 1);
+  for (const key of Object.keys(obj)) {
+    walkChild(obj[key], key, segments, depth);
   }
 }

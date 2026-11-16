@@ -199,8 +199,6 @@ export function baselineRatchet(args: {
   readonly file: string;
   readonly formatVersion: number;
   readonly unit: string;
-  /** A missing baseline file counts as an empty baseline (every current entry is a regression) instead of a warning. For guards whose suppression must not hold without a frozen file. */
-  readonly failClosed?: boolean;
 }): {
   write(current: Readonly<Record<string, number>>): void;
   check(
@@ -253,22 +251,13 @@ export function baselineRatchet(args: {
     current: Readonly<Record<string, number>>,
     remediation: string,
     resolveLine: ((file: string) => number) | undefined,
-  ): GuardViolation[] => {
-    if (args.failClosed === true) {
-      return regressionViolations(
-        compareToBaseline(current, {}).regressions,
-        (regression) =>
-          `${args.unit} without a baseline file (${args.file}): ${regression.current} not frozen. ${remediation}`,
-        resolveLine,
-      );
-    }
-    // Nothing to freeze: a missing baseline is equivalent to an empty one.
-    if (Object.values(current).every((count) => count === 0)) return [];
-    console.log(
-      `  No baseline found (${args.file}). Freeze it first with \`--write-baseline\` — warning until then, no fail.`,
+  ): GuardViolation[] =>
+    regressionViolations(
+      compareToBaseline(current, {}).regressions,
+      (regression) =>
+        `${args.unit} without a baseline file (${args.file}): ${regression.current} not frozen. Freeze the current state once with \`--write-baseline\`. ${remediation}`,
+      resolveLine,
     );
-    return [];
-  };
   const check = (
     current: Readonly<Record<string, number>>,
     remediation: string,

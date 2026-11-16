@@ -320,13 +320,13 @@ describe("raw-sql marker baseline", () => {
     return body(root, dir).finally(() => rmSync(dir, { recursive: true, force: true }));
   }
 
-  test("no baseline file → no violation, a warning is printed", async () => {
+  test("no baseline file → the marker is a violation", async () => {
     const logSpy = spyOn(console, "log").mockImplementation(() => {});
     try {
       await withRepo({ "src/x.ts": MARKED }, undefined, async (root) => {
         const outcome = await check.run([root]);
-        expect(outcome.violations).toEqual([]);
-        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("No baseline found"));
+        expect(outcome.violations).toHaveLength(1);
+        expect(outcome.violations[0]?.message).toContain("without a baseline file");
       });
     } finally {
       logSpy.mockRestore();

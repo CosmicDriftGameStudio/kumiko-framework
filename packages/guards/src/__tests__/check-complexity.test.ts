@@ -76,7 +76,7 @@ describe("Complexity guard hard cap", () => {
       (_, i) => `      {x === ${i} && <span>${i}</span>}`,
     );
     const code = `export function BigScreen({ x }: { x: number }) {\n  return (\n    <div>\n${slots.join("\n")}\n    </div>\n  );\n}\n`;
-    const violations = analyseFixture(code, false, true, file);
+    const violations = analyseFixture(code, false, false, file);
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({ file, neverFrozen: true });
     expect(violations[0]?.message).toContain(`complexity ${HARD_COMPLEXITY_CAP + 1}`);

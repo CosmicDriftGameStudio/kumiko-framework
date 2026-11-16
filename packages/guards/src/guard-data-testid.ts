@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Data-Testid Guard — `data-testid` / `data-test` hooks in production code are frozen per file in `.kumiko-data-testid-baseline.json` and may not grow; tests select by role, label or text (workspace decision 2026-09-22 "no test hooks in production code"). Without a baseline file (consumer repos) it only warns.
+ * Data-Testid Guard — `data-testid` / `data-test` hooks in production code are frozen per file in `.kumiko-data-testid-baseline.json` and may not grow; tests select by role, label or text (workspace decision 2026-09-22 "no test hooks in production code"). A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  *
  * Counted: JSX attributes and `"data-testid"` object keys (spread props such as
  * `{...(id !== undefined && { "data-testid": id })}`). Excluded: tests,

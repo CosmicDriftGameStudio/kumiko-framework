@@ -12,8 +12,7 @@
  *   - current <= baseline per file: PASS
  *   - current >  baseline per file: FAIL
  * Reductions do NOT update the baseline automatically — run `--write-baseline`
- * after refactor commits. Without a baseline file the check stays
- * warning-only (bootstrap: run `--write-baseline` once).
+ * after refactor commits. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  * The baseline covers only files of the repo itself; sibling hotspots belong
  * in their own baseline (see localHotspots).
  *

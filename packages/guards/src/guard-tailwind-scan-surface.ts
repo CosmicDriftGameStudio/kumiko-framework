@@ -23,8 +23,7 @@
  *
  * Baseline-regression guard: pins the
  * currently-known violation count per file. Reductions are allowed but
- * don't auto-update the baseline. Without a baseline file the guard stays
- * warning-only (bootstrap: run `--write-baseline` once).
+ * don't auto-update the baseline. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  *
  * Usage:
  *   bun guards/guard-tailwind-scan-surface.ts                  # compare against baseline

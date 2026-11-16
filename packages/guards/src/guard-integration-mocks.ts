@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Integration-Mocks Check — integration tests run against the real stack, so mock calls (`mock(`, `spyOn(`, `mock.module`, `vi.*`, `jest.*`) in `*.integration.test.ts` / `*.integration.ts` are frozen per file in `.kumiko-integration-mocks-baseline.json` and may not grow. Without a baseline file it only warns.
+ * Integration-Mocks Check — integration tests run against the real stack, so mock calls (`mock(`, `spyOn(`, `mock.module`, `vi.*`, `jest.*`) in `*.integration.test.ts` / `*.integration.ts` are frozen per file in `.kumiko-integration-mocks-baseline.json` and may not grow. A missing baseline file counts as an empty baseline, so every existing hit fails until it is frozen with `--write-baseline`.
  */
 
 import { readFileSync } from "node:fs";
