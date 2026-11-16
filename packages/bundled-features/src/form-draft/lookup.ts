@@ -33,17 +33,11 @@ export type FormDraftSummaryRow = {
   readonly draft: FormDraftBlob | null;
 };
 
-// LIKE metacharacters in a caller-controlled screenId must not widen the
-// prefix scan (e.g. a literal "%" matching every draft).
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
-
 // draftKey is `${screenId}:${entityId}` or `${screenId}:new:${draftId}`
-// (framework-wizard-mode.md) — "drafts for a screenId" is a LIKE prefix
-// match on that leading segment. tenantId + ownerId equality narrows to the
-// caller's own rows via the (tenantId, ownerId, draftKey) unique index
-// before the pattern filter applies.
+// (framework-wizard-mode.md) — "drafts for a screenId" is a prefix match
+// (startsWith escapes LIKE wildcards) on that leading segment. tenantId +
+// ownerId equality narrows to the caller's own rows via the (tenantId,
+// ownerId, draftKey) unique index before the pattern filter applies.
 export async function listDraftsByScreen(
   db: TenantDb,
   tenantId: TenantId,
@@ -58,7 +52,7 @@ export async function listDraftsByScreen(
     {
       tenantId,
       ownerId,
-      draftKey: { like: `${escapeLikePattern(screenId)}:%` },
+      draftKey: { startsWith: `${screenId}:` },
     },
     { limit: 200 },
   );

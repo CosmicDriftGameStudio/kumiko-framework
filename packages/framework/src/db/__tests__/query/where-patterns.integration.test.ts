@@ -180,6 +180,35 @@ describe("where — WhereOperator", () => {
       expect(rows.length).toBe(2);
     });
   });
+
+  test("{ contains } matches a substring and treats % and _ literally", async () => {
+    await withTable(strNumCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { label: "save 50% now", score: 1 },
+        { label: "save 500 now", score: 2 },
+        { label: "a_b", score: 3 },
+        { label: "axb", score: 4 },
+      ]);
+      const percent = await selectMany(db, meta, { label: { contains: "50%" } });
+      expect(percent.map((r) => r["label"])).toEqual(["save 50% now"]);
+      const underscore = await selectMany(db, meta, { label: { contains: "_" } });
+      expect(underscore.map((r) => r["label"])).toEqual(["a_b"]);
+    });
+  });
+
+  test("{ startsWith } matches a prefix and treats _ literally", async () => {
+    await withTable(strNumCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { label: "a_1", score: 1 },
+        { label: "ab1", score: 2 },
+        { label: "xa_1", score: 3 },
+      ]);
+      const literal = await selectMany(db, meta, { label: { startsWith: "a_" } });
+      expect(literal.map((r) => r["label"])).toEqual(["a_1"]);
+      const prefix = await selectMany(db, meta, { label: { startsWith: "a" } });
+      expect(prefix.map((r) => r["label"]).sort()).toEqual(["a_1", "ab1"]);
+    });
+  });
 });
 
 describe("where — date column", () => {
@@ -229,10 +258,10 @@ describe("where — multi-field AND", () => {
 describe("where — ordering/pattern operators on a jsonb option array", () => {
   const jsonbCols = [{ name: "tags", pgType: "jsonb" as const, notNull: true }] as const;
 
-  test("lt/gt/lte/gte match nothing and like does not crash", async () => {
+  test("lt/gt/lte/gte match nothing and pattern operators do not crash", async () => {
     await withTable(jsonbCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ tags: ["a"] }, { tags: ["b"] }]);
-      for (const op of ["lt", "gt", "lte", "gte", "like"] as const) {
+      for (const op of ["lt", "gt", "lte", "gte", "like", "contains", "startsWith"] as const) {
         const rows = await selectMany(db, meta, { tags: { [op]: "a" } });
         expect(rows).toEqual([]);
       }

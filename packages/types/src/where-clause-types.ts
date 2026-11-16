@@ -17,7 +17,12 @@ export type WhereOperator = {
   readonly in?: readonly unknown[];
   /** Not for jsonb columns; an empty list matches every row. */
   readonly notIn?: readonly unknown[];
+  /** Raw LIKE pattern: % and _ are wildcards; use contains or startsWith for user input. */
   readonly like?: string;
+  /** Substring match; %, _ and \ in the value match literally. */
+  readonly contains?: string;
+  /** Prefix match; %, _ and \ in the value match literally. */
+  readonly startsWith?: string;
   /** jsonb columns only; cannot be combined with other operators in the same object. */
   readonly jsonText?: JsonTextMatch | readonly JsonTextMatch[];
 };

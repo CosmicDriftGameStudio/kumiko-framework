@@ -10,7 +10,7 @@ import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
 
 import { toSnakeCase } from "../utils/case.ts";
-import { buildEntityIndexes } from "./entity-table-indexes.ts";
+import { autoIndexedReferenceFieldNames, buildEntityIndexes } from "./entity-table-indexes.ts";
 import { markExecutorManagedTable } from "./executor-managed-tables.ts";
 import type { LocatedTimestampRead } from "./located-timestamp.ts";
 import type { MoneyRead } from "./money.ts";
@@ -611,7 +611,8 @@ function entityTableName(
 //  (b) belongsTo relations declared via r.relation() — the FK column is the
 //      parent-side lookup key; without an index every child join scans the
 //      full table.
-// `Set` keeps the list deduplicated when (a) and (b) name the same column.
+//  (c) single-value reference fields that no declared index already leads with.
+// `Set` keeps the list deduplicated when the sources name the same column.
 function foreignKeyFieldNames(
   entity: EntityDefinition,
   relations: EntityRelations | undefined,
@@ -620,6 +621,7 @@ function foreignKeyFieldNames(
   for (const [name, field] of Object.entries(entity.fields)) {
     if (field.type === "file" || field.type === "image") names.add(name);
   }
+  for (const name of autoIndexedReferenceFieldNames(entity)) names.add(name);
   for (const rel of Object.values(relations ?? {})) {
     if (rel.type === "belongsTo") names.add(rel.foreignKey);
   }

@@ -77,10 +77,6 @@ function buildDateRange(
   return range;
 }
 
-function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
-
 export type AuditListFilters = {
   aggregateType?: string | undefined;
   aggregateId?: string | undefined;
@@ -120,7 +116,7 @@ export function buildAuditWhere(
   if (p.eventType) where["type"] = p.eventType;
   else if (p.search || !p.includeTechnical) {
     where["type"] = {
-      ...(p.search && { like: `%${escapeLikePattern(p.search)}%` }),
+      ...(p.search && { contains: p.search }),
       ...(!p.includeTechnical && { notIn: TECHNICAL_EVENT_TYPES }),
     };
   }

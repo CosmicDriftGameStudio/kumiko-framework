@@ -25,6 +25,7 @@ import type { FeatureDefinition } from "../engine/types/index.ts";
 
 import { isSqlExpression } from "./dialect.ts";
 import { fieldToColumnMeta } from "./entity-column-meta.ts";
+import { autoIndexedReferenceFieldNames } from "./entity-table-indexes.ts";
 import type {
   BuildEntityTableMetaOptions,
   ColumnMeta,
@@ -213,6 +214,9 @@ function foreignKeyIndexes(
   const fkSnakeNames = new Set<string>();
   for (const [name, field] of Object.entries(entity.fields)) {
     if (field.type === "file" || field.type === "image") fkSnakeNames.add(toSnakeCase(name));
+  }
+  for (const name of autoIndexedReferenceFieldNames(entity)) {
+    fkSnakeNames.add(fieldNameToSnake.get(name) ?? toSnakeCase(name));
   }
   for (const rel of Object.values(relations ?? {})) {
     if (rel.type === "belongsTo") {

@@ -10,6 +10,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createBooleanField,
   createEntity,
+  createReferenceField,
   createTextField,
   defineFeature,
   validateBoot,
@@ -201,5 +202,34 @@ describe("validateBoot — entity.indexes", () => {
       });
     });
     expect(() => validateBoot([feature])).not.toThrow();
+  });
+});
+
+describe("buildEntityTable — reference field indexes", () => {
+  const entity = createEntity({
+    fields: {
+      propertyId: createReferenceField({ entity: "property" }),
+      tagIds: createReferenceField({ entity: "tag", multiple: true }),
+      ownerId: createReferenceField({ entity: "owner" }),
+      title: createTextField({ personal: false, reason: "test_fixture" }),
+    },
+    indexes: [{ columns: ["ownerId", "title"] }],
+  });
+  const { indexes } = getTableConfig(buildEntityTable("lease", entity));
+
+  test("a single-value reference field gets its own index", () => {
+    const index = indexes.find((i) => i.config.name === "read_leases_property_id_idx");
+    expect(index?.config.unique).toBe(false);
+    expect(index?.config.columns.map((c) => c.name)).toEqual(["property_id"]);
+  });
+
+  test("a multi-value reference field is not indexed", () => {
+    expect(indexes.some((i) => i.config.name.endsWith("_tag_ids_idx"))).toBe(false);
+  });
+
+  test("a field that leads a declared index gets no extra index", () => {
+    const names = indexes.map((i) => i.config.name);
+    expect(names).not.toContain("read_leases_owner_id_idx");
+    expect(names).toContain("read_leases_owner_id_title_idx");
   });
 });

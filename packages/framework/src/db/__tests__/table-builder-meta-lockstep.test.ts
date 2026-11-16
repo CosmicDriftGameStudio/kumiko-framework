@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity } from "../../engine/factories.ts";
+import { createEntity, createReferenceField, createTextField } from "../../engine/factories.ts";
 import { sql } from "../dialect.ts";
 import type { ColumnMeta, IndexMeta } from "../entity-table-meta.ts";
 import { deriveEntityTableMeta } from "../entity-table-meta.ts";
@@ -228,5 +228,32 @@ describe("lock-step — softDelete + lookupable/blind-index", () => {
     );
     expect(plaintext?.unique).toBe(true);
     expect(plaintext?.whereSql).toBe('"is_deleted" = false');
+  });
+});
+
+describe("lock-step — reference field indexes", () => {
+  const entityWithReferences = createEntity({
+    table: "read_lockstep_refs",
+    fields: {
+      propertyId: createReferenceField({ entity: "property" }),
+      tagIds: createReferenceField({ entity: "tag", multiple: true }),
+      ownerId: createReferenceField({ entity: "owner" }),
+      title: createTextField({ personal: false, reason: "test_fixture" }),
+    },
+    indexes: [{ columns: ["ownerId", "title"] }],
+  });
+  const fromBuilder = asEntityTableMeta(buildEntityTable("lockstepRefs", entityWithReferences));
+  const fromMeta = deriveEntityTableMeta("lockstepRefs", entityWithReferences);
+
+  test("identical indexes", () => {
+    expect(byName<IndexMeta>(fromBuilder?.indexes ?? [])).toEqual(
+      byName<IndexMeta>(fromMeta.indexes),
+    );
+  });
+
+  test("both paths index the single-value reference field", () => {
+    for (const indexes of [fromBuilder?.indexes ?? [], fromMeta.indexes]) {
+      expect(indexes.map((i) => i.name)).toContain("read_lockstep_refs_property_id_idx");
+    }
   });
 });

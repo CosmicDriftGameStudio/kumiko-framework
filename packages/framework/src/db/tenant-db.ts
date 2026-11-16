@@ -706,6 +706,18 @@ function buildTenantDb(
     });
   }
 
+  // upsert refuses the same in its update; WITH CHECK only catches it while row level security is on.
+  function tenantIdInSetDenied(
+    table: Table | EntityTableMeta,
+    set: Record<string, unknown>,
+  ): AccessDeniedError | undefined {
+    if (mode !== "tenant" || !hasTenantColumn(table)) return undefined;
+    if (!Object.hasOwn(set, "tenantId") && !Object.hasOwn(set, "tenant_id")) return undefined;
+    return new AccessDeniedError({
+      message: `updateMany(${tableNameOf(table)}): set must not change "tenantId" — it would move the row into another tenant.`,
+    });
+  }
+
   // Callers ran executorManagedWriteDenied first: either db holds the capability or the table is
   // unmanaged. The split only proves to the compiler which overload of the free writers applies.
   function insertRow<T>(
@@ -933,6 +945,8 @@ function buildTenantDb(
       }
       const globalDenied = tenantWriteOnGlobalTable(table, "updateMany");
       if (globalDenied) return Promise.reject(globalDenied);
+      const tenantMoveDenied = tenantIdInSetDenied(table, set);
+      if (tenantMoveDenied) return Promise.reject(tenantMoveDenied);
       const personalDenied = personalDataDenied(table, Object.keys(set));
       if (personalDenied) return Promise.reject(personalDenied);
       const managedDenied = executorManagedWriteDenied(db, table, "ctx.db.updateMany");
