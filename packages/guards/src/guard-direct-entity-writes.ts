@@ -16,8 +16,9 @@
  *         a name string — `r.entity({ name: "user-session", ...ent })` and
  *         `buildEntityTable("user_session", ent)` disagree on the name
  *         (dash vs. underscore) but share the `ent` symbol. Plus an explicit
- *         `backingTable` override. Tables that are NOT statically resolvable
- *         are skipped (a miss is preferable to a false block).
+ *         `backingTable` override. `r.crud(name, entityDef, options)` is linked the
+ *         same way through its positional entityDef symbol. Tables that are NOT
+ *         statically resolvable are skipped (a miss is preferable to a false block).
  *      c) Tables of external packages (node_modules, workspace links), read from the
  *         `kumiko-es-tables.json` catalog each published package ships; a package whose
  *         sources live in the checked repo must keep that catalog current (checked here,
@@ -199,12 +200,20 @@ type EntityRegistration = {
   readonly overrideTableDid: TableId | undefined;
 };
 
+const ENTITY_REGISTRATION_METHOD = "entity";
+const CRUD_REGISTRATION_METHOD = "crud";
+
 function entityRegistrationOf(call: CallExpression): EntityRegistration | undefined {
   const expr = call.getExpression();
   if (expr.getKind() !== SyntaxKind.PropertyAccessExpression) return undefined;
-  if (expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName() !== "entity") {
-    return undefined;
+  const method = expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName();
+  if (method === CRUD_REGISTRATION_METHOD) {
+    return {
+      entityDid: unwrappedIdentifierDeclId(call.getArguments()[1]),
+      overrideTableDid: undefined,
+    };
   }
+  if (method !== ENTITY_REGISTRATION_METHOD) return undefined;
   const definition = call.getArguments()[0]?.asKind(SyntaxKind.ObjectLiteralExpression);
   if (!definition?.getProperty("name")) return undefined;
   return {
@@ -226,7 +235,7 @@ function rebuildableEntityTableDeclId(
   return declIdOf(nameNode.asKindOrThrow(SyntaxKind.Identifier));
 }
 
-const ENTITY_METHOD_ACCESS = /\.\s*entity\b/;
+const ENTITY_METHOD_ACCESS = /\.\s*(?:entity|crud)\b/;
 
 // Tables registered via `r.entity({ name, ...entityDef })` as a rebuildable implicit
 // projection, linked entity→table via the shared entity-def symbol (see header), not by name string.
@@ -353,8 +362,16 @@ function isInsideProjectionApply(callNode: Node): boolean {
 // Extracts (table identifier, db/receiver expression, op) from a write
 // call — both forms: the Drizzle method `<recv>.insert(table)` and the
 // db/query function `updateMany(db, table, ...)`. Casts around the table arg are
-// unwrapped; undefined for non-writes or when the table arg is still no plain
-// identifier (computed tables are not resolvable → skip, never a false block).
+// unwrapped; plain or property-access identifiers (`tables.userTable`) resolve,
+// computed tables are skipped, never a false block.
+function tableIdentifierOf(node: Node | undefined): Identifier | undefined {
+  if (!node) return undefined;
+  const unwrapped = unwrapTableExpression(node);
+  if (Node.isIdentifier(unwrapped)) return unwrapped;
+  if (Node.isPropertyAccessExpression(unwrapped)) return unwrapped.getNameNode();
+  return undefined;
+}
+
 function resolveWrite(
   call: CallExpression,
 ): { tableArg: Identifier; receiver: Node; op: "insert" | "update" | "delete" } | undefined {
@@ -365,7 +382,7 @@ function resolveWrite(
     const pa = expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression);
     const m = pa.getName();
     if (m !== "insert" && m !== "update" && m !== "delete") return undefined;
-    const tableArg = args[0] && unwrapTableExpression(args[0]).asKind(SyntaxKind.Identifier);
+    const tableArg = tableIdentifierOf(args[0]);
     if (!tableArg) return undefined;
     return { tableArg, receiver: pa.getExpression(), op: m };
   }
@@ -373,7 +390,7 @@ function resolveWrite(
   if (expr.getKind() === SyntaxKind.Identifier) {
     const op = FN_WRITE_HELPERS.get(expr.getText());
     if (!op) return undefined;
-    const tableArg = args[1] && unwrapTableExpression(args[1]).asKind(SyntaxKind.Identifier);
+    const tableArg = tableIdentifierOf(args[1]);
     if (!args[0] || !tableArg) return undefined;
     return { tableArg, receiver: args[0], op };
   }

@@ -17,7 +17,8 @@
 // Excluded: files without an exported function (pure types/constants like
 // a color map — a test for those would be a fake test). IO loaders already
 // covered by an integration test over HTTP carry the ignore tag with a
-// truthful justification.
+// truthful justification; the tag must cite the covering test file, and the
+// guard checks that the file exists.
 //
 // Deliberately out of scope: re-exports (`export { foo } from "./bar"`) do not
 // count as their own callable — the source file "./bar" carries its own
@@ -29,7 +30,7 @@ import { dirname, resolve } from "node:path";
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { escapeRegExp } from "./_lib/handler-name-forms";
-import { hasIgnoreTag } from "./_lib/ignore-tag";
+import { ignoreTagLine } from "./_lib/ignore-tag";
 
 // isTestFile() classifies by regex on the file's own path, not by which within-glob matched it, so lib/ vs. test classification stays correct regardless of scan-scope resolution.
 const SCAN: ScanSpec = {
@@ -39,6 +40,9 @@ const SCAN: ScanSpec = {
   within: ["lib/**/*.{ts,tsx}", "**/lib/**/*.{ts,tsx}", "**/*.test.ts", "**/*.test.tsx"],
 };
 const IGNORE_TAG = "kumiko-lint-ignore lib-test-coverage";
+
+const CITED_TEST_RE = /[\w./-]+\.test\.tsx?\b/g;
+const TAG_REASON_RE = /kumiko-lint-ignore\s+\S+\s*(.*)$/;
 
 type Export = { readonly name: string; readonly node: Node };
 
@@ -124,13 +128,32 @@ function referencesName(testSf: SourceFile, name: string): boolean {
   );
 }
 
+function citedTestRefs(tagLine: string): string[] {
+  const reason = TAG_REASON_RE.exec(tagLine)?.[1] ?? "";
+  return (reason.match(CITED_TEST_RE) ?? []).map((ref) => ref.replace(/^\.\//, ""));
+}
+
+function citationProblem(tagLine: string, testFiles: readonly SourceFile[]): string | undefined {
+  const refs = citedTestRefs(tagLine);
+  if (refs.length === 0) {
+    return "cites no test file: name the covering test, e.g. integration-covered via src/__tests__/<name>.integration.test.ts";
+  }
+  const missing = refs.find(
+    (ref) =>
+      !testFiles.some((t) => t.getFilePath() === ref || t.getFilePath().endsWith(`/${ref}`)),
+  );
+  return missing === undefined
+    ? undefined
+    : `cites "${missing}", but no test file matches that path`;
+}
+
 export const guard: AstGuard = {
   name: "Lib-Test-Coverage Guard (App-Repos)",
   scan: SCAN,
   hint:
     "Every lib file with an exported function needs a test that imports from the " +
     "module and references each function by name. IO loaders that an " +
-    `integration test covers: // ${IGNORE_TAG} <reason, e.g. integration-covered via …>`,
+    `integration test covers: // ${IGNORE_TAG} integration-covered via <path/to/x.integration.test.ts> (the cited test file must exist)`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     const testFiles: SourceFile[] = [];
@@ -141,7 +164,21 @@ export const guard: AstGuard = {
         libFiles.push(sf);
     }
     for (const sf of libFiles) {
-      const relevant = exportedCallables(sf).filter((e) => !hasIgnoreTag(e.node, IGNORE_TAG));
+      const relevant: Export[] = [];
+      for (const e of exportedCallables(sf)) {
+        const tagLine = ignoreTagLine(e.node, IGNORE_TAG);
+        if (tagLine === undefined) {
+          relevant.push(e);
+          continue;
+        }
+        const problem = citationProblem(tagLine, testFiles);
+        if (problem === undefined) continue;
+        violations.push({
+          file: sf.getFilePath(),
+          line: e.node.getStartLineNumber(),
+          message: `lib-test-coverage ignore tag on "${e.name}" ${problem}`,
+        });
+      }
       if (relevant.length === 0) continue;
 
       const libPathNoExt = stripExt(sf.getFilePath());

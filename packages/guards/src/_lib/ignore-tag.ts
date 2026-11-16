@@ -15,11 +15,25 @@ export function lineHasIgnoreTag(line: string, tag: string): boolean {
   return new RegExp(`${prefix}\\s+(?:[\\w-]+,)*${slug}(?=[\\s,]|$)`).test(line);
 }
 
-function lineHasTag(node: Node, line: number, tag: string): boolean {
+function taggedLineAt(node: Node, line: number, tag: string): string | undefined {
   const lines = node.getSourceFile().getFullText().split("\n");
-  return (
-    lineHasIgnoreTag(lines[line - 1] ?? "", tag) || lineHasIgnoreTag(lines[line - 2] ?? "", tag)
-  );
+  for (const candidate of [lines[line - 1] ?? "", lines[line - 2] ?? ""]) {
+    if (lineHasIgnoreTag(candidate, tag)) return candidate;
+  }
+  return undefined;
+}
+
+/** Same lookup as `hasIgnoreTag`, but returns the tagged line so callers can read the reason. */
+export function ignoreTagLine(node: Node, tag: string): string | undefined {
+  const own = taggedLineAt(node, node.getStartLineNumber(), tag);
+  if (own !== undefined) return own;
+  if (node.getKind() === SyntaxKind.JsxAttribute) {
+    const opening =
+      node.getFirstAncestorByKind(SyntaxKind.JsxOpeningElement) ??
+      node.getFirstAncestorByKind(SyntaxKind.JsxSelfClosingElement);
+    if (opening !== undefined) return taggedLineAt(node, opening.getStartLineNumber(), tag);
+  }
+  return undefined;
 }
 
 /** Inline allowlist convention: `// kumiko-lint-ignore <slug> <reason>` on the
@@ -28,14 +42,5 @@ function lineHasTag(node: Node, line: number, tag: string): boolean {
  *  a comment between JSX attributes is not syntactically possible, so the
  *  tag then sits above the `<Element`. */
 export function hasIgnoreTag(node: Node, tag: string): boolean {
-  if (lineHasTag(node, node.getStartLineNumber(), tag)) return true;
-  if (node.getKind() === SyntaxKind.JsxAttribute) {
-    const opening =
-      node.getFirstAncestorByKind(SyntaxKind.JsxOpeningElement) ??
-      node.getFirstAncestorByKind(SyntaxKind.JsxSelfClosingElement);
-    if (opening !== undefined && lineHasTag(node, opening.getStartLineNumber(), tag)) {
-      return true;
-    }
-  }
-  return false;
+  return ignoreTagLine(node, tag) !== undefined;
 }

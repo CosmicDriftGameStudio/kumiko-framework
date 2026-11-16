@@ -419,3 +419,93 @@ export const h = defineWriteHandler({
     expect(findGlobalUserWritesMissingMembershipCheck(sfs)).toHaveLength(0);
   });
 });
+
+describe("r.writeHandler registrations and comment-insensitive Check B", () => {
+  const registrarRoleHandler = `
+declare const r: { writeHandler(cfg: unknown): unknown };
+declare const z: any;
+r.writeHandler({
+	name: "member:add",
+	schema: z.object({ roles: z.array(z.string()) }),
+	access: { roles: ["TenantAdmin"] },
+	handler: async () => ({ isSuccess: true, data: {} }),
+});
+`;
+
+  test("Check A flags an r.writeHandler role-input handler without a test", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/member/handlers/add.write.ts": registrarRoleHandler,
+    });
+    expect(findUntestedRoleHandlers(sfs).map((h) => h.name)).toEqual(["member:add"]);
+  });
+
+  test("Check A passes with a test naming the handler and a reserved role", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/member/handlers/add.write.ts": registrarRoleHandler,
+      "/r/packages/bundled-features/src/member/__tests__/add.integration.test.ts": `
+				test("member:add rejects reserved roles", () => { void "SystemAdmin"; void "add"; });
+			`,
+    });
+    expect(findUntestedRoleHandlers(sfs)).toEqual([]);
+  });
+
+  test("Check C flags an ungated r.writeHandler user write", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/user-data-rights/handlers/restrict-account.write.ts": `
+declare const r: { writeHandler(cfg: unknown): unknown };
+declare function fetchOne(...a: unknown[]): Promise<unknown>;
+declare const access: { admin: string[] };
+declare const userTable: unknown;
+declare const z: any;
+r.writeHandler({
+	name: "restrict-account",
+	schema: z.object({ userId: z.string().uuid() }),
+	access: { roles: access.admin },
+	handler: async (event: any, ctx: any) => {
+		await fetchOne(ctx.db.raw, userTable, { id: event.payload.userId });
+		return { isSuccess: true, data: {} };
+	},
+});
+`,
+    });
+    expect(findGlobalUserWritesMissingMembershipCheck(sfs)).toHaveLength(1);
+  });
+
+  test("Check B: a strip mentioned only in a comment does not count", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/auth/handlers/login.write.ts": `
+// stripForbiddenMembershipRoles runs elsewhere
+declare const globalRoles: string[];
+declare const chosen: { roles: string[]; tenantId: string };
+type SessionUser = { id: string; tenantId: string; roles: readonly string[] };
+const session: SessionUser = { id: "u", tenantId: chosen.tenantId, roles: [...globalRoles, ...chosen.roles] };
+`,
+    });
+    expect(findMembershipMintsMissingStrip(sfs)).toHaveLength(1);
+  });
+
+  test("Check B: a buildSessionRoles call counts as the strip", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/auth/handlers/login.write.ts": `
+declare const buildSessionRoles: (g: string[], m: string[]) => string[];
+declare const globalRoles: string[];
+declare const chosen: { roles: string[]; tenantId: string };
+type SessionUser = { id: string; tenantId: string; roles: readonly string[] };
+const session: SessionUser = { id: "u", tenantId: chosen.tenantId, roles: buildSessionRoles(globalRoles, chosen.roles) };
+`,
+    });
+    expect(findMembershipMintsMissingStrip(sfs)).toHaveLength(0);
+  });
+
+  test("Check B: mint and membership patterns inside comments are ignored", () => {
+    const sfs = files({
+      "/r/packages/guards/src/guard-doc.ts": `
+/**
+ * Mints \`kind: "auth-session"\` from membership.roles.
+ */
+export const noop = 1;
+`,
+    });
+    expect(findMembershipMintsMissingStrip(sfs)).toHaveLength(0);
+  });
+});

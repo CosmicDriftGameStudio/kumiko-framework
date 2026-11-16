@@ -3,10 +3,10 @@
  * Guard: tenant / privilege-escalation safety. Three complementary checks.
  *
  *   A) **Role-input write handlers need an escalation test.** Any
- *      `defineWriteHandler` whose Zod schema takes a `role`/`roles` field lets
- *      the caller choose a role — the membership-role escalation surface that
- *      let a Tenant-Admin invite "SystemAdmin" and become platform admin. Such
- *      a handler MUST have a test asserting a reserved/global role is rejected:
+ *      `defineWriteHandler` or `r.writeHandler` whose Zod schema takes a
+ *      `role`/`roles` field lets the caller choose a role — the membership-role
+ *      escalation surface that let a Tenant-Admin invite "SystemAdmin" and
+ *      become platform admin. Such a handler MUST have a test asserting a reserved/global role is rejected:
  *      a test file that references the handler name (any of its kebab/camel/
  *      colon-segment forms) AND a reserved-role literal. Matching is repo-wide
  *      because a feature's escalation test legitimately lives in another
@@ -20,7 +20,7 @@
  *      file that mints a session (`kind: "auth-session"` / a `SessionUser`
  *      literal) from a membership source (`membership.roles`/`chosen.roles`/
  *      `invitationRole`) MUST call `stripForbiddenMembershipRoles`, the
- *      read-time backstop.
+ *      read-time backstop, directly or through `buildSessionRoles`.
  *
  *   C) **TenantAdmin-reachable writes on a global user row need a membership
  *      check.** A `ctx.db.raw` read deliberately bypasses the auto-tenant-
@@ -39,8 +39,9 @@
  */
 
 import * as path from "node:path";
-import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { type CallExpression, Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { ALL_REPO_KINDS, type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { scanCommentTrivia } from "./_lib/comment-trivia";
 import { literalStringOf, mentionsAsWord, nameForms } from "./_lib/handler-name-forms";
 import { TEST_FILE_RE } from "./_lib/test-file";
 
@@ -55,6 +56,12 @@ const SCAN: ScanSpec = {
 
 // Quoted forms — a test "rejects this role" assertion carries the literal.
 const RESERVED_ROLE_LITERALS = ['"SystemAdmin"', '"system"', '"all"', '"anonymous"'];
+
+function isWriteHandlerRegistration(call: CallExpression): boolean {
+  const callee = call.getExpression();
+  if (Node.isIdentifier(callee)) return callee.getText() === "defineWriteHandler";
+  return Node.isPropertyAccessExpression(callee) && callee.getName() === "writeHandler";
+}
 
 type RoleHandler = { name: string; file: string; line: number };
 
@@ -78,7 +85,7 @@ export function findRoleInputHandlers(files: readonly SourceFile[]): RoleHandler
   for (const sf of files) {
     if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      if (call.getExpression().getText() !== "defineWriteHandler") continue;
+      if (!isWriteHandlerRegistration(call)) continue;
       const arg = call.getArguments()[0];
       if (!arg || arg.getKind() !== SyntaxKind.ObjectLiteralExpression) continue;
       const obj = arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
@@ -131,14 +138,12 @@ const SESSION_MINT = /kind:\s*"auth-session"|:\s*SessionUser\s*=\s*\{/;
 // variable, so the source lives in the file body, not the `roles:` literal —
 // hence a file-level check.
 const MEMBERSHIP_SOURCE = /\b(?:membership\.roles|chosen\.roles|invitationRole)\b/;
-// A bare mention instead of a call test (`STRIP_FN + "("`) is deliberate
-// here, not sloppy: the real login.write.ts handler doesn't call
-// stripForbiddenMembershipRoles directly, but indirectly via
-// buildSessionRoles() — a direct call test would false-positive there.
-// This tolerates the false negative from the guard's own contract (dead
-// imports/comments count too) but avoids the worse false positive against
-// the real call path.
-const STRIP_FN = "stripForbiddenMembershipRoles";
+// buildSessionRoles always strips the membership half, so a call to either
+// counts; comments and dead imports no longer do.
+const MEMBERSHIP_STRIP_CALLEES: ReadonlySet<string> = new Set([
+  "stripForbiddenMembershipRoles",
+  "buildSessionRoles",
+]);
 
 type MintSite = { file: string; line: number };
 
@@ -147,14 +152,34 @@ function lineOfMatch(text: string, re: RegExp): number {
   return m ? text.slice(0, m.index).split("\n").length : 1;
 }
 
+// Blanks comments with spaces so offsets and line numbers stay valid.
+function textWithoutComments(fullText: string): string {
+  let out = fullText;
+  for (const comment of scanCommentTrivia(fullText)) {
+    const blanked = comment.text.replace(/[^\r\n]/g, " ");
+    out = out.slice(0, comment.start) + blanked + out.slice(comment.start + comment.text.length);
+  }
+  return out;
+}
+
+function callsMembershipStrip(sf: SourceFile): boolean {
+  return sf.getDescendantsOfKind(SyntaxKind.CallExpression).some((call) => {
+    const callee = call.getExpression();
+    if (Node.isIdentifier(callee)) return MEMBERSHIP_STRIP_CALLEES.has(callee.getText());
+    return (
+      Node.isPropertyAccessExpression(callee) && MEMBERSHIP_STRIP_CALLEES.has(callee.getName())
+    );
+  });
+}
+
 export function findMembershipMintsMissingStrip(files: readonly SourceFile[]): MintSite[] {
   const out: MintSite[] = [];
   for (const sf of files) {
     if (TEST_FILE_RE.test(sf.getFilePath())) continue;
-    const text = sf.getFullText();
+    const text = textWithoutComments(sf.getFullText());
     if (!SESSION_MINT.test(text)) continue;
     if (!MEMBERSHIP_SOURCE.test(text)) continue;
-    if (text.includes(STRIP_FN)) continue;
+    if (callsMembershipStrip(sf)) continue;
     out.push({
       file: sf.getFilePath(),
       line: lineOfMatch(text, MEMBERSHIP_SOURCE),
@@ -191,7 +216,7 @@ function globalUserWriteMissingCheck(
   call: CallExpression,
   filePath: string,
 ): GlobalUserWrite | undefined {
-  if (call.getExpression().getText() !== "defineWriteHandler") return undefined;
+  if (!isWriteHandlerRegistration(call)) return undefined;
   const arg = call.getArguments()[0];
   if (!arg || arg.getKind() !== SyntaxKind.ObjectLiteralExpression) return undefined;
   const obj = arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
@@ -244,7 +269,7 @@ export const guard: AstGuard = {
   name: "Tenant-Escalation Guard",
   scan: SCAN,
   security: true,
-  hint: "Role-input handlers need an escalation test (assert a reserved role is rejected); membership-derived JWT mints must call stripForbiddenMembershipRoles; TenantAdmin-reachable ctx.db.raw user writes must check the target's membership.",
+  hint: "Role-input handlers need an escalation test (assert a reserved role is rejected); membership-derived JWT mints must call stripForbiddenMembershipRoles or buildSessionRoles; TenantAdmin-reachable ctx.db.raw user writes must check the target's membership.",
   run(files) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
@@ -261,7 +286,7 @@ export const guard: AstGuard = {
         file: path.relative(ROOT, m.file),
         line: m.line,
         message:
-          "JWT mint derives session roles from a membership but never calls stripForbiddenMembershipRoles — a reserved role resurrected by a projection rebuild would reach the session. Strip the membership portion (see engine/membership-roles).",
+          "JWT mint derives session roles from a membership but never calls stripForbiddenMembershipRoles or buildSessionRoles — a reserved role resurrected by a projection rebuild would reach the session. Strip the membership portion (see engine/membership-roles).",
       });
     }
 

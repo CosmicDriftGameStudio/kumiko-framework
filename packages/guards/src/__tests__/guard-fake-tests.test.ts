@@ -172,3 +172,56 @@ describe("guard-fake-tests — same-file helper resolution", () => {
     expect(violations).toHaveLength(1);
   });
 });
+
+describe("guard-fake-tests: test modifiers and self comparisons", () => {
+  test("test.each without expect is a violation", () => {
+    const violations = run(`
+      test.each([1, 2])("case %s", (n) => { doSomething(n); });
+    `);
+    expect(violations).toHaveLength(1);
+  });
+
+  test("it.concurrent without expect is a violation", () => {
+    const violations = run(`
+      it.concurrent("x", async () => { await doSomething(); });
+    `);
+    expect(violations).toHaveLength(1);
+  });
+
+  test("an aliased bun:test import is recognised", () => {
+    const violations = run(`
+      import { test as bunTest } from "bun:test";
+      bunTest.each([1])("x", () => { doSomething(); });
+    `);
+    expect(violations).toHaveLength(1);
+  });
+
+  test("test.each with expect passes", () => {
+    const violations = run(`
+      test.each([1])("x", (n) => { expect(n).toBe(1); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("describe.each is not a test case", () => {
+    const violations = run(`
+      describe.each([1])("group", () => { doSomething(); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("a value compared with itself is a tautology", () => {
+    const violations = run(`
+      test("t", () => { const value = 3; expect(value).toBe(value); });
+    `);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("TAUTOLOGY");
+  });
+
+  test("a determinism check with calls on both sides is allowed", () => {
+    const violations = run(`
+      test("t", () => { expect(stableHash("a")).toBe(stableHash("a")); });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+});

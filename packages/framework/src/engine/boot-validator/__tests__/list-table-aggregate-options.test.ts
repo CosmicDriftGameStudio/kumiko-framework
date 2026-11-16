@@ -129,7 +129,7 @@ describe("validateBoot — table.grouping and table.totals", () => {
         { field: "name", kind: "count" },
       ],
     };
-    validateBoot([featureWith(kind, { table })]);
+    expect(() => validateBoot([featureWith(kind, { table })])).not.toThrow();
   });
 
   test.each(KINDS)("%s: a field that is not a column is rejected", (kind) => {

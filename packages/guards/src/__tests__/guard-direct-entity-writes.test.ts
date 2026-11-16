@@ -114,6 +114,38 @@ describe("collectEntityProjectionTables", () => {
   });
 });
 
+describe("collectEntityProjectionTables :: r.crud", () => {
+  test("links r.crud(name, entityDef, options) to the table built from the same entityDef", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { crud: (n: string, e: unknown, o?: unknown) => void }) {
+          r.crud("foo", fooEntity, {});
+        }
+        async function bad(ctx: { db: unknown }) {
+          await updateMany(ctx.db, fooTable, {}, {});
+        }
+      `,
+    });
+    const tables = collectEntityProjectionTables(project.getSourceFiles());
+    expect(tables.size).toBe(1);
+    expect([...tables][0]).toContain("fooTable");
+    const hits = scanDirectWrites(project.getSourceFileOrThrow("/repo/foo.ts"), tables);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.kind).toBe("non-tx-receiver");
+  });
+
+  test("an inline entity definition is not statically resolvable and collects nothing", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { crud: (n: string, e: unknown, o?: unknown) => void }) {
+          r.crud("foo", { fields: {} }, {});
+        }
+      `,
+    });
+    expect(collectEntityProjectionTables(project.getSourceFiles()).size).toBe(0);
+  });
+});
+
 describe("entity registration name forms", () => {
   const registrations = {
     "constant name": "r.entity({ name: FOO_NAME, ...fooEntity });",
@@ -641,6 +673,29 @@ describe("scanDirectWrites :: tables imported from another file", () => {
       `,
     });
     expect(hits).toHaveLength(0);
+  });
+});
+
+describe("scanDirectWrites :: table argument as property access", () => {
+  test("BLOCK: tables.fooTable resolves through the property symbol", () => {
+    const project = makeProject({
+      "/repo/tables.ts": `${ENTITY_PROJECTION_PRELUDE}
+        function setup(r: { entity: (n: string, e: unknown, o?: unknown) => void }) {
+          r.entity({ name: "foo", ...fooEntity });
+        }
+      `,
+      "/repo/use.ts": `
+        import * as tables from "./tables";
+        declare function updateMany(db: unknown, table: unknown, set: unknown, where: unknown): Promise<void>;
+        async function bad(ctx: { db: unknown }) {
+          await updateMany(ctx.db, tables.fooTable, {}, {});
+        }
+      `,
+    });
+    const esTables = collectEntityProjectionTables(project.getSourceFiles());
+    const hits = scanDirectWrites(project.getSourceFileOrThrow("/repo/use.ts"), esTables);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.table).toBe("fooTable");
   });
 });
 

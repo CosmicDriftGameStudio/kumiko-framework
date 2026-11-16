@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Guard: tests must actually assert something. Flags:
- *   (a) Always-true assertions: expect(true).toBe(true), expect(1).toBe(1)
+ *   (a) Always-true assertions: expect(true).toBe(true), expect(1).toBe(1),
+ *       or a value compared with itself
  *   (b) Test bodies with zero expect() calls
  *
  * Both are silent failures — they count as "passing" but prove nothing. In
@@ -15,6 +16,12 @@
 import * as path from "node:path";
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  canonicalCalleeText,
+  declarationBaseCallee,
+  TEST_CASE_CALLEE,
+  testFrameworkAliases,
+} from "./_lib/test-callee";
 
 const ROOT = process.cwd();
 
@@ -38,10 +45,48 @@ const TAUTOLOGIES = [
   /^expect\(\s*['"]\w+['"]\s*\)\.toBe\(\s*['"]\w+['"]\s*\)$/,
 ];
 
-function isTestCall(call: CallExpression): boolean {
-  const expr = call.getExpression();
-  const text = expr.getText();
-  return text === "it" || text === "test";
+function isTestCall(call: CallExpression, aliases: ReadonlyMap<string, string>): boolean {
+  return TEST_CASE_CALLEE.test(
+    canonicalCalleeText(declarationBaseCallee(call.getExpression()).getText(), aliases),
+  );
+}
+
+const SELF_COMPARISON_MATCHERS: ReadonlySet<string> = new Set([
+  "toBe",
+  "toEqual",
+  "toStrictEqual",
+]);
+
+function withoutWhitespace(text: string): string {
+  return text.replace(/\s+/g, "");
+}
+
+function containsCallOrNew(node: Node): boolean {
+  return (
+    node.isKind(SyntaxKind.CallExpression) ||
+    node.isKind(SyntaxKind.NewExpression) ||
+    node.getFirstDescendantByKind(SyntaxKind.CallExpression) !== undefined ||
+    node.getFirstDescendantByKind(SyntaxKind.NewExpression) !== undefined
+  );
+}
+
+// Calls and `new` are excluded so determinism checks like
+// expect(hash(x)).toBe(hash(x)) stay allowed.
+function isSelfComparison(call: CallExpression): boolean {
+  const matcher = call.getExpression();
+  if (!matcher.isKind(SyntaxKind.PropertyAccessExpression)) return false;
+  if (!SELF_COMPARISON_MATCHERS.has(matcher.getName())) return false;
+  const expectCall = matcher.getExpression();
+  if (!expectCall.isKind(SyntaxKind.CallExpression)) return false;
+  if (expectCall.getExpression().getText() !== "expect") return false;
+  const expectArgs = expectCall.getArguments();
+  const matcherArgs = call.getArguments();
+  const actual = expectArgs[0];
+  const expected = matcherArgs[0];
+  if (expectArgs.length !== 1 || matcherArgs.length !== 1) return false;
+  if (actual === undefined || expected === undefined) return false;
+  if (containsCallOrNew(actual)) return false;
+  return withoutWhitespace(actual.getText()) === withoutWhitespace(expected.getText());
 }
 
 // Helpers that internally call `expect(...)` and assert something —
@@ -125,11 +170,12 @@ function bodyHasAssertion(
 function scanFile(sf: SourceFile): Violation[] {
   const violations: Violation[] = [];
   const calls = sf.getDescendantsOfKind(SyntaxKind.CallExpression);
+  const aliases = testFrameworkAliases(sf);
 
   for (const call of calls) {
     // (a) tautology: full expression text matches a known trivial pattern
     const text = call.getText().replace(/\s+/g, " ").trim();
-    if (TAUTOLOGIES.some((re) => re.test(text))) {
+    if (TAUTOLOGIES.some((re) => re.test(text)) || isSelfComparison(call)) {
       violations.push({
         file: path.relative(ROOT, sf.getFilePath()),
         line: call.getStartLineNumber(),
@@ -140,7 +186,7 @@ function scanFile(sf: SourceFile): Violation[] {
     }
 
     // (b) no-expect: it/test with empty expect count
-    if (!isTestCall(call)) continue;
+    if (!isTestCall(call, aliases)) continue;
     const args = call.getArguments();
     if (args.length < 2) continue;
     const body = args[1];
