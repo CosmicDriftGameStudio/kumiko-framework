@@ -5,7 +5,7 @@ File-based migrations for Event-Sourcing operations — like `kumiko schema appl
 ## What it shows
 
 - **`seedsDir`-Option** in `runProdApp({ seedsDir: "./seeds" })` — beim Boot werden pending Files in chronologischer Reihenfolge angewendet und in `kumiko_es_operations` markiert.
-- **`SeedMigration`-Interface** — default-Export einer seed-File mit `description` + `run(ctx)`. ctx liefert `systemWriteAs` (System-User bypassed Access-Check) + Read-Helpers (`findUserByEmail`, `findMembershipsOfUser`, `findTenants`, `findTemplateResources`).
+- **`SeedMigration`-Interface** — default-Export einer seed-File mit `description` + `run(ctx)`. ctx liefert `systemWriteAs` (System-User bypassed Access-Check) + `systemQueryAs` (registrierte Query-Handler als System-User, statt Raw-SQL auf `read_`-Tabellen) + Read-Helpers (`findUserByEmail`, `findMembershipsOfUser`, `findTenants`, `findTemplateResources`).
 - **Idempotency** — Marker landet nach Erfolg in der Tracking-Tabelle, zweiter Boot skipped applied Seeds.
 - **Tx-Atomicity** — Jede Migration läuft in eigener Transaction; Failure rollt zurück + bricht Boot ab (kein Partial-Apply).
 - **Chronologische File-IDs** — Filename `<date>-<slug>.ts` (z.B. `2026-05-20-fix-admin-roles.ts`) ist die ID.
@@ -46,6 +46,16 @@ for (const t of await ctx.findTemplateResources({ kind: "mail", status: "active"
   ]);
 }
 ```
+
+### Read through a query handler
+
+Need data the read helpers don't cover? Call the app's query handler instead of querying `read_*` tables through `ctx.db`:
+
+```ts
+const events = await ctx.systemQueryAs("events:query:event:list", { filter: { slug: "spring-meetup" } }, tenantId);
+```
+
+`systemQueryAs` picks the system user like `systemWriteAs` (pass the tenant for tenant-scoped data), throws when the query fails, and the dry run checks the QN before any seed runs.
 
 ## When to reach for it
 

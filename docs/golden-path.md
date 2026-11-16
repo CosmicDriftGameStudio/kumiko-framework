@@ -48,7 +48,7 @@ what happened; it does not update a row.
 ([L55](../samples/recipes/golden-path/src/feature.ts#L55)) folds events into a
 read model. `apply` is keyed by event name; `setFields(table, { isClosed: true })`
 is the shortcut for "update the aggregate's row". The projection runs inline,
-so the read model is current when the write returns.
+so the read model is current when the write returns. A rebuild of the ticket table replays it too: an `r.projection` on an entity's own table is merged into the entity's rebuild.
 
 ## 5. Screen
 

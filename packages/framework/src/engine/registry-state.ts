@@ -42,6 +42,7 @@ import type {
   MultiStreamProjectionDefinition,
   ProjectionDefinition,
   ProjectionRowIdOf,
+  SingleStreamApplyFn,
 } from "@cosmicdrift/kumiko-types/projection";
 import type { RelationDefinition } from "@cosmicdrift/kumiko-types/relations";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-types/screen";
@@ -154,6 +155,38 @@ export function buildImplicitProjection(
     apply,
     isImplicit: true,
   };
+}
+
+// Explicit projections on the entity table run live inline, but the rebuild only
+// replays the implicit projection — without this merge a rebuild loses their
+// columns. Keys of an extendEntityProjection win: apps register those applies twice on purpose.
+export function mergeExplicitProjectionsIntoImplicit(
+  implicit: ProjectionDefinition,
+  entityName: string,
+  explicitOnSameTable: readonly ProjectionDefinition[],
+  extensionApplyKeys: ReadonlySet<string>,
+): ProjectionDefinition {
+  if (explicitOnSameTable.length === 0) return implicit;
+  const apply: Record<string, SingleStreamApplyFn> = { ...implicit.apply };
+  const extraSourceSet = new Set<string>(implicit.extraSources ?? []);
+  for (const explicit of explicitOnSameTable) {
+    for (const [eventType, fn] of Object.entries(explicit.apply)) {
+      if (extensionApplyKeys.has(eventType)) continue;
+      const previous = apply[eventType];
+      apply[eventType] = previous
+        ? async (event, tx, table) => {
+            await previous(event, tx, table);
+            await fn(event, tx, table);
+          }
+        : fn;
+    }
+    const explicitSources = Array.isArray(explicit.source) ? explicit.source : [explicit.source];
+    for (const source of [...explicitSources, ...(explicit.extraSources ?? [])]) {
+      if (source !== entityName) extraSourceSet.add(source);
+    }
+  }
+  const extraSources = [...extraSourceSet];
+  return { ...implicit, apply, ...(extraSources.length > 0 && { extraSources }) };
 }
 
 function assertRowIdOfSources(

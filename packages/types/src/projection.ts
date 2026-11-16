@@ -80,7 +80,8 @@ export type ProjectionDefinition = {
   // the EventStoreExecutor directly — firing the implicit apply inline
   // would double-write into the same table. The inline-projection-runner
   // skips entries with this flag; rebuildProjection treats them
-  // identically to explicit projections.
+  // identically to explicit projections. Explicit r.projection definitions on the
+  // same table are merged in at registry build so the rebuild replays their columns.
   readonly isImplicit?: boolean;
 };
 

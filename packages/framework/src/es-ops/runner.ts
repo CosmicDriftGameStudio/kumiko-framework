@@ -82,18 +82,18 @@ export async function runPendingSeedMigrations(
   const appliedIds: string[] = [];
   const skippedIds: string[] = [];
 
-  // Dry-run pass: before any migration, parse all handler QNs from the seed
-  // files and check them against the registry. Fail fast before the first
+  // Dry-run pass: before any migration, parse all handler QNs (systemWriteAs and
+  // systemQueryAs) from the seed files and check them against the registry. Fail fast before the first
   // write, with a clear error containing the file and QN instead of a runtime
   // "handler not found" error in the middle of the migration flow.
   if (args.registry !== undefined) {
     const unknownQns: Array<{ id: string; qn: string }> = [];
     for (const entry of pending) {
       const source = await readFile(entry.filePath, "utf-8");
-      for (const qn of extractWriteHandlerQns(source)) {
-        if (!args.registry.getWriteHandler(qn)) {
-          unknownQns.push({ id: entry.id, qn });
-        }
+      for (const { kind, qn } of extractHandlerQns(source)) {
+        const known =
+          kind === "write" ? args.registry.getWriteHandler(qn) : args.registry.getQueryHandler(qn);
+        if (!known) unknownQns.push({ id: entry.id, qn });
       }
     }
     if (unknownQns.length > 0) {
@@ -218,8 +218,8 @@ function sanitizeForEnv(id: string): string {
   return id.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 }
 
-// Parse seed-file source and extract handler QNs from `systemWriteAs(...)`
-// calls. A regex (rather than an AST) handles common inline string cases:
+// Parse seed-file source and extract handler QNs from `systemWriteAs(...)` and
+// `systemQueryAs(...)` calls. A regex (rather than an AST) handles common inline string cases:
 //   ctx.systemWriteAs("foo:write:bar", payload)
 //   systemWriteAs("foo:write:bar", ...)  (destructured)
 //
@@ -228,14 +228,18 @@ function sanitizeForEnv(id: string): string {
 //   - String concatenation or template literals with dynamic variables
 // These patterns are uncommon in real seed migrations. This limitation is
 // documented so callers requiring dynamic QNs understand the constraint.
-function extractWriteHandlerQns(source: string): readonly string[] {
-  const pattern = /systemWriteAs\s*\(\s*["']([^"']+)["']/g;
-  const out = new Set<string>();
+function extractHandlerQns(
+  source: string,
+): readonly { readonly kind: "write" | "query"; readonly qn: string }[] {
+  const pattern = /system(Write|Query)As\s*\(\s*["']([^"']+)["']/g;
+  const out = new Map<string, { readonly kind: "write" | "query"; readonly qn: string }>();
   for (const match of source.matchAll(pattern)) {
-    const qn = match[1];
-    if (qn) out.add(qn);
+    const qn = match[2];
+    if (!qn) continue;
+    const kind = match[1] === "Query" ? "query" : "write";
+    out.set(`${kind}:${qn}`, { kind, qn });
   }
-  return [...out];
+  return [...out.values()];
 }
 
 function stringifyError(err: unknown): string {

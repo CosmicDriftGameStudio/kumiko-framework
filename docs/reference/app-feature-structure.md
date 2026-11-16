@@ -18,8 +18,8 @@ src/features/<name>/
   index.ts         # Server-Exports (Feature + Public-Types)
   constants.ts     # nur Server-Konstanten; geteilte (auch im Browser genutzte)
                    # Konstanten und Translation-Keys liegen unter web/
-  handlers/        # eine Datei pro Handler: <thema>.query.ts / <thema>.write.ts
-                   # (defineQueryHandler / defineWriteHandler)
+  handlers/        # eine Datei pro handgeschriebenem Handler: <thema>.query.ts / <thema>.write.ts
+                   # (defineQueryHandler / defineWriteHandler); Standard-CRUD per r.crud in feature.ts
   schema/          # Entity- + Table-Definitionen, index.ts re-exportiert
   lib/             # reine Domain-Logik: pure Funktionen mit Test
                    # (ohne r.*-Abhängigkeit)

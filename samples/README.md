@@ -57,7 +57,6 @@ an open-source statuspage clone built with Kumiko.
 | Rate limiting per user / IP / endpoint                                                         | [recipes/rate-limiting](recipes/rate-limiting/)                               | Integration |
 | Secrets management (env-var → encrypted DB row)                                                | [recipes/secrets-demo](recipes/secrets-demo/)                                 | Integration |
 | Session revocation (logout-all, force-logout, audit)                                           | [recipes/session-revocation](recipes/session-revocation/)                     | Integration |
-| Designer-driven feature (live schema edits via UI)                                             | [recipes/designer-demo](recipes/designer-demo/)                               | —           |
 
 ## Apps — UI + dev-server
 

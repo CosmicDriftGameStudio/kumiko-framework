@@ -517,7 +517,9 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // pattern). Rebuild-only: the inline runner skips implicit projections —
   // live delivery stays with the extension's own MSP. The entity must be
   // declared via r.entity in the SAME feature; unknown entities and
-  // apply-key collisions fail at registry build.
+  // apply-key collisions fail at registry build. An r.projection on the entity
+  // table is merged into the rebuild automatically; this is only needed for table
+  // writers without their own r.projection (MSP pattern like custom-fields).
   extendEntityProjection(entityName: string, extension: EntityProjectionExtension): void;
 
   // Register a function that contributes claims into SessionUser.claims at

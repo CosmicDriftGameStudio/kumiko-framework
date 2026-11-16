@@ -126,6 +126,14 @@ export type SeedMigrationContext = {
     extraRoles?: readonly string[],
   ) => Promise<WriteResult>;
 
+  /** Runs a registered query handler as the system user; same user choice as systemWriteAs. Throws when the query fails. Use instead of raw SQL on read tables. */
+  readonly systemQueryAs: (
+    handlerQualifiedName: string,
+    payload: unknown,
+    tenantIdOverride?: TenantId,
+    extraRoles?: readonly string[],
+  ) => Promise<unknown>;
+
   // Read helpers for common lookups. They grow on demand; further lookups
   // are added with further seeds.
   readonly findUserByEmail: (email: string) => Promise<SeedUserRow | null>;

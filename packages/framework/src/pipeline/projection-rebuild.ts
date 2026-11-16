@@ -1,5 +1,7 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
+import type { ProjectionDefinition } from "@cosmicdrift/kumiko-types/projection";
 import type { DbConnection, DbTx } from "../db/connection.ts";
+import { extractTableName } from "../db/dialect.ts";
 import {
   countSubscribedEvents,
   finalizeProjectionRebuild,
@@ -210,6 +212,21 @@ export function rebuildProjection(
   );
 }
 
+// The entity table belongs to the implicit projection, which already merges the explicit
+// applies. Rebuilding only the explicit projection would drop every row without a matching event.
+function findOwningEntityProjection(
+  registry: RebuildDeps["registry"],
+  projection: ProjectionDefinition,
+): ProjectionDefinition | undefined {
+  const tableName = extractTableName(projection.table);
+  for (const candidate of registry.getAllProjections().values()) {
+    if (candidate.isImplicit === true && extractTableName(candidate.table) === tableName) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
 async function replayProjectionIntoShadow(
   projectionName: string,
   deps: RebuildDeps,
@@ -222,6 +239,11 @@ async function replayProjectionIntoShadow(
         [...registry.getAllProjections().keys()].join(", ") || "(none)"
       }`,
     );
+  }
+
+  if (projection.isImplicit !== true) {
+    const owner = findOwningEntityProjection(registry, projection);
+    if (owner) return replayProjectionIntoShadow(owner.name, deps);
   }
 
   const meta = rebuildMetaOrThrow(projection.table, projectionName);

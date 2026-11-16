@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import { ticketingFeature } from "../feature";
@@ -95,5 +96,39 @@ describe("golden path: ticket", () => {
     );
 
     expect(missing.code).toBe("not_found");
+  });
+});
+
+describe("golden path: rebuild", () => {
+  async function closeTicket(id: string): Promise<void> {
+    await stack.http.writeOk("ticketing:write:ticket:close", { id, resolution: "Done" }, admin);
+  }
+
+  test("rebuilding the ticket entity keeps closed tickets closed", async () => {
+    const closedId = await openTicket("Closed before rebuild");
+    const openId = await openTicket("Still open");
+    await closeTicket(closedId);
+
+    await rebuildProjection("ticketing:projection:ticket-entity", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    expect(await readTicket(closedId)).toMatchObject({ isClosed: true });
+    expect(await readTicket(openId)).toMatchObject({ isClosed: false });
+  });
+
+  test("rebuilding the explicit ticket-status projection rebuilds the whole entity table", async () => {
+    const closedId = await openTicket("Closed ticket");
+    const openId = await openTicket("Open ticket");
+    await closeTicket(closedId);
+
+    await rebuildProjection("ticketing:projection:ticket-status", {
+      db: stack.db,
+      registry: stack.registry,
+    });
+
+    expect(await readTicket(openId)).toMatchObject({ title: "Open ticket", isClosed: false });
+    expect(await readTicket(closedId)).toMatchObject({ title: "Closed ticket", isClosed: true });
   });
 });

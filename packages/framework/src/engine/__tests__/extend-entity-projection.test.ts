@@ -4,6 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
+import { buildEntityTable } from "../../db/table-builder.ts";
 import { defineFeature } from "../define-feature.ts";
 import { createEntity, createTextField } from "../factories.ts";
 import { createRegistry } from "../registry.ts";
@@ -243,5 +244,104 @@ describe("r.extendEntityProjection — registry-build validation", () => {
       });
     });
     expect(() => createRegistry([feature])).toThrow(/ambiguous/);
+  });
+});
+
+describe("explicit r.projection on the entity table", () => {
+  const unitEntity = exampleEntity();
+  const unitTable = buildEntityTable("unit", unitEntity);
+
+  test("merges apply and foreign sources into the implicit projection", () => {
+    const fnA = async (): Promise<void> => {};
+    const feature = defineFeature("test", (r) => {
+      r.entity({ name: "unit", ...unitEntity });
+      const closed = r.defineEvent("unit-closed", z.object({}), { piiFields: "none" });
+      r.projection({
+        name: "unit-status",
+        source: ["unit", "other-agg"],
+        table: unitTable,
+        apply: { [closed.name]: fnA },
+      });
+    });
+    const projection = createRegistry([feature])
+      .getAllProjections()
+      .get("test:projection:unit-entity");
+    expect(projection?.apply["test:event:unit-closed"]).toBe(fnA);
+    expect(projection?.extraSources).toContain("other-agg");
+    expect(projection?.extraSources).not.toContain("unit");
+  });
+
+  test("same key on two explicit projections runs both in registration order", async () => {
+    const calls: string[] = [];
+    const feature = defineFeature("test", (r) => {
+      r.entity({ name: "unit", ...unitEntity });
+      const closed = r.defineEvent("unit-closed", z.object({}), { piiFields: "none" });
+      r.projection({
+        name: "unit-status-a",
+        source: "unit",
+        table: unitTable,
+        apply: {
+          [closed.name]: async () => {
+            calls.push("a");
+          },
+        },
+      });
+      r.projection({
+        name: "unit-status-b",
+        source: "unit",
+        table: unitTable,
+        apply: {
+          [closed.name]: async () => {
+            calls.push("b");
+          },
+        },
+      });
+    });
+    const merged = createRegistry([feature])
+      .getAllProjections()
+      .get("test:projection:unit-entity")?.apply["test:event:unit-closed"];
+    expect(merged).toBeDefined();
+    // The test applies ignore their arguments, so no event or transaction is needed.
+    await Reflect.apply(merged ?? noopApply, undefined, []);
+    expect(calls).toEqual(["a", "b"]);
+  });
+
+  test("an extendEntityProjection key wins over the same key on an explicit projection", () => {
+    const extFn = async (): Promise<void> => {};
+    const fnA = async (): Promise<void> => {};
+    const feature = defineFeature("test", (r) => {
+      r.entity({ name: "unit", ...unitEntity });
+      r.defineEvent("unit-closed", z.object({}), { piiFields: "none" });
+      r.extendEntityProjection("unit", { apply: { "test:event:unit-closed": extFn } });
+      r.projection({
+        name: "unit-status",
+        source: "unit",
+        table: unitTable,
+        apply: { "test:event:unit-closed": fnA },
+      });
+    });
+    const projection = createRegistry([feature])
+      .getAllProjections()
+      .get("test:projection:unit-entity");
+    expect(projection?.apply["test:event:unit-closed"]).toBe(extFn);
+  });
+
+  test("a projection on another table is not merged", () => {
+    const fnA = async (): Promise<void> => {};
+    const otherEntity = exampleEntity("other_units");
+    const feature = defineFeature("test", (r) => {
+      r.entity({ name: "unit", ...unitEntity });
+      const closed = r.defineEvent("unit-closed", z.object({}), { piiFields: "none" });
+      r.projection({
+        name: "other-status",
+        source: "unit",
+        table: buildEntityTable("other-unit", otherEntity),
+        apply: { [closed.name]: fnA },
+      });
+    });
+    const projection = createRegistry([feature])
+      .getAllProjections()
+      .get("test:projection:unit-entity");
+    expect(projection?.apply["test:event:unit-closed"]).toBeUndefined();
   });
 });

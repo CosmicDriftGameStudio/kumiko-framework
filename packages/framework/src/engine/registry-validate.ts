@@ -8,6 +8,7 @@ import type {
   PreSaveHookFn,
 } from "@cosmicdrift/kumiko-types/hooks";
 import { configureEventPiiCatalog } from "../crypto/event-pii.ts";
+import { extractTableName } from "../db/dialect.ts";
 import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.ts";
 import { entityReadsSystemRows } from "../db/entity-table-meta.ts";
 import { type EntityLifecycleVerb, entityEventName } from "../db/event-store-executor-context.ts";
@@ -21,7 +22,12 @@ import type {
   SearchableReferenceField,
   SortableReferenceField,
 } from "./registry-state.ts";
-import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state.ts";
+import {
+  buildImplicitProjection,
+  hasFieldAccessRules,
+  mergeExplicitProjectionsIntoImplicit,
+  qualify,
+} from "./registry-state.ts";
 import {
   buildSoftDeleteCleanupJob,
   buildSoftDeleteCleanupSystemJob,
@@ -332,7 +338,7 @@ export function buildImplicitProjections(
       }
     }
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      const def = buildImplicitProjection(
+      const implicit = buildImplicitProjection(
         feature.name,
         entityName,
         entity,
@@ -340,6 +346,21 @@ export function buildImplicitProjections(
         feature.entityTables?.[entityName],
         feature.entityProjectionExtensions?.[entityName] ?? [],
         entityReadsSystemRows(feature, entityName, entity),
+      );
+      const implicitTableName = extractTableName(implicit.table);
+      const explicitOnSameTable = [...state.projectionMap.values()].filter(
+        (p) => p.isImplicit !== true && extractTableName(p.table) === implicitTableName,
+      );
+      const extensionApplyKeys = new Set(
+        (feature.entityProjectionExtensions?.[entityName] ?? []).flatMap((ext) =>
+          Object.keys(ext.apply),
+        ),
+      );
+      const def = mergeExplicitProjectionsIntoImplicit(
+        implicit,
+        entityName,
+        explicitOnSameTable,
+        extensionApplyKeys,
       );
       if (state.projectionMap.has(def.name)) {
         throw new Error(
