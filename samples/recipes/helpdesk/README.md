@@ -47,8 +47,10 @@ bun test --config=bunfig.integration.toml samples/recipes/helpdesk
 4. Embed `/helpdesk/client.js` on the website; the form is yours. The client posts to the
    relative paths `/api/query` and `/api/write` without cookies, so the page has to share the
    app's origin. A website served by another server forwards `/api` to the app on its own
-   origin; it can then serve the same script from `HELPDESK_CLIENT_SOURCE` and type its calls
-   with `HelpdeskWebsiteClient`, both from `@cosmicdrift/kumiko-bundled-features/helpdesk/client`.
+   origin; it can then serve the same script from `HELPDESK_CLIENT_SOURCE` and get a checked,
+   typed client from `helpdeskWebsiteClient()` (undefined until the script has loaded; `submit`
+   resolves to `HELPDESK_WEBSITE_SUBMIT_OUTCOME.Failed` instead of rejecting), all from
+   `@cosmicdrift/kumiko-bundled-features/helpdesk/client`.
    `samples/apps/use-all-bundled/public/helpdesk-contact.html` (with `helpdesk-contact.js`) is a complete same-origin page.
 
 Telegram is optional and off by default: notifications go by mail to SystemAdmins only. An app

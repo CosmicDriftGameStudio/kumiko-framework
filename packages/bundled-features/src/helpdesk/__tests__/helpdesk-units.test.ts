@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { HELPDESK_CLIENT_SOURCE } from "../client/helpdesk-client-source.ts";
-import type {
-  HelpdeskWebsiteClient,
-  HelpdeskWebsiteSubmitFields,
+import {
+  HELPDESK_WEBSITE_SUBMIT_OUTCOME,
+  type HelpdeskWebsiteSubmitFields,
+  helpdeskWebsiteClient,
 } from "../client/helpdesk-website-client.ts";
 import { hasLeadingZeroBits, verifyProofOfWork } from "../pow.ts";
 import { deriveSubjectFromMessage } from "../subject.ts";
 import { summarizeUserAgent } from "../user-agent.ts";
-import { HELPDESK_SUBJECT_MAX_CHARS } from "../web/constants.ts";
+import { HELPDESK_SUBJECT_MAX_CHARS, HELPDESK_WEBSITE_KINDS } from "../web/constants.ts";
 
 describe("hasLeadingZeroBits", () => {
   test("counts whole and partial bytes", () => {
@@ -76,7 +77,7 @@ function loadClient(
   fetchImpl: (call: FetchCall) => { status: number; json: unknown; retryAfter?: string },
 ) {
   const calls: FetchCall[] = [];
-  const windowStub: { KumikoHelpdesk?: HelpdeskWebsiteClient } = {};
+  const windowStub: Record<string, unknown> = {};
   const documentStub = { cookie: "kumiko_csrf=tok%20en", documentElement: { lang: "de" } };
   const fetchStub = async (path: string, init: { body: string; credentials: string }) => {
     const call: FetchCall = {
@@ -99,7 +100,7 @@ function loadClient(
     documentStub,
     fetchStub,
   );
-  const client = windowStub.KumikoHelpdesk;
+  const client = helpdeskWebsiteClient(windowStub);
   if (!client) throw new Error("client did not register");
   return { client, calls };
 }
@@ -159,5 +160,75 @@ describe("browser client", () => {
   test("a failing challenge request yields failed", async () => {
     const { client } = loadClient(() => ({ status: 500, json: {} }));
     expect(await client.submit(WEBSITE_FIELDS)).toEqual({ kind: "failed" });
+  });
+});
+
+describe("helpdeskWebsiteClient", () => {
+  const challenge = "0123456789abcdef0123456789abcdef";
+
+  function scopeClient(raw: object) {
+    const client = helpdeskWebsiteClient({ KumikoHelpdesk: raw });
+    if (!client) throw new Error("scope client was rejected");
+    return client;
+  }
+
+  test("returns undefined when the global is missing or incomplete", () => {
+    expect(helpdeskWebsiteClient({})).toBeUndefined();
+    expect(helpdeskWebsiteClient({ KumikoHelpdesk: "client" })).toBeUndefined();
+    expect(helpdeskWebsiteClient({ KumikoHelpdesk: { load: () => undefined } })).toBeUndefined();
+  });
+
+  test("load passes valid form options through", async () => {
+    const { client } = loadClient(() => ({
+      status: 200,
+      json: { data: { challenge, bits: 4, phone: "required", kinds: ["bug"] } },
+    }));
+    expect(await client.load()).toEqual({ phone: "required", kinds: ["bug"] });
+  });
+
+  test("load falls back to phone off and every website kind on an unreadable answer", async () => {
+    const { client } = loadClient(() => ({
+      status: 200,
+      json: { data: { challenge, bits: 4, phone: "sometimes", kinds: ["wish", 3] } },
+    }));
+    expect(await client.load()).toEqual({ phone: "off", kinds: HELPDESK_WEBSITE_KINDS });
+  });
+
+  test("submit maps an unknown result to failed", async () => {
+    const client = scopeClient({ load: async () => ({}), submit: async () => ({ kind: "queued" }) });
+    expect(await client.submit(WEBSITE_FIELDS)).toEqual({
+      kind: HELPDESK_WEBSITE_SUBMIT_OUTCOME.Failed,
+    });
+  });
+
+  test("submit turns a rejection into failed", async () => {
+    const client = scopeClient({
+      load: async () => ({}),
+      submit: async () => {
+        throw new Error("offline");
+      },
+    });
+    expect(await client.submit(WEBSITE_FIELDS)).toEqual({ kind: "failed" });
+  });
+
+  test("submit drops an invalid retryAfterSeconds", async () => {
+    const client = scopeClient({
+      load: async () => ({}),
+      submit: async () => ({ kind: "rate-limited", retryAfterSeconds: "soon" }),
+    });
+    expect(await client.submit(WEBSITE_FIELDS)).toEqual({ kind: "rate-limited" });
+  });
+
+  test("submit hands the fields to the global client unchanged", async () => {
+    const received: HelpdeskWebsiteSubmitFields[] = [];
+    const client = scopeClient({
+      load: async () => ({}),
+      submit: async (fields: HelpdeskWebsiteSubmitFields) => {
+        received.push(fields);
+        return { kind: "sent" };
+      },
+    });
+    expect(await client.submit(WEBSITE_FIELDS)).toEqual({ kind: "sent" });
+    expect(received).toEqual([WEBSITE_FIELDS]);
   });
 });

@@ -65,7 +65,8 @@ export const HELPDESK_DELIVERY_STATUS = {
 export type HelpdeskDeliveryStatus =
   (typeof HELPDESK_DELIVERY_STATUS)[keyof typeof HELPDESK_DELIVERY_STATUS];
 
-export type HelpdeskPhoneMode = "off" | "optional" | "required";
+export const HELPDESK_PHONE_MODES = ["off", "optional", "required"] as const;
+export type HelpdeskPhoneMode = (typeof HELPDESK_PHONE_MODES)[number];
 
 export const HelpdeskHandlers = {
   submit: "helpdesk:write:submit",
