@@ -18,6 +18,7 @@ import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import {
   acknowledgedSystemDb,
   decryptStoredPii,
+  mapWithConcurrency,
   runBestEffort as runSharedBestEffort,
   sendBestEffort as sendSharedBestEffort,
 } from "../shared/index.ts";
@@ -100,12 +101,32 @@ export type UserLabel = { readonly name: string; readonly email: string | null }
 
 type UserLabelRow = { readonly displayName: string; readonly email: string };
 
+// Shares the KMS adapter's small dedicated pool, like user/resolve-display-names.ts.
+const USER_LABEL_DECRYPT_CONCURRENCY = 4;
+
+export async function loadUserLabels(
+  db: TenantDb,
+  userIds: readonly string[],
+): Promise<ReadonlyMap<string, UserLabel>> {
+  const labels = new Map<string, UserLabel>();
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return labels;
+  const rows = await selectMany<UserLabelRow & { readonly id: string }>(
+    db,
+    userTable,
+    { id: uniqueIds, isDeleted: false },
+    { fields: ["id", "displayName", "email"] },
+  );
+  await mapWithConcurrency(rows, USER_LABEL_DECRYPT_CONCURRENCY, async (row) => {
+    const email = await decryptStoredPii(row.email, "email", PII_DECRYPT_REASON);
+    const name = await decryptStoredPii(row.displayName, "displayName", PII_DECRYPT_REASON);
+    labels.set(row.id, { name, email });
+  });
+  return labels;
+}
+
 export async function loadUserLabel(db: TenantDb, userId: string): Promise<UserLabel | null> {
-  const row = await fetchOne<UserLabelRow>(db, userTable, { id: userId, isDeleted: false });
-  if (!row) return null;
-  const email = await decryptStoredPii(row.email, "email", PII_DECRYPT_REASON);
-  const name = await decryptStoredPii(row.displayName, "displayName", PII_DECRYPT_REASON);
-  return { name, email };
+  return (await loadUserLabels(db, [userId])).get(userId) ?? null;
 }
 
 export async function sendBestEffort(

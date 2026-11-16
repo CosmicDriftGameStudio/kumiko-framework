@@ -149,6 +149,7 @@ describe("connect-routes — oauth callback", () => {
     expect(accounts).toHaveLength(1);
     expect(accounts[0]?.["provider"]).toBe(OAUTH_PROVIDER_KEY);
     expect(accounts[0]?.["ownerUserId"]).toBe(user.id);
+    expect(accounts[0]?.["displayName"]).toBe("");
 
     const stored = await env.secrets.get(user.tenantId, inboundCredentialSecretKey(body.accountId));
     expect(stored).toBeDefined();

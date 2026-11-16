@@ -279,7 +279,8 @@ export function createInboundMailConnectRoutes(
         payload: {
           provider: state.providerKey,
           authMethod: InboundMailAuthMethods.oauth,
-          displayName: state.mailbox,
+          // The address is PII ciphertext in the event; displayName is stored in plaintext, so it must not repeat it.
+          displayName: "",
           address: state.mailbox,
           scope: state.ownerUserId ? "user" : "shared",
           ownerUserIdOverride: state.ownerUserId,

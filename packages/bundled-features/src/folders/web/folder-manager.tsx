@@ -35,10 +35,10 @@ import {
 import { ChevronRight, File, Folder, type LucideIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useEffect, useState } from "react";
 import { useDispatchedWrites } from "../../shared/web/index.ts";
-import { FoldersHandlers, FoldersQueries } from "./constants.ts";
+import { FOLDER_LIST_LIMIT, FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { buildFolderTree, type FolderNode, type FolderRow } from "./tree.ts";
 
-type FolderListResponse = { readonly rows: readonly FolderRow[] };
+type FolderListResponse = { readonly rows: readonly FolderRow[]; readonly nextCursor?: string | null };
 
 // One filed entity, rendered as a draggable leaf under its folder. The host maps
 // its rows into these (label + an optional trailing slot for a KPI/amount).
@@ -98,7 +98,7 @@ export function FolderManager({
 }): ReactNode {
   const { Banner, Button, Dialog, Input, Text } = usePrimitives();
   const t = useTranslation();
-  const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, {});
+  const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, { limit: FOLDER_LIST_LIMIT });
   const [pending, setPending] = useState<Pending>(null);
   const [draftName, setDraftName] = useState("");
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(loadCollapsed);
@@ -136,6 +136,7 @@ export function FolderManager({
   }
 
   const rows = catalog.data?.rows ?? [];
+  const truncated = typeof catalog.data?.nextCursor === "string" && catalog.data.nextCursor !== "";
   const tree = buildFolderTree(rows);
 
   // entityId → current folder (null = unfiled) for the drop no-op guard, and
@@ -504,6 +505,11 @@ export function FolderManager({
 
   return (
     <div data-testid="folder-manager" className="flex flex-col gap-2">
+      {truncated && (
+        <Banner variant="warning" testId="folder-manager-truncated">
+          <Text>{t("folders.list.truncated", { limit: FOLDER_LIST_LIMIT })}</Text>
+        </Banner>
+      )}
       <div className="overflow-hidden rounded-md border">
         {out}
         {!creatingRoot && newRootRow()}

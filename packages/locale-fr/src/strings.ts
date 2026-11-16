@@ -638,6 +638,7 @@ export const localeFrBundle: Readonly<Record<string, string>> = {
   "feature-toggles.admin.title": "Interrupteurs de fonctionnalités",
   "feature-toggles.admin.toggle": "Basculer",
   "feature-toggles:nav.toggleAdmin": "Interrupteurs de fonctionnalités",
+  "folders.list.truncated": "Seuls les {limit} premiers dossiers sont affichés.",
   "folders.manager.add": "Créer",
   "folders.manager.addChild": "Sous-dossier",
   "folders.manager.cancel": "Annuler",

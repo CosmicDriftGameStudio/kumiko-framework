@@ -632,6 +632,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "feature-toggles.admin.title": "Feature-Toggles",
   "feature-toggles.admin.toggle": "Umschalten",
   "feature-toggles:nav.toggleAdmin": "Feature-Toggles",
+  "folders.list.truncated": "Nur die ersten {limit} Ordner werden angezeigt.",
   "folders.manager.add": "Anlegen",
   "folders.manager.addChild": "Unterordner",
   "folders.manager.cancel": "Abbrechen",

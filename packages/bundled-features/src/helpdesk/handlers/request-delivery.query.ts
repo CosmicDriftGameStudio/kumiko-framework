@@ -7,7 +7,7 @@ import {
   adminAccess,
   helpdeskDb,
   listRepliesOf,
-  loadUserLabel,
+  loadUserLabels,
   platformActor,
   requestExecutor,
 } from "../lib.ts";
@@ -70,14 +70,20 @@ async function adminRows(
   attempts: readonly HelpdeskAttempt[],
   requestId: string,
 ): Promise<readonly DeliveryRow[]> {
-  const rows: DeliveryRow[] = [];
-  for (const attempt of attemptsOf(attempts, helpdeskIdempotencyKeys.admins(requestId))) {
-    const admin = attempt.recipientId ? await loadUserLabel(db, attempt.recipientId) : null;
-    rows.push(
-      rowOf(attempt, HELPDESK_DELIVERY_CHANNEL.Email, `${admin?.name ?? "?"} (SystemAdmin)`, null),
+  const adminAttempts = attemptsOf(attempts, helpdeskIdempotencyKeys.admins(requestId));
+  const labels = await loadUserLabels(
+    db,
+    adminAttempts.flatMap((attempt) => (attempt.recipientId ? [attempt.recipientId] : [])),
+  );
+  return adminAttempts.map((attempt) => {
+    const admin = attempt.recipientId ? labels.get(attempt.recipientId) : undefined;
+    return rowOf(
+      attempt,
+      HELPDESK_DELIVERY_CHANNEL.Email,
+      `${admin?.name ?? "?"} (SystemAdmin)`,
+      null,
     );
-  }
-  return rows;
+  });
 }
 
 export function createRequestDeliveryQuery(opts: HelpdeskOptions) {

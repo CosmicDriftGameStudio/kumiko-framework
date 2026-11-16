@@ -19,7 +19,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { useDispatchedWrites } from "../../shared/web/index.ts";
-import { FoldersHandlers, FoldersQueries } from "./constants.ts";
+import { FOLDER_LIST_LIMIT, FoldersHandlers, FoldersQueries } from "./constants.ts";
 import { type FolderRow, folderPath } from "./tree.ts";
 
 type AssignmentRow = {
@@ -27,7 +27,7 @@ type AssignmentRow = {
   readonly entityType: string;
   readonly entityId: string;
 };
-type FolderListResponse = { readonly rows: readonly FolderRow[] };
+type FolderListResponse = { readonly rows: readonly FolderRow[]; readonly nextCursor?: string | null };
 type AssignmentListResponse = { readonly rows: readonly AssignmentRow[] };
 
 // Sentinel for the "no folder" combobox option — selecting it clears the
@@ -45,7 +45,11 @@ export function FolderSection({
   const t = useTranslation();
   const dispatcher = useDispatcher();
   const enabled = entityId !== null;
-  const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, {}, { enabled });
+  const catalog = useQuery<FolderListResponse>(
+    FoldersQueries.folderList,
+    { limit: FOLDER_LIST_LIMIT },
+    { enabled },
+  );
   const assignments = useQuery<AssignmentListResponse>(
     FoldersQueries.assignmentList,
     {
@@ -91,6 +95,7 @@ export function FolderSection({
   }
 
   const folders = catalog.data?.rows ?? [];
+  const truncated = typeof catalog.data?.nextCursor === "string" && catalog.data.nextCursor !== "";
   const currentFolderId =
     (assignments.data?.rows ?? []).find((r) => r.entityType === entityName)?.folderId ?? NO_FOLDER;
   const options = [
@@ -134,6 +139,11 @@ export function FolderSection({
 
   return (
     <div data-testid="folder-section" className="flex flex-col gap-4">
+      {truncated && (
+        <Banner variant="warning" testId="folder-section-truncated">
+          <Text>{t("folders.list.truncated", { limit: FOLDER_LIST_LIMIT })}</Text>
+        </Banner>
+      )}
       <Field id="folder-section-select" label={t("folders.section.label")}>
         <Input
           kind="combobox"

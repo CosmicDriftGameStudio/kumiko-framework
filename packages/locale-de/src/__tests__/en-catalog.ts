@@ -605,6 +605,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "feature-toggles.admin.title": "Feature toggles",
   "feature-toggles.admin.toggle": "Toggle",
   "feature-toggles:nav.toggleAdmin": "Feature toggles",
+  "folders.list.truncated": "Only the first {limit} folders are shown.",
   "folders.manager.add": "Create",
   "folders.manager.addChild": "Subfolder",
   "folders.manager.cancel": "Cancel",

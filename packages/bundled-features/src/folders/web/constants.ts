@@ -40,3 +40,7 @@ export const DEFAULT_FOLDER_ACCESS: AccessRule = { roles: DEFAULT_FOLDER_ROLES }
 
 // Advisory-lock namespace shared by folder:delete, set-folder and the parent guard of folder:create/update.
 export const FOLDER_LOCK_NAMESPACE = 0x66_6c_64_72; // 'fldr'
+
+// Mirrors the framework's MAX_LIST_LIMIT (entity list schema rejects anything above it); web code
+// takes no value imports from framework/engine, the DOM tests validate the payloads against the real schema.
+export const FOLDER_LIST_LIMIT = 200;

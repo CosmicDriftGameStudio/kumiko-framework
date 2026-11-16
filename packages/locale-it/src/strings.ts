@@ -627,6 +627,7 @@ export const localeItBundle: Readonly<Record<string, string>> = {
   "feature-toggles.admin.title": "Feature toggle",
   "feature-toggles.admin.toggle": "Attiva/disattiva",
   "feature-toggles:nav.toggleAdmin": "Feature toggle",
+  "folders.list.truncated": "Vengono mostrate solo le prime {limit} cartelle.",
   "folders.manager.add": "Crea",
   "folders.manager.addChild": "Sottocartella",
   "folders.manager.cancel": "Annulla",

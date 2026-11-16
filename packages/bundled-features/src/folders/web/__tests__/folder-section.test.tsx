@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { entityListSchema } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -16,10 +17,12 @@ type FolderRow = { id: string; name: string; parentId: string | null; version: n
 type AssignmentRow = { folderId: string; entityType: string; entityId: string };
 
 let folderRows: readonly FolderRow[] = [];
+let folderNextCursor: string | null = null;
 let assignmentRows: readonly AssignmentRow[] = [];
 
 beforeEach(() => {
   folderRows = [];
+  folderNextCursor = null;
   assignmentRows = [];
 });
 
@@ -30,7 +33,10 @@ const dispatchSpy = mock(async (type: string) =>
 );
 
 const useQuerySpy = mock((type: string, _params?: unknown) => ({
-  data: type === FoldersQueries.folderList ? { rows: folderRows } : { rows: assignmentRows },
+  data:
+    type === FoldersQueries.folderList
+      ? { rows: folderRows, nextCursor: folderNextCursor }
+      : { rows: assignmentRows },
   loading: false,
   error: null,
   refetch: mock(async () => {}),
@@ -84,6 +90,29 @@ function StubComboboxWrapper({ children }: { readonly children: ReactNode }): Re
 }
 
 describe("FolderSection", () => {
+  test("asks for the folder catalog within the list schema limit", () => {
+    useQuerySpy.mockClear();
+    render(
+      <Wrapper>
+        <FolderSection entityName="credit" entityId="c-1" />
+      </Wrapper>,
+    );
+    const call = useQuerySpy.mock.calls.find((c) => c[0] === FoldersQueries.folderList);
+    const payload = call?.[1];
+    expect(entityListSchema.safeParse(payload).success).toBe(true);
+    expect(payload).toEqual({ limit: 200 });
+  });
+
+  test("warns when the folder catalog is truncated", () => {
+    folderNextCursor = "next";
+    render(
+      <Wrapper>
+        <FolderSection entityName="credit" entityId="c-1" />
+      </Wrapper>,
+    );
+    expect(screen.getByTestId("folder-section-truncated")).toBeTruthy();
+  });
+
   test("filters assignments on entityType and entityId server-side", () => {
     useQuerySpy.mockClear();
     render(
