@@ -1,7 +1,7 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
 
-import { SYSTEM_TENANT_ID } from "../engine/types/index.ts";
+import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/index.ts";
 import { scrubLogText } from "../logging/index.ts";
 import { type JobRun, prepareJobRun } from "./job-runner-context.ts";
 import {
@@ -57,6 +57,17 @@ function missingTenantResolverError(scope: JobRunnerScope, actualName: string): 
   );
 }
 
+function fanOutTenantIds(
+  def: JobDefinition,
+  activeTenantIds: readonly TenantId[],
+): readonly TenantId[] {
+  const { onlyTenants } = def;
+  if (onlyTenants !== undefined) return activeTenantIds.filter((id) => onlyTenants.includes(id));
+  return def.includeSystemTenant === true && !activeTenantIds.includes(SYSTEM_TENANT_ID)
+    ? [...activeTenantIds, SYSTEM_TENANT_ID]
+    : activeTenantIds;
+}
+
 async function enqueuePerTenantChildren(
   scope: JobRunnerScope,
   bullJob: JobInvocation,
@@ -71,10 +82,7 @@ async function enqueuePerTenantChildren(
     throw new Error(`Unknown job: ${actualName}`);
   }
   const activeTenantIds = await getActiveTenantIds();
-  const tenantIds =
-    actualDef.includeSystemTenant === true && !activeTenantIds.includes(SYSTEM_TENANT_ID)
-      ? [...activeTenantIds, SYSTEM_TENANT_ID]
-      : activeTenantIds;
+  const tenantIds = fanOutTenantIds(actualDef, activeTenantIds);
   const targetQueue = scope.queues[laneForJob(actualDef)];
   // wrapperJobId is only absent for a Job BullMQ somehow never assigned
   // an id to (not observed in practice) — falling back to a constant

@@ -1,6 +1,8 @@
+import type { JobDefinition } from "@cosmicdrift/kumiko-types/config";
 import type { EntityDefinition, EntityEventMigration } from "@cosmicdrift/kumiko-types/fields";
 import type { EventPiiFields, EventUpcastFn, NameOrRef } from "@cosmicdrift/kumiko-types/handlers";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
+import { parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import type {
   PostDeleteHookFn,
   PostSaveHookFn,
@@ -37,6 +39,7 @@ import {
   softDeleteGraceDaysConfig,
 } from "./soft-delete-cleanup.ts";
 import type { FeatureDefinition, ReferenceFieldDef } from "./types/index.ts";
+import { SYSTEM_TENANT_ID } from "./types/index.ts";
 
 function allHandlerQns(state: RegistryState): ReadonlySet<string> {
   return new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);
@@ -950,11 +953,41 @@ export function validateLiveEntities(state: RegistryState): void {
   }
 }
 
-export function validateIncludeSystemTenantJobs(state: RegistryState): void {
+function assertOnlyTenantsOption(jobName: string, jobDef: JobDefinition): void {
+  const { onlyTenants } = jobDef;
+  if (onlyTenants === undefined) return;
+  if (!jobDef.perTenant) {
+    throw new Error(`Job "${jobName}" sets onlyTenants without perTenant`);
+  }
+  if ("on" in jobDef.trigger) {
+    throw new Error(
+      `Job "${jobName}" sets onlyTenants on an event trigger; event-triggered runs take the event's tenant`,
+    );
+  }
+  if (onlyTenants.length === 0) {
+    throw new Error(`Job "${jobName}" sets an empty onlyTenants list`);
+  }
+  if (jobDef.includeSystemTenant) {
+    throw new Error(`Job "${jobName}" cannot combine onlyTenants with includeSystemTenant`);
+  }
+  for (const id of onlyTenants) {
+    if (parseTenantId(id) === null) {
+      throw new Error(`Job "${jobName}" lists "${id}" in onlyTenants, which is not a tenant id`);
+    }
+    if (id === SYSTEM_TENANT_ID) {
+      throw new Error(
+        `Job "${jobName}" lists the system tenant in onlyTenants; a job without perTenant already runs for it`,
+      );
+    }
+  }
+}
+
+export function validatePerTenantJobOptions(state: RegistryState): void {
   for (const [jobName, jobDef] of state.jobMap) {
     if (jobDef.includeSystemTenant && !jobDef.perTenant) {
       throw new Error(`Job "${jobName}" sets includeSystemTenant without perTenant`);
     }
+    assertOnlyTenantsOption(jobName, jobDef);
   }
 }
 

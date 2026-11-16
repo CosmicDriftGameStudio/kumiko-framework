@@ -40,6 +40,9 @@ import { createReleaseGate } from "./release-gate.ts";
 let testRedis: TestRedis;
 let redisUrl: string;
 
+const ONLY_TENANT_ID: TenantId = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+const OTHER_ACTIVE_TENANT_ID: TenantId = "0c9e8d7f-6a5b-4c3d-9e2f-1a0b9c8d7e6f";
+
 // Track which jobs ran and when
 const perTenantJobs = createReleaseGate();
 const jobLog: Array<{ name: string; payload: Record<string, unknown>; timestamp: number }> = [];
@@ -193,6 +196,18 @@ const testFeature = defineFeature("test", (r) => {
     async (payload, ctx) => {
       jobLog.push({
         name: "test:job:per-tenant-with-system",
+        payload: { ...payload, ranFor: String(ctx.systemUser.tenantId) },
+        timestamp: Date.now(),
+      });
+    },
+  );
+
+  r.job(
+    "perTenantOnlyOne",
+    { trigger: { manual: true }, perTenant: true, onlyTenants: [ONLY_TENANT_ID] },
+    async (payload, ctx) => {
+      jobLog.push({
+        name: "test:job:per-tenant-only-one",
         payload: { ...payload, ranFor: String(ctx.systemUser.tenantId) },
         timestamp: Date.now(),
       });
@@ -1071,6 +1086,39 @@ describe("error handling", () => {
       { getActiveTenantIds: async () => tenants },
     );
   });
+
+  test("onlyTenants runs the fan-out only for the listed active tenant", async () => {
+    clearLog();
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:per-tenant-only-one", {});
+        await waitFor(() => {
+          expect(jobLog.filter((e) => e.name === "test:job:per-tenant-only-one")).toHaveLength(1);
+        });
+        await sleep(300);
+        const runs = jobLog.filter((e) => e.name === "test:job:per-tenant-only-one");
+        expect(runs.map((e) => e.payload["ranFor"])).toEqual([ONLY_TENANT_ID]);
+      },
+      { getActiveTenantIds: async () => [ONLY_TENANT_ID, OTHER_ACTIVE_TENANT_ID] },
+    );
+  });
+
+  test("onlyTenants skips a listed tenant that is not active", async () => {
+    clearLog();
+    await withRunner(
+      async (runner) => {
+        await runner.dispatch("test:job:per-tenant-only-one", {});
+        await sleep(300);
+        expect(jobLog.filter((e) => e.name === "test:job:per-tenant-only-one")).toHaveLength(0);
+
+        await runner.dispatch("test:job:manual-report", { after: "only-tenants-miss" });
+        await waitFor(() => {
+          expect(jobLog.some((e) => e.name === "test:job:manual-report")).toBe(true);
+        });
+      },
+      { getActiveTenantIds: async () => [OTHER_ACTIVE_TENANT_ID] },
+    );
+  });
 });
 
 // --- Multiple runner instances against the same Redis (prod runs N replicas
@@ -1694,6 +1742,79 @@ describe("boot gates", () => {
     });
     expect(() => createRegistry([flagOnly])).toThrow(
       'Job "sysflag:job:sweep" sets includeSystemTenant without perTenant',
+    );
+  });
+
+  test("onlyTenants is rejected at boot when it cannot narrow a fan-out", () => {
+    const rejects = (
+      feature: ReturnType<typeof defineFeature>,
+      message: string,
+    ): void => {
+      expect(() => createRegistry([feature])).toThrow(message);
+    };
+
+    rejects(
+      defineFeature("onlyten1", (r) => {
+        r.job("sweep", { trigger: { manual: true }, onlyTenants: [ONLY_TENANT_ID] }, async () => {});
+      }),
+      'Job "onlyten1:job:sweep" sets onlyTenants without perTenant',
+    );
+    rejects(
+      defineFeature("onlyten2", (r) => {
+        r.writeHandler({
+          name: "ping",
+          schema: z.object({}),
+          handler: async () => ({ isSuccess: true, data: {} }),
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.job(
+          "sweep",
+          { trigger: { on: "onlyten2:write:ping" }, perTenant: true, onlyTenants: [ONLY_TENANT_ID] },
+          async () => {},
+        );
+      }),
+      "Job \"onlyten2:job:sweep\" sets onlyTenants on an event trigger; event-triggered runs take the event's tenant",
+    );
+    rejects(
+      defineFeature("onlyten3", (r) => {
+        r.job("sweep", { trigger: { manual: true }, perTenant: true, onlyTenants: [] }, async () => {});
+      }),
+      'Job "onlyten3:job:sweep" sets an empty onlyTenants list',
+    );
+    rejects(
+      defineFeature("onlyten4", (r) => {
+        r.job(
+          "sweep",
+          {
+            trigger: { manual: true },
+            perTenant: true,
+            includeSystemTenant: true,
+            onlyTenants: [ONLY_TENANT_ID],
+          },
+          async () => {},
+        );
+      }),
+      'Job "onlyten4:job:sweep" cannot combine onlyTenants with includeSystemTenant',
+    );
+    rejects(
+      defineFeature("onlyten5", (r) => {
+        r.job(
+          "sweep",
+          { trigger: { manual: true }, perTenant: true, onlyTenants: ["not-a-uuid"] },
+          async () => {},
+        );
+      }),
+      'Job "onlyten5:job:sweep" lists "not-a-uuid" in onlyTenants, which is not a tenant id',
+    );
+    rejects(
+      defineFeature("onlyten6", (r) => {
+        r.job(
+          "sweep",
+          { trigger: { manual: true }, perTenant: true, onlyTenants: [SYSTEM_TENANT_ID] },
+          async () => {},
+        );
+      }),
+      'Job "onlyten6:job:sweep" lists the system tenant in onlyTenants; a job without perTenant already runs for it',
     );
   });
 

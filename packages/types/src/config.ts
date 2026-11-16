@@ -493,6 +493,8 @@ export type JobDefinition = {
   readonly perTenant?: boolean | undefined;
   // perTenant fan-out only covers active tenant rows and SYSTEM_TENANT_ID has none; maintenance jobs for system-tenant data need the extra run.
   readonly includeSystemTenant?: boolean | undefined;
+  // Narrows the perTenant fan-out to these tenants, intersected with the active ones, instead of one run per active tenant that returns early.
+  readonly onlyTenants?: readonly TenantId[] | undefined;
   // Which deploy-lane runs this job. Default "worker". Set "api" only for
   // short CPU-light handlers (token cleanup, in-process cache warmup) that
   // don't justify a separate worker container — long/CPU-heavy jobs on the
