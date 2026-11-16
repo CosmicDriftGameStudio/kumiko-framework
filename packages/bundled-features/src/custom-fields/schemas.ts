@@ -8,8 +8,7 @@ export const fieldTypeSchema = z.enum(SUPPORTED_FIELD_TYPES);
 // in addition to the handler-level RBAC. Absent or empty `write` means
 // the handler-level RBAC is the only gate.
 //
-// `read` is reserved for the postQuery-flatten pipeline and is not
-// currently enforced.
+// `read` restricts which roles see the value in query results; read-restricted fields are never put into the search index.
 export const customFieldAccessSchema = z
   .object({
     read: z.array(z.string()).optional(),
@@ -39,19 +38,6 @@ export type CustomFieldAccess = z.infer<typeof customFieldAccessSchema>;
 // carry supplemental business data only, and PII support was removed.
 const serializedFieldBaseShape = {
   fieldAccess: customFieldAccessSchema,
-  // `retention`: per-field expiry. The retention-cron strips
-  // values whose host-row `modified_at` is older than `keepFor`. Strategy
-  // `delete` removes the key from the customFields jsonb; `anonymize`
-  // sets it to `null` (key stays, value gone — preserves the schema
-  // shape for downstream consumers).
-  retention: z
-    .object({
-      keepFor: z
-        .string()
-        .regex(/^\d+[hdwmy]$/, "keepFor must match /^\\d+[hdwmy]$/ (e.g. '30d', '10y')"),
-      strategy: z.enum(["delete", "anonymize"]),
-    })
-    .optional(),
 };
 
 const rejectSensitive = [
@@ -59,15 +45,22 @@ const rejectSensitive = [
   "custom fields don't support PII — `sensitive` was removed (#972). Model personal data as a schema entity field with a pii/userOwned/tenantOwned annotation instead.",
 ] as const;
 
+const rejectRetention = [
+  (v: Record<string, unknown>) => !("retention" in v),
+  "per-field custom-field retention was removed — it never ran. Set retention on the host entity (data-retention) instead.",
+] as const;
+
 const serializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema, ...serializedFieldBaseShape })
   .refine((v) => typeof v["type"] === "string", "serializedField must have a string `type`")
-  .refine(...rejectSensitive);
+  .refine(...rejectSensitive)
+  .refine(...rejectRetention);
 
 // Update may omit `type`: it is immutable, so the handler takes it from the stored definition.
 const updateSerializedFieldSchema = z
   .looseObject({ type: fieldTypeSchema.optional(), ...serializedFieldBaseShape })
-  .refine(...rejectSensitive);
+  .refine(...rejectSensitive)
+  .refine(...rejectRetention);
 
 // i18n labels — `{ de: "...", en: "...", ... }`. At least one entry.
 const labelSchema = z.record(z.string().min(2).max(8), z.string().min(1));

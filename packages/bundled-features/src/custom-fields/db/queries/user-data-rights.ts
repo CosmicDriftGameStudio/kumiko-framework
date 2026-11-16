@@ -25,15 +25,3 @@ export async function selectCustomFieldsHostRows(
   );
   return Array.isArray(rowsResult) ? rowsResult : [];
 }
-
-export async function selectFieldDefinitionsForEntity(
-  db: DbRunner,
-  entityName: string,
-  tenantId: string,
-): Promise<readonly { field_key: string; serialized_field: unknown }[]> {
-  return unsafeReadRetrying<{ field_key: string; serialized_field: unknown }>(
-    db,
-    "SELECT field_key, serialized_field FROM read_custom_field_definitions WHERE entity_name = $1 AND tenant_id = $2",
-    [entityName, tenantId],
-  );
-}

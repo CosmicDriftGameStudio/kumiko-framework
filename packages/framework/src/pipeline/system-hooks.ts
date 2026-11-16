@@ -16,6 +16,7 @@ import { collectSearchableSubjectFields } from "../crypto/subject-resolver.ts";
 import { rehydrateCompoundTypes } from "../db/compound-types.ts";
 import type { DbConnection, DbRow } from "../db/connection.ts";
 import { createTenantDb, entityTableFromRegistry } from "../db/index.ts";
+import type { TenantDb } from "../db/tenant-db.ts";
 import { tenantChannel } from "../engine/constants.ts";
 import type { AppContext, Registry, TenantId } from "../engine/types/index.ts";
 
@@ -137,7 +138,13 @@ async function resolveSearchOperation(
   if (hasErasedSearchableSubjectField(entityName, state, registry)) {
     return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
   }
-  const doc = await buildSearchDocument(entityName, event.aggregateId, state, registry);
+  const doc = await buildSearchDocument(
+    entityName,
+    event.aggregateId,
+    state,
+    registry,
+    consumerTenantDb(ctx, tenantId, entityName, event.aggregateId),
+  );
   // skip: entity isn't searchable (no searchable fields declared)
   if (!doc) return undefined;
   return { kind: "index", tenantId, doc };
@@ -396,6 +403,26 @@ export function createSearchEventConsumer(
   };
 }
 
+function consumerTenantDb(
+  ctx: AppContext,
+  tenantId: TenantId,
+  entityName: string,
+  entityId: EntityId,
+): TenantDb {
+  // @cast-boundary engine-bridge — consumer ctx.db is always the outer
+  // DbConnection: event-dispatcher creation is gated on it being set
+  // (api/server.ts), never a HandlerContext's already-tenant-scoped TenantDb.
+  const baseDb = ctx.db as DbConnection | undefined;
+  // undefined must keep meaning "no live row" (the caller removes the index
+  // entry), so a missing db fails the event for retry instead.
+  if (!baseDb) {
+    throw new InternalError({
+      message: `search consumer: no db on the consumer context — cannot read the live row of "${entityName}" ${entityId}`,
+    });
+  }
+  return createTenantDb({ db: baseDb, tenantId });
+}
+
 // Reads the live projection row for a named domain event, tenant-
 // scoped through createTenantDb the same way MultiStreamProjection appliers
 // scope their apply()-writes (see api/server.ts), on the table the registry
@@ -410,23 +437,13 @@ async function readProjectionRowForSearch(
   tenantId: TenantId,
   entityId: EntityId,
 ): Promise<Record<string, unknown> | undefined> {
-  // @cast-boundary engine-bridge — consumer ctx.db is always the outer
-  // DbConnection: event-dispatcher creation is gated on it being set
-  // (api/server.ts), never a HandlerContext's already-tenant-scoped TenantDb.
-  const baseDb = ctx.db as DbConnection | undefined;
-  // undefined must keep meaning "no live row" (the caller removes the index
-  // entry), so a missing db fails the event for retry instead.
-  if (!baseDb) {
-    throw new InternalError({
-      message: `search consumer: no db on the consumer context — cannot read the live row of "${entityName}" ${entityId}`,
-    });
-  }
+  const tenantDb = consumerTenantDb(ctx, tenantId, entityName, entityId);
   const table = entityTableFromRegistry(registry, entityName, entity);
   const where: Record<string, unknown> = { id: entityId };
   if (entity.softDelete && table["isDeleted"]) {
     where["isDeleted"] = false;
   }
-  const row = await createTenantDb({ db: baseDb, tenantId }).fetchOne(table, where);
+  const row = await tenantDb.fetchOne(table, where);
   if (!row) return undefined;
   const state = rehydrateCompoundTypes(row, entity);
   // The event payload never carries sensitive fields; extensions must not see them via the row either.
@@ -543,6 +560,7 @@ export async function buildSearchDocument(
   entityId: EntityId,
   state: Record<string, unknown>,
   registry: Registry,
+  db: TenantDb,
 ): Promise<SearchDocument | null> {
   const entity = registry.getEntity(entityName);
   if (!entity) return null;
@@ -598,7 +616,7 @@ export async function buildSearchDocument(
   // must not shadow the indexed base field.
   const baseFieldKeys = new Set(Object.keys(fields));
   for (const contribute of extensions) {
-    const contributed = await contribute({ entityName, entityId, state });
+    const contributed = await contribute({ entityName, entityId, state, db });
     for (const [key, value] of Object.entries(contributed)) {
       if (Object.hasOwn(fields, key)) {
         warnOncePerKeyCollision(registry, entityName, key, baseFieldKeys.has(key));

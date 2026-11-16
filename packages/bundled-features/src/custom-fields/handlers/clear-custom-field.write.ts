@@ -3,6 +3,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import * as z from "zod";
 import { parentRowIsVisible } from "../../shared/index.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
+import { isCustomFieldsHost } from "../lib/custom-fields-host.ts";
 import { checkFieldAccessForWrite } from "../lib/field-access.ts";
 import { DEFAULT_VALUE_WRITE_ROLES } from "../web/constants.ts";
 
@@ -18,7 +19,7 @@ export const clearCustomFieldPayloadSchema = z.object({
 export type ClearCustomFieldPayload = z.infer<typeof clearCustomFieldPayloadSchema>;
 
 const CLEAR_CUSTOM_FIELD_REASON =
-  "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry";
+  "reads custom field definitions of the caller tenant and the system tenant via raw SQL with read retry";
 
 // clear-custom-field — removes a custom-field value from a host entity.
 // Emits the customField.cleared event; MSP removes the key from the
@@ -39,6 +40,10 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
   },
   handler: async (event, ctx) => {
     const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload
+    if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
+      return failUnprocessable("custom_fields_entity_not_wired", { entityName: payload.entityName });
+    }
+
 
     if (
       !(await parentRowIsVisible(

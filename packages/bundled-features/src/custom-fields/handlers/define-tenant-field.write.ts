@@ -1,6 +1,7 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import { fieldDefinitionAggregateId } from "../aggregate-id.ts";
+import { isCustomFieldsHost } from "../lib/custom-fields-host.ts";
 import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.ts";
 import { buildFieldDefinitionColumns } from "../lib/field-definition-row.ts";
 import { countTenantFieldDefinitions } from "../lib/quota.ts";
@@ -66,6 +67,11 @@ export function createDefineTenantFieldHandler(
     },
     handler: async (event, ctx) => {
       const payload = event.payload as DefineFieldPayload; // @cast-boundary engine-payload
+      if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
+        return failUnprocessable("custom_fields_entity_not_wired", {
+          entityName: payload.entityName,
+        });
+      }
       const tenantId = event.user.tenantId;
 
       // TenantAdmin MUST NOT write to the system scope — strict guard.

@@ -19,10 +19,6 @@ export interface SerializedFieldShape {
     readonly read?: ReadonlyArray<string>;
     readonly write?: ReadonlyArray<string>;
   };
-  readonly retention?: {
-    readonly keepFor: string;
-    readonly strategy: "delete" | "anonymize";
-  };
 }
 
 function isShape(v: unknown): v is SerializedFieldShape {

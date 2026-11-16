@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { consoleCallsMentioning } from "@cosmicdrift/kumiko-testing/helpers";
 import type { SearchPayloadContributorFn } from "@cosmicdrift/kumiko-types/hooks";
+import type { DbRunner } from "../../db/connection.ts";
+import { createTenantDb } from "../../db/tenant-db.ts";
 import { buildSearchDocument } from "../../pipeline/system-hooks.ts";
+import { testTenantId } from "../../seeding/seed-users.ts";
 import { createEntity, createRegistry, createTextField, defineFeature } from "../index.ts";
 
 // Search-Payload-Extension registers per-entity contributors that
@@ -13,6 +16,19 @@ import { createEntity, createRegistry, createTextField, defineFeature } from "..
 //   5. Contributor-Function-Signature passes correct args + returns extras
 //   6. Boot-validation rejects typo'd entity-names (sibling-guard to
 //      entity-hooks boot-validation)
+
+function fakeRunner(): DbRunner {
+  return {
+    unsafe: async () => {
+      throw new Error("search-payload-extension tests must not reach the DB");
+    },
+    begin: async () => {
+      throw new Error("search-payload-extension tests must not reach the DB");
+    },
+  } as unknown as DbRunner;
+}
+
+const searchDb = createTenantDb({ db: fakeRunner(), tenantId: testTenantId(1) });
 
 const noop: SearchPayloadContributorFn = () => ({});
 
@@ -144,16 +160,26 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
 
   test("a contributor cannot overwrite an indexed Stammfield value", async () => {
     const registry = registryWith(() => ({ title: "from-contributor" }));
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
     expect(doc?.fields["title"]).toBe("real-value");
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       1,
     );
   });
 
+  test("contributor receives the tenant-scoped db of the document's tenant", async () => {
+    let seenTenantId: unknown;
+    const registry = registryWith((args) => {
+      seenTenantId = args.db.tenantId;
+      return {};
+    });
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
+    expect(seenTenantId).toBe(testTenantId(1));
+  });
+
   test("a non-colliding contributor key is still merged in", async () => {
     const registry = registryWith(() => ({ flatTags: "a,b" }));
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
     expect(doc?.fields).toMatchObject({ title: "real-value", flatTags: "a,b" });
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       0,
@@ -174,8 +200,8 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
       r.searchPayloadExtension(thing, () => ({ title: "from-contributor" }));
     });
     const registry = createRegistry([feature]);
-    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
-    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry);
+    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry, searchDb);
+    await buildSearchDocument("thing-dedup", "t1", { title: "real-value" }, registry, searchDb);
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       1,
     );
@@ -187,8 +213,8 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     // (and leak across tests); per-registry scoping must warn once for EACH.
     const r1 = registryWith(() => ({ title: "from-contributor" }));
     const r2 = registryWith(() => ({ title: "from-contributor" }));
-    await buildSearchDocument("thing", "t1", { title: "real-value" }, r1);
-    await buildSearchDocument("thing", "t1", { title: "real-value" }, r2);
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, r1, searchDb);
+    await buildSearchDocument("thing", "t1", { title: "real-value" }, r2, searchDb);
     expect(consoleCallsMentioning(warnSpy, "[kumiko:search] searchPayloadExtension")).toHaveLength(
       2,
     );
@@ -210,7 +236,7 @@ describe("buildSearchDocument — contributor precedence (base fields win)", () 
     });
     const registry = createRegistry([feature]);
 
-    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry);
+    const doc = await buildSearchDocument("thing", "t1", { title: "real-value" }, registry, searchDb);
     // Stammfield title → no collision. overlap is NOT a Stammfield, so the
     // second contributor's "overlap" collides with the first one's → "earlier contributor key".
     expect(doc?.fields["title"]).toBe("real-value");
@@ -247,12 +273,13 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
       "i1",
       { lines: [{ description: "Kaltmiete" }, { description: "Stellplatz" }] },
       registryWithLines(true),
+      searchDb,
     );
     expect(doc?.fields["lines_description"]).toEqual(["Kaltmiete", "Stellplatz"]);
   });
 
   test("an empty list contributes no indexed value", async () => {
-    const doc = await buildSearchDocument("invoice", "i1", { lines: [] }, registryWithLines(true));
+    const doc = await buildSearchDocument("invoice", "i1", { lines: [] }, registryWithLines(true), searchDb);
     expect(doc?.fields["lines_description"]).toBeUndefined();
   });
 
@@ -262,6 +289,7 @@ describe("buildSearchDocument — searchable embedded sub-fields", () => {
       "i1",
       { lines: { description: "Kaltmiete" } },
       registryWithLines(false),
+      searchDb,
     );
     expect(doc?.fields["lines_description"]).toBe("Kaltmiete");
   });

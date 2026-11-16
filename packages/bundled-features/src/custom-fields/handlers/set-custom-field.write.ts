@@ -3,6 +3,7 @@ import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/e
 import * as z from "zod";
 import { parentRowIsVisible } from "../../shared/index.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
+import { isCustomFieldsHost } from "../lib/custom-fields-host.ts";
 import { fieldWriteAccessDeniedRoles, loadFieldDefinition } from "../lib/field-access.ts";
 import { buildCustomFieldValueSchema } from "../lib/value-schema.ts";
 import { DEFAULT_VALUE_WRITE_ROLES } from "../web/constants.ts";
@@ -24,7 +25,7 @@ export const setCustomFieldPayloadSchema = z.object({
 export type SetCustomFieldPayload = z.infer<typeof setCustomFieldPayloadSchema>;
 
 const SET_CUSTOM_FIELD_REASON =
-  "reads custom field definitions with an explicit tenant_id = caller tenant via raw SQL with read retry";
+  "reads custom field definitions of the caller tenant and the system tenant via raw SQL with read retry";
 
 // set-custom-field — writes a custom-field value to a host entity.
 //
@@ -59,6 +60,10 @@ export const setCustomFieldHandler: WriteHandlerDef = {
   },
   handler: async (event, ctx) => {
     const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
+    if (!isCustomFieldsHost(ctx.registry, payload.entityName)) {
+      return failUnprocessable("custom_fields_entity_not_wired", { entityName: payload.entityName });
+    }
+
 
     if (
       !(await parentRowIsVisible(

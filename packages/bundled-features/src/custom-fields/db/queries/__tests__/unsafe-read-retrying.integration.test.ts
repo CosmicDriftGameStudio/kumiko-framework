@@ -1,17 +1,12 @@
-// field-access.ts, quota.ts, user-data-rights.ts and retention.ts read
-// custom-field rows through unsafeReadRetrying; this proves the retry fires
-// per call site using a real captured driver error. applyRetentionRemovals
-// (an UPDATE) stays out of scope — unretried by design.
+// field-access.ts, quota.ts and user-data-rights.ts read custom-field rows
+// through unsafeReadRetrying; this proves the retry fires per call site using
+// a real captured driver error.
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { captureClosedConnectionError } from "@cosmicdrift/kumiko-testing/helpers";
 import { selectSerializedFieldDefinition } from "../field-access.ts";
 import { countTenantFieldDefinitions } from "../quota.ts";
-import { selectHostRowsWithCustomFields } from "../retention.ts";
-import {
-  selectCustomFieldsHostRows,
-  selectFieldDefinitionsForEntity,
-} from "../user-data-rights.ts";
+import { selectCustomFieldsHostRows } from "../user-data-rights.ts";
 
 let closedConnectionError: unknown;
 
@@ -62,25 +57,6 @@ describe("custom-fields db/queries — closed-connection retry", () => {
   test("selectCustomFieldsHostRows retries once and returns rows", async () => {
     const db = fakeClient([closedConnectionError], { id: "1", custom_fields: {} });
     const rows = await selectCustomFieldsHostRows(db as never, "host_table", "user_id", "u1", "t1");
-    expect(rows).toHaveLength(1);
-    expect(db.calls).toBe(2);
-  });
-
-  test("selectFieldDefinitionsForEntity retries once and returns rows", async () => {
-    const db = fakeClient([closedConnectionError], { field_key: "k1", serialized_field: "sf" });
-    const rows = await selectFieldDefinitionsForEntity(db as never, "entity", "t1");
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.field_key).toBe("k1");
-    expect(db.calls).toBe(2);
-  });
-
-  test("selectHostRowsWithCustomFields retries once and returns rows", async () => {
-    const db = fakeClient([closedConnectionError], {
-      id: "1",
-      modified_at: null,
-      custom_fields: {},
-    });
-    const rows = await selectHostRowsWithCustomFields(db as never, "host_table", "t1");
     expect(rows).toHaveLength(1);
     expect(db.calls).toBe(2);
   });

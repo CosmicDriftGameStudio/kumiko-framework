@@ -7,6 +7,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { StoredEvent } from "@cosmicdrift/kumiko-framework/event-store";
+import { isPlainObject } from "@cosmicdrift/kumiko-framework/utils";
 import {
   clearCustomFieldKey,
   removeCustomFieldKeyForTenant,
@@ -15,6 +16,11 @@ import {
 } from "./db/queries/projection.ts";
 import type { CustomFieldClearedPayload, CustomFieldSetPayload } from "./events.ts";
 import { createCustomFieldsFeature } from "./feature.ts";
+import {
+  indexableCustomFields,
+  loadEntityFieldDefinitions,
+  readableCustomFields,
+} from "./lib/field-read-access.ts";
 import { CUSTOM_FIELDS_EXTENSION, FIELD_DEFINITION_AGGREGATE_TYPE } from "./web/constants.ts";
 
 // Adds a `customFields jsonb` column to an entity definition.
@@ -192,35 +198,34 @@ export function wireCustomFieldsFor<TReg extends FeatureRegistrar<string>>(
     },
   });
 
-  // postQuery hook: expands row.customFields jsonb at the API response's root
-  // level so it is indistinguishable from regular fields.
+  // postQuery hook: expands the readable part of row.customFields at the API
+  // response's root level so it is indistinguishable from regular fields.
   r.hook({
     type: "postQuery",
     target: { allOf: entityName },
-    handler: async ({ rows }) => ({
-      rows: rows.map((row) => {
+    handler: async ({ rows }, ctx) => {
+      const hasCustomFields = rows.some((row) => {
         const customFields = row["customFields"];
-        if (customFields && typeof customFields === "object" && !Array.isArray(customFields)) {
-          return {
-            ...(customFields as Record<string, unknown>), // @cast-boundary db-row jsonb runtime-untyped
-            ...row, // base fields win: a custom fieldKey named `id`/`name` must not shadow the real column
-          };
-        }
-        return row;
-      }),
-    }),
+        return isPlainObject(customFields) && Object.keys(customFields).length > 0;
+      });
+      if (!hasCustomFields) return { rows };
+      const definitions = await loadEntityFieldDefinitions(ctx.db, entityName);
+      return {
+        rows: rows.map((row) => {
+          const customFields = row["customFields"];
+          if (!isPlainObject(customFields)) return row;
+          const readable = readableCustomFields(customFields, definitions, ctx.user.roles);
+          // base fields win: a custom fieldKey named `id`/`name` must not shadow the real column
+          return { ...readable, ...row, customFields: readable };
+        }),
+      };
+    },
   });
 
-  // Search-payload extension: flattens customFields keys into the index
-  // document. Unlike the postQuery hook, which merges ALL keys, the search
-  // contributor should include only fields defined with searchable=true. The
-  // current version conservatively contributes everything; a later change
-  // will filter by the fieldDefinition.searchable flag.
-  r.searchPayloadExtension(entityName, ({ state }) => {
+  // Only searchable fields without a read restriction reach the index.
+  r.searchPayloadExtension(entityName, async ({ state, db }) => {
     const customFields = state["customFields"];
-    if (customFields && typeof customFields === "object" && !Array.isArray(customFields)) {
-      return customFields as Record<string, unknown>; // @cast-boundary db-row jsonb runtime-untyped
-    }
-    return {};
+    if (!isPlainObject(customFields) || Object.keys(customFields).length === 0) return {};
+    return indexableCustomFields(customFields, await loadEntityFieldDefinitions(db, entityName));
   });
 }

@@ -36,10 +36,21 @@ const propertyEntity = createEntity({
 });
 const propertyTable = buildEntityTable("property", propertyEntity);
 
+const buildingEntity = createEntity({
+  table: "read_t15e_buildings",
+  fields: {
+    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    customFields: customFieldsField(),
+  },
+});
+const buildingTable = buildEntityTable("building", buildingEntity);
+
 const propertyFeature = defineFeature("property-t15e", (r) => {
   r.entity({ name: "property", ...propertyEntity });
   r.requires({ features: ["custom-fields"] });
   wireCustomFieldsFor(r, "property", propertyTable);
+  r.entity({ name: "building", ...buildingEntity });
+  wireCustomFieldsFor(r, "building", buildingTable);
 
   const { executor } = createEntityExecutor("property", propertyEntity);
   r.writeHandler({
@@ -65,6 +76,7 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [customFieldsFeature, propertyFeature] });
   await unsafeCreateEntityTable(stack.db, fieldDefinitionEntity);
   await unsafeCreateEntityTable(stack.db, propertyEntity);
+  await unsafeCreateEntityTable(stack.db, buildingEntity);
 });
 
 afterAll(async () => {
@@ -146,8 +158,8 @@ describe("T1.5e: per-tenant fieldDefinition quota", () => {
     const res = await stack.http.write(
       "custom-fields:write:define-tenant-field",
       {
-        entityName: "different-entity",
-        fieldKey: "field-on-different-entity",
+        entityName: "building",
+        fieldKey: "field-on-building",
         serializedField: { type: "text" },
         required: false,
         searchable: false,
