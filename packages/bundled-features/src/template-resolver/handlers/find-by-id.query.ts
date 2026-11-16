@@ -5,6 +5,7 @@ import { isRowDeliveredTo } from "../api.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { draftViewerTenantId, isHiddenSystemDraft, toWorkingRow } from "../template-draft.ts";
+import { type TemplateEditPolicy, templateReadAccess } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 
 // Admin lookup for the UI editing flow. Returns the raw template, including draft/
@@ -12,10 +13,11 @@ import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 // tenant or SYSTEM_TENANT (system defaults are publicly readable); ctx.db is tenant-
 // scoped for every role, so the check below is defense in depth. Anonymous access is
 // excluded—public reads go through resolveTemplate in the API, not here.
-export const findByIdQuery = defineQueryHandler({
+export function makeFindByIdQuery(policy: TemplateEditPolicy) {
+  return defineQueryHandler({
   name: "find-by-id",
   schema: z.object({ id: z.string().min(1) }),
-  access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
+  access: templateReadAccess(policy.tenantEditable),
   description:
     "Reads the version of one template resource an editor works on, by row id: the open draft if there is one (status draft), else the stored version, with content, variable schema and scope, but only when it belongs to the caller's tenant or is a served system default (an override of a template that is not tenantEditable is not delivered and is visible to a SystemAdmin only) (a never-served system draft is visible to a SystemAdmin only); `active` is the version number and since-time the resolver serves, null when none is served. Use it to load a template into the admin editor.",
   handler: async (query, ctx) => {
@@ -55,3 +57,4 @@ export const findByIdQuery = defineQueryHandler({
     };
   },
 });
+}

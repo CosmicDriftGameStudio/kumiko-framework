@@ -1,5 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { isRowDeliveredTo } from "../api.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
@@ -16,15 +16,17 @@ import { TEXT_BLOCK_KIND } from "../web/constants.ts";
 //
 // Tenant scope defaults to query.user.tenantId (an anonymous context resolves
 // to SYSTEM_TENANT_ID or the host-resolved tenant, depending on app setup).
-// Optional `tenantIdOverride` (SystemAdmin-only) allows a cross-tenant read —
-// symmetric to set.write.
+// Optional tenantIdOverride (SystemAdmin only, enforced by the dispatcher)
+// narrows the read to SYSTEM_TENANT_ID. Any other tenant is refused by the
+// schema: a tenant-scoped read reaches only the own tenant plus SYSTEM, so a
+// foreign id would silently fall back to that scope.
 export const bySlugQuery = defineQueryHandler({
   name: "by-slug",
   schema: z.object({
     slug: z.string().min(1).max(80),
     locale: z.string().min(2).max(8),
-    /** Optional cross-tenant read — SystemAdmin only. See set.write.ts. */
-    tenantIdOverride: z.string().min(1).optional(),
+    /** Narrows the read to the SYSTEM reference rows — SystemAdmin only. */
+    tenantIdOverride: z.literal(SYSTEM_TENANT_ID).optional(),
   }),
   access: { roles: ["anonymous"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },

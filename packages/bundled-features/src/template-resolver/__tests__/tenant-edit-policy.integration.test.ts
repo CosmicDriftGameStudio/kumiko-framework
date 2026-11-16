@@ -501,21 +501,32 @@ describe("template edit policy :: tenantEditable for one mail slug", () => {
     expect(closed.content).not.toContain("Admin der Plattform");
   });
 
-  test("find-by-id and list hide the locked override from a TenantAdmin and a user", async () => {
-    for (const reader of [tenantAdmin, plainUser]) {
-      const found = await stack.http.queryOk<{ slug: string } | null>(
-        TemplateResolverQueries.findById,
-        { id: closedRowId },
-        reader,
-      );
-      expect(found).toBeNull();
-      const rows = await stack.http.queryOk<readonly { id: string }[]>(
-        TemplateResolverQueries.list,
-        { kind: "mail" },
-        reader,
-      );
-      expect(rows.map((row) => row.id)).not.toContain(closedRowId);
-    }
+  test("find-by-id and list hide the locked override from a TenantAdmin and refuse a plain user", async () => {
+    const found = await stack.http.queryOk<{ slug: string } | null>(
+      TemplateResolverQueries.findById,
+      { id: closedRowId },
+      tenantAdmin,
+    );
+    expect(found).toBeNull();
+    const rows = await stack.http.queryOk<readonly { id: string }[]>(
+      TemplateResolverQueries.list,
+      { kind: "mail" },
+      tenantAdmin,
+    );
+    expect(rows.map((row) => row.id)).not.toContain(closedRowId);
+
+    const foundErr = await stack.http.queryErr(
+      TemplateResolverQueries.findById,
+      { id: closedRowId },
+      plainUser,
+    );
+    expect(foundErr.httpStatus).toBe(403);
+    const listErr = await stack.http.queryErr(
+      TemplateResolverQueries.list,
+      { kind: "mail" },
+      plainUser,
+    );
+    expect(listErr.httpStatus).toBe(403);
   });
 
   test("the overview shows a TenantAdmin only the unlocked template and a SystemAdmin all", async () => {
@@ -554,6 +565,29 @@ describe("template edit policy :: read handlers follow the tenantEditable roles"
 
   afterAll(async () => {
     await stack.cleanup();
+  });
+
+  test("find-by-id and list answer an opted-in role and refuse a plain user", async () => {
+    const rows = await stack.http.queryOk<readonly { slug: string }[]>(
+      TemplateResolverQueries.list,
+      { kind: "mail" },
+      editor,
+    );
+    expect(rows.map((row) => row.slug)).toContain(OPEN_SLUG);
+
+    const member = createTestUser({ id: 6, roles: ["User"], tenantId: testTenantId(10) });
+    const listErr = await stack.http.queryErr(
+      TemplateResolverQueries.list,
+      { kind: "mail" },
+      member,
+    );
+    expect(listErr.httpStatus).toBe(403);
+    const foundErr = await stack.http.queryErr(
+      TemplateResolverQueries.findById,
+      { id: "00000000-0000-4000-8000-0000000000aa" },
+      member,
+    );
+    expect(foundErr.httpStatus).toBe(403);
   });
 
   test("the overview lists an opted-in role exactly the released template and refuses a TenantAdmin", async () => {

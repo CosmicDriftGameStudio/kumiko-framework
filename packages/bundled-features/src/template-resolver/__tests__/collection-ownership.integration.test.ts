@@ -15,7 +15,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
-import { createAnonymousUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createAnonymousUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -287,7 +291,7 @@ describe("system level :: cross-tenant override", () => {
   test("a non-SystemAdmin listing with an override gets a 403 naming the reason", async () => {
     const error = await stack.http.queryErr(
       SIGNATURES_LIST,
-      { tenantIdOverride: otherTenantId },
+      { tenantIdOverride: SYSTEM_TENANT_ID },
       agentA,
     );
     expect(error.httpStatus).toBe(403);

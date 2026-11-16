@@ -5,12 +5,14 @@ import { filterDeliveredTo } from "../api.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { isHiddenSystemDraft } from "../template-draft.ts";
+import { type TemplateEditPolicy, templateReadAccess } from "../template-edit-policy.ts";
 import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { TEMPLATE_KINDS, TEMPLATE_STATUSES } from "../web/constants.ts";
 
 // ctx.db is tenant-scoped even for SystemAdmin: every caller sees its own
 // tenant's rows plus the system defaults, never another tenant's rows.
-export const listQuery = defineQueryHandler({
+export function makeListQuery(policy: TemplateEditPolicy) {
+  return defineQueryHandler({
   name: "list",
   schema: z.object({
     kind: z.enum(TEMPLATE_KINDS).optional(),
@@ -18,7 +20,7 @@ export const listQuery = defineQueryHandler({
     status: z.enum(TEMPLATE_STATUSES).optional(),
     includeSystem: z.boolean().default(true),
   }),
-  access: { roles: ["TenantAdmin", "SystemAdmin", "User"] },
+  access: templateReadAccess(policy.tenantEditable),
   description:
     "Lists template resources of the caller's tenant alongside the system defaults as summaries without content, filterable by kind, locale and status; use it to browse the catalogue, then find-by-id to read one row.",
   handler: async (query, ctx) => {
@@ -66,3 +68,4 @@ export const listQuery = defineQueryHandler({
     }));
   },
 });
+}

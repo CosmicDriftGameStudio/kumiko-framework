@@ -242,16 +242,14 @@ describe("template-resolver :: resource-upload", () => {
     expect(meta.width).toBe(1200);
   });
 
-  test("without templateId only the file is created", async () => {
+  test("without templateId the upload is a validation error", async () => {
     const sourceFileRefId = await uploadPng(tenantA_Admin, await png(16));
-    const result = await stack.http.writeOk<UploadResult>(
+    const err = await stack.http.writeErr(
       TemplateResolverHandlers.resourceUpload,
       { sourceFileRefId },
       tenantA_Admin,
     );
-    expect(result.fileRefId).toBeString();
-    expect(result.key).toBeUndefined();
-    expect((await storedBytes(result.fileRefId)).tenantId).toBe(tenantA_Admin.tenantId);
+    expectErrorIncludes(err, "validation_error");
   });
 
   test("templateId without key is a validation error", async () => {

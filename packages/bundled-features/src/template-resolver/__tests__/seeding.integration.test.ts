@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
@@ -9,13 +9,13 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import { createTemplateResolverApi } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
-import { seedSystemTemplate } from "../seeding.ts";
+import { seedSystemTemplate, seedTextBlock } from "../seeding.ts";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
-import { SYSTEM_TENANT_ID } from "../web/constants.ts";
+import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../web/constants.ts";
 
 let stack: TestStack;
 
@@ -121,5 +121,52 @@ describe("seedSystemTemplate :: reserved layout namespace", () => {
         contentFormat: "html",
       }),
     ).rejects.toThrow("reserved_layout_slug");
+  });
+});
+
+describe("parallel seeds", () => {
+  test("two concurrent seedSystemTemplate calls for one key resolve to one row", async () => {
+    const slug = `race-${crypto.randomUUID()}`;
+    const opts = {
+      slug,
+      kind: "ai-prompt" as const,
+      locale: "de",
+      content: "x",
+      contentFormat: "plain" as const,
+      ifExists: "skip" as const,
+    };
+    const [a, b] = await Promise.all([
+      seedSystemTemplate(stack.db, opts),
+      seedSystemTemplate(stack.db, opts),
+    ]);
+    expect(a.id).toBe(b.id);
+    const rows = await selectMany(stack.db, templateResourcesTable, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug,
+      kind: "ai-prompt",
+      locale: "de",
+    });
+    expect(rows).toHaveLength(1);
+  });
+
+  test("two concurrent seedTextBlock calls for one key resolve to one row", async () => {
+    const slug = `race-${crypto.randomUUID()}`;
+    const opts = {
+      tenantId: TENANT_ID,
+      slug,
+      locale: "de",
+      title: "T",
+      content: "x",
+      ifExists: "skip" as const,
+    };
+    const [a, b] = await Promise.all([seedTextBlock(stack.db, opts), seedTextBlock(stack.db, opts)]);
+    expect(a.id).toBe(b.id);
+    const rows = await selectMany(stack.db, templateResourcesTable, {
+      tenantId: TENANT_ID,
+      slug,
+      kind: TEXT_BLOCK_KIND,
+      locale: "de",
+    });
+    expect(rows).toHaveLength(1);
   });
 });

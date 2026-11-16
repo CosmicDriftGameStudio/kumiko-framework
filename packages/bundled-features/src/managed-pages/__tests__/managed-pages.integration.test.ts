@@ -458,6 +458,15 @@ describe("managed-pages :: by-tenant-published (Discovery-Query)", () => {
     );
     expect(res.pages).toEqual([expect.objectContaining({ slug: "about", title: "About B" })]);
   });
+
+  test("an override in the payload is no field: the caller still lists only its own tenant", async () => {
+    const res = await stack.http.queryOk<{ pages: Array<{ slug: string; title: string }> }>(
+      "managed-pages:query:by-tenant-published",
+      { tenantIdOverride: TENANT_A },
+      pageAdminB,
+    );
+    expect(res.pages).toEqual([expect.objectContaining({ slug: "about", title: "About B" })]);
+  });
 });
 
 describe("managed-pages :: by-tenant-published ordering and columns", () => {

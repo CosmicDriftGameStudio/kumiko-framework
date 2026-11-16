@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
-import { createTestUser, TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
+import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
@@ -22,7 +22,7 @@ import {
   templateResourceEntity,
   templateResourcesTable,
 } from "../table.ts";
-import { TEXT_BLOCK_KIND } from "../web/constants.ts";
+import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../web/constants.ts";
 import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualified-names.ts";
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
@@ -64,6 +64,10 @@ const TENANT_EDITABLE = tenantEditableTemplates(
     "from-write",
     "page-hero",
     "from-seed",
+    "system-narrow",
+    "own-only-block",
+    "zz-sorted",
+    "aa-sorted",
   ],
 );
 
@@ -177,10 +181,10 @@ describe("text-blocks :: write", () => {
     expect(result).toMatchObject({ slug: "override-target", isNew: true });
 
     // Proof: text landed on the TARGET tenant, not on systemAdmin's
-    // own tenant. Reading with the same override returns the block.
+    // own tenant. The target is the SystemAdmin's own tenant, so a plain read returns the block.
     const read = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.bySlug,
-      { slug: "override-target", locale: "de", tenantIdOverride: targetTenant },
+      { slug: "override-target", locale: "de" },
       systemAdmin,
     );
     expect(read).toMatchObject({ slug: "override-target", title: "Override-Test" });
@@ -241,7 +245,7 @@ describe("text-blocks :: write", () => {
     // Proof: read returns the UPDATED content on the TARGET tenant.
     const read = await stack.http.queryOk<Record<string, unknown>>(
       TemplateResolverQueries.bySlug,
-      { slug: "update-target", locale: "de", tenantIdOverride: targetTenant },
+      { slug: "update-target", locale: "de" },
       systemAdmin,
     );
     expect(read).toMatchObject({ slug: "update-target", title: "v2", content: "updated" });
@@ -432,6 +436,76 @@ describe("text-blocks :: query (openToAll)", () => {
     );
     expect(rows.map((row) => row.slug)).toContain("list-filter-block");
     expect(rows.every((row) => row.kind === TEXT_BLOCK_KIND)).toBe(true);
+  });
+
+  test("a SystemAdmin's read override narrows to SYSTEM_TENANT_ID and refuses any other tenant", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      {
+        slug: "system-narrow",
+        locale: "de",
+        title: "System",
+        content: "aus system",
+        tenantIdOverride: SYSTEM_TENANT_ID,
+      },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      { slug: "own-only-block", locale: "de", title: "Own", content: "eigen" },
+      systemAdmin,
+    );
+
+    const bySlug = await stack.http.queryOk<Record<string, unknown>>(
+      TemplateResolverQueries.bySlug,
+      { slug: "system-narrow", locale: "de", tenantIdOverride: SYSTEM_TENANT_ID },
+      systemAdmin,
+    );
+    expect(bySlug).toMatchObject({ content: "aus system" });
+
+    const listed = await stack.http.queryOk<{ blocks: readonly { slug: string }[] }>(
+      TemplateResolverQueries.byTenant,
+      { tenantIdOverride: SYSTEM_TENANT_ID },
+      systemAdmin,
+    );
+    const listedSlugs = listed.blocks.map((block) => block.slug);
+    expect(listedSlugs).toContain("system-narrow");
+    expect(listedSlugs).not.toContain("own-only-block");
+
+    const foreignTenant = createTestUser({ id: 98, tenantId: testTenantId(2) }).tenantId;
+    const bySlugErr = await stack.http.queryErr(
+      TemplateResolverQueries.bySlug,
+      { slug: "system-narrow", locale: "de", tenantIdOverride: foreignTenant },
+      systemAdmin,
+    );
+    expectErrorIncludes(bySlugErr, "validation_error");
+    const byTenantErr = await stack.http.queryErr(
+      TemplateResolverQueries.byTenant,
+      { tenantIdOverride: foreignTenant },
+      systemAdmin,
+    );
+    expectErrorIncludes(byTenantErr, "validation_error");
+  });
+
+  test("by-tenant lists text blocks with their body, sorted by slug and locale", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      { slug: "zz-sorted", locale: "de", title: "Z", content: "z" },
+      tenantAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      { slug: "aa-sorted", locale: "de", title: "A", content: "a" },
+      tenantAdmin,
+    );
+    const listed = await stack.http.queryOk<{
+      blocks: readonly { slug: string; content: string | null }[];
+    }>(TemplateResolverQueries.byTenant, {}, tenantAdmin);
+    const sorted = listed.blocks.filter((block) => block.slug.endsWith("-sorted"));
+    expect(sorted).toMatchObject([
+      { slug: "aa-sorted", content: "a" },
+      { slug: "zz-sorted", content: "z" },
+    ]);
   });
 });
 

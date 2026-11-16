@@ -24,11 +24,11 @@ import {
 } from "./handlers/discard-draft.write.ts";
 import { documentBlocksQuery } from "./handlers/document-blocks.query.ts";
 import { exportBundleQuery } from "./handlers/export-bundle.query.ts";
-import { findByIdQuery } from "./handlers/find-by-id.query.ts";
+import { makeFindByIdQuery } from "./handlers/find-by-id.query.ts";
 import { makeImportBundleWrite } from "./handlers/import-bundle.write.ts";
 import { importBundleSystemWrite } from "./handlers/import-bundle-system.write.ts";
 import { layoutSourceQuery } from "./handlers/layout-source.query.ts";
-import { listQuery } from "./handlers/list.query.ts";
+import { makeListQuery } from "./handlers/list.query.ts";
 import { makeOverviewQuery } from "./handlers/overview.query.ts";
 import { makePatchDraftWrite } from "./handlers/patch-draft.write.ts";
 import { previewQuery } from "./handlers/preview.query.ts";
@@ -219,8 +219,8 @@ export function createTemplateResolverFeature(opts: TemplateResolverOptions = {}
     };
 
     const queries = {
-      findById: r.queryHandler(findByIdQuery),
-      list: r.queryHandler(listQuery),
+      findById: r.queryHandler(makeFindByIdQuery(policy)),
+      list: r.queryHandler(makeListQuery(policy)),
       bySlug: r.queryHandler(bySlugQuery),
       byTenant: r.queryHandler(byTenantQuery),
       usage: r.queryHandler(makeUsageQuery(policy)),

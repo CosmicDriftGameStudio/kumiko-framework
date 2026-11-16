@@ -18,6 +18,7 @@ import { TemplateResolverHandlers, TemplateResolverQueries } from "../web/qualif
 import { tenantEditableTemplates } from "./tenant-editable-fixture.ts";
 
 const SLUG = "overridden-by-count";
+const MULTI_SLUG = "overridden-by-multi";
 const systemAdmin = TestUsers.systemAdmin;
 const adminOf = (index: number) =>
   createTestUser({ id: 200 + index, roles: ["TenantAdmin"], tenantId: testTenantId(index) });
@@ -46,7 +47,7 @@ beforeAll(async () => {
       createUserFeature(),
       createTenantFeature(),
       createTemplateResolverFeature({
-        tenantEditable: tenantEditableTemplates(["mail"], [SLUG]),
+        tenantEditable: tenantEditableTemplates(["mail"], [SLUG, MULTI_SLUG]),
       }),
     ],
   });
@@ -74,6 +75,41 @@ describe("template-resolver :: overview overriddenBy", () => {
     const row = (await overview(systemAdmin)).rows.find((entry) => entry.slug === SLUG);
     expect(row?.origin).toBe("system");
     expect(row?.overriddenBy).toEqual({ active: 1, total: 2 });
+  });
+
+  test("a tenant counts once across locales and a draft-only override does not count", async () => {
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertSystem,
+      { ...mailPayload, slug: MULTI_SLUG },
+      systemAdmin,
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      { ...mailPayload, slug: MULTI_SLUG, status: "active" },
+      adminOf(2),
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      { ...mailPayload, slug: MULTI_SLUG, locale: "en", status: "active" },
+      adminOf(2),
+    );
+    await stack.http.writeOk(
+      TemplateResolverHandlers.upsertTenant,
+      { ...mailPayload, slug: MULTI_SLUG },
+      adminOf(3),
+    );
+
+    const result = await stack.http.queryOk<{
+      totalTenants: number | null;
+      counts: readonly { slug: string; kind: string; activeOverrides: number }[];
+    }>(TemplateResolverQueries.tenantOverrideCounts, {}, systemAdmin);
+
+    expect(result.counts.find((count) => count.slug === MULTI_SLUG)).toEqual({
+      slug: MULTI_SLUG,
+      kind: "mail",
+      activeOverrides: 1,
+    });
+    expect(result.totalTenants).toBe(2);
   });
 
   test("a TenantAdmin gets no overriddenBy field", async () => {

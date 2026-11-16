@@ -23,18 +23,13 @@ export type PublishedPageSummary = {
 
 export const byTenantPublishedQuery = defineQueryHandler({
   name: "by-tenant-published",
-  schema: z.object({
-    /** Optional cross-tenant read — only for SystemAdmin. Matches the override
-     *  logic in by-slug.query. */
-    tenantIdOverride: z.string().min(1).optional(),
-  }),
+  schema: z.object({}),
   access: { roles: ["anonymous"], anySignedIn: true },
   rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
   description:
     "Lists every published page of a tenant with slug, language, title and last-change time but no body; use it to enumerate the public pages for sitemap.xml or llms.txt, rather than by-slug which fetches one page's content.",
   handler: async (query, ctx) => {
-    const override = query.payload.tenantIdOverride;
-    const tenantId = override ?? query.user.tenantId;
+    const tenantId = query.user.tenantId;
     const rows = castTenantRows<PublishedPageRow>(
       await selectMany(
         ctx.db,

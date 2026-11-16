@@ -34,6 +34,7 @@ type EditTarget = { readonly slug: string; readonly kind: string; readonly meta?
 type EditUser = Pick<SessionUser, "roles">;
 
 const SYSTEM_ADMIN_ROLE = "SystemAdmin";
+const TENANT_ADMIN_ROLE = "TenantAdmin";
 
 export function templateEditAccess(entries: readonly TenantEditableTemplate[]): RoleAccessRule {
   const roles = new Set<string>([SYSTEM_ADMIN_ROLE]);
@@ -41,6 +42,11 @@ export function templateEditAccess(entries: readonly TenantEditableTemplate[]): 
     for (const role of entry.access.roles) roles.add(role);
   }
   return { roles: [...roles] };
+}
+
+// Reading templates is open to everyone who may edit one, plus TenantAdmin (sees the served system versions).
+export function templateReadAccess(entries: readonly TenantEditableTemplate[]): RoleAccessRule {
+  return { roles: [...new Set([...templateEditAccess(entries).roles, TENANT_ADMIN_ROLE])] };
 }
 
 export function mayEditTemplate(

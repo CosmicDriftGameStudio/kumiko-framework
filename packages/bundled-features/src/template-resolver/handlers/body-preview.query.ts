@@ -3,7 +3,7 @@ import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { renderSafeMarkdown } from "../../page-render/index.ts";
 import { documentViolationsToFieldIssues, sanitizeDocumentHtml } from "../document-sanitizer.ts";
-import { type TemplateEditPolicy, templateEditAccess } from "../template-edit-policy.ts";
+import { type TemplateEditPolicy, templateReadAccess } from "../template-edit-policy.ts";
 
 const BODY_PREVIEW_FORMATS = ["markdown", "document"] as const;
 
@@ -19,9 +19,7 @@ export function makeBodyPreviewQuery(policy: TemplateEditPolicy) {
       body: z.string().max(100_000).nullable(),
       bodyFormat: z.enum(BODY_PREVIEW_FORMATS).default("markdown"),
     }),
-    access: {
-      roles: [...new Set([...templateEditAccess(policy.tenantEditable).roles, "TenantAdmin"])],
-    },
+    access: templateReadAccess(policy.tenantEditable),
     description:
       "Renders an unsaved body (Markdown or editor document, per bodyFormat) to the sanitized HTML a public page serves for it, without saving anything and without the site's header and footer; a document body the write rules reject is answered with the same field errors on body as a save.",
     handler: async (query) => {
