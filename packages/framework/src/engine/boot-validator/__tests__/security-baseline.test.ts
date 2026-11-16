@@ -35,6 +35,8 @@ describe("warnOnMissingSecurityBaseline", () => {
     for (const name of SECURITY_BASELINE_FEATURE_NAMES) {
       expect(msg).toContain(name);
     }
+    expect(msg).toContain("composeSecurityStack()");
+    expect(msg).not.toContain("securityBaselineFeatures");
   });
 
   test("production + only sessions/audit mounted → warns about the missing two only", () => {

@@ -10,10 +10,9 @@ used to be silent; now the boot validator warns at `NODE_ENV=production`.
 ## What it shows
 
 - **`composeSecurityStack()`** (`@cosmicdrift/kumiko-dev-server/compose-stacks`) —
-  returns the four features in one call, fresh instances per call. It replaces
-  the deprecated `securityBaselineFeatures()` preset. `runProdApp` refuses to
-  boot it without a KMS decision (`kmsMode`) or with `rateLimit: false`; see
-  [`compose-stacks`](../compose-stacks/).
+  returns the four features in one call, fresh instances per call.
+  `runProdApp` refuses to boot it without a KMS decision (`kmsMode`) or with
+  `rateLimit: false`; see [`compose-stacks`](../compose-stacks/).
 - **`warnOnMissingSecurityBaseline`** — wired into `validateBoot` (fw#2857).
   At `NODE_ENV=production`, boot compares mounted feature names against
   `SECURITY_BASELINE_FEATURE_NAMES` and logs a `console.warn` naming whatever

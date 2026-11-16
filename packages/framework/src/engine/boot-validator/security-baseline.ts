@@ -23,6 +23,6 @@ export function warnOnMissingSecurityBaseline(
   if (missing.length === 0) return;
 
   log.warn(
-    `NODE_ENV=production but the security baseline is incomplete — missing feature(s): ${missing.join(", ")}. Mount securityBaselineFeatures() from @cosmicdrift/kumiko-bundled-features/presets (or the missing features individually).`,
+    `NODE_ENV=production but the security baseline is incomplete — missing feature(s): ${missing.join(", ")}. Mount composeSecurityStack() from @cosmicdrift/kumiko-dev-server/compose-stacks (or the missing features individually).`,
   );
 }

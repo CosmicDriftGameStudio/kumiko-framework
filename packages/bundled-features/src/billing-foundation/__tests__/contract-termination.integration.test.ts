@@ -409,7 +409,14 @@ describe("public pages", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
     expect(res.headers.get("x-frame-options")).toBe("DENY");
-    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    const csp = res.headers.get("content-security-policy") ?? "";
+    expect(csp).toContain("frame-ancestors 'none'");
+    const directives = csp.split(";").map((d) => d.trim());
+    expect(directives.filter((d) => d.startsWith("form-action"))).toEqual(["form-action 'self'"]);
+    expect(directives.filter((d) => d.startsWith("frame-ancestors"))).toEqual([
+      "frame-ancestors 'none'",
+    ]);
+    expect(csp).toContain("default-src 'none'");
     const html = await res.text();
     expect(html).toContain(title);
     expect(html).toContain('name="email"');

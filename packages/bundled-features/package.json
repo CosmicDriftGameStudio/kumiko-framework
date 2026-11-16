@@ -139,7 +139,6 @@
     "./channel-telegram": "./src/channel-telegram/index.ts",
     "./renderer-pdf": "./src/renderer-pdf/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
-    "./presets": "./src/presets/index.ts",
     "./secrets": "./src/secrets/index.ts",
     "./sessions": "./src/sessions/index.ts",
     "./sessions/web": "./src/sessions/web/index.ts",
@@ -688,10 +687,6 @@
       "./rate-limiting": {
         "types": "./dist/rate-limiting/index.d.ts",
         "default": "./dist/rate-limiting/index.js"
-      },
-      "./presets": {
-        "types": "./dist/presets/index.d.ts",
-        "default": "./dist/presets/index.js"
       },
       "./secrets": {
         "types": "./dist/secrets/index.d.ts",

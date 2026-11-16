@@ -20,19 +20,14 @@ export async function resolvePatRoles(
   userId: string,
   tenantId: string,
 ): Promise<readonly string[] | null> {
-  const memberships = await selectMany<{ roles: string }>(db, tenantMembershipsTable, {
-    userId,
-    tenantId,
-  });
+  const [memberships, userRow] = await Promise.all([
+    selectMany<{ roles: string }>(db, tenantMembershipsTable, { userId, tenantId }),
+    fetchOne<{ roles: string | null; status: UserStatus; isDeleted: boolean }>(db, userTable, {
+      id: userId,
+    }),
+  ]);
   const membership = memberships[0];
   if (!membership) return null;
-  const userRow = await fetchOne<{
-    roles: string | null;
-    status: UserStatus;
-    isDeleted: boolean;
-  }>(db, userTable, {
-    id: userId,
-  });
   if (userRow && isPrincipalRowBlocked(userRow)) return null;
   const globalRoles = parseRoles(userRow?.roles ?? null);
   return buildSessionRoles(globalRoles, parseRoles(membership.roles));

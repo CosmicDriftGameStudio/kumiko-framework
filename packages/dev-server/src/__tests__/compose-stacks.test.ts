@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
-import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import type { CreateTierEngineOptions } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { type FeatureDefinition, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
@@ -418,16 +417,5 @@ describe("auth, saas and security stacks", () => {
     expect(names.filter((name) => name === "sessions")).toHaveLength(1);
     expect(names.filter((name) => name === "audit")).toHaveLength(1);
     expect(() => validateBoot(features)).not.toThrow();
-  });
-
-  test("composeSecurityStack and securityBaselineFeatures dedupe mid-migration", () => {
-    const security = composeFeatures(
-      [...composeAuthStack(), ...securityBaselineFeatures(), ...composeSecurityStack()],
-      { includeBundled: true },
-    );
-    expect(stackFeatureNames(security).filter((name) => name === "crypto-shredding")).toHaveLength(
-      1,
-    );
-    expect(() => validateBoot(security)).not.toThrow();
   });
 });
