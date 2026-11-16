@@ -481,11 +481,17 @@ export function isPlainPrimaryClick(event: MouseEvent): boolean {
   return event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
 }
 
+// A download never navigates, so blob and inline image URLs are safe there.
+function isSafeDownloadHref(href: string): boolean {
+  return isSafeHref(href) || /^(?:blob:|data:image\/)/i.test(href.trim());
+}
+
 export function DefaultLink({
   href,
   variant = "default",
   target,
   rel,
+  download,
   onPress,
   className,
   children,
@@ -498,9 +504,11 @@ export function DefaultLink({
       : variant === "muted"
         ? "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         : "text-primary underline-offset-4 hover:underline";
+  const hrefIsSafe = download === undefined ? isSafeHref(href) : isSafeDownloadHref(href);
   return (
     <a
-      href={isSafeHref(href) ? href : "#"}
+      href={hrefIsSafe ? href : "#"}
+      {...(download !== undefined && { download })}
       target={target}
       rel={rel ?? (target === "_blank" ? "noopener noreferrer" : undefined)}
       {...dataAttributes}

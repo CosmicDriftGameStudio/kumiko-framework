@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { PageVisibilityProvider } from "../../context/page-visibility-context.tsx";
 import type { Dispatcher, LocaleResolver } from "../../headless/index.ts";
 import {
   DispatcherProvider,
@@ -16,6 +17,9 @@ import { ToastProvider } from "../primitives/toast.tsx";
 import { createBrowserLocaleResolver } from "./browser-locale.ts";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin.tsx";
 import { DocumentLangSync } from "./document-lang-sync.tsx";
+import { createDocumentVisibilityStore } from "./document-visibility.ts";
+
+const documentVisibility = createDocumentVisibilityStore();
 
 // Apex surface — the public counterpart to createKumikoApp. Mounts a thin,
 // schema-LESS provider chain (locale + primitives + dispatcher +
@@ -104,7 +108,9 @@ export function createPublicSurface(options: CreatePublicSurfaceOptions): { read
         <DocumentLangSync resolver={localeResolver} />
         <PrimitivesProvider value={primitives}>
           <DispatcherProvider dispatcher={dispatcher}>
-            <ToastProvider>{stackWrappers(providers, content)}</ToastProvider>
+            <PageVisibilityProvider value={documentVisibility}>
+              <ToastProvider>{stackWrappers(providers, content)}</ToastProvider>
+            </PageVisibilityProvider>
           </DispatcherProvider>
         </PrimitivesProvider>
       </FormalityProvider>

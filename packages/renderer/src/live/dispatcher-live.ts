@@ -163,12 +163,72 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
     return { ok: true, body: parsed, status: response.status };
   }
 
+  type SharedQuery = {
+    readonly call: Promise<CallResult>;
+    readonly controller: AbortController;
+    subscribers: number;
+  };
+  const sharedQueries = new Map<string, SharedQuery>();
+
+  function forgetSharedQuery(key: string, entry: SharedQuery): void {
+    if (sharedQueries.get(key) === entry) sharedQueries.delete(key);
+  }
+
+  function startSharedQuery(key: string, body: unknown): SharedQuery {
+    const controller = new AbortController();
+    const entry: SharedQuery = {
+      call: callJson(PATH_QUERY, body, controller.signal),
+      controller,
+      subscribers: 0,
+    };
+    sharedQueries.set(key, entry);
+    const forget = (): void => forgetSharedQuery(key, entry);
+    entry.call.then(forget, forget);
+    return entry;
+  }
+
+  function callSharedQuery(
+    body: { readonly type: string; readonly payload: unknown },
+    signal: AbortSignal | undefined,
+  ): Promise<CallResult> {
+    if (signal?.aborted === true) {
+      return Promise.resolve({ ok: false, networkFailure: buildAbortError() });
+    }
+    const key = JSON.stringify(body);
+    const entry = sharedQueries.get(key) ?? startSharedQuery(key, body);
+    entry.subscribers += 1;
+    if (signal === undefined) return entry.call;
+    return new Promise<CallResult>((resolve, reject) => {
+      const leave = (): void => {
+        entry.subscribers -= 1;
+        if (entry.subscribers === 0) {
+          forgetSharedQuery(key, entry);
+          entry.controller.abort();
+        }
+        resolve({ ok: false, networkFailure: buildAbortError() });
+      };
+      signal.addEventListener("abort", leave, { once: true });
+      entry.call.then(
+        (result) => {
+          signal.removeEventListener("abort", leave);
+          resolve(result);
+        },
+        (error: unknown) => {
+          signal.removeEventListener("abort", leave);
+          reject(error);
+        },
+      );
+    });
+  }
+
   return {
     async write<TData = unknown>(
       type: string,
       payload: unknown,
       opts?: WriteOpts,
     ): Promise<WriteResult<TData>> {
+      // A query started before this write may answer with pre-write data; later callers must not join it.
+      sharedQueries.clear();
       const body: Record<string, unknown> = { type, payload };
       // Idempotency by default: without a requestId the server-side
       // dedup never engages and a transport-level double-send duplicates
@@ -185,11 +245,16 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
       opts?: QueryOpts,
     ): Promise<QueryResult<TData>> {
       const body = { type, payload };
-      const call = await callJson(PATH_QUERY, body, opts?.signal);
+      const call =
+        opts?.shareInFlight === true
+          ? await callSharedQuery(body, opts.signal)
+          : await callJson(PATH_QUERY, body, opts?.signal);
       return normalizeQueryResponse<TData>(call);
     },
 
     async batch(commands: readonly Command[], opts?: WriteOpts): Promise<BatchResult> {
+      // A query started before this write may answer with pre-write data; later callers must not join it.
+      sharedQueries.clear();
       const body: Record<string, unknown> = { commands };
       // One id for the whole batch — the server caches the BatchResult
       // under it, so a retried batch returns the cached outcome instead of

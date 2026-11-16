@@ -39,6 +39,9 @@ export function actionIconFor(icon: IconKey | undefined): IconKey | undefined {
 // prop forwarding (which DefaultButton does not support), so both stay visually identical.
 export const SECONDARY_BUTTON_EXTRA_CLASSES = "border-input hover:bg-muted";
 
+const PLAIN_BUTTON_CLASSES =
+  "min-w-0 cursor-pointer rounded-md text-left outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50";
+
 export function DefaultButton({
   type = "button",
   onClick,
@@ -60,6 +63,27 @@ export function DefaultButton({
   iconEnd,
   dataAttributes,
 }: ButtonProps): ReactNode {
+  // Bypasses UiButton: its base classes (h-9, nowrap, centred, svg size-4) would bend a row or tile.
+  if (variant === "plain") {
+    return (
+      <button
+        ref={ref}
+        type={type}
+        onClick={onClick}
+        disabled={disabled === true || loading === true}
+        {...dataAttributes}
+        data-testid={testId}
+        data-loading={loading === true ? "true" : undefined}
+        aria-label={ariaLabel}
+        aria-pressed={pressed}
+        aria-expanded={expanded}
+        title={title}
+        className={cn(PLAIN_BUTTON_CLASSES, width === "full" ? "w-full" : "", className)}
+      >
+        {children}
+      </button>
+    );
+  }
   // The link variant renders text-like (inline link in running text/banner),
   // not as a padded surface; width="full" stretches CTA buttons in cards/panels.
   const resolvedClassName = cn(

@@ -6,7 +6,11 @@ import {
   type PresenceEntry,
 } from "@cosmicdrift/kumiko-types/presence-types";
 import type { ReactElement, ReactNode } from "react";
-import type { Dispatcher, WriteResult } from "../../../headless/index.ts";
+import {
+  PageVisibilityProvider,
+  type PageVisibilityState,
+} from "../../../context/page-visibility-context.tsx";
+import { createStore, type Dispatcher, type WriteResult } from "../../../headless/index.ts";
 import {
   DispatcherProvider,
   type LiveEvent,
@@ -103,7 +107,10 @@ describe("PresenceAvatars", () => {
 
 type Write = { readonly type: string; readonly payload: unknown };
 
-function setup(answer: (type: string) => WriteResult | Promise<WriteResult>) {
+function setup(
+  answer: (type: string) => WriteResult | Promise<WriteResult>,
+  visibility = createStore<PageVisibilityState>("visible"),
+) {
   const writes: Write[] = [];
   const listeners = new Set<(event: LiveEvent) => void>();
   const subscriber: LiveEventSubscriber = (key, listener) => {
@@ -119,7 +126,9 @@ function setup(answer: (type: string) => WriteResult | Promise<WriteResult>) {
   });
   const tree = (ui: ReactElement): ReactElement => (
     <DispatcherProvider dispatcher={dispatcher}>
-      <LiveEventsProvider value={subscriber}>{ui}</LiveEventsProvider>
+      <PageVisibilityProvider value={visibility}>
+        <LiveEventsProvider value={subscriber}>{ui}</LiveEventsProvider>
+      </PageVisibilityProvider>
     </DispatcherProvider>
   );
   const mount = (ui: ReactElement) => {
@@ -218,6 +227,46 @@ describe("usePresence", () => {
     emit({ userId: "me", entity: "doc", id: "d1" });
     await flush();
     expect(heartbeats(writes)).toHaveLength(2);
+  });
+
+  test("a hidden page sends no heartbeat, returning beats once right away", async () => {
+    const visibility = createStore<PageVisibilityState>("visible");
+    const { writes, mount } = setup(() => ({ isSuccess: true, data: { others: [] } }), visibility);
+    mount(<Probe activity="viewing" />);
+    await flush();
+    act(() => visibility.setState("hidden"));
+    await act(async () => {
+      jest.advanceTimersByTime(PRESENCE_HEARTBEAT_INTERVAL_MS);
+    });
+    expect(heartbeats(writes)).toHaveLength(1);
+
+    await act(async () => visibility.setState("visible"));
+    expect(heartbeats(writes)).toHaveLength(2);
+  });
+
+  test("a live signal for the record does not beat while the page is hidden", async () => {
+    const visibility = createStore<PageVisibilityState>("visible");
+    const { writes, mount, emit } = setup(
+      () => ({ isSuccess: true, data: { others: [] } }),
+      visibility,
+    );
+    mount(<Probe activity="viewing" />);
+    await flush();
+    act(() => visibility.setState("hidden"));
+    emit({ userId: "me", entity: "doc", id: "d1" });
+    await flush();
+    expect(heartbeats(writes)).toHaveLength(1);
+  });
+
+  test("a record mounted in a hidden page beats only once the page is visible", async () => {
+    const visibility = createStore<PageVisibilityState>("hidden");
+    const { writes, mount } = setup(() => ({ isSuccess: true, data: { others: [] } }), visibility);
+    mount(<Probe activity="viewing" />);
+    await flush();
+    expect(heartbeats(writes)).toHaveLength(0);
+
+    await act(async () => visibility.setState("visible"));
+    expect(heartbeats(writes)).toHaveLength(1);
   });
 
   test("an older heartbeat answer arriving late does not overwrite the newer roster", async () => {

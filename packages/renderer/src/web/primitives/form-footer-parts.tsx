@@ -123,7 +123,7 @@ export function renderPrimaryActionsGroup(model: FormFooterModel): ReactNode {
         // the viewport can't push it out of reach. `fixed`
         // escapes the card's `overflow-hidden` (only transform/filter/
         // contain ancestors trap it, confirmed against
-        // AppLayout/SidebarInset — neither sets those).
+        // SidebarInset — it sets none of those).
         stickyActions === true &&
           !pinned &&
           cn(

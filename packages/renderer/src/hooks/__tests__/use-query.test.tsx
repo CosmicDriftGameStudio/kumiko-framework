@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import { act, render, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.tsx";
-import type { Dispatcher } from "../../headless/index.ts";
+import {
+  PageVisibilityProvider,
+  type PageVisibilityState,
+} from "../../context/page-visibility-context.tsx";
+import { createStore, type Dispatcher } from "../../headless/index.ts";
 import { useQuery } from "../use-query.ts";
 
 type QueryFn = Dispatcher["query"];
@@ -466,5 +470,60 @@ describe("useQuery concurrency", () => {
     expect(fake.started()).toBe(2);
     expect(fake.inFlight()).toBe(0);
     expect(fake.maxInFlight()).toBe(1);
+  });
+});
+
+describe("useQuery polling and page visibility", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function visibilityWrapper(dispatcher: Dispatcher) {
+    const visibility = createStore<PageVisibilityState>("visible");
+    const wrapper = ({ children }: { readonly children: ReactNode }) => (
+      <DispatcherProvider dispatcher={dispatcher}>
+        <PageVisibilityProvider value={visibility}>{children}</PageVisibilityProvider>
+      </DispatcherProvider>
+    );
+    return { visibility, wrapper };
+  }
+
+  test("ticks are skipped while the page is hidden", async () => {
+    const { dispatcher, calls } = countingDispatcher();
+    const { visibility, wrapper } = visibilityWrapper(dispatcher);
+    renderHook(() => useQuery(QUERY_TYPE, {}, { refetchIntervalMs: 1000 }), { wrapper });
+    await advance(0);
+    expect(calls()).toBe(1);
+
+    act(() => visibility.setState("hidden"));
+    await advance(3000);
+    expect(calls()).toBe(1);
+  });
+
+  test("returning to the page fetches once, then polling continues", async () => {
+    const { dispatcher, calls } = countingDispatcher();
+    const { visibility, wrapper } = visibilityWrapper(dispatcher);
+    renderHook(() => useQuery(QUERY_TYPE, {}, { refetchIntervalMs: 1000 }), { wrapper });
+    await advance(0);
+    act(() => visibility.setState("hidden"));
+    await advance(3000);
+
+    await act(async () => visibility.setState("visible"));
+    expect(calls()).toBe(2);
+    await advance(1000);
+    expect(calls()).toBe(3);
+  });
+
+  test("a hook without refetchIntervalMs does not fetch when the page becomes visible", async () => {
+    const { dispatcher, calls } = countingDispatcher();
+    const { visibility, wrapper } = visibilityWrapper(dispatcher);
+    renderHook(() => useQuery(QUERY_TYPE, {}), { wrapper });
+    await advance(0);
+    act(() => visibility.setState("hidden"));
+    await act(async () => visibility.setState("visible"));
+    expect(calls()).toBe(1);
   });
 });

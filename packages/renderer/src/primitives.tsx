@@ -136,8 +136,18 @@ type ButtonBaseProps = {
    *  Delete, "secondary" for a Confirm state, "link" for inline actions in
    *  running text (no background, underline), "danger-ghost" for a
    *  destructive action as red text instead of a red fill, "ghost" for a
-   *  low-emphasis primary-colored text action beside a filled primary. */
-  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost" | "ghost";
+   *  low-emphasis primary-colored text action beside a filled primary.
+   *  "plain" is a click target without fixed height, padding, centring and
+   *  background, for multi-line rows and image tiles; layout via className,
+   *  focus ring and disabled stay. */
+  readonly variant?:
+    | "primary"
+    | "secondary"
+    | "danger"
+    | "link"
+    | "danger-ghost"
+    | "ghost"
+    | "plain";
   /** Size—default="md". "sm" is for compact inline actions (toolbars,
    *  list rows); "icon" is for square icon-only buttons. */
   readonly size?: "sm" | "md" | "icon";
@@ -180,6 +190,10 @@ export type LinkProps = {
    *  `rel` is set explicitly. */
   readonly target?: "_blank" | "_self" | "_parent" | "_top";
   readonly rel?: string;
+  /** Saves the target as a file under this name instead of navigating (empty =
+   *  name chosen by the browser) and then also allows `blob:` and
+   *  `data:image/` hrefs. */
+  readonly download?: string;
   /** Plain left-click handler (SPA navigation); `href` stays set for
    *  modifier/middle clicks, which the browser handles itself. */
   readonly onPress?: () => void;

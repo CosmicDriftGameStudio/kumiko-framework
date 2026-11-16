@@ -45,6 +45,7 @@ export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.t
 export { DetailList } from "./detail-list.tsx";
 export { Drawer, type DrawerProps } from "./drawer.tsx";
 export { FeedList, type FeedRow } from "./feed-list.tsx";
+export { FilePickButton, type FilePickButtonProps } from "./file-pick-button.tsx";
 export {
   FloatingPanel,
   type FloatingPanelGeometry,
@@ -153,6 +154,6 @@ export {
   type StepStatus,
   type StepTag,
 } from "./step-list.tsx";
-export { AiSurface, SenderFrame, SenderSheet } from "./surfaces.tsx";
+export { AiSurface } from "./surfaces.tsx";
 export { UploadZone, type UploadZoneProps } from "./upload-zone.tsx";
 export { useDraft } from "./use-draft.ts";

@@ -111,14 +111,7 @@ export { KumikoLink, useBrowserNavApi } from "./app/nav.tsx";
 export { PlainContentEditor } from "./app/plain-content-editor.tsx";
 export { useResolvers } from "./app/resolvers-context.tsx";
 export { clearRememberedListState } from "./app/session-list-state-store.ts";
-export {
-  DrawnFilter,
-  DrawnPanel,
-  DrawnPencil,
-  DrawnSearch,
-  DrawnSparkles,
-  DrawnWand,
-} from "./drawn-icons.ts";
+export { DrawnPencil, DrawnSearch, DrawnSparkles } from "./drawn-icons.ts";
 export type {
   EditorActionTestIds,
   EditorHeaderTestIds,
@@ -147,8 +140,6 @@ export {
 } from "./editor/index.ts";
 export type { NavIconKey } from "./icons.tsx";
 export { Icon } from "./icons.tsx";
-export type { AppLayoutProps } from "./layout/app-layout.tsx";
-export { AppLayout } from "./layout/app-layout.tsx";
 export type { AvatarProps, AvatarShape, AvatarSize } from "./layout/avatar.tsx";
 export { Avatar } from "./layout/avatar.tsx";
 export type { DefaultAppShellProps } from "./layout/default-app-shell.tsx";
@@ -267,6 +258,7 @@ export type {
   DrawerProps,
   FeedRow,
   FileFieldProps,
+  FilePickButtonProps,
   FloatingPanelGeometry,
   FloatingPanelPlacement,
   FloatingPanelProps,
@@ -345,6 +337,7 @@ export {
   ErrorState,
   FeedList,
   FileField,
+  FilePickButton,
   FloatingPanel,
   HtmlMailFrame,
   InfinityList,
@@ -373,8 +366,6 @@ export {
   SectionCard,
   SectionNavLayout,
   SelectField,
-  SenderFrame,
-  SenderSheet,
   SideBySideTable,
   Sparkline,
   STATUS_TONE_TEXT,

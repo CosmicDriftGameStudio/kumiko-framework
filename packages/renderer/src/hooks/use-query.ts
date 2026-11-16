@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatcher, useOptionalQueryPools } from "../context/dispatcher-context.tsx";
+import { usePageVisibility } from "../context/page-visibility-context.tsx";
 import type { QuerySlot } from "../context/query-pool.ts";
 import type { DispatcherError } from "../headless/index.ts";
 import { useLiveEvents } from "../sse/live-events.tsx";
@@ -23,7 +24,8 @@ export { entityFromQueryType } from "./live-query-entities.ts";
 // discriminated state so callers can branch on `loading | data | error`
 // without undefined-juggling. The first render is `loading: true,
 // data: null, error: null` (no optimistic "online" cache — add that
-// later if needed).
+// later if needed). Identical mount queries share one running request via
+// `QueryOpts.shareInFlight`; there is no cache.
 
 export type UseQueryResult<TData> = {
   readonly data: TData | null;
@@ -53,6 +55,12 @@ export type UseQueryOptions = {
   // waiting leaves the line without taking a slot. Unset = no cap.
   readonly concurrency?: number;
 };
+
+// Only the mount or dep-change fetch shares, because refetch, polling and live need fresh data after a change.
+type FetchMode = { readonly background: boolean; readonly shareInFlight: boolean };
+const INITIAL_FETCH: FetchMode = { background: false, shareInFlight: true };
+const REFETCH: FetchMode = { background: false, shareInFlight: false };
+const BACKGROUND_FETCH: FetchMode = { background: true, shareInFlight: false };
 
 function isValidConcurrency(value: number | undefined): value is number {
   return value !== undefined && Number.isFinite(value) && value >= 1;
@@ -89,7 +97,7 @@ export function useQuery<TData = unknown>(
   // not in deps — it's serialized into payloadKey above.
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
   const runFetch = useCallback(
-    async (background: boolean): Promise<void> => {
+    async (mode: FetchMode): Promise<void> => {
       // Abort whatever's in flight. observer on Safari 17+ handles this
       // without raising a fetch-throw in the previous caller — they
       // already set the error path.
@@ -98,7 +106,7 @@ export function useQuery<TData = unknown>(
       activeCtrl.current = ctrl;
 
       fetchInFlight.current = true;
-      if (!background) setLoading(true);
+      if (!mode.background) setLoading(true);
       let result: Awaited<ReturnType<typeof dispatcher.query<TData>>>;
       let slot: QuerySlot | null = null;
       try {
@@ -109,7 +117,10 @@ export function useQuery<TData = unknown>(
           // skip: slot granted just as the run was superseded, finally frees it
           if (ctrl.signal.aborted) return;
         }
-        result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
+        result = await dispatcher.query<TData>(type, payload, {
+          signal: ctrl.signal,
+          ...(mode.shareInFlight && { shareInFlight: true }),
+        });
       } finally {
         slot?.release();
         // A rejected fetch must not leave polling stuck; a superseded one must
@@ -132,7 +143,7 @@ export function useQuery<TData = unknown>(
     [dispatcher, type, payloadKey, queryPools, concurrency],
   );
 
-  const run = useCallback((): Promise<void> => runFetch(false), [runFetch]);
+  const run = useCallback((): Promise<void> => runFetch(REFETCH), [runFetch]);
 
   useEffect(() => {
     if (!enabled) {
@@ -140,25 +151,31 @@ export function useQuery<TData = unknown>(
       // skip: query disabled, loading state already cleared above
       return;
     }
-    void run();
+    void runFetch(INITIAL_FETCH);
     return () => {
       activeCtrl.current?.abort();
       fetchInFlight.current = false;
     };
-  }, [enabled, run]);
+  }, [enabled, runFetch]);
 
+  const pageVisibility = usePageVisibility();
   useEffect(() => {
     // skip: polling off or disabled query
     if (!enabled || refetchIntervalMs === undefined) return;
     // skip: non-positive or non-finite interval disables polling
     if (!Number.isFinite(refetchIntervalMs) || refetchIntervalMs <= 0) return;
-    const timer = setInterval(() => {
-      // skip: a fetch is still running, the next tick retries
-      if (fetchInFlight.current) return;
-      void runFetch(true);
-    }, refetchIntervalMs);
-    return () => clearInterval(timer);
-  }, [enabled, refetchIntervalMs, runFetch]);
+    const tick = (): void => {
+      // skip: a fetch is still running or nobody sees the page, the next tick or the return to the page retries
+      if (fetchInFlight.current || pageVisibility.getSnapshot() === "hidden") return;
+      void runFetch(BACKGROUND_FETCH);
+    };
+    const timer = setInterval(tick, refetchIntervalMs);
+    const unsubscribe = pageVisibility.subscribe(tick);
+    return () => {
+      clearInterval(timer);
+      unsubscribe();
+    };
+  }, [enabled, refetchIntervalMs, runFetch, pageVisibility]);
 
   // Live mode: listen for SSE events for the query entity and refetch.
   // A separate effect ensures changes to `live` or `type` update the
@@ -170,7 +187,7 @@ export function useQuery<TData = unknown>(
     if (!live || !enabled) return;
     // skip: no entity to listen on, nothing to subscribe to
     if (liveEntities.length === 0) return;
-    const scheduler = createLiveRefetchScheduler(() => runFetch(true));
+    const scheduler = createLiveRefetchScheduler(() => runFetch(BACKGROUND_FETCH));
     const unsubscribe = subscribeToEntities(subscribeLive, liveEntities, scheduler.trigger);
     return () => {
       unsubscribe();

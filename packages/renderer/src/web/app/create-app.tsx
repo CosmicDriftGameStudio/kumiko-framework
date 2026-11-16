@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { PageVisibilityProvider } from "../../context/page-visibility-context.tsx";
 import { rendererError, rendererWarn } from "../../dev-console.ts";
 import type {
   Dispatcher,
@@ -88,6 +89,7 @@ import { createClientErrorReporter } from "./client-error-reporter.ts";
 import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin.tsx";
 import { WebDashboardBody } from "./dashboard-body.tsx";
 import { DocumentLangSync } from "./document-lang-sync.tsx";
+import { createDocumentVisibilityStore } from "./document-visibility.ts";
 import { createBrowserDraftStorage } from "./draft-storage.ts";
 import { ListStateStoreBoot } from "./list-state-store-boot.tsx";
 import { useBrowserNavApi } from "./nav.tsx";
@@ -98,6 +100,7 @@ import { RootErrorFallback } from "./root-error-fallback.tsx";
 import { ScreenErrorFallback } from "./screen-error-fallback.tsx";
 import { ToastActionNotifier } from "./toast-action-notifier.tsx";
 
+const documentVisibility = createDocumentVisibilityStore();
 const EMPTY_FEATURES: readonly FeatureSchema[] = [];
 const EMPTY_COLLECTIONS: readonly QualifiedContentCollection[] = [];
 
@@ -536,6 +539,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
           <ScreenWidthProvider width={props.screenWidth}>
             <AppFeaturesProvider features={app?.features ?? EMPTY_FEATURES}>
               <DispatcherProvider dispatcher={props.dispatcher}>
+                <PageVisibilityProvider value={documentVisibility}>
                 <DraftStorageProvider value={props.draftStorage}>
                   <LiveEventsProvider value={props.liveEvents}>
                     <DashboardBodyProvider value={WebDashboardBody}>
@@ -579,6 +583,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                     </DashboardBodyProvider>
                   </LiveEventsProvider>
                 </DraftStorageProvider>
+                </PageVisibilityProvider>
               </DispatcherProvider>
             </AppFeaturesProvider>
           </ScreenWidthProvider>

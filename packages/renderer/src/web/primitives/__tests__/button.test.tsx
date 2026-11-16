@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { defaultPrimitives } from "../index.tsx";
 
@@ -138,5 +138,45 @@ describe("DefaultButton title and pressed", () => {
     const button = screen.getByTestId("btn");
     expect(button.hasAttribute("title")).toBe(false);
     expect(button.hasAttribute("aria-pressed")).toBe(false);
+  });
+});
+
+describe("DefaultButton plain variant", () => {
+  test("has no fixed height or nowrap, keeps left alignment and the focus ring, and clicks", () => {
+    let clicks = 0;
+    render(
+      <Button variant="plain" testId="btn" onClick={() => void (clicks += 1)}>
+        Row
+      </Button>,
+    );
+    const button = screen.getByTestId("btn");
+    expect(button.className).not.toContain("h-9");
+    expect(button.className).not.toContain("whitespace-nowrap");
+    expect(button.className).toContain("text-left");
+    expect(button.className).toContain("focus-visible:ring-[3px]");
+    fireEvent.click(button);
+    expect(clicks).toBe(1);
+  });
+
+  test("width full stretches the button", () => {
+    render(
+      <Button variant="plain" width="full" testId="btn">
+        Row
+      </Button>,
+    );
+    expect(screen.getByTestId("btn").className).toContain("w-full");
+  });
+
+  test("disabled sets the attribute and swallows the click", () => {
+    let clicks = 0;
+    render(
+      <Button variant="plain" disabled testId="btn" onClick={() => void (clicks += 1)}>
+        Row
+      </Button>,
+    );
+    const button = screen.getByTestId("btn");
+    expect(button.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(button);
+    expect(clicks).toBe(0);
   });
 });
