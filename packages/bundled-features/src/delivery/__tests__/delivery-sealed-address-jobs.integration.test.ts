@@ -1,6 +1,6 @@
-// Queued delivery jobs must not carry the recipient address in plaintext when the app has a
-// master key: the payloads sit in Redis and the job-run table. The address is sealed at
-// dispatch and opened only right before channel.send.
+// Queued delivery jobs must not carry the recipient address or the message content in plaintext
+// when the app has a master key: the payloads sit in Redis and the job-run table. Both are sealed
+// at dispatch and opened only inside the send job.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/db";
@@ -14,13 +14,16 @@ import { testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-testing/helpers";
 import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs } from "../constants.ts";
 import { collectChannels, createDeliveryService } from "../delivery-service.ts";
-import { deliveryRenderJob, deliverySendJob } from "../jobs.ts";
-import { sealRecipientAddress } from "../recipient-address-seal.ts";
+import { sealJobContent } from "../job-content-seal.ts";
+import { deliverySendJob } from "../jobs.ts";
 import { deliveryAttemptsTable } from "../tables.ts";
 import { type ChatHarness, setupChatHarness, tenantAdmin } from "./chat-channel-harness.ts";
 
 const CHANNEL = "sealed-probe";
 const ADDRESS = "alice.sealed@example.com";
+const TITLE = "Sealed-Title";
+const BODY = "Sealed-Body";
+const ORDER_REF = "Sealed-Ref";
 const OTHER_TENANT_ADDRESS = "bob.other-tenant@example.com";
 const OTHER_TENANT = testTenantId(99);
 
@@ -102,7 +105,7 @@ async function notifyThroughService(
   const notificationType = `app:notify:sealed-${notificationCounter++}`;
   await service.notify(
     notificationType,
-    { route: { [CHANNEL]: ADDRESS }, data: { title: "Sealed" } },
+    { route: { [CHANNEL]: ADDRESS }, data: { title: TITLE, body: BODY, orderRef: ORDER_REF } },
     tenantAdmin,
     tenantAdmin.tenantId,
   );
@@ -110,25 +113,24 @@ async function notifyThroughService(
 }
 
 describe("delivery jobs with a master key", () => {
-  test("render and send payloads carry no plaintext address and the channel still gets it", async () => {
+  test("the send payload carries neither address nor message content in plaintext and the channel still gets the address", async () => {
     sentTo.length = 0;
     const { dispatched, notificationType } = await notifyThroughService(cipher);
 
-    const renderJob = dispatched[0];
-    if (!renderJob) throw new Error("render job not dispatched");
-    expect(renderJob.name).toBe(DeliveryJobs.render);
-    expect(JSON.stringify(renderJob.payload)).not.toContain(ADDRESS);
-    expect(renderJob.payload).not.toHaveProperty("address");
-    expect(typeof renderJob.payload["sealedAddress"]).toBe("string");
-
-    const { ctx } = jobContext(recordingRunner(dispatched), cipher);
-    await deliveryRenderJob(renderJob.payload, ctx);
-    const sendJob = dispatched[1];
+    expect(dispatched).toHaveLength(1);
+    const sendJob = dispatched[0];
     if (!sendJob) throw new Error("send job not dispatched");
     expect(sendJob.name).toBe(DeliveryJobs.send);
-    expect(JSON.stringify(sendJob.payload)).not.toContain(ADDRESS);
-    expect(sendJob.payload["sealedAddress"]).toBe(renderJob.payload["sealedAddress"]);
+    const serialized = JSON.stringify(sendJob.payload);
+    for (const secret of [ADDRESS, TITLE, BODY, ORDER_REF]) {
+      expect(serialized).not.toContain(secret);
+    }
+    expect(sendJob.payload).not.toHaveProperty("content");
+    expect(sendJob.payload).not.toHaveProperty("address");
+    expect(sendJob.payload).not.toHaveProperty("message");
+    expect(typeof sendJob.payload["sealedContent"]).toBe("string");
 
+    const { ctx } = jobContext(recordingRunner([]), cipher);
     await deliverySendJob(sendJob.payload, ctx);
     expect(sentTo).toEqual([ADDRESS]);
 
@@ -142,7 +144,7 @@ describe("delivery jobs with a master key", () => {
     sentTo.length = 0;
     const { dispatched, notificationType } = await notifyThroughService(cipher);
     const sealedPayload = dispatched[0]?.payload;
-    if (!sealedPayload) throw new Error("render job not dispatched");
+    if (!sealedPayload) throw new Error("send job not dispatched");
 
     const { ctx, logged } = jobContext(recordingRunner([]), undefined);
     const failure = await deliverySendJob(sealedPayload, ctx).then(
@@ -168,7 +170,7 @@ describe("delivery jobs with a master key", () => {
     sentTo.length = 0;
     const { dispatched, notificationType } = await notifyThroughService(cipher);
     const sealedPayload = dispatched[0]?.payload;
-    if (!sealedPayload) throw new Error("render job not dispatched");
+    if (!sealedPayload) throw new Error("send job not dispatched");
     const foreignSecret = "iban-DE00-foreign-pii-field";
     const foreignCiphertext = await cipher.encrypt(foreignSecret, {
       tenantId: tenantAdmin.tenantId,
@@ -176,7 +178,7 @@ describe("delivery jobs with a master key", () => {
 
     const { ctx, logged } = jobContext(recordingRunner([]), cipher);
     const failure = await deliverySendJob(
-      { ...sealedPayload, sealedAddress: foreignCiphertext },
+      { ...sealedPayload, sealedContent: foreignCiphertext },
       ctx,
     ).then(
       () => undefined,
@@ -192,16 +194,24 @@ describe("delivery jobs with a master key", () => {
     expect(rows.map((row) => row.status)).toEqual(["failed"]);
     expect(JSON.stringify(rows)).not.toContain(foreignSecret);
   });
-  test("a sealed address of another tenant is not opened inside this tenant's job", async () => {
+
+  test("sealed content of another tenant is not opened inside this tenant's job", async () => {
     sentTo.length = 0;
     const { dispatched, notificationType } = await notifyThroughService(cipher);
     const sealedPayload = dispatched[0]?.payload;
-    if (!sealedPayload) throw new Error("render job not dispatched");
-    const otherTenantSeal = await sealRecipientAddress(OTHER_TENANT_ADDRESS, OTHER_TENANT, cipher);
+    if (!sealedPayload) throw new Error("send job not dispatched");
+    const otherTenantSeal = await sealJobContent(
+      {
+        address: OTHER_TENANT_ADDRESS,
+        message: { notificationType: "app:notify:sealed-other", title: "Other" },
+      },
+      OTHER_TENANT,
+      cipher,
+    );
 
     const { ctx, logged } = jobContext(recordingRunner([]), cipher);
     const failure = await deliverySendJob(
-      { ...sealedPayload, sealedAddress: otherTenantSeal.sealedAddress },
+      { ...sealedPayload, sealedContent: otherTenantSeal.sealedContent },
       ctx,
     ).then(
       () => undefined,
@@ -220,49 +230,26 @@ describe("delivery jobs with a master key", () => {
 });
 
 describe("delivery jobs without a master key", () => {
-  test("dispatch keeps the plaintext address and the job still sends", async () => {
+  test("dispatch keeps the plaintext content and the job still sends", async () => {
     sentTo.length = 0;
     const { dispatched } = await notifyThroughService(undefined);
-    const renderJob = dispatched[0];
-    if (!renderJob) throw new Error("render job not dispatched");
-    expect(renderJob.payload["address"]).toBe(ADDRESS);
-    expect(renderJob.payload).not.toHaveProperty("sealedAddress");
-
-    const { ctx } = jobContext(recordingRunner(dispatched), undefined);
-    await deliveryRenderJob(renderJob.payload, ctx);
-    const sendJob = dispatched[1];
+    const sendJob = dispatched[0];
     if (!sendJob) throw new Error("send job not dispatched");
+    expect(sendJob.payload["content"]).toMatchObject({ address: ADDRESS });
+    expect(sendJob.payload).not.toHaveProperty("sealedContent");
+
+    const { ctx } = jobContext(recordingRunner([]), undefined);
     await deliverySendJob(sendJob.payload, ctx);
     expect(sentTo).toEqual([ADDRESS]);
   });
 });
 
-describe("delivery jobs queued before sealing existed", () => {
-  test("a legacy plaintext-address payload still sends, with and without a cipher", async () => {
-    const legacyPayload = (attemptId: string) => ({
-      channelName: CHANNEL,
+describe("delivery job payload shape", () => {
+  test("a payload with both content and sealedContent, or neither, is rejected", async () => {
+    const content = {
       address: ADDRESS,
-      tenantId: tenantAdmin.tenantId,
-      recipientId: null,
-      notificationType: "app:notify:sealed-legacy",
-      deliveryAttemptId: attemptId,
-      priority: "normal",
-      message: { notificationType: "app:notify:sealed-legacy", title: "Legacy" },
-    });
-
-    sentTo.length = 0;
-    await deliverySendJob(
-      legacyPayload("00000000-0000-4000-8000-0000000000e1"),
-      jobContext(recordingRunner([]), cipher).ctx,
-    );
-    await deliverySendJob(
-      legacyPayload("00000000-0000-4000-8000-0000000000e2"),
-      jobContext(recordingRunner([]), undefined).ctx,
-    );
-    expect(sentTo).toEqual([ADDRESS, ADDRESS]);
-  });
-
-  test("a payload with both address and sealedAddress, or neither, is rejected", async () => {
+      message: { notificationType: "app:notify:sealed-invalid", title: "Invalid" },
+    };
     const base = {
       channelName: CHANNEL,
       tenantId: tenantAdmin.tenantId,
@@ -270,11 +257,10 @@ describe("delivery jobs queued before sealing existed", () => {
       notificationType: "app:notify:sealed-invalid",
       deliveryAttemptId: "00000000-0000-4000-8000-0000000000e3",
       priority: "normal",
-      message: { notificationType: "app:notify:sealed-invalid", title: "Invalid" },
     };
     const { ctx } = jobContext(recordingRunner([]), cipher);
     await expect(
-      deliverySendJob({ ...base, address: ADDRESS, sealedAddress: "x" }, ctx),
+      deliverySendJob({ ...base, content, sealedContent: "x" }, ctx),
     ).rejects.toThrow();
     await expect(deliverySendJob(base, ctx)).rejects.toThrow();
   });

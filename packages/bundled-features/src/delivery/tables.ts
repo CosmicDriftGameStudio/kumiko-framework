@@ -1,10 +1,10 @@
 import {
   boolean,
   buildBaseColumns,
-  defineUnmanagedTable,
   type EntityTableMeta,
   index,
   instant,
+  requireEntityTableMeta,
   table as pgTable,
   sql,
   text,
@@ -60,36 +60,13 @@ export const deliveryAttemptsTable = pgTable(
   ],
 );
 
-// **Unmanaged table** — deliberately has no createEntity because:
-//   - id comes from the aggregate stream (no gen_random_uuid()-DEFAULT)
-//   - no version/inserted_by/modified_by/modified_at: no in-place edits or
-//     audit columns are needed (idempotent-on-replay via PK conflict)
-//   - created_at rather than inserted_at reflects historical naming drift, not
-//     a bug
-// The app is responsible for tenant scoping in queries and replay idempotency.
-// pgTable remains the source of truth for the query API; the pgTable is derived
-// from this metadata.
-export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
-  tableName: "store_delivery_attempts",
-  indexes: [
-    { name: DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX, columns: ["tenant_id", "created_at"] },
-    { name: DELIVERY_ATTEMPTS_TENANT_IDEMPOTENCY_INDEX, columns: ["tenant_id", "idempotency_key"] },
-  ],
-  columns: [
-    { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
-    { name: "tenant_id", pgType: "uuid", notNull: true },
-    { name: "notification_type", pgType: "text", notNull: true },
-    { name: "channel", pgType: "text", notNull: true },
-    { name: "recipient_id", pgType: "text", notNull: false },
-    { name: "recipient_address", pgType: "text", notNull: false },
-    { name: "status", pgType: "text", notNull: true },
-    { name: "error", pgType: "text", notNull: false },
-    { name: "confirmed", pgType: "boolean", notNull: false },
-    { name: "priority", pgType: "text", notNull: true, defaultSql: "'normal'" },
-    { name: "created_at", pgType: "timestamptz", notNull: true, defaultSql: "now()" },
-    { name: "idempotency_key", pgType: "text", notNull: false },
-  ],
-});
+// Event projection without an entity: the id comes from the attempt stream and there are no
+// audit or version columns. It is registered via r.storeTable because that is the only register
+// for tables without an entity; the store_ prefix is the deliberate exception here.
+export const deliveryAttemptsTableMeta: EntityTableMeta = requireEntityTableMeta(
+  deliveryAttemptsTable,
+  "deliveryAttemptsTable",
+);
 
 // User-scoped opt-in/opt-out for (notificationType, channel) pairs. Post-ES
 // refactor: each row is a notificationPreference aggregate with

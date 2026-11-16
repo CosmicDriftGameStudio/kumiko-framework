@@ -61,7 +61,6 @@ export type DeliveryStatusValue = (typeof DeliveryStatus)[keyof typeof DeliveryS
 export const DELIVERY_ATTEMPT_EVENT = "delivery:event:attempt" as const;
 
 export const DeliveryJobNames = {
-  render: "render",
   send: "send",
   attemptLogRetention: "attempt-log-retention",
 } as const;

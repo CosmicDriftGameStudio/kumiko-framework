@@ -65,8 +65,8 @@ export {
   createDeliveryService,
   type DeliveryServiceOptions,
   type KillSwitchResolver,
-  type RateLimitConfig,
 } from "./delivery-service.ts";
+export type { RateLimitConfig } from "./delivery-rate-limit.ts";
 export { createDeliveryFeature } from "./feature.ts";
 export {
   type UnsubscribeAddressPayload,
@@ -102,17 +102,19 @@ export {
   type RenderedMessage,
 } from "./types.ts";
 export {
-  type AddressUnsubscribeTokenPayload,
   createUnsubscribePageChromeReader,
   createUnsubscribeRoutes,
-  DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   renderUnsubscribeResultPage,
-  signAddressUnsubscribeToken,
-  signUnsubscribeToken,
   type UnsubscribePageChromeReader,
   type UnsubscribeResultPage,
-  type UnsubscribeRouteOptions,
-  type UnsubscribeTokenPayload,
 } from "./unsubscribe.ts";
 export type { UnsubscribeLinkConfig } from "./unsubscribe-link.ts";
+export {
+  type AddressUnsubscribeTokenPayload,
+  DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
+  signAddressUnsubscribeToken,
+  signUnsubscribeToken,
+  type UnsubscribeRouteOptions,
+  type UnsubscribeTokenPayload,
+} from "./unsubscribe-tokens.ts";
 export { UNSUBSCRIBE_PAGE_EN } from "./unsubscribe-page-strings.ts";

@@ -51,13 +51,15 @@ describe("delivery.send when the attempt log write fails after the send", () => 
     await deliverySendJob(
       {
         channelName: "send-log-probe",
-        address: "someone",
         tenantId: tenantAdmin.tenantId,
         recipientId: null,
         notificationType: "app:notify:send-log",
         deliveryAttemptId: "00000000-0000-4000-8000-0000000000dd",
         priority: "normal",
-        message: { notificationType: "app:notify:send-log", title: "X" },
+        content: {
+          address: "someone",
+          message: { notificationType: "app:notify:send-log", title: "X" },
+        },
       },
       { ...ctx, registry },
     );

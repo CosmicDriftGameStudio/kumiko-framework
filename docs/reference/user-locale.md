@@ -41,7 +41,7 @@ Account-Unlock) werden in der **Locale des Anfragenden** gerendert.
 ## 4. Mail-Vorlagen pro Locale (fw#3511)
 
 `ctx.notify(type, { locale })` reicht die Locale über `ChannelMessage` und die
-Jobs `delivery.render`/`delivery.send` bis an `renderer.render({ locale })`.
+den Job `delivery.send` bis an `renderer.render({ locale })`.
 Die Auth- und Consumer-Protection-Mails setzen sie mit der Locale, in der sie
 ihren Inhalt übersetzen.
 

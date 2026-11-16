@@ -47,7 +47,8 @@ import {
 } from "../tables.ts";
 import { createDeliveryTestContext } from "../testing.ts";
 import type { DeliveryService } from "../types.ts";
-import { createUnsubscribeRoutes, signAddressUnsubscribeToken } from "../unsubscribe.ts";
+import { createUnsubscribeRoutes } from "../unsubscribe.ts";
+import { signAddressUnsubscribeToken } from "../unsubscribe-tokens.ts";
 import { DeliveryHandlers } from "../web/public-names.ts";
 import { createPlainFallbackEmailFeature } from "./plain-email-channel.ts";
 

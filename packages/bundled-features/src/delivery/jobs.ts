@@ -1,9 +1,8 @@
-// delivery.render → delivery.send job handlers. Async (queued-mode) channels
-// are delivered here instead of inline in notify(): render runs the expensive
-// template step in its own worker and dispatches send on success, so a render
-// crash never blocks the SMTP send and each step retries independently. The
-// `queued` attempt event is written by the delivery-service at dispatch time;
-// these handlers append the terminal sent/failed event on the same stream.
+// delivery.send job handler. Async (queued-mode) channels are delivered here instead of inline in
+// notify(): the job renders (if the channel has a render step) and sends in one step. Neither
+// rendered HTML nor plaintext content sits in Redis or the job-run table; a retry renders again.
+// The `queued` attempt event is written by the delivery-service at dispatch time; this handler
+// appends the terminal sent/failed event on the same stream.
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type {
@@ -14,23 +13,17 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
 import { fileContextForTenant } from "../file-foundation/index.ts";
-import {
-  emailAttachmentRefSchema,
-  MAX_EMAIL_ATTACHMENTS,
-  toAttachmentRef,
-} from "./attachment-ref.ts";
 import { appendAttemptEvent } from "./attempt-log.ts";
 import { buildChannelContext } from "./channel-context.ts";
-import { DeliveryJobs, deliveryIdempotencyRedisKey, deliveryPriorityRank } from "./constants.ts";
+import { deliveryIdempotencyRedisKey } from "./constants.ts";
 import { collectChannels, redactedMessageOf } from "./delivery-service.ts";
 import {
-  openRecipientAddress,
-  type RecipientAddressField,
-  recipientAddressFieldSchema,
-} from "./recipient-address-seal.ts";
+  type DeliveryJobContent,
+  jobContentFieldSchema,
+  openJobContent,
+} from "./job-content-seal.ts";
 import type {
   ChannelMessage,
   DeliveryChannel,
@@ -38,45 +31,21 @@ import type {
   RenderedMessage,
 } from "./types.ts";
 
-const channelMessageSchema = z.object({
-  notificationType: z.string(),
-  title: z.string(),
-  body: z.string().optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
-  locale: z.string().optional(),
-});
-
-const renderJobBaseSchema = z.object({
-  channelName: z.string(),
-  tenantId: z.string(),
-  recipientId: z.string().nullable(),
-  notificationType: z.string(),
-  deliveryAttemptId: z.string(),
-  priority: z.enum(["critical", "normal", "low"]),
-  message: channelMessageSchema,
-  idempotencyKey: z.string().optional(),
-  // The notify() key as given, for the channel context; idempotencyKey above is only the release key.
-  notifyIdempotencyKey: z.string().optional(),
-});
-
-const renderJobPayloadSchema = renderJobBaseSchema.and(recipientAddressFieldSchema);
-
-const sendJobPayloadSchema = renderJobBaseSchema
-  .extend({
-    rendered: z
-      .object({
-        html: z.string(),
-        subject: z.string(),
-        text: z.string().optional(),
-        fromName: z.string().optional(),
-        replyTo: z.string().optional(),
-        attachments: z.array(emailAttachmentRefSchema).max(MAX_EMAIL_ATTACHMENTS).optional(),
-      })
-      .optional(),
+const sendJobPayloadSchema = z
+  .object({
+    channelName: z.string(),
+    tenantId: z.string(),
+    recipientId: z.string().nullable(),
+    notificationType: z.string(),
+    deliveryAttemptId: z.string(),
+    priority: z.enum(["critical", "normal", "low"]),
+    idempotencyKey: z.string().optional(),
+    // The notify() key as given, for the channel context; idempotencyKey above is only the release key.
+    notifyIdempotencyKey: z.string().optional(),
   })
-  .and(recipientAddressFieldSchema);
+  .and(jobContentFieldSchema);
 
-type RenderJobPayload = z.infer<typeof renderJobPayloadSchema>;
+type SendJobPayload = z.infer<typeof sendJobPayloadSchema>;
 
 function requireTenantScopedDeps(
   ctx: JobContext,
@@ -101,39 +70,24 @@ function requireTenantScopedDeps(
   return { db, registry };
 }
 
-function toSendRendered(
-  rendered: RenderedMessage,
-): z.infer<typeof sendJobPayloadSchema>["rendered"] {
-  return {
-    html: rendered.html,
-    subject: rendered.subject,
-    ...(rendered.text !== undefined && { text: rendered.text }),
-    ...(rendered.fromName !== undefined && { fromName: rendered.fromName }),
-    ...(rendered.replyTo !== undefined && { replyTo: rendered.replyTo }),
-    ...(rendered.attachments !== undefined && {
-      attachments: rendered.attachments.map(toAttachmentRef),
-    }),
-  };
-}
-
 function resolveChannel(registry: Registry, name: string): DeliveryChannel {
   const channel = collectChannels(registry).find((c) => c.name === name);
   if (!channel) throw new Error(`delivery job: unknown channel "${name}"`);
   return channel;
 }
 
-function toMessage(p: RenderJobPayload): ChannelMessage {
+function toMessage(message: DeliveryJobContent["message"]): ChannelMessage {
   return {
-    notificationType: p.message.notificationType,
-    title: p.message.title,
-    body: p.message.body,
-    data: p.message.data,
-    locale: p.message.locale,
+    notificationType: message.notificationType,
+    title: message.title,
+    body: message.body,
+    data: message.data,
+    locale: message.locale,
   };
 }
 
 function entryFor(
-  p: RenderJobPayload,
+  p: SendJobPayload,
   status: DeliveryLogEntry["status"],
   error: DeliveryErrorCode | null,
   address: string | null,
@@ -154,7 +108,7 @@ function entryFor(
 
 // Assumes ctx.services.redis is the handle the service claimed on; runProdApp wires the same
 // instance into both.
-async function releaseIdempotencyKey(ctx: JobContext, p: RenderJobPayload): Promise<void> {
+async function releaseIdempotencyKey(ctx: JobContext, p: SendJobPayload): Promise<void> {
   // skip: no idempotency key was claimed for this notification
   if (!p.idempotencyKey) return;
   if (!ctx.services.redis) {
@@ -176,7 +130,7 @@ async function releaseIdempotencyKey(ctx: JobContext, p: RenderJobPayload): Prom
 // must still dedup.
 async function releaseIdempotencyOnTerminalFailure(
   ctx: JobContext,
-  p: RenderJobPayload,
+  p: SendJobPayload,
 ): Promise<void> {
   // skip: not the last attempt, the runner retries and the key must keep deduplicating
   if (!ctx.finalAttempt) return;
@@ -188,7 +142,7 @@ async function releaseIdempotencyOnTerminalFailure(
 // until its TTL.
 async function releasingKeyOnTerminalFailure<T>(
   ctx: JobContext,
-  p: RenderJobPayload,
+  p: SendJobPayload,
   run: () => Promise<T>,
 ): Promise<T> {
   try {
@@ -199,22 +153,6 @@ async function releasingKeyOnTerminalFailure<T>(
   }
 }
 
-// A missing or rotated key must not hide the original failure, so the log row just omits the address.
-async function addressForAttemptLog(
-  p: RecipientAddressField & { readonly tenantId: string },
-  ctx: JobContext,
-): Promise<string | null> {
-  try {
-    return await openRecipientAddress(
-      p,
-      p.tenantId as TenantId, // @cast-boundary engine-payload — job payload string is the stream tenant
-      ctx.services.configEncryption,
-    );
-  } catch {
-    return null;
-  }
-}
-
 // The job runner stores err.message in the run row, and BullMQ keeps failedReason and
 // the stack trace in Redis in plain text, so the rethrown error carries only the code.
 // The redacted message goes to the log.
@@ -222,7 +160,8 @@ async function failAttempt(
   ctx: JobContext,
   db: DbConnection,
   registry: Registry,
-  p: RenderJobPayload,
+  p: SendJobPayload,
+  address: string | null,
   code: DeliveryErrorCode,
   err: unknown,
 ): Promise<never> {
@@ -235,65 +174,19 @@ async function failAttempt(
     db,
     registry,
     p.deliveryAttemptId,
-    entryFor(p, "failed", code, await addressForAttemptLog(p, ctx)),
+    entryFor(p, "failed", code, address),
   );
   throw new Error(code);
 }
 
-// Render the message and hand off to delivery.send. On failure: record the
-// terminal failed event and rethrow so BullMQ retries this step (re-render);
-// the send step is never reached, so a stuck render can't half-send.
-export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
-  const p = renderJobPayloadSchema.parse(payload);
-  return releasingKeyOnTerminalFailure(ctx, p, () => renderStep(p, ctx));
-};
-
-async function renderStep(p: RenderJobPayload, ctx: JobContext): Promise<void> {
-  const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
-  const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
-  const channel = resolveChannel(registry, p.channelName);
-  const channelCtx = buildChannelContext(
-    db,
-    registry,
-    undefined,
-    tenantId,
-    ctx.services.secrets,
-    ctx.config,
-    (fileTenantId) => fileContextForTenant(ctx, ctx.systemUser.tenantId, fileTenantId),
-    p.notifyIdempotencyKey,
-  );
-
-  let rendered: RenderedMessage;
-  try {
-    if (!channel.render) {
-      throw new Error(`delivery.render: channel "${p.channelName}" has no render step`);
-    }
-    rendered = await channel.render(toMessage(p), channelCtx);
-  } catch (err) {
-    return failAttempt(ctx, db, registry, p, "render_failed", err);
-  }
-  try {
-    const jobRunner = ctx.services.jobRunner as JobRunner; // @cast-boundary engine-bridge — dispatch lives on the concrete runner
-    await jobRunner.dispatch(
-      DeliveryJobs.send,
-      { ...p, rendered: toSendRendered(rendered) },
-      { priority: deliveryPriorityRank[p.priority] },
-    );
-  } catch (err) {
-    return failAttempt(ctx, db, registry, p, "channel_error", err);
-  }
-}
-
-// Deliver via the channel using the rendered payload (if any). On failure:
-// record the terminal failed event and rethrow so BullMQ retries the send with
-// the same already-rendered HTML — no re-render needed.
-// guard:dup-ok one job entry point per step; payload schema and step differ from deliveryRenderJob
+// Render (if the channel has a render step) and deliver. On failure: record the terminal
+// failed event and rethrow so BullMQ retries the whole job, which renders again.
 export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
   const p = sendJobPayloadSchema.parse(payload);
   return releasingKeyOnTerminalFailure(ctx, p, () => sendStep(p, ctx));
 };
 
-async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext): Promise<void> {
+async function sendStep(p: SendJobPayload, ctx: JobContext): Promise<void> {
   const tenantId = p.tenantId as TenantId; // @cast-boundary engine-payload — stream tenant
   const { db, registry } = requireTenantScopedDeps(ctx, tenantId);
   const channel = resolveChannel(registry, p.channelName);
@@ -308,13 +201,29 @@ async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext
     p.notifyIdempotencyKey,
   );
 
-  let address: string;
+  // A missing or rotated key must not hide the original failure, so the log row just omits the address.
+  let content: DeliveryJobContent;
+  try {
+    content = await openJobContent(p, tenantId, ctx.services.configEncryption);
+  } catch (err) {
+    return failAttempt(ctx, db, registry, p, null, "send_failed", err);
+  }
+  const message = toMessage(content.message);
+
+  let rendered: RenderedMessage | undefined;
+  if (channel.render) {
+    try {
+      rendered = await channel.render(message, channelCtx);
+    } catch (err) {
+      return failAttempt(ctx, db, registry, p, content.address, "render_failed", err);
+    }
+  }
+
   let result: Awaited<ReturnType<typeof channel.send>>;
   try {
-    address = await openRecipientAddress(p, tenantId, ctx.services.configEncryption);
-    result = await channel.send(address, toMessage(p), channelCtx, p.rendered);
+    result = await channel.send(content.address, message, channelCtx, rendered);
   } catch (err) {
-    return failAttempt(ctx, db, registry, p, "send_failed", err);
+    return failAttempt(ctx, db, registry, p, content.address, "send_failed", err);
   }
 
   // The message is out: rethrowing here would make BullMQ retry and send it again.
@@ -323,7 +232,13 @@ async function sendStep(p: z.infer<typeof sendJobPayloadSchema>, ctx: JobContext
       db,
       registry,
       p.deliveryAttemptId,
-      entryFor(p, result.status, result.error ?? null, result.address ?? address, result.confirmed),
+      entryFor(
+        p,
+        result.status,
+        result.error ?? null,
+        result.address ?? content.address,
+        result.confirmed,
+      ),
     );
   } catch (err) {
     ctx.obs.log.error(

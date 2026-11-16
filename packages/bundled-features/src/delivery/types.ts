@@ -88,8 +88,8 @@ export type RenderedMessage = {
 
 // `mode` decides how the delivery-service dispatches a channel:
 //   inline — sent synchronously inside notify() (inApp: DB insert + SSE).
-//   queued — sent asynchronously via the delivery.send job; channels with a
-//            render() additionally run through delivery.render first.
+//   queued — sent asynchronously via the delivery.send job, which also runs
+//            the channel's render().
 export const DELIVERY_CHANNEL_MODES = ["inline", "queued"] as const;
 export type DeliveryChannelMode = (typeof DELIVERY_CHANNEL_MODES)[number];
 

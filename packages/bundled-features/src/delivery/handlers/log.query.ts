@@ -16,7 +16,7 @@ import {
   type Registry,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.ts";
@@ -76,14 +76,18 @@ function encodeSortCursor(column: DeliveryLogSortColumn, row: DeliveryLogRow): s
   return encodeKeysetCursor(sortValue, row.id);
 }
 
-type DecodedSortCursor = { sortValue: Temporal.Instant | string; lastId: string | undefined };
+type DecodedSortCursor = { sortValue: Temporal.Instant | string; lastId: string };
 
-// lastId is undefined for a legacy sort-value-only cursor still in flight.
 function decodeSortCursor(column: DeliveryLogSortColumn, cursor: string): DecodedSortCursor {
   const decoded = decodeKeysetCursor(cursor);
-  const raw = decoded.sortValue ?? decoded.id;
-  const sortValue = column === "createdAt" ? Temporal.Instant.from(raw) : raw;
-  return { sortValue, lastId: decoded.sortValue === undefined ? undefined : decoded.id };
+  if (typeof decoded.sortValue !== "string") {
+    throw new ValidationError({
+      fields: [{ path: "cursor", code: "invalid_type", i18nKey: "errors.validation.invalid_type" }],
+    });
+  }
+  const sortValue =
+    column === "createdAt" ? Temporal.Instant.from(decoded.sortValue) : decoded.sortValue;
+  return { sortValue, lastId: decoded.id };
 }
 
 // One batched name lookup for the whole page. Only when the user feature is
@@ -177,7 +181,7 @@ export const logQuery = definePagedQueryHandler({
     // cursor's id), then rows strictly beyond it. Both halves are ordered the
     // same way as the overall ORDER BY, so concatenation preserves it.
     const tiedRows =
-      cursor?.lastId !== undefined
+      cursor !== undefined
         ? await selectMany<DeliveryLogRow>(
             db,
             deliveryAttemptsTable,

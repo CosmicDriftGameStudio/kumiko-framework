@@ -37,9 +37,9 @@ import {
   createUnsubscribePageChromeReader,
   createUnsubscribeRoutes,
   renderUnsubscribeResultPage,
-  signUnsubscribeToken,
   type UnsubscribePageChromeReader,
 } from "../unsubscribe.ts";
+import { signUnsubscribeToken } from "../unsubscribe-tokens.ts";
 
 const UNSUBSCRIBE_SECRET = "unsubscribe-page-test-secret-at-least-32-chars";
 const NOTIFICATION_TYPE = "page-probe:notify:status";
