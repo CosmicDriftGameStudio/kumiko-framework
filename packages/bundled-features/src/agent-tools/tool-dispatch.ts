@@ -282,10 +282,7 @@ async function dispatchServerQuery(
   return { ok: true, data };
 }
 
-/** Runs a write tool call: optionally injects the current `version` (read fresh from the
- *  paired detail handler right before the optimistic-lock write), dispatches with a
- *  run-scoped idempotency key, and — on success — re-reads through the detail handler so the
- *  returned data goes through the field-level read filter (the raw write result does not). */
+/** Runs a write tool call with a run-scoped idempotency key, passing the model's `version` through untouched so optimistic locking holds, and on success re-reads through the detail handler so the returned data goes through the field-level read filter (the raw write result does not). */
 async function dispatchServerWrite(
   descriptor: Extract<ToolDispatchDescriptor, { kind: "server"; op: "write" }>,
   dispatcher: ToolDispatcher,
@@ -295,36 +292,8 @@ async function dispatchServerWrite(
   toolCallId: string,
   classifyFailure: FailureClassifier,
 ): Promise<ToolCallResult> {
-  let payload: Readonly<Record<string, unknown>> = input;
-
-  if (descriptor.injectsVersion) {
-    const id = input["id"];
-    if (typeof id !== "string" || id.length === 0) {
-      return invalidToolCall(`This tool requires a non-empty string "id" argument`);
-    }
-    if (!descriptor.detailQn) {
-      const message = `Tool ${descriptor.qn} injects a version but has no detail handler to read it from`;
-      return classifyFailure(
-        {
-          code: "internal_error",
-          httpStatus: HTTP_SERVER_ERROR,
-          message,
-          retryAfterSeconds: undefined,
-        },
-        new Error(message),
-      );
-    }
-    const current = await dispatcher.query(descriptor.detailQn, { id }, user);
-    const version =
-      isRecord(current) && typeof current["version"] === "number" ? current["version"] : undefined;
-    if (version === undefined) {
-      return invalidToolCall(`Could not read the current "version" for id "${id}"`);
-    }
-    payload = { ...input, version };
-  }
-
   const requestId = `${runId}:${toolCallId}`;
-  const result = await dispatcher.write(descriptor.qn, payload, user, requestId);
+  const result = await dispatcher.write(descriptor.qn, input, user, requestId);
 
   if (!result.isSuccess) {
     return classifyFailure(

@@ -1,3 +1,4 @@
+import type { TranslationEntry, TranslationKeys } from "@cosmicdrift/kumiko-types/config";
 import type { NavDefinition } from "@cosmicdrift/kumiko-types/nav";
 import type {
   DashboardChartPanel,
@@ -21,6 +22,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/screen";
 import type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 import { isExplicitDotFormKey } from "../engine/i18n-key.ts";
+import { type QnType, QnTypes, qualifyEntityName } from "../engine/qualified-name.ts";
 import type { FieldsOrGroupsSection } from "../engine/screen-helpers.ts";
 import {
   isExtensionEditSection,
@@ -78,6 +80,44 @@ export function webhookEventFieldKey(webhookEventQn: string, fieldPath: string):
 
 export function handlerFieldLabelKey(handlerQn: string, fieldName: string): string {
   return `${handlerQn}:field:${fieldName}`;
+}
+
+export type HandlerTranslationTexts = {
+  readonly title: TranslationEntry;
+  readonly description?: TranslationEntry;
+  readonly fields?: Readonly<Record<string, TranslationEntry>>;
+};
+
+export type HandlerTranslations = {
+  readonly writes?: Readonly<Record<string, HandlerTranslationTexts>>;
+  readonly queries?: Readonly<Record<string, HandlerTranslationTexts>>;
+};
+
+// Handler names are the short names given to r.writeHandler / r.queryHandler; the QN is
+// qualified the same way the registry does, so the keys match what boot validation requires.
+export function handlerTranslationKeys(
+  featureName: string,
+  handlers: HandlerTranslations,
+): TranslationKeys {
+  const keys: Record<string, TranslationEntry> = {};
+  const add = (
+    type: QnType,
+    byName: Readonly<Record<string, HandlerTranslationTexts>> | undefined,
+  ) => {
+    for (const [name, texts] of Object.entries(byName ?? {})) {
+      const handlerQn = qualifyEntityName(featureName, type, name);
+      keys[handlerTitleKey(handlerQn)] = texts.title;
+      if (texts.description !== undefined) {
+        keys[handlerDescriptionKey(handlerQn)] = texts.description;
+      }
+      for (const [field, label] of Object.entries(texts.fields ?? {})) {
+        keys[handlerFieldLabelKey(handlerQn, field)] = label;
+      }
+    }
+  };
+  add(QnTypes.write, handlers.writes);
+  add(QnTypes.query, handlers.queries);
+  return keys;
 }
 
 export function booleanFacetOptionKeys(

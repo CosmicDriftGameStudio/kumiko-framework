@@ -193,6 +193,22 @@ describe("buildAgentManifest", () => {
     expect(admin.handlers.some((h) => h.qn.endsWith(":archive"))).toBe(true);
   });
 
+  test("the handler input schema is computed once per handler def and reused across manifest builds", () => {
+    const registry = createRegistry([buildTestFeature()]);
+    const options = { locale: "en", roles: ["admin"] };
+    const first = buildAgentManifest(registry, options);
+    const second = buildAgentManifest(registry, options);
+    const archiveQn = "agent-manifest-test:write:widget:archive";
+    const oddQn = "agent-manifest-test:query:widget:oddschema";
+
+    const firstArchive = first.handlers.find((h) => h.qn === archiveQn);
+    const secondArchive = second.handlers.find((h) => h.qn === archiveQn);
+    expect(firstArchive).toBeDefined();
+    expect(secondArchive?.inputSchema).toBe(firstArchive?.inputSchema);
+    expect(first.handlers.some((h) => h.qn === oddQn)).toBe(false);
+    expect(second.handlers.some((h) => h.qn === oddQn)).toBe(false);
+  });
+
   test("PII field carries only the marker, never a value", () => {
     const registry = createRegistry([buildTestFeature()]);
     const admin = buildAgentManifest(registry, { locale: "en", roles: ["admin"] });

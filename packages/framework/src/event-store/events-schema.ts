@@ -15,7 +15,7 @@ import {
 import { type DbConnection, tableExists } from "../db/index.ts";
 import {
   ensureIdempotencyKeyIndex,
-  ensureMembershipPayloadTenantIndex,
+  ensureSecondaryEventIndexes,
 } from "../db/queries/event-store.ts";
 import { ensureTableRowLevelSecurity, unsafePushTables } from "../db/table-push.ts";
 import { createArchivedStreamsTable } from "./archive.ts";
@@ -90,7 +90,7 @@ export async function createEventsTable(db: DbConnection): Promise<void> {
   // that predate the idempotency-key index get healed the same way
   // ensureSnapshotVersionColumn heals kumiko_snapshots.
   await ensureIdempotencyKeyIndex(db);
-  await ensureMembershipPayloadTenantIndex(db);
+  await ensureSecondaryEventIndexes(db);
   await createArchivedStreamsTable(db);
   await createSnapshotsTable(db);
 }

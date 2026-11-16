@@ -104,6 +104,7 @@ function handlerDescriptionKey(handlerQn: string): string;
 function handlerFieldLabelKey(handlerQn: string, fieldName: string): string;
 function handlerFieldReference(schema: z.ZodType, field: string): HandlerFieldReference | undefined;
 function handlerTitleKey(handlerQn: string): string;
+function handlerTranslationKeys(featureName: string, handlers: HandlerTranslations): TranslationKeys; // Handler names are the short names given to r.writeHandler / r.queryHandler; the QN is qualified the same way the registry does, so the keys match what boot validation requires.
 function hasAccess(user: Pick<SessionUser, "roles">, access: AccessRule | undefined): boolean;
 function i18nKey(value: string): string;
 function isAgentVisibleScreen(screen: { agent?: AgentScreenHints; }): boolean; // Screens are the inverse of handlers: the manifest lists every role-visible screen regardless of `description`, so only an explicit opt-out hides one.
@@ -992,6 +993,15 @@ type HandlerObservability = {
   metrics: MetricsHandle;
   metricsFor: (featureName: string) => MetricsHandle;
   meter?: Meter;
+};
+type HandlerTranslations = {
+  writes?: Record<string, HandlerTranslationTexts>;
+  queries?: Record<string, HandlerTranslationTexts>;
+};
+type HandlerTranslationTexts = {
+  title: TranslationEntry;
+  description?: TranslationEntry;
+  fields?: Record<string, TranslationEntry>;
 };
 type JobContext = {
   db: TenantDb;

@@ -182,8 +182,13 @@ export {
   handlerDescriptionKey,
   handlerFieldLabelKey,
   handlerTitleKey,
+  handlerTranslationKeys,
   webhookEventDescriptionKey,
   webhookEventFieldKey,
+} from "../i18n/required-surface-keys.ts";
+export type {
+  HandlerTranslations,
+  HandlerTranslationTexts,
 } from "../i18n/required-surface-keys.ts";
 export { attachOutsideTransaction } from "../pipeline/attach-outside-transaction.ts";
 export { hasAccess } from "./access.ts";

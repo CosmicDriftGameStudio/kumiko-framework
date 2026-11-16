@@ -58,7 +58,6 @@ const DISPATCH_TABLE = new Map<string, ToolDispatchDescriptor>([
       risk: "mid",
       entity: "vendor",
       detailQn: "vendor-feature:query:vendor:detail",
-      injectsVersion: true,
     },
   ],
   [
@@ -291,51 +290,41 @@ describe("dispatchToolCall — get_/list_ server query tools", () => {
 });
 
 describe("dispatchToolCall — server write tools", () => {
-  test("injectsVersion: reads the current version off the detail handler before writing", async () => {
+  test("passes the model's version through untouched and re-reads through the detail handler after the write", async () => {
     const dispatcher = recordingDispatcher({
       query: async (type, payload, user) => {
         dispatcher.queryCalls.push({ type, payload, user });
-        expect(type).toBe("vendor-feature:query:vendor:detail");
-        return { id: "vendor-1", version: 5 };
+        return { id: "vendor-1", version: 6 };
       },
     });
+    const input = { id: "vendor-1", note: "looks good", version: 5 };
     const result = await dispatchToolCall(
-      request({
-        dispatcher,
-        toolName: "vendor_feature_vendor_approve",
-        input: { id: "vendor-1", note: "looks good" },
-      }),
+      request({ dispatcher, toolName: "vendor_feature_vendor_approve", input }),
     );
 
     expect(result.ok).toBe(true);
-    expect(dispatcher.writeCalls).toEqual([
-      {
-        type: "vendor-feature:write:vendor:approve",
-        payload: { id: "vendor-1", note: "looks good", version: 5 },
-        user: CALLER,
-        requestId: "run-1:call-1",
-      },
-    ]);
-    // Two detail-handler reads: the pre-write version check and the post-write
-    // re-read, both field-level filtered rather than trusting the raw write result.
+    expect(dispatcher.writeCalls).toHaveLength(1);
+    expect(dispatcher.writeCalls[0]?.payload).toEqual({
+      id: "vendor-1",
+      note: "looks good",
+      version: 5,
+    });
+    // Only the post-write re-read: field-level filtered, not the raw write result.
     expect(dispatcher.queryCalls).toEqual([
-      { type: "vendor-feature:query:vendor:detail", payload: { id: "vendor-1" }, user: CALLER },
       { type: "vendor-feature:query:vendor:detail", payload: { id: "vendor-1" }, user: CALLER },
     ]);
   });
 
-  test("injectsVersion without a detail handler is a logged internal error, not an invalid tool call", async () => {
+  test("a write without a detail handler still dispatches and returns ok", async () => {
     const dispatcher = recordingDispatcher();
-    const logged: unknown[] = [];
     const table = new Map<string, ToolDispatchDescriptor>([
       [
-        "broken_approve",
+        "plain_approve",
         {
           kind: "server",
           op: "write",
           qn: "vendor-feature:write:vendor:approve",
           risk: "mid",
-          injectsVersion: true,
         },
       ],
     ]);
@@ -343,19 +332,15 @@ describe("dispatchToolCall — server write tools", () => {
       request({
         dispatcher,
         dispatchTable: table,
-        toolName: "broken_approve",
-        input: { id: "vendor-1" },
-        log: { error: (...args: unknown[]) => void logged.push(args) },
+        toolName: "plain_approve",
+        input: { id: "vendor-1", version: 3 },
       }),
     );
 
-    expect(result).toEqual({
-      ok: false,
-      error: "Tool failed unexpectedly",
-      code: "internal_error",
-    });
-    expect(logged).toHaveLength(1);
-    expect(dispatcher.writeCalls).toHaveLength(0);
+    expect(result).toEqual({ ok: true, data: { id: "vendor-1", version: 2 } });
+    expect(dispatcher.writeCalls).toHaveLength(1);
+    expect(dispatcher.writeCalls[0]?.payload).toEqual({ id: "vendor-1", version: 3 });
+    expect(dispatcher.queryCalls).toHaveLength(0);
   });
 
   test("a write rejection becomes an error result, never a throw, and never falls back to the raw payload", async () => {

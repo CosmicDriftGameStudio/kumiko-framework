@@ -48,6 +48,7 @@ export async function notifyPgChannel(db: AnyDb, channel: string): Promise<void>
 
 const IDEMPOTENCY_INDEX_NAME = "events_idempotency_uq";
 export const MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME = "events_membership_payload_tenant_idx";
+export const TENANT_ID_INDEX_NAME = "events_tenant_id_idx";
 
 // Tenant-scoped partial unique index over metadata.idempotencyKey.
 // Expression index straight on the jsonb column — no dedicated key column,
@@ -129,34 +130,45 @@ async function buildIdempotencyKeyIndex(db: AnyDb): Promise<void> {
   }
 }
 
-// forget-cleanup reads the membership history by payload->>'tenantId' (not the
-// tenant_id column — cross-tenant SystemAdmin adds land under the actor's
-// tenant), which no other index covers: without this it scans every event.
-// Same CONCURRENTLY + INVALID-rebuild handling as the idempotency index.
-export function ensureMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
+// Plain (non-unique) indexes on kumiko_events that installs predating them get on boot.
+// forget-cleanup reads the membership history by payload->>'tenantId' (not the tenant_id
+// column — cross-tenant SystemAdmin adds land under the actor's tenant); the audit list
+// filters by tenant_id and pages by id. Same CONCURRENTLY + INVALID-rebuild handling as
+// the idempotency index.
+const SECONDARY_EVENT_INDEXES: ReadonlyArray<{
+  readonly name: string;
+  readonly definition: string;
+}> = [
+  {
+    name: MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME,
+    definition: `((("payload"->>'tenantId'))) WHERE "aggregate_type" = 'tenant-membership'`,
+  },
+  { name: TENANT_ID_INDEX_NAME, definition: `("tenant_id", "id")` },
+];
+
+export function ensureSecondaryEventIndexes(db: AnyDb): Promise<void> {
   return outsideRowLevelSecurityScope(() =>
-    withoutStatementTimeout(innerOfScopedRunner(db) ?? db, buildMembershipPayloadTenantIndex),
+    withoutStatementTimeout(innerOfScopedRunner(db) ?? db, buildSecondaryEventIndexes),
   );
 }
 
-async function buildMembershipPayloadTenantIndex(db: AnyDb): Promise<void> {
+async function buildSecondaryEventIndexes(db: AnyDb): Promise<void> {
   const client = asRawClient(db);
-  try {
-    if ((await indexValidity(client, MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)) === false) {
+  for (const index of SECONDARY_EVENT_INDEXES) {
+    try {
+      if ((await indexValidity(client, index.name)) === false) {
+        await client.unsafe(`DROP INDEX CONCURRENTLY IF EXISTS "${index.name}"`);
+      }
       await client.unsafe(
-        `DROP INDEX CONCURRENTLY IF EXISTS "${MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME}"`,
+        `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${index.name}" ON "kumiko_events" ${index.definition}`,
       );
+    } catch (e) {
+      if (isBenignConcurrentIndexBuildRace(e)) {
+        // skip: sibling pod already built a valid index — this race loser is done.
+        if ((await indexValidity(client, index.name)) === true) continue;
+      }
+      throw e;
     }
-    await client.unsafe(
-      `CREATE INDEX CONCURRENTLY IF NOT EXISTS "${MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME}" ON "kumiko_events" ` +
-        `((("payload"->>'tenantId'))) WHERE "aggregate_type" = 'tenant-membership'`,
-    );
-  } catch (e) {
-    if (isBenignConcurrentIndexBuildRace(e)) {
-      // skip: sibling pod already built a valid index — this race loser is done.
-      if ((await indexValidity(client, MEMBERSHIP_PAYLOAD_TENANT_INDEX_NAME)) === true) return;
-    }
-    throw e;
   }
 }
 

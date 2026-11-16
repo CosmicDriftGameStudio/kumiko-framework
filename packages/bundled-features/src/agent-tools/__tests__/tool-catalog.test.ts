@@ -254,7 +254,7 @@ describe("buildToolCatalog — handler-derived query/write tools", () => {
     expect(reader.tools.map((t) => t.name)).not.toContain("catalog_test_widget_summary");
   });
 
-  test("a described write handler becomes a tool with injectsVersion + a stripped schema when a readable detail handler exists", () => {
+  test("a described write handler becomes a tool that keeps `version` in its schema and asks for it", () => {
     const catalog = buildCatalog(ADMIN);
     const name = toolNameForQn("catalog-test:write:widget:approve");
     const tool = catalog.tools.find((t) => t.name === name);
@@ -264,10 +264,11 @@ describe("buildToolCatalog — handler-derived query/write tools", () => {
 
     expect(properties).toHaveProperty("id");
     expect(properties).toHaveProperty("note");
-    expect(properties).not.toHaveProperty("version");
+    expect(properties).toHaveProperty("version");
     expect(required).toContain("id");
     expect(required).toContain("note");
-    expect(required).not.toContain("version");
+    expect(required).toContain("version");
+    expect(tool?.description).toContain("version_conflict");
 
     expect(catalog.dispatchTable.get(name)).toEqual({
       kind: "server",
@@ -276,11 +277,10 @@ describe("buildToolCatalog — handler-derived query/write tools", () => {
       risk: "mid",
       entity: "widget",
       detailQn: "catalog-test:query:widget:detail",
-      injectsVersion: true,
     });
   });
 
-  test("a write handler with no entity mapping gets no detailQn and no version injection", () => {
+  test("a write handler with no entity mapping gets no detailQn", () => {
     const catalog = buildCatalog(ADMIN);
     const name = toolNameForQn("catalog-test:write:ping");
     expect(catalog.dispatchTable.get(name)).toEqual({

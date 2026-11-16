@@ -7,7 +7,7 @@ import { testTenantId } from "../../seeding/seed-users.ts";
 import { defineUnmanagedTable } from "../entity-table-meta.ts";
 import {
   ensureIdempotencyKeyIndex,
-  ensureMembershipPayloadTenantIndex,
+  ensureSecondaryEventIndexes,
 } from "../queries/event-store.ts";
 import { asRawClient } from "../query.ts";
 import {
@@ -95,12 +95,12 @@ describe("tagged template on an enforced transaction handle", () => {
 });
 
 describe("index DDL inside an ambient scope", () => {
-  test("ensureIdempotencyKeyIndex and ensureMembershipPayloadTenantIndex do not run in a transaction", async () => {
+  test("ensureIdempotencyKeyIndex and ensureSecondaryEventIndexes do not run in a transaction", async () => {
     await createEventsTable(testDb.db);
     await expect(
       runInSystemRowLevelSecurityScope("test ensures cross-tenant indexes", async () => {
         await ensureIdempotencyKeyIndex(testDb.db);
-        await ensureMembershipPayloadTenantIndex(testDb.db);
+        await ensureSecondaryEventIndexes(testDb.db);
       }),
     ).resolves.toBeUndefined();
   });

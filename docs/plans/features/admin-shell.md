@@ -67,8 +67,7 @@ overview screens + nav QNs only. Wire nav into your workspace arrays and mount
 
 ## Overview home (query allowlist)
 
-Attention cards only — no KPI charts. Client helper `overviewQuery()` enforces
-hard-coded allowlists (`overview-allowlist.ts`).
+Attention cards only — no KPI charts. `overview-allowlist.ts` lists the queries the overview panels call; tests check the screens against it. Access is enforced by each query's `access.roles`, not by the list.
 
 | Workspace | Allowed queries |
 |---|---|
