@@ -17,30 +17,18 @@
 //      e. Mark the invitation accepted and delete the token
 //   5. Response: SessionUser + tenantId for automatic login
 
-import {
-  createEventStoreExecutor,
-  createTenantDb,
-  type DbConnection,
-  fetchOne,
-} from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import {
   buildSessionRoles,
-  createSystemUser,
   defineWriteHandler,
   type HandlerContext,
   type SessionUser,
   type TenantId,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, registrationLocaleFromRequest } from "../../shared/index.ts";
-// kumiko-lint-ignore cross-feature-import the handler loads the pending invitation and marks it accepted
-import {
-  INVITATION_STATUS,
-  tenantInvitationEntity,
-  tenantInvitationsTable,
-} from "../../tenant/invitation-table.ts";
+import { registrationLocaleFromRequest } from "../../shared/index.ts";
 // kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
 import {
   findForbiddenMembershipRole,
@@ -54,11 +42,10 @@ import { parseInvitedGlobalRoles } from "../../user/invited-global-roles.ts";
 import { userTable } from "../../user/schema/user.ts";
 import { invalidInviteToken } from "../errors.ts";
 import {
-  burnInviteToken,
-  deleteInviteToken,
-  getInvitationIdForToken,
-  unburnInviteToken,
-} from "../invite-token-store.ts";
+  consumeInviteToken,
+  markInvitationAccepted,
+  type PendingInvitation,
+} from "../invite-consumption.ts";
 import { passwordSchema } from "../password-policy.ts";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
 import { seedUserWithPassword } from "../seeding.ts";
@@ -80,12 +67,6 @@ export type InviteSignupCompleteData =
 
 export type InviteSignupCompleteOptions = Pick<LoginHandlerOptions, "mfaStatusChecker">;
 
-const invitationExecutor = createEventStoreExecutor(
-  tenantInvitationsTable,
-  tenantInvitationEntity,
-  { entityName: "tenant-invitation" },
-);
-
 const INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON =
   "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists.";
 
@@ -104,74 +85,31 @@ export function createInviteSignupCompleteHandler(opts: InviteSignupCompleteOpti
       grants: ["unsafeRaw", "globalWrites"],
       reason: INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON,
     },
-    handler: async (event, ctx) => {
-      if (!ctx.services.redis) {
-        return writeFailure(
-          new InternalError({ message: "invite-signup-complete requires ctx.services.redis" }),
-        );
-      }
-
-      const invitationId = await getInvitationIdForToken(ctx.services.redis, event.payload.token);
-      if (!invitationId) return invalidInviteToken();
-
-      const burn = await burnInviteToken(ctx.services.redis, event.payload.token);
-      if (burn === "already-used") return invalidInviteToken();
-
-      let committed = false;
-      try {
-        const result = await acceptInvitationAndCreateUser(ctx, opts, {
-          redis: ctx.services.redis,
-          invitationId,
+    handler: async (event, ctx) =>
+      consumeInviteToken(
+        ctx,
+        {
           token: event.payload.token,
-          password: event.payload.password,
-        });
-        committed = result.isSuccess;
-        return result;
-      } finally {
-        if (!committed && ctx.services.redis) {
-          await unburnInviteToken(ctx.services.redis, event.payload.token);
-        }
-      }
-    },
+          handlerName: "invite-signup-complete",
+          piiReason: "auth:invite-signup-complete",
+        },
+        (invitation, dbConn) =>
+          acceptInvitationAndCreateUser(ctx, opts, invitation, dbConn, event.payload.password),
+      ),
   });
 }
-
-type InvitationRow = {
-  readonly status: string;
-  readonly tenantId: TenantId;
-  readonly email: string;
-  readonly role: string;
-  readonly globalRoles: unknown;
-  readonly version: number;
-};
-
-type AcceptInvitationInput = {
-  readonly redis: NonNullable<HandlerContext["services"]["redis"]>;
-  readonly invitationId: string;
-  readonly token: string;
-  readonly password: string;
-};
 
 async function acceptInvitationAndCreateUser(
   ctx: HandlerContext,
   opts: InviteSignupCompleteOptions,
-  input: AcceptInvitationInput,
+  invitation: PendingInvitation,
+  dbRunner: DbRunner,
+  password: string,
 ): Promise<WriteResult<InviteSignupCompleteData>> {
-  const { redis, invitationId, token, password } = input;
-  const invitation = await fetchOne<InvitationRow>(ctx.db.unsafeRaw(), tenantInvitationsTable, {
-    id: invitationId,
-  });
-  if (!invitation || invitation.status !== INVITATION_STATUS.pending) return invalidInviteToken();
-
   const invitationTenantId = invitation.tenantId;
-  const invitationEmail = await decryptStoredPii(
-    invitation.email,
-    "email",
-    "auth:invite-signup-complete",
-  );
+  const invitationEmail = invitation.email;
   const invitationRole = invitation.role;
   const invitationGlobalRoles = parseInvitedGlobalRoles(invitation.globalRoles);
-  const invitationVersion = invitation.version;
 
   // If the email is already registered, the user must use Branch 2
   // (acceptWithLogin). This flow explicitly requires a new email;
@@ -188,7 +126,7 @@ async function acceptInvitationAndCreateUser(
   // records emailVerified=true.
   // @cast-boundary db-runner — helpers use only the query API that
   // DbConnection and DbTx share.
-  const dbConn = ctx.db.unsafeRaw() as DbConnection;
+  const dbConn = dbRunner as DbConnection;
   const registrationLocale = registrationLocaleFromRequest();
   const { id: userId } = await seedUserWithPassword(dbConn, {
     email: invitationEmail,
@@ -217,23 +155,7 @@ async function acceptInvitationAndCreateUser(
     });
   }
 
-  // Update the invitation in the invited tenant's database context.
-  const invitationTdb = createTenantDb({
-    db: dbConn,
-    tenantId: invitationTenantId,
-    mode: "system",
-    reason:
-      "invitation tenant differs from the caller's tenant, the accept step updates the invitation row there",
-  });
-  const updateResult = await invitationExecutor.update(
-    {
-      id: invitationId,
-      version: invitationVersion,
-      changes: { status: INVITATION_STATUS.accepted },
-    },
-    createSystemUser(invitationTenantId),
-    invitationTdb,
-  );
+  const updateResult = await markInvitationAccepted(dbConn, invitation);
   if (!updateResult.isSuccess) return updateResult;
 
   // buildSessionRoles calls stripForbiddenMembershipRoles internally —
@@ -242,7 +164,8 @@ async function acceptInvitationAndCreateUser(
 
   // Same gate as invite-accept-with-login: the account exists after this
   // call, but an MFA-gated role gets the MFA step instead of a session.
-  // It runs before the token is deleted so a throwing check leaves the link retryable.
+  // consumeInviteToken deletes the token only after this gate, so a throwing
+  // check leaves the link retryable.
   const mfaGate = await gateEnforceMfa(
     ctx,
     { mfaStatusChecker: opts.mfaStatusChecker },
@@ -250,9 +173,6 @@ async function acceptInvitationAndCreateUser(
     invitationTenantId,
     mergedRoles,
   );
-
-  await deleteInviteToken(redis, { invitationId, token: token });
-
   if (mfaGate !== undefined) {
     return { isSuccess: true, data: mfaGate };
   }

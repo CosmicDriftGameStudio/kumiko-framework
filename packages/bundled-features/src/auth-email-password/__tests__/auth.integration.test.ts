@@ -150,6 +150,22 @@ describe("scenario 1: login success", () => {
     expect(payload.locale).toBeUndefined();
   });
 
+  test("login with another letter case of the stored email → session", async () => {
+    const seed = await seedLoginUser({
+      email: "case@example.com",
+      password: "correct-horse-battery",
+    });
+
+    const res = await stack.http.raw("POST", "/api/auth/login", {
+      email: "Case@Example.COM",
+      password: "correct-horse-battery",
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.user).toMatchObject({ id: seed.id });
+  });
+
   test("correct credentials with a stored locale → JWT carries the locale claim", async () => {
     const seed = await seedLoginUser({
       email: "good-locale@example.com",

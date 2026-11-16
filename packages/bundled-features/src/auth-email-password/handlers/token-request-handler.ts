@@ -17,6 +17,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
+import { normalizeEmail } from "../../shared/index.ts";
 import { UserQueries } from "../../user/index.ts";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import { AUTH_EMAIL_PAYLOAD_RATE_LIMITS } from "../email-rate-limits.ts";
@@ -143,9 +144,9 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
           notificationType: spec.notificationType,
         },
         {
-          // Row value is ciphertext with an active KMS; the byte-exact
-          // lookup above guarantees the payload IS the stored plaintext.
-          email: event.payload.email,
+          // The row is ciphertext with an active KMS; the lookup normalizes,
+          // so the normalized payload is the stored address.
+          email: normalizeEmail(event.payload.email),
           appUrl: opts.appUrl,
           token,
           expiresAt: expiresAt.toString(),

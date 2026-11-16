@@ -30,6 +30,7 @@ export function createDisableHandler(opts: DisableOptions) {
   return defineWriteHandler({
     name: "disable",
     schema: z.object({ code: z.string().min(6).max(9) }),
+    rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
     access: {
       openToAll: {
         reason:

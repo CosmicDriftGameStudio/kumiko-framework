@@ -5,7 +5,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { findUserMfaRow } from "./db/queries.ts";
-import { verifyMfaFactor } from "./verify-factor.ts";
+import { verifyTotpFactor } from "./verify-factor.ts";
 
 export type MfaCodeVerifyResult = { readonly enrolled: boolean; readonly ok: boolean };
 
@@ -41,7 +41,7 @@ export function createMfaCodeVerifier(): MfaCodeVerifier {
     // Fail closed without ctx.services.redis, matching disable.write.ts/verify.write.ts —
     // skipping the TOTP-replay burn would let an observed code be replayed.
     if (!code || !ctx.services.redis) return { enrolled: true, ok: false };
-    const verify = await verifyMfaFactor(row, code, { redis: ctx.services.redis, userId });
-    return { enrolled: true, ok: verify.ok && verify.method === "totp" };
+    const totp = await verifyTotpFactor(row, code, { redis: ctx.services.redis, userId });
+    return { enrolled: true, ok: totp === "valid" };
   };
 }

@@ -57,6 +57,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       currentPassword: z.string().min(1),
       mfaCode: z.string().optional(),
     }),
+    rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
     access: {
       openToAll: {
         reason:

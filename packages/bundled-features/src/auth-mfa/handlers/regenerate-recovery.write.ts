@@ -26,6 +26,7 @@ export function createRegenerateRecoveryHandler(opts: RegenerateRecoveryOptions)
   return defineWriteHandler({
     name: "regenerate-recovery",
     schema: z.object({ code: z.string().min(6).max(9) }),
+    rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
     access: {
       openToAll: {
         reason:

@@ -2,6 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { normalizeEmail } from "../../shared/index.ts";
 import { userTable } from "../schema/user.ts";
 
 // Privileged auth lookup: returns the full user row — including passwordHash —
@@ -18,7 +19,7 @@ export const findForAuthQuery = defineQueryHandler({
   name: "user:find-for-auth",
   schema: z
     .object({
-      email: z.email().optional(),
+      email: z.email().transform(normalizeEmail).optional(),
       id: z.uuid().optional(),
     })
     .refine(

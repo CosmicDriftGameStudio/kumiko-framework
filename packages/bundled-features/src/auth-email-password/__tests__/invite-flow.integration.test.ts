@@ -358,6 +358,23 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     expect(inv[0]?.["status"]).toBe("accepted");
   });
 
+  test("replaying an accepted invite token is rejected and changes no membership", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token }, bobSession());
+    const membershipsBefore = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: bobId,
+    });
+
+    const replay = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
+    const body = (await replay.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+
+    const membershipsAfter = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: bobId,
+    });
+    expect(membershipsAfter).toEqual(membershipsBefore);
+  });
+
   test("Email-Mismatch: Bob klickt Carol's Invite-Link → inviteEmailMismatch", async () => {
     const token = await inviteEmail(CAROL_EMAIL, "Admin");
 

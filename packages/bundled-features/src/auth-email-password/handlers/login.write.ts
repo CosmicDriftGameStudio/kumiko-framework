@@ -11,7 +11,7 @@ import {
 import type { WriteFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { verifyDummyPassword, verifyPassword } from "../../shared/index.ts";
+import { normalizeEmail, verifyDummyPassword, verifyPassword } from "../../shared/index.ts";
 import { USER_STATUS, UserQueries } from "../../user/index.ts";
 import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.ts";
 import {
@@ -106,9 +106,9 @@ export async function gateResolveAuthUser(
 }
 
 // Unknown and deleted addresses are counted too, under a keyed digest of the
-// address exactly as findForAuth looks it up (no own normalization: a differently
-// cased spelling is a different, unknown address and must not share a counter with a
-// registered one). ctx.rateLimitDigest is derived from the JWT secret, so that after the
+// address. The handler normalizes the email like all storage paths, so another spelling
+// hits the same account and counts in the same lockout bucket.
+// ctx.rateLimitDigest is derived from the JWT secret, so that after the
 // threshold they answer account_locked exactly like a registered address.
 // Without a digest key (no rate-limit wiring) they stay plain invalid_credentials.
 function unknownEmailLockoutSubject(ctx: HandlerContext, email: string): string | undefined {
@@ -322,15 +322,14 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
     handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {
       const systemUser = createSystemUser(SYSTEM_USER_ID);
 
+      const email = normalizeEmail(event.payload.email);
       const foundRow = parseAuthUserRow(
-        await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, {
-          email: event.payload.email,
-        }),
+        await ctx.dispatch.queryAs(systemUser, UserQueries.findForAuth, { email }),
       );
       if (!foundRow?.passwordHash || foundRow.isDeleted) {
         const unknown = await gateCountUnknownUser(
           ctx,
-          event.payload.email,
+          email,
           maxFailedAttempts,
           lockoutDurationMinutes,
         );

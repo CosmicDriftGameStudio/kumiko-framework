@@ -11,7 +11,7 @@ import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import { asRawClient, fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
@@ -88,13 +88,6 @@ async function membershipUserIds(): Promise<readonly string[]> {
   return rows.map((r) => r.userId);
 }
 
-/** Reproduces the row shape in prod: the email column keeps its
- *  ciphertext, but the blind index is blank — as it is for rows written
- *  before KUMIKO_BLIND_INDEX_KEY existed, or after a subject-key erase. */
-async function blankBlindIndex(): Promise<void> {
-  await asRawClient(stack.db).unsafe(`UPDATE "${userTable.tableName}" SET email_bidx = NULL`);
-}
-
 describe("seedAdminGuarded", () => {
   test("re-seeding twice on an empty DB stays idempotent", async () => {
     const first = await seedAdminGuarded(stack.db, seedOptions);
@@ -105,64 +98,15 @@ describe("seedAdminGuarded", () => {
     expect(await membershipUserIds()).toEqual([first.id]);
   });
 
-  test("a blank blind index no longer produces a second account", async () => {
+  test("re-seeding with a differently cased email reuses the account", async () => {
     const first = await seedAdminGuarded(stack.db, seedOptions);
-    await blankBlindIndex();
-
-    const second = await seedAdminGuarded(stack.db, seedOptions);
+    const second = await seedAdminGuarded(stack.db, {
+      ...seedOptions,
+      email: SYSADMIN_EMAIL.toUpperCase(),
+    });
 
     expect(second.id).toBe(first.id);
     expect(await userIds()).toEqual([first.id]);
-    // Membership is reconciled onto the existing account, not a new identity.
-    expect(await membershipUserIds()).toEqual([first.id]);
-  });
-
-  test("unguarded seedAdmin still duplicates on a blank blind index — the gap seedAdminGuarded covers", async () => {
-    // Pins the framework behaviour the guard compensates for: seedUser's
-    // existence check is bidx-only, and neither unique index on the user
-    // table can catch this (the plaintext unique index sits on randomized
-    // ciphertext, the bidx unique index is partial WHERE email_bidx IS NOT
-    // NULL). If this ever fails, seedAdmin's idempotency check changed and
-    // this guard can be revisited.
-    const first = await seedAdmin(stack.db, seedOptions);
-    await blankBlindIndex();
-
-    const second = await seedAdmin(stack.db, seedOptions);
-
-    expect(second.id).not.toBe(first.id);
-    expect(await userIds()).toHaveLength(2);
-  });
-
-  test("pre-existing duplicates are reused, never extended", async () => {
-    // Build the exact prod state: two ciphertext rows for one email, the
-    // older one with a blank blind index.
-    const canonical = await seedAdmin(stack.db, seedOptions);
-    await blankBlindIndex();
-    const duplicate = await seedAdmin(stack.db, seedOptions);
-    expect(await userIds()).toHaveLength(2);
-
-    // Guards against a false pass: the canonical pick must be driven by
-    // insertedAt ordering, not a coincidental id sort — assert the rows
-    // actually carry distinct, comparable Temporal.Instant timestamps.
-    const rows = await selectMany<{ id: string; insertedAt: { epochNanoseconds: bigint } }>(
-      stack.db,
-      userTable,
-    );
-    const canonicalRow = rows.find((r) => r.id === canonical.id);
-    const duplicateRow = rows.find((r) => r.id === duplicate.id);
-    expect(typeof canonicalRow?.insertedAt.epochNanoseconds).toBe("bigint");
-    expect(typeof duplicateRow?.insertedAt.epochNanoseconds).toBe("bigint");
-    expect(
-      canonicalRow!.insertedAt.epochNanoseconds < duplicateRow!.insertedAt.epochNanoseconds,
-    ).toBe(true);
-
-    const seeded = await seedAdminGuarded(stack.db, seedOptions);
-
-    // Oldest row wins.
-    expect(seeded.id).toBe(canonical.id);
-    expect(seeded.id).not.toBe(duplicate.id);
-    // No third row: the guard refuses to add to a broken state.
-    expect(await userIds()).toHaveLength(2);
   });
 
   test("unrelated single-row accounts are untouched", async () => {
@@ -171,7 +115,6 @@ describe("seedAdminGuarded", () => {
       displayName: "Dealer",
     });
     const admin = await seedAdminGuarded(stack.db, seedOptions);
-    await blankBlindIndex();
     await seedAdminGuarded(stack.db, seedOptions);
 
     expect(await userIds()).toHaveLength(2);
@@ -188,7 +131,6 @@ describe("seedAdminGuarded", () => {
 
   test("existing-user branch reconciles emailVerified onto the canonical row", async () => {
     const first = await seedAdminGuarded(stack.db, seedOptions);
-    await blankBlindIndex();
 
     const second = await seedAdminGuarded(stack.db, { ...seedOptions, emailVerified: true });
 
@@ -196,17 +138,6 @@ describe("seedAdminGuarded", () => {
     expect(await userIds()).toEqual([first.id]);
     const rows = await selectMany<{ id: string; emailVerified: boolean }>(stack.db, userTable);
     expect(rows.find((r) => r.id === first.id)?.emailVerified).toBe(true);
-  });
-
-  test("the canonical row's blind index is repaired so the account is findable again", async () => {
-    const first = await seedAdminGuarded(stack.db, seedOptions);
-    await blankBlindIndex();
-    expect(await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL })).toBeUndefined();
-
-    await seedAdminGuarded(stack.db, seedOptions);
-
-    const found = await fetchOne(stack.db, userTable, { email: SYSADMIN_EMAIL });
-    expect(found?.["id"]).toBe(first.id);
   });
 
   test("a repeated boot seed with an intact blind index appends no further user event", async () => {

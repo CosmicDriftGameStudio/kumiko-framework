@@ -19,6 +19,7 @@ export const changePasswordWrite = defineWriteHandler({
     oldPassword: z.string().min(1),
     newPassword: passwordSchema,
   }),
+  rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
   access: {
     openToAll: {
       reason:

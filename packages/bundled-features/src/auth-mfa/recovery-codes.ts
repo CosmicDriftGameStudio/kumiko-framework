@@ -16,9 +16,20 @@ function normalizeRecoveryCode(code: string): string {
   return code.toUpperCase().replace(/[^A-Z2-9]/g, "");
 }
 
+const CODE_GROUP_LENGTH = 4;
+const CODE_GROUP_COUNT = 2;
+
+export function isRecoveryCodeShaped(code: string): boolean {
+  const normalized = normalizeRecoveryCode(code);
+  return (
+    normalized.length === CODE_GROUP_LENGTH * CODE_GROUP_COUNT &&
+    [...normalized].every((char) => CODE_ALPHABET.includes(char))
+  );
+}
+
 function randomCodeGroup(): string {
   let out = "";
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < CODE_GROUP_LENGTH; i++) {
     out += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   }
   return out;
@@ -45,6 +56,8 @@ export async function findMatchingRecoveryCodeIndex(
   code: string,
   hashes: readonly string[],
 ): Promise<number> {
+  // A mistyped 6-digit TOTP would otherwise pay up to 8 argon2 checks.
+  if (!isRecoveryCodeShaped(code)) return -1;
   const normalized = normalizeRecoveryCode(code);
   for (let i = 0; i < hashes.length; i++) {
     const hash = hashes[i];

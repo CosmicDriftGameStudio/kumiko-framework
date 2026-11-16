@@ -30,6 +30,7 @@ export const changeEmailWrite = defineWriteHandler({
     currentPassword: z.string().min(1),
     newEmail: z.email(),
   }),
+  rateLimit: { per: "user+handler", limit: 5, windowSeconds: 300 },
   access: {
     openToAll: {
       reason:

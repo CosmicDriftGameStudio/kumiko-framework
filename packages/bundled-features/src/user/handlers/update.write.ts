@@ -8,6 +8,7 @@ import {
 import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
+import { normalizeEmail } from "../../shared/index.ts";
 import { rolesInputSchema } from "../roles-input-schema.ts";
 import { userEntity, userTable } from "../schema/user.ts";
 import { UserErrors } from "../web/constants.ts";
@@ -40,7 +41,7 @@ export const updateWrite = defineWriteHandler({
         .transform(canonicalizeLocaleTag)
         .optional(),
       timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
-      email: z.email().optional(),
+      email: z.email().transform(normalizeEmail).optional(),
       passwordHash: z.string().optional(),
       lastActiveTenantId: z.string().optional(),
       emailVerified: z.boolean().optional(),
