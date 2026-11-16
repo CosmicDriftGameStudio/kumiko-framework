@@ -15,7 +15,15 @@ const LOCALE_TAG_RE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/;
 const MAX_LOCALE_TAG_LENGTH = 35;
 
 export function isValidLocaleTag(value: string): boolean {
-  return value.length <= MAX_LOCALE_TAG_LENGTH && LOCALE_TAG_RE.test(value);
+  if (value.length > MAX_LOCALE_TAG_LENGTH || !LOCALE_TAG_RE.test(value)) return false;
+  // The shape regex admits tags like `en-a` or `de-1` that Intl.NumberFormat /
+  // Intl.DateTimeFormat reject with a RangeError, and ctx.locale is passed straight to them.
+  try {
+    Intl.getCanonicalLocales(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** BCP-47 is case-insensitive; canonicalize to the RFC 5646 conventional form
