@@ -1,6 +1,4 @@
 // notes-history bundle constants — feature-name + qualified handler/query names.
-//
-// Spec: kumiko-platform/docs/plans/notes-history-bundle.md
 
 import type { AccessRule } from "@cosmicdrift/kumiko-framework/engine";
 

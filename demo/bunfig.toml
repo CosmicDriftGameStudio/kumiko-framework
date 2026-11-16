@@ -1,9 +1,0 @@
-[install]
-linker = "hoisted"
-
-[test]
-pathIgnorePatterns = [
-  "**/e2e/**",
-  "**/*.spec.ts",
-  "**/dist/**",
-]

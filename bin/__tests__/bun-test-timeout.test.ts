@@ -33,7 +33,7 @@ describe("bun test timeout comes from the CLI, not from bunfig", () => {
   });
 
   test("every DOM test command passes the timeout explicitly", () => {
-    const sources = ["package.json", "bin/kumiko-legacy.ts"];
+    const sources = ["package.json", "bin/check-pipeline.ts"];
     const missing: string[] = [];
 
     for (const source of sources) {
@@ -48,7 +48,7 @@ describe("bun test timeout comes from the CLI, not from bunfig", () => {
 
   test("every integration test command passes the shared integration timeout explicitly", () => {
     const expectedFlag = `--timeout=${TEST_TIMEOUT_MS.integration}`;
-    const sources = ["package.json", "bin/kumiko-legacy.ts"];
+    const sources = ["package.json", "bin/check-pipeline.ts"];
     const missing: string[] = [];
     let matched = 0;
 

@@ -36,7 +36,7 @@ pathIgnorePatterns = [
   "**/*.integration.test.ts",
   "**/*.integration.ts",
   # *.test.tsx brauchen happy-dom → eigener CI-Step via bunfig.dom.toml
-  # (`bun run test:dom`), siehe bin/kumiko-legacy.ts "DOM Tests" step.
+  # (`bun run test:dom`), siehe bin/check-pipeline.ts "DOM Tests" step.
   "**/*.test.tsx",
   "**/e2e/**",
   "**/*.spec.ts",

@@ -400,46 +400,6 @@ jobs:
           KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (migration content)" -- bun ../../../packages/dev-server/bin/kumiko-schema.ts validate
 
-      - name: Schema validate (demo)
-        # demo/ has no schema/generate.ts registry (the coverage lint needs one),
-        # so only validate is wired here — entity↔snapshot + validateBoot +
-        # SQL-replay↔snapshot against demo/kumiko/migrations. Without this,
-        # demo/ silently re-drifts on the next entity change (kumiko-framework#2309).
-        working-directory: demo
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Schema validate (demo)" -- bun ../packages/dev-server/bin/kumiko-schema.ts validate
-
-      - name: Typecheck (demo)
-        # demo/ is no workspace member and has no root tsc reference, so its
-        # tsconfig was never checked. Resolves @cosmicdrift/* through the root install above.
-        working-directory: demo
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Typecheck (demo)" -- bun run typecheck
-
-      - name: Lint (demo)
-        working-directory: demo
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Lint (demo)" -- bun run lint
-
-      - name: Boot smoke (demo)
-        # kumiko-schema validate never touches bin/main.ts, so it can't catch
-        # a stale/missing runtime import (kumiko-framework#2309 bug 2) —
-        # only an actual boot does. Same stub-secret rationale as the
-        # use-all-bundled boot smoke below; no Stripe/Mollie stubs needed,
-        # demo doesn't mount those features.
-        working-directory: demo
-        env:
-          KUMIKO_DRY_RUN_ENV: boot
-          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
-          REDIS_URL: redis://127.0.0.1:1
-          JWT_SECRET: smokesmokesmokesmokesmokesmokesmokesmoke
-          KUMIKO_SECRETS_MASTER_KEY_V1: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          DEMO_ADMIN_PASSWORD: smoke-admin-password-0001
-          # KMS-active path: createPgKmsAdapter is lazy (no connect in ctor);
-          # boot exits before any KMS query. Catches RunProdAppOptions wiring
-          # regressions the plaintext-only smoke would miss (#2317).
-          PLATFORM_KEK: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          KUMIKO_BLIND_INDEX_KEY: +7H+TnUa12nBRok5jVwyA7WdgjOJ0WqY3H9oBZ4M7UQ=
-          SUBJECT_KEYS_DATABASE_URL: postgres://smoke:smoke@127.0.0.1:1/smoke
-        run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Boot smoke (demo)" -- bun bin/main.ts
-
       - name: Boot smoke (no DB)
         # Stub-secrets: validators check Format (base64 32-byte, min-length),
         # nicht echte Crypto-Strength. boot-mode exitiert vor jedem

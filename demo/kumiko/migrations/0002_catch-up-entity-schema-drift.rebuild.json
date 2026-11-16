@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "tables": [
-    "read_tasks",
-    "read_tenant_invitations",
-    "read_users"
-  ]
-}

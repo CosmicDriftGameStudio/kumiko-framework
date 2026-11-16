@@ -1,11 +1,9 @@
 import { join } from "node:path";
-import { runStreaming } from "./_spawn";
+import { CHECK_PIPELINE_BIN, runStreaming } from "./_spawn";
 import { defineCommand } from "./registry";
 
 // Workspace-only extras (lock, preflight, Biome/tsc, tests, tee logging); boot
 // validation and the public guard suites run via the published `kumiko check`.
-const LEGACY_BIN = "bin/kumiko-legacy.ts";
-
 export const checkCommand = defineCommand({
   id: "check",
   label: "check",
@@ -16,7 +14,7 @@ export const checkCommand = defineCommand({
   run: async (ctx) => {
     return await runStreaming(
       process.execPath,
-      [join(ctx.repoRoot, LEGACY_BIN), "check", ...ctx.argv],
+      [join(ctx.repoRoot, CHECK_PIPELINE_BIN), "check", ...ctx.argv],
       ctx.out,
       { cwd: ctx.cwd },
     );

@@ -29,6 +29,10 @@ export type AnonymousExtraRouteDeps = {
    *  user, same request-resolved tenant (never overridable), only under
    *  "/api/" (the only path that populates a session user). */
   readonly write: (type: string, payload: unknown) => Promise<WriteResult>;
+  /** Same caller and tenant contract as `write`: runs as the session the /api chain
+   *  resolved for this request, so it can read exactly what that caller could read via
+   *  /api/query, nothing more. Only under "/api/". */
+  readonly query: (type: string, payload: unknown) => Promise<unknown>;
   /** Resolved by the server's single trustedProxyHops-aware resolver —
    *  never read X-Forwarded-For yourself. */
   readonly clientIp: string;

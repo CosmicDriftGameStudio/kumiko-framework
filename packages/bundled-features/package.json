@@ -17,6 +17,7 @@
   "kumiko": {
     "runtime": "runtime",
     "bunOnlyExports": [
+      "./billing-foundation/testing",
       "./template-resolver/testing",
       "./tenant-lifecycle/testing",
       "./tenant/testing",
@@ -63,6 +64,7 @@
     "./ledger": "./src/ledger/index.ts",
     "./ledger/web": "./src/ledger/web/index.ts",
     "./billing-foundation": "./src/billing-foundation/index.ts",
+    "./billing-foundation/testing": "./src/billing-foundation/testing.ts",
     "./billing-foundation/web": "./src/billing-foundation/web/index.ts",
     "./subscription-stripe": "./src/subscription-stripe/index.ts",
     "./subscription-paddle": "./src/subscription-paddle/index.ts",
@@ -385,6 +387,10 @@
       "./billing-foundation": {
         "types": "./dist/billing-foundation/index.d.ts",
         "default": "./dist/billing-foundation/index.js"
+      },
+      "./billing-foundation/testing": {
+        "types": "./dist/billing-foundation/testing.d.ts",
+        "default": "./dist/billing-foundation/testing.js"
       },
       "./billing-foundation/web": {
         "types": "./dist/billing-foundation/web/index.d.ts",

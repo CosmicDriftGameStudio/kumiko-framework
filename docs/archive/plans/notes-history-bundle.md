@@ -1,8 +1,8 @@
 ---
-status: in-progress
-verified: 2026-08-01
+status: shipped
+verified: 2026-11-16
+evidence: "solon#13 closed; packages/bundled-features/src/notes-history and samples/recipes/notes-history-basic"
 issue: solon#13
-next: "solon-Umstieg (Contact-Feld ersetzen) als eigenes S/M-Issue in solon"
 ---
 
 # Notizverlauf — append-only Notizen an beliebigem Entity

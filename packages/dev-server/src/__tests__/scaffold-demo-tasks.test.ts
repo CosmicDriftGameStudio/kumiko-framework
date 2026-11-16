@@ -1,7 +1,7 @@
 // Regression: scaffolded `tasks` demo feature had hardcoded nav
 // labels ("Tasks", "New task") instead of i18n keys, invisible to
 // guard-i18n-ui-strings because it only scans src/features/**/*.ts, not
-// demo/src/... or the dev-server's own template strings.
+// the dev-server's own template strings.
 
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";

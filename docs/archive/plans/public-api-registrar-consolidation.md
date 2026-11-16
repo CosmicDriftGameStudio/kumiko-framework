@@ -1,7 +1,7 @@
 ---
-status: in-progress
-verified: 2026-07-17
-next: alle Kandidaten (4-8) abgearbeitet — PR #1089/#1090/#1094 review/merge abwarten, dann Serie abschließen
+status: shipped
+verified: 2026-11-16
+evidence: "kumiko-framework#1082 closed; PRs #1089, #1090, #1094 merged"
 issue: kumiko-framework#1082
 ---
 

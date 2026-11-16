@@ -2,7 +2,7 @@ import type { WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { Context, Hono } from "hono";
 import { ROLES } from "../auth/roles.ts";
 import { createSystemUser } from "../engine/system-user.ts";
-import type { Registry } from "../engine/types/index.ts";
+import type { Registry, SessionUser } from "../engine/types/index.ts";
 
 import { createFallbackLogger } from "../logging/index.ts";
 import type { Dispatcher } from "../pipeline/dispatcher.ts";
@@ -157,23 +157,37 @@ export function makeDispatchSystemQuery(
     dispatcher.query(handlerQn, payload, createSystemUser(tenantId, [ROLES.SystemAdmin]));
 }
 
-// Same dispatcher.write(...) as entry:"user", but the user is getUser(c) —
-// see AnonymousExtraRouteDeps.write for the privilege/tenant contract.
+// Same dispatcher calls as entry:"user", but the user is getUser(c) —
+// see AnonymousExtraRouteDeps.write/query for the privilege/tenant contract.
+function requireRequestSessionUser(
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+  c: import("hono").Context<any, any>,
+  depName: "write" | "query",
+): SessionUser {
+  const user = getUser(c);
+  if (!user) {
+    throw new Error(
+      `[kumiko] extraRoutes: entry:"anonymous" deps.${depName} requires this route to be mounted ` +
+        'under "/api/" with anonymousAccess wired — no request-resolved session user was found.',
+    );
+  }
+  return user;
+}
+
 function makeAnonymousWrite(
   // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
   c: import("hono").Context<any, any>,
   dispatcher: Dispatcher,
 ): (type: string, payload: unknown) => Promise<WriteResult> {
-  return (type, payload) => {
-    const user = getUser(c);
-    if (!user) {
-      throw new Error(
-        '[kumiko] extraRoutes: entry:"anonymous" deps.write requires this route to be mounted ' +
-          'under "/api/" with anonymousAccess wired — no request-resolved session user was found.',
-      );
-    }
-    return dispatcher.write(type, payload, user);
-  };
+  return (type, payload) => dispatcher.write(type, payload, requireRequestSessionUser(c, "write"));
+}
+
+function makeAnonymousQuery(
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+  c: import("hono").Context<any, any>,
+  dispatcher: Dispatcher,
+): (type: string, payload: unknown) => Promise<unknown> {
+  return (type, payload) => dispatcher.query(type, payload, requireRequestSessionUser(c, "query"));
 }
 
 const extraRouteLog = createFallbackLogger("extra-route");
@@ -225,6 +239,7 @@ function buildExtraRouteHonoHandler(
           registry: shared.registry,
           systemQuery: makeSystemQuery(c, shared.dispatcher, shared.clientIpResolver),
           write: makeAnonymousWrite(c, shared.dispatcher),
+          query: makeAnonymousQuery(c, shared.dispatcher),
           clientIp: shared.clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
         });
     case ExtraRouteEntries.user:

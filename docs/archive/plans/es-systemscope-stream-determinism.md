@@ -1,8 +1,8 @@
 ---
-status: in-progress
-verified: 2026-06-21
+status: shipped
+verified: 2026-11-16
+evidence: "kumiko-framework#497 closed; systemStream in packages/types/src/fields.ts, getAggregateStreamTenant removed"
 issue: kumiko-framework#497
-next: Implementierung + alle Tests grün (2026-06-21). Offen: Release (changeset liegt) + Daten-Migration pro Install + #497 schließen
 ---
 
 # ES: Deterministische Stream-Platzierung für systemScope-Aggregate (#497)
