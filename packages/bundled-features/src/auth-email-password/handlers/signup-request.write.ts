@@ -52,12 +52,7 @@ const HANDOVER_GRANT_VERIFY_REASON =
   "verifies a tenant-handover grant against its root row in the source tenant (read-only anchor lookup) before binding it to the signup token";
 
 export type SignupRequestData =
-  | {
-      readonly kind: "signup-requested";
-      readonly email: string;
-      readonly token: string;
-      readonly expiresAt: string;
-    }
+  | { readonly kind: "signup-requested"; readonly expiresAt: string }
   | { readonly kind: "no-op" };
 
 export type SignupRequestOptions = {
@@ -188,8 +183,6 @@ export function createSignupRequestHandler(opts: SignupRequestOptions) {
         isSuccess: true,
         data: {
           kind: "signup-requested",
-          email: issued.email,
-          token: issued.token,
           expiresAt: issued.expiresAt,
         },
       };
