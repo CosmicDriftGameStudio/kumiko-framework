@@ -3,6 +3,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 
+import {
+  configurePiiSubjectKms,
+  decryptPiiValueForSubject,
+  InMemoryKmsAdapter,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   asRawClient,
@@ -11,9 +17,9 @@ import {
   selectMany,
 } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
+import { eventsTable, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/seeding";
-import { resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
+import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -108,26 +114,45 @@ async function seedDocumentExtract(tenantId: TenantId, fileRefId: string): Promi
 
 describe("document-ingest-foundation :: tenant destruction", () => {
   test("purges documentExtract rows for the destroyed tenant, leaving another tenant's row untouched", async () => {
-    await seedTenant(tenantA);
-    await seedTenant(tenantB);
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    try {
+      await seedTenant(tenantA);
+      await seedTenant(tenantB);
 
-    const idA = await seedDocumentExtract(tenantA.tenantId, "file-a");
-    await seedDocumentExtract(tenantB.tenantId, "file-b");
+      const idA = await seedDocumentExtract(tenantA.tenantId, "file-a");
+      const idB = await seedDocumentExtract(tenantB.tenantId, "file-b");
 
-    await seedDestroyingTenant(db, tenantA.tenantId);
+      await seedDestroyingTenant(db, tenantA.tenantId);
 
-    const finalStatus = await driveDestructionToCompletion(stack, db, tenantA.tenantId);
-    expect(finalStatus).toBe("destroyed");
+      const finalStatus = await driveDestructionToCompletion(stack, db, tenantA.tenantId);
+      expect(finalStatus).toBe("destroyed");
 
-    const rowsA = await selectMany(db, documentExtractsTable, { tenantId: tenantA.tenantId });
-    expect(rowsA).toHaveLength(0);
+      const decryptCreatedPages = async (aggregateId: string): Promise<string> => {
+        const events = await selectMany(db, eventsTable, { aggregateId });
+        const created = events.find((event) => event.type === "document-extract.created");
+        return decryptPiiValueForSubject(
+          kms,
+          String(created?.payload?.["pages"]),
+          { requestId: "t" },
+          "pages",
+        );
+      };
+      expect(await decryptCreatedPages(idA)).toBe(PII_ERASED_SENTINEL);
+      expect(await decryptCreatedPages(idB)).not.toBe(PII_ERASED_SENTINEL);
 
-    const rowsB = await selectMany(db, documentExtractsTable, { tenantId: tenantB.tenantId });
-    expect(rowsB).toHaveLength(1);
+      const rowsA = await selectMany(db, documentExtractsTable, { tenantId: tenantA.tenantId });
+      expect(rowsA).toHaveLength(0);
 
-    // Proves this went through the executor (rebuild-safe forget), not a raw
-    // deleteMany — the forgotten row's aggregate carries a `.forgotten` event.
-    const events = await loadAggregate(db, idA, tenantA.tenantId);
-    expect(events.some((e) => e.type === "document-extract.forgotten")).toBe(true);
+      const rowsB = await selectMany(db, documentExtractsTable, { tenantId: tenantB.tenantId });
+      expect(rowsB).toHaveLength(1);
+
+      // Proves this went through the executor (rebuild-safe forget), not a raw
+      // deleteMany — the forgotten row's aggregate carries a `.forgotten` event.
+      const events = await loadAggregate(db, idA, tenantA.tenantId);
+      expect(events.some((e) => e.type === "document-extract.forgotten")).toBe(true);
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
   });
 });

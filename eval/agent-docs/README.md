@@ -33,27 +33,21 @@ empty eval root.
 ```sh
 EVAL_REPO=/path/to/kumiko-framework
 EVAL_ROOT=/path/outside/any/workspace/agent-eval
-VERSION=0.364.0
+VERSION=0.424.0
 ```
 
 1. Prepare one project per task. Each one is a fresh scaffold; never reuse a
    project for a second task.
 
    ```sh
-   for task in 01-entity-crud 02-custom-handlers 03-overview-screen 04-bundled-tags; do
+   for task in 01-entity-crud 02-custom-handlers 03-overview-screen 04-bundled-tags 05-close-by-event 06-personal-data; do
      "$EVAL_REPO/eval/agent-docs/scripts/prepare-project.sh" "$EVAL_ROOT" "eval-$task" "$VERSION"
    done
    ```
 
-   The script deviates from a raw scaffold in five places, all
-   because of the environment, not to help the agent: dependency ranges are
-   pinned to `VERSION`, a `.gitignore` is added (versions up to 0.364.0 write none and
-   `bun run lint` fails without it; obsolete from versions above 0.364.0, the
-   scaffold writes it), biome's config and formatting are
-   migrated to the installed biome so lint starts green (obsolete from versions
-   above 0.364.0, the scaffold ships a pinned biome and lint-clean output), `.env` gets a
-   random local master key, and a random `DEMO_ADMIN_PASSWORD` (only versions above
-   0.364.0 have the variable).
+   The script deviates from a raw scaffold only because of the environment, not
+   to help the agent: dependency ranges are pinned to `VERSION`, `.env` gets a
+   random local master key and a random `DEMO_ADMIN_PASSWORD`.
 
 2. Start Postgres and Redis once for all projects, from any prepared project,
    under a fixed compose project name so the ports are not claimed twice:
@@ -80,7 +74,7 @@ VERSION=0.364.0
    hit in `logs/<task>/agent.diff` before calling it a rule break, and go
    through the "Review by hand" list of the task.
 
-5. Record the result as a table: task, passed yes/no, failed checks, rule
+5. Record the result as a table in `eval/agent-docs/results/<version>.md`: task, passed yes/no, failed checks, rule
    breaks, docs the agent read, information it missed. A task passes when
    every check is green and the review finds no rule break.
 

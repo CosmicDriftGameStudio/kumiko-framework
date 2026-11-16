@@ -1,0 +1,95 @@
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { seedTenant, setupAppTestStack } from "@cosmicdrift/kumiko-dev-server/testing";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
+import type { TestStack } from "@cosmicdrift/kumiko-testing/stack";
+import { tasksFeature } from "../features/tasks";
+
+const TASK_CREATE = "tasks:write:task:create";
+const TASK_CLOSE = "tasks:write:task:close";
+const TASK_DETAIL = "tasks:query:task:detail";
+const TASK_PROJECTION = "tasks:projection:task-entity";
+
+type Created = { id: string };
+type TaskRow = { id: string; status: string | null; closedAt: string | null; version: number };
+
+const UNKNOWN_TASK_ID = "00000000-0000-4000-8000-000000000000";
+
+let stack: TestStack;
+
+beforeAll(async () => {
+  stack = await setupAppTestStack([tasksFeature]);
+});
+
+afterAll(async () => {
+  await stack.cleanup();
+});
+
+describe("eval acceptance: close by event", () => {
+  test("close sets status done and closedAt", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(TASK_CREATE, {
+      title: "Ship it",
+      status: "todo",
+    });
+
+    await tenant.api.writeOk(TASK_CLOSE, { id: created.id, version: 1 });
+
+    const detail = await tenant.api.queryOk<TaskRow>(TASK_DETAIL, { id: created.id });
+    expect(detail.status).toBe("done");
+    expect(detail.closedAt).not.toBeNull();
+  });
+
+  test("close appends a closed event to the task stream", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(TASK_CREATE, { title: "Evented" });
+    await tenant.api.writeOk(TASK_CLOSE, { id: created.id, version: 1 });
+
+    const events = await selectMany(stack.db, eventsTable, { aggregateId: created.id });
+    expect(events.some((event) => String(event.type).includes("closed"))).toBe(true);
+  });
+
+  test("a projection rebuild yields the same task state", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(TASK_CREATE, { title: "Rebuild me" });
+    await tenant.api.writeOk(TASK_CLOSE, { id: created.id, version: 1 });
+    const before = await tenant.api.queryOk<TaskRow>(TASK_DETAIL, { id: created.id });
+
+    await rebuildProjection(TASK_PROJECTION, { db: stack.db, registry: stack.registry });
+
+    const after = await tenant.api.queryOk<TaskRow>(TASK_DETAIL, { id: created.id });
+    expect(after.status).toBe("done");
+    expect(after.closedAt).toBe(before.closedAt);
+  });
+
+  test("closing an unknown task fails with not found", async () => {
+    const tenant = await seedTenant(stack);
+    const error = await tenant.api.writeErr(TASK_CLOSE, { id: UNKNOWN_TASK_ID, version: 1 });
+    expect(error.httpStatus).toBe(404);
+  });
+
+  test("closing with a stale version fails with version_conflict", async () => {
+    const tenant = await seedTenant(stack);
+    const created = await tenant.api.writeOk<Created>(TASK_CREATE, { title: "Edited meanwhile" });
+    await tenant.api.writeOk("tasks:write:task:update", {
+      id: created.id,
+      version: 1,
+      changes: { title: "Edited" },
+    });
+
+    const error = await tenant.api.writeErr(TASK_CLOSE, { id: created.id, version: 1 });
+    expectErrorIncludes(error, "version_conflict");
+  });
+
+  test("another tenant does not see the task", async () => {
+    const owner = await seedTenant(stack);
+    const other = await seedTenant(stack);
+    const created = await owner.api.writeOk<Created>(TASK_CREATE, { title: "Private" });
+    await owner.api.writeOk(TASK_CLOSE, { id: created.id, version: 1 });
+
+    const foreign = await other.api.queryOk<TaskRow | null>(TASK_DETAIL, { id: created.id });
+    expect(foreign).toBeNull();
+  });
+});

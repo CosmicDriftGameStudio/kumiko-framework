@@ -19,8 +19,10 @@ import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { documentExtractsTable } from "./entity.ts";
-import { documentExtractExecutor } from "./executor.ts";
+import { documentExtractExecutor, eraseDocumentExtractKey } from "./executor.ts";
 import { isFileRefLive } from "./file-ref-liveness.ts";
+
+const EXTRACT_FORGET_REASON = "document-ingest-foundation:extract-forget";
 
 // WriteResult.error is always a plain WriteErrorInfo object, never a
 // KumikoError instance (JSON-serializable for the dispatcher's idempotency-key
@@ -39,15 +41,17 @@ async function forgetExtractsForFileRef(
   const user = createSystemUser(event.tenantId);
   for (const row of rows) {
     const result = await documentExtractExecutor.forget({ id: row.id }, user, tenantDb);
-    if (result.isSuccess) continue;
     // Idempotent: a concurrent/redelivered apply that already forgot this
     // row is not an error — anything else (version conflict, ownership
     // denial) must surface so the dispatcher retries/dead-letters instead of
     // silently leaving the extract behind.
-    if (isNotFoundWriteError(result.error)) continue;
-    throw new Error(
-      `document-ingest-foundation: failed to forget documentExtract ${row.id} for fileRef ${event.aggregateId}: ${result.error.message}`,
-    );
+    if (!result.isSuccess && !isNotFoundWriteError(result.error)) {
+      throw new Error(
+        `document-ingest-foundation: failed to forget documentExtract ${row.id} for fileRef ${event.aggregateId}: ${result.error.message}`,
+      );
+    }
+    // Also on not_found: erasing is idempotent and closes an earlier forget that left the key alive.
+    await eraseDocumentExtractKey(row.id, EXTRACT_FORGET_REASON);
   }
 }
 
@@ -62,11 +66,13 @@ export const forgetOrphanedDocumentExtractHook: MultiStreamApplyFn = async (even
   if (await isFileRefLive(tenantDb, parsed.data.fileRefId)) return;
   const user = createSystemUser(event.tenantId);
   const result = await documentExtractExecutor.forget({ id: event.aggregateId }, user, tenantDb);
-  // skip: forgotten now, or already gone via a concurrent/redelivered apply
-  if (result.isSuccess || isNotFoundWriteError(result.error)) return;
-  throw new Error(
-    `document-ingest-foundation: failed to forget orphaned documentExtract ${event.aggregateId}: ${result.error.message}`,
-  );
+  // not_found: already gone via a concurrent/redelivered apply
+  if (!result.isSuccess && !isNotFoundWriteError(result.error)) {
+    throw new Error(
+      `document-ingest-foundation: failed to forget orphaned documentExtract ${event.aggregateId}: ${result.error.message}`,
+    );
+  }
+  await eraseDocumentExtractKey(event.aggregateId, EXTRACT_FORGET_REASON);
 };
 
 export const forgetExtractOnFileRefDeletedHook: MultiStreamApplyFn = async (event, tx) => {

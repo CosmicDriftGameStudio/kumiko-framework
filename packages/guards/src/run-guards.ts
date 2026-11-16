@@ -25,6 +25,7 @@ import { guard as complexity } from "./check-complexity";
 import { guard as appFeatureStructure } from "./guard-app-feature-structure";
 import { guard as commentIssueRefOnly } from "./guard-comment-issue-ref-only";
 import { guard as crossFeatureImports } from "./guard-cross-feature-imports";
+import { guard as dataTestid } from "./guard-data-testid";
 import { guard as directEntityWrites } from "./guard-direct-entity-writes";
 import { guard as fakeTests } from "./guard-fake-tests";
 import { guard as fileSize } from "./guard-file-size";
@@ -67,6 +68,7 @@ export const GUARDS = [
   testEsRowWrites,
   testTemplateDrift,
   fileSize,
+  dataTestid,
   commentIssueRefOnly,
   ignoreTagReason,
   securityPluginSuppression,

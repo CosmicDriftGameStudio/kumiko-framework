@@ -47,10 +47,10 @@ describe("documentIngestFoundationFeature — shape", () => {
       "pages",
       "meta",
     ]);
-    // tenantOwned, not `encrypted: true` — the master-key path shreds nothing.
+    // recordOwned, not `encrypted: true` — the master-key path shreds nothing.
     expect(documentExtractEntity.fields.pages).toMatchObject({
       type: "longText",
-      tenantOwned: true,
+      recordOwned: true,
     });
     expect(documentExtractEntity.fields.pages).not.toHaveProperty("encrypted");
     expect(documentExtractEntity.fields.meta).toMatchObject({ type: "jsonb" });

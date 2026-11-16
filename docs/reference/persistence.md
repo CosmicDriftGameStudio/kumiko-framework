@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-19
+verified: 2026-11-16
 evidence: "entity-write-patterns.md (#498, #1208, #1220); WELLE-3 PR 4"
 ---
 
@@ -47,5 +47,4 @@ The executor writes `deletedAt`, `deletedById` and `version` directly, and the i
 entity projection derives the same values from the generic `deleted` and `restored`
 events. A rebuild therefore returns the identical row for soft-deleted and restored
 entities; `soft-delete-rebuild.integration.test.ts` and
-`implicit-projection-equivalence.integration.test.ts` pin this. A custom `apply` handler for
-`<entity>.deleted` replaces that default, so it has to set the same columns.
+`implicit-projection-equivalence.integration.test.ts` pin this. The lifecycle applies (`created`, `updated`, `deleted`, `restored`, `forgotten`) are fixed. An `r.extendEntityProjection` key for `<entity>.deleted` is a boot error, and an `apply` for it in an own `r.projection` runs in addition to the default and does not replace it. To set extra columns when an entity is deleted, append an own domain event and map it with `r.extendEntityProjection`.

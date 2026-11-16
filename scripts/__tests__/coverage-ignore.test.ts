@@ -19,12 +19,7 @@ afterEach(() => {
 describe("readCoverageIgnorePatterns", () => {
   test("reads the real bunfig.ci.toml patterns", async () => {
     const patterns = await readCoverageIgnorePatterns(BUNFIG_CI_PATH);
-    expect(patterns).toEqual([
-      "**/scripts/**",
-      "**/bin/**",
-      "**/test-setup/**",
-      "integration.guard.ts",
-    ]);
+    expect(patterns).toEqual(["**/scripts/**", "**/bin/**", "**/test-setup/**"]);
   });
 
   test("throws when [test].coveragePathIgnorePatterns is missing", async () => {
@@ -39,14 +34,13 @@ describe("readCoverageIgnorePatterns", () => {
 });
 
 describe("isIgnoredCoverageFile", () => {
-  const patterns = ["**/scripts/**", "**/bin/**", "**/test-setup/**", "integration.guard.ts"];
+  const patterns = ["**/scripts/**", "**/bin/**", "**/test-setup/**"];
 
   test.each([
     "bin/commands/add.ts",
     "scripts/check-app-tsc.ts",
     "packages/feature-ast/src/scripts/codemod/migrate-db-raw.ts",
     "test-setup/env.preload.ts",
-    "integration.guard.ts",
     "samples/apps/use-all-bundled/scripts/gen-sample-index.ts",
   ])("ignores %s", (path) => {
     expect(isIgnoredCoverageFile(path, patterns)).toBe(true);

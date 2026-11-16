@@ -21,12 +21,11 @@ coverage = true
 coverageReporter = ["lcov"]
 coverageDir = "coverage/unit"
 # **/scripts/** + **/bin/** exclude CLI tooling with no product coverage;
-# test-setup/ and integration.guard.ts are test infrastructure, not product code.
+# test-setup/ is test infrastructure, not product code.
 coveragePathIgnorePatterns = [
   "**/scripts/**",
   "**/bin/**",
   "**/test-setup/**",
-  "integration.guard.ts",
 ]
 
 # *.spec.ts gehören zu Playwright (e2e/-Folder). bun test versucht sonst

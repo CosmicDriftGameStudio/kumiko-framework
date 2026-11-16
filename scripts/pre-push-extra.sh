@@ -28,13 +28,6 @@ steps=(
   --step "changes-json guard (base=$MERGE_BASE)" "GITHUB_BASE_SHA=$MERGE_BASE bun scripts/guard-changes-json.ts"
 )
 
-# `bun run test` starts with integration.guard.ts; only the parent-scoped push from the main
-# checkout runs `kumiko check` instead and would otherwise skip it.
-if [ -n "${KUMIKO_PUSH_PARENT_DIR:-}" ] \
-   && [ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ]; then
-  steps+=(--step "integration mock guard" "bun integration.guard.ts")
-fi
-
 if [ -z "${KUMIKO_PUSH_PARENT_DIR:-}" ]; then
   steps+=(
     --step "AST guards (standalone clone)" "bun packages/guards/src/run-guards.ts"

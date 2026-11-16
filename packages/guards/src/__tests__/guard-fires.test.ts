@@ -214,6 +214,11 @@ const ENFORCING: Record<string, Violating> = {
     code: "export const line = 1;\n".repeat(2001),
     expectedMessage: /oversized file\(s\)/,
   },
+  "Data-Testid Guard": {
+    path: `${PKG}/features/x/hooked.tsx`,
+    code: 'export const View = () => <div data-testid="new-hook" />;',
+    expectedMessage: /data-testid hook\(s\)/,
+  },
   "test-template-drift": {
     path: `${PKG}/features/x/e2e/screen.spec.ts`,
     code: 'declare const page: { screenshot: (opts: unknown) => Promise<void> };\nexport const run = () => page.screenshot({ path: "out.png" });',

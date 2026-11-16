@@ -10,7 +10,6 @@ import {
 import { SCAFFOLD_INTEGRATION_PARALLEL } from "@cosmicdrift/kumiko-testing/scaffold";
 import { Glob } from "bun";
 import {
-  INTEGRATION_GUARD,
   type IntegrationDiscovery,
   type IntegrationRunMode,
   type IntegrationShard,
@@ -233,12 +232,6 @@ if (import.meta.main) {
     console.error(`Unknown argument(s): ${unknown.join(", ")}\n\n${USAGE}`);
     process.exit(1);
   }
-
-  const guard = Bun.spawnSync(["bun", INTEGRATION_GUARD], {
-    stdio: ["inherit", "inherit", "inherit"],
-    cwd: process.cwd(),
-  });
-  if (guard.exitCode !== 0) process.exit(guard.exitCode ?? 1);
 
   const mode = integrationRunModeFromArgv(process.argv);
   const shard = mode === "perf" ? null : integrationShardFromArgv(process.argv);

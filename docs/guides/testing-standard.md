@@ -228,8 +228,8 @@ same flags; DOM steps stay serial. Perf gates run serially.
 `--no-isolate` is required: bun's `--parallel` implies `--isolate`, which
 leaks native memory per test file and can OOM-kill a small CI runner. It is
 safe because the template isolates through data (`seedTenant` per flow, a
-queue prefix per stack), not through OS processes. The integration guard
-also blocks `mock.module`, the one way files could leak state into each other.
+queue prefix per stack), not through OS processes. The `guard-integration-mocks`
+check (part of `kumiko check`) also ratchets `mock.module`, the one way files could leak state into each other.
 
 The CI Postgres runs with `fsync=off`, `synchronous_commit=off` and
 `full_page_writes=off`: `DROP DATABASE` in `stack.cleanup()` forces a

@@ -13,6 +13,7 @@ import { check as appDockerfile } from "./guard-app-dockerfile";
 import { check as docStatus } from "./guard-doc-status";
 import { check as featureIntegrationTests } from "./guard-feature-integration-tests";
 import { check as guardsDocDrift } from "./guard-guards-doc-drift";
+import { check as integrationMocks } from "./guard-integration-mocks";
 import { check as rawSql } from "./guard-raw-sql";
 import { check as rendererBoundaries } from "./guard-renderer-boundaries";
 import { check as schemaCliFeatures } from "./guard-schema-cli-features";
@@ -37,6 +38,7 @@ export const REPO_CHECKS = [
   schemaCliFeatures,
   appDockerfile,
   docStatus,
+  integrationMocks,
 ];
 
 export const REPO_CHECK_FLAGS: readonly string[] = ["--write-baseline"];

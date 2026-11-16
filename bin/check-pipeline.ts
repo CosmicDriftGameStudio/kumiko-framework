@@ -256,10 +256,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "Package-Cycles Check",
     cmd: `bun "${join(FRAMEWORK_REPO_ROOT, "scripts/check-package-cycles.ts")}"`,
   });
-  steps.push({
-    name: "Integration-Mock Guard",
-    cmd: `cd "${FRAMEWORK_REPO_ROOT}" && bun integration.guard.ts`,
-  });
   steps.push({ name: "License Check", cmd: "bunx kumiko-guards licenses" });
   steps.push({ name: "Security Audit", cmd: "bunx kumiko-guards security" });
   // No bunx fallback here on purpose: the guard checks GUARD_REPO_PRESETS (the

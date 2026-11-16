@@ -138,8 +138,7 @@ export function createDocumentIngestFoundationFeature() {
         category: "storage",
         recommended: false,
       });
-      // tenant-lifecycle hosts EXT_TENANT_DATA — documentExtract.pages is
-      // tenant-subject ciphertext and needs the destroy hook below.
+      // tenant-lifecycle hosts EXT_TENANT_DATA — the destroy hook below forgets every extract and erases its record key.
       r.requires({ features: ["config", "tenant-lifecycle"] });
 
       r.entity({ name: "documentExtract", ...documentExtractEntity });

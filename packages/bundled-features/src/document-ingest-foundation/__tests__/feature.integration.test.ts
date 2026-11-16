@@ -661,6 +661,50 @@ describe("fileRef delete/forget cleanup", () => {
     );
   });
 
+  test("fileRef.forgotten shreds the extract's pages, leaving another fileRef's extract readable", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    try {
+      const { id: fileRefId } = await uploadFile("invoice.pdf", pdfBytes, "application/pdf");
+      const extractId = await seedDocumentExtract(admin.tenantId, fileRefId);
+      const { id: otherFileRefId } = await uploadFile("other.pdf", pdfBytes, "application/pdf");
+      const otherExtractId = await seedDocumentExtract(admin.tenantId, otherFileRefId);
+
+      const user = createSystemUser(admin.tenantId);
+      const tdb = createTenantDb({ db: stack.db, tenantId: admin.tenantId });
+      const result = await fileRefExecutor.forget({ id: fileRefId }, user, tdb);
+      if (!result.isSuccess) throw new Error(`fileRef forget failed: ${result.error.message}`);
+
+      await stack.eventDispatcher?.runOnce();
+
+      const createdPages = async (aggregateId: string): Promise<string> => {
+        const events = await selectMany(stack.db, eventsTable, { aggregateId });
+        const created = events.find((event) => event.type === "document-extract.created");
+        const pages = created?.payload?.["pages"];
+        expect(isPiiCiphertext(pages)).toBe(true);
+        return String(pages);
+      };
+      expect(
+        await decryptPiiValueForSubject(
+          kms,
+          await createdPages(extractId),
+          { requestId: "t" },
+          "pages",
+        ),
+      ).toBe(PII_ERASED_SENTINEL);
+      expect(
+        await decryptPiiValueForSubject(
+          kms,
+          await createdPages(otherExtractId),
+          { requestId: "t" },
+          "pages",
+        ),
+      ).not.toBe(PII_ERASED_SENTINEL);
+    } finally {
+      resetPiiSubjectKmsForTests();
+    }
+  });
+
   test("fileRef.deleted with no documentExtract row leaves the cleanup consumer healthy", async () => {
     const { id: fileRefId } = await uploadFile("invoice.pdf", pdfBytes, "application/pdf");
 

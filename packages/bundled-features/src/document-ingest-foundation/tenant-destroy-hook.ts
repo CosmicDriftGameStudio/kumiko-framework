@@ -7,12 +7,14 @@
 // replayed by the implicit projection itself, which keeps the erasure
 // rebuild-safe — the same reasoning as tenant-lifecycle's membership stage,
 // and the reason the feature owns an r.entity instead of an r.projection.
-// The `pages` ciphertext dies separately when the pipeline's later
-// `subject-keys` stage erases the tenant subject key.
+// Each row's record key is erased right after its forget; the pipeline's subject-keys stage only
+// erases tenant and user keys.
 
 import { createSystemUser, type TenantDataDestroyHook } from "@cosmicdrift/kumiko-framework/engine";
 import { documentExtractsTable } from "./entity.ts";
-import { documentExtractExecutor } from "./executor.ts";
+import { documentExtractExecutor, eraseDocumentExtractKey } from "./executor.ts";
+
+const TENANT_DESTROY_ERASE_REASON = "document-ingest-foundation:tenant-destroy";
 
 export const documentExtractTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
   const rows = await ctx.db.selectMany<{ id: string }>(documentExtractsTable, {
@@ -30,5 +32,6 @@ export const documentExtractTenantDestroyHook: TenantDataDestroyHook = async (ct
         `document-ingest-foundation: failed to forget documentExtract ${row.id} for tenant ${ctx.tenantId}: ${result.error.message}`,
       );
     }
+    await eraseDocumentExtractKey(row.id, TENANT_DESTROY_ERASE_REASON);
   }
 };

@@ -41,15 +41,13 @@ export const documentExtractEntity = createEntity({
       personal: false,
       reason: "technical_reference",
     }),
-    // Holds the full extracted document text (PII). `personal: "tenant"`,
-    // NOT `encrypted: true`: the master-key path has no erasure subject,
-    // so nothing here would ever be shreddable. Tenant-subject ciphertext
-    // dies with eraseSubjectKeys on tenant-destroy. Whose
-    // subject a third party named inside a document is stays open, same as
-    // inbound-mail-foundation. meta is provider telemetry only and
-    // stays plaintext jsonb.
+    // Holds the full extracted document text (PII). Record-owned (`personal: { of: "id" }`),
+    // not tenant: the extract dies with its fileRef, and only a per-record key can make the old
+    // events unreadable then; the forget paths erase that key. Whose subject a third party named
+    // inside a document is stays open, same as inbound-mail-foundation. meta is provider
+    // telemetry only and stays plaintext jsonb.
     pages: createLongTextField({
-      personal: "tenant",
+      personal: { of: "id" },
       find: "none",
     }),
     meta: createJsonbField(),

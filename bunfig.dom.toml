@@ -37,7 +37,6 @@ coveragePathIgnorePatterns = [
   "**/bin/**",
   "**/test-setup/**",
   "**/tmp/**",
-  "integration.guard.ts",
 ]
 
 pathIgnorePatterns = [
