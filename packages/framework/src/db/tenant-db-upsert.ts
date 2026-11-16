@@ -3,7 +3,7 @@ import type {
   TenantDbMode,
   TenantDbUpsertOptions,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { quoteIdent } from "../crypto/ciphertext-pattern.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { AccessDeniedError } from "../errors/index.ts";
 import { isExecutorManagedTable } from "./executor-managed-tables.ts";
 import {

@@ -50,8 +50,7 @@ Erweiterungen wie `uk-gdpr`, `ca-pipeda`, `ca-quebec-l25`, `us-ccpa`,
 
 `override` wird als JSON-String gespeichert und beim Resolver
 deep-merged auf das gewählte Profile. Atomic-Paths (gracePeriod /
-auskunftFrist / retention / authorityNotificationDeadline /
-tenantDestroyGracePeriod) ersetzen komplett statt rekursiv zu mergen,
+exportDownloadTtl / retention / tenantDestroyGracePeriod) ersetzen komplett statt rekursiv zu mergen,
 weil sie diskriminierte Union-Objects sind (`{ months } | { years }` vs
 `{ days } | { hours }`).
 
@@ -62,8 +61,7 @@ weil sie diskriminierte Union-Objects sind (`{ months } | { years }` vs
 }
 // Effekt auf eu-dsgvo:
 //   userRights.gracePeriod = { days: 60 }     (overridden)
-//   userRights.restrictionAllowed = true       (geerbt)
-//   userRights.portabilityFormat = ["json"]    (geerbt)
+//   userRights.exportDownloadTtl = { days: 7 }  (geerbt)
 //   ...alle anderen userRights-Felder unverändert
 ```
 

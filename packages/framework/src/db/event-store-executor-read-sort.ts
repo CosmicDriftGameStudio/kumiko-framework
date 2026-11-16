@@ -18,6 +18,7 @@ import {
   referenceTargetTable,
 } from "./event-store-executor-read-search.ts";
 import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -125,7 +126,7 @@ export function buildReferenceSortExpr(
   const tenantCol = tenantScoped ? physicalColumnName(targetTable, "tenantId") : "";
   const tenantId = db.mode === "tenant" ? db.tenantId : undefined;
   const deletedClause = isSoftDeletedTargetHidden(targetEntity, targetTable)
-    ? ` AND t."${physicalColumnName(targetTable, "isDeleted")}" = FALSE`
+    ? ` AND t.${quoteIdent(physicalColumnName(targetTable, "isDeleted"))} = FALSE`
     : "";
 
   // No ::text cast (unlike the ILIKE search path): a non-text label must keep
@@ -135,7 +136,7 @@ export function buildReferenceSortExpr(
     let tenantClause = "";
     if (tenantScoped) {
       params.push(tenantId, SYSTEM_TENANT_ID);
-      tenantClause = ` AND t."${tenantCol}" IN ($${params.length - 1}, $${params.length})`;
+      tenantClause = ` AND t.${quoteIdent(tenantCol)} IN ($${params.length - 1}, $${params.length})`;
     }
     let ownershipClause = "";
     if (ownership.kind === "sql") {
@@ -147,7 +148,7 @@ export function buildReferenceSortExpr(
       ownershipClause = ` AND ${shifted.sqlText}`;
     }
     return (
-      `(SELECT t."${labelCol}" FROM "${targetTableName}" t ` +
+      `(SELECT t.${quoteIdent(labelCol)} FROM ${quoteIdent(targetTableName)} t ` +
       `WHERE t."id" = ${outerColumnSql}${tenantClause}${ownershipClause}${deletedClause})`
     );
   };
@@ -200,7 +201,7 @@ export function resolveListSort(request: {
   const sql =
     referenceSort && descriptor
       ? buildReferenceSortExpr(
-          `"${request.tableName}".${request.colSql(field)}`,
+          `${quoteIdent(request.tableName)}.${request.colSql(field)}`,
           descriptor,
           referenceSort.resolveEntity,
           request.db,
@@ -239,8 +240,8 @@ export function renderListOrderBy(
   // once for the SELECT list. Projecting it also lets the keyset cursor carry
   // the value that was ordered by rather than the FK column's UUID.
   return {
-    orderByClause: ` ORDER BY "${SORT_LABEL_ALIAS}" ${direction}, ${idAscending}`,
-    sortLabelProjection: `, ${sortSql} AS "${SORT_LABEL_ALIAS}"`,
+    orderByClause: ` ORDER BY ${quoteIdent(SORT_LABEL_ALIAS)} ${direction}, ${idAscending}`,
+    sortLabelProjection: `, ${sortSql} AS ${quoteIdent(SORT_LABEL_ALIAS)}`,
   };
 }
 

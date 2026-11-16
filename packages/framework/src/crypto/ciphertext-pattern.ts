@@ -4,10 +4,6 @@
 // purge (search/purge-subject.ts) — the two sweeps must stay in lockstep
 // across ciphertext format versions.
 
-export function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
 export function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, (m) => `\\${m}`);
 }

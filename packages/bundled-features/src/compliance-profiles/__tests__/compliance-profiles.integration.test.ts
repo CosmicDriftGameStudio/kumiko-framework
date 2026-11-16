@@ -127,11 +127,11 @@ describe("compliance-profiles :: set-profile", () => {
     );
 
     const result = await stack.http.queryOk<{
-      profile: { userRights: { gracePeriod: { days: number }; portabilityFormat: string[] } };
+      profile: { userRights: { gracePeriod: { days: number }; exportDownloadTtl: { days: number } } };
     }>(FOR_TENANT, {}, tenantAdmin);
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 60 });
     // Other userRights fields are preserved from eu-dsgvo
-    expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
+    expect(result.profile.userRights.exportDownloadTtl).toEqual({ days: 7 });
   });
 
   test("Member without TenantAdmin role gets 403 on set-profile", async () => {
@@ -215,6 +215,21 @@ describe("compliance-profiles :: set-profile", () => {
     expect(err.code).toBe("validation_error");
     const fields = (err.details as { fields: Array<{ path: string }> })?.fields;
     expect(fields?.some((f) => f.path.includes("gracePeriod"))).toBe(true);
+  });
+
+  test("set-profile rejects an override field the profile no longer has", async () => {
+    const err = await stack.http.writeErr(
+      SET_PROFILE,
+      {
+        profileKey: "eu-dsgvo",
+        override: JSON.stringify({ userRights: { restrictionAllowed: false } }),
+      },
+      tenantAdmin,
+    );
+    expect(err.code).toBe("validation_error");
+    expect(err.httpStatus).toBe(400);
+    const fields = (err.details as { fields: Array<{ path: string }> })?.fields;
+    expect(fields?.some((f) => f.path.includes("userRights"))).toBe(true);
   });
 
   // SystemAdmin can set profiles

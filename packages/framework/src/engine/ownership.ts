@@ -18,6 +18,7 @@
 // ready to drop into an access map.
 
 import { isPlainObject } from "@cosmicdrift/kumiko-types/type-guards";
+import { quoteIdent } from "../db/sql-identifier.ts";
 import { toSnakeCase } from "../db/table-builder.ts";
 import { columnSqlNameOf, schemaTableName } from "../db/table-introspection.ts";
 import { bootRuleError } from "./boot-validator/boot-rule.ts";
@@ -250,10 +251,6 @@ function columnSqlName(table: unknown, field: string): string | null {
   // Field may already be the SQL column name on plain objects (tests, etc.).
   if (isPlainObject(table) && table[field] !== undefined) return toSnakeCase(field);
   return null;
-}
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
 }
 
 // Shift `$N` placeholder numbers in an embedded fragment so they line up

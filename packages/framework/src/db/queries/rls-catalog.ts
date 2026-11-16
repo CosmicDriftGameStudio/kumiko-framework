@@ -12,7 +12,7 @@ import {
   renderCreatePolicy,
   type TableRowLevelSecurity,
 } from "../render-rls-ddl.ts";
-import { quoteTableIdent } from "./table-ops.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 
 export type RowLevelSecurityState = RowLevelSecurityFlags & TableRowLevelSecurity;
 
@@ -112,7 +112,7 @@ export async function restoreRowLevelSecurityState(
   expected: RowLevelSecurityState,
 ): Promise<void> {
   const raw = asRawClient(tx);
-  const tableSql = `public.${quoteTableIdent(tableName)}`;
+  const tableSql = `public.${quoteIdent(tableName)}`;
   for (const policy of expected.policies) {
     await raw.unsafe(renderCreatePolicy(tableSql, policy));
   }

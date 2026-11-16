@@ -31,32 +31,9 @@ const auditRetentionSchema = z.union([
   z.object({ years: z.number().int().nonnegative() }).strict(),
 ]);
 
-const authorityNotificationDeadlineSchema = z.union([
-  durationSpecSchema,
-  z.literal("as-soon-as-feasible"),
-  z.literal("in-most-expedient-time"),
-  z.literal("manual"),
-]);
-
-const userNotificationRequiredSchema = z.union([
-  z.literal("if-high-risk"),
-  z.literal("if-real-risk-of-significant-harm"),
-  z.literal("if-serious-risk-of-injury"),
-  z.literal("always-if-encrypted-data-or-pii"),
-  z.literal("always-without-undue-delay"),
-  z.literal("manual"),
-]);
-
 const userRightsOverrideSchema = z
   .object({
     gracePeriod: durationSpecSchema.optional(),
-    restrictionAllowed: z.boolean().optional(),
-    objectionAllowed: z.boolean().optional(),
-    portabilityFormat: z.array(z.string()).optional(),
-    auskunftFrist: durationSpecSchema.optional(),
-    employeeAccessRight: z.boolean().optional(),
-    explicitConsentForAutomatedDecision: z.boolean().optional(),
-    doNotSellRequired: z.boolean().optional(),
     // Async-Export-Pipeline — TTL Compliance-relevant,
     // Stale/Cleanup Operations-Settings.
     exportDownloadTtl: durationSpecSchema.optional(),
@@ -68,49 +45,18 @@ const userRightsOverrideSchema = z
 const notificationsOverrideSchema = z
   .object({
     languages: z.array(z.string()).optional(),
-    languageDefault: z.string().optional(),
-    mandatoryBreachNotification: z.boolean().optional(),
   })
   .strict();
 
 const breachOverrideSchema = z
   .object({
-    authorityNotificationDeadline: authorityNotificationDeadlineSchema.optional(),
     authorityContact: z.string().optional(),
-    userNotificationRequired: userNotificationRequiredSchema.optional(),
-    worksCouncilNotificationRequired: z.boolean().optional(),
-    mandatoryRegisterOfBreaches: z.boolean().optional(),
   })
   .strict();
 
 const auditLogOverrideSchema = z
   .object({
     retention: auditRetentionSchema.optional(),
-    reportFrequency: z
-      .union([
-        z.literal("quarterly"),
-        z.literal("yearly"),
-        z.literal("annual-required"),
-        z.literal("manual"),
-      ])
-      .optional(),
-  })
-  .strict();
-
-const subProcessorOverrideSchema = z
-  .object({
-    consentRequired: z.boolean().optional(),
-    changeNotificationLeadDays: z.number().int().nonnegative().optional(),
-    mandatoryBaaWithSubProcessors: z.boolean().optional(),
-    worksCouncilApprovalRequired: z.boolean().optional(),
-    tierFilter: z.array(z.string()).optional(),
-  })
-  .strict();
-
-const forgetDiscoveryOverrideSchema = z
-  .object({
-    enabled: z.boolean().optional(),
-    mode: z.union([z.literal("manual-redact"), z.literal("auto-redact-strict")]).optional(),
   })
   .strict();
 
@@ -126,8 +72,6 @@ export const complianceProfileOverrideSchema = z
     notifications: notificationsOverrideSchema.optional(),
     breach: breachOverrideSchema.optional(),
     auditLog: auditLogOverrideSchema.optional(),
-    subProcessor: subProcessorOverrideSchema.optional(),
     tenantDestroyGracePeriod: durationSpecSchema.optional(),
-    forgetDiscovery: forgetDiscoveryOverrideSchema.optional(),
   })
   .strict();

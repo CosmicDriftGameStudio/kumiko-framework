@@ -9,7 +9,7 @@ import type {
   ListAggregateMeasureKind,
   ListAggregateValue,
 } from "@cosmicdrift/kumiko-types/list-aggregate-types";
-import { quoteIdent } from "../crypto/ciphertext-pattern.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import type { TableInfo } from "./table-info.ts";
 
 const AGGREGATE_BUCKET_UNITS: readonly AggregateTimeBucket[] = ["hour", "day"];

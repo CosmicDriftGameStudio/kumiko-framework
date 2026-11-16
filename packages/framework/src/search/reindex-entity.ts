@@ -10,6 +10,7 @@ import { resolveTableName } from "../db/entity-table-meta.ts";
 import { executeRawQueryRead } from "../db/queries/raw-sql.ts";
 import { runInNewTransaction, runnerCanBeginTransaction } from "../db/query.ts";
 import { runInSystemRowLevelSecurityScope } from "../db/row-level-security-scope.ts";
+import { quoteIdent } from "../db/sql-identifier.ts";
 import { createTenantDb, type TenantDb } from "../db/tenant-db.ts";
 import type { Registry, TenantId } from "../engine/types/index.ts";
 import {
@@ -47,10 +48,6 @@ export type ReindexEntityOptions = {
   // does not leave it reading and writing in the background.
   readonly signal?: AbortSignal;
 };
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
 
 // Read-table state, forward-mapped from entity.fields (fieldName →
 // toSnakeCase(fieldName)). SELECT * + forward-map instead of building an

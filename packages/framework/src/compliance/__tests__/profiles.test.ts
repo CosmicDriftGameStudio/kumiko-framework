@@ -34,27 +34,25 @@ describe("COMPLIANCE_PROFILES — Pre-baked", () => {
     expect(p.breach.authorityContact).toBe("EDÖB Bern");
     // Inherited from eu-dsgvo
     expect(p.userRights.gracePeriod).toEqual({ days: 30 });
-    expect(p.userRights.restrictionAllowed).toBe(true);
     expect(p.tenantDestroyGracePeriod).toEqual({ days: 30 });
   });
 
   test("de-hr-dsgvo-hgb extends eu-dsgvo — HR override applies, base remains", () => {
     const p = COMPLIANCE_PROFILES["de-hr-dsgvo-hgb"];
     expect(p.region).toBe("DE");
-    expect(p.userRights.employeeAccessRight).toBe(true);
-    expect(p.breach.worksCouncilNotificationRequired).toBe(true);
-    expect(p.subProcessor.worksCouncilApprovalRequired).toBe(true);
     expect(p.auditLog.retention).toEqual({ years: 10 });
     expect(p.tenantDestroyGracePeriod).toEqual({ days: 60 });
-    // Inherited: portabilityFormat from eu-dsgvo remains unchanged
-    expect(p.userRights.portabilityFormat).toEqual(["json"]);
+    // Inherited from eu-dsgvo (de-hr declares no userRights)
+    expect(p.userRights.exportDownloadTtl).toEqual({ days: 7 });
+    expect(p.userRights.gracePeriod).toEqual({ days: 30 });
   });
 
   test("minimal-no-region is standalone (no extends)", () => {
     const p = COMPLIANCE_PROFILES["minimal-no-region"];
     expect(p.region).toBe("—");
-    expect(p.notifications.mandatoryBreachNotification).toBe(false);
-    expect(p.breach.authorityNotificationDeadline).toBe("manual");
+    expect(p.extends).toBeUndefined();
+    expect(p.notifications.languages).toEqual(["en"]);
+    expect(p.breach.authorityContact).toBe("");
   });
 });
 
@@ -107,6 +105,14 @@ describe("complianceProfileOverrideSchema — Schema↔Profile-Konsistenz (S1.10
       expect(result.success, `Schema lehnt voll aufgelöstes ${key} ab`).toBe(true);
     }
   });
+
+  test("Schema rejects fields the profile no longer has", () => {
+    expect(
+      complianceProfileOverrideSchema.safeParse({ userRights: { restrictionAllowed: false } })
+        .success,
+    ).toBe(false);
+    expect(complianceProfileOverrideSchema.safeParse({ subProcessor: {} }).success).toBe(false);
+  });
 });
 
 describe("resolveComplianceProfile — Default-Fallback", () => {
@@ -143,10 +149,8 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
       },
     });
     expect(result.profile.userRights.gracePeriod).toEqual({ days: 60 });
-    expect(result.profile.userRights.restrictionAllowed).toBe(true);
-    expect(result.profile.userRights.objectionAllowed).toBe(true);
-    expect(result.profile.userRights.portabilityFormat).toEqual(["json"]);
-    expect(result.profile.userRights.auskunftFrist).toEqual({ days: 30 });
+    expect(result.profile.userRights.exportDownloadTtl).toEqual({ days: 7 });
+    expect(result.profile.userRights.exportStaleTimeoutMinutes).toBe(30);
   });
 
   test("Override breach.authorityContact changes only this path", () => {
@@ -157,8 +161,8 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
       },
     });
     expect(result.profile.breach.authorityContact).toBe("Hamburgischer DSB");
-    expect(result.profile.breach.authorityNotificationDeadline).toEqual({ hours: 72 });
-    expect(result.profile.breach.userNotificationRequired).toBe("if-high-risk");
+    expect(result.profile.notifications.languages).toEqual(["de", "en"]);
+    expect(result.profile.userRights.gracePeriod).toEqual({ days: 30 });
   });
 
   test("Override mehrerer Top-Level-Pfade gleichzeitig", () => {
@@ -187,9 +191,7 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
       },
     });
     expect(result.profile.auditLog.retention).toEqual({ years: 10 });
-    // reportFrequency must not be replaced: auditLog is non-atomic, and only
-    // retention within it is atomic.
-    expect(result.profile.auditLog.reportFrequency).toBe("quarterly");
+    expect(result.profile.auditLog.retention).not.toHaveProperty("months");
   });
 
   test("Atomic path: gracePeriod {days} → {hours} ersetzt komplett", () => {
@@ -212,8 +214,8 @@ describe("resolveComplianceProfile — Override deep-merge", () => {
     });
     // Replace rather than append: ["de", "en"] becomes ["en"]
     expect(result.profile.notifications.languages).toEqual(["en"]);
-    // Andere notifications-Felder bleiben
-    expect(result.profile.notifications.mandatoryBreachNotification).toBe(true);
+    // Other sections remain
+    expect(result.profile.breach.authorityContact).toBe("BlnBDI Berlin");
   });
 });
 
@@ -222,20 +224,12 @@ describe("Profile definition snapshots — catches drift", () => {
     expect(COMPLIANCE_PROFILES["eu-dsgvo"]).toMatchInlineSnapshot(`
       {
         "auditLog": {
-          "reportFrequency": "quarterly",
           "retention": {
             "months": 24,
           },
         },
         "breach": {
           "authorityContact": "BlnBDI Berlin",
-          "authorityNotificationDeadline": {
-            "hours": 72,
-          },
-          "userNotificationRequired": "if-high-risk",
-        },
-        "forgetDiscovery": {
-          "enabled": false,
         },
         "key": "eu-dsgvo",
         "label": "EU — GDPR standard",
@@ -244,20 +238,12 @@ describe("Profile definition snapshots — catches drift", () => {
             "de",
             "en",
           ],
-          "mandatoryBreachNotification": true,
         },
         "region": "EU",
-        "subProcessor": {
-          "changeNotificationLeadDays": 30,
-          "consentRequired": false,
-        },
         "tenantDestroyGracePeriod": {
           "days": 30,
         },
         "userRights": {
-          "auskunftFrist": {
-            "days": 30,
-          },
           "exportDownloadTtl": {
             "days": 7,
           },
@@ -266,11 +252,6 @@ describe("Profile definition snapshots — catches drift", () => {
           "gracePeriod": {
             "days": 30,
           },
-          "objectionAllowed": true,
-          "portabilityFormat": [
-            "json",
-          ],
-          "restrictionAllowed": true,
         },
       }
     `);

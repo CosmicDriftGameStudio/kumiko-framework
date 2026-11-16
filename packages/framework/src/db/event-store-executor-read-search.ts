@@ -19,6 +19,7 @@ import { bindPlaceholders, type ListWhere } from "./event-store-executor-read-fi
 import type { ParentVisibilityOption } from "./parent-ref-clause.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { buildEntityTable, physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb, TenantDbMode } from "./tenant-db.ts";
@@ -140,7 +141,7 @@ async function resolveReferenceMatchesViaIlike(
   let tenantClause = "";
   if (targetTable["tenantId"] !== undefined && db.mode === "tenant") {
     subParams.push(db.tenantId, SYSTEM_TENANT_ID);
-    tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($2, $3)`;
+    tenantClause = ` AND ${quoteIdent(physicalColumnName(targetTable, "tenantId"))} IN ($2, $3)`;
   }
   let ownershipClause = "";
   if (ownership.kind === "sql") {
@@ -152,12 +153,12 @@ async function resolveReferenceMatchesViaIlike(
     for (const p of shifted.params) subParams.push(p);
   }
   const deletedClause = isSoftDeletedTargetHidden(targetEntity, targetTable)
-    ? ` AND "${physicalColumnName(targetTable, "isDeleted")}" = FALSE`
+    ? ` AND ${quoteIdent(physicalColumnName(targetTable, "isDeleted"))} = FALSE`
     : "";
   // ::text cast covers a non-text labelField (e.g. a number/select column
   // used as label) — Postgres has no ILIKE for those types otherwise.
   const sql =
-    `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause}${ownershipClause}${deletedClause} ` +
+    `SELECT "id" FROM ${quoteIdent(targetTableName)} WHERE (${quoteIdent(labelCol)})::text ILIKE $1${tenantClause}${ownershipClause}${deletedClause} ` +
     `LIMIT ${MAX_REFERENCE_SEARCH_IDS + 1}`;
   const rows = await executeRawQueryRead<{ id: string }>(
     tenantDbRunnerForTable(db, targetTable),
@@ -218,7 +219,7 @@ async function resolveReferenceMatchesViaSearchIndex(
   let tenantClause = "";
   if (tenantScoped) {
     params.push(db.tenantId, SYSTEM_TENANT_ID);
-    tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($${params.length - 1}, $${params.length})`;
+    tenantClause = ` AND ${quoteIdent(physicalColumnName(targetTable, "tenantId"))} IN ($${params.length - 1}, $${params.length})`;
   }
   let ownershipClause = "";
   if (ownership.kind === "sql") {
@@ -230,7 +231,7 @@ async function resolveReferenceMatchesViaSearchIndex(
     ownershipClause = ` AND ${shifted.sqlText}`;
   }
   const sql =
-    `SELECT "id" FROM "${targetTableName}" WHERE "id" IN (${idPlaceholders.join(", ")})` +
+    `SELECT "id" FROM ${quoteIdent(targetTableName)} WHERE "id" IN (${idPlaceholders.join(", ")})` +
     `${tenantClause}${ownershipClause}`;
   const rows = await executeRawQueryRead<{ id: string }>(
     tenantDbRunnerForTable(db, targetTable),

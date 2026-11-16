@@ -1,6 +1,6 @@
 import type { AnyDb } from "../query.ts";
 import { executeRawQuery } from "./raw-sql.ts";
-import { quoteTableIdent } from "./table-ops.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 
 export async function selectRowForUpdateById(
   db: AnyDb,
@@ -9,7 +9,7 @@ export async function selectRowForUpdateById(
 ): Promise<readonly Record<string, unknown>[]> {
   return executeRawQuery(
     db,
-    `SELECT * FROM ${quoteTableIdent(tableName)} WHERE "id" = $1 FOR UPDATE`,
+    `SELECT * FROM ${quoteIdent(tableName)} WHERE "id" = $1 FOR UPDATE`,
     [id],
   );
 }

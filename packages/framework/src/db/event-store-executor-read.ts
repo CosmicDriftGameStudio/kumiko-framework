@@ -24,6 +24,7 @@ import {
 import { buildListWhere } from "./event-store-executor-read-where.ts";
 import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
 
@@ -101,7 +102,7 @@ export function createReadVerbs(
       );
       const derivedProjection = derived?.projections(where.params) ?? "";
       const selectList = `*${sortLabelProjection}${streamVersionProjection}${derivedProjection}`;
-      const listSql = `SELECT ${selectList} FROM "${tableName}"${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
+      const listSql = `SELECT ${selectList} FROM ${quoteIdent(tableName)}${whereClauseSqlText}${orderByClause} LIMIT ${limit}${offsetClause}`;
 
       const rawRows = await executeRawQueryRead<Record<string, unknown>>(
         runner,

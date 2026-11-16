@@ -63,7 +63,7 @@
 
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
-import { quoteIdent } from "../../crypto/ciphertext-pattern.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii.ts";
 import {
   isLocalKeyKmsAdapter,

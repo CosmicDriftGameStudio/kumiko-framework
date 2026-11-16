@@ -19,6 +19,7 @@ import {
 import { applyListSearch } from "./event-store-executor-read-search.ts";
 import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { physicalColumnName } from "./table-builder.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -125,7 +126,7 @@ export async function buildListWhere(
   const where: ListWhere = {
     whereSql: [],
     params: [],
-    colSql: (field) => `"${physicalColumnName(table, field)}"`,
+    colSql: (field) => `${quoteIdent(physicalColumnName(table, field))}`,
   };
 
   const fieldReadClause = createFieldReadClause(ctx, user);

@@ -3,6 +3,7 @@ import type { TenantId } from "../engine/types/index.ts";
 
 import { rehydrateCompoundTypes } from "./compound-types.ts";
 import { coerceRow } from "./query.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import type { TableInfo } from "./table-info.ts";
 
 const STREAM_VERSION_ALIAS = "__streamVersion";
@@ -38,8 +39,8 @@ export function appendStreamVersionProjection(
   params.push(streamTenantId);
   return (
     `, (SELECT MAX("version") FROM "kumiko_events" ` +
-    `WHERE "aggregate_id" = "${tableName}"."id" AND "tenant_id" = $${params.length}) ` +
-    `AS "${STREAM_VERSION_ALIAS}"`
+    `WHERE "aggregate_id" = ${quoteIdent(tableName)}."id" AND "tenant_id" = $${params.length}) ` +
+    `AS ${quoteIdent(STREAM_VERSION_ALIAS)}`
   );
 }
 

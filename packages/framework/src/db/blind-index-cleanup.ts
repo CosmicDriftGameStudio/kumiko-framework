@@ -12,7 +12,8 @@
 // behind (foreign entities with userOwned fields).
 
 import { collectLookupableFields } from "../crypto/blind-index.ts";
-import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
+import { subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { isSelfPiiField } from "../crypto/is-self-pii-field.ts";
 import { findEntity } from "../engine/find-entity.ts";
 import type { FeatureDefinition } from "../engine/types/index.ts";

@@ -13,6 +13,7 @@
 
 import { extractTableName } from "../../db/index.ts";
 import { executeRawQuery } from "../../db/queries/raw-sql.ts";
+import { quoteIdent } from "../../db/sql-identifier.ts";
 import { columnSqlNameOf } from "../../db/table-introspection.ts";
 import { tenantDbWriteRunner } from "../../db/tenant-db-runner.ts";
 import { defineStep } from "../define-step.ts";
@@ -27,10 +28,6 @@ type UnsafeProjectionUpsertArgs = {
 
 function resolveColumnName(table: unknown, field: string): string {
   return columnSqlNameOf(table, field) ?? field;
-}
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
 }
 
 defineStep<UnsafeProjectionUpsertArgs, void>({

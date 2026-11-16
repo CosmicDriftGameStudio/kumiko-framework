@@ -113,6 +113,16 @@ describe("buildReadGateClause", () => {
     expect(sqlText).toContain("gate_file");
   });
 
+  test("quotes the caller's table alias as an SQL identifier", () => {
+    const clause = buildReadGateClause(gatedEntity, gatedTable, 'docs"alias', user, tenantDb, {
+      entities,
+      canReadEntity: () => true,
+    });
+    const { sqlText } = sqlOf(clause);
+    expect(sqlText).toContain('"docs""alias"');
+    expect(sqlText).not.toContain('"docs"alias"');
+  });
+
   test("an owner entity without a readable query handler contributes no branch", () => {
     const withoutHost = build(user, (name) => name !== "host");
     expect(sqlOf(withoutHost).sqlText).not.toContain('"read_gate_hosts"');

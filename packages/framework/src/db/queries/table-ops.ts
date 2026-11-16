@@ -1,11 +1,7 @@
 import type { AnyDb } from "../query.ts";
 import { asRawClient } from "../query.ts";
-
-/** Double-quote + escape — Postgres identifier rules. */
-export function quoteTableIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
+import { quoteIdent } from "../sql-identifier.ts";
 
 export async function truncateTable(db: AnyDb, tableName: string): Promise<void> {
-  await asRawClient(db).unsafe(`TRUNCATE TABLE ${quoteTableIdent(tableName)}`);
+  await asRawClient(db).unsafe(`TRUNCATE TABLE ${quoteIdent(tableName)}`);
 }

@@ -48,6 +48,7 @@ import type { EventStoreExecutorOptions } from "./event-store-executor.ts";
 import { withGlobalParentHosts } from "./parent-ref-global-hosts.ts";
 import { constraintOf, isUniqueViolation } from "./pg-error.ts";
 import { resolveReadOwnership } from "./read-ownership.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { toSnakeCase } from "./table-builder.ts";
 import { columnHandleName, schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
@@ -539,7 +540,7 @@ export function buildExecutorContext(
     ownership: { kind: "pass" } | { kind: "sql"; sqlText: string; params: readonly unknown[] },
   ): { whereParts: string[]; params: unknown[] } {
     const colSql = (field: string): string =>
-      `"${columnHandleName(table, field) ?? toSnakeCase(field)}"`;
+      quoteIdent(columnHandleName(table, field) ?? toSnakeCase(field));
     const whereParts: string[] = [];
     const params: unknown[] = [];
     if (table["tenantId"] !== undefined && db.mode === "tenant") {
@@ -597,7 +598,7 @@ export function buildExecutorContext(
     const { whereParts, params } = buildRawIdWhere(db, { id }, ownership);
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       tenantDbRunnerForTable(db, table),
-      `SELECT 1 AS "__readable" FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`,
+      `SELECT 1 AS "__readable" FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`,
       params,
     );
     return rows.length > 0;
@@ -622,7 +623,7 @@ export function buildExecutorContext(
     params.push(aggregateId, streamTenantId);
     const sqlText =
       `SELECT *, ${streamVersionSubquerySql(params.length - 1, params.length)} ` +
-      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+      `FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`;
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       tenantDbRunnerForTable(db, table),
       sqlText,
@@ -662,12 +663,11 @@ export function buildExecutorContext(
         });
       }
     }
-    const quote = (name: string): string => `"${name.replace(/"/g, '""')}"`;
     const columnOf = (field: string): string =>
-      quote(columnHandleName(table, field) ?? toSnakeCase(field));
+      quoteIdent(columnHandleName(table, field) ?? toSnakeCase(field));
     const tableName = String(schemaTableName(table));
 
-    const selectCols = expectKeys.map((key) => `${columnOf(key)} AS ${quote(key)}`);
+    const selectCols = expectKeys.map((key) => `${columnOf(key)} AS ${quoteIdent(key)}`);
     const whereParts: string[] = [`${columnOf("id")} = $1`];
     const params: unknown[] = [id];
     if (table["tenantId"] !== undefined && db.mode === "tenant") {
@@ -681,7 +681,7 @@ export function buildExecutorContext(
     const sqlText =
       `SELECT ${selectCols.join(", ")}, ` +
       `${streamVersionSubquerySql(streamAggregateIdx, streamTenantIdx)} ` +
-      `FROM "${tableName}" WHERE ${whereParts.join(" AND ")} LIMIT 1`;
+      `FROM ${quoteIdent(tableName)} WHERE ${whereParts.join(" AND ")} LIMIT 1`;
 
     const rows = await executeRawQueryRead<Record<string, unknown>>(
       tenantDbRunnerForTable(db, table),

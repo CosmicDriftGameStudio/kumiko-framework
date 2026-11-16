@@ -22,7 +22,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/executor-brand";
 import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { SelectOptions, WhereObject } from "@cosmicdrift/kumiko-types/where-clause-types";
-import { quoteIdent } from "../crypto/ciphertext-pattern.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { InternalError } from "../errors/index.ts";
 import {
   aggregateDimensionSql,

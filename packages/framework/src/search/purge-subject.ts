@@ -8,7 +8,8 @@
 //   2. Ciphertext LIKE prefix (same as nullBlindIndexesForSubject) for rows
 //      that still carry the subject key in encrypted columns.
 
-import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
+import { subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.ts";
+import { quoteIdent } from "../db/sql-identifier.ts";
 import { isSelfPiiField } from "../crypto/is-self-pii-field.ts";
 import type { SubjectId } from "../crypto/kms-adapter.ts";
 import { collectSearchableSubjectFields, isRecordKeyedField } from "../crypto/subject-resolver.ts";

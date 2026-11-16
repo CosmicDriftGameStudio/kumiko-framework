@@ -43,6 +43,7 @@ import {
   type ListWherePayload,
 } from "./event-store-executor-read-where.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { schemaTableName } from "./table-introspection.ts";
 import type { TenantDb } from "./tenant-db.ts";
 import { tenantDbRunnerForTable } from "./tenant-db-runner.ts";
@@ -218,7 +219,7 @@ export async function aggregateList(
   const tableName = String(schemaTableName(ctx.table));
   const rows = await executeRawQueryRead<Record<string, unknown>>(
     tenantDbRunnerForTable(db, ctx.table),
-    `SELECT ${selectList} FROM "${tableName}"${whereText}${groupText}`,
+    `SELECT ${selectList} FROM ${quoteIdent(tableName)}${whereText}${groupText}`,
     where.params,
   );
 

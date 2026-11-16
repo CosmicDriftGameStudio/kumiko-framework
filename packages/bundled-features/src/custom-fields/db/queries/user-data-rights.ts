@@ -1,13 +1,6 @@
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { unsafeReadRetrying } from "@cosmicdrift/kumiko-framework/db";
-
-function quoteTable(tableName: string): string {
-  return `"${tableName.replace(/"/g, '""')}"`;
-}
-
-function quoteColumn(columnName: string): string {
-  return `"${columnName.replace(/"/g, '""')}"`;
-}
+import { quoteIdent } from "./projection.ts";
 
 export async function selectCustomFieldsHostRows(
   db: DbRunner,
@@ -16,8 +9,8 @@ export async function selectCustomFieldsHostRows(
   userId: string,
   tenantId: string,
 ): Promise<readonly unknown[]> {
-  const tbl = quoteTable(tableName);
-  const userCol = quoteColumn(userIdColumn);
+  const tbl = quoteIdent(tableName);
+  const userCol = quoteIdent(userIdColumn);
   const rowsResult = await unsafeReadRetrying(
     db,
     `SELECT id, custom_fields FROM ${tbl} WHERE ${userCol} = $1 AND tenant_id = $2`,

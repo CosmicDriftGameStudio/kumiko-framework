@@ -30,11 +30,11 @@ import { renderTableDdl } from "../render-ddl.ts";
 import { columnNamesOf, tableExists } from "../schema-inspection.ts";
 import { toPostgresArrayLiteral } from "./postgres-array-literal.ts";
 import { readRowLevelSecurityState, restoreRowLevelSecurityState } from "./rls-catalog.ts";
-import { quoteTableIdent } from "./table-ops.ts";
+import { quoteIdent } from "../sql-identifier.ts";
 
 export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
 
-const SCHEMA_IDENT = quoteTableIdent(PROJECTION_REBUILD_SCHEMA);
+const SCHEMA_IDENT = quoteIdent(PROJECTION_REBUILD_SCHEMA);
 
 function isDuplicateSchemaError(e: unknown): boolean {
   const code = extractPgError(e)?.code;
@@ -126,7 +126,7 @@ export async function assertLiveColumnsMatchMeta(
 export async function buildShadowTable(tx: AnyDb, meta: EntityTableMeta): Promise<void> {
   const raw = asRawClient(tx);
   await raw.unsafe(`SET LOCAL search_path TO ${SCHEMA_IDENT}, public`);
-  await raw.unsafe(`DROP TABLE IF EXISTS ${SCHEMA_IDENT}.${quoteTableIdent(meta.tableName)}`);
+  await raw.unsafe(`DROP TABLE IF EXISTS ${SCHEMA_IDENT}.${quoteIdent(meta.tableName)}`);
   for (const stmt of renderTableDdl(meta)) {
     await raw.unsafe(stmt);
   }
@@ -152,7 +152,7 @@ export async function fenceLiveTable(
   }
   const raw = asRawClient(tx);
   await raw.unsafe(`SET LOCAL lock_timeout = ${Math.trunc(lockTimeoutMs)}`);
-  await raw.unsafe(`LOCK TABLE public.${quoteTableIdent(tableName)} IN ACCESS EXCLUSIVE MODE`);
+  await raw.unsafe(`LOCK TABLE public.${quoteIdent(tableName)} IN ACCESS EXCLUSIVE MODE`);
 }
 
 // Ids reported when the swap is aborted — enough to locate the ghost rows
@@ -256,7 +256,7 @@ export async function assertNoUnreachableLiveRows(
   // of a subscription-less projection swaps an empty shadow (handled upstream).
   if (aggregateTypes.length === 0) return;
   const raw = asRawClient(tx);
-  const t = quoteTableIdent(tableName);
+  const t = quoteIdent(tableName);
   const derivedTypes = aggregateTypes.filter((type) => derivedRowIds[type] !== undefined);
   const directTypes = aggregateTypes.filter((type) => derivedRowIds[type] === undefined);
   if (derivedTypes.length > 0) {
@@ -328,7 +328,7 @@ async function assertBlindIndexKeyMatchesLive(
 ): Promise<void> {
   const differs = bidxCols
     .map((c) => {
-      const col = quoteTableIdent(c.name);
+      const col = quoteIdent(c.name);
       return `(l.${col} IS NOT NULL AND s.${col} IS NOT NULL AND l.${col} IS DISTINCT FROM s.${col})`;
     })
     .join(" OR ");
@@ -365,14 +365,14 @@ export async function assertNoBlindIndexLoss(
   const bidxCols = meta.columns.filter((c) => c.name.endsWith("_bidx"));
   // skip: no blind-index column on this table — nothing the rebuild could lose
   if (bidxCols.length === 0) return;
-  const t = quoteTableIdent(tableName);
+  const t = quoteIdent(tableName);
   const raw = asRawClient(tx);
   if (configuredBlindIndexKey() !== undefined) {
     await assertBlindIndexKeyMatchesLive(raw, tableName, t, bidxCols, projectionName);
     // skip: a configured key is verified against live rows above, the null-count check below is for keyless boots
     return;
   }
-  const where = bidxCols.map((c) => `${quoteTableIdent(c.name)} IS NOT NULL`).join(" OR ");
+  const where = bidxCols.map((c) => `${quoteIdent(c.name)} IS NOT NULL`).join(" OR ");
   const rows = await raw.unsafe<{ total: string }>(
     `SELECT count(*)::text AS total FROM public.${t} WHERE ${where}`,
   );
@@ -435,7 +435,7 @@ export async function countColumnDrift(
   const comparable = meta.columns.filter((c) => c.primaryKey !== true && !c.name.endsWith("_bidx"));
   // skip: nothing to compare (id-only or all-bidx table) — no drift is possible
   if (comparable.length === 0) return { rowCount: 0, sample: [] };
-  const t = quoteTableIdent(tableName);
+  const t = quoteIdent(tableName);
   const raw = asRawClient(tx);
   const driftCte = `WITH drifted AS (
      SELECT l."id" AS id, string_agg(diff.col, ',') AS drifted_columns
@@ -445,7 +445,7 @@ export async function countColumnDrift(
        VALUES ${comparable
          .map(
            (c) =>
-             `('${c.name}', l.${quoteTableIdent(c.name)} IS DISTINCT FROM s.${quoteTableIdent(c.name)})`,
+             `('${c.name}', l.${quoteIdent(c.name)} IS DISTINCT FROM s.${quoteIdent(c.name)})`,
          )
          .join(", ")}
      ) AS diff(col, differs)
@@ -477,7 +477,7 @@ export async function countColumnDrift(
 // rolls back, leaving the old table untouched.
 export async function swapShadowIntoLive(tx: DbTx, tableName: string): Promise<void> {
   const raw = asRawClient(tx);
-  const ident = quoteTableIdent(tableName);
+  const ident = quoteIdent(tableName);
   // Held before the catalog read so a concurrent ENABLE ROW LEVEL SECURITY / CREATE POLICY either
   // commits first (and is carried over) or waits behind the DROP.
   await raw.unsafe(`LOCK TABLE public.${ident} IN ACCESS EXCLUSIVE MODE`);

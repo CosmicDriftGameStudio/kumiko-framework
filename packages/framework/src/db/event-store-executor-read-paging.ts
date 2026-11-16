@@ -5,6 +5,7 @@ import type { Table } from "./event-store-executor-context.ts";
 import type { ListWhere } from "./event-store-executor-read-filter.ts";
 import { type ListSort, renderSortSql, sortsNullsFirst } from "./event-store-executor-read-sort.ts";
 import { executeRawQueryRead } from "./queries/raw-sql.ts";
+import { quoteIdent } from "./sql-identifier.ts";
 import { physicalColumnName } from "./table-builder.ts";
 
 // Defense-in-depth pagination guard. The handler boundary (entityListSchema)
@@ -134,7 +135,7 @@ export async function countListRows(
   whereClauseSqlText: string,
   whereParams: readonly unknown[],
 ): Promise<number> {
-  const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
+  const countSql = `SELECT COUNT(*)::int AS count FROM ${quoteIdent(tableName)}${whereClauseSqlText}`;
   const countRows = await executeRawQueryRead<{ count: number }>(runner, countSql, whereParams);
   return countRows[0]?.count ?? 0;
 }
