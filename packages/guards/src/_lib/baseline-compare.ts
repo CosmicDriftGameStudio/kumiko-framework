@@ -1,5 +1,5 @@
-// Shared by baseline-ratchet guards (check-complexity, guard-pii-
-// annotations) and the security-baseline module: per-file current-vs-baseline
+// Shared by baselineRatchet guards (guard-kit.ts, e.g. check-complexity) and the
+// security-baseline module: per-file current-vs-baseline
 // count diff. More than baseline is a regression; less is allowed but doesn't
 // auto-update the baseline.
 export interface BaselineRegression {

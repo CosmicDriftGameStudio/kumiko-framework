@@ -10,6 +10,7 @@ import {
   access,
   createSystemUser,
   type HandlerContext,
+  listAllPages,
   type SessionUser,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -60,20 +61,6 @@ export const requestExecutor = createEventStoreExecutor(
 export const replyExecutor = createEventStoreExecutor(helpdeskReplyTable, helpdeskReplyEntity, {
   entityName: HELPDESK_REPLY_ENTITY,
 });
-
-// Equals the executor's MAX_LIST_LIMIT, so every page is filled until the last one.
-const LIST_PAGE_SIZE = 200;
-
-export async function listAllPages<Row>(
-  fetchPage: (page: { limit: number; offset: number }) => Promise<{ rows: readonly Row[] }>,
-): Promise<Row[]> {
-  const all: Row[] = [];
-  for (;;) {
-    const { rows } = await fetchPage({ limit: LIST_PAGE_SIZE, offset: all.length });
-    all.push(...rows);
-    if (rows.length < LIST_PAGE_SIZE) return all;
-  }
-}
 
 export function listRepliesOf(db: TenantDb, requestId: string) {
   return listAllPages((page) =>
