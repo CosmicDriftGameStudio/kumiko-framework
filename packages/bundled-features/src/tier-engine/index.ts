@@ -1,10 +1,11 @@
 // Public API of the tier-engine bundled-feature.
 //
 // **What downstream apps import:**
-//   - `tierEngineFeature` — register at app boot via runProdApp/setupTestStack
+//   - `createTierEngineFeature` — register at app boot via runProdApp/setupTestStack
 //   - `composeApp` — call to derive feature-set + caps from tier+addOns
 //   - `TierMap` / `AddOnMap` — types for the app's own tier/add-on definitions
 //   - `tierAssignmentEntity` — for migrations + drizzle-schema-generation
+//   - `tierAssignmentTable` — the built table for reads
 //   - `TierEngineHandlers` / `TierEngineQueries` — qualified handler names
 
 export { tierAssignmentAggregateId } from "./aggregate-id.ts";
@@ -23,6 +24,7 @@ export {
   type CreateTierEngineOptions,
   createTierEngineFeature,
 } from "./feature.ts";
+export { tierAssignmentTable } from "./table.ts";
 export {
   createTierResolver,
   type TierResolver,

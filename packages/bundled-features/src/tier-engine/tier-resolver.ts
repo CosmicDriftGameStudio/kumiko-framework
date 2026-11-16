@@ -3,9 +3,9 @@
 // per-app variables were the TierName union and its caps/defaults, so
 // both are now factory parameters.
 
-import { buildEntityTable, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { CapLimitContext } from "../cap-counter/index.ts";
-import { tierAssignmentEntity } from "./entity.ts";
+import { tierAssignmentTable } from "./table.ts";
 
 export type TierResolverDeps<TTier extends string, TCaps> = {
   readonly capsForTier: (tier: TTier, context: CapLimitContext) => TCaps | Promise<TCaps>;
@@ -16,8 +16,6 @@ export type TierResolverDeps<TTier extends string, TCaps> = {
 export function createTierResolver<TTier extends string, TCaps>(
   deps: TierResolverDeps<TTier, TCaps>,
 ) {
-  const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
-
   async function resolveTier(db: TenantDb): Promise<TTier> {
     const row = await db.fetchOne<{ tier?: unknown }>(tierAssignmentTable, {
       tenantId: db.tenantId,

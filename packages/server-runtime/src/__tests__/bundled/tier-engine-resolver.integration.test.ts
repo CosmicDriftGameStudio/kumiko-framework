@@ -18,6 +18,7 @@ import { seedTenant } from "@cosmicdrift/kumiko-bundled-features/tenant/seeding"
 import type { TierMap } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import {
   createTierEngineFeature,
+  TierAssignmentSources,
   tierAssignmentEntity,
 } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -32,6 +33,7 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/seeding";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
+import { expectErrorIncludes } from "@cosmicdrift/kumiko-testing/helpers";
 import {
   setupTestStack,
   type TestStack,
@@ -242,6 +244,68 @@ describe("createTierEngineFeature — per-tenant resolver", () => {
     expect(systemSet.has("feat-business")).toBe(true);
     // SYSTEM tenant also receives always-on non-toggleable features from includeBundled.
     expect(systemSet.size).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("createTierEngineFeature — tier-assignment writes validate the tier name", () => {
+  type Row = { readonly id: string; readonly version: number; readonly tier: string };
+  const operator = createTestUser({
+    id: "sys-validate",
+    tenantId: tenantA,
+    roles: ["SystemAdmin", "TenantAdmin"],
+  });
+  const listRows = async (): Promise<readonly Row[]> =>
+    (
+      await stack.http.queryOk<{ rows: readonly Row[] }>(
+        "tier-engine:query:tier-assignment:list",
+        {},
+        operator,
+      )
+    ).rows;
+
+  test("create with a tier name outside the tierMap is rejected and stores nothing", async () => {
+    const err = await stack.http.writeErr(
+      "tier-engine:write:tier-assignment:create",
+      { tier: "platinum" },
+      operator,
+    );
+    expectErrorIncludes(err, "validation_error");
+    expectErrorIncludes(err, "invalid_value");
+    expect(await listRows()).toHaveLength(0);
+  });
+
+  test("update to a tier name outside the tierMap is rejected and keeps the row", async () => {
+    await stack.http.writeOk(
+      "tier-engine:write:tier-assignment:create",
+      { tier: "free" },
+      operator,
+    );
+    const row = (await listRows())[0];
+    if (!row) throw new Error("no tier-assignment row created");
+
+    const err = await stack.http.writeErr(
+      "tier-engine:write:tier-assignment:update",
+      { id: row.id, version: row.version, changes: { tier: "platinum" } },
+      operator,
+    );
+    expectErrorIncludes(err, "invalid_value");
+    expect((await listRows())[0]?.tier).toBe("free");
+  });
+
+  test("update without a tier change passes the validation", async () => {
+    await stack.http.writeOk(
+      "tier-engine:write:tier-assignment:create",
+      { tier: "free" },
+      operator,
+    );
+    const row = (await listRows())[0];
+    if (!row) throw new Error("no tier-assignment row created");
+
+    await stack.http.writeOk(
+      "tier-engine:write:tier-assignment:update",
+      { id: row.id, version: row.version, changes: { source: TierAssignmentSources.manual } },
+      operator,
+    );
   });
 });
 

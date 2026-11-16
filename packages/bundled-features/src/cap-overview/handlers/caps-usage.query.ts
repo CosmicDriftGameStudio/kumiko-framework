@@ -1,4 +1,4 @@
-import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineQueryHandler,
   mayOverrideTenant,
@@ -10,13 +10,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireSystemDb } from "../../shared/index.ts";
-import { tierAssignmentEntity } from "../../tier-engine/index.ts";
+import { tierAssignmentTable } from "../../tier-engine/index.ts";
 import type { CapSpec, CapUsageWithMeta } from "../types.ts";
 import { computeFraction, computeTone, computeUnclampedFraction } from "../web/usage-math.ts";
 
 type TierAssignmentRow = { readonly tenantId: string; readonly tier: string };
-
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
 export function createCapsUsageQuery(
   caps: readonly CapSpec[],

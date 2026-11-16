@@ -121,15 +121,18 @@ export const teamListQuery = definePagedQueryHandler({
         const sessions = await selectMany<{ userId: unknown; lastSeenAt: unknown }>(
           db,
           userSessionTable,
-          { tenantId, userId: userIds },
+          { tenantId, userId: userIds, lastSeenAt: { ne: null } },
+          {
+            fields: ["userId", "lastSeenAt"],
+            distinctOn: ["userId"],
+            // NULL sorts first on DESC in Postgres, hence the ne: null filter above.
+            orderBy: [{ col: "userId" }, { col: "lastSeenAt", direction: "desc" }],
+          },
         );
         for (const session of sessions) {
           const value = session["lastSeenAt"];
-          if (!(value instanceof Temporal.Instant)) continue;
-          const userId = String(session["userId"]);
-          const current = lastSeenByUserId.get(userId);
-          if (current === undefined || Temporal.Instant.compare(value, current) > 0) {
-            lastSeenByUserId.set(userId, value);
+          if (value instanceof Temporal.Instant) {
+            lastSeenByUserId.set(String(session["userId"]), value);
           }
         }
       } catch (err) {

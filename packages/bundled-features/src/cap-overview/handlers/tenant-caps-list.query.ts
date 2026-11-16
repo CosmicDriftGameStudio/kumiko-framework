@@ -1,4 +1,4 @@
-import { buildEntityTable, selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   type ConfigAccessor,
   definePagedQueryHandler,
@@ -11,7 +11,7 @@ import * as z from "zod";
 import { requireSystemDb } from "../../shared/index.ts";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.ts";
 import { decryptTenantNames, tenantTable } from "../../tenant/index.ts";
-import { tierAssignmentEntity } from "../../tier-engine/index.ts";
+import { tierAssignmentTable } from "../../tier-engine/index.ts";
 import type { CapSpec, CapSpecLimitContext, CapSpecLimitTenant, CapUsage } from "../types.ts";
 import { capFieldName } from "../web/constants.ts";
 import { computeFraction } from "../web/usage-math.ts";
@@ -35,11 +35,6 @@ type TenantCapsListRow = {
   readonly billing: string;
   readonly [capField: string]: unknown;
 };
-
-// tier-resolver.ts rebuilds the same drizzle table locally rather than
-// importing a pre-built one — tier-engine's public barrel only exports the
-// entity, not a built table (see tier-engine/tier-resolver.ts).
-const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
 function billingLabel(
   subscription: SubscriptionRow | undefined,

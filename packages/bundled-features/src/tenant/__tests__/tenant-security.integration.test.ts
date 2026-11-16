@@ -693,6 +693,41 @@ describe("tenant:query:team:list — combined members + pending invitations (§2
     expect(withoutSession?.lastSeenAt).toBeNull();
     expect(invitee?.lastSeenAt).toBeNull();
   });
+
+  test("lastSeenAt is the newest session of a member with several sessions", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "many-sessions@example.com",
+      displayName: "Many Sessions",
+      passwordHash: await hashPassword("pw-many-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_A_ID, roles: ["User"] });
+    const newestLastSeen = Temporal.Now.instant().subtract({ minutes: 5 });
+    for (const lastSeenAt of [
+      Temporal.Now.instant().subtract({ hours: 2 }),
+      newestLastSeen,
+      null,
+    ]) {
+      await seedRow(stack.db, userSessionTable, {
+        id: crypto.randomUUID(),
+        userId,
+        tenantId: TENANT_A_ID,
+        createdAt: Temporal.Now.instant().subtract({ hours: 3 }),
+        expiresAt: Temporal.Now.instant().add({ hours: 1 }),
+        lastSeenAt,
+      });
+    }
+
+    const rows = await queryTeamList({}, tenantAdminA());
+    const member = rows.find((r) => r.email === "many-sessions@example.com");
+
+    expect(member?.lastSeenAt).not.toBeNull();
+    const driftMs = Math.abs(
+      Temporal.Instant.from(member?.lastSeenAt as string).epochMilliseconds -
+        newestLastSeen.epochMilliseconds,
+    );
+    expect(driftMs).toBeLessThan(1_000);
+  });
 });
 
 describe("cancel-invitation on the /members surface genuinely cancels", () => {

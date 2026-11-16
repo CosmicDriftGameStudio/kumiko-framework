@@ -209,8 +209,8 @@ async function appendTenantStageEvent(
   type: string,
   payload: Record<string, unknown>,
   expectedVersion: number,
-): Promise<void> {
-  await append(db, {
+): Promise<number> {
+  const stored = await append(db, {
     aggregateId: tenantId,
     aggregateType: TENANT_AGGREGATE_TYPE,
     tenantId: SYSTEM_TENANT_ID,
@@ -222,6 +222,7 @@ async function appendTenantStageEvent(
       requestId: `tenant-lifecycle:${type}`,
     },
   });
+  return stored.version;
 }
 
 async function appendTenantStageEventIdempotent(
@@ -232,12 +233,9 @@ async function appendTenantStageEventIdempotent(
   expectedVersion: number,
   alreadyRecorded: boolean,
 ): Promise<number> {
-  if (alreadyRecorded) {
-    const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
-    return lastEventVersion(events);
-  }
+  if (alreadyRecorded) return expectedVersion;
   try {
-    await appendTenantStageEvent(db, tenantId, type, payload, expectedVersion);
+    return await appendTenantStageEvent(db, tenantId, type, payload, expectedVersion);
   } catch (err) {
     if (!(err instanceof VersionConflictError)) throw err;
     const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
@@ -248,8 +246,6 @@ async function appendTenantStageEventIdempotent(
     }
     throw err;
   }
-  const events = await loadAggregate(db, tenantId, SYSTEM_TENANT_ID);
-  return lastEventVersion(events);
 }
 
 async function setTenantLifecycleStatus(
@@ -305,15 +301,13 @@ async function haltPipelineOnAbandon(args: {
   // tombstoneTenantRow's tenantCrud.update) before throwing, so any version
   // captured earlier in the pipeline is stale and would VersionConflict here.
   const eventsBeforeAbandon = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
-  await appendTenantStageEvent(
+  const versionAfterAbandon = await appendTenantStageEvent(
     args.db,
     args.tenantId,
     qualified(TENANT_DESTRUCTION_STAGE_ABANDONED_EVENT_SHORT),
     { stage: args.stage, attempts: args.attempts, error: args.error },
     lastEventVersion(eventsBeforeAbandon),
   );
-  const eventsAfterAbandon = await loadAggregate(args.db, args.tenantId, SYSTEM_TENANT_ID);
-  const versionAfterAbandon = lastEventVersion(eventsAfterAbandon);
   await appendTenantStageEvent(
     args.db,
     args.tenantId,
