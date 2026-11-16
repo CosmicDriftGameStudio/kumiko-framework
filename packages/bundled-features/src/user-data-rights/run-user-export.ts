@@ -44,6 +44,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { runInSystemRowLevelSecurityScope } from "@cosmicdrift/kumiko-framework/internal/row-level-security";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import { chunk } from "@cosmicdrift/kumiko-framework/utils";
 import { tenantMembershipsTable } from "../tenant/index.ts";
 import { buildHookDb } from "./build-hook-db.ts";
 import { buildFileRefZipPath } from "./zip-path.ts";
@@ -255,6 +256,20 @@ async function exportUserData(args: RunUserExportArgs): Promise<UserExportBundle
 // blob as a value (leak by confusion).
 const ENCRYPTED_UNAVAILABLE = "[encrypted:unavailable]";
 
+// The KMS client pool holds 4 connections; an export with thousands of rows must not queue them all at once.
+const KMS_DECRYPT_CONCURRENCY = 4;
+
+async function mapInKmsSizedBatches<T, R>(
+  items: readonly T[],
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (const batch of chunk(items, KMS_DECRYPT_CONCURRENCY)) {
+    results.push(...(await Promise.all(batch.map(fn))));
+  }
+  return results;
+}
+
 // Shared decrypt sweep, used for both `snippet.rows` and `snippet.fileRefs`
 // `encryptedFields` is keyed by field NAME, so it stays a no-op
 // for today's `fileRef` entity but covers a future generically-encrypted
@@ -268,35 +283,31 @@ async function decryptRecords(
 
   if (encryptedFields.size > 0) {
     const cipher = configuredEntityFieldEncryption();
-    rows = await Promise.all(
-      rows.map(async (row) => {
-        if (cipher) return decryptEntityFieldValues(row, encryptedFields, cipher);
-        const out = { ...row };
-        for (const name of encryptedFields) {
-          if (typeof out[name] === "string") out[name] = ENCRYPTED_UNAVAILABLE;
-        }
-        return out;
-      }),
-    );
+    rows = await mapInKmsSizedBatches(rows, async (row) => {
+      if (cipher) return decryptEntityFieldValues(row, encryptedFields, cipher);
+      const out = { ...row };
+      for (const name of encryptedFields) {
+        if (typeof out[name] === "string") out[name] = ENCRYPTED_UNAVAILABLE;
+      }
+      return out;
+    });
   }
 
   // PII-subject ciphertexts (kumiko-pii:) are self-describing — no entity
   // context needed, covers every hook past and future. Erased subject →
   // sentinel (honest: the value is shredded).
-  return Promise.all(
-    rows.map(async (row) => {
-      const piiKeys = Object.keys(row).filter((k) => isPiiCiphertext(row[k]));
-      if (piiKeys.length === 0) return row;
-      if (!kms) {
-        const out = { ...row };
-        for (const k of piiKeys) out[k] = ENCRYPTED_UNAVAILABLE;
-        return out;
-      }
-      return decryptPiiFieldValues(row, piiKeys, kms, {
-        requestId: "user-data-rights:export",
-      });
-    }),
-  );
+  return mapInKmsSizedBatches(rows, async (row) => {
+    const piiKeys = Object.keys(row).filter((k) => isPiiCiphertext(row[k]));
+    if (piiKeys.length === 0) return row;
+    if (!kms) {
+      const out = { ...row };
+      for (const k of piiKeys) out[k] = ENCRYPTED_UNAVAILABLE;
+      return out;
+    }
+    return decryptPiiFieldValues(row, piiKeys, kms, {
+      requestId: "user-data-rights:export",
+    });
+  });
 }
 
 async function decryptSnippetFields(

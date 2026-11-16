@@ -62,3 +62,7 @@ export const DEFAULT_TAG_ACCESS: AccessRule = { roles: DEFAULT_TAG_ROLES };
 // Advisory-lock namespace serialising assign-tag against delete-tag per tag id
 // (no FK in the event-sourced catalog, so the DB cannot guard the orphan race).
 export const TAG_LOCK_NAMESPACE = 0x74_61_67_73; // 'tags'
+
+// Mirrors the framework's MAX_LIST_LIMIT (entity list schema rejects anything above it); web code
+// takes no value imports from framework/engine, the DOM tests validate the payloads against the real schema.
+export const ASSIGNMENT_LIST_LIMIT = 200;

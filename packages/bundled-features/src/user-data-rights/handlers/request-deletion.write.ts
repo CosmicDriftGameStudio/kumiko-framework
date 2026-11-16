@@ -4,7 +4,7 @@ import * as z from "zod";
 import { USER_STATUS } from "../../user/index.ts";
 import {
   type DeletionRequestedMailOptions,
-  resolveGracePeriod,
+  resolveDeletionGracePeriod,
   sendDeletionRequestedNotification,
   startDeletionGracePeriod,
 } from "./deletion-grace-period.ts";
@@ -49,7 +49,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
     escapeHatch: {
       grants: ["systemIdentity", "unsafeRaw"],
       reason:
-        "resolveGracePeriod reads the tenant compliance profile via ctx.dispatch.queryAs(SYSTEM, " +
+        "resolveDeletionGracePeriod reads the tenant compliance profiles via ctx.dispatch.queryAs(SYSTEM, " +
         "...) to compute the grace period end — the calling user's own identity has no read " +
         "access to that tenant-config projection. startDeletionGracePeriod also appends the " +
         "user lifecycle event on the SYSTEM_TENANT_ID user stream.",
@@ -58,11 +58,12 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       "Starts the GDPR Art. 17 deletion of the calling user's own account by arming the grace period from the tenant compliance profile and mailing a confirmation, after which only cancel-deletion can stop the erasure.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
+      const runner = ctx.db.unsafeRaw();
       const res = await startDeletionGracePeriod(
         ctx,
         event.user.id,
-        () => resolveGracePeriod(ctx, event.user.tenantId),
-        ctx.db.unsafeRaw(),
+        () => resolveDeletionGracePeriod(ctx, event.user.id, event.user.tenantId, runner),
+        runner,
       );
       if (!res.ok) return writeFailure(res.error);
       const { gracePeriodEnd, userEmail, userLocale } = res;

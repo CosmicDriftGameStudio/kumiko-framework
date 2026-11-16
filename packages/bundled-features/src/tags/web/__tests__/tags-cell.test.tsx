@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { entityListSchema } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createStaticLocaleResolver,
   LocaleProvider,
@@ -89,5 +90,17 @@ describe("TagsCell", () => {
     );
 
     expect(screen.queryByTestId("tags-cell")).toBeNull();
+  });
+});
+
+describe("TagsCell assignment query", () => {
+  test("sends a payload the real list schema accepts, scoped to the row", () => {
+    useQuerySpy.mockClear();
+    renderCell("n1");
+
+    const call = useQuerySpy.mock.calls.find(([type]) => type === TagsQueries.assignmentList);
+    const payload = (call as unknown as [string, unknown])[1];
+    expect(entityListSchema.safeParse(payload).success).toBe(true);
+    expect(payload).toMatchObject({ filters: [{ field: "entityId", op: "eq", value: "n1" }] });
   });
 });

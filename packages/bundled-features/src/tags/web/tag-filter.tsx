@@ -8,7 +8,7 @@
 // The active selection is shown inline as colored chips next to the button, with
 // a clear affordance — so the filter is visible, not hidden behind a count.
 //
-// ponytail: resolves ids from the assignment list (first 500 rows) + an id-IN
+// ponytail: resolves ids from the assignment list (first 200 rows of the host entity) + an id-IN
 // URL filter — fine for typical tag volumes. For huge assignment sets add a
 // server-side `entitiesByTag` query + a server-side join filter instead.
 
@@ -19,7 +19,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { TagsQueries } from "./constants.ts";
+import { ASSIGNMENT_LIST_LIMIT, TagsQueries } from "./constants.ts";
 import { TagChipById } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
 
@@ -48,7 +48,8 @@ export function TagFilter({
   const [selected, setSelected] = useState<readonly string[]>([]);
   const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, {});
   const assignments = useQuery<{ rows: readonly AssignmentRow[] }>(TagsQueries.assignmentList, {
-    limit: 500,
+    filters: [{ field: "entityType", op: "eq", value: entityName }],
+    limit: ASSIGNMENT_LIST_LIMIT,
   });
   // Unconditional (Rules of Hooks). The renderer always passes a screenId in the
   // header slot; the fallback namespace is inert if it ever runs standalone.

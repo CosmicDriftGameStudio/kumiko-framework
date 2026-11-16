@@ -5,7 +5,7 @@ import { USER_STATUS, userTable } from "../../user/index.ts";
 import { redeemDeletionToken } from "../deletion-token.ts";
 import {
   type DeletionRequestedMailOptions,
-  resolveGracePeriod,
+  resolveDeletionGracePeriod,
   type StartGracePeriodResult,
   sendDeletionRequestedNotification,
   startDeletionGracePeriod,
@@ -66,7 +66,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     },
     escapeHatch: {
       reason:
-        "resolveGracePeriod reads the tenant compliance profile via ctx.dispatch.queryAs(SYSTEM, " +
+        "resolveDeletionGracePeriod reads the tenant compliance profiles via ctx.dispatch.queryAs(SYSTEM, " +
         "...) to compute the grace period end — the anonymous token holder has no read access " +
         "to that tenant-config projection. startDeletionGracePeriod also appends the user " +
         "lifecycle event on the SYSTEM_TENANT_ID user stream.",
@@ -86,11 +86,12 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
         secret: opts.deletionTokenSecret,
         loadPendingRequestId: (userId) => readPendingDeletionRequestId(ctx, userId),
         commitDeletion: async (userId, requestId) => {
+          const runner = ctx.db.unsafeRaw();
           const res = await startDeletionGracePeriod(
             ctx,
             userId,
-            () => resolveGracePeriod(ctx, event.user.tenantId),
-            ctx.db.unsafeRaw(),
+            () => resolveDeletionGracePeriod(ctx, userId, event.user.tenantId, runner),
+            runner,
             { pendingDeletionRequestId: requestId },
           );
           if (!res.ok) return false;

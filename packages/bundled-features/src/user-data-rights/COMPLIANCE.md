@@ -76,7 +76,7 @@ Retention-Policy irgendwann das Event selbst löscht.
 | `de-hr-dsgvo-hgb`   | 30d         | 7d                | 30d         | + HR-Aufbewahrung 10y für HR-Entities (anonymize statt delete) |
 | `minimal-no-region` | 30d         | 7d                | 30d         | Migration-Edge-Case ohne Region                                |
 
-Tenant kann via `compliance-profiles:write:set-profile` + Override (`override.userRights.gracePeriod={ days: N }` etc.) eigene Werte setzen.
+Tenant kann via `compliance-profiles:write:set-profile` + Override (`override.userRights.gracePeriod={ days: N }` etc.) eigene Werte setzen. Für die Löschung gilt der längste Wert über alle Mandanten des Users, mindestens 7 Tage (`MIN_DELETION_GRACE_PERIOD`).
 
 ---
 

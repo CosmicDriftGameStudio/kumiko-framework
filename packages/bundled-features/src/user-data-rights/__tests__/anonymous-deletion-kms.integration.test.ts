@@ -31,6 +31,7 @@ import {
 } from "../../compliance-profiles/index.ts";
 import { createDataRetentionFeature } from "../../data-retention/index.ts";
 import { createSessionsFeature } from "../../sessions/index.ts";
+import { tenantMembershipEntity } from "../../tenant/membership-table.ts";
 import { createUserFeature } from "../../user/feature.ts";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.ts";
 import { seedUser } from "../../user/seeding.ts";
@@ -72,6 +73,7 @@ beforeAll(async () => {
     anonymousAccess: { defaultTenantId: tenantA },
   });
   await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantMembershipEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
 });
 

@@ -32,6 +32,8 @@ import {
   validateType,
 } from "../write-helpers.ts";
 
+const CONFIG_SET_LOCK_NAMESPACE = 0x63_66_67_73; // 'cfgs'
+
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
 
 const executor = createEventStoreExecutor(configValuesTable, configValueEntity, {
@@ -202,6 +204,12 @@ export const setWrite = defineWriteHandler({
         event.payload.key,
       );
     }
+
+    // The unique index does not cover a NULL userId, so serialise find-then-create per row identity.
+    await db.advisoryXactLock(
+      CONFIG_SET_LOCK_NAMESPACE,
+      `${event.payload.key}|${tenantId}|${userId ?? ""}`,
+    );
 
     const existing = await findConfigRow(db, event.payload.key, tenantId, userId);
 

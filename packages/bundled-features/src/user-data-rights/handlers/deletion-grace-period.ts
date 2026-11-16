@@ -3,7 +3,7 @@ import {
   type DurationSpec,
   type EffectiveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
-import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import { type DbRunner, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   declareEscapeHatch,
@@ -13,6 +13,7 @@ import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { decryptStoredPii } from "../../shared/index.ts";
+import { tenantMembershipsTable } from "../../tenant/membership-table.ts";
 import { USER_STATUS, userTable } from "../../user/index.ts";
 import { signDeletionCancelToken } from "../deletion-token.ts";
 import {
@@ -46,6 +47,33 @@ export async function resolveGracePeriod(
     {},
   )) as EffectiveComplianceProfile; // @cast-boundary engine-payload
   return profile.profile.userRights.gracePeriod;
+}
+
+// Deletion hits the global user row, so no single tenant's profile may shorten the window:
+// a TenantAdmin can set its own gracePeriod to 0 days via compliance-profiles set-profile.
+export const MIN_DELETION_GRACE_PERIOD: DurationSpec = { days: 7 };
+
+// Longest grace period over every tenant the user belongs to, never below the platform floor.
+// Falls back to the calling tenant for a user without memberships.
+export async function resolveDeletionGracePeriod(
+  ctx: HandlerContext,
+  userId: string,
+  callerTenantId: string,
+  runner: DbRunner,
+): Promise<DurationSpec> {
+  const memberships = await selectMany<{ tenantId: string }>(runner, tenantMembershipsTable, {
+    userId,
+  });
+  const tenantIds = [...new Set(memberships.map((m) => m.tenantId))];
+  if (tenantIds.length === 0) tenantIds.push(callerTenantId);
+
+  const specs = await Promise.all(tenantIds.map((tenantId) => resolveGracePeriod(ctx, tenantId)));
+  const now = getTemporal().Now.instant();
+  return [MIN_DELETION_GRACE_PERIOD, ...specs].reduce((longest, spec) =>
+    addDurationSpec(now, spec).epochMilliseconds > addDurationSpec(now, longest).epochMilliseconds
+      ? spec
+      : longest,
+  );
 }
 
 export type StartGracePeriodResult =

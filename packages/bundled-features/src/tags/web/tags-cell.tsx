@@ -16,7 +16,7 @@
 
 import { type ColumnRendererProps, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { TagsQueries } from "./constants.ts";
+import { ASSIGNMENT_LIST_LIMIT, TagsQueries } from "./constants.ts";
 import { TagChipById } from "./tag-chip.tsx";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
@@ -26,7 +26,8 @@ export function TagsCell({ row }: ColumnRendererProps): ReactNode {
   const entityId = String(row["id"] ?? "");
   const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, {});
   const assignments = useQuery<{ rows: readonly AssignmentRow[] }>(TagsQueries.assignmentList, {
-    limit: 500,
+    filters: [{ field: "entityId", op: "eq", value: entityId }],
+    limit: ASSIGNMENT_LIST_LIMIT,
   });
   if (entityId === "") return null;
   const byId = new Map((catalog.data?.rows ?? []).map((t) => [t.id, t]));
