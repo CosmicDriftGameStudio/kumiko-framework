@@ -5,6 +5,8 @@
 // event when it has drifted from `read_subscriptions` — catches
 // provider-side changes (e.g. a `cancel_at` set on the provider's own
 // dashboard, or a cancellation) that never reached us as a webhook.
+// The provider call runs outside any transaction (perCommand); the append happens in
+// apply-subscription-snapshot under the stream lock.
 //
 // SYSTEM_ROLE, not just "SystemAdmin": the `sync-subscriptions` job's own
 // systemUser only carries `roles: ["system"]` (createSystemUser(tenantId),
@@ -13,64 +15,15 @@
 // tenant/handlers/memberships.query.ts and active-tenant-ids.query.ts for
 // the same reason. A human SystemAdmin can still dispatch this directly.
 
-import { createHash } from "node:crypto";
 import { SYSTEM_ROLE, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
 import * as z from "zod";
 import { findProviderPlugin } from "../checkout-core.ts";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant.ts";
-import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../web/constants.ts";
-import { appendSubscriptionEvent } from "./process-event.write.ts";
+import { isTerminalSubscriptionStatus, SubscriptionFoundationHandlers } from "../web/constants.ts";
+import type { SyncSubscriptionResult } from "./apply-subscription-snapshot.write.ts";
 
 export const syncSubscriptionSchema = z.object({}).strict();
-
-export type SyncSubscriptionSkipReason =
-  | "no_live_subscription"
-  | "provider_cannot_retrieve"
-  | "not_found"
-  | "unchanged";
-
-export type SyncSubscriptionResult =
-  | { readonly synced: true }
-  | { readonly synced: false; readonly reason: SyncSubscriptionSkipReason };
-
-// Parses both sides fresh via Temporal before comparing — tolerant of a
-// provider snapshot's ISO string using a different (but equivalent)
-// representation than `Temporal.Instant#toString()`'s canonical form
-// (offset spelling, sub-second precision, ...), unlike a plain `===` on the
-// raw strings.
-function isoInstantsEqual(a: string, b: string): boolean {
-  return Temporal.Instant.compare(Temporal.Instant.from(a), Temporal.Instant.from(b)) === 0;
-}
-
-// Deterministic per (snapshot-content, current stream head) — not per-call.
-// Folding in `lastChangedAt` (not just the snapshot's own fields) closes a
-// gap a content-only hash has: dashboard-cancel → sync(A) → dashboard-
-// reactivate → sync(B) → dashboard-cancel-again → sync would hash back to
-// A's already-seen providerEventId and get silently treated as a duplicate,
-// leaving the row stuck on B even though the provider is on A again.
-// `lastChangedAt` advances on every applied event, so the third sync's hash
-// differs from the first's even though the snapshot content matches.
-function syncProviderEventId(
-  snapshot: {
-    readonly providerSubscriptionId: string;
-    readonly status: string;
-    readonly tier: string;
-    readonly currentPeriodEnd: string;
-    readonly cancelAt: string | null;
-  },
-  lastChangedAt: string,
-): string {
-  const hashInput = [
-    snapshot.providerSubscriptionId,
-    snapshot.status,
-    snapshot.tier,
-    snapshot.currentPeriodEnd,
-    snapshot.cancelAt ?? "",
-    lastChangedAt,
-  ].join("|");
-  return `sync:${createHash("sha256").update(hashInput).digest("hex")}`;
-}
 
 // The retrieval time stands in for the provider's event time, so a webhook emitted before
 // this snapshot cannot roll the synced state back later. Provider webhook times are
@@ -87,6 +40,7 @@ function snapshotEventTime(): Temporal.Instant {
 export const syncSubscriptionHandler: WriteHandlerDef = {
   name: "sync-subscription",
   agent: { expose: false },
+  transaction: "perCommand",
   schema: syncSubscriptionSchema,
   access: { roles: [SYSTEM_ROLE, "SystemAdmin"] },
   handler: async (event, ctx) => {
@@ -121,48 +75,15 @@ export const syncSubscriptionHandler: WriteHandlerDef = {
       };
     }
 
-    const cancelAtUnchanged =
-      snapshot.cancelAt === null
-        ? sub.cancelAt === null
-        : sub.cancelAt !== null && isoInstantsEqual(snapshot.cancelAt, sub.cancelAt.toString());
-    const unchanged =
-      snapshot.status === sub.status &&
-      snapshot.tier === sub.tier &&
-      isoInstantsEqual(snapshot.currentPeriodEnd, sub.currentPeriodEnd.toString()) &&
-      cancelAtUnchanged;
-    if (unchanged) {
-      return {
-        isSuccess: true as const,
-        data: { synced: false, reason: "unchanged" } satisfies SyncSubscriptionResult,
-      };
-    }
-
-    const appendResult = await appendSubscriptionEvent(ctx, tenantId, {
-      providerEventId: syncProviderEventId(snapshot, sub.lastChangedAt.toString()),
+    return ctx.dispatch.write(SubscriptionFoundationHandlers.applySubscriptionSnapshot, {
       providerName: sub.providerName,
-      // A snapshot that already landed on a terminal status (canceled on the
-      // provider's own dashboard, never arrived as a webhook) must append as
-      // a real `canceled` event, not `updated` — anything downstream that
-      // reads the event-log's own type (not just the projection's status
-      // column, which both apply-functions patch the same way) needs the
-      // accurate event-type to react to a cancellation.
-      type: isTerminalSubscriptionStatus(snapshot.status)
-        ? SubscriptionEventTypes.canceled
-        : SubscriptionEventTypes.updated,
       providerCustomerId: snapshot.providerCustomerId,
       providerSubscriptionId: snapshot.providerSubscriptionId,
       status: snapshot.status,
       tier: snapshot.tier,
-      currentPeriodEndIso: snapshot.currentPeriodEnd,
-      cancelAtIso: snapshot.cancelAt,
-      providerEventAtIso: snapshotEventTime().toString(),
+      currentPeriodEnd: snapshot.currentPeriodEnd,
+      cancelAt: snapshot.cancelAt,
+      snapshotEventAtIso: snapshotEventTime().toString(),
     });
-
-    return {
-      isSuccess: true as const,
-      data: (appendResult.duplicate || appendResult.stale
-        ? { synced: false, reason: "unchanged" }
-        : { synced: true }) satisfies SyncSubscriptionResult,
-    };
   },
 };

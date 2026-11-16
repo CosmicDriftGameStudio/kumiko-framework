@@ -196,9 +196,12 @@ describe("fileStorage option", () => {
 describe("billing option", () => {
   const billing = { stripe: { priceToTier: { price_pro: "pro" } }, defaultTier: "free" };
 
-  test("mounts subscription-stripe and the tier-sync webhook on the default path", () => {
+  test("mounts subscription-stripe, the tier-sync feature and the tier-sync webhook on the default path", () => {
     const resolved = resolveBillingOption(billing, {});
-    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-stripe"]);
+    expect(resolved.features.map((feature) => feature.name)).toEqual([
+      "subscription-stripe",
+      "subscription-tier-sync",
+    ]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
     expect(resolved.route.method).toBe("POST");
   });
@@ -234,7 +237,10 @@ describe("billing option", () => {
       { paddle: { priceToTier: { pri_pro: "pro" } }, defaultTier: "free" },
       {},
     );
-    expect(resolved.features.map((feature) => feature.name)).toEqual(["subscription-paddle"]);
+    expect(resolved.features.map((feature) => feature.name)).toEqual([
+      "subscription-paddle",
+      "subscription-tier-sync",
+    ]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
   });
 
@@ -246,6 +252,7 @@ describe("billing option", () => {
     expect(resolved.features.map((feature) => feature.name)).toEqual([
       "subscription-stripe",
       "subscription-paddle",
+      "subscription-tier-sync",
     ]);
     expect(resolved.route.path).toBe(SUBSCRIPTION_WEBHOOK_PATH);
   });

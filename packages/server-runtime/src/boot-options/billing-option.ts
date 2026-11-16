@@ -148,5 +148,8 @@ export function resolveBillingOption(
     onSyncError: billing.onTierSyncError ?? "fail-webhook",
     ...(billing.afterSync && { afterSync: billing.afterSync }),
   });
-  return { features, route: tierSync.createWebhookRoute({ path: webhookPath }) };
+  return {
+    features: [...features, tierSync.createFeature()],
+    route: tierSync.createWebhookRoute({ path: webhookPath }),
+  };
 }

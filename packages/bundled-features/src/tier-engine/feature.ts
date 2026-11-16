@@ -56,6 +56,7 @@ import {
   type FeatureDefinition,
   HookPhases,
   type SessionUser,
+  SYSTEM_ROLE,
   SYSTEM_TENANT_ID,
   TENANT_TIER_RESOLVER_EXT,
   type TenantId,
@@ -103,13 +104,14 @@ const tierAssignmentExecutor = createEventStoreExecutor(tierAssignmentTable, tie
   entityName: "tier-assignment",
 });
 
-const adminAccess = { access: { roles: ["TenantAdmin", "SystemAdmin"] } } as const;
+const adminAccess = { access: { roles: [SYSTEM_ROLE, "TenantAdmin", "SystemAdmin"] } } as const;
 // Tier changes are controlled by the platform and billing: a TenantAdmin must
 // never set its own tier, which would allow a free self-upgrade. Writes are
 // therefore SystemAdmin-only, while reads (list, get-active-tier) remain visible
-// to TenantAdmin. The auto-default hook and billing write as the system, so they
-// are not subject to this handler access.
-const writeAccess = { access: { roles: ["SystemAdmin"] } } as const;
+// to TenantAdmin. The auto-default hook writes as the system, so it is not subject to
+// this handler access. The billing tier sync job runs as the tenant's system user
+// (SYSTEM_ROLE), never a TenantAdmin.
+const writeAccess = { access: { roles: [SYSTEM_ROLE, "SystemAdmin"] } } as const;
 
 /**
  * Options for createTierEngineFeature. Both fields are optional; when both are

@@ -4,8 +4,10 @@
 // signature check needs the exact bytes. No JWT/cookie auth: the provider's
 // webhook signature in verify() IS the auth, so no c.get("user") here.
 
-import { ExtraRouteRejection, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
-import { propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { ExtraRouteRejection, type SignatureExtraRouteDeps, signatureRoute } from "@cosmicdrift/kumiko-framework/api";
+import type { Registry, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import { isPlainObject, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import type { Context } from "hono";
 import { IgnoredEventReasons } from "./checkout-ledger.ts";
 import type { PaymentEvent, SubscriptionEvent, SubscriptionProviderPlugin } from "./types.ts";
@@ -26,17 +28,19 @@ export type SubscriptionWebhookRouteOptions = {
    *  a failed WriteResult turns the response into the same 500 a dispatch
    *  failure would produce. */
   readonly afterDispatch?: (
-    dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
-    tenantId: import("@cosmicdrift/kumiko-framework/engine").TenantId,
-    deps: import("@cosmicdrift/kumiko-framework/api").SignatureExtraRouteDeps,
+    dispatched: WriteResult,
+    tenantId: TenantId,
+    deps: SignatureExtraRouteDeps,
     event: SubscriptionEvent | PaymentEvent,
-  ) => Promise<import("@cosmicdrift/kumiko-framework/engine").WriteResult>;
+  ) => Promise<WriteResult>;
 };
 
 const DEFAULT_WEBHOOK_PATH = "/api/subscription/webhook/:providerName";
 
+const log = createFallbackLogger("billing-foundation:webhook");
+
 function resolveProvider(
-  registry: import("@cosmicdrift/kumiko-framework/engine").Registry,
+  registry: Registry,
   providerName: string,
 ): SubscriptionProviderPlugin | undefined {
   return registry
@@ -146,9 +150,9 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
 }
 
 type WebhookOutcome = {
-  readonly dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult;
+  readonly dispatched: WriteResult;
   readonly parsed: SubscriptionEvent | PaymentEvent;
-  readonly deps: import("@cosmicdrift/kumiko-framework/api").SignatureExtraRouteDeps;
+  readonly deps: SignatureExtraRouteDeps;
   readonly options: SubscriptionWebhookRouteOptions;
 };
 
@@ -172,9 +176,9 @@ async function answerWebhook(
  *  handler asked for it (the event beat its subscription's `created`), or the provider plugin
  *  expects to ledger the checkout shortly (migration sweep). */
 async function redeliveryReason(
-  dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
+  dispatched: WriteResult,
   event: SubscriptionEvent | PaymentEvent,
-  deps: import("@cosmicdrift/kumiko-framework/api").SignatureExtraRouteDeps,
+  deps: SignatureExtraRouteDeps,
 ): Promise<string | undefined> {
   if (!dispatched.isSuccess || !wasIgnored(dispatched)) return undefined;
   const reason = propertyOf(dispatched.data, "reason");
@@ -194,7 +198,7 @@ function retryLater(c: Context, reason: string): Response {
 /** The handler refused the event (not in the checkout ledger, foreign subscription):
  *  nothing was stored, so no side-effect (credits, tier sync) may follow. */
 function wasIgnored(
-  dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
+  dispatched: WriteResult,
 ): boolean {
   return dispatched.isSuccess && propertyOf(dispatched.data, "ignored") === true;
 }
@@ -203,16 +207,18 @@ function wasIgnored(
  *  provider should retry, hence 500 instead of 401/404 (transient, not a config-bug). */
 function respondFromDispatch(
   c: Context,
-  dispatched: import("@cosmicdrift/kumiko-framework/engine").WriteResult,
+  dispatched: WriteResult,
   errorCode: string,
   errorMessage: string,
 ): Response {
   if (!dispatched.isSuccess) {
-    return c.json(
-      { error: { code: errorCode, message: errorMessage, details: dispatched.error } },
-      500,
-    );
+    // The dispatcher error can carry validation issues and internal messages: log it, never return it.
+    log.error(errorMessage, { code: errorCode, error: dispatched.error });
+    return c.json({ error: { code: errorCode, message: errorMessage } }, 500);
   }
   if (wasIgnored(dispatched)) return c.json({ ignored: true }, 200);
-  return c.json({ processed: true, ...((dispatched.data as object) ?? {}) }, 200); // @cast-boundary engine-bridge
+  return c.json(
+    { processed: true, ...(isPlainObject(dispatched.data) ? dispatched.data : {}) },
+    200,
+  );
 }

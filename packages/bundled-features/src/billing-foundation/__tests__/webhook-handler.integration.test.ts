@@ -196,10 +196,11 @@ describe("webhook-handler — error paths", () => {
       ),
     );
     expect(res.status).toBe(500);
-    const body = (await res.json()) as {
-      error: { code: string; message: string; details: unknown };
-    };
-    expect(body.error.code).toBe("subscription_webhook_processing_failed");
+    const body = (await res.json()) as { error: Record<string, unknown> };
+    expect(body.error).toEqual({
+      code: "subscription_webhook_processing_failed",
+      message: "Internal error processing subscription event",
+    });
   });
 });
 

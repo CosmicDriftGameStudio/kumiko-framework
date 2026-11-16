@@ -6,7 +6,7 @@ import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { SYSTEM_ROLE, type QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { SUBSCRIPTION_PII_FIELDS } from "../entities.ts";
 import { subscriptionsProjectionTable } from "../projection.ts";
@@ -18,7 +18,7 @@ export const listSubscriptionsQuery: QueryHandlerDef = {
   description:
     "Returns the tenant's subscription rows with provider, status, tier and current period end (provider ids decrypted); use it to answer what plan a tenant is on and until when.",
   schema: listSchema,
-  access: { roles: ["SystemAdmin", "TenantAdmin"] },
+  access: { roles: [SYSTEM_ROLE, "SystemAdmin", "TenantAdmin"] },
   handler: async (_query, ctx) => {
     const rows = await ctx.db.selectMany(subscriptionsProjectionTable, {
       tenantId: ctx.user.tenantId,

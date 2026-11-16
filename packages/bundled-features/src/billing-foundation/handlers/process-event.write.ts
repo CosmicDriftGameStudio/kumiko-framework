@@ -41,6 +41,7 @@ import {
   SUBSCRIPTION_AGGREGATE_TYPE,
   SUBSCRIPTION_CANCELED_EVENT_QN,
   SUBSCRIPTION_CREATED_EVENT_QN,
+  SUBSCRIPTION_STATE_EVENT_QNS,
   SUBSCRIPTION_UPDATED_EVENT_QN,
   type SubscriptionEventHeaders,
   type SubscriptionEventPayload,
@@ -100,12 +101,6 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
   [SubscriptionEventTypes.invoicePaid]: INVOICE_PAID_EVENT_QN,
   [SubscriptionEventTypes.invoicePaymentFailed]: INVOICE_PAYMENT_FAILED_EVENT_QN,
 } satisfies Readonly<Record<string, string>>;
-
-const STATE_EVENT_QNS: ReadonlySet<string> = new Set([
-  SUBSCRIPTION_CREATED_EVENT_QN,
-  SUBSCRIPTION_UPDATED_EVENT_QN,
-  SUBSCRIPTION_CANCELED_EVENT_QN,
-]);
 
 const STATE_EVENT_TYPES: ReadonlySet<string> = new Set([
   SubscriptionEventTypes.created,
@@ -359,7 +354,7 @@ function pendingSwitchConsentId(
   const carried = new Set<string>();
   for (const stored of storedEvents) {
     // skip: only subscription state events can carry a consent
-    if (!STATE_EVENT_QNS.has(stored.type)) continue;
+    if (!SUBSCRIPTION_STATE_EVENT_QNS.has(stored.type)) continue;
     const consentId = propertyOf(stored.payload, "consentId");
     if (typeof consentId === "string") carried.add(consentId);
   }

@@ -20,6 +20,7 @@ import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-testing/helpers"
 import {
   setupTestStack,
   type TestStack,
+  testRunQueueNamePrefix,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import {
@@ -40,8 +41,16 @@ import {
 } from "../../tier-engine/web/constants.ts";
 import { createBillingFoundationFeature } from "../feature.ts";
 import { createSubscriptionTierSync } from "../subscription-tier-sync.ts";
-import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.ts";
-import { SubscriptionEventTypes, SubscriptionStatuses } from "../web/constants.ts";
+import type {
+  ProviderSubscriptionSnapshot,
+  SubscriptionEvent,
+  SubscriptionProviderPlugin,
+} from "../types.ts";
+import {
+  SubscriptionEventTypes,
+  SubscriptionFoundationHandlers,
+  SubscriptionStatuses,
+} from "../web/constants.ts";
 import {
   ledgerWriteAs,
   openSubscriptionCheckout,
@@ -62,12 +71,15 @@ const PRICE_TO_TIER: Readonly<Record<string, string>> = {
   price_enterprise: "enterprise",
 };
 
-function mockProviderFeature() {
+function mockProviderFeature(
+  retrieveSubscription?: SubscriptionProviderPlugin["retrieveSubscription"],
+) {
   return defineFeature("test-mock-tier-sync-provider", (r) => {
     r.requires({ features: ["billing-foundation"] });
     const plugin: SubscriptionProviderPlugin = {
       verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent,
       priceToTier: PRICE_TO_TIER,
+      ...(retrieveSubscription !== undefined && { retrieveSubscription }),
     };
     r.useExtension("subscriptionProvider", "mock", plugin);
   });
@@ -85,8 +97,9 @@ const sharedBaseFeatures = () => [
 async function bootStack(
   features: ReturnType<typeof sharedBaseFeatures>,
   extraRoutes: NonNullable<Parameters<typeof setupTestStack>[0]["extraRoutes"]>,
+  options: Omit<Parameters<typeof setupTestStack>[0], "features" | "extraRoutes"> = {},
 ): Promise<TestStack> {
-  const stack = await setupTestStack({ features, extraRoutes });
+  const stack = await setupTestStack({ features, extraRoutes, ...options });
   await unsafeCreateEntityTable(stack.db, tenantEntity);
   await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
@@ -421,5 +434,82 @@ describe("createSubscriptionTierSync 'fail-webhook' — provider retry", () => {
     };
     expect(listed.rows).toHaveLength(1);
     expect(listed.rows[0]?.["tier"]).toBe("pro");
+  });
+});
+
+// =============================================================================
+// createFeature — the tier follows every subscription event, also one that did not
+// arrive as a webhook (the drift sync).
+// =============================================================================
+
+describe("createSubscriptionTierSync createFeature — drift sync reaches the tier-engine", () => {
+  let stack: TestStack;
+  let webhookPath: string;
+  let driftSnapshot: ProviderSubscriptionSnapshot | null = null;
+
+  beforeAll(async () => {
+    const tierSync = createSubscriptionTierSync<TestTier>({ isTierName, defaultTier: "free" });
+    const route = tierSync.createWebhookRoute();
+    webhookPath = route.path;
+    stack = await bootStack(
+      [
+        createConfigFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
+        createBillingFoundationFeature(),
+        mockProviderFeature(async () => driftSnapshot),
+        createTierEngineFeature({ defaultTier: "free", tierMap: TEST_TIER_MAP }),
+        tierSync.createFeature(),
+      ],
+      [route],
+      {
+        jobs: {
+          consumerLane: "worker",
+          queueNamePrefix: testRunQueueNamePrefix("subscription-tier-sync"),
+        },
+      },
+    );
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("a cancellation found by sync-subscription moves the tier back to the default", async () => {
+    const tenantId = testTenantId(9301);
+    const admin = createTestUser({ id: 9301, tenantId, roles: ["SystemAdmin"] });
+    const listRows = async () =>
+      (
+        (await stack.http.queryOk(TierEngineQueries.list, {}, admin)) as {
+          rows: Array<Record<string, unknown>>;
+        }
+      ).rows;
+
+    const res = await postWebhook(
+      stack,
+      webhookPath,
+      buildEvent(tenantId, "evt_drift_1", { status: SubscriptionStatuses.active, tier: "pro" }),
+    );
+    expect(res.status).toBe(200);
+    expect((await listRows())[0]?.["tier"]).toBe("pro");
+
+    driftSnapshot = {
+      providerCustomerId: "cus_evt_drift_1",
+      providerSubscriptionId: "sub_evt_drift_1",
+      status: SubscriptionStatuses.canceled,
+      tier: "pro",
+      currentPeriodEnd: "2026-06-01T00:00:00Z",
+      cancelAt: null,
+    };
+    expect(
+      await stack.http.writeOk(SubscriptionFoundationHandlers.syncSubscription, {}, admin),
+    ).toEqual({ synced: true });
+    await stack.drainJobs();
+
+    const rows = await listRows();
+    expect(rows[0]?.["tier"]).toBe("free");
+    expect(rows[0]?.["source"]).toBe(TierAssignmentSources.billing);
   });
 });
