@@ -213,6 +213,24 @@ describe("scenario 1: happy path", () => {
   });
 });
 
+describe("provider selector write access", () => {
+  test("a TenantAdmin cannot select the storage provider, a SystemAdmin can", async () => {
+    const tenantAdminOnly = createTestUser({
+      id: 503,
+      tenantId: testTenantId(503),
+      roles: ["TenantAdmin"],
+    });
+    const denied = await stack.http.writeErr(
+      ConfigHandlers.set,
+      { key: "file-foundation:config:provider", value: "s3" },
+      tenantAdminOnly,
+    );
+    expect(denied.httpStatus).toBe(403);
+
+    await selectS3Provider(adminFor(503));
+  });
+});
+
 // --- Scenario 2: validation errors ---
 
 describe("scenario 2: validation errors", () => {

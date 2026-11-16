@@ -510,6 +510,23 @@ describe("text-blocks :: edge-cases", () => {
     expect(fetched!["content"]).toBe(xssPayload);
   });
 
+  test("html text-block bodies with script or event handlers are rejected, not stored", async () => {
+    for (const content of ["<p>Hi</p><script>alert(1)</script>", '<p onclick="x()">Bye</p>']) {
+      const error = await stack.http.writeErr(
+        TemplateResolverHandlers.set,
+        { slug: "xss-test", locale: "en", title: "XSS html", contentFormat: "html", content },
+        tenantAdmin,
+      );
+      expect(error.code).toBe("validation_error");
+    }
+    const row = await fetchOne<TemplateResourceRow>(db, templateResourcesTable, {
+      tenantId: tenantAdmin.tenantId,
+      slug: "xss-test",
+      locale: "en",
+    });
+    expect(row).toBeUndefined();
+  });
+
   test("concurrent set on the same (tenantId, slug, lang) — at least one succeeds", async () => {
     // Race test: two tenant admins (or the same admin from two tabs)
     // write concurrently. fetchOne+update is not atomic — if both find

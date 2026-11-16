@@ -114,14 +114,6 @@ async function setField(user: SessionUser, entityId: string, fieldKey: string, v
   );
 }
 
-async function clearField(user: SessionUser, entityId: string, fieldKey: string) {
-  return stack.http.writeOk(
-    "custom-fields:write:clear-custom-field",
-    { entityName: "property", entityId, fieldKey },
-    user,
-  );
-}
-
 async function createProperty(user: SessionUser, id: string, name: string) {
   return stack.http.writeOk("property-xt-set:write:property:create", { id, name }, user);
 }
@@ -154,14 +146,24 @@ describe("custom-fields cross-tenant isolation — set/clear write", () => {
   test("tenant A cannot overwrite tenant B's row via a known entityId (set)", async () => {
     // The set-handler runs as A (its own field-definition + RBAC pass) and emits
     // on A's stream; the projection's tenant filter must keep it off B's row.
-    await setField(adminA, PROP_B, "priority", "HACKED");
+    const denied = await stack.http.writeErr(
+      "custom-fields:write:set-custom-field",
+      { entityName: "property", entityId: PROP_B, fieldKey: "priority", value: "HACKED" },
+      adminA,
+    );
+    expect(denied.code).toBe("not_found");
     await stack.eventDispatcher?.runOnce();
 
     expect(await priorityOf(adminB, PROP_B)).toBe("B-value");
   });
 
   test("tenant A cannot clear tenant B's row via a known entityId (clear)", async () => {
-    await clearField(adminA, PROP_B, "priority");
+    const denied = await stack.http.writeErr(
+      "custom-fields:write:clear-custom-field",
+      { entityName: "property", entityId: PROP_B, fieldKey: "priority" },
+      adminA,
+    );
+    expect(denied.code).toBe("not_found");
     await stack.eventDispatcher?.runOnce();
 
     expect(await priorityOf(adminB, PROP_B)).toBe("B-value");

@@ -32,7 +32,7 @@ import { createSecretsContext } from "../../secrets/secrets-context.ts";
 import { tenantSecretsTable } from "../../secrets/table.ts";
 import { createFileFoundationFeature } from "../feature.ts";
 
-const admin = createTestUser({ id: 31, roles: ["TenantAdmin"] });
+const admin = createTestUser({ id: 31, roles: ["TenantAdmin", "SystemAdmin"] });
 
 type CountingProvider = {
   readonly store: InMemoryFileProvider;

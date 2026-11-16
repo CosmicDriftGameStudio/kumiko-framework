@@ -1,6 +1,7 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { parentRowIsVisible } from "../../shared/index.ts";
 import { createCustomFieldsFeature } from "../feature.ts";
 import { checkFieldAccessForWrite } from "../lib/field-access.ts";
 import { DEFAULT_VALUE_WRITE_ROLES } from "../web/constants.ts";
@@ -38,6 +39,18 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
   },
   handler: async (event, ctx) => {
     const payload = event.payload as ClearCustomFieldPayload; // @cast-boundary engine-payload
+
+    if (
+      !(await parentRowIsVisible(
+        ctx.registry,
+        payload.entityName,
+        payload.entityId,
+        event.user,
+        ctx.db,
+      ))
+    ) {
+      return failNotFound(payload.entityName, payload.entityId);
+    }
 
     const accessCheck = await checkFieldAccessForWrite(
       ctx.db.unsafeRaw(),

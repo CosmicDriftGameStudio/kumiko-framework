@@ -204,7 +204,7 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
           body: xml,
           etag,
           cache: SEO_CACHE,
-          extra: { "content-type": "application/xml; charset=utf-8" },
+          extra: { "content-type": "application/xml; charset=utf-8", vary: "Host" },
         });
       },
     });
@@ -248,7 +248,7 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
           body: text,
           etag,
           cache: SEO_CACHE,
-          extra: { "content-type": "text/plain; charset=utf-8" },
+          extra: { "content-type": "text/plain; charset=utf-8", vary: "Host" },
         });
       },
     });
@@ -268,7 +268,7 @@ export function createSeoFeature(opts: SeoOptions): FeatureDefinition {
             body: text,
             etag,
             cache: SEO_CACHE,
-            extra: { "content-type": "text/plain; charset=utf-8" },
+            extra: { "content-type": "text/plain; charset=utf-8", vary: "Host" },
           });
         },
       });

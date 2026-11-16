@@ -4,9 +4,12 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import * as z from "zod";
 import { requireForTenant } from "../../shared/index.ts";
+import { documentViolationsToFieldIssues } from "../document-sanitizer.ts";
+import { sanitizeTemplateWriteBody } from "../layout-regions.ts";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import {
   refuseReservedSystemLayoutSlug,
@@ -104,6 +107,20 @@ export function makeSetWrite(policy: TemplateEditPolicy) {
         );
         if (!gated.ok) return gated.failure;
         content = gated.evaluated.content;
+      } else {
+        const body = sanitizeTemplateWriteBody({
+          kind,
+          scope,
+          contentFormat: event.payload.contentFormat,
+          content,
+          alwaysSanitizeHtml: true,
+        });
+        if (!body.ok) {
+          return writeFailure(
+            new ValidationError({ fields: documentViolationsToFieldIssues(body.violations) }),
+          );
+        }
+        content = body.content;
       }
 
       const fields = {

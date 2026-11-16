@@ -62,7 +62,7 @@ export function createFileFoundationFeature() {
         createTenantConfig("text", {
           default: "",
           env: FILE_STORAGE_PROVIDER_ENV,
-          write: access.roles("TenantAdmin", "SystemAdmin"),
+          write: access.roles("SystemAdmin"),
           read: access.roles("TenantAdmin", "SystemAdmin", "User"),
         }),
       );

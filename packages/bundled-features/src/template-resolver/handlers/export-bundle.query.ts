@@ -14,6 +14,7 @@ import { type TemplateResourceRow, templateResourcesTable } from "../table.ts";
 import type { TemplateBundle } from "../template-bundle.ts";
 import { deliveryPolicyOf } from "../template-delivery-policy.ts";
 import { readTemplateResource } from "../template-resources.ts";
+import { isSystemOnlyTemplateHiddenFrom } from "../template-system-only.ts";
 import { TemplateResolverErrors } from "../web/qualified-names.ts";
 import { kindSchema, templateSlugSchema } from "./shared.ts";
 import { parseStoredJson, storedRecord } from "./template-gates.ts";
@@ -98,7 +99,11 @@ export const exportBundleQuery = defineQueryHandler({
     );
     const policy = deliveryPolicyOf(ctx.registry);
     const rows = (await filterDeliveredTo(ctx.db, policy, query.user, found))
-      .filter((row) => row.status !== "archived")
+      .filter(
+        (row) =>
+          row.status !== "archived" &&
+          !isSystemOnlyTemplateHiddenFrom(query.user, ctx.registry, row),
+      )
       .sort((a, b) => a.locale.localeCompare(b.locale));
     const first = rows[0];
     if (!first) throw new NotFoundError("template-resource", slug);

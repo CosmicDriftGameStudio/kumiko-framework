@@ -132,6 +132,22 @@ describe("template-resolver :: systemOnly notification templates", () => {
     }
   });
 
+  test("a tenant admin cannot export the system-only template, a SystemAdmin can", async () => {
+    const payload = { slug: SYSTEM_ONLY_SLUG, kind: "mail", scope: "system" };
+    const denied = await stack.http.queryErr(
+      TemplateResolverQueries.exportBundle,
+      payload,
+      tenantAdmin,
+    );
+    expect(denied.code).toBe("not_found");
+    const bundle = await stack.http.queryOk<{ slug: string }>(
+      TemplateResolverQueries.exportBundle,
+      payload,
+      systemAdmin,
+    );
+    expect(bundle.slug).toBe(SYSTEM_ONLY_SLUG);
+  });
+
   test("a SystemAdmin cannot push an override into a tenant either", async () => {
     const error = await stack.http.writeErr(
       TemplateResolverHandlers.upsertTenant,

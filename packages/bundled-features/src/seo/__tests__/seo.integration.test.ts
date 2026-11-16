@@ -114,6 +114,7 @@ describe("seo :: GET /sitemap.xml", () => {
     const res = await stack.app.request("http://a.example.com/sitemap.xml");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/xml");
+    expect(res.headers.get("vary")).toBe("Host");
     const xml = await res.text();
     expect(xml).toContain("<loc>https://a.example.com/</loc>");
     expect(xml).toContain("<loc>http://a.example.com/legal/impressum</loc>");
@@ -189,6 +190,7 @@ describe("seo :: GET /llms.txt", () => {
     const res = await stack.app.request("http://a.example.com/llms.txt");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/plain");
+    expect(res.headers.get("vary")).toBe("Host");
     const text = await res.text();
     expect(text).toStartWith("# Acme");
     expect(text).toContain("> Acme builds things.");
@@ -231,6 +233,7 @@ describe("seo :: GET /robots.txt (opted in)", () => {
   test("allow host → no Disallow rule + Sitemap line", async () => {
     const res = await robotsStack.app.request("http://prod.example.com/robots.txt");
     expect(res.status).toBe(200);
+    expect(res.headers.get("vary")).toBe("Host");
     const text = await res.text();
     expect(text).toBe("User-agent: *\nDisallow:\nSitemap: https://prod.example.com/sitemap.xml\n");
   });
