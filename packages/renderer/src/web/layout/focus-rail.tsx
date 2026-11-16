@@ -24,11 +24,20 @@ export type FocusRailProps = {
   readonly schema: AppSchema | FeatureSchema;
   readonly user?: { readonly id: string; readonly roles: readonly string[] };
   readonly allowedNavQns?: ReadonlySet<string>;
-  /** Top-level nav QNs that get a rail tile; the rest sit behind a "More" tile. Unset: all of them. */
+  /** Nav QNs (any depth) that get a rail tile, in this order; unlisted top-level nodes sit behind "More". Unset: all top-level nodes. */
   readonly railNavQns?: readonly string[];
   /** The sidebar footer (e.g. the sidebar UserMenu), pinned to the bottom of the rail. */
   readonly footer?: ReactNode;
 };
+
+function findNavNode(nodes: readonly NavNode[], qualifiedName: string): NavNode | undefined {
+  for (const node of nodes) {
+    if (node.qualifiedName === qualifiedName) return node;
+    const nested = findNavNode(node.children, qualifiedName);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
 
 function RailGlyph({ node, label }: { readonly node: NavNode; readonly label: string }): ReactNode {
   const Icon =
@@ -115,9 +124,25 @@ export function FocusRail({
   const activeScreenId = useActiveScreenId(tree, schema);
   const isActive = (node: NavNode): boolean =>
     activeScreenId !== undefined && treeContainsScreen([node], activeScreenId);
+  // Listed entries can sit inside a group (listed or not), so the lookup walks the whole
+  // tree; entries without a match (e.g. hidden by role) are skipped.
   const shown =
-    railNavQns === undefined ? tree : tree.filter((n) => railNavQns.includes(n.qualifiedName));
+    railNavQns === undefined
+      ? tree
+      : railNavQns.flatMap((qn) => {
+          const node = findNavNode(tree, qn);
+          return node === undefined ? [] : [node];
+        });
   const hidden = tree.filter((node) => !shown.includes(node));
+  // A shown tile nested in another shown tile owns the highlight; the outer one stays plain.
+  const isTileActive = (node: NavNode): boolean =>
+    isActive(node) &&
+    !shown.some(
+      (other) =>
+        other !== node &&
+        isActive(other) &&
+        findNavNode(node.children, other.qualifiedName) !== undefined,
+    );
   const moreLabel = t("kumiko.focusRail.more");
 
   return (
@@ -129,7 +154,7 @@ export function FocusRail({
       {brand}
       <nav className="flex flex-col items-center gap-1">
         {shown.map((node) => (
-          <RailTile key={node.qualifiedName} node={node} active={isActive(node)} />
+          <RailTile key={node.qualifiedName} node={node} active={isTileActive(node)} />
         ))}
       </nav>
       <div className="mt-auto flex w-full flex-col items-center gap-1">

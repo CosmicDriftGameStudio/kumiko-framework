@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { ReactNode } from "react";
-import type { FeatureSchema } from "../../../index.ts";
+import { type FeatureSchema, type NavApi, NavProvider } from "../../../index.ts";
 import { fireEvent, render, screen } from "../../__tests__/test-utils.tsx";
 import { useShellFocusMode } from "../shell-focus.tsx";
 import { SidebarBrand } from "../sidebar-brand.tsx";
@@ -86,6 +86,32 @@ describe("WorkspaceShell focus mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "More" }));
     expect(document.querySelector('[data-kumiko-layout="focus-rail"]')).toBeNull();
     expect(screen.getByPlaceholderText("Search navigation…")).toBeTruthy();
+  });
+
+  test("focusRailNavQns finds entries nested in a group, in list order, and only the nested tile is active", () => {
+    const nav: NavApi = {
+      route: { screenId: "units" },
+      navigate: () => {},
+      replace: () => {},
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => {},
+    };
+    render(
+      <NavProvider value={nav}>
+        <WorkspaceShell
+          brand={<span>Brand</span>}
+          schema={schema}
+          focusRailNavQns={["inbox:nav:stock", "inbox:nav:units"]}
+        >
+          <FocusedScreen />
+        </WorkspaceShell>
+      </NavProvider>,
+    );
+    const tiles = [...document.querySelectorAll('[data-kumiko-layout="focus-rail"] nav > *')];
+    expect(tiles.map((tile) => tile.getAttribute("aria-label"))).toEqual(["Bestand", "Einheiten"]);
+    expect(tiles.map((tile) => tile.getAttribute("data-active"))).toEqual(["false", "true"]);
+    expect(screen.getByRole("button", { name: "More" })).toBeTruthy();
   });
 
   test("rail tiles and brand tile follow the design: 40px md tiles, muted icons, 32px md brand tile", () => {
