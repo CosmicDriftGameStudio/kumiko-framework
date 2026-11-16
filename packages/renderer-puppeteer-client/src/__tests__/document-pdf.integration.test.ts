@@ -535,6 +535,49 @@ describe("document-pdf through renderPdfBeforeTransaction and storeRenderedPdf",
     expect(request.options.headerTemplate).toContain("Briefkopf Test GmbH");
   });
 
+  test("a stored tenant body failing the sanitizer is replaced by the system template", async () => {
+    const admin = tenantAdmin(50);
+    const created = await createEventStoreExecutor(templateResourcesTable, templateResourceEntity, {
+      entityName: "template-resource",
+    }).create(
+      {
+        tenantId: admin.tenantId,
+        slug: "invoice",
+        kind: "document-pdf",
+        locale: "de",
+        content: '<p>TENANT_BODY_MARKER</p><iframe src="https://evil.example/x"></iframe>',
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: "{}",
+        meta: JSON.stringify({
+          layoutSlug: "letterhead",
+          pageFormat: "A4",
+          margins: { top: 35 },
+          fileName: "Rechnung-{{number}}.pdf",
+          metadata: { title: "Rechnung {{number}}" },
+        }),
+        scope: "tenant",
+        parentTemplateId: null,
+        status: "active",
+      },
+      admin,
+      createTenantDb({
+        db: stack.db,
+        tenantId: admin.tenantId,
+        mode: "system",
+        reason: "test seeds system-tenant document templates",
+      }),
+    );
+    expect(created.isSuccess).toBe(true);
+
+    await stack.http.writeOk(GENERATE, { number: "R-50" }, admin);
+
+    const { html } = onlyStubRequest();
+    expect(html).not.toContain("TENANT_BODY_MARKER");
+    expect(html).not.toContain("<iframe");
+    expect(html).toContain("Zahlbar innerhalb von 14 Tagen.");
+  });
+
   test("a variable value with an external image url is escaped and loads nothing", async () => {
     await stack.http.writeOk(
       GENERATE,

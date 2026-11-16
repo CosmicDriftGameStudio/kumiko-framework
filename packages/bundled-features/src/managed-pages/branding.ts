@@ -11,8 +11,7 @@ import {
   OPTIONAL_HTTPS_URL_CONFIG_PATTERN,
 } from "../page-render/index.ts";
 
-// Per-tenant branding, lifted from the publicstatus-local branding-config
-// pattern into the framework so every app + studio-tenant gets tenant-editable
+// Per-tenant branding so every app + studio-tenant gets tenant-editable
 // branding. Stored as `config` keys (scope: tenant), edited via the
 // configEdit screen (screens/branding-screen.ts), read at render time via the
 // branding query.
@@ -25,16 +24,9 @@ import {
 // `write: access.withSystem(access.admin)` — tenant admins self-service via
 // configEdit AND the system actor (ctx.systemWriteAs) may provision/migrate
 // these keys. The scope default (`access.admin`, admin-only) has no system
-// path, so a continuity migration could not set them. Adding SYSTEM_ROLE
+// path, so a migration could not set them. Adding SYSTEM_ROLE
 // keeps the keys human-writable (checkWriteAccess collapses to
 // system-only only when system is the SOLE writer), so self-service survives.
-//
-// CONTINUITY (Prod trap): these keys land under
-// `managed-pages:config:branding-*`, NOT the live `publicstatus:config:
-// branding-*`. The publicstatus consumer MUST migrate the existing
-// read_config_values rows to the new QNs per tenant BEFORE switching the read
-// path, or every tenant resets to defaults on deploy. The migration is
-// deliberately NOT built here — the source QNs belong to the consumer app.
 
 // Anchored, allow-empty (empty = "unset, use default"; cleared via the form).
 // Linear → ReDoS-safe on untrusted tenant input. Hex and URL patterns come from

@@ -65,4 +65,6 @@ export const TAG_LOCK_NAMESPACE = 0x74_61_67_73; // 'tags'
 
 // Mirrors the framework's MAX_LIST_LIMIT (entity list schema rejects anything above it); web code
 // takes no value imports from framework/engine, the DOM tests validate the payloads against the real schema.
-export const ASSIGNMENT_LIST_LIMIT = 200;
+export const TAGS_QUERY_LIMIT = 200;
+
+export const TAG_CATALOG_QUERY = { limit: TAGS_QUERY_LIMIT } as const;

@@ -12,7 +12,7 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { createTemplateResolverApi } from "../api.ts";
+import { createTemplateResolverApi, TemplateNotFoundError } from "../api.ts";
 import { createTemplateResolverFeature } from "../feature.ts";
 import type { OverviewResponse } from "../index.ts";
 import { templateResourceEntity, templateResourcesTable } from "../table.ts";
@@ -411,6 +411,40 @@ describe("locked template overrides :: a collection does not open system templat
       );
       expect(error.code).toBe("access_denied");
       expect(await resolveContent(stack, SHADOWED_SLUG, "document-pdf")).toContain("system pdf");
+    } finally {
+      await stack.cleanup();
+    }
+  });
+
+  test("a system template in another locale still keeps a collection row from shadowing it", async () => {
+    const stack = await collectionStack();
+    try {
+      const row = {
+        slug: "es-only-pdf",
+        kind: "document-pdf",
+        status: "active",
+        contentFormat: "html",
+        variableSchema: "{}",
+        linkedResources: "{}",
+        meta: "{}",
+      };
+      await seedRowViaEventStore(stack.db, templateResourcesTable, {
+        ...row,
+        tenantId: SYSTEM_TENANT_ID,
+        locale: "es",
+        scope: "system",
+        content: "<p>System es</p>",
+      });
+      await seedRowViaEventStore(stack.db, templateResourcesTable, {
+        ...row,
+        tenantId,
+        locale: "de",
+        scope: "tenant",
+        content: "<p>Tenant</p>",
+      });
+      await expect(resolveContent(stack, "es-only-pdf", "document-pdf")).rejects.toThrow(
+        TemplateNotFoundError,
+      );
     } finally {
       await stack.cleanup();
     }

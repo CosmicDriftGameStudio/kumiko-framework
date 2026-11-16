@@ -90,9 +90,8 @@ export type EntityAuditColumns = {
   readonly modifiedById: string | null;
 };
 
-// Concrete row type—the single source of truth for naming the unknown values
-// returned by Drizzle from `Record<string, unknown>` (instead of 12×
-// `row["x"] as Y` casts in handlers and resolvers).
+// Concrete row type, the single source of truth for naming the untyped values selectMany returns
+// (instead of 12× `row["x"] as Y` casts in handlers and resolvers).
 export type TemplateResourceRow = {
   readonly id: string | number;
   readonly version: number;

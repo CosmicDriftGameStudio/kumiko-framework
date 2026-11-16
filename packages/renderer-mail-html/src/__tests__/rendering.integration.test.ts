@@ -343,6 +343,40 @@ describe("renderer-mail-html :: tenant override", () => {
   });
 });
 
+async function storeLegacyTenantRow(
+  owner: ReturnType<typeof tenantId>,
+  userId: number,
+  row: { slug: string; kind: "mail" | "mail-layout"; content: string; meta?: string },
+) {
+  const legacyExecutor = createEventStoreExecutor(templateResourcesTable, templateResourceEntity, {
+    entityName: "template-resource",
+  });
+  const created = await legacyExecutor.create(
+    {
+      tenantId: owner,
+      slug: row.slug,
+      kind: row.kind,
+      locale: LOCALE,
+      content: row.content,
+      contentFormat: "html",
+      variableSchema: "{}",
+      linkedResources: "{}",
+      ...(row.meta === undefined ? {} : { meta: row.meta }),
+      scope: "tenant",
+      parentTemplateId: null,
+      status: "active",
+    },
+    createTestUser({ id: userId, roles: ["TenantAdmin"], tenantId: owner }),
+    createTenantDb({
+      db: stack.db,
+      tenantId: owner,
+      mode: "system",
+      reason: "test seeds system-tenant mail templates",
+    }),
+  );
+  expect(created.isSuccess).toBe(true);
+}
+
 describe("renderer-mail-html :: layout resolution", () => {
   test("without any layout row the in-code default layout is used", async () => {
     const result = await renderMail(tenantId(1));
@@ -573,48 +607,14 @@ describe("renderer-mail-html :: layout resolution", () => {
     expect(result.layout?.scope).toBe("tenant");
   });
 
-  async function storeTenantHtmlLayout(
-    owner: ReturnType<typeof tenantId>,
-    userId: number,
-    content: string,
-  ) {
-    const legacyExecutor = createEventStoreExecutor(
-      templateResourcesTable,
-      templateResourceEntity,
-      { entityName: "template-resource" },
-    );
-    const created = await legacyExecutor.create(
-      {
-        tenantId: owner,
-        slug: "default",
-        kind: "mail-layout",
-        locale: LOCALE,
-        content,
-        contentFormat: "html",
-        variableSchema: "{}",
-        linkedResources: "{}",
-        scope: "tenant",
-        parentTemplateId: null,
-        status: "active",
-      },
-      createTestUser({ id: userId, roles: ["TenantAdmin"], tenantId: owner }),
-      createTenantDb({
-        db: stack.db,
-        tenantId: owner,
-        mode: "system",
-        reason: "test seeds system-tenant mail templates",
-      }),
-    );
-    expect(created.isSuccess).toBe(true);
-  }
-
   test("a stored tenant html layout with a form is rendered with the form stripped", async () => {
     const owner = tenantId(14);
-    await storeTenantHtmlLayout(
-      owner,
-      14,
-      '<div data-header><form action="https://evil.example"><input name="x"></form></div><div data-content></div><div data-footer><p>TENANT_FOOTER_MARKER</p></div>',
-    );
+    await storeLegacyTenantRow(owner, 14, {
+      slug: "default",
+      kind: "mail-layout",
+      content:
+        '<div data-header><form action="https://evil.example"><input name="x"></form></div><div data-content></div><div data-footer><p>TENANT_FOOTER_MARKER</p></div>',
+    });
     const result = await renderMail(owner);
     expect(result.html).not.toContain("evil.example");
     expect(result.html).not.toContain("<form");
@@ -624,11 +624,12 @@ describe("renderer-mail-html :: layout resolution", () => {
 
   test("a stored tenant html layout failing the sanitizer falls back to the system layout", async () => {
     const owner = tenantId(15);
-    await storeTenantHtmlLayout(
-      owner,
-      15,
-      '<div data-header><a href="javascript:alert(1)">x</a></div><div data-content></div><div data-footer><p>TENANT_FOOTER_MARKER</p></div>',
-    );
+    await storeLegacyTenantRow(owner, 15, {
+      slug: "default",
+      kind: "mail-layout",
+      content:
+        '<div data-header><a href="javascript:alert(1)">x</a></div><div data-content></div><div data-footer><p>TENANT_FOOTER_MARKER</p></div>',
+    });
     const result = await renderMail(owner);
     expect(result.html).not.toContain("javascript:");
     expect(result.html).not.toContain("TENANT_FOOTER_MARKER");
@@ -657,6 +658,23 @@ describe("renderer-mail-html :: layout resolution", () => {
     });
     expect(layout).toMatchObject({ scope: "system", contentFormat: "mjml" });
     expect(layout.content).toBe(DEFAULT_MAIL_LAYOUT_MJML);
+  });
+});
+
+describe("renderer-mail-html :: stored tenant body", () => {
+  test("a stored tenant body failing the sanitizer falls back to the system template", async () => {
+    const owner = tenantId(31);
+    await storeLegacyTenantRow(owner, 31, {
+      slug: SLUG,
+      kind: "mail",
+      content: '<p>TENANT_BODY_MARKER</p><iframe src="https://evil.example/x"></iframe>',
+      meta: JSON.stringify({ subject: "Tenant subject" }),
+    });
+    const result = await renderMail(owner);
+    expect(result.html).not.toContain("TENANT_BODY_MARKER");
+    expect(result.html).not.toContain("<iframe");
+    expect(result.html).toContain("Hallo Anna");
+    expect(result.template?.scope).toBe("system");
   });
 });
 

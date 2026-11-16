@@ -14,7 +14,7 @@
 import { usePrimitives, useQuery, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { useDispatchedWrites } from "../../shared/web/index.ts";
-import { TagsHandlers, TagsQueries } from "./constants.ts";
+import { TAG_CATALOG_QUERY, TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChipById } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
 
@@ -50,7 +50,7 @@ export function TagSection({
   const { Banner, Button, Text } = usePrimitives();
   const t = useTranslation();
   const enabled = entityId !== null;
-  const catalog = useQuery<TagListResponse>(TagsQueries.tagList, {}, { enabled });
+  const catalog = useQuery<TagListResponse>(TagsQueries.tagList, TAG_CATALOG_QUERY, { enabled });
   // entityType server-side, not just entityId: it collapses the parent-ref
   // read gate to this one host entity instead of every registered one.
   const assignments = useQuery<AssignmentListResponse>(

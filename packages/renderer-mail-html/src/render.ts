@@ -37,6 +37,7 @@ import {
   pdfAttachmentLinksOf,
   readLayoutRegions,
   resolveTemplateVariables,
+  revalidateStoredTemplateBody,
   sanitizeDocumentHtml,
   sanitizeLayoutHtml,
   TemplateNotFoundError,
@@ -233,7 +234,11 @@ async function findStoredMailTemplate(
     const tenantId = isSystemOnlyTemplate(ctx.registry, slug, "mail")
       ? SYSTEM_TENANT_ID
       : ctx.tenantId;
-    return await tplApi.resolveTemplate({ tenantId, slug, kind: "mail", locale });
+    const found = await tplApi.resolveTemplate({ tenantId, slug, kind: "mail", locale });
+    return (
+      revalidateStoredTemplateBody(found) ??
+      (await tplApi.resolveTemplate({ tenantId: SYSTEM_TENANT_ID, slug, kind: "mail", locale }))
+    );
   } catch (e) {
     if (e instanceof TemplateNotFoundError) return null;
     throw new RendererError(

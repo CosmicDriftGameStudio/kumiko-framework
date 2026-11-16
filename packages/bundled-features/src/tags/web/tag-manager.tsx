@@ -16,9 +16,10 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { pluralKey } from "@cosmicdrift/kumiko-renderer/headless";
+import { isListAggregateResult } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { type ReactNode, useState } from "react";
 import { useDispatchedWrites } from "../../shared/web/index.ts";
-import { TagsHandlers, TagsQueries } from "./constants.ts";
+import { TAG_CATALOG_QUERY, TagsHandlers, TagsQueries } from "./constants.ts";
 import { TagChip } from "./tag-chip.tsx";
 
 type TagRow = {
@@ -28,7 +29,9 @@ type TagRow = {
   readonly scope?: string | null;
   readonly version: number;
 };
-type AssignmentRow = { readonly tagId: string };
+
+// Counted on the server, capped at 200 groups like the catalog.
+const TAG_USAGE_QUERY = { aggregate: { groupBy: "tagId", measures: [] } } as const;
 
 // A small fixed palette so labels stay visually distinct without a color-wheel
 // dependency; the hex field below still accepts any custom value.
@@ -108,8 +111,8 @@ export function TagManager({
   const t = useTranslation();
   const dispatcher = useDispatcher();
 
-  const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, {});
-  const assignments = useQuery<{ rows: readonly AssignmentRow[] }>(TagsQueries.assignmentList, {});
+  const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, TAG_CATALOG_QUERY);
+  const assignments = useQuery<unknown>(TagsQueries.assignmentList, TAG_USAGE_QUERY);
 
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState("");
@@ -141,7 +144,9 @@ export function TagManager({
   }
 
   const usage = new Map<string, number>();
-  for (const a of assignments.data?.rows ?? []) usage.set(a.tagId, (usage.get(a.tagId) ?? 0) + 1);
+  const usageResult = isListAggregateResult(assignments.data) ? assignments.data : undefined;
+  for (const group of usageResult?.groups ?? [])
+    if (typeof group.key === "string") usage.set(group.key, group.count);
 
   const deletingUsage = usage.get(deleting?.id ?? "") ?? 0;
   const selecting = selection !== undefined;

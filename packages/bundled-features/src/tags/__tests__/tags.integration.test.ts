@@ -25,6 +25,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import type { ListAggregateResult } from "@cosmicdrift/kumiko-types/list-aggregate-types";
 import { v5 as uuidv5 } from "uuid";
 import { tagAssignmentEntity, tagEntity } from "../entity.ts";
 import { createTagsFeature } from "../feature.ts";
@@ -202,6 +203,28 @@ describe("tags integration — catalog + assignment roundtrip", () => {
     expect(await countAssignments(admin.tenantId)).toBe(0);
     const left = await listAssignments({ field: "entityId", op: "eq", value: hostId("credit-2") });
     expect(left).toHaveLength(0);
+  });
+});
+
+describe("tags integration — usage counts", () => {
+  test("assignmentList aggregate counts active assignments per tag", async () => {
+    const urgent = await createTag("Dringend");
+    const later = await createTag("Später");
+    await assign(urgent, "credit", hostId("credit-6"));
+    await assign(urgent, "credit", hostId("credit-7"));
+    await assign(urgent, "credit", hostId("credit-8"));
+    await assign(later, "credit", hostId("credit-6"));
+    await remove(urgent, "credit", hostId("credit-8"));
+
+    const res = await stack.http.queryOk<ListAggregateResult>(
+      TagsQueries.assignmentList,
+      { aggregate: { groupBy: "tagId", measures: [] } },
+      admin,
+    );
+    expect(Object.fromEntries(res.groups.map((g) => [String(g.key), g.count]))).toEqual({
+      [urgent]: 2,
+      [later]: 1,
+    });
   });
 });
 

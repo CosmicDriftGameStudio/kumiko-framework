@@ -44,6 +44,7 @@ import {
   readTemplateResourceMaxBytes,
   readTopLevelFrames,
   resolveTemplateVariables,
+  revalidateStoredTemplateBody,
   sanitizeDocumentHtml,
   sanitizeLayoutHtml,
   TemplateNotFoundError,
@@ -157,12 +158,20 @@ async function resolvePdfTemplate(
 ): Promise<TemplateResource> {
   let template: TemplateResource;
   try {
-    template = await tplApi.resolveTemplate({
+    const found = await tplApi.resolveTemplate({
       tenantId: ctx.tenantId,
       slug,
       kind: "document-pdf",
       locale,
     });
+    template =
+      revalidateStoredTemplateBody(found) ??
+      (await tplApi.resolveTemplate({
+        tenantId: SYSTEM_TENANT_ID,
+        slug,
+        kind: "document-pdf",
+        locale,
+      }));
   } catch (e) {
     if (e instanceof TemplateNotFoundError) {
       throw new RendererError(

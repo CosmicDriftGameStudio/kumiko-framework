@@ -19,7 +19,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { ASSIGNMENT_LIST_LIMIT, TagsQueries } from "./constants.ts";
+import { TAG_CATALOG_QUERY, TAGS_QUERY_LIMIT, TagsQueries } from "./constants.ts";
 import { TagChipById } from "./tag-chip.tsx";
 import { TagPicker } from "./tag-picker.tsx";
 
@@ -46,10 +46,10 @@ export function TagFilter({
   const t = useTranslation();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<readonly string[]>([]);
-  const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, {});
+  const catalog = useQuery<{ rows: readonly TagRow[] }>(TagsQueries.tagList, TAG_CATALOG_QUERY);
   const assignments = useQuery<{ rows: readonly AssignmentRow[] }>(TagsQueries.assignmentList, {
     filters: [{ field: "entityType", op: "eq", value: entityName }],
-    limit: ASSIGNMENT_LIST_LIMIT,
+    limit: TAGS_QUERY_LIMIT,
   });
   // Unconditional (Rules of Hooks). The renderer always passes a screenId in the
   // header slot; the fallback namespace is inert if it ever runs standalone.

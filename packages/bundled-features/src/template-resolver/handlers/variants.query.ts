@@ -43,23 +43,19 @@ export const variantsQuery = defineQueryHandler({
   handler: async (query, ctx) => {
     const { baseSlug, locale } = query.payload;
     const locales = locale === FALLBACK_LOCALE ? [locale] : [locale, FALLBACK_LOCALE];
-    const rows: TemplateResourceRow[] = [];
-    for (const rowLocale of locales) {
-      const found = await selectMany<TemplateResourceRow>(
-        ctx.db,
-        templateResourcesTable,
-        {
-          kind: VARIANT_KIND,
-          status: ACTIVE_TEMPLATE_STATUS,
-          locale: rowLocale,
-          tenantId: { in: [query.user.tenantId, SYSTEM_TENANT_ID] },
-          // Slugs are kebab segments joined by ":", so the base slug holds no LIKE wildcard.
-          slug: { like: `${baseSlug}${VARIANT_SEPARATOR}%` },
-        },
-        { limit: VARIANT_ROW_LIMIT },
-      );
-      rows.push(...found);
-    }
+    const rows = await selectMany<TemplateResourceRow>(
+      ctx.db,
+      templateResourcesTable,
+      {
+        kind: VARIANT_KIND,
+        status: ACTIVE_TEMPLATE_STATUS,
+        locale: { in: locales },
+        tenantId: { in: [query.user.tenantId, SYSTEM_TENANT_ID] },
+        // Slugs are kebab segments joined by ":", so the base slug holds no LIKE wildcard.
+        slug: { like: `${baseSlug}${VARIANT_SEPARATOR}%` },
+      },
+      { limit: VARIANT_ROW_LIMIT * locales.length },
+    );
     // Delivery does not depend on the caller: a SystemAdmin sees the same list as the tenant's users.
     const deliveryPolicy = deliveryPolicyOf(ctx.registry);
     const delivered = rows.filter(
