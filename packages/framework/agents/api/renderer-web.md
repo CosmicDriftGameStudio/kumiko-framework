@@ -506,7 +506,7 @@ type DefaultAppShellProps = {
   navBadges?: ReadonlyMap<string, ReactNode>; // Runtime badges per navigation item (bare nav-id → ReactNode), passed through to NavTree.
   headerActions?: ReactNode; // Right-aligned slot in the topbar (next to the breadcrumb) — for ThemeToggle, global actions, and similar controls.
   sidebarFooter?: ReactNode; // Footer slot at the bottom of the sidebar — profile row, help link, or plan banner.
-  focusRailNavQns?: string[]; // Top-level nav QNs the focus rail shows as tiles; the others sit behind a "More" tile that opens the full sidebar.
+  focusRailNavQns?: string[]; // Nav QNs (any depth) the focus rail shows as tiles, in this order; unlisted top-level entries sit behind a "More" tile that opens the full sidebar.
   fill?: boolean; // Viewport-fit shell.
   children: ReactNode; // Screen content rendered inside SidebarInset.
 };
@@ -1820,7 +1820,7 @@ type WorkspaceShellProps = {
   user?: WorkspaceShellUser; // Current user.
   initialWorkspaceId?: string; // Initial active workspace short id ("admin").
   sidebarFooter?: ReactNode; // Footer slot at the bottom of the sidebar — profile row, help link, build information.
-  focusRailNavQns?: string[]; // Top-level nav QNs the focus rail shows as tiles; the others sit behind a "More" tile that opens the full sidebar.
+  focusRailNavQns?: string[]; // Nav QNs (any depth) the focus rail shows as tiles, in this order; unlisted top-level entries sit behind a "More" tile that opens the full sidebar.
   navBadges?: ReadonlyMap<string, ReactNode>; // Runtime badge slot per nav leaf (bare nav id), same as DefaultAppShell.
   fill?: boolean; // Viewport-fit shell.
   contentSurface?: "card" | "background"; // Surface behind the screen content.
