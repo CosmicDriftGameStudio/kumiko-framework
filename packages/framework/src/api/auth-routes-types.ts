@@ -295,8 +295,8 @@ export type PreviewLoginConfig = {
 };
 
 export type PasswordResetConfig = {
-  // Qualified name of the request handler (the one that emits either
-  // { kind: "reset-requested", ... } or { kind: "no-op" }). The handler
+  // Qualified name of the request handler (it emits { kind: "reset-requested" }
+  // for every address, known or not). The handler
   // builds the magic-link and sends the mail via delivery (ctx.notify) — the
   // route only dispatches and returns the silent-success envelope.
   requestHandler: string;
