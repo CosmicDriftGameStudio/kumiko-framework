@@ -100,7 +100,7 @@ The entity carries its name. Per `createEntity` declaration the codemod collects
 `buildEntityTable("name", entity)` and `deriveEntityTableMeta("name", entity)` (symbol resolution, also
 across files), writes the first one as `name` into the `createEntity({ ... })` call and drops the name
 argument at every use. A use under another name becomes `{ ...entity, name: "other" }`. Inline
-`r.entity({ name, fields })` literals stay as they are.
+`r.entity({ name, fields })` literals stay as they are. Inline `createEntity({...})` or object literals at the call site, names given as constants (resolved by their string literal type), same-file const literals, `as`/alias/single-return factories and sites that already carry the name are handled too; an entity that does not resolve becomes `{ ...entity, name: X }`. Safe to rerun on a partly migrated tree.
 
 ```bash
 bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/entity-name.ts <dir> [--check | --dry-run | --write] [--no-format]

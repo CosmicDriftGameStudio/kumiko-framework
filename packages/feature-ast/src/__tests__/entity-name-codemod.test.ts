@@ -33,7 +33,12 @@ const FIXTURE_CASES: ReadonlyArray<{
   { name: "second-name", rewrites: 3, manual: 0 },
   { name: "crud-and-executor", rewrites: 6, manual: 0 },
   { name: "inline-untouched", rewrites: 0, manual: 0 },
-  { name: "unresolved", rewrites: 0, manual: 3 },
+  { name: "unresolved", rewrites: 1, manual: 2 },
+  { name: "inline-create-entity", rewrites: 16, manual: 0 },
+  { name: "name-expression", rewrites: 4, manual: 2 },
+  { name: "already-named", rewrites: 7, manual: 0 },
+  { name: "resolved-identifier", rewrites: 10, manual: 0 },
+  { name: "site-form", rewrites: 4, manual: 0 },
 ];
 
 describe("entity-name codemod fixtures", () => {
@@ -81,8 +86,7 @@ describe("entity-name codemod across files", () => {
     const { result } = runFixture("unresolved");
     const reasons = (result?.manual ?? []).map((site) => site.description);
 
-    expect(reasons[0]).toContain("`externalEntity` does not resolve to a createEntity call");
-    expect(reasons[1]).toContain("does not resolve to a createEntity call");
-    expect(reasons[2]).toContain("name is not a string literal");
+    expect(reasons).toHaveLength(2);
+    for (const reason of reasons) expect(reason).toContain("name is not a string literal");
   });
 });
