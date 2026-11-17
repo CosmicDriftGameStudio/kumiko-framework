@@ -1,10 +1,6 @@
-// withUnsafeRawGrant was un-exported, so an app-owned CapSpec.usage()
-// provider's db.unsafeRaw() call was rejected even though caps:usage itself
-// runs with r.systemScope(). caps-usage.query.ts now declares its own
-// escapeHatch so those providers keep working. This proves the grant
-// actually reaches a cap provider doing a real raw-SQL SUM aggregate (the
-// shape a typed TenantDb helper like count() can't express) end to end
-// through the real caps:usage HTTP handler.
+// tenant-caps:list declares its own escapeHatch so app-owned CapSpec.usage()/usageBatch() providers
+// may run raw SQL on the SystemAdmin list; this proves the grant reaches a provider doing a real
+// raw-SQL SUM end to end through the real tenant-caps:list HTTP handler.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
@@ -121,17 +117,6 @@ afterAll(async () => {
   await asRawClient(db).unsafe("DROP TABLE IF EXISTS cap_overview_raw_usage_probe");
   await stack.cleanup();
   resetPiiSubjectKmsForTests();
-});
-
-describe("caps:usage's own escapeHatch grants a cap provider raw SQL", () => {
-  test("a cap provider's db.unsafeRaw() SUM aggregate runs successfully through caps:usage", async () => {
-    const adminA = createTestUser({ id: 91012, tenantId: TENANT_A, roles: ["TenantAdmin"] });
-    const result = await stack.http.queryOk<{
-      rows: readonly { id: string; used: number | null }[];
-    }>(CapOverviewQueries.capsUsage, {}, adminA);
-    const row = result.rows.find((r) => r.id === rawSqlSumCap.id);
-    expect(row?.used).toBe(42);
-  });
 });
 
 describe("tenant-caps:list's own escapeHatch grants cap providers raw SQL", () => {

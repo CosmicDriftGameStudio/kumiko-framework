@@ -196,11 +196,8 @@ export async function appendSubscriptionEvent(
   //    providerEventId was already seen. A provider retry storm (Stripe
   //    resends up to 5x within 4h) hits the same stream and finds the
   //    event id in metadata.
-  //
-  //    **Performance caveat:** O(N) per stream. With 5 years of history
-  //    (monthly recurring = ~60 events) still <50ms. For much longer
-  //    streams, optimize via snapshot or a per-tenant dedup table as the
-  //    idempotency anchor (like cap-counter).
+  //    O(N) over the whole stream, checkout-opened, consent and plan-switch
+  //    events included; kept until load is measured (docs/reference/decisions.md, 2026-11-17).
   // ---------------------------------------------------------------
   const existingEvents = lockedStream ?? (await lockAndLoadSubscriptionStream(ctx, aggId));
   if (hasSeenProviderEvent(existingEvents, payload)) {

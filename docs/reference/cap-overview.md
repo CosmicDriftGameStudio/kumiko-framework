@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-26
+verified: 2026-11-17
 evidence: "kumiko-framework#2496 (feat/cap-overview); #2503 (drei Caps, Tone); #2515 (not-measured); admin-shell Opt-in Nav (602174b77); bundled-features/cap-overview; fw#2854"
 ---
 
@@ -36,8 +36,12 @@ Dashboards.
 
 ### Usage-Callbacks
 
-`CapSpec.usage`/`usageBatch` bekommen eine **system-mode** `TenantDb` — ohne
-eigenen Tenant-Filter. Immer explizit `tenantId` übergeben:
+In `caps:usage` (Kacheln des eigenen Tenants und SystemAdmin-Override) bekommen
+`CapSpec.usage` und `CapSpec.limit` eine **tenant-mode** `TenantDb`, gefiltert auf
+den Ziel-Tenant; `unsafeRaw()` ist dort nicht freigegeben, Summen laufen über
+`db.aggregate`. `tenant-caps:list` (SystemAdmin-Liste über viele Tenants) übergibt
+`usage`, `usageBatch`, `limit` und `limitBatch` weiterhin die **system-mode**
+`TenantDb` ohne Tenant-Filter. Deshalb immer explizit `tenantId` übergeben:
 
 ```ts
 usage: (db, tenantId) => db.count(table, { tenantId, ... }),
