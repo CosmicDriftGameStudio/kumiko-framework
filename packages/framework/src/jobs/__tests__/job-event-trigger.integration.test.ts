@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.ts";
+import { defineFeature, emitEvent } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 // --- Track job executions ---
@@ -14,16 +14,15 @@ const orderPlacedSchema = z.object({ product: z.string(), amount: z.number() });
 
 // Feature A: a write handler that appends the "order-placed" event
 const ordersFeature = defineFeature("orders", (r) => {
-  r.defineEvent("order-placed", orderPlacedSchema, { piiFields: "none" });
+  const orderPlaced = r.defineEvent("order-placed", orderPlacedSchema, { piiFields: "none" });
   r.writeHandler({
     name: "orders:create",
     schema: orderPlacedSchema,
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, orderPlaced, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "order",
-        type: "orders:event:order-placed",
         payload: { product: event.payload.product, amount: event.payload.amount },
       });
       return {

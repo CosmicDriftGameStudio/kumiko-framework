@@ -69,7 +69,7 @@ function nextClientIp(): string {
   return `10.8.${Math.floor(ipCounter / 250)}.${(ipCounter % 250) + 1}`;
 }
 
-function postAnonymous(path: string, body: unknown): Promise<Response> {
+async function postAnonymous(path: string, body: unknown): Promise<Response> {
   return stack.app.request(
     path,
     {

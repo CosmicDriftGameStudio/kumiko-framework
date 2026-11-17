@@ -10,7 +10,7 @@ import {
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../../engine/index.ts";
+import { createRegistry, defineFeature, emitEvent } from "../../engine/index.ts";
 import { createDistributedLock } from "../../pipeline/distributed-lock.ts";
 import { RedisKeys } from "../../pipeline/redis-keys.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
@@ -20,16 +20,15 @@ const retryRuns: [number, boolean][] = [];
 const singleRuns: [number, boolean][] = [];
 
 const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
-  r.defineEvent("trigger-retry", z.object({}), { piiFields: "none" });
+  const triggerRetry = r.defineEvent("trigger-retry", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-retry",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, triggerRetry, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "trigger-retry-request",
-        type: "attemptfixture:event:trigger-retry",
         payload: {},
       });
       return { isSuccess: true as const, data: {} };
@@ -41,16 +40,15 @@ const attemptFixtureFeature = defineFeature("attemptfixture", (r) => {
       if (ctx.attempt < 3) throw new Error(`fails on attempt ${ctx.attempt}`);
     } });
 
-  r.defineEvent("trigger-single", z.object({}), { piiFields: "none" });
+  const triggerSingle = r.defineEvent("trigger-single", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-single",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, triggerSingle, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "trigger-single-request",
-        type: "attemptfixture:event:trigger-single",
         payload: {},
       });
       return { isSuccess: true as const, data: {} };

@@ -20,7 +20,7 @@ import {
 } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
 import { type BunTestDb, createTestDb } from "../../db/__tests__/query/bun-test-db.ts";
-import { createRegistry, defineFeature } from "../../engine/index.ts";
+import { createRegistry, defineFeature, emitEvent } from "../../engine/index.ts";
 import { createArchivedStreamsTable, createEventsTable } from "../../event-store/index.ts";
 import { createNoopProvider, createPrometheusMeter } from "../../observability/index.ts";
 import { createEventConsumerStateTable } from "../../pipeline/index.ts";
@@ -30,22 +30,21 @@ import { createAllInOneEntrypoint } from "../index.ts";
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
 
 const wiringFeature = defineFeature("wiring", (r) => {
+  const orderPlaced = r.defineEvent("order-placed", z.object({ sku: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "order:create",
     schema: z.object({ sku: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, orderPlaced, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "order-placed",
-        type: "wiring:event:order-placed",
         payload: { sku: event.payload.sku },
       });
       return { isSuccess: true as const, data: { id: 1, sku: event.payload.sku } };
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.defineEvent("order-placed", z.object({ sku: z.string() }), { piiFields: "none" });
   r.job({ name: "record-order", trigger: { on: "order-placed" }, runIn: "worker", handler: async (payload) => {
       jobRuns.push({ name: "wiring:job:record-order", payload });
     } });
@@ -57,22 +56,21 @@ const wiringFeature = defineFeature("wiring", (r) => {
 // createAllInOneEntrypoint actually consumes both lanes — not just that
 // enqueue routing works.
 const mixedLaneFeature = defineFeature("mixed", (r) => {
+  const pinged = r.defineEvent("pinged", z.object({ msg: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "ping",
     schema: z.object({ msg: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, pinged, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "pinged",
-        type: "mixed:event:pinged",
         payload: { msg: event.payload.msg },
       });
       return { isSuccess: true as const, data: { id: 1, msg: event.payload.msg } };
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.defineEvent("pinged", z.object({ msg: z.string() }), { piiFields: "none" });
   r.job({ name: "handle-on-worker", trigger: { on: "pinged" }, runIn: "worker", handler: async (payload) => {
       jobRuns.push({ name: "mixed:job:handle-on-worker", payload });
     } });
@@ -245,22 +243,21 @@ describe("createAllInOneEntrypoint — kumiko_job_queue_depth sees the SAME mete
 const featuresSeenByJob: Array<ReadonlySet<string> | undefined> = [];
 
 const featureGateJobFeature = defineFeature("featuregate", (r) => {
+  const pinged = r.defineEvent("pinged", z.object({ msg: z.string() }), { piiFields: "none" });
   r.writeHandler({
     name: "ping",
     schema: z.object({ msg: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, pinged, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "pinged",
-        type: "featuregate:event:pinged",
         payload: { msg: event.payload.msg },
       });
       return { isSuccess: true as const, data: { id: 1, msg: event.payload.msg } };
     },
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
-  r.defineEvent("pinged", z.object({ msg: z.string() }), { piiFields: "none" });
   r.job({ name: "record-features", trigger: { on: "pinged" }, runIn: "worker", handler: async (_payload, context) => {
       featuresSeenByJob.push(context.services.effectiveFeatures?.(adminUser.tenantId));
     } });

@@ -12,7 +12,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature } from "../../engine/index.ts";
+import { defineFeature, emitEvent } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const exponentialDefaultStarts: number[] = [];
@@ -24,16 +24,15 @@ function gapsBetween(starts: readonly number[]): number[] {
 }
 
 const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
-  r.defineEvent("trigger-exponential-default", z.object({}), { piiFields: "none" });
+  const triggerExponentialDefault = r.defineEvent("trigger-exponential-default", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-exponential-default",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, triggerExponentialDefault, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "trigger-exponential-default-request",
-        type: "backofffixture:event:trigger-exponential-default",
         payload: {},
       });
       return { isSuccess: true as const, data: {} };
@@ -49,16 +48,15 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
       if (exponentialDefaultStarts.length === 1) throw new Error("fails on attempt 1");
     } });
 
-  r.defineEvent("trigger-exponential-custom", z.object({}), { piiFields: "none" });
+  const triggerExponentialCustom = r.defineEvent("trigger-exponential-custom", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-exponential-custom",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, triggerExponentialCustom, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "trigger-exponential-custom-request",
-        type: "backofffixture:event:trigger-exponential-custom",
         payload: {},
       });
       return { isSuccess: true as const, data: {} };
@@ -74,16 +72,15 @@ const backoffFixtureFeature = defineFeature("backofffixture", (r) => {
         throw new Error(`fails on attempt ${exponentialCustomStarts.length}`);
     } });
 
-  r.defineEvent("trigger-fixed-custom", z.object({}), { piiFields: "none" });
+  const triggerFixedCustom = r.defineEvent("trigger-fixed-custom", z.object({}), { piiFields: "none" });
   r.writeHandler({
     name: "trigger-fixed-custom",
     schema: z.object({}),
     handler: async (_event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, triggerFixedCustom, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "trigger-fixed-custom-request",
-        type: "backofffixture:event:trigger-fixed-custom",
         payload: {},
       });
       return { isSuccess: true as const, data: {} };

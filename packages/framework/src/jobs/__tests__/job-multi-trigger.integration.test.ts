@@ -9,7 +9,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-testing/stack";
 import * as z from "zod";
-import { defineFeature, triggeredEventOf } from "../../engine/index.ts";
+import { defineFeature, emitEvent, triggeredEventOf } from "../../engine/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }> = [];
@@ -25,11 +25,10 @@ const orderFeature = defineFeature("multi", (r) => {
     name: "order:open",
     schema: z.object({ id: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, orderOpened, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "order",
-        type: "multi:event:order-opened",
         payload: { id: event.payload.id },
       });
       return { isSuccess: true, data: { id: event.payload.id } };
@@ -40,11 +39,10 @@ const orderFeature = defineFeature("multi", (r) => {
     name: "order:cancel",
     schema: z.object({ id: z.string() }),
     handler: async (event, ctx) => {
-      await ctx.events.append({
+      await emitEvent(ctx, orderCancelled, {
         aggregateId: crypto.randomUUID(),
         expectedVersion: 0,
         aggregateType: "order",
-        type: "multi:event:order-cancelled",
         payload: { id: event.payload.id },
       });
       return { isSuccess: true, data: { id: event.payload.id } };

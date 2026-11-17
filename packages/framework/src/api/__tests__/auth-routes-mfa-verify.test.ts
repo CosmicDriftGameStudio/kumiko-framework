@@ -11,6 +11,7 @@ import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
 import { InternalError, UnprocessableError } from "../../errors/index.ts";
 import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.ts";
+import { type HandlerType, resolveType } from "../../pipeline/dispatcher-utils.ts";
 import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { PUBLIC_API_PATHS } from "../api-constants.ts";
 import { authMiddleware } from "../auth-middleware.ts";
@@ -121,8 +122,8 @@ describe("POST /auth/mfa/verify", () => {
   test("on success: dispatches to mfaVerifyHandler, mints a JWT + cookies", async () => {
     let receivedBody: unknown;
     const dispatcher = createStubDispatcher({
-      async write(qn, payload): Promise<WriteResult> {
-        expect(qn).toBe(MFA_VERIFY_QN);
+      async write(qn: HandlerType, payload: unknown): Promise<WriteResult> {
+        expect(resolveType(qn)).toBe(MFA_VERIFY_QN);
         receivedBody = payload;
         return { isSuccess: true, data: { kind: "mfa-verify-success", session: TestUsers.user } };
       },
@@ -236,8 +237,8 @@ describe("POST /auth/switch-tenant MFA gate wiring", () => {
       async resolveActiveMembership() {
         return { kind: "active", membership: { tenantId: targetTenantId, roles: ["Member"] } };
       },
-      async write(qn): Promise<WriteResult> {
-        expect(qn).toBe(SWITCH_TENANT_GATE_QN);
+      async write(qn: HandlerType): Promise<WriteResult> {
+        expect(resolveType(qn)).toBe(SWITCH_TENANT_GATE_QN);
         return { isSuccess: true, data: { kind: "mfa-gate-clear", roles: ["Member", "GateRole"] } };
       },
     });
