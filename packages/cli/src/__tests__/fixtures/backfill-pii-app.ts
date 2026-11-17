@@ -14,7 +14,7 @@ export const backfillContactEntity = createEntity({
 export default {
   features: [
     defineFeature("clibf", (r) => {
-      r.entity({ name: "clibfcontact", ...backfillContactEntity });
+      r.entity({ ...backfillContactEntity, name: "clibfcontact" });
     }),
   ],
 };

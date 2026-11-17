@@ -523,7 +523,7 @@ describe("encryptPiiValuesForSubject / decryptPiiValues", () => {
 
   test("encrypts a batch with one key lookup and decrypts it in input order", async () => {
     const kms = new CountingKmsAdapter();
-    await kms.createKey(subjectA, KMS_CTX);
+    await kms.createKey(subjectA);
     kms.getKeyCalls = 0;
 
     const stored = await encryptPiiValuesForSubject(kms, subjectA, plainValues, KMS_CTX, "note");

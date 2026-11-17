@@ -25,6 +25,7 @@ describe("isRepresentableAtScale", () => {
 describe("decimal field write-schema scale enforcement", () => {
   const schema = buildInsertSchema(
     createEntity({
+      name: "thing",
       table: "Test",
       fields: { amount: createDecimalField({ precision: 6, scale: 2, required: true }) },
     }),

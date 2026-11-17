@@ -29,8 +29,8 @@ import { removeAggregateTypes } from "../aggregate-type-removal.ts";
 import { createEventConsumerStateTable } from "../event-consumer-state.ts";
 
 const requiredText = { personal: false, reason: "test_fixture", required: true } as const;
-const entityOf = (table: string) =>
-  createEntity({ table, fields: { name: createTextField(requiredText) } });
+const entityOf = (name: string, table: string) =>
+  createEntity({ name, table, fields: { name: createTextField(requiredText) } });
 
 const GONE_A = "rls-gone-a";
 const GONE_B = "rls-gone-b";
@@ -39,9 +39,9 @@ const TABLE_GONE_A = "read_evprune_rls_gone_a";
 const TABLE_GONE_B = "read_evprune_rls_gone_b";
 const TABLE_KEPT = "read_evprune_rls_kept";
 const entities = {
-  [GONE_A]: entityOf(TABLE_GONE_A),
-  [GONE_B]: entityOf(TABLE_GONE_B),
-  [KEPT]: entityOf(TABLE_KEPT),
+  [GONE_A]: entityOf(GONE_A, TABLE_GONE_A),
+  [GONE_B]: entityOf(GONE_B, TABLE_GONE_B),
+  [KEPT]: entityOf(KEPT, TABLE_KEPT),
 };
 
 const feature = defineFeature("evprunerls", (r) => {

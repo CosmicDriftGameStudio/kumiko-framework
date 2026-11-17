@@ -104,8 +104,9 @@ const HOST_FIRST: HostSpec = {
   featureName: "dsgvo-host-first",
 };
 
-function makeEntity(tableName: string) {
+function makeEntity(name: string, tableName: string) {
   return createEntity({
+    name,
     table: tableName,
     fields: {
       name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
@@ -114,14 +115,14 @@ function makeEntity(tableName: string) {
   });
 }
 
-const cfFirstEntity = makeEntity(CF_FIRST.tableName);
-const hostFirstEntity = makeEntity(HOST_FIRST.tableName);
+const cfFirstEntity = makeEntity(CF_FIRST.entityName, CF_FIRST.tableName);
+const hostFirstEntity = makeEntity(HOST_FIRST.entityName, HOST_FIRST.tableName);
 
 // Registration order is the whole point: cfFirst registers the redact hook
 // BEFORE the owner-nulling host hook; hostFirst registers the host hook FIRST
 // (the order that exposed the bug). The order-sentinel must make both correct.
 const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
-  r.entity({ name: CF_FIRST.entityName, ...cfFirstEntity });
+  r.entity(cfFirstEntity);
   r.applyExtension({ name: EXT_USER_DATA, entity: CF_FIRST.entityName, export: async () => null,
     delete: makeRedactHook(CF_FIRST.tableName),
     order: EXT_USER_DATA_ORDER.REDACT_BEFORE_OWNER,
@@ -132,7 +133,7 @@ const cfFirstFeature = defineFeature(CF_FIRST.featureName, (r) => {
 });
 
 const hostFirstFeature = defineFeature(HOST_FIRST.featureName, (r) => {
-  r.entity({ name: HOST_FIRST.entityName, ...hostFirstEntity });
+  r.entity(hostFirstEntity);
   r.applyExtension({ name: EXT_USER_DATA, entity: HOST_FIRST.entityName, export: async () => null,
     delete: makeHostDeleteHook(HOST_FIRST.tableName),
     escapeHatch: { reason: HOST_DELETE_REASON } });

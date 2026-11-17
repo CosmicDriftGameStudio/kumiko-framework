@@ -32,6 +32,7 @@ function entity(opts: {
     ]),
   );
   return createEntity({
+    name: "thing",
     table: "t",
     idType: "uuid",
     ...(opts.transferable !== false && { transferable: true }),

@@ -476,6 +476,7 @@ describe("buildInsertSchema", () => {
   test("optional embedded-list accepts an empty list, required one does not", () => {
     const optional = buildInsertSchema(
       createEntity({
+        name: "thing",
         table: "Test",
         fields: { lines: createEmbeddedListField({ accountId: { type: "text" } }) },
       }),
@@ -485,6 +486,7 @@ describe("buildInsertSchema", () => {
 
     const required = buildInsertSchema(
       createEntity({
+        name: "thing",
         table: "Test",
         fields: {
           lines: createEmbeddedListField({ accountId: { type: "text" } }, { required: true }),
@@ -764,6 +766,7 @@ describe("embedded sub-field: timestamp", () => {
 describe("totalsMatch", () => {
   function invoiceEntity() {
     return createEntity({
+      name: "thing",
       table: "Invoices",
       fields: {
         total: createMoneyField({ required: true }),
@@ -853,6 +856,7 @@ describe("totalsMatch", () => {
 describe("embedded-list derived cell recomputation", () => {
   function orderEntity() {
     return createEntity({
+      name: "thing",
       table: "Orders",
       fields: {
         lines: createEmbeddedListField(
@@ -1447,6 +1451,7 @@ describe("reference fields", () => {
   test("a cross-feature reference keeps its qualified target", () => {
     const schema = buildInsertSchema(
       createEntity({
+        name: "thing",
         table: "bookings",
         fields: { accountId: createReferenceField({ entity: "ledger:account" }) },
       }),

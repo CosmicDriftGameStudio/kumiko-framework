@@ -1359,10 +1359,12 @@ describe("buildAppSchema", () => {
       access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
     };
     const plainEntity = createEntity({
+      name: "plain",
       table: "plain_things",
       fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
     });
     const searchableEntity = createEntity({
+      name: "searchable",
       table: "searchable_things",
       fields: {
         name: createTextField({ personal: false, reason: "test_fixture", searchable: true }),

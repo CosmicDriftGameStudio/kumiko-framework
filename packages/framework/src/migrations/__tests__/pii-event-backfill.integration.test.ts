@@ -63,6 +63,7 @@ let failMspApply = false;
 
 function buildContactEntity(phoneIsPii: boolean): EntityDefinition {
   return createEntity({
+    name: "contact",
     table: CONTACT_TABLE,
     fields: {
       email: createTextField({ required: true, personal: "self", find: "exact" }),

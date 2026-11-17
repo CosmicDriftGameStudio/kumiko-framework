@@ -23,6 +23,7 @@ const siteEntity = createEntity({
 
 function childEntity(table: string, fields: Record<string, FieldDefinition>, rule: ParentRule) {
   return createEntity({
+    name: table,
     table,
     fields,
     access: {

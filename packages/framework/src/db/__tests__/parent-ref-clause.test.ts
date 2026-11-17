@@ -47,6 +47,7 @@ function hostEntity(opts?: {
   readonly parentRef?: EntityDefinition["parentRef"];
 }) {
   return createEntity({
+    name: "host",
     table: "read_test_hosts",
     fields: { ownerId: textField(), entityType: textField(), entityId: textField() },
     ...opts,

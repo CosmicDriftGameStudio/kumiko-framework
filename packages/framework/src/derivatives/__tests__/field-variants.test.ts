@@ -18,7 +18,7 @@ const THUMB_SPEC: VariantSpec = { maxEdge: 200, format: "webp" };
 
 function photoEntityWith(field: EntityFieldDefinition): Readonly<Record<string, EntityDefinition>> {
   return {
-    photo: { fields: { avatar: field } },
+    photo: { name: "photo", fields: { avatar: field } },
   };
 }
 

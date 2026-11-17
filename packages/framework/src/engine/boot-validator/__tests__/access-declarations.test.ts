@@ -519,6 +519,7 @@ describe("validateAccessDeclarations — personal-data fields beyond a top-level
   // and `bauspar:update` ({ id, version, changes }) on a tenant-trust entity.
   test("credit-style update schemas without owner binding throw", () => {
     const credit = createEntity({
+      name: "note",
       table: "fw_access_pii_credit",
       fields: {
         name: createTextField({ personal: { of: "ownerUserId" }, find: "none" }),
@@ -542,6 +543,7 @@ describe("validateAccessDeclarations — personal-data fields beyond a top-level
 describe("validateAccessDeclarations — owner-bound personal-data fields", () => {
   function ownedNoteEntity(write: OwnershipMap | undefined) {
     return createEntity({
+      name: "note",
       table: "fw_access_pii_owned_notes",
       fields: {
         name: createTextField({ personal: { of: "ownerUserId" }, find: "none" }),
@@ -603,6 +605,7 @@ describe("validateAccessDeclarations — owner-bound personal-data fields", () =
     ["record-owned", createTextField({ personal: { of: "id" }, find: "none" })],
   ])("a %s field is not exempted by an owner-bound write map", (_label, field) => {
     const entity = createEntity({
+      name: "note",
       table: "fw_access_pii_mixed_notes",
       fields: {
         email: field,
