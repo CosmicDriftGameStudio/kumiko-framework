@@ -57,7 +57,7 @@ function registerTags(
 ): void {
   r.adoptsBundledLists();
   r.describe(
-    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. The catalog is written through `tag:create`, `tag:update` (`{ id, version, changes }`) and `tag:delete` (cascades over the assignments), used by the declarative catalog screens and by TagManager/TagPicker alike. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
+    "Generic, host-agnostic tagging for any entity. Owns two event-sourced entities — the per-tenant `tag` catalog (`read_tags`, with optional `color` and `scope`) and `tag-assignment` join rows keyed by (entityType, entityId) (`read_tag_assignments`) — so tagging adds NO column to the host entity and needs no relational pivot or JOIN. The catalog is written through `tag:create`, `tag:update` (`{ id, version, changes }`) and `tag:delete` (cascades over the assignments and refuses while a record the caller cannot see still carries the tag), used by the declarative catalog screens and by TagManager/TagPicker alike. Also: `assign-tag` (idempotent), `remove-tag` (idempotent) and list queries for the catalog and the assignments. Read which tags an entity has, or which entities carry a tag, by listing `tag-assignment` filtered on `entityId` or `tagId` and composing in the read-layer. A tag with empty `scope` is global; a `scope` of an entityType restricts it to that type in the picker. Every path uses one access rule — adopt the host's model with createTagsFeature({ access: { openToAll: { reason } } }) or pin roles with createTagsFeature({ roles }). Pass { toggleable: { default: false } } to make the whole feature tier-gatable via the tier-engine (no host hook).",
   );
   r.uiHints({
     displayLabel: "Tags",
@@ -145,9 +145,9 @@ export type TagsFeatureOptions = {
    *  `ownership.write` is separate and does NOT affect list/read. It's
    *  consulted on every assignment write: assign-tag (create/restore),
    *  remove-tag (delete) and the framework's generic forget path. The
-   *  delete-tag cascade stays ungated, since deleting a catalog tag detaches
-   *  it everywhere. A `from()` rule there also gates GDPR erasure
-   *  (`forget`): if the rule's role map doesn't cover whatever role the
+   *  delete-tag cascade detaches without the write rule, but tag:delete
+   *  refuses while an assignment the caller cannot read still points at a
+   *  live record. A `from()` rule there also gates GDPR erasure (`forget`): if the rule's role map doesn't cover whatever role the
    *  erasure/retention pipeline runs as, `forget` denies instead of
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
    *  sure any `ownership.write` you set covers that role, or leave it unset. */

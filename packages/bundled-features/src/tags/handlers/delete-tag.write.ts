@@ -1,21 +1,58 @@
-import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type AccessRule,
+  type HandlerContext,
+  parentVisibilityFor,
+  registeredEntityExecutor,
+  type SessionUser,
+  type WriteHandlerDef,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { liveHostRowIds } from "../../shared/index.ts";
 import { tagAssignmentExecutor, tagExecutor } from "../executor.ts";
 import { type DeleteTagPayload, deleteTagPayloadSchema } from "../schemas.ts";
 import { DEFAULT_TAG_ACCESS, TAG_LOCK_NAMESPACE } from "../web/constants.ts";
 
 const CASCADE_PAGE = 200;
 
-// tag:delete — removes a tag from the catalog and detaches it everywhere. No FK
-// (event-sourced, no JOIN), so the handler cascades: soft-delete every
-// assignment carrying this tag, then hard-delete the catalog tag.
-//
-// Idempotent: deleting an already-gone tag returns success (mirrors remove-tag).
-//
-// The cascade re-reads page 1 (no cursor) until it comes back empty instead of
-// paging with a cursor: assignment deletes are soft-deletes and the list query
-// hides isDeleted rows, so a keyset cursor over the shrinking result set would
-// silently skip rows. Re-reading the head always returns the remaining live
-// rows and terminates when none are left.
+// tag:delete — no FK, so the handler cascades; it refuses while an assignment the caller cannot
+// read still points at a live record, so a catalog delete never detaches a tag from records of
+// other teams. Assignments of gone hosts go with the tag; nothing is deleted before the scan
+// finished, so the keyset cursor is safe. Idempotent: deleting an already-gone tag succeeds.
+async function pageHidesLiveAssignment(
+  rows: readonly Record<string, unknown>[],
+  user: SessionUser,
+  ctx: HandlerContext,
+): Promise<boolean> {
+  if (rows.length === 0) return false;
+  const readable = registeredEntityExecutor(ctx.registry, "tag-assignment");
+  const readableIds = new Set<string>();
+  if (readable !== undefined) {
+    const page = await readable.list(
+      {
+        filters: [{ field: "id", op: "in", value: rows.map((row) => String(row["id"])) }],
+        limit: rows.length,
+      },
+      user,
+      ctx.db,
+      { parentVisibility: parentVisibilityFor(ctx, user) },
+    );
+    for (const row of page.rows) readableIds.add(String(row["id"]));
+  }
+  const hiddenIdsByType = new Map<string, string[]>();
+  for (const row of rows) {
+    if (readableIds.has(String(row["id"]))) continue;
+    const entityType = String(row["entityType"]);
+    const entityIds = hiddenIdsByType.get(entityType) ?? [];
+    entityIds.push(String(row["entityId"]));
+    hiddenIdsByType.set(entityType, entityIds);
+  }
+  for (const [entityType, entityIds] of hiddenIdsByType) {
+    const liveIds = await liveHostRowIds(ctx.registry, entityType, entityIds, ctx.db);
+    if (liveIds.size > 0) return true;
+  }
+  return false;
+}
+
 export function createDeleteTagHandler(
   access: AccessRule = DEFAULT_TAG_ACCESS,
   name = "tag:delete",
@@ -25,7 +62,7 @@ export function createDeleteTagHandler(
     schema: deleteTagPayloadSchema,
     access,
     description:
-      "Deletes a catalog tag and cascades a detach over every assignment still carrying it, so the tag disappears from all entities at once.",
+      "Deletes a catalog tag and detaches it from every record carrying it; refuses while a record the caller cannot see still carries the tag.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
       const payload = event.payload as DeleteTagPayload; // @cast-boundary engine-payload
@@ -38,21 +75,32 @@ export function createDeleteTagHandler(
         return { isSuccess: true as const, data: { id: payload.id } };
       }
 
-      for (;;) {
+      const assignmentIds: string[] = [];
+      let cursor: string | undefined;
+      do {
         const page = await tagAssignmentExecutor.list(
-          { filter: { field: "tagId", op: "eq", value: payload.id }, limit: CASCADE_PAGE },
+          {
+            filter: { field: "tagId", op: "eq", value: payload.id },
+            limit: CASCADE_PAGE,
+            cursor,
+          },
           event.user,
           ctx.db,
         );
-        if (page.rows.length === 0) break;
-        for (const row of page.rows) {
-          const removed = await tagAssignmentExecutor.delete(
-            { id: String(row["id"]) },
-            event.user,
-            ctx.db,
+        if (await pageHidesLiveAssignment(page.rows, event.user, ctx)) {
+          return writeFailure(
+            new UnprocessableError("tag_in_use_on_hidden_records", {
+              details: { tagId: payload.id },
+            }),
           );
-          if (!removed.isSuccess) return removed;
         }
+        for (const row of page.rows) assignmentIds.push(String(row["id"]));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor !== undefined);
+
+      for (const id of assignmentIds) {
+        const removed = await tagAssignmentExecutor.delete({ id }, event.user, ctx.db);
+        if (!removed.isSuccess) return removed;
       }
 
       return tagExecutor.delete({ id: payload.id }, event.user, ctx.db);
