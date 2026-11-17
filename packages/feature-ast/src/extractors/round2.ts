@@ -9,6 +9,7 @@ import type {
   ObjectLiteralElementLike,
   ObjectLiteralExpression,
   SourceFile,
+  VariableDeclaration,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types.ts";
@@ -20,6 +21,11 @@ import type {
   WorkspacePattern,
 } from "../patterns.ts";
 import { sourceLocationFromNode } from "../source-location.ts";
+import {
+  findImportBindingForLocalName,
+  resolveExportedVariable,
+  resolveModuleFile,
+} from "./resolve-import.ts";
 import {
   type ExtractOutput,
   fail,
@@ -76,10 +82,22 @@ type EntityReference = {
   readonly entityName: string | undefined;
 };
 
-// The `name` of the `createEntity({ name: "x", ... })` a same-file identifier points at.
+function findEntityDeclaration(
+  identifier: Node,
+  sourceFile: SourceFile,
+): VariableDeclaration | undefined {
+  const localName = identifier.getText();
+  const local = sourceFile.getVariableDeclaration(localName);
+  if (local) return local;
+  const binding = findImportBindingForLocalName(sourceFile, localName);
+  if (!binding) return undefined;
+  const target = resolveModuleFile(sourceFile, binding.moduleSpecifier);
+  return target ? resolveExportedVariable(target, binding.importedName) : undefined;
+}
+
+// The `name` of the `createEntity({ name: "x", ... })` an identifier points at, in this file or an imported one.
 function readCreateEntityName(identifier: Node, sourceFile: SourceFile): string | undefined {
-  const initializer = sourceFile
-    .getVariableDeclaration(identifier.getText())
+  const initializer = findEntityDeclaration(identifier, sourceFile)
     ?.getInitializer()
     ?.asKind(SyntaxKind.CallExpression);
   if (initializer?.getExpression().getText() !== "createEntity") return undefined;

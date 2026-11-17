@@ -68,14 +68,14 @@ defineFeature("todoList", (r) => {
   r.secretNamespace({ name: "webhook-auth", label: { en: "Webhook auth" }, scope: "tenant" });
   r.claimKey({ name: "teamId", type: "string" });
 
-  r.referenceData(
-    "priorityLabel",
-    [
+  r.referenceData({
+    entity: "priorityLabel",
+    data: [
       { id: "low", label: "Low" },
       { id: "high", label: "High" },
     ],
-    { upsertKey: "id" },
-  );
+    upsertKey: "id",
+  });
 
   r.nav({ id: "tasks", label: "Tasks", screen: "todoList:screen:task-list" });
 

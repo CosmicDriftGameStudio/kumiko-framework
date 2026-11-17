@@ -1765,7 +1765,10 @@ defineFeature("f", (r) => {
     expect(result.patterns[0]).toMatchObject({
       kind: "queryHandler",
       handlerName: "task:audit-list",
-      escapeHatch: { reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)", grants: ["systemIdentity"] },
+      escapeHatch: {
+        reason: "reads across tenants via ctx.queryAs(SYSTEM, ...)",
+        grants: ["systemIdentity"],
+      },
     });
   });
 });
@@ -2655,6 +2658,19 @@ describe("cross-file registrar-wrapper resolution against a real filesystem Proj
       resolve(__dirname, "fixtures/cross-file-registrar/screens.ts"),
     );
     expect(navPattern?.source.file).not.toBe(fixture);
+  });
+});
+
+describe("r.entity(importedEntity) reads the entity name from the imported file", () => {
+  const result = parseFeatureFile(resolve(__dirname, "fixtures/cross-file-entity-name/feature.ts"));
+
+  test("entityName comes from the createEntity declaration in the other file", () => {
+    expect(result.errors).toEqual([]);
+    expect(result.patterns.find((p) => p.kind === "entity")).toMatchObject({
+      kind: "entity",
+      entityName: "task",
+      definition: { __raw: "taskEntity" },
+    });
   });
 });
 

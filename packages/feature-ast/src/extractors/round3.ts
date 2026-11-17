@@ -24,7 +24,9 @@ import {
   type ExtractOutput,
   fail,
   isPlainObject,
+  isRawRefSentinel,
   ok,
+  type RawRefSentinel,
   type ReadDataLiteralOptions,
   readDataLiteralNode,
   readNameLiteralRef,
@@ -35,11 +37,23 @@ export type NamedOptionsResult =
   | { readonly kind: "ok"; readonly name: string; readonly options: Record<string, unknown> }
   | { readonly kind: "error"; readonly error: ParseError };
 
+// `{ name: "x", ...REF }`: the options stay an unresolved reference and render back as the same spread.
+function readSpreadOnlyReference(obj: ObjectLiteralExpression): RawRefSentinel | undefined {
+  const rest = obj
+    .getProperties()
+    .filter((property) => property.asKind(SyntaxKind.PropertyAssignment)?.getName() !== "name");
+  const spread = rest.length === 1 ? rest[0]?.asKind(SyntaxKind.SpreadAssignment) : undefined;
+  if (!spread) return undefined;
+  const reference = readDataLiteralNode(spread.getExpression());
+  return isRawRefSentinel(reference) ? reference : undefined;
+}
+
 export function readNamedOptions(
   call: CallExpression,
   sourceFile: SourceFile,
   methodName: string,
   readOptions: ReadDataLiteralOptions = {},
+  allowSpreadReference = false,
 ): NamedOptionsResult {
   const args = call.getArguments();
   const first = args[0];
@@ -70,6 +84,10 @@ export function readNamedOptions(
       sourceLocationFromNode(call, sourceFile),
       "options object requires a string-literal `name` property",
     );
+  }
+  const spreadReference = allowSpreadReference ? readSpreadOnlyReference(obj) : undefined;
+  if (spreadReference) {
+    return { kind: "ok", name: nameInit.getLiteralValue(), options: spreadReference };
   }
   const data = readDataLiteralNode(obj, readOptions);
   if (!isPlainObject(data)) {
@@ -185,7 +203,7 @@ export function extractSecretNamespace(
   call: CallExpression,
   sourceFile: SourceFile,
 ): ExtractOutput<SecretNamespacePattern> {
-  const parsed = readNamedOptions(call, sourceFile, "secretNamespace");
+  const parsed = readNamedOptions(call, sourceFile, "secretNamespace", {}, true);
   if (parsed.kind === "error") return parsed;
   return ok({
     kind: "secretNamespace",
@@ -249,7 +267,10 @@ export function extractReferenceData(
       "expected a single options object",
     );
   }
-  const entityInit = obj.getProperty("entity")?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  const entityInit = obj
+    .getProperty("entity")
+    ?.asKind(SyntaxKind.PropertyAssignment)
+    ?.getInitializer();
   if (!entityInit) {
     return fail(
       "referenceData",

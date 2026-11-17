@@ -595,14 +595,12 @@ defineFeature("inventory", (r) => {
     expect(() => updatePattern(sf, change)).toThrow(/no call found/);
   });
 
-  test("positional call form is rejected", () => {
+  test("a call with extra arguments beyond the options object is rejected", () => {
     const starter = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("inventory", (r) => {
-  r.writeHandler("item:create", z.object({}), async () => {}, {
-    access: { openToAll: { reason: "test" } },
-  });
+  r.writeHandler({ name: "item:create", schema: z.object({}), handler: async () => {}, access: { openToAll: { reason: "test" } } }, "extra");
 });
 `;
     const sf = makeSourceFile(starter);
@@ -635,12 +633,13 @@ defineFeature("inventory", (r) => {
     expect(() => updatePattern(sf, change)).toThrow(/no call found/);
   });
 
-  test("a single non-object argument is rejected as not an inline object literal", () => {
+  test("a single non-literal argument is not matched by handler name", () => {
     const starter = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
 defineFeature("inventory", (r) => {
-  r.writeHandler("item:create");
+  r.writeHandler(item);
+  r.writeHandler({ name: "other", handler: async () => {} });
 });
 `;
     const sf = makeSourceFile(starter);
@@ -649,7 +648,7 @@ defineFeature("inventory", (r) => {
       id: { kind: "writeHandler", handlerName: "item:create" },
       set: { description: "x" },
     };
-    expect(() => updatePattern(sf, change)).toThrow(/not an inline object literal.*use replace/);
+    expect(() => updatePattern(sf, change)).toThrow(/no call found/);
   });
 
   test("spread in the handler literal is rejected", () => {
