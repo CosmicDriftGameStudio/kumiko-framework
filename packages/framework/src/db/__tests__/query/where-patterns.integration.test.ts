@@ -2,7 +2,7 @@
 //   - primitive equality: string, number, boolean, uuid
 //   - null → IS NULL
 //   - bare array → IN (shortcut)
-//   - WhereOperator: { in: [...] }, { notIn: [...] }, { ne: x }, { gt/gte/lt/lte }, { like: str }
+//   - WhereOperator: { in: [...] }, { notIn: [...] }, { ne: x }, { gt/gte/lt/lte }, { like: str }, { contains / startsWith / equalsIgnoreCase: str }
 //   - multi-field AND
 //
 // JSONB top-level equality is covered (JSON.stringify + ::jsonb cast in prepareValue).
@@ -209,6 +209,33 @@ describe("where — WhereOperator", () => {
       expect(prefix.map((r) => r["label"]).sort()).toEqual(["a_1", "ab1"]);
     });
   });
+
+  test("{ equalsIgnoreCase } matches the whole value regardless of case and treats % and _ literally", async () => {
+    await withTable(strNumCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [
+        { label: "BMW", score: 1 },
+        { label: "bmw", score: 2 },
+        { label: "BMW X5", score: 3 },
+        { label: "B%W", score: 4 },
+        { label: "B_W", score: 5 },
+      ]);
+      const labelsOf = async (value: string): Promise<unknown[]> =>
+        (await selectMany(db, meta, { label: { equalsIgnoreCase: value } }))
+          .map((r) => r["label"])
+          .sort();
+      expect(await labelsOf("bmw")).toEqual(["BMW", "bmw"]);
+      expect(await labelsOf("b%w")).toEqual(["B%W"]);
+      expect(await labelsOf("b_w")).toEqual(["B_W"]);
+    });
+  });
+
+  test("{ equalsIgnoreCase } with a non-string value is rejected", async () => {
+    await withTable(strNumCols, async ({ db, meta }) => {
+      await expect(selectMany(db, meta, { label: { equalsIgnoreCase: 5 } })).rejects.toThrow(
+        'where: equalsIgnoreCase on column "label" needs a string',
+      );
+    });
+  });
 });
 
 describe("where — date column", () => {
@@ -261,7 +288,17 @@ describe("where — ordering/pattern operators on a jsonb option array", () => {
   test("lt/gt/lte/gte match nothing and pattern operators do not crash", async () => {
     await withTable(jsonbCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ tags: ["a"] }, { tags: ["b"] }]);
-      for (const op of ["lt", "gt", "lte", "gte", "like", "contains", "startsWith"] as const) {
+      const operators = [
+        "lt",
+        "gt",
+        "lte",
+        "gte",
+        "like",
+        "contains",
+        "startsWith",
+        "equalsIgnoreCase",
+      ] as const;
+      for (const op of operators) {
         const rows = await selectMany(db, meta, { tags: { [op]: "a" } });
         expect(rows).toEqual([]);
       }

@@ -3,6 +3,7 @@ import type {
   TenantDbMode,
   TenantDbUpsertOptions,
 } from "@cosmicdrift/kumiko-types/tenant-db-types";
+import { isNumericColumnType } from "./aggregate-sql.ts";
 import { quoteIdent } from "./sql-identifier.ts";
 import { AccessDeniedError } from "../errors/index.ts";
 import { isExecutorManagedTable } from "./executor-managed-tables.ts";
@@ -63,13 +64,6 @@ function primaryKeyColumnsOf(meta: EntityTableMeta): readonly string[] {
 
 const INTEGER_PG_TYPES: ReadonlySet<string> = new Set(["integer", "bigint"]);
 
-function isNumericPgType(pgType: string | undefined): boolean {
-  return (
-    pgType !== undefined &&
-    (INTEGER_PG_TYPES.has(pgType) || pgType === "double precision" || pgType.startsWith("numeric"))
-  );
-}
-
 function assertValidIncrements(
   info: TableInfo,
   meta: EntityTableMeta,
@@ -88,7 +82,7 @@ function assertValidIncrements(
     if (keyCols.has(col)) fail(`increment must not touch a key column ("${field}")`);
     if (updatedCols.has(col)) fail(`"${field}" is both in update and increment`);
     const pgType = info.pgTypeOf(col);
-    if (!isNumericPgType(pgType)) fail(`increment needs a numeric column ("${field}")`);
+    if (!isNumericColumnType(pgType)) fail(`increment needs a numeric column ("${field}")`);
     const integerColumn = pgType !== undefined && INTEGER_PG_TYPES.has(pgType);
     if (!Number.isFinite(delta) || (integerColumn && !Number.isInteger(delta))) {
       fail(`increment delta must be a finite number (an integer for integer columns) ("${field}")`);

@@ -23,6 +23,8 @@ export type WhereOperator = {
   readonly contains?: string;
   /** Prefix match; %, _ and \ in the value match literally. */
   readonly startsWith?: string;
+  /** Case-insensitive equality, lower() on both sides; %, _ and \ have no wildcard meaning. Not trimmed. */
+  readonly equalsIgnoreCase?: string;
   /** jsonb columns only; cannot be combined with other operators in the same object. */
   readonly jsonText?: JsonTextMatch | readonly JsonTextMatch[];
 };

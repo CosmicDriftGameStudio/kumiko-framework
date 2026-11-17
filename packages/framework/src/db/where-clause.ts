@@ -205,8 +205,18 @@ function emitNotIn(target: WhereColumn, operator: WhereOperator): string | undef
   return `${target.ref(target.column)} NOT IN (${valueList(target, operand)})`;
 }
 
+function emitEqualsIgnoreCase(target: WhereColumn, operator: WhereOperator): string | undefined {
+  const operand: unknown = operator.equalsIgnoreCase;
+  if (operand === undefined) return undefined;
+  if (typeof operand !== "string") {
+    throw new Error(`where: equalsIgnoreCase on column "${target.column}" needs a string`);
+  }
+  if (target.pgType === "jsonb") return "FALSE";
+  return `lower(${target.ref(target.column)}) = lower(${target.bind(operand)}::text)`;
+}
+
 // Insertion order is the SQL emission order. jsonText comes first so its "cannot be combined" error wins over any other
-// operator's error; the rest keep the historical order gt, gte, lt, lte, ne, like, contains, startsWith, in, notIn.
+// operator's error; the rest keep the historical order gt, gte, lt, lte, ne, like, contains, startsWith, equalsIgnoreCase, in, notIn.
 const OPERATOR_EMITTERS: Readonly<Record<keyof WhereOperator, OperatorEmitter>> = {
   jsonText: emitJsonText,
   gt: comparisonEmitter("gt", ">"),
@@ -217,6 +227,7 @@ const OPERATOR_EMITTERS: Readonly<Record<keyof WhereOperator, OperatorEmitter>> 
   like: comparisonEmitter("like", "LIKE"),
   contains: escapedPatternEmitter("contains", (escaped) => `%${escaped}%`),
   startsWith: escapedPatternEmitter("startsWith", (escaped) => `${escaped}%`),
+  equalsIgnoreCase: emitEqualsIgnoreCase,
   in: emitIn,
   notIn: emitNotIn,
 };

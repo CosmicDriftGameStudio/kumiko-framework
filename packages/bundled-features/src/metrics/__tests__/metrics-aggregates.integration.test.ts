@@ -20,6 +20,7 @@ import {
   fixedClock,
   globalTable,
   manyUsersMetric,
+  maximumMetric,
   seedMetricRows,
   snapshotMetric,
   stackedMetric,
@@ -160,6 +161,18 @@ describe("metrics aggregates", () => {
     expect(valueAt("2026-03-09T00:00:00Z")).toBe(100);
     expect(valueAt("2026-03-10T00:00:00Z")).toBe(200);
     expect(valueAt("2026-03-05T00:00:00Z")).toBeNull();
+  });
+
+  test("max leaves empty buckets null and reads the largest value per bucket", async () => {
+    const result = await run(maximumMetric, TENANT_C);
+    expect(result.value).toBe(200);
+    const valueAt = (iso: string): number | null =>
+      result.points.find((point) => point.atMs === epochMs(iso))?.value ?? null;
+    expect(valueAt("2026-03-09T00:00:00Z")).toBe(100);
+    expect(valueAt("2026-03-10T00:00:00Z")).toBe(200);
+    const emptyPoint = result.points.find((p) => p.atMs === epochMs("2026-03-05T00:00:00Z"));
+    expect(emptyPoint).toBeDefined();
+    expect(emptyPoint?.value).toBeNull();
   });
 
   test("timeZone moves the day boundary", async () => {

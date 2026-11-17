@@ -1,6 +1,15 @@
 export type AggregateMeasure =
   | { readonly fn: "count" }
-  | { readonly fn: "countDistinct" | "sum" | "avg"; readonly field: string };
+  | {
+      readonly fn: "countDistinct" | "sum" | "avg" | "min" | "max";
+      readonly field: string;
+    }
+  | {
+      readonly fn: "percentile";
+      readonly field: string;
+      /** Continuous percentile (percentile_cont) between 0 and 1, e.g. 0.95 for p95. */
+      readonly fraction: number;
+    };
 
 export type AggregateTimeBucket = "hour" | "day";
 
