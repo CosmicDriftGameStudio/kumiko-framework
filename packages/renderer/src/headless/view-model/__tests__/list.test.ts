@@ -303,7 +303,7 @@ describe("computeListViewModel", () => {
   // Table-driven over LIST_ROW_META_COLUMNS itself (not one-off cases) — a
   // row-meta column (id/tenantId/version/insertedAt/...) is a base-table
   // column, never a declared entity field (a SystemAdmin cross-tenant list
-  // picks tenantId as a column this way). Together with boot-validator.test.ts
+  // picks tenantId as a column this way). Together with boot-validator/__tests__/entity-list-columns.test.ts
   // (both boot validators accept the same set) and list-row-meta-drift.test.ts
   // (LIST_ROW_META_COLUMNS key-set drift guard), this pins "whatever boot
   // accepts as a row-meta column, the renderer can actually draw" and prevents
