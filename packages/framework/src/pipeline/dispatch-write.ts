@@ -1,4 +1,4 @@
-import type { WriteHandlerDef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
+import type { JobTriggerEvent, WriteHandlerDef, WriteResult } from "@cosmicdrift/kumiko-types/handlers";
 import type { SaveContext } from "@cosmicdrift/kumiko-types/hooks";
 import type { DbRow, DbRunner, DbTx } from "../db/connection.ts";
 import { ConfigScopes } from "../engine/constants.ts";
@@ -353,6 +353,16 @@ async function runWriteLifecycle(
   return undefined;
 }
 
+function jobTriggerEventOf(result: WriteResult): JobTriggerEvent | undefined {
+  if (!result.isSuccess) return undefined;
+  const lifecycle =
+    result.lifecycle ?? (isLifecycleResult(result.data) ? result.data : undefined);
+  // skip: isLifecycleResult only checks `kind`, an untyped result can lack its event
+  if (!lifecycle?.event) return undefined;
+  const { event } = lifecycle;
+  return { id: event.id, aggregateId: event.aggregateId, headers: event.metadata.headers ?? {} };
+}
+
 function scheduleWriteAfterCommit(
   ctx: DispatchContext,
   type: string,
@@ -366,7 +376,8 @@ function scheduleWriteAfterCommit(
   // fire for rolled-back writes. Defer to afterCommit.
   if (jobRunner) {
     const eventData = (parsedPayload ?? {}) as DbRow; // @cast-boundary engine-payload
-    afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
+    const triggerEvent = jobTriggerEventOf(result);
+    afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user, triggerEvent));
   }
 
   invalidateTenantTimezoneCache(ctx, type, user, result);

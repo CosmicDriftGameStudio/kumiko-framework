@@ -64,6 +64,7 @@ export function createJobTriggerEventConsumer(
       };
       await jobRunner.handleEvent(event.type, event.payload, user, {
         id: event.id,
+        aggregateId: event.aggregateId,
         headers: event.metadata.headers ?? {},
       });
     },

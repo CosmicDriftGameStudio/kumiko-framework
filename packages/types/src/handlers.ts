@@ -367,11 +367,10 @@ import type { UncheckedSystemDb } from "./tenant-db-types.ts";
 // The framework resolves the member internally, so no hand-built SessionUser reaches app code.
 export type MemberReader = (userId: string, qn: string, payload: unknown) => Promise<unknown>;
 
-// The stored event that made an r.job trigger fire, carried through so the
-// job handler can key an idempotency check on it (at-least-once delivery via
-// the job-trigger event consumer, see pipeline/system-hooks.ts).
+// The stored event that made an r.job trigger fire. `aggregateId` is the stream it was appended to — for an entity write the written row's id, so a follow-up job can act on exactly that row. `id` keys idempotency for the at-least-once consumer paths.
 export type JobTriggerEvent = {
   readonly id: string;
+  readonly aggregateId: string;
   readonly headers: NonNullable<EventMetadata["headers"]>;
 };
 
@@ -802,8 +801,8 @@ export type JobContext = {
   // Multi-trigger jobs (`on: [...]`) use this to tell which trigger fired —
   // undefined for cron/manual jobs. Mirrors AppContext.triggerName.
   readonly triggerName?: string;
-  // Set only via the at-least-once job-trigger event consumer (not cron/manual or the sync handler-QN path);
-  // delivery can repeat, so use triggerEvent.id (or a header) as idempotency key.
+  // Set when a stored event fired the job: by the job-trigger and catch-up consumers (at-least-once, key idempotency on triggerEvent.id)
+  // and by a write-handler trigger whose result is a save/delete lifecycle result. Undefined for cron/manual runs and plain-data results.
   readonly triggerEvent?: JobTriggerEvent;
   readonly config?: ConfigAccessor;
   readonly notify?: NotifyFn;

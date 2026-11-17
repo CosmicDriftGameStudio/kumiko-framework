@@ -165,7 +165,7 @@ describe("r.job trigger.catchUp", () => {
     const before = catchUpRuns.length;
     const pingId = generateId();
     const user = { id: TestUsers.admin.id, tenantId: TestUsers.admin.tenantId, roles: [] };
-    const triggerEvent = { id: generateId(), headers: {} };
+    const triggerEvent = { id: generateId(), aggregateId: generateId(), headers: {} };
 
     await runner.handleCatchUpEvent(
       CATCH_UP_JOB_QN,

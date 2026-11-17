@@ -166,6 +166,26 @@ describe("applyFormatSpec — boolean/currency", () => {
   });
 });
 
+describe("applyFormatSpec — money", () => {
+  test("formats a money value in its own currency and the given locale", () => {
+    expect(
+      applyFormatSpec(
+        { format: "money", locale: "de-DE" },
+        { amount: 1234.5, currency: "EUR", amountScaled: 123450 },
+      ),
+    ).toBe("1.234,50\u00a0€");
+    expect(
+      applyFormatSpec({ format: "money", locale: "en-US" }, { amount: 1234, currency: "jpy" }),
+    ).toBe("¥1,234");
+  });
+
+  test("a value that is no money value is not shown as an object", () => {
+    expect(applyFormatSpec({ format: "money" }, 12)).toBe("12");
+    expect(applyFormatSpec({ format: "money" }, { amount: 1, currency: "€" })).toBe("");
+    expect(applyFormatSpec({ format: "money" }, null)).toBe("");
+  });
+});
+
 describe("applyFormatSpec — number grouping", () => {
   test("groups thousands by default", () => {
     expect(applyFormatSpec({ format: "number" }, 2021)).toBe("2,021");

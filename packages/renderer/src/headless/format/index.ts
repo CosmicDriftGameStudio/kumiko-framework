@@ -2,7 +2,7 @@
 // Shared between renderer/web and server-side tests.
 
 import { Temporal } from "@cosmicdrift/kumiko-types/temporal";
-import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
+import { isOneOf, propertyOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { rendererWarn } from "../../dev-console.ts";
 import { serverNowMs } from "../../server-clock.ts";
 import { formatMoneyValue, isCurrencyCode } from "./money.ts";
@@ -297,6 +297,20 @@ function formatCurrencyCell(spec: CellFormatSpec, value: unknown): string {
   return formatMoneyValue({ amount, currency: currency.toUpperCase() }, stringSpec(spec, "locale"));
 }
 
+function formatMoneyCell(spec: CellFormatSpec, value: unknown): string {
+  const amount = propertyOf(value, "amount");
+  const currency = propertyOf(value, "currency");
+  if (
+    typeof amount !== "number" ||
+    !Number.isFinite(amount) ||
+    typeof currency !== "string" ||
+    !isCurrencyCode(currency)
+  ) {
+    return typeof value === "string" || typeof value === "number" ? String(value) : "";
+  }
+  return formatMoneyValue({ amount, currency: currency.toUpperCase() }, stringSpec(spec, "locale"));
+}
+
 function formatNumericCell(spec: CellFormatSpec, value: unknown): string {
   return formatNumberCell(
     value,
@@ -401,6 +415,7 @@ const CELL_FORMATTERS = {
   date: formatTemporalCell,
   boolean: formatBooleanCell,
   currency: formatCurrencyCell,
+  money: formatMoneyCell,
   number: formatNumericCell,
   decimal: formatNumericCell,
   bigInt: formatNumericCell,

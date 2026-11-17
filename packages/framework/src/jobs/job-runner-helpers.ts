@@ -33,6 +33,7 @@ import type { JobInvocation, JobLogEntry, JobSubjectValue } from "./job-runner-t
 export function isJobTriggerEvent(value: unknown): value is JobTriggerEvent {
   if (!isPlainObject(value)) return false;
   if (typeof value["id"] !== "string") return false;
+  if (typeof value["aggregateId"] !== "string") return false;
   const headers = value["headers"];
   if (typeof headers !== "object" || headers === null) return false;
   return Object.values(headers).every(

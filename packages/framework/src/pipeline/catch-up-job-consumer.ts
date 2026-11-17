@@ -46,6 +46,7 @@ export function createCatchUpJobEventConsumer(
       };
       await jobRunner.handleCatchUpEvent?.(jobName, event.type, event.payload, user, {
         id: event.id,
+        aggregateId: event.aggregateId,
         headers: event.metadata.headers ?? {},
       });
     },

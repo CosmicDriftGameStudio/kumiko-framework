@@ -94,6 +94,8 @@ export interface FieldFormatRegistry {
   boolean: { readonly trueLabel?: string; readonly falseLabel?: string };
   /** ISO 4217 code such as "EUR"; the value is an amount in major units (42.5), formatted with Intl in the UI locale. */
   currency: { readonly currency: string; readonly locale?: string };
+  /** Money value as the executor reads it, `{ amount, currency }` with the amount in major units; formatted with Intl in the value's own currency and the UI locale. */
+  money: { readonly locale?: string };
   priority: { readonly emptyLabel?: string; readonly prefix?: string };
   /** `grouping: false` renders without thousands-separators (e.g. a model
    *  year: "2021", not "2.021"). Default `true`. */

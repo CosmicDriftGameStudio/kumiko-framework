@@ -241,6 +241,7 @@ describe("job-trigger event consumer", () => {
     // triggerEvent carries the stored event's own id and headers through to
     // the job — the idempotency-key surface at-least-once delivery needs.
     expect(processed?.triggerEvent?.id).toBe(itemRequested?.id);
+    expect(processed?.triggerEvent?.aggregateId).toBe(fileRefId);
     expect(processed?.triggerEvent?.headers[PROVIDER_EVENT_ID_HEADER]).toBe("provider-evt-42");
 
     // Reserved keys never leak into the payload the handler receives.
