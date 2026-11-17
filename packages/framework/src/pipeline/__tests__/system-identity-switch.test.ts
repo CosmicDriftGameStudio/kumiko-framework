@@ -6,7 +6,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/handlers";
 import { unscopedRunner } from "../../db/__tests__/unscoped-runner.ts";
 import type { DbRunner } from "../../db/connection.ts";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db.ts";
+import { createTenantDb, type TenantDb, type TenantDbGrants } from "../../db/tenant-db.ts";
 import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../../engine/index.ts";
 import type { TenantId } from "../../engine/types/identifiers.ts";
 import type { SessionUser } from "../../engine/types/index.ts";
@@ -370,6 +370,7 @@ describe("withHookEscapeHatchGrant", () => {
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, 'postSave hook of feature "f"', {
       reason: "test hook needs SYSTEM",
+      grants: ["systemIdentity"],
     });
 
     await hookCtx.dispatch.queryAs(systemUserById, "q", { a: 1 });
@@ -446,7 +447,10 @@ describe("withHookEscapeHatchGrant", () => {
     };
     const spread = { ...handlerCtx };
 
-    const hookCtx = withHookEscapeHatchGrant(spread, "hook", { reason: "needs system" });
+    const hookCtx = withHookEscapeHatchGrant(spread, "hook", {
+      reason: "needs system",
+      grants: ["systemIdentity"],
+    });
     await hookCtx.dispatch.queryAs(systemUserById, "q", {});
 
     expect(queryAsMock).toHaveBeenCalledWith(systemUserById, "q", {});
@@ -454,7 +458,10 @@ describe("withHookEscapeHatchGrant", () => {
 
   test("a context without dispatch/db is returned unchanged", () => {
     const plainContext = { unrelated: 1 };
-    const result = withHookEscapeHatchGrant(plainContext, "hook", { reason: "x" });
+    const result = withHookEscapeHatchGrant(plainContext, "hook", {
+      reason: "x",
+      grants: ["systemIdentity", "unsafeRaw"],
+    });
     expect(result).toBe(plainContext);
   });
 
@@ -479,6 +486,7 @@ describe("withHookEscapeHatchGrant", () => {
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "test hook needs SYSTEM",
+      grants: ["systemIdentity"],
     });
 
     await expect(hookCtx.dispatch.writeAs(systemUserById, "w", {})).rejects.toBeInstanceOf(
@@ -508,7 +516,10 @@ describe("withHookEscapeHatchGrant", () => {
     );
     expect(stubQueryAs).not.toHaveBeenCalled();
 
-    const allowedHookCtx = withHookEscapeHatchGrant(stubContext, "hook", { reason: "x" });
+    const allowedHookCtx = withHookEscapeHatchGrant(stubContext, "hook", {
+      reason: "x",
+      grants: ["systemIdentity"],
+    });
     await allowedHookCtx.dispatch.queryAs(systemUserById, "q", {});
     expect(stubQueryAs).toHaveBeenCalledWith(systemUserById, "q", {});
   });
@@ -526,7 +537,7 @@ describe("withHookEscapeHatchGrant", () => {
       tenantId: TENANT,
       mode: "tenant",
       grants: {
-        unsafeRaw: { reason: "handler's own grant" },
+        unsafeRaw: { reason: "handler's own grant", grants: ["unsafeRaw"] },
       },
     });
     const handlerCtx = { db: handlerDb };
@@ -538,6 +549,7 @@ describe("withHookEscapeHatchGrant", () => {
 
     const hookCtxWithEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "hook's own grant",
+      grants: ["unsafeRaw"],
     }) as { db: TenantDb };
     expect(unscopedRunner(hookCtxWithEscapeHatch.db.unsafeRawAllTenants())).toBe(rawDb);
   });
@@ -549,7 +561,9 @@ describe("withHookEscapeHatchGrant", () => {
         throw new Error("begin not used in this test");
       },
     } as DbRunner;
-    const grants = { unsafeRaw: { reason: "handler's own grant" } };
+    const grants: TenantDbGrants = {
+      unsafeRaw: { reason: "handler's own grant", grants: ["unsafeRaw"] },
+    };
     const handlerDb = attachOutsideTransaction(
       createTenantDb({ db: rawDb, tenantId: TENANT, mode: "tenant", grants }),
       createTenantDb({ db: rawDb, tenantId: TENANT, mode: "tenant", grants }),
@@ -557,9 +571,14 @@ describe("withHookEscapeHatchGrant", () => {
     const handlerCtx = { db: handlerDb };
 
     const withoutHatch = withHookEscapeHatchGrant(handlerCtx, "hook", undefined);
-    expect(() => withoutHatch.db.outsideTransaction.unsafeRawAllTenants()).toThrow(AccessDeniedError);
+    expect(() => withoutHatch.db.outsideTransaction.unsafeRawAllTenants()).toThrow(
+      AccessDeniedError,
+    );
 
-    const withHatch = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook's own grant" });
+    const withHatch = withHookEscapeHatchGrant(handlerCtx, "hook", {
+      reason: "hook's own grant",
+      grants: ["unsafeRaw"],
+    });
     expect(unscopedRunner(withHatch.db.outsideTransaction.unsafeRawAllTenants())).toBe(rawDb);
   });
 
@@ -593,6 +612,7 @@ describe("withHookEscapeHatchGrant", () => {
 
     const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "hook's own grant",
+      grants: ["systemIdentity"],
     }) as {
       dispatch: { queryProjection: ProjectionReader };
     };
@@ -664,7 +684,10 @@ describe("createGatedIdentitySwitch — escape-hatch reporting", () => {
       },
     };
 
-    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook's own grant" });
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
+      reason: "hook's own grant",
+      grants: ["systemIdentity"],
+    });
     await hookCtx.dispatch.queryAs(systemUserById, "q", {});
 
     expect(calls).toEqual([
@@ -690,7 +713,10 @@ describe("createGatedIdentitySwitch — escape-hatch reporting", () => {
       },
     };
 
-    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook reason" });
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
+      reason: "hook reason",
+      grants: ["systemIdentity"],
+    });
     await hookCtx.dispatch.queryAs(systemUserById, "q", {});
 
     expect(calls).toEqual([
@@ -712,7 +738,10 @@ describe("createGatedIdentitySwitch — escape-hatch reporting", () => {
     });
     const handlerCtx = { dispatch: { queryAsMember: gatedReader } };
 
-    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", { reason: "hook reason" }) as {
+    const hookCtx = withHookEscapeHatchGrant(handlerCtx, "hook", {
+      reason: "hook reason",
+      grants: ["systemIdentity"],
+    }) as {
       dispatch: { queryAsMember: MemberReader };
     };
     await hookCtx.dispatch.queryAsMember(systemUserById.id, "q", {});

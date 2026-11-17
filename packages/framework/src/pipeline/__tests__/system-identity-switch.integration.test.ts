@@ -118,7 +118,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
       name: "step-call-as-colleague-with-hatch",
       schema: z.object({}),
       access: { roles: ["User"] },
-      escapeHatch: { reason: "test: step acts as a named colleague" },
+      escapeHatch: { reason: "test: step acts as a named colleague", grants: ["systemIdentity"] },
       perform: stepsPipeline<Record<string, never>, { roles: readonly string[] }>(({ r: step }) => [
         step.step.callFeature("inner", {
           handler: "idswitch-probe:write:whoami-write",
@@ -176,7 +176,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     handler: async (query, ctx) =>
       ctx.auth.resolveActiveMembership(query.user.id, query.user.tenantId),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: needs SYSTEM to resolve membership" },
+    escapeHatch: { reason: "test: needs SYSTEM to resolve membership", grants: ["systemIdentity"] },
   });
 
   // --- escapeHatch.grants narrows what the declaration unlocks ---
@@ -301,7 +301,10 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
         {},
       ),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: reads admin-only data as a named colleague", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test: reads admin-only data as a named colleague",
+      grants: ["systemIdentity"],
+    },
   });
 
   r.writeHandler({
@@ -318,7 +321,10 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     handler: async (event, ctx) =>
       ctx.dispatch.writeAs(foreignTenantTwin(event.user), "idswitch-probe:write:whoami-write", {}),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: acts for the same user inside a second tenant", grants: ["systemIdentity"] },
+    escapeHatch: {
+      reason: "test: acts for the same user inside a second tenant",
+      grants: ["systemIdentity"],
+    },
   });
 
   // Reached through outer-with-hatch as a colleague — must not inherit the outer grant.
@@ -386,7 +392,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     schema: z.object({ label: z.string() }),
     handler: async (event, ctx) => hookThingExecutor.create(event.payload, event.user, ctx.db),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: handler needs SYSTEM" },
+    escapeHatch: { reason: "test: handler needs SYSTEM", grants: ["systemIdentity"] },
   });
 
   r.writeHandler({
@@ -441,7 +447,7 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     schema: z.object({ label: z.string() }),
     handler: async (event, ctx) => hookThingExecutor.create(event.payload, event.user, ctx.db),
     access: { roles: ["User"] },
-    escapeHatch: { reason: "test: handler acts cross-tenant" },
+    escapeHatch: { reason: "test: handler acts cross-tenant", grants: ["systemIdentity"] },
   });
 
   r.hook({

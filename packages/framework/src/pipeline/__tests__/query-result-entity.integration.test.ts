@@ -6,6 +6,7 @@ import * as z from "zod";
 import { selectMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import type { SessionUser } from "../../engine/types/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 
 const admin = TestUsers.admin;
@@ -57,7 +58,7 @@ afterEach(async () => {
   await resetEventStore(stack, ["qre_notes"]);
 });
 
-async function overviewAs(user: typeof admin): Promise<OverviewRow[]> {
+async function overviewAs(user: SessionUser): Promise<OverviewRow[]> {
   const result = await stack.http.queryOk<{ rows: OverviewRow[] }>(
     "qre:query:notes-overview",
     {},
