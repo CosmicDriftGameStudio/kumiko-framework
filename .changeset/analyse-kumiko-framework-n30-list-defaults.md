@@ -14,7 +14,7 @@ feature: framework
 type: breaking
 title: listDefaults replaces bundledLists, adoptsBundledLists removed
 detail: The app-wide table block is named `listDefaults` (AppConfig, `ListDefaultsOptions`, `validateListDefaultsOptions`) and applies to every entityList, projectionList and relatedList of every composed feature, app features included. `r.adoptsBundledLists()`, `FeatureDefinition.adoptsBundledLists` and the `adoptsBundledLists` field in feature-manifest.json are removed. The boot rules are renamed from `bundled-lists/*` to `list-defaults/*`.
-migration: Rename `bundledLists` to `listDefaults` in kumiko.config.ts and the bin runner options, `BundledListsOptions` to `ListDefaultsOptions`, and delete every `r.adoptsBundledLists()` call. App lists now get the block too; a screen that must differ sets its own `table` keys (`export: undefined`, `pinning: false`, `resizing: false`).
+migration: Rename `bundledLists` to `listDefaults` in kumiko.config.ts and the bin runner options, `BundledListsOptions` to `ListDefaultsOptions`, `validateBundledListsOptions` to `validateListDefaultsOptions`, and delete every `r.adoptsBundledLists()` call. App lists now get the block too; a screen that must differ sets its own `table` keys (`export: undefined`, `pinning: false`, `resizing: false`).
 affects: bundledLists, BundledListsOptions, adoptsBundledLists, bundled-lists/
 -->
 

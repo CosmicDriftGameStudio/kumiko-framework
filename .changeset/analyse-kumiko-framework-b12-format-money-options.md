@@ -6,7 +6,7 @@
 `formatMoney(amountMinor, currency, options)` and `formatMoneyValue(value, options)` take an options object with `locale`, `minimumFractionDigits`, `maximumFractionDigits`, `signDisplay` and `notation` instead of positional `locale` and `fractionDigits`. An unknown currency code now formats the amount as a plain decimal instead of printing the raw minor integer.
 
 <!-- kumiko-changes
-feature: renderer-format
+feature: renderer
 type: breaking
 title: formatMoney takes an options object
 detail: Apps wrote their own money formatters for whole-euro display, compact notation and hiding the sign of a rounded zero. formatMoney now covers these through Intl options.

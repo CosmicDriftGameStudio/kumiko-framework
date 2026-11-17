@@ -117,6 +117,29 @@ function assertHandlerHasAccess(
   }
 }
 
+function assertQueryHandlerDefinition<TName extends string, TSchema extends ZodType, TResult>(
+  state: FeatureBuilderState,
+  featureName: string,
+  def: QueryHandlerDefinition<TName, TSchema, TResult>,
+): void {
+  assertHandlerHasAccess(featureName, "queryHandler", def.name, def.access);
+  assertHandlerNameFree(state, featureName, "query", def.name);
+  if (def.resultEntity !== undefined && def.unfilteredResult !== undefined) {
+    throw new Error(
+      `queryHandler "${def.name}" in feature "${featureName}" sets both resultEntity and unfilteredResult; pick one.`,
+    );
+  }
+  if (def.unfilteredResult !== undefined) {
+    assertReason(`queryHandler "${def.name}" unfilteredResult`, def.unfilteredResult.reason);
+  }
+  // A generated entity handler checks its escapeHatch when it is built, but a
+  // spread of it can add escapeHatch afterwards; the registered object is
+  // what the dispatcher trusts, so the check runs on it again.
+  if (def.escapeHatch !== undefined && isEntityConventionQueryHandler(def)) {
+    assertEscapeHatchAccessIsSystemAdminOnly(def.name, "query", def.access);
+  }
+}
+
 // Builds entity/relation/writeHandler/queryHandler — the registrar
 // methods that create or reference entities.
 export function buildEntityHandlerMethods<TName extends string>(
@@ -208,22 +231,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       def: QueryHandlerDefinition<TName, TSchema, TResult>,
     ): QueryHandlerRef<z.input<TSchema>, Exclude<TResult, WriteFailure>> {
       if (!isObjectArgument(def)) throwObjectArgumentRequired(name, "queryHandler");
-      assertHandlerHasAccess(name, "queryHandler", def.name, def.access);
-      assertHandlerNameFree(state, name, "query", def.name);
-      if (def.resultEntity !== undefined && def.unfilteredResult !== undefined) {
-        throw new Error(
-          `queryHandler "${def.name}" in feature "${name}" sets both resultEntity and unfilteredResult; pick one.`,
-        );
-      }
-      if (def.unfilteredResult !== undefined) {
-        assertReason(`queryHandler "${def.name}" unfilteredResult`, def.unfilteredResult.reason);
-      }
-      // A generated entity handler checks its escapeHatch when it is built, but a
-      // spread of it can add escapeHatch afterwards; the registered object is
-      // what the dispatcher trusts, so the check runs on it again.
-      if (def.escapeHatch !== undefined && isEntityConventionQueryHandler(def)) {
-        assertEscapeHatchAccessIsSystemAdminOnly(def.name, "query", def.access);
-      }
+      assertQueryHandlerDefinition(state, name, def);
       state.queryHandlers[def.name] = {
         name: def.name,
         schema: def.schema,

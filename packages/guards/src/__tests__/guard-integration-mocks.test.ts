@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { check, countMockCalls, MOCK_EXEMPTION_REASONS, toPosixPath } from "../guard-integration-mocks";
+import {
+  check,
+  countMockCalls,
+  MOCK_EXEMPTION_REASONS,
+  toPosixPath,
+} from "../guard-integration-mocks";
 import { fixtureRoot } from "./parent-workspace-fixture";
 
 describe("countMockCalls", () => {

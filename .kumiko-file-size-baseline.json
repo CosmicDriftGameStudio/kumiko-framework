@@ -1,11 +1,28 @@
 {
   "format": 1,
-  "generated": "2026-10-31",
-  "total": 5772,
   "perFile": {
-    "packages/feature-ast/src/pattern-change-schema.ts": 1295,
-    "packages/renderer/src/primitives.tsx": 1745,
-    "packages/types/src/fields.ts": 1286,
-    "packages/types/src/handlers.ts": 1446
+    "packages/bundled-features/src/billing-foundation/__tests__/contract-termination.integration.test.ts": 1512,
+    "packages/bundled-features/src/config/__tests__/config.integration.test.ts": 1951,
+    "packages/bundled-features/src/delivery/__tests__/delivery.integration.test.ts": 2903,
+    "packages/feature-ast/src/__tests__/parse.test.ts": 2747,
+    "packages/feature-ast/src/pattern-change-schema.ts": 1221,
+    "packages/framework/src/__tests__/upgrade-cli.test.ts": 1893,
+    "packages/framework/src/engine/__tests__/build-app-schema.test.ts": 1560,
+    "packages/framework/src/engine/__tests__/engine.test.ts": 2685,
+    "packages/framework/src/engine/__tests__/screen.test.ts": 1801,
+    "packages/framework/src/event-store/__tests__/backfill-pii.integration.test.ts": 1683,
+    "packages/framework/src/files/__tests__/files.integration.test.ts": 2179,
+    "packages/framework/src/jobs/__tests__/jobs.integration.test.ts": 2195,
+    "packages/locale-de/src/__tests__/en-catalog.ts": 3216,
+    "packages/renderer/src/components/__tests__/related-list-section.test.tsx": 1941,
+    "packages/renderer/src/headless/view-model/__tests__/edit.test.ts": 1722,
+    "packages/renderer/src/primitives.tsx": 1707,
+    "packages/renderer/src/web/__tests__/dashboard-panels.test.tsx": 2452,
+    "packages/renderer/src/web/__tests__/kumiko-screen.test.tsx": 1570,
+    "packages/renderer/src/web/__tests__/primitives-data-table.test.tsx": 1512,
+    "packages/renderer/src/web/__tests__/projection-detail.test.tsx": 2244,
+    "packages/renderer/src/web/__tests__/render-edit-states-slots.test.tsx": 1764,
+    "packages/server-runtime/src/__tests__/run-prod-app.integration.test.ts": 1789,
+    "packages/types/src/fields.ts": 1280
   }
 }

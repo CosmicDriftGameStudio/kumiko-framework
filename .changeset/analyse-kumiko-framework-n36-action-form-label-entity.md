@@ -7,7 +7,7 @@
 An actionForm can reuse an entity's field labels and option labels via `labelEntity`.
 
 <!-- kumiko-changes
-feature: screens
+feature: framework
 type: improvement
 title: actionForm labelEntity
 detail: `labelEntity` on an actionForm names an entity of the same feature. Every form field that entity also declares takes its label from `<feature>:entity:<labelEntity>:field:<name>` and its select option labels from `...:field:<name>:option:<value>`, both in the renderer and in the required i18n keys. An entry in `fieldLabels` still wins; fields the entity lacks keep the `__action-form__` keys. buildAppSchema derives `labelEntityFields`; a `labelEntity` that is not an entity of the feature fails the boot with `form/label-entity-unknown`. Without `labelEntity` nothing changes.

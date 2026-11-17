@@ -17,3 +17,12 @@ detail: createBrandingFeature({ allowCustomCss }) registers the branding config 
 migration: Mount createBrandingFeature() (with allowCustomCss and createBrandingCssFeature() where custom CSS was used) wherever managed-pages, mail branding or the document designer branding rail is used; import BRANDING_QN from @cosmicdrift/kumiko-bundled-features/branding; replace managed-pages:query:branding with branding:query:tokens and managed-pages:config:branding-* with branding:config:*; add brandingClient() to the client features. Stored values under the old managed-pages:config:branding-* keys are still read: branding:query:tokens, readBranding and the mail and PDF renderers fall back to the old key when the new key has no stored value, so tenants keep their branding without a migration step, and the branding settings form shows such a value and writes the new key on save; a value stored under the new key, even a cleared one, wins.
 affects: managed-pages, BRANDING_QN, readBranding, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature, allowCustomCss, renderer-mail-html, document-designer
 -->
+
+<!-- kumiko-changes
+feature: managed-pages
+type: breaking
+title: Branding exports removed from managed-pages
+detail: `BRANDING_QN`, `MANAGED_PAGES_CSS_FEATURE` and `createManagedPagesCssFeature` are no longer exported from managed-pages. Branding config, query and screen live in the branding feature, and custom CSS is gated by `createBrandingCssFeature()`.
+migration: Import `BRANDING_QN` from @cosmicdrift/kumiko-bundled-features/branding and replace `createManagedPagesCssFeature()` with `createBrandingCssFeature()` next to `createBrandingFeature({ allowCustomCss })`. `MANAGED_PAGES_CSS_FEATURE` is replaced by `BRANDING_CSS_FEATURE` from the same branding subpath.
+affects: BRANDING_QN, MANAGED_PAGES_CSS_FEATURE, createManagedPagesCssFeature
+-->

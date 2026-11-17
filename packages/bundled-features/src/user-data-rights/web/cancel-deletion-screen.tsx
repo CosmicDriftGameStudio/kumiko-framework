@@ -49,7 +49,7 @@ export function CancelAccountDeletionScreen({
       options={{ padded: false }}
       slots={{
         header: (
-          <div className="flex flex-col space-y-1.5 p-6 pb-4">
+          <div className="flex flex-col gap-1.5 p-6 pb-4">
             <h1 className="text-xl font-semibold tracking-tight">
               {title ?? t("userDataRights.deletion.cancel.title")}
             </h1>

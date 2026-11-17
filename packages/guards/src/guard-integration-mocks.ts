@@ -33,6 +33,8 @@ export function toPosixPath(relativePath: string, separator: string = path.sep):
  * Former allowlist entry `packages/bundled-features/src/workflow-runner/__tests__/event-wakeup.integration.test.ts` (file no longer exists, so not frozen): spies Temporal.Now.instant to run the app clock ahead of the database clock, the only way to reproduce a wakeAt stamped with the app clock (Postgres now() cannot be faked); stack, DB and the resume job are real.
  */
 export const MOCK_EXEMPTION_REASONS: Readonly<Record<string, string>> = {
+  "packages/framework/src/pipeline/__tests__/msp-rebuild.integration.test.ts":
+    "pass-through spy on the rebuild read query to assert the batch size and the advancing keyset cursor, which leave no trace in the rebuilt rows; the rebuild, the events and the projection table are real.",
   "samples/recipes/auth-claims/src/__tests__/feature.integration.test.ts":
     "spies the logger to assert a drift-warning side-channel; the stack itself is real (setupTestStack).",
   "packages/dev-server/src/__tests__/schema-apply.integration.test.ts":

@@ -20,14 +20,6 @@
     "export": "configValuesTable"
   },
   {
-    "module": "helpdesk/entity",
-    "export": "helpdeskRequestTable"
-  },
-  {
-    "module": "helpdesk/entity",
-    "export": "helpdeskReplyTable"
-  },
-  {
     "module": "data-retention/schema/tenant-retention-override",
     "export": "tenantRetentionOverrideTable"
   },
@@ -48,6 +40,14 @@
     "export": "documentExtractsTable"
   },
   {
+    "module": "helpdesk/entity",
+    "export": "helpdeskReplyTable"
+  },
+  {
+    "module": "helpdesk/entity",
+    "export": "helpdeskRequestTable"
+  },
+  {
     "module": "inbound-mail-foundation/projection",
     "export": "inboundMessagesProjectionTable"
   },
@@ -56,16 +56,16 @@
     "export": "mailAccountsProjectionTable"
   },
   {
-    "module": "inbound-mail-foundation/projection",
-    "export": "mailThreadsProjectionTable"
-  },
-  {
     "module": "managed-pages/table",
     "export": "pagesTable"
   },
   {
     "module": "readiness/schema/probe-run",
     "export": "probeRunsTable"
+  },
+  {
+    "module": "renderer-puppeteer-client/entity",
+    "export": "renderedPdfsTable"
   },
   {
     "module": "secrets/table",
@@ -92,6 +92,10 @@
     "export": "tenantTable"
   },
   {
+    "module": "tier-engine/table",
+    "export": "tierAssignmentTable"
+  },
+  {
     "module": "user-data-rights/schema/download-attempt",
     "export": "downloadAttemptsTable"
   },
@@ -102,10 +106,6 @@
   {
     "module": "user-data-rights/schema/export-job",
     "export": "exportJobsTable"
-  },
-  {
-    "module": "renderer-puppeteer-client/entity",
-    "export": "renderedPdfsTable"
   },
   {
     "module": "user/schema/user",

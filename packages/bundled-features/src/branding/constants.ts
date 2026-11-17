@@ -1,4 +1,4 @@
-export const BRANDING_FEATURE = "branding" as const;
+export { BRANDING_FEATURE } from "./web/constants.ts";
 export const BRANDING_CSS_FEATURE = "branding-css" as const;
 export const LAYOUT_PRESETS = ["minimal", "centered", "wide"] as const;
 

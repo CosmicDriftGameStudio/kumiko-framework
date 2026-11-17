@@ -6,7 +6,7 @@
 Bundled handlers are built with `defineWriteHandler`/`defineQueryHandler`, so their payloads are typed from the schema and the engine-payload casts are gone; a codemod moves app handlers the same way.
 
 <!-- kumiko-changes
-feature: framework
+feature: feature-ast
 type: breaking
 title: Handlers are defined with defineWriteHandler/defineQueryHandler
 detail: The bundled features no longer annotate handlers with the erased `WriteHandlerDef`/`QueryHandlerDef`. Factories such as `createEnsureAccountsHandler`, `createSubjectTotalsHandler`, `createScheduleActualsHandler`, `createBalancesReportHandler`, `createIncomeStatementHandler` and `createBalanceSheetHandler` return the typed `WriteHandlerDefinition`/`QueryHandlerDefinition`, which is not assignable to `WriteHandlerDef`. `withCapEnforcement` keeps the wrapped handler's type and still accepts a `WriteHandlerDef`. Two guards cover what is left: the As-Casts Audit (`check-as-casts`) counts a cast with `@cast-boundary engine-payload` on `event.payload`/`query.payload` inside `handlers/*.write.ts`/`*.query.ts` as suspect; it does not see casts outside `handlers/`, other parameter names, destructured payloads, other marker reasons or `schema.parse(event.payload)` re-parses. The Handler Definitions ratchet (`guard-handler-definitions`) counts every literal annotated, `satisfies`- or `as`-typed with `WriteHandlerDef`/`QueryHandlerDef` and every function returning such a literal, anywhere in the scanned tree, against `.kumiko-handler-definitions-baseline.json`; it does not see a returned identifier, aliases of the erased types or test files.

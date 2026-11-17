@@ -643,9 +643,12 @@ function removeCast(cast: Node, expression: Node, state: FileState): void {
   state.edits.push({ ...comment, text: "" });
 }
 
-function rewritePayloadUses(plan: LiteralPlan, state: FileState): void {
-  const { handler, payloadParameter: parameter, schemaName } = plan;
-  if (handler === undefined || parameter === undefined) return;
+function removePayloadCasts(
+  handler: Node,
+  parameter: string,
+  schemaName: string | undefined,
+  state: FileState,
+): void {
   for (const cast of handler.getDescendantsOfKind(SyntaxKind.AsExpression)) {
     if (!isPayloadAccess(cast.getExpression(), parameter)) continue;
     const match = castMatch(cast.getTypeNode(), schemaName, state.sourceFile);
@@ -658,7 +661,14 @@ function rewritePayloadUses(plan: LiteralPlan, state: FileState): void {
     removeCast(cast, cast.getExpression(), state);
     if (match.alias !== undefined) state.aliases.add(match.alias);
   }
-  if (schemaName === undefined) return;
+}
+
+function unwrapSchemaParseOfPayload(
+  handler: Node,
+  parameter: string,
+  schemaName: string,
+  state: FileState,
+): void {
   for (const call of handler.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const callee = call.getExpression();
     if (
@@ -673,6 +683,14 @@ function rewritePayloadUses(plan: LiteralPlan, state: FileState): void {
     if (!isPayloadAccess(argument, parameter)) continue;
     state.edits.push({ ...spanOf(call), text: argument.getText() });
   }
+}
+
+function rewritePayloadUses(plan: LiteralPlan, state: FileState): void {
+  const { handler, payloadParameter: parameter, schemaName } = plan;
+  if (handler === undefined || parameter === undefined) return;
+  removePayloadCasts(handler, parameter, schemaName, state);
+  if (schemaName === undefined) return;
+  unwrapSchemaParseOfPayload(handler, parameter, schemaName, state);
 }
 
 function applyCandidate(candidate: Candidate, state: FileState): void {
@@ -921,6 +939,14 @@ export function transformDefineHandlers(
     if (candidate.problem === undefined) useProblem(candidate, byFunction);
   }
   spreadProblems(all);
+  applyOrReportCandidates(all, states);
+  return collectResults(states);
+}
+
+function applyOrReportCandidates(
+  all: readonly Candidate[],
+  states: ReadonlyMap<string, FileState>,
+): void {
   for (const candidate of all) {
     const state = states.get(candidate.file.getFilePath());
     if (state === undefined) continue;
@@ -936,6 +962,9 @@ export function transformDefineHandlers(
       ),
     );
   }
+}
+
+function collectResults(states: ReadonlyMap<string, FileState>): Map<string, CodemodResult> {
   const output = new Map<string, CodemodResult>();
   for (const [file, state] of states) {
     finishFile(state);

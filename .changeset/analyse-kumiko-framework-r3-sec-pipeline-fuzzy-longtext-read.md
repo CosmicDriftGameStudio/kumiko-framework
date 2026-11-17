@@ -5,7 +5,7 @@
 Boot rejects a longText field with find "fuzzy" and a restricted access.read.
 
 <!-- kumiko-changes
-feature: search
+feature: framework
 type: breaking
 title: Fuzzy-searchable longText fields cannot restrict access.read
 detail: The search index is not filtered per role, so a fuzzy-searchable longText with a restricted access.read let roles that cannot read it guess its value from search matches. The boot rule entity/searchable-restricted-read now covers longText like text.

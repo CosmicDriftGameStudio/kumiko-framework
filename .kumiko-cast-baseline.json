@@ -1,7 +1,5 @@
 {
   "format": 2,
-  "generated": "2026-10-31",
-  "totalSuspect": 69,
   "perFile": {
     "packages/bundled-features/src/billing-foundation/checkout-core.ts": {
       "SubscriptionProviderPlugin": 1
@@ -28,18 +26,9 @@
     "packages/bundled-features/src/shared/run-in-sub-transaction.ts": {
       "{ begin?: (f: (tx: DbRunner) => Promise<T>) => Promise<T>; s": 1
     },
-    "packages/bundled-features/src/user/handlers/list.query.ts": {
-      "{ rows: readonly Record<string, unknown>[] }": 1
-    },
     "packages/bundled-features/src/user/seeding.ts": {
       "number": 1,
       "string": 1
-    },
-    "packages/bundled-features/src/workflow-runner/event-subscriber.ts": {
-      "Parameters<typeof evaluateEventMatch>[0]": 1
-    },
-    "packages/bundled-features/src/workflow-runner/handlers/resume-run.write.ts": {
-      "z.infer<typeof resumeRunSchema>": 1
     },
     "packages/dev-server/src/few-shot-corpus.ts": {
       "FeaturePattern": 1
@@ -62,9 +51,6 @@
       "PipelineDef": 1,
       "WriteHandlerFn": 1
     },
-    "packages/framework/src/engine/pipeline.ts": {
-      "TAwaits": 1
-    },
     "packages/framework/src/engine/registry-state.ts": {
       "ProjectionDefinition[\"table\"]": 1
     },
@@ -75,9 +61,6 @@
       "Record<string, unknown>": 2
     },
     "packages/framework/src/engine/steps/for-each.ts": {
-      "Record<string, unknown>": 2
-    },
-    "packages/framework/src/engine/steps/retry.ts": {
       "Record<string, unknown>": 2
     },
     "packages/framework/src/pipeline/dispatch-context-helpers.ts": {
@@ -138,10 +121,6 @@
     },
     "packages/renderer/src/web/layout/shell-header.tsx": {
       "HTMLElement": 1
-    },
-    "packages/renderer/src/web/primitives/data-table-cell.tsx": {
-      "(v: unknown, r?: Readonly<Record<string, unknown>>) => strin": 1,
-      "{ format: string; locale?: string } & Record<string, unknown": 1
     },
     "packages/renderer/src/web/primitives/form.tsx": {
       "{ readonly children?: ReactNode }": 1,

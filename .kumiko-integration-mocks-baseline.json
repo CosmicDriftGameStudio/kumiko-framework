@@ -5,6 +5,7 @@
     "packages/dev-server/src/__tests__/run-dev-app.integration.test.ts": 1,
     "packages/dev-server/src/__tests__/schema-apply.integration.test.ts": 2,
     "packages/framework/src/api/__tests__/http-route-rate-limit.integration.test.ts": 1,
+    "packages/framework/src/pipeline/__tests__/msp-rebuild.integration.test.ts": 1,
     "samples/recipes/auth-claims/src/__tests__/feature.integration.test.ts": 4
   }
 }

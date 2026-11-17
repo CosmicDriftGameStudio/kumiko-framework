@@ -8,7 +8,7 @@
 Money is an integer in the currency's minor unit on every path. `createMoneyField` write payloads, zod schemas, events and read rows all carry `{ amount, currency }` with `amount` in minor units (cents for EUR, 0 decimals for JPY, 3 for BHD); `flattenMoney` no longer multiplies by 100 and rejects non-integer amounts and bare numbers, read rows drop `amountScaled`, and form derivations no longer convert. `toMinorUnits`/`toMajorUnits` take the currency and scale by `currencyDecimals`; `MINOR_UNIT_SCALE`, `moneyPayloadToMinorUnits` and `moneyAmountToMinor` are removed.
 
 <!-- kumiko-changes
-feature: money
+feature: framework
 type: breaking
 title: Money amounts are integers in minor units everywhere
 detail: Top-level money fields used major units on write and read while embedded rows, aggregates and template variables used minor units, and the database scaled by a flat 100 regardless of currency. Now every path carries the same integer in the currency's minor unit; only input widgets and formatters convert.

@@ -113,7 +113,8 @@ function defaultSelection(manifest: Manifest): readonly string[] {
 export function parseArgv(argv: readonly string[]): CliArgs {
   const out: { -readonly [K in keyof CliArgs]?: CliArgs[K] } = {};
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i] as string;
+    const arg = argv[i];
+    if (arg === undefined) continue;
     if (arg === "--dest") {
       const value = argv[i + 1];
       if (value !== undefined) out.dest = value;

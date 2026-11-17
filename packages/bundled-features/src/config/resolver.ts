@@ -13,6 +13,7 @@ import type {
   ConfigSecretsReader,
   ConfigValueSource,
   ConfigValueWithSource,
+  TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
@@ -54,6 +55,23 @@ export function deserializeValue(
     default:
       assertUnreachable(type, "config key type");
   }
+}
+
+// Stored text of a key that is no longer registered (renamed or moved): the tenant row,
+// else the system row. Registered keys go through the resolver; this only serves a
+// `computed` rung that keeps the value of a former key readable.
+export async function readStoredTextOfFormerKey(
+  db: DbConnection | TenantDb,
+  key: string,
+  tenantId: TenantId,
+  userId: string,
+): Promise<string | undefined> {
+  const rows = await selectConfigRowsForKeys(db, [key], SYSTEM_TENANT_ID, tenantId, userId);
+  const row =
+    rows.find((r) => r.tenantId === tenantId && r.userId === null && r.value !== null) ??
+    rows.find((r) => r.tenantId === SYSTEM_TENANT_ID && r.userId === null && r.value !== null);
+  const value = row ? deserializeValue(row.value, "text") : undefined;
+  return typeof value === "string" ? value : undefined;
 }
 
 // App-Boot overrides: deploy-time defaults that sit between the

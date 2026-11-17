@@ -4407,26 +4407,9 @@ type WriteContract<TPayload, TData> = {
 type WriteQualifiedName = `${string}:write:${string}`;
 ```
 
-## packages/types/src/handlers.ts
+## packages/types/src/handler-event-types.ts
 
 ```ts
-type ActiveMembership = {
-  tenantId: TenantId;
-  roles: string[];
-  tenantName?: string;
-  tenantKey?: string;
-};
-type ActiveMembershipRejection = "not_a_member" | "principal_blocked" | "tenant_teardown";
-type ActiveMembershipResult =
-  | {
-    kind: "active";
-    membership: ActiveMembership;
-  }
-  | {
-    kind: "rejected";
-    reason: ActiveMembershipRejection;
-  }
-;
 type AggregateStreamHandle = {
   events: StoredEvent[];
   version: number;
@@ -4451,47 +4434,13 @@ type AppendEventArgs = AppendConcurrency & {
   headers?: Readonly<Record<string, string | number | boolean>>;
 };
 type AppendEventFn<TMap extends object = KumikoEventTypeMap> = <K extends keyof TMap>(args: TypedAppendEventArgs<TMap, K>) => Promise<void>;
-type AuthClaimsFn = (user: SessionUser, ctx: AuthClaimsContext) => Promise<Record<string, unknown>>;
-type AuthClaimsHookDef = {
-  featureName: string;
-  fn: AuthClaimsFn;
-  declaredKeys?: ReadonlySet<string>;
-};
-type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (event: WriteEvent<TPayload>, ctx: BeforeTransactionContext) => Promise<BeforeTransactionResult<TPrepared>>;
-type BeforeTransactionWhenNested = "skip"; // `skip`: run as a nested write without the `beforeTransaction` phase.
 type CamelToKebab<S extends string> = CamelToKebabImpl<S, "start", "">; // Compile-time mirror of `engine/qualified-name.ts:toKebab` for camelCase → kebab-case.
 type CamelToKebabImpl<S extends string, Prev extends "start" | "upper" | "post-letter", Acc extends string> = S extends `${infer C}${infer Rest}` ? CharKind<C> extends "upper" ? Prev extends "start" ? CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`> : Prev extends "post-letter" ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`> : Rest extends `${infer Next}${string}` ? CharKind<Next> extends "lower" ? CamelToKebabImpl<Rest, "upper", `${Acc}-${Lowercase<C>}`> : CamelToKebabImpl<Rest, "upper", `${Acc}${Lowercase<C>}`> : `${Acc}${Lowercase<C>}` : CharKind<C> extends "l…;
 type CharKind<C extends string> = C extends Lowercase<C> ? (C extends Uppercase<C> ? "non-letter" : "lower") : "upper"; // Three-way classification used by `CamelToKebab`: - "lower" — a lowercase letter (a-z and Unicode lowercase) - "upper" — an uppercase letter (A-Z and Unicode uppercase) - "non-letter" — digit, dot, dash, etc.
-type ClaimKeyDefinition = {
-  shortName: string;
-  qualifiedName: string;
-  type: ClaimKeyType;
-};
-type ClaimKeyHandle<T extends ClaimKeyType = ClaimKeyType> = {
-  name: string;
-  type: T;
-};
-type ClaimKeyJsType<T extends ClaimKeyType> = T extends "string" ? string : T extends "number" ? number : T extends "boolean" ? boolean : T extends "string[]" ? string[] : T extends "object" ? Readonly<Record<string, unknown>> : never;
 type DeclarativeEventMigration = {
   rename?: Readonly<Record<string, string>>;
   default?: Readonly<Record<string, unknown>>;
   map?: Readonly<Record<string, (value: unknown) => unknown>>;
-};
-type DispatchWriteRef = {
-  write: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<WriteResult>;
-  queryAs: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<unknown>;
-  createMemberReader: (tenantId: TenantId) => MemberReader;
-};
-const ESCAPE_HATCH_GRANTS: ["systemIdentity", "globalWrites", "unsafeRaw", "crossTenantReads"];
-type EntityRef = {
-  name: string;
-  table: string;
-};
-type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
-type EscapeHatchReporter = (kind: EscapeHatchKind, reason: string, target?: EscapeHatchTarget) => void;
-type EscapeHatchTarget = {
-  id: string;
-  tenantId: TenantId;
 };
 type EventMigrationDef = {
   eventName: string;
@@ -4525,6 +4474,82 @@ type FetchForWritingArgs = {
   aggregateId: string;
   aggregateType: string;
   expectedVersion?: number;
+};
+type QualifiedEventName<TFeature extends string, TInner extends string> = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`; // Builds the qualified event-name from feature + inner-name in the same shape the runtime emits via `qn(toKebab(feature), "event", toKebab(inner))`.
+type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
+type TryAppendEventResult =
+  | {
+    ok: true;
+    event: StoredEvent;
+  }
+  | {
+    ok: false;
+    conflict: VersionConflict;
+  }
+;
+type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = AppendConcurrency & {
+  aggregateId: string;
+  aggregateType: string;
+  type: K;
+  payload: TMap[K];
+  headers?: Readonly<Record<string, string | number | boolean>>;
+};
+type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
+```
+
+## packages/types/src/handlers.ts
+
+```ts
+type ActiveMembership = {
+  tenantId: TenantId;
+  roles: string[];
+  tenantName?: string;
+  tenantKey?: string;
+};
+type ActiveMembershipRejection = "not_a_member" | "principal_blocked" | "tenant_teardown";
+type ActiveMembershipResult =
+  | {
+    kind: "active";
+    membership: ActiveMembership;
+  }
+  | {
+    kind: "rejected";
+    reason: ActiveMembershipRejection;
+  }
+;
+type AuthClaimsFn = (user: SessionUser, ctx: AuthClaimsContext) => Promise<Record<string, unknown>>;
+type AuthClaimsHookDef = {
+  featureName: string;
+  fn: AuthClaimsFn;
+  declaredKeys?: ReadonlySet<string>;
+};
+type BeforeTransactionPhase<TPayload = unknown, TPrepared = unknown> = (event: WriteEvent<TPayload>, ctx: BeforeTransactionContext) => Promise<BeforeTransactionResult<TPrepared>>;
+type BeforeTransactionWhenNested = "skip"; // `skip`: run as a nested write without the `beforeTransaction` phase.
+type ClaimKeyDefinition = {
+  shortName: string;
+  qualifiedName: string;
+  type: ClaimKeyType;
+};
+type ClaimKeyHandle<T extends ClaimKeyType = ClaimKeyType> = {
+  name: string;
+  type: T;
+};
+type ClaimKeyJsType<T extends ClaimKeyType> = T extends "string" ? string : T extends "number" ? number : T extends "boolean" ? boolean : T extends "string[]" ? string[] : T extends "object" ? Readonly<Record<string, unknown>> : never;
+type DispatchWriteRef = {
+  write: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<WriteResult>;
+  queryAs: (user: SessionUser, qn: string, payload: unknown, inheritedOrigin?: WriteOrigin) => Promise<unknown>;
+  createMemberReader: (tenantId: TenantId) => MemberReader;
+};
+const ESCAPE_HATCH_GRANTS: ["systemIdentity", "globalWrites", "unsafeRaw", "crossTenantReads"];
+type EntityRef = {
+  name: string;
+  table: string;
+};
+type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
+type EscapeHatchReporter = (kind: EscapeHatchKind, reason: string, target?: EscapeHatchTarget) => void;
+type EscapeHatchTarget = {
+  id: string;
+  tenantId: TenantId;
 };
 type GrantedHandlerContext<TContext extends { crossTenantReads?: CrossTenantReads; }, TGrant extends EscapeHatchGrant> = [ EscapeHatchGrant ] extends [ TGrant ] ? TContext : [ "crossTenantReads" ] extends [ TGrant ] ? TContext & { crossTenantReads: CrossTenantReads; } : TContext;
 type HandlerRef = {
@@ -4570,7 +4595,6 @@ type PayloadRateLimitOption = {
 type PreTransactionReservation = (event: WriteEvent, ctx: ReservationContext) => Promise<ReservationRelease | ReservationHandle | undefined>; // Runs in the dispatcher after every pre-handler gate (feature, rate limit, access, schema, validation, field roles) passed but before the handler transaction opens, so it must commit its own short write instead of holding a second connection while the transaction is open.
 type PreparedOrSkipped<TPrepared, TWhenNested> = [ TWhenNested ] extends [ BeforeTransactionWhenNested ] ? TPrepared | undefined : TPrepared; // The `prepared` type a handler sees: with `beforeTransactionWhenNested: "skip"` a nested run leaves it undefined.
 type PreparedWriteEvent<TPayload = unknown, TPrepared = unknown> = WriteEvent<TPayload> & ([ TPrepared ] extends [ undefined ] ? { prepared?: undefined; } : { prepared: TPrepared; }); // What a handler sees when its `beforeTransaction` phase ran: the phase's `data` as `prepared`; absent for handlers without the phase.
-type QualifiedEventName<TFeature extends string, TInner extends string> = `${CamelToKebab<TFeature>}:event:${CamelToKebab<TInner>}`; // Builds the qualified event-name from feature + inner-name in the same shape the runtime emits via `qn(toKebab(feature), "event", toKebab(inner))`.
 type QueryHandlerFn<TPayload = unknown, TResult = unknown> = (query: QueryEvent<TPayload>, context: HandlerContext) => Promise<TResult>;
 const RATE_LIMIT_PERS: ["user", "tenant", "ip", "user+handler", "tenant+handler", "ip+handler"];
 type RateLimitDeclaration = RateLimitOption | RateLimitOptions | RateLimitDisabled;
@@ -4636,25 +4660,6 @@ type SharedContextFields = {
   scheduleAfterRollback?: (hook: () => Promise<void>) => void; // Becomes `ctx.lifecycle.afterRollback`.
 };
 type StreamHandlerFn<TPayload = unknown, TChunk = unknown> = (query: QueryEvent<TPayload>, context: HandlerContext) => AsyncGenerator<TChunk>;
-type TryAppendEventFn = (args: AppendEventArgs) => Promise<TryAppendEventResult>;
-type TryAppendEventResult =
-  | {
-    ok: true;
-    event: StoredEvent;
-  }
-  | {
-    ok: false;
-    conflict: VersionConflict;
-  }
-;
-type TypedAppendEventArgs<TMap extends object, K extends keyof TMap> = AppendConcurrency & {
-  aggregateId: string;
-  aggregateType: string;
-  type: K;
-  payload: TMap[K];
-  headers?: Readonly<Record<string, string | number | boolean>>;
-};
-type UnsafeAppendEventFn = (args: AppendEventArgs) => Promise<void>;
 type WriteHandlerTransactionMode = "perCommand"; // `perCommand`: the handler runs without a transaction of its own.
 ```
 

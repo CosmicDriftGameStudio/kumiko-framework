@@ -5,7 +5,7 @@
 runProdApp writes Secure `__Host-` session cookies by default, independent of NODE_ENV.
 
 <!-- kumiko-changes
-feature: framework
+feature: server-runtime
 type: breaking
 title: runProdApp defaults to Secure session cookies
 detail: `auth.secureCookies` in runProdApp now defaults to `true` instead of `NODE_ENV === "production"`, so a production image started without NODE_ENV no longer falls back to plain, non-Secure auth and CSRF cookies. An explicit `secureCookies: false` still wins. runDevApp and the test stack keep the NODE_ENV fallback.

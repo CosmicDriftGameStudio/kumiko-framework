@@ -65,6 +65,52 @@ interface JobRow {
   readonly bytesWritten: number | null;
 }
 
+type AuditDb = Parameters<typeof recordInvalidAttempt>[0]["db"];
+
+async function rejectExpiredToken(args: {
+  readonly runner: AuditDb;
+  readonly tokenRow: TokenRow;
+  readonly tokenHash: string;
+  readonly now: Instant;
+  readonly auditIp: string | null;
+  readonly auditUa: string | null;
+}): Promise<never> {
+  const { runner, tokenRow, tokenHash, now, auditIp, auditUa } = args;
+  // Auditing cannot be skipped yet because jobRow has not been loaded and the
+  // tenantId is unknown. Load the job to obtain audit context; if it is also
+  // missing, skipping the audit is acceptable (best-effort).
+  const jobForAudit = await fetchOne<{ requestedFromTenantId: string; userId: string }>(
+    runner,
+    exportJobsTable,
+    {
+      id: tokenRow.jobId,
+    },
+  );
+  // An erased user's expired link answers like an unknown token and leaves no audit row.
+  if (jobForAudit && (await isExportSubjectErased(runner, jobForAudit.userId))) {
+    throw new NotFoundError("export-download", undefined, {
+      i18nKey: "userDataRights.errors.download.notFound",
+    });
+  }
+  if (jobForAudit) {
+    await recordInvalidAttempt({
+      db: runner,
+      tenantId: jobForAudit.requestedFromTenantId,
+      now,
+      result: "expired",
+      via: "token",
+      tokenHash,
+      jobId: tokenRow.jobId,
+      attemptedByUserId: null,
+      ip: auditIp,
+      userAgent: auditUa,
+    });
+  }
+  throw new NotFoundError("export-download", undefined, {
+    i18nKey: "userDataRights.errors.download.expired",
+  });
+}
+
 export const downloadByTokenQuery = defineQueryHandler({
   name: "download-by-token",
   schema: z.object({
@@ -124,39 +170,7 @@ export const downloadByTokenQuery = defineQueryHandler({
     // HTTP status, so the user sees "Your download has expired" instead of a
     // generic "not found".
     if (tokenRow.expiresAt.epochMilliseconds <= now.epochMilliseconds) {
-      // Auditing cannot be skipped yet because jobRow has not been loaded and the
-      // tenantId is unknown. Load the job to obtain audit context; if it is also
-      // missing, skipping the audit is acceptable (best-effort).
-      const jobForAudit = await fetchOne<{ requestedFromTenantId: string; userId: string }>(
-        runner,
-        exportJobsTable,
-        {
-          id: tokenRow.jobId,
-        },
-      );
-      // An erased user's expired link answers like an unknown token and leaves no audit row.
-      if (jobForAudit && (await isExportSubjectErased(runner, jobForAudit.userId))) {
-        throw new NotFoundError("export-download", undefined, {
-          i18nKey: "userDataRights.errors.download.notFound",
-        });
-      }
-      if (jobForAudit) {
-        await recordInvalidAttempt({
-          db: runner,
-          tenantId: jobForAudit.requestedFromTenantId,
-          now,
-          result: "expired",
-          via: "token",
-          tokenHash: hash,
-          jobId: tokenRow.jobId,
-          attemptedByUserId: null,
-          ip: auditIp,
-          userAgent: auditUa,
-        });
-      }
-      throw new NotFoundError("export-download", undefined, {
-        i18nKey: "userDataRights.errors.download.expired",
-      });
+      await rejectExpiredToken({ runner, tokenRow, tokenHash: hash, now, auditIp, auditUa });
     }
 
     // Step 3-4: job-checks

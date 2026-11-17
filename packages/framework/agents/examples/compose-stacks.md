@@ -35,14 +35,14 @@ the option.
 
 ## Boot requirements
 
-| Stack                                                             | Boot option                        | Also satisfied by               |
-| ----------------------------------------------------------------- | ---------------------------------- | ------------------------------- |
-| `composeMailStack`                                                | `mail`                             | a mounted `channel-email`       |
-| `composeFileStack` without providers                              | `fileStorage`                      | a mounted file provider         |
+| Stack                                                             | Boot option                        | Also satisfied by                                                               |
+| ----------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------- |
+| `composeMailStack`                                                | `mail`                             | a mounted `channel-email`                                                       |
+| `composeFileStack` without providers                              | `fileStorage`                      | a mounted file provider                                                         |
 | `composeGdprStack`                                                | `kmsMode`                          | `kms`, `allowPlaintextPii`, or `NODE_ENV=production` (defaults to `"optional"`) |
-| `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail`                             | a mounted `channel-email`       |
+| `composeGdprStack({ selfService })`, `composeUserDataRightsStack` | `mail`                             | a mounted `channel-email`                                                       |
 | `composeSecurityStack`                                            | `kmsMode`, `rateLimit` not `false` | `kms`, `allowPlaintextPii`, or `NODE_ENV=production` (defaults to `"optional"`) |
-| `composeSaasStack({ billing: "stripe" })`                         | `billing` (warning only)           | a mounted subscription provider |
+| `composeSaasStack({ billing: "stripe" })`                         | `billing` (warning only)           | a mounted subscription provider                                                 |
 
 A missing option fails the boot with:
 

@@ -741,14 +741,17 @@ function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant):
   }
 }
 
-const EXPORT_JOB_SYSTEM_DB_REASON =
-  "export jobs run per user across tenants, requestedFromTenantId keeps the stream identity";
-
 // `crud.update` requires a TenantDb for event-store stream lookup. Export jobs are tenant-agnostic
 // (one job per userId), so system mode bypasses the automatic tenant filter while
 // `requestedFromTenantId` preserves stream identity and keeps the stream counter consistent.
 function systemTenantDb(db: DbRunner, tenantId: TenantId) {
-  return createTenantDb({ db, tenantId, mode: "system", reason: EXPORT_JOB_SYSTEM_DB_REASON });
+  return createTenantDb({
+    db,
+    tenantId,
+    mode: "system",
+    reason:
+      "export jobs run per user across tenants, requestedFromTenantId keeps the stream identity",
+  });
 }
 
 // Version-checked like the claim: false when another writer moved the job first.

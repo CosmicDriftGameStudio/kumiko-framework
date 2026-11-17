@@ -22,7 +22,12 @@ export {
   collectMissingRequiredConfig,
 } from "./handlers/readiness.query.ts";
 export type { AppConfigOverrides, ConfigResolver } from "./resolver.ts";
-export { buildEnvConfigOverrides, createConfigResolver, validateAppOverrides } from "./resolver.ts";
+export {
+  buildEnvConfigOverrides,
+  createConfigResolver,
+  readStoredTextOfFormerKey,
+  validateAppOverrides,
+} from "./resolver.ts";
 export { configValueEntity, configValuesTable } from "./table.ts";
 export {
   CONFIG_FEATURE,

@@ -23,6 +23,7 @@ import type {
 import { sourceLocationFromNode } from "../source-location.ts";
 import {
   findImportBindingForLocalName,
+  findScopedVariableDeclaration,
   resolveExportedVariable,
   resolveModuleFile,
 } from "./resolve-import.ts";
@@ -89,7 +90,7 @@ function findEntityDeclaration(
   sourceFile: SourceFile,
 ): VariableDeclaration | undefined {
   const localName = identifier.getText();
-  const local = sourceFile.getVariableDeclaration(localName);
+  const local = findScopedVariableDeclaration(identifier, localName);
   if (local) return local;
   const binding = findImportBindingForLocalName(sourceFile, localName);
   if (!binding) return undefined;
@@ -110,11 +111,47 @@ function readCreateEntityCallName(call: CallExpression | undefined): string | un
 
 // The `name` of the `createEntity({ name: "x", ... })` an identifier points at, in this file or an imported one.
 function readCreateEntityName(identifier: Node, sourceFile: SourceFile): string | undefined {
-  return readCreateEntityCallName(
-    findEntityDeclaration(identifier, sourceFile)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.CallExpression),
+  const declaration = findEntityDeclaration(identifier, sourceFile);
+  const initializer = declaration?.getInitializer()?.asKind(SyntaxKind.CallExpression);
+  if (!declaration || !initializer) return undefined;
+  return (
+    readCreateEntityCallName(initializer) ??
+    readFactoryEntityName(initializer, declaration.getSourceFile(), 0)
   );
+}
+
+const MAX_ENTITY_FACTORY_DEPTH = 4;
+
+// `const entity = createXEntity(opts)`: follow the factory's `return` chain (same file or imported)
+// down to the `createEntity({ name, ... })` call. Only plain `return <call>` statements of the
+// factory body count; anything else stays unreadable and surfaces as a parse error.
+function readFactoryEntityName(
+  call: CallExpression,
+  sourceFile: SourceFile,
+  depth: number,
+): string | undefined {
+  if (depth >= MAX_ENTITY_FACTORY_DEPTH) return undefined;
+  const callee = call.getExpression().asKind(SyntaxKind.Identifier)?.getText();
+  if (callee === undefined) return undefined;
+  let factoryFile = sourceFile;
+  let factory = sourceFile.getFunction(callee);
+  if (!factory) {
+    const binding = findImportBindingForLocalName(sourceFile, callee);
+    const target = binding ? resolveModuleFile(sourceFile, binding.moduleSpecifier) : undefined;
+    if (!binding || !target) return undefined;
+    factoryFile = target;
+    factory = target.getFunction(binding.importedName);
+  }
+  for (const statement of factory?.getStatements() ?? []) {
+    const returned = statement.asKind(SyntaxKind.ReturnStatement)?.getExpression();
+    const returnedCall = returned?.asKind(SyntaxKind.CallExpression);
+    if (!returnedCall) continue;
+    const name =
+      readCreateEntityCallName(returnedCall) ??
+      readFactoryEntityName(returnedCall, factoryFile, depth + 1);
+    if (name !== undefined) return name;
+  }
+  return undefined;
 }
 
 // `r.entity(xEntity)` and `r.entity({ ...xEntity, backingTable })`: the entity carries its own name.

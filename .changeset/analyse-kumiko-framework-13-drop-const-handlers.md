@@ -12,3 +12,12 @@ detail: `createTagHandler`, `assignTagHandler`, `deleteTagHandler` and `removeTa
 migration: Replace `createTagHandler` with `createCreateTagHandler()`, `assignTagHandler` with `createAssignTagHandler()`, `deleteTagHandler` with `createDeleteTagHandler()`, `removeTagHandler` with `createRemoveTagHandler()` and `addNoteHandler` with `createAddNoteHandler()`; pass an access rule where you need one other than the default.
 affects: createTagHandler, assignTagHandler, deleteTagHandler, removeTagHandler, addNoteHandler
 -->
+
+<!-- kumiko-changes
+feature: notes-history
+type: breaking
+title: Prebuilt addNoteHandler constant removed
+detail: `addNoteHandler` is no longer exported from the notes-history feature. It was a default-access copy of the factory and nothing registered it; the feature builds its handler with `createAddNoteHandler`.
+migration: Replace `addNoteHandler` with `createAddNoteHandler(access, entryExecutor)`, or mount `createNotesHistoryFeature({ parents })`, which registers the handler.
+affects: addNoteHandler
+-->

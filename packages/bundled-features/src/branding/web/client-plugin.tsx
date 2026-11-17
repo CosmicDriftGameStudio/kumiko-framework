@@ -3,7 +3,7 @@
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer/web";
-import { BRANDING_FEATURE } from "../constants.ts";
+import { BRANDING_FEATURE } from "./constants.ts";
 import { defaultTranslations } from "./default-translations.ts";
 
 export type BrandingClientOptions = {

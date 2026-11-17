@@ -157,6 +157,20 @@ export function createSubscriptionTierSync<TTier extends string>(
   ): Promise<SyncOutcome<TTier>> {
     const decidesAgain = (code: string | undefined): boolean =>
       code === VERSION_CONFLICT_CODE && !afterVersionConflict;
+    const settleWrite = (
+      written: { readonly isSuccess: boolean; readonly error?: { readonly code?: string } },
+      action: string,
+      effective: TTier,
+    ): Promise<SyncOutcome<TTier>> | SyncOutcome<TTier> => {
+      if (written.isSuccess) return { error: null, applied: { tier: effective, changed: true } };
+      if (decidesAgain(written.error?.code)) return runTierSync(tenantId, routeDeps, true);
+      return {
+        error: {
+          code: "tier_sync_failed",
+          message: `tier-engine ${action} "${effective}" failed: ${written.error?.code ?? "unknown"}`,
+        },
+      };
+    };
     try {
       const subscriptionId = subscriptionAggregateId(tenantId);
       const subscriptionRows = asRows(
@@ -194,16 +208,7 @@ export function createSubscriptionTierSync<TTier extends string>(
           },
           tenantId,
         });
-        if (!created.isSuccess) {
-          if (decidesAgain(created.error?.code)) return runTierSync(tenantId, routeDeps, true);
-          return {
-            error: {
-              code: "tier_sync_failed",
-              message: `tier-engine create with "${effective}" failed: ${created.error?.code ?? "unknown"}`,
-            },
-          };
-        }
-        return { error: null, applied: { tier: effective, changed: true } };
+        return settleWrite(created, "create with", effective);
       }
       if (assignment.tier === effective) {
         return { error: null, applied: { tier: effective, changed: false } };
@@ -226,16 +231,7 @@ export function createSubscriptionTierSync<TTier extends string>(
         },
         tenantId,
       });
-      if (!result.isSuccess) {
-        if (decidesAgain(result.error?.code)) return runTierSync(tenantId, routeDeps, true);
-        return {
-          error: {
-            code: "tier_sync_failed",
-            message: `tier-engine update to "${effective}" failed: ${result.error?.code ?? "unknown"}`,
-          },
-        };
-      }
-      return { error: null, applied: { tier: effective, changed: true } };
+      return settleWrite(result, "update to", effective);
     } catch (error) {
       // dispatchSystemQuery throws (AccessDenied/NotFound/Validation) rather
       // than returning an error envelope — e.g. a consumer that mounts
