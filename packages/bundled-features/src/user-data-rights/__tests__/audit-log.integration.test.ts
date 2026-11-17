@@ -235,11 +235,18 @@ describe("download-attempt retention protects against disk bombs during brute fo
 });
 
 describe("list-download-attempts (DPO operator-query)", () => {
-  test("Admins can query; Members cannot", async () => {
+  test("TenantAdmins and Admins can query; Members cannot", async () => {
     await seedUser(alice, "alice@example.com");
     // Admin allowed
     const ok = await stack.http.queryOk<{ rows: unknown[] }>(LIST_ATTEMPTS, {}, admin);
     expect(Array.isArray(ok.rows)).toBe(true);
+    const tenantAdminOnly = createTestUser({ id: 44, tenantId: tenantA, roles: ["TenantAdmin"] });
+    const byTenantAdmin = await stack.http.queryOk<{ rows: unknown[] }>(
+      LIST_ATTEMPTS,
+      {},
+      tenantAdminOnly,
+    );
+    expect(Array.isArray(byTenantAdmin.rows)).toBe(true);
     // Member blocked
     const res = await stack.http.query(LIST_ATTEMPTS, {}, alice);
     expect([401, 403]).toContain(res.status);

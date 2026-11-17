@@ -46,7 +46,12 @@ const runEntity: EntityDefinition = createEntity({
   idType: "uuid",
   transferable: true,
   fields: {
-    name: createTextField({ required: true, personal: false, reason: "technical_reference" }),
+    name: createTextField({
+      required: true,
+      personal: false,
+      reason: "technical_reference",
+      searchable: true,
+    }),
   },
 });
 
@@ -299,7 +304,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await stack.db.unsafe?.(
-    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_memo, handover_stay_memo, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, kumiko_event_consumers, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_memo, handover_stay_memo, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -971,5 +976,26 @@ describe("tenant-handover :: claim", () => {
 
     expect(await readTenantId("handover_run", runId)).toBe(dest.tenantId);
     expect(await readTenantId("handover_stay_memo", memoId)).toBe(SOURCE_TENANT);
+  });
+
+  test("the claimed root's search document moves from the source to the destination tenant index", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "searchable handover run");
+    await stack.eventDispatcher?.runOnce();
+    const sourceBefore = await stack.search.search(SOURCE_TENANT, "searchable handover", {
+      filterType: "run",
+    });
+    expect(sourceBefore.map((hit) => String(hit.entityId))).toEqual([runId]);
+
+    const dest = destinationUser(1);
+    await stack.http.writeOk(CLAIM, { token: grantFor(runId), entityType: "run" }, dest);
+    await stack.eventDispatcher?.runOnce();
+
+    expect(
+      await stack.search.search(SOURCE_TENANT, "searchable handover", { filterType: "run" }),
+    ).toEqual([]);
+    const destinationHits = await stack.search.search(dest.tenantId, "searchable handover", {
+      filterType: "run",
+    });
+    expect(destinationHits.map((hit) => String(hit.entityId))).toEqual([runId]);
   });
 });

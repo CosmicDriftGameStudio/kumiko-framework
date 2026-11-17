@@ -39,14 +39,9 @@ export function waitlistImportId(sourceKey: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
 
-// The version nibble marks ids minted by waitlistImportId; legacy row ids are random UUIDs.
-export function isWaitlistImportId(id: string): boolean {
-  return id[14] === "5";
-}
-
 // The live submit schema caps these fields; an imported value above the cap would be
 // stored but could never pass a later update through the same payload schema.
-export function waitlistImportEntryWithinLimits(entry: WaitlistImportEntry): boolean {
+function waitlistImportEntryWithinLimits(entry: WaitlistImportEntry): boolean {
   const limited: ReadonlyArray<readonly [string | undefined, number]> = [
     [entry.name, WAITLIST_FIELD_LIMITS.name],
     [entry.email, WAITLIST_FIELD_LIMITS.email],
@@ -63,9 +58,9 @@ function presentOnly(fields: Record<string, unknown>): Record<string, unknown> {
 }
 
 // Writes through the entity executor, so events and projection match a live submit; subject
-// encryption applies only when the caller configured a PII KMS (the CLI wires it from env
-// and aborts without one). No mail, no rate limit, no duplicate-by-email
-// check: the source row is the truth and the id makes the call idempotent.
+// encryption applies only when the caller's db carries a PII KMS (an app seed runs with the
+// app's key service). No mail, no rate limit, no duplicate-by-email check: the source row is
+// the truth and the id makes the call idempotent.
 export async function importWaitlistEntry(
   db: TenantDb,
   entry: WaitlistImportEntry,

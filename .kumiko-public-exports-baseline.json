@@ -3756,13 +3756,7 @@
         "legalPagesClient"
       ],
       "./waitlist": [
-        "DEFAULT_IMPORT_LOCALE",
-        "DEFAULT_LEGACY_SOURCE_TABLE",
         "DEFAULT_OWN_TENANT_INVITE_ROLE",
-        "LEGACY_WAITLIST_SOURCES",
-        "LegacyWaitlistMigrateOptions",
-        "LegacyWaitlistMigrateReport",
-        "LegacyWaitlistSource",
         "WAITLIST_FEATURE",
         "WAITLIST_FIELD_LIMITS",
         "WAITLIST_NOTIFICATION_TYPES",
@@ -3779,11 +3773,7 @@
         "WaitlistSubmitSchema",
         "createWaitlistFeature",
         "importWaitlistEntry",
-        "isLegacyWaitlistSource",
         "isOpenWaitlistStatus",
-        "migrateLegacyWaitlist",
-        "offlotLegacyTable",
-        "publicstatusLegacyTable",
         "waitlistEntryEntity",
         "waitlistEntryTable",
         "waitlistImportId"

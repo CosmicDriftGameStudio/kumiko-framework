@@ -1263,6 +1263,7 @@
 
 | Rule | Summary | Fix | Source |
 | --- | --- | --- | --- |
+| <a id="transfer-custom-projection"></a>`transfer/custom-projection` | An r.projection fed by a transferable entity writes into that entity's own table, since tenant-handover moves only the entity table rows. | Move the projected columns into the entity, or drop transferable from the source entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="transfer-graph-too-deep"></a>`transfer/graph-too-deep` | The tenant-handover transfer graph is not deeper than the maximum depth. | Flatten the chain, or mark a reference field that should not move with its host `handover: "stay"`. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 | <a id="transfer-multiple-reference-field"></a>`transfer/multiple-reference-field` | A transferable entity declares no multiple reference field to another transferable entity, since the transfer graph cannot match jsonb array rows. | Model the link as a single reference on the owning side, or drop transferable from the entity. | `packages/framework/src/engine/boot-validator/entity-declaration-rules.ts` |
 

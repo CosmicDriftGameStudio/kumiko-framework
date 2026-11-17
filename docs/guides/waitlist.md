@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-18
+verified: 2026-11-17
 ---
 
 # Waitlist
@@ -30,26 +30,8 @@ Both handlers are SystemAdmin-only, high risk and not exposed to agents.
 - `waitlist:write:export` returns `{ count, entries }` in the response with decrypted fields, and appends an audit event `waitlist:event:exported` that stores only the count.
 - `waitlist:write:purge` takes `confirmCount`. A count that differs from the current number of entries fails with 422 `waitlist_confirm_count_mismatch` and deletes nothing. Otherwise every entry is forgotten through the entity executor, and only after all forgets succeeded the per-subject keys are shredded. An audit event `waitlist:event:purged` stores the count.
 
-## Migrating a legacy waitlist
+## Importing a legacy waitlist
 
-Apps that ran their own waitlist copy it into the framework entity with the CLI:
+An app that ran its own waitlist copies the old rows into the framework entity in an app seed. It maps each row to a `WaitlistImportEntry` and calls `importWaitlistEntry(db, entry)` with a system-tenant `TenantDb`. The entry id derives from `sourceKey` (`waitlistImportId`), so a stable key such as `<app>:<row id>` makes a second run return `"skipped"` instead of writing a duplicate.
 
-```bash
-kumiko ops waitlist-migrate --from offlot --dry-run
-kumiko ops waitlist-migrate --from offlot
-kumiko ops waitlist-migrate --from publicstatus --source-table my_subscribers
-```
-
-| Flag | Meaning |
-| --- | --- |
-| `--from offlot\|publicstatus` | Selects the legacy row format. |
-| `--dry-run` | Reads and reports, writes nothing. |
-| `--source-table <name>` | Legacy table when it is not the default (`read_waitlist_entries` for offlot, `marketing_waitlist` for publicstatus). |
-| `--locale <tag>` | Locale for formats without one (publicstatus). Default `en`. |
-| `--allow-plaintext-pii <reason>` | Only for apps without subject encryption: lets the import run without a PII KMS and stores name, email and message as plaintext. |
-
-The command loads `kumiko.config.ts`, needs `DATABASE_URL` and the mounted `waitlist` feature, reads the legacy table through the app database and writes only through the entity handlers. Every legacy row maps to a deterministic entry id, so a second run finds the entries and writes nothing. The summary line reports read, created, already present and unreadable rows. The CLI wires the PII key service from the environment like the app boot (`PLATFORM_KEK`, `SUBJECT_KEYS_DATABASE_URL`, `KUMIKO_BLIND_INDEX_KEY`) and aborts without it, so imported personal fields are encrypted and can be crypto-shredded later. Legacy offlot rows that hold ciphertext are decrypted with the same key service; rows that still cannot be read are counted as unreadable and make the exit code 1.
-
-Legacy fields without a counterpart (city, stock, country, notes) are folded into `message` as labelled lines. The publicstatus format has no name, so the local part of the email is used.
-
-offlot keeps its legacy rows in `read_waitlist_entries`, the same table name as the framework projection. Copy or rename the old table first and pass `--source-table`, otherwise a projection rebuild replays the old events against the new entity.
+The import writes through the entity executor, so events and projection match a live submit. It sends no mail and skips the rate limit and the duplicate-by-email check. An entry above the submit schema's field limits throws. Personal fields are encrypted when the app runs with a PII key service. Fields without a counterpart go into `message`; a format without a name can use the local part of the email. Drop the legacy table in a migration once the seed has run in production.

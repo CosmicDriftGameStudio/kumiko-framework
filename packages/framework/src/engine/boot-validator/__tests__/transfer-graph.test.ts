@@ -1,4 +1,4 @@
-// Boot guard for the tenant-handover transfer graph. Both shapes
+// Boot guard for the tenant-handover transfer graph. The shapes
 // checked here would otherwise leave rows behind in the source tenant at
 // handover time, which is the silent partial move this prevents.
 // Scoped to `transferable: true`, so a consumer that has the shape but never
@@ -6,6 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { buildEntityTable } from "../../../db/table-builder.ts";
 import { defineFeature } from "../../define-feature.ts";
 import { createEntity, createTextField } from "../../factories.ts";
 import type { FeatureDefinition } from "../../types/index.ts";
@@ -192,6 +193,44 @@ describe("validateTransferGraph", () => {
         a: entity({ references: { bId: { entity: "b" } } }),
         b: entity({ references: { aId: { entity: "a" } } }),
       }),
+    ).not.toThrow();
+  });
+});
+
+describe("validateTransferGraph: projections fed by a transferable entity", () => {
+  function validateProjection(opts: {
+    readonly sourceTransferable: boolean;
+    readonly onEntityTable: boolean;
+  }): void {
+    const run = entity({ transferable: opts.sourceTransferable });
+    const summary = createEntity({ table: "run_summaries", fields: { label: textField() } });
+    const feature = defineFeature("graph", (r) => {
+      r.entity({ name: "run", ...run });
+      r.projection({
+        name: "run-summary",
+        source: "run",
+        table: opts.onEntityTable
+          ? buildEntityTable("run", run)
+          : buildEntityTable("runSummary", summary),
+        apply: { "run.created": async () => {} },
+      });
+    });
+    validateTransferGraph(feature, new Map([[feature.name, feature]]));
+  }
+
+  test("rejects a projection that writes a transferable entity's events into another table", () => {
+    expect(() => validateProjection({ sourceTransferable: true, onEntityTable: false })).toThrow(
+      /transferable entity "run" but writes into "run_summaries"/,
+    );
+  });
+
+  test("accepts a projection on the transferable entity's own table", () => {
+    expect(() => validateProjection({ sourceTransferable: true, onEntityTable: true })).not.toThrow();
+  });
+
+  test("accepts a side projection of an entity that is not transferable", () => {
+    expect(() =>
+      validateProjection({ sourceTransferable: false, onEntityTable: false }),
     ).not.toThrow();
   });
 });

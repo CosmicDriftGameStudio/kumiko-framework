@@ -2,7 +2,7 @@ import { isAnonymousSessionUser, SYSTEM_USER_ID } from "../engine/system-user.ts
 import type { FileAccessGuard } from "./file-routes.ts";
 import type { RecordReadCheck } from "./record-read-check.ts";
 
-export const DEFAULT_PRIVILEGED_ROLES = ["Admin", "SystemAdmin"] as const;
+export const DEFAULT_PRIVILEGED_ROLES = ["TenantAdmin", "Admin", "SystemAdmin"] as const;
 
 // Default guard: on attached files, allow the uploader or a privileged role,
 // and for reads also everyone who may read the record. Delete stays with the

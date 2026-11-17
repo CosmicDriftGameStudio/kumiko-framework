@@ -86,6 +86,12 @@ export const ENTITY_DECLARATION_RULES = {
     summary: "The tenant-handover transfer graph is not deeper than the maximum depth.",
     fix: 'Flatten the chain, or mark a reference field that should not move with its host `handover: "stay"`.',
   },
+  transferCustomProjection: {
+    id: "transfer/custom-projection",
+    summary:
+      "An r.projection fed by a transferable entity writes into that entity's own table, since tenant-handover moves only the entity table rows.",
+    fix: "Move the projected columns into the entity, or drop transferable from the source entity.",
+  },
   globalWithoutSystemStream: {
     id: "entity/global-without-system-stream",
     summary: 'An entity with tenancy "global" also declares systemStream: true.',

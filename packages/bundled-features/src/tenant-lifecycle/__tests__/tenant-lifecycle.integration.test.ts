@@ -172,17 +172,15 @@ describe("tenant-lifecycle :: request / cancel / 410 gate", () => {
     expect(err.httpStatus).toBe(403);
   });
 
-  test("a TenantAdmin without Admin cannot request or cancel destruction, an Admin can", async () => {
+  test("a TenantAdmin without Admin can request and cancel destruction", async () => {
     await seedTenant();
     const tenantAdminOnly = createTestUser({
       id: 98,
       tenantId: tenantAdmin.tenantId,
       roles: ["TenantAdmin"],
     });
-    expect((await stack.http.writeErr(REQUEST, {}, tenantAdminOnly)).httpStatus).toBe(403);
-    await stack.http.writeOk(REQUEST, {}, tenantAdmin);
-    expect((await stack.http.writeErr(CANCEL, {}, tenantAdminOnly)).httpStatus).toBe(403);
-    const cancelled = await stack.http.writeOk<{ status: string }>(CANCEL, {}, tenantAdmin);
+    await stack.http.writeOk(REQUEST, {}, tenantAdminOnly);
+    const cancelled = await stack.http.writeOk<{ status: string }>(CANCEL, {}, tenantAdminOnly);
     expect(cancelled.status).toBe("active");
   });
 

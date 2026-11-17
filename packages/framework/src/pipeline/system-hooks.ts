@@ -12,6 +12,7 @@ import {
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "../crypto/index.ts";
+import { AGGREGATE_TRANSFERRED_EVENT_TYPE } from "../crypto/system-event-pii.ts";
 import { collectSearchableSubjectFields } from "../crypto/subject-resolver.ts";
 import { rehydrateCompoundTypes } from "../db/compound-types.ts";
 import type { DbConnection, DbRow } from "../db/connection.ts";
@@ -62,8 +63,9 @@ const log = createFallbackLogger("kumiko:search");
 // per-event fallback the dispatcher uses when a batch throws.
 export const SEARCH_CONSUMER_NAME = "system:consumer:search";
 
-// One resolved search operation for a single event: either the
-// document to (re-)index or the entityType/entityId to remove. A
+// One resolved search operation: either the
+// document to (re-)index or the entityType/entityId to remove. One event can
+// yield several (a transfer removes in the source tenant and indexes in the destination). A
 // discriminated union so the batch collapse step (last op per key wins)
 // doesn't need to special-case index vs remove.
 export type SearchOperation =
@@ -82,13 +84,114 @@ function isUpdateOfSoftDeletedRow(event: StoredEvent, verb: string | undefined):
   );
 }
 
+type AggregateTransferredPayload = {
+  readonly aggregateType: string;
+  readonly aggregateId: string;
+  readonly sourceTenantId: TenantId;
+  readonly destinationTenantId: TenantId;
+};
+
+function isAggregateTransferredPayload(payload: unknown): payload is AggregateTransferredPayload {
+  return (
+    isPlainObject(payload) &&
+    typeof payload["aggregateType"] === "string" &&
+    typeof payload["aggregateId"] === "string" &&
+    typeof payload["sourceTenantId"] === "string" &&
+    typeof payload["destinationTenantId"] === "string"
+  );
+}
+
+async function indexOperationFromState(
+  entityName: string,
+  entityId: EntityId,
+  tenantId: TenantId,
+  rawState: Record<string, unknown>,
+  ctx: AppContext,
+  registry: Registry,
+): Promise<SearchOperation | undefined> {
+  const state = await decryptSearchableSubjectFields(entityName, rawState, registry);
+  // skip: erased subject — drop the doc so a rebuild cannot resurrect plaintext.
+  if (hasErasedSearchableSubjectField(entityName, state, registry)) {
+    return { kind: "remove", tenantId, entityType: entityName, entityId };
+  }
+  const doc = await buildSearchDocument(
+    entityName,
+    entityId,
+    state,
+    registry,
+    consumerTenantDb(ctx, tenantId, entityName, entityId),
+  );
+  // skip: entity isn't searchable (no searchable fields declared)
+  if (!doc) return undefined;
+  return { kind: "index", tenantId, doc };
+}
+
+// Named domain event: no fixed payload shape to reconstruct state from, so the
+// live projection row is the source.
+async function indexOperationFromProjectionRow(
+  entityName: string,
+  entityId: EntityId,
+  tenantId: TenantId,
+  ctx: AppContext,
+  registry: Registry,
+): Promise<SearchOperation | undefined> {
+  // Only worth a projection read when the entity actually declared searchable
+  // fields/extensions — same check buildSearchDocument makes, done here first
+  // so a non-searchable entity's named events stay a no-op.
+  const entity = registry.getEntity(entityName);
+  const isSearchable =
+    entity !== undefined &&
+    (registry.getSearchableFields(entityName).length > 0 ||
+      registry.getSearchPayloadExtensions(entityName).length > 0);
+  // skip: entity declares no searchable fields/extensions — nothing to
+  // index, stays a no-op with no extra query, same as before.
+  if (!entity || !isSearchable) return undefined;
+
+  const row = await readProjectionRowForSearch(ctx, registry, entityName, entity, tenantId, entityId);
+  // skip: no live row (hard-deleted stream, or soft-deleted) — same
+  // outcome as the deleted/forgotten branch.
+  if (!row) return { kind: "remove", tenantId, entityType: entityName, entityId };
+  return indexOperationFromState(entityName, entityId, tenantId, row, ctx, registry);
+}
+
+// tenant-handover moved the row and its stream; the index follows: drop the document in the
+// source tenant and index the moved row in the destination tenant.
+async function resolveTransferredAggregate(
+  event: StoredEvent,
+  ctx: AppContext,
+  registry: Registry,
+): Promise<readonly SearchOperation[]> {
+  if (!isAggregateTransferredPayload(event.payload)) {
+    throw new InternalError({
+      message: `search consumer: malformed ${AGGREGATE_TRANSFERRED_EVENT_TYPE} payload on event ${event.id}`,
+    });
+  }
+  const { aggregateType, aggregateId, sourceTenantId, destinationTenantId } = event.payload;
+  const destinationOp = await indexOperationFromProjectionRow(
+    aggregateType,
+    aggregateId,
+    destinationTenantId,
+    ctx,
+    registry,
+  );
+  // skip: not a searchable entity (e.g. fileRef) — nothing was indexed in either tenant.
+  if (!destinationOp) return [];
+  return [
+    { kind: "remove", tenantId: sourceTenantId, entityType: aggregateType, entityId: aggregateId },
+    destinationOp,
+  ];
+}
+
 // Resolves what one event implies for the search index, without touching
 // the adapter — same decision tree the old per-event handler ran inline.
 async function resolveSearchOperation(
   event: StoredEvent,
   ctx: AppContext,
   registry: Registry,
-): Promise<SearchOperation | undefined> {
+): Promise<readonly SearchOperation[]> {
+  if (event.type === AGGREGATE_TRANSFERRED_EVENT_TYPE) {
+    return resolveTransferredAggregate(event, ctx, registry);
+  }
   const entityName = event.aggregateType;
   const verb = event.type.split(".").pop();
   const tenantId = event.tenantId;
@@ -96,58 +199,27 @@ async function resolveSearchOperation(
   // skip: delete/forgotten (and an update on a still soft-deleted row) remove the
   // index entry — reconstruct only makes sense for live created/updated/restored.
   if (verb === "deleted" || verb === "forgotten" || isUpdateOfSoftDeletedRow(event, verb)) {
-    return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
+    return [{ kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId }];
   }
 
-  let state: Record<string, unknown>;
-  if (verb === "created" || verb === "updated" || verb === "restored") {
-    state = reconstructStateForSearch(event.payload, verb);
-  } else {
-    // Named domain event: no fixed payload shape to reconstruct
-    // state from. Only worth a projection read when the entity actually
-    // declared searchable fields/extensions — same check
-    // buildSearchDocument makes below, done here first so a non-
-    // searchable entity's named events stay a no-op like before.
-    const entity = registry.getEntity(entityName);
-    const isSearchable =
-      entity !== undefined &&
-      (registry.getSearchableFields(entityName).length > 0 ||
-        registry.getSearchPayloadExtensions(entityName).length > 0);
-    // skip: entity declares no searchable fields/extensions — nothing to
-    // index, stays a no-op with no extra query, same as before.
-    if (!entity || !isSearchable) return undefined;
-
-    const row = await readProjectionRowForSearch(
-      ctx,
-      registry,
-      entityName,
-      entity,
-      tenantId,
-      event.aggregateId,
-    );
-    // skip: no live row (hard-deleted stream, or soft-deleted) — same
-    // outcome as the deleted/forgotten branch above.
-    if (!row) {
-      return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
-    }
-    state = row;
-  }
-
-  state = await decryptSearchableSubjectFields(entityName, state, registry);
-  // skip: erased subject — drop the doc so a rebuild cannot resurrect plaintext.
-  if (hasErasedSearchableSubjectField(entityName, state, registry)) {
-    return { kind: "remove", tenantId, entityType: entityName, entityId: event.aggregateId };
-  }
-  const doc = await buildSearchDocument(
-    entityName,
-    event.aggregateId,
-    state,
-    registry,
-    consumerTenantDb(ctx, tenantId, entityName, event.aggregateId),
-  );
-  // skip: entity isn't searchable (no searchable fields declared)
-  if (!doc) return undefined;
-  return { kind: "index", tenantId, doc };
+  const op =
+    verb === "created" || verb === "updated" || verb === "restored"
+      ? await indexOperationFromState(
+          entityName,
+          event.aggregateId,
+          tenantId,
+          reconstructStateForSearch(event.payload, verb),
+          ctx,
+          registry,
+        )
+      : await indexOperationFromProjectionRow(
+          entityName,
+          event.aggregateId,
+          tenantId,
+          ctx,
+          registry,
+        );
+  return op ? [op] : [];
 }
 
 async function applySearchOperation(
@@ -202,9 +274,9 @@ async function resolveSearchOperationsByTenant(
   const byKey = new Map<string, SourcedSearchOperation>();
   const unresolved = new Map<TenantId, HeldTenantOperations>();
   for (const event of events) {
-    let op: SearchOperation | undefined;
+    let ops: readonly SearchOperation[];
     try {
-      op = await resolveSearchOperation(event, ctx, registry);
+      ops = await resolveSearchOperation(event, ctx, registry);
     } catch (error) {
       const previous = unresolved.get(event.tenantId);
       unresolved.set(event.tenantId, {
@@ -213,11 +285,12 @@ async function resolveSearchOperationsByTenant(
       });
       continue;
     }
-    if (!op) continue;
-    const key = searchOperationKey(op);
-    // Re-insert so the map order follows the winning event: per-tenant ops stay in event order.
-    byKey.delete(key);
-    byKey.set(key, { op, sourceEventId: event.id });
+    for (const op of ops) {
+      const key = searchOperationKey(op);
+      // Re-insert so the map order follows the winning event: per-tenant ops stay in event order.
+      byKey.delete(key);
+      byKey.set(key, { op, sourceEventId: event.id });
+    }
   }
 
   const perTenant: SearchOperationsByTenant = new Map();
@@ -350,8 +423,9 @@ export function createSearchEventConsumer(
     // dead-lettering in event-dispatcher-delivery.ts if 2min isn't enough.
     errorPolicy: { maxAttempts: 1200 },
     handler: async (event, ctx) => {
-      const op = await resolveSearchOperation(event, ctx, registry);
-      if (op) await applySearchOperation(searchAdapter, op);
+      for (const op of await resolveSearchOperation(event, ctx, registry)) {
+        await applySearchOperation(searchAdapter, op);
+      }
     },
     // One tenant's failing index must not stall the others: its failing ops are held for a later
     // turn, and while it backs off all of its ops wait, so per-entity order survives.

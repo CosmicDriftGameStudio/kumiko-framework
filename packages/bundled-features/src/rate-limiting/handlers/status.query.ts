@@ -1,4 +1,4 @@
-import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { RateLimitErrors } from "../constants.ts";
@@ -31,7 +31,7 @@ export const rateLimitStatus = defineQueryHandler({
     limit: z.number().int().positive(),
     windowSeconds: z.number().int().positive(),
   }),
-  access: { roles: ["Admin", "SystemAdmin"] },
+  access: { roles: access.admin },
   handler: async (query, ctx) => {
     // Before the resolver check, so a foreign-tenant caller learns nothing
     // about the wiring either.
