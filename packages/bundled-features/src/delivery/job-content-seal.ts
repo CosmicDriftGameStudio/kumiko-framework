@@ -19,8 +19,9 @@ const deliveryJobContentSchema = z.object({
 export type DeliveryJobContent = z.infer<typeof deliveryJobContentSchema>;
 
 // Queued delivery jobs sit in Redis and the job-run table, so recipient address and message
-// content travel sealed under the app master key. Without a master key they stay plaintext
-// (`content`). Exactly one of the two fields: both or neither fails the payload parse.
+// content travel sealed under the app master key. Plain content is still accepted for jobs queued
+// before sealing became mandatory. Exactly one of the two fields: both or neither fails the
+// payload parse.
 export const jobContentFieldSchema = z.union([
   z.object({ content: deliveryJobContentSchema, sealedContent: z.undefined().optional() }),
   z.object({ sealedContent: z.string(), content: z.undefined().optional() }),
@@ -44,9 +45,8 @@ const sealedJobContentSchema = z.object({
 export async function sealJobContent(
   content: DeliveryJobContent,
   tenantId: TenantId,
-  cipher: EnvelopeCipher | undefined,
-): Promise<JobContentField> {
-  if (!cipher) return { content };
+  cipher: EnvelopeCipher,
+): Promise<{ readonly sealedContent: string }> {
   const plaintext = JSON.stringify({ purpose: DELIVERY_JOB_CONTENT_PURPOSE, tenantId, content });
   return { sealedContent: await cipher.encrypt(plaintext, { tenantId }) };
 }

@@ -63,6 +63,33 @@ describe("validateFieldApproval", () => {
     );
   });
 
+  test("rejects approve without access.write", () => {
+    expect(() => check(gatedText({ approve: ["Accountant"] }))).toThrow(
+      "field-approval/needs-write",
+    );
+  });
+
+  test("rejects approve on an encrypted field without a subject", () => {
+    const encrypted = createTextField({
+      maxLength: 34,
+      personal: false,
+      reason: "technical_reference",
+      encrypted: true,
+      access: { approve: ["Accountant"], write: ["Accountant"] },
+    });
+    expect(() => check(encrypted)).toThrow("field-approval/secret-field");
+  });
+
+  test("accepts approve on a subject-encrypted field", () => {
+    const sealed = createTextField({
+      maxLength: 34,
+      personal: "self",
+      find: "secret",
+      access: { approve: ["Accountant"], write: ["Accountant"] },
+    });
+    expect(() => check(sealed)).not.toThrow();
+  });
+
   test("rejects approve on a non-scalar field", () => {
     expect(() => check(createMoneyField({ access: { approve: ["Accountant"] } }))).toThrow(
       "field-approval/field-type",
@@ -78,12 +105,12 @@ describe("validateFieldApproval", () => {
 
   test("rejects approve without the request entity", () => {
     expect(() =>
-      check(gatedText({ approve: ["Accountant"] }), { requests: undefined }),
+      check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), { requests: undefined }),
     ).toThrow("field-approval/needs-feature");
   });
 
   test("rejects approve when the host is not among the parents", () => {
-    expect(() => check(gatedText({ approve: ["Accountant"] }), { requests: ["other"] })).toThrow(
+    expect(() => check(gatedText({ approve: ["Accountant"], write: ["Accountant"] }), { requests: ["other"] })).toThrow(
       "field-approval/needs-feature",
     );
   });

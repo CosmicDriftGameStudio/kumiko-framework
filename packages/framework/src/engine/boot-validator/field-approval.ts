@@ -1,3 +1,4 @@
+import { collectPiiEncryptedFields } from "../../crypto/subject-resolver.ts";
 import { FIELD_APPROVAL_FIELD_TYPES, FIELD_CHANGE_REQUEST_ENTITY_NAME } from "../field-approval.ts";
 import { findEntity } from "../find-entity.ts";
 import { normalizeAccessEntry } from "../ownership.ts";
@@ -48,8 +49,19 @@ export function validateFieldApproval(
           `access.approve is not supported on type "${field.type}".`,
         );
       }
+      const holdsSecret =
+        ("encrypted" in field && field.encrypted === true) ||
+        ("writeOnly" in field && field.writeOnly === true);
+      if (holdsSecret && !collectPiiEncryptedFields(entity).includes(fieldName)) {
+        fail(
+          ENTITY_DECLARATION_RULES.fieldApproveUnsealedSecret,
+          "access.approve on an encrypted or writeOnly field stores the pending value unsealed.",
+        );
+      }
       const writeMap = normalizeAccessEntry(field.access?.write);
-      if (writeMap !== undefined) {
+      if (writeMap === undefined) {
+        fail(ENTITY_DECLARATION_RULES.fieldApproveNeedsWrite, "access.approve needs access.write.");
+      } else {
         const outside = approve.filter((role) => !Object.hasOwn(writeMap, role));
         if (outside.length > 0) {
           fail(

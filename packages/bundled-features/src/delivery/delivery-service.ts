@@ -255,7 +255,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       priority,
     } = args;
 
-    if (channel.mode === "queued" && run.jobDispatcher) {
+    if (channel.mode === "queued" && run.jobDispatcher && addressCipher) {
       // Async hand-off: record the attempt as queued, then dispatch the send
       // job — the terminal sent/failed event is appended by the job, not here.
       const queuedEntry = withIdempotencyKey(run, {
@@ -303,7 +303,8 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       }
       recordDelivery(run, queuedEntry, deliveryAttemptId);
     } else {
-      // Inline (inApp) or no-job-runner fallback: render + send synchronously.
+      // Inline (inApp), no job runner, or no address cipher: render and send synchronously so no
+      // plaintext address lands in a job payload.
       let rendered: RenderedMessage | undefined;
       if (channel.render) {
         try {

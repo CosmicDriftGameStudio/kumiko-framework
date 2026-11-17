@@ -621,6 +621,7 @@ describe("createRegistry", () => {
 
     function featureWithQuery(
       queryExtras: { resultEntity?: string; unfilteredResult?: { reason: string } },
+      handlerName = "overview",
     ) {
       return defineFeature("vault", (r) => {
         r.entity({
@@ -633,7 +634,7 @@ describe("createRegistry", () => {
           }),
         });
         r.queryHandler({
-          name: "overview",
+          name: handlerName,
           schema: z.object({}),
           handler: async () => ({ rows: [] }),
           access: openAccess,
@@ -646,6 +647,16 @@ describe("createRegistry", () => {
       expect(() => createRegistry([featureWithQuery({})])).toThrow(
         /vault:query:overview.*declares no resultEntity/i,
       );
+    });
+
+    test("an unmapped colon query without resultEntity fails the boot", () => {
+      expect(() => createRegistry([featureWithQuery({}, "report:overview")])).toThrow(
+        /vault:query:report:overview.*declares no resultEntity/i,
+      );
+    });
+
+    test("an entity-mapped colon query boots", () => {
+      expect(() => createRegistry([featureWithQuery({}, "secret:overview")])).not.toThrow();
     });
 
     test("resultEntity lets the feature boot", () => {

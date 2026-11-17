@@ -25,6 +25,7 @@ import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/j
 import { createTestUser, TestUsers, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import { createRendererMailHtmlFeature } from "../../renderer-mail-html/index.ts";
 import {
+  createTestEnvelopeCipher,
   expectSuccess,
   resetBlindIndexKeyForTests,
   waitFor,
@@ -1994,6 +1995,8 @@ function makeStubRunner(options: { failDispatch?: boolean } = {}): {
   return { runner, dispatched };
 }
 
+const cipher = createTestEnvelopeCipher();
+
 describe("flow 17: async send pipeline", () => {
   test("with a real job runner, email + push deliver via the delivery.send job", async () => {
     const redisUrl = process.env["REDIS_URL"];
@@ -2001,7 +2004,7 @@ describe("flow 17: async send pipeline", () => {
     const queueNamePrefix = testRunQueueNamePrefix("kumiko-delivery-test");
     const jobRunner = createJobRunner({
       registry: stack.registry,
-      context: { db },
+      context: { db, configEncryption: cipher },
       redisUrl,
       consumerLane: "worker",
       queueNamePrefix,
@@ -2014,6 +2017,7 @@ describe("flow 17: async send pipeline", () => {
         channels: collectChannels(stack.registry),
         tenantUserIdsQuery: TenantQueries.resolveUserIds,
         jobRunner,
+        addressCipher: cipher,
       });
 
       await asyncService.notify(
@@ -2070,6 +2074,7 @@ describe("flow 17: async send pipeline", () => {
       channels: collectChannels(stack.registry),
       tenantUserIdsQuery: TenantQueries.resolveUserIds,
       jobRunner: runner,
+      addressCipher: cipher,
     });
 
     await asyncService.notify(
@@ -2154,6 +2159,7 @@ describe("flow 17: async send pipeline", () => {
       channels: collectChannels(stack.registry),
       tenantUserIdsQuery: TenantQueries.resolveUserIds,
       jobRunner: runner,
+      addressCipher: cipher,
     });
 
     await failingService.notify(
@@ -2259,6 +2265,7 @@ describe("flow 18: priority → job priority mapping", () => {
         channels: collectChannels(stack.registry),
         tenantUserIdsQuery: TenantQueries.resolveUserIds,
         jobRunner: runner,
+        addressCipher: cipher,
       });
       await asyncService.notify(
         notificationType,

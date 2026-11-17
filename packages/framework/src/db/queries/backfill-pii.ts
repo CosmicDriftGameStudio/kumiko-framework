@@ -61,7 +61,7 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
-import type { EntityDefinition } from "@cosmicdrift/kumiko-types/fields";
+import { type EntityDefinition, isDeclaredEntityVerb } from "@cosmicdrift/kumiko-types/fields";
 import { isOneOf } from "@cosmicdrift/kumiko-types/type-guards";
 import { quoteIdent } from "../sql-identifier.ts";
 import { configuredEventPiiCatalog } from "../../crypto/event-pii.ts";
@@ -501,7 +501,7 @@ export async function backfillEventPiiEncryptionBatch(
       }
     } else {
       const target = entityTargets.get(row.aggregate_type);
-      if (!target || !isLifecycleEventOf(row.type, row.aggregate_type)) return null;
+      if (!target || !isLifecycleEventOf(row.type, row.aggregate_type, target.entity)) return null;
       const ownerRow = projectionOwnerRowOfTenant(
         projectionOwners?.get(row.aggregate_id),
         row.tenant_id,
@@ -996,10 +996,14 @@ function projectionRowToCamel(
   return camel;
 }
 
-export function isLifecycleEventOf(eventType: string, aggregateType: string): boolean {
+export function isLifecycleEventOf(
+  eventType: string,
+  aggregateType: string,
+  entity: Pick<EntityDefinition, "verbs"> | undefined,
+): boolean {
   if (!eventType.startsWith(`${aggregateType}.`)) return false;
   const verb = eventType.slice(aggregateType.length + 1);
-  return isOneOf(LIFECYCLE_VERBS, verb);
+  return isOneOf(LIFECYCLE_VERBS, verb) || isDeclaredEntityVerb(entity, verb);
 }
 
 // created events carry the fields flat; updated carries { changes, previous };

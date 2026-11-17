@@ -111,11 +111,21 @@ type OutboundSendRecord = {
 
 type SendRecordDb = NonNullable<SendMailFromAccountContext["db"]["outsideTransaction"]>;
 
+type SendRecordKey = {
+  readonly idempotencyKey: string;
+  readonly accountId: string;
+  readonly userId: string;
+};
+
 function fetchSendRecord(
   recordDb: SendRecordDb,
-  idempotencyKey: string,
+  key: SendRecordKey,
 ): Promise<OutboundSendRecord | undefined> {
-  return recordDb.fetchOne<OutboundSendRecord>(outboundMailSendsTable, { idempotencyKey });
+  return recordDb.fetchOne<OutboundSendRecord>(outboundMailSendsTable, {
+    idempotencyKey: key.idempotencyKey,
+    accountId: key.accountId,
+    userId: key.userId,
+  });
 }
 
 // A "sending" record without a result means the send may or may not have gone out (crash, or a
@@ -136,22 +146,22 @@ function resultOfRecordedSend(record: OutboundSendRecord): WriteResult<OutboundM
 // Returns the claim's id, or the recorded outcome when the key was used before.
 async function claimSend(
   recordDb: SendRecordDb,
-  idempotencyKey: string,
-  accountId: string,
+  key: SendRecordKey,
 ): Promise<{ readonly claimId: string } | { readonly recorded: OutboundSendRecord }> {
   const claimId = crypto.randomUUID();
   try {
     await recordDb.insertOne(outboundMailSendsTable, {
       id: claimId,
-      idempotencyKey,
-      accountId,
+      idempotencyKey: key.idempotencyKey,
+      accountId: key.accountId,
+      userId: key.userId,
       status: "sending" satisfies OutboundSendStatus,
       claimedAt: Temporal.Now.instant().toString(),
     });
     return { claimId };
   } catch (err) {
     // A parallel call claimed the same key between the lookup and the insert.
-    const recorded = await fetchSendRecord(recordDb, idempotencyKey);
+    const recorded = await fetchSendRecord(recordDb, key);
     if (recorded) return { recorded };
     throw err;
   }
@@ -172,14 +182,10 @@ export async function sendMailFromAccount(
 
   const { idempotencyKey } = input;
   const recordDb = ctx.db.outsideTransaction;
-  if (idempotencyKey !== undefined) {
-    if (!recordDb) {
-      throw new InternalError({
-        message: "sendMailFromAccount: idempotencyKey needs ctx.db.outsideTransaction",
-      });
-    }
-    const recorded = await fetchSendRecord(recordDb, idempotencyKey);
-    if (recorded) return resultOfRecordedSend(recorded);
+  if (idempotencyKey !== undefined && !recordDb) {
+    throw new InternalError({
+      message: "sendMailFromAccount: idempotencyKey needs ctx.db.outsideTransaction",
+    });
   }
 
   const row = await ctx.db.fetchOne<MailAccountRow>(mailAccountsProjectionTable, {
@@ -187,6 +193,17 @@ export async function sendMailFromAccount(
     tenantId: ctx.user.tenantId,
   });
   if (!row || !isSendableBy(row, ctx.user)) return failNotFound("mail-account", input.accountId);
+
+  // Looked up only after the mailbox check, so a key recorded for a mailbox or user the caller
+  // cannot use never answers.
+  if (idempotencyKey !== undefined && recordDb) {
+    const recorded = await fetchSendRecord(recordDb, {
+      idempotencyKey,
+      accountId: row.id,
+      userId: ctx.user.id,
+    });
+    if (recorded) return resultOfRecordedSend(recorded);
+  }
 
   const account = await toMailAccountRecord(row, ctx.user.tenantId, `${HANDLER_NAME}:${row.id}`);
   const providerCtx: InboundMailContext = {
@@ -203,7 +220,11 @@ export async function sendMailFromAccount(
 
   let claimId: string | undefined;
   if (idempotencyKey !== undefined && recordDb) {
-    const claim = await claimSend(recordDb, idempotencyKey, account.id);
+    const claim = await claimSend(recordDb, {
+      idempotencyKey,
+      accountId: account.id,
+      userId: ctx.user.id,
+    });
     if ("recorded" in claim) return resultOfRecordedSend(claim.recorded);
     claimId = claim.claimId;
   }

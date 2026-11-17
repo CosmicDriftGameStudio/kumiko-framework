@@ -597,15 +597,15 @@ describe("sendMailFromAccount", () => {
     expect(subjects.filter((s) => s === subject)).toHaveLength(1);
   });
 
-  test("a key whose send started but never finished answers outcome unknown and sends nothing", async () => {
+  test("a recorded key for a mailbox the caller cannot see answers not found", async () => {
     const admin = freshAdmin();
-    // The key lookup runs before the account lookup, so no connected mailbox is needed.
     const accountId = crypto.randomUUID();
     await insertOne(stack.db, outboundMailSendsTable, {
       id: crypto.randomUUID(),
       tenantId: admin.tenantId,
       idempotencyKey: "crashed-send",
       accountId,
+      userId: admin.id,
       status: "sending",
       attachmentFileIds: [],
       claimedAt: Temporal.Now.instant().toString(),
@@ -616,6 +616,65 @@ describe("sendMailFromAccount", () => {
       {
         accountId,
         idempotencyKey: "crashed-send",
+        message: { to: [RECIPIENT], subject: "Hallo", text: "Test" },
+      },
+      admin,
+    );
+
+    expect(error.httpStatus).toBe(404);
+  });
+
+  greenmailTest(
+    "a key recorded by another user for the same mailbox does not block the send",
+    async () => {
+      const admin = freshAdmin();
+      const accountId = await connectMailbox(admin);
+      await insertOne(stack.db, outboundMailSendsTable, {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        idempotencyKey: "shared-key",
+        accountId,
+        userId: crypto.randomUUID(),
+        status: "sending",
+        attachmentFileIds: [],
+        claimedAt: Temporal.Now.instant().toString(),
+      });
+      const subject = `Other user key ${crypto.randomUUID()}`;
+
+      await stack.http.writeOk<OutboundMailSent>(
+        SEND_BEFORE_TRANSACTION_HANDLER,
+        {
+          accountId,
+          idempotencyKey: "shared-key",
+          message: { to: [RECIPIENT], subject, text: "Geht raus." },
+        },
+        admin,
+      );
+
+      const subjects = await recipientSubjects();
+      expect(subjects.filter((s) => s === subject)).toHaveLength(1);
+    },
+  );
+
+  greenmailTest("the caller's own pending key on that mailbox answers outcomeUnknown", async () => {
+    const admin = freshAdmin();
+    const accountId = await connectMailbox(admin);
+    await insertOne(stack.db, outboundMailSendsTable, {
+      id: crypto.randomUUID(),
+      tenantId: admin.tenantId,
+      idempotencyKey: "own-pending-key",
+      accountId,
+      userId: admin.id,
+      status: "sending",
+      attachmentFileIds: [],
+      claimedAt: Temporal.Now.instant().toString(),
+    });
+
+    const error = await stack.http.writeErr(
+      SEND_BEFORE_TRANSACTION_HANDLER,
+      {
+        accountId,
+        idempotencyKey: "own-pending-key",
         message: { to: [RECIPIENT], subject: "Hallo", text: "Test" },
       },
       admin,

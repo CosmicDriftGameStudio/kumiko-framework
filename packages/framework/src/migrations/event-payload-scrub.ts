@@ -105,17 +105,20 @@ function assertLifecycleFieldsScrubbable(
   eventType: string,
   fields: readonly string[],
 ): void {
-  for (const [entityName] of registry.getAllEntities()) {
-    if (!isLifecycleEventOf(eventType, entityName)) continue;
+  for (const [entityName, entity] of registry.getAllEntities()) {
+    if (!isLifecycleEventOf(eventType, entityName, entity)) continue;
     for (const field of fields) replacementFor(registry, entityName, field, "");
   }
 }
 
 function payloadSections(
+  registry: Registry,
   row: ScrubEventRow,
   payload: Record<string, unknown>,
 ): Record<string, unknown>[] {
-  return isLifecycleEventOf(row.type, row.aggregate_type) ? lifecycleSections(payload) : [payload];
+  return isLifecycleEventOf(row.type, row.aggregate_type, registry.getEntity(row.aggregate_type))
+    ? lifecycleSections(payload)
+    : [payload];
 }
 
 async function scrubPayload(
@@ -125,7 +128,7 @@ async function scrubPayload(
 ): Promise<{ readonly payload: Record<string, unknown>; readonly scrubbed: number }> {
   const payload = structuredClone(row.payload);
   let scrubbed = 0;
-  for (const section of payloadSections(row, payload)) {
+  for (const section of payloadSections(registry, row, payload)) {
     for (const field of options.fields) {
       const value = section[field];
       if (!hasValue(value)) continue;

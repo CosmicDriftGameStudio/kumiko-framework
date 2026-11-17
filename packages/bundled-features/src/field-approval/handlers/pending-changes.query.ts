@@ -2,7 +2,10 @@ import {
   type AccessRule,
   defineQueryHandler,
   listAllPages,
+  normalizeAccessEntry,
+  registeredEntityExecutor,
   userCanApproveField,
+  userCanReadFieldRow,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ListFilterOption } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 import { visibleParentRowIds } from "../../shared/index.ts";
@@ -64,6 +67,16 @@ export function createPendingChangesQuery(
         const filedByCaller = row["modifiedById"] === user.id;
         const mayApprove = userCanApproveField(user, field);
         if (!mayApprove && !filedByCaller) continue;
+        // An approver who may not read the field does not see the requested value.
+        const readMap = normalizeAccessEntry(field.access?.read);
+        if (!filedByCaller && readMap !== undefined) {
+          const hostRow = await registeredEntityExecutor(ctx.registry, entityType)?.detail(
+            { id: entityId },
+            user,
+            ctx.db,
+          );
+          if (!hostRow || !userCanReadFieldRow(user, readMap, hostRow)) continue;
+        }
         const opened = await openRequestedValue(row["requestedValue"], fieldName);
         if (!opened.ok) continue;
         rows.push({

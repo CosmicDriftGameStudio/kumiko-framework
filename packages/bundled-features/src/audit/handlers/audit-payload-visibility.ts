@@ -31,13 +31,27 @@ function userHoldsUnrestrictedRole(
   return user.roles.some((role) => accessMap[role] === "all");
 }
 
+function isReadRestrictedFor(
+  read: Parameters<typeof normalizeAccessEntry>[0],
+  user: SessionUser,
+): boolean {
+  const accessMap = normalizeAccessEntry(read);
+  return accessMap !== undefined && !userHoldsUnrestrictedRole(accessMap, user);
+}
+
 function isRestrictedField(
   field: EntityDefinition["fields"][string],
   user: SessionUser,
 ): boolean {
   if (field.type === "text" && field.writeOnly === true) return true;
-  const accessMap = normalizeAccessEntry(field.access?.read);
-  return accessMap !== undefined && !userHoldsUnrestrictedRole(accessMap, user);
+  // An embedded value is withheld as a whole; its sub-fields are not filtered one by one.
+  if (
+    field.type === "embedded" &&
+    Object.values(field.schema).some((sub) => isReadRestrictedFor(sub.access?.read, user))
+  ) {
+    return true;
+  }
+  return isReadRestrictedFor(field.access?.read, user);
 }
 
 function visibilityOf(

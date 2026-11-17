@@ -15,7 +15,7 @@ export const contactEntity = createEntity({
       maxLength: 34,
       personal: "self",
       find: "secret",
-      access: { approve: ["Accountant"] },
+      access: { approve: ["Accountant"], write: ["PropertyManager", "Accountant"] },
     }),
   },
 });

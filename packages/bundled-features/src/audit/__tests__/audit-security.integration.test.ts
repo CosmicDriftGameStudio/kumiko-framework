@@ -6,6 +6,8 @@ import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   createEntity,
+  createEmbeddedField,
+  createEmbeddedListField,
   createEntityExecutor,
   createTextField,
   defineEntityCreateHandler,
@@ -79,6 +81,14 @@ const memoEntity = createEntity({
       access: { read: ["HR"] },
     }),
     pin: createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
+    bonus: createEmbeddedField(
+      { amount: { type: "text", access: { read: ["HR"] } } },
+      { personal: false, reason: "technical_reference" },
+    ),
+    reviews: createEmbeddedListField(
+      { note: { type: "text", access: { read: ["HR"] } } },
+      { personal: false, reason: "technical_reference" },
+    ),
   },
   verbs: { reviewed: {} },
 });
@@ -340,6 +350,22 @@ describe("audit payload follows entity read rules", () => {
     const hrCreatedPayload = rowOfType(forHr, "memo.created").payload;
     expect(hrCreatedPayload).toMatchObject({ name: "Memo", salary: "100000" });
     expect(hrCreatedPayload).not.toHaveProperty("pin");
+  });
+
+  test("embedded fields with a restricted sub-field are removed", async () => {
+    await stack.http.writeOk(
+      "audit-sec-restricted:write:memo:create",
+      { name: "Memo", bonus: { amount: "5000" }, reviews: [{ note: "good" }] },
+      hrTenantAdmin(),
+    );
+
+    const forTenantAdmin = rowOfType(await listFor("memo", tenantAdmin()), "memo.created").payload;
+    expect(forTenantAdmin).toMatchObject({ name: "Memo" });
+    expect(forTenantAdmin).not.toHaveProperty("bonus");
+    expect(forTenantAdmin).not.toHaveProperty("reviews");
+
+    const forHr = rowOfType(await listFor("memo", hrTenantAdmin()), "memo.created").payload;
+    expect(forHr).toMatchObject({ bonus: { amount: "5000" }, reviews: [{ note: "good" }] });
   });
 
   test("a declared verb event is stripped like updated instead of withheld", async () => {

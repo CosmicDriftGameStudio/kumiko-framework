@@ -108,8 +108,30 @@ export function createHistoryVerbs(
     if (isFrameworkSystemUser(user)) return true;
     const field = entity.fields[fieldName];
     if (field === undefined) return true;
+    if (
+      field.type === "embedded" &&
+      Object.values(field.schema).some((sub) => {
+        const subMap = normalizeAccessEntry(sub.access?.read);
+        return subMap !== undefined && !user.roles.some((role) => subMap[role] === "all");
+      })
+    ) {
+      return false;
+    }
     const accessMap = normalizeAccessEntry(field.access?.read);
     return accessMap === undefined || user.roles.some((role) => accessMap[role] === "all");
+  }
+
+  // The fold reads a whole tenant's streams, so another tenant needs the same db binding writes require.
+  function assertStreamTenantBinding(
+    db: TenantDb,
+    requested: TenantId | undefined,
+    verbName: string,
+  ): void {
+    if (requested !== undefined && db.mode !== "system" && db.tenantId !== requested) {
+      throw new AccessDeniedError({
+        message: `${verbName} of "${entityName}": streamTenantId requires a system-mode db or a db bound to that tenant`,
+      });
+    }
   }
 
   async function readableValues(
@@ -129,6 +151,7 @@ export function createHistoryVerbs(
 
   return {
     async history(payload, user, db, options) {
+      assertStreamTenantBinding(db, options?.streamTenantId, "history");
       if (!(await ctx.isRowReadable(payload.id, user, db, options?.parentVisibility))) return null;
       const streamTenant = ctx.streamTenantFor(user, options?.streamTenantId);
       const runner = tenantDbRunnerForTable(db, table);
@@ -177,16 +200,7 @@ export function createHistoryVerbs(
         });
       }
       const requestedStreamTenant = options?.streamTenantId;
-      // The fold reads a whole tenant's streams, so another tenant needs the same db binding writes require.
-      if (
-        requestedStreamTenant !== undefined &&
-        db.mode !== "system" &&
-        db.tenantId !== requestedStreamTenant
-      ) {
-        throw new AccessDeniedError({
-          message: `listAsOf of "${entityName}": streamTenantId requires a system-mode db or a db bound to that tenant`,
-        });
-      }
+      assertStreamTenantBinding(db, requestedStreamTenant, "listAsOf");
       const streamTenant = ctx.streamTenantFor(user, requestedStreamTenant);
       const runner = tenantDbRunnerForTable(db, table);
       const events = await upcastEntityEvents(

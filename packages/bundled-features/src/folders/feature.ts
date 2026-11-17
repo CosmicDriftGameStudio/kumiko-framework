@@ -77,7 +77,7 @@ function registerFolders(
     export: folderAssignmentExportHook,
     delete: folderAssignmentDeleteHook,
   });
-  const assignmentExecutor = createFolderAssignmentExecutor(parents);
+  const assignmentExecutor = createFolderAssignmentExecutor(ownership, parents);
 
   // Folder catalog — generic CRUD. update renames or reparents (optimistic-locked); the
   // preSave guard below checks the parent.

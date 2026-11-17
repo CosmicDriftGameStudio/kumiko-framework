@@ -90,6 +90,17 @@ export const ENTITY_DECLARATION_RULES = {
     summary: "access.approve is set on top-level fields only.",
     fix: "Move approve to a top-level field.",
   },
+  fieldApproveNeedsWrite: {
+    id: "field-approval/needs-write",
+    summary: "A field with access.approve declares access.write.",
+    fix: "List the roles that may change the field in access.write, including the approve roles.",
+  },
+  fieldApproveUnsealedSecret: {
+    id: "field-approval/secret-field",
+    summary:
+      "access.approve is not set on an encrypted or writeOnly field that is not encrypted under a data subject.",
+    fix: "Annotate the field with a personal subject so the pending value is sealed, or drop approve.",
+  },
   fieldApproveNeedsFeature: {
     id: "field-approval/needs-feature",
     summary:

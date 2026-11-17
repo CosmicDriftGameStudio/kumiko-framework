@@ -8,6 +8,7 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-testing/stack";
+import { parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
 import {
   createEntity,
@@ -16,7 +17,7 @@ import {
   defineFeature,
 } from "../../engine/index.ts";
 import { rebuildProjection } from "../../pipeline/index.ts";
-import { TestUsers } from "../../seeding/seed-users.ts";
+import { TestUsers, testTenantId } from "../../seeding/seed-users.ts";
 import { createEventStoreExecutor } from "../event-store-executor.ts";
 import { selectMany } from "../query.ts";
 import { buildEntityTable } from "../table-builder.ts";
@@ -101,6 +102,15 @@ const verbFeature = defineFeature("verbhist", (r) => {
     name: "ticket:history",
     schema: idPayload,
     handler: async (query, ctx) => exec.history({ id: query.payload.id }, query.user, ctx.db),
+    access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  });
+  r.queryHandler({
+    name: "ticket:history-of-tenant",
+    schema: z.object({ id: z.uuid(), tenantId: z.uuid() }),
+    handler: async (query, ctx) =>
+      exec.history({ id: query.payload.id }, query.user, ctx.db, {
+        streamTenantId: parseTenantId(query.payload.tenantId) ?? undefined,
+      }),
     access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   });
   r.queryHandler({
@@ -257,6 +267,18 @@ describe("executor history", () => {
 
     expect(entryOf(history, "flagged").changes).not.toHaveProperty("internalNote");
     expect(JSON.stringify(history)).not.toContain("secret");
+  });
+
+  test("history refuses a streamTenantId the db is not bound to", async () => {
+    const id = await createTicket();
+
+    const error = await stack.http.queryErr(
+      "verbhist:query:ticket:history-of-tenant",
+      { id, tenantId: testTenantId(2) },
+      admin,
+    );
+
+    expect(error.httpStatus).toBe(403);
   });
 
   test("an unknown id has no history", async () => {

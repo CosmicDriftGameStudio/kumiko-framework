@@ -15,11 +15,18 @@ export type OutboundSendStatus = (typeof OUTBOUND_SEND_STATUSES)[number];
 export const outboundMailSendEntity = createEntity({
   table: "store_mail_outbound_sends",
   softDelete: false,
-  indexes: [{ unique: true, columns: ["tenantId", "idempotencyKey"] }],
+  indexes: [{ unique: true, columns: ["tenantId", "userId", "accountId", "idempotencyKey"] }],
   fields: {
     idempotencyKey: createTextField({
       required: true,
       maxLength: 200,
+      access: { write: access.privileged },
+      personal: false,
+      reason: "technical_reference",
+    }),
+    // Rows from before the user binding have no userId and never match a lookup.
+    userId: createTextField({
+      maxLength: 36,
       access: { write: access.privileged },
       personal: false,
       reason: "technical_reference",

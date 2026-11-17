@@ -698,7 +698,8 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = {
   /** Pseudonym of the HTTP caller: keyed HMAC over the UTC day, the resolved client IP and
    *  the User-Agent, identical in every handler and nested dispatch of the app for that day.
    *  Absent outside an HTTP request and when the client IP is unknown. Pseudonymous personal
-   *  data: keep it in short-lived dedup or limit records, never in events. */
+   *  data for dedup records only, never in events. Not a rate-limit subject: the User-Agent is
+   *  caller-controlled, so limits use rateLimit (client IP). */
   readonly visitorKey?: VisitorKey;
   // Trash query opt-in (soft-delete). When true, the auto entity-list handler
   // asks the executor to include soft-deleted rows; a custom query handler can

@@ -23,6 +23,7 @@ import { fieldChangeRequestTable } from "../executor.ts";
 import { createFieldApprovalFeature } from "../feature.ts";
 
 const roles = ["PropertyManager", "Accountant"] as const;
+const readRoles = [...roles, "Viewer"] as const;
 const crudAccess = { access: { roles } } as const;
 
 const contactEntity = createEntity({
@@ -38,7 +39,17 @@ const contactEntity = createEntity({
       maxLength: 34,
       personal: "self",
       find: "secret",
-      access: { approve: ["Accountant"] },
+      access: { approve: ["Accountant"], write: ["PropertyManager", "Accountant"] },
+    }),
+    bic: createTextField({
+      maxLength: 11,
+      personal: false,
+      reason: "technical_reference",
+      access: {
+        approve: ["Accountant"],
+        write: ["PropertyManager", "Accountant"],
+        read: ["PropertyManager"],
+      },
     }),
   },
 });
@@ -46,7 +57,7 @@ const contactEntity = createEntity({
 const contactFixtureFeature = defineFeature("fa-fixture", (r) => {
   r.crud("contact", contactEntity, {
     write: crudAccess,
-    read: crudAccess,
+    read: { access: { roles: readRoles } },
     verbs: { delete: false, list: false, restore: false },
   });
 });
@@ -59,13 +70,20 @@ const pm = createTestUser({ id: 2, roles: ["PropertyManager"] });
 const pm2 = createTestUser({ id: 5, roles: ["PropertyManager"] });
 const accA = createTestUser({ id: 3, roles: ["Accountant"] });
 const accB = createTestUser({ id: 4, roles: ["Accountant"] });
+const viewer = createTestUser({ id: 6, roles: ["Viewer"] });
 
 const OLD_IBAN = "DE02120300000000202051";
 const NEW_IBAN = "DE89370400440532013000";
 const SECOND_IBAN = "DE75512108001245126199";
 
 type PendingRows = {
-  rows: Array<{ id: string; version: number; value: unknown; canApprove: boolean }>;
+  rows: Array<{
+    id: string;
+    version: number;
+    fieldName: string;
+    value: unknown;
+    canApprove: boolean;
+  }>;
 };
 
 let stack: TestStack;
@@ -74,7 +92,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       contactFixtureFeature,
-      createFieldApprovalFeature({ parents: ["contact"], roles }),
+      createFieldApprovalFeature({ parents: ["contact"], roles: readRoles }),
     ],
   });
 });
@@ -172,6 +190,28 @@ describe("field-approval executor gate", () => {
 });
 
 describe("field-approval request flow", () => {
+  test("a role that may not write the field cannot file a change", async () => {
+    const contactId = await seedContact();
+    const error = await stack.http.writeErr(
+      FieldApprovalHandlers.requestChange,
+      { entityType: "contact", entityId: contactId, fieldName: "iban", value: NEW_IBAN },
+      viewer,
+    );
+    expect(error.httpStatus).toBe(403);
+  });
+
+  test("an approver who may not read the field does not see its pending change", async () => {
+    const contactId = await seedContact();
+    await stack.http.writeOk(
+      FieldApprovalHandlers.requestChange,
+      { entityType: "contact", entityId: contactId, fieldName: "bic", value: "COBADEFFXXX" },
+      pm,
+    );
+
+    expect((await pendingFor(accA, contactId)).map((row) => row.fieldName)).not.toContain("bic");
+    expect((await pendingFor(pm, contactId)).map((row) => row.fieldName)).toContain("bic");
+  });
+
   test("a request is stored encrypted and visible only to approvers and its requester", async () => {
     const contactId = await seedContact();
     const { id } = await fileRequest(contactId, NEW_IBAN, pm);

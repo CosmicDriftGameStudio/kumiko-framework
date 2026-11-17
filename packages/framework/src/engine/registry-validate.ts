@@ -443,13 +443,14 @@ export function validateFieldAccessHandlersAreEntityMapped(
       }
       if (handlerName.includes(":")) {
         // Query handlers with a colon must resolve (typo protection).
-        if (hasFieldAccess && !state.handlerEntityMap.has(qualified)) {
+        const isEntityMapped = state.handlerEntityMap.has(qualified);
+        if (hasFieldAccess && !isEntityMapped) {
           throw new Error(
             `Query handler "${qualified}" looks entity-bound but no matching entity exists. ` +
               `Either fix the entity name, or use a name without colons for standalone queries.`,
           );
         }
-        continue;
+        if (isEntityMapped) continue;
       }
       if (
         hasReadRestrictions &&

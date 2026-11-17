@@ -312,6 +312,24 @@ describe("signature :: host gate on handlers", () => {
     expect(deliveredLinks).toEqual([signerId]);
   });
 
+  test("a DPO without host read cannot forget a signer", async () => {
+    const dpo = createTestUser({ id: 4, tenantId: TENANT, roles: ["DataProtectionOfficer"] });
+    const { requestId, signerIds } = await requestOnLeaseA();
+    const signerId = signerIds[0];
+    if (signerId === undefined) throw new Error("request created no signer");
+
+    const failure = await stack.http.writeErr(SignatureHandlers.forgetSigner, { signerId }, dpo);
+
+    expect(failure.httpStatus).toBe(NOT_FOUND);
+    const signers = await stack.http.queryOk<Page<{ id: string }>>(
+      SignatureQueries.signerList,
+      { filters: [{ field: "requestId", op: "eq", value: requestId }] },
+      USER_A,
+    );
+    expect(signers.rows).toHaveLength(1);
+    expect(await statusOf(requestId)).toBe(SIGNATURE_REQUEST_STATUS.Open);
+  });
+
   test("a file the caller cannot read is refused like an unknown file", async () => {
     const failure = await stack.http.writeErr(
       SignatureHandlers.request,

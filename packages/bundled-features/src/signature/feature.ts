@@ -86,7 +86,7 @@ export function createSignatureFeature(opts: SignatureOptions): FeatureDefinitio
     r.writeHandler(createIssueLinkHandler(signedInAccess, requestExecutor, opts));
     r.writeHandler(createRevokeLinkHandler(signedInAccess, requestExecutor));
     r.writeHandler(createCancelHandler(signedInAccess, requestExecutor));
-    r.writeHandler(createForgetSignerHandler());
+    r.writeHandler(createForgetSignerHandler(requestExecutor));
     r.writeHandler(anonymous.openByLink);
     r.writeHandler(anonymous.signByLink);
     r.writeHandler(anonymous.declineByLink);

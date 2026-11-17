@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTestUser, testTenantId } from "@cosmicdrift/kumiko-framework/seeding";
 import {
+  createTestEnvelopeCipher,
   runInRowLevelSecurityScope,
   tenantRowLevelSecurityScope,
   waitFor,
@@ -241,12 +242,19 @@ async function attemptStatuses(type: string): Promise<string[]> {
   return rows.map((row) => row.status);
 }
 
+const cipher = createTestEnvelopeCipher();
+
 async function notifyThroughJobs(tenantId: TenantId, to: string, type: string) {
   const redisUrl = process.env["REDIS_URL"];
   if (!redisUrl) throw new Error("REDIS_URL required for the async delivery test");
   const jobRunner = createJobRunner({
     registry: stack.registry,
-    context: { db: stack.db, secrets, configAccessorFactory: accessorFactory },
+    context: {
+      db: stack.db,
+      secrets,
+      configAccessorFactory: accessorFactory,
+      configEncryption: cipher,
+    },
     redisUrl,
     consumerLane: "worker",
     queueNamePrefix: testRunQueueNamePrefix("kumiko-email-tenant-transport"),
@@ -258,6 +266,7 @@ async function notifyThroughJobs(tenantId: TenantId, to: string, type: string) {
       registry: stack.registry,
       channels: collectChannels(stack.registry),
       jobRunner,
+      addressCipher: cipher,
       tenantConfigFor: (id) => configFor(id),
     });
     await queuedService.notify(

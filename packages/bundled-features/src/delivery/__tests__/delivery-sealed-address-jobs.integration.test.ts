@@ -64,6 +64,11 @@ function recordingRunner(into: Dispatched[]): NotifyJobDispatcher {
   };
 }
 
+function withoutConfigEncryption(services: JobContext["services"]): JobContext["services"] {
+  const { configEncryption: _sealedWith, ...rest } = services;
+  return rest;
+}
+
 type LoggedJobContext = { readonly ctx: JobContext; readonly logged: string[] };
 
 function jobContext(
@@ -84,9 +89,11 @@ function jobContext(
   const ctx: JobContext = {
     ...base,
     obs: { ...base.obs, log },
-    ...(jobCipher && {
-      services: { ...base.services, configEncryption: jobCipher },
-    }),
+    // The harness job context carries a cipher; a job without one must really have none.
+    services: {
+      ...withoutConfigEncryption(base.services),
+      ...(jobCipher && { configEncryption: jobCipher }),
+    },
   };
   return { ctx, logged };
 }
@@ -230,16 +237,10 @@ describe("delivery jobs with a master key", () => {
 });
 
 describe("delivery jobs without a master key", () => {
-  test("dispatch keeps the plaintext content and the job still sends", async () => {
+  test("without an address cipher no job is dispatched and the channel sends inline", async () => {
     sentTo.length = 0;
     const { dispatched } = await notifyThroughService(undefined);
-    const sendJob = dispatched[0];
-    if (!sendJob) throw new Error("send job not dispatched");
-    expect(sendJob.payload["content"]).toMatchObject({ address: ADDRESS });
-    expect(sendJob.payload).not.toHaveProperty("sealedContent");
-
-    const { ctx } = jobContext(recordingRunner([]), undefined);
-    await deliverySendJob(sendJob.payload, ctx);
+    expect(dispatched).toEqual([]);
     expect(sentTo).toEqual([ADDRESS]);
   });
 });

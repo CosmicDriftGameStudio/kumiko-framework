@@ -12,6 +12,7 @@ import {
   AccessDeniedError,
   FrameworkReasons,
   NotFoundError,
+  UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { denyUnlessJoinRowParentVisible, unprocessable } from "../../shared/index.ts";
@@ -78,6 +79,27 @@ export function createRequestChangeHandler(
           new AccessDeniedError({
             i18nKey: "errors.access.fieldDenied",
             details: { reason: FrameworkReasons.fieldAccessDenied, field: fieldName },
+          }),
+        );
+      }
+
+      // The requester must be allowed to update the host row; the approver's write only proves the
+      // approver's right.
+      if (
+        !userCanWriteFieldRow(event.user, hostEntity.access?.write, hostRow, {
+          ...hostRow,
+          [fieldName]: parsed.data,
+        })
+      ) {
+        return writeFailure(
+          new UnprocessableError("ownership_denied", {
+            i18nKey: "errors.ownershipDenied",
+            details: {
+              scope: "entity",
+              entityName: entityType,
+              action: "update",
+              userId: event.user.id,
+            },
           }),
         );
       }

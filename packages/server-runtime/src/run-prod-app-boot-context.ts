@@ -119,9 +119,9 @@ function buildDeliveryContextFactories(opts: {
 } {
   if (!opts.addressCipher) {
     createFallbackLogger("delivery", opts.log).warn(
-      "No master key configured: queued delivery jobs carry recipient addresses in plaintext " +
-        "(Redis, job runs). Set KUMIKO_SECRETS_MASTER_KEY_V1 (and KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION) " +
-        "on the web and worker processes to seal them.",
+      "No master key configured: queued delivery channels send inline in the request instead of through the job queue. " +
+        "Set KUMIKO_SECRETS_MASTER_KEY_V1 (and KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION) " +
+        "on the web and worker processes to queue them sealed.",
     );
   }
   const configAccessorFactory =

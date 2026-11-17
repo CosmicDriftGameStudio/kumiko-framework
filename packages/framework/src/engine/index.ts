@@ -417,6 +417,7 @@ export {
   from,
   fromParent,
   normalizeAccessEntry,
+  userCanReadFieldRow,
   userCanWriteFieldRow,
 } from "./ownership.ts";
 export {
