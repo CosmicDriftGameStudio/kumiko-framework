@@ -43,6 +43,8 @@ A deliberate change to a managed file stays when line 2 reads
 with the reason; the sync leaves it alone. A file without any marker is never
 overwritten unless `kumiko sync-managed --write --adopt` is passed.
 
+`.github/workflows/ci.yml` takes its knobs from `package.json#kumiko.deploy`: `infraRef` pins the infra tag (default: the tag of the installed framework), `visibility: "public"` renders the self-contained variant for public repos, `docStatusGuard: false` turns the doc-status guard off, `e2eShards` splits e2e into shards and `e2eChromiumFull: true` runs e2e in full Chromium. The services follow `ports.infra` in `kumiko.config.ts` (`s3` adds MinIO, `meilisearch` adds Meilisearch). Checks run on the PR, the merge push only builds the image. Jobs only one app needs are named `app-<name>` in the same file; they survive the sync and are no drift.
+
 ## kumiko.config.ts
 
 ```ts illustration

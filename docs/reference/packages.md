@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-11-16
-evidence: "packages/*/package.json (19 directories, none private); .changeset/config.json fixed group; codemod in packages/feature-ast/src/scripts/codemod/package-merge.ts"
+verified: 2026-11-17
+evidence: "packages/*/package.json (19 directories, none private); .changeset/config.json fixed group"
 ---
 
 # Package set
@@ -17,7 +17,7 @@ where their code lives now.
 | `@cosmicdrift/kumiko-framework` | Engine, pipeline, API, DB, event store; subpath `/http` is the SSRF-safe egress client |
 | `@cosmicdrift/kumiko-types` | Engine and DB type contracts without the runtime |
 | `@cosmicdrift/kumiko-bundled-features` | Ready-made features (tenant, user, auth, files, billing, jobs and more) |
-| `@cosmicdrift/kumiko-feature-ast` | Feature-file AST (parse, patch, render), the pattern library and the upgrade codemods; subpath `/codemod` is the Bun-only codemod pipeline |
+| `@cosmicdrift/kumiko-feature-ast` | Feature-file AST (parse, patch, render), the pattern library and the codemods a guard points to; subpath `/codemod` is the Bun-only codemod pipeline |
 | `@cosmicdrift/kumiko-cli` | The `kumiko` CLI commands and `kumiko-upgrade` |
 | `@cosmicdrift/kumiko-dev-server` | Dev server, `kumiko-dev`, `kumiko-schema`, `kumiko-build` |
 | `create-kumiko-app` | `bun create kumiko-app` scaffolding and the feature manifest |
@@ -46,14 +46,7 @@ These names are no longer published. The code lives in the target package.
 | `@cosmicdrift/kumiko-http` | `@cosmicdrift/kumiko-framework/http` |
 | `@cosmicdrift/kumiko-repo-manifest` | `@cosmicdrift/kumiko-guards/repo-manifest` |
 
-Migrate with the codemod, which rewrites imports and the `package.json` dependency:
-
-```bash
-bun kumiko codemod package-merge . --write
-```
-
-`bun kumiko-upgrade --apply` runs it as part of an upgrade. The codemod is described in
-`packages/feature-ast/src/scripts/codemod/README.md`.
+Replace the imports and the `package.json` dependency per the table.
 
 ## Apps and samples
 

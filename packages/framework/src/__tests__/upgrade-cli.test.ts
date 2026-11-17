@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
+import { compareVersions } from "../engine/index.ts";
 import {
   findFeaturesDirs,
   findPackageChangelogFiles,
@@ -471,7 +472,7 @@ describe("upgrade command — enterprise package layout", () => {
 const REAL_REPO_ROOT = join(import.meta.dir, "../../../..");
 const REAL_CODEMOD_SRC = join(import.meta.dir, "../../../feature-ast/src");
 const REAL_CODEMOD_PACKAGE_DIR = join(REAL_CODEMOD_SRC, "..");
-const REAL_CODEMOD = "scripts/codemod/crypto-shredding-testing-move.ts";
+const REAL_CODEMOD = "scripts/codemod/import-extensions.ts";
 
 function breakingEntryWithCodemod(
   codemod: string | undefined,
@@ -487,12 +488,8 @@ function breakingEntryWithCodemod(
   return JSON.stringify([entry]);
 }
 
-const LEGACY_IMPORT_FIXTURE = [
-  'import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/crypto";',
-  "",
-  "resetPiiSubjectKmsForTests();",
-  "",
-].join("\n");
+const LEGACY_IMPORT_FIXTURE = 'import { dep } from "./dep.js";\n\nexport const value = dep;\n';
+const LEGACY_IMPORT_DEP = "export const dep = 1;\n";
 
 // A dedicated fixture — not the real repo's scripts/codemod/ — so the
 // non-.ts and doesn't-exist cases below are isolated from whatever files
@@ -579,6 +576,7 @@ describe("upgrade command — --apply", () => {
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
     });
     const spy = makeSpyOutput();
 
@@ -589,8 +587,8 @@ describe("upgrade command — --apply", () => {
     expect(exit).toBe(0);
 
     const rewritten = readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8");
-    expect(rewritten).toContain('from "@cosmicdrift/kumiko-framework/testing"');
-    expect(rewritten).not.toContain('from "@cosmicdrift/kumiko-framework/crypto"');
+    expect(rewritten).toContain('from "./dep.ts"');
+    expect(rewritten).not.toContain('from "./dep.js"');
 
     const markerPath = join(cwd, ".kumiko/upgrade-state.json");
     expect(existsSync(markerPath)).toBe(true);
@@ -608,6 +606,7 @@ describe("upgrade command — --apply", () => {
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
       "packages/bundled-features/src/files/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
     });
     const spy = makeSpyOutput();
 
@@ -627,6 +626,7 @@ describe("upgrade command — --apply", () => {
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD, "improvement"),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
     });
     const spy = makeSpyOutput();
 
@@ -636,7 +636,7 @@ describe("upgrade command — --apply", () => {
 
     expect(exit).toBe(0);
     const rewritten = readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8");
-    expect(rewritten).toContain('from "@cosmicdrift/kumiko-framework/testing"');
+    expect(rewritten).toContain('from "./dep.ts"');
     const marker = JSON.parse(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"));
     expect(marker.codemods).toEqual([
       { version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" },
@@ -645,9 +645,7 @@ describe("upgrade command — --apply", () => {
 
   test("--apply --dry-run runs a codemod from a node_modules-installed feature-ast package", async () => {
     const consumerRoot = tmp({
-      "packages/framework/src/changes.json": breakingEntryWithCodemod(
-        "scripts/codemod/migrate-db-raw.ts",
-      ),
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
       "app.ts": "export const x = 1;\n",
     });
     const nmPkgDir = join(consumerRoot, "node_modules/@cosmicdrift/kumiko-feature-ast");
@@ -666,7 +664,7 @@ describe("upgrade command — --apply", () => {
 
     expect(spy.errs).toEqual([]);
     expect(exit).toBe(0);
-    expect(spy.logs.join("\n")).toContain("running scripts/codemod/migrate-db-raw.ts (dry-run)");
+    expect(spy.logs.join("\n")).toContain(`running ${REAL_CODEMOD} (dry-run)`);
     expect(existsSync(join(consumerRoot, ".kumiko/upgrade-state.json"))).toBe(false);
   });
 
@@ -699,6 +697,7 @@ describe("upgrade command — --apply", () => {
     const cwd = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
     });
     const spy = makeSpyOutput();
 
@@ -709,7 +708,7 @@ describe("upgrade command — --apply", () => {
     expect(exit).toBe(0);
     expect(readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8")).toBe(LEGACY_IMPORT_FIXTURE);
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
-    expect(spy.logs.join("\n")).toContain("Touched 1 files, moved 1 import(s)");
+    expect(spy.logs.join("\n")).toContain("[import-extensions] rewritable: 1 site(s) in 1 file(s)");
   });
 
   test("rejects a path-traversal codemod field and writes no marker", async () => {
@@ -1037,6 +1036,7 @@ describe("upgrade command — --apply", () => {
     });
     const target = tmp({
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
     });
     const spy = makeSpyOutput();
@@ -1052,7 +1052,7 @@ describe("upgrade command — --apply", () => {
 
     expect(exit).toBe(0);
     const rewritten = readFileSync(join(target, "legacy-test-helper.ts"), "utf-8");
-    expect(rewritten).toContain('from "@cosmicdrift/kumiko-framework/testing"');
+    expect(rewritten).toContain('from "./dep.ts"');
     expect(existsSync(join(target, ".kumiko/upgrade-state.json"))).toBe(true);
   });
 });
@@ -1071,6 +1071,7 @@ describe("upgrade command — filter baseline is the marker, not the installed v
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       ".kumiko/upgrade-state.json": marker("0.160.0"),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
     });
     const spy = makeSpyOutput();
 
@@ -1079,7 +1080,7 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     expect(exit).toBe(0);
     expect(spy.logs.join("\n")).not.toContain("Nothing new since your version");
     const rewritten = readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8");
-    expect(rewritten).toContain('from "@cosmicdrift/kumiko-framework/testing"');
+    expect(rewritten).toContain('from "./dep.ts"');
     const updatedMarker = JSON.parse(
       readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"),
     );
@@ -1093,6 +1094,7 @@ describe("upgrade command — filter baseline is the marker, not the installed v
       "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       ".kumiko/upgrade-state.json": corrupt,
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
     });
     const spy = makeSpyOutput();
 
@@ -1242,6 +1244,9 @@ describe("upgrade command — filter baseline is the marker, not the installed v
   });
 });
 
+// Upgrade codemods up to this version are deleted once every app marker is past it (decisions.md 2026-11-17); their changes.json fields stay as history.
+const CODEMODS_REMOVED_THROUGH = "0.420.0";
+
 describe("changes.json codemod fields resolve to real published scripts", () => {
   test("every codemod field is a scripts/codemod/*.ts path that resolves to an existing published script", () => {
     const changesJsonFiles = [
@@ -1265,6 +1270,7 @@ describe("changes.json codemod fields resolve to real published scripts", () => 
       }>;
       for (const entry of entries) {
         if (typeof entry.codemod !== "string") continue;
+        if (compareVersions(entry.version, CODEMODS_REMOVED_THROUGH) <= 0) continue;
         if (/\s/.test(entry.codemod)) {
           offenders.push(
             `${file} · ${entry.version} "${entry.title}": codemod is a shell command, not a path: "${entry.codemod}"`,
@@ -1541,6 +1547,7 @@ describe("upgrade command — --apply: one run, open manual entries survive", ()
         pendingManual: [withId(OLD_OPEN)],
       }),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
     });
   }
 
@@ -1646,6 +1653,7 @@ describe("upgrade command — CHANGELOG.md, --verbose and repeated --apply", () 
         codemods: [],
       }),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "dep.ts": LEGACY_IMPORT_DEP,
       ...extra,
     });
   }

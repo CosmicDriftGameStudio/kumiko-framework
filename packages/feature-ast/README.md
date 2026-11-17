@@ -9,4 +9,4 @@ Feature-file AST for Kumiko: parse, patch and render feature definitions, plus t
 
 ## Codemods
 
-The upgrade codemods live in `src/scripts/codemod/`. They run through `kumiko-upgrade` or `kumiko codemod`; you rarely call them directly.
+The codemods a guard points to (`import-extensions`, `feature-layout`) live in `src/scripts/codemod/` and run through `kumiko codemod`; `kumiko-upgrade --apply` runs the codemod a release names in its changes.json.

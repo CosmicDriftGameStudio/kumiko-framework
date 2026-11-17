@@ -1,6 +1,7 @@
 # CI for {{appName}}: a thin orchestrator over the reusable workflows in
 # cosmicdriftgamestudio/infra. Jobs only this app needs: name them `app-<name>`
 # in this file (they survive `kumiko sync-managed`) or use an unmanaged workflow.
+# Checks run on the PR; the merge push only builds the image.
 
 name: CI
 
@@ -17,8 +18,11 @@ concurrency:
 env:
   HUSKY: "0"
 
+# merge_group included: as a required check in a merge queue, a check would
+# otherwise never report and block the merge.
 jobs:
   test:
+    if: contains(fromJSON('["pull_request","merge_group"]'), github.event_name)
     permissions:
       contents: read
       packages: read
@@ -35,6 +39,7 @@ jobs:
     secrets: inherit
 
   integration:
+    if: contains(fromJSON('["pull_request","merge_group"]'), github.event_name)
     uses: cosmicdriftgamestudio/infra/.github/workflows/_app-integration.yml@{{infraRef}}
 {{#minio}}
     with:
@@ -42,8 +47,6 @@ jobs:
 {{/minio}}
     secrets: inherit
 
-  # merge_group included: as a required check in a merge queue, e2e would
-  # otherwise never report and block the merge.
   e2e:
     if: contains(fromJSON('["pull_request","merge_group"]'), github.event_name)
     uses: cosmicdriftgamestudio/infra/.github/workflows/_app-e2e.yml@{{infraRef}}
@@ -56,12 +59,18 @@ jobs:
 {{#minio}}
       minio: true
 {{/minio}}
+{{#e2eSharded}}
+      shards: {{e2eShards}}
+{{/e2eSharded}}
+{{#e2eChromiumFull}}
+      chromium-full: true
+{{/e2eChromiumFull}}
     secrets: inherit
 
-  # Build on main only; the rollout runs through the manual release workflow.
+  # Build on main without waiting for the checks the PR already ran; the
+  # rollout runs through the manual release workflow.
   build:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [test, integration]
     permissions:
       contents: read
       packages: write

@@ -23,13 +23,7 @@
       "!samples/recipes/api-docs/api-docs",
       "!**/CHANGELOG.md",
       "!packages/framework/agents",
-      "!**/renderer/src/web/ui",
-      "!**/__tests__/fixtures/migrate-db-raw",
-      "!**/__tests__/fixtures/migrate-open-to-all",
-      "!**/__tests__/fixtures/migrate-cross-tenant",
-      "!**/__tests__/fixtures/object-form",
-      "!**/__tests__/fixtures/testing-move",
-      "!**/__tests__/fixtures/ctx-namespaces"
+      "!**/renderer/src/web/ui"
     ]
   },
   "assist": {

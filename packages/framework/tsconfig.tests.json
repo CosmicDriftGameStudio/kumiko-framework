@@ -12,13 +12,6 @@
     "./src/**/*.test.ts",
     "./src/**/*.test.tsx"
   ],
-  "exclude": [
-    "./src/__tests__/fixtures/migrate-db-raw",
-    "./src/__tests__/fixtures/migrate-open-to-all",
-    "./src/__tests__/fixtures/migrate-cross-tenant",
-    "./src/__tests__/fixtures/object-form",
-    "./src/__tests__/fixtures/testing-move"
-  ],
   "references": [
     { "path": "." },
     { "path": "../types" },

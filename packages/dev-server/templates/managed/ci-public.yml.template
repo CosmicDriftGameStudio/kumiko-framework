@@ -32,6 +32,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.4"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
@@ -44,6 +49,10 @@ jobs:
       - name: UI guards
         run: bun kumiko-guards ui
 {{/uiGuards}}
+      - name: Comment-language guard
+        run: bun kumiko-guards comment-lang
+      - name: Agent manifest lint
+        run: bun kumiko agent lint
       - run: bun run test
 
   integration:

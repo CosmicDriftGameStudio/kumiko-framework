@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-26
+verified: 2026-11-17
 ---
 
 # RBAC & Tenant-Isolation: role origins and the membership-role invariant
@@ -158,12 +158,7 @@ from `unsafeRaw`, even though `ctx.systemDb` is present and
 `escapeHatch: { reason }` on an entity-convention write handler (`defineEntityWriteHandler`
 and the create/update/delete/restore factories) requires SystemAdmin-only `access`
 (`{ roles: ["SystemAdmin"] }`); a looser rule throws at definition time. List and detail
-handlers keep `access` as the only gate. The former `crossTenant: true` option is removed;
-consumers migrate with
-`bun node_modules/@cosmicdrift/kumiko-feature-ast/src/scripts/codemod/migrate-cross-tenant.ts`
-(from a consumer repo), which rewrites the call shapes it can derive a handler name and verb
-from and lists the rest for manual review. The codemod's reason contains a placeholder that
-must be replaced with the real operator use case; a reason that still carries it is rejected.
+handlers keep `access` as the only gate. The former `crossTenant: true` option is removed. A reason that still carries the placeholder of the former migrate-cross-tenant codemod is rejected.
 
 ## Postgres RLS
 

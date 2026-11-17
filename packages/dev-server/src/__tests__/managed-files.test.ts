@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  CURRENT_INFRA_REF,
   checkAppScripts,
   checkManagedFiles,
   findKumikoPinErrors,
@@ -135,7 +136,7 @@ describe("kumiko check managed", () => {
     syncAll();
     const ci = readFileSync(join(appRoot, ".github/workflows/ci.yml"), "utf-8");
     expect(ci).toMatch(
-      /\n {2}test:\n {4}permissions:\n {6}contents: read\n {6}packages: read\n {6}pull-requests: read\n {4}uses: /,
+      /\n {2}test:\n {4}if: contains\(fromJSON\('\["pull_request","merge_group"\]'\), github\.event_name\)\n {4}permissions:\n {6}contents: read\n {6}packages: read\n {6}pull-requests: read\n {4}uses: /,
     );
   });
 });
@@ -245,18 +246,13 @@ describe("infraRef, visibility and app jobs", () => {
     expect(checkManagedFiles(facts()).errors).toEqual([]);
   });
 
-  test("a missing infraRef on a private app is an error that names the fix", () => {
+  test("without infraRef the workflows pin the framework's infra tag and the check passes", () => {
     syncAll();
-    expect(read(".github/workflows/ci.yml")).toContain("@main");
-    expect(read(".github/workflows/release.yml")).toContain("_app-deploy.yml@main");
-    const result = checkManagedFiles(facts());
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain(
-      "Set kumiko.deploy.infraRef to an infra tag (reusables-vX.Y.Z)",
-    );
-    expect(result.files.filter(isManagedDrift).map((file) => file.path)).not.toContain(
-      ".github/workflows/ci.yml",
-    );
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain(`_app-test.yml@${CURRENT_INFRA_REF}`);
+    expect(ci).not.toContain("@main");
+    expect(read(".github/workflows/release.yml")).toContain(`_app-deploy.yml@${CURRENT_INFRA_REF}`);
+    expect(checkManagedFiles(facts()).errors).toEqual([]);
   });
 
   test("an infraRef that could inject into a workflow is rejected", () => {
@@ -292,6 +288,46 @@ describe("infraRef, visibility and app jobs", () => {
     setDeploy({ docStatusGuard: false });
     syncAll();
     expect(read(".github/workflows/ci.yml")).toContain("doc-status-guard: false");
+  });
+
+  test("checks run on pull requests only and the build does not wait for them", () => {
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toMatch(
+      /\n {2}integration:\n {4}if: contains\(fromJSON\('\["pull_request","merge_group"\]'\), github\.event_name\)\n/,
+    );
+    expect(ci).not.toContain("needs:");
+  });
+
+  test("e2eShards and e2eChromiumFull render the e2e inputs, the defaults do not", () => {
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).not.toContain("shards:");
+    expect(read(".github/workflows/ci.yml")).not.toContain("chromium-full");
+    setDeploy({ e2eShards: 4, e2eChromiumFull: true });
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain("      shards: 4\n");
+    expect(ci).toContain("      chromium-full: true\n");
+  });
+
+  test("e2eShards 1 renders no shards input", () => {
+    setDeploy({ e2eShards: 1 });
+    syncAll();
+    expect(read(".github/workflows/ci.yml")).not.toContain("shards:");
+  });
+
+  test("an e2eShards below 1 is rejected", () => {
+    setDeploy({ e2eShards: 0 });
+    expect(() => syncManagedFiles(facts(), { write: false, adopt: false })).toThrow();
+  });
+
+  test("public ci.yml caches the install and runs comment-lang and agent lint", () => {
+    setDeploy({ visibility: "public" });
+    syncAll();
+    const ci = read(".github/workflows/ci.yml");
+    expect(ci).toContain("path: ~/.bun/install/cache");
+    expect(ci).toContain("run: bun kumiko-guards comment-lang");
+    expect(ci).toContain("run: bun kumiko agent lint");
   });
 
   const APP_JOB =

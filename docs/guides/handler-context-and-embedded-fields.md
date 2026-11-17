@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-11-17
-evidence: "packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/feature-ast/src/scripts/codemod/ctx-namespaces-mapping.ts, packages/types/src/config.ts"
+evidence: "packages/types/src/handlers.ts, packages/types/src/handler-context-facets.ts, packages/types/src/handler-context-services.ts, packages/types/src/config.ts"
 ---
 
 # Handler context and embedded fields

@@ -25,7 +25,6 @@ import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-feat
 import { resolveFrameworkVersion } from "./framework-version.ts";
 import { isKebabSegment } from "./kebab.ts";
 import {
-  CURRENT_INFRA_REF,
   PREPARE_SCRIPT,
   resolveManagedAppFacts,
   syncManagedFiles,
@@ -121,7 +120,7 @@ export type ScaffoldAppOptions = {
    *  @cosmicdrift/kumiko-testing/scaffold. Without it the app gets the managed
    *  bunfigs but no example tests and fewer standard scripts. */
   readonly testSetup?: ScaffoldTestSetupFactory;
-  /** Infra tag written to `package.json#kumiko.deploy.infraRef`. Default: CURRENT_INFRA_REF. */
+  /** Infra tag written to `package.json#kumiko.deploy.infraRef`; without it the managed workflows use CURRENT_INFRA_REF of the installed framework. */
   readonly infraRef?: string;
   /** "demo" (default): demo tasks feature, admin seeded from DEMO_ADMIN_PASSWORD.
    *  "blank": no demo; the creator is seeded from KUMIKO_BOOTSTRAP_ADMIN_EMAIL without a password. */
@@ -215,7 +214,7 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
 
   write(
     join(destination, "package.json"),
-    renderPackageJson(options.name, version, testSetup, options.infraRef ?? CURRENT_INFRA_REF),
+    renderPackageJson(options.name, version, testSetup, options.infraRef),
   );
   files.push("package.json");
 
@@ -315,7 +314,7 @@ function renderPackageJson(
   name: string,
   version: string,
   testSetup: ScaffoldTestSetup | undefined,
-  infraRef: string,
+  infraRef: string | undefined,
 ): string {
   return `${JSON.stringify(
     {
@@ -325,7 +324,7 @@ function renderPackageJson(
       type: "module",
       // `bun check` is built in from 1.4.4; older Bun resolves it to the app's `check` script.
       engines: { bun: ">=1.4.4" },
-      kumiko: { deploy: { infraRef } },
+      ...(infraRef !== undefined && { kumiko: { deploy: { infraRef } } }),
       scripts: appScripts(testSetup),
       dependencies: {
         "@cosmicdrift/kumiko-bundled-features": version,
