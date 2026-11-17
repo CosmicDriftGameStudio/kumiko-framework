@@ -74,11 +74,12 @@ describe("kumiko project (real DB)", () => {
     await testDb.cleanup();
   });
 
-  test("list prints the ISO rebuild time instead of crashing", async () => {
+  test("list prints the ISO rebuild time and the implicit entity projection", async () => {
     const { out, logs } = capture();
     const code = await runCli({ argv: ["project", "list"], cwd: appDir, out });
     expect(code).toBe(0);
     expect(logs.join("\n")).toContain("2026-01-02T03:04:05");
+    expect(logs.join("\n")).toContain("cliprojtest:projection:cliproj-item-entity");
   });
 
   test("status prints the ISO rebuild time and updated-at", async () => {

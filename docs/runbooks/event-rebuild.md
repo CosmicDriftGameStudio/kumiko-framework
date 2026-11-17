@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-19
+verified: 2026-11-17
 evidence: "packages/cli/src/commands/project.ts, packages/framework/src/pipeline/projection-rebuild.ts, pipeline/msp-rebuild.ts, migrations/pending-rebuilds.ts, schema-cli.ts, bundled-features/src/jobs/handlers/projection-rebuild.job.ts"
 ---
 
@@ -26,8 +26,10 @@ bun kumiko project status <name>     # status, last event id, last error
 bun kumiko consumer list             # cursor, attempts, error per event consumer
 ```
 
-`project list` shows single-stream projections only (implicit ones are hidden). Multi-stream
-projections (MSP) are event consumers: look at them with `consumer list` and `consumer status`.
+`project list` shows every single-stream projection, including the implicit
+`<feature>:projection:<entity>-entity` projection that `r.entity` registers; an `r.projection` on an
+entity table rebuilds through that implicit one. Multi-stream projections (MSP) are event consumers:
+look at them with `consumer list` and `consumer status`.
 
 ## 2. Rebuild one projection
 

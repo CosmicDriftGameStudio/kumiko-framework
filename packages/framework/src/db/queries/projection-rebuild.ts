@@ -43,24 +43,29 @@ export async function selectEventsForProjectionRebuildBatch(
   );
 }
 
-// Whole replay of a multi-stream projection up to the horizon, ascending. Same archived-stream
-// exclusion as the single-stream batch query; type-only because MSPs subscribe by event type.
+// One keyset batch of a multi-stream projection replay: ids in (afterId, horizon], ascending.
+// Same archived-stream exclusion as the single-stream batch query; type-only because MSPs
+// subscribe by event type.
 export async function selectEventsForMultiStreamRebuild(
   db: AnyDb,
   eventTypes: readonly string[],
+  afterId: bigint,
   horizon: bigint,
+  limit: number,
 ): Promise<ReadonlyArray<Record<string, unknown>>> {
   return unsafeReadRetrying<Record<string, unknown>>(
     db,
     `SELECT e.* FROM "kumiko_events" e
      WHERE e."type" = ANY($1::text[])
-       AND e."id" <= $2
+       AND e."id" > $2
+       AND e."id" <= $3
        AND NOT EXISTS (
          SELECT 1 FROM "kumiko_archived_streams" a
           WHERE a."tenant_id" = e."tenant_id" AND a."aggregate_id" = e."aggregate_id"
        )
-     ORDER BY e."id" ASC`,
-    [toPostgresArrayLiteral(eventTypes), horizon],
+     ORDER BY e."id" ASC
+     LIMIT $4`,
+    [toPostgresArrayLiteral(eventTypes), afterId, horizon, limit],
   );
 }
 

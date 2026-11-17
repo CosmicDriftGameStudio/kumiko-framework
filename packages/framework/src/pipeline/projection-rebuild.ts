@@ -493,18 +493,14 @@ export async function getProjectionState(
   };
 }
 
-// List every registered projection with its current state (if any).
-// The registry is the source-of-truth for which projections exist; the
-// state table holds per-projection rebuild info and may be sparse.
-//
-// Implicit projections (auto-registered by r.entity, one per entity) are filtered
-// out by default. They stay addressable as rebuild targets via
-// `<feature>:projection:<entity>-entity`, but would dominate `kumiko project list`
-// without adding information. Opt in with `{ includeImplicit: true }`.
+// List every registered single-stream projection with its current state (if any),
+// implicit entity projections (`<feature>:projection:<entity>-entity`) included: an
+// r.projection on an entity table rebuilds through the implicit one, so its name is the
+// rebuild target an operator needs. The registry is the source of truth for which
+// projections exist; the state table holds per-projection rebuild info and may be sparse.
 export async function listProjectionsWithState(
   db: DbConnection,
   registry: Registry,
-  options: { readonly includeImplicit?: boolean } = {},
 ): Promise<
   ReadonlyArray<{
     readonly name: string;
@@ -527,18 +523,16 @@ export async function listProjectionsWithState(
   const stateRows = await selectMany<StateRow>(db, projectionStateTable);
   const stateByName = new Map(stateRows.map((r) => [r.name, r]));
 
-  return [...projections.values()]
-    .filter((proj) => options.includeImplicit === true || !proj.isImplicit)
-    .map((proj) => {
-      const state = stateByName.get(proj.name);
-      const sources = Array.isArray(proj.source) ? proj.source : [proj.source];
-      return {
-        name: proj.name,
-        sources,
-        status: state?.status ?? "never-rebuilt",
-        lastProcessedEventId: state?.lastProcessedEventId ?? 0n,
-        lastRebuildAt: state?.lastRebuildAt ?? null,
-        lastError: state?.lastError ?? null,
-      };
-    });
+  return [...projections.values()].map((proj) => {
+    const state = stateByName.get(proj.name);
+    const sources = Array.isArray(proj.source) ? proj.source : [proj.source];
+    return {
+      name: proj.name,
+      sources,
+      status: state?.status ?? "never-rebuilt",
+      lastProcessedEventId: state?.lastProcessedEventId ?? 0n,
+      lastRebuildAt: state?.lastRebuildAt ?? null,
+      lastError: state?.lastError ?? null,
+    };
+  });
 }

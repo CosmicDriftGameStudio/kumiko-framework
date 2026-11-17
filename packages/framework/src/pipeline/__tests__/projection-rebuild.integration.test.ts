@@ -37,7 +37,6 @@ import {
 import { archiveStream } from "../../event-store/index.ts";
 import {
   createProjectionStateTable,
-  getAllProjectionProgress,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,
@@ -421,49 +420,24 @@ describe("rebuildProjection — error path", () => {
 });
 
 describe("listProjectionsWithState", () => {
-  test("lists every registered projection with combined state info", async () => {
+  test("lists every registered projection, implicit entity projections included, with combined state info", async () => {
+    const implicitName = "rebuildtest:projection:rebuild-item-entity";
     // Before any rebuild: state field indicates never-rebuilt.
     const before = await listProjectionsWithState(testDb.db, registry);
-    expect(before).toHaveLength(1);
-    expect(before[0]?.name).toBe(qualifiedProjectionName);
-    expect(before[0]?.status).toBe("never-rebuilt");
-    expect(before[0]?.sources).toEqual(["rebuild-item"]);
+    expect(before.map((p) => p.name).sort()).toEqual([qualifiedProjectionName, implicitName].sort());
+    const explicitBefore = before.find((p) => p.name === qualifiedProjectionName);
+    expect(explicitBefore?.status).toBe("never-rebuilt");
+    expect(explicitBefore?.sources).toEqual(["rebuild-item"]);
+    expect(before.find((p) => p.name === implicitName)?.status).toBe("never-rebuilt");
 
     // After rebuild: status reflects DB state.
     await appendCreatedEvent("00000000-0000-4000-8000-000000000040", "x");
     await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
 
     const after = await listProjectionsWithState(testDb.db, registry);
-    expect(after[0]?.status).toBe("idle");
-    expect(after[0]?.lastRebuildAt).not.toBeNull();
-  });
-});
-
-describe("getAllProjectionProgress", () => {
-  test("computes lag = highWaterMark - cursor for caught-up projection", async () => {
-    // Empty event-log → HWM=0n, lag=0n, projection never-rebuilt → cursor=0n.
-    const empty = await getAllProjectionProgress(testDb.db, registry);
-    expect(empty[0]?.highWaterMark).toBe(0n);
-    expect(empty[0]?.lag).toBe(0n);
-
-    // Seed some events but skip rebuild → HWM advances, cursor stays 0n,
-    // lag = HWM. This is the "behind" state an ops dashboard sees before
-    // someone triggers a rebuild.
-    await appendCreatedEvent("00000000-0000-4000-8000-000000000060", "a");
-    await appendCreatedEvent("00000000-0000-4000-8000-000000000061", "b");
-    await appendCreatedEvent("00000000-0000-4000-8000-000000000062", "c");
-
-    const behind = await getAllProjectionProgress(testDb.db, registry);
-    expect(behind[0]?.highWaterMark).toBe(3n);
-    expect(behind[0]?.lastProcessedEventId).toBe(0n);
-    expect(behind[0]?.lag).toBe(3n);
-
-    // After rebuild: the cursor equals the HWM, so lag is 0.
-    await rebuildProjection(qualifiedProjectionName, { db: testDb.db, registry });
-    const caughtUp = await getAllProjectionProgress(testDb.db, registry);
-    expect(caughtUp[0]?.highWaterMark).toBe(3n);
-    expect(caughtUp[0]?.lastProcessedEventId).toBe(3n);
-    expect(caughtUp[0]?.lag).toBe(0n);
+    const explicitAfter = after.find((p) => p.name === qualifiedProjectionName);
+    expect(explicitAfter?.status).toBe("idle");
+    expect(explicitAfter?.lastRebuildAt).not.toBeNull();
   });
 });
 

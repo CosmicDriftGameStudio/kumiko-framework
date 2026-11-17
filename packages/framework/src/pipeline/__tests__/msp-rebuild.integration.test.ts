@@ -10,12 +10,14 @@
 //      the log would be a double-write).
 //   5. cursor is advanced to the last processed event after rebuild so
 //      live dispatcher passes don't redeliver what rebuild consumed.
+//   6. replay reads the log in keyset batches; a log larger than one batch
+//      replays every event exactly once.
 //
 // Deliberately separate from projection-rebuild.integration.ts because MSPs
 // carry a different state row (kumiko_event_consumers, not kumiko_projections)
 // and a different apply signature (3rd ctx arg).
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import { waitFor } from "@cosmicdrift/kumiko-testing/helpers";
 import {
@@ -28,12 +30,14 @@ import * as z from "zod";
 import type { DbConnection, DbTx } from "../../db/connection.ts";
 import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.ts";
 import { createEventStoreExecutor } from "../../db/event-store-executor.ts";
+import * as projectionRebuildQueries from "../../db/queries/projection-rebuild.ts";
 import { readRowLevelSecurityState } from "../../db/queries/rls-catalog.ts";
 import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.ts";
 import { buildEntityTable } from "../../db/table-builder.ts";
 import { unsafePushTables } from "../../db/table-push.ts";
 import { withExecutorManagedWrites } from "../../db/tenant-db.ts";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.ts";
+import { append } from "../../event-store/event-store.ts";
 import { archiveStream } from "../../event-store/index.ts";
 import {
   eventConsumerStateTable,
@@ -42,6 +46,7 @@ import {
 } from "../../pipeline/index.ts";
 import { TestUsers } from "../../seeding/seed-users.ts";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.ts";
+import { REBUILD_BATCH_SIZE } from "../projection-rebuild.ts";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 
@@ -496,6 +501,54 @@ describe("rebuildMultiStreamProjection — archived streams", () => {
     const rows = await selectMany(stack.db, balanceTable);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ customer: hugo, invoicesCents: 6_00 });
+  });
+});
+
+describe("rebuildMultiStreamProjection — batched replay", () => {
+  test("replays more events than one batch exactly once and reads them in keyset batches", async () => {
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    const customer = "00000000-0000-4000-8000-000000000d10";
+    const eventCount = REBUILD_BATCH_SIZE + 1;
+    for (let i = 0; i < eventCount; i++) {
+      await append(stack.db, {
+        aggregateId: crypto.randomUUID(),
+        aggregateType: "msp-reb-invoice",
+        tenantId: admin.tenantId,
+        expectedVersion: 0,
+        type: invoiceBilledEventName,
+        payload: { customer, cents: 1 },
+        metadata: { userId: admin.id },
+      });
+    }
+
+    const readSpy = spyOn(projectionRebuildQueries, "selectEventsForMultiStreamRebuild");
+    try {
+      const result = await rebuildMultiStreamProjection(BALANCE_MSP, {
+        db: stack.db,
+        registry: stack.registry,
+      });
+      expect(result.eventsProcessed).toBe(eventCount);
+      const [row] = await selectMany(stack.db, balanceTable, { customer });
+      expect(row).toMatchObject({ invoicesCents: eventCount, paymentsCents: 0 });
+      const state = await getConsumerState(stack.db, BALANCE_MSP);
+      expect(state?.status).toBe("idle");
+      expect(state?.lastProcessedEventId).toBe(result.lastProcessedEventId);
+      expect(await readPendingGaps(BALANCE_MSP)).toEqual([]);
+
+      expect(readSpy.mock.calls.map((call) => call[4])).toEqual([
+        REBUILD_BATCH_SIZE,
+        REBUILD_BATCH_SIZE,
+      ]);
+      expect(readSpy.mock.calls[0]?.[2]).toBe(0n);
+      expect(readSpy.mock.calls[1]?.[2]).toBeGreaterThan(0n);
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 });
 

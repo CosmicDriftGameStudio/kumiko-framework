@@ -122,7 +122,7 @@ async function rebuildPiiProjections(
   const { listProjectionsWithState, rebuildProjection } = await import(
     "@cosmicdrift/kumiko-framework/pipeline"
   );
-  const all = await listProjectionsWithState(db, registry, { includeImplicit: true });
+  const all = await listProjectionsWithState(db, registry);
   const rebuildFailures: string[] = [];
   for (const projection of selectPiiProjections(registry, all, piiDeps)) {
     try {
